@@ -5,7 +5,7 @@
 -- 2. Recreate the previous calendar, parent link, staff invite, audit, form field, and storage policies if needed.
 -- 3. Do not update stored plan values or production data as part of rollback.
 
-create or replace function public.can_use_plan_feature(target_club_id uuid, feature_key text)
+create or replace function public.can_use_plan_feature(target_club_id uuid, feature_name text)
 returns boolean
 language plpgsql
 security definer
@@ -25,7 +25,7 @@ begin
     return false;
   end if;
 
-  normalized_feature_key := lower(regexp_replace(btrim(coalesce(feature_key, '')), '[^a-zA-Z0-9]+', '_', 'g'));
+  normalized_feature_key := lower(regexp_replace(btrim(coalesce(feature_name, '')), '[^a-zA-Z0-9]+', '_', 'g'));
 
   if normalized_feature_key = '' then
     return false;

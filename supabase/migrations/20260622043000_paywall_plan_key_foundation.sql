@@ -42,7 +42,7 @@ alter table if exists public.club_owner_invites
   add constraint club_owner_invites_plan_key_check
   check (plan_key in ('individual', 'single_team', 'small_club', 'development_club', 'large_club'));
 
-create or replace function public.can_use_plan_feature(target_club_id uuid, feature_key text)
+create or replace function public.can_use_plan_feature(target_club_id uuid, feature_name text)
 returns boolean
 language plpgsql
 security definer
@@ -69,7 +69,7 @@ begin
     return true;
   end if;
 
-  return case feature_key
+  return case feature_name
     when 'pdf_export' then target_plan_key in ('single_team', 'small_club', 'development_club', 'large_club')
     when 'parent_email' then target_plan_key in ('single_team', 'small_club', 'development_club', 'large_club')
     when 'custom_form_fields' then target_plan_key in ('single_team', 'small_club', 'development_club', 'large_club')

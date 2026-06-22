@@ -126,4 +126,12 @@ Create a separate approved database-release fix for the first paywall migration.
 
 Do not deploy the paywall app artifact to production before the approved migrations apply cleanly to `hvapkizujvsahvgspser`.
 
+## Follow-Up Migration Fix
+
+The failed pending migration was fixed in the release branch on 2026-06-22 without applying production migrations.
+
+The fix preserves the existing production `public.can_use_plan_feature(uuid, text)` input parameter name `feature_name` in both pending paywall migrations.
+
+See `docs/releases/paywall-migration-fix-2026-06-22.md` for the validation record. Production migration execution and Netlify deploy remain not performed in this release result.
+
 Final status: Red.
