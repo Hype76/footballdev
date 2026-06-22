@@ -15,8 +15,7 @@ import {
 import { supabaseAdmin } from './_supabase.js'
 import {
   assertPlanFeature,
-  getAuthenticatedRequestUser,
-  getClubPlanProfile,
+  getAuthenticatedPlanProfile,
 } from './_plan-gate.js'
 
 void supabaseAdmin
@@ -251,8 +250,8 @@ function isFutureScheduledDate(dateValue) {
 }
 
 export async function prepareParentEmail({ body, requestUser }) {
-  const planProfile = await getClubPlanProfile(body.clubId)
-  assertPlanFeature(planProfile, 'parentEmail')
+  const planProfile = requestUser
+  assertPlanFeature(planProfile, 'parentEmails')
 
   const {
     parentEmail,
@@ -273,6 +272,11 @@ export async function prepareParentEmail({ body, requestUser }) {
   } = body
 
   const normalizedSenderEmail = normaliseEmail(senderEmail)
+  const bodyUserId = String(body.userId ?? '').trim()
+
+  if (bodyUserId && bodyUserId !== String(requestUser.id ?? '').trim()) {
+    throw Object.assign(new Error('Email can only be sent from your logged-in account.'), { statusCode: 403 })
+  }
 
   if (normalizedSenderEmail && normalizedSenderEmail !== requestUser.email) {
     throw Object.assign(new Error('Email can only be sent from your logged-in account.'), { statusCode: 403 })
@@ -315,7 +319,7 @@ export async function prepareParentEmail({ body, requestUser }) {
 
   const shouldAttachPdf = attachPdf === true
   if (shouldAttachPdf) {
-    assertPlanFeature(planProfile, 'pdfExport')
+    assertPlanFeature(planProfile, 'pdfReports')
   }
 
   const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
@@ -345,9 +349,10 @@ export async function prepareParentEmail({ body, requestUser }) {
     parentName: String(parentName ?? '').trim(),
     clubId: planProfile.clubId,
     teamId: String(body.teamId ?? '').trim() || null,
-    actorId: String(body.userId ?? requestUser.id ?? '').trim(),
+    actorId: String(requestUser.id ?? '').trim(),
     actorEmail: requestUser.email,
-    requiredFeature: 'parentEmail',
+    actorRole: planProfile.role,
+    requiredFeature: 'parentEmails',
     communicationLog: body.communicationLog && typeof body.communicationLog === 'object' ? body.communicationLog : null,
   }
 
@@ -514,7 +519,11 @@ export async function handler(event) {
     }
 
     const body = JSON.parse(event.body || '{}')
-    const requestUser = await getAuthenticatedRequestUser(event)
+    const requestUser = await getAuthenticatedPlanProfile(event, {
+      clubId: body.clubId,
+      teamId: body.teamId,
+      playerId: body.playerId || body.evaluationId,
+    })
     const scheduledAt = parseScheduledAt(body.scheduledAt)
 
     if (scheduledAt && !isFutureScheduledDate(scheduledAt)) {

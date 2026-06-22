@@ -1,5 +1,5 @@
 import { supabase } from '../supabase-client.js'
-import { hasPlanFeature } from '../plans.js'
+import { CAPABILITIES } from '../paywall-access.js'
 import { blockDemoMutation, isDemoAccountValue } from './demo-guards.js'
 import { getDefaultFormFields } from './core-defaults.js'
 import {
@@ -103,10 +103,18 @@ export async function getConfiguredFormFields({ user } = {}) {
 }
 
 export async function getFormFields({ user } = {}) {
-  if (user && !hasPlanFeature(user, 'customFormFields')) {
-    return {
-      fields: getDefaultFormFields(),
-      isFallback: true,
+  if (user?.clubId) {
+    try {
+      await assertClubFeature({
+        user,
+        clubId: user.clubId,
+        featureName: CAPABILITIES.customDevelopmentFields,
+      })
+    } catch {
+      return {
+        fields: getDefaultFormFields(),
+        isFallback: true,
+      }
     }
   }
 
@@ -135,7 +143,7 @@ export async function addFormField({ user, field }) {
   await assertClubFeature({
     user,
     clubId: user?.clubId,
-    featureName: 'customFormFields',
+    featureName: CAPABILITIES.customDevelopmentFields,
   })
 
   const nextOrderIndex = Number(field.orderIndex ?? Date.now())
@@ -170,7 +178,7 @@ export async function updateFormField(id, fieldData, user) {
   await assertClubFeature({
     user,
     clubId: user?.clubId ?? fieldData?.clubId,
-    featureName: 'customFormFields',
+    featureName: CAPABILITIES.customDevelopmentFields,
   })
 
   const { data: existingField, error: existingFieldError } = await supabase
@@ -228,7 +236,7 @@ export async function deleteFormField(id, user = null) {
   await assertClubFeature({
     user,
     clubId: user?.clubId,
-    featureName: 'customFormFields',
+    featureName: CAPABILITIES.customDevelopmentFields,
   })
 
   const { data: existingField, error: existingFieldError } = await supabase
@@ -280,7 +288,7 @@ export async function reorderFormFields(fields, user) {
   await assertClubFeature({
     user,
     clubId: user?.clubId,
-    featureName: 'customFormFields',
+    featureName: CAPABILITIES.customDevelopmentFields,
   })
 
   await Promise.all(

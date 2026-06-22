@@ -1,6 +1,8 @@
 import { supabase } from '../supabase-client.js'
 import { getPlayers } from './players.js'
 import { buildParentAppUrl } from '../app-origins.js'
+import { CAPABILITIES } from '../paywall-access.js'
+import { assertClubFeature } from './plan-gates.js'
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -329,6 +331,17 @@ export async function createParentPortalInvites({ user, player, contacts, includ
   }
 
   const teamId = player.teamId || user.activeTeamId || null
+  await assertClubFeature({
+    user: {
+      ...user,
+      activeTeamId: teamId,
+      teamId,
+      playerId: player.id,
+    },
+    clubId: user.clubId,
+    featureName: CAPABILITIES.parentInvitations,
+  })
+
   const emails = normalizedContacts.map((contact) => contact.email)
   const nowIso = new Date().toISOString()
 

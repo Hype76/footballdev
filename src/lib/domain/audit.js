@@ -1,7 +1,8 @@
 import { supabase } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
-import { hasPlanFeature } from '../plans.js'
+import { CAPABILITIES } from '../paywall-access.js'
 import { isParentPortalUser } from '../auth-permissions.js'
+import { assertClubFeature } from './plan-gates.js'
 
 function getEntryUserName(user) {
   return String(user?.username ?? user?.name ?? user?.email ?? '').trim()
@@ -135,8 +136,16 @@ export async function getAuditLogs({ user, limit = 100 } = {}) {
     return []
   }
 
-  if (user.role !== 'super_admin' && !hasPlanFeature(user, 'auditLogs')) {
-    return []
+  if (user.role !== 'super_admin') {
+    try {
+      await assertClubFeature({
+        user,
+        clubId: user.clubId,
+        featureName: CAPABILITIES.fullOperationalAuditLog,
+      })
+    } catch {
+      return []
+    }
   }
 
   let query = supabase

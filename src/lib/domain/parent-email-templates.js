@@ -1,9 +1,6 @@
 import { supabase } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
-import {
-  createFeatureUpgradeMessage,
-  hasPlanFeature,
-} from '../plans.js'
+import { CAPABILITIES } from '../paywall-access.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   EMAIL_TEMPLATE_SECTIONS,
@@ -12,9 +9,9 @@ import {
   normalizePlayerNameTemplateField,
   validateParentEmailTemplateContent,
 } from '../email-templates.js'
+import { assertClubFeature } from './plan-gates.js'
 
 const DEMO_MUTATION_ERROR_MESSAGE = 'Demo accounts cannot save changes.'
-const CLUB_PLAN_SELECT = 'id, plan_key, plan_status, is_plan_comped, tester_access_expires_at'
 function getEntryUserName(user) {
   return String(user?.username ?? user?.name ?? user?.email ?? '').trim()
 }
@@ -34,15 +31,6 @@ function getEntryUserId(user) {
   return user?.id || null
 }
 
-function isPastDate(value) {
-  if (!value) {
-    return false
-  }
-
-  const timestamp = new Date(value).getTime()
-  return !Number.isNaN(timestamp) && timestamp < Date.now()
-}
-
 async function isCurrentSessionDemoUser() {
   const { data, error } = await supabase.auth.getUser()
 
@@ -59,57 +47,6 @@ async function blockDemoMutation(account) {
 
   if (Boolean(account?.isDemoAccount) || isDemoEmail(account?.email) || (!hasDemoIdentity && await isCurrentSessionDemoUser())) {
     throw new Error(DEMO_MUTATION_ERROR_MESSAGE)
-  }
-}
-
-async function fetchClubPlan(clubId) {
-  if (!clubId) {
-    return null
-  }
-
-  const { data, error } = await supabase
-    .from('clubs')
-    .select(CLUB_PLAN_SELECT)
-    .eq('id', clubId)
-    .maybeSingle()
-
-  if (error) {
-    console.error(error)
-    throw error
-  }
-
-  return data
-}
-
-async function getPlanGateUser({ user = null, clubId = '' } = {}) {
-  if (user?.planKey || user?.plan_key || user?.role === 'super_admin') {
-    return user
-  }
-
-  const normalizedClubId = String(clubId || user?.clubId || user?.club_id || '').trim()
-
-  if (!normalizedClubId) {
-    return user
-  }
-
-  const club = await fetchClubPlan(normalizedClubId)
-  const testerAccessExpiresAt = user?.testerAccessExpiresAt ?? user?.tester_access_expires_at ?? club?.tester_access_expires_at
-  const testerAccessExpired = isPastDate(testerAccessExpiresAt)
-
-  return {
-    ...user,
-    planKey: user?.planKey ?? user?.plan_key ?? club?.plan_key,
-    planStatus: user?.planStatus ?? user?.plan_status ?? club?.plan_status,
-    isPlanComped: testerAccessExpired ? false : (user?.isPlanComped ?? user?.is_plan_comped ?? club?.is_plan_comped),
-    testerAccessExpired,
-  }
-}
-
-async function assertClubFeature({ user = null, clubId = '', featureName }) {
-  const planUser = await getPlanGateUser({ user, clubId })
-
-  if (!hasPlanFeature(planUser, featureName)) {
-    throw new Error(createFeatureUpgradeMessage(featureName))
   }
 }
 
@@ -208,7 +145,17 @@ export function getDefaultClubParentEmailTemplates(audience = EMAIL_TEMPLATE_AUD
 }
 
 export async function getParentEmailTemplates({ user, includeDisabled = false, audience = EMAIL_TEMPLATE_AUDIENCES.parent } = {}) {
-  if (!user?.clubId || !hasPlanFeature(await getPlanGateUser({ user, clubId: user.clubId }), 'parentEmail')) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  try {
+    await assertClubFeature({
+      user,
+      clubId: user.clubId,
+      featureName: CAPABILITIES.parentEmails,
+    })
+  } catch {
     return []
   }
 
@@ -256,7 +203,7 @@ export async function upsertParentEmailTemplate({ user, template }) {
   await assertClubFeature({
     user,
     clubId: user.clubId,
-    featureName: 'parentEmail',
+    featureName: CAPABILITIES.parentEmails,
   })
 
   const payload = {
@@ -312,7 +259,7 @@ export async function deleteParentEmailTemplate({ user, template }) {
   await assertClubFeature({
     user,
     clubId: user.clubId,
-    featureName: 'parentEmail',
+    featureName: CAPABILITIES.parentEmails,
   })
 
   const { error } = await supabase

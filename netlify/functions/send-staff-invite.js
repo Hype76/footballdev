@@ -12,6 +12,7 @@ import {
 } from './_email-log-store.js'
 import { supabaseAdmin } from './_supabase.js'
 import {
+  assertPlanFeature,
   getAuthenticatedPlanProfile,
   getAuthenticatedRequestUser,
 } from './_plan-gate.js'
@@ -103,7 +104,10 @@ async function getInvite(inviteId) {
 async function assertCanSendInvite({ event, invite }) {
   const planProfile = await getAuthenticatedPlanProfile(event, {
     clubId: invite.club_id,
+    teamId: invite.team_id,
   })
+
+  assertPlanFeature(planProfile, invite.team_id ? 'teamStaffRoles' : 'clubStaffRoles')
 
   if (planProfile.role === 'super_admin') {
     return planProfile

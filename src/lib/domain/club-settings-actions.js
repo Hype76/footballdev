@@ -3,6 +3,7 @@ import {
   MAX_LOGO_FILE_SIZE_BYTES,
   supabase,
 } from '../supabase-client.js'
+import { CAPABILITIES } from '../paywall-access.js'
 import {
   getCachedResource,
   invalidateMemoryCacheByPrefix,
@@ -58,7 +59,7 @@ export async function updateClubSettings({ clubId, data, user = null }) {
     await assertClubFeature({
       user,
       clubId,
-      featureName: 'basicBranding',
+      featureName: CAPABILITIES.basicLogoBranding,
     })
   }
 
@@ -66,7 +67,7 @@ export async function updateClubSettings({ clubId, data, user = null }) {
     await assertClubFeature({
       user,
       clubId,
-      featureName: 'approvalWorkflow',
+      featureName: CAPABILITIES.approvalWorkflows,
     })
   }
 
@@ -153,7 +154,7 @@ export async function uploadClubLogo({ clubId, file, user = null }) {
   await assertClubFeature({
     user,
     clubId,
-    featureName: 'basicBranding',
+    featureName: CAPABILITIES.basicLogoBranding,
   })
 
   if (!(file instanceof File)) {
@@ -187,7 +188,7 @@ export async function importClubLogoFromUrl({ clubId, logoUrl, user = null }) {
   await assertClubFeature({
     user,
     clubId,
-    featureName: 'basicBranding',
+    featureName: CAPABILITIES.basicLogoBranding,
   })
 
   if (!normalizedLogoUrl) {

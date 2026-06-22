@@ -2,7 +2,6 @@ import { supabaseAdmin } from './_supabase.js'
 import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
-  getClubPlanProfile,
 } from './_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
@@ -168,7 +167,8 @@ async function createQueueItem({ body, profile }) {
     teamId,
     actorId: String(profile.id ?? '').trim(),
     actorEmail: String(profile.email ?? '').trim().toLowerCase(),
-    requiredFeature: 'parentEmail',
+    actorRole: profile.role,
+    requiredFeature: 'parentEmails',
     communicationLog,
   }
 
@@ -364,9 +364,8 @@ async function sendNowQueueItem({ body, profile }) {
   }
 
   try {
-    const planProfile = await getClubPlanProfile(lockedRow.club_id)
-    assertPlanFeature(planProfile, 'parentEmail')
-    const sendResult = await sendPreparedParentEmail(buildPreparedEmail(lockedRow, planProfile), {
+    assertPlanFeature(profile, 'parentEmails')
+    const sendResult = await sendPreparedParentEmail(buildPreparedEmail(lockedRow, profile), {
       idempotencySeed: `scheduled:${lockedRow.id}`,
     })
 
@@ -404,8 +403,8 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body || '{}')
-    const profile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId })
-    assertPlanFeature(profile, 'parentEmail')
+    const profile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId, teamId: body.teamId })
+    assertPlanFeature(profile, 'parentEmails')
 
     if (!canUseQueue(profile)) {
       return failureResponse(403, 'You do not have permission to manage the email queue.')

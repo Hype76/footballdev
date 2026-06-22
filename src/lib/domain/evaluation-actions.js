@@ -21,6 +21,10 @@ import {
   normalizeEvaluationRow,
 } from './evaluation-normalizers.js'
 import {
+  CAPABILITIES,
+} from '../paywall-access.js'
+import {
+  assertClubFeature,
   assertClubLimitAvailable,
   assertPlayerLimitForUpsert,
   findExistingPlayer,
@@ -74,6 +78,16 @@ export async function createEvaluation(data) {
       linkedTeamId = data.teamId || teamRow?.id || linkedTeamId
     }
   }
+
+  await assertClubFeature({
+    user: {
+      ...evaluationUser,
+      activeTeamId: linkedTeamId || data.teamId,
+      teamId: linkedTeamId || data.teamId,
+    },
+    clubId: data.clubId,
+    featureName: CAPABILITIES.assessments,
+  })
 
   if (data.clubId && data.playerName && data.section) {
     await assertPlayerLimitForUpsert({
@@ -172,10 +186,26 @@ export async function createEvaluation(data) {
 }
 
 export async function updateEvaluation(id, data, clubId) {
-  await blockDemoMutation({
+  const mutationUser = {
     id: data.updatedBy || data.coachId,
+    clubId,
     email: data.updatedByEmail || data.createdByEmail,
+    name: data.updatedByName ?? data.createdByName ?? data.coach,
+    role: data.updatedByRole ?? data.createdByRole,
+    roleRank: data.updatedByRoleRank ?? data.createdByRoleRank,
+    planKey: data.planKey,
+    planStatus: data.planStatus,
+    isPlanComped: data.isPlanComped,
+    activeTeamId: data.teamId,
+    teamId: data.teamId,
     isDemoAccount: data.isDemoAccount,
+  }
+
+  await blockDemoMutation(mutationUser)
+  await assertClubFeature({
+    user: mutationUser,
+    clubId,
+    featureName: CAPABILITIES.assessments,
   })
 
   const payload = mapEvaluationToRow(data)

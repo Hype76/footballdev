@@ -1,6 +1,6 @@
 import { createLimitUpgradeMessage, getPlanLimit, PLAN_KEYS } from '../../src/lib/plans.js'
 import { supabaseAdmin } from './_supabase.js'
-import { getAuthenticatedPlanProfile } from './_plan-gate.js'
+import { assertPlanFeature, getAuthenticatedPlanProfile } from './_plan-gate.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -198,6 +198,7 @@ function normalizeInviteAssignment(invite) {
 
 async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [] }) {
   const currentTeam = await getTeamForClub(teamId, profile.clubId)
+  assertPlanFeature({ ...profile, teamId: currentTeam.id, activeTeamId: currentTeam.id }, 'teamStaffRoles')
   const normalizedUserIds = [...new Set((Array.isArray(userIds) ? userIds : [])
     .map((userId) => normalizeText(userId))
     .filter(Boolean))]

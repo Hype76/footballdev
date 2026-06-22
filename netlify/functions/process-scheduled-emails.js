@@ -135,8 +135,12 @@ async function sendScheduledEmail(row) {
   }
 
   try {
-    const planProfile = await getClubPlanProfile(lockedRow.club_id)
-    assertPlanFeature(planProfile, 'parentEmail')
+    const planProfile = {
+      ...await getClubPlanProfile(lockedRow.club_id),
+      role: 'system',
+      roleRank: 100,
+    }
+    assertPlanFeature(planProfile, 'parentEmails')
     const preparedEmail = buildPreparedEmail(lockedRow, planProfile)
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
       idempotencySeed: `scheduled:${lockedRow.id}`,

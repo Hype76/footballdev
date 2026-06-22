@@ -1,4 +1,4 @@
-import { createFeatureUpgradeMessage, hasPlanFeature, isPlanAccessActive, normalizePlanKey } from '../../src/lib/plans.js'
+import { getFeatureAccess, normalizePlanKey } from '../../src/lib/paywall-access.js'
 import { supabaseAdmin } from './_supabase.js'
 
 function normalizeEmail(value) {
@@ -21,7 +21,7 @@ function isPastDate(value) {
   return !Number.isNaN(parsedDate.getTime()) && parsedDate.getTime() < Date.now()
 }
 
-function normalizePlanProfile(profile, authEmail) {
+function normalizePlanProfile(profile, authEmail, context = {}) {
   const club = Array.isArray(profile.clubs) ? profile.clubs[0] : profile.clubs
   const testerAccessExpiresAt = club?.tester_access_expires_at ?? profile.tester_access_expires_at ?? ''
   const testerAccessExpired = isPastDate(testerAccessExpiresAt)
@@ -44,10 +44,15 @@ function normalizePlanProfile(profile, authEmail) {
     testerAccessExpired,
     clubName: String(club?.name ?? '').trim(),
     clubContactEmail: String(club?.contact_email ?? '').trim(),
+    teamId: String(context.teamId ?? context.team_id ?? '').trim(),
+    activeTeamId: String(context.activeTeamId ?? context.active_team_id ?? context.teamId ?? context.team_id ?? '').trim(),
+    playerId: String(context.playerId ?? context.player_id ?? '').trim(),
+    ownsResource: context.ownsResource === true || context.isOwner === true,
+    previewOnly: context.previewOnly === true,
   }
 }
 
-export async function getAuthenticatedPlanProfile(event, { clubId = '', userId = '' } = {}) {
+export async function getAuthenticatedPlanProfile(event, { clubId = '', userId = '', teamId = '', playerId = '', ownsResource = false } = {}) {
   const token = getBearerToken(event)
 
   if (!token) {
@@ -139,7 +144,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
     throw Object.assign(new Error('Your account could not be matched to this club. Sign out and back in, then try again.'), { statusCode: 403 })
   }
 
-  const planProfile = normalizePlanProfile(profile, authEmail)
+  const planProfile = normalizePlanProfile(profile, authEmail, { teamId, playerId, ownsResource })
 
   if (!planProfile.clubId && planProfile.role !== 'super_admin') {
     throw Object.assign(new Error('Your account is not linked to a club workspace.'), { statusCode: 403 })
@@ -207,15 +212,45 @@ export async function getClubPlanProfile(clubId) {
 }
 
 export function assertPlanAccess(planProfile) {
-  if (!isPlanAccessActive(planProfile)) {
+  const access = getFeatureAccess(planProfile, 'parentEmails')
+
+  if (access.reason === 'invalid_payment_state' || String(access.reason ?? '').startsWith('invalid_payment_state') || access.reason === 'no_subscription') {
     throw Object.assign(new Error('Your billing plan needs to be active before you can use this feature.'), { statusCode: 403 })
   }
 }
 
-export function assertPlanFeature(planProfile, featureName) {
-  assertPlanAccess(planProfile)
+function createCapabilityDeniedMessage(access) {
+  if (!access.known) {
+    return 'This feature is not available.'
+  }
 
-  if (!hasPlanFeature(planProfile, featureName)) {
-    throw Object.assign(new Error(createFeatureUpgradeMessage(featureName)), { statusCode: 403 })
+  if (access.reason === 'role_not_allowed') {
+    return `${access.label} is not available for your role.`
+  }
+
+  if (String(access.reason ?? '').startsWith('missing_') || access.reason === 'context_not_allowed') {
+    return `${access.label} needs the right workspace context before it can be used.`
+  }
+
+  if (String(access.reason ?? '').startsWith('invalid_payment_state') || access.reason === 'no_subscription') {
+    return 'Your billing plan needs to be active before you can use this feature.'
+  }
+
+  if (String(access.reason ?? '').startsWith('setup_required')) {
+    return `${access.label} is not active for this workspace yet.`
+  }
+
+  if (access.requiredUpgradePlanKey) {
+    return `${access.label} is not included in your current plan.`
+  }
+
+  return `${access.label} is not available.`
+}
+
+export function assertPlanFeature(planProfile, featureName) {
+  const access = getFeatureAccess(planProfile, featureName)
+
+  if (!access.allowed) {
+    throw Object.assign(new Error(createCapabilityDeniedMessage(access)), { statusCode: 403, access })
   }
 }

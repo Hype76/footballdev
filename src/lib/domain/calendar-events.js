@@ -2,6 +2,8 @@ import { supabase } from '../supabase-client.js'
 import { createAuditLog } from './audit.js'
 import { clearViewCaches, getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
+import { CAPABILITIES } from '../paywall-access.js'
+import { assertClubFeature } from './plan-gates.js'
 import {
   getEntryIdentity,
   getEntryUserId,
@@ -164,6 +166,45 @@ async function assertCalendarTeamAccess({ user, teamId }) {
   }
 }
 
+async function assertCalendarFeatureAccess({ user, payload }) {
+  const teamId = normalizeText(payload?.team_id)
+  const calendarUser = {
+    ...user,
+    activeTeamId: teamId || normalizeText(user?.activeTeamId),
+    teamId: teamId || normalizeText(user?.activeTeamId),
+  }
+
+  if (teamId) {
+    await assertClubFeature({
+      user: calendarUser,
+      clubId: user?.clubId,
+      featureName: CAPABILITIES.teamCalendar,
+    })
+  } else {
+    await assertClubFeature({
+      user: calendarUser,
+      clubId: user?.clubId,
+      featureName: CAPABILITIES.clubWideEvents,
+    })
+  }
+
+  if (normalizeText(payload?.recurrence_frequency) !== 'none') {
+    await assertClubFeature({
+      user: calendarUser,
+      clubId: user?.clubId,
+      featureName: CAPABILITIES.recurringEvents,
+    })
+  }
+
+  if (payload?.parent_visible === true) {
+    await assertClubFeature({
+      user: calendarUser,
+      clubId: user?.clubId,
+      featureName: CAPABILITIES.parentPortal,
+    })
+  }
+}
+
 export async function getCalendarEvents({ user } = {}) {
   if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin') {
     return []
@@ -236,6 +277,7 @@ export async function createCalendarEvent({ user, event }) {
     ...getEntryIdentity(user, 'updated_by'),
   }
   await assertCalendarTeamAccess({ user, teamId: payload.team_id })
+  await assertCalendarFeatureAccess({ user, payload })
 
   const { data, error } = await supabase
     .from('calendar_events')
@@ -277,6 +319,7 @@ export async function updateCalendarEvent({ user, eventId, event }) {
     updated_at: new Date().toISOString(),
   }
   await assertCalendarTeamAccess({ user, teamId: payload.team_id })
+  await assertCalendarFeatureAccess({ user, payload })
 
   const { data, error } = await supabase
     .from('calendar_events')
@@ -312,6 +355,21 @@ export async function updateCalendarEvent({ user, eventId, event }) {
 export async function deleteCalendarEvent({ user, eventId }) {
   await blockDemoMutation(user)
   assertCalendarAccess(user)
+
+  const { data: existingEvent, error: existingEventError } = await supabase
+    .from('calendar_events')
+    .select('id, team_id, recurrence_frequency, parent_visible')
+    .eq('id', eventId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (existingEventError) {
+    console.error(existingEventError)
+    throw existingEventError
+  }
+
+  await assertCalendarTeamAccess({ user, teamId: existingEvent.team_id })
+  await assertCalendarFeatureAccess({ user, payload: existingEvent })
 
   const { data, error } = await supabase
     .from('calendar_events')

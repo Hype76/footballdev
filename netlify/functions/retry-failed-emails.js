@@ -73,7 +73,11 @@ export async function handler(event) {
       const clubId = String(lockedEmailLog.payload?.clubId ?? '').trim()
 
       if (requiredFeature && clubId) {
-        const planProfile = await getClubPlanProfile(clubId)
+        const planProfile = {
+          ...await getClubPlanProfile(clubId),
+          role: 'system',
+          roleRank: 100,
+        }
         assertPlanFeature(planProfile, requiredFeature)
       }
 

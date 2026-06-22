@@ -6,7 +6,7 @@ import {
   getPlanLimit,
   getUniqueStaffAccessEmails,
 } from '../plans.js'
-import { canUseFeature } from '../paywall-access.js'
+import { getFeatureAccess } from '../paywall-access.js'
 import {
   isPastDate,
   normalizeWords,
@@ -27,7 +27,7 @@ export function getPlanGateUser(user, club = null) {
 }
 
 export async function getClubPlanGateUser({ user = null, clubId = '' } = {}) {
-  if (user?.planKey || user?.plan_key || user?.role === 'super_admin') {
+  if (user?.role === 'super_admin') {
     return getPlanGateUser(user)
   }
 
@@ -43,8 +43,9 @@ export async function getClubPlanGateUser({ user = null, clubId = '' } = {}) {
 
 export async function assertClubFeature({ user = null, clubId = '', featureName }) {
   const planUser = await getClubPlanGateUser({ user, clubId })
+  const access = getFeatureAccess(planUser, featureName)
 
-  if (!canUseFeature(planUser, featureName)) {
+  if (!access.allowed) {
     throw new Error(createFeatureUpgradeMessage(featureName, planUser))
   }
 }

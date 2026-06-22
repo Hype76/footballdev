@@ -5,6 +5,7 @@ import {
   getPlanLimit,
   PLAN_KEYS,
 } from '../plans.js'
+import { CAPABILITIES } from '../paywall-access.js'
 import { getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
@@ -139,7 +140,7 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
       await assertClubFeature({
         user,
         clubId: currentTeam.club_id,
-        featureName: 'approvalWorkflow',
+        featureName: CAPABILITIES.approvalWorkflows,
       })
     }
 
