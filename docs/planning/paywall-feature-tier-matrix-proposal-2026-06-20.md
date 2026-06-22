@@ -4,7 +4,9 @@ Reference: FP-PAYWALL-MATRIX-02
 
 Date: 2026-06-20
 
-Status: Proposed planning document only.
+Status: Approved by Simon on 2026-06-22. Historical proposal retained for audit trail.
+
+Approved decision record: `docs/decisions/paywall-tier-model-approved-2026-06-22.md`
 
 Source audit: `docs/audits/paywall-feature-access-audit-2026-06-20.md`
 
