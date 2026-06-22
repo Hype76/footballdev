@@ -1,9 +1,7 @@
 import { supabase } from '../supabase-client.js'
 import {
   createLimitUpgradeMessage,
-  getPlanKey,
   getPlanLimit,
-  PLAN_KEYS,
 } from '../plans.js'
 import { CAPABILITIES } from '../paywall-access.js'
 import { getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
@@ -331,7 +329,7 @@ export async function createTeam({ user, name }) {
     return normalizeTeamRow(result.team)
   }
 
-  const teamLimit = getPlanKey(user) === PLAN_KEYS.largeClub ? null : getPlanLimit(user, 'teams')
+  const teamLimit = getPlanLimit(user, 'teams')
 
   if (teamLimit !== null && teamLimit !== undefined) {
     const { count, error: countError } = await supabase

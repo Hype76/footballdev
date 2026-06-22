@@ -178,7 +178,7 @@ test('numeric limits and upgrade targets come from central configuration', () =>
     [PLAN_KEYS.singleTeam, 'players', 30],
     [PLAN_KEYS.smallClub, 'teams', 5],
     [PLAN_KEYS.developmentClub, 'teams', 10],
-    [PLAN_KEYS.largeClub, 'teams', null],
+    [PLAN_KEYS.largeClub, 'teams', 10],
   ]
 
   for (const [planKey, limitName, expectedLimit] of limitCases) {
@@ -188,6 +188,8 @@ test('numeric limits and upgrade targets come from central configuration', () =>
 
   assert.equal(getAccessPlanLimit(context(PLAN_KEYS.singleTeam), 'unknownLimit'), 0)
   assert.equal(getLimitAccess(context(PLAN_KEYS.singleTeam), 'unknownLimit').known, false)
+  assert.equal(getAccessPlanLimit(context(PLAN_KEYS.largeClub, { negotiatedLimits: { teams: 25 } }), 'teams'), 25)
+  assert.equal(getAccessPlanLimit(context(PLAN_KEYS.largeClub, { maxTeams: 30 }), 'teams'), 30)
 
   assert.equal(getUpgradePlanForLimit('teams', context(PLAN_KEYS.singleTeam)), 'Small Club')
   assert.equal(getUpgradePlanForLimit('teams', context(PLAN_KEYS.smallClub)), 'Development Club')

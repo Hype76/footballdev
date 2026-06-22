@@ -1,4 +1,4 @@
-import { createLimitUpgradeMessage, getPlanLimit, PLAN_KEYS } from '../../src/lib/plans.js'
+import { createLimitUpgradeMessage, getPlanLimit } from '../../src/lib/plans.js'
 import { supabaseAdmin } from './_supabase.js'
 import { assertPlanFeature, getAuthenticatedPlanProfile } from './_plan-gate.js'
 
@@ -30,8 +30,8 @@ function normalizeTeamRow(row) {
   }
 }
 
-function isLargeOrComped(profile) {
-  return profile?.planKey === PLAN_KEYS.largeClub || Boolean(profile?.isPlanComped)
+function isComped(profile) {
+  return Boolean(profile?.isPlanComped)
 }
 
 function assertClubAdmin(profile) {
@@ -58,7 +58,7 @@ async function getTeamCount(clubId) {
 }
 
 async function assertCanCreateTeam(profile) {
-  if (isLargeOrComped(profile)) {
+  if (isComped(profile)) {
     return
   }
 

@@ -134,7 +134,8 @@ test('active paid plans retain current feature visibility without broad fallback
   assert.equal(getPlanLimit(developmentClubUser, 'players'), null)
 
   assert.equal(hasPlanFeature(largeClubUser, 'auditLogs'), true)
-  assert.equal(getPlanLimit(largeClubUser, 'teams'), null)
+  assert.equal(getPlanLimit(largeClubUser, 'teams'), 10)
+  assert.equal(getPlanLimit({ ...largeClubUser, negotiatedLimits: { teams: 24 } }, 'teams'), 24)
 })
 
 test('inactive paid subscriptions do not unlock paid features', () => {

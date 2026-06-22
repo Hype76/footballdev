@@ -107,7 +107,7 @@ begin
 
   target_plan_is_active := public.is_club_plan_access_active(target_club_id);
 
-  if target_is_plan_comped or target_plan_key = 'large_club' then
+  if target_is_plan_comped then
     return true;
   end if;
 
@@ -125,6 +125,7 @@ begin
     when 'single_team' then 1
     when 'small_club' then 5
     when 'development_club' then 10
+    when 'large_club' then 10
     else 0
   end;
 

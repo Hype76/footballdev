@@ -196,6 +196,13 @@ export const PLAN_OPTIONS = [
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
 export const PLAN_KEY_SET = new Set(PLAN_OPTIONS.map((plan) => plan.key))
 
+const NEGOTIATED_LIMIT_ALIASES = Object.freeze({
+  teams: ['teams', 'teamLimit', 'team_limit', 'teamsLimit', 'teams_limit', 'maxTeams', 'max_teams'],
+  staffLogins: ['staffLogins', 'staff_logins', 'staffLimit', 'staff_limit', 'staffLoginsLimit', 'staff_logins_limit', 'maxStaffLogins', 'max_staff_logins'],
+  players: ['players', 'playerLimit', 'player_limit', 'playersLimit', 'players_limit', 'maxPlayers', 'max_players'],
+  monthlyEvaluations: ['monthlyEvaluations', 'monthly_evaluations', 'monthlyEvaluationLimit', 'monthly_evaluation_limit', 'maxMonthlyEvaluations', 'max_monthly_evaluations'],
+})
+
 function getRawPlanValue(value) {
   return typeof value === 'string'
     ? value
@@ -210,12 +217,20 @@ function normalizePlanToken(value) {
     .toLowerCase()
 }
 
+function hasUnsafePlanTokenShape(value) {
+  return /[<>/\\]/.test(value)
+}
+
 export function normalizePlanKey(value, { fallbackKey = '', mapMissingToFree = false } = {}) {
   const rawValue = getRawPlanValue(value)
   const normalizedText = String(rawValue ?? '').trim()
 
   if (!normalizedText) {
     return mapMissingToFree ? PLAN_KEYS.individual : fallbackKey
+  }
+
+  if (hasUnsafePlanTokenShape(normalizedText)) {
+    return fallbackKey
   }
 
   const alias = normalizePlanToken(normalizedText)
@@ -287,6 +302,56 @@ export function getPlanName(planOrUser) {
   return getPlan(planOrUser).name
 }
 
+function getNumericLimitOverride(source, aliases = []) {
+  if (!source || typeof source !== 'object') {
+    return undefined
+  }
+
+  for (const alias of aliases) {
+    const value = source[alias]
+
+    if (value === null) {
+      return null
+    }
+
+    const numberValue = Number(value)
+
+    if (Number.isFinite(numberValue) && numberValue >= 0) {
+      return numberValue
+    }
+  }
+
+  return undefined
+}
+
+function getNegotiatedLimitOverride(user, limitName) {
+  const aliases = NEGOTIATED_LIMIT_ALIASES[limitName] ?? [limitName]
+  const directOverride = getNumericLimitOverride(user, aliases)
+
+  if (directOverride !== undefined) {
+    return directOverride
+  }
+
+  const nestedSources = [
+    user?.negotiatedLimits,
+    user?.negotiated_limits,
+    user?.planLimits,
+    user?.plan_limits,
+    user?.limitOverrides,
+    user?.limit_overrides,
+  ]
+
+  for (const source of nestedSources) {
+    const override = getNumericLimitOverride(source, aliases)
+
+    if (override !== undefined) {
+      return override
+    }
+  }
+
+  return undefined
+}
+
 export function hasPlanFeature(user, featureName) {
   if (isDemoUser(user) && featureName === 'parentEmail') {
     return false
@@ -336,6 +401,20 @@ export function getPlanLimit(user, limitName) {
 
   if (!isPlanAccessActive(user)) {
     return 0
+  }
+
+  const planKey = getPlanKey(user)
+
+  if (planKey === PLAN_KEYS.largeClub) {
+    const negotiatedOverride = getNegotiatedLimitOverride(user, limitName)
+
+    if (negotiatedOverride !== undefined) {
+      return negotiatedOverride
+    }
+
+    if (limitName === 'teams') {
+      return PLAN_BY_KEY[PLAN_KEYS.developmentClub].limits.teams
+    }
   }
 
   return getPlan(user).limits[limitName] ?? null
