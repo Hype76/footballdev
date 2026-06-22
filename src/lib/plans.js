@@ -1,4 +1,10 @@
 import { isDemoUser } from './demo.js'
+import {
+  getCapabilityDefinition,
+  getFeatureFlagMapForPlan,
+  getRequiredUpgradePlanKeyForCapability,
+  isCapabilityIncludedForPlan,
+} from './paywall-capabilities.js'
 
 export const PLAN_KEYS = {
   individual: 'individual',
@@ -33,6 +39,7 @@ export const PLAN_KEY_ALIASES = Object.freeze({
   single_team: PLAN_KEYS.singleTeam,
   singleteam: PLAN_KEYS.singleTeam,
   team: PLAN_KEYS.singleTeam,
+  club: PLAN_KEYS.smallClub,
   small_club: PLAN_KEYS.smallClub,
   smallclub: PLAN_KEYS.smallClub,
   development: PLAN_KEYS.developmentClub,
@@ -48,38 +55,11 @@ export const PLAN_KEY_ALIASES = Object.freeze({
   negotiated: PLAN_KEYS.largeClub,
 })
 
-const PLAN_FEATURES_NONE = Object.freeze({
-  pdfExport: false,
-  parentEmail: false,
-  customFormFields: false,
-  basicBranding: false,
-  customBranding: false,
-  themes: false,
-  auditLogs: false,
-  approvalWorkflow: false,
-})
-
-const PLAN_FEATURES_SINGLE_TEAM = Object.freeze({
-  pdfExport: true,
-  parentEmail: true,
-  customFormFields: true,
-  basicBranding: true,
-  customBranding: false,
-  themes: false,
-  auditLogs: false,
-  approvalWorkflow: false,
-})
-
-const PLAN_FEATURES_CLUB = Object.freeze({
-  pdfExport: true,
-  parentEmail: true,
-  customFormFields: true,
-  basicBranding: true,
-  customBranding: true,
-  themes: true,
-  auditLogs: true,
-  approvalWorkflow: true,
-})
+const PLAN_FEATURES_NONE = getFeatureFlagMapForPlan(PLAN_KEYS.individual)
+const PLAN_FEATURES_SINGLE_TEAM = getFeatureFlagMapForPlan(PLAN_KEYS.singleTeam)
+const PLAN_FEATURES_SMALL_CLUB = getFeatureFlagMapForPlan(PLAN_KEYS.smallClub)
+const PLAN_FEATURES_DEVELOPMENT_CLUB = getFeatureFlagMapForPlan(PLAN_KEYS.developmentClub)
+const PLAN_FEATURES_LARGE_CLUB = getFeatureFlagMapForPlan(PLAN_KEYS.largeClub)
 
 const UNKNOWN_PLAN = Object.freeze({
   key: '',
@@ -163,7 +143,7 @@ export const PLAN_OPTIONS = [
       players: null,
       monthlyEvaluations: null,
     },
-    features: PLAN_FEATURES_CLUB,
+    features: PLAN_FEATURES_SMALL_CLUB,
     legacyAliases: ['Small Club', 'small_club'],
     safeDefaultBehavior: 'self_service_paid_plan_requires_explicit_key',
     limitNotes: 'Staff and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
@@ -185,7 +165,7 @@ export const PLAN_OPTIONS = [
       players: null,
       monthlyEvaluations: null,
     },
-    features: PLAN_FEATURES_CLUB,
+    features: PLAN_FEATURES_DEVELOPMENT_CLUB,
     legacyAliases: ['Development Club', 'development_club'],
     safeDefaultBehavior: 'self_service_paid_plan_requires_explicit_key',
     limitNotes: 'Staff and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
@@ -207,7 +187,7 @@ export const PLAN_OPTIONS = [
       players: null,
       monthlyEvaluations: null,
     },
-    features: PLAN_FEATURES_CLUB,
+    features: PLAN_FEATURES_LARGE_CLUB,
     legacyAliases: ['Large Club', 'large_club', 'Contact', 'Contact sales'],
     safeDefaultBehavior: 'negotiated_plan_requires_explicit_key',
   },
@@ -215,41 +195,6 @@ export const PLAN_OPTIONS = [
 
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
 export const PLAN_KEY_SET = new Set(PLAN_OPTIONS.map((plan) => plan.key))
-
-const FEATURE_UPGRADE_COPY = {
-  approvalWorkflow: {
-    label: 'Team approval controls',
-    action: 'change approval settings',
-  },
-  auditLogs: {
-    label: 'Activity logs',
-    action: 'view staff activity logs',
-  },
-  basicBranding: {
-    label: 'Club branding',
-    action: 'change club branding',
-  },
-  customBranding: {
-    label: 'Custom branding',
-    action: 'use custom branding',
-  },
-  customFormFields: {
-    label: 'Custom development fields',
-    action: 'change development fields',
-  },
-  parentEmail: {
-    label: 'Parent and player email',
-    action: 'send emails to parents or players',
-  },
-  pdfExport: {
-    label: 'PDF exports and attachments',
-    action: 'create PDFs or attach PDFs to emails',
-  },
-  themes: {
-    label: 'Theme settings',
-    action: 'change theme settings',
-  },
-}
 
 function getRawPlanValue(value) {
   return typeof value === 'string'
@@ -355,7 +300,7 @@ export function hasPlanFeature(user, featureName) {
     return false
   }
 
-  return Boolean(getPlan(user).features[featureName])
+  return isCapabilityIncludedForPlan(getPlanKey(user), featureName)
 }
 
 export function canEditClubIdentity(user) {
@@ -447,32 +392,52 @@ export function canAddStaffAccessEmail(user, email, members = [], invites = []) 
   return isWithinPlanLimit(user, 'staffLogins', accessEmails.size)
 }
 
-export function getUpgradePlanForFeature(featureName) {
-  const matchedPlan = PLAN_OPTIONS.find((plan) => plan.features[featureName])
-  return matchedPlan?.name || 'a paid plan'
+export function getUpgradePlanForFeature(featureName, planOrUser = null) {
+  const currentPlanKey = planOrUser ? getPlanKey(planOrUser) : ''
+  const matchedPlanKey = getRequiredUpgradePlanKeyForCapability(featureName, currentPlanKey)
+  return PLAN_BY_KEY[matchedPlanKey]?.name || 'a paid plan'
 }
 
-export function getUpgradePlanForLimit(limitName) {
-  const matchedPlan = PLAN_OPTIONS.find((plan) => plan.limits[limitName] === null)
+function isLimitUpgrade(currentLimit, candidateLimit) {
+  if (candidateLimit === null) {
+    return currentLimit !== null
+  }
+
+  if (currentLimit === null || candidateLimit === undefined) {
+    return false
+  }
+
+  return Number(candidateLimit) > Number(currentLimit)
+}
+
+export function getUpgradePlanForLimit(limitName, planOrUser = null) {
+  const currentPlanKey = planOrUser ? getPlanKey(planOrUser) : PLAN_KEYS.individual
+  const currentLimit = PLAN_BY_KEY[currentPlanKey]?.limits?.[limitName] ?? 0
+  const currentIndex = PLAN_OPTIONS.findIndex((plan) => plan.key === currentPlanKey)
+  const searchStartIndex = currentIndex >= 0 ? currentIndex + 1 : 0
+  const matchedPlan = PLAN_OPTIONS
+    .slice(searchStartIndex)
+    .find((plan) => isLimitUpgrade(currentLimit, plan.limits[limitName]))
+
   return matchedPlan?.name || 'a higher plan'
 }
 
 export function createFeatureUpgradeMessage(featureName, planOrUser = null) {
-  const featureCopy = FEATURE_UPGRADE_COPY[featureName] ?? {
+  const featureCopy = getCapabilityDefinition(featureName) ?? {
     label: 'This feature',
     action: 'use it',
   }
 
-  if (planOrUser && !isPlanAccessActive(planOrUser)) {
+  if (planOrUser && isCapabilityIncludedForPlan(getPlanKey(planOrUser), featureName) && !isPlanAccessActive(planOrUser)) {
     return `${featureCopy.label} is included in ${getPlanName(planOrUser)}, but this workspace billing status is ${getPlanStatusLabel(planOrUser)}. Update billing or mark the club as active before changing it.`
   }
 
-  return `${featureCopy.label} is not available in your current billing tier. Upgrade to ${getUpgradePlanForFeature(featureName)} to ${featureCopy.action}.`
+  return `${featureCopy.label} is not available in your current billing tier. Upgrade to ${getUpgradePlanForFeature(featureName, planOrUser)} to ${featureCopy.action}.`
 }
 
 export function createLimitUpgradeMessage(user, limitName, label) {
   const limit = getPlanLimit(user, limitName)
-  const targetPlan = getUpgradePlanForLimit(limitName)
+  const targetPlan = getUpgradePlanForLimit(limitName, user)
 
   if (user && !isPlanAccessActive(user)) {
     return `${label} is included in ${getPlanName(user)}, but this workspace billing status is ${getPlanStatusLabel(user)}. Update billing or mark the club as active before adding more.`

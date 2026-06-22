@@ -48,6 +48,7 @@ test('plan aliases normalize through the explicit compatibility map', () => {
     ['single_team', PLAN_KEYS.singleTeam],
     ['Single Team', PLAN_KEYS.singleTeam],
     ['single-team', PLAN_KEYS.singleTeam],
+    ['club', PLAN_KEYS.smallClub],
     ['small_club', PLAN_KEYS.smallClub],
     ['Small Club', PLAN_KEYS.smallClub],
     ['development_club', PLAN_KEYS.developmentClub],

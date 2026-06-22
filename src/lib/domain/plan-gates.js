@@ -5,8 +5,8 @@ import {
   createLimitUpgradeMessage,
   getPlanLimit,
   getUniqueStaffAccessEmails,
-  hasPlanFeature,
 } from '../plans.js'
+import { canUseFeature } from '../paywall-access.js'
 import {
   isPastDate,
   normalizeWords,
@@ -44,7 +44,7 @@ export async function getClubPlanGateUser({ user = null, clubId = '' } = {}) {
 export async function assertClubFeature({ user = null, clubId = '', featureName }) {
   const planUser = await getClubPlanGateUser({ user, clubId })
 
-  if (!hasPlanFeature(planUser, featureName)) {
+  if (!canUseFeature(planUser, featureName)) {
     throw new Error(createFeatureUpgradeMessage(featureName, planUser))
   }
 }
