@@ -9,7 +9,13 @@ import {
   SELF_SERVICE_CHECKOUT_PLAN_KEYS,
 } from '../netlify/functions/_stripe-billing.js'
 import { handler as createCheckoutSession } from '../netlify/functions/create-checkout-session.js'
-import { formatPrice, formatPriceLabel, pricingPlans } from '../src/lib/login-pricing.js'
+import {
+  formatPrice,
+  formatPriceLabel,
+  getPricingCheckoutState,
+  isDevelopmentClubCheckoutConfigured,
+  pricingPlans,
+} from '../src/lib/login-pricing.js'
 import { PLAN_KEYS, PLAN_PURCHASE_MODES } from '../src/lib/plans.js'
 
 function findPricingPlan(planKey) {
@@ -85,6 +91,25 @@ test('public pricing copy keeps Free preview-only and Single Team complete', () 
   assert.ok(developmentClubPlan.features.includes('Scheduled parent reports'))
   assert.equal(largeClubPlan.purchaseMode, PLAN_PURCHASE_MODES.contactSales)
   assert.ok(largeClubPlan.features.includes('Integrations where available'))
+})
+
+test('public Development Club checkout is contact-gated when live Price ID is missing', () => {
+  const developmentClubPlan = findPricingPlan(PLAN_KEYS.developmentClub)
+
+  assert.equal(isDevelopmentClubCheckoutConfigured({}), false)
+  assert.deepEqual(getPricingCheckoutState(developmentClubPlan, {}), {
+    canStartCheckout: false,
+    unavailableMessage: 'Development Club checkout is not open yet. Request a demo and we will help set up the right plan.',
+  })
+  assert.equal(isDevelopmentClubCheckoutConfigured({
+    VITE_STRIPE_DEVELOPMENT_CLUB_MONTHLY_PRICE_ID: 'price_dev_monthly_live',
+  }), true)
+  assert.deepEqual(getPricingCheckoutState(developmentClubPlan, {
+    VITE_STRIPE_DEVELOPMENT_CLUB_MONTHLY_PRICE_ID: 'price_dev_monthly_live',
+  }), {
+    canStartCheckout: true,
+    unavailableMessage: '',
+  })
 })
 
 test('checkout rejects unknown, Free, Large, and unconfigured Development Club plans', async () => {

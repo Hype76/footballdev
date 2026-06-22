@@ -1,5 +1,7 @@
 import { PLAN_KEYS, PLAN_PURCHASE_MODES } from './plans.js'
 
+const DEVELOPMENT_CLUB_MONTHLY_PRICE_ENV = 'VITE_STRIPE_DEVELOPMENT_CLUB_MONTHLY_PRICE_ID'
+
 export const pricingPlans = [
   {
     planKey: PLAN_KEYS.individual,
@@ -44,6 +46,39 @@ export const pricingPlans = [
     features: ['More than 10 teams', 'Negotiated limits', 'Assisted setup', 'Data migration', 'Custom onboarding', 'Bespoke branding', 'Integrations where available', 'Rollout planning', 'Dedicated support contact', 'Agreed service terms'],
   },
 ]
+
+function getPublicEnvValue(env, name) {
+  if (!env || typeof env !== 'object') {
+    return ''
+  }
+
+  return String(env[name] ?? '').trim()
+}
+
+export function isDevelopmentClubCheckoutConfigured(env = import.meta.env) {
+  return getPublicEnvValue(env, DEVELOPMENT_CLUB_MONTHLY_PRICE_ENV).startsWith('price_')
+}
+
+export function getPricingCheckoutState(plan, env = import.meta.env) {
+  if (plan?.planKey !== PLAN_KEYS.developmentClub) {
+    return {
+      canStartCheckout: true,
+      unavailableMessage: '',
+    }
+  }
+
+  if (isDevelopmentClubCheckoutConfigured(env)) {
+    return {
+      canStartCheckout: true,
+      unavailableMessage: '',
+    }
+  }
+
+  return {
+    canStartCheckout: false,
+    unavailableMessage: 'Development Club checkout is not open yet. Request a demo and we will help set up the right plan.',
+  }
+}
 
 export function formatPrice(plan) {
   if (typeof plan.price !== 'number') {

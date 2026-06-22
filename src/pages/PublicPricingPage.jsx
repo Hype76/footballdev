@@ -13,7 +13,7 @@ import {
   publicSubheadingClass,
 } from '../components/login/PublicSiteComponents.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
-import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../lib/login-pricing.js'
+import { formatPrice, formatPriceLabel, getPricingCheckoutState, getPromotionSummary, pricingPlans } from '../lib/login-pricing.js'
 
 const initialDemoFormData = {
   name: '',
@@ -159,7 +159,7 @@ export function PublicPricingPage() {
 
   const getPlanLabel = (plan) => plan.displayName || plan.name
 
-  const getPrimaryCtaLabel = (plan) => {
+  const getPrimaryCtaLabel = (plan, checkoutState = getPricingCheckoutState(plan)) => {
     if (paymentsDisabled) {
       return 'Start setup'
     }
@@ -172,10 +172,23 @@ export function PublicPricingPage() {
       return 'Contact us'
     }
 
+    if (!checkoutState.canStartCheckout) {
+      return 'Request demo'
+    }
+
     return 'Choose plan'
   }
 
   const handlePrimaryCta = (plan) => {
+    const checkoutState = getPricingCheckoutState(plan)
+
+    if (!checkoutState.canStartCheckout && !paymentsDisabled) {
+      setMessage(checkoutState.unavailableMessage)
+      setErrorMessage('')
+      setDemoPlan(plan)
+      return
+    }
+
     if (plan.purchaseMode === 'contact_sales' && !paymentsDisabled) {
       openContactModal()
       return
@@ -221,6 +234,7 @@ export function PublicPricingPage() {
             const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
             const isPopular = plan.name === 'Small Club'
             const planLabel = getPlanLabel(plan)
+            const checkoutState = getPricingCheckoutState(plan)
 
             return (
               <article
@@ -263,8 +277,13 @@ export function PublicPricingPage() {
                       'disabled:cursor-not-allowed disabled:opacity-60',
                     ].join(' ')}
                   >
-                    {getPrimaryCtaLabel(plan)}
+                    {getPrimaryCtaLabel(plan, checkoutState)}
                   </button>
+                  {!paymentsDisabled && !checkoutState.canStartCheckout ? (
+                    <p className="text-xs font-bold leading-5 text-white/60">
+                      Checkout is not open yet. Request a demo for setup.
+                    </p>
+                  ) : null}
                   {plan.purchaseMode === 'contact_sales' && !paymentsDisabled ? (
                     <button
                       type="button"
