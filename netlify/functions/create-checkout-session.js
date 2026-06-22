@@ -1,22 +1,7 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { arePaymentsDisabled, json } from './_stripe-billing.js'
-import { getPlanName, normalizePlanKey, PLAN_KEYS } from '../../src/lib/plans.js'
-
-function getPriceId(planKey, billingCycle) {
-  const prices = {
-    [PLAN_KEYS.singleTeam]: {
-      monthly: process.env.VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID,
-      annual: process.env.VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID,
-    },
-    [PLAN_KEYS.smallClub]: {
-      monthly: process.env.VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID,
-      annual: process.env.VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID,
-    },
-  }
-
-  return prices[planKey]?.[billingCycle] || ''
-}
+import { arePaymentsDisabled, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json } from './_stripe-billing.js'
+import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim().slice(0, 120) : ''
@@ -100,11 +85,24 @@ export async function handler(event) {
   try {
     const body = JSON.parse(event.body || '{}')
     const planKey = normalizePlanKey(body.planKey || body.planName)
-    const planName = getPlanName(planKey)
-    const billingCycle = cleanString(body.billingCycle)
+    const billingCycle = cleanString(body.billingCycle || 'monthly').toLowerCase()
     const customerEmail = cleanString(body.customerEmail)
     const clubName = cleanString(body.clubName)
-    const priceId = getPriceId(planKey, billingCycle)
+
+    if (!planKey) {
+      return json(400, { success: false, message: 'Choose a valid billing plan.' })
+    }
+
+    if (!isSelfServiceCheckoutPlanKey(planKey)) {
+      return json(400, { success: false, message: 'This plan is not available for self-service checkout.' })
+    }
+
+    if (!['monthly', 'annual'].includes(billingCycle)) {
+      return json(400, { success: false, message: 'Choose a valid billing cycle.' })
+    }
+
+    const planName = getPlanName({ planKey })
+    const priceId = getCheckoutPriceId(planKey, billingCycle)
 
     if (!priceId) {
       return json(400, { success: false, message: 'This plan is not available for checkout yet' })

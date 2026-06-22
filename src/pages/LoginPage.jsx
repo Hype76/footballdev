@@ -17,6 +17,8 @@ const initialFormData = {
 
 const testPlanByName = {
   Individual: 'individual',
+  'Individual Coach - Free': 'individual',
+  'Individual Coach': 'individual',
   'Single Team': 'single_team',
   'Small Club': 'small_club',
   'Development Club': 'development_club',

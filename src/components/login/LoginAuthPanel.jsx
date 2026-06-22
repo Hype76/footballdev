@@ -122,7 +122,7 @@ export function LoginAuthPanel({
                 onChange={onChange}
                 className="min-h-11 w-full rounded-lg border border-white/12 bg-[#102016] px-3 py-2.5 text-sm font-semibold text-white outline-none transition focus:border-[#c6ff1a]/70 focus:bg-[#102016] focus:ring-2 focus:ring-[#c6ff1a]/20"
               >
-                <option value="individual">Individual</option>
+                <option value="individual">Individual Coach - Free</option>
                 <option value="single_team">Single Team</option>
                 <option value="small_club">Small Club</option>
                 <option value="development_club">Development Club</option>

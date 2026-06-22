@@ -12,25 +12,58 @@ export const PLAN_BY_NAME = {
   'Large Club': 'large_club',
 }
 
+export const SELF_SERVICE_CHECKOUT_PLAN_KEYS = new Set([
+  'single_team',
+  'small_club',
+  'development_club',
+])
+
+const PRICE_ENV_BY_PLAN_AND_CYCLE = {
+  single_team: {
+    monthly: 'VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID',
+    annual: 'VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID',
+  },
+  small_club: {
+    monthly: 'VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID',
+    annual: 'VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID',
+  },
+  development_club: {
+    monthly: 'VITE_STRIPE_DEVELOPMENT_CLUB_MONTHLY_PRICE_ID',
+    annual: 'VITE_STRIPE_DEVELOPMENT_CLUB_ANNUAL_PRICE_ID',
+  },
+}
+
+function getConfiguredPriceEntries() {
+  return Object.entries(PRICE_ENV_BY_PLAN_AND_CYCLE)
+    .flatMap(([planKey, cycleMap]) => Object.entries(cycleMap).map(([billingCycle, envName]) => ({
+      billingCycle,
+      envName,
+      planKey,
+      priceId: String(process.env[envName] ?? '').trim(),
+    })))
+    .filter((entry) => entry.priceId)
+}
+
 export function getPriceMap() {
-  return {
-    [process.env.VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID]: {
-      planKey: 'single_team',
-      billingCycle: 'monthly',
+  return Object.fromEntries(getConfiguredPriceEntries().map((entry) => [
+    entry.priceId,
+    {
+      planKey: entry.planKey,
+      billingCycle: entry.billingCycle,
     },
-    [process.env.VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID]: {
-      planKey: 'single_team',
-      billingCycle: 'annual',
-    },
-    [process.env.VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID]: {
-      planKey: 'small_club',
-      billingCycle: 'monthly',
-    },
-    [process.env.VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID]: {
-      planKey: 'small_club',
-      billingCycle: 'annual',
-    },
-  }
+  ]))
+}
+
+export function getCheckoutPriceId(planKey, billingCycle) {
+  const normalizedPlanKey = normalizePlanKey(planKey)
+  const normalizedBillingCycle = String(billingCycle ?? '').trim().toLowerCase()
+  const envName = PRICE_ENV_BY_PLAN_AND_CYCLE[normalizedPlanKey]?.[normalizedBillingCycle]
+
+  return envName ? String(process.env[envName] ?? '').trim() : ''
+}
+
+export function isSelfServiceCheckoutPlanKey(planKey) {
+  return SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(normalizePlanKey(planKey))
 }
 
 export function getPlanFromPriceId(priceId) {

@@ -25,7 +25,8 @@ const initialDemoFormData = {
 const fitNotes = [
   ['Testing with one small squad?', 'Start with Individual Coach.'],
   ['Running one team?', 'Use Single Team.'],
-  ['Managing several teams?', 'Small Club is the best fit.'],
+  ['Managing several teams?', 'Use Small Club.'],
+  ['Running development operations?', 'Use Development Club.'],
   ['Need rollout help?', 'Speak to us about Large Club.'],
 ]
 
@@ -33,7 +34,7 @@ export function PublicPricingPage() {
   usePublicThemeScope()
 
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
-  const [billingCycle, setBillingCycle] = useState('monthly')
+  const billingCycle = 'monthly'
   const [demoPlan, setDemoPlan] = useState(null)
   const [demoFormData, setDemoFormData] = useState(initialDemoFormData)
   const [livePromotion, setLivePromotion] = useState(null)
@@ -118,12 +119,12 @@ export function PublicPricingPage() {
       return
     }
 
-    if (plan.name === 'Individual') {
-      window.location.assign('/sign-in?plan=Individual')
+    if (plan.purchaseMode === 'free') {
+      window.location.assign(`/sign-in?plan=${encodeURIComponent(plan.name)}`)
       return
     }
 
-    if (plan.name === 'Large Club') {
+    if (plan.purchaseMode === 'contact_sales') {
       setDemoPlan(plan)
       return
     }
@@ -136,6 +137,7 @@ export function PublicPricingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planName: plan.name,
+          planKey: plan.planKey,
           billingCycle,
           livePromotionCodeId: livePromotion?.promotionCodeId || undefined,
         }),
@@ -162,11 +164,11 @@ export function PublicPricingPage() {
       return 'Start setup'
     }
 
-    if (plan.name === 'Individual') {
+    if (plan.purchaseMode === 'free') {
       return 'Start free'
     }
 
-    if (plan.name === 'Large Club') {
+    if (plan.purchaseMode === 'contact_sales') {
       return 'Contact us'
     }
 
@@ -174,7 +176,7 @@ export function PublicPricingPage() {
   }
 
   const handlePrimaryCta = (plan) => {
-    if (plan.name === 'Large Club' && !paymentsDisabled) {
+    if (plan.purchaseMode === 'contact_sales' && !paymentsDisabled) {
       openContactModal()
       return
     }
@@ -200,27 +202,8 @@ export function PublicPricingPage() {
               Choose the workspace size that fits your current team setup. Start with one coach or one team, then add more teams, staff, players, and parent updates when the club is ready.
             </p>
             <p className="mt-3 text-sm font-semibold leading-6 text-white/60">
-              Early club pricing may change as the product develops.
+              Prices shown monthly. Large Club is a contact-sales tier.
             </p>
-            <div className="mt-5 grid max-w-xs grid-cols-2 rounded-lg border border-white/12 bg-white/[0.055] p-1" aria-label="Billing cycle">
-              {[
-                ['monthly', 'Monthly'],
-                ['annual', 'Annual'],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setBillingCycle(key)}
-                  aria-pressed={billingCycle === key}
-                  className={[
-                    'min-h-11 rounded-lg px-4 py-3 text-sm font-black transition',
-                    billingCycle === key ? 'bg-[#c6ff1a] text-[#06110a] shadow-sm' : 'text-white/64 hover:bg-white/[0.08] hover:text-white',
-                  ].join(' ')}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -232,7 +215,7 @@ export function PublicPricingPage() {
           </div>
         ) : null}
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {pricingPlans.map((plan) => {
             const priceLabel = formatPriceLabel(plan, billingCycle)
             const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
@@ -260,9 +243,6 @@ export function PublicPricingPage() {
                 <div className="mt-5">
                   <span className="text-3xl font-black text-white sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
                   {priceLabel ? <span className="ml-2 text-sm font-semibold text-white/58">{priceLabel}</span> : null}
-                  {billingCycle === 'annual' && typeof plan.price === 'number' ? (
-                    <p className="mt-2 text-xs font-black text-[#c6ff1a]">2 months free compared with monthly</p>
-                  ) : null}
                   {showPromotion ? <p className="mt-2 text-xs font-black text-[#c6ff1a]">{getPromotionSummary(livePromotion)}</p> : null}
                 </div>
                 <ul className="mt-6 grow space-y-2.5">
@@ -285,7 +265,7 @@ export function PublicPricingPage() {
                   >
                     {getPrimaryCtaLabel(plan)}
                   </button>
-                  {plan.name === 'Large Club' && !paymentsDisabled ? (
+                  {plan.purchaseMode === 'contact_sales' && !paymentsDisabled ? (
                     <button
                       type="button"
                       onClick={() => setDemoPlan(plan)}
