@@ -419,11 +419,14 @@ export async function getPlatformStats(user) {
   }
 
   return getCachedResource('platform-stats', async () => {
-    const [clubsResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult] = await Promise.all([
+    const [clubsResult, teamLimitOverridesResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult] = await Promise.all([
       supabase
         .from('clubs')
         .select(`${CLUB_SELECT}, created_at`)
         .order('name', { ascending: true }),
+      supabase
+        .from('club_team_limit_overrides')
+        .select('club_id, team_limit_override, updated_at'),
       supabase.from('users').select('id, email, username, name, role, role_label, role_rank, club_id, status, suspended_at').order('email', { ascending: true }),
       supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
       supabase.from('players').select('id, club_id, section, status, created_at'),
@@ -432,7 +435,7 @@ export async function getPlatformStats(user) {
       supabase.from('audit_logs').select('id, club_id, action, created_at'),
     ])
 
-    const results = [clubsResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult]
+    const results = [clubsResult, teamLimitOverridesResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult]
     const firstError = results.find((result) => result.error)?.error
 
     if (firstError) {
@@ -441,6 +444,7 @@ export async function getPlatformStats(user) {
     }
 
     const clubs = (clubsResult.data ?? []).filter((club) => club?.id)
+    const teamLimitOverrides = (teamLimitOverridesResult.data ?? []).filter((override) => override?.club_id)
     const users = (usersResult.data ?? []).filter((member) => member?.id)
     const teams = (teamsResult.data ?? []).filter((team) => team?.id)
     const players = (playersResult.data ?? []).filter((player) => player?.id)
@@ -448,6 +452,7 @@ export async function getPlatformStats(user) {
     const communicationLogs = (communicationLogsResult.data ?? []).filter((log) => log?.id)
     const auditLogs = (auditLogsResult.data ?? []).filter((log) => log?.id)
     const invalidClubRows = (clubsResult.data ?? []).length - clubs.length
+    const teamLimitOverrideByClubId = new Map(teamLimitOverrides.map((override) => [override.club_id, override]))
     const invalidUserRows = (usersResult.data ?? []).length - users.length
     const invalidTeamRows = (teamsResult.data ?? []).length - teams.length
 
@@ -512,6 +517,7 @@ export async function getPlatformStats(user) {
       clubs: clubs.map((club) => {
         const clubUsers = users.filter((member) => member.club_id === club.id)
         const clubTeams = teams.filter((team) => team.club_id === club.id)
+        const teamLimitOverride = teamLimitOverrideByClubId.get(club.id)
         const clubPlayers = players.filter((player) => player.club_id === club.id)
         const activeClubPlayers = clubPlayers.filter((player) => !isArchivedPlayer(player))
         const clubEvaluations = evaluations.filter((evaluation) => evaluation.club_id === club.id)
@@ -537,6 +543,8 @@ export async function getPlatformStats(user) {
           planKey: normalizePlanKey(club.plan_key, { mapMissingToFree: true }),
           planStatus: String(club.plan_status ?? 'active').trim() || 'active',
           isPlanComped: Boolean(club.is_plan_comped ?? false),
+          teamLimitOverride: teamLimitOverride?.team_limit_override ?? null,
+          teamLimitOverrideUpdatedAt: teamLimitOverride?.updated_at ?? '',
           status: String(club.status ?? 'active').trim() || 'active',
           suspendedAt: club.suspended_at,
           createdAt: club.created_at,

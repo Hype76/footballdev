@@ -57,13 +57,37 @@ async function getTeamCount(clubId) {
   return Number(count ?? 0)
 }
 
+async function getTeamLimitOverride(clubId) {
+  const { data, error } = await supabaseAdmin
+    .from('club_team_limit_overrides')
+    .select('team_limit_override')
+    .eq('club_id', clubId)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  const override = Number(data?.team_limit_override)
+  return Number.isInteger(override) && override > 0 ? override : undefined
+}
+
 async function assertCanCreateTeam(profile) {
   if (isComped(profile)) {
     return
   }
 
-  const currentTeamCount = await getTeamCount(profile.clubId)
-  const teamLimit = getPlanLimit(profile, 'teams')
+  const [currentTeamCount, teamLimitOverride] = await Promise.all([
+    getTeamCount(profile.clubId),
+    getTeamLimitOverride(profile.clubId),
+  ])
+  const planProfile = teamLimitOverride === undefined
+    ? profile
+    : {
+        ...profile,
+        teamLimitOverride,
+      }
+  const teamLimit = getPlanLimit(planProfile, 'teams')
   const planIsActive = profile.planStatus === 'active' || profile.planStatus === 'trialing'
 
   if (!planIsActive) {
@@ -75,7 +99,7 @@ async function assertCanCreateTeam(profile) {
   }
 
   if (teamLimit !== null && teamLimit !== undefined && currentTeamCount >= Number(teamLimit)) {
-    throw Object.assign(new Error(createLimitUpgradeMessage(profile, 'teams', 'Teams')), { statusCode: 403 })
+    throw Object.assign(new Error(createLimitUpgradeMessage(planProfile, 'teams', 'Teams')), { statusCode: 403 })
   }
 }
 

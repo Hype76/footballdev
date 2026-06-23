@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from './_supabase.js'
 import { json, normalizePlanStatus } from './_stripe-billing.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
-import { normalizePlanKey } from '../../src/lib/plans.js'
+import { getPlanDefaultLimit, getPlanLimit, normalizePlanKey, normalizeTeamLimitOverride } from '../../src/lib/plans.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -79,6 +79,58 @@ async function getLatestBillingCustomerEmail(clubId) {
   return String(data?.customer_email ?? '').trim().toLowerCase()
 }
 
+function publicError(message, statusCode = 400) {
+  return Object.assign(new Error(message), { statusCode, exposeMessage: true })
+}
+
+async function saveTeamLimitOverride({ clubId, value, updatedBy }) {
+  let normalizedOverride = null
+
+  try {
+    normalizedOverride = normalizeTeamLimitOverride(value)
+  } catch (error) {
+    throw publicError(error.message, 400)
+  }
+
+  const now = new Date().toISOString()
+
+  if (normalizedOverride === null) {
+    const { error } = await supabaseAdmin
+      .from('club_team_limit_overrides')
+      .delete()
+      .eq('club_id', clubId)
+
+    if (error) {
+      throw publicError('Team allowance could not be saved.', 500)
+    }
+
+    return {
+      teamLimitOverride: null,
+      teamLimitOverrideUpdatedAt: now,
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('club_team_limit_overrides')
+    .upsert({
+      club_id: clubId,
+      team_limit_override: normalizedOverride,
+      updated_by: updatedBy,
+      updated_at: now,
+    }, { onConflict: 'club_id' })
+    .select('team_limit_override, updated_at')
+    .single()
+
+  if (error) {
+    throw publicError('Team allowance could not be saved.', 500)
+  }
+
+  return {
+    teamLimitOverride: data.team_limit_override,
+    teamLimitOverrideUpdatedAt: data.updated_at,
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed' })
@@ -95,15 +147,18 @@ export async function handler(event) {
 
     const { data: currentClub, error: clubError } = await supabaseAdmin
       .from('clubs')
-      .select('id, name, plan_key, plan_status, is_plan_comped, stripe_subscription_id')
+      .select('id, name, plan_key, plan_status, is_plan_comped, stripe_subscription_id, current_period_end, plan_updated_at')
       .eq('id', clubId)
       .single()
 
     if (clubError) {
-      throw clubError
+      throw publicError('Club settings could not be loaded.', 500)
     }
 
     const hasRequestedPlanKey = Object.prototype.hasOwnProperty.call(body, 'planKey')
+    const hasRequestedPlanStatus = Object.prototype.hasOwnProperty.call(body, 'planStatus')
+    const hasRequestedIsPlanComped = Object.prototype.hasOwnProperty.call(body, 'isPlanComped')
+    const hasRequestedTeamLimitOverride = Object.prototype.hasOwnProperty.call(body, 'teamLimitOverride')
     const nextPlanKey = hasRequestedPlanKey
       ? normalizePlanKey(body.planKey)
       : normalizePlanKey(currentClub.plan_key, { mapMissingToFree: true })
@@ -112,39 +167,82 @@ export async function handler(event) {
       return json(400, { success: false, message: 'Choose a valid billing plan.' })
     }
 
-    const nextPlanStatus = normalizePlanStatus(body.planStatus || currentClub.plan_status || 'active')
-    const nextIsPlanComped = Boolean(body.isPlanComped)
-    const shouldChangePause = Boolean(currentClub.is_plan_comped) !== nextIsPlanComped
+    const nextPlanStatus = hasRequestedPlanStatus
+      ? normalizePlanStatus(body.planStatus || 'active')
+      : normalizePlanStatus(currentClub.plan_status || 'active')
+    const nextIsPlanComped = hasRequestedIsPlanComped ? Boolean(body.isPlanComped) : Boolean(currentClub.is_plan_comped)
+    const shouldUpdateBilling = hasRequestedPlanKey || hasRequestedPlanStatus || hasRequestedIsPlanComped
+    const shouldChangePause = shouldUpdateBilling && Boolean(currentClub.is_plan_comped) !== nextIsPlanComped
     const pauseResult = shouldChangePause
       ? await setSubscriptionPause(currentClub.stripe_subscription_id, nextIsPlanComped)
       : { changed: false, message: 'Billing pause state unchanged' }
 
     const now = new Date().toISOString()
-    const { data: updatedClub, error: updateError } = await supabaseAdmin
-      .from('clubs')
-      .update({
-        plan_key: nextPlanKey,
-        plan_status: nextPlanStatus,
-        is_plan_comped: nextIsPlanComped,
-        plan_updated_at: now,
-      })
-      .eq('id', clubId)
-      .select('id, name, plan_key, plan_status, is_plan_comped, stripe_subscription_id, current_period_end, plan_updated_at')
-      .single()
+    let updatedClub = {
+      id: currentClub.id,
+      name: currentClub.name,
+      plan_key: currentClub.plan_key,
+      plan_status: currentClub.plan_status,
+      is_plan_comped: currentClub.is_plan_comped,
+      stripe_subscription_id: currentClub.stripe_subscription_id,
+      current_period_end: currentClub.current_period_end,
+      plan_updated_at: currentClub.plan_updated_at,
+    }
 
-    if (updateError) {
-      throw updateError
+    if (shouldUpdateBilling) {
+      const { data, error: updateError } = await supabaseAdmin
+        .from('clubs')
+        .update({
+          plan_key: nextPlanKey,
+          plan_status: nextPlanStatus,
+          is_plan_comped: nextIsPlanComped,
+          plan_updated_at: now,
+        })
+        .eq('id', clubId)
+        .select('id, name, plan_key, plan_status, is_plan_comped, stripe_subscription_id, current_period_end, plan_updated_at')
+        .single()
+
+      if (updateError) {
+        throw publicError('Club billing could not be updated.', 500)
+      }
+
+      updatedClub = data
     }
 
     let promotion = null
 
-    if (shouldPromoteBillPayer(currentClub.plan_key, nextPlanKey)) {
+    if (shouldUpdateBilling && shouldPromoteBillPayer(currentClub.plan_key, nextPlanKey)) {
       const customerEmail = await getLatestBillingCustomerEmail(clubId)
       promotion = await promoteClubBillPayerToAdmin(supabaseAdmin, {
         clubId,
         customerEmail,
         fallbackToHighestRole: true,
       })
+    }
+
+    let teamLimitOverrideResult = null
+
+    if (hasRequestedTeamLimitOverride) {
+      teamLimitOverrideResult = await saveTeamLimitOverride({
+        clubId,
+        value: body.teamLimitOverride,
+        updatedBy: admin.id,
+      })
+    } else {
+      const { data: existingOverride, error: existingOverrideError } = await supabaseAdmin
+        .from('club_team_limit_overrides')
+        .select('team_limit_override, updated_at')
+        .eq('club_id', clubId)
+        .maybeSingle()
+
+      if (existingOverrideError) {
+        throw publicError('Team allowance could not be loaded.', 500)
+      }
+
+      teamLimitOverrideResult = {
+        teamLimitOverride: existingOverride?.team_limit_override ?? null,
+        teamLimitOverrideUpdatedAt: existingOverride?.updated_at ?? '',
+      }
     }
 
     await supabaseAdmin.from('audit_logs').insert({
@@ -161,21 +259,37 @@ export async function handler(event) {
         planKey: nextPlanKey,
         planStatus: nextPlanStatus,
         isPlanComped: nextIsPlanComped,
+        teamLimitOverride: teamLimitOverrideResult.teamLimitOverride,
+        changedTeamLimitOverride: hasRequestedTeamLimitOverride,
         pauseResult,
         promotedUserId: promotion?.userId || null,
         promotedUserEmail: promotion?.email || null,
       },
     })
 
+    const planProfile = {
+      planKey: nextPlanKey,
+      planStatus: nextPlanStatus,
+      isPlanComped: nextIsPlanComped,
+      teamLimitOverride: teamLimitOverrideResult.teamLimitOverride,
+    }
+    const responseMessage = hasRequestedTeamLimitOverride && !shouldUpdateBilling
+      ? 'Club team allowance updated.'
+      : pauseResult.message
+
     return json(200, {
       success: true,
-      message: pauseResult.message,
+      message: responseMessage,
       club: {
         id: updatedClub.id,
         name: updatedClub.name,
         planKey: updatedClub.plan_key,
         planStatus: updatedClub.plan_status,
         isPlanComped: updatedClub.is_plan_comped,
+        teamLimitOverride: teamLimitOverrideResult.teamLimitOverride,
+        teamLimitOverrideUpdatedAt: teamLimitOverrideResult.teamLimitOverrideUpdatedAt,
+        planTeamLimit: getPlanDefaultLimit(planProfile, 'teams'),
+        effectiveTeamLimit: getPlanLimit(planProfile, 'teams'),
         stripeSubscriptionId: updatedClub.stripe_subscription_id,
         currentPeriodEnd: updatedClub.current_period_end,
         planUpdatedAt: updatedClub.plan_updated_at,
@@ -183,6 +297,10 @@ export async function handler(event) {
     })
   } catch (error) {
     console.error(error)
-    return json(500, { success: false, message: error.message || 'Club billing could not be updated' })
+    const statusCode = Number(error.statusCode ?? 500)
+    const message = error.exposeMessage && error.message
+      ? error.message
+      : 'Club settings could not be updated.'
+    return json(statusCode, { success: false, message })
   }
 }

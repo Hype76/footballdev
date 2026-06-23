@@ -294,7 +294,7 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
   assert.match(planGate, /assertPlanFeature\(planProfile, featureName\)/)
 
   assert.doesNotMatch(manageTeam, /planKey === PLAN_KEYS\.largeClub/)
-  assert.match(manageTeam, /getPlanLimit\(profile, 'teams'\)/)
+  assert.match(manageTeam, /getPlanLimit\(planProfile, 'teams'\)/)
   assert.doesNotMatch(domainTeamActions, /PLAN_KEYS\.largeClub \? null/)
   assert.match(domainTeamActions, /getPlanLimit\(user, 'teams'\)/)
 

@@ -321,7 +321,8 @@ export function TeamManagementPage() {
     [selectedTeamStaff, staffPage],
   )
   const staffAccessEmailCount = useMemo(() => getUniqueStaffAccessEmails(users, []).size, [users])
-  const canCreateMoreTeams = isWithinPlanLimit(user, 'teams', teams.length)
+  const serverEnforcesTeamLimit = user?.role === 'admin' || user?.role === 'super_admin'
+  const canCreateMoreTeams = serverEnforcesTeamLimit || isWithinPlanLimit(user, 'teams', teams.length)
   const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', staffAccessEmailCount)
   const teamLimitMessage = createLimitUpgradeMessage(user, 'teams', 'Teams')
   const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
@@ -372,7 +373,7 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
-      if (!isWithinPlanLimit(user, 'teams', teams.length)) {
+      if (!serverEnforcesTeamLimit && !isWithinPlanLimit(user, 'teams', teams.length)) {
         throw new Error(createLimitUpgradeMessage(user, 'teams', 'Teams'))
       }
 

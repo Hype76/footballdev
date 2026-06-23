@@ -1,4 +1,5 @@
-import { PLAN_OPTIONS, getPlanName } from '../../lib/plans.js'
+import { useState } from 'react'
+import { PLAN_OPTIONS, getPlanDefaultLimit, getPlanLimit, getPlanName } from '../../lib/plans.js'
 import { formatPlatformDate } from '../../lib/platform-admin-stats.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
@@ -10,6 +11,14 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
+
+function formatLimit(value) {
+  if (value === null || value === undefined) {
+    return 'Unlimited'
+  }
+
+  return String(value)
+}
 
 export function PlatformAccountManagementSection({
   clubPage,
@@ -235,6 +244,13 @@ function ClubSummary({
           <span>Free access</span>
         </label>
       </div>
+      <TeamAllowanceControl
+        key={`${clubId}:${club.teamLimitOverride ?? 'default'}`}
+        club={club}
+        clubId={clubId}
+        onClubPlanChange={onClubPlanChange}
+        updatingClubId={updatingClubId}
+      />
       <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
         Current plan: {getPlanName(club)}{club.isPlanComped ? ', Billing override: free access' : ''}
       </p>
@@ -261,6 +277,54 @@ function ClubSummary({
           Delete
         </button>
       </div>
+    </div>
+  )
+}
+
+function TeamAllowanceControl({ club, clubId, onClubPlanChange, updatingClubId }) {
+  const customTeamLimit = club.teamLimitOverride ?? null
+  const [teamLimitDraft, setTeamLimitDraft] = useState(customTeamLimit === null ? '' : String(customTeamLimit))
+  const planTeamLimit = getPlanDefaultLimit(club, 'teams')
+  const effectiveTeamLimit = getPlanLimit(club, 'teams')
+  const normalizedDraft = teamLimitDraft.trim()
+  const savedDraft = customTeamLimit === null ? '' : String(customTeamLimit)
+  const canSaveTeamLimit = normalizedDraft !== savedDraft && updatingClubId !== clubId
+
+  return (
+    <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
+      <div className="grid gap-3 lg:grid-cols-[minmax(180px,260px)_auto] lg:items-end">
+        <label className="block">
+          <span className={eyebrowClass}>Team allowance</span>
+          <input
+            type="number"
+            min="1"
+            max="500"
+            step="1"
+            inputMode="numeric"
+            value={teamLimitDraft}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
+            onChange={(event) => setTeamLimitDraft(event.target.value)}
+            placeholder={formatLimit(planTeamLimit)}
+            className={fieldClass}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!canSaveTeamLimit}
+          title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
+          onClick={() => void onClubPlanChange(club, 'teamLimitOverride', normalizedDraft)}
+          className={secondaryButtonClass}
+        >
+          Save allowance
+        </button>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+        Leave blank to use the plan default.
+      </p>
+      <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+        Current teams: {club.teamCount}. Plan default: {formatLimit(planTeamLimit)}. Custom override: {customTeamLimit === null ? 'None' : customTeamLimit}. Effective allowance: {formatLimit(effectiveTeamLimit)}.
+      </p>
     </div>
   )
 }

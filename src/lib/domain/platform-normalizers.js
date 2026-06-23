@@ -9,6 +9,8 @@ export function normalizePlatformClubRow(row) {
     planKey: normalizePlanKey(row.plan_key, { mapMissingToFree: true }),
     planStatus: String(row.plan_status ?? 'active').trim() || 'active',
     isPlanComped: Boolean(row.is_plan_comped ?? false),
+    teamLimitOverride: normalizeNullablePositiveInteger(row.team_limit_override ?? row.teamLimitOverride),
+    teamLimitOverrideUpdatedAt: row.team_limit_override_updated_at ?? row.teamLimitOverrideUpdatedAt ?? '',
     stripeCustomerId: String(row.stripe_customer_id ?? '').trim(),
     stripeSubscriptionId: String(row.stripe_subscription_id ?? '').trim(),
     stripePriceId: String(row.stripe_price_id ?? '').trim(),
@@ -27,6 +29,15 @@ function normalizeArray(value) {
 function normalizeNumber(value) {
   const numberValue = Number(value ?? 0)
   return Number.isFinite(numberValue) ? numberValue : 0
+}
+
+function normalizeNullablePositiveInteger(value) {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return null
+  }
+
+  const numberValue = Number(value)
+  return Number.isInteger(numberValue) && numberValue > 0 ? numberValue : null
 }
 
 export function normalizePlatformStatsPayload(stats) {
@@ -56,6 +67,8 @@ export function normalizePlatformStatsPayload(stats) {
       planKey: normalizePlanKey(club.planKey, { mapMissingToFree: true }),
       planStatus: String(club.planStatus ?? 'active').trim() || 'active',
       isPlanComped: Boolean(club.isPlanComped),
+      teamLimitOverride: normalizeNullablePositiveInteger(club.teamLimitOverride),
+      teamLimitOverrideUpdatedAt: club.teamLimitOverrideUpdatedAt ?? '',
       status: String(club.status ?? 'active').trim() || 'active',
       suspendedAt: club.suspendedAt ?? '',
       createdAt: club.createdAt ?? '',

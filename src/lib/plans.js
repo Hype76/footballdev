@@ -195,6 +195,7 @@ export const PLAN_OPTIONS = [
 
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
 export const PLAN_KEY_SET = new Set(PLAN_OPTIONS.map((plan) => plan.key))
+export const TEAM_LIMIT_OVERRIDE_MAX = 500
 
 const NEGOTIATED_LIMIT_ALIASES = Object.freeze({
   teams: ['teams', 'teamLimit', 'team_limit', 'teamsLimit', 'teams_limit', 'maxTeams', 'max_teams'],
@@ -202,6 +203,15 @@ const NEGOTIATED_LIMIT_ALIASES = Object.freeze({
   players: ['players', 'playerLimit', 'player_limit', 'playersLimit', 'players_limit', 'maxPlayers', 'max_players'],
   monthlyEvaluations: ['monthlyEvaluations', 'monthly_evaluations', 'monthlyEvaluationLimit', 'monthly_evaluation_limit', 'maxMonthlyEvaluations', 'max_monthly_evaluations'],
 })
+
+const TEAM_LIMIT_OVERRIDE_ALIASES = Object.freeze([
+  'teamLimitOverride',
+  'team_limit_override',
+  'teamAllowanceOverride',
+  'team_allowance_override',
+  'maxTeamsOverride',
+  'max_teams_override',
+])
 
 function getRawPlanValue(value) {
   return typeof value === 'string'
@@ -324,6 +334,86 @@ function getNumericLimitOverride(source, aliases = []) {
   return undefined
 }
 
+function coerceTeamLimitOverride(value) {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return null
+  }
+
+  const numberValue = Number(value)
+
+  if (!Number.isInteger(numberValue) || numberValue < 1 || numberValue > TEAM_LIMIT_OVERRIDE_MAX) {
+    return undefined
+  }
+
+  return numberValue
+}
+
+export function normalizeTeamLimitOverride(value) {
+  const normalizedValue = coerceTeamLimitOverride(value)
+
+  if (normalizedValue === undefined) {
+    throw new Error(`Team allowance must be a whole number between 1 and ${TEAM_LIMIT_OVERRIDE_MAX}, or blank to use the plan default.`)
+  }
+
+  return normalizedValue
+}
+
+function getTeamLimitOverrideFromSource(source, aliases = TEAM_LIMIT_OVERRIDE_ALIASES) {
+  if (!source || typeof source !== 'object') {
+    return undefined
+  }
+
+  for (const alias of aliases) {
+    if (!Object.prototype.hasOwnProperty.call(source, alias)) {
+      continue
+    }
+
+    const normalizedValue = coerceTeamLimitOverride(source[alias])
+
+    if (normalizedValue !== null && normalizedValue !== undefined) {
+      return normalizedValue
+    }
+  }
+
+  return undefined
+}
+
+export function getTeamLimitOverride(user) {
+  const directOverride = getTeamLimitOverrideFromSource(user)
+
+  if (directOverride !== undefined) {
+    return directOverride
+  }
+
+  const negotiatedOverride = getTeamLimitOverrideFromSource(user, NEGOTIATED_LIMIT_ALIASES.teams)
+
+  if (negotiatedOverride !== undefined) {
+    return negotiatedOverride
+  }
+
+  const nestedSources = [
+    user?.negotiatedLimits,
+    user?.negotiated_limits,
+    user?.planLimits,
+    user?.plan_limits,
+    user?.limitOverrides,
+    user?.limit_overrides,
+  ]
+
+  for (const source of nestedSources) {
+    const override = getTeamLimitOverrideFromSource(source, [
+      ...TEAM_LIMIT_OVERRIDE_ALIASES,
+      ...NEGOTIATED_LIMIT_ALIASES.teams,
+    ])
+
+    if (override !== undefined) {
+      return override
+    }
+  }
+
+  return undefined
+}
+
 function getNegotiatedLimitOverride(user, limitName) {
   const aliases = NEGOTIATED_LIMIT_ALIASES[limitName] ?? [limitName]
   const directOverride = getNumericLimitOverride(user, aliases)
@@ -350,6 +440,16 @@ function getNegotiatedLimitOverride(user, limitName) {
   }
 
   return undefined
+}
+
+export function getPlanDefaultLimit(user, limitName) {
+  const planKey = getPlanKey(user)
+
+  if (planKey === PLAN_KEYS.largeClub && limitName === 'teams') {
+    return PLAN_BY_KEY[PLAN_KEYS.developmentClub].limits.teams
+  }
+
+  return getPlan(user).limits[limitName] ?? null
 }
 
 export function hasPlanFeature(user, featureName) {
@@ -405,11 +505,21 @@ export function getPlanLimit(user, limitName) {
 
   const planKey = getPlanKey(user)
 
-  if (planKey === PLAN_KEYS.largeClub) {
-    const negotiatedOverride = getNegotiatedLimitOverride(user, limitName)
+  if (limitName === 'teams') {
+    const teamLimitOverride = getTeamLimitOverride(user)
 
-    if (negotiatedOverride !== undefined) {
-      return negotiatedOverride
+    if (teamLimitOverride !== undefined) {
+      return teamLimitOverride
+    }
+  }
+
+  if (planKey === PLAN_KEYS.largeClub) {
+    if (limitName !== 'teams') {
+      const negotiatedOverride = getNegotiatedLimitOverride(user, limitName)
+
+      if (negotiatedOverride !== undefined) {
+        return negotiatedOverride
+      }
     }
 
     if (limitName === 'teams') {
@@ -417,7 +527,7 @@ export function getPlanLimit(user, limitName) {
     }
   }
 
-  return getPlan(user).limits[limitName] ?? null
+  return getPlanDefaultLimit(user, limitName)
 }
 
 export function isWithinPlanLimit(user, limitName, currentCount) {

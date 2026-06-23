@@ -273,6 +273,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                 planKey: updatedClub.planKey,
                 planStatus: updatedClub.planStatus,
                 isPlanComped: updatedClub.isPlanComped,
+                teamLimitOverride: updatedClub.teamLimitOverride ?? null,
+                teamLimitOverrideUpdatedAt: updatedClub.teamLimitOverrideUpdatedAt ?? '',
+                planTeamLimit: updatedClub.planTeamLimit,
+                effectiveTeamLimit: updatedClub.effectiveTeamLimit,
                 stripeSubscriptionId: updatedClub.stripeSubscriptionId,
                 currentPeriodEnd: updatedClub.currentPeriodEnd,
                 planUpdatedAt: updatedClub.planUpdatedAt,
@@ -564,12 +568,17 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           Authorization: `Bearer ${session?.access_token || ''}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          clubId: club.id,
-          planKey: fieldName === 'planKey' ? value : club.planKey,
-          planStatus: fieldName === 'planStatus' ? value : club.planStatus,
-          isPlanComped: fieldName === 'isPlanComped' ? value : club.isPlanComped,
-        }),
+        body: JSON.stringify(
+          fieldName === 'teamLimitOverride'
+            ? {
+                clubId: club.id,
+                teamLimitOverride: value,
+              }
+            : {
+                clubId: club.id,
+                [fieldName]: value,
+              },
+        ),
       })
       const result = await response.json().catch(() => ({}))
 
@@ -577,8 +586,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         throw new Error(result.message || 'Club plan could not be updated.')
       }
 
-      setSuccessMessage(result.message || 'Club plan updated.')
-      showToast({ title: 'Club plan saved', message: result.message || 'Club plan settings have been updated.' })
+      const successTitle = fieldName === 'teamLimitOverride' ? 'Team allowance saved' : 'Club plan saved'
+      setSuccessMessage(result.message || 'Club settings updated.')
+      showToast({ title: successTitle, message: result.message || 'Club settings have been updated.' })
       patchClubStats(result.club)
       refreshStats()
     } catch (error) {
