@@ -82,6 +82,10 @@ const fixtureModalViewportBaseStyle = {
   '--fixture-modal-viewport-height': '100dvh',
   '--fixture-modal-viewport-top': '0px',
 }
+const fixtureModalViewportBaseState = {
+  viewportStyle: fixtureModalViewportBaseStyle,
+  isKeyboardOpen: false,
+}
 
 const matchRuleCards = [
   {
@@ -136,7 +140,7 @@ function useModalPageScrollLock(isLocked) {
 }
 
 function useFixtureModalViewportStyle() {
-  const [viewportStyle, setViewportStyle] = useState(fixtureModalViewportBaseStyle)
+  const [viewportState, setViewportState] = useState(fixtureModalViewportBaseState)
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -147,10 +151,16 @@ function useFixtureModalViewportStyle() {
       const visualViewport = window.visualViewport
       const viewportHeight = Math.max(320, Math.round(visualViewport?.height || window.innerHeight || 0))
       const viewportTop = Math.max(0, Math.round(visualViewport?.offsetTop || 0))
+      const layoutViewportHeight = Math.max(viewportHeight, Math.round(window.innerHeight || viewportHeight))
+      const keyboardInset = Math.max(0, layoutViewportHeight - viewportHeight - viewportTop)
+      const isKeyboardOpen = keyboardInset > 120
 
-      setViewportStyle({
-        '--fixture-modal-viewport-height': `${viewportHeight}px`,
-        '--fixture-modal-viewport-top': `${viewportTop}px`,
+      setViewportState({
+        viewportStyle: {
+          '--fixture-modal-viewport-height': `${viewportHeight}px`,
+          '--fixture-modal-viewport-top': `${viewportTop}px`,
+        },
+        isKeyboardOpen,
       })
     }
 
@@ -166,7 +176,7 @@ function useFixtureModalViewportStyle() {
     }
   }, [])
 
-  return viewportStyle
+  return viewportState
 }
 
 function isFixtureEditableElement(element) {
@@ -193,6 +203,33 @@ function scrollFixtureControlIntoView(element) {
   const scrollControl = () => element.scrollIntoView({ block: 'center', inline: 'nearest' })
   window.setTimeout(scrollControl, 80)
   window.setTimeout(scrollControl, 320)
+}
+
+function useFixtureKeyboardFocusState() {
+  const [isFixtureControlFocused, setIsFixtureControlFocused] = useState(false)
+
+  const handleFocusCapture = (event) => {
+    setIsFixtureControlFocused(isFixtureEditableElement(event.target))
+    scrollFixtureControlIntoView(event.target)
+  }
+
+  const handleBlurCapture = (event) => {
+    const currentTarget = event.currentTarget
+
+    window.setTimeout(() => {
+      if (currentTarget?.contains?.(document.activeElement) && isFixtureEditableElement(document.activeElement)) {
+        return
+      }
+
+      setIsFixtureControlFocused(false)
+    }, 40)
+  }
+
+  return {
+    isFixtureControlFocused,
+    handleFocusCapture,
+    handleBlurCapture,
+  }
 }
 
 function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
@@ -1304,7 +1341,13 @@ function FixtureSetupModal({
   validationMessage,
 }) {
   const todayMatchDayDate = getTodayMatchDayDateValue()
-  const viewportStyle = useFixtureModalViewportStyle()
+  const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
+  const {
+    isFixtureControlFocused,
+    handleFocusCapture,
+    handleBlurCapture,
+  } = useFixtureKeyboardFocusState()
+  const shouldPrioritizeFixtureFields = isKeyboardOpen && isFixtureControlFocused
 
   return (
     <div
@@ -1332,8 +1375,9 @@ function FixtureSetupModal({
 
         <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleCreateMatch} noValidate>
           <div
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-40 scroll-pt-28 space-y-4 px-4 py-4 sm:px-6 sm:py-5"
-            onFocusCapture={(event) => scrollFixtureControlIntoView(event.target)}
+            className={`${shouldPrioritizeFixtureFields ? 'scroll-pb-8' : 'scroll-pb-40'} min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pt-28 space-y-4 px-4 py-4 sm:scroll-pb-40 sm:px-6 sm:py-5`}
+            onFocusCapture={handleFocusCapture}
+            onBlurCapture={handleBlurCapture}
           >
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
@@ -1491,7 +1535,7 @@ function FixtureSetupModal({
             </p>
           ) : null}
 
-          <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className={`${shouldPrioritizeFixtureFields ? 'hidden sm:flex' : 'flex'} shrink-0 flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6`}>
             <button type="button" onClick={onClose} disabled={isSaving} className={secondaryButtonClass}>Cancel</button>
             <button type="submit" onPointerDown={blurActiveFixtureControl} disabled={isSaving || isFixtureDataLoading} className={primaryButtonClass}>
               {isSaving ? 'Creating...' : isFixtureDataLoading ? 'Loading squad...' : 'Continue to squad'}
@@ -1520,7 +1564,7 @@ function FixtureSquadSelectionModal({
 }) {
   const selectedIds = new Set(selectedPlayerIds)
   const selectedCount = selectedIds.size
-  const viewportStyle = useFixtureModalViewportStyle()
+  const { viewportStyle } = useFixtureModalViewportStyle()
 
   return (
     <div
