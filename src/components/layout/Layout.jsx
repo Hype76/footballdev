@@ -23,6 +23,8 @@ import {
 } from '../../lib/theme.js'
 import { isParentPortalHost } from '../../lib/app-origins.js'
 import { isParentIntentPath } from '../../lib/parent-auth-intent.js'
+import { CAPABILITIES } from '../../lib/paywall-access.js'
+import { canUseUiFeature } from '../../lib/paywall-ui.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
@@ -337,13 +339,15 @@ function QuickActionHotbar({ user }) {
   const [hasActiveOverlay, setHasActiveOverlay] = useState(false)
   const panelRef = useRef(null)
   const canUseEvaluationQuickActions = canCreateEvaluation(user)
+  const canUseClubCalendarQuickAction =
+    isClubAdmin(user) && canUseUiFeature(user, CAPABILITIES.clubWideEvents) && isRecoveryPathVisible('/calendar', { user })
   const canUsePollQuickAction = canManagePolls(user) && isRecoveryPathVisible('/polls', { user })
   const canShowQuickActions =
     Boolean(user?.clubId)
     && !isSuperAdmin(user)
     && !isParentPortalUser(user)
     && Number(user?.roleRank ?? 0) >= 20
-    && (canUseEvaluationQuickActions || canUsePollQuickAction)
+    && (canUseEvaluationQuickActions || canUseClubCalendarQuickAction || canUsePollQuickAction)
 
   useEffect(() => {
     if (!isOpen) {
@@ -375,7 +379,11 @@ function QuickActionHotbar({ user }) {
 
   useEffect(() => {
     const updateOverlayState = () => {
-      setHasActiveOverlay(Boolean(document.querySelector('[aria-modal="true"], [role="dialog"]')))
+      const nextHasActiveOverlay = Boolean(document.querySelector('[aria-modal="true"], [role="dialog"]'))
+      setHasActiveOverlay(nextHasActiveOverlay)
+      if (nextHasActiveOverlay) {
+        setIsOpen(false)
+      }
     }
     const observer = new MutationObserver(updateOverlayState)
 
@@ -393,12 +401,6 @@ function QuickActionHotbar({ user }) {
     }
   }, [])
 
-  useEffect(() => {
-    if (hasActiveOverlay) {
-      setIsOpen(false)
-    }
-  }, [hasActiveOverlay])
-
   if (!canShowQuickActions) {
     return null
   }
@@ -407,7 +409,7 @@ function QuickActionHotbar({ user }) {
     { label: 'Add Player', href: '/add-player', isVisible: canUseEvaluationQuickActions },
     { label: 'Add Session', href: '/sessions/start?action=create-session', isVisible: canUseEvaluationQuickActions },
     { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1', isVisible: canUseEvaluationQuickActions },
-    { label: 'Add Event', href: '/calendar?action=add-event', isVisible: canUseEvaluationQuickActions },
+    { label: 'Add Event', href: '/calendar?action=add-event', isVisible: canUseEvaluationQuickActions || canUseClubCalendarQuickAction },
     { label: 'Create Poll', href: '/polls?action=create-poll', isVisible: canUsePollQuickAction },
     { label: 'Add Voice Note', type: 'voice-note', isVisible: canUseEvaluationQuickActions },
   ]

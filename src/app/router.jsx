@@ -27,7 +27,7 @@ import {
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
 import { isPlanAccessActive } from '../lib/plans.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
-import { canUseRouteFeature, canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../lib/paywall-ui.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../lib/paywall-ui.js'
 import { buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 import {
   canOpenParentPortal,
@@ -854,11 +854,11 @@ function RequirePlayerWorkflowAccess() {
   }
 
   if ((location.pathname === '/calendar' || location.pathname.startsWith('/calendar/')) && isClubAdmin(user)) {
-    if (canUseRouteFeature(user, location.pathname)) {
+    if (canUseUiFeature(user, CAPABILITIES.clubWideCalendar)) {
       return <Outlet />
     }
 
-    return <RouteFeatureUnavailableState path={location.pathname} user={user} />
+    return <FeatureUnavailableState capability={CAPABILITIES.clubWideCalendar} user={user} />
   }
 
   if (needsTeamWorkflowContext(user) || !hasTeamWorkflowContext(user)) {

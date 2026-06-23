@@ -238,7 +238,11 @@ function canCreateClubCalendarEvent(user) {
   return isClubAdmin(user)
 }
 
-function getCalendarEventTypeOptions(user) {
+function getCalendarEventTypeOptions(user, { clubWideOnly = false } = {}) {
+  if (clubWideOnly && canCreateClubCalendarEvent(user)) {
+    return EVENT_TYPE_OPTIONS.filter((option) => !['training', 'match'].includes(option.value))
+  }
+
   if (canCreateClubCalendarEvent(user)) {
     return EVENT_TYPE_OPTIONS
   }
@@ -263,6 +267,31 @@ function getSafeCalendarTeamId(user, teamId) {
   }
 
   return normalizedTeamId || String(user?.activeTeamId ?? '').trim()
+}
+
+function isClubWideShareableCalendarEvent({ form, safeTeamId, user }) {
+  const eventType = getTrimmedFormValue(form?.eventType)
+
+  return canCreateClubCalendarEvent(user)
+    && !safeTeamId
+    && eventType !== 'training'
+    && eventType !== 'match'
+}
+
+function getCalendarParentVisibility({ form, safeTeamId, user }) {
+  const parentVisible = form?.shareWithParents === true
+
+  if (!parentVisible) {
+    return {
+      parentAudience: 'none',
+      parentVisible: false,
+    }
+  }
+
+  return {
+    parentAudience: isClubWideShareableCalendarEvent({ form, safeTeamId, user }) ? 'all_club_parents' : form.parentAudience,
+    parentVisible: true,
+  }
 }
 
 function getTrimmedFormValue(value) {
@@ -383,6 +412,10 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
 
 function validateParentSharing({ form, safeTeamId, selectedPlayers, user }) {
   if (!form.shareWithParents) {
+    return
+  }
+
+  if (isClubWideShareableCalendarEvent({ form, safeTeamId, user })) {
     return
   }
 
@@ -551,7 +584,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
-  const isClubWideCalendar = calendarOnly && isClubAdmin(user) && !user?.activeTeamId
+  const isClubWideCalendar = calendarOnly && isClubAdmin(user)
   const activeTeamScope = isClubWideCalendar ? 'club-wide' : user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const workspaceStorageKey = user?.clubId ? `session-workspace:${user.clubId}:${user.id}:${activeTeamScope}` : ''
@@ -724,7 +757,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         if (isClubWideCalendar) {
           const [teamsResult, calendarItemsResult] = await Promise.allSettled([
             withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
-            withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
+            withRequestTimeout(() => getCalendarEvents({ user, clubWideOnly: true }), 'Could not load calendar events.'),
           ])
 
           if (!isMounted) {
@@ -1200,6 +1233,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setErrorMessage('')
     setCalendarForm({
       ...getDefaultCalendarForm(date),
+      eventType: isClubWideCalendar ? 'general' : getDefaultCalendarForm(date).eventType,
       teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
     })
     setCalendarModal({ mode: 'create', event: null })
@@ -1274,7 +1308,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       }
 
       if (name === 'shareWithParents') {
-        nextForm.parentAudience = checked ? (current.parentAudience === 'none' ? 'involved_players' : current.parentAudience) : 'none'
+        const currentSafeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, current.teamId)
+        nextForm.parentAudience = checked
+          ? isClubWideShareableCalendarEvent({ form: current, safeTeamId: currentSafeTeamId, user })
+            ? 'all_club_parents'
+            : (current.parentAudience === 'none' ? 'involved_players' : current.parentAudience)
+          : 'none'
       }
 
       if (name === 'teamId') {
@@ -1407,7 +1446,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     const activeEvent = calendarModal?.event || null
     const sourceType = activeEvent?.sourceType || ''
-    const safeTeamId = getSafeCalendarTeamId(user, calendarForm.teamId)
+    const safeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, calendarForm.teamId)
     const teamName = getCalendarTeamName(safeTeamId)
     const isTraining = calendarForm.eventType === 'training'
     const isMatch = calendarForm.eventType === 'match'
@@ -1598,8 +1637,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           eventType: calendarForm.eventType,
           location: calendarForm.location,
           notes: calendarForm.notes,
-          parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
-          parentVisible: calendarForm.shareWithParents,
+          ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
           recurrenceFrequency: calendarForm.recurrenceFrequency,
           recurrenceUntil: calendarForm.recurrenceUntil,
           startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
@@ -2090,10 +2128,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             <div className="min-w-0">
               <p className={eyebrowClass}>Calendar</p>
               <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
-                {calendarTitle}
+                {isClubWideCalendar ? 'Club calendar' : calendarTitle}
               </h1>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-                Plan training, fixtures, parent cut offs, and club events without opening the session tools.
+                {isClubWideCalendar
+                  ? 'Club-wide events shared across the club.'
+                  : 'Plan training, fixtures, parent cut offs, and club events without opening the session tools.'}
               </p>
             </div>
 
@@ -2146,6 +2186,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           }}
           onSubmit={handleCalendarSave}
           selectedInvitePlayers={selectedCalendarInvitePlayers}
+          clubWideOnly={isClubWideCalendar}
           teams={teams}
           user={user}
           variant={calendarModal?.variant || ''}
@@ -2453,6 +2494,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 }
 
 function CalendarEventModal({
+  clubWideOnly = false,
   currentInvites = [],
   event,
   form,
@@ -2481,19 +2523,21 @@ function CalendarEventModal({
   const showOpponent = form.eventType === 'match'
   const isMatchFixture = form.eventType === 'match'
   const showRecurrence = form.eventType !== 'match'
-  const showInvites = form.shareWithParents && form.parentAudience === 'involved_players'
   const isSessionCreate = mode === 'create' && variant === 'session'
   const title = isSessionCreate ? 'Create session' : mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
   const selectedSummary = isMatchFixture
     ? [form.date, form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
     : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
+  const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
+  const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
+  const showInvites = !canShareClubWideWithParents && form.shareWithParents && form.parentAudience === 'involved_players'
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
   const inviteTeamId = canUseClubLevel ? form.teamId : form.teamId || user?.activeTeamId
   const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
-  const eventTypeOptions = getCalendarEventTypeOptions(user)
+  const eventTypeOptions = getCalendarEventTypeOptions(user, { clubWideOnly })
   const parentAudienceOptions = [
     { value: 'involved_players', label: 'Only parents of involved players' },
     ...(hasInviteTeam ? [{ value: 'all_team_parents', label: 'All parents in the team' }] : []),
@@ -2601,21 +2645,31 @@ function CalendarEventModal({
                   ))}
                 </select>
               </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#101828]">Team</span>
-                <select name="teamId" value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
-                  {canUseClubLevel ? <option value="">Club level</option> : null}
-                  {!canUseClubLevel && !form.teamId ? <option value="">Choose team</option> : null}
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>{team.name}</option>
-                  ))}
-                </select>
-                {!canUseClubLevel ? (
+              {clubWideOnly ? (
+                <div className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Scope</span>
+                  <div className={`${fieldClass} flex items-center`}>Club level</div>
                   <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
-                    Team staff can only save events against their assigned team.
+                    Club Admin calendar events are shared across the club and are not tied to one team.
                   </span>
-                ) : null}
-              </label>
+                </div>
+              ) : (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Team</span>
+                  <select name="teamId" value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                    {canUseClubLevel ? <option value="">Club level</option> : null}
+                    {!canUseClubLevel && !form.teamId ? <option value="">Choose team</option> : null}
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                  {!canUseClubLevel ? (
+                    <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
+                      Team staff can only save events against their assigned team.
+                    </span>
+                  ) : null}
+                </label>
+              )}
             </div>
 
             <label className="block">
@@ -2706,6 +2760,26 @@ function CalendarEventModal({
               </div>
             )}
 
+            {canShareClubWideWithParents ? (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="shareWithParents"
+                    checked={form.shareWithParents}
+                    onChange={onChange}
+                    disabled={isBusy}
+                    className="mt-1 h-5 w-5 accent-[#047857]"
+                  />
+                  <span>
+                    <span className="block text-sm font-black text-[#101828]">Share with parents</span>
+                    <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+                      Parents will see this event in their Parent Portal calendar.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            ) : (
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
@@ -2750,6 +2824,7 @@ function CalendarEventModal({
                 </p>
               ) : null}
             </div>
+            )}
 
             {showInvites ? (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">

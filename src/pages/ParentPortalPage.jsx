@@ -1215,6 +1215,7 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
       type: event.eventType === 'general' ? 'club-event' : 'deadline',
       title: event.title || 'Shared event',
       description: [event.location, event.notes].filter(Boolean).join(', '),
+      isClubWide: event.isClubWide === true,
       location: event.location,
       teamName: event.teamName || '',
       editable: false,
@@ -1269,7 +1270,7 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
 }
 
 function attachParentCalendarContext(event, link) {
-  const contextLabel = formatParentChildTeamLabel(link)
+  const contextLabel = event.isClubWide ? 'Club-wide' : formatParentChildTeamLabel(link)
 
   return {
     ...event,
@@ -1280,8 +1281,17 @@ function attachParentCalendarContext(event, link) {
   }
 }
 
+function getAllLinkedParentCalendarDedupeKey(event) {
+  if (event?.sourceType === 'parent-calendar-event' && event?.isClubWide === true) {
+    return `${event.sourceType}:${event.sourceId}`
+  }
+
+  return ''
+}
+
 function buildAllLinkedParentCalendarEvents({ calendarItemsByLinkId = {}, links = [] } = {}) {
   const allEvents = []
+  const clubWideEventsBySource = new Map()
 
   links.forEach((link) => {
     const items = calendarItemsByLinkId[link.id]
@@ -1291,8 +1301,23 @@ function buildAllLinkedParentCalendarEvents({ calendarItemsByLinkId = {}, links 
     }
 
     buildParentCalendarEvents(items).forEach((event) => {
-      allEvents.push(attachParentCalendarContext(event, link))
+      const calendarEvent = attachParentCalendarContext(event, link)
+      const dedupeKey = getAllLinkedParentCalendarDedupeKey(calendarEvent)
+
+      if (dedupeKey) {
+        clubWideEventsBySource.set(dedupeKey, {
+          ...calendarEvent,
+          id: `club-wide:${calendarEvent.sourceType}:${calendarEvent.sourceId}`,
+        })
+        return
+      }
+
+      allEvents.push(calendarEvent)
     })
+  })
+
+  clubWideEventsBySource.forEach((event) => {
+    allEvents.push(event)
   })
 
   return allEvents.sort((left, right) =>

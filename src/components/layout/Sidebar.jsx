@@ -18,6 +18,7 @@ import {
   canViewEndSeasonStats,
   hasTeamWorkflowContext,
   canViewPlatformFeedback,
+  isClubAdmin,
   isParentPortalUser,
   isSuperAdmin,
   useAuth,
@@ -287,10 +288,14 @@ export function Sidebar({ isOpen, onClose }) {
       return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/parent-polls' || item.path === '/friends-family'
     }
 
+    if (item.path === '/calendar') {
+      return (canUseTeamWorkflow && canCreateEvaluation(displayUser) && canUseUiFeature(displayUser, getRouteCapability(item.path)))
+        || (isClubAdmin(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.clubWideCalendar))
+    }
+
     if (
       item.path === '/assess-player' ||
-      item.path === '/sessions' ||
-      item.path === '/calendar'
+      item.path === '/sessions'
     ) {
       return canUseTeamWorkflow && canCreateEvaluation(displayUser) && canUseUiFeature(displayUser, getRouteCapability(item.path))
     }

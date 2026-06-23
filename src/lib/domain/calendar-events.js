@@ -205,13 +205,14 @@ async function assertCalendarFeatureAccess({ user, payload }) {
   }
 }
 
-export async function getCalendarEvents({ user } = {}) {
+export async function getCalendarEvents({ user, clubWideOnly = false } = {}) {
   if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin') {
     return []
   }
 
-  const activeTeamId = normalizeText(user.activeTeamId)
-  const cacheKey = `calendar-events:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'club-wide'}`
+  const activeTeamId = clubWideOnly ? '' : normalizeText(user.activeTeamId)
+  const cacheScope = clubWideOnly ? 'club-wide-only' : activeTeamId || 'club-wide'
+  const cacheKey = `calendar-events:${user.clubId}:${user.id}:${user.roleRank}:${cacheScope}`
 
   return getCachedResource(cacheKey, async () => {
     let query = supabase
@@ -221,7 +222,9 @@ export async function getCalendarEvents({ user } = {}) {
       .is('cancelled_at', null)
       .order('starts_at', { ascending: true })
 
-    if (activeTeamId) {
+    if (clubWideOnly) {
+      query = query.is('team_id', null)
+    } else if (activeTeamId) {
       query = query.or(`team_id.eq.${activeTeamId},team_id.is.null`)
     } else {
       query = query.is('team_id', null)
