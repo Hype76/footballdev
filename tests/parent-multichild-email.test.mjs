@@ -140,7 +140,7 @@ test('parent settings different email uses safe link-flow wording without raw au
 test('parent portal selector continues to expose every linked child for one parent account', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
-  assert.match(source, /function ParentChildSelector\(\{ links, onSelect, otherLinks, selectedLink \}\)/)
+  assert.match(source, /function ParentChildSelector\(\{[^}]*links[^}]*onSelect[^}]*otherLinks[^}]*selectedLink[^}]*\}\)/)
   assert.match(source, /links\.map\(\(link\) => \(/)
   assert.match(source, /otherLinks\.map\(\(link\) => \(/)
   assert.match(source, /onClick=\{\(\) => onSelect\(link\.id\)\}/)

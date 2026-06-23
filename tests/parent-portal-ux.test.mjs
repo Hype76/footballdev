@@ -158,6 +158,9 @@ test('parent settings expose safe profile, notification, and theme controls', as
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
   assert.match(source, /function ParentSettingsPanel/)
+  assert.match(source, /function ParentPortalSignOutButton/)
+  assert.match(source, /'Sign out'/)
+  assert.match(source, /<ParentPortalSignOutButton/)
   assert.match(source, /Display name/)
   assert.match(source, /Email address/)
   assert.match(source, /Save display name/)

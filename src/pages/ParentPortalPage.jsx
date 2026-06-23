@@ -284,7 +284,7 @@ function orderPlayersWithRecentScorers(players, match) {
 }
 
 export function ParentPortalPage() {
-  const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
+  const { authUser, resetPassword, signOut, updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
   const [searchParams] = useSearchParams()
   const links = useMemo(() => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []), [user?.parentPortalLinks])
@@ -309,6 +309,8 @@ export function ParentPortalPage() {
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [activeSection, setActiveSection] = useState('overview')
   const [parentThemePreference, setParentThemePreference] = useState(() => normalizeThemeMode(getStoredThemeMode()))
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
@@ -381,6 +383,24 @@ export function ParentPortalPage() {
           detail: { mode: nextMode },
         }),
       )
+    }
+  }
+
+  const handleParentSignOut = async () => {
+    setIsSigningOut(true)
+    setSignOutError('')
+
+    try {
+      await signOut()
+      window.sessionStorage.clear()
+      window.location.replace('/parent-login')
+    } catch (error) {
+      console.error(error)
+      const message = 'We could not sign you out. Please try again.'
+      setSignOutError(message)
+      showToast({ title: 'Sign out failed', message, tone: 'error' })
+    } finally {
+      setIsSigningOut(false)
     }
   }
 
@@ -747,14 +767,17 @@ export function ParentPortalPage() {
           </div>
 
           <ParentChildSelector
+            isSigningOut={isSigningOut}
             links={links}
             onSelect={setSelectedLinkId}
+            onSignOut={handleParentSignOut}
             otherLinks={otherLinks}
             selectedLink={selectedLink}
           />
         </div>
       </section>
 
+      {signOutError ? <NoticeBanner title="Sign out failed" message={signOutError} /> : null}
       {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
 
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
@@ -833,8 +856,10 @@ export function ParentPortalPage() {
               authUser={authUser}
               hasPushSubscription={hasPushSubscription}
               isUpdatingPush={isUpdatingPush}
+              isSigningOut={isSigningOut}
               onDisableNotifications={handleDisableNotifications}
               onEnableNotifications={handleEnableNotifications}
+              onSignOut={handleParentSignOut}
               onThemePreferenceChange={handleParentThemePreferenceChange}
               resetPassword={resetPassword}
               updateCurrentUserDetails={updateCurrentUserDetails}
@@ -868,8 +893,10 @@ function ParentSettingsPanel({
   authUser,
   hasPushSubscription,
   isUpdatingPush,
+  isSigningOut,
   onDisableNotifications,
   onEnableNotifications,
+  onSignOut,
   onThemePreferenceChange,
   parentEmail,
   parentLinks,
@@ -1034,11 +1061,20 @@ function ParentSettingsPanel({
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
       <div className="space-y-4">
         <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
-          <p className={eyebrowClass}>Settings</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
-          <p className={`mt-3 ${bodyTextClass}`}>
-            Manage your family portal account, linked children, notifications, and display preference.
-          </p>
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>Settings</p>
+              <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
+              <p className={`mt-3 ${bodyTextClass}`}>
+                Manage your family portal account, linked children, notifications, and display preference.
+              </p>
+            </div>
+            <ParentPortalSignOutButton
+              className="w-full sm:w-auto"
+              isSigningOut={isSigningOut}
+              onSignOut={onSignOut}
+            />
+          </div>
         </div>
 
         {statusMessage ? (
@@ -1604,13 +1640,31 @@ function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
   )
 }
 
-function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
+function ParentPortalSignOutButton({ className = '', isSigningOut, onSignOut }) {
+  return (
+    <button
+      type="button"
+      onClick={onSignOut}
+      disabled={isSigningOut}
+      className={`${secondaryButtonClass} ${className}`.trim()}
+    >
+      {isSigningOut ? 'Signing out...' : 'Sign out'}
+    </button>
+  )
+}
+
+function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, otherLinks, selectedLink }) {
   if (!selectedLink) {
     return (
       <div className={panelClass}>
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Child being viewed</p>
         <p className="mt-2 text-lg font-black text-[#101828]">No linked child yet</p>
         <p className={`mt-2 ${bodyTextClass}`}>{noChildMessage}</p>
+        <ParentPortalSignOutButton
+          className="mt-4 w-full"
+          isSigningOut={isSigningOut}
+          onSignOut={onSignOut}
+        />
       </div>
     )
   }
@@ -1638,6 +1692,11 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
       <p className={`mt-3 ${bodyTextClass}`}>
         You are only viewing information the club has shared for this child.
       </p>
+      <ParentPortalSignOutButton
+        className="mt-4 w-full"
+        isSigningOut={isSigningOut}
+        onSignOut={onSignOut}
+      />
 
       {otherLinks.length > 0 ? (
         <div className="mt-4 space-y-2">
