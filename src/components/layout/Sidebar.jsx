@@ -511,30 +511,6 @@ export function Sidebar({ isOpen, onClose }) {
               ) : null}
               {!isCoachOnly ? (
                 <NavLink
-                to="/information"
-                data-tour-id="sidebar-information"
-                onClick={(event) => {
-                  if (event.currentTarget.getAttribute('aria-current') === 'page') {
-                    event.preventDefault()
-                    return
-                  }
-
-                  onClose()
-                }}
-                className={({ isActive }) =>
-                  [
-                    'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
-                    isActive
-                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
-                      : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
-                  ].join(' ')
-                }
-              >
-                How to use
-              </NavLink>
-              ) : null}
-              {!isCoachOnly ? (
-                <NavLink
                 to={feedbackRoute}
                 data-tour-id="sidebar-tester-feedback"
                 onClick={(event) => {
