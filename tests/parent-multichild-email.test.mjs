@@ -120,10 +120,12 @@ test('parent settings display name is club-managed and has no parent self-servic
 test('parent portal selector continues to expose every linked child for one parent account', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
-  assert.match(source, /function ParentChildSelector\(\{[^}]*links[^}]*onSelect[^}]*otherLinks[^}]*selectedLink[^}]*\}\)/)
+  assert.match(source, /function ParentChildSelector\(\{[^}]*links[^}]*onSelect[^}]*selectedLink[^}]*\}\)/)
+  assert.match(source, /function formatParentChildTeamLabel\(link\)/)
   assert.match(source, /links\.map\(\(link\) => \(/)
-  assert.match(source, /otherLinks\.map\(\(link\) => \(/)
-  assert.match(source, /onClick=\{\(\) => onSelect\(link\.id\)\}/)
+  assert.match(source, /onChange=\{\(event\) => onSelect\(event\.target\.value\)\}/)
+  assert.doesNotMatch(source, /Other linked children/)
+  assert.doesNotMatch(source, /otherLinks\.map\(\(link\) => \(/)
 })
 
 test('unsafe parent email takeover remains rejected by signed-in auth identity checks', async () => {

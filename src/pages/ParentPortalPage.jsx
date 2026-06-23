@@ -140,6 +140,12 @@ function getParentMatchEventDetail(event) {
   return detailParts.filter(Boolean).join(', ')
 }
 
+function formatParentChildTeamLabel(link) {
+  const childName = String(link?.playerName ?? '').trim() || 'Linked child'
+  const teamName = String(link?.teamName ?? '').trim() || 'Team not available'
+  return `${childName} - ${teamName}`
+}
+
 function isPreviousMatch(match) {
   if (match.status === 'full_time') {
     return true
@@ -298,27 +304,35 @@ export function ParentPortalPage() {
   const [matchErrorTitle, setMatchErrorTitle] = useState(parentMatchDayActionErrorTitle)
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [activeSection, setActiveSection] = useState('overview')
+  const [calendarScope, setCalendarScope] = useState('selected')
+  const [allLinkedCalendarItems, setAllLinkedCalendarItems] = useState({})
+  const [isLoadingAllLinkedCalendar, setIsLoadingAllLinkedCalendar] = useState(false)
   const [parentThemePreference, setParentThemePreference] = useState(() => normalizeThemeMode(getStoredThemeMode()))
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
-  const otherLinks = links.filter((link) => link.id !== selectedLink?.id)
   const activeMatches = useMemo(() => matches.filter((match) => !isPreviousMatch(match)), [matches])
   const previousMatches = useMemo(() => matches.filter(isPreviousMatch), [matches])
   const parentCalendarEvents = useMemo(
     () => buildParentCalendarEvents({ eventInvites, matches, sharedCalendarEvents }),
     [eventInvites, matches, sharedCalendarEvents],
   )
+  const allLinkedParentCalendarEvents = useMemo(
+    () => buildAllLinkedParentCalendarEvents({ calendarItemsByLinkId: allLinkedCalendarItems, links }),
+    [allLinkedCalendarItems, links],
+  )
+  const visibleCalendarEvents = calendarScope === 'all' ? allLinkedParentCalendarEvents : parentCalendarEvents
+  const isCalendarLoading = isLoadingMatches || (calendarScope === 'all' && isLoadingAllLinkedCalendar)
   const parentNavCounts = useMemo(() => ({
-    calendar: parentCalendarEvents.length,
+    calendar: visibleCalendarEvents.length,
     invites: eventInvites.length,
     matches: activeMatches.length,
     results: previousMatches.length,
     messages: 0,
     polls: 0,
-  }), [activeMatches.length, eventInvites.length, parentCalendarEvents.length, previousMatches.length])
+  }), [activeMatches.length, eventInvites.length, previousMatches.length, visibleCalendarEvents.length])
   const squadPlayers = useMemo(
     () =>
       players
@@ -468,6 +482,65 @@ export function ParentPortalPage() {
       window.clearInterval(intervalId)
     }
   }, [selectedLink?.id])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    async function runLoadAllLinkedCalendar() {
+      if (calendarScope !== 'all' || links.length === 0) {
+        setAllLinkedCalendarItems({})
+        setIsLoadingAllLinkedCalendar(false)
+        return
+      }
+
+      setIsLoadingAllLinkedCalendar(true)
+      setMatchError('')
+      setMatchErrorTitle(parentMatchDayLoadErrorTitle)
+
+      try {
+        const entries = await Promise.all(
+          links.map(async (link) => {
+            const [nextMatches, nextEventInvites, nextSharedCalendarEvents] = await Promise.all([
+              getParentPortalMatchDays({ parentLinkId: link.id }),
+              getParentPortalEventInvites({ parentLinkId: link.id }),
+              getParentPortalSharedCalendarEvents({ parentLinkId: link.id }),
+            ])
+
+            return [
+              link.id,
+              {
+                eventInvites: nextEventInvites,
+                matches: nextMatches,
+                sharedCalendarEvents: nextSharedCalendarEvents,
+              },
+            ]
+          }),
+        )
+
+        if (isCurrent) {
+          setAllLinkedCalendarItems(Object.fromEntries(entries))
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isCurrent) {
+          setAllLinkedCalendarItems({})
+          setMatchErrorTitle(parentMatchDayLoadErrorTitle)
+          setMatchError(getParentMatchDayErrorMessage(error, parentMatchDayLoadErrorMessage))
+        }
+      } finally {
+        if (isCurrent) {
+          setIsLoadingAllLinkedCalendar(false)
+        }
+      }
+    }
+
+    void runLoadAllLinkedCalendar()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [calendarScope, links])
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -761,7 +834,6 @@ export function ParentPortalPage() {
             links={links}
             onSelect={setSelectedLinkId}
             onSignOut={handleParentSignOut}
-            otherLinks={otherLinks}
             selectedLink={selectedLink}
           />
         </div>
@@ -796,11 +868,14 @@ export function ParentPortalPage() {
           {activeSection === 'calendar' ? (
             <ParentCalendarPanel
               calendarCursor={calendarCursor}
-              calendarEvents={parentCalendarEvents}
+              calendarEvents={visibleCalendarEvents}
+              calendarScope={calendarScope}
               calendarView={calendarView}
-              isLoading={isLoadingMatches}
+              isLoading={isCalendarLoading}
+              links={links}
               onCursorChange={setCalendarCursor}
               onOpenEvent={setSelectedCalendarEvent}
+              onScopeChange={setCalendarScope}
               onViewChange={setCalendarView}
               selectedLink={selectedLink}
             />
@@ -1193,6 +1268,41 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
   )
 }
 
+function attachParentCalendarContext(event, link) {
+  const contextLabel = formatParentChildTeamLabel(link)
+
+  return {
+    ...event,
+    id: `${link.id}:${event.id}`,
+    contextLabel,
+    childName: String(link?.playerName ?? '').trim() || 'Linked child',
+    teamName: event.teamName || String(link?.teamName ?? '').trim() || '',
+  }
+}
+
+function buildAllLinkedParentCalendarEvents({ calendarItemsByLinkId = {}, links = [] } = {}) {
+  const allEvents = []
+
+  links.forEach((link) => {
+    const items = calendarItemsByLinkId[link.id]
+
+    if (!items) {
+      return
+    }
+
+    buildParentCalendarEvents(items).forEach((event) => {
+      allEvents.push(attachParentCalendarContext(event, link))
+    })
+  })
+
+  return allEvents.sort((left, right) =>
+    left.date.localeCompare(right.date) ||
+    String(left.time || '').localeCompare(String(right.time || '')) ||
+    left.contextLabel.localeCompare(right.contextLabel) ||
+    left.title.localeCompare(right.title),
+  )
+}
+
 function ParentOverviewPanel({
   activeMatches,
   calendarEvents,
@@ -1316,10 +1426,13 @@ function ParentOverviewPanel({
 function ParentCalendarPanel({
   calendarCursor,
   calendarEvents,
+  calendarScope,
   calendarView,
   isLoading,
+  links,
   onCursorChange,
   onOpenEvent,
+  onScopeChange,
   onViewChange,
   selectedLink,
 }) {
@@ -1335,9 +1448,41 @@ function ParentCalendarPanel({
 
   return (
     <section className="space-y-3">
+      <div className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Calendar view</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {[
+            { id: 'selected', label: 'Selected child/team only' },
+            { id: 'all', label: 'All linked children' },
+          ].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onScopeChange(option.id)}
+              aria-pressed={calendarScope === option.id}
+              disabled={option.id === 'all' && links.length < 2}
+              className={[
+                'min-h-11 rounded-lg border px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60',
+                calendarScope === option.id
+                  ? 'border-[#047857] bg-[#047857] text-white'
+                  : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#047857] hover:bg-white',
+              ].join(' ')}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className={`mt-3 ${bodyTextClass}`}>
+          {calendarScope === 'all'
+            ? 'Showing parent-visible calendar items across every linked child/team context.'
+            : `Showing parent-visible calendar items for ${formatParentChildTeamLabel(selectedLink)}.`}
+        </p>
+      </div>
       <FootballCalendar
         cursor={calendarCursor}
-        description="Sessions, match days, response deadlines, and shared development updates."
+        description={calendarScope === 'all'
+          ? 'Sessions, match days, response deadlines, and shared development updates for all linked children.'
+          : 'Sessions, match days, response deadlines, and shared development updates.'}
         events={calendarEvents}
         isLoading={isLoading}
         onCursorChange={onCursorChange}
@@ -1347,7 +1492,11 @@ function ParentCalendarPanel({
         view={calendarView}
       />
       {!isLoading && calendarEvents.length === 0 ? (
-        <p className={emptyClass}>No shared calendar activity is available for this child yet. When the club shares a parent-visible date, it will appear here.</p>
+        <p className={emptyClass}>
+          {calendarScope === 'all'
+            ? 'No shared calendar activity is available for linked children yet. When the club shares parent-visible dates, they will appear here.'
+            : 'No shared calendar activity is available for this child yet. When the club shares a parent-visible date, it will appear here.'}
+        </p>
       ) : null}
     </section>
   )
@@ -1481,6 +1630,11 @@ function ParentCalendarEventModal({ event, onClose }) {
           <div>
             <p className={eyebrowClass}>{typeLabel}</p>
             <h3 className="mt-2 text-xl font-black tracking-tight text-[#101828]">{event.title}</h3>
+            {event.contextLabel ? (
+              <p className="mt-2 inline-flex rounded-full border border-[#bbf7d0] bg-[#ecfdf5] px-2 py-1 text-xs font-black text-[#047857]">
+                {event.contextLabel}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -1563,7 +1717,7 @@ function ParentPortalSignOutButton({ className = '', isSigningOut, onSignOut }) 
   )
 }
 
-function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, otherLinks, selectedLink }) {
+function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, selectedLink }) {
   if (!selectedLink) {
     return (
       <div className={panelClass}>
@@ -1592,7 +1746,7 @@ function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, otherLi
       >
         {links.map((link) => (
           <option key={link.id} value={link.id}>
-            {link.playerName || 'Linked child'}
+            {formatParentChildTeamLabel(link)}
           </option>
         ))}
       </select>
@@ -1607,23 +1761,6 @@ function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, otherLi
         isSigningOut={isSigningOut}
         onSignOut={onSignOut}
       />
-
-      {otherLinks.length > 0 ? (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Other linked children</p>
-          {otherLinks.map((link) => (
-            <button
-              key={link.id}
-              type="button"
-              onClick={() => onSelect(link.id)}
-              className="block w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-left transition hover:border-[#047857] hover:bg-white"
-            >
-              <p className="text-sm font-black text-[#101828]">{link.playerName || 'Linked child'}</p>
-              <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}</p>
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   )
 }

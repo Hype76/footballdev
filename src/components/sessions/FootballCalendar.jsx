@@ -129,6 +129,10 @@ function getEventScopeLabel(event) {
   return event?.isClubWide || event?.isInheritedClubEvent ? 'Club-wide' : ''
 }
 
+function getEventContextLabel(event) {
+  return String(event?.contextLabel ?? '').trim()
+}
+
 function groupAgendaEvents(events) {
   const todayKey = getDateKey(new Date())
   const orderedEvents = [...events]
@@ -304,6 +308,11 @@ export function FootballCalendar({
                       >
                         <span>{event.title}</span>
                         {getEventScopeLabel(event) ? <span className="ml-1 opacity-80">Club-wide</span> : null}
+                        {getEventContextLabel(event) ? (
+                          <span className="block truncate text-[0.55rem] font-semibold opacity-80 sm:text-[0.65rem]">
+                            {getEventContextLabel(event)}
+                          </span>
+                        ) : null}
                       </button>
                     ))}
                     {dayEvents.length > 3 ? (
@@ -361,6 +370,7 @@ export function FootballCalendar({
                         className={`block min-h-11 w-full rounded-md border px-3 py-2 text-left text-sm font-black leading-5 ${getEventTone(event.type)}`}
                       >
                         <span className="block">{event.title}</span>
+                        {getEventContextLabel(event) ? <span className="mt-1 block text-xs font-semibold opacity-80">{getEventContextLabel(event)}</span> : null}
                         {getEventScopeLabel(event) ? <span className="mt-1 block text-xs font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block text-xs font-semibold opacity-80">{event.time}</span> : null}
                       </button>
@@ -409,6 +419,7 @@ export function FootballCalendar({
                         className={`block w-full rounded-md border px-3 py-2 text-left text-xs font-black leading-4 ${getEventTone(event.type)}`}
                       >
                         <span className="block">{event.title}</span>
+                        {getEventContextLabel(event) ? <span className="mt-1 block font-semibold opacity-80">{getEventContextLabel(event)}</span> : null}
                         {getEventScopeLabel(event) ? <span className="mt-1 block font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block font-semibold opacity-80">{event.time}</span> : null}
                       </button>
@@ -443,7 +454,7 @@ export function FootballCalendar({
                           </span>
                           <p className="mt-2 text-base font-black text-[#101828]">{event.title}</p>
                           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-                            {[event.time ? `Time: ${event.time}` : '', event.location, event.teamName ? `Team: ${event.teamName}` : '', getEventScopeLabel(event)].filter(Boolean).join(', ') || 'Details will appear when the club shares them.'}
+                            {[event.time ? `Time: ${event.time}` : '', getEventContextLabel(event), event.location, event.teamName ? `Team: ${event.teamName}` : '', getEventScopeLabel(event)].filter(Boolean).join(', ') || 'Details will appear when the club shares them.'}
                           </p>
                         </div>
                         <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">Open</span>
@@ -496,6 +507,11 @@ export function FootballCalendar({
                   <span className="flex flex-wrap items-center gap-2">
                     {event.time ? <span>{event.time}</span> : null}
                     <span>{event.title}</span>
+                    {getEventContextLabel(event) ? (
+                      <span className="rounded-full border border-[#bbf7d0] bg-white px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] text-[#065f46]">
+                        {getEventContextLabel(event)}
+                      </span>
+                    ) : null}
                     {getEventScopeLabel(event) ? (
                       <span className="rounded-full border border-[#bbf7d0] bg-white px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] text-[#065f46]">
                         {getEventScopeLabel(event)}
