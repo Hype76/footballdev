@@ -178,12 +178,34 @@ function normalizeSettingsEmail(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
+function getAuthUserSettingsEmails(authUser) {
+  const identityEmails = Array.isArray(authUser?.identities)
+    ? authUser.identities.map((identity) => identity?.identity_data?.email)
+    : []
+
+  return [...new Set([
+    authUser?.email,
+    authUser?.user_metadata?.email,
+    authUser?.user_metadata?.parent_email,
+    ...identityEmails,
+  ].map(normalizeSettingsEmail).filter(Boolean))]
+}
+
 function getLinkedParentEmails(parentLinks = []) {
   return [...new Set(
     (parentLinks ?? [])
       .map((link) => normalizeSettingsEmail(link?.email))
       .filter(Boolean),
   )]
+}
+
+function getParentSettingsCurrentEmails({ authUser, parentEmail, parentLinks, selectedLink } = {}) {
+  return new Set([
+    normalizeSettingsEmail(parentEmail),
+    normalizeSettingsEmail(selectedLink?.email),
+    ...getAuthUserSettingsEmails(authUser),
+    ...getLinkedParentEmails(parentLinks),
+  ].filter(Boolean))
 }
 
 function getParentEmailSaveErrorMessage(error) {
@@ -886,12 +908,12 @@ function ParentSettingsPanel({
   const handleEmailSubmit = async (event) => {
     event.preventDefault()
     const normalizedEmail = normalizeSettingsEmail(email)
-    const authEmail = normalizeSettingsEmail(authUser?.email)
-    const currentEmails = new Set([
-      normalizeSettingsEmail(parentEmail),
-      authEmail,
-      ...getLinkedParentEmails(parentLinks),
-    ].filter(Boolean))
+    const currentEmails = getParentSettingsCurrentEmails({
+      authUser,
+      parentEmail,
+      parentLinks,
+      selectedLink,
+    })
 
     setIsSavingEmail(true)
     clearMessages()
@@ -902,18 +924,7 @@ function ParentSettingsPanel({
       }
 
       if (currentEmails.has(normalizedEmail)) {
-        const syncedParentLinks = authEmail && normalizedEmail === authEmail
-          ? await updateOwnParentPortalLinksEmail({ authUser, email: normalizedEmail })
-          : []
-        const nextUserDetails = {
-          ...(authEmail && normalizedEmail === authEmail ? { email: normalizedEmail } : {}),
-          ...(syncedParentLinks.length > 0 ? { parentPortalLinks: syncedParentLinks } : {}),
-        }
-
-        if (Object.keys(nextUserDetails).length > 0) {
-          updateCurrentUserDetails(nextUserDetails)
-        }
-
+        setEmail(normalizedEmail)
         setStatusMessage('Email already saved for this family portal account.')
         showToast({ title: 'Email saved', message: 'Your linked child access is already using this parent email.' })
         return

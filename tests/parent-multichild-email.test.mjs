@@ -81,10 +81,21 @@ test('parent invite flow sends existing parent accounts to sign in with the chil
 
 test('parent settings save treats current linked emails as idempotent and masks duplicate auth errors', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
+  const noOpStart = source.indexOf('if (currentEmails.has(normalizedEmail))')
+  const authUpdateStart = source.indexOf('const result = await requestLoginEmailChange', noOpStart)
+  const noOpSection = source.slice(noOpStart, authUpdateStart)
 
+  assert.notEqual(noOpStart, -1)
+  assert.notEqual(authUpdateStart, -1)
+  assert.ok(noOpStart < authUpdateStart)
+  assert.match(source, /function getAuthUserSettingsEmails\(authUser\)/)
+  assert.match(source, /function getParentSettingsCurrentEmails\(\{ authUser, parentEmail, parentLinks, selectedLink \} = \{\}\)/)
   assert.match(source, /function getLinkedParentEmails\(parentLinks = \[\]\)/)
   assert.match(source, /\.\.\.getLinkedParentEmails\(parentLinks\)/)
-  assert.match(source, /if \(currentEmails\.has\(normalizedEmail\)\)/)
+  assert.match(source, /normalizeSettingsEmail\(selectedLink\?\.email\)/)
+  assert.match(noOpSection, /setEmail\(normalizedEmail\)/)
+  assert.doesNotMatch(noOpSection, /requestLoginEmailChange/)
+  assert.doesNotMatch(noOpSection, /updateOwnParentPortalLinksEmail/)
   assert.match(source, /Email already saved for this family portal account\./)
   assert.match(source, /That email is already linked to another login\./)
   assert.doesNotMatch(source, /No change made\. Enter a different email address\./)
