@@ -597,23 +597,8 @@ function OnboardingActionModal({
         })
         setSelectedLogoFile(null)
       } else if (actionType === 'manage-teams') {
-        const createdTeam = await createTeam({ user, name: teamName })
+        await createTeam({ user, name: teamName })
         await refreshTeamSelection?.()
-        if (createdTeam?.id) {
-          try {
-            await selectTeam?.(createdTeam.id)
-          } catch (selectionError) {
-            console.error(selectionError)
-          }
-          updateCurrentUserDetails({
-            ...user,
-            activeTeamId: createdTeam.id,
-            activeTeamName: createdTeam.name,
-            themeMode: createdTeam.themeMode || user.themeMode || '',
-            themeAccent: createdTeam.themeAccent || user.themeAccent || '',
-            themeButtonStyle: createdTeam.themeButtonStyle || user.themeButtonStyle || '',
-          })
-        }
       } else if (actionType === 'invite-staff' || actionType === 'invite-team-staff') {
         const roleKey = actionType === 'invite-team-staff' ? inviteRoleKey : action.roleKey || inviteRoleKey
         const role = roleOptions[roleKey] || roleOptions.coach
