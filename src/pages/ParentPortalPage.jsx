@@ -52,7 +52,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
-const parentPortalEmailChangeBlockedMessage = 'Email changes from the family portal are not available for this address. Sign in with an email already linked to this child, or ask the club to send parent access to your current email.'
+const parentPortalEmailChangeBlockedMessage = 'Email changes are currently managed by the club. Please contact your club admin.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'settings'])
 
 function confirmMatchDayAction(message) {
@@ -217,6 +217,11 @@ function getParentEmailSaveErrorMessage(error) {
   }
 
   return rawMessage || 'Email could not be updated.'
+}
+
+function showParentPortalEmailBlockedState({ setSettingsError, showToast }) {
+  setSettingsError(parentPortalEmailChangeBlockedMessage)
+  showToast({ title: 'Email not updated', message: parentPortalEmailChangeBlockedMessage, tone: 'error' })
 }
 
 function getParentEngagementSummary(matches = []) {
@@ -937,7 +942,7 @@ function ParentSettingsPanel({
         return
       }
 
-      throw new Error(parentPortalEmailChangeBlockedMessage)
+      showParentPortalEmailBlockedState({ setSettingsError, showToast })
     } catch (error) {
       console.error(error)
       const message = getParentEmailSaveErrorMessage(error)
