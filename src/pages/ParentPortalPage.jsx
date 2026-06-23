@@ -20,9 +20,7 @@ import {
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentPortalSharedCalendarEvents,
-  requestLoginEmailChange,
   updateMatchDayScoreAsScorer,
-  updateOwnParentPortalLinksEmail,
   updateParentPortalDisplayName,
   updateSignedInPassword,
 } from '../lib/supabase.js'
@@ -54,6 +52,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
+const parentPortalEmailChangeBlockedMessage = 'Email changes from the family portal are not available for this address. Sign in with an email already linked to this child, or ask the club to send parent access to your current email.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'settings'])
 
 function confirmMatchDayAction(message) {
@@ -938,20 +937,7 @@ function ParentSettingsPanel({
         return
       }
 
-      const result = await requestLoginEmailChange({ authUser, email: normalizedEmail })
-
-      if (result.pendingConfirmation) {
-        setStatusMessage('Email change requested. Confirm the change from your inbox, then sign in again so linked child access can sync to the new email.')
-        showToast({ title: 'Email change requested', message: 'Check your inbox to confirm the new login email.' })
-      } else {
-        const parentLinks = await updateOwnParentPortalLinksEmail({ authUser, email: result.email })
-        updateCurrentUserDetails(parentLinks.length > 0
-          ? { email: result.email, parentPortalLinks: parentLinks }
-          : { email: result.email })
-        setInitialEmail(result.email)
-        setStatusMessage('Email updated for login and linked child access.')
-        showToast({ title: 'Email updated', message: 'Your login and family portal contact email have been updated.' })
-      }
+      throw new Error(parentPortalEmailChangeBlockedMessage)
     } catch (error) {
       console.error(error)
       const message = getParentEmailSaveErrorMessage(error)
@@ -1054,7 +1040,7 @@ function ParentSettingsPanel({
             />
           </label>
           <p className={`mt-2 ${bodyTextClass}`}>
-            Email changes may require inbox confirmation. After confirmation, active linked-child records sync to the confirmed login email so club contact views stay aligned.
+            Saving the already linked parent email is safe. Ask the club to send access to a different email if this family portal should move to another login.
           </p>
           <button type="submit" disabled={isSavingEmail} className={`mt-4 ${primaryButtonClass}`}>
             {isSavingEmail ? 'Requesting...' : 'Change email'}

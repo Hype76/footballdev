@@ -82,12 +82,12 @@ test('parent invite flow sends existing parent accounts to sign in with the chil
 test('parent settings save treats current linked emails as idempotent and masks duplicate auth errors', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
   const noOpStart = source.indexOf('if (currentEmails.has(normalizedEmail))')
-  const authUpdateStart = source.indexOf('const result = await requestLoginEmailChange', noOpStart)
-  const noOpSection = source.slice(noOpStart, authUpdateStart)
+  const blockedStart = source.indexOf('throw new Error(parentPortalEmailChangeBlockedMessage)', noOpStart)
+  const noOpSection = source.slice(noOpStart, blockedStart)
 
   assert.notEqual(noOpStart, -1)
-  assert.notEqual(authUpdateStart, -1)
-  assert.ok(noOpStart < authUpdateStart)
+  assert.notEqual(blockedStart, -1)
+  assert.ok(noOpStart < blockedStart)
   assert.match(source, /function getAuthUserSettingsEmails\(authUser\)/)
   assert.match(source, /function getParentSettingsCurrentEmails\(\{ authUser, initialEmail, parentEmail, parentLinks, selectedLink \} = \{\}\)/)
   assert.match(source, /normalizeSettingsEmail\(initialEmail\)/)
@@ -100,10 +100,16 @@ test('parent settings save treats current linked emails as idempotent and masks 
   assert.match(noOpSection, /setEmail\(normalizedEmail\)/)
   assert.doesNotMatch(noOpSection, /requestLoginEmailChange/)
   assert.doesNotMatch(noOpSection, /updateOwnParentPortalLinksEmail/)
+  assert.doesNotMatch(source, /requestLoginEmailChange/)
+  assert.doesNotMatch(source, /updateOwnParentPortalLinksEmail/)
   assert.match(source, /Email already up to date for this family portal account\./)
   assert.match(source, /Email already up to date/)
+  assert.match(source, /parentPortalEmailChangeBlockedMessage/)
+  assert.match(source, /Email changes from the family portal are not available for this address\./)
   assert.match(source, /That email is already linked to another login\./)
   assert.doesNotMatch(source, /No change made\. Enter a different email address\./)
+  assert.doesNotMatch(source, /Error sending email change email/)
+  assert.doesNotMatch(source, /A user with this email address has already been registered/)
 })
 
 test('parent portal selector continues to expose every linked child for one parent account', async () => {
