@@ -1347,7 +1347,7 @@ function FixtureSetupModal({
     handleFocusCapture,
     handleBlurCapture,
   } = useFixtureKeyboardFocusState()
-  const shouldPrioritizeFixtureFields = isKeyboardOpen && isFixtureControlFocused
+  const shouldPrioritizeFixtureFields = isFixtureControlFocused || isKeyboardOpen
 
   return (
     <div
@@ -1360,7 +1360,7 @@ function FixtureSetupModal({
         aria-labelledby="fixture-setup-title"
         className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]"
       >
-        <div className="shrink-0 flex flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:py-5">
+        <div className={`${shouldPrioritizeFixtureFields ? 'hidden sm:flex' : 'flex'} shrink-0 flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:py-5`}>
           <div>
             <p className={eyebrowClass}>Fixture setup</p>
             <h3 id="fixture-setup-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create fixture</h3>
@@ -1375,7 +1375,7 @@ function FixtureSetupModal({
 
         <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleCreateMatch} noValidate>
           <div
-            className={`${shouldPrioritizeFixtureFields ? 'scroll-pb-8' : 'scroll-pb-40'} min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pt-28 space-y-4 px-4 py-4 sm:scroll-pb-40 sm:px-6 sm:py-5`}
+            className={`${shouldPrioritizeFixtureFields ? 'scroll-pb-8 scroll-pt-4' : 'scroll-pb-40 scroll-pt-28'} min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4 px-4 py-4 sm:scroll-pb-40 sm:scroll-pt-28 sm:px-6 sm:py-5`}
             onFocusCapture={handleFocusCapture}
             onBlurCapture={handleBlurCapture}
           >
