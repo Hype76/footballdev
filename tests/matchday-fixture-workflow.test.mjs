@@ -112,3 +112,25 @@ test('match day date helper blocks past dates and allows today', () => {
   assert.equal(isPastMatchDayDate('2026-06-16', now), false)
   assert.equal(isPastMatchDayDate('2026-06-17', now), false)
 })
+
+test('fixture setup Continue validates visibly and advances to squad selection', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const handlerStart = source.indexOf('const handleCreateMatch = async (event) => {')
+  const handlerEnd = source.indexOf('const handleConfirmCreateMatch = async () => {', handlerStart)
+  assert.notEqual(handlerStart, -1)
+  assert.notEqual(handlerEnd, -1)
+  const handlerSource = source.slice(handlerStart, handlerEnd)
+
+  assert.match(handlerSource, /blurActiveFixtureControl\(\)/)
+  assert.match(handlerSource, /getFixtureSetupValidationMessage\(\{ availablePlayerIds, form \}\)/)
+  assert.match(handlerSource, /setErrorMessage\(validationMessage\)/)
+  assert.match(handlerSource, /setSquadSelection\(\{/)
+  assert.match(source, /Add an opponent before continuing to squad selection\./)
+  assert.match(source, /onSubmit=\{handleCreateMatch\} noValidate/)
+  assert.match(source, /isFixtureDataLoading \? 'Loading squad\.\.\.' : 'Continue to squad'/)
+  assert.match(source, /role="alert"/)
+  assert.doesNotMatch(handlerSource, /if \(!form\.parentVisible\)[\s\S]*await createMatchDay/)
+})
