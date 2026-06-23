@@ -199,8 +199,9 @@ function getLinkedParentEmails(parentLinks = []) {
   )]
 }
 
-function getParentSettingsCurrentEmails({ authUser, parentEmail, parentLinks, selectedLink } = {}) {
+function getParentSettingsCurrentEmails({ authUser, initialEmail, parentEmail, parentLinks, selectedLink } = {}) {
   return new Set([
+    normalizeSettingsEmail(initialEmail),
     normalizeSettingsEmail(parentEmail),
     normalizeSettingsEmail(selectedLink?.email),
     ...getAuthUserSettingsEmails(authUser),
@@ -863,6 +864,7 @@ function ParentSettingsPanel({
   const themeOptions = ['system', 'light', 'dark']
   const [displayName, setDisplayName] = useState(parentName)
   const [email, setEmail] = useState(parentEmail)
+  const [initialEmail, setInitialEmail] = useState(parentEmail)
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' })
   const [statusMessage, setStatusMessage] = useState('')
   const [settingsError, setSettingsError] = useState('')
@@ -876,7 +878,11 @@ function ParentSettingsPanel({
   }, [parentName])
 
   useEffect(() => {
-    setEmail(parentEmail)
+    const nextEmail = String(parentEmail ?? '').trim()
+    setEmail(nextEmail)
+    if (nextEmail) {
+      setInitialEmail(nextEmail)
+    }
   }, [parentEmail])
 
   const clearMessages = () => {
@@ -910,6 +916,7 @@ function ParentSettingsPanel({
     const normalizedEmail = normalizeSettingsEmail(email)
     const currentEmails = getParentSettingsCurrentEmails({
       authUser,
+      initialEmail,
       parentEmail,
       parentLinks,
       selectedLink,
@@ -925,8 +932,9 @@ function ParentSettingsPanel({
 
       if (currentEmails.has(normalizedEmail)) {
         setEmail(normalizedEmail)
-        setStatusMessage('Email already saved for this family portal account.')
-        showToast({ title: 'Email saved', message: 'Your linked child access is already using this parent email.' })
+        setInitialEmail(normalizedEmail)
+        setStatusMessage('Email already up to date for this family portal account.')
+        showToast({ title: 'Email already up to date', message: 'Your linked child access is already using this parent email.' })
         return
       }
 
@@ -940,6 +948,7 @@ function ParentSettingsPanel({
         updateCurrentUserDetails(parentLinks.length > 0
           ? { email: result.email, parentPortalLinks: parentLinks }
           : { email: result.email })
+        setInitialEmail(result.email)
         setStatusMessage('Email updated for login and linked child access.')
         showToast({ title: 'Email updated', message: 'Your login and family portal contact email have been updated.' })
       }
