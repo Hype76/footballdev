@@ -1,5 +1,12 @@
 import { createSupabaseAdminClient } from './_supabase.js'
-import { classifyParentEmailChange, isValidEmail, normalizeEmail } from './_parent-email-change-rules.js'
+import {
+  classifyParentEmailChange,
+  existingParentAlreadyLinkedMessage,
+  getSafeEmailChangeErrorMessage,
+  isParentEmailUniqueConflict,
+  isValidEmail,
+  normalizeEmail,
+} from './_parent-email-change-rules.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -118,7 +125,7 @@ async function getTargetParentLinks(supabaseAdmin, email, targetAuthUserId) {
     .from('parent_player_links')
     .select('id, club_id, team_id, player_id, parent_link_id, link_type, email, auth_user_id, status, players:player_id (parent_email, parent_contacts)')
     .or(clauses.join(','))
-    .eq('status', 'active')
+    .neq('status', 'revoked')
 
   if (error) {
     throw error
@@ -185,11 +192,26 @@ export async function handler(event) {
     let transferredLinkIds = []
 
     if (decision.action === 'link-existing-parent') {
-      transferredLinkIds = await transferParentLinks(supabaseAdmin, {
-        linkIds: decision.transferLinkIds,
-        targetAuthUserId: targetAuthUser.id,
-        email,
-      })
+      try {
+        transferredLinkIds = await transferParentLinks(supabaseAdmin, {
+          linkIds: decision.transferLinkIds,
+          targetAuthUserId: targetAuthUser.id,
+          email,
+        })
+      } catch (transferError) {
+        if (!isParentEmailUniqueConflict(transferError)) {
+          throw transferError
+        }
+
+        console.error(transferError)
+        return jsonResponse(200, {
+          success: true,
+          action: 'existing-parent-already-linked',
+          email,
+          message: existingParentAlreadyLinkedMessage,
+          transferredLinkIds: [],
+        })
+      }
     }
 
     return jsonResponse(200, {
@@ -201,6 +223,6 @@ export async function handler(event) {
     })
   } catch (error) {
     console.error(error)
-    return failureResponse(error.statusCode || 500, error.message || 'Email could not be updated.')
+    return failureResponse(error.statusCode || 500, getSafeEmailChangeErrorMessage(error))
   }
 }

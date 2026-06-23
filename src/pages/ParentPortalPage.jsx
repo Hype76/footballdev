@@ -216,7 +216,12 @@ function getParentEmailSaveErrorMessage(error) {
   const rawMessage = String(error?.message ?? '').trim()
   const normalizedMessage = rawMessage.toLowerCase()
 
-  if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists') || normalizedMessage.includes('user already')) {
+  if (normalizedMessage.includes('already registered')
+    || normalizedMessage.includes('already exists')
+    || normalizedMessage.includes('user already')
+    || normalizedMessage.includes('duplicate key')
+    || normalizedMessage.includes('23505')
+    || normalizedMessage.includes('parent_player_links_unique_email')) {
     return parentPortalUnsafeEmailMessage
   }
 
