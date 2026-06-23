@@ -36,6 +36,20 @@ function isExistingUserError(error) {
   return message.includes('already registered') || message.includes('already exists') || message.includes('user already')
 }
 
+export function isConfirmedAuthUser(user) {
+  return Boolean(user?.id && (user.email_confirmed_at || user.confirmed_at))
+}
+
+export function buildExistingParentAccountResponse({ email }) {
+  return {
+    success: true,
+    existingAccount: true,
+    needsEmailVerification: false,
+    email,
+    message: 'An account already exists for this email. Sign in to open this child link.',
+  }
+}
+
 function getBaseUrl(event) {
   const forwardedProto = event.headers['x-forwarded-proto'] || 'https'
   const forwardedHost = event.headers['x-forwarded-host'] || event.headers.host || 'staging.footballplayer.online'
@@ -226,7 +240,8 @@ export async function handler(event) {
     let { data, error } = await createSignupLink()
 
     if (error && isExistingUserError(error)) {
-      const removedUnconfirmedUser = await deleteUnconfirmedAuthUser(supabaseAdmin, email).catch((deleteError) => {
+      const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email)
+      const removedUnconfirmedUser = await deleteUnconfirmedAuthUser(supabaseAdmin, email, existingAuthUser).catch((deleteError) => {
         console.error(deleteError)
         return false
       })
@@ -235,8 +250,10 @@ export async function handler(event) {
         const retryResult = await createSignupLink()
         data = retryResult.data
         error = retryResult.error
+      } else if (isConfirmedAuthUser(existingAuthUser)) {
+        return jsonResponse(200, buildExistingParentAccountResponse({ email }))
       } else {
-        return failureResponse(409, 'An account already exists for this email. Use sign in to open the child link.')
+        return failureResponse(409, 'An account already exists for this email. Sign in to open this child link.')
       }
     }
 

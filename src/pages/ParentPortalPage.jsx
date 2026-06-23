@@ -174,6 +174,29 @@ function getParentEmail(user) {
   return String(user?.email ?? user?.authEmail ?? '').trim()
 }
 
+function normalizeSettingsEmail(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function getLinkedParentEmails(parentLinks = []) {
+  return [...new Set(
+    (parentLinks ?? [])
+      .map((link) => normalizeSettingsEmail(link?.email))
+      .filter(Boolean),
+  )]
+}
+
+function getParentEmailSaveErrorMessage(error) {
+  const rawMessage = String(error?.message ?? '').trim()
+  const normalizedMessage = rawMessage.toLowerCase()
+
+  if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists') || normalizedMessage.includes('user already')) {
+    return 'That email is already linked to another login. Sign in with that email to open its linked children, or ask the club to send access to your current login email.'
+  }
+
+  return rawMessage || 'Email could not be updated.'
+}
+
 function getParentEngagementSummary(matches = []) {
   const helperOffers = matches.filter((match) => match.status === 'scorer_request' || Boolean(match.scorerRequestMessage))
   const interestSent = matches.filter((match) => match.hasInterest)
@@ -221,7 +244,7 @@ export function ParentPortalPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
   const [searchParams] = useSearchParams()
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
+  const links = useMemo(() => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []), [user?.parentPortalLinks])
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
   const [calendarView, setCalendarView] = useState('month')
@@ -773,6 +796,7 @@ export function ParentPortalPage() {
               resetPassword={resetPassword}
               updateCurrentUserDetails={updateCurrentUserDetails}
               parentEmail={getParentEmail(user)}
+              parentLinks={links}
               parentName={getParentDisplayName(user)}
               pushState={pushState}
               selectedLink={selectedLink}
@@ -805,6 +829,7 @@ function ParentSettingsPanel({
   onEnableNotifications,
   onThemePreferenceChange,
   parentEmail,
+  parentLinks,
   parentName,
   pushState,
   resetPassword,
@@ -860,8 +885,13 @@ function ParentSettingsPanel({
 
   const handleEmailSubmit = async (event) => {
     event.preventDefault()
-    const normalizedEmail = email.trim().toLowerCase()
-    const currentEmail = String(parentEmail || authUser?.email || '').trim().toLowerCase()
+    const normalizedEmail = normalizeSettingsEmail(email)
+    const authEmail = normalizeSettingsEmail(authUser?.email)
+    const currentEmails = new Set([
+      normalizeSettingsEmail(parentEmail),
+      authEmail,
+      ...getLinkedParentEmails(parentLinks),
+    ].filter(Boolean))
 
     setIsSavingEmail(true)
     clearMessages()
@@ -871,8 +901,22 @@ function ParentSettingsPanel({
         throw new Error('Enter a valid email address.')
       }
 
-      if (normalizedEmail === currentEmail) {
-        throw new Error('No change made. Enter a different email address.')
+      if (currentEmails.has(normalizedEmail)) {
+        const syncedParentLinks = authEmail && normalizedEmail === authEmail
+          ? await updateOwnParentPortalLinksEmail({ authUser, email: normalizedEmail })
+          : []
+        const nextUserDetails = {
+          ...(authEmail && normalizedEmail === authEmail ? { email: normalizedEmail } : {}),
+          ...(syncedParentLinks.length > 0 ? { parentPortalLinks: syncedParentLinks } : {}),
+        }
+
+        if (Object.keys(nextUserDetails).length > 0) {
+          updateCurrentUserDetails(nextUserDetails)
+        }
+
+        setStatusMessage('Email already saved for this family portal account.')
+        showToast({ title: 'Email saved', message: 'Your linked child access is already using this parent email.' })
+        return
       }
 
       const result = await requestLoginEmailChange({ authUser, email: normalizedEmail })
@@ -890,8 +934,9 @@ function ParentSettingsPanel({
       }
     } catch (error) {
       console.error(error)
-      setSettingsError(error.message || 'Email could not be updated.')
-      showToast({ title: 'Email not updated', message: error.message || 'Email could not be updated.', tone: 'error' })
+      const message = getParentEmailSaveErrorMessage(error)
+      setSettingsError(message)
+      showToast({ title: 'Email not updated', message, tone: 'error' })
     } finally {
       setIsSavingEmail(false)
     }

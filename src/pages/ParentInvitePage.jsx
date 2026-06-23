@@ -331,7 +331,10 @@ export function ParentInvitePage() {
         inviteToken: token,
       })
 
-      if (result?.needsEmailVerification) {
+      if (result?.existingAccount) {
+        setPassword('')
+        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&existing=1`))
+      } else if (result?.needsEmailVerification) {
         setPassword('')
         setMessage('')
         setIsConfirmationState(true)
