@@ -1360,7 +1360,7 @@ function FixtureSetupModal({
         aria-labelledby="fixture-setup-title"
         className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]"
       >
-        <div className={`${shouldPrioritizeFixtureFields ? 'hidden sm:flex' : 'flex'} shrink-0 flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:py-5`}>
+        <div className="hidden shrink-0 flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:flex sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:py-5">
           <div>
             <p className={eyebrowClass}>Fixture setup</p>
             <h3 id="fixture-setup-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create fixture</h3>
@@ -1369,6 +1369,12 @@ function FixtureSetupModal({
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={isSaving} className={secondaryButtonClass}>
+            Close
+          </button>
+        </div>
+        <div className={`${shouldPrioritizeFixtureFields ? 'hidden' : 'flex'} shrink-0 items-center justify-between gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:hidden`}>
+          <p className="text-sm font-black text-[#101828]">Fixture setup</p>
+          <button type="button" onClick={onClose} disabled={isSaving} className="text-sm font-black text-[#047857] disabled:opacity-60">
             Close
           </button>
         </div>
@@ -1577,7 +1583,7 @@ function FixtureSquadSelectionModal({
         aria-labelledby="fixture-squad-title"
         className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[90vh]"
       >
-        <div className="shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 sm:px-6 sm:py-5">
+        <div className="hidden shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 sm:block sm:px-6 sm:py-5">
           <p className={eyebrowClass}>Squad availability</p>
           <h3 id="fixture-squad-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
             Choose who should be asked.
@@ -1586,36 +1592,47 @@ function FixtureSquadSelectionModal({
             Requests go to parent contacts for parent-managed players and directly to player contacts for adult player records. Mobile push can use these same request records later.
           </p>
         </div>
+        <div className="shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 sm:hidden">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Squad availability</p>
+          <p className="mt-1 text-sm font-black text-[#101828]">{selectedCount} of {players.length} selected</p>
+        </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-40 scroll-pt-24 px-4 py-4 sm:px-6 sm:py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 scroll-pt-4 px-4 py-3 sm:scroll-pb-40 sm:scroll-pt-24 sm:px-6 sm:py-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:hidden">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Select full squad</button>
+              <button type="button" onClick={onClearAll} className={secondaryButtonClass}>Clear</button>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => onSelectionModeChange('full')}
-              className={`rounded-lg border px-4 py-4 text-left shadow-sm transition ${
+              className={`rounded-lg border px-3 py-3 text-left shadow-sm transition sm:px-4 sm:py-4 ${
                 selectionMode === 'full'
                   ? 'border-[#047857] bg-[#ecfdf5]'
                   : 'border-[#d7e5dc] bg-white hover:border-[#0f9f6e]'
               }`}
             >
               <span className="block text-sm font-black text-[#101828]">Full squad</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">Ask every active squad player in {teamName}.</span>
+              <span className="mt-1 hidden text-sm font-semibold leading-6 text-[#4b5f55] sm:block">Ask every active squad player in {teamName}.</span>
             </button>
             <button
               type="button"
               onClick={() => onSelectionModeChange('individual')}
-              className={`rounded-lg border px-4 py-4 text-left shadow-sm transition ${
+              className={`rounded-lg border px-3 py-3 text-left shadow-sm transition sm:px-4 sm:py-4 ${
                 selectionMode === 'individual'
                   ? 'border-[#047857] bg-[#ecfdf5]'
                   : 'border-[#d7e5dc] bg-white hover:border-[#0f9f6e]'
               }`}
             >
               <span className="block text-sm font-black text-[#101828]">Individual players</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">Pick only the players needed for this fixture.</span>
+              <span className="mt-1 hidden text-sm font-semibold leading-6 text-[#4b5f55] sm:block">Pick only the players needed for this fixture.</span>
             </button>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-4 hidden flex-wrap items-center justify-between gap-3 sm:flex">
             <p className="text-sm font-black text-[#101828]">{selectedCount} of {players.length} selected</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Select full squad</button>
