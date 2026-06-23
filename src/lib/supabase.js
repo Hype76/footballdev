@@ -91,6 +91,7 @@ export {
   getParentPortalLinks,
   getParentPortalMessages,
   markParentPortalMessageRead,
+  prepareParentPortalEmailChange,
   revokeFamilyPortalLink,
   revokeParentPortalLink,
   updateOwnParentPortalLinksEmail,

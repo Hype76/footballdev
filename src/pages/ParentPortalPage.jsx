@@ -20,6 +20,8 @@ import {
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentPortalSharedCalendarEvents,
+  prepareParentPortalEmailChange,
+  requestLoginEmailChange,
   updateMatchDayScoreAsScorer,
   updateParentPortalDisplayName,
   updateSignedInPassword,
@@ -52,7 +54,9 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
-const parentPortalEmailChangeBlockedMessage = 'Email changes are currently managed by the club. Please contact your club admin.'
+const parentPortalEmailAlreadyUpToDateMessage = 'Email already up to date.'
+const parentPortalUnsafeEmailMessage = 'That email is already used by another parent account. Please ask the club to confirm the correct family link.'
+const parentPortalEmailPendingConfirmationMessage = 'Check your inbox to confirm this email change. Your family access will stay on the current email until confirmation is complete.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'settings'])
 
 function confirmMatchDayAction(message) {
@@ -213,15 +217,22 @@ function getParentEmailSaveErrorMessage(error) {
   const normalizedMessage = rawMessage.toLowerCase()
 
   if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists') || normalizedMessage.includes('user already')) {
-    return 'That email is already linked to another login. Sign in with that email to open its linked children, or ask the club to send access to your current login email.'
+    return parentPortalUnsafeEmailMessage
+  }
+
+  if (normalizedMessage.includes('error sending email change email')) {
+    return 'Email confirmation could not be sent. Please try again in a moment.'
   }
 
   return rawMessage || 'Email could not be updated.'
 }
 
-function showParentPortalEmailBlockedState({ setSettingsError, showToast }) {
-  setSettingsError(parentPortalEmailChangeBlockedMessage)
-  showToast({ title: 'Email not updated', message: parentPortalEmailChangeBlockedMessage, tone: 'error' })
+function getParentEmailSuccessMessage(action, fallbackMessage) {
+  if (action === 'noop') {
+    return parentPortalEmailAlreadyUpToDateMessage
+  }
+
+  return fallbackMessage || parentPortalEmailPendingConfirmationMessage
 }
 
 function getParentEngagementSummary(matches = []) {
@@ -937,12 +948,32 @@ function ParentSettingsPanel({
       if (currentEmails.has(normalizedEmail)) {
         setEmail(normalizedEmail)
         setInitialEmail(normalizedEmail)
-        setStatusMessage('Email already up to date for this family portal account.')
-        showToast({ title: 'Email already up to date', message: 'Your linked child access is already using this parent email.' })
+        setStatusMessage(parentPortalEmailAlreadyUpToDateMessage)
+        showToast({ title: 'Email already up to date', message: parentPortalEmailAlreadyUpToDateMessage })
         return
       }
 
-      showParentPortalEmailBlockedState({ setSettingsError, showToast })
+      const emailChangeIntent = await prepareParentPortalEmailChange({ email: normalizedEmail })
+
+      if (emailChangeIntent.action === 'request-auth-email-change') {
+        const emailChangeResult = await requestLoginEmailChange({ authUser, email: normalizedEmail })
+        const message = emailChangeResult.unchanged
+          ? parentPortalEmailAlreadyUpToDateMessage
+          : parentPortalEmailPendingConfirmationMessage
+
+        setEmail(normalizedEmail)
+        setInitialEmail(normalizedEmail)
+        setStatusMessage(message)
+        showToast({ title: emailChangeResult.unchanged ? 'Email already up to date' : 'Confirm email change', message })
+        return
+      }
+
+      const message = getParentEmailSuccessMessage(emailChangeIntent.action, emailChangeIntent.message)
+
+      setEmail(emailChangeIntent.email || normalizedEmail)
+      setInitialEmail(emailChangeIntent.email || normalizedEmail)
+      setStatusMessage(message)
+      showToast({ title: emailChangeIntent.action === 'noop' ? 'Email already up to date' : 'Email link updated', message })
     } catch (error) {
       console.error(error)
       const message = getParentEmailSaveErrorMessage(error)
@@ -1045,7 +1076,7 @@ function ParentSettingsPanel({
             />
           </label>
           <p className={`mt-2 ${bodyTextClass}`}>
-            Saving the already linked parent email is safe. Ask the club to send access to a different email if this family portal should move to another login.
+            New emails need inbox confirmation. If the email already belongs to this family, the portal reuses that parent access instead of creating another login.
           </p>
           <button type="submit" disabled={isSavingEmail} className={`mt-4 ${primaryButtonClass}`}>
             {isSavingEmail ? 'Requesting...' : 'Change email'}

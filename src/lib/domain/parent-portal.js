@@ -138,6 +138,48 @@ export async function updateOwnParentPortalLinksEmail({ authUser, email }) {
   return (data ?? []).map(normalizeParentLink)
 }
 
+export async function prepareParentPortalEmailChange({ email }) {
+  const normalizedEmail = normalizeEmail(email)
+
+  if (!normalizedEmail) {
+    throw new Error('Email is required.')
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    console.error(sessionError)
+    throw sessionError
+  }
+
+  const accessToken = sessionData?.session?.access_token
+
+  if (!accessToken) {
+    throw new Error('Login is required.')
+  }
+
+  const response = await fetch('/.netlify/functions/parent-portal-email-change', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ email: normalizedEmail }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Email could not be updated.')
+  }
+
+  return {
+    action: String(result.action ?? '').trim(),
+    email: normalizeEmail(result.email || normalizedEmail),
+    message: String(result.message ?? '').trim(),
+    transferredLinkIds: Array.isArray(result.transferredLinkIds) ? result.transferredLinkIds : [],
+  }
+}
+
 export async function getParentPortalMessages({ parentLinkId }) {
   const normalizedParentLinkId = String(parentLinkId ?? '').trim()
 
