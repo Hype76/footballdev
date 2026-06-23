@@ -163,26 +163,19 @@ test('parent email link-flow masks PostgreSQL 23505 unique constraint errors', (
   assert.doesNotMatch(message, /23505|duplicate key|parent_player_links_unique_email|violates unique constraint/i)
 })
 
-test('parent settings only calls Supabase Auth update after helper approves a new email', async () => {
+test('parent settings no longer calls parent email link-flow or Supabase Auth update', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
-  const handlerStart = source.indexOf('const handleEmailSubmit = async (event) => {')
-  const handlerEnd = source.indexOf('const handlePasswordSubmit = async (event) => {', handlerStart)
-  const handlerSection = source.slice(handlerStart, handlerEnd)
-  const noOpStart = handlerSection.indexOf('if (currentEmails.has(normalizedEmail))')
-  const prepareStart = handlerSection.indexOf('const emailChangeIntent = await prepareParentPortalEmailChange')
-  const requestStart = handlerSection.indexOf('await requestLoginEmailChange')
 
-  assert.notEqual(noOpStart, -1)
-  assert.notEqual(prepareStart, -1)
-  assert.notEqual(requestStart, -1)
-  assert.ok(noOpStart < prepareStart)
-  assert.ok(prepareStart < requestStart)
-  assert.match(handlerSection, /emailChangeIntent\.action === 'request-auth-email-change'/)
-  assert.doesNotMatch(handlerSection.slice(noOpStart, prepareStart), /requestLoginEmailChange/)
-  assert.doesNotMatch(handlerSection.slice(prepareStart, requestStart), /requestLoginEmailChange/)
+  assert.match(source, /Display name and email changes are managed by the club\./)
+  assert.doesNotMatch(source, /const handleEmailSubmit = async/)
+  assert.doesNotMatch(source, /prepareParentPortalEmailChange/)
+  assert.doesNotMatch(source, /requestLoginEmailChange/)
+  assert.doesNotMatch(source, /parent-portal-email-change/)
+  assert.doesNotMatch(source, /supabase\.auth\.updateUser/)
+  assert.doesNotMatch(source, /updateUser\(/)
 })
 
-test('parent email helper uses the signed-in session and masks raw duplicate Auth errors', async () => {
+test('parent email helper remains server-side only and masks raw duplicate Auth errors', async () => {
   const [domainSource, functionSource, rulesSource, pageSource] = await Promise.all([
     readFile(parentPortalDomainUrl, 'utf8'),
     readFile(emailChangeFunctionUrl, 'utf8'),
@@ -200,8 +193,11 @@ test('parent email helper uses the signed-in session and masks raw duplicate Aut
   assert.match(functionSource, /classifyParentEmailChange/)
   assert.match(rulesSource, /link-existing-parent/)
   assert.match(rulesSource, /hasSameUniqueEmailLink/)
-  assert.match(pageSource, /parentPortalUnsafeEmailMessage/)
-  assert.match(pageSource, /parent_player_links_unique_email/)
+  assert.match(pageSource, /Display name and email changes are managed by the club\./)
+  assert.doesNotMatch(pageSource, /parentPortalUnsafeEmailMessage/)
+  assert.doesNotMatch(pageSource, /parent_player_links_unique_email/)
+  assert.doesNotMatch(pageSource, /prepareParentPortalEmailChange/)
+  assert.doesNotMatch(pageSource, /requestLoginEmailChange/)
   assert.doesNotMatch(pageSource, /A user with this email address has already been registered/)
   assert.doesNotMatch(pageSource, /Error sending email change email/)
 })

@@ -20,10 +20,7 @@ import {
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentPortalSharedCalendarEvents,
-  prepareParentPortalEmailChange,
-  requestLoginEmailChange,
   updateMatchDayScoreAsScorer,
-  updateParentPortalDisplayName,
   updateSignedInPassword,
 } from '../lib/supabase.js'
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
@@ -54,9 +51,6 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
-const parentPortalEmailAlreadyUpToDateMessage = 'Email already up to date.'
-const parentPortalUnsafeEmailMessage = 'That email is already used by another parent account. Please ask the club to confirm the correct family link.'
-const parentPortalEmailPendingConfirmationMessage = 'Check your inbox to confirm this email change. Your family access will stay on the current email until confirmation is complete.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'settings'])
 
 function confirmMatchDayAction(message) {
@@ -177,67 +171,63 @@ function getParentEmail(user) {
   return String(user?.email ?? user?.authEmail ?? '').trim()
 }
 
-function normalizeSettingsEmail(value) {
-  return String(value ?? '').trim().toLowerCase()
+function normalizeContactEmail(value) {
+  const email = String(value ?? '').trim().toLowerCase()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : ''
 }
 
-function getAuthUserSettingsEmails(authUser) {
-  const identityEmails = Array.isArray(authUser?.identities)
-    ? authUser.identities.map((identity) => identity?.identity_data?.email)
+function getArrayContactEmails(value) {
+  return Array.isArray(value) ? value.map(normalizeContactEmail).filter(Boolean) : []
+}
+
+function getTeamAdminContactEmails(selectedLink) {
+  const directEmails = [
+    selectedLink?.teamAdminEmail,
+    selectedLink?.teamAdminContactEmail,
+    selectedLink?.teamAdminContact,
+  ].map(normalizeContactEmail).filter(Boolean)
+  const listEmails = [
+    ...getArrayContactEmails(selectedLink?.teamAdminEmails),
+    ...getArrayContactEmails(selectedLink?.teamAdminContactEmails),
+    ...getArrayContactEmails(selectedLink?.teamAdminContacts),
+  ]
+  const objectEmails = Array.isArray(selectedLink?.teamAdmins)
+    ? selectedLink.teamAdmins.map((admin) => normalizeContactEmail(admin?.email ?? admin?.contactEmail)).filter(Boolean)
     : []
 
-  return [...new Set([
-    authUser?.email,
-    authUser?.user_metadata?.email,
-    authUser?.user_metadata?.parent_email,
-    ...identityEmails,
-  ].map(normalizeSettingsEmail).filter(Boolean))]
+  return [...new Set([...directEmails, ...listEmails, ...objectEmails])]
 }
 
-function getLinkedParentEmails(parentLinks = []) {
-  return [...new Set(
-    (parentLinks ?? [])
-      .map((link) => normalizeSettingsEmail(link?.email))
-      .filter(Boolean),
-  )]
-}
+function getParentSettingsContact(selectedLink) {
+  const teamAdminEmails = getTeamAdminContactEmails(selectedLink)
 
-function getParentSettingsCurrentEmails({ authUser, initialEmail, parentEmail, parentLinks, selectedLink } = {}) {
-  return new Set([
-    normalizeSettingsEmail(initialEmail),
-    normalizeSettingsEmail(parentEmail),
-    normalizeSettingsEmail(selectedLink?.email),
-    ...getAuthUserSettingsEmails(authUser),
-    ...getLinkedParentEmails(parentLinks),
-  ].filter(Boolean))
-}
-
-function getParentEmailSaveErrorMessage(error) {
-  const rawMessage = String(error?.message ?? '').trim()
-  const normalizedMessage = rawMessage.toLowerCase()
-
-  if (normalizedMessage.includes('already registered')
-    || normalizedMessage.includes('already exists')
-    || normalizedMessage.includes('user already')
-    || normalizedMessage.includes('duplicate key')
-    || normalizedMessage.includes('23505')
-    || normalizedMessage.includes('parent_player_links_unique_email')) {
-    return parentPortalUnsafeEmailMessage
+  if (teamAdminEmails.length > 0) {
+    return {
+      label: 'Team Admin',
+      emails: teamAdminEmails,
+      message: 'Please contact your Team Admin if these details need updating.',
+    }
   }
 
-  if (normalizedMessage.includes('error sending email change email')) {
-    return 'Email confirmation could not be sent. Please try again in a moment.'
+  const clubAdminEmail = normalizeContactEmail(
+    selectedLink?.clubAdminEmail ??
+    selectedLink?.clubContactEmail ??
+    selectedLink?.contactEmail,
+  )
+
+  if (clubAdminEmail) {
+    return {
+      label: 'Club Admin',
+      emails: [clubAdminEmail],
+      message: 'Please contact your Club Admin if these details need updating.',
+    }
   }
 
-  return rawMessage || 'Email could not be updated.'
-}
-
-function getParentEmailSuccessMessage(action, fallbackMessage) {
-  if (action === 'noop') {
-    return parentPortalEmailAlreadyUpToDateMessage
+  return {
+    label: '',
+    emails: [],
+    message: 'Please contact your club directly.',
   }
-
-  return fallbackMessage || parentPortalEmailPendingConfirmationMessage
 }
 
 function getParentEngagementSummary(matches = []) {
@@ -284,7 +274,7 @@ function orderPlayersWithRecentScorers(players, match) {
 }
 
 export function ParentPortalPage() {
-  const { authUser, resetPassword, signOut, updateCurrentUserDetails, user } = useAuth()
+  const { authUser, resetPassword, signOut, user } = useAuth()
   const { showToast } = useToast()
   const [searchParams] = useSearchParams()
   const links = useMemo(() => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []), [user?.parentPortalLinks])
@@ -862,9 +852,7 @@ export function ParentPortalPage() {
               onSignOut={handleParentSignOut}
               onThemePreferenceChange={handleParentThemePreferenceChange}
               resetPassword={resetPassword}
-              updateCurrentUserDetails={updateCurrentUserDetails}
               parentEmail={getParentEmail(user)}
-              parentLinks={links}
               parentName={getParentDisplayName(user)}
               pushState={pushState}
               selectedLink={selectedLink}
@@ -899,121 +887,23 @@ function ParentSettingsPanel({
   onSignOut,
   onThemePreferenceChange,
   parentEmail,
-  parentLinks,
   parentName,
   pushState,
   resetPassword,
   selectedLink,
   themePreference,
-  updateCurrentUserDetails,
 }) {
   const { showToast } = useToast()
   const themeOptions = ['system', 'light', 'dark']
-  const [displayName, setDisplayName] = useState(parentName)
-  const [email, setEmail] = useState(parentEmail)
-  const [initialEmail, setInitialEmail] = useState(parentEmail)
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' })
   const [statusMessage, setStatusMessage] = useState('')
   const [settingsError, setSettingsError] = useState('')
-  const [isSavingName, setIsSavingName] = useState(false)
-  const [isSavingEmail, setIsSavingEmail] = useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
-
-  useEffect(() => {
-    setDisplayName(parentName)
-  }, [parentName])
-
-  useEffect(() => {
-    const nextEmail = String(parentEmail ?? '').trim()
-    setEmail(nextEmail)
-    if (nextEmail) {
-      setInitialEmail(nextEmail)
-    }
-  }, [parentEmail])
 
   const clearMessages = () => {
     setStatusMessage('')
     setSettingsError('')
-  }
-
-  const handleDisplayNameSubmit = async (event) => {
-    event.preventDefault()
-    const normalizedDisplayName = displayName.trim()
-
-    setIsSavingName(true)
-    clearMessages()
-
-    try {
-      const updatedProfile = await updateParentPortalDisplayName({ displayName: normalizedDisplayName })
-      updateCurrentUserDetails(updatedProfile)
-      setStatusMessage('Display name updated.')
-      showToast({ title: 'Display name updated', message: 'Your family portal profile name has been saved.' })
-    } catch (error) {
-      console.error(error)
-      setSettingsError(error.message || 'Display name could not be updated.')
-      showToast({ title: 'Display name not saved', message: error.message || 'Display name could not be updated.', tone: 'error' })
-    } finally {
-      setIsSavingName(false)
-    }
-  }
-
-  const handleEmailSubmit = async (event) => {
-    event.preventDefault()
-    const normalizedEmail = normalizeSettingsEmail(email)
-    const currentEmails = getParentSettingsCurrentEmails({
-      authUser,
-      initialEmail,
-      parentEmail,
-      parentLinks,
-      selectedLink,
-    })
-
-    setIsSavingEmail(true)
-    clearMessages()
-
-    try {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-        throw new Error('Enter a valid email address.')
-      }
-
-      if (currentEmails.has(normalizedEmail)) {
-        setEmail(normalizedEmail)
-        setInitialEmail(normalizedEmail)
-        setStatusMessage(parentPortalEmailAlreadyUpToDateMessage)
-        showToast({ title: 'Email already up to date', message: parentPortalEmailAlreadyUpToDateMessage })
-        return
-      }
-
-      const emailChangeIntent = await prepareParentPortalEmailChange({ email: normalizedEmail })
-
-      if (emailChangeIntent.action === 'request-auth-email-change') {
-        const emailChangeResult = await requestLoginEmailChange({ authUser, email: normalizedEmail })
-        const message = emailChangeResult.unchanged
-          ? parentPortalEmailAlreadyUpToDateMessage
-          : parentPortalEmailPendingConfirmationMessage
-
-        setEmail(normalizedEmail)
-        setInitialEmail(normalizedEmail)
-        setStatusMessage(message)
-        showToast({ title: emailChangeResult.unchanged ? 'Email already up to date' : 'Confirm email change', message })
-        return
-      }
-
-      const message = getParentEmailSuccessMessage(emailChangeIntent.action, emailChangeIntent.message)
-
-      setEmail(emailChangeIntent.email || normalizedEmail)
-      setInitialEmail(emailChangeIntent.email || normalizedEmail)
-      setStatusMessage(message)
-      showToast({ title: emailChangeIntent.action === 'noop' ? 'Email already up to date' : 'Email link updated', message })
-    } catch (error) {
-      console.error(error)
-      const message = getParentEmailSaveErrorMessage(error)
-      setSettingsError(message)
-      showToast({ title: 'Email not updated', message, tone: 'error' })
-    } finally {
-      setIsSavingEmail(false)
-    }
   }
 
   const handlePasswordSubmit = async (event) => {
@@ -1085,44 +975,11 @@ function ParentSettingsPanel({
 
         {settingsError ? <NoticeBanner title="Settings not saved" message={settingsError} /> : null}
 
-        <form className={softPanelClass} onSubmit={handleDisplayNameSubmit}>
-          <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Display name</span>
-            <input
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              minLength={2}
-              maxLength={80}
-              required
-              className={`mt-2 ${fieldClass}`}
-            />
-          </label>
-          <p className={`mt-2 ${bodyTextClass}`}>
-            This changes the name used by the family portal. Staff-side contact display name sync needs a parent contact display-name field before it can be guaranteed everywhere.
-          </p>
-          <button type="submit" disabled={isSavingName} className={`mt-4 ${primaryButtonClass}`}>
-            {isSavingName ? 'Saving...' : 'Save display name'}
-          </button>
-        </form>
-
-        <form className={softPanelClass} onSubmit={handleEmailSubmit}>
-          <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Email address</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              className={`mt-2 ${fieldClass}`}
-            />
-          </label>
-          <p className={`mt-2 ${bodyTextClass}`}>
-            New emails need inbox confirmation. If the email already belongs to this family, the portal reuses that parent access instead of creating another login.
-          </p>
-          <button type="submit" disabled={isSavingEmail} className={`mt-4 ${primaryButtonClass}`}>
-            {isSavingEmail ? 'Requesting...' : 'Change email'}
-          </button>
-        </form>
+        <ParentAccountContactPanel
+          parentEmail={parentEmail}
+          parentName={parentName}
+          selectedLink={selectedLink}
+        />
 
         <form className={panelClass} onSubmit={handlePasswordSubmit}>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Password</p>
@@ -1205,6 +1062,59 @@ function ParentSettingsPanel({
         onEnable={onEnableNotifications}
         pushState={pushState}
       />
+    </section>
+  )
+}
+
+function ParentAccountContactPanel({ parentEmail, parentName, selectedLink }) {
+  const contact = getParentSettingsContact(selectedLink)
+  const displayName = String(parentName ?? '').trim() || 'Parent or guardian'
+  const email = String(parentEmail ?? selectedLink?.email ?? '').trim() || 'No email shown'
+
+  return (
+    <section className={softPanelClass} aria-labelledby="parent-account-contact-heading">
+      <p className={eyebrowClass}>Account details</p>
+      <h4 id="parent-account-contact-heading" className="mt-2 text-xl font-black text-[#101828]">
+        Club-managed contact details
+      </h4>
+      <p className={`mt-3 ${bodyTextClass}`}>
+        Display name and email changes are managed by the club.
+      </p>
+      <p className={`mt-1 ${bodyTextClass}`}>{contact.message}</p>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Display name</p>
+          <p className="mt-2 break-words text-sm font-black text-[#101828]">{displayName}</p>
+          <p className="mt-1 text-xs font-semibold text-[#60756a]">Read-only</p>
+        </div>
+        <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Email address</p>
+          <p className="mt-2 break-words text-sm font-black text-[#101828]">{email}</p>
+          <p className="mt-1 text-xs font-semibold text-[#60756a]">Read-only</p>
+        </div>
+      </div>
+
+      {contact.emails.length > 0 ? (
+        <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">{contact.label} contact</p>
+          <div className="mt-2 flex flex-col gap-2">
+            {contact.emails.map((emailAddress) => (
+              <a
+                key={emailAddress}
+                href={`mailto:${emailAddress}`}
+                className="break-words text-sm font-black text-[#047857] underline-offset-4 hover:underline"
+              >
+                {emailAddress}
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className={`mt-4 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 ${bodyTextClass}`}>
+          No contact email is available in the portal yet.
+        </p>
+      )}
     </section>
   )
 }

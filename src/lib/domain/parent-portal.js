@@ -17,6 +17,7 @@ function normalizeParentLink(row) {
     id: row.id,
     clubId: row.club_id,
     clubName: String(club?.name ?? '').trim(),
+    clubContactEmail: String(club?.contact_email ?? '').trim(),
     teamId: row.team_id,
     teamName: String(team?.name ?? player?.team ?? '').trim(),
     themeMode: String(team?.theme_mode ?? '').trim(),
@@ -69,7 +70,7 @@ function normalizeParentPortalMessage(row) {
 export async function getParentPortalLinks() {
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email)')
     .eq('status', 'active')
     .order('created_at', { ascending: false })
 
@@ -128,7 +129,7 @@ export async function updateOwnParentPortalLinksEmail({ authUser, email }) {
     })
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email)')
 
   if (error) {
     console.error(error)

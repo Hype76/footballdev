@@ -250,7 +250,7 @@ async function getParentPortalMemberships(authUser) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
@@ -272,7 +272,7 @@ async function getParentPortalMemberships(authUser) {
       })
       .eq('auth_user_id', authUser.id)
       .eq('status', 'active')
-      .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url)')
+      .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email)')
 
     if (syncError) {
       console.error(syncError)
@@ -291,6 +291,7 @@ async function getParentPortalMemberships(authUser) {
       clubId: row.club_id,
       clubName: String(club?.name ?? '').trim(),
       clubLogoUrl: String(club?.logo_url ?? '').trim(),
+      clubContactEmail: String(club?.contact_email ?? '').trim(),
       teamId: row.team_id,
       teamName: String(team?.name ?? player?.team ?? '').trim(),
       themeMode: String(team?.theme_mode ?? '').trim(),

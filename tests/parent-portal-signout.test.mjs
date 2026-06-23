@@ -29,7 +29,7 @@ test('parent portal sign out uses the auth helper and redirects to parent login'
   const handlerEnd = source.indexOf('async function loadMatches()', handlerStart)
   const handlerSection = source.slice(handlerStart, handlerEnd)
 
-  assert.match(source, /const \{ authUser, resetPassword, signOut, updateCurrentUserDetails, user \} = useAuth\(\)/)
+  assert.match(source, /const \{ authUser, resetPassword, signOut, user \} = useAuth\(\)/)
   assert.match(handlerSection, /await signOut\(\)/)
   assert.match(handlerSection, /window\.sessionStorage\.clear\(\)/)
   assert.match(handlerSection, /window\.location\.replace\('\/parent-login'\)/)
