@@ -14,14 +14,21 @@ export function ManageClubsSection({
 }) {
   const createdInviteUrl = String(createdInvite?.url ?? '').trim()
   const deliveryStatus = String(createdInvite?.deliveryStatus ?? '').trim()
+  const deliveryReason = String(createdInvite?.deliveryReason ?? '').trim()
   const inviteWasSent = Boolean(createdInvite?.sent)
   const inviteEmailFailed = Boolean(createdInvite?.emailFailed)
-  const inviteTitle = deliveryStatus === 'skipped' ? 'Manual invite link' : 'Club invite link'
+  const inviteTitle = inviteWasSent
+    ? 'Invite link backup'
+    : deliveryStatus === 'skipped' || inviteEmailFailed || deliveryStatus === 'configuration_error'
+      ? 'Manual invite link'
+      : 'Club invite link'
   const inviteDescription = createdInvite?.deliveryMessage || (
-    inviteEmailFailed
-      ? 'The invite email could not be sent. Use this link while email delivery is checked.'
+    deliveryStatus === 'configuration_error' || deliveryReason === 'missing_email_configuration'
+      ? 'Invite email could not be sent because production email is not configured. Use the manual invite link below and contact platform support.'
+      : inviteEmailFailed
+        ? 'Invite email could not be sent. Use the manual invite link below.'
       : inviteWasSent
-        ? 'The invite email was accepted for delivery. Use this link only if the owner needs it manually.'
+        ? 'Invite email accepted for delivery.'
         : 'Email delivery was skipped by environment policy. Send this link manually to test setup.'
   )
 

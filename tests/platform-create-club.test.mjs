@@ -12,7 +12,10 @@ const originalEnv = {
   CONTEXT: process.env.CONTEXT,
   NETLIFY_DEV: process.env.NETLIFY_DEV,
   NODE_ENV: process.env.NODE_ENV,
+  PRODUCTION_URL: process.env.PRODUCTION_URL,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
+  URL: process.env.URL,
+  VITE_APP_URL: process.env.VITE_APP_URL,
 }
 
 function setEnv(nextEnv) {
@@ -189,10 +192,37 @@ test('createPlatformClubResult sends production owner invites and reports accept
   assert.equal(parsed.body.success, true)
   assert.equal(parsed.body.invite.sent, true)
   assert.equal(parsed.body.invite.emailFailed, false)
+  assert.equal(parsed.body.invite.deliveryAttempted, true)
+  assert.equal(parsed.body.invite.deliveryStatus, 'accepted')
+  assert.equal(parsed.body.invite.deliveryPolicy, 'production')
+  assert.equal(parsed.body.invite.deliveryReason, 'production_delivery_accepted')
+  assert.equal(parsed.body.invite.deliveryMessage, 'Invite email accepted for delivery.')
+  assert.equal(emailCalls.length, 1)
+  assert.equal(mock.calls.some((call) => call.table === 'club_owner_invites' && call.action === 'update'), true)
+})
+
+test('createPlatformClubResult treats production host as production when Netlify context is missing', async () => {
+  setEnv({
+    CONTEXT: '',
+    NODE_ENV: '',
+    RESEND_API_KEY: 'resend-fixture-key',
+  })
+  const mock = createMockSupabase()
+  const emailCalls = []
+  const response = await createPlatformClubResult(createEvent(), {
+    supabaseAdmin: mock.supabaseAdmin,
+    sendOwnerInviteEmailImpl: async (payload) => {
+      emailCalls.push(payload)
+      return { data: { id: 'email-1' } }
+    },
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.invite.sent, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'accepted')
   assert.equal(parsed.body.invite.deliveryPolicy, 'production')
   assert.equal(emailCalls.length, 1)
-  assert.equal(mock.calls.some((call) => call.table === 'club_owner_invites' && call.action === 'update'), true)
 })
 
 test('createPlatformClubResult skips email on staging and labels the invite correctly', async () => {
@@ -219,7 +249,8 @@ test('createPlatformClubResult skips email on staging and labels the invite corr
   assert.equal(parsed.body.invite.emailFailed, false)
   assert.equal(parsed.body.invite.deliveryStatus, 'skipped')
   assert.equal(parsed.body.invite.deliveryPolicy, 'staging')
-  assert.match(parsed.body.invite.deliveryMessage, /staging environment policy/)
+  assert.equal(parsed.body.invite.deliveryReason, 'staging_policy')
+  assert.match(parsed.body.invite.deliveryMessage, /staging policy/)
   assert.equal(emailCalls.length, 0)
 })
 
@@ -227,15 +258,21 @@ test('createPlatformClubResult skips email on deploy preview, local development,
   const cases = [
     {
       env: { CONTEXT: 'deploy-preview', NODE_ENV: 'production', RESEND_API_KEY: 'resend-fixture-key' },
+      headers: { host: 'deploy-preview-123--footballplayer-online.netlify.app' },
       expectedPolicy: 'deploy_preview',
+      expectedReason: 'preview_policy',
     },
     {
       env: { CONTEXT: '', NETLIFY_DEV: 'true', NODE_ENV: 'development', RESEND_API_KEY: 'resend-fixture-key' },
+      headers: { host: 'localhost:8888', 'x-forwarded-proto': 'http' },
       expectedPolicy: 'local',
+      expectedReason: 'local_development_policy',
     },
     {
       env: { CONTEXT: '', NODE_ENV: 'test', RESEND_API_KEY: 'resend-fixture-key' },
+      headers: { host: 'fixture.test' },
       expectedPolicy: 'test',
+      expectedReason: 'test_policy',
     },
   ]
 
@@ -243,7 +280,7 @@ test('createPlatformClubResult skips email on deploy preview, local development,
     setEnv(nextCase.env)
     const mock = createMockSupabase()
     const emailCalls = []
-    const response = await createPlatformClubResult(createEvent(), {
+    const response = await createPlatformClubResult(createEvent({}, nextCase.headers), {
       supabaseAdmin: mock.supabaseAdmin,
       sendOwnerInviteEmailImpl: async (payload) => {
         emailCalls.push(payload)
@@ -256,6 +293,7 @@ test('createPlatformClubResult skips email on deploy preview, local development,
     assert.equal(parsed.body.invite.sent, false)
     assert.equal(parsed.body.invite.deliveryStatus, 'skipped')
     assert.equal(parsed.body.invite.deliveryPolicy, nextCase.expectedPolicy)
+    assert.equal(parsed.body.invite.deliveryReason, nextCase.expectedReason)
     assert.equal(emailCalls.length, 0)
   }
 })
@@ -289,7 +327,39 @@ test('createPlatformClubResult does not let browser data skip production email d
   assert.equal(emailCalls.length, 1)
 })
 
-test('createPlatformClubResult fails before creating records when production email is not configured', async () => {
+test('createPlatformClubResult does not let browser data force local delivery to send', async () => {
+  setEnv({
+    CONTEXT: '',
+    NETLIFY_DEV: 'true',
+    NODE_ENV: 'development',
+    RESEND_API_KEY: 'resend-fixture-key',
+  })
+  const mock = createMockSupabase()
+  const emailCalls = []
+  const response = await createPlatformClubResult(createEvent({
+    forceEmailDelivery: true,
+    deliveryPolicy: 'send',
+  }, {
+    host: 'localhost:8888',
+    'x-forwarded-proto': 'http',
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    sendOwnerInviteEmailImpl: async (payload) => {
+      emailCalls.push(payload)
+      return { data: { id: 'email-1' } }
+    },
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.invite.sent, false)
+  assert.equal(parsed.body.invite.deliveryStatus, 'skipped')
+  assert.equal(parsed.body.invite.deliveryPolicy, 'local')
+  assert.equal(parsed.body.invite.deliveryReason, 'local_development_policy')
+  assert.equal(emailCalls.length, 0)
+})
+
+test('createPlatformClubResult reports configuration error and keeps invite link when production email is not configured', async () => {
   setEnv({
     CONTEXT: 'production',
     NODE_ENV: 'production',
@@ -301,10 +371,19 @@ test('createPlatformClubResult fails before creating records when production ema
   })
   const parsed = parseResponse(response)
 
-  assert.equal(parsed.statusCode, 500)
-  assert.equal(parsed.body.code, 'email_environment_error')
-  assert.equal(mock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
-  assert.equal(mock.calls.some((call) => call.table === 'club_owner_invites' && call.action === 'insert'), false)
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.invite.sent, false)
+  assert.equal(parsed.body.invite.emailFailed, true)
+  assert.equal(parsed.body.invite.deliveryAttempted, false)
+  assert.equal(parsed.body.invite.deliveryStatus, 'configuration_error')
+  assert.equal(parsed.body.invite.deliveryPolicy, 'production')
+  assert.equal(parsed.body.invite.deliveryReason, 'missing_email_configuration')
+  assert.match(parsed.body.invite.deliveryMessage, /production email is not configured/)
+  assert.match(parsed.body.invite.url, /\/club-invite\//)
+  assert.match(parsed.body.warning, /production email is not configured/)
+  assert.equal(mock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), true)
+  assert.equal(mock.calls.some((call) => call.table === 'club_owner_invites' && call.action === 'insert'), true)
 })
 
 test('createPlatformClubResult preserves manual invite link when email provider rejects the send', async () => {
@@ -326,7 +405,9 @@ test('createPlatformClubResult preserves manual invite link when email provider 
   assert.equal(parsed.body.success, true)
   assert.equal(parsed.body.invite.sent, false)
   assert.equal(parsed.body.invite.emailFailed, true)
+  assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
+  assert.equal(parsed.body.invite.deliveryReason, 'provider_rejected')
   assert.match(parsed.body.invite.url, /\/club-invite\//)
   assert.match(parsed.body.warning, /could not be sent/)
 })
@@ -350,7 +431,9 @@ test('createPlatformClubResult represents provider timeouts as failed delivery w
   assert.equal(parsed.body.success, true)
   assert.equal(parsed.body.invite.sent, false)
   assert.equal(parsed.body.invite.emailFailed, true)
+  assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
+  assert.equal(parsed.body.invite.deliveryReason, 'provider_timeout')
   assert.match(parsed.body.invite.url, /\/club-invite\//)
   assert.match(parsed.body.warning, /could not be sent/)
 })

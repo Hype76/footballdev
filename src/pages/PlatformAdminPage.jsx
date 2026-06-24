@@ -531,6 +531,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             sent: Boolean(ownerInvite?.sent),
             emailFailed: Boolean(ownerInvite?.emailFailed),
             deliveryStatus: ownerInvite?.deliveryStatus || (ownerInvite?.sent ? 'accepted' : 'skipped'),
+            deliveryReason: ownerInvite?.deliveryReason || '',
             deliveryMessage: ownerInvite?.deliveryMessage || '',
           }
         : null)

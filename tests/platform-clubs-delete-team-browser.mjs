@@ -37,7 +37,7 @@ async function waitForCondition(condition, message, timeoutMs = 15000) {
   const startedAt = Date.now()
 
   while (Date.now() - startedAt < timeoutMs) {
-    if (condition()) {
+    if (await condition()) {
       return
     }
 
@@ -180,14 +180,16 @@ function fixtureProfile() {
   }
 }
 
-async function prepareContext(browser, { deleteResponses = [] } = {}) {
+async function prepareContext(browser, { createClubResponses = [], deleteResponses = [] } = {}) {
   const context = await browser.newContext()
   const requests = {
+    createClub: [],
     deleteTeam: [],
     auth: [],
     functions: [],
   }
   const consoleMessages = []
+  let createClubResponseIndex = 0
   let teamDeleted = false
   let deleteResponseIndex = 0
 
@@ -211,6 +213,45 @@ async function prepareContext(browser, { deleteResponses = [] } = {}) {
     }
 
     await fulfillJson(route, 200, { success: true, hasPlatformAdminAccess: true, platformAdmin: { id: fixtureUserId, email: fixtureEmail, name: 'Platform Fixture' } })
+  }
+
+  const handlePlatformCreateClubRoute = async (route) => {
+    const request = route.request()
+    const body = request.postDataJSON()
+    requests.createClub.push({
+      method: request.method(),
+      headers: request.headers(),
+      body,
+    })
+    const nextResponse = createClubResponses[createClubResponseIndex] || {
+      status: 200,
+      body: {
+        success: true,
+        club: {
+          ...disposableClub,
+          id: '44444444-4444-4444-8444-444444444444',
+          name: body.name || 'Disposable Created Club FC',
+          contact_email: body.contactEmail || body.ownerEmail || 'owner@example.test',
+        },
+        invite: {
+          id: '55555555-5555-4555-8555-555555555555',
+          email: body.ownerEmail || 'owner@example.test',
+          billingMode: body.billingMode || 'paid',
+          planKey: body.planKey || 'small_club',
+          sent: true,
+          emailFailed: false,
+          deliveryAttempted: true,
+          deliveryStatus: 'accepted',
+          deliveryPolicy: 'production',
+          deliveryReason: 'production_delivery_accepted',
+          deliveryMessage: 'Invite email accepted for delivery.',
+          url: `${baseUrl}/club-invite/fixture-owner-token`,
+        },
+      },
+    }
+    createClubResponseIndex += 1
+
+    await fulfillJson(route, nextResponse.status, nextResponse.body)
   }
 
   const handlePlatformDeleteTeamRoute = async (route) => {
@@ -240,6 +281,7 @@ async function prepareContext(browser, { deleteResponses = [] } = {}) {
   }
 
   await context.route('**/.netlify/functions/platform-admin-access**', handlePlatformAdminAccessRoute)
+  await context.route('**/.netlify/functions/platform-create-club**', handlePlatformCreateClubRoute)
   await context.route('**/.netlify/functions/platform-delete-team**', handlePlatformDeleteTeamRoute)
 
   await context.route('**/.netlify/functions/**', async (route) => {
@@ -247,6 +289,11 @@ async function prepareContext(browser, { deleteResponses = [] } = {}) {
 
     if (url.includes('/.netlify/functions/platform-admin-access')) {
       await handlePlatformAdminAccessRoute(route)
+      return
+    }
+
+    if (url.includes('/.netlify/functions/platform-create-club')) {
+      await handlePlatformCreateClubRoute(route)
       return
     }
 
@@ -339,6 +386,16 @@ function teamDeleteButton(page, teamName) {
     .getByRole('button', { name: 'Delete team' })
 }
 
+async function waitForReadonlyInputValue(page, value) {
+  await waitForCondition(async () => {
+    const values = await page.locator('input[readonly]').evaluateAll((inputs) =>
+      inputs.map((input) => input.value),
+    )
+
+    return values.includes(value)
+  }, `Readonly input value was not visible: ${value}`)
+}
+
 async function signIn(page) {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
   await page.getByLabel('Email').fill(fixtureEmail)
@@ -367,6 +424,12 @@ async function openPlatformClubs(page) {
   await page.goto(`${baseUrl}/platform-clubs`, { waitUntil: 'domcontentloaded' })
   await page.locator('p').filter({ hasText: disposableClub.name }).first().waitFor({ state: 'visible', timeout: 15000 })
   await page.locator('span').filter({ hasText: 'U12 Tigers Fixture' }).first().waitFor({ state: 'visible', timeout: 15000 })
+}
+
+async function submitCreateClubInvite(page, { clubName = 'Created Browser Club FC', ownerEmail = 'owner@example.test' } = {}) {
+  await page.getByLabel('Club name').fill(clubName)
+  await page.getByLabel('Owner invite email').fill(ownerEmail)
+  await page.getByRole('button', { name: 'Add club and invite' }).click()
 }
 
 async function runScenario(name, callback) {
@@ -454,6 +517,81 @@ try {
     assert.equal(requests.deleteTeam.length, 1)
     assert.equal(requests.deleteTeam[0].body.teamId, disposableTeams[1].id)
     assert.equal(requests.deleteTeam[0].body.clubId, disposableClub.id)
+
+    await context.close()
+  })
+
+  await runScenario('production invite accepted response shows accepted delivery and backup link', async () => {
+    const { context, page, requests } = await prepareContext(browser, {
+      createClubResponses: [{
+        status: 200,
+        body: {
+          success: true,
+          club: disposableClub,
+          invite: {
+            id: '55555555-5555-4555-8555-555555555555',
+            email: 'owner@example.test',
+            billingMode: 'paid',
+            planKey: 'small_club',
+            sent: true,
+            emailFailed: false,
+            deliveryAttempted: true,
+            deliveryStatus: 'accepted',
+            deliveryPolicy: 'production',
+            deliveryReason: 'production_delivery_accepted',
+            deliveryMessage: 'Invite email accepted for delivery.',
+            url: `${baseUrl}/club-invite/accepted-fixture-token`,
+          },
+        },
+      }],
+    })
+    await openPlatformClubs(page)
+    await submitCreateClubInvite(page)
+
+    await page.getByText('Invite email accepted for delivery.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByText('Invite link backup', { exact: true }).waitFor({ state: 'visible' })
+    await waitForReadonlyInputValue(page, `${baseUrl}/club-invite/accepted-fixture-token`)
+    await page.getByText('Email delivery was skipped by local development policy.', { exact: true }).waitFor({ state: 'detached' })
+    await page.getByText('Email delivery was skipped by staging policy.', { exact: true }).waitFor({ state: 'detached' })
+    assert.equal(requests.createClub.length, 1)
+
+    await context.close()
+  })
+
+  await runScenario('production missing email configuration response shows manual link and support copy', async () => {
+    const { context, page, requests } = await prepareContext(browser, {
+      createClubResponses: [{
+        status: 200,
+        body: {
+          success: true,
+          club: disposableClub,
+          invite: {
+            id: '55555555-5555-4555-8555-555555555555',
+            email: 'owner@example.test',
+            billingMode: 'paid',
+            planKey: 'small_club',
+            sent: false,
+            emailFailed: true,
+            deliveryAttempted: false,
+            deliveryStatus: 'configuration_error',
+            deliveryPolicy: 'production',
+            deliveryReason: 'missing_email_configuration',
+            deliveryMessage: 'Invite email could not be sent because production email is not configured. Use the manual invite link below and contact platform support.',
+            url: `${baseUrl}/club-invite/config-fixture-token`,
+          },
+        },
+        warning: 'Invite email could not be sent because production email is not configured. Use the manual invite link below and contact platform support.',
+      }],
+    })
+    await openPlatformClubs(page)
+    await submitCreateClubInvite(page)
+
+    await page.getByText('Manual invite link', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByText('Invite email could not be sent because production email is not configured. Use the manual invite link below and contact platform support.', { exact: true }).waitFor({ state: 'visible' })
+    await waitForReadonlyInputValue(page, `${baseUrl}/club-invite/config-fixture-token`)
+    await page.getByText('Email delivery was skipped by local development policy.', { exact: true }).waitFor({ state: 'detached' })
+    await page.getByText('Email delivery was skipped by staging policy.', { exact: true }).waitFor({ state: 'detached' })
+    assert.equal(requests.createClub.length, 1)
 
     await context.close()
   })

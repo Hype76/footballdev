@@ -125,7 +125,10 @@ test('Platform Admin team deletion uses the server endpoint instead of direct cl
 
 test('Manage Clubs invite copy distinguishes production accepted email from skipped environment email', () => {
   assert.match(manageClubsSectionSource, /inviteWasSent/)
-  assert.match(manageClubsSectionSource, /The invite email was accepted for delivery\. Use this link only if the owner needs it manually\./)
+  assert.match(manageClubsSectionSource, /Invite link backup/)
+  assert.match(manageClubsSectionSource, /Invite email accepted for delivery\./)
+  assert.match(manageClubsSectionSource, /production email is not configured/)
+  assert.match(manageClubsSectionSource, /Invite email could not be sent\. Use the manual invite link below\./)
   assert.match(manageClubsSectionSource, /Email delivery was skipped by environment policy\. Send this link manually to test setup\./)
   assert.doesNotMatch(manageClubsSectionSource, /Staging invite link/)
   assert.doesNotMatch(manageClubsSectionSource, /Emails are skipped on staging/)
