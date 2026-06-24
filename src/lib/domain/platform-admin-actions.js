@@ -342,7 +342,7 @@ export async function deletePlatformUser({ user, targetUserId }) {
   })
 }
 
-export async function deletePlatformTeam({ user, teamId }) {
+export async function deletePlatformTeam({ user, teamId, clubId, password = '', accessToken = '' }) {
   await blockDemoMutation(user)
 
   if (user?.role !== 'super_admin') {
@@ -350,49 +350,45 @@ export async function deletePlatformTeam({ user, teamId }) {
   }
 
   const normalizedTeamId = String(teamId ?? '').trim()
+  const normalizedClubId = String(clubId ?? '').trim()
 
   if (!normalizedTeamId) {
     throw new Error('Team ID is required.')
   }
 
-  const { data: teamRow, error: teamError } = await supabase
-    .from('teams')
-    .select('id, name, club_id')
-    .eq('id', normalizedTeamId)
-    .single()
-
-  if (teamError) {
-    console.error(teamError)
-    throw teamError
+  if (!normalizedClubId) {
+    throw new Error('Club ID is required.')
   }
 
-  const { error: deleteError } = await supabase
-    .from('teams')
-    .delete()
-    .eq('id', normalizedTeamId)
+  const response = await fetch('/.netlify/functions/platform-delete-team', {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken || ''}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      teamId: normalizedTeamId,
+      clubId: normalizedClubId,
+      password: String(password ?? ''),
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
 
-  if (deleteError) {
-    console.error(deleteError)
-    throw deleteError
+  if (!response.ok || result.success === false) {
+    const error = new Error(result.message || 'Team could not be deleted.')
+    error.code = result.code || 'server_error'
+    error.statusCode = response.status
+    throw error
   }
 
   invalidateMemoryCacheByPrefix('platform-stats')
-  invalidateMemoryCacheByPrefix(`teams:${teamRow.club_id}`)
+  invalidateMemoryCacheByPrefix(`teams:${result.team?.clubId || normalizedClubId}`)
   invalidateMemoryCacheByPrefix('available-teams:')
   invalidateMemoryCacheByPrefix('team-assignments:')
   invalidateMemoryCacheByPrefix('assigned-teams:')
   clearViewCaches()
 
-  await createAuditLog({
-    user,
-    action: 'platform_team_deleted',
-    entityType: 'team',
-    entityId: normalizedTeamId,
-    metadata: {
-      teamName: teamRow.name,
-      clubId: teamRow.club_id,
-    },
-  })
+  return result.team || null
 }
 
 export async function getPlatformStats(user) {

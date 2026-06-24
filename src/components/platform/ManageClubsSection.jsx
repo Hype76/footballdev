@@ -6,12 +6,25 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function ManageClubsSection({
-  createdInviteUrl = '',
+  createdInvite = null,
   form,
   isSaving,
   onChange,
   onSubmit,
 }) {
+  const createdInviteUrl = String(createdInvite?.url ?? '').trim()
+  const deliveryStatus = String(createdInvite?.deliveryStatus ?? '').trim()
+  const inviteWasSent = Boolean(createdInvite?.sent)
+  const inviteEmailFailed = Boolean(createdInvite?.emailFailed)
+  const inviteTitle = deliveryStatus === 'skipped' ? 'Manual invite link' : 'Club invite link'
+  const inviteDescription = createdInvite?.deliveryMessage || (
+    inviteEmailFailed
+      ? 'The invite email could not be sent. Use this link while email delivery is checked.'
+      : inviteWasSent
+        ? 'The invite email was accepted for delivery. Use this link only if the owner needs it manually.'
+        : 'Email delivery was skipped by environment policy. Send this link manually to test setup.'
+  )
+
   const handleCopyInviteUrl = async () => {
     if (!createdInviteUrl || !navigator?.clipboard?.writeText) {
       return
@@ -98,9 +111,9 @@ export function ManageClubsSection({
       </form>
       {createdInviteUrl ? (
         <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4">
-          <p className="text-sm font-black text-[#101828]">Staging invite link</p>
+          <p className="text-sm font-black text-[#101828]">{inviteTitle}</p>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-            Emails are skipped on staging. Send this link manually to test setup.
+            {inviteDescription}
           </p>
           <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
             <input

@@ -39,6 +39,49 @@ const feedbackCacheKey = 'platform-admin-feedback'
 const PLATFORM_FEEDBACK_PAGE_SIZE = 6
 const CLUB_PAGE_SIZE = 6
 
+function getPlatformActionErrorMessage(error, fallbackMessage) {
+  const code = String(error?.code || error?.status || error?.statusCode || '').trim()
+  const message = String(error?.message || '').trim()
+
+  if (code === 'missing_password') {
+    return 'Enter your password to confirm this action.'
+  }
+
+  if (code === 'invalid_password') {
+    return 'Password confirmation failed. Check your password and try again.'
+  }
+
+  if (code === 'unauthenticated' || code === '401') {
+    return 'Your session has expired. Sign in again before retrying this action.'
+  }
+
+  if (code === 'forbidden' || code === '403') {
+    return 'You do not have permission to complete this platform admin action.'
+  }
+
+  if (code === 'invalid_team_id' || code === 'invalid_club_id' || code === 'validation_error') {
+    return message || 'Selected team details are invalid. Refresh the platform data and try again.'
+  }
+
+  if (code === 'team_not_found') {
+    return 'Team was not found.'
+  }
+
+  if (code === 'team_club_mismatch') {
+    return 'Selected team is not linked to the selected club. Refresh the platform data and try again.'
+  }
+
+  if (code === 'deletion_conflict' || code === '409') {
+    return 'This team cannot be deleted because linked records still depend on it.'
+  }
+
+  if (code === 'network_error' || message.toLowerCase().includes('failed to fetch')) {
+    return 'Network failure. Check your connection and try again.'
+  }
+
+  return message || fallbackMessage
+}
+
 const PAGE_META = {
   dashboard: {
     title: 'Platform dashboard',
@@ -82,8 +125,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [updatingUserId, setUpdatingUserId] = useState('')
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [confirmErrorMessage, setConfirmErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [createdClubInviteUrl, setCreatedClubInviteUrl] = useState('')
+  const [createdClubInvite, setCreatedClubInvite] = useState(null)
   const [newClubForm, setNewClubForm] = useState({
     name: '',
     contactEmail: '',
@@ -308,6 +352,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
   const handleDeleteFeedback = async (item) => {
     setFeedbackDeleteTarget(item)
+    setConfirmErrorMessage('')
+    setErrorMessage('')
+    setSuccessMessage('')
   }
 
   const confirmDeleteFeedback = async (password) => {
@@ -317,6 +364,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
     setUpdatingFeedbackId(feedbackDeleteTarget.id)
     setErrorMessage('')
+    setConfirmErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -326,13 +374,13 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         feedbackId: feedbackDeleteTarget.id,
       })
       setSuccessMessage('Feedback deleted.')
+      setFeedbackDeleteTarget(null)
       refreshStats()
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Feedback could not be deleted.')
+      setConfirmErrorMessage(getPlatformActionErrorMessage(error, 'Feedback could not be deleted.'))
     } finally {
       setUpdatingFeedbackId('')
-      setFeedbackDeleteTarget(null)
     }
   }
 
@@ -345,8 +393,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         : {}),
     }))
     setErrorMessage('')
+    setConfirmErrorMessage('')
     setSuccessMessage('')
-    setCreatedClubInviteUrl('')
+    setCreatedClubInvite(null)
   }
 
   const handlePlatformAdminChange = (fieldName, value) => {
@@ -355,8 +404,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       [fieldName]: value,
     }))
     setErrorMessage('')
+    setConfirmErrorMessage('')
     setSuccessMessage('')
-    setCreatedClubInviteUrl('')
+    setCreatedClubInvite(null)
   }
 
   const handleCreatePlatformAdmin = async (event) => {
@@ -398,6 +448,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
   const handleDeletePlatformAdmin = (platformAdmin) => {
     setPlatformAdminDeleteTarget(platformAdmin)
+    setConfirmErrorMessage('')
     setErrorMessage('')
     setSuccessMessage('')
   }
@@ -445,8 +496,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     event.preventDefault()
     setIsSavingClub(true)
     setErrorMessage('')
+    setConfirmErrorMessage('')
     setSuccessMessage('')
-    setCreatedClubInviteUrl('')
+    setCreatedClubInvite(null)
 
     try {
       const createdClub = await createPlatformClub({
@@ -460,6 +512,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         accessToken: session?.access_token || '',
       })
       const inviteUrl = String(createdClub?.ownerInvite?.url ?? '').trim()
+      const ownerInvite = createdClub?.ownerInvite
       setNewClubForm({
         name: '',
         contactEmail: '',
@@ -468,11 +521,19 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         planKey: 'small_club',
         billingMode: 'paid',
       })
-      setCreatedClubInviteUrl(inviteUrl)
-      setSuccessMessage(createdClub?.ownerInvite?.sent ? 'Club created and invite sent.' : 'Club created. Use the invite link below for staging.')
+      setCreatedClubInvite(inviteUrl
+        ? {
+            url: inviteUrl,
+            sent: Boolean(ownerInvite?.sent),
+            emailFailed: Boolean(ownerInvite?.emailFailed),
+            deliveryStatus: ownerInvite?.deliveryStatus || (ownerInvite?.sent ? 'accepted' : 'skipped'),
+            deliveryMessage: ownerInvite?.deliveryMessage || '',
+          }
+        : null)
+      setSuccessMessage(ownerInvite?.sent ? 'Club created and invite accepted for delivery.' : 'Club created. Review the invite delivery status below.')
       showToast({
         title: 'Club saved',
-        message: createdClub?.ownerInvite?.sent ? 'The club admin invite has been sent.' : 'The staging invite link is ready.',
+        message: ownerInvite?.sent ? 'The club admin invite was accepted for delivery.' : 'The invite link is ready.',
       })
       refreshStats()
     } catch (error) {
@@ -545,6 +606,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
   const handleDeleteClub = async (club) => {
     setClubDeleteTarget(club)
+    setConfirmErrorMessage('')
+    setErrorMessage('')
+    setSuccessMessage('')
   }
 
   const handleDeleteTeam = async (club, team) => {
@@ -553,15 +617,24 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       clubName: club.name,
       clubId: club.id,
     })
+    setConfirmErrorMessage('')
+    setErrorMessage('')
+    setSuccessMessage('')
   }
 
   const confirmDeleteTeam = async (password) => {
-    if (!teamDeleteTarget) {
+    if (!teamDeleteTarget?.id || !teamDeleteTarget?.clubId) {
+      setConfirmErrorMessage('Selected team details are missing. Refresh the platform data and try again.')
+      return
+    }
+
+    if (updatingTeamId) {
       return
     }
 
     setUpdatingTeamId(teamDeleteTarget.id)
     setErrorMessage('')
+    setConfirmErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -569,15 +642,18 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       await deletePlatformTeam({
         user,
         teamId: teamDeleteTarget.id,
+        clubId: teamDeleteTarget.clubId,
+        password,
+        accessToken: session?.access_token || '',
       })
       setSuccessMessage('Team deleted.')
+      setTeamDeleteTarget(null)
       refreshStats()
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Team could not be deleted.')
+      setConfirmErrorMessage(getPlatformActionErrorMessage(error, 'Team could not be deleted.'))
     } finally {
       setUpdatingTeamId('')
-      setTeamDeleteTarget(null)
     }
   }
 
@@ -746,7 +822,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       {showClubManagement ? (
         <ManageClubsSection
-          createdInviteUrl={createdClubInviteUrl}
+          createdInvite={createdClubInvite}
           form={newClubForm}
           isSaving={isSavingClub}
           onChange={handleNewClubChange}
@@ -841,9 +917,13 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           `${feedbackDeleteTarget?.voteCount ?? 0} votes`,
         ]}
         confirmLabel="Delete Feedback"
-        onCancel={() => setFeedbackDeleteTarget(null)}
+        errorMessage={confirmErrorMessage}
+        onCancel={() => {
+          setFeedbackDeleteTarget(null)
+          setConfirmErrorMessage('')
+        }}
         requirePassword
-        onConfirm={(password) => void confirmDeleteFeedback(password)}
+        onConfirm={confirmDeleteFeedback}
       />
 
       <ConfirmModal
@@ -875,11 +955,16 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           `Club: ${teamDeleteTarget?.clubName || 'No club entered'}`,
           'Team staff allocations linked to this team',
           'Team links on sessions will be cleared by the database where required',
+          'Other team links follow database delete rules and may be cleared or block deletion',
         ]}
         confirmLabel="Delete team"
-        onCancel={() => setTeamDeleteTarget(null)}
+        errorMessage={confirmErrorMessage}
+        onCancel={() => {
+          setTeamDeleteTarget(null)
+          setConfirmErrorMessage('')
+        }}
         requirePassword
-        onConfirm={(password) => void confirmDeleteTeam(password)}
+        onConfirm={confirmDeleteTeam}
       />
 
       <ConfirmModal

@@ -137,13 +137,45 @@ async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteToke
   })
 }
 
-export async function handler(event) {
+function resolveInviteDeliveryPolicy(event) {
+  const context = normalizeText(process.env.CONTEXT).toLowerCase()
+  const branch = normalizeText(process.env.BRANCH).toLowerCase()
+  const nodeEnv = normalizeText(process.env.NODE_ENV).toLowerCase()
+  const netlifyDev = normalizeText(process.env.NETLIFY_DEV).toLowerCase()
+  const useStagingPolicy = isStagingRequest(event)
+
+  if (context === 'production') {
+    return { status: 'send', label: 'production', message: 'Production email delivery is enabled.' }
+  }
+
+  if (context === 'deploy-preview') {
+    return { status: 'skip', label: 'deploy_preview', message: 'Email delivery was skipped by deploy preview policy.' }
+  }
+
+  if (context === 'branch-deploy' || branch.includes('staging') || useStagingPolicy) {
+    return { status: 'skip', label: 'staging', message: 'Email delivery was skipped by staging environment policy.' }
+  }
+
+  if (nodeEnv === 'test') {
+    return { status: 'skip', label: 'test', message: 'Email delivery was skipped by test environment policy.' }
+  }
+
+  if (netlifyDev === 'true' || nodeEnv !== 'production') {
+    return { status: 'skip', label: 'local', message: 'Email delivery was skipped by local development policy.' }
+  }
+
+  return { status: 'error', label: 'unknown', message: 'Email delivery environment is not configured.' }
+}
+
+export async function createPlatformClubResult(event, {
+  supabaseAdmin = createSupabaseAdminClient(event),
+  sendOwnerInviteEmailImpl = sendOwnerInviteEmail,
+} = {}) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
   }
 
   try {
-    const supabaseAdmin = createSupabaseAdminClient(event)
     const platformAdmin = await getPlatformAdminProfile(supabaseAdmin, event)
     const body = JSON.parse(event.body || '{}')
     const name = normalizeText(body.name)
@@ -167,6 +199,16 @@ export async function handler(event) {
 
     if (billingMode === 'paid' && planKey === 'individual') {
       return failureResponse(400, 'Paid club setup needs a paid club plan.')
+    }
+
+    const deliveryPolicy = resolveInviteDeliveryPolicy(event)
+
+    if (deliveryPolicy.status === 'error') {
+      throw Object.assign(new Error(deliveryPolicy.message), { statusCode: 500, code: 'email_environment_error' })
+    }
+
+    if (deliveryPolicy.status === 'send' && !process.env.RESEND_API_KEY) {
+      throw Object.assign(new Error('Club invite email is not configured.'), { statusCode: 500, code: 'email_environment_error' })
     }
 
     const inviteToken = randomUUID()
@@ -217,23 +259,37 @@ export async function handler(event) {
 
     const baseUrl = getBaseUrl(event)
     const inviteUrl = `${baseUrl}/club-invite/${encodeURIComponent(inviteToken)}`
-    const shouldSendEmail = !isStagingRequest(event)
+    let deliveryStatus = deliveryPolicy.status === 'send' ? 'attempted' : 'skipped'
+    let deliveryMessage = deliveryPolicy.message
     let emailResponse = null
+    let emailWarning = ''
 
-    if (shouldSendEmail) {
-      emailResponse = await sendOwnerInviteEmail({
-        baseUrl,
-        billingMode,
-        clubName: name,
-        inviteToken,
-        ownerEmail,
-        planKey,
-      })
+    if (deliveryPolicy.status === 'send') {
+      try {
+        emailResponse = await sendOwnerInviteEmailImpl({
+          baseUrl,
+          billingMode,
+          clubName: name,
+          inviteToken,
+          ownerEmail,
+          planKey,
+        })
+        deliveryStatus = 'accepted'
+        deliveryMessage = 'The invite email was accepted for delivery.'
 
-      await supabaseAdmin
-        .from('club_owner_invites')
-        .update({ invite_sent_at: new Date().toISOString() })
-        .eq('id', invite.id)
+        await supabaseAdmin
+          .from('club_owner_invites')
+          .update({ invite_sent_at: new Date().toISOString() })
+          .eq('id', invite.id)
+      } catch (emailError) {
+        console.error('Club invite email delivery failed', {
+          statusCode: emailError?.statusCode || emailError?.status || 500,
+          code: emailError?.code || 'email_send_failed',
+        })
+        deliveryStatus = 'failed'
+        deliveryMessage = 'The invite email could not be sent. Use this link while email delivery is checked.'
+        emailWarning = deliveryMessage
+      }
     }
 
     await supabaseAdmin
@@ -255,7 +311,9 @@ export async function handler(event) {
           planKey,
           inviteId: invite.id,
           inviteUrl,
-          inviteEmailSent: shouldSendEmail,
+          inviteEmailSent: deliveryStatus === 'accepted',
+          inviteDeliveryStatus: deliveryStatus,
+          inviteDeliveryPolicy: deliveryPolicy.label,
           emailId: emailResponse?.data?.id || emailResponse?.id || '',
         },
       })
@@ -268,12 +326,29 @@ export async function handler(event) {
         email: ownerEmail,
         billingMode,
         planKey,
-        sent: shouldSendEmail,
+        sent: deliveryStatus === 'accepted',
+        emailFailed: deliveryStatus === 'failed',
+        deliveryStatus,
+        deliveryPolicy: deliveryPolicy.label,
+        deliveryMessage,
         url: inviteUrl,
       },
+      warning: emailWarning,
     })
   } catch (error) {
-    console.error(error)
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Club could not be created and invited.')
+    console.error('Platform club create failed', {
+      code: error?.code || 'server_error',
+      statusCode: error?.statusCode || 500,
+      message: error?.statusCode ? error.message : 'Club could not be created and invited.',
+    })
+    return jsonResponse(error.statusCode || 500, {
+      success: false,
+      code: error.code || 'server_error',
+      message: error.statusCode ? error.message : 'Club could not be created and invited.',
+    })
   }
+}
+
+export async function handler(event) {
+  return createPlatformClubResult(event)
 }

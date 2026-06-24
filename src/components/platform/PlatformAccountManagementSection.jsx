@@ -33,16 +33,6 @@ export function PlatformAccountManagementSection({
   visibleClubs,
 }) {
   const searchValue = String(clubSearchTerm ?? '')
-  const normalizedSearchValue = searchValue.trim().toLowerCase()
-  const clubSuggestions = (stats?.clubs ?? [])
-    .filter((club) => {
-      if (!normalizedSearchValue) {
-        return true
-      }
-
-      return String(club.name ?? '').toLowerCase().includes(normalizedSearchValue)
-    })
-    .slice(0, 12)
 
   return (
     <SectionCard
@@ -69,17 +59,11 @@ export function PlatformAccountManagementSection({
           <span className={labelClass}>Search clubs</span>
           <input
             type="search"
-            list="platform-club-search-suggestions"
             value={searchValue}
             onChange={(event) => onClubSearchChange(event.target.value)}
             placeholder="Search by club, contact, team, user, plan, or status"
             className={fieldClass}
           />
-          <datalist id="platform-club-search-suggestions">
-            {clubSuggestions.map((club) => (
-              <option key={club.id} value={club.name} />
-            ))}
-          </datalist>
         </label>
       </div>
 

@@ -11,6 +11,7 @@
     "postbuild": "node scripts/verify-web-build-env.mjs",
     "verify:build-env": "node scripts/verify-web-build-env.mjs",
     "audit:staging-clicks": "node scripts/staging-click-audit.mjs",
+    "test:platform": "node --test tests/platform-admin-delete-confirmation.test.mjs tests/platform-create-club.test.mjs tests/platform-delete-team.test.mjs && node tests/platform-clubs-delete-team-browser.mjs",
     "onboarding:videos": "node scripts/generate-onboarding-videos.mjs",
     "deploy:live": "npm run build:live && npm run verify:build-env && netlify deploy --prod --dir=dist",
     "lint": "eslint .",
