@@ -626,8 +626,8 @@ try {
       },
       {
         status: 500,
-        body: { success: false, code: 'server_error', message: 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.' },
-        expected: 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.',
+        body: { success: false, code: 'server_error', message: 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-SERVERERR-007.' },
+        expected: 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-SERVERERR-007.',
       },
     ]
 

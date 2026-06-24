@@ -80,14 +80,14 @@ function getPlatformActionErrorMessage(error, fallbackMessage) {
   }
 
   if (code === 'server_error' || code === '500') {
-    return 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.'
+    return 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-SERVERERR-007.'
   }
 
   if (code === 'network_error' || message.toLowerCase().includes('failed to fetch')) {
     return 'Network failure. Check your connection and try again.'
   }
 
-  return message || fallbackMessage || 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.'
+  return message || fallbackMessage || 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-SERVERERR-007.'
 }
 
 const PAGE_META = {

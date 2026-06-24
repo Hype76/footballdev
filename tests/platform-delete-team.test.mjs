@@ -9,6 +9,10 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 const { deletePlatformTeamResult } = await import('../netlify/functions/platform-delete-team.js')
 const deleteTeamFunctionSource = readFileSync('netlify/functions/platform-delete-team.js', 'utf8')
 const deleteTeamMigrationSource = readFileSync('supabase/migrations/20260624105819_platform_delete_team_transaction.sql', 'utf8')
+const playerNameIndexMigrationSource = readFileSync(
+  'supabase/migrations/20260624111815_allow_team_delete_with_unassigned_duplicate_player_names.sql',
+  'utf8',
+)
 
 const clubId = '11111111-1111-4111-8111-111111111111'
 const teamId = '22222222-2222-4222-8222-222222222222'
@@ -327,6 +331,25 @@ test('deletePlatformTeamResult reports conflicts and avoids success audit on fai
   assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
 })
 
+test('deletePlatformTeamResult maps player null-team unique conflicts to deletion_conflict', async () => {
+  const mock = createMockSupabase({
+    deleteError: Object.assign(new Error('duplicate key value violates unique constraint "players_club_team_section_player_name_key"'), {
+      code: '23505',
+      details: 'Key (club_id, team_id, section, player_name) already exists.',
+      constraint: 'players_club_team_section_player_name_key',
+    }),
+  })
+  const response = await deletePlatformTeamResult(createEvent(), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 409)
+  assert.equal(parsed.body.code, 'deletion_conflict')
+  assert.equal(parsed.body.message, 'This team cannot be deleted because player records would conflict after the team link is cleared.')
+})
+
 test('deletePlatformTeamResult maps audit transaction failures to audit_failed without claiming success', async () => {
   const mock = createMockSupabase({
     deleteError: Object.assign(new Error('audit_failed'), { code: 'P0001', details: '23502: audit insert rejected' }),
@@ -354,7 +377,7 @@ test('deletePlatformTeamResult maps unexpected internal throws to server_error',
 
   assert.equal(parsed.statusCode, 500)
   assert.equal(parsed.body.code, 'server_error')
-  assert.equal(parsed.body.message, 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.')
+  assert.equal(parsed.body.message, 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-SERVERERR-007.')
   assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
 })
 
@@ -394,8 +417,9 @@ test('deletePlatformTeamResult records safe diagnostics without logging password
 
   assert.equal(parsed.statusCode, 500)
   assert.equal(parsed.body.code, 'server_error')
-  assert.match(logged, /FPO-V1-TEAMDELETE-ACTUALFIX-006/)
+  assert.match(logged, /FPO-V1-TEAMDELETE-SERVERERR-007/)
   assert.match(logged, /team_delete_transaction/)
+  assert.match(logged, /fixture detail/)
   assert.equal(logged.includes(password), false)
   assert.equal(logged.includes(token), false)
 })
@@ -407,4 +431,7 @@ test('deletePlatformTeamResult uses the transactional RPC and migration audit in
   assert.doesNotMatch(deleteTeamMigrationSource, /^\s+actor_role,\s*$/m)
   assert.match(deleteTeamMigrationSource, /'actorRole'/)
   assert.match(deleteTeamMigrationSource, /grant execute on function public\.delete_platform_team_transaction/)
+  assert.match(playerNameIndexMigrationSource, /drop index if exists public\.players_club_team_section_player_name_key/)
+  assert.match(playerNameIndexMigrationSource, /create unique index players_club_team_section_player_name_key/)
+  assert.doesNotMatch(playerNameIndexMigrationSource, /NULLS NOT DISTINCT/i)
 })

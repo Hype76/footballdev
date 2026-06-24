@@ -21,6 +21,8 @@ function getBearerToken(event) {
   return scheme?.toLowerCase() === 'bearer' ? token : ''
 }
 
+const SUPPORT_REFERENCE = 'FPO-V1-TEAMDELETE-SERVERERR-007'
+
 function httpError(code, message, statusCode = 500) {
   return Object.assign(new Error(message), { code, statusCode })
 }
@@ -30,6 +32,7 @@ function safeErrorDetail(error) {
     supabaseCode: normalizeText(error?.code || error?.status || error?.statusCode),
     supabaseHint: normalizeText(error?.hint),
     supabaseDetails: normalizeText(error?.details),
+    supabaseConstraint: normalizeText(error?.constraint),
   }
 }
 
@@ -127,6 +130,7 @@ function normalizeDeleteError(error, stage = 'unknown') {
   const message = normalizeText(error?.message).toLowerCase()
   const details = normalizeText(error?.details).toLowerCase()
   const hint = normalizeText(error?.hint).toLowerCase()
+  const constraint = normalizeText(error?.constraint).toLowerCase()
 
   if (error?.code === '23503') {
     return httpError(
@@ -140,6 +144,21 @@ function normalizeDeleteError(error, stage = 'unknown') {
     return httpError(
       'deletion_conflict',
       'This team cannot be deleted because linked records still depend on it.',
+      409,
+    )
+  }
+
+  if (
+    error?.code === '23505'
+    && (
+      constraint.includes('players_club_team_section_player_name_key')
+      || details.includes('players_club_team_section_player_name_key')
+      || message.includes('players_club_team_section_player_name_key')
+    )
+  ) {
+    return httpError(
+      'deletion_conflict',
+      'This team cannot be deleted because player records would conflict after the team link is cleared.',
       409,
     )
   }
@@ -166,7 +185,7 @@ function normalizeDeleteError(error, stage = 'unknown') {
 
   const serverError = httpError(
     'server_error',
-    'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.',
+    `The server could not complete this action. Please contact support with reference ${SUPPORT_REFERENCE}.`,
     500,
   )
   serverError.stage = stage
@@ -240,7 +259,8 @@ export async function deletePlatformTeamResult(event, {
     })
 
     if (deleteError) {
-      throw normalizeDeleteError(deleteError, failureStage)
+      deleteError.stage = failureStage
+      throw deleteError
     }
 
     const deleteResult = Array.isArray(deleteData) ? deleteData[0] : deleteData
@@ -261,7 +281,7 @@ export async function deletePlatformTeamResult(event, {
     const normalizedError = normalizeDeleteError(error, failureStage)
     const safeDetail = safeErrorDetail(error)
     console.error('Platform team delete failed', {
-      reference: 'FPO-V1-TEAMDELETE-ACTUALFIX-006',
+      reference: SUPPORT_REFERENCE,
       stage: failureStage,
       code: normalizedError.code || 'server_error',
       statusCode: normalizedError.statusCode || 500,
@@ -272,6 +292,7 @@ export async function deletePlatformTeamResult(event, {
       supabaseCode: safeDetail.supabaseCode || undefined,
       supabaseHint: safeDetail.supabaseHint || undefined,
       supabaseDetails: safeDetail.supabaseDetails || undefined,
+      supabaseConstraint: safeDetail.supabaseConstraint || undefined,
     })
 
     return jsonResponse(normalizedError.statusCode || 500, {
