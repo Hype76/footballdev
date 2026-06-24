@@ -458,22 +458,23 @@ try {
     await context.close()
   })
 
-  await runScenario('server error paths stay visible in the modal', async () => {
+  await runScenario('fake-password and server error paths stay visible in the modal', async () => {
     const cases = [
       {
         status: 401,
-        body: { success: false, code: 'invalid_password', message: 'Password confirmation failed. Check your password and try again.' },
-        expected: 'Password confirmation failed. Check your password and try again.',
+        password: 'WrongFixturePassword!',
+        body: { success: false, code: 'invalid_password', message: 'That password was not accepted.' },
+        expected: 'That password was not accepted.',
       },
       {
         status: 403,
         body: { success: false, code: 'forbidden', message: 'Only platform admins can delete teams.' },
-        expected: 'You do not have permission to complete this platform admin action.',
+        expected: 'You do not have permission to delete teams.',
       },
       {
         status: 404,
         body: { success: false, code: 'team_not_found', message: 'Team was not found.' },
-        expected: 'Team was not found.',
+        expected: 'This team could not be found.',
       },
       {
         status: 409,
@@ -486,11 +487,12 @@ try {
       const { context, page } = await prepareContext(browser, { deleteResponses: [nextCase] })
       await openPlatformClubs(page)
       await openTeamDeleteModal(page, 'U12 Tigers Fixture')
-      await dialog(page).getByLabel('Enter your password to confirm').fill(fixturePassword)
+      await dialog(page).getByLabel('Enter your password to confirm').fill(nextCase.password || fixturePassword)
       await dialog(page).getByRole('button', { name: 'Delete team' }).click()
 
       await dialog(page).getByText(nextCase.expected, { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       await dialog(page).getByText('U12 Tigers Fixture', { exact: true }).waitFor({ state: 'visible' })
+      await teamDeleteButton(page, 'U12 Tigers Fixture').waitFor({ state: 'visible' })
       await context.close()
     }
   })

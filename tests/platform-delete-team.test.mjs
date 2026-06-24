@@ -50,8 +50,10 @@ function createMockSupabase({
     club_id: clubId,
   },
   deleteError = null,
+  teamError = null,
   auditError = null,
   passwordError = null,
+  passwordThrows = null,
 } = {}) {
   const calls = []
 
@@ -98,7 +100,7 @@ function createMockSupabase({
       }
 
       if (this.table === 'teams') {
-        return Promise.resolve({ data: team, error: null })
+        return Promise.resolve({ data: team, error: teamError })
       }
 
       return Promise.resolve({ data: null, error: null })
@@ -119,6 +121,10 @@ function createMockSupabase({
       auth: {
         signInWithPassword: async (payload) => {
           calls.push({ service: 'auth', action: 'signInWithPassword', payload })
+          if (passwordThrows) {
+            throw passwordThrows
+          }
+
           return { data: passwordError ? null : { user: authUser, session: { access_token: 'not-returned' } }, error: passwordError }
         },
       },
@@ -135,6 +141,37 @@ function createMockSupabase({
     },
   }
 }
+
+async function captureConsoleError(callback) {
+  const originalConsoleError = console.error
+  const entries = []
+  console.error = (...args) => {
+    entries.push(args)
+  }
+
+  try {
+    const result = await callback()
+    return { result, entries }
+  } finally {
+    console.error = originalConsoleError
+  }
+}
+
+test('deletePlatformTeamResult returns 405 for unsupported methods', async () => {
+  const mock = createMockSupabase()
+  const response = await deletePlatformTeamResult({
+    ...createEvent(),
+    httpMethod: 'GET',
+  }, {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 405)
+  assert.equal(parsed.body.code, 'method_not_allowed')
+  assert.equal(mock.calls.length, 0)
+})
 
 test('deletePlatformTeamResult deletes a disposable team once and writes a safe audit log', async () => {
   const mock = createMockSupabase()
@@ -174,7 +211,23 @@ test('deletePlatformTeamResult rejects missing and invalid identifiers before de
 
     assert.equal(parsed.statusCode, 400)
     assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete'), false)
+    assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
   }
+})
+
+test('deletePlatformTeamResult rejects missing password before auth, delete, or audit', async () => {
+  const mock = createMockSupabase()
+  const response = await deletePlatformTeamResult(createEvent({ password: '' }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 400)
+  assert.equal(parsed.body.code, 'missing_password')
+  assert.equal(mock.calls.some((call) => call.service === 'auth'), false)
+  assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete'), false)
+  assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
 })
 
 test('deletePlatformTeamResult rejects auth, role, password, not found, and club mismatch before delete', async () => {
@@ -197,7 +250,49 @@ test('deletePlatformTeamResult rejects auth, role, password, not found, and club
     assert.equal(parsed.statusCode, nextCase.statusCode)
     assert.equal(parsed.body.code, nextCase.code)
     assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete'), false)
+    assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
   }
+})
+
+test('deletePlatformTeamResult maps thrown password auth errors to controlled invalid_password', async () => {
+  const mock = createMockSupabase({
+    passwordThrows: Object.assign(new Error('Invalid login credentials'), {
+      name: 'AuthApiError',
+      status: 400,
+      code: 'invalid_credentials',
+    }),
+  })
+  const response = await deletePlatformTeamResult(createEvent({ password: 'WrongFixturePassword!' }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 401)
+  assert.equal(parsed.body.code, 'invalid_password')
+  assert.equal(parsed.body.message, 'That password was not accepted.')
+  assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete'), false)
+  assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
+})
+
+test('deletePlatformTeamResult does not log passwords on failed password checks', async () => {
+  const password = 'WrongFixturePassword!'
+  const mock = createMockSupabase({
+    passwordThrows: Object.assign(new Error(`Invalid login credentials for ${password}`), {
+      name: 'AuthApiError',
+      status: 400,
+      code: 'invalid_credentials',
+    }),
+  })
+  const { result: response, entries } = await captureConsoleError(() => deletePlatformTeamResult(createEvent({ password }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 401)
+  assert.equal(parsed.body.code, 'invalid_password')
+  assert.equal(JSON.stringify(entries).includes(password), false)
 })
 
 test('deletePlatformTeamResult reports conflicts and avoids success audit on failed delete', async () => {
@@ -212,6 +307,22 @@ test('deletePlatformTeamResult reports conflicts and avoids success audit on fai
 
   assert.equal(parsed.statusCode, 409)
   assert.equal(parsed.body.code, 'deletion_conflict')
+  assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
+})
+
+test('deletePlatformTeamResult maps unexpected internal throws to server_error', async () => {
+  const mock = createMockSupabase({
+    teamError: new Error('Unexpected database failure'),
+  })
+  const response = await deletePlatformTeamResult(createEvent(), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 500)
+  assert.equal(parsed.body.code, 'server_error')
+  assert.equal(parsed.body.message, 'Team could not be deleted.')
   assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
 })
 

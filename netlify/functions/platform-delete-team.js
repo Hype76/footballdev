@@ -25,6 +25,38 @@ function httpError(code, message, statusCode = 500) {
   return Object.assign(new Error(message), { code, statusCode })
 }
 
+function isPasswordAuthError(error) {
+  const status = Number(error?.status || error?.statusCode || 0)
+  const code = normalizeText(error?.code || error?.name).toLowerCase()
+  const message = normalizeText(error?.message).toLowerCase()
+
+  return status === 400
+    || status === 401
+    || code === 'invalid_credentials'
+    || code === 'authapierror'
+    || message.includes('invalid login credentials')
+    || message.includes('invalid credentials')
+}
+
+async function verifyPlatformAdminPassword(supabasePublic, email, password) {
+  try {
+    const { error } = await supabasePublic.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      throw error
+    }
+  } catch (error) {
+    if (isPasswordAuthError(error)) {
+      throw httpError('invalid_password', 'That password was not accepted.', 401)
+    }
+
+    throw error
+  }
+}
+
 function parseBody(event) {
   try {
     return JSON.parse(event.body || '{}')
@@ -118,14 +150,7 @@ export async function deletePlatformTeamResult(event, {
     }
 
     const platformAdmin = await getAuthenticatedSuperAdmin(event, supabaseAdmin)
-    const { error: passwordError } = await supabasePublic.auth.signInWithPassword({
-      email: platformAdmin.email,
-      password,
-    })
-
-    if (passwordError) {
-      throw httpError('invalid_password', 'Password confirmation failed. Check your password and try again.', 401)
-    }
+    await verifyPlatformAdminPassword(supabasePublic, platformAdmin.email, password)
 
     const { data: team, error: teamError } = await supabaseAdmin
       .from('teams')

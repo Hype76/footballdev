@@ -48,7 +48,7 @@ function getPlatformActionErrorMessage(error, fallbackMessage) {
   }
 
   if (code === 'invalid_password') {
-    return 'Password confirmation failed. Check your password and try again.'
+    return 'That password was not accepted.'
   }
 
   if (code === 'unauthenticated' || code === '401') {
@@ -56,7 +56,7 @@ function getPlatformActionErrorMessage(error, fallbackMessage) {
   }
 
   if (code === 'forbidden' || code === '403') {
-    return 'You do not have permission to complete this platform admin action.'
+    return 'You do not have permission to delete teams.'
   }
 
   if (code === 'invalid_team_id' || code === 'invalid_club_id' || code === 'validation_error') {
@@ -64,22 +64,26 @@ function getPlatformActionErrorMessage(error, fallbackMessage) {
   }
 
   if (code === 'team_not_found') {
-    return 'Team was not found.'
+    return 'This team could not be found.'
   }
 
   if (code === 'team_club_mismatch') {
-    return 'Selected team is not linked to the selected club. Refresh the platform data and try again.'
+    return 'This team belongs to a different club than expected.'
   }
 
   if (code === 'deletion_conflict' || code === '409') {
     return 'This team cannot be deleted because linked records still depend on it.'
   }
 
+  if (code === 'server_error' || code === '500') {
+    return 'The server could not complete this action. Please try again or contact support.'
+  }
+
   if (code === 'network_error' || message.toLowerCase().includes('failed to fetch')) {
     return 'Network failure. Check your connection and try again.'
   }
 
-  return message || fallbackMessage
+  return message || fallbackMessage || 'The server could not complete this action. Please try again or contact support.'
 }
 
 const PAGE_META = {
@@ -638,7 +642,6 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setSuccessMessage('')
 
     try {
-      await verifyCurrentUserPassword(user.email, password)
       await deletePlatformTeam({
         user,
         teamId: teamDeleteTarget.id,

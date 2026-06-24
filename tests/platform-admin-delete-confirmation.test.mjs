@@ -96,11 +96,13 @@ test('Platform Admin team delete handler sends team, club, password, and access 
 })
 
 test('Platform Admin modal error mapping covers password, session, permission, not found, conflict, and network failures', () => {
-  assert.match(platformAdminPageSource, /Password confirmation failed\. Check your password and try again\./)
+  assert.match(platformAdminPageSource, /That password was not accepted\./)
   assert.match(platformAdminPageSource, /Your session has expired\. Sign in again before retrying this action\./)
-  assert.match(platformAdminPageSource, /You do not have permission to complete this platform admin action\./)
-  assert.match(platformAdminPageSource, /Team was not found\./)
+  assert.match(platformAdminPageSource, /You do not have permission to delete teams\./)
+  assert.match(platformAdminPageSource, /This team could not be found\./)
+  assert.match(platformAdminPageSource, /This team belongs to a different club than expected\./)
   assert.match(platformAdminPageSource, /This team cannot be deleted because linked records still depend on it\./)
+  assert.match(platformAdminPageSource, /The server could not complete this action\. Please try again or contact support\./)
   assert.match(platformAdminPageSource, /Network failure\. Check your connection and try again\./)
 })
 
