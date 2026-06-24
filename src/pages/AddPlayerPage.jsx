@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react'
 import { AddPlayerFormSection } from '../components/players/AddPlayerFormSection.jsx'
-import { RecentlyAddedPlayersSection } from '../components/players/RecentlyAddedPlayersSection.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
 import { sendParentPortalInvite } from '../lib/email-builder.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
-  RECENT_PLAYER_PAGE_SIZE,
   createInitialPlayerForm,
   ensureContactsForType,
   getContactGroups,
@@ -39,21 +36,6 @@ function getPlayerPortalContacts(player) {
     .filter((contact) => contact.email)
 }
 
-const playerIntakeRules = [
-  {
-    label: 'One player, one record',
-    body: 'Check the latest records before adding another footballer to the same team.',
-  },
-  {
-    label: 'Status drives workflow',
-    body: 'Trial and Squad decide how the player appears in sessions, parent invites, and match day.',
-  },
-  {
-    label: 'Contacts unlock parents',
-    body: 'Add the right email now if the family portal invite should be available after save.',
-  },
-]
-
 export function AddPlayerPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -73,7 +55,6 @@ export function AddPlayerPage() {
   const [isAddingPlayer, setIsAddingPlayer] = useState(false)
   const [isSendingParentPortalLink, setIsSendingParentPortalLink] = useState(false)
   const [parentPortalInviteTarget, setParentPortalInviteTarget] = useState(null)
-  const [recentPlayerPage, setRecentPlayerPage] = useState(1)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -107,9 +88,14 @@ export function AddPlayerPage() {
 
         setPlayers(nextPlayers)
         setAvailableTeams(nextTeams)
+        const defaultTeam =
+          nextTeams.find((team) => String(team.id) === String(user?.activeTeamId || '')) ||
+          nextTeams[0] ||
+          null
         setPlayerForm((current) => ({
           ...current,
-          team: current.team || nextTeams[0]?.name || '',
+          teamId: current.teamId || defaultTeam?.id || '',
+          team: current.team || defaultTeam?.name || '',
         }))
         writeViewCache(cacheKey, {
           players: nextPlayers,
@@ -319,7 +305,7 @@ export function AddPlayerPage() {
           teamName: invite.teamName,
           clubName: invite.clubName || user.clubName,
           playerName: invite.playerName,
-          subject: `Family portal invite for ${invite.playerName}`,
+          subject: `Parent portal invite for ${invite.playerName}`,
           inviteUrl: invite.inviteUrl,
         }),
       ),
@@ -347,68 +333,26 @@ export function AddPlayerPage() {
       setParentPortalInviteTarget(null)
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Family portal invite could not be sent.')
+      setErrorMessage(error.message || 'Parent portal invite could not be sent.')
     } finally {
       setIsSendingParentPortalLink(false)
     }
   }
 
-  const recentPlayers = [...players]
-    .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime())
-  const paginatedRecentPlayers = getPaginatedItems(recentPlayers, recentPlayerPage, RECENT_PLAYER_PAGE_SIZE)
   const canAddMorePlayers = isWithinPlanLimit(user, 'players', players.length)
   const playerLimitMessage = createLimitUpgradeMessage(user, 'players', 'Players')
   const normalizedContactType = normalizePlayerContactType(playerForm.contactType)
   const contactGroups = getContactGroups(normalizedContactType)
   const preparedContacts = ensureContactsForType(playerForm.parentContacts, normalizedContactType, playerForm.playerName)
-  const trialPlayerCount = players.filter((player) => player.section === 'Trial').length
-  const squadPlayerCount = players.filter((player) => player.section === 'Squad').length
-  const playerContactCount = players.filter((player) => getPlayerPortalContacts(player).length > 0).length
-  const remainingPlayerCapacity = canAddMorePlayers ? 'Open' : 'Limit'
-  const activeTeamLabel = user?.activeTeamName || availableTeams.find((team) => team.id === playerForm.teamId)?.name || playerForm.team || 'Choose team'
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-stretch">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Player intake</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-4xl">
-              Register the footballer before anything else starts.
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Create one usable record with team, status, positions, and parent contacts so sessions, match day, and family messages all point to the same player.
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {playerIntakeRules.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-          <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Intake state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {players.length} footballers already registered
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Current intake target: {activeTeamLabel}. Check the register, then add the next player once.
-              </p>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <IntakeMetric label="Trial" value={trialPlayerCount} isLoading={isLoading} />
-              <IntakeMetric label="Squad" value={squadPlayerCount} isLoading={isLoading} />
-              <IntakeMetric label="Contacts" value={playerContactCount} isLoading={isLoading} />
-              <IntakeMetric label="Capacity" value={remainingPlayerCapacity} isLoading={isLoading} />
-            </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Squad players with contact emails can be invited to the family portal straight after save.
-            </p>
-          </div>
-        </div>
+      <section className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-5 shadow-sm shadow-[#101828]/5 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Player record</p>
+        <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">Add Player</h1>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+          Create a player record for this team.
+        </p>
       </section>
 
       {errorMessage ? (
@@ -443,37 +387,20 @@ export function AddPlayerPage() {
         preparedContacts={preparedContacts}
       />
 
-      <RecentlyAddedPlayersSection
-        onPageChange={setRecentPlayerPage}
-        pageSize={RECENT_PLAYER_PAGE_SIZE}
-        paginatedRecentPlayers={paginatedRecentPlayers}
-        recentPlayerPage={recentPlayerPage}
-        recentPlayers={recentPlayers}
-      />
-
       <ConfirmModal
         isOpen={Boolean(parentPortalInviteTarget)}
         isBusy={isSendingParentPortalLink}
-        title="Send family portal link"
-        message="This player has been added straight to Squad. Send the family portal invite now?"
+        title="Send parent portal invite"
+        message="This player has been added straight to Squad. Send the parent portal invite now?"
         items={[
           `Player: ${parentPortalInviteTarget?.playerName || 'Selected player'}`,
           `Team: ${parentPortalInviteTarget?.team || 'No team entered'}`,
         ]}
         cancelLabel="Not now"
-        confirmLabel="Send parent link"
+        confirmLabel="Send parent invite"
         onCancel={() => setParentPortalInviteTarget(null)}
         onConfirm={() => void confirmSendParentPortalLink()}
       />
-    </div>
-  )
-}
-
-function IntakeMetric({ isLoading, label, value }) {
-  return (
-    <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 shadow-sm shadow-[#047857]/10">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
     </div>
   )
 }

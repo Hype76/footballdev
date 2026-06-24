@@ -3,6 +3,9 @@ import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js
 import { blockDemoMutation } from './demo-guards.js'
 import { createAuditLog } from './audit.js'
 import { getEntryUserId, getEntryUserName } from './core-normalizers.js'
+import { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
+
+export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 
 export const MATCH_DAY_STATUS_OPTIONS = [
   { value: 'scheduled', label: 'Scheduled' },
@@ -31,6 +34,8 @@ export const MATCH_DAY_ARRIVAL_OPTIONS = [
   { value: 'custom', label: 'Custom arrival time' },
 ]
 
+const MATCH_DAY_PARENT_AUDIENCES = ['none', 'involved_players', 'all_team_parents', 'all_club_parents']
+
 function normalizeText(value) {
   return String(value ?? '').trim()
 }
@@ -38,6 +43,54 @@ function normalizeText(value) {
 function normalizeTime(value) {
   const normalizedValue = normalizeText(value)
   return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : ''
+}
+
+function normalizeDateOnly(value) {
+  const normalizedValue = normalizeText(value)
+
+  if (!normalizedValue) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue
+  }
+
+  const parsedDate = new Date(normalizedValue)
+  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
+}
+
+export function getTodayMatchDayDateValue(now = new Date()) {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    return ''
+  }
+
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+export function isPastMatchDayDate(matchDate, now = new Date()) {
+  const normalizedMatchDate = normalizeDateOnly(matchDate)
+
+  if (!normalizedMatchDate) {
+    return false
+  }
+
+  return normalizedMatchDate < getTodayMatchDayDateValue(now)
+}
+
+function assertMatchDayDateIsCurrentOrFuture(matchDate) {
+  if (isPastMatchDayDate(matchDate)) {
+    throw new Error('Match Day date must be today or in the future.')
+  }
+}
+
+function normalizeParentAudience(value) {
+  const normalizedValue = normalizeText(value)
+  return MATCH_DAY_PARENT_AUDIENCES.includes(normalizedValue) ? normalizedValue : 'none'
 }
 
 export function calculateArrivalTime(kickoffTime, offsetMinutes) {
@@ -141,6 +194,8 @@ export function normalizeMatchDay(row) {
     venueAddress: normalizeText(row.venue_address ?? row.venueAddress),
     notes: normalizeText(row.notes),
     scorerRequestMessage: normalizeText(row.scorer_request_message ?? row.scorerRequestMessage),
+    parentVisible: row.parent_visible === true || row.parentVisible === true,
+    parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     status: normalizeText(row.status) || 'scheduled',
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
@@ -161,8 +216,61 @@ export function normalizeMatchDay(row) {
 }
 
 function assertStaffMatchDayAccess(user) {
-  if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin' || Number(user.roleRank ?? 0) < 20) {
+  if (
+    !user?.clubId ||
+    !user.activeTeamId ||
+    user.role === 'admin' ||
+    user.role === 'parent_portal' ||
+    user.role === 'super_admin' ||
+    Number(user.roleRank ?? 0) < 20
+  ) {
     throw new Error('Coach or manager access is required for Match Day.')
+  }
+}
+
+function assertMatchInActiveTeamScope(user, match) {
+  const activeTeamId = normalizeText(user?.activeTeamId)
+  const matchTeamId = normalizeText(match?.teamId ?? match?.team_id)
+
+  if (activeTeamId && matchTeamId && matchTeamId !== activeTeamId) {
+    throw new Error('This match day is not linked to your active team.')
+  }
+}
+
+function scopeMatchDayQueryToActiveTeam(query, user) {
+  const activeTeamId = normalizeText(user?.activeTeamId)
+
+  if (!activeTeamId) {
+    return query.eq('team_id', '__no_active_team__')
+  }
+
+  return query.or(`team_id.is.null,team_id.eq.${activeTeamId}`)
+}
+
+async function assertMatchDayRecordInActiveTeamScope(user, matchId) {
+  const normalizedMatchId = normalizeText(matchId)
+
+  if (!normalizedMatchId) {
+    throw new Error('Choose a match day first.')
+  }
+
+  let query = supabase
+    .from('match_days')
+    .select('id')
+    .eq('id', normalizedMatchId)
+    .eq('club_id', user.clubId)
+
+  query = scopeMatchDayQueryToActiveTeam(query, user)
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  if (!data?.id) {
+    throw new Error('This match day is not linked to your active team.')
   }
 }
 
@@ -248,9 +356,16 @@ export async function createMatchDay({ user, match }) {
   const venueName = normalizeText(match?.venueName)
   const venueAddress = normalizeText(match?.venueAddress)
   const teamId = normalizeTeamIdForMatch(user, match)
+  const { parentVisible, parentAudience } = buildMatchDayParentVisibility(match)
 
   if (!opponent) {
     throw new Error('Opponent is required.')
+  }
+
+  assertMatchDayDateIsCurrentOrFuture(match?.matchDate)
+
+  if (parentVisible && parentAudience === 'all_team_parents' && !teamId) {
+    throw new Error('Choose a team before sharing this fixture with all team parents.')
   }
 
   const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location', {
@@ -272,7 +387,7 @@ export async function createMatchDay({ user, match }) {
       team_id: teamId,
       location_id: locationId || null,
       opponent,
-      match_date: normalizeText(match?.matchDate) || null,
+      match_date: normalizeDateOnly(match?.matchDate) || null,
       kickoff_time: normalizeTime(match?.kickoffTime) || null,
       arrival_time: normalizeTime(match?.arrivalTime) || null,
       home_away: normalizeHomeAway(match?.homeAway),
@@ -280,6 +395,8 @@ export async function createMatchDay({ user, match }) {
       venue_address: venueAddress,
       notes: normalizeText(match?.notes),
       scorer_request_message: normalizeText(match?.scorerRequestMessage),
+      parent_visible: parentVisible,
+      parent_audience: parentAudience,
       status: normalizeStatus(match?.status || 'scorer_request'),
       enable_motm_poll: Boolean(match?.enableMotmPoll ?? true),
       motm_poll_expiry_hours: Math.max(Number(match?.motmPollExpiryHours ?? 2), 1),
@@ -320,7 +437,10 @@ export async function updateMatchDay({ user, matchId, updates }) {
   }
 
   if (updates.opponent !== undefined) payload.opponent = normalizeText(updates.opponent)
-  if (updates.matchDate !== undefined) payload.match_date = normalizeText(updates.matchDate) || null
+  if (updates.matchDate !== undefined) {
+    assertMatchDayDateIsCurrentOrFuture(updates.matchDate)
+    payload.match_date = normalizeDateOnly(updates.matchDate) || null
+  }
   if (updates.kickoffTime !== undefined) payload.kickoff_time = normalizeTime(updates.kickoffTime) || null
   if (updates.arrivalTime !== undefined) payload.arrival_time = normalizeTime(updates.arrivalTime) || null
   if (updates.homeAway !== undefined) payload.home_away = normalizeHomeAway(updates.homeAway)
@@ -328,6 +448,13 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)
   if (updates.notes !== undefined) payload.notes = normalizeText(updates.notes)
   if (updates.scorerRequestMessage !== undefined) payload.scorer_request_message = normalizeText(updates.scorerRequestMessage)
+  if (updates.parentVisible !== undefined) {
+    payload.parent_visible = updates.parentVisible !== false
+    if (updates.parentVisible === false) {
+      payload.parent_audience = 'none'
+    }
+  }
+  if (updates.parentAudience !== undefined) payload.parent_audience = updates.parentVisible === false ? 'none' : normalizeParentAudience(updates.parentAudience)
   if (updates.status !== undefined) payload.status = normalizeStatus(updates.status)
   if (updates.homeScore !== undefined) payload.home_score = Math.max(Number(updates.homeScore ?? 0), 0)
   if (updates.awayScore !== undefined) payload.away_score = Math.max(Number(updates.awayScore ?? 0), 0)
@@ -349,11 +476,15 @@ export async function updateMatchDay({ user, matchId, updates }) {
     payload.location_id = locationId || null
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('match_days')
     .update(payload)
     .eq('id', matchId)
     .eq('club_id', user.clubId)
+
+  query = scopeMatchDayQueryToActiveTeam(query, user)
+
+  const { data, error } = await query
     .select(buildMatchSelect())
     .single()
 
@@ -369,10 +500,13 @@ export async function updateMatchDay({ user, matchId, updates }) {
 export async function selectMatchDayScorer({ user, match, interest }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
 
   if (!match?.id || !interest?.parentLinkId) {
     throw new Error('Choose an interested parent first.')
   }
+
+  await assertMatchDayRecordInActiveTeamScope(user, match.id)
 
   const { error: insertError } = await supabase
     .from('match_day_scorer_assignments')
@@ -412,6 +546,7 @@ export async function selectMatchDayScorer({ user, match, interest }) {
 export async function addStaffMatchDayGoal({ user, match, goal }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
 
   const teamSide = normalizeText(goal?.teamSide) === 'opponent' ? 'opponent' : 'club'
   let nextHomeScore = Number(match.homeScore ?? 0)
@@ -449,7 +584,7 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     created_by_name: getEntryUserName(user),
   }
 
-  const { error: updateError } = await supabase
+  let matchUpdateQuery = supabase
     .from('match_days')
     .update({
       home_score: nextHomeScore,
@@ -460,9 +595,19 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     .eq('id', match.id)
     .eq('club_id', user.clubId)
 
+  matchUpdateQuery = scopeMatchDayQueryToActiveTeam(matchUpdateQuery, user)
+
+  const { data: updatedMatch, error: updateError } = await matchUpdateQuery
+    .select('id')
+    .single()
+
   if (updateError) {
     console.error(updateError)
     throw updateError
+  }
+
+  if (!updatedMatch?.id) {
+    throw new Error('This match day is not linked to your active team.')
   }
 
   const { data, error } = await supabase
@@ -496,6 +641,10 @@ export async function resetPreviousMatchDayResults({ user, teamId = '' } = {}) {
     .is('previous_hidden_at', null)
 
   const normalizedTeamId = normalizeText(teamId) || user.activeTeamId || ''
+
+  if (normalizedTeamId && normalizedTeamId !== user.activeTeamId) {
+    throw new Error('This match day is not linked to your active team.')
+  }
 
   if (normalizedTeamId) {
     query = query.eq('team_id', normalizedTeamId)

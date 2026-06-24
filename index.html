@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="theme-dark accent-green button-style-solid">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -28,6 +28,31 @@
     <meta name="msapplication-TileColor" content="#07120c" />
     <meta name="msapplication-TileImage" content="/icons/mstile-150.png" />
     <meta name="msapplication-config" content="/browserconfig.xml" />
+    <script>
+      ;(() => {
+        try {
+          const modes = ['system', 'dark', 'light']
+          const accents = ['yellow', 'blue', 'green', 'red', 'purple']
+          const buttonStyles = ['solid', 'gradient']
+          const storedMode = window.localStorage.getItem('app-theme-mode')
+          const storedAccent = window.localStorage.getItem('app-theme-accent')
+          const storedButtonStyle = window.localStorage.getItem('app-theme-button-style')
+          const mode = modes.includes(storedMode) ? storedMode : 'dark'
+          const accent = accents.includes(storedAccent) ? storedAccent : 'green'
+          const buttonStyle = buttonStyles.includes(storedButtonStyle) ? storedButtonStyle : 'solid'
+          const resolvedMode = mode === 'light' ? 'light' : 'dark'
+          const root = document.documentElement
+
+          root.classList.remove('theme-light', 'theme-dark', 'accent-yellow', 'accent-blue', 'accent-green', 'accent-red', 'accent-purple', 'button-style-solid', 'button-style-gradient')
+          root.classList.add(resolvedMode === 'light' ? 'theme-light' : 'theme-dark')
+          root.classList.add(`accent-${accent}`)
+          root.classList.add(`button-style-${buttonStyle}`)
+          root.style.backgroundColor = resolvedMode === 'light' ? '#f5f8f6' : '#06110a'
+        } catch {
+          document.documentElement.style.backgroundColor = '#06110a'
+        }
+      })()
+    </script>
     <link rel="canonical" href="https://footballplayer.online/" />
     <meta property="og:title" content="Football Player" />
     <meta

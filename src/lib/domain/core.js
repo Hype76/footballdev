@@ -36,13 +36,10 @@ import {
   uploadStaffVoiceNote,
 } from './staff-voice-notes.js'
 import {
-  seedDefaultClubRolesForClub,
-} from './core-seeding.js'
-import {
   canEditClubIdentity,
+  PLAN_KEYS,
 } from '../plans.js'
 import {
-  assertClubFeature,
   assertPlayerLimitForUpsert,
   findExistingPlayer,
 } from './plan-gates.js'
@@ -253,7 +250,7 @@ async function getParentPortalMemberships(authUser) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
@@ -263,7 +260,28 @@ async function getParentPortalMemberships(authUser) {
     return []
   }
 
-  return (data ?? []).map((row) => {
+  const normalizedAuthEmail = String(authUser.email ?? '').trim().toLowerCase()
+  const rows = data ?? []
+
+  if (normalizedAuthEmail && rows.some((row) => String(row.email ?? '').trim().toLowerCase() !== normalizedAuthEmail)) {
+    const { data: syncedRows, error: syncError } = await supabase
+      .from('parent_player_links')
+      .update({
+        email: normalizedAuthEmail,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('auth_user_id', authUser.id)
+      .eq('status', 'active')
+      .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email)')
+
+    if (syncError) {
+      console.error(syncError)
+    } else {
+      rows.splice(0, rows.length, ...(syncedRows ?? []))
+    }
+  }
+
+  return rows.map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players
     const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
     const club = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
@@ -273,6 +291,7 @@ async function getParentPortalMemberships(authUser) {
       clubId: row.club_id,
       clubName: String(club?.name ?? '').trim(),
       clubLogoUrl: String(club?.logo_url ?? '').trim(),
+      clubContactEmail: String(club?.contact_email ?? '').trim(),
       teamId: row.team_id,
       teamName: String(team?.name ?? player?.team ?? '').trim(),
       themeMode: String(team?.theme_mode ?? '').trim(),
@@ -299,7 +318,7 @@ function normalizeParentPortalProfile(authUser, parentLinks) {
     roleLabel: 'Parent',
     roleRank: 0,
     accountStatus: 'active',
-    planKey: 'small_club',
+    planKey: PLAN_KEYS.individual,
     planStatus: 'active',
     isPlanComped: false,
     clubId: selectedLink?.clubId ?? '',
@@ -412,7 +431,7 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
   return applyActiveMembership(authUser, selectedMembership)
 }
 
-async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', forceNewClub = false }) {
+async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false, signupIntent = false }) {
   await blockDemoMutation(authUser)
 
   const { data: sessionData } = await supabase.auth.getSession()
@@ -431,7 +450,9 @@ async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCod
     body: JSON.stringify({
       clubName: String(clubName ?? '').trim(),
       accessCode: String(accessCode ?? '').trim(),
+      planKey: String(planKey ?? '').trim(),
       forceNewClub: Boolean(forceNewClub),
+      signupIntent: Boolean(signupIntent),
     }),
   })
   const result = await response.json().catch(() => ({}))
@@ -652,73 +673,22 @@ export async function fetchUserProfile(authUser, options = {}) {
   })
 }
 
-export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '', forceNewClub = false }) {
+export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false }) {
   await blockDemoMutation(authUser)
 
   try {
-    return await ensureSignupClubProfileWithServer({ authUser, clubName, accessCode, forceNewClub })
+    return await ensureSignupClubProfileWithServer({
+      authUser,
+      clubName,
+      accessCode,
+      planKey,
+      forceNewClub,
+      signupIntent: forceNewClub || Boolean(String(accessCode ?? '').trim()),
+    })
   } catch (serverError) {
     console.error(serverError)
-    if (forceNewClub) {
-      throw serverError
-    }
-
-    if (String(accessCode ?? '').trim()) {
-      throw serverError
-    }
+    throw serverError
   }
-
-  const { data: club, error: clubError } = await supabase
-    .from('clubs')
-    .insert({
-      name: String(clubName ?? '').trim(),
-      plan_key: 'individual',
-      plan_status: 'active',
-    })
-    .select(CLUB_SELECT)
-    .single()
-
-  if (clubError) {
-    console.error(clubError)
-    throw clubError
-  }
-
-  await seedDefaultClubRolesForClub(club.id)
-
-  const { data: userProfile, error: userError } = await supabase
-    .from('users')
-    .upsert(
-      {
-        id: authUser.id,
-        email: authUser.email,
-        username: getDisplayName(authUser),
-        name: getDisplayName(authUser),
-        display_name: getDisplayName(authUser),
-        club_name: String(clubName ?? '').trim(),
-        reply_to_email: String(authUser.email ?? '').trim().toLowerCase(),
-        role: 'head_manager',
-        role_label: 'Team Admin',
-        role_rank: 70,
-        club_id: club.id,
-      },
-      {
-        onConflict: 'id',
-      },
-    )
-    .select(USER_PROFILE_SELECT)
-    .single()
-
-  if (userError) {
-    console.error(userError)
-    throw userError
-  }
-
-  await syncMembershipFromUserRow(userProfile, authUser)
-
-  return normalizeUserProfile({
-    ...userProfile,
-    clubs: club,
-  })
 }
 
 export async function updateOwnUserSettings({
@@ -757,9 +727,16 @@ export async function updateOwnUserSettings({
   }
 
   const currentUser = normalizeUserProfile(currentProfile)
+  const canEditSenderIdentity = Number(currentUser.roleRank ?? 0) >= 50
+  const safeTeamName = canEditSenderIdentity
+    ? normalizedTeamName
+    : String(currentUser.emailTeamName || currentUser.activeTeamName || '').trim()
   const safeClubName = canEditClubIdentity(currentUser)
     ? normalizedClubName
     : String(currentUser.emailClubName || currentUser.clubName || '').trim()
+  const safeReplyToEmail = canEditSenderIdentity
+    ? normalizedReplyToEmail
+    : String(currentUser.replyToEmail || currentUser.email || '').trim().toLowerCase()
 
   const { data, error } = await supabase
     .from('users')
@@ -767,9 +744,9 @@ export async function updateOwnUserSettings({
       username: normalizedUsername,
       name: normalizedUsername,
       display_name: normalizedDisplayName,
-      team_name: normalizedTeamName,
+      team_name: safeTeamName,
       club_name: safeClubName,
-      reply_to_email: normalizedReplyToEmail,
+      reply_to_email: safeReplyToEmail,
     })
     .eq('id', authUser.id)
     .select(USER_PROFILE_SELECT)
@@ -809,38 +786,19 @@ export async function updateOwnUserSettings({
   })
 }
 
-export async function updateOwnThemeSettings({ authUser, mode, accent }) {
+export async function updateOwnThemeSettings({ authUser, mode }) {
   if (!authUser?.id) {
     throw new Error('Signed in user is required.')
   }
 
   await blockDemoMutation(authUser)
 
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select(USER_PROFILE_SELECT)
-    .eq('id', authUser.id)
-    .single()
-
-  if (profileError) {
-    console.error(profileError)
-    throw profileError
-  }
-
-  await assertClubFeature({
-    user: normalizeUserProfile(profile),
-    clubId: profile.club_id,
-    featureName: 'themes',
-  })
-
   const normalizedMode = ['system', 'dark', 'light'].includes(mode) ? mode : 'system'
-  const normalizedAccent = ['yellow', 'blue', 'green', 'red', 'purple'].includes(accent) ? accent : 'yellow'
 
   const { data, error } = await supabase
     .from('users')
     .update({
       theme_mode: normalizedMode,
-      theme_accent: normalizedAccent,
     })
     .eq('id', authUser.id)
     .select(USER_PROFILE_SELECT)
@@ -1145,6 +1103,10 @@ export async function archivePlayer({ user, playerId, reason }) {
     throw new Error('A club user is required to archive players.')
   }
 
+  if (Number(user.roleRank ?? 0) < 20) {
+    throw new Error('You do not have access to archive players.')
+  }
+
   if (!playerId) {
     throw new Error('Player is required.')
   }
@@ -1375,13 +1337,41 @@ export async function getPlayerDecisionLogs({ user, limit = 1000 } = {}) {
   return (data ?? []).map(normalizeCommunicationLogRow)
 }
 
+export async function getAssessmentReminderLogs({ user, limit = 1000 } = {}) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  let query = supabase
+    .from('communication_logs')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .eq('channel', 'reminder')
+    .eq('action', 'next_assessment_reminder_set')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 1000, 1), 2000))
+
+  if (user.activeTeamName) {
+    query = query.eq('metadata->>team', user.activeTeamName)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeCommunicationLogRow)
+}
+
 export async function createPlayerStaffNote({ user, playerId, sessionId = '', note, audioBlob = null, audioDurationSeconds = null }) {
   await blockDemoMutation(user)
 
   const normalizedNote = String(note ?? '').trim()
   const hasAudio = Boolean(audioBlob)
 
-  if (!user?.clubId || !user?.id || (!playerId && !sessionId) || (!normalizedNote && !hasAudio)) {
+  if (!user?.clubId || !user?.id || (!normalizedNote && !hasAudio)) {
     throw new Error('Add a note before saving.')
   }
 
@@ -1435,6 +1425,130 @@ export async function createPlayerStaffNote({ user, playerId, sessionId = '', no
   return noteWithAudioUrl
 }
 
+export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
+  await blockDemoMutation(user)
+
+  const normalizedNoteId = String(noteId ?? '').trim()
+  const normalizedPlayerId = String(playerId ?? '').trim()
+  const assignmentContext = {
+    hasNoteId: Boolean(normalizedNoteId),
+    hasPlayerId: Boolean(normalizedPlayerId),
+    clubId: user?.clubId || '',
+    currentTeamId: user?.activeTeamId || '',
+    currentTeamName: user?.activeTeamName || '',
+    userId: user?.id || '',
+    role: user?.role || '',
+    roleRank: user?.roleRank ?? '',
+  }
+
+  if (!user?.clubId || !user?.id || !normalizedNoteId || !normalizedPlayerId) {
+    console.error('Voice note assignment blocked before lookup', assignmentContext)
+    throw new Error('Choose a player before assigning this voice note.')
+  }
+
+  const [{ data: noteData, error: noteError }, { data: playerData, error: playerError }] = await Promise.all([
+    supabase
+      .from('player_staff_notes')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .eq('id', normalizedNoteId)
+      .maybeSingle(),
+    supabase
+      .from('players')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .eq('id', normalizedPlayerId)
+      .maybeSingle(),
+  ])
+
+  if (noteError || !noteData) {
+    console.error('Voice note assignment note lookup failed', {
+      ...assignmentContext,
+      errorCode: noteError?.code || '',
+      errorMessage: noteError?.message || '',
+    })
+    throw new Error('Voice note could not be found.')
+  }
+
+  if (playerError || !playerData) {
+    console.error('Voice note assignment player lookup failed', {
+      ...assignmentContext,
+      errorCode: playerError?.code || '',
+      errorMessage: playerError?.message || '',
+    })
+    throw new Error('Player could not be found.')
+  }
+
+  const activeTeamId = String(user.activeTeamId ?? '').trim()
+  const activeTeamName = String(user.activeTeamName ?? '').trim().toLowerCase()
+  const playerTeamId = String(playerData.team_id ?? '').trim()
+  const playerTeamName = String(playerData.team ?? '').trim().toLowerCase()
+  const noteOwnerId = String(noteData.user_id ?? '').trim()
+  const canAssignOtherStaffNotes = Number(user.roleRank ?? 0) >= 50 || user.role === 'admin'
+  const debugContext = {
+    ...assignmentContext,
+    noteOwnerId,
+    notePlayerId: noteData.player_id || '',
+    noteSessionId: noteData.session_id || '',
+    selectedPlayerId: playerData.id || '',
+    selectedPlayerSection: playerData.section || '',
+    selectedPlayerStatus: playerData.status || '',
+    selectedPlayerTeamId: playerTeamId,
+    selectedPlayerTeamName: playerData.team || '',
+    canAssignOtherStaffNotes,
+  }
+
+  if (activeTeamId && playerTeamId && activeTeamId !== playerTeamId) {
+    console.error('Voice note assignment blocked by player team id guard', debugContext)
+    throw new Error('Choose a player from your current team.')
+  }
+
+  if (activeTeamName && playerTeamName && activeTeamName !== playerTeamName) {
+    console.error('Voice note assignment blocked by player team name guard', debugContext)
+    throw new Error('Choose a player from your current team.')
+  }
+
+  if (noteOwnerId && noteOwnerId !== String(user.id) && !canAssignOtherStaffNotes) {
+    console.error('Voice note assignment blocked by owner guard', debugContext)
+    throw new Error('You can only assign voice notes you recorded.')
+  }
+
+  const { data, error } = await supabase
+    .from('player_staff_notes')
+    .update({ player_id: normalizedPlayerId })
+    .eq('club_id', user.clubId)
+    .eq('id', normalizedNoteId)
+    .select('*')
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error('Voice note assignment update failed', {
+      ...debugContext,
+      errorCode: error?.code || '',
+      errorMessage: error?.message || '',
+      updatedRowReturned: Boolean(data),
+    })
+    throw new Error('Could not assign the voice note. Please try again.')
+  }
+
+  try {
+    await createCommunicationLog({
+      user,
+      playerId: normalizedPlayerId,
+      channel: 'voice_note',
+      action: 'voice_note_assigned',
+      metadata: {
+        noteId: normalizedNoteId,
+      },
+    })
+  } catch (logError) {
+    console.error('Voice note assignment could not be logged', logError)
+  }
+
+  const [noteWithAudioUrl] = await attachStaffVoiceNoteUrls([normalizePlayerStaffNoteRow(data)])
+  return noteWithAudioUrl
+}
+
 export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
   if (!user?.clubId || !playerId) {
     return []
@@ -1447,6 +1561,34 @@ export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
     .eq('player_id', playerId)
     .order('created_at', { ascending: false })
     .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return attachStaffVoiceNoteUrls((data ?? []).map(normalizePlayerStaffNoteRow))
+}
+
+export async function getUnassignedStaffVoiceNotes({ user, limit = 10 } = {}) {
+  if (!user?.clubId || !user?.id) {
+    return []
+  }
+
+  let query = supabase
+    .from('player_staff_notes')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .is('player_id', null)
+    .is('session_id', null)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 10, 1), 25))
+
+  if (Number(user.roleRank ?? 0) < 50 && user.role !== 'admin') {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error(error)

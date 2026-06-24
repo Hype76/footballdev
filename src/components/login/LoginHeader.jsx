@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 
 const navItems = [
@@ -48,7 +49,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Contact us</p>
         <h2 id="contact-us-title" className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">Tell us about your club</h2>
         <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-          Share the number of teams, who needs access, and what is currently slowing the football week down.
+          Share the number of teams, who needs access, and what is currently slowing training, match day, or parent updates down.
         </p>
 
         <form className="mt-5 grid gap-4" onSubmit={onSubmit}>
@@ -136,6 +137,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
 }
 
 export function LoginHeader({ logo }) {
+  const location = useLocation()
   const [contactFormData, setContactFormData] = useState(emptyContactForm)
   const [contactErrorMessage, setContactErrorMessage] = useState('')
   const [contactMessage, setContactMessage] = useState('')
@@ -211,66 +213,88 @@ export function LoginHeader({ logo }) {
     }
   }
 
+  const isActiveNavItem = (href) => (href === '/' ? location.pathname === '/' : location.pathname === href || location.pathname.startsWith(`${href}/`))
+
   return (
     <>
-      <header className="border-b border-[#d7e5dc] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-[#101828] shadow-sm shadow-[#047857]/5 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
-        <div className="flex items-center justify-between gap-3">
-          <a href="/" className="flex min-w-0 items-center gap-3 lg:order-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 sm:h-16 sm:w-16">
-              <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
+      <header className="border-b border-white/10 bg-[#06110a]/90 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm shadow-black/20 backdrop-blur sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <a href="/" className="flex min-w-0 items-center gap-3.5 lg:order-1">
+            <div className="flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#c6ff1a]/24 bg-[#06110a] shadow-sm shadow-black/25 sm:h-16 sm:w-16">
+              <img src={logo} alt="Football Player" className="h-full w-full object-contain p-0.5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-base font-black tracking-tight sm:text-xl">Football Player</p>
-              <p className="hidden truncate text-xs font-semibold text-[#4b5f55] min-[420px]:block sm:text-sm">Football club management software</p>
+              <p className="truncate text-lg font-black tracking-tight text-white sm:text-[1.35rem]">Football Player</p>
+              <p className="hidden truncate text-[13px] font-semibold text-white/64 min-[420px]:block">Football club management software</p>
             </div>
           </a>
           <div className="flex items-center gap-2 lg:order-3">
             <button
               type="button"
               onClick={openContactModal}
-              className="hidden min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg border border-white/16 bg-white/[0.07] px-4 py-3 text-[15px] font-black text-white transition hover:bg-white/[0.13] sm:inline-flex"
             >
               Contact us
             </button>
             <a
               href="/sign-in"
-              className="hidden min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg bg-[#c6ff1a] px-4 py-3 text-[15px] font-black text-[#06110a] shadow-sm shadow-black/10 transition hover:bg-[#dbff66] sm:inline-flex"
             >
               Log in
             </a>
             <InstallAppButton
-              wrapperClassName="lg:hidden"
+              wrapperClassName="hidden"
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
           </div>
-          <nav className="hidden items-center gap-1 lg:flex">
-            {navItems.map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold text-[#4b5f55] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
-              >
-                {label}
-              </a>
-            ))}
+          <nav className="hidden items-center gap-1 lg:order-2 lg:flex">
+            {navItems.map(([href, label]) => {
+              const isActive = isActiveNavItem(href)
+
+              return (
+                <a
+                  key={href}
+                  href={href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={[
+                    'relative inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-2 text-[15px] font-extrabold transition',
+                    isActive
+                      ? 'border-[#c6ff1a]/28 bg-white/[0.1] text-white shadow-sm shadow-[#c6ff1a]/10 after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#c6ff1a]'
+                      : 'border-transparent text-white/72 hover:bg-white/[0.08] hover:text-white',
+                  ].join(' ')}
+                >
+                  {label}
+                </a>
+              )
+            })}
           </nav>
         </div>
       </header>
 
-      <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-[#d7e5dc] bg-white p-1.5 shadow-lg shadow-[#101828]/10 sm:mx-6 lg:hidden">
+      <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-white/10 bg-[#06110a]/92 p-1.5 shadow-lg shadow-black/25 backdrop-blur sm:mx-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
-          {navItems.map(([href, label]) => (
-            <a
-              key={href}
-              href={href}
-              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 py-2 text-center text-[11px] font-black leading-none text-[#4b5f55] transition hover:bg-[#ecfdf5] hover:text-[#101828] min-[390px]:text-xs"
-            >
-              <span className="block" style={mobileNavLabelStyle}>{label}</span>
-            </a>
-          ))}
+          {navItems.map(([href, label]) => {
+            const isActive = isActiveNavItem(href)
+
+            return (
+              <a
+                key={href}
+                href={href}
+                aria-current={isActive ? 'page' : undefined}
+                className={[
+                  'relative inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg border px-1 py-2 text-center text-[11px] font-black leading-none transition min-[390px]:text-xs',
+                  isActive
+                    ? 'border-[#c6ff1a]/28 bg-white/[0.1] text-white shadow-sm shadow-[#c6ff1a]/10 after:absolute after:inset-x-2 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#c6ff1a]'
+                    : 'border-transparent text-white/68 hover:bg-white/[0.08] hover:text-white',
+                ].join(' ')}
+              >
+                <span className="block" style={mobileNavLabelStyle}>{label}</span>
+              </a>
+            )
+          })}
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#047857] px-1 py-2 text-center text-[11px] font-black leading-none text-white transition hover:bg-[#065f46] min-[390px]:text-xs"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#c6ff1a] px-1 py-2 text-center text-[11px] font-black leading-none text-[#06110a] transition hover:bg-[#dbff66] min-[390px]:text-xs"
           >
             <span className="block" style={mobileNavLabelStyle}>Log in</span>
           </a>

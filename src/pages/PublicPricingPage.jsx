@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import {
+  PublicScrollProgress,
+  publicEyebrowClass,
+  publicHeadingClass,
+  publicPageClass,
+  publicPrimaryButtonClass,
+  publicSecondaryButtonClass,
+  publicSectionClass,
+  publicSubheadingClass,
+} from '../components/login/PublicSiteComponents.jsx'
+import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../lib/login-pricing.js'
 
 const initialDemoFormData = {
@@ -11,9 +22,19 @@ const initialDemoFormData = {
   clubTeamName: '',
 }
 
+const fitNotes = [
+  ['Testing with one small squad?', 'Start with Individual Coach.'],
+  ['Running one team?', 'Use Single Team.'],
+  ['Managing several teams?', 'Use Small Club.'],
+  ['Running development operations?', 'Use Development Club.'],
+  ['Need rollout help?', 'Speak to us about Large Club.'],
+]
+
 export function PublicPricingPage() {
+  usePublicThemeScope()
+
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
-  const [billingCycle, setBillingCycle] = useState('monthly')
+  const billingCycle = 'monthly'
   const [demoPlan, setDemoPlan] = useState(null)
   const [demoFormData, setDemoFormData] = useState(initialDemoFormData)
   const [livePromotion, setLivePromotion] = useState(null)
@@ -93,12 +114,17 @@ export function PublicPricingPage() {
     setMessage('')
     setErrorMessage('')
 
-    if (plan.name === 'Individual' || paymentsDisabled) {
-      window.location.assign('/sign-in')
+    if (paymentsDisabled) {
+      window.location.assign(`/sign-in?plan=${encodeURIComponent(plan.name)}`)
       return
     }
 
-    if (plan.name === 'Large Club') {
+    if (plan.purchaseMode === 'free') {
+      window.location.assign(`/sign-in?plan=${encodeURIComponent(plan.name)}`)
+      return
+    }
+
+    if (plan.purchaseMode === 'contact_sales') {
       setDemoPlan(plan)
       return
     }
@@ -111,6 +137,7 @@ export function PublicPricingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planName: plan.name,
+          planKey: plan.planKey,
           billingCycle,
           livePromotionCodeId: livePromotion?.promotionCodeId || undefined,
         }),
@@ -130,86 +157,98 @@ export function PublicPricingPage() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-[#f7faf8] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#101828] lg:pb-0">
-      <LoginHeader logo={fallbackLogo} />
-      <section className="mx-auto w-full max-w-7xl px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
-        <div className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Pricing</p>
-            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-5xl">Choose the workspace size that matches your football operation.</h1>
-            <p className="mt-5 text-base font-semibold leading-7 text-[#4b5f55] sm:leading-8">
-              Start with one team, then scale into a full club workspace with setup checks, staff roles, player records, parent communication, and audit logs.
-            </p>
-            </div>
-            <div className="grid w-full grid-cols-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-1 sm:max-w-xs">
-            {[
-              ['monthly', 'Monthly'],
-              ['annual', 'Annual'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setBillingCycle(key)}
-                className={[
-                  'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
-                  billingCycle === key ? 'bg-[#047857] text-white shadow-sm' : 'text-[#4b5f55] hover:bg-white hover:text-[#101828]',
-                ].join(' ')}
-              >
-                {label}
-              </button>
-            ))}
-            </div>
-          </div>
+  const getPlanLabel = (plan) => plan.displayName || plan.name
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            {[
-              ['Individual', 'Good for testing the workflow with a small number of players.'],
-              ['Single team', 'For a coach or team admin running one football group properly.'],
-              ['Club workspace', 'For clubs that need teams, staff access, parent comms, and audit control.'],
-            ].map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
-                <p className="text-sm font-black text-[#101828]">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
-              </article>
-            ))}
+  const getPrimaryCtaLabel = (plan) => {
+    if (paymentsDisabled) {
+      return 'Start setup'
+    }
+
+    if (plan.purchaseMode === 'free') {
+      return 'Start free'
+    }
+
+    if (plan.purchaseMode === 'contact_sales') {
+      return 'Contact us'
+    }
+
+    return 'Choose plan'
+  }
+
+  const handlePrimaryCta = (plan) => {
+    if (plan.purchaseMode === 'contact_sales' && !paymentsDisabled) {
+      openContactModal()
+      return
+    }
+
+    void handleChoosePlan(plan)
+  }
+
+  return (
+    <main className={publicPageClass}>
+      <PublicScrollProgress />
+      <LoginHeader logo={fallbackLogo} />
+
+      <section className={publicSectionClass}>
+        <div className="grid gap-7 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
+          <div className="max-w-4xl">
+            <p className={publicEyebrowClass}>Pricing</p>
+            <h1 className={`mt-4 ${publicHeadingClass}`}>
+              Start small, then scale with the club.
+            </h1>
+          </div>
+          <div className="max-w-2xl lg:justify-self-end">
+            <p className={publicSubheadingClass}>
+              Choose the workspace size that fits your current team setup. Start with one coach or one team, then add more teams, staff, players, and parent updates when the club is ready.
+            </p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-white/60">
+              Prices shown monthly. Large Club is a contact-sales tier.
+            </p>
           </div>
         </div>
 
-        {errorMessage ? <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{errorMessage}</div> : null}
-        {message ? <div className="mt-6 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#065f46]">{message}</div> : null}
+        {errorMessage ? <div className="mt-6 rounded-lg border border-red-300/40 bg-red-950/50 px-4 py-3 text-sm font-semibold text-red-100">{errorMessage}</div> : null}
+        {message ? <div className="mt-6 rounded-lg border border-[#c6ff1a]/30 bg-[#c6ff1a]/10 px-4 py-3 text-sm font-semibold text-white">{message}</div> : null}
         {livePromotion && !paymentsDisabled ? (
-          <div className="mt-6 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-5 py-4 text-sm font-bold text-[#065f46]">
+          <div className="mt-6 rounded-lg border border-[#c6ff1a]/30 bg-[#c6ff1a]/10 px-5 py-4 text-sm font-bold text-white">
             Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
           </div>
         ) : null}
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {pricingPlans.map((plan) => {
             const priceLabel = formatPriceLabel(plan, billingCycle)
             const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
+            const isPopular = plan.name === 'Small Club'
+            const planLabel = getPlanLabel(plan)
 
             return (
-              <article key={plan.name} className="relative flex flex-col rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
-                {plan.name === 'Small Club' ? (
-                  <span className="absolute right-4 top-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-bold text-[#065f46] sm:right-5 sm:top-5">
-                    Popular
+              <article
+                key={plan.name}
+                className={[
+                  'relative flex min-h-full flex-col overflow-hidden rounded-lg border p-5 shadow-sm shadow-black/20',
+                  isPopular ? 'border-[#c6ff1a]/70 bg-[#c6ff1a]/[0.085] shadow-[#c6ff1a]/10' : 'border-white/10 bg-white/[0.055]',
+                ].join(' ')}
+              >
+                {isPopular ? <div className="absolute inset-x-0 top-0 h-1.5 bg-[#c6ff1a]" /> : null}
+                {isPopular ? (
+                  <span className="absolute right-4 top-4 rounded-lg bg-[#c6ff1a] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#06110a]">
+                    Best fit
                   </span>
                 ) : null}
-                <div className="min-h-[116px] pr-14 sm:min-h-[128px] sm:pr-16">
-                  <h2 className="text-lg font-black">{plan.name}</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{plan.description}</p>
+                <div className={isPopular ? 'pt-4 pr-20' : 'pr-6'}>
+                  <h2 className="text-xl font-black text-white">{planLabel}</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-white/70">{plan.description}</p>
                 </div>
-                <div className="min-h-[84px] sm:min-h-[92px]">
-                  <span className="text-3xl font-black sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
-                  {priceLabel ? <span className="ml-2 text-sm font-semibold text-[#4b5f55]">{priceLabel}</span> : null}
-                  {showPromotion ? <p className="mt-2 text-xs font-semibold text-[#047857]">{getPromotionSummary(livePromotion)}</p> : null}
+                <div className="mt-5">
+                  <span className="text-3xl font-black text-white sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
+                  {priceLabel ? <span className="ml-2 text-sm font-semibold text-white/58">{priceLabel}</span> : null}
+                  {showPromotion ? <p className="mt-2 text-xs font-black text-[#c6ff1a]">{getPromotionSummary(livePromotion)}</p> : null}
                 </div>
-                <ul className="mt-6 grow space-y-3">
+                <ul className="mt-6 grow space-y-2.5">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#047857]" />
+                    <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-white/68">
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#c6ff1a]" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -218,21 +257,21 @@ export function PublicPricingPage() {
                   <button
                     type="button"
                     disabled={isSubmitting}
-                    onClick={() => void handleChoosePlan(plan)}
+                    onClick={() => handlePrimaryCta(plan)}
                     className={[
-                      'inline-flex min-h-12 items-center justify-center rounded-lg px-5 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60',
-                      plan.name === 'Small Club' ? 'bg-[#047857] text-white hover:bg-[#065f46]' : 'border border-[#d7e5dc] bg-white text-[#101828] hover:bg-[#f7faf8]',
+                      isPopular ? publicPrimaryButtonClass : publicSecondaryButtonClass,
+                      'disabled:cursor-not-allowed disabled:opacity-60',
                     ].join(' ')}
                   >
-                    {paymentsDisabled ? 'Create test club' : plan.name === 'Individual' ? 'Start free' : plan.name === 'Large Club' ? 'Request demo' : 'Choose plan'}
+                    {getPrimaryCtaLabel(plan)}
                   </button>
-                  {plan.name !== 'Individual' && !paymentsDisabled ? (
+                  {plan.purchaseMode === 'contact_sales' && !paymentsDisabled ? (
                     <button
                       type="button"
-                      onClick={plan.name === 'Large Club' ? openContactModal : () => setDemoPlan(plan)}
-                      className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]"
+                      onClick={() => setDemoPlan(plan)}
+                      className={publicSecondaryButtonClass}
                     >
-                      {plan.name === 'Large Club' ? 'Contact us' : 'Request demo'}
+                      Request demo
                     </button>
                   ) : null}
                 </div>
@@ -240,6 +279,24 @@ export function PublicPricingPage() {
             )
           })}
         </div>
+
+        <section className="mt-8 rounded-lg border border-[#c6ff1a]/24 bg-gradient-to-br from-[#132719] via-[#102016] to-[#07130b] p-5 shadow-2xl shadow-black/25 sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className={publicEyebrowClass}>Which plan should I choose?</p>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">Start small. Upgrade when the club is ready.</h2>
+            </div>
+            <p className="max-w-sm text-sm font-semibold leading-6 text-white/66">No card needed for the free plan.</p>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {fitNotes.map(([title, copy]) => (
+              <article key={title} className="rounded-lg border border-white/10 bg-white/[0.055] p-4">
+                <h3 className="text-sm font-black text-white">{title}</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{copy}</p>
+              </article>
+            ))}
+          </div>
+        </section>
       </section>
 
       <DemoRequestModal

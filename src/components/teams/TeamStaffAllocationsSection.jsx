@@ -9,6 +9,18 @@ function getStaffRoleLabel(member) {
   return member?.pendingInvite ? member.roleLabel : getRoleLabel(member)
 }
 
+function StaffStateBadge({ member }) {
+  return member?.pendingInvite ? (
+    <span className="inline-flex min-h-7 items-center rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-3 text-xs font-black text-[#9a3412]">
+      Pending invited
+    </span>
+  ) : (
+    <span className="inline-flex min-h-7 items-center rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-3 text-xs font-black text-[#166534]">
+      Active
+    </span>
+  )
+}
+
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
@@ -59,7 +71,7 @@ export function TeamStaffAllocationsSection({
         <div className={`${panelClass} m-5 px-4 py-6 sm:m-6`}>
           <p className="text-base font-black text-[#101828]">No teams have been created yet.</p>
           <p className={`mt-2 ${bodyTextClass}`}>
-            Create the first team above before adding players, sessions, staff access, or match day records.
+            Create a new team above before adding players, sessions, staff access, or match day records.
           </p>
         </div>
       ) : (
@@ -259,7 +271,7 @@ function AddExistingStaffPanel({
     <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
       <p className="text-sm font-black text-[#101828]">Add existing staff</p>
       <p className={`mt-1 ${bodyTextClass}`}>
-        Search club staff, then add the selected person to this team.
+        Search active or pending staff, then assign the selected person to this team.
       </p>
       <div className="mt-3 grid gap-3">
         <label className="block">
@@ -341,6 +353,12 @@ function AllocatedStaffList({
                   <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
                     {getStaffRoleLabel(member)}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <StaffStateBadge member={member} />
+                    <span className="inline-flex min-h-7 items-center rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-3 text-xs font-black text-[#166534]">
+                      Assigned
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"

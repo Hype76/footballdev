@@ -93,7 +93,7 @@ export function CoachOptionsSection({
             Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
             {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
               <span className="mt-2 block text-xs font-black text-[#065f46]">
-                This session has {selectedSessionAssessmentCount} development records, so it cannot be deleted.
+                This session has {selectedSessionAssessmentCount} development records. Removing it keeps those records in player history.
               </span>
             ) : null}
           </div>

@@ -13,9 +13,10 @@ import {
 } from './core-normalizers.js'
 import { normalizeClubInviteRow } from './role-normalizers.js'
 import { normalizeUserProfile } from './profile-normalizers.js'
-import { assertStaffLoginLimitForEmail } from './plan-gates.js'
+import { assertClubFeature, assertStaffLoginLimitForEmail } from './plan-gates.js'
 import { getTeams } from './team-actions.js'
 import { buildStaffInviteUrl, sendStaffInvite } from '../email-builder.js'
+import { CAPABILITIES } from '../paywall-access.js'
 
 function createUuid() {
   if (crypto.randomUUID) {
@@ -39,6 +40,11 @@ export async function assignClubUserRole({ user, email, role }) {
   const roleKey = normalizeRoleKey(role.roleKey ?? role.key)
   const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
   const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
+  await assertClubFeature({
+    user,
+    clubId: user.clubId,
+    featureName: CAPABILITIES.clubStaffRoles,
+  })
 
   await assertStaffLoginLimitForEmail({
     user,
@@ -141,6 +147,11 @@ export async function createStaffUserWithPassword({ user, email, password, role 
   const roleKey = normalizeRoleKey(role.roleKey ?? role.key)
   const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
   const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
+  await assertClubFeature({
+    user,
+    clubId: user.clubId,
+    featureName: CAPABILITIES.clubStaffRoles,
+  })
 
   await assertStaffLoginLimitForEmail({
     user,
@@ -191,6 +202,15 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
   const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
   const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
   const normalizedTeamId = String(teamId ?? '').trim() || null
+  await assertClubFeature({
+    user: {
+      ...user,
+      activeTeamId: normalizedTeamId || user.activeTeamId,
+      teamId: normalizedTeamId || user.activeTeamId,
+    },
+    clubId: user.clubId,
+    featureName: normalizedTeamId ? CAPABILITIES.teamStaffRoles : CAPABILITIES.clubStaffRoles,
+  })
 
   await assertStaffLoginLimitForEmail({
     user,
@@ -312,6 +332,7 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
   invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
   invalidateMemoryCacheByPrefix(`user-access:${user.clubId}`)
   invalidateMemoryCacheByPrefix('visible-club-users:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
 
   return {
     kind: 'invite',

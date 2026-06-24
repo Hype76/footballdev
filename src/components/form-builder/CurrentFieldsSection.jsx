@@ -4,7 +4,6 @@ import {
   createScoreOptions,
   FIELD_PAGE_SIZE,
   FIELD_TYPE_OPTIONS,
-  getFieldTypeLabel,
   isScoreType,
 } from '../../hooks/form-builder/formBuilderUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
@@ -30,6 +29,7 @@ export function CurrentFieldsSection({
   onReorderField,
   onSaveField,
   onSetFieldGroup,
+  onToggleProgressionChart,
   onToggleEnabled,
   paginatedFields,
   visibleFields,
@@ -170,6 +170,7 @@ export function CurrentFieldsSection({
                 onDraftChange={onDraftChange}
                 onMoveField={onMoveField}
                 onSaveField={onSaveField}
+                onToggleProgressionChart={onToggleProgressionChart}
                 onToggleEnabled={onToggleEnabled}
               />
             )
@@ -204,6 +205,7 @@ function FormFieldCard({
   onDraftChange,
   onMoveField,
   onSaveField,
+  onToggleProgressionChart,
   onToggleEnabled,
 }) {
   const moveUpDisabledReason = isSaving
@@ -217,6 +219,7 @@ function FormFieldCard({
       ? 'This field is already at the bottom.'
       : undefined
   const savingDisabledReason = isSaving ? 'Please wait while field changes are being saved.' : undefined
+  const isSharedField = field.isDefault
 
   return (
     <div
@@ -264,74 +267,81 @@ function FormFieldCard({
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="grid gap-4 md:grid-cols-2">
-          {field.isDefault ? (
-            <>
-              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Label</p>
-                <p className="mt-2 text-sm font-black text-[#101828]">{field.label}</p>
-              </div>
-              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Type</p>
-                <p className="mt-2 text-sm font-black text-[#101828]">{getFieldTypeLabel(field.type)}</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <label className="block">
-                <span className={labelClass}>Label</span>
-                <input
-                  type="text"
-                  value={draft.label}
-                  onChange={(event) => onDraftChange(field.id, 'label', event.target.value)}
-                  className={fieldClass}
-                />
-              </label>
-              <label className="block">
-                <span className={labelClass}>Type</span>
-                <select
-                  value={draft.type}
-                  onChange={(event) => onDraftChange(field.id, 'type', event.target.value)}
-                  className={fieldClass}
-                >
-                  {FIELD_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          <label className="block">
+            <span className={labelClass}>Label</span>
+            <input
+              type="text"
+              value={draft.label}
+              onChange={(event) => onDraftChange(field.id, 'label', event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className="block">
+            <span className={labelClass}>Type</span>
+            <select
+              value={draft.type}
+              onChange={(event) => onDraftChange(field.id, 'type', event.target.value)}
+              className={fieldClass}
+            >
+              {FIELD_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-              {draft.type === 'select' ? (
-                <label className="block md:col-span-2">
-                  <span className={labelClass}>Options</span>
-                  <input
-                    type="text"
-                    value={draft.options}
-                    onChange={(event) => onDraftChange(field.id, 'options', event.target.value)}
-                    placeholder="Option A, Option B, Option C"
-                    className={fieldClass}
-                  />
-                </label>
-              ) : null}
+          {draft.type === 'select' ? (
+            <label className="block md:col-span-2">
+              <span className={labelClass}>Options</span>
+              <input
+                type="text"
+                value={draft.options}
+                onChange={(event) => onDraftChange(field.id, 'options', event.target.value)}
+                placeholder="Option A, Option B, Option C"
+                className={fieldClass}
+              />
+            </label>
+          ) : null}
 
-              {isScoreType(draft.type) ? (
-                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 md:col-span-2">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Score options</p>
-                  <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{createScoreOptions(draft.type).join(', ')}</p>
-                </div>
-              ) : null}
+          {isScoreType(draft.type) ? (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 md:col-span-2">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Score options</p>
+              <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{createScoreOptions(draft.type).join(', ')}</p>
+            </div>
+          ) : null}
 
-              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
-                <input
-                  type="checkbox"
-                  checked={draft.required}
-                  onChange={(event) => onDraftChange(field.id, 'required', event.target.checked)}
-                  className="h-4 w-4 rounded border-[#d7e5dc] bg-white accent-[#047857]"
-                />
-                <span>Required field</span>
-              </label>
-            </>
-          )}
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+            <input
+              type="checkbox"
+              checked={draft.required}
+              onChange={(event) => onDraftChange(field.id, 'required', event.target.checked)}
+              className="h-4 w-4 rounded border-[#d7e5dc] bg-white accent-[#047857]"
+            />
+            <span>Required field</span>
+          </label>
+
+          {isScoreType(draft.type) ? (
+            <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] md:col-span-2">
+              <input
+                type="checkbox"
+                checked={Boolean(draft.includeInProgressChart)}
+                onChange={(event) => {
+                  if (field.isDefault) {
+                    onToggleProgressionChart(field, event.target.checked)
+                    return
+                  }
+
+                  onDraftChange(field.id, 'includeInProgressChart', event.target.checked)
+                }}
+                className="h-5 w-5 rounded border-[#d7e5dc] bg-white accent-[#047857]"
+              />
+              <span>Include in progression chart</span>
+              <span className="text-sm font-semibold leading-6 text-[#4b5f55]">
+                Use this score when building player progression charts.
+              </span>
+            </label>
+          ) : null}
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-col">
@@ -362,39 +372,39 @@ function FormFieldCard({
           >
             {draft.isEnabled ? 'Disable' : 'Enable'}
           </button>
-          {field.isDefault ? (
-            <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#4b5f55]">
-              Default field
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={isSaving}
-                title={savingDisabledReason}
-                onClick={() => onSaveField(field)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                disabled={isSaving}
-                title={savingDisabledReason}
-                onClick={() => onDeleteField(field.id)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Delete
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            disabled={isSaving}
+            title={savingDisabledReason}
+            onClick={() => onSaveField(field)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            disabled={isSaving || isSharedField}
+            title={savingDisabledReason}
+            onClick={() => onDeleteField(field.id)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{field.isDefault ? 'Default' : 'Custom'}</span>
+        {!field.isDefault ? (
+          <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">Team field</span>
+        ) : null}
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
+        {isScoreType(draft.type) && draft.includeInProgressChart ? (
+          <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">
+            Progression chart
+          </span>
+        ) : null}
       </div>
     </div>
   )

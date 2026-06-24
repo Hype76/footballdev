@@ -1,7 +1,7 @@
 import process from 'node:process'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 
-const CONTACT_REQUEST_RECIPIENT = 'sales@playerfeedback.online'
+const CONTACT_REQUEST_RECIPIENT = String(process.env.CONTACT_REQUEST_RECIPIENT || 'info@footballplayer.online').trim()
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -89,10 +89,6 @@ export async function handler(event) {
     return failureResponse(405, 'Method Not Allowed')
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return failureResponse(500, 'Email service is not configured')
-  }
-
   try {
     const body = JSON.parse(event.body || '{}')
     const name = cleanText(body.name)
@@ -109,7 +105,6 @@ export async function handler(event) {
       return failureResponse(400, 'A valid email is required')
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
     const html = buildContactRequestHtml({
       name,
       email,
@@ -118,17 +113,24 @@ export async function handler(event) {
       sourcePath,
     })
 
-    const response = await resend.emails.send({
-      from: 'Football Player Contact <feedback@footballplayer.online>',
+    const response = await sendEmail({
+      from: createFromAddress('Football Player Contact'),
       to: [CONTACT_REQUEST_RECIPIENT],
       reply_to: email,
       subject: `Website Contact: ${name}`,
       html,
+    }, {
+      context: {
+        emailType: 'system_support_email',
+        actorEmail: email,
+        targetEntityType: 'public_contact_request',
+      },
+      publicMessage: 'Contact request could not be sent. Please try again in a moment.',
     })
 
     return successResponse({ id: response?.data?.id || response?.id || '' })
   } catch (error) {
     console.error(error)
-    return failureResponse(500, 'Contact request could not be sent')
+    return failureResponse(error.statusCode || 500, getPublicEmailErrorMessage(error, 'Contact request could not be sent. Please try again in a moment.'))
   }
 }

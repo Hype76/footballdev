@@ -21,13 +21,13 @@ export function PublicParentPortalLoginPage() {
             Log in to your family portal.
           </h1>
           <p className="mt-5 text-base font-semibold leading-7 text-[#4b5f55] sm:mt-6 sm:text-lg sm:leading-8">
-            Open the account you confirmed by email to view your linked child, club messages, reports, and polls.
+            Open the account you confirmed by email to view your linked child, match cards, and club-shared updates.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
-              ['Messages', 'Read club updates and development PDFs.'],
+              ['Messages', 'Read club updates shared for your child.'],
               ['Match day', 'Follow live cards when staff share them.'],
-              ['Polls', 'Answer club questions with clear voting rules.'],
+              ['Shared updates', 'See the information the club chooses to release.'],
             ].map(([title, copy]) => (
               <article key={title} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
                 <p className="text-sm font-black text-[#101828]">{title}</p>

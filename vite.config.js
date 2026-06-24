@@ -1,3 +1,4 @@
+/* global process */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -6,6 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const enablePwa = mode === 'production'
+  const enableAuthBrowserFixtures = String(process.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES ?? '').trim().toLowerCase() === 'true'
 
   return {
     plugins: [
@@ -114,5 +116,12 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    server: enableAuthBrowserFixtures
+      ? {
+          allowedHosts: [
+            'parent.footballplayer.online',
+          ],
+        }
+      : undefined,
   }
 })

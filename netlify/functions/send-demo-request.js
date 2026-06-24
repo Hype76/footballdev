@@ -1,7 +1,7 @@
 import process from 'node:process'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 
-const DEMO_REQUEST_RECIPIENT = 'info@footballplayer.online'
+const DEMO_REQUEST_RECIPIENT = String(process.env.DEMO_REQUEST_RECIPIENT || 'info@footballplayer.online').trim()
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -87,10 +87,6 @@ export async function handler(event) {
     return failureResponse(405, 'Method Not Allowed')
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return failureResponse(500, 'Email service is not configured')
-  }
-
   try {
     const body = JSON.parse(event.body || '{}')
     const name = cleanText(body.name)
@@ -112,7 +108,6 @@ export async function handler(event) {
       return failureResponse(400, 'Club or team name is required')
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
     const html = buildDemoRequestHtml({
       name,
       email,
@@ -122,17 +117,24 @@ export async function handler(event) {
       billingCycle,
     })
 
-    const response = await resend.emails.send({
-      from: 'Football Player Demo <feedback@footballplayer.online>',
+    const response = await sendEmail({
+      from: createFromAddress('Football Player Demo'),
       to: [DEMO_REQUEST_RECIPIENT],
       reply_to: email,
       subject: `Demo Request: ${clubTeamName}`,
       html,
+    }, {
+      context: {
+        emailType: 'demo_request',
+        actorEmail: email,
+        targetEntityType: 'public_demo_request',
+      },
+      publicMessage: 'Demo request could not be sent. Please try again in a moment.',
     })
 
     return successResponse({ id: response?.data?.id || response?.id || '' })
   } catch (error) {
     console.error(error)
-    return failureResponse(500, 'Demo request could not be sent')
+    return failureResponse(error.statusCode || 500, getPublicEmailErrorMessage(error, 'Demo request could not be sent. Please try again in a moment.'))
   }
 }

@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, canViewBilling, getWorkspaceHomeCopy, isClubAdmin, useAuth } from '../lib/auth.js'
 import {
+  assignPlayerStaffNote,
+  deletePlayerStaffNote,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
+  getClubUserInvites,
   getEvaluations,
   getPlayers,
+  getTeams,
+  getVisibleClubUsers,
+  getUnassignedStaffVoiceNotes,
   readViewCache,
   withRequestTimeout,
   writeViewCache,
@@ -16,84 +22,7 @@ import {
   getCompletedPlayerNamesFromEvaluations,
   normalizeProgressName,
 } from '../lib/session-page-utils.js'
-
-const quickActions = [
-  {
-    label: 'Start training',
-    description: 'Open the active queue, mark attendance, and record what coaches saw.',
-    path: '/sessions/start',
-    primary: true,
-  },
-  {
-    label: 'Check availability',
-    description: 'Use parent replies before choosing the training group or match squad.',
-    path: '/polls',
-  },
-  {
-    label: 'Match day',
-    description: 'Build the squad, capture scorers, minutes, and post-match notes.',
-    path: '/match-day',
-  },
-  {
-    label: 'Player note',
-    description: 'Record one practical observation while the session is still fresh.',
-    path: '/assess-player/new',
-  },
-]
-
-const operatingLanes = [
-  {
-    label: 'Players',
-    title: 'Know who is in the squad',
-    body: 'Add the player, link their contacts, and keep their football record current.',
-    path: '/players/current',
-  },
-  {
-    label: 'Training',
-    title: 'Run one useful session',
-    body: 'Pick the group, take attendance, then record the coaching points that matter.',
-    path: '/sessions/start',
-  },
-  {
-    label: 'Parents',
-    title: 'Get replies before decisions',
-    body: 'Use invites, availability, and parent messages before match day changes.',
-    path: '/parent-linking',
-  },
-  {
-    label: 'Match day',
-    title: 'Close the weekend properly',
-    body: 'Record squad, score, minutes, scorers, and notes while the detail is fresh.',
-    path: '/match-day',
-  },
-]
-
-const rhythmItems = [
-  {
-    label: 'Monday',
-    title: 'Close the weekend',
-    body: 'Check match notes, attendance gaps, and players who need a coach action.',
-    path: '/players/current',
-  },
-  {
-    label: 'Midweek',
-    title: 'Run training',
-    body: 'Create the session, confirm the squad, and keep parent updates in one place.',
-    path: '/sessions/start',
-  },
-  {
-    label: 'Friday',
-    title: 'Lock availability',
-    body: 'Use polls, parent replies, and match day to confirm who can play.',
-    path: '/polls',
-  },
-  {
-    label: 'Weekend',
-    title: 'Record match day',
-    body: 'Record score, scorers, notes, and player of the match for the team history.',
-    path: '/match-day',
-  },
-]
+import { isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 const surfaceClass = 'overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10'
 const sectionHeaderClass = 'border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6'
@@ -105,7 +34,13 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 function getActiveSession(sessions) {
   const openSessions = sessions.filter((session) => session.status !== 'completed')
 
-  return openSessions[0] || sessions[0] || null
+  const sortByDate = (items) => [...items].sort((left, right) => {
+    const leftTime = new Date(left.sessionDate || left.createdAt || 0).getTime()
+    const rightTime = new Date(right.sessionDate || right.createdAt || 0).getTime()
+    return leftTime - rightTime
+  })
+
+  return sortByDate(openSessions)[0] || sortByDate(sessions)[0] || null
 }
 
 function getRecentEvaluations(evaluations) {
@@ -151,6 +86,169 @@ function getEvaluationContextLabel(evaluation, user) {
   return `Team: ${evaluation.team || user?.activeTeamName || 'Team not set'}, Score: ${evaluation.averageScore ?? 'Not scored'}`
 }
 
+function formatVoiceNoteDate(value) {
+  const date = new Date(value)
+
+  if (!value || !Number.isFinite(date.getTime())) {
+    return 'Recently saved'
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function formatVoiceNoteDuration(seconds) {
+  const value = Math.max(0, Number(seconds) || 0)
+  const minutes = Math.floor(value / 60)
+  const remainder = String(value % 60).padStart(2, '0')
+  return `${minutes}:${remainder}`
+}
+
+function getCoachGreeting(user) {
+  const hour = new Date().getHours()
+  const greeting = hour >= 5 && hour < 12
+    ? 'Good morning'
+    : hour >= 12 && hour < 18
+      ? 'Good afternoon'
+      : 'Good evening'
+  const displayName = String(user?.displayName || user?.username || user?.name || '').trim()
+  const firstName = displayName.split(/\s+/)[0] || ''
+
+  return firstName ? `${greeting}, ${firstName}.` : `${greeting}.`
+}
+
+function getPlanSummary(user) {
+  const planName = String(user?.planLabel || user?.planKey || 'Plan').replace(/_/g, ' ')
+  const status = String(user?.planStatus || 'active').replace(/_/g, ' ')
+  return `${planName}, ${status}`
+}
+
+function ClubAdminHomeView({
+  errorMessage,
+  isLoading,
+  pendingInvites,
+  players,
+  staffUsers,
+  teams,
+  user,
+}) {
+  const homeCopy = getWorkspaceHomeCopy(user)
+  const greeting = getCoachGreeting(user)
+  const adminActions = [
+    {
+      label: 'Manage teams',
+      description: 'Create teams, rename age groups, and check staff allocations.',
+      path: '/teams',
+    },
+    {
+      label: 'Staff Access',
+      description: 'Invite staff, review roles, and remove pending access.',
+      path: '/user-access',
+    },
+    {
+      label: 'Club Profile',
+      description: 'Update shared club details, contact information, and identity.',
+      path: '/club-settings',
+    },
+    {
+      label: 'Branding and settings',
+      description: 'Set display mode, club accent colour, and button style.',
+      path: '/user-settings',
+    },
+    canViewBilling(user) ? {
+      label: 'Plan and billing',
+      description: 'Review the club plan, limits, and access status.',
+      path: '/billing',
+    } : null,
+  ].filter(Boolean)
+  const metricItems = [
+    { label: 'Teams', value: teams.length },
+    { label: 'Staff', value: staffUsers.length },
+    { label: 'Players', value: players.length },
+    { label: 'Pending invites', value: pendingInvites.length },
+    { label: 'Plan', value: getPlanSummary(user) },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <section className={surfaceClass}>
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="px-5 py-6 sm:px-6 lg:px-8">
+            <p className={eyebrowClass}>{homeCopy.title}</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+              {greeting}
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
+              {homeCopy.description}
+            </p>
+          </div>
+          <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Club workspace</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+              {user?.clubName || 'Your club'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              Club Admin access for shared club setup and staff controls.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      {errorMessage ? (
+        <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold text-[#93370d] shadow-sm">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <section className={surfaceClass}>
+        <div className={sectionHeaderClass}>
+          <p className={eyebrowClass}>Club overview</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+            {isLoading ? 'Loading club workspace' : 'Your club at a glance'}
+          </h2>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            Review the shared club setup before moving into a specific team.
+          </p>
+        </div>
+        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-5">
+          {metricItems.map((item) => (
+            <div key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
+              <p className="mt-2 text-2xl font-black text-[#101828]">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className={surfaceClass}>
+        <div className={sectionHeaderClass}>
+          <p className={eyebrowClass}>Admin actions</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Club setup tools</h2>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            Use these controls for club-wide setup. Select a team when you need team operations.
+          </p>
+        </div>
+        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3">
+          {adminActions.map((action) => (
+            <Link
+              key={action.path}
+              to={action.path}
+              className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+            >
+              <p className="text-base font-black text-[#101828]">{action.label}</p>
+              <p className={`mt-2 ${bodyTextClass}`}>{action.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export function CoachHomePage() {
   const { user } = useAuth()
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
@@ -158,11 +256,26 @@ export function CoachHomePage() {
   const cachedValue = useMemo(() => readViewCache(cacheKey), [cacheKey])
   const [sessions, setSessions] = useState(() => cachedValue?.sessions || [])
   const [players, setPlayers] = useState(() => cachedValue?.players || [])
+  const [clubTeams, setClubTeams] = useState(() => cachedValue?.clubTeams || [])
+  const [clubStaffUsers, setClubStaffUsers] = useState(() => cachedValue?.clubStaffUsers || [])
+  const [pendingInvites, setPendingInvites] = useState(() => cachedValue?.pendingInvites || [])
   const [evaluations, setEvaluations] = useState(() => cachedValue?.evaluations || [])
   const [sessionPlayers, setSessionPlayers] = useState(() => cachedValue?.sessionPlayers || [])
+  const [unassignedVoiceNotes, setUnassignedVoiceNotes] = useState(() => cachedValue?.unassignedVoiceNotes || [])
+  const [voiceNotePickerNote, setVoiceNotePickerNote] = useState(null)
+  const [voiceNotePickerSearch, setVoiceNotePickerSearch] = useState('')
+  const [voiceNotePickerPlayers, setVoiceNotePickerPlayers] = useState([])
+  const [voiceNotePickerError, setVoiceNotePickerError] = useState('')
+  const [voiceNotePanelMessage, setVoiceNotePanelMessage] = useState('')
+  const [isVoiceNotePickerLoading, setIsVoiceNotePickerLoading] = useState(false)
+  const [isVoiceNoteAssigning, setIsVoiceNoteAssigning] = useState(false)
+  const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
+  const isClubWideAdminHome = isClubAdmin(user) && !user?.activeTeamId
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
+  const greeting = getCoachGreeting(user)
+  const homeCopy = getWorkspaceHomeCopy(user)
   const recentEvaluations = useMemo(() => getRecentEvaluations(evaluations), [evaluations])
   const completedNames = useMemo(
     () => getCompletedPlayerNamesFromEvaluations(evaluations, activeSession, sessionPlayers),
@@ -175,37 +288,140 @@ export function CoachHomePage() {
   )
   const visiblePlayers = players.length > 0 ? players : sessionPlayers
   const trialPlayerCount = visiblePlayers.filter((player) => player.section === 'Trial').length
-  const squadPlayerCount = visiblePlayers.filter((player) => player.section === 'Squad').length
-  const readinessItems = useMemo(() => [
+  const canUseCoachActions = canCreateEvaluation(user)
+  const secondaryActions = useMemo(() => [
     {
-      label: 'Squad base',
-      state: visiblePlayers.length > 0 ? 'Ready' : 'Missing',
-      detail: visiblePlayers.length > 0 ? `${visiblePlayers.length} players available.` : 'Add players before sessions, match day, or parent links.',
-      path: visiblePlayers.length > 0 ? '/players/current' : '/add-player',
-      tone: visiblePlayers.length > 0 ? 'good' : 'risk',
+      label: 'View squad',
+      description: 'Open player records for this team.',
+      path: '/players/current',
     },
     {
-      label: 'Session queue',
-      state: activeSession ? 'Ready' : 'Missing',
-      detail: activeSession ? `${sessionPlayers.length} players linked to the active session.` : 'Create the next training or match session.',
-      path: '/sessions/start',
-      tone: activeSession ? 'good' : 'risk',
+      label: 'Add player note',
+      description: 'Record a short coach observation.',
+      path: '/assess-player/new?choosePlayer=1',
     },
     {
-      label: 'Coach records',
-      state: completedNames.length > 0 ? 'Moving' : 'Empty',
-      detail: completedNames.length > 0 ? `${completedNames.length} records linked to the current queue.` : 'Add the first player note from a real session.',
-      path: '/assess-player/new',
-      tone: completedNames.length > 0 ? 'good' : 'watch',
+      label: 'Add assessment',
+      description: 'Create a structured development record.',
+      path: '/assess-player/new?choosePlayer=1',
     },
     {
-      label: 'Weekend control',
-      state: 'Check',
-      detail: 'Confirm availability before publishing match day details.',
-      path: '/polls',
-      tone: 'watch',
+      label: 'Open calendar',
+      description: 'Check sessions, matches, and club events.',
+      path: '/calendar',
     },
-  ], [activeSession, completedNames.length, sessionPlayers.length, visiblePlayers.length])
+  ].filter((action) => canUseCoachActions && isRecoveryPathVisible(action.path, { user })), [canUseCoachActions, user])
+  const snapshotItems = [
+    { label: 'Players', value: visiblePlayers.length },
+    { label: 'Trial players', value: trialPlayerCount },
+    { label: 'Waiting notes', value: unassessedPlayers.length },
+    { label: 'Recorded', value: completedNames.length },
+  ]
+  const filteredVoiceNotePlayers = useMemo(() => {
+    const searchValue = voiceNotePickerSearch.trim().toLowerCase()
+
+    return voiceNotePickerPlayers.filter((player) => {
+      if (!searchValue) {
+        return true
+      }
+
+      return [player.playerName, player.section, player.team]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(searchValue))
+    })
+  }, [voiceNotePickerPlayers, voiceNotePickerSearch])
+
+  const openVoiceNoteAssignment = async (note) => {
+    setVoiceNotePickerNote(note)
+    setVoiceNotePickerSearch('')
+    setVoiceNotePickerError('')
+    setVoiceNotePanelMessage('')
+    setIsVoiceNotePickerLoading(true)
+
+    try {
+      const nextPlayers = await getPlayers({ user })
+      setVoiceNotePickerPlayers(nextPlayers)
+    } catch (error) {
+      console.error(error)
+      setVoiceNotePickerError('Players could not be loaded. Please try again.')
+    } finally {
+      setIsVoiceNotePickerLoading(false)
+    }
+  }
+
+  const closeVoiceNoteAssignment = () => {
+    setVoiceNotePickerNote(null)
+    setVoiceNotePickerSearch('')
+    setVoiceNotePickerPlayers([])
+    setVoiceNotePickerError('')
+    setIsVoiceNoteAssigning(false)
+  }
+
+  const assignRecoveredVoiceNote = async (player) => {
+    if (!voiceNotePickerNote?.id || !player?.id || isVoiceNoteAssigning) {
+      return
+    }
+
+    setIsVoiceNoteAssigning(true)
+    setVoiceNotePickerError('')
+
+    try {
+      await assignPlayerStaffNote({
+        user,
+        noteId: voiceNotePickerNote.id,
+        playerId: player.id,
+      })
+      setUnassignedVoiceNotes((currentNotes) => {
+        const nextNotes = currentNotes.filter((note) => note.id !== voiceNotePickerNote.id)
+        writeViewCache(cacheKey, {
+          sessions,
+          players,
+          evaluations,
+          sessionPlayers,
+          unassignedVoiceNotes: nextNotes,
+        })
+        return nextNotes
+      })
+      setVoiceNotePanelMessage(`Voice note assigned to ${player.playerName || 'the selected player'}.`)
+      closeVoiceNoteAssignment()
+    } catch (error) {
+      console.error(error)
+      setVoiceNotePickerError('Could not assign the voice note. Please try again.')
+    } finally {
+      setIsVoiceNoteAssigning(false)
+    }
+  }
+
+  const deleteRecoveredVoiceNote = async (note) => {
+    if (!note?.id || !window.confirm('Delete this voice note?')) {
+      return
+    }
+
+    setDeletingVoiceNoteId(note.id)
+    setErrorMessage('')
+    setVoiceNotePanelMessage('')
+
+    try {
+      await deletePlayerStaffNote({ noteId: note.id })
+      setUnassignedVoiceNotes((currentNotes) => {
+        const nextNotes = currentNotes.filter((currentNote) => currentNote.id !== note.id)
+        writeViewCache(cacheKey, {
+          sessions,
+          players,
+          evaluations,
+          sessionPlayers,
+          unassignedVoiceNotes: nextNotes,
+        })
+        return nextNotes
+      })
+      setVoiceNotePanelMessage('Voice note deleted.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not delete the voice note. Please try again.')
+    } finally {
+      setDeletingVoiceNoteId('')
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -214,10 +430,45 @@ export function CoachHomePage() {
       setErrorMessage('')
 
       try {
-        const [sessionsResult, playersResult, evaluationsResult] = await Promise.allSettled([
+        if (isClubWideAdminHome) {
+          const [teamsResult, playersResult, staffResult, invitesResult] = await Promise.allSettled([
+            withRequestTimeout(() => getTeams(user), 'Could not load teams.'),
+            withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
+            withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load staff.'),
+            withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending invites.'),
+          ])
+
+          if (!isMounted) {
+            return
+          }
+
+          const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : cachedValue?.clubTeams || []
+          const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : cachedValue?.players || []
+          const nextStaffUsers = staffResult.status === 'fulfilled' ? staffResult.value : cachedValue?.clubStaffUsers || []
+          const nextPendingInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : cachedValue?.pendingInvites || []
+
+          setClubTeams(nextTeams)
+          setPlayers(nextPlayers)
+          setClubStaffUsers(nextStaffUsers)
+          setPendingInvites(nextPendingInvites)
+          writeViewCache(cacheKey, {
+            clubTeams: nextTeams,
+            clubStaffUsers: nextStaffUsers,
+            pendingInvites: nextPendingInvites,
+            players: nextPlayers,
+          })
+
+          if ([teamsResult, playersResult, staffResult, invitesResult].some((result) => result.status === 'rejected')) {
+            setErrorMessage('Some club data could not be refreshed. Cached data is shown where available.')
+          }
+          return
+        }
+
+        const [sessionsResult, playersResult, evaluationsResult, voiceNotesResult] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.'),
+          withRequestTimeout(() => getUnassignedStaffVoiceNotes({ user, limit: 5 }), 'Could not load voice notes.'),
         ])
 
         if (!isMounted) {
@@ -228,6 +479,8 @@ export function CoachHomePage() {
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : cachedValue?.players || []
         const nextEvaluations =
           evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
+        const nextUnassignedVoiceNotes =
+          voiceNotesResult.status === 'fulfilled' ? voiceNotesResult.value : cachedValue?.unassignedVoiceNotes || []
         const nextActiveSession = getActiveSession(nextSessions)
         const nextSessionPlayers = nextActiveSession?.id
           ? await withRequestTimeout(
@@ -247,14 +500,16 @@ export function CoachHomePage() {
         setPlayers(nextPlayers)
         setEvaluations(nextEvaluations)
         setSessionPlayers(nextSessionPlayers)
+        setUnassignedVoiceNotes(nextUnassignedVoiceNotes)
         writeViewCache(cacheKey, {
           sessions: nextSessions,
           players: nextPlayers,
           evaluations: nextEvaluations,
           sessionPlayers: nextSessionPlayers,
+          unassignedVoiceNotes: nextUnassignedVoiceNotes,
         })
 
-        if ([sessionsResult, playersResult, evaluationsResult].some((result) => result.status === 'rejected')) {
+        if ([sessionsResult, playersResult, evaluationsResult, voiceNotesResult].some((result) => result.status === 'rejected')) {
           setErrorMessage('Some coach data could not be refreshed. Cached data is shown where available.')
         }
       } finally {
@@ -271,104 +526,45 @@ export function CoachHomePage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, cachedValue, user])
+  }, [cacheKey, cachedValue, isClubWideAdminHome, user])
+
+  if (isClubWideAdminHome) {
+    return (
+      <ClubAdminHomeView
+        errorMessage={errorMessage}
+        isLoading={isLoading}
+        pendingInvites={pendingInvites}
+        players={players}
+        staffUsers={clubStaffUsers}
+        teams={clubTeams}
+        user={user}
+      />
+    )
+  }
 
   return (
     <div className="space-y-5">
       <section className={surfaceClass}>
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
-          <div>
-            <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className={eyebrowClass}>Club command board</p>
-              <h1 className="mt-3 max-w-5xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
-                Start with the next football job.
-              </h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                This board is built around the work that moves a club week forward: players, training, parents, and match day.
-              </p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {operatingLanes.map((lane) => (
-                  <Link
-                    key={lane.label}
-                    to={lane.path}
-                    className="group rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-                  >
-                    <span className="inline-flex min-h-8 items-center rounded-lg border border-[#bbf7d0] bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">
-                      {lane.label}
-                    </span>
-                    <span className="mt-4 block text-base font-black leading-6 text-[#101828]">{lane.title}</span>
-                    <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{lane.body}</span>
-                    <span className="mt-4 inline-flex min-h-9 items-center rounded-lg bg-[#047857] px-3 text-xs font-black text-white shadow-sm shadow-[#047857]/20 transition group-hover:bg-[#065f46]">
-                      Open
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {quickActions.map((action) => (
-                  <Link
-                    key={action.path}
-                    to={action.path}
-                    className={[
-                      'min-w-0 rounded-lg border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#93c5fd]',
-                      action.primary
-                        ? 'border-[#047857] bg-[#047857] text-white shadow-[#047857]/20'
-                        : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]',
-                    ].join(' ')}
-                  >
-                    <span className="block text-sm font-black leading-5">{action.label}</span>
-                    <span className={['mt-2 block text-xs font-semibold leading-5', action.primary ? 'text-[#ecfdf5]' : 'text-[#4b5f55]'].join(' ')}>
-                      {action.description}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Today rule</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                Session first. Availability before match day.
-              </p>
-            </div>
-            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open" compact />
-              <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" compact />
-              <CoachMetric label="Waiting" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" compact />
-            </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              The board uses live workspace data where possible, then pushes staff to the next useful action.
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="px-5 py-6 sm:px-6 lg:px-8">
+            <p className={eyebrowClass}>{homeCopy.title}</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+              {greeting}
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
+              {homeCopy.description}
             </p>
           </div>
+          <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Current team</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+              {user?.activeTeamName || user?.clubName || 'Team not selected'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              {user?.roleLabel || 'Coach'} access for {user?.clubName || 'this club'}.
+            </p>
+          </aside>
         </div>
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {readinessItems.map((item) => (
-          <Link
-            key={item.label}
-            to={item.path}
-            className={[
-              'rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]',
-            ].join(' ')}
-          >
-            <span className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">{item.label}</span>
-              <span className={[
-                'shrink-0 whitespace-nowrap rounded-lg border px-2 py-1 text-[11px] font-black',
-                item.tone === 'good' ? 'border-[#bbf7d0] bg-[#dcfce7] text-[#166534]' : item.tone === 'risk' ? 'border-[#fecdca] bg-[#fff1f3] text-[#b42318]' : 'border-[#fedf89] bg-[#fffaeb] text-[#93370d]',
-              ].join(' ')}
-              >
-                {item.state}
-              </span>
-            </span>
-            <span className="mt-3 block text-sm font-semibold leading-6 text-[#4b5f55]">{item.detail}</span>
-          </Link>
-        ))}
       </section>
 
       {errorMessage ? (
@@ -377,100 +573,108 @@ export function CoachHomePage() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-        <section className={surfaceClass}>
-          <div className={sectionHeaderClass}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className={eyebrowClass}>Training queue</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                  {activeSession?.title || activeSession?.team || (isLoading ? 'Loading session' : 'No session selected')}
-                </h2>
-                <p className={`mt-2 ${bodyTextClass}`}>
-                  {activeSession
-                    ? getSessionContextLabel(activeSession)
-                    : getSessionContextLabel(null)}
-                </p>
-              </div>
-              <Link
-                to="/sessions/start"
-                className={primaryButtonClass}
-              >
-                Open session
-              </Link>
+      <section className={surfaceClass}>
+        <div className={sectionHeaderClass}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className={eyebrowClass}>Next up</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+                {activeSession?.title || activeSession?.team || (isLoading ? 'Loading next item' : 'No session scheduled yet')}
+              </h2>
+              <p className={`mt-2 ${bodyTextClass}`}>
+                {activeSession ? getSessionContextLabel(activeSession) : 'Add a session or open the calendar when the next team activity is ready.'}
+              </p>
             </div>
+            <Link
+              to={activeSession ? '/sessions/start' : '/calendar?action=add-event'}
+              className={primaryButtonClass}
+            >
+              {activeSession ? 'Open next session' : 'Add event'}
+            </Link>
           </div>
+        </div>
 
-          <div className="px-5 py-5 sm:px-6">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <CoachMetric label="In queue" value={sessionPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Open" />
-              <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" />
-              <CoachMetric label="To record" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" />
-              <CoachMetric label="Trial" value={trialPlayerCount} isLoading={isLoading} to="/players/current?section=Trial" actionLabel="Review" />
-              <CoachMetric label="Squad" value={squadPlayerCount} isLoading={isLoading} to="/players/current?section=Squad" actionLabel="Review" />
-            </div>
+        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4">
+          {secondaryActions.map((action) => (
+            <Link
+              key={action.path}
+              to={action.path}
+              className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+            >
+              <span className="block text-sm font-black text-[#101828]">{action.label}</span>
+              <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.description}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-            <div className="mt-5 space-y-3">
-              {unassessedPlayers.slice(0, 4).map((player) => (
-                <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 shadow-sm shadow-[#047857]/10">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#101828]">{player.playerName}</p>
-                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Section: {player.section || 'Trial'}, Team: {player.team || 'No team assigned'}</p>
-                  </div>
-                  <Link
-                    to="/sessions/start"
-                    className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#bbf7d0] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
-                  >
-                    Record
-                  </Link>
-                </div>
-              ))}
-              {!isLoading && unassessedPlayers.length === 0 ? (
-                <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55]">
-                  No players are waiting in the current development queue.
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
-
-        <section className={surfaceClass}>
-          <div className={sectionHeaderClass}>
-            <p className={eyebrowClass}>Match readiness</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Before the weekend</h2>
-          </div>
-          <div className="grid gap-3 px-5 py-5 sm:px-6">
-            {[
-              { label: 'Availability gaps', value: 'Check parent replies before naming the squad.', path: '/polls' },
-              { label: 'Match day board', value: 'Scorers, minutes, notes, and player of the match.', path: '/match-day' },
-              { label: 'Parent update', value: 'Send the practical details before kick off.', path: '/parent-linking' },
-            ].map((action) => (
-              <Link
-                key={action.label}
-                to={action.path}
-                className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-              >
-                <span className="block text-sm font-black">{action.label}</span>
-                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.value}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {rhythmItems.map((item) => (
-          <Link
-            key={item.label}
-            to={item.path}
-            className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-          >
-            <p className={eyebrowClass}>{item.label}</p>
-            <h2 className="mt-3 text-lg font-black text-[#101828]">{item.title}</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
-          </Link>
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {snapshotItems.map((item) => (
+          <CoachMetric key={item.label} label={item.label} value={item.value} isLoading={isLoading} />
         ))}
       </section>
+
+      {unassignedVoiceNotes.length > 0 || voiceNotePanelMessage ? (
+        <section className={surfaceClass}>
+          <div className={sectionHeaderClass}>
+            <div>
+              <p className={eyebrowClass}>Staff voice notes</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Unassigned voice notes</h2>
+              <p className={`mt-2 ${bodyTextClass}`}>
+                Assign saved staff notes to a player when you are ready.
+              </p>
+            </div>
+          </div>
+          {voiceNotePanelMessage ? (
+            <div className="mx-5 mt-5 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] sm:mx-6">
+              {voiceNotePanelMessage}
+            </div>
+          ) : null}
+          {unassignedVoiceNotes.length > 0 ? (
+            <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-2">
+              {unassignedVoiceNotes.map((note) => (
+              <div key={note.id} className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-[#101828]">{note.note || 'Staff voice note'}</p>
+                    <p className="mt-1 text-xs font-bold text-[#4b5f55]">
+                      {formatVoiceNoteDate(note.createdAt)} | {formatVoiceNoteDuration(note.audioDurationSeconds)}
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-[#b6d8c5] bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#065f46]">
+                    Staff only
+                  </span>
+                </div>
+                {note.audioUrl ? (
+                  <audio controls src={note.audioUrl} className="mt-4 w-full" />
+                ) : (
+                  <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+                    Audio preview is unavailable. Try refreshing the page.
+                  </p>
+                )}
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => openVoiceNoteAssignment(note)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white"
+                  >
+                    Assign to player
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteRecoveredVoiceNote(note)}
+                    disabled={deletingVoiceNoteId === note.id}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#8b4b4b] hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingVoiceNoteId === note.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className={surfaceClass}>
         <div className={sectionHeaderClass}>
@@ -489,21 +693,95 @@ export function CoachHomePage() {
         </div>
         <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-3">
           {recentEvaluations.map((evaluation) => (
-            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
+            <Link
+              key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`}
+              to={`/player/${encodeURIComponent(evaluation.playerName)}`}
+              className="group rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white"
+            >
               <p className="truncate text-sm font-black text-[#101828]">{evaluation.playerName}</p>
               <p className="mt-2 text-xs font-semibold text-[#4b5f55]">{getEvaluationContextLabel(evaluation, user)}</p>
               <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#4b5f55]">
                 {getEvaluationSummary(evaluation)}
               </p>
-            </div>
+              <span className="mt-3 inline-flex text-xs font-black uppercase tracking-[0.14em] text-[#047857] group-hover:text-[#065f46]">
+                Open player profile
+              </span>
+            </Link>
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
             <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55] lg:col-span-3">
-              Completed development records will appear here.
+              Coach notes and assessments will appear here after the first session.
             </div>
           ) : null}
         </div>
       </section>
+
+      {voiceNotePickerNote ? (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#00150b]/70 px-3 py-4 backdrop-blur-sm sm:items-center">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-2xl shadow-black/30 sm:p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={eyebrowClass}>Assign voice note</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Choose a player</h2>
+                <p className={`mt-2 ${bodyTextClass}`}>Squad and trial players from the current team are available.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeVoiceNoteAssignment}
+                className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+              >
+                X
+              </button>
+            </div>
+
+            <input
+              type="search"
+              value={voiceNotePickerSearch}
+              onChange={(event) => setVoiceNotePickerSearch(event.target.value)}
+              placeholder="Search players"
+              className="mt-5 min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-bold text-[#101828] outline-none transition placeholder:text-[#6d8076] focus:border-[#047857]"
+            />
+
+            {voiceNotePickerError ? (
+              <div className="mt-4 rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#b42318]">
+                {voiceNotePickerError}
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid max-h-80 gap-2 overflow-y-auto pr-1">
+              {isVoiceNotePickerLoading ? (
+                <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-4 text-sm font-bold text-[#4b5f55]">
+                  Loading players...
+                </p>
+              ) : null}
+
+              {!isVoiceNotePickerLoading && filteredVoiceNotePlayers.map((player) => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => assignRecoveredVoiceNote(player)}
+                  disabled={isVoiceNoteAssigning}
+                  className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-left transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span>
+                    <span className="block text-sm font-black text-[#101828]">{player.playerName}</span>
+                    <span className="mt-1 block text-xs font-bold text-[#4b5f55]">{player.section || 'Squad'} | {player.team || user?.activeTeamName || 'Current team'}</span>
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
+                    {isVoiceNoteAssigning ? 'Saving' : 'Assign'}
+                  </span>
+                </button>
+              ))}
+
+              {!isVoiceNotePickerLoading && filteredVoiceNotePlayers.length === 0 ? (
+                <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-4 text-sm font-bold text-[#4b5f55]">
+                  No players found for this team.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

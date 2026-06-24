@@ -5,7 +5,8 @@ import { ClubProfileSettingsSection } from '../components/club-settings/ClubProf
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageClubLogo, canManageClubSettings, useAuth } from '../lib/auth.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   createInitialClubSettingsFormData,
   getFallbackClubSettingsFormData,
@@ -142,7 +143,7 @@ export function ClubSettingsPage() {
     return <Navigate to="/" replace />
   }
 
-  const canUseBasicBranding = hasPlanFeature(user, 'basicBranding')
+  const canUseBasicBranding = canUseUiFeature(user, CAPABILITIES.basicLogoBranding)
   const canChangeClubLogo = canManageClubLogo(user) && canUseBasicBranding
 
   const handleChange = (event) => {
@@ -172,7 +173,7 @@ export function ClubSettingsPage() {
     if (!canUseBasicBranding) {
       setSelectedLogoFile(null)
       setErrorTitle('Logo upload problem')
-      setErrorMessage(createFeatureUpgradeMessage('basicBranding', user))
+      setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.basicLogoBranding))
       return
     }
 
@@ -244,7 +245,7 @@ export function ClubSettingsPage() {
 
     if (!canUseBasicBranding) {
       setErrorTitle('Logo upload problem')
-      setErrorMessage(createFeatureUpgradeMessage('basicBranding', user))
+      setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.basicLogoBranding))
       return
     }
 
@@ -332,7 +333,7 @@ export function ClubSettingsPage() {
       <ClubProfileSettingsSection
         canChangeClubLogo={canChangeClubLogo}
         canUseBasicBranding={canUseBasicBranding}
-        brandingUnavailableMessage={createFeatureUpgradeMessage('basicBranding', user)}
+        brandingUnavailableMessage={createUiFeatureUnavailableMessage(user, CAPABILITIES.basicLogoBranding)}
         formData={formData}
         isLoading={isLoading}
         isSaving={isSaving}

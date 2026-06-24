@@ -6,7 +6,8 @@ import { TemplateEditorSection } from '../components/parent-email-templates/Temp
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import { EMAIL_TEMPLATE_AUDIENCES, EMAIL_TEMPLATE_SECTIONS, validateParentEmailTemplateContent } from '../lib/email-templates.js'
 import { deleteParentEmailTemplate } from '../lib/domain/parent-email-templates.js'
 import { createCustomParentEmailTemplate, mergeParentEmailTemplates } from '../lib/parent-template-page-utils.js'
@@ -25,10 +26,10 @@ const templateRules = [
     label: 'Approved fields only',
     body: 'Use the listed merge fields so messages can be generated from real workspace data.',
   },
-  {
-    label: 'Sections control use',
-    body: 'A template should only appear in the football workflow sections where it makes sense.',
-  },
+    {
+      label: 'Sections control use',
+      body: 'A template should only appear where it makes sense for parents, players, and team updates.',
+    },
 ]
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
@@ -47,12 +48,13 @@ export function ParentEmailTemplatesPage() {
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.planKey}:${user.activeTeamId || ''}` : ''
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
 
   useEffect(() => {
     let isMounted = true
 
     const loadTemplates = async () => {
-      if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+      if (!user?.clubId || !canUseParentEmail) {
         setIsLoading(false)
         return
       }
@@ -83,9 +85,9 @@ export function ParentEmailTemplatesPage() {
     return () => {
       isMounted = false
     }
-  }, [audience, user, userScopeKey])
+  }, [audience, canUseParentEmail, user, userScopeKey])
 
-  if (!canManageParentEmailTemplates(user) || !hasPlanFeature(user, 'parentEmail')) {
+  if (!canManageParentEmailTemplates(user) || !canUseParentEmail) {
     return <Navigate to="/" replace />
   }
 
@@ -299,8 +301,8 @@ export function ParentEmailTemplatesPage() {
         templates={templates}
       />
 
-      {!hasPlanFeature(user, 'parentEmail') ? (
-        <NoticeBanner title="Parent email unavailable" message={createFeatureUpgradeMessage('parentEmail')} tone="info" />
+      {!canUseParentEmail ? (
+        <NoticeBanner title="Parent email unavailable" message={createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails)} tone="info" />
       ) : null}
     </div>
   )

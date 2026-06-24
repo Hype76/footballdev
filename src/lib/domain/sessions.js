@@ -54,7 +54,9 @@ export async function getAssessmentSessions({ user } = {}) {
       throw error
     }
 
-    const normalizedSessions = (data ?? []).map(normalizeAssessmentSessionRow)
+    const normalizedSessions = (data ?? [])
+      .map(normalizeAssessmentSessionRow)
+      .filter((session) => session.status !== 'cancelled')
 
     if (teamNames.length === 0) {
       return normalizedSessions
@@ -66,6 +68,36 @@ export async function getAssessmentSessions({ user } = {}) {
       return teamIds.includes(sessionTeamId) || teamNames.includes(sessionTeamName)
     })
   })
+}
+
+async function assertSessionTeamAccess({ user, teamId }) {
+  if (user?.role === 'admin') {
+    return
+  }
+
+  const normalizedTeamId = String(teamId ?? '').trim()
+
+  if (!normalizedTeamId) {
+    throw new Error('Choose your assigned team before saving this session.')
+  }
+
+  const teams = await getSessionTeamsForUser(user)
+  const allowedTeamIds = teams.map((team) => String(team.id ?? '').trim()).filter(Boolean)
+
+  if (!allowedTeamIds.includes(normalizedTeamId)) {
+    throw new Error('Team staff can only save sessions against their assigned team.')
+  }
+}
+
+function isValidSessionTime(value) {
+  return /^\d{2}:\d{2}$/.test(String(value ?? '').trim())
+}
+
+function isSessionTimeAfter(leftTime, rightTime) {
+  const leftValue = String(leftTime ?? '').trim()
+  const rightValue = String(rightTime ?? '').trim()
+
+  return isValidSessionTime(leftValue) && isValidSessionTime(rightValue) && leftValue > rightValue
 }
 
 export async function createAssessmentSession({ user, session }) {
@@ -87,10 +119,30 @@ export async function createAssessmentSession({ user, session }) {
   const requestedSessionType = String(session.sessionType ?? '').trim()
   const sessionType = ['training', 'match'].includes(requestedSessionType) ? requestedSessionType : 'training'
   const sessionOpponentName = sessionType === 'match' ? opponentName : ''
+  const arrivalTime = String(session.arrivalTime ?? '').trim()
+  const startTime = String(session.startTime ?? '').trim()
+  const endTime = String(session.endTime ?? '').trim()
+  const requestedTitle = String(session.title ?? '').trim()
+
+  if (!isValidSessionTime(startTime)) {
+    throw new Error(sessionType === 'match' ? 'Kick-off time is required for a fixture.' : 'Choose a start time.')
+  }
+
+  if (sessionType === 'match' && !sessionOpponentName && !requestedTitle) {
+    throw new Error('Add an opponent or event title for this fixture.')
+  }
+
+  if (sessionType === 'match' && arrivalTime && isSessionTimeAfter(arrivalTime, startTime)) {
+    throw new Error('Arrival time must be before kick-off time.')
+  }
 
   if (!teamId) {
     throw new Error('Choose a team before creating a session.')
   }
+
+  const title = requestedTitle || (sessionOpponentName ? `Match vs ${sessionOpponentName}` : 'Training session')
+
+  await assertSessionTeamAccess({ user, teamId })
 
   const { data, error } = await supabase
     .from('assessment_sessions')
@@ -101,7 +153,12 @@ export async function createAssessmentSession({ user, session }) {
       opponent: sessionOpponentName,
       session_type: sessionType,
       session_date: sessionDate,
-      title: sessionOpponentName ? `${teamName} vs ${sessionOpponentName}` : teamName,
+      arrival_time: sessionType === 'match' && /^\d{2}:\d{2}$/.test(arrivalTime) ? arrivalTime : null,
+      start_time: isValidSessionTime(startTime) ? startTime : null,
+      end_time: isValidSessionTime(endTime) ? endTime : null,
+      location: String(session.location ?? '').trim(),
+      notes: String(session.notes ?? '').trim(),
+      title,
       created_by: user.id,
       ...getEntryIdentity(user),
       updated_by: getEntryUserId(user),
@@ -119,6 +176,95 @@ export async function createAssessmentSession({ user, session }) {
   await createAuditLog({
     user,
     action: 'assessment_session_created',
+    entityType: 'assessment_session',
+    entityId: data.id,
+    metadata: {
+      team: teamName,
+      opponent: sessionOpponentName,
+      sessionType,
+      sessionDate,
+    },
+  })
+
+  return normalizeAssessmentSessionRow(data)
+}
+
+export async function updateAssessmentSession({ user, sessionId, session }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  const sessionDate = normalizeDateOnly(session.sessionDate)
+
+  if (!sessionDate) {
+    throw new Error('Session date is required.')
+  }
+
+  const teamName = String(session.team ?? '').trim()
+  const teamId = String(session.teamId ?? '').trim()
+  const opponentName = String(session.opponent ?? '').trim()
+  const requestedSessionType = String(session.sessionType ?? '').trim()
+  const sessionType = ['training', 'match'].includes(requestedSessionType) ? requestedSessionType : 'training'
+  const sessionOpponentName = sessionType === 'match' ? opponentName : ''
+  const arrivalTime = String(session.arrivalTime ?? '').trim()
+  const startTime = String(session.startTime ?? '').trim()
+  const endTime = String(session.endTime ?? '').trim()
+  const requestedTitle = String(session.title ?? '').trim()
+
+  if (!isValidSessionTime(startTime)) {
+    throw new Error(sessionType === 'match' ? 'Kick-off time is required for a fixture.' : 'Choose a start time.')
+  }
+
+  if (sessionType === 'match' && !sessionOpponentName && !requestedTitle) {
+    throw new Error('Add an opponent or event title for this fixture.')
+  }
+
+  if (sessionType === 'match' && arrivalTime && isSessionTimeAfter(arrivalTime, startTime)) {
+    throw new Error('Arrival time must be before kick-off time.')
+  }
+
+  if (!teamId) {
+    throw new Error('Choose a team before updating the session.')
+  }
+
+  const title = requestedTitle || (sessionOpponentName ? `Match vs ${sessionOpponentName}` : 'Training session')
+
+  await assertSessionTeamAccess({ user, teamId })
+
+  const { data, error } = await supabase
+    .from('assessment_sessions')
+    .update({
+      team_id: teamId,
+      team: teamName,
+      opponent: sessionOpponentName,
+      session_type: sessionType,
+      session_date: sessionDate,
+      arrival_time: sessionType === 'match' && /^\d{2}:\d{2}$/.test(arrivalTime) ? arrivalTime : null,
+      start_time: isValidSessionTime(startTime) ? startTime : null,
+      end_time: isValidSessionTime(endTime) ? endTime : null,
+      location: String(session.location ?? '').trim(),
+      notes: String(session.notes ?? '').trim(),
+      title,
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_updated',
     entityType: 'assessment_session',
     entityId: data.id,
     metadata: {
@@ -265,7 +411,43 @@ export async function deleteAssessmentSession({ user, sessionId }) {
   })
 
   if (hasLinkedAssessment) {
-    throw new Error('This session has development records and cannot be deleted.')
+    const { data, error } = await supabase
+      .from('assessment_sessions')
+      .update({
+        status: 'cancelled',
+        updated_by: getEntryUserId(user),
+        ...getEntryIdentity(user, 'updated_by'),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+      .eq('club_id', user.clubId)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+    invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
+    await createAuditLog({
+      user,
+      action: 'assessment_session_cancelled',
+      entityType: 'assessment_session',
+      entityId: sessionId,
+      metadata: {
+        title: data.title,
+        team: data.team,
+        sessionDate: data.session_date,
+        reason: 'removed_from_calendar_with_development_records',
+      },
+    })
+
+    return {
+      mode: 'cancelled',
+      session: normalizeAssessmentSessionRow(data),
+    }
   }
 
   const { data, error } = await supabase
@@ -294,6 +476,11 @@ export async function deleteAssessmentSession({ user, sessionId }) {
       sessionDate: data.session_date,
     },
   })
+
+  return {
+    mode: 'deleted',
+    session: normalizeAssessmentSessionRow(data),
+  }
 }
 
 export async function addPlayersToAssessmentSession({ user, sessionId, players }) {

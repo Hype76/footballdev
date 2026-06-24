@@ -1,4 +1,4 @@
-function getDateOnlyValue(value) {
+export function normalizeDateOnly(value) {
   const normalizedValue = String(value ?? '').trim()
 
   if (!normalizedValue) {
@@ -14,6 +14,30 @@ function getDateOnlyValue(value) {
     return `${year}-${month}-${day}`
   }
 
+  const monthWordMatch = normalizedValue.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/)
+
+  if (monthWordMatch) {
+    const [, dayValue, monthValue, yearValue] = monthWordMatch
+    const monthIndex = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ].indexOf(monthValue.slice(0, 3).toLowerCase())
+
+    if (monthIndex >= 0) {
+      return `${yearValue}-${String(monthIndex + 1).padStart(2, '0')}-${String(Number(dayValue)).padStart(2, '0')}`
+    }
+  }
+
   const parsedDate = new Date(normalizedValue)
 
   if (Number.isNaN(parsedDate.getTime())) {
@@ -25,7 +49,7 @@ function getDateOnlyValue(value) {
 
 export function formatUkDate(value, fallback = 'No date entered') {
   const normalizedValue = String(value ?? '').trim()
-  const dateOnlyValue = getDateOnlyValue(normalizedValue)
+  const dateOnlyValue = normalizeDateOnly(normalizedValue)
 
   if (!dateOnlyValue) {
     return normalizedValue || fallback
@@ -33,6 +57,49 @@ export function formatUkDate(value, fallback = 'No date entered') {
 
   const [year, month, day] = dateOnlyValue.split('-')
   return `${day}/${month}/${year}`
+}
+
+export function formatUkDateWords(value, fallback = 'No date entered') {
+  const normalizedValue = String(value ?? '').trim()
+  const dateOnlyValue = normalizeDateOnly(normalizedValue)
+
+  if (!dateOnlyValue) {
+    return normalizedValue || fallback
+  }
+
+  const [year, month, day] = dateOnlyValue.split('-')
+  const parsedDate = new Date(Number(year), Number(month) - 1, Number(day))
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return fallback
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(parsedDate)
+}
+
+export function formatUkMonthYear(value, fallback = 'No date entered') {
+  const normalizedValue = String(value ?? '').trim()
+  const dateOnlyValue = normalizeDateOnly(normalizedValue)
+
+  if (!dateOnlyValue) {
+    return normalizedValue || fallback
+  }
+
+  const [year, month] = dateOnlyValue.split('-')
+  const parsedDate = new Date(Number(year), Number(month) - 1, 1)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return fallback
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    month: 'short',
+    year: 'numeric',
+  }).format(parsedDate)
 }
 
 export function formatUkDateTime(value, fallback = 'No date recorded') {

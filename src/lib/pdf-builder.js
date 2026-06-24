@@ -27,3 +27,35 @@ export async function buildPdfBuffer(html) {
     await browser.close()
   }
 }
+
+export async function buildPngBuffer(html, { width = 760, height = 240 } = {}) {
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: {
+      ...(chromium.defaultViewport || {}),
+      width,
+      height,
+    },
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
+  })
+
+  try {
+    const page = await browser.newPage()
+    await page.setViewport({ width, height, deviceScaleFactor: 2 })
+
+    await page.setContent(String(html ?? ''), {
+      waitUntil: 'networkidle0',
+    })
+
+    const screenshot = await page.screenshot({
+      type: 'png',
+      fullPage: true,
+      omitBackground: false,
+    })
+
+    return Buffer.from(screenshot)
+  } finally {
+    await browser.close()
+  }
+}

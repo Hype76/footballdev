@@ -1,7 +1,7 @@
 export const primaryNavigation = [
   {
     label: 'Calendar',
-    path: '/sessions',
+    path: '/calendar',
     helper: 'Training and fixtures',
   },
   {
@@ -15,14 +15,19 @@ export const primaryNavigation = [
     helper: 'Records and notes',
   },
   {
+    label: 'Development Fields',
+    path: '/form-builder',
+    helper: 'Record setup',
+  },
+  {
     label: 'Messages',
     path: '/email-queue',
     helper: 'Parent email queue',
   },
   {
-    label: 'Availability',
+    label: 'Polls',
     path: '/polls',
-    helper: 'Parent replies',
+    helper: 'Create and track replies',
   },
   {
     label: 'Match Day',
@@ -35,9 +40,9 @@ export const primaryNavigation = [
     helper: 'Age groups and squads',
   },
   {
-    label: 'Payments',
+    label: 'Billing',
     path: '/billing',
-    helper: 'Plans and access',
+    helper: 'Plan and billing',
   },
   {
     label: 'Add Player',
@@ -71,11 +76,6 @@ export const clubNavigation = [
     label: 'Staff Access',
     path: '/user-access',
     helper: 'Roles and permissions',
-  },
-  {
-    label: 'Development Fields',
-    path: '/form-builder',
-    helper: 'Record setup',
   },
   {
     label: 'Message Templates',

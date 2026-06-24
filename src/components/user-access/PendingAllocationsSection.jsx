@@ -18,7 +18,7 @@ export function PendingAllocationsSection({
     <SectionCard
       title="Pending allocations"
       tourId="pending-allocations-section"
-      description="Invited emails receive the saved role when they sign in. Remove stale invites before sending new ones."
+      description="Pending means invited but not accepted yet. Assigned pending staff can already be allocated to teams, but cannot sign in until they accept."
     >
       {isLoading ? (
         <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#4b5f55]`}>
@@ -39,6 +39,20 @@ export function PendingAllocationsSection({
                 <div>
                   <p className="break-words text-sm font-black text-[#101828]">{invite.email}</p>
                   <p className="mt-1 text-sm font-semibold text-[#047857]">{invite.roleLabel}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="inline-flex min-h-7 items-center rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-3 text-xs font-black text-[#9a3412]">
+                      Pending invited
+                    </span>
+                    {invite.teamId ? (
+                      <span className="inline-flex min-h-7 items-center rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-3 text-xs font-black text-[#166534]">
+                        Assigned{invite.teamName ? ` to ${invite.teamName}` : ' to team'}
+                      </span>
+                    ) : (
+                      <span className="inline-flex min-h-7 items-center rounded-lg border border-[#d7e5dc] bg-white px-3 text-xs font-black text-[#4b5f55]">
+                        Not assigned
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"

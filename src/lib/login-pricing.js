@@ -1,54 +1,68 @@
+import { PLAN_KEYS, PLAN_PURCHASE_MODES } from './plans.js'
+
 export const pricingPlans = [
   {
-    name: 'Individual',
+    planKey: PLAN_KEYS.individual,
+    name: 'Individual Coach - Free',
     price: 'Free',
     priceLabel: 'No card needed',
-    description: 'For one coach running a small team with the core tools.',
-    features: ['1 team', '1 staff login', '5 players', '10 development records per month', 'Family portal', 'Match Day fully unlocked', 'Basic development form'],
+    purchaseMode: PLAN_PURCHASE_MODES.free,
+    description: 'For one coach testing basic player records with a small squad.',
+    features: ['1 team', '1 staff login', 'Up to 5 players', 'Basic development records', 'Goals and notes', 'Limited history', 'Family portal preview only', 'Football Player branding'],
   },
   {
+    planKey: PLAN_KEYS.singleTeam,
     name: 'Single Team',
-    price: 9.99,
-    description: 'For one team that needs parent updates and more complete reporting.',
-    features: ['Individual +', '2 weeks trial included', 'Cancel anytime', '3 staff logins', '20 players', 'Unlimited development records', 'Parent email sending', 'PDF reports and attachments', 'Custom development fields', 'Basic logo branding'],
+    price: 12.99,
+    purchaseMode: PLAN_PURCHASE_MODES.selfService,
+    description: 'The complete Football Player product for one team.',
+    features: ['1 team', 'Up to 5 staff', 'Up to 30 players', 'Full record history', 'Assessments, notes, and attachments', 'Parent portal, parent emails, and PDF reports', 'Parent communication history', 'Calendar, training events, fixtures, match day, and polls', 'Basic logo branding and activity visibility'],
   },
   {
+    planKey: PLAN_KEYS.smallClub,
     name: 'Small Club',
-    price: 24.99,
-    description: 'For clubs running several teams with staff access and oversight.',
-    features: ['Single Team +', 'Up to 10 teams', 'Unlimited staff logins', 'Unlimited players', 'Custom branding and themes', 'Staff roles with coach access', 'Audit logs', 'Priority support'],
+    price: 34.99,
+    purchaseMode: PLAN_PURCHASE_MODES.selfService,
+    description: 'For clubs that need oversight across several teams.',
+    features: ['Up to 5 teams', 'Club admin access', 'Club staff roles', 'Shared player oversight', 'Bulk invites and imports', 'Club-wide calendar and recurring events', 'Calendar export feed', 'Shared report templates', 'Custom colours and club branding', 'Full operational audit log', 'Basic club analytics'],
   },
   {
+    planKey: PLAN_KEYS.developmentClub,
+    name: 'Development Club',
+    price: 59.99,
+    purchaseMode: PLAN_PURCHASE_MODES.selfService,
+    description: 'For clubs building mature development operations across teams.',
+    features: ['Up to 10 teams', 'Advanced development analytics', 'Player pathways', 'Coach handovers', 'Scheduled review cycles', 'Approval workflows', 'Custom assessment and report templates', 'Club-wide operational exports', 'Scheduled parent reports', 'Priority support'],
+  },
+  {
+    planKey: PLAN_KEYS.largeClub,
     name: 'Large Club',
-    price: 'Contact us',
-    description: 'For larger clubs that need more teams, rollout help, or custom support.',
-    features: ['Small Club +', 'More than 10 teams', 'Custom setup', 'Custom rollout support', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
+    price: '\u00a399.99+',
+    priceLabel: 'per month, contact sales',
+    purchaseMode: PLAN_PURCHASE_MODES.contactSales,
+    description: 'For larger clubs that need a negotiated rollout.',
+    features: ['More than 10 teams', 'Negotiated limits', 'Assisted setup', 'Data migration', 'Custom onboarding', 'Bespoke branding', 'Integrations where available', 'Rollout planning', 'Dedicated support contact', 'Agreed service terms'],
   },
 ]
 
-export function formatPrice(plan, billingCycle) {
+export function formatPrice(plan) {
   if (typeof plan.price !== 'number') {
     return plan.price
   }
 
-  const price = billingCycle === 'annual' ? plan.price * 10 : plan.price
-  return `\u00a3${price.toFixed(2)}`
+  return `\u00a3${plan.price.toFixed(2)}`
 }
 
-export function formatPriceLabel(plan, billingCycle) {
+export function formatPriceLabel(plan) {
   if (plan.priceLabel) {
     return plan.priceLabel
-  }
-
-  if (plan.price === 'Contact us') {
-    return ''
   }
 
   if (typeof plan.price !== 'number') {
     return 'No card needed'
   }
 
-  return billingCycle === 'annual' ? 'per year' : 'per month'
+  return 'per month'
 }
 
 function formatPromotionDiscount(promotion) {

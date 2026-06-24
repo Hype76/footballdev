@@ -1,21 +1,7 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { arePaymentsDisabled, json } from './_stripe-billing.js'
-
-function getPriceId(planName, billingCycle) {
-  const prices = {
-    'Single Team': {
-      monthly: process.env.VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID,
-      annual: process.env.VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID,
-    },
-    'Small Club': {
-      monthly: process.env.VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID,
-      annual: process.env.VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID,
-    },
-  }
-
-  return prices[planName]?.[billingCycle] || ''
-}
+import { arePaymentsDisabled, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json } from './_stripe-billing.js'
+import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim().slice(0, 120) : ''
@@ -60,12 +46,14 @@ async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
     subscription_data: {
       trial_period_days: 14,
       metadata: {
+        planKey: params.planKey,
         planName: params.planName,
         billingCycle: params.billingCycle,
         clubName: params.clubName,
       },
     },
     metadata: {
+      planKey: params.planKey,
       planName: params.planName,
       billingCycle: params.billingCycle,
       clubName: params.clubName,
@@ -96,11 +84,25 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body || '{}')
-    const planName = cleanString(body.planName)
-    const billingCycle = cleanString(body.billingCycle)
+    const planKey = normalizePlanKey(body.planKey || body.planName)
+    const billingCycle = cleanString(body.billingCycle || 'monthly').toLowerCase()
     const customerEmail = cleanString(body.customerEmail)
     const clubName = cleanString(body.clubName)
-    const priceId = getPriceId(planName, billingCycle)
+
+    if (!planKey) {
+      return json(400, { success: false, message: 'Choose a valid billing plan.' })
+    }
+
+    if (!isSelfServiceCheckoutPlanKey(planKey)) {
+      return json(400, { success: false, message: 'This plan is not available for self-service checkout.' })
+    }
+
+    if (!['monthly', 'annual'].includes(billingCycle)) {
+      return json(400, { success: false, message: 'Choose a valid billing cycle.' })
+    }
+
+    const planName = getPlanName({ planKey })
+    const priceId = getCheckoutPriceId(planKey, billingCycle)
 
     if (!priceId) {
       return json(400, { success: false, message: 'This plan is not available for checkout yet' })
@@ -117,6 +119,7 @@ export async function handler(event) {
       billingCycle,
       clubName,
       customerEmail,
+      planKey,
       planName,
       priceId,
     }

@@ -4,15 +4,21 @@ import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-d
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
+import {
+  shouldSendMatchdayAvailabilityRequests,
+  shouldSendMatchdayPushNotification,
+} from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import {
   addStaffMatchDayGoal,
   calculateArrivalTime,
   createMatchDay,
+  getTodayMatchDayDateValue,
   getMatchDays,
   getMatchLocations,
   getPlayers,
   getTeams,
+  isPastMatchDayDate,
   MATCH_DAY_ARRIVAL_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
@@ -21,9 +27,10 @@ import {
   updateMatchDay,
   withRequestTimeout,
 } from '../lib/supabase.js'
-
-const FIXTURE_SETUP_STORAGE_KEY = 'football-open-fixture-setup'
-const FIXTURE_SETUP_EVENT = 'football-open-fixture-setup'
+import {
+  consumeFixtureSetupIntent,
+  FIXTURE_SETUP_EVENT,
+} from '../lib/matchday-workflow.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -36,6 +43,8 @@ const EMPTY_MATCH_FORM = {
   venueName: '',
   venueAddress: '',
   notes: '',
+  parentAudience: 'none',
+  parentVisible: false,
   scorerRequestMessage: 'Can anyone help as live scorer for this match?',
   status: 'scorer_request',
   enableMotmPoll: true,
@@ -68,6 +77,15 @@ const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-s
 const sectionHeaderClass = 'border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
+const modalValidationClass = 'mx-4 mb-3 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold leading-6 text-[#92400e] sm:mx-6'
+const fixtureModalViewportBaseStyle = {
+  '--fixture-modal-viewport-height': '100dvh',
+  '--fixture-modal-viewport-top': '0px',
+}
+const fixtureModalViewportBaseState = {
+  viewportStyle: fixtureModalViewportBaseStyle,
+  isKeyboardOpen: false,
+}
 
 const matchRuleCards = [
   {
@@ -86,6 +104,148 @@ const matchRuleCards = [
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
+}
+
+function useModalPageScrollLock(isLocked) {
+  useEffect(() => {
+    if (!isLocked || typeof document === 'undefined' || typeof window === 'undefined') {
+      return undefined
+    }
+
+    const scrollY = window.scrollY || 0
+    const { body, documentElement } = document
+    const previousBodyStyle = {
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+    }
+    const previousOverscrollBehavior = documentElement.style.overscrollBehavior
+
+    body.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = '100%'
+    documentElement.style.overscrollBehavior = 'none'
+
+    return () => {
+      body.style.overflow = previousBodyStyle.overflow
+      body.style.position = previousBodyStyle.position
+      body.style.top = previousBodyStyle.top
+      body.style.width = previousBodyStyle.width
+      documentElement.style.overscrollBehavior = previousOverscrollBehavior
+      window.scrollTo(0, scrollY)
+    }
+  }, [isLocked])
+}
+
+function useFixtureModalViewportStyle() {
+  const [viewportState, setViewportState] = useState(fixtureModalViewportBaseState)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    const updateViewportStyle = () => {
+      const visualViewport = window.visualViewport
+      const viewportHeight = Math.max(320, Math.round(visualViewport?.height || window.innerHeight || 0))
+      const viewportTop = Math.max(0, Math.round(visualViewport?.offsetTop || 0))
+      const layoutViewportHeight = Math.max(viewportHeight, Math.round(window.innerHeight || viewportHeight))
+      const keyboardInset = Math.max(0, layoutViewportHeight - viewportHeight - viewportTop)
+      const isKeyboardOpen = keyboardInset > 120
+
+      setViewportState({
+        viewportStyle: {
+          '--fixture-modal-viewport-height': `${viewportHeight}px`,
+          '--fixture-modal-viewport-top': `${viewportTop}px`,
+        },
+        isKeyboardOpen,
+      })
+    }
+
+    updateViewportStyle()
+    window.addEventListener('resize', updateViewportStyle)
+    window.visualViewport?.addEventListener('resize', updateViewportStyle)
+    window.visualViewport?.addEventListener('scroll', updateViewportStyle)
+
+    return () => {
+      window.removeEventListener('resize', updateViewportStyle)
+      window.visualViewport?.removeEventListener('resize', updateViewportStyle)
+      window.visualViewport?.removeEventListener('scroll', updateViewportStyle)
+    }
+  }, [])
+
+  return viewportState
+}
+
+function isFixtureEditableElement(element) {
+  return ['INPUT', 'SELECT', 'TEXTAREA'].includes(element?.tagName)
+}
+
+function blurActiveFixtureControl() {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const activeElement = document.activeElement
+
+  if (isFixtureEditableElement(activeElement) && typeof activeElement.blur === 'function') {
+    activeElement.blur()
+  }
+}
+
+function scrollFixtureControlIntoView(element) {
+  if (!isFixtureEditableElement(element) || typeof element.scrollIntoView !== 'function') {
+    return
+  }
+
+  const scrollControl = () => element.scrollIntoView({ block: 'center', inline: 'nearest' })
+  window.setTimeout(scrollControl, 80)
+  window.setTimeout(scrollControl, 320)
+}
+
+function useFixtureKeyboardFocusState() {
+  const [isFixtureControlFocused, setIsFixtureControlFocused] = useState(false)
+
+  const handleFocusCapture = (event) => {
+    setIsFixtureControlFocused(isFixtureEditableElement(event.target))
+    scrollFixtureControlIntoView(event.target)
+  }
+
+  const handleBlurCapture = (event) => {
+    const currentTarget = event.currentTarget
+
+    window.setTimeout(() => {
+      if (currentTarget?.contains?.(document.activeElement) && isFixtureEditableElement(document.activeElement)) {
+        return
+      }
+
+      setIsFixtureControlFocused(false)
+    }, 40)
+  }
+
+  return {
+    isFixtureControlFocused,
+    handleFocusCapture,
+    handleBlurCapture,
+  }
+}
+
+function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
+  if (!String(form.opponent ?? '').trim()) {
+    return 'Add an opponent before continuing to squad selection.'
+  }
+
+  if (isPastMatchDayDate(form.matchDate)) {
+    return 'Match Day date must be today or in the future.'
+  }
+
+  if (availablePlayerIds.length === 0) {
+    return 'Add active squad players to this team before continuing to squad selection.'
+  }
+
+  return ''
 }
 
 function formatMatchDate(match) {
@@ -253,20 +413,34 @@ export function MatchDayPage() {
     [selectedFixtureTeamId, selectedFixtureTeamName, squadPlayers],
   )
 
+  useModalPageScrollLock(isFixtureFormOpen || squadSelection.isOpen)
+
   useEffect(() => {
-    const openFixtureSetup = () => {
+    const openFixtureSetup = (setupIntent = consumeFixtureSetupIntent()) => {
+      if (setupIntent) {
+        setForm((currentForm) => ({
+          ...currentForm,
+          ...setupIntent,
+          arrivalPreset: setupIntent.arrivalTime ? 'custom' : currentForm.arrivalPreset,
+          parentAudience: setupIntent.parentVisible ? setupIntent.parentAudience : 'none',
+        }))
+      }
+
       setIsFixtureFormOpen(true)
     }
 
-    if (window.sessionStorage.getItem(FIXTURE_SETUP_STORAGE_KEY)) {
-      window.sessionStorage.removeItem(FIXTURE_SETUP_STORAGE_KEY)
-      window.setTimeout(openFixtureSetup, 120)
+    const storedSetupIntent = consumeFixtureSetupIntent()
+
+    if (storedSetupIntent) {
+      window.setTimeout(() => openFixtureSetup(storedSetupIntent), 120)
     }
 
-    window.addEventListener(FIXTURE_SETUP_EVENT, openFixtureSetup)
+    const handleFixtureSetupEvent = () => openFixtureSetup()
+
+    window.addEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
 
     return () => {
-      window.removeEventListener(FIXTURE_SETUP_EVENT, openFixtureSetup)
+      window.removeEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
     }
   }, [])
 
@@ -371,14 +545,17 @@ export function MatchDayPage() {
 
   const handleCreateMatch = async (event) => {
     event.preventDefault()
+    blurActiveFixtureControl()
 
     const availablePlayerIds = fixturePlayers.map((player) => player.id)
+    const validationMessage = getFixtureSetupValidationMessage({ availablePlayerIds, form })
 
-    if (availablePlayerIds.length === 0) {
-      setErrorMessage('Add active squad players to this team before requesting fixture availability.')
+    if (validationMessage) {
+      setErrorMessage(validationMessage)
       return
     }
 
+    setErrorMessage('')
     setSquadSelection({
       isOpen: true,
       mode: 'full',
@@ -399,34 +576,56 @@ export function MatchDayPage() {
 
     try {
       const createdMatch = await createMatchDay({ user, match: form })
-      const response = await fetch('/.netlify/functions/send-match-day-availability-requests', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session?.access_token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          matchDayId: createdMatch.id,
-          playerIds: selectedPlayerIds,
-        }),
+      const communicationRuntime = {
+        env: import.meta.env,
+        location: window.location,
+      }
+      const canSendAvailabilityRequests = shouldSendMatchdayAvailabilityRequests({
+        parentVisible: form.parentVisible,
+        runtime: communicationRuntime,
       })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Fixture availability requests could not be sent.')
+      let result = {
+        missingContactCount: 0,
+        sentCount: 0,
       }
 
-      void sendMatchDayPushNotification({
-        matchDayId: createdMatch.id,
-        type: 'scorer_request',
-      })
+      if (canSendAvailabilityRequests) {
+        const response = await fetch('/.netlify/functions/send-match-day-availability-requests', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token || ''}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            matchDayId: createdMatch.id,
+            playerIds: selectedPlayerIds,
+          }),
+        })
+        result = await response.json().catch(() => ({}))
+
+        if (!response.ok || result.success === false) {
+          throw new Error(result.message || 'Fixture availability requests could not be sent.')
+        }
+      }
+
+      if (shouldSendMatchdayPushNotification({
+        parentVisible: form.parentVisible,
+        runtime: communicationRuntime,
+      })) {
+        void sendMatchDayPushNotification({
+          matchDayId: createdMatch.id,
+          type: 'scorer_request',
+        })
+      }
       setForm(EMPTY_MATCH_FORM)
       setIsFixtureFormOpen(false)
       setSquadSelection(EMPTY_SQUAD_SELECTION)
       await loadData()
       showToast({
         title: 'Fixture created',
-        message: `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`,
+        message: canSendAvailabilityRequests
+          ? `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`
+          : 'The fixture was saved. Availability sending is gated in this environment.',
       })
     } catch (error) {
       console.error(error)
@@ -703,6 +902,7 @@ export function MatchDayPage() {
           applyLocation={applyLocation}
           form={form}
           handleCreateMatch={handleCreateMatch}
+          isFixtureDataLoading={isLoading}
           isSaving={isSaving}
           isTeamScopedFixture={isTeamScopedFixture}
           locations={locations}
@@ -712,6 +912,7 @@ export function MatchDayPage() {
           updateForm={updateForm}
           updateKickoffTime={updateKickoffTime}
           user={user}
+          validationMessage={errorMessage}
           onClose={() => setIsFixtureFormOpen(false)}
         />
       ) : null}
@@ -719,10 +920,12 @@ export function MatchDayPage() {
       {squadSelection.isOpen ? (
         <FixtureSquadSelectionModal
           isSaving={isSaving}
+          parentVisible={form.parentVisible}
           players={fixturePlayers}
           selectedPlayerIds={squadSelection.selectedPlayerIds}
           selectionMode={squadSelection.mode}
           teamName={selectedFixtureTeamName || user.activeTeamName || 'this team'}
+          validationMessage={errorMessage}
           onCancel={() => setSquadSelection(EMPTY_SQUAD_SELECTION)}
           onConfirm={handleConfirmCreateMatch}
           onSelectionModeChange={(mode) => {
@@ -1124,6 +1327,7 @@ function FixtureSetupModal({
   applyLocation,
   form,
   handleCreateMatch,
+  isFixtureDataLoading,
   isSaving,
   isTeamScopedFixture,
   locations,
@@ -1134,16 +1338,29 @@ function FixtureSetupModal({
   updateForm,
   updateKickoffTime,
   user,
+  validationMessage,
 }) {
+  const todayMatchDayDate = getTodayMatchDayDateValue()
+  const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
+  const {
+    isFixtureControlFocused,
+    handleFocusCapture,
+    handleBlurCapture,
+  } = useFixtureKeyboardFocusState()
+  const shouldPrioritizeFixtureFields = isFixtureControlFocused || isKeyboardOpen
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
+    <div
+      className="fixed inset-x-0 top-[var(--fixture-modal-viewport-top)] z-50 box-border flex h-[var(--fixture-modal-viewport-height)] items-stretch justify-center overflow-hidden bg-[#101828]/55 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:inset-0 sm:h-auto sm:items-center sm:px-4 sm:py-6"
+      style={viewportStyle}
+    >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="fixture-setup-title"
-        className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl"
+        className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]"
       >
-        <div className="flex flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+        <div className="hidden shrink-0 flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:flex sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:py-5">
           <div>
             <p className={eyebrowClass}>Fixture setup</p>
             <h3 id="fixture-setup-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create fixture</h3>
@@ -1155,9 +1372,19 @@ function FixtureSetupModal({
             Close
           </button>
         </div>
+        <div className={`${shouldPrioritizeFixtureFields ? 'hidden' : 'flex'} shrink-0 items-center justify-between gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:hidden`}>
+          <p className="text-sm font-black text-[#101828]">Fixture setup</p>
+          <button type="button" onClick={onClose} disabled={isSaving} className="text-sm font-black text-[#047857] disabled:opacity-60">
+            Close
+          </button>
+        </div>
 
-        <form className="max-h-[70vh] overflow-y-auto" onSubmit={handleCreateMatch}>
-          <div className="space-y-4 px-5 py-5 sm:px-6">
+        <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleCreateMatch} noValidate>
+          <div
+            className={`${shouldPrioritizeFixtureFields ? 'scroll-pb-8 scroll-pt-4' : 'scroll-pb-40 scroll-pt-28'} min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4 px-4 py-4 sm:scroll-pb-40 sm:scroll-pt-28 sm:px-6 sm:py-5`}
+            onFocusCapture={handleFocusCapture}
+            onBlurCapture={handleBlurCapture}
+          >
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Opponent</span>
@@ -1181,7 +1408,7 @@ function FixtureSetupModal({
 
               <label className="block">
                 <span className={labelClass}>Date</span>
-                <input type="date" value={form.matchDate} onChange={(event) => updateForm({ matchDate: event.target.value })} className={inputClass} />
+                <input type="date" min={todayMatchDayDate} value={form.matchDate} onChange={(event) => updateForm({ matchDate: event.target.value })} className={inputClass} />
               </label>
 
               <label className="block">
@@ -1244,6 +1471,49 @@ function FixtureSetupModal({
               <textarea value={form.notes} onChange={(event) => updateForm({ notes: event.target.value })} className={`${inputClass} min-h-24`} />
             </label>
 
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className={labelClass}>Share with parents?</span>
+                  <select
+                    value={form.parentVisible ? 'yes' : 'no'}
+                    onChange={(event) => updateForm({
+                      parentVisible: event.target.value === 'yes',
+                      parentAudience: event.target.value === 'yes' && form.parentAudience !== 'none'
+                        ? form.parentAudience
+                        : event.target.value === 'yes'
+                          ? 'involved_players'
+                          : 'none',
+                    })}
+                    className={inputClass}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className={labelClass}>Parent audience</span>
+                  <select
+                    value={form.parentVisible ? form.parentAudience : 'none'}
+                    onChange={(event) => updateForm({ parentAudience: event.target.value })}
+                    disabled={!form.parentVisible}
+                    className={inputClass}
+                  >
+                    <option value="none">Not shared</option>
+                    <option value="involved_players">Only parents of involved players</option>
+                    <option value="all_team_parents">All parents in the team</option>
+                    {!isTeamScopedFixture ? <option value="all_club_parents">All parents in the club</option> : null}
+                  </select>
+                </label>
+              </div>
+              {form.parentVisible && form.parentAudience === 'involved_players' ? (
+                <p className="mt-3 rounded-lg border border-[#fedf89] bg-white px-3 py-3 text-xs font-bold leading-5 text-[#92400e]">
+                  Only involved players uses the squad availability records selected in the next step.
+                </p>
+              ) : null}
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
                 <input type="checkbox" checked={form.enableMotmPoll} onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })} className="h-4 w-4 accent-[#047857]" />
@@ -1265,9 +1535,17 @@ function FixtureSetupModal({
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          {validationMessage ? (
+            <p className={modalValidationClass} role="alert">
+              {validationMessage}
+            </p>
+          ) : null}
+
+          <div className={`${shouldPrioritizeFixtureFields ? 'hidden sm:flex' : 'flex'} shrink-0 flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6`}>
             <button type="button" onClick={onClose} disabled={isSaving} className={secondaryButtonClass}>Cancel</button>
-            <button type="submit" disabled={isSaving} className={primaryButtonClass}>{isSaving ? 'Creating...' : 'Continue to squad'}</button>
+            <button type="submit" onPointerDown={blurActiveFixtureControl} disabled={isSaving || isFixtureDataLoading} className={primaryButtonClass}>
+              {isSaving ? 'Creating...' : isFixtureDataLoading ? 'Loading squad...' : 'Continue to squad'}
+            </button>
           </div>
         </form>
       </section>
@@ -1283,23 +1561,29 @@ function FixtureSquadSelectionModal({
   onSelectAll,
   onSelectionModeChange,
   onTogglePlayer,
+  parentVisible,
   players,
   selectedPlayerIds,
   selectionMode,
   teamName,
+  validationMessage,
 }) {
   const selectedIds = new Set(selectedPlayerIds)
   const selectedCount = selectedIds.size
+  const { viewportStyle } = useFixtureModalViewportStyle()
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
+    <div
+      className="fixed inset-x-0 top-[var(--fixture-modal-viewport-top)] z-50 box-border flex h-[var(--fixture-modal-viewport-height)] items-stretch justify-center overflow-hidden bg-[#101828]/55 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:inset-0 sm:h-auto sm:items-center sm:px-4 sm:py-6"
+      style={viewportStyle}
+    >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="fixture-squad-title"
-        className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl"
+        className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[90vh]"
       >
-        <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6">
+        <div className="hidden shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 sm:block sm:px-6 sm:py-5">
           <p className={eyebrowClass}>Squad availability</p>
           <h3 id="fixture-squad-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
             Choose who should be asked.
@@ -1308,36 +1592,47 @@ function FixtureSquadSelectionModal({
             Requests go to parent contacts for parent-managed players and directly to player contacts for adult player records. Mobile push can use these same request records later.
           </p>
         </div>
+        <div className="shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 sm:hidden">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Squad availability</p>
+          <p className="mt-1 text-sm font-black text-[#101828]">{selectedCount} of {players.length} selected</p>
+        </div>
 
-        <div className="max-h-[58vh] overflow-y-auto px-5 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 scroll-pt-4 px-4 py-3 sm:scroll-pb-40 sm:scroll-pt-24 sm:px-6 sm:py-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:hidden">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Select full squad</button>
+              <button type="button" onClick={onClearAll} className={secondaryButtonClass}>Clear</button>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => onSelectionModeChange('full')}
-              className={`rounded-lg border px-4 py-4 text-left shadow-sm transition ${
+              className={`rounded-lg border px-3 py-3 text-left shadow-sm transition sm:px-4 sm:py-4 ${
                 selectionMode === 'full'
                   ? 'border-[#047857] bg-[#ecfdf5]'
                   : 'border-[#d7e5dc] bg-white hover:border-[#0f9f6e]'
               }`}
             >
               <span className="block text-sm font-black text-[#101828]">Full squad</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">Ask every active squad player in {teamName}.</span>
+              <span className="mt-1 hidden text-sm font-semibold leading-6 text-[#4b5f55] sm:block">Ask every active squad player in {teamName}.</span>
             </button>
             <button
               type="button"
               onClick={() => onSelectionModeChange('individual')}
-              className={`rounded-lg border px-4 py-4 text-left shadow-sm transition ${
+              className={`rounded-lg border px-3 py-3 text-left shadow-sm transition sm:px-4 sm:py-4 ${
                 selectionMode === 'individual'
                   ? 'border-[#047857] bg-[#ecfdf5]'
                   : 'border-[#d7e5dc] bg-white hover:border-[#0f9f6e]'
               }`}
             >
               <span className="block text-sm font-black text-[#101828]">Individual players</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">Pick only the players needed for this fixture.</span>
+              <span className="mt-1 hidden text-sm font-semibold leading-6 text-[#4b5f55] sm:block">Pick only the players needed for this fixture.</span>
             </button>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-4 hidden flex-wrap items-center justify-between gap-3 sm:flex">
             <p className="text-sm font-black text-[#101828]">{selectedCount} of {players.length} selected</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Select full squad</button>
@@ -1368,12 +1663,18 @@ function FixtureSquadSelectionModal({
           </div>
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        {validationMessage ? (
+          <p className={modalValidationClass} role="alert">
+            {validationMessage}
+          </p>
+        ) : null}
+
+        <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
             Cancel
           </button>
-          <button type="button" onClick={onConfirm} disabled={isSaving || selectedCount === 0} className={primaryButtonClass}>
-            {isSaving ? 'Creating...' : 'Create fixture and request availability'}
+          <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onConfirm} disabled={isSaving || selectedCount === 0} className={primaryButtonClass}>
+            {isSaving ? 'Creating...' : parentVisible ? 'Create fixture and request availability' : 'Create fixture'}
           </button>
         </div>
       </section>

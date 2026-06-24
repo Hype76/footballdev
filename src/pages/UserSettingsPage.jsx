@@ -7,14 +7,18 @@ import { SetupChecklistSettingsSection } from '../components/user-settings/Setup
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
-import { canManageClubSettings, canManageTeamAppearance, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
+import { canManageClubSettings, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
+  getTeams,
   requestLoginEmailChange,
   updateTeamSettings,
+  updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
 } from '../lib/supabase.js'
-import { canEditClubIdentity, createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
+import { canEditClubIdentity } from '../lib/plans.js'
 import {
   getStoredThemeAccent,
   getStoredThemeButtonStyle,
@@ -23,32 +27,19 @@ import {
 } from '../lib/theme.js'
 import { resetOnboarding } from '../lib/onboarding.js'
 
-const accountRules = [
-  {
-    label: 'Personal details only',
-    body: 'Use this page for your login, password, display name, and sender identity only.',
-  },
-  {
-    label: 'Club data is elsewhere',
-    body: 'Club profile, teams, players, staff, and parent setup stay in the workspace tools.',
-  },
-  {
-    label: 'Setup can be reset',
-    body: 'Reopen the first-run checklist when staff need the operating rules shown again.',
-  },
-]
-
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
-const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
-
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
   const isDemoSettings = isDemoAccount(user)
   const isParentSettings = isParentPortalUser(user)
   const isClubAdminSettings = isClubAdmin(user)
-  const showSenderIdentity = Boolean(user?.clubId) && !isParentSettings && !isClubAdminSettings && user?.role !== 'super_admin'
-  const showDisplaySettings = canManageTeamAppearance(user) && Boolean(user?.activeTeamId)
+  const canEditEmailTeamName = Boolean(user?.clubId)
+    && !isParentSettings
+    && !isClubAdminSettings
+    && user?.role !== 'super_admin'
+    && Number(user?.roleRank ?? 0) >= 50
+  const showSenderIdentity = canEditEmailTeamName
+  const showDisplaySettings = Boolean(user?.id)
   const showSetupChecklistSettings = Boolean(user?.id) && user?.role !== 'super_admin'
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
@@ -130,9 +121,9 @@ export function UserSettingsPage() {
         authUser,
         username,
         displayName,
-        teamName: emailTeamName,
+        teamName: canEditEmailTeamName ? emailTeamName : user?.emailTeamName || user?.activeTeamName || '',
         clubName: canEditEmailClubName ? emailClubName : user?.emailClubName || user?.clubName || '',
-        replyToEmail,
+        replyToEmail: showSenderIdentity ? replyToEmail : user?.replyToEmail || user?.email || authUser?.email || '',
       })
 
       updateCurrentUserDetails(updatedProfile)
@@ -246,42 +237,69 @@ export function UserSettingsPage() {
     }
   }
 
-  const persistThemePreferences = async (nextPreferences) => {
+  const persistUserThemePreference = async (nextThemeMode) => {
     if (isDemoSettings) {
       return
     }
 
     try {
-      const updatedTeam = await updateTeamSettings({
-        teamId: user.activeTeamId,
-        user,
-        data: {
-          themeMode: nextPreferences.mode,
-          themeAccent: nextPreferences.accent,
-          themeButtonStyle: nextPreferences.buttonStyle,
-        },
+      const updatedProfile = await updateOwnThemeSettings({
+        authUser,
+        mode: nextThemeMode,
       })
       updateCurrentUserDetails({
-        themeMode: updatedTeam.themeMode,
+        themeMode: updatedProfile.themeMode,
+      })
+    } catch (error) {
+      console.error(error)
+      showToast({
+        title: 'Theme not saved',
+        message: 'Your display preference could not be updated right now.',
+        tone: 'error',
+      })
+    }
+  }
+
+  const persistBrandingPreferences = async (nextPreferences) => {
+    if (isDemoSettings || !canEditClubBranding) {
+      return
+    }
+
+    try {
+      const teamIds = user.activeTeamId
+        ? [user.activeTeamId]
+        : (await getTeams(user)).map((team) => team.id).filter(Boolean)
+
+      if (teamIds.length === 0) {
+        throw new Error('Create a team before editing club branding.')
+      }
+
+      const updatedTeams = await Promise.all(teamIds.map((teamId) =>
+        updateTeamSettings({
+          teamId,
+          user,
+          data: {
+            themeAccent: nextPreferences.accent,
+            themeButtonStyle: nextPreferences.buttonStyle,
+          },
+        }),
+      ))
+      const updatedTeam = updatedTeams[0]
+      updateCurrentUserDetails({
         themeAccent: updatedTeam.themeAccent,
         themeButtonStyle: updatedTeam.themeButtonStyle,
       })
     } catch (error) {
       console.error(error)
       showToast({
-        title: 'Team theme not saved',
-        message: 'Your team appearance could not be updated right now.',
+        title: 'Club branding not saved',
+        message: 'The club branding could not be updated right now.',
         tone: 'error',
       })
     }
   }
 
   const handleThemeModeChange = (nextThemeMode) => {
-    if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
-      return
-    }
-
     const nextPreferences = saveThemePreferences({
       mode: nextThemeMode,
       accent: themeAccent,
@@ -290,13 +308,13 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Team theme updated', message: 'The active team display preference has been saved.' })
-    void persistThemePreferences(nextPreferences)
+    showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
+    void persistUserThemePreference(nextPreferences.mode)
   }
 
   const handleThemeAccentChange = (nextThemeAccent) => {
-    if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
+    if (!canEditClubBranding) {
+      showToast({ title: 'Branding not changed', message: brandingUnavailableMessage, tone: 'error' })
       return
     }
 
@@ -308,13 +326,13 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Team theme updated', message: 'The active team colour preference has been saved.' })
-    void persistThemePreferences(nextPreferences)
+    showToast({ title: 'Club branding updated', message: 'The club accent colour has been saved.' })
+    void persistBrandingPreferences(nextPreferences)
   }
 
   const handleThemeButtonStyleChange = (nextThemeButtonStyle) => {
-    if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
+    if (!canEditClubBranding) {
+      showToast({ title: 'Branding not changed', message: brandingUnavailableMessage, tone: 'error' })
       return
     }
 
@@ -326,8 +344,8 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Team theme updated', message: 'The active team button style has been saved.' })
-    void persistThemePreferences(nextPreferences)
+    showToast({ title: 'Club branding updated', message: 'The club button style has been saved.' })
+    void persistBrandingPreferences(nextPreferences)
   }
 
   const getOnboardingScope = () => (canManageClubSettings(user) || canManageTeamSettings(user) ? 'workspace' : 'user')
@@ -363,14 +381,13 @@ export function UserSettingsPage() {
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
-  const canUseThemes = showDisplaySettings && hasPlanFeature(user, 'themes')
+  const canEditClubBranding = isClubAdminSettings && canUseUiFeature(user, CAPABILITIES.customColoursBranding)
+  const brandingUnavailableMessage = !isClubAdminSettings
+    ? 'Club branding is set by a Club Admin. You can still choose your own display mode.'
+    : !canUseUiFeature(user, CAPABILITIES.customColoursBranding)
+        ? createUiFeatureUnavailableMessage(user, CAPABILITIES.customColoursBranding)
+        : ''
   const canEditEmailClubName = showSenderIdentity && canEditClubIdentity(user)
-  const pageTitle = isParentSettings ? 'Parent account' : 'My account'
-  const pageDescription = isParentSettings
-    ? 'Manage your family portal login and password.'
-    : isClubAdminSettings
-      ? 'Manage your personal account and sign-in details. Club details stay in Club Settings.'
-      : 'Manage your username, password, and personal account details.'
   const workspaceLabel = isParentSettings
     ? 'Family portal'
     : user?.role === 'super_admin'
@@ -378,64 +395,9 @@ export function UserSettingsPage() {
       : user?.clubName || 'No club assigned'
   const onboardingScope = getOnboardingScope()
   const onboardingScopeLabel = onboardingScope === 'workspace' ? 'workspace' : 'account'
-  const accountSummary = [
-    {
-      label: 'Workspace',
-      value: workspaceLabel,
-      caption: isParentSettings ? 'Family portal access.' : 'The account context currently in use.',
-    },
-    {
-      label: 'Role',
-      value: user?.roleLabel || user?.role || 'Not assigned',
-      caption: 'Controls which tools and records you can use.',
-    },
-    {
-      label: 'Onboarding scope',
-      value: onboardingScopeLabel,
-      caption: 'Controls where the setup checklist is saved.',
-    },
-  ]
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Account control</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-              {pageTitle}
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              {pageDescription} Reopen setup from here when you need the first-run rules and checklist again.
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {accountRules.map((rule) => (
-                <div key={rule.label} className={`${panelClass} px-4 py-4`}>
-                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
-                  <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Signed in context</p>
-              <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#101828]">{workspaceLabel}</p>
-              <p className={`mt-2 ${bodyTextClass}`}>
-                Setup state is saved against this {onboardingScopeLabel}.
-              </p>
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {accountSummary.map((item) => (
-                <AccountMetric key={item.label} label={item.label} value={item.value || 'Not set'} />
-              ))}
-              <AccountMetric label="Demo lock" value={isDemoSettings ? 'On' : 'Off'} />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {successMessage ? (
         <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46] shadow-sm shadow-[#047857]/10">
           {successMessage}
@@ -472,11 +434,12 @@ export function UserSettingsPage() {
         <div className="space-y-5">
           {showDisplaySettings ? (
             <DisplaySettingsSection
-              canUseThemes={canUseThemes}
+              canEditBranding={canEditClubBranding}
+              brandingUnavailableMessage={brandingUnavailableMessage}
               onThemeAccentChange={handleThemeAccentChange}
               onThemeButtonStyleChange={handleThemeButtonStyleChange}
               onThemeModeChange={handleThemeModeChange}
-              themeUnavailableMessage={createFeatureUpgradeMessage('themes', user)}
+              showBrandingControls={isClubAdminSettings}
               themeAccent={themeAccent}
               themeButtonStyle={themeButtonStyle}
               themeMode={themeMode}
@@ -519,15 +482,6 @@ export function UserSettingsPage() {
           />
         </div>
       </div>
-    </div>
-  )
-}
-
-function AccountMetric({ label, value }) {
-  return (
-    <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
-      <p className="mt-2 break-words text-xl font-black leading-tight text-[#101828] sm:text-2xl">{value}</p>
     </div>
   )
 }

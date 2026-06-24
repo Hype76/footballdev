@@ -89,8 +89,6 @@ export async function processDueScheduledEmails({ force = false } = {}) {
 }
 
 export async function getScheduledEmails({ silentUnavailable = false, user }) {
-  await processDueScheduledEmails().catch(() => null)
-
   let result
 
   try {
@@ -107,6 +105,28 @@ export async function getScheduledEmails({ silentUnavailable = false, user }) {
   }
 
   return result.queue ?? []
+}
+
+export async function createScheduledEmail({ user, item }) {
+  const result = await postScheduledEmailAction({
+    action: 'create',
+    clubId: user?.clubId,
+    teamId: item.teamId,
+    toEmail: item.toEmail,
+    subject: item.subject,
+    html: item.html,
+    scheduledAt: item.scheduledAt,
+    displayName: item.displayName,
+    teamName: item.teamName,
+    clubName: item.clubName,
+    playerName: item.playerName,
+    parentName: item.parentName,
+    communicationLog: item.communicationLog,
+  })
+
+  window.dispatchEvent(new Event('scheduled-email-queue-changed'))
+
+  return result.item
 }
 
 export async function updateScheduledEmail({ user, item }) {

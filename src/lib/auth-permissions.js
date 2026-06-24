@@ -23,6 +23,41 @@ export function getRoleLabel(user) {
   return user.roleLabel || user.role || 'Unknown'
 }
 
+export function getWorkspaceHomeCopy(user) {
+  if (!user) {
+    return {
+      title: 'Home',
+      description: 'Open your workspace when your access has loaded.',
+    }
+  }
+
+  if (isClubAdmin(user)) {
+    return {
+      title: 'Club Home',
+      description: 'Manage the club workspace, teams, staff, players, and settings.',
+    }
+  }
+
+  if (user.role === 'manager' || user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 50) {
+    return {
+      title: 'Manager Home',
+      description: 'Manage your team, sessions, players, parent updates, and match day.',
+    }
+  }
+
+  if (user.role === 'coach' || user.role === 'assistant_coach' || Number(user.roleRank ?? 0) >= 20) {
+    return {
+      title: 'Coach Home',
+      description: 'Run sessions, record notes, and keep player records up to date.',
+    }
+  }
+
+  return {
+    title: 'Home',
+    description: 'Open your workspace when your access has loaded.',
+  }
+}
+
 export function isSuperAdmin(user) {
   return user?.role === 'super_admin'
 }
@@ -91,7 +126,13 @@ export function canAssignRole(user, targetRole) {
 }
 
 export function canManageFormFields(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && !isClubAdmin(user)
+    && isPlanAccessActive(user)
+    && Number(user?.roleRank ?? 0) >= 20
+    && Boolean(user?.activeTeamId)
 }
 
 export function canManageParentEmailTemplates(user) {
@@ -119,31 +160,11 @@ export function canViewBilling(user) {
     return false
   }
 
-  if (isTesterAccessExpired(user)) {
-    return true
-  }
-
-  if (isDemoAccount(user)) {
-    return true
-  }
-
-  if (!user.clubId) {
-    return false
-  }
-
   if (isSuperAdmin(user)) {
     return true
   }
 
-  if (user.planKey === 'individual') {
-    return true
-  }
-
-  if (user.planKey === 'single_team') {
-    return user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 70
-  }
-
-  return isClubAdmin(user)
+  return Boolean(user.clubId) && isClubAdmin(user)
 }
 
 export function canDeletePlayer(user) {
@@ -191,7 +212,13 @@ export function canManagePolls(user) {
 }
 
 export function canManageMatchDay(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && !isClubAdmin(user)
+    && isPlanAccessActive(user)
+    && Number(user?.roleRank ?? 0) >= 20
+    && Boolean(user?.activeTeamId)
 }
 
 export function canEditEvaluation(user, evaluation) {
@@ -199,7 +226,30 @@ export function canEditEvaluation(user, evaluation) {
     return false
   }
 
-  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
+  if (isParentPortalUser(user)) {
+    return false
+  }
+
+  if (isSuperAdmin(user)) {
+    return true
+  }
+
+  const evaluationClubId = evaluation.clubId || evaluation.club_id || ''
+
+  if (!user.clubId || (evaluationClubId && String(evaluationClubId) !== String(user.clubId))) {
+    return false
+  }
+
+  if (isClubAdmin(user) && !user.activeTeamId) {
+    return false
+  }
+
+  const evaluationTeamId = evaluation.teamId || evaluation.team_id || ''
+  if (evaluationTeamId && user.activeTeamId && String(evaluationTeamId) !== String(user.activeTeamId)) {
+    return false
+  }
+
+  if (Number(user.roleRank ?? 0) >= 50) {
     return true
   }
 
@@ -217,14 +267,27 @@ export function canViewEvaluation(user, evaluation) {
     return false
   }
 
-  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
+  if (isParentPortalUser(user)) {
+    return false
+  }
+
+  if (isSuperAdmin(user)) {
     return true
   }
 
   const evaluationClubId = evaluation.clubId || evaluation.club_id || ''
 
-  if (evaluationClubId && user.clubId) {
-    return canEditEvaluation(user, evaluation) && String(evaluationClubId) === String(user.clubId)
+  if (!user.clubId || (evaluationClubId && String(evaluationClubId) !== String(user.clubId))) {
+    return false
+  }
+
+  const evaluationTeamId = evaluation.teamId || evaluation.team_id || ''
+  if (evaluationTeamId && user.activeTeamId && String(evaluationTeamId) !== String(user.activeTeamId)) {
+    return false
+  }
+
+  if (Number(user.roleRank ?? 0) >= 50) {
+    return !isClubAdmin(user) || Boolean(user.activeTeamId)
   }
 
   return canEditEvaluation(user, evaluation)

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ParentPortalRouteShell } from '../components/parent-portal/ParentPortalShell.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
@@ -158,7 +159,8 @@ export function FriendsFamilyPage() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <ParentPortalRouteShell activeSection="family" counts={{ messages: 0, polls: 0 }} user={user}>
+      <div className="space-y-5 sm:space-y-6">
       <FamilyAccessHero
         accessRules={accessRules}
         familySummary={familySummary}
@@ -260,7 +262,8 @@ export function FriendsFamilyPage() {
           </div>
         )}
       </SectionCard>
-    </div>
+      </div>
+    </ParentPortalRouteShell>
   )
 }
 

@@ -1,3 +1,5 @@
+import { normalizePlanKey } from '../plans.js'
+
 export function normalizeClubSettingsRow(row) {
   return {
     id: row.id,
@@ -6,7 +8,7 @@ export function normalizeClubSettingsRow(row) {
     contactEmail: String(row.contact_email ?? '').trim(),
     contactPhone: String(row.contact_phone ?? '').trim(),
     requireApproval: Boolean(row.require_approval ?? true),
-    planKey: String(row.plan_key ?? 'small_club').trim() || 'small_club',
+    planKey: normalizePlanKey(row.plan_key, { mapMissingToFree: true }),
     planStatus: String(row.plan_status ?? 'active').trim() || 'active',
     isPlanComped: Boolean(row.is_plan_comped ?? false),
   }

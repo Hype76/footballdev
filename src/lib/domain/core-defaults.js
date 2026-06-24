@@ -1,3 +1,6 @@
+import { FITNESS_BENCHMARK_FIELDS } from '../fitness-benchmarks.js'
+import { DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE } from '../assessment-scoring.js'
+
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Club Admin', rank: 90, isSystem: true },
   { key: 'head_manager', label: 'Team Admin', rank: 70, isSystem: true },
@@ -10,52 +13,57 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-technical',
     label: 'Technical',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 1,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-tactical',
     label: 'Tactical',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 2,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-physical',
     label: 'Physical',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 3,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-mentality',
     label: 'Mentality',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 4,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-coachability',
     label: 'Coachability',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 5,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-strengths',
@@ -66,6 +74,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 6,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: false,
   },
   {
     id: 'default-improvements',
@@ -76,6 +85,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 7,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: false,
   },
   {
     id: 'default-overall',
@@ -86,7 +96,22 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 8,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: false,
   },
+  ...FITNESS_BENCHMARK_FIELDS.map((field, index) => ({
+    id: `default-${field.benchmarkKey.replace(/_/g, '-')}`,
+    label: field.label,
+    type: 'number',
+    options: [],
+    required: false,
+    orderIndex: 9 + index,
+    isDefault: true,
+    isEnabled: false,
+    includeInProgressChart: false,
+    benchmarkKey: field.benchmarkKey,
+    benchmarkDirection: field.direction,
+    benchmarkUnit: field.unit,
+  })),
 ]
 
 export function getDefaultFormFields() {

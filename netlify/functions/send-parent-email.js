@@ -1,7 +1,8 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
-import { Resend } from 'resend'
-import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
+import { buildPdfBuffer, buildPngBuffer } from '../../src/lib/pdf-builder.js'
+import { buildProgressionChartImageHtml } from '../../src/lib/progression-chart-markup.js'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
@@ -14,8 +15,7 @@ import {
 import { supabaseAdmin } from './_supabase.js'
 import {
   assertPlanFeature,
-  getAuthenticatedRequestUser,
-  getClubPlanProfile,
+  getAuthenticatedPlanProfile,
 } from './_plan-gate.js'
 
 void supabaseAdmin
@@ -101,7 +101,7 @@ function buildEmailPayload({
   attachments,
 }) {
   const emailPayload = {
-    from: `${fromName} <feedback@footballplayer.online>`,
+    from: createFromAddress(fromName),
     to: recipients,
     replyTo: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Football Player',
@@ -171,6 +171,64 @@ async function createEmailAuditLog(payload) {
   }
 }
 
+async function buildProgressionChartAttachments(chartImages = []) {
+  if (!Array.isArray(chartImages) || chartImages.length === 0) {
+    return []
+  }
+
+  const attachments = []
+
+  for (const chartImage of chartImages.slice(0, 5)) {
+    const points = Array.isArray(chartImage?.points) ? chartImage.points : []
+
+    if (points.length < 2) {
+      continue
+    }
+
+    try {
+      const pngBuffer = await withTimeout(
+        buildPngBuffer(buildProgressionChartImageHtml(points), { width: 760, height: 240 }),
+        10000,
+        'Progression chart image generation timed out',
+      )
+
+      if (!pngBuffer?.length) {
+        continue
+      }
+
+      attachments.push({
+        filename: String(chartImage.filename || `progression-chart-${attachments.length + 1}.png`).trim(),
+        content: pngBuffer.toString('base64'),
+        contentType: 'image/png',
+        contentId: String(chartImage.contentId || `progression-chart-${attachments.length}`).trim(),
+      })
+    } catch (error) {
+      console.error('Progression chart image generation failed', error)
+    }
+  }
+
+  return attachments
+}
+
+function embedProgressionChartsInPdfHtml(html, chartAttachments = []) {
+  if (!Array.isArray(chartAttachments) || chartAttachments.length === 0) {
+    return html
+  }
+
+  let chartIndex = 0
+
+  return String(html ?? '').replace(/<svg\b[\s\S]*?<\/svg>/g, (svgMarkup) => {
+    const chartAttachment = chartAttachments[chartIndex]
+    chartIndex += 1
+
+    if (!chartAttachment?.content) {
+      return svgMarkup
+    }
+
+    return `<img src="data:image/png;base64,${chartAttachment.content}" alt="Progression score chart out of 10" width="640" style="display: block; width: 100%; max-width: 640px; height: auto;" />`
+  })
+}
+
 function parseScheduledAt(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -192,8 +250,8 @@ function isFutureScheduledDate(dateValue) {
 }
 
 export async function prepareParentEmail({ body, requestUser }) {
-  const planProfile = await getClubPlanProfile(body.clubId)
-  assertPlanFeature(planProfile, 'parentEmail')
+  const planProfile = requestUser
+  assertPlanFeature(planProfile, 'parentEmails')
 
   const {
     parentEmail,
@@ -214,6 +272,11 @@ export async function prepareParentEmail({ body, requestUser }) {
   } = body
 
   const normalizedSenderEmail = normaliseEmail(senderEmail)
+  const bodyUserId = String(body.userId ?? '').trim()
+
+  if (bodyUserId && bodyUserId !== String(requestUser.id ?? '').trim()) {
+    throw Object.assign(new Error('Email can only be sent from your logged-in account.'), { statusCode: 403 })
+  }
 
   if (normalizedSenderEmail && normalizedSenderEmail !== requestUser.email) {
     throw Object.assign(new Error('Email can only be sent from your logged-in account.'), { statusCode: 403 })
@@ -256,11 +319,16 @@ export async function prepareParentEmail({ body, requestUser }) {
 
   const shouldAttachPdf = attachPdf === true
   if (shouldAttachPdf) {
-    assertPlanFeature(planProfile, 'pdfExport')
+    assertPlanFeature(planProfile, 'pdfReports')
   }
 
   const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
-  const attachments = shouldAttachPdf ? await buildPdfAttachment(attachmentHtml) : []
+  const chartAttachments = await buildProgressionChartAttachments(body.progressionChartImages)
+  const pdfHtmlWithChartImages = shouldAttachPdf
+    ? embedProgressionChartsInPdfHtml(attachmentHtml, chartAttachments)
+    : attachmentHtml
+  const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(pdfHtmlWithChartImages) : []
+  const attachments = [...pdfAttachments, ...chartAttachments]
   const emailSubject = String(subject ?? '').trim() || 'Football Player'
   const emailPayload = buildEmailPayload({
     fromName,
@@ -281,9 +349,10 @@ export async function prepareParentEmail({ body, requestUser }) {
     parentName: String(parentName ?? '').trim(),
     clubId: planProfile.clubId,
     teamId: String(body.teamId ?? '').trim() || null,
-    actorId: String(body.userId ?? requestUser.id ?? '').trim(),
+    actorId: String(requestUser.id ?? '').trim(),
     actorEmail: requestUser.email,
-    requiredFeature: 'parentEmail',
+    actorRole: planProfile.role,
+    requiredFeature: 'parentEmails',
     communicationLog: body.communicationLog && typeof body.communicationLog === 'object' ? body.communicationLog : null,
   }
 
@@ -371,12 +440,24 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
     return { duplicate: true, emailLogRecord }
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
   let response
   let sentPayload = preparedEmail.emailPayload
+  const context = {
+    emailType: 'parent_feedback',
+    userRole: preparedEmail.storedPayload.actorRole || '',
+    actorId: preparedEmail.storedPayload.actorId,
+    actorEmail: preparedEmail.storedPayload.actorEmail,
+    clubId: preparedEmail.planProfile.clubId,
+    teamId: preparedEmail.storedPayload.teamId,
+    targetEntityType: 'player',
+    targetEntityId: preparedEmail.storedPayload.playerId || '',
+  }
 
   try {
-    response = await resend.emails.send(preparedEmail.emailPayload)
+    response = await sendEmail(preparedEmail.emailPayload, {
+      context,
+      publicMessage: 'Email could not be sent. Please try again in a moment.',
+    })
   } catch (sendWithPdfError) {
     if (!preparedEmail.emailPayload.attachments?.length) {
       throw Object.assign(sendWithPdfError, { emailLogRecord })
@@ -384,7 +465,13 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
 
     console.error('Email send with PDF failed, retrying without attachment', sendWithPdfError)
     sentPayload = removeAttachments(preparedEmail.emailPayload)
-    response = await resend.emails.send(sentPayload)
+    response = await sendEmail(sentPayload, {
+      context: {
+        ...context,
+        emailType: 'parent_feedback_without_attachment',
+      },
+      publicMessage: 'Email could not be sent. Please try again in a moment.',
+    })
   }
 
   await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
@@ -432,7 +519,11 @@ export async function handler(event) {
     }
 
     const body = JSON.parse(event.body || '{}')
-    const requestUser = await getAuthenticatedRequestUser(event)
+    const requestUser = await getAuthenticatedPlanProfile(event, {
+      clubId: body.clubId,
+      teamId: body.teamId,
+      playerId: body.playerId || body.evaluationId,
+    })
     const scheduledAt = parseScheduledAt(body.scheduledAt)
 
     if (scheduledAt && !isFutureScheduledDate(scheduledAt)) {
@@ -477,6 +568,9 @@ export async function handler(event) {
       },
     })
 
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Email failed - will retry automatically')
+    const publicMessage = error.publicMessage
+      ? getPublicEmailErrorMessage(error)
+      : error.statusCode ? error.message : 'Email failed. Please try again in a moment.'
+    return failureResponse(error.statusCode || 500, publicMessage)
   }
 }

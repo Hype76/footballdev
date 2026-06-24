@@ -171,17 +171,20 @@ async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
   const priceId = getSubscriptionPriceId(subscription)
   const pricePlan = getPlanFromPriceId(priceId)
   const metadataPlanKey = normalizePlanKey(checkoutSession.metadata?.planKey || checkoutSession.metadata?.planName)
-  const planKey = pricePlan.planKey || metadataPlanKey
 
-  if (!planKey) {
-    throw new Error('Checkout did not match a configured plan')
+  if (!priceId || !pricePlan.planKey) {
+    throw new Error('Checkout price did not match a configured plan')
+  }
+
+  if (metadataPlanKey && metadataPlanKey !== pricePlan.planKey) {
+    throw new Error('Checkout metadata plan does not match the configured Stripe price')
   }
 
   return upsertCheckoutRecord({
     checkoutSession,
     subscription,
     priceId,
-    planKey,
+    planKey: pricePlan.planKey,
     billingCycle: pricePlan.billingCycle || checkoutSession.metadata?.billingCycle || '',
     planStatus: normalizePlanStatus(subscription?.status || checkoutSession.status),
     rawPayload,
@@ -195,6 +198,11 @@ async function updateSubscriptionRecord(subscription, rawPayload) {
   const planKey = pricePlan.planKey
   const planStatus = normalizePlanStatus(subscription.status)
   const currentPeriodEnd = getSubscriptionPeriodEnd(subscription)
+
+  if (priceId && !planKey) {
+    throw new Error('Subscription price did not match a configured plan')
+  }
+
   const updatePayload = {
     plan_status: planStatus,
     stripe_subscription_id: subscriptionId,

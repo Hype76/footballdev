@@ -3,6 +3,7 @@ import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 
@@ -11,6 +12,17 @@ const initialFormData = {
   password: '',
   clubName: '',
   accessCode: '',
+  planKey: 'small_club',
+}
+
+const testPlanByName = {
+  Individual: 'individual',
+  'Individual Coach - Free': 'individual',
+  'Individual Coach': 'individual',
+  'Single Team': 'single_team',
+  'Small Club': 'small_club',
+  'Development Club': 'development_club',
+  'Large Club': 'large_club',
 }
 
 function getFriendlyAuthErrorMessage(error, mode) {
@@ -31,7 +43,10 @@ function getFriendlyAuthErrorMessage(error, mode) {
 }
 
 export function LoginPage() {
+  usePublicThemeScope()
+
   const { authError, resetPassword, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
+  const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
   const submitLockRef = useRef(false)
   const [mode, setMode] = useState('login')
@@ -60,7 +75,21 @@ export function LoginPage() {
     if (checkoutStatus === 'cancelled') {
       setLocalMessage('Checkout was cancelled. You can choose a plan again when ready.')
     }
-  }, [])
+
+    if (paymentsDisabled) {
+      const selectedPlanName = String(params.get('plan') ?? '').trim()
+      const selectedPlanKey = testPlanByName[selectedPlanName]
+
+      if (selectedPlanKey) {
+        setMode('signup')
+        setFormData((current) => ({
+          ...current,
+          planKey: selectedPlanKey,
+        }))
+        setLocalMessage(`${selectedPlanName} test access selected. Payments are disabled on staging.`)
+      }
+    }
+  }, [paymentsDisabled])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -142,6 +171,7 @@ export function LoginPage() {
             password: formData.password,
             clubName: formData.clubName.trim(),
             accessCode: formData.accessCode.trim(),
+            planKey: formData.planKey,
           })
 
         if (signupResult?.needsEmailVerification) {
@@ -153,6 +183,8 @@ export function LoginPage() {
           setLocalMessage(parentInviteToken
             ? 'Parent account created. Please check your email to verify it, then open the parent invite link again.'
             : 'Account created. Please check your email to verify your account before logging in.')
+        } else if (signupResult?.message) {
+          setLocalMessage(signupResult.message)
         } else if (parentInviteToken) {
           window.location.assign(`/parent-invite/${parentInviteToken}`)
         }
@@ -164,6 +196,7 @@ export function LoginPage() {
         await signInWithPassword({
           email: formData.email.trim(),
           password: formData.password,
+          preferredAccessMode: mode === 'parent-login' || parentInviteToken ? 'parent' : '',
         })
 
         if (parentInviteToken) {
@@ -196,74 +229,60 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f7faf8] text-[#101828]">
+    <main className="min-h-screen overflow-hidden bg-[#06110a] text-white">
       <div className="fixed inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-white/88" />
-        <div className="absolute inset-0 bg-[#f7faf8]/70" />
+        <div className="absolute inset-0 bg-[#06110a]/78" />
       </div>
 
       <div className="relative flex min-h-screen w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8 lg:py-10">
-          <section>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Football club workspace</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#101828] sm:text-4xl xl:text-5xl">
-              Run the football week from one practical club system.
+        <div className="mx-auto grid w-full max-w-7xl flex-1 gap-8 px-4 py-7 pb-[max(5rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-center lg:px-8 lg:py-10">
+          <section className="order-2 max-w-2xl lg:order-1">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#c6ff1a]">Sign in</p>
+            <h1 className="mt-4 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-white sm:text-5xl xl:text-6xl">
+              Welcome back to Football Player.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55] sm:text-lg sm:leading-8">
-              Manage players, teams, availability, match day, parent communication, and development records without scattering work across chats and spreadsheets.
+            <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-white/76 sm:text-lg sm:leading-8">
+              Sign in to manage training, match day, parent updates, and player records from the right club or team workspace.
             </p>
 
-            <div className="mt-7 grid gap-3 md:grid-cols-3">
+            <div className="mt-7 grid max-w-2xl gap-3 sm:grid-cols-3">
               {[
-                ['Set up first', 'Create the club, first team, staff access, players, and parent links before inviting wider use.'],
-                ['Use real records', 'Every workflow starts from football data the club already understands.'],
-                ['Keep roles clear', 'Club admins, team staff, and parents only see the actions their access allows.'],
-              ].map(([title, copy]) => (
-                <article key={title} className="rounded-lg border border-[#d7e5dc] bg-white/95 p-4 shadow-sm shadow-[#047857]/10 backdrop-blur">
-                  <p className="text-sm font-black text-[#101828]">{title}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
-                </article>
+                'Training and fixtures stay connected',
+                'Parent updates come from saved records',
+                'Player history stays with the player',
+              ].map((item) => (
+                <div key={item} className="border-t border-white/18 pt-3">
+                  <span className="mb-3 block h-1.5 w-8 rounded-full bg-[#c6ff1a]" />
+                  <p className="text-sm font-black leading-5 text-white">{item}</p>
+                </div>
               ))}
-            </div>
-
-            <div className="mt-7 grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#ecfdf5]/95 p-4 shadow-sm shadow-[#047857]/10 backdrop-blur sm:grid-cols-[0.9fr_1.1fr] sm:p-5">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">First useful action</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Log in, open the setup board, then complete the first team and player checks before running sessions or parent messages.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-black text-[#101828] sm:grid-cols-4">
-                {['Club', 'Team', 'Players', 'Parents'].map((item) => (
-                  <span key={item} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-center">
-                    {item}
-                  </span>
-                ))}
-              </div>
             </div>
           </section>
 
-          <LoginAuthPanel
-            authError={authError}
-            formData={formData}
-            isPasswordVisible={isPasswordVisible}
-            isSubmitting={isSubmitting}
-            localError={localError}
-            localMessage={localMessage}
-            logo={fallbackLogo}
-            mode={mode}
-            onChange={handleChange}
-            onDemoLogin={handleDemoLogin}
-            onModeChange={handleModeChange}
-            onPasswordReset={handlePasswordReset}
-            onSubmit={handleSubmit}
-            onTogglePasswordVisibility={() => setIsPasswordVisible((current) => !current)}
-            parentInviteMode={Boolean(parentInviteToken)}
-            signupBoxRef={signupBoxRef}
-          />
+          <div className="order-1 lg:order-2">
+            <LoginAuthPanel
+              authError={authError}
+              formData={formData}
+              isPasswordVisible={isPasswordVisible}
+              isSubmitting={isSubmitting}
+              localError={localError}
+              localMessage={localMessage}
+              logo={fallbackLogo}
+              mode={mode}
+              onChange={handleChange}
+              onDemoLogin={handleDemoLogin}
+              onModeChange={handleModeChange}
+              onPasswordReset={handlePasswordReset}
+              onSubmit={handleSubmit}
+              onTogglePasswordVisibility={() => setIsPasswordVisible((current) => !current)}
+              parentInviteMode={Boolean(parentInviteToken)}
+              paymentsDisabled={paymentsDisabled}
+              signupBoxRef={signupBoxRef}
+            />
+          </div>
         </div>
       </div>
     </main>

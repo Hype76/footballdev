@@ -93,16 +93,19 @@ function createMockSupabase({
     constructor(table) {
       this.table = table
       this.action = ''
+      this.payload = null
     }
 
     insert(payload) {
       this.action = 'insert'
+      this.payload = payload
       calls.push({ table: this.table, action: 'insert', payload })
       return this
     }
 
     update(payload) {
       this.action = 'update'
+      this.payload = payload
       calls.push({ table: this.table, action: 'update', payload })
       return this
     }
@@ -201,33 +204,40 @@ test('createPlatformClubResult sends production owner invites and reports accept
   assert.equal(mock.calls.some((call) => call.table === 'club_owner_invites' && call.action === 'update'), true)
 })
 
-test('createPlatformClubResult returns controlled auth errors before creating records', async () => {
+test('createPlatformClubResult rejects missing or non-admin platform identity before creating records', async () => {
   setEnv({
     CONTEXT: 'production',
     NODE_ENV: 'production',
     RESEND_API_KEY: 'resend-fixture-key',
   })
-  const unauthenticatedMock = createMockSupabase()
-  const unauthenticatedResponse = await createPlatformClubResult(createEvent({}, { authorization: '' }), {
-    supabaseAdmin: unauthenticatedMock.supabaseAdmin,
-  })
-  const unauthenticatedParsed = parseResponse(unauthenticatedResponse)
 
-  assert.equal(unauthenticatedParsed.statusCode, 401)
-  assert.equal(unauthenticatedParsed.body.code, 'unauthenticated')
-  assert.equal(unauthenticatedMock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+  const unauthenticatedMock = createMockSupabase({ authUser: null })
+  await assert.rejects(
+    () => createPlatformClubResult(createEvent(), {
+      supabaseAdmin: unauthenticatedMock.supabaseAdmin,
+    }),
+    (error) => {
+      assert.equal(error.statusCode, 401)
+      assert.equal(error.code, 'unauthenticated')
+      assert.equal(unauthenticatedMock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+      return true
+    },
+  )
 
   const forbiddenMock = createMockSupabase({
     profile: { id: 'coach-1', email: 'coach@example.test', role: 'coach' },
   })
-  const forbiddenResponse = await createPlatformClubResult(createEvent(), {
-    supabaseAdmin: forbiddenMock.supabaseAdmin,
-  })
-  const forbiddenParsed = parseResponse(forbiddenResponse)
-
-  assert.equal(forbiddenParsed.statusCode, 403)
-  assert.equal(forbiddenParsed.body.code, 'forbidden')
-  assert.equal(forbiddenMock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+  await assert.rejects(
+    () => createPlatformClubResult(createEvent(), {
+      supabaseAdmin: forbiddenMock.supabaseAdmin,
+    }),
+    (error) => {
+      assert.equal(error.statusCode, 403)
+      assert.equal(error.code, 'forbidden')
+      assert.equal(forbiddenMock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+      return true
+    },
+  )
 })
 
 test('createPlatformClubResult treats production host as production when Netlify context is missing', async () => {
@@ -484,4 +494,52 @@ test('createPlatformClubResult rejects missing required form data before creatin
   assert.equal(parsed.statusCode, 400)
   assert.equal(parsed.body.message, 'Club name is required.')
   assert.equal(mock.calls.some((call) => call.table === 'clubs'), false)
+})
+
+test('createPlatformClubResult preserves the club when owner invite insert fails', async () => {
+  setEnv({
+    CONTEXT: 'production',
+    NODE_ENV: 'production',
+    RESEND_API_KEY: 'resend-fixture-key',
+  })
+  const mock = createMockSupabase({
+    inviteError: {
+      code: 'PGRST205',
+      message: "Could not find the table 'public.club_owner_invites' in the schema cache",
+    },
+  })
+
+  await assert.rejects(
+    () => createPlatformClubResult(createEvent(), {
+      supabaseAdmin: mock.supabaseAdmin,
+    }),
+    (error) => {
+      assert.equal(error.stage, 'owner_invite_insert')
+      assert.equal(error.partialState.clubCreated, true)
+      assert.equal(error.partialState.inviteCreated, false)
+      assert.match(error.publicMessage, /Club was created/)
+      return true
+    },
+  )
+})
+
+test('createPlatformClubResult ignores stale cached stats and uses authoritative form inputs', async () => {
+  setEnv({
+    CONTEXT: 'production',
+    NODE_ENV: 'production',
+    RESEND_API_KEY: 'resend-fixture-key',
+  })
+  const mock = createMockSupabase()
+  const response = await createPlatformClubResult(createEvent({
+    name: 'Fresh Club FC',
+    stats: { clubs: [null, {}] },
+  }), {
+    sendOwnerInviteEmailImpl: async () => ({ data: { id: 'email-1' } }),
+    supabaseAdmin: mock.supabaseAdmin,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(mock.calls.find((call) => call.table === 'clubs')?.payload.name, 'Fresh Club FC')
 })

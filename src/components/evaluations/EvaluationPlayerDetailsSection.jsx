@@ -166,15 +166,16 @@ export function EvaluationPlayerDetailsSection({
         </div>
 
         <label className="block min-w-0">
-          <span className={labelClass}>Session</span>
+          <span className={labelClass}>Report date</span>
           <input
             type="date"
             name="session"
             value={formatSessionForInput(formData.session)}
             onChange={onFieldChange}
+            required
             className={inputClass}
           />
-          <p className={helperClass}>Current session: {readableSession}</p>
+          <p className={helperClass}>Saved report date: {readableSession}</p>
         </label>
       </div>
     </SectionCard>

@@ -75,18 +75,10 @@ export async function handler(event) {
     }
 
     const callerRank = Number(caller.role_rank ?? 0)
-    const isIndividualPlan = club.plan_key === 'individual'
-    const isSingleTeamPlan = club.plan_key === 'single_team'
-    const testerAccessExpired = club.tester_access_expires_at && new Date(club.tester_access_expires_at).getTime() <= Date.now()
-    const canAccessBilling =
-      caller.role === 'super_admin' ||
-      testerAccessExpired ||
-      (isIndividualPlan && callerRank >= 70) ||
-      (isSingleTeamPlan && (caller.role === 'head_manager' || callerRank >= 70)) ||
-      (!isIndividualPlan && !isSingleTeamPlan && callerRank >= 90)
+    const canAccessBilling = caller.role === 'super_admin' || callerRank >= 90
 
     if (!canAccessBilling) {
-      return json(403, { success: false, message: 'Billing is only available to the highest billing role for this account' })
+      return json(403, { success: false, message: 'Billing is only available to Club Admin users.' })
     }
 
     let invoices = []

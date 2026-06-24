@@ -1,8 +1,9 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { formatTrendDate } from '../../hooks/players/playerProfileUtils.js'
 
 function getEvaluationSourceLabel(evaluation, { includeScore = false, includeValue = false, valueLabel = '' } = {}) {
   const parts = [
-    `Date: ${evaluation.date || 'No date entered'}`,
+    `Date: ${formatTrendDate(evaluation)}`,
     `Session: ${evaluation.session || 'No session entered'}`,
   ]
 
@@ -58,7 +59,7 @@ export function PlayerMergeAssessments({
                 className="mt-1 h-4 w-4 accent-[#047857]"
               />
               <span className="min-w-0">
-                <span className="block font-semibold">{evaluation.date || 'No date entered'}</span>
+                <span className="block font-semibold">{formatTrendDate(evaluation)}</span>
                 <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
                   {getEvaluationSourceLabel(evaluation, { includeScore: true })}
                 </span>

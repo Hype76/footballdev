@@ -8,12 +8,14 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageFormFields, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   createDraftFromField,
   createDraftMap,
   createScoreOptions,
   FIELD_PAGE_SIZE,
+  buildReorderedFormFields,
   getFieldTypeLabel,
   getOptionsForType,
   initialFieldForm,
@@ -53,7 +55,9 @@ export function FormBuilderPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const defaultTemplateFields = getDefaultFormFields()
-  const cacheKey = user?.clubId ? `form-builder:${user.clubId}` : ''
+  const activeTeamId = String(user?.activeTeamId ?? '').trim()
+  const activeTeamName = String(user?.activeTeamName ?? '').trim()
+  const cacheKey = user?.clubId && activeTeamId ? `form-builder:${user.clubId}:${activeTeamId}` : ''
   const cachedBuilderState = readViewCache(cacheKey)
   const [fields, setFields] = useState(() => {
     const cachedFields = readViewCacheValue(cacheKey, 'fields', [])
@@ -74,7 +78,7 @@ export function FormBuilderPage() {
   const [fieldGroup, setFieldGroup] = useState('default')
   const [fieldPage, setFieldPage] = useState(1)
   const [fieldDeleteTarget, setFieldDeleteTarget] = useState(null)
-  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${activeTeamId}` : ''
 
   useEffect(() => {
     let isMounted = true
@@ -150,14 +154,14 @@ export function FormBuilderPage() {
   }
 
   if (!canManageFormFields(user)) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/coach" replace />
   }
 
   const defaultFields = fields.filter((field) => field.isDefault)
   const customFields = fields.filter((field) => !field.isDefault)
   const visibleFields = fieldGroup === 'default' ? defaultFields : customFields
   const paginatedFields = getPaginatedItems(visibleFields, fieldPage, FIELD_PAGE_SIZE)
-  const canUseCustomFields = hasPlanFeature(user, 'customFormFields')
+  const canUseCustomFields = canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)
   const enabledFieldsCount = fields.filter((field) => field.isEnabled).length
 
   const handleFormChange = (event) => {
@@ -178,6 +182,7 @@ export function FormBuilderPage() {
 
       if (name === 'type' && value !== 'select' && !isScoreType(value)) {
         nextForm.options = ''
+        nextForm.includeInProgressChart = false
       }
 
       return nextForm
@@ -199,6 +204,7 @@ export function FormBuilderPage() {
 
       if (name === 'type' && value !== 'select' && !isScoreType(value)) {
         nextDraft.options = ''
+        nextDraft.includeInProgressChart = false
       }
 
       return {
@@ -219,13 +225,7 @@ export function FormBuilderPage() {
   }
 
   const saveFieldOrder = async (nextGroupFields) => {
-    const nextFields = fieldGroup === 'default'
-      ? [...nextGroupFields, ...customFields]
-      : [...defaultFields, ...nextGroupFields]
-    const normalizedFields = nextFields.map((field, index) => ({
-      ...field,
-      orderIndex: index + 1,
-    }))
+    const normalizedFields = buildReorderedFormFields({ customFields, defaultFields, fieldGroup, nextGroupFields })
     const previousFields = fields
     const previousDrafts = fieldDrafts
 
@@ -256,7 +256,7 @@ export function FormBuilderPage() {
 
     try {
       if (!canUseCustomFields) {
-        throw new Error(createFeatureUpgradeMessage('customFormFields'))
+        throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.customDevelopmentFields))
       }
 
       const createdField = await addFormField({
@@ -390,11 +390,40 @@ export function FormBuilderPage() {
     }
   }
 
-  const handleSaveField = async (field) => {
-    if (field.isDefault) {
+  const handleToggleProgressionChart = async (field, nextIncludeInProgressChart) => {
+    if (!isScoreType(field.type)) {
       return
     }
 
+    setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const updatedField = await updateFormField(
+        field.id,
+        {
+          includeInProgressChart: nextIncludeInProgressChart,
+        },
+        user,
+      )
+
+      const nextFields = fields.map((item) => (item.id === field.id ? updatedField : item))
+      syncFields(nextFields)
+      setSuccessMessage('Progression chart setting saved.')
+      showToast({
+        title: 'Chart setting saved',
+        message: `${updatedField.label} ${nextIncludeInProgressChart ? 'will' : 'will not'} feed the progression chart.`,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not update the progression chart setting.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveField = async (field) => {
     const draft = fieldDrafts[field.id]
 
     if (!draft) {
@@ -414,8 +443,9 @@ export function FormBuilderPage() {
           required: draft.required,
           options: getOptionsForType(draft.type, draft.options),
           isEnabled: draft.isEnabled,
+          includeInProgressChart: isScoreType(draft.type) ? draft.includeInProgressChart : false,
           orderIndex: field.orderIndex,
-          isDefault: false,
+          isDefault: field.isDefault,
         },
         user,
       )
@@ -459,7 +489,7 @@ export function FormBuilderPage() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Form state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{enabledFieldsCount} fields live for coaches</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                {defaultFields.length} default fields and {customFields.length} custom fields are configured for this club.
+                {defaultFields.length} default fields and {customFields.length} custom fields are configured for {activeTeamName || 'this team'}.
               </p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -469,7 +499,7 @@ export function FormBuilderPage() {
               <FormMetric label="Total" value={fields.length} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              {canUseCustomFields ? 'Custom development fields are available.' : createFeatureUpgradeMessage('customFormFields')}
+              {canUseCustomFields ? 'Custom development fields are available for this team.' : createUiFeatureUnavailableMessage(user, CAPABILITIES.customDevelopmentFields)}
             </p>
           </div>
         </div>
@@ -487,6 +517,7 @@ export function FormBuilderPage() {
 
       <AddFieldSection
         canUseCustomFields={canUseCustomFields}
+        featureUnavailableMessage={createUiFeatureUnavailableMessage(user, CAPABILITIES.customDevelopmentFields)}
         fieldForm={fieldForm}
         isSaving={isSaving}
         onAddField={handleAddField}
@@ -509,6 +540,7 @@ export function FormBuilderPage() {
         onReorderField={handleReorderField}
         onSaveField={handleSaveField}
         onSetFieldGroup={setFieldGroup}
+        onToggleProgressionChart={handleToggleProgressionChart}
         onToggleEnabled={handleToggleEnabled}
         paginatedFields={paginatedFields}
         visibleFields={visibleFields}

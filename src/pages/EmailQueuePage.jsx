@@ -5,11 +5,11 @@ import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { ScheduleDateTimePicker } from '../components/ui/ScheduleDateTimePicker.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageEmailQueue, useAuth } from '../lib/auth.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   deleteScheduledEmail,
   getScheduledEmails,
-  sendScheduledEmailNow,
   updateScheduledEmail,
 } from '../lib/domain/scheduled-emails.js'
 
@@ -49,7 +49,6 @@ function createEditDraft(item) {
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
-const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-2 text-sm font-black text-[#b42318] transition hover:bg-[#fee4e2] disabled:cursor-not-allowed disabled:opacity-60'
 
@@ -77,9 +76,9 @@ export function EmailQueuePage() {
   const [editingItem, setEditingItem] = useState(null)
   const [editDraft, setEditDraft] = useState(() => createEditDraft(null))
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [sendNowTarget, setSendNowTarget] = useState(null)
   const [busyId, setBusyId] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}` : ''
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
 
   const sortedQueue = useMemo(
     () => [...queue].sort((first, second) => new Date(first.scheduledAt).getTime() - new Date(second.scheduledAt).getTime()),
@@ -94,7 +93,7 @@ export function EmailQueuePage() {
     let isMounted = true
 
     async function loadQueue() {
-      if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+      if (!user?.clubId || !canUseParentEmail) {
         setIsLoading(false)
         return
       }
@@ -126,9 +125,9 @@ export function EmailQueuePage() {
     return () => {
       isMounted = false
     }
-  }, [user, userScopeKey])
+  }, [canUseParentEmail, user, userScopeKey])
 
-  if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
+  if (!canManageEmailQueue(user) || !canUseParentEmail) {
     return <Navigate to="/" replace />
   }
 
@@ -198,27 +197,6 @@ export function EmailQueuePage() {
     }
   }
 
-  const confirmSendNow = async () => {
-    if (!sendNowTarget) {
-      return
-    }
-
-    setBusyId(sendNowTarget.id)
-    setErrorMessage('')
-
-    try {
-      await sendScheduledEmailNow({ user, id: sendNowTarget.id })
-      setQueue((current) => current.filter((item) => item.id !== sendNowTarget.id))
-      showToast({ title: 'Queued email sent' })
-      setSendNowTarget(null)
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Queued email could not be sent.')
-    } finally {
-      setBusyId('')
-    }
-  }
-
   return (
     <div className="space-y-5 sm:space-y-6">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -229,7 +207,7 @@ export function EmailQueuePage() {
               Hold parent and player emails until they are ready to leave.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Review scheduled football messages before send time. Fix failures, change timing, send now, or delete a message before it reaches families.
+              Review scheduled football messages before send time. Fix failures, change timing, or delete a message before it reaches families.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {queueRules.map((rule) => (
@@ -277,10 +255,10 @@ export function EmailQueuePage() {
           <p className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-semibold text-[#4b5f55]">Loading email queue...</p>
         ) : sortedQueue.length === 0 ? (
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-5 py-8">
-            <p className="text-lg font-black text-[#101828]">No emails are waiting to send.</p>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#4b5f55]">
-              Queue items appear after a coach schedules a parent or player email from a football workflow.
-            </p>
+              <p className="text-lg font-black text-[#101828]">No emails are waiting to send.</p>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#4b5f55]">
+                Queue items appear after a coach schedules a parent or player email from sessions, player records, or match day.
+              </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -312,14 +290,6 @@ export function EmailQueuePage() {
                       className={secondaryButtonClass}
                     >
                       Open
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSendNowTarget(item)}
-                      disabled={Boolean(busyId)}
-                      className={primaryButtonClass}
-                    >
-                      Send now
                     </button>
                     <button
                       type="button"
@@ -396,20 +366,8 @@ export function EmailQueuePage() {
         onConfirm={() => void confirmDelete()}
       />
 
-      <ConfirmModal
-        isOpen={Boolean(sendNowTarget)}
-        isBusy={busyId === sendNowTarget?.id}
-        title="Send queued email now"
-        message="This sends the queued email immediately and removes it from the queue."
-        items={[sendNowTarget?.subject || 'Queued email', sendNowTarget?.toEmail || 'No recipient']}
-        confirmLabel="Send now"
-        onCancel={() => setSendNowTarget(null)}
-        onClose={() => setSendNowTarget(null)}
-        onConfirm={() => void confirmSendNow()}
-      />
-
-      {!hasPlanFeature(user, 'parentEmail') ? (
-        <NoticeBanner title="Email queue unavailable" message={createFeatureUpgradeMessage('parentEmail')} tone="info" />
+      {!canUseParentEmail ? (
+        <NoticeBanner title="Email queue unavailable" message={createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails)} tone="info" />
       ) : null}
     </div>
   )

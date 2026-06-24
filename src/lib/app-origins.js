@@ -13,6 +13,10 @@ function cleanOrigin(value) {
   return String(value ?? '').trim().replace(/\/$/, '')
 }
 
+function isAuthBrowserFixtureMode() {
+  return String(import.meta.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES ?? '').trim().toLowerCase() === 'true'
+}
+
 export function isParentPortalHost(hostname = globalThis.location?.hostname ?? '') {
   const normalizedHost = String(hostname ?? '').trim().toLowerCase()
 
@@ -73,6 +77,10 @@ export function buildMainAppUrl(path = '/') {
 export function getParentAppOrigin() {
   const currentOrigin = cleanOrigin(globalThis.location?.origin)
   const currentHost = String(globalThis.location?.hostname ?? '').trim().toLowerCase()
+
+  if (isAuthBrowserFixtureMode() && isParentPortalHost(currentHost)) {
+    return currentOrigin || PRODUCTION_PARENT_ORIGIN
+  }
 
   if (currentHost === 'localhost') {
     return currentOrigin || STAGING_PARENT_ORIGIN

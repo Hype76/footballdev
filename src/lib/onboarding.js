@@ -4,10 +4,16 @@ import {
   isParentPortalUser,
   isSuperAdmin,
 } from './auth-permissions.js'
-import { PLAN_KEYS, getPlanKey, hasPlanFeature } from './plans.js'
+import { PLAN_KEYS, getPlanKey, getPlanLimit, hasPlanFeature } from './plans.js'
+import { isRecoveryModuleVisible } from './recovery-phase.js'
 import { supabase } from './supabase-client.js'
 
 export const ONBOARDING_EVENT = 'football-onboarding-state-changed'
+export const ONBOARDING_OPEN_EVENT = 'football-onboarding-open'
+
+export function openOnboarding() {
+  window.dispatchEvent(new Event(ONBOARDING_OPEN_EVENT))
+}
 
 function asStepList(value) {
   return Array.isArray(value) ? value.map((item) => String(item ?? '').trim()).filter(Boolean) : []
@@ -329,16 +335,22 @@ function isCoachOnly(user) {
 }
 
 function hasClubProfileDetails(user) {
+  const hasContact = Boolean(String(user?.clubContactEmail ?? '').trim() || String(user?.clubContactPhone ?? '').trim())
+
   return Boolean(
     String(user?.clubName ?? '').trim() &&
       user.clubName !== 'Unassigned Club' &&
-      String(user?.clubContactEmail ?? '').trim() &&
-      String(user?.clubContactPhone ?? '').trim(),
+      hasContact,
   )
 }
 
 function buildClubAdminSteps(user, snapshot, scope) {
-  return [
+  const planKey = getPlanKey(user)
+  const staffLoginLimit = getPlanLimit(user, 'staffLogins')
+  const canInviteMoreStaff = staffLoginLimit === null || Number(staffLoginLimit ?? 0) > 1
+  const canUseBranding = hasPlanFeature(user, 'basicBranding') || hasPlanFeature(user, 'themes')
+  const needsStaffSetup = planKey !== PLAN_KEYS.individual && canInviteMoreStaff
+  const steps = [
     makeStep({
       id: 'club-profile',
       title: 'Set club details',
@@ -350,47 +362,55 @@ function buildClubAdminSteps(user, snapshot, scope) {
       targetSelector: '[data-tour-id="club-profile-settings"]',
       complete: hasClubProfileDetails(user) || hasCompletedStep(user, scope, 'club-profile'),
     }),
-    makeStep({
-      id: 'branding-theme',
-      title: 'Set branding and theme',
-      rule: 'Branding should be decided before team admins start inviting parents or creating match day updates.',
-      detail: 'Set the club logo and brand defaults, or confirm the current defaults are enough for launch.',
-      href: '/club-settings',
-      actionLabel: 'Set branding',
-      actionType: 'branding-theme',
-      manualLabel: 'Defaults are fine',
-      targetSelector: '[data-tour-id="club-profile-settings"]',
-      complete: Boolean(user.logoUrl || user.clubLogoUrl) || hasCompletedStep(user, scope, 'branding-theme'),
-    }),
-    makeStep({
-      id: 'club-admins',
-      title: 'Add club admin users',
-      rule: 'Club admins control club setup, billing, teams, and staff access.',
-      detail: 'Invite at least one other club admin if the club needs shared ownership.',
-      href: '/user-access',
-      actionLabel: 'Invite club admin',
-      actionType: 'invite-staff',
-      manualLabel: 'One admin is enough',
-      roleKey: 'admin',
-      targetSelector: '[data-tour-id="allocate-role-section"]',
-      complete: snapshot.clubAdmins > 1 || hasCompletedStep(user, scope, 'club-admins'),
-    }),
-    makeStep({
-      id: 'team-admins',
-      title: 'Add team admin users',
-      rule: 'Team admins run assigned teams without changing club-wide setup.',
-      detail: 'Invite team admins before assigning them to their team spaces.',
-      href: '/user-access',
-      actionLabel: 'Invite team admin',
-      actionType: 'invite-staff',
-      roleKey: 'head_manager',
-      manualLabel: 'No team admins needed',
-      targetSelector: '[data-tour-id="allocate-role-section"]',
-      complete: snapshot.teamAdmins > 0 || hasCompletedStep(user, scope, 'team-admins'),
-    }),
+    ...(canUseBranding
+      ? [
+          makeStep({
+            id: 'branding-theme',
+            title: 'Set branding',
+            rule: 'Branding should be decided before team admins start inviting parents or creating match day updates.',
+            detail: 'Set the club logo and brand defaults, or confirm the current defaults are enough for launch.',
+            href: '/club-settings',
+            actionLabel: 'Set branding',
+            actionType: 'branding-theme',
+            manualLabel: 'Defaults are fine',
+            targetSelector: '[data-tour-id="club-profile-settings"]',
+            complete: Boolean(user.logoUrl || user.clubLogoUrl) || hasCompletedStep(user, scope, 'branding-theme'),
+          }),
+        ]
+      : []),
+    ...(needsStaffSetup
+      ? [
+          makeStep({
+            id: 'club-admins',
+            title: 'Add club admins',
+            rule: 'Club admins control club setup, teams, and staff access.',
+            detail: 'Invite another club admin only if this club needs shared ownership.',
+            href: '/user-access',
+            actionLabel: 'Invite club admin',
+            actionType: 'invite-staff',
+            manualLabel: 'One admin is enough',
+            roleKey: 'admin',
+            targetSelector: '[data-tour-id="allocate-role-section"]',
+            complete: snapshot.clubAdmins > 1 || hasCompletedStep(user, scope, 'club-admins'),
+          }),
+          makeStep({
+            id: 'team-admins',
+            title: 'Add team admins',
+            rule: 'Team admins run assigned teams without changing club-wide setup.',
+            detail: 'Invite team admins before assigning them to their team spaces.',
+            href: '/user-access',
+            actionLabel: 'Invite team admin',
+            actionType: 'invite-staff',
+            roleKey: 'head_manager',
+            manualLabel: 'No team admins needed',
+            targetSelector: '[data-tour-id="allocate-role-section"]',
+            complete: snapshot.teamAdmins > 0 || hasCompletedStep(user, scope, 'team-admins'),
+          }),
+        ]
+      : []),
     makeStep({
       id: 'first-team',
-      title: snapshot.teams > 0 ? 'Manage teams' : 'Create a team',
+      title: snapshot.teams > 0 ? 'Manage teams' : 'Create team',
       rule: 'Teams are the containers for staff access, players, sessions, assessments, and match day.',
       detail: 'Create, review, edit, or delete team records before team admins start work.',
       href: '/teams',
@@ -399,19 +419,47 @@ function buildClubAdminSteps(user, snapshot, scope) {
       targetSelector: '[data-tour-id="create-team-section"]',
       complete: snapshot.teams > 0 || hasCompletedStep(user, scope, 'first-team'),
     }),
+    ...(needsStaffSetup
+      ? [
+          makeStep({
+            id: 'assign-team-admin',
+            title: 'Assign team admin',
+            rule: 'A team admin should only see the team or teams they are responsible for.',
+            detail: 'Choose a team and attach the correct team admin account.',
+            href: '/teams',
+            actionLabel: 'Assign admin',
+            actionType: 'assign-team-admin',
+            manualLabel: 'Assign later',
+            targetSelector: '[data-tour-id="team-staff-section"]',
+            complete: snapshot.assignedTeamAdmins > 0 || hasCompletedStep(user, scope, 'assign-team-admin'),
+          }),
+        ]
+      : []),
     makeStep({
-      id: 'assign-team-admin',
-      title: 'Assign team admin to team',
-      rule: 'A team admin should only see the team or teams they are responsible for.',
-      detail: 'Choose a team and attach the correct team admin account.',
-      href: '/teams',
-      actionLabel: 'Assign admin',
-      actionType: 'assign-team-admin',
-      manualLabel: 'Assign later',
-      targetSelector: '[data-tour-id="team-staff-section"]',
-      complete: snapshot.assignedTeamAdmins > 0 || hasCompletedStep(user, scope, 'assign-team-admin'),
+      id: 'review',
+      title: 'Review club setup',
+      rule: 'Club setup is ready when the club identity, teams, and staff ownership are clear.',
+      detail: 'Review the club setup before handing team, player, and assessment work to team admins and coaches.',
+      href: '/feedback/new',
+      actionLabel: 'Review setup',
+      actionType: 'review-setup',
+      complete: hasCompletedStep(user, scope, 'review'),
+    }),
+    makeStep({
+      id: 'tester-feedback',
+      title: 'Tester feedback',
+      rule: 'Feedback should go through the staging feedback form.',
+      detail: 'Open the feedback form if anything in setup was confusing or broken.',
+      href: '/feedback/new?route=/club-admin-setup',
+      actionLabel: 'Report issue',
+      actionType: 'feedback-handoff',
+      targetSelector: '[data-tour-id="tester-feedback-form"]',
+      complete: hasCompletedStep(user, scope, 'tester-feedback'),
+      manualLabel: 'No feedback now',
     }),
   ]
+
+  return steps
 }
 
 function buildTeamManagerSteps(user, snapshot, scope) {
@@ -479,7 +527,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       manualLabel: 'Training only for now',
       complete: snapshot.matchDays > 0 || hasCompletedStep(user, scope, 'team-match-day'),
     }),
-    ...(hasPlanFeature(user, 'parentEmail')
+    ...(hasPlanFeature(user, 'parentEmail') && isRecoveryModuleVisible('parentInvites', { user })
       ? [
           makeStep({
             id: 'team-parent-contacts',
@@ -494,7 +542,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
           }),
         ]
       : []),
-  ]
+  ].filter((step) => step.id !== 'team-match-day' || isRecoveryModuleVisible('matchDay', { user }))
 }
 
 function buildCoachSteps(user, snapshot, scope) {
@@ -600,6 +648,10 @@ export function buildOnboardingPlan(user, snapshot = {}) {
   }
 
   if (isParentPortalUser(user)) {
+    if (!isRecoveryModuleVisible('parentPortal', { user })) {
+      return null
+    }
+
     const scope = 'user'
     const manualState = getManualState(user, scope)
 
@@ -678,7 +730,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
       description: 'Confirm the assigned team is ready for this week without changing club-wide setup.',
       firstAction: user.activeTeamId ? '/players/current' : '/coach',
       scope,
-      title: 'Team manager setup',
+      title: 'Team setup',
       manualState,
       steps: buildTeamManagerSteps(user, snapshot, scope),
     }

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { Component, Suspense, lazy, useEffect } from 'react'
-import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
+import { Component, Suspense, lazy, useEffect, useState } from 'react'
+import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
   canCreateEvaluation,
@@ -17,6 +17,7 @@ import {
   canViewBilling,
   canViewEndSeasonStats,
   hasTeamWorkflowContext,
+  isClubAdmin,
   isSuperAdmin,
   isParentPortalUser,
   isTesterAccessExpired,
@@ -24,8 +25,18 @@ import {
   useAuth,
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
-import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
-import { getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import { isPlanAccessActive } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../lib/paywall-ui.js'
+import { buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import {
+  canOpenParentPortal,
+  getSignedInAccountEmail,
+  hasActiveParentPortalLink,
+  isParentIntentPath,
+  rememberParentAccessIntent,
+} from '../lib/parent-auth-intent.js'
+import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -86,6 +97,7 @@ const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
+const TesterFeedbackPage = lazyRoute(() => import('../pages/TesterFeedbackPage.jsx'), 'TesterFeedbackPage')
 const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
 const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
@@ -96,13 +108,47 @@ const primaryActionClassName =
 const secondaryActionClassName =
   'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
+const supportEmail = 'support@footballplayer.online'
+
 function LoadingScreen() {
+  const showLoader = useDelayedLoader()
+
+  if (!showLoader) {
+    return <main className="min-h-screen bg-[var(--app-bg)]" aria-hidden="true" />
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)]">
-      <div className="rounded-lg border border-[#d7e5dc] bg-white px-6 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
+      <div className="route-loading-panel rounded-lg px-6 py-5 text-sm font-bold">
         Loading...
       </div>
     </main>
+  )
+}
+
+function useDelayedLoader(delay = 350) {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsVisible(true), delay)
+
+    return () => window.clearTimeout(timer)
+  }, [delay])
+
+  return isVisible
+}
+
+function DelayedRouteFallback() {
+  const showLoader = useDelayedLoader()
+
+  if (!showLoader) {
+    return null
+  }
+
+  return (
+    <div className="route-minimal-loader px-4 py-6 text-sm font-bold text-[var(--text-muted)]" role="status" aria-live="polite">
+      Loading...
+    </div>
   )
 }
 
@@ -115,41 +161,34 @@ function isParentHost() {
   return isParentPortalHost()
 }
 
-function NavigateToParentInvite() {
-  return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
+function getParentLoginTarget() {
+  return isParentHost() ? '/parent-login' : buildParentAppUrl('/parent-login')
 }
 
-function RouteContentSkeleton() {
-  return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-8 shadow-sm shadow-[#047857]/10">
-        <div className="h-4 w-28 rounded-lg bg-[#d1fae5]" />
-        <div className="mt-5 h-10 w-64 max-w-full rounded-lg bg-[#ccfbf1]" />
-        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[#ccfbf1]" />
-      </div>
-      <div className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-8 shadow-sm shadow-[#047857]/10">
-        <div className="h-8 w-40 rounded-lg bg-[#ccfbf1]" />
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="h-28 rounded-lg bg-[#ccfbf1]" />
-          <div className="h-28 rounded-lg bg-[#ccfbf1]" />
-        </div>
-      </div>
-    </div>
-  )
+function ParentLoginRedirect() {
+  if (isParentHost()) {
+    return <Navigate to="/parent-login" replace />
+  }
+
+  return <ExternalRedirect to={buildParentAppUrl('/parent-login')} />
+}
+
+function NavigateToParentInvite() {
+  return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
 }
 
 const accountRecoveryRules = [
   {
     title: 'Session is active',
-    body: 'The browser still has a Supabase login session.',
+    body: 'This browser is signed in, but the account still needs a matching profile or parent portal link.',
   },
   {
-    title: 'Profile is missing',
-    body: 'This workspace cannot match that login to a club, parent, team, or platform profile.',
+    title: 'Parent link is missing',
+    body: 'We could not find an active parent portal link for this account.',
   },
   {
-    title: 'Use the right account',
-    body: 'Use an account that belongs to this workspace. Test and live workspaces keep accounts separate.',
+    title: 'Use the invite email',
+    body: 'Make sure you are using the same email address that received the parent portal invite.',
   },
 ]
 
@@ -199,7 +238,7 @@ function AccountDetailsUnavailableState({ message }) {
   return (
     <RouteGateState
       title="Account details unavailable"
-      message={message || 'Your login session is active, but this workspace could not find a matching account profile. Retry once after a refresh. If it still appears, sign in again with an account that belongs to this workspace.'}
+      message={message || 'Your login session is active, but this account is not linked to an active parent portal profile. Ask your club or team contact to resend your parent portal invite, then sign in with the same email address that received it.'}
       rules={accountRecoveryRules}
       actions={(
         <>
@@ -217,6 +256,49 @@ function AccountDetailsUnavailableState({ message }) {
           >
             Sign in again
           </button>
+        </>
+      )}
+    />
+  )
+}
+
+function ParentAccountIntentState({ session, type = 'mismatch', user }) {
+  const { signOut } = useAuth()
+  const email = getSignedInAccountEmail({ user, session })
+  const isNoLink = type === 'no-link'
+
+  const handleSwitchToParentLogin = async () => {
+    try {
+      await signOut()
+    } finally {
+      rememberParentAccessIntent()
+      window.location.assign(getParentLoginTarget())
+    }
+  }
+
+  return (
+    <RouteGateState
+      eyebrow="Parent portal"
+      title={isNoLink ? 'Parent access is not linked yet' : 'Use a parent account for the Parent Portal'}
+      message={isNoLink
+        ? 'This signed-in parent account is not linked to a child yet. Ask the club to send or refresh your parent invite, or sign out and continue with the linked parent account.'
+        : `You are currently signed in${email ? ` as ${email}` : ''}. To use the Parent Portal, sign out and continue with a parent account.`}
+      rules={[
+        { title: 'Parent access only', body: 'The Parent Portal opens only for accounts with an active parent-child link.' },
+        { title: 'Main session protected', body: 'A staff or main-platform session cannot silently open the Parent Portal or reroute this parent action.' },
+      ]}
+      actions={(
+        <>
+          <button
+            type="button"
+            onClick={handleSwitchToParentLogin}
+            className={primaryActionClassName}
+          >
+            Sign out and continue to Parent Login
+          </button>
+          <a href={getMainAppOrigin()} className={secondaryActionClassName}>
+            Go to main platform
+          </a>
         </>
       )}
     />
@@ -255,18 +337,18 @@ function TesterAccessExpiredState() {
   return (
     <RouteGateState
       eyebrow="Billing"
-      title="Tester access has ended"
-      message="Your temporary tester access has expired. Your club data is still safe. A paid plan is needed to continue using the workspace."
+      title="Workspace access needs review"
+      message="This workspace needs plan access reviewed before staff can continue using club tools. Your existing club data remains safe."
       rules={[
-        { title: 'Temporary access only', body: 'Tester links expire so staging and trial access do not stay open forever.' },
-        { title: 'Billing unlocks work', body: 'Choose a plan before staff continue with club tools.' },
+        { title: 'Club records stay safe', body: 'Plan access gates tools without deleting saved football data.' },
+        { title: 'Ask your Club Admin', body: 'A Club Admin or support can review billing and plan access for this workspace.' },
       ]}
       actions={(
         <a
-          href="/billing"
+          href={`mailto:${supportEmail}`}
           className={primaryActionClassName}
         >
-          View billing options
+          Contact support
         </a>
       )}
     />
@@ -285,10 +367,59 @@ function PlanAccessRequiredState() {
       ]}
       actions={(
         <a
-          href="/billing"
+          href={`mailto:${supportEmail}`}
           className={primaryActionClassName}
         >
-          View billing options
+          Contact support
+        </a>
+      )}
+    />
+  )
+}
+
+function RecoveryPhaseBlockedState() {
+  return (
+    <RouteGateState
+      eyebrow="Recovery"
+      title="This area is hidden during Phase 1"
+      message={`Football Player is in Phase ${CURRENT_RECOVERY_PHASE} recovery. This module is not part of the current test surface, so it is hidden until the core tools are trusted.`}
+      rules={[
+        { title: 'Core tools first', body: 'Phase 1 is limited to setup, teams, players, sessions, and development records.' },
+        { title: 'No data changed', body: 'This block only prevents access to an unfinished recovery surface.' },
+      ]}
+      actions={(
+        <a href="/coach" className={primaryActionClassName}>
+          Return to workspace
+        </a>
+      )}
+    />
+  )
+}
+
+function FormBuilderUnavailableState() {
+  return (
+    <RouteGateState
+      eyebrow="Development fields"
+      title="Development fields are managed from team-level access."
+      message="Choose a team-level coach, manager, or team admin account to manage custom development fields for that team."
+      actions={(
+        <a href="/coach" className={secondaryActionClassName}>
+          Return to workspace
+        </a>
+      )}
+    />
+  )
+}
+
+function EmailTemplatesUnavailableState() {
+  return (
+    <RouteGateState
+      eyebrow="Email templates"
+      title="Email templates are managed by your club admin."
+      message="This area is not available for your current role or plan. Parent email templates stay managed by the club admin so staff use approved parent updates."
+      actions={(
+        <a href="/coach" className={secondaryActionClassName}>
+          Return to workspace
         </a>
       )}
     />
@@ -296,7 +427,7 @@ function PlanAccessRequiredState() {
 }
 
 function TeamContextRequiredState() {
-  const { isProfileLoading, selectTeam, teamOptions } = useAuth()
+  const { isProfileLoading, selectTeam, teamOptions, user } = useAuth()
 
   const handleTeamSelect = async (teamId) => {
     try {
@@ -309,7 +440,7 @@ function TeamContextRequiredState() {
   const hasTeams = teamOptions.length > 0
 
   useEffect(() => {
-    if (teamOptions.length !== 1 || isProfileLoading) {
+    if (teamOptions.length !== 1 || isProfileLoading || isClubAdmin(user)) {
       return
     }
 
@@ -318,37 +449,75 @@ function TeamContextRequiredState() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProfileLoading, teamOptions])
 
+  if (!hasTeams) {
+    return (
+      <RouteGateState
+        eyebrow="Team access"
+        title="Choose your team"
+        message="This account is not linked to a team yet. Ask a club admin to add this account to a team before using team tools."
+        actions={(
+          <a href="/coach" className={secondaryActionClassName}>
+            Return to club home
+          </a>
+        )}
+      />
+    )
+  }
+
+  return (
+    <section className="mx-auto max-w-4xl rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-7">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Team access</p>
+      <h1 className="mt-3 text-3xl font-black leading-[1.05] tracking-tight text-[#101828] sm:text-4xl">Choose your team</h1>
+      <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#4b5f55]">
+        You are linked to more than one team. Select the team you want to work with.
+      </p>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {teamOptions.map((team) => (
+          <button
+            key={team.id}
+            type="button"
+            onClick={() => void handleTeamSelect(team.id)}
+            disabled={isProfileLoading}
+            className="group flex min-h-24 w-full items-center justify-between gap-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-left shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-base font-black text-[#101828]">{team.name || 'Unnamed team'}</span>
+              <span className="mt-1 block text-sm font-semibold text-[#4b5f55]">{team.roleLabel || team.role || team.accessLabel || 'Team access'}</span>
+            </span>
+            <span className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 text-sm font-black text-[#047857] transition group-hover:border-[#047857] group-hover:bg-[#047857] group-hover:text-white">
+              {isProfileLoading ? 'Opening...' : 'Open team'}
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function FeatureUnavailableState({ capability, user }) {
+  const title = capability ? 'This feature is not available' : 'This area is not available'
+  const message = createUiFeatureUnavailableMessage(user, capability)
+
   return (
     <RouteGateState
-      eyebrow="Team context"
-      title="Choose a team before using this workflow"
-      message="Sessions, players, parent linking, match day, and player profiles need an active team so records are saved in the right place."
+      eyebrow="Plan access"
+      title={title}
+      message={message}
       rules={[
-        { title: 'Club-wide view', body: 'Use club-wide view for setup, staff, billing, and club settings.' },
-        { title: 'Team tools need a team', body: 'Pick a team before opening player records, sessions, availability, or match day.' },
-        { title: hasTeams ? 'Choose below' : 'No team linked', body: hasTeams ? 'Open the team you want to work with for this session.' : 'Ask a club admin to add this account to a team before using team workflows.' },
+        { title: 'No data changed', body: 'This block only prevents access to a feature that is not available for this workspace.' },
+        { title: 'Existing records stay safe', body: 'Saved club, team, player, and parent records are not removed by plan access checks.' },
       ]}
-      actions={hasTeams ? (
-        <div className="grid w-full gap-2 sm:grid-cols-2">
-          {teamOptions.map((team) => (
-            <button
-              key={team.id}
-              type="button"
-              onClick={() => void handleTeamSelect(team.id)}
-              disabled={isProfileLoading}
-              className={primaryActionClassName}
-            >
-              {isProfileLoading ? 'Opening...' : `Open ${team.name || 'team'}`}
-            </button>
-          ))}
-        </div>
-      ) : (
+      actions={(
         <a href="/coach" className={secondaryActionClassName}>
-          Return to club home
+          Return to workspace
         </a>
       )}
     />
   )
+}
+
+function RouteFeatureUnavailableState({ path, user }) {
+  return <FeatureUnavailableState capability={getRouteCapability(path)} user={user} />
 }
 
 function isClubSuspended(user) {
@@ -377,11 +546,11 @@ function getDefaultWorkspacePath(user) {
   }
 
   if (isTesterAccessExpired(user)) {
-    return '/billing'
+    return canViewBilling(user) ? '/billing' : '/coach'
   }
 
   if (!isPlanAccessActive(user)) {
-    return '/billing'
+    return canViewBilling(user) ? '/billing' : '/coach'
   }
 
   if (canManageTeamSettings(user)) {
@@ -412,6 +581,7 @@ function useWorkspaceRouteGate({
   blockExpiredTester = true,
   requireActivePlan = false,
   showPlanAccessState = false,
+  parentIntent = false,
 } = {}) {
   const { authError, isLoading, isProfileLoading, session, user } = useAuth()
 
@@ -420,11 +590,15 @@ function useWorkspaceRouteGate({
   }
 
   if (!session?.user) {
+    if (parentIntent) {
+      return { element: <ParentLoginRedirect />, user: null }
+    }
+
     return { element: <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />, user: null }
   }
 
   if (!user && isProfileLoading) {
-    return { element: <RouteContentSkeleton />, user: null }
+    return { element: <DelayedRouteFallback />, user: null }
   }
 
   if (!user) {
@@ -434,12 +608,28 @@ function useWorkspaceRouteGate({
     }
   }
 
+  if (parentIntent) {
+    if (!isParentPortalUser(user)) {
+      return { element: <ParentAccountIntentState session={session} user={user} />, user }
+    }
+
+    if (!hasActiveParentPortalLink(user)) {
+      return { element: <ParentAccountIntentState session={session} type="no-link" user={user} />, user }
+    }
+
+    return { element: null, user }
+  }
+
   if (redirectSuperAdmin && isSuperAdmin(user)) {
     return { element: isParentHost() ? <ExternalRedirect to={getMainAppOrigin()} /> : <Navigate to="/platform-admin" replace />, user }
   }
 
   if (isParentHost() && !isParentPortalUser(user)) {
     return { element: <ExternalRedirect to={getMainAppOrigin()} />, user }
+  }
+
+  if (isParentHost() && isParentPortalUser(user)) {
+    return { element: <Navigate to="/parent-portal" replace />, user }
   }
 
   if (!redirectSuperAdmin && isParentPortalUser(user)) {
@@ -543,7 +733,7 @@ class RouteErrorBoundary extends Component {
 function PageSuspense({ children }) {
   return (
     <RouteErrorBoundary>
-      <Suspense fallback={<RouteContentSkeleton />}>{children}</Suspense>
+      <Suspense fallback={<DelayedRouteFallback />}>{children}</Suspense>
     </RouteErrorBoundary>
   )
 }
@@ -552,7 +742,7 @@ function WorkspaceHome() {
   const { authError, isProfileLoading, user } = useAuth()
 
   if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
+    return <DelayedRouteFallback />
   }
 
   if (!user) {
@@ -580,11 +770,11 @@ function WorkspaceHome() {
   }
 
   if (isTesterAccessExpired(user)) {
-    return <Navigate to="/billing" replace />
+    return canViewBilling(user) ? <Navigate to="/billing" replace /> : <TesterAccessExpiredState />
   }
 
   if (!isPlanAccessActive(user)) {
-    return <Navigate to="/billing" replace />
+    return canViewBilling(user) ? <Navigate to="/billing" replace /> : <PlanAccessRequiredState />
   }
 
   return <RedirectToWorkspaceHome user={user} />
@@ -607,6 +797,10 @@ function PublicLandingOrWorkspaceHome() {
     )
   }
 
+  if (isParentHost()) {
+    return <Navigate to="/parent-portal" replace />
+  }
+
   return (
     <PageSuspense>
       <WorkspaceHome />
@@ -615,6 +809,7 @@ function PublicLandingOrWorkspaceHome() {
 }
 
 function RequireUser() {
+  const location = useLocation()
   const { isLoading, session } = useAuth()
 
   if (isLoading && !session?.user) {
@@ -622,6 +817,10 @@ function RequireUser() {
   }
 
   if (!session?.user) {
+    if (isParentIntentPath(location.pathname)) {
+      return <ParentLoginRedirect />
+    }
+
     return <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />
   }
 
@@ -643,16 +842,34 @@ function RequireClubWorkspace() {
 
 function RequirePlayerWorkflowAccess() {
   const { element, user } = useWorkspaceRouteGate()
+  const location = useLocation()
+  const routeCapability = getRouteCapability(location.pathname)
 
   if (element) {
     return element
+  }
+
+  if (!isRecoveryPathVisible(location.pathname, { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
+  if ((location.pathname === '/calendar' || location.pathname.startsWith('/calendar/')) && isClubAdmin(user)) {
+    if (canUseUiFeature(user, CAPABILITIES.clubWideCalendar)) {
+      return <Outlet />
+    }
+
+    return <FeatureUnavailableState capability={CAPABILITIES.clubWideCalendar} user={user} />
   }
 
   if (needsTeamWorkflowContext(user) || !hasTeamWorkflowContext(user)) {
     return <TeamContextRequiredState />
   }
 
-  if (!canCreateEvaluation(user)) {
+  if (!canCreateEvaluation(user) || !canUseUiFeature(user, routeCapability)) {
+    if (routeCapability) {
+      return <FeatureUnavailableState capability={routeCapability} user={user} />
+    }
+
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -660,17 +877,23 @@ function RequirePlayerWorkflowAccess() {
 }
 
 function RequireParentPortalAccess() {
+  const location = useLocation()
   const { element, user } = useWorkspaceRouteGate({
     redirectSuperAdmin: false,
     blockExpiredTester: false,
+    parentIntent: true,
   })
 
   if (element) {
     return element
   }
 
-  if (!isParentPortalUser(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canOpenParentPortal(user)) {
+    return <ParentAccountIntentState type={isParentPortalUser(user) ? 'no-link' : 'mismatch'} user={user} />
+  }
+
+  if (!isRecoveryPathVisible(location.pathname, { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   return <Outlet />
@@ -683,12 +906,16 @@ function RequireParentLinkingAccess() {
     return element
   }
 
+  if (!isRecoveryModuleVisible('parentInvites', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (needsTeamWorkflowContext(user)) {
     return <TeamContextRequiredState />
   }
 
-  if (!canManageParentLinks(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageParentLinks(user) || !canUseUiFeature(user, CAPABILITIES.parentInvitations)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.parentInvitations} user={user} />
   }
 
   return <Outlet />
@@ -701,12 +928,16 @@ function RequireEmailQueueAccess() {
     return element
   }
 
+  if (!isRecoveryModuleVisible('emailMessages', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (needsTeamWorkflowContext(user)) {
     return <TeamContextRequiredState />
   }
 
-  if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageEmailQueue(user) || !canUseUiFeature(user, CAPABILITIES.parentEmails)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.parentEmails} user={user} />
   }
 
   return <Outlet />
@@ -719,12 +950,12 @@ function RequirePollAccess() {
     return element
   }
 
-  if (needsTeamWorkflowContext(user)) {
-    return <TeamContextRequiredState />
+  if (!isRecoveryModuleVisible('pollsAvailability', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
-  if (!canManagePolls(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManagePolls(user) || !canUseUiFeature(user, CAPABILITIES.teamPolls)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.teamPolls} user={user} />
   }
 
   return <Outlet />
@@ -737,18 +968,23 @@ function RequireMatchDayAccess() {
     return element
   }
 
+  if (!isRecoveryModuleVisible('matchDay', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (needsTeamWorkflowContext(user)) {
     return <TeamContextRequiredState />
   }
 
-  if (!canManageMatchDay(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageMatchDay(user) || !canUseUiFeature(user, CAPABILITIES.matchDay)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.matchDay} user={user} />
   }
 
   return <Outlet />
 }
 
 function PublicOnly() {
+  const location = useLocation()
   const { isLoading, session } = useAuth()
 
   if (isLoading && !session?.user) {
@@ -756,6 +992,10 @@ function PublicOnly() {
   }
 
   if (session?.user) {
+    if (isParentIntentPath(location.pathname)) {
+      return <Outlet />
+    }
+
     return <Navigate to={isParentHost() ? '/parent-portal' : '/'} replace />
   }
 
@@ -769,12 +1009,16 @@ function RequireFormBuilderAccess() {
     return element
   }
 
-  if (!canManageFormFields(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!isRecoveryModuleVisible('formBuilder', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
-  if (!hasPlanFeature(user, 'customFormFields')) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageFormFields(user)) {
+    return <FormBuilderUnavailableState />
+  }
+
+  if (!canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.customDevelopmentFields} user={user} />
   }
 
   return <Outlet />
@@ -788,11 +1032,15 @@ function RequireParentEmailTemplatesAccess() {
   }
 
   if (!canManageParentEmailTemplates(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+    return <EmailTemplatesUnavailableState />
   }
 
-  if (!hasPlanFeature(user, 'parentEmail')) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!isRecoveryModuleVisible('emailMessages', { user })) {
+    return <EmailTemplatesUnavailableState />
+  }
+
+  if (!canUseUiFeature(user, CAPABILITIES.parentEmails)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.parentEmails} user={user} />
   }
 
   return <Outlet />
@@ -805,8 +1053,8 @@ function RequireClubSettingsAccess() {
     return element
   }
 
-  if (!canManageClubSettings(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageClubSettings(user) || !canUseUiFeature(user, CAPABILITIES.basicLogoBranding)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.basicLogoBranding} user={user} />
   }
 
   return <Outlet />
@@ -819,6 +1067,10 @@ function RequireBillingAccess() {
 
   if (element) {
     return element
+  }
+
+  if (!isRecoveryModuleVisible('billing', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   if (!canViewBilling(user)) {
@@ -835,8 +1087,8 @@ function RequireUserAccess() {
     return element
   }
 
-  if (!canManageUsers(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageUsers(user) || !canUseUiFeature(user, CAPABILITIES.teamStaffRoles)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.teamStaffRoles} user={user} />
   }
 
   return <Outlet />
@@ -849,8 +1101,8 @@ function RequireTeamSettingsAccess() {
     return element
   }
 
-  if (!canManageTeamSettings(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageTeamSettings(user) || !canUseUiFeature(user, CAPABILITIES.teamStaffRoles)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.teamStaffRoles} user={user} />
   }
 
   return <Outlet />
@@ -863,8 +1115,12 @@ function RequireEndSeasonStatsAccess() {
     return element
   }
 
-  if (!canViewEndSeasonStats(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canViewEndSeasonStats(user) || !canUseUiFeature(user, CAPABILITIES.basicClubAnalytics)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.basicClubAnalytics} user={user} />
+  }
+
+  if (!isRecoveryModuleVisible('reports', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   return <Outlet />
@@ -883,8 +1139,42 @@ function RequireActivityLogAccess() {
     return <RedirectToWorkspaceHome user={user} />
   }
 
-  if (!isSuperAdmin(user) && !hasPlanFeature(user, 'auditLogs')) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!isRecoveryModuleVisible('activityLog', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
+  if (!isSuperAdmin(user) && !canUseUiFeature(user, CAPABILITIES.fullOperationalAuditLog)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.fullOperationalAuditLog} user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequirePlatformFeedbackAccess() {
+  const { element, user } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
+
+  if (element) {
+    return element
+  }
+
+  if (!isRecoveryModuleVisible('platformFeedback', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
+  return <Outlet />
+}
+
+function RequireTesterFeedbackAccess() {
+  const { element } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
+
+  if (element) {
+    return element
   }
 
   return <Outlet />
@@ -1117,15 +1407,36 @@ export const router = createBrowserRouter([
             ],
           },
           {
-            path: 'platform-feedback',
-            element: (
-              <PageSuspense>
-                <PlatformFeedbackPage />
-              </PageSuspense>
-            ),
-            handle: {
-              title: 'Platform Feedback',
-            },
+            element: <RequirePlatformFeedbackAccess />,
+            children: [
+              {
+                path: 'platform-feedback',
+                element: (
+                  <PageSuspense>
+                    <PlatformFeedbackPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Platform Feedback',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireTesterFeedbackAccess />,
+            children: [
+              {
+                path: 'feedback/new',
+                element: (
+                  <PageSuspense>
+                    <TesterFeedbackPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Report Tester Feedback',
+                },
+              },
+            ],
           },
           {
             element: <RequireActivityLogAccess />,
@@ -1225,7 +1536,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Club Home',
+                  title: 'Home',
                 },
               },
               {
@@ -1240,6 +1551,17 @@ export const router = createBrowserRouter([
                     ),
                     handle: {
                       title: 'Add Player',
+                    },
+                  },
+                  {
+                    path: 'calendar',
+                    element: (
+                      <PageSuspense>
+                        <SessionsPage calendarOnly />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Calendar',
                     },
                   },
                   {

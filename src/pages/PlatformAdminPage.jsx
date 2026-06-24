@@ -11,6 +11,7 @@ import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { logPlatformStatsDiagnostic, normalizePlatformStatsPayload } from '../lib/domain/platform-normalizers.js'
 import {
   formatPlatformDate,
   getClubManagementStats,
@@ -90,6 +91,27 @@ function getPlatformActionErrorMessage(error, fallbackMessage) {
   return message || fallbackMessage || 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-SERVERERR-007.'
 }
 
+function readCachedPlatformStats() {
+  const cachedStats = readViewCacheValue(cacheKey, 'stats', null)
+
+  if (!cachedStats) {
+    return null
+  }
+
+  const normalizedStats = normalizePlatformStatsPayload(cachedStats)
+  const cachedClubCount = Array.isArray(cachedStats?.clubs) ? cachedStats.clubs.length : 0
+  const normalizedClubCount = normalizedStats.clubs.length
+
+  if (cachedClubCount !== normalizedClubCount) {
+    logPlatformStatsDiagnostic('ignored_invalid_cached_platform_clubs', {
+      source: 'session-cache',
+      invalidClubRows: cachedClubCount - normalizedClubCount,
+    })
+  }
+
+  return normalizedStats
+}
+
 const PAGE_META = {
   dashboard: {
     title: 'Platform dashboard',
@@ -107,7 +129,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const pageMeta = PAGE_META[section] || PAGE_META.dashboard
   const showDashboard = section === 'dashboard'
   const showClubManagement = section === 'clubs'
-  const [stats, setStats] = useState(() => readViewCacheValue(cacheKey, 'stats', null))
+  const [stats, setStats] = useState(() => readCachedPlatformStats())
   const [feedbackItems, setFeedbackItems] = useState(() => {
     const cachedItems = readViewCacheValue(feedbackCacheKey, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
@@ -168,9 +190,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           return
         }
 
-        setStats(nextStats)
+        const normalizedStats = normalizePlatformStatsPayload(nextStats)
+        setStats(normalizedStats)
         writeViewCache(cacheKey, {
-          stats: nextStats,
+          stats: normalizedStats,
         })
       } catch (error) {
         console.error(error)
@@ -302,6 +325,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                 planKey: updatedClub.planKey,
                 planStatus: updatedClub.planStatus,
                 isPlanComped: updatedClub.isPlanComped,
+                teamLimitOverride: updatedClub.teamLimitOverride ?? null,
+                teamLimitOverrideUpdatedAt: updatedClub.teamLimitOverrideUpdatedAt ?? '',
+                planTeamLimit: updatedClub.planTeamLimit,
+                effectiveTeamLimit: updatedClub.effectiveTeamLimit,
                 stripeSubscriptionId: updatedClub.stripeSubscriptionId,
                 currentPeriodEnd: updatedClub.currentPeriodEnd,
                 planUpdatedAt: updatedClub.planUpdatedAt,
@@ -554,6 +581,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleToggleClubStatus = async (club) => {
+    if (!club?.id) {
+      setErrorMessage('This club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     const nextStatus = club.status === 'suspended' ? 'active' : 'suspended'
     setUpdatingClubId(club.id)
     setErrorMessage('')
@@ -577,6 +609,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleClubPlanChange = async (club, fieldName, value) => {
+    if (!club?.id) {
+      setErrorMessage('This club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setUpdatingClubId(club.id)
     setErrorMessage('')
     setSuccessMessage('')
@@ -588,12 +625,17 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           Authorization: `Bearer ${session?.access_token || ''}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          clubId: club.id,
-          planKey: fieldName === 'planKey' ? value : club.planKey,
-          planStatus: fieldName === 'planStatus' ? value : club.planStatus,
-          isPlanComped: fieldName === 'isPlanComped' ? value : club.isPlanComped,
-        }),
+        body: JSON.stringify(
+          fieldName === 'teamLimitOverride'
+            ? {
+                clubId: club.id,
+                teamLimitOverride: value,
+              }
+            : {
+                clubId: club.id,
+                [fieldName]: value,
+              },
+        ),
       })
       const result = await response.json().catch(() => ({}))
 
@@ -601,8 +643,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         throw new Error(result.message || 'Club plan could not be updated.')
       }
 
-      setSuccessMessage(result.message || 'Club plan updated.')
-      showToast({ title: 'Club plan saved', message: result.message || 'Club plan settings have been updated.' })
+      const successTitle = fieldName === 'teamLimitOverride' ? 'Team allowance saved' : 'Club plan saved'
+      setSuccessMessage(result.message || 'Club settings updated.')
+      showToast({ title: successTitle, message: result.message || 'Club settings have been updated.' })
       patchClubStats(result.club)
       refreshStats()
     } catch (error) {
@@ -614,6 +657,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleDeleteClub = async (club) => {
+    if (!club?.id) {
+      setErrorMessage('This club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setClubDeleteTarget(club)
     setConfirmErrorMessage('')
     setErrorMessage('')
@@ -621,6 +669,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleDeleteTeam = async (club, team) => {
+    if (!club?.id || !team?.id) {
+      setErrorMessage('This team record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setTeamDeleteTarget({
       ...team,
       clubName: club.name,
@@ -666,6 +719,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleAccountAction = async (club, member, action) => {
+    if (!club?.id || !member?.id) {
+      setErrorMessage('This user record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setAccountActionTarget({
       ...member,
       clubId: club.id,

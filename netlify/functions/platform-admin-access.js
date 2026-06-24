@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './_supabase.js'
 import { json } from './_stripe-billing.js'
+import { normalizePlanKey } from '../../src/lib/plans.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -41,7 +42,7 @@ function normalizeClubMembershipRow(row) {
     clubContactPhone: String(club?.contact_phone ?? '').trim(),
     clubStatus: String(club?.status ?? 'active').trim() || 'active',
     clubSuspendedAt: club?.suspended_at ?? '',
-    planKey: String(club?.plan_key ?? 'small_club').trim() || 'small_club',
+    planKey: normalizePlanKey(club?.plan_key, { mapMissingToFree: true }),
     planStatus: String(club?.plan_status ?? 'active').trim() || 'active',
     isPlanComped: Boolean(club?.is_plan_comped ?? false),
     requireApproval: Boolean(club?.require_approval ?? true),

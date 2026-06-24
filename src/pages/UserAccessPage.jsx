@@ -86,7 +86,9 @@ export function UserAccessPage() {
         const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
           withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load active users.'),
-          withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.'),
+          user?.role === 'admin' || user?.role === 'super_admin'
+            ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.')
+            : Promise.resolve([]),
         ])
 
         if (!isMounted) {
@@ -180,6 +182,7 @@ export function UserAccessPage() {
   const pendingAccessCount = pendingInvites.length
   const visibleRoleCount = assignableRoles.length
   const scopeLabel = user?.activeTeamName || (accessScope === 'club' ? 'Whole club' : 'Assigned teams')
+  const canManagePendingAllocations = user?.role === 'admin' || user?.role === 'super_admin'
 
   if (!canManageUsers(user)) {
     return <Navigate to="/" replace />
@@ -199,7 +202,9 @@ export function UserAccessPage() {
     const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
       withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
       withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load active users.'),
-      withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.'),
+      canManagePendingAllocations
+        ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.')
+        : Promise.resolve([]),
     ])
 
     const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
@@ -426,12 +431,13 @@ export function UserAccessPage() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Access state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{activeAndPendingEmailCount} staff emails tracked</p>
               <p className={`mt-2 ${bodyTextClass}`}>
-                Scope: {scopeLabel}. {pendingAccessCount} pending invites and {members.length} active users are visible to this account.
+                Scope: {scopeLabel}. {members.length} active users are visible to this account.
+                {canManagePendingAllocations ? ` ${pendingAccessCount} pending invites are visible.` : ''}
               </p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <AccessMetric label="Active" value={members.length} />
-              <AccessMetric label="Pending" value={pendingAccessCount} />
+              {canManagePendingAllocations ? <AccessMetric label="Pending" value={pendingAccessCount} /> : null}
               <AccessMetric label="Roles" value={visibleRoleCount} />
               <AccessMetric label="Plan count" value={activeAndPendingEmailCount} />
             </div>
@@ -481,16 +487,18 @@ export function UserAccessPage() {
         user={user}
       />
 
-      <PendingAllocationsSection
-        invitePage={invitePage}
-        isLoading={isLoading}
-        isSaving={isSaving}
-        onDeleteInvite={handleDeleteInvite}
-        onInvitePageChange={setInvitePage}
-        pageSize={INVITE_PAGE_SIZE}
-        paginatedInvites={paginatedInvites}
-        pendingInvites={pendingInvites}
-      />
+      {canManagePendingAllocations ? (
+        <PendingAllocationsSection
+          invitePage={invitePage}
+          isLoading={isLoading}
+          isSaving={isSaving}
+          onDeleteInvite={handleDeleteInvite}
+          onInvitePageChange={setInvitePage}
+          pageSize={INVITE_PAGE_SIZE}
+          paginatedInvites={paginatedInvites}
+          pendingInvites={pendingInvites}
+        />
+      ) : null}
 
       <ConfirmModal
         isOpen={Boolean(memberRemoveTarget)}

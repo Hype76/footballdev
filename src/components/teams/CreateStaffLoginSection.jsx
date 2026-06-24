@@ -18,7 +18,7 @@ export function CreateStaffLoginSection({
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invite staff with team access</h2>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
           {canCreateMoreStaff
-            ? 'Send a staff invite, choose the role, and attach the login to one team. Coaches should only see the squads they work with.'
+            ? 'Send a staff invite, choose the role, and assign the person to one team now. They stay pending until they accept, but setup can continue.'
             : staffLimitMessage}
         </p>
       </div>

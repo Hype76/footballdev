@@ -3,7 +3,6 @@ import {
   FIELD_TYPE_OPTIONS,
   isScoreType,
 } from '../../hooks/form-builder/formBuilderUtils.js'
-import { createFeatureUpgradeMessage } from '../../lib/plans.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
@@ -13,6 +12,7 @@ const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-cen
 export function AddFieldSection({
   canUseCustomFields,
   fieldForm,
+  featureUnavailableMessage = 'Custom development fields are not available for this workspace.',
   isSaving,
   onAddField,
   onFormChange,
@@ -20,7 +20,7 @@ export function AddFieldSection({
   const addFieldDisabledReason = isSaving
     ? 'Please wait while this field is being saved.'
     : !canUseCustomFields
-      ? createFeatureUpgradeMessage('customFormFields')
+      ? featureUnavailableMessage
       : undefined
 
   return (
@@ -30,7 +30,7 @@ export function AddFieldSection({
       description={
         canUseCustomFields
           ? 'Create one useful field at a time. Prefer fields that a coach can complete quickly.'
-          : createFeatureUpgradeMessage('customFormFields')
+          : featureUnavailableMessage
       }
     >
       <form className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10" onSubmit={onAddField}>
@@ -85,9 +85,22 @@ export function AddFieldSection({
           ) : null}
 
           {isScoreType(fieldForm.type) ? (
-            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 md:col-span-2">
+            <div className="space-y-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 md:col-span-2">
               <p className="text-sm font-black text-[#101828]">Score options</p>
               <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{createScoreOptions(fieldForm.type).join(', ')}</p>
+              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828]">
+                <input
+                  type="checkbox"
+                  name="includeInProgressChart"
+                  checked={Boolean(fieldForm.includeInProgressChart)}
+                  onChange={onFormChange}
+                  className="h-5 w-5 rounded border-[#d7e5dc] bg-white accent-[#047857]"
+                />
+                <span>Include in progression chart</span>
+              </label>
+              <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+                Use this score when building player progression charts.
+              </p>
             </div>
           ) : null}
 

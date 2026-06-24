@@ -1,6 +1,6 @@
 import process from 'node:process'
-import { Resend } from 'resend'
 import { supabaseAdmin } from './_supabase.js'
+import { sendEmail } from './_email-provider.js'
 import {
   getFailedEmailLogs,
   getStoredResendPayload,
@@ -45,7 +45,6 @@ export async function handler(event) {
     throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`)
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
   const failedEmailLogs = await getFailedEmailLogs()
   const summary = {
     scanned: failedEmailLogs.length,
@@ -74,12 +73,27 @@ export async function handler(event) {
       const clubId = String(lockedEmailLog.payload?.clubId ?? '').trim()
 
       if (requiredFeature && clubId) {
-        const planProfile = await getClubPlanProfile(clubId)
+        const planProfile = {
+          ...await getClubPlanProfile(clubId),
+          role: 'system',
+          roleRank: 100,
+        }
         assertPlanFeature(planProfile, requiredFeature)
       }
 
       const resendPayload = getStoredResendPayload(lockedEmailLog)
-      const response = await resend.emails.send(resendPayload)
+      const response = await sendEmail(resendPayload, {
+        context: {
+          emailType: String(lockedEmailLog.payload?.requiredFeature || 'retry_failed_email'),
+          actorId: String(lockedEmailLog.payload?.actorId || ''),
+          actorEmail: String(lockedEmailLog.payload?.actorEmail || ''),
+          clubId,
+          teamId: String(lockedEmailLog.payload?.teamId || ''),
+          targetEntityType: 'email_log',
+          targetEntityId: lockedEmailLog.id,
+        },
+        publicMessage: 'Email retry could not be sent. Please try again in a moment.',
+      })
       await markEmailLogSent(lockedEmailLog, response)
       summary.success += 1
     } catch (error) {

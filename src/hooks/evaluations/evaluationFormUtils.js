@@ -1,5 +1,5 @@
 import { getClubSettings } from '../../lib/supabase.js'
-import { formatUkDate } from '../../lib/date-format.js'
+import { formatUkDate, normalizeDateOnly } from '../../lib/date-format.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   normalizeEmailTemplateAudience,
@@ -7,6 +7,12 @@ import {
 } from '../../lib/email-templates.js'
 import { sendParentEmail } from '../../lib/email-builder.js'
 import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
+import {
+  formatDefaultAssessmentScoreForParent,
+  isAssessmentScoreFieldType,
+  isDefaultAssessmentScoreLabel,
+  isDefaultAssessmentScoreValue,
+} from '../../lib/assessment-scoring.js'
 
 export function createLocalId() {
   return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -50,7 +56,11 @@ function isEnteredAssessmentValue(value) {
   return String(value ?? '').trim() !== ''
 }
 
-function formatAssessmentValue(value) {
+function formatAssessmentValue(label, value) {
+  if (isDefaultAssessmentScoreLabel(label) && isDefaultAssessmentScoreValue(value)) {
+    return formatDefaultAssessmentScoreForParent(value)
+  }
+
   if (Array.isArray(value)) {
     return value.map((item) => String(item ?? '').trim()).filter(Boolean).join(', ')
   }
@@ -82,7 +92,7 @@ export function buildPreviousAssessmentItems(evaluation) {
     usedLabels.add(normalizedLabel)
     items.push({
       label: cleanLabel,
-      value: isEnteredAssessmentValue(value) ? formatAssessmentValue(value) : 'No data entered',
+      value: isEnteredAssessmentValue(value) ? formatAssessmentValue(cleanLabel, value) : 'No data entered',
     })
   }
 
@@ -153,13 +163,18 @@ export function createEmptyResponseValues(fields) {
 }
 
 export function isScoreFieldType(fieldType) {
-  return fieldType === 'score_1_5' || fieldType === 'score_1_10' || fieldType === 'number'
+  return isAssessmentScoreFieldType(fieldType)
 }
 
 export function normalizeResponseValue(field, value) {
   if (isScoreFieldType(field.type)) {
     const numericValue = Number(value)
     return Number.isNaN(numericValue) ? '' : numericValue
+  }
+
+  if (field.type === 'number') {
+    const numericValue = Number(value)
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : ''
   }
 
   return String(value ?? '').trim()
@@ -173,9 +188,19 @@ export function buildFormResponses(fields, responseValues) {
   )
 }
 
-export function buildScores(formResponses) {
+export function buildScores(formResponses, fields = []) {
+  const scoreLabels = Array.isArray(fields) && fields.length > 0
+    ? new Set(fields.filter((field) => isScoreFieldType(field.type)).map((field) => normalizeAssessmentLabel(field.label)))
+    : null
+
   return Object.fromEntries(
-    Object.entries(formResponses).filter(([, value]) => typeof value === 'number' && !Number.isNaN(value)),
+    Object.entries(formResponses).filter(([label, value]) => {
+      if (scoreLabels && !scoreLabels.has(normalizeAssessmentLabel(label))) {
+        return false
+      }
+
+      return typeof value === 'number' && !Number.isNaN(value)
+    }),
   )
 }
 
@@ -192,8 +217,9 @@ export function buildComments(formResponses) {
   }
 }
 
-export function getAverageScore(formResponses) {
-  const values = Object.values(formResponses)
+export function getAverageScore(formResponses, fields = []) {
+  const scores = buildScores(formResponses, fields)
+  const values = Object.values(scores)
     .map((value) => Number(value))
     .filter((value) => !Number.isNaN(value))
 
@@ -214,6 +240,8 @@ export function createResponseItems(fields, responseValues, includeEmptyValues =
       }
 
       return {
+        fieldType: field.type,
+        isDefault: Boolean(field.isDefault),
         label: field.label,
         value,
       }
@@ -281,6 +309,18 @@ export function normalizeSessionValue(value) {
   }
 
   return parsedDate.toISOString().slice(0, 10)
+}
+
+export function normalizeOptionalUuid(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue || ['null', 'undefined', 'none'].includes(normalizedValue.toLowerCase())) {
+    return ''
+  }
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedValue)
+    ? normalizedValue
+    : ''
 }
 
 export function formatSessionForInput(value) {
@@ -367,16 +407,23 @@ export function createEvaluationPayload({
   const normalizedPlayerName = normalizePlayerName(formData.playerName)
   const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
   const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team, matchingTeam?.id)
+  const normalizedAssessmentSessionId = normalizeOptionalUuid(assessmentSessionId)
+  const normalizedId = normalizeOptionalUuid(editingEvaluation?.id || id)
+  const normalizedReportDate = normalizeDateOnly(formData.reportDate || formData.session || editingEvaluation?.date)
+
+  if (!normalizedReportDate) {
+    throw new Error('Please enter a report date before saving.')
+  }
 
   return {
     ...(editingEvaluation || {}),
-    id: editingEvaluation?.id || id,
+    ...(normalizedId ? { id: normalizedId } : {}),
     playerName: normalizedPlayerName,
     playerId: matchingPlayer?.id || '',
     team: String(formData.team).trim(),
     teamId: matchingTeam?.id || '',
     section: formData.section,
-    assessmentSessionId,
+    assessmentSessionId: normalizedAssessmentSessionId,
     clubId: user?.clubId,
     coachId: user?.id,
     coach: String(user?.name || formData.coachName).trim(),
@@ -390,7 +437,7 @@ export function createEvaluationPayload({
     parentContacts,
     contactType: normalizedContactType,
     session: formData.session,
-    date: formatUkDate(new Date().toISOString().slice(0, 10)),
+    date: formatUkDate(normalizedReportDate),
     scores,
     averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
     comments,
@@ -399,6 +446,36 @@ export function createEvaluationPayload({
     status: editingEvaluation?.status || 'Submitted',
     createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
   }
+}
+
+export function getDevelopmentRecordSaveFailureMessage(error) {
+  const message = String(error?.message ?? '').toLowerCase()
+  const details = String(error?.details ?? '').toLowerCase()
+  const hint = String(error?.hint ?? '').toLowerCase()
+  const combinedMessage = [message, details, hint].filter(Boolean).join(' ')
+  const code = String(error?.code ?? '').trim()
+
+  if (code === '22P02' || combinedMessage.includes('invalid input syntax for type uuid')) {
+    return 'The selected player or session link is no longer valid. Reopen the player from the squad list and save again.'
+  }
+
+  if (code === '23503' || combinedMessage.includes('foreign key constraint')) {
+    return 'The selected player, team, or session could not be matched. Refresh the player details and try again.'
+  }
+
+  if (code === '42501' || combinedMessage.includes('row-level security') || combinedMessage.includes('permission denied')) {
+    return 'Your account does not have permission to save this development record for the selected player.'
+  }
+
+  if (combinedMessage.includes('club_id') || combinedMessage.includes('coach_id')) {
+    return 'Your staff account is missing the club or team details needed to save this development record.'
+  }
+
+  if (combinedMessage.includes('report date')) {
+    return 'Please enter a report date before saving.'
+  }
+
+  return 'This development record could not be saved right now. Check the player details and try again.'
 }
 
 export function getContactCopy(normalizedContactType) {
@@ -548,6 +625,7 @@ export function writeSessionAssessmentProgress({ assessmentSessionId, playerName
 export function buildParentEmailJobs({
   attachPdf = false,
   contactAudiences,
+  emailSections = [],
   emailTemplates,
   evaluation,
   formData,
@@ -615,6 +693,7 @@ export function buildParentEmailJobs({
             playerName: normalizedPlayerName,
             summary: '',
             responses: selectedResponseItems,
+            emailSections,
             subject: renderedTemplate.subject,
             emailBody: renderedTemplate.body,
             pdfHtml: buildAssessmentPdfHtml({
@@ -625,6 +704,7 @@ export function buildParentEmailJobs({
               session: formData.session,
               logoUrl: user?.clubLogoUrl || null,
               responseItems: selectedResponseItems,
+              emailSections,
             }),
             evaluationId: evaluation.id,
             attachPdf,

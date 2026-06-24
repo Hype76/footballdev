@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { canDeletePlayer, canEditEvaluation } from '../../lib/auth.js'
-import { hasPlanFeature } from '../../lib/plans.js'
-import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
+import { CAPABILITIES } from '../../lib/paywall-access.js'
+import { canUseUiFeature } from '../../lib/paywall-ui.js'
+import { EMAIL_SECTION_OPTIONS } from '../../lib/player-progression.js'
+import { buildEvaluationSummary, formatTrendDate } from '../../hooks/players/playerProfileUtils.js'
 import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
 
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
@@ -37,11 +39,13 @@ export function EvaluationHistoryCard({
   onSelectedEmailTemplateChange,
   onSendParentEmail,
   onSendTestEmail,
+  onToggleEmailSection,
   onToggleEvaluationParentContact,
   onToggleExportField,
   playerName,
   responseItems,
   selectedExportLabels,
+  selectedEmailSectionState,
   selectedInviteDate,
   selectedParentContacts,
   selectedReassignTargets,
@@ -51,6 +55,7 @@ export function EvaluationHistoryCard({
   user,
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const deleteAssessmentDisabledReason =
     isDeletingEvaluationId === evaluation.id ? 'Please wait while this development record is being deleted.' : undefined
   const reassignSelectDisabledReason =
@@ -64,7 +69,7 @@ export function EvaluationHistoryCard({
     ? 'Please wait while the email is being sent.'
     : !canShare
       ? 'You can only email development records you are allowed to view or edit.'
-      : !hasPlanFeature(user, 'parentEmail')
+      : !canUseParentEmail
         ? 'Parent email is not included in this plan.'
         : availableEmailTemplates.length === 0
           ? 'Create an email template before emailing parents.'
@@ -75,10 +80,11 @@ export function EvaluationHistoryCard({
       ? 'You can only send tests for development records you are allowed to view or edit.'
       : !user?.email
         ? 'Your account email is not available, so the test cannot be sent.'
-        : !hasPlanFeature(user, 'parentEmail')
+        : !canUseParentEmail
           ? 'Parent and player email is not included in this plan.'
           : undefined
   const removePlayerDisabledReason = isDeleting ? 'Please wait while this player is being removed.' : undefined
+  const evaluationDateLabel = formatTrendDate(evaluation)
 
   return (
     <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
@@ -90,7 +96,7 @@ export function EvaluationHistoryCard({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-lg font-black text-[#101828]">{evaluation.date || 'No date entered'}</p>
+            <p className="text-lg font-black text-[#101828]">{evaluationDateLabel}</p>
             {evaluation.session ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Session: {evaluation.session}</p> : null}
             <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Section: {evaluation.section || 'Trial'}</p>
           </div>
@@ -213,12 +219,18 @@ export function EvaluationHistoryCard({
           selectedExportLabels={selectedExportLabels}
           selectedResponseItems={selectedResponseItems}
         />
+        <EvaluationEmailSections
+          disabledReasons={selectedEmailSectionState?.disabledReasons || {}}
+          evaluationId={evaluation.id}
+          onToggleEmailSection={onToggleEmailSection}
+          selectedSections={selectedEmailSectionState?.sections || {}}
+        />
         {!isDemoAccount ? (
           <>
             <button
               type="button"
               onClick={() => onSendTestEmail(evaluation)}
-              disabled={emailSendingId === `test:${evaluation.id}` || !canShare || !user?.email || !hasPlanFeature(user, 'parentEmail')}
+              disabled={emailSendingId === `test:${evaluation.id}` || !canShare || !user?.email || !canUseParentEmail}
               title={testEmailDisabledReason || 'Send a test copy to your email address'}
               className={secondaryButtonClass}
             >
@@ -227,7 +239,7 @@ export function EvaluationHistoryCard({
             <button
               type="button"
               onClick={() => onSendParentEmail(evaluation)}
-              disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
+              disabled={emailSendingId === evaluation.id || !canShare || !canUseParentEmail || availableEmailTemplates.length === 0}
               title={emailParentsDisabledReason || 'Email parents'}
               className={secondaryButtonClass}
             >
@@ -305,6 +317,57 @@ export function EvaluationHistoryCard({
       </div>
       </>
       ) : null}
+    </div>
+  )
+}
+
+function EvaluationEmailSections({
+  disabledReasons,
+  evaluationId,
+  onToggleEmailSection,
+  selectedSections,
+}) {
+  return (
+    <div className="xl:col-span-7">
+      <div className={panelClass}>
+        <div>
+          <p className="text-sm font-black text-[#101828]">Parent email sections</p>
+          <p className={`mt-1 ${bodyClass}`}>
+            Choose the extra summaries that should appear in this parent email only.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {EMAIL_SECTION_OPTIONS.map((option) => {
+            const disabledReason = disabledReasons[option.key]
+            const isDisabled = Boolean(disabledReason)
+
+            return (
+              <label
+                key={option.key}
+                className={[
+                  'flex min-h-11 items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-[#047857]/10 transition',
+                  isDisabled ? 'border-[#d7e5dc] opacity-70' : 'border-[#d7e5dc]',
+                ].join(' ')}
+                title={disabledReason || option.description}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(selectedSections[option.key])}
+                  disabled={isDisabled}
+                  onChange={() => onToggleEmailSection(evaluationId, option.key)}
+                  className="mt-1 h-5 w-5 shrink-0 accent-[#047857] disabled:cursor-not-allowed"
+                />
+                <span className="min-w-0">
+                  <span className="block font-black">{option.label}</span>
+                  <span className="block break-words text-xs font-semibold leading-5 text-[#4b5f55]">
+                    {disabledReason || option.description}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

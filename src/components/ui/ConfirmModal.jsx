@@ -6,6 +6,7 @@ export function ConfirmModal({
   confirmLabel = 'Confirm',
   confirmDisabled = false,
   errorMessage = '',
+  hideCancel = false,
   isBusy = false,
   isOpen,
   items = [],
@@ -221,6 +222,7 @@ export function ConfirmModal({
             </div>
           ) : null}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          {hideCancel ? null : (
             <button
               type="button"
               onClick={handleCancel}
@@ -230,6 +232,7 @@ export function ConfirmModal({
             >
               {cancelLabel}
             </button>
+          )}
             <button
               type="submit"
               disabled={isActionBusy || confirmDisabled}

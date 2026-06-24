@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.png'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
-import { getRoleLabel, isClubAdmin, useAuth } from '../../lib/auth.js'
+import { getRoleLabel, getWorkspaceHomeCopy, isClubAdmin, useAuth } from '../../lib/auth.js'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 
 export function Topbar({ title, onMenuClick }) {
   const { authUser, clubOptions, demoRoleKey, hasPlatformAdminAccess, isProfileLoading, selectAccessMode, selectClub, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
+  const location = useLocation()
+  const navigate = useNavigate()
   const displayUser = user
+  const isWorkspaceHome = location.pathname === '/coach' || location.pathname === '/home'
+  const displayTitle = isWorkspaceHome ? getWorkspaceHomeCopy(displayUser).title : title
   const roleLabel = displayUser ? getRoleLabel(displayUser) : 'Loading access'
   const canUseClubAdminView = isClubAdmin(displayUser)
   const clubLabel = displayUser?.role === 'super_admin'
@@ -23,6 +27,8 @@ export function Topbar({ title, onMenuClick }) {
   const hasParentPortalAccess = Array.isArray(displayUser?.parentPortalLinks) && displayUser.parentPortalLinks.length > 0
   const shouldShowClubAdminOption = !isPlatformAdminView && canUseClubAdminView
   const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptions?.length > 0
+  const shouldShowCurrentTeamAccessOption =
+    !isPlatformAdminView && !isParentPortalView && hasPlatformAdminAccess && !displayUser?.activeTeamId
   const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
   const workspaceContext = user?.role === 'super_admin'
     ? 'Platform control'
@@ -81,11 +87,16 @@ export function Topbar({ title, onMenuClick }) {
       try {
         setIsSwitchingTeam(true)
         await selectAccessMode('parent')
+        navigate('/parent-portal')
       } catch (error) {
         console.error(error)
       } finally {
         setIsSwitchingTeam(false)
       }
+      return
+    }
+
+    if (teamId === '__team_access__') {
       return
     }
 
@@ -136,13 +147,13 @@ export function Topbar({ title, onMenuClick }) {
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em]">
-              <span className="truncate text-[#047857]">{clubLabel}</span>
+              <span className="max-w-[min(18rem,55vw)] truncate whitespace-nowrap text-[#047857]">{clubLabel}</span>
               <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[#166534]">
                 {todayLabel}
               </span>
             </div>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
-              {title}
+              {displayTitle}
             </h1>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
               {nextActionLabel}
@@ -155,11 +166,11 @@ export function Topbar({ title, onMenuClick }) {
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">View</p>
-                <p className="mt-1 truncate text-sm font-black text-[#101828]">{workspaceContext}</p>
+                <p className="mt-1 truncate whitespace-nowrap text-sm font-black text-[#101828]">{workspaceContext}</p>
               </div>
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">Focus</p>
-                <p className="mt-1 truncate text-sm font-black text-[#101828]">{teamLabel}</p>
+                <p className="mt-1 truncate whitespace-nowrap text-sm font-black text-[#101828]">{teamLabel}</p>
               </div>
             </div>
 
@@ -209,7 +220,11 @@ export function Topbar({ title, onMenuClick }) {
                     Access view
                   </span>
                   <select
-                    value={isPlatformAdminView ? '__platform_admin__' : isParentPortalView ? '__parent_portal__' : displayUser?.activeTeamId || ''}
+                    value={isPlatformAdminView
+                      ? '__platform_admin__'
+                      : isParentPortalView
+                        ? '__parent_portal__'
+                        : displayUser?.activeTeamId || (shouldShowCurrentTeamAccessOption ? '__team_access__' : '')}
                     onChange={handleTeamChange}
                     disabled={isSwitchingTeam}
                     title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
@@ -217,6 +232,7 @@ export function Topbar({ title, onMenuClick }) {
                   >
                     {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
                     {hasParentPortalAccess ? <option value="__parent_portal__">Family portal</option> : null}
+                    {shouldShowCurrentTeamAccessOption ? <option value="__team_access__">Team access</option> : null}
                     {isPlatformAdminView
                       ? clubOptions.map((club) => (
                           <option key={club.clubId} value={`__club__:${club.clubId}`}>
@@ -238,8 +254,8 @@ export function Topbar({ title, onMenuClick }) {
 
             <div className="grid gap-2 sm:grid-cols-[1fr_auto] md:min-w-[16rem]">
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
-                <p className="truncate text-xs font-black text-[#101828]">{workLaneLabel}</p>
-                <p className="mt-1 truncate text-[11px] font-semibold text-[#66756c]">{roleLabel}, {userLabel}</p>
+                <p className="truncate whitespace-nowrap text-xs font-black text-[#101828]">{workLaneLabel}</p>
+                <p className="mt-1 truncate whitespace-nowrap text-[11px] font-semibold text-[#66756c]">{roleLabel}, {userLabel}</p>
               </div>
               <InstallAppButton
                 wrapperClassName="lg:hidden"

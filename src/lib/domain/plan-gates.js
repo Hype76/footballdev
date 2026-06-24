@@ -1,10 +1,12 @@
 import { EVALUATION_SECTIONS, supabase } from '../supabase-client.js'
 import {
+  canAddStaffAccessEmail,
   createFeatureUpgradeMessage,
   createLimitUpgradeMessage,
   getPlanLimit,
-  hasPlanFeature,
+  getUniqueStaffAccessEmails,
 } from '../plans.js'
+import { getFeatureAccess } from '../paywall-access.js'
 import {
   isPastDate,
   normalizeWords,
@@ -25,7 +27,7 @@ export function getPlanGateUser(user, club = null) {
 }
 
 export async function getClubPlanGateUser({ user = null, clubId = '' } = {}) {
-  if (user?.planKey || user?.plan_key || user?.role === 'super_admin') {
+  if (user?.role === 'super_admin') {
     return getPlanGateUser(user)
   }
 
@@ -41,8 +43,9 @@ export async function getClubPlanGateUser({ user = null, clubId = '' } = {}) {
 
 export async function assertClubFeature({ user = null, clubId = '', featureName }) {
   const planUser = await getClubPlanGateUser({ user, clubId })
+  const access = getFeatureAccess(planUser, featureName)
 
-  if (!hasPlanFeature(planUser, featureName)) {
+  if (!access.allowed) {
     throw new Error(createFeatureUpgradeMessage(featureName, planUser))
   }
 }
@@ -183,15 +186,21 @@ export async function assertStaffLoginLimitForEmail({ user, email }) {
   const normalizedEmail = String(email ?? '').trim().toLowerCase()
   const accessEmails = await getClubAccessEmails(user.clubId)
 
-  if (accessEmails.has(normalizedEmail)) {
+  if (normalizedEmail && accessEmails.has(normalizedEmail)) {
+    return
+  }
+
+  const planUser = await getClubPlanGateUser({ user, clubId: user.clubId })
+
+  if (canAddStaffAccessEmail(planUser, normalizedEmail, [...accessEmails], [])) {
     return
   }
 
   await assertClubLimitAvailable({
-    user,
+    user: planUser,
     clubId: user.clubId,
     limitName: 'staffLogins',
     label: 'Staff logins',
-    currentCount: accessEmails.size,
+    currentCount: getUniqueStaffAccessEmails([...accessEmails], []).size,
   })
 }

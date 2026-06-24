@@ -1,4 +1,5 @@
-import { PLAN_OPTIONS, getPlanName } from '../../lib/plans.js'
+import { useState } from 'react'
+import { PLAN_OPTIONS, getPlanDefaultLimit, getPlanLimit, getPlanName } from '../../lib/plans.js'
 import { formatPlatformDate } from '../../lib/platform-admin-stats.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
@@ -10,6 +11,14 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
+
+function formatLimit(value) {
+  if (value === null || value === undefined) {
+    return 'Unlimited'
+  }
+
+  return String(value)
+}
 
 export function PlatformAccountManagementSection({
   clubPage,
@@ -33,6 +42,12 @@ export function PlatformAccountManagementSection({
   visibleClubs,
 }) {
   const searchValue = String(clubSearchTerm ?? '')
+  const statsClubs = Array.isArray(stats?.clubs) ? stats.clubs.filter((club) => club?.id) : []
+  const safeVisibleClubs = Array.isArray(visibleClubs) ? visibleClubs.filter((club) => club?.id) : []
+  const safePaginatedClubs = {
+    ...paginatedClubs,
+    items: Array.isArray(paginatedClubs?.items) ? paginatedClubs.items.filter((club) => club?.id) : [],
+  }
 
   return (
     <SectionCard
@@ -48,7 +63,7 @@ export function PlatformAccountManagementSection({
             className={fieldClass}
           >
             <option value="All">All clubs</option>
-            {(stats?.clubs ?? []).map((club) => (
+            {statsClubs.map((club) => (
               <option key={club.id} value={club.id}>
                 {club.name}
               </option>
@@ -71,13 +86,13 @@ export function PlatformAccountManagementSection({
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
           Loading platform stats...
         </div>
-      ) : visibleClubs.length === 0 ? (
+      ) : safeVisibleClubs.length === 0 ? (
         <div className={emptyStateClass}>
           {searchValue.trim() ? 'No clubs match that search.' : 'No clubs found yet.'}
         </div>
       ) : (
         <div className="space-y-4">
-          {paginatedClubs.items.map((club) => (
+          {safePaginatedClubs.items.map((club) => (
             <ClubAccountCard
               key={club.id}
               club={club}
@@ -95,7 +110,7 @@ export function PlatformAccountManagementSection({
             currentPage={clubPage}
             onPageChange={onClubPageChange}
             pageSize={pageSize}
-            totalItems={visibleClubs.length}
+            totalItems={safeVisibleClubs.length}
           />
         </div>
       )}
@@ -150,6 +165,7 @@ function ClubSummary({
   onToggleClubStatus,
   updatingClubId,
 }) {
+  const clubId = String(club?.id ?? '')
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
@@ -167,12 +183,17 @@ function ClubSummary({
         <label className="block">
           <span className={eyebrowClass}>Plan</span>
           <select
-            value={club.planKey || 'small_club'}
-            disabled={updatingClubId === club.id}
-            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+            value={club.planKey || ''}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planKey', event.target.value)}
             className={fieldClass}
           >
+            {!club.planKey ? (
+              <option value="" disabled>
+                Unknown plan
+              </option>
+            ) : null}
             {PLAN_OPTIONS.map((plan) => (
               <option key={plan.key} value={plan.key}>
                 {plan.name}
@@ -184,8 +205,8 @@ function ClubSummary({
           <span className={eyebrowClass}>Billing status</span>
           <select
             value={club.planStatus || 'active'}
-            disabled={updatingClubId === club.id}
-            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planStatus', event.target.value)}
             className={fieldClass}
           >
@@ -199,14 +220,21 @@ function ClubSummary({
           <input
             type="checkbox"
             checked={Boolean(club.isPlanComped)}
-            disabled={updatingClubId === club.id}
-            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'isPlanComped', event.target.checked)}
             className="h-4 w-4 accent-[#047857]"
           />
           <span>Free access</span>
         </label>
       </div>
+      <TeamAllowanceControl
+        key={`${clubId}:${club.teamLimitOverride ?? 'default'}`}
+        club={club}
+        clubId={clubId}
+        onClubPlanChange={onClubPlanChange}
+        updatingClubId={updatingClubId}
+      />
       <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
         Current plan: {getPlanName(club)}{club.isPlanComped ? ', Billing override: free access' : ''}
       </p>
@@ -216,8 +244,8 @@ function ClubSummary({
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
-          disabled={updatingClubId === club.id}
-          title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+          disabled={updatingClubId === clubId}
+          title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onToggleClubStatus(club)}
           className={secondaryButtonClass}
         >
@@ -225,14 +253,62 @@ function ClubSummary({
         </button>
         <button
           type="button"
-          disabled={updatingClubId === club.id}
-          title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+          disabled={updatingClubId === clubId}
+          title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onDeleteClub(club)}
           className={dangerButtonClass}
         >
           Delete
         </button>
       </div>
+    </div>
+  )
+}
+
+function TeamAllowanceControl({ club, clubId, onClubPlanChange, updatingClubId }) {
+  const customTeamLimit = club.teamLimitOverride ?? null
+  const [teamLimitDraft, setTeamLimitDraft] = useState(customTeamLimit === null ? '' : String(customTeamLimit))
+  const planTeamLimit = getPlanDefaultLimit(club, 'teams')
+  const effectiveTeamLimit = getPlanLimit(club, 'teams')
+  const normalizedDraft = teamLimitDraft.trim()
+  const savedDraft = customTeamLimit === null ? '' : String(customTeamLimit)
+  const canSaveTeamLimit = normalizedDraft !== savedDraft && updatingClubId !== clubId
+
+  return (
+    <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
+      <div className="grid gap-3 lg:grid-cols-[minmax(180px,260px)_auto] lg:items-end">
+        <label className="block">
+          <span className={eyebrowClass}>Team allowance</span>
+          <input
+            type="number"
+            min="1"
+            max="500"
+            step="1"
+            inputMode="numeric"
+            value={teamLimitDraft}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
+            onChange={(event) => setTeamLimitDraft(event.target.value)}
+            placeholder={formatLimit(planTeamLimit)}
+            className={fieldClass}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!canSaveTeamLimit}
+          title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
+          onClick={() => void onClubPlanChange(club, 'teamLimitOverride', normalizedDraft)}
+          className={secondaryButtonClass}
+        >
+          Save allowance
+        </button>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+        Leave blank to use the plan default.
+      </p>
+      <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+        Current teams: {club.teamCount}. Plan default: {formatLimit(planTeamLimit)}. Custom override: {customTeamLimit === null ? 'None' : customTeamLimit}. Effective allowance: {formatLimit(effectiveTeamLimit)}.
+      </p>
     </div>
   )
 }
@@ -260,14 +336,15 @@ function ClubMetricGrid({ club }) {
 }
 
 function ClubUsersList({ club, onAccountAction, updatingUserId }) {
+  const users = Array.isArray(club?.users) ? club.users.filter((member) => member?.id) : []
   return (
     <div>
       <p className={eyebrowClass}>Adult user accounts</p>
       <div className="mt-3 space-y-2">
-        {club.users.length === 0 ? (
+        {users.length === 0 ? (
           <p className={emptyStateClass}>No users found.</p>
         ) : (
-          club.users.map((member) => (
+          users.map((member) => (
             <div key={member.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
@@ -318,14 +395,16 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
 }
 
 function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
+  const teams = Array.isArray(club?.teams) ? club.teams.filter((team) => team?.id) : []
+  const roleCounts = Array.isArray(club?.roleCounts) ? club.roleCounts.filter((role) => role?.label) : []
   return (
     <div>
       <p className={eyebrowClass}>Teams</p>
       <div className="mt-3 space-y-2">
-        {club.teams.length === 0 ? (
+        {teams.length === 0 ? (
           <p className={emptyStateClass}>No teams found.</p>
         ) : (
-          club.teams.map((team) => (
+          teams.map((team) => (
             <div
               key={team.id}
               className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between"
@@ -345,10 +424,10 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
         )}
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {club.roleCounts.length === 0 ? (
+        {roleCounts.length === 0 ? (
           <p className={emptyStateClass}>No role data found.</p>
         ) : (
-          club.roleCounts.map((role) => (
+          roleCounts.map((role) => (
             <div key={role.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
               <p className="text-sm font-black text-[#101828]">{role.label}</p>
               <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">

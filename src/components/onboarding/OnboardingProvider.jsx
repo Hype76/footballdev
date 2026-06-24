@@ -25,6 +25,7 @@ import {
 import { sendParentPortalInvite } from '../../lib/email-builder.js'
 import {
   ONBOARDING_EVENT,
+  ONBOARDING_OPEN_EVENT,
   buildOnboardingPlan,
   dismissOnboarding,
   getOnboardingProgress,
@@ -104,9 +105,9 @@ function StepMarker({ index, complete }) {
           ? 'border-[#047857] bg-[#047857] text-white'
           : 'border-[#d7e5dc] bg-white text-[#4b5f55]',
       ].join(' ')}
-      aria-label={complete ? 'Complete' : 'Not complete'}
+      aria-label={complete ? 'Completed' : 'Not completed'}
     >
-      {complete ? 'OK' : index + 1}
+      {complete ? 'Done' : index + 1}
     </span>
   )
 }
@@ -180,7 +181,7 @@ function SetupStepCard({ index, onAction, onComplete, step }) {
                   : 'border-[#fedf89] bg-[#fffbeb] text-[#93370d]',
               ].join(' ')}
             >
-              {step.complete ? 'Ready' : step.manualLabel ? 'Optional' : 'Needed'}
+              {step.complete ? 'Done' : step.manualLabel ? 'Optional' : 'Needed'}
             </span>
           </div>
           <p className="mt-2 text-sm font-black leading-6 text-[#4b5f55]">{step.rule}</p>
@@ -226,10 +227,10 @@ function CompactOnboardingPanel({
         <div className="px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
-              <p className={eyebrowClass}>First run setup</p>
+              <p className={eyebrowClass}>Setup checklist</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-                {isLoading ? 'Refreshing workspace data.' : `${progress.completedCount} of ${progress.totalCount} setup checks are complete.`}
+                {isLoading ? 'Refreshing workspace data.' : `${progress.completedCount} of ${progress.totalCount} setup steps are done.`}
               </p>
             </div>
             <div className="grid shrink-0 gap-2 sm:grid-cols-2 md:min-w-[17rem]">
@@ -245,7 +246,7 @@ function CompactOnboardingPanel({
                 onClick={handleDismiss}
                 className={secondaryButtonClass}
               >
-                Skip for now
+                Hide setup
               </button>
             </div>
           </div>
@@ -388,11 +389,12 @@ function OnboardingActionModal({
   selectTeam,
   updateCurrentUserDetails,
   user,
+  wizard = null,
 }) {
   const [clubForm, setClubForm] = useState({
     name: user?.clubName || '',
     logoUrl: user?.clubLogoUrl || '',
-    contactEmail: user?.clubContactEmail || '',
+    contactEmail: user?.clubContactEmail || user?.email || '',
     contactPhone: user?.clubContactPhone || '',
   })
   const [selectedLogoFile, setSelectedLogoFile] = useState(null)
@@ -412,12 +414,16 @@ function OnboardingActionModal({
   const [parentInviteContactIds, setParentInviteContactIds] = useState([])
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [sessionType, setSessionType] = useState('training')
+  const [sessionStartTime, setSessionStartTime] = useState('09:00')
+  const [sessionOpponent, setSessionOpponent] = useState('')
   const [teamName, setTeamName] = useState('')
   const [teamEditId, setTeamEditId] = useState('')
   const [teamEditName, setTeamEditName] = useState('')
   const [deleteTeamConfirmId, setDeleteTeamConfirmId] = useState('')
   const [teams, setTeams] = useState([])
+  const [clubStaffUsers, setClubStaffUsers] = useState([])
   const [staffUsers, setStaffUsers] = useState([])
+  const [teamAssignments, setTeamAssignments] = useState([])
   const [selectedTeamId, setSelectedTeamId] = useState(user?.activeTeamId || '')
   const [selectedStaffId, setSelectedStaffId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -438,13 +444,15 @@ function OnboardingActionModal({
       setErrorMessage('')
 
       try {
-        const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'send-parent-invite', 'create-session', 'create-assessment'].includes(actionType)
-        const shouldLoadStaff = actionType === 'assign-team-admin'
+        const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'send-parent-invite', 'create-session', 'create-assessment', 'review-setup'].includes(actionType)
+        const shouldLoadStaff = ['assign-team-admin', 'review-setup'].includes(actionType)
+        const shouldLoadAssignments = ['assign-team-admin', 'review-setup'].includes(actionType)
         const shouldLoadParentInvitePlayers = actionType === 'send-parent-invite'
-        const [rawTeams, nextUsers, pendingInvites, clubSettings] = await Promise.all([
+        const [rawTeams, nextUsers, pendingInvites, nextAssignments, clubSettings] = await Promise.all([
           shouldLoadTeams ? (canManageClubWide ? getTeams(user) : getAssignedTeamsForUser(user)) : Promise.resolve([]),
           shouldLoadStaff ? getVisibleClubUsers(user) : Promise.resolve([]),
           shouldLoadStaff ? getClubUserInvites(user) : Promise.resolve([]),
+          shouldLoadAssignments ? getTeamStaffAssignments(user) : Promise.resolve([]),
           ['club-details', 'branding-theme'].includes(actionType) && user?.clubId ? getClubSettings(user.clubId) : Promise.resolve(null),
         ])
         const nextParentInvitePlayers = shouldLoadParentInvitePlayers
@@ -463,7 +471,7 @@ function OnboardingActionModal({
           setClubForm({
             name: clubSettings.name || user.clubName || '',
             logoUrl: clubSettings.logoUrl || user.clubLogoUrl || '',
-            contactEmail: clubSettings.contactEmail || user.clubContactEmail || '',
+            contactEmail: clubSettings.contactEmail || user.clubContactEmail || user.email || '',
             contactPhone: clubSettings.contactPhone || user.clubContactPhone || '',
           })
         }
@@ -477,7 +485,9 @@ function OnboardingActionModal({
         setTeamEditName((current) => current || firstTeam?.name || '')
         const assignableStaffUsers = mergeStaffUsersWithPendingInvites(nextUsers, pendingInvites)
           .filter(isAssignableTeamAdmin)
+        setClubStaffUsers(mergeStaffUsersWithPendingInvites(nextUsers, pendingInvites))
         setStaffUsers(assignableStaffUsers)
+        setTeamAssignments(nextAssignments)
         setThemeForm({
           mode: currentThemeTeam?.themeMode || user.themeMode || 'light',
           accent: currentThemeTeam?.themeAccent || user.themeAccent || 'green',
@@ -587,11 +597,8 @@ function OnboardingActionModal({
         })
         setSelectedLogoFile(null)
       } else if (actionType === 'manage-teams') {
-        const createdTeam = await createTeam({ user, name: teamName })
+        await createTeam({ user, name: teamName })
         await refreshTeamSelection?.()
-        if (createdTeam?.id) {
-          await selectTeam(createdTeam.id)
-        }
       } else if (actionType === 'invite-staff' || actionType === 'invite-team-staff') {
         const roleKey = actionType === 'invite-team-staff' ? inviteRoleKey : action.roleKey || inviteRoleKey
         const role = roleOptions[roleKey] || roleOptions.coach
@@ -672,6 +679,8 @@ function OnboardingActionModal({
           session: {
             sessionDate,
             sessionType: actionType === 'create-assessment' ? 'training' : sessionType,
+            startTime: sessionStartTime,
+            opponent: actionType === 'create-session' && sessionType === 'match' ? sessionOpponent : '',
             teamId: selectedTeamId,
             team: selectedTeam?.name || user.activeTeamName || '',
           },
@@ -688,6 +697,9 @@ function OnboardingActionModal({
         if (selectedTeamId && String(selectedTeamId) !== String(user.activeTeamId || '')) {
           await selectTeam?.(selectedTeamId)
         }
+      } else if (actionType === 'review-setup' || actionType === 'feedback-handoff') {
+        await onSaved?.(action)
+        return
       } else {
         onCancel()
         return
@@ -815,7 +827,23 @@ function OnboardingActionModal({
             ? 'Create assessment session'
             : actionType === 'send-parent-invite'
               ? 'Send parent invite'
-            : action.actionLabel
+              : actionType === 'review-setup' || actionType === 'feedback-handoff'
+                ? 'Finish review'
+                : action.actionLabel
+  const clubAdmins = clubStaffUsers.filter((staffUser) => String(staffUser.role ?? '') === 'admin')
+  const teamAdmins = clubStaffUsers.filter(isAssignableTeamAdmin)
+  const assignmentRows = teamAssignments.map((assignment) => {
+    const staffUser = clubStaffUsers.find((member) => String(member.id) === String(assignment.userId))
+    const team = teams.find((entry) => String(entry.id) === String(assignment.teamId))
+
+    return {
+      id: assignment.id,
+      staffLabel: staffUser?.name || staffUser?.email || assignment.userId,
+      status: String(assignment.userId ?? '').startsWith(PENDING_INVITE_PREFIX) ? 'Pending invited, assigned' : 'Active and assigned',
+      teamLabel: team?.name || 'Assigned team',
+    }
+  })
+  const wizardEnabled = Boolean(wizard)
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#101828]/60 px-4 py-6">
@@ -823,12 +851,35 @@ function OnboardingActionModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-action-title"
-        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white shadow-2xl shadow-[#101828]/30"
+        className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white shadow-2xl shadow-[#101828]/30"
       >
         <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
-          <p className={eyebrowClass}>First run setup</p>
-          <h2 id="onboarding-action-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{action.detail}</p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>{wizardEnabled ? wizard.badge : 'Setup checklist'}</p>
+              <h2 id="onboarding-action-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+                {wizardEnabled ? wizard.title : title}
+              </h2>
+              {wizardEnabled ? (
+                <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">{wizard.copy}</p>
+              ) : null}
+              <p className="mt-3 text-base font-black text-[#101828]">{title}</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{action.detail}</p>
+            </div>
+            {wizardEnabled ? (
+              <div className="shrink-0 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
+                Step {wizard.stepIndex + 1} of {wizard.totalSteps}
+              </div>
+            ) : null}
+          </div>
+          {wizardEnabled ? (
+            <div className="mt-5 h-3 overflow-hidden rounded-lg bg-[#ccfbf1] ring-1 ring-[#d7e5dc]">
+              <div
+                className="h-full rounded-lg bg-[#047857] transition-all"
+                style={{ width: `${wizard.totalSteps ? ((wizard.stepIndex + 1) / wizard.totalSteps) * 100 : 0}%` }}
+              />
+            </div>
+          ) : null}
         </div>
 
         <form onSubmit={handleSave} className="grid gap-4 px-5 py-5 sm:px-6">
@@ -872,7 +923,7 @@ function OnboardingActionModal({
                 </label>
                 <label className="block">
                   <span className={modalLabelClass}>Contact phone</span>
-                  <input value={clubForm.contactPhone} onChange={(event) => setClubForm((current) => ({ ...current, contactPhone: event.target.value }))} className={modalInputClass} required={actionType === 'club-details'} />
+                  <input value={clubForm.contactPhone} onChange={(event) => setClubForm((current) => ({ ...current, contactPhone: event.target.value }))} className={modalInputClass} />
                 </label>
               </div>
               {actionType === 'branding-theme' ? (
@@ -1087,6 +1138,10 @@ function OnboardingActionModal({
                 <span className={modalLabelClass}>Date</span>
                 <input type="date" value={sessionDate} onChange={(event) => setSessionDate(event.target.value)} className={modalInputClass} required />
               </label>
+              <label className="block">
+                <span className={modalLabelClass}>{actionType === 'create-session' && sessionType === 'match' ? 'Kick-off time' : 'Start time'}</span>
+                <input type="time" value={sessionStartTime} onChange={(event) => setSessionStartTime(event.target.value)} className={modalInputClass} required />
+              </label>
               {actionType === 'create-session' ? (
                 <label className="block">
                   <span className={modalLabelClass}>Type</span>
@@ -1100,6 +1155,12 @@ function OnboardingActionModal({
                   This creates a training context for assessment work. Use the assessment workspace to score players and save results.
                 </div>
               )}
+              {actionType === 'create-session' && sessionType === 'match' ? (
+                <label className="block sm:col-span-2">
+                  <span className={modalLabelClass}>Opponent</span>
+                  <input value={sessionOpponent} onChange={(event) => setSessionOpponent(event.target.value)} placeholder="Example: Cambourne Town U15" className={modalInputClass} required />
+                </label>
+              ) : null}
             </div>
           ) : null}
 
@@ -1109,6 +1170,67 @@ function OnboardingActionModal({
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
                 Confirm this is the team workspace you should use before adding players, creating sessions, or preparing match day.
               </div>
+            </div>
+          ) : null}
+
+          {actionType === 'review-setup' ? (
+            <div className="grid gap-4">
+              <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4 text-sm font-black text-[#065f46]">
+                Club setup is ready. Team admins and coaches can now complete team/player setup.
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Club details</p>
+                  <p className="mt-2 text-lg font-black text-[#101828]">{clubForm.name || user.clubName || 'Club name missing'}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{clubForm.contactEmail || 'No contact email'}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{clubForm.contactPhone || 'No contact phone'}</p>
+                </div>
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Branding</p>
+                  <p className="mt-2 text-sm font-black text-[#101828]">{clubForm.logoUrl ? 'Logo saved' : 'No logo saved'}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Theme: {themeForm.mode}, {themeForm.accent}, {themeForm.buttonStyle}</p>
+                </div>
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Teams</p>
+                  {teams.length > 0 ? teams.map((team) => (
+                    <p key={team.id} className="mt-2 text-sm font-black text-[#101828]">{team.name}</p>
+                  )) : <p className="mt-2 text-sm font-semibold text-[#4b5f55]">No teams created yet.</p>}
+                </div>
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Club admins</p>
+                  {clubAdmins.length > 0 ? clubAdmins.map((admin) => (
+                    <p key={admin.id} className="mt-2 text-sm font-black text-[#101828]">
+                      {admin.email || admin.name} {admin.pendingInvite ? '(pending invited)' : '(active)'}
+                    </p>
+                  )) : <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Only the current club admin is known.</p>}
+                </div>
+              </div>
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Team admin assignments</p>
+                {assignmentRows.length > 0 ? assignmentRows.map((assignment) => (
+                  <p key={assignment.id} className="mt-2 text-sm font-black text-[#101828]">
+                    {assignment.staffLabel} to {assignment.teamLabel}, {assignment.status}
+                  </p>
+                )) : teamAdmins.length > 0 ? (
+                  <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Team admins exist but no assignment is saved yet.</p>
+                ) : (
+                  <p className="mt-2 text-sm font-semibold text-[#4b5f55]">No team admin assignments yet.</p>
+                )}
+              </div>
+              <button type="button" onClick={() => wizard?.openFeedback?.()} className={secondaryButtonClass}>
+                Report issue
+              </button>
+            </div>
+          ) : null}
+
+          {actionType === 'feedback-handoff' ? (
+            <div className="grid gap-4">
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold leading-6 text-[#4b5f55]">
+                Feedback opens the existing feedback page. This wizard does not create a separate feedback system.
+              </div>
+              <button type="button" onClick={() => wizard?.openFeedback?.()} className={primaryButtonClass}>
+                Open feedback
+              </button>
             </div>
           ) : null}
 
@@ -1134,16 +1256,29 @@ function OnboardingActionModal({
               </button>
             ) : null}
             <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
-              Cancel
+              {wizardEnabled ? 'Close' : 'Cancel'}
             </button>
           </div>
+          {wizardEnabled ? (
+            <div className="grid gap-2 border-t border-[#d7e5dc] pt-4 sm:grid-cols-3">
+              <button type="button" onClick={wizard.onBack} disabled={wizard.stepIndex === 0 || isSaving} className={secondaryButtonClass}>
+                Back
+              </button>
+              <button type="button" onClick={wizard.onNext} disabled={wizard.stepIndex >= wizard.totalSteps - 1 || isSaving} className={secondaryButtonClass}>
+                Next
+              </button>
+              <button type="button" onClick={wizard.onDismiss} disabled={isSaving} className={secondaryButtonClass}>
+                Dismiss setup
+              </button>
+            </div>
+          ) : null}
         </form>
       </div>
     </div>
   )
 }
 
-export function OnboardingProvider({ children }) {
+export function OnboardingProvider({ children, suppressSetup = false }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { refreshTeamSelection, selectTeam, teamOptions, updateCurrentUserDetails, user } = useAuth()
@@ -1151,6 +1286,8 @@ export function OnboardingProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [activeAction, setActiveAction] = useState(null)
+  const [isClubAdminWizardOpen, setIsClubAdminWizardOpen] = useState(false)
+  const [clubAdminWizardStepIndex, setClubAdminWizardStepIndex] = useState(0)
   const [showFullSetup, setShowFullSetup] = useState(false)
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
@@ -1205,28 +1342,81 @@ export function OnboardingProvider({ children }) {
   const plan = useMemo(() => buildOnboardingPlan(user, snapshot ?? {}), [snapshot, user])
   const progress = useMemo(() => getOnboardingProgress(plan), [plan])
   const nextStep = plan?.steps?.find((step) => !step.complete) ?? plan?.steps?.[0]
+  const isClubAdminSetup = plan?.title === 'Club launch setup'
+  const clubAdminSteps = useMemo(() => (isClubAdminSetup ? plan?.steps ?? [] : []), [isClubAdminSetup, plan])
+  const clubAdminActiveStep = useMemo(
+    () => clubAdminSteps[Math.min(clubAdminWizardStepIndex, Math.max(clubAdminSteps.length - 1, 0))],
+    [clubAdminSteps, clubAdminWizardStepIndex],
+  )
   const shouldShowOnboarding = Boolean(
-    plan &&
+    !suppressSetup &&
+      plan &&
       plan.kind !== 'waiting' &&
       plan.manualState?.enabled &&
       !plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
   const shouldShowReopenOnboarding = Boolean(
-    plan &&
+    !suppressSetup &&
+      plan &&
       plan.kind !== 'waiting' &&
       plan.manualState?.enabled &&
       plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
-  const shouldShowWaitingForSetup = Boolean(plan?.kind === 'waiting')
+  const shouldShowWaitingForSetup = Boolean(!suppressSetup && plan?.kind === 'waiting')
   const currentPath = location.pathname || '/'
   const fullSetupPaths = new Set(['/', '/coach', '/club-settings', '/user-settings'])
   const shouldUseFullSetup = showFullSetup || fullSetupPaths.has(currentPath)
 
   useEffect(() => {
     setShowFullSetup(false)
+    setIsClubAdminWizardOpen(false)
   }, [currentPath, user?.id])
+
+  useEffect(() => {
+    if (!isClubAdminSetup || !plan?.manualState?.enabled || plan.manualState?.dismissedAt || progress.isComplete) {
+      setIsClubAdminWizardOpen(false)
+      return
+    }
+
+    const firstIncompleteIndex = clubAdminSteps.findIndex((step) => !step.complete)
+    setClubAdminWizardStepIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0)
+    setIsClubAdminWizardOpen(true)
+  }, [clubAdminSteps, isClubAdminSetup, plan?.manualState?.dismissedAt, plan?.manualState?.enabled, progress.isComplete])
+
+  useEffect(() => {
+    const handleOpenOnboarding = async () => {
+      if (!plan || !user) {
+        return
+      }
+
+      try {
+        if (plan.manualState?.dismissedAt) {
+          await reopenOnboarding({ scope: plan.scope, user })
+          updateCurrentUserDetails(patchUserOnboarding(user, plan.scope, { dismissedAt: null, enabled: true }))
+        }
+
+        if (isClubAdminSetup) {
+          const firstIncompleteIndex = clubAdminSteps.findIndex((step) => !step.complete)
+          setClubAdminWizardStepIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0)
+          setIsClubAdminWizardOpen(true)
+          return
+        }
+
+        setShowFullSetup(true)
+      } catch (error) {
+        console.error(error)
+        setErrorMessage('Onboarding could not be reopened.')
+      }
+    }
+
+    window.addEventListener(ONBOARDING_OPEN_EVENT, handleOpenOnboarding)
+
+    return () => {
+      window.removeEventListener(ONBOARDING_OPEN_EVENT, handleOpenOnboarding)
+    }
+  }, [clubAdminSteps, isClubAdminSetup, plan, updateCurrentUserDetails, user])
 
   useEffect(() => {
     const targetSelector = window.sessionStorage.getItem(ONBOARDING_TARGET_STORAGE_KEY)
@@ -1268,12 +1458,16 @@ export function OnboardingProvider({ children }) {
 
   const ensureTeamContextForAction = async (step) => {
     const stepId = String(step?.id ?? '')
+    const isClubWideSetup = plan?.title === 'Club launch setup'
     const isTeamAction =
-      plan?.title === 'Team manager setup' ||
-      plan?.title === 'Coach setup' ||
-      stepId.startsWith('team-') ||
-      stepId.startsWith('coach-') ||
-      stepId === 'assigned-team'
+      !isClubWideSetup &&
+      (
+        plan?.title === 'Team setup' ||
+        plan?.title === 'Coach setup' ||
+        stepId.startsWith('team-') ||
+        stepId.startsWith('coach-') ||
+        stepId === 'assigned-team'
+      )
 
     if (!isTeamAction || user?.activeTeamId) {
       return true
@@ -1347,6 +1541,7 @@ export function OnboardingProvider({ children }) {
       const dismissedAt = new Date().toISOString()
       await dismissOnboarding({ scope: plan.scope, user })
       updateCurrentUserDetails(patchUserOnboarding(user, plan.scope, { dismissedAt }))
+      setIsClubAdminWizardOpen(false)
     } catch (error) {
       console.error(error)
       setErrorMessage('Onboarding could not be skipped.')
@@ -1401,6 +1596,56 @@ export function OnboardingProvider({ children }) {
 
   return (
     <>
+      {isClubAdminSetup && isClubAdminWizardOpen && clubAdminActiveStep ? (
+        <OnboardingActionModal
+          action={clubAdminActiveStep}
+          onCancel={() => setIsClubAdminWizardOpen(false)}
+          onSaved={async (step, meta = {}) => {
+            if (step?.id && (step.manualLabel || step.actionType === 'review-setup' || step.actionType === 'feedback-handoff')) {
+              await handleCompleteStep(step.id)
+            }
+            window.dispatchEvent(new Event(ONBOARDING_EVENT))
+
+            if (meta.navigateTo) {
+              if (meta.targetSelector) {
+                window.sessionStorage.setItem(ONBOARDING_TARGET_STORAGE_KEY, meta.targetSelector)
+              }
+              navigate(meta.navigateTo)
+              return
+            }
+
+            setClubAdminWizardStepIndex((current) => Math.min(current + 1, Math.max(clubAdminSteps.length - 1, 0)))
+          }}
+          onSkipStep={async (step) => {
+            if (step?.id) {
+              await handleCompleteStep(step.id)
+            }
+            window.dispatchEvent(new Event(ONBOARDING_EVENT))
+            setClubAdminWizardStepIndex((current) => Math.min(current + 1, Math.max(clubAdminSteps.length - 1, 0)))
+          }}
+          refreshTeamSelection={refreshTeamSelection}
+          selectTeam={selectTeam}
+          updateCurrentUserDetails={updateCurrentUserDetails}
+          user={user}
+          wizard={{
+            badge: 'Setup guide',
+            copy: 'Follow these steps so the club, team, player, parent, and feedback flow is ready for real use.',
+            onBack: () => setClubAdminWizardStepIndex((current) => Math.max(current - 1, 0)),
+            onDismiss: handleDismiss,
+            onNext: () => setClubAdminWizardStepIndex((current) => Math.min(current + 1, Math.max(clubAdminSteps.length - 1, 0))),
+            openFeedback: () => {
+              setIsClubAdminWizardOpen(false)
+              navigate('/feedback/new?route=/club-admin-setup')
+            },
+            stepIndex: clubAdminWizardStepIndex,
+            title: 'Club setup',
+            totalSteps: clubAdminSteps.length,
+          }}
+        />
+      ) : null}
+      {isClubAdminSetup ? <>{children}</> : null}
+      {isClubAdminSetup ? null : (
+      <>
       {shouldShowWaitingForSetup ? <WaitingForSetupPanel nextStep={nextStep} onAction={handleAction} plan={plan} /> : null}
       {shouldShowOnboarding && !shouldUseFullSetup ? (
         <CompactOnboardingPanel
@@ -1420,7 +1665,7 @@ export function OnboardingProvider({ children }) {
           <div className="border-b border-[#dbe6ef] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div className="min-w-0">
-                <p className={eyebrowClass}>First run setup</p>
+                <p className={eyebrowClass}>Setup checklist</p>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
                   {plan.title}
                 </h2>
@@ -1456,7 +1701,7 @@ export function OnboardingProvider({ children }) {
                       {nextStep?.actionLabel || 'Start setup'}
                     </ActionButton>
                     <button type="button" onClick={handleDismiss} className={secondaryButtonClass}>
-                      Skip for now
+                      Hide setup
                     </button>
                   </div>
                 </div>
@@ -1480,7 +1725,7 @@ export function OnboardingProvider({ children }) {
 
             <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between">
               <p className={bodyTextClass}>
-                Skip pauses setup. Reset starts this first-run path again for a fresh club launch or testing.
+                Hide setup removes this panel from the dashboard. You can reopen it from Account settings.
               </p>
               <button
                 type="button"
@@ -1503,10 +1748,10 @@ export function OnboardingProvider({ children }) {
         <section className="mb-6 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10 sm:px-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <p className={eyebrowClass}>Setup paused</p>
+              <p className={eyebrowClass}>Setup hidden</p>
               <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-                {progress.completedCount} of {progress.totalCount} setup checks are complete. Reopen setup when the club is ready to finish the next real action.
+                {progress.completedCount} of {progress.totalCount} setup steps are done. Next: {nextStep?.title || 'No required step left'}.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[24rem]">
@@ -1533,7 +1778,7 @@ export function OnboardingProvider({ children }) {
           ) : null}
         </section>
       ) : null}
-      {activeAction ? (
+      {!suppressSetup && activeAction ? (
         <OnboardingActionModal
           action={activeAction}
           onCancel={() => setActiveAction(null)}
@@ -1580,6 +1825,8 @@ export function OnboardingProvider({ children }) {
         title="Reset onboarding setup?"
       />
       {children}
+      </>
+      )}
     </>
   )
 }

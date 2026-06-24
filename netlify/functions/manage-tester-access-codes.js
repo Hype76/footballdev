@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './_supabase.js'
 import { json } from './_stripe-billing.js'
+import { normalizePlanKey } from '../../src/lib/plans.js'
 
 const CODE_SELECT = [
   'id',
@@ -30,13 +31,6 @@ function normalizeCode(value) {
     .trim()
     .toUpperCase()
     .replace(/\s+/g, '-')
-}
-
-function normalizePlanKey(value) {
-  const normalizedValue = String(value ?? '').trim()
-  return ['individual', 'single_team', 'small_club', 'large_club'].includes(normalizedValue)
-    ? normalizedValue
-    : 'single_team'
 }
 
 function normalizeCodeRow(row) {
@@ -111,12 +105,18 @@ async function createCode(event, adminUser) {
     throw new Error('Enter an access code.')
   }
 
+  const planKey = normalizePlanKey(body.planKey)
+
+  if (!planKey) {
+    throw new Error('Choose a valid tester plan.')
+  }
+
   const { error } = await supabaseAdmin
     .from('tester_access_codes')
     .insert({
       code,
       label,
-      plan_key: normalizePlanKey(body.planKey),
+      plan_key: planKey,
       assigned_email: assignedEmail || null,
       max_uses: maxUses,
       expires_at: expiresAt,

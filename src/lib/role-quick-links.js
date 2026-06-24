@@ -8,8 +8,16 @@ import {
   canViewBilling,
   canViewPlatformFeedback,
   isSuperAdmin,
-} from './auth.js'
-import { hasPlanFeature } from './plans.js'
+} from './auth-permissions.js'
+import { CAPABILITIES } from './paywall-access.js'
+import { canUseUiFeature } from './paywall-ui.js'
+import { isRecoveryPathVisible } from './recovery-phase.js'
+
+function pushVisibleLink(links, user, link) {
+  if (isRecoveryPathVisible(link.path, { user })) {
+    links.push(link)
+  }
+}
 
 export function getRoleQuickLinks(user) {
   if (!user) {
@@ -17,54 +25,61 @@ export function getRoleQuickLinks(user) {
   }
 
   if (isSuperAdmin(user)) {
-    return [
-      { label: 'Open Platform Admin', path: '/platform-admin', primary: true },
-      { label: 'Manage Clubs', path: '/platform-clubs' },
-      { label: 'Billing Options', path: '/platform-billing-options' },
-      ...(canViewPlatformFeedback(user) ? [{ label: 'Platform Feedback', path: '/platform-feedback' }] : []),
-      { label: 'Activity Log', path: '/activity-log' },
-    ]
+    const links = []
+    pushVisibleLink(links, user, { label: 'Open Platform Admin', path: '/platform-admin', primary: true })
+    pushVisibleLink(links, user, { label: 'Manage Clubs', path: '/platform-clubs' })
+    pushVisibleLink(links, user, { label: 'Billing Options', path: '/platform-billing-options' })
+
+    if (canViewPlatformFeedback(user)) {
+      pushVisibleLink(links, user, { label: 'Platform Feedback', path: '/platform-feedback' })
+    }
+
+    pushVisibleLink(links, user, { label: 'Activity Log', path: '/activity-log' })
+
+    return links
   }
 
   const links = []
 
   if (canManageTeamSettings(user)) {
-    links.push({ label: 'Manage Teams', path: '/teams', primary: true })
+    pushVisibleLink(links, user, { label: 'Manage Teams', path: '/teams', primary: true })
   }
 
   if (canManageUsers(user)) {
-    links.push({ label: 'Manage User Access', path: '/user-access', primary: links.length === 0 })
+    pushVisibleLink(links, user, { label: 'Manage User Access', path: '/user-access', primary: links.length === 0 })
   }
 
   if (canCreateEvaluation(user)) {
-    links.push(
-      { label: 'Sessions', path: '/sessions', primary: links.length === 0 },
-      { label: 'Players', path: '/players' },
-      { label: 'Development', path: '/assess-player' },
-    )
+    if (canUseUiFeature(user, CAPABILITIES.teamCalendar)) {
+      pushVisibleLink(links, user, { label: 'Sessions', path: '/sessions', primary: links.length === 0 })
+    }
+    pushVisibleLink(links, user, { label: 'Players', path: '/players' })
+    if (canUseUiFeature(user, CAPABILITIES.assessments)) {
+      pushVisibleLink(links, user, { label: 'Development', path: '/assess-player' })
+    }
   }
 
-  if (canManageFormFields(user) && hasPlanFeature(user, 'customFormFields')) {
-    links.push({ label: 'Development Fields', path: '/form-builder' })
+  if (canManageFormFields(user) && canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
+    pushVisibleLink(links, user, { label: 'Development Fields', path: '/form-builder' })
   }
 
-  if (canManageParentEmailTemplates(user) && hasPlanFeature(user, 'parentEmail')) {
-    links.push({ label: 'Email Templates', path: '/parent-email-templates' })
+  if (canManageParentEmailTemplates(user) && canUseUiFeature(user, CAPABILITIES.parentEmails)) {
+    pushVisibleLink(links, user, { label: 'Email Templates', path: '/parent-email-templates' })
   }
 
-  if (canViewActivityLog(user) && hasPlanFeature(user, 'auditLogs')) {
-    links.push({ label: 'Activity Log', path: '/activity-log' })
+  if (canViewActivityLog(user) && canUseUiFeature(user, CAPABILITIES.fullOperationalAuditLog)) {
+    pushVisibleLink(links, user, { label: 'Activity Log', path: '/activity-log' })
   }
 
   if (canViewBilling(user)) {
-    links.push({ label: 'Billing', path: '/billing' })
+    pushVisibleLink(links, user, { label: 'Billing', path: '/billing' })
   }
 
   if (canViewPlatformFeedback(user)) {
-    links.push({ label: 'Platform Feedback', path: '/platform-feedback' })
+    pushVisibleLink(links, user, { label: 'Platform Feedback', path: '/platform-feedback' })
   }
 
-  links.push({ label: 'Settings', path: '/user-settings' })
+  pushVisibleLink(links, user, { label: 'Settings', path: '/user-settings' })
 
   return links
 }

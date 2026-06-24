@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewBilling, useAuth } from '../lib/auth.js'
 import { formatUkDate } from '../lib/date-format.js'
 import { getPlanName } from '../lib/plans.js'
+
+const SUPPORT_EMAIL = 'support@footballplayer.online'
 
 function formatDate(value) {
   if (!value) {
@@ -46,30 +48,41 @@ function getBillingStatusLabel(status) {
     return 'Cancelled'
   }
 
+  if (normalizedStatus === 'manual') {
+    return 'Managed billing'
+  }
+
   return normalizedStatus || 'Not available'
+}
+
+function hasBillingRecords(billing, club) {
+  return Boolean(
+    billing?.subscription ||
+    club?.stripeCustomerId ||
+    club?.stripeSubscriptionId ||
+    (billing?.invoices ?? []).length > 0,
+  )
 }
 
 const billingRules = [
   {
-    label: 'Club access changes here',
-    body: 'Plan changes affect every coach, team, player, and parent workflow in this club.',
+    label: 'Club Admin only',
+    body: 'Billing changes affect every team and staff account in this club.',
   },
   {
-    label: 'Tester access is temporary',
-    body: 'Staging can use tester codes. Paid checkout is only needed when the club is ready to keep using the workspace.',
+    label: 'Managed setup',
+    body: 'If online billing is not active, support can help with plan or payment changes.',
   },
   {
-    label: 'Invoices prove billing state',
-    body: 'Use invoices to confirm payment history after Stripe has created records for the subscription.',
+    label: 'Invoices',
+    body: 'Invoices appear here once billing has created records for this workspace.',
   },
 ]
 
 export function BillingPage() {
   const { session, user } = useAuth()
-  const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const [billing, setBilling] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isCheckoutLoading, setIsCheckoutLoading] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
@@ -124,13 +137,20 @@ export function BillingPage() {
       planKey: user?.planKey,
       planStatus: user?.planStatus,
       isPlanComped: user?.isPlanComped,
+      stripeCustomerId: user?.stripeCustomerId,
+      stripeSubscriptionId: user?.stripeSubscriptionId,
       currentPeriodEnd: user?.currentPeriodEnd,
       planUpdatedAt: user?.planUpdatedAt,
     }),
     [user],
   )
   const visibleClub = clubBilling || fallbackClub
-  const testerAccessExpired = Boolean(user?.testerAccessExpired)
+  const normalizedPlanStatus = String(visibleClub?.planStatus ?? '').trim()
+  const hasRealBilling = hasBillingRecords(billing, visibleClub)
+  const isManagedBilling = !hasRealBilling || visibleClub?.isPlanComped || normalizedPlanStatus === 'manual'
+  const planStateLabel = isManagedBilling
+    ? 'Managed billing'
+    : getBillingStatusLabel(visibleClub?.planStatus)
   const planSummary = [
     {
       label: 'Current tier',
@@ -138,9 +158,9 @@ export function BillingPage() {
       caption: 'Controls limits and available workspace tools.',
     },
     {
-      label: 'Plan state',
-      value: testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus),
-      caption: 'This is the access state enforced for the club.',
+      label: 'Billing state',
+      value: planStateLabel,
+      caption: 'This is the billing state shown for the club.',
     },
     {
       label: 'Next billing date',
@@ -148,42 +168,6 @@ export function BillingPage() {
       caption: 'Shown when subscription data is available.',
     },
   ]
-
-  const handleChoosePlan = async (planName) => {
-    setIsCheckoutLoading(planName)
-    setErrorMessage('')
-
-    if (paymentsDisabled) {
-      setErrorMessage('Payments are disabled on this test site.')
-      setIsCheckoutLoading('')
-      return
-    }
-
-    try {
-      const response = await fetch('/.netlify/functions/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planName,
-          billingCycle: 'monthly',
-          customerEmail: user?.email || undefined,
-          clubName: user?.clubName || undefined,
-        }),
-      })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || result.success === false || !result.url) {
-        throw new Error(result.message || 'Checkout could not be started.')
-      }
-
-      window.location.assign(result.url)
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Checkout could not be started right now.')
-    } finally {
-      setIsCheckoutLoading('')
-    }
-  }
 
   if (!canViewBilling(user)) {
     return <Navigate to="/" replace />
@@ -194,12 +178,12 @@ export function BillingPage() {
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Club access</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Billing</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-              Keep the club plan clear before coaches and parents rely on it.
+              Billing
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Review the current tier, subscription state, tester access, renewal date, and invoices that control this football workspace.
+              Review plan access and billing status for this club workspace.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {billingRules.map((rule) => (
@@ -213,12 +197,16 @@ export function BillingPage() {
 
           <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Access state</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Billing status</p>
               <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#101828]">
-                {isLoading ? 'Loading plan' : getPlanName(visibleClub)}
+                {isLoading ? 'Loading billing' : planStateLabel}
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                {testerAccessExpired ? 'Tester access has ended for this club.' : 'This is the access currently enforced for the club.'}
+                {isLoading
+                  ? 'Billing status is loading for this workspace.'
+                  : isManagedBilling
+                  ? 'This workspace is handled manually. Contact support for plan or payment changes.'
+                  : 'Stripe billing records are available for this workspace.'}
               </p>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -238,11 +226,32 @@ export function BillingPage() {
         />
       ) : null}
 
-      {testerAccessExpired ? (
-        <NoticeBanner
-          title="Tester access has ended"
-          message={paymentsDisabled ? 'Your club data is still safe. Use tester access codes on staging because payment checkout is disabled here.' : 'Your club data is still safe. Choose a paid plan below to continue using the workspace.'}
-        />
+      {!isLoading && isManagedBilling ? (
+        <SectionCard
+          title="Billing"
+          tourId="managed-billing-section"
+          description="Billing is not active for this workspace yet."
+        >
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
+            <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+              This club is currently on a managed setup. If you need to change plan, payment, or billing details, contact support.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46]"
+              >
+                Contact us
+              </a>
+              <Link
+                to="/pricing"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+              >
+                View pricing
+              </Link>
+            </div>
+          </div>
+        </SectionCard>
       ) : null}
 
       <SectionCard
@@ -262,9 +271,7 @@ export function BillingPage() {
             </div>
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Status</p>
-              <p className="mt-3 text-2xl font-black text-[#101828]">
-                {testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
-              </p>
+              <p className="mt-3 text-2xl font-black text-[#101828]">{planStateLabel}</p>
             </div>
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Next billing date</p>
@@ -278,84 +285,64 @@ export function BillingPage() {
         )}
       </SectionCard>
 
-      {testerAccessExpired && !paymentsDisabled ? (
+      {hasRealBilling ? (
         <SectionCard
-          title="Choose a paid plan"
-          description="Start paid access for this club so the workspace can be used again."
+          title="Invoices"
+          tourId="invoices-section"
+          description="Invoices appear here once billing has created them for this workspace."
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            {['Single Team', 'Small Club'].map((planName) => (
-              <button
-                key={planName}
-                type="button"
-                disabled={Boolean(isCheckoutLoading)}
-                title={isCheckoutLoading ? 'Please wait while checkout opens.' : undefined}
-                onClick={() => void handleChoosePlan(planName)}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isCheckoutLoading === planName ? 'Opening checkout...' : `Choose ${planName}`}
-              </button>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55]">
+              Loading invoices...
+            </div>
+          ) : (billing?.invoices ?? []).length === 0 ? (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55]">
+              No invoices are available for this workspace yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {billing.invoices.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10 md:grid-cols-[1fr_auto_auto]"
+                >
+                  <div>
+                    <p className="font-black text-[#101828]">{invoice.number}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
+                      {formatDate(invoice.createdAt)}, {getBillingStatusLabel(invoice.status)}
+                    </p>
+                  </div>
+                  <p className="text-sm font-black text-[#101828] md:self-center">
+                    {formatMoney(invoice.amountPaid || invoice.amountDue, invoice.currency)}
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row md:self-center">
+                    {invoice.hostedInvoiceUrl ? (
+                      <a
+                        href={invoice.hostedInvoiceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+                      >
+                        View
+                      </a>
+                    ) : null}
+                    {invoice.invoicePdf ? (
+                      <a
+                        href={invoice.invoicePdf}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46]"
+                      >
+                        Download
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
       ) : null}
-
-      <SectionCard
-        title="Invoices"
-        tourId="invoices-section"
-        description="Invoices appear here once billing has created them for this subscription."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55]">
-            Loading invoices...
-          </div>
-        ) : (billing?.invoices ?? []).length === 0 ? (
-          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55]">
-            No invoices are available yet.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {billing.invoices.map((invoice) => (
-              <div
-                key={invoice.id}
-                className="grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10 md:grid-cols-[1fr_auto_auto]"
-              >
-                <div>
-                  <p className="font-black text-[#101828]">{invoice.number}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-                    {formatDate(invoice.createdAt)}, {getBillingStatusLabel(invoice.status)}
-                  </p>
-                </div>
-                <p className="text-sm font-black text-[#101828] md:self-center">
-                  {formatMoney(invoice.amountPaid || invoice.amountDue, invoice.currency)}
-                </p>
-                <div className="flex flex-col gap-2 sm:flex-row md:self-center">
-                  {invoice.hostedInvoiceUrl ? (
-                    <a
-                      href={invoice.hostedInvoiceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
-                    >
-                      View
-                    </a>
-                  ) : null}
-                  {invoice.invoicePdf ? (
-                    <a
-                      href={invoice.invoicePdf}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46]"
-                    >
-                      Download
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </SectionCard>
     </div>
   )
 }

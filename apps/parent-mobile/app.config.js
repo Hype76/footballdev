@@ -8,5 +8,5 @@ module.exports = createMobileExpoConfig({
   packageName: 'com.footballplayer.parents',
   scheme: 'footballplayerparents',
   slug: 'football-player-parents',
-  version: '0.1.0',
+  version: '1.0.1',
 })

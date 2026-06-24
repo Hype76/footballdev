@@ -1,5 +1,4 @@
-import process from 'node:process'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import { createSupabaseAdminClient } from './_supabase.js'
 
 function jsonResponse(statusCode, payload) {
@@ -63,10 +62,6 @@ export async function handler(event) {
       return jsonResponse(400, { success: false, message: 'Password reset redirect is not configured.' })
     }
 
-    if (!process.env.RESEND_API_KEY) {
-      return jsonResponse(500, { success: false, message: 'Password reset email is not configured.' })
-    }
-
     const supabaseAdmin = createSupabaseAdminClient(event)
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
@@ -87,22 +82,26 @@ export async function handler(event) {
       return jsonResponse(500, { success: false, message: 'Password reset link could not be created.' })
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const sendResult = await resend.emails.send({
-      from: 'Football Player <feedback@footballplayer.online>',
+    await sendEmail({
+      from: createFromAddress('Football Player'),
       to: [email],
       subject: 'Reset your Football Player password',
       html: buildResetEmail({ actionLink }),
+    }, {
+      context: {
+        emailType: 'password_reset',
+        actorEmail: email,
+        targetEntityType: 'auth_user',
+      },
+      publicMessage: 'Password reset email could not be sent. Please try again in a moment.',
     })
-
-    if (sendResult.error) {
-      console.error(sendResult.error)
-      return jsonResponse(502, { success: false, message: sendResult.error.message || 'Password reset email could not be sent.' })
-    }
 
     return jsonResponse(200, { success: true })
   } catch (error) {
     console.error(error)
-    return jsonResponse(500, { success: false, message: error.message || 'Password reset email could not be sent.' })
+    return jsonResponse(error.statusCode || 500, {
+      success: false,
+      message: getPublicEmailErrorMessage(error, 'Password reset email could not be sent. Please try again in a moment.'),
+    })
   }
 }

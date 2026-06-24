@@ -117,7 +117,7 @@ export function EvaluationExportFieldsSelector({
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => onToggleExportField(itemLabel, responseItems)}
-                className="mt-1 h-4 w-4 accent-[#047857]"
+                className="mt-1 h-5 w-5 shrink-0 accent-[#047857]"
               />
               <span className="min-w-0">
                 <span className="block font-black">{itemLabel}</span>

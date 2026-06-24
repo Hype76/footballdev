@@ -91,12 +91,16 @@ export {
   getParentPortalLinks,
   getParentPortalMessages,
   markParentPortalMessageRead,
+  prepareParentPortalEmailChange,
   revokeFamilyPortalLink,
   revokeParentPortalLink,
+  updateOwnParentPortalLinksEmail,
+  updateParentPortalDisplayName,
 } from './domain/parent-portal.js'
 
 export {
   archivePlayer,
+  assignPlayerStaffNote,
   createCommunicationLog,
   createPlayerStaffNote,
   deletePlayerStaffNote,
@@ -106,8 +110,10 @@ export {
   deletePlayerRecord,
   getPlayerCommunicationLogs,
   getPlayerDecisionLogs,
+  getAssessmentReminderLogs,
   getPlayerStaffNotes,
   getSessionStaffNotes,
+  getUnassignedStaffVoiceNotes,
   getPlayers,
   movePlayerToTrial,
   promotePlayerToSquad,
@@ -124,6 +130,20 @@ export {
 } from './domain/evaluations.js'
 
 export {
+  createCalendarEvent,
+  deleteCalendarEvent,
+  getCalendarEvents,
+  getParentPortalSharedCalendarEvents,
+  updateCalendarEvent,
+} from './domain/calendar-events.js'
+
+export {
+  getCalendarEventInvites,
+  getParentPortalEventInvites,
+  saveCalendarEventInvites,
+} from './domain/calendar-event-invites.js'
+
+export {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
@@ -131,6 +151,7 @@ export {
   deleteAssessmentSession,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
+  updateAssessmentSession,
   updateAssessmentSessionPlayer,
 } from './domain/sessions.js'
 
@@ -161,6 +182,7 @@ export {
   calculateArrivalTime,
   createMatchDay,
   expressMatchDayScorerInterest,
+  getTodayMatchDayDateValue,
   getMatchDays,
   getMatchLocations,
   getParentPortalMatchDays,
@@ -170,6 +192,7 @@ export {
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
   selectMatchDayScorer,
+  isPastMatchDayDate,
   updateMatchDay,
   updateMatchDayScoreAsScorer,
 } from './domain/match-day.js'

@@ -41,7 +41,7 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
+import { canAddStaffAccessEmail, createLimitUpgradeMessage, getUniqueStaffAccessEmails, isWithinPlanLimit } from '../lib/plans.js'
 
 const teamSetupRules = [
   {
@@ -320,8 +320,10 @@ export function TeamManagementPage() {
     () => getPaginatedItems(selectedTeamStaff, staffPage, STAFF_PAGE_SIZE),
     [selectedTeamStaff, staffPage],
   )
-  const canCreateMoreTeams = isWithinPlanLimit(user, 'teams', teams.length)
-  const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', users.length)
+  const staffAccessEmailCount = useMemo(() => getUniqueStaffAccessEmails(users, []).size, [users])
+  const serverEnforcesTeamLimit = user?.role === 'admin' || user?.role === 'super_admin'
+  const canCreateMoreTeams = serverEnforcesTeamLimit || isWithinPlanLimit(user, 'teams', teams.length)
+  const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', staffAccessEmailCount)
   const teamLimitMessage = createLimitUpgradeMessage(user, 'teams', 'Teams')
   const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
   const allocatedStaffCount = useMemo(
@@ -371,7 +373,7 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
-      if (!isWithinPlanLimit(user, 'teams', teams.length)) {
+      if (!serverEnforcesTeamLimit && !isWithinPlanLimit(user, 'teams', teams.length)) {
         throw new Error(createLimitUpgradeMessage(user, 'teams', 'Teams'))
       }
 
@@ -396,7 +398,6 @@ export function TeamManagementPage() {
         ...current,
         teamId: '',
       }))
-      setSelectedTeamId(createdTeam.id)
       await refreshTeamSelection?.()
       setMessage('Team created.')
       showToast({ title: 'Team created', message: `${createdTeam.name} has been added.` })
@@ -461,10 +462,6 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
-      if (!isWithinPlanLimit(user, 'staffLogins', users.length)) {
-        throw new Error(createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins'))
-      }
-
       let selectedRole = assignableRoles.find((role) => role.roleKey === coachForm.roleKey)
 
       if (coachForm.roleKey === '__custom__') {
@@ -489,6 +486,11 @@ export function TeamManagementPage() {
 
       const selectedTeamId = String(coachForm.teamId ?? '').trim()
       const normalizedCoachEmail = normalizeStaffEmail(coachForm.email)
+
+      if (!canAddStaffAccessEmail(user, normalizedCoachEmail, users, [])) {
+        throw new Error(createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins'))
+      }
+
       const currentTeam = teamAssignments.find((team) => team.id === selectedTeamId)
       const currentTeamEmails = new Set(
         users
@@ -722,7 +724,7 @@ export function TeamManagementPage() {
 
           <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Setup state</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Club setup</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{teams.length} teams configured</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 {allocatedStaffCount} staff accounts are allocated to at least one team.
@@ -758,6 +760,7 @@ export function TeamManagementPage() {
 
       <CreateTeamSection
         canCreateMoreTeams={canCreateMoreTeams}
+        hasTeams={teams.length > 0}
         isSaving={isSaving}
         onOpenCreateTeam={() => setIsCreateTeamModalOpen(true)}
         teamLimitMessage={teamLimitMessage}

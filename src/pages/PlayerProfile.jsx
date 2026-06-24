@@ -6,6 +6,7 @@ import { PlayerMergeAssessments } from '../components/players/PlayerMergeAssessm
 import { PlayerOverview } from '../components/players/PlayerOverview.jsx'
 import { PlayerProfileActions } from '../components/players/PlayerProfileActions.jsx'
 import { PlayerProfileModals } from '../components/players/PlayerProfileModals.jsx'
+import { PlayerProgressionCharts } from '../components/players/PlayerProgressionCharts.jsx'
 import { PlayerStaffActivity } from '../components/players/PlayerStaffActivity.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -24,7 +25,8 @@ import {
 import { sendParentEmail, sendParentPortalInvite } from '../lib/email-builder.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import { isDemoUser } from '../lib/demo.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   getSavedEvaluationExportLabels,
   getSelectedEvaluationResponses,
@@ -32,6 +34,16 @@ import {
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
 import { buildAssessmentPdfHtml } from '../lib/assessment-pdf-html.js'
+import {
+  isParentPortalInviteEligiblePlayer,
+  normalizeParentPortalInviteEmail,
+} from '../lib/parent-portal-invite-actions.js'
+import {
+  EMAIL_SECTION_DEFAULTS,
+  buildProgressionEmailSections,
+  buildPlayerProgressionData,
+  getEmailSectionState,
+} from '../lib/player-progression.js'
 import {
   buildFieldMovement,
   buildMergeDetailFields,
@@ -75,6 +87,8 @@ import {
   deletePlayerStaffNote,
   deleteEvaluation,
   getEvaluations,
+  getDefaultFormFields,
+  getFormFields,
   getPlayerCommunicationLogs,
   getPlayerStaffNotes,
   getParentEmailTemplates,
@@ -84,6 +98,7 @@ import {
   normalizePlayerContactType,
   clearViewCaches,
   createParentPortalInvites,
+  getParentLinksForPlayer,
   movePlayerToTrial,
   promotePlayerToSquad,
   readViewCache,
@@ -116,6 +131,9 @@ export function PlayerProfile() {
   const routePlayerName = decodeURIComponent(id)
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}` : ''
+  const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
+  const cachedFields = readViewCache(fieldsCacheKey)
+  const hasCachedFieldConfig = Boolean(cachedFields?.dynamicFields)
   const [evaluations, setEvaluations] = useState(() => {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
@@ -129,6 +147,10 @@ export function PlayerProfile() {
     return Array.isArray(cachedPlayers) ? cachedPlayers : []
   })
   const [staffNotes, setStaffNotes] = useState([])
+  const [dynamicFields, setDynamicFields] = useState(() => {
+    const nextCachedFields = Array.isArray(cachedFields?.dynamicFields) ? cachedFields.dynamicFields : []
+    return nextCachedFields
+  })
   const [activityLogs, setActivityLogs] = useState([])
   const [noteDraft, setNoteDraft] = useState('')
   const [editingPlayerId, setEditingPlayerId] = useState('')
@@ -161,6 +183,7 @@ export function PlayerProfile() {
       playerName: routePlayerName,
     }),
   )
+  const [selectedEmailSections, setSelectedEmailSections] = useState({})
   const [evaluationPage, setEvaluationPage] = useState(1)
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
   const [noPlaceArchiveTarget, setNoPlaceArchiveTarget] = useState(null)
@@ -168,6 +191,9 @@ export function PlayerProfile() {
   const [staffNoteDeleteTarget, setStaffNoteDeleteTarget] = useState(null)
   const [promoteConfirmTarget, setPromoteConfirmTarget] = useState(null)
   const [sendParentPortalLinkOnPromote, setSendParentPortalLinkOnPromote] = useState(true)
+  const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
+  const [parentPortalInviteSendingKey, setParentPortalInviteSendingKey] = useState('')
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
@@ -288,8 +314,47 @@ export function PlayerProfile() {
     }
   }, [cacheKey, routePlayerName, user, userScopeKey])
 
+  useEffect(() => {
+    let isMounted = true
+
+    const loadFields = async () => {
+      if (!user) {
+        setDynamicFields([])
+        return
+      }
+
+      try {
+        const { fields } = await withRequestTimeout(
+          () => getFormFields({ user }),
+          'Could not load form fields for progression chart settings.',
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        setDynamicFields(fields)
+        writeViewCache(fieldsCacheKey, {
+          dynamicFields: fields,
+        })
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted && !hasCachedFieldConfig) {
+          setDynamicFields(getDefaultFormFields())
+        }
+      }
+    }
+
+    void loadFields()
+
+    return () => {
+      isMounted = false
+    }
+  }, [fieldsCacheKey, hasCachedFieldConfig, user, userScopeKey])
+
   const loadEmailTemplates = useCallback(async () => {
-    if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+    if (!user?.clubId || !canUseParentEmail) {
       setEmailTemplates([])
       return
     }
@@ -304,7 +369,7 @@ export function PlayerProfile() {
       console.error(error)
       setEmailTemplates(mergeEmailTemplatesWithDefaults([], 'all'))
     }
-  }, [user])
+  }, [canUseParentEmail, user])
 
   useEffect(() => {
     let isMounted = true
@@ -333,7 +398,11 @@ export function PlayerProfile() {
     [evaluationPage, evaluations],
   )
   const ratingTrend = useMemo(() => buildRatingTrend(evaluations), [evaluations])
-  const fieldMovement = useMemo(() => buildFieldMovement(evaluations), [evaluations])
+  const fieldMovement = useMemo(() => buildFieldMovement(evaluations, dynamicFields), [dynamicFields, evaluations])
+  const progressionData = useMemo(
+    () => buildPlayerProgressionData({ evaluations, staffNotes, fields: dynamicFields }),
+    [dynamicFields, evaluations, staffNotes],
+  )
   const ratingTrendMax = ratingTrend.some((evaluation) => Number(evaluation.averageScore) > 5) ? 10 : 5
   const overallAverage =
     scoredEvaluations.length > 0
@@ -341,6 +410,44 @@ export function PlayerProfile() {
       : null
 
   const profilePlayers = useMemo(() => getProfilePlayers(players), [players])
+  useEffect(() => {
+    let isMounted = true
+    const squadPlayers = profilePlayers.filter(isParentPortalInviteEligiblePlayer)
+
+    const loadParentPortalLinks = async () => {
+      if (squadPlayers.length === 0) {
+        setParentPortalLinksByPlayerId({})
+        return
+      }
+
+      const results = await Promise.allSettled(
+        squadPlayers.map(async (player) => [player.id, await getParentLinksForPlayer({ playerId: player.id })]),
+      )
+
+      if (!isMounted) {
+        return
+      }
+
+      setParentPortalLinksByPlayerId(
+        Object.fromEntries(
+          results
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => result.value),
+        ),
+      )
+
+      results
+        .filter((result) => result.status === 'rejected')
+        .forEach((result) => console.error(result.reason))
+    }
+
+    void loadParentPortalLinks()
+
+    return () => {
+      isMounted = false
+    }
+  }, [profilePlayers, userScopeKey])
+
   const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
   const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
   const primaryPlayer = profilePlayers[0]
@@ -464,6 +571,12 @@ export function PlayerProfile() {
   const getSelectedExportResponseItems = (evaluation) =>
     getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
 
+  const getSelectedEmailSections = (evaluation) =>
+    getEmailSectionState(
+      selectedEmailSections[evaluation.id] || EMAIL_SECTION_DEFAULTS,
+      progressionData,
+    )
+
   const getLatestEvaluationWithResponses = (player) => {
     const playerId = String(player?.id ?? '').trim()
     const playerName = String(player?.playerName || routePlayerName || '').trim().toLowerCase()
@@ -489,8 +602,10 @@ export function PlayerProfile() {
       getSelectedEvaluationParentContacts,
       getSelectedExportResponseItems,
       getSelectedInviteDate,
+      progressionData,
       profileParentName,
       routePlayerName,
+      selectedEmailSections: getSelectedEmailSections(evaluation).sections,
       selectedEmailTemplates,
       user,
     })
@@ -510,8 +625,10 @@ export function PlayerProfile() {
       contacts,
       inviteDate: selectedDirectInviteDates[player.id] || '',
       player,
+      progressionData,
       responses: sourceEvaluation ? getSelectedExportResponseItems(sourceEvaluation) : [],
       routePlayerName,
+      selectedEmailSections: sourceEvaluation ? getSelectedEmailSections(sourceEvaluation).sections : EMAIL_SECTION_DEFAULTS,
       selectedTemplate,
       sourceEvaluation,
       user,
@@ -582,8 +699,8 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      if (!hasPlanFeature(user, 'parentEmail')) {
-        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+      if (!canUseParentEmail) {
+        setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
         return
       }
 
@@ -613,8 +730,8 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      if (!hasPlanFeature(user, 'parentEmail')) {
-        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+      if (!canUseParentEmail) {
+        setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
         return
       }
 
@@ -624,6 +741,10 @@ export function PlayerProfile() {
       }
 
       const responses = getSelectedExportResponseItems(evaluation)
+      const emailSections = buildProgressionEmailSections({
+        progressionData,
+        sections: getSelectedEmailSections(evaluation).sections,
+      })
       const recipientName = user.displayName || user.username || user.name || user.email
       const teamName = user.emailTeamName || evaluation.team
       const clubName = user.emailClubName || user.clubName
@@ -646,6 +767,7 @@ export function PlayerProfile() {
         clubContactEmail: user.clubContactEmail,
         playerName: routePlayerName,
         responses,
+        emailSections,
         subject: `Test development record copy for ${routePlayerName}`,
         emailBody: `This is a test copy of the saved development record for ${routePlayerName}. It was sent only to your signed-in account.`,
         pdfHtml: buildAssessmentPdfHtml({
@@ -656,6 +778,7 @@ export function PlayerProfile() {
           session: evaluation.session,
           logoUrl: user.clubLogoUrl || null,
           responseItems: responses,
+          emailSections,
         }),
         evaluationId: evaluation.id,
         attachPdf: true,
@@ -697,8 +820,8 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      if (!hasPlanFeature(user, 'parentEmail')) {
-        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+      if (!canUseParentEmail) {
+        setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
         return
       }
 
@@ -764,6 +887,7 @@ export function PlayerProfile() {
                 playerName: routePlayerName,
                 hasAttachment: attachPdf,
                 hasAssessmentFields: attachAssessmentFields,
+                emailSections: item.payload?.emailSections || [],
                 scheduledAt,
                 assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
                 pdfHtml: attachPdf ? item.payload?.pdfHtml || '' : '',
@@ -790,6 +914,7 @@ export function PlayerProfile() {
           playerName: routePlayerName,
           hasAttachment: attachPdf,
           hasAssessmentFields: attachAssessmentFields,
+          emailSections: payloads[0]?.payload?.emailSections || [],
           scheduledAt,
           assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
           pdfHtml: attachPdf ? payloads[0]?.payload?.pdfHtml || '' : '',
@@ -830,6 +955,19 @@ export function PlayerProfile() {
       setEmailSendMode('now')
       setScheduledEmailDateTime('')
     }
+  }
+
+  const handleToggleEmailSection = (evaluationId, sectionKey) => {
+    setSelectedEmailSections((current) => {
+      const currentSections = current[evaluationId] || EMAIL_SECTION_DEFAULTS
+      return {
+        ...current,
+        [evaluationId]: {
+          ...currentSections,
+          [sectionKey]: !currentSections[sectionKey],
+        },
+      }
+    })
   }
 
   const handleSaveStaffNote = async () => {
@@ -1300,6 +1438,77 @@ export function PlayerProfile() {
     return invites
   }
 
+  const refreshParentPortalLinksForPlayer = async (playerId) => {
+    if (!playerId) {
+      return
+    }
+
+    const nextLinks = await getParentLinksForPlayer({ playerId })
+    setParentPortalLinksByPlayerId((current) => ({
+      ...current,
+      [playerId]: nextLinks,
+    }))
+  }
+
+  const handleSendParentPortalInviteForContact = async (player, contact) => {
+    const email = normalizeParentPortalInviteEmail(contact?.email)
+
+    if (!isParentPortalInviteEligiblePlayer(player)) {
+      setErrorMessage('Parent portal invites can only be sent for Squad players.')
+      return
+    }
+
+    if (!email) {
+      setErrorMessage('Add a parent email before sending a parent portal invite.')
+      return
+    }
+
+    const sendingKey = `${player.id}:${email}`
+    setParentPortalInviteSendingKey(sendingKey)
+    setErrorMessage('')
+
+    try {
+      const invites = await createParentPortalInvites({
+        user,
+        player,
+        contacts: [contact],
+        includeSentPending: true,
+      })
+
+      if (invites.length > 0) {
+        await Promise.all(
+          invites.map((invite) =>
+            sendParentPortalInvite({
+              clubId: invite.clubId,
+              inviteLinkId: invite.id,
+              parentEmail: invite.email,
+              senderEmail: user.email,
+              displayName: user.displayName || user.username || user.name,
+              teamName: invite.teamName,
+              clubName: invite.clubName || user.clubName,
+              playerName: invite.playerName,
+              subject: `Parent portal invite for ${invite.playerName}`,
+              inviteUrl: invite.inviteUrl,
+            }),
+          ),
+        )
+      }
+
+      await refreshParentPortalLinksForPlayer(player.id)
+      showToast({
+        title: invites.length > 0 ? 'Parent invite sent' : 'No new invite needed',
+        message: invites.length > 0
+          ? `Parent portal invite sent to ${email}.`
+          : 'This parent already has active portal access for this player.',
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Parent portal invite could not be sent.')
+    } finally {
+      setParentPortalInviteSendingKey('')
+    }
+  }
+
   const confirmPromotePlayer = async () => {
     if (!promoteConfirmTarget?.id) {
       return
@@ -1328,7 +1537,7 @@ export function PlayerProfile() {
         } catch (error) {
           console.error(error)
           inviteError = error
-          setErrorMessage(error.message || 'Player was promoted, but the family portal invite could not be sent.')
+          setErrorMessage(error.message || 'Player was promoted, but the parent portal invite could not be sent.')
         }
       }
 
@@ -1483,6 +1692,11 @@ export function PlayerProfile() {
         ratingTrendMax={ratingTrendMax}
       />
 
+      <PlayerProgressionCharts
+        playerName={routePlayerName}
+        progressionData={progressionData}
+      />
+
       <PlayerDetailsSection
         directEmailSendingId={emailSendingId}
         editingPlayerId={editingPlayerId}
@@ -1513,8 +1727,11 @@ export function PlayerProfile() {
             [`direct:${playerId}`]: value,
           }))
         }
+        onSendParentPortalInviteForContact={(player, contact) => void handleSendParentPortalInviteForContact(player, contact)}
         onSendDirectEmail={(player) => void handleSendDirectEmail(player)}
         onStartEditingPlayer={handleStartEditingPlayer}
+        parentPortalInviteSendingKey={parentPortalInviteSendingKey}
+        parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}
         selectedDirectInviteDates={selectedDirectInviteDates}
@@ -1588,11 +1805,11 @@ export function PlayerProfile() {
             className="mt-1 h-4 w-4 accent-[#047857] disabled:cursor-not-allowed"
           />
           <span>
-            <span className="block font-black">Send family portal link</span>
+            <span className="block font-black">Send parent portal invite</span>
             <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
               {getPlayerPortalContacts(promoteConfirmTarget).length > 0
                 ? 'Parent contacts saved on this player will receive the portal invite.'
-                : 'Add a parent email before sending a family portal link.'}
+                : 'Add a parent email before sending a parent portal invite.'}
             </span>
           </span>
         </label>
@@ -1654,12 +1871,14 @@ export function PlayerProfile() {
         }
         onSendParentEmail={(evaluation) => void handleSendParentEmail(evaluation)}
         onSendTestEmail={(evaluation) => void handleSendTestEmail(evaluation)}
+        onToggleEmailSection={handleToggleEmailSection}
         onToggleEvaluationParentContact={handleToggleEvaluationParentContact}
         onToggleExportField={handleToggleExportField}
         page={evaluationPage}
         paginatedEvaluations={paginatedEvaluations}
         playerName={routePlayerName}
         selectedExportLabels={selectedExportLabels}
+        getSelectedEmailSections={getSelectedEmailSections}
         selectedParentContacts={selectedParentContacts}
         selectedReassignTargets={selectedReassignTargets}
         user={user}

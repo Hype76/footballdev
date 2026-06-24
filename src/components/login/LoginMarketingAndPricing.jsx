@@ -18,7 +18,7 @@ const operatingSystemRows = [
 const switchCards = [
   ['Less setup drag than generic team apps', 'Make the first useful action obvious: club, team, players, parents, then match week.'],
   ['Less website weight than full club-site tools', 'Prioritise the operating workspace before public-site content, news, and broad sports tooling.'],
-  ['Football-only decisions', 'Use football language, football roles, and football workflows everywhere in the product.'],
+  ['Football-only decisions', 'Use football language, football roles, and practical club actions everywhere in the product.'],
   ['Cleaner club control', 'Separate platform admin, club admin, team staff, and parent access from the start.'],
 ]
 
@@ -35,7 +35,6 @@ export function LoginMarketingAndPricing({
   livePromotion,
   localError,
   localMessage,
-  onBillingCycleChange,
   onChoosePlan,
   onRequestDemo,
   paymentsDisabled,
@@ -101,7 +100,7 @@ export function LoginMarketingAndPricing({
             <p className={eyebrowClass}>Onboarding that belongs in the product</p>
             <h2 className={titleClass}>No generic tour. A setup board that proves the workspace is ready.</h2>
             <p className={copyClass}>
-              New clubs see short, practical setup checks inside the app. The flow explains constraints, records progress, and guides the first real workflow instead of showing welcome slides.
+              New clubs see short, practical setup checks inside the app. The flow explains constraints, records progress, and guides the first real club action instead of showing welcome slides.
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -119,27 +118,12 @@ export function LoginMarketingAndPricing({
           <p className={eyebrowClass}>Pricing</p>
           <h2 className={titleClass}>Start with one football group, then scale the club.</h2>
           <p className={copyClass}>
-            Test the operating flow first. Paid plans add more structure as the club needs more teams, communication, and controlled access.
+            Test the operating flow first. Single Team is the complete one-team product, and higher tiers add club scale, oversight, automation, analytics, onboarding, and support.
           </p>
         </div>
-        <div className="grid w-full max-w-xs grid-cols-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-1">
-          {[
-            ['monthly', 'Monthly'],
-            ['annual', 'Annual'],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onBillingCycleChange(key)}
-              className={[
-                'min-h-11 rounded-lg px-4 py-3 text-sm font-black transition',
-                billingCycle === key ? 'bg-[#047857] text-white shadow-sm shadow-[#047857]/20' : 'text-[#4b5f55] hover:bg-white hover:text-[#101828]',
-              ].join(' ')}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <p className="max-w-xs rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#4b5f55]">
+          Prices shown monthly. Large Club is contact sales.
+        </p>
       </div>
 
       {localError ? (
@@ -166,11 +150,11 @@ export function LoginMarketingAndPricing({
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {pricingPlans.map((plan) => {
           const priceLabel = formatPriceLabel(plan, billingCycle)
           const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
-          const isPopular = plan.name === 'Small Club'
+          const isPopular = plan.name === 'Single Team'
 
           return (
             <div key={plan.name} className="relative flex flex-col rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
@@ -189,13 +173,10 @@ export function LoginMarketingAndPricing({
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{plan.description}</p>
               </div>
               <div className="min-h-[88px]">
-                <span className={['whitespace-nowrap font-black text-[#101828]', plan.price === 'Contact us' ? 'text-[2rem] leading-none 2xl:text-4xl' : 'text-4xl'].join(' ')}>
+                <span className={['whitespace-nowrap font-black text-[#101828]', plan.purchaseMode === 'contact_sales' ? 'text-[2rem] leading-none 2xl:text-4xl' : 'text-4xl'].join(' ')}>
                   {formatPrice(plan, billingCycle)}
                 </span>
                 {priceLabel ? <span className="ml-2 text-sm font-semibold text-[#4b5f55]">{priceLabel}</span> : null}
-                {typeof plan.price === 'number' && billingCycle === 'annual' ? (
-                  <p className="mt-2 text-xs font-black text-[#047857]">2 months free compared with monthly</p>
-                ) : null}
                 {showPromotion ? (
                   <p className="mt-2 text-xs font-black text-[#047857]">
                     Code {livePromotion.code} auto-applied at checkout
@@ -218,9 +199,9 @@ export function LoginMarketingAndPricing({
                   onClick={() => onChoosePlan(plan)}
                   className={[isPopular ? primaryButtonClass : secondaryButtonClass, isSubmitting ? 'cursor-not-allowed opacity-60' : ''].join(' ')}
                 >
-                  {paymentsDisabled ? 'Create test club' : plan.name === 'Individual' ? 'Start free' : plan.name === 'Large Club' ? 'Request demo' : 'Choose plan'}
+                  {paymentsDisabled ? 'Create test club' : plan.purchaseMode === 'free' ? 'Start free' : plan.purchaseMode === 'contact_sales' ? 'Request demo' : 'Choose plan'}
                 </button>
-                {plan.name !== 'Individual' && !paymentsDisabled ? (
+                {plan.purchaseMode !== 'free' && !paymentsDisabled ? (
                   <button type="button" onClick={() => onRequestDemo(plan)} className={secondaryButtonClass}>
                     Request demo
                   </button>

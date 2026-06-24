@@ -48,7 +48,7 @@ export function AddPlayerFormSection({
         <div className="m-5 sm:m-6">
           <PlayerStatePanel
             action="This usually takes a moment."
-            body="The player form needs the team list before a footballer can be saved into Trial or Squad."
+            body="The player form needs the team list before a player can be saved into Trial or Squad."
             eyebrow="Loading player setup"
             title="Checking teams and player capacity."
           />

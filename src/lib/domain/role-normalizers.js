@@ -35,6 +35,7 @@ export function normalizeClubInviteRow(row) {
     roleLabel: normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey),
     roleRank: normalizeRoleRank(row.role_rank ?? row.roleRank, roleKey),
     teamId: row.team_id ?? row.teamId ?? '',
+    teamName: row.teams?.name ?? row.teamName ?? '',
     inviteToken: row.invite_token ?? row.inviteToken ?? '',
     expiresAt: row.expires_at ?? row.expiresAt ?? '',
     acceptedAt: row.accepted_at ?? row.acceptedAt ?? '',

@@ -3,12 +3,15 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { CoachOptionsSection } from '../components/sessions/CoachOptionsSection.jsx'
 import { CreateSessionSection } from '../components/sessions/CreateSessionSection.jsx'
+import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.jsx'
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
-import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { canCreateEvaluation, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature } from '../lib/paywall-ui.js'
 import {
   AVAILABLE_PLAYER_PAGE_SIZE,
   SESSION_PLAYER_PAGE_SIZE,
@@ -32,15 +35,26 @@ import {
   updateSessionFormValue,
   writeStoredSessionWorkspace,
 } from '../lib/session-page-utils.js'
+import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
+import { openMatchDayFixtureSetup } from '../lib/matchday-workflow.js'
+import { isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 import {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
+  createCalendarEvent,
   createAssessmentSession,
   createPlayerStaffNote,
+  deleteCalendarEvent,
   deleteAssessmentSession,
   deletePlayerStaffNote,
   getEvaluations,
+  getAssessmentReminderLogs,
+  getCalendarEvents,
+  getCalendarEventInvites,
+  getMatchDays,
+  getPolls,
+  getTodayMatchDayDateValue,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
@@ -48,36 +62,530 @@ import {
   getPlayers,
   readViewCache,
   readViewCacheValue,
+  saveCalendarEventInvites,
+  updateCalendarEvent,
+  updateAssessmentSession,
+  updateMatchDay,
+  isPastMatchDayDate,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-
-const sessionRuleCards = [
-  {
-    label: 'Create the real block',
-    body: 'Use one session for one training night or match block so notes and records share the same football context.',
-  },
-  {
-    label: 'Build the player queue',
-    body: 'Add the relevant squad before recording so coaches can work through players without searching.',
-  },
-  {
-    label: 'Record then complete',
-    body: 'Capture quick notes first, finish player records next, then close the session when the work is done.',
-  },
-]
+import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#065f46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const primaryButtonClass = 'inline-flex min-h-14 items-center justify-center rounded-lg bg-[#047857] px-5 py-4 text-base font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
+const EVENT_TYPE_OPTIONS = [
+  { value: 'training', label: 'Training session' },
+  { value: 'match', label: 'Match or fixture' },
+  { value: 'availability_deadline', label: 'Availability deadline' },
+  { value: 'parent_cutoff', label: 'Parent response cut-off' },
+  { value: 'general', label: 'General club or team event', clubOnlyLabel: 'Team event' },
+]
+const RECURRENCE_OPTIONS = [
+  { value: 'none', label: 'Does not repeat' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'fortnightly', label: 'Fortnightly' },
+  { value: 'monthly', label: 'Monthly' },
+]
 
-export function SessionsPage({ setupOpen = false }) {
+function formatDateInput(value) {
+  if (value instanceof Date) {
+    return formatLocalDate(value)
+  }
+
+  const normalizedValue = String(value ?? '').trim()
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue
+  }
+
+  const parsedDate = new Date(normalizedValue)
+  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
+}
+
+function formatLocalDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatTimeInput(value) {
+  return /^\d{2}:\d{2}/.test(String(value ?? '').trim()) ? String(value).trim().slice(0, 5) : ''
+}
+
+function buildDateTime(date, time) {
+  const dateValue = formatDateInput(date)
+  const timeValue = formatTimeInput(time) || '09:00'
+
+  return dateValue ? `${dateValue}T${timeValue}:00` : ''
+}
+
+function addMinutesToTime(time, minutesToAdd) {
+  const timeValue = formatTimeInput(time) || '09:00'
+  const [hours, minutes] = timeValue.split(':').map(Number)
+  const totalMinutes = (hours * 60 + minutes + minutesToAdd + 1440) % 1440
+  const nextHours = Math.floor(totalMinutes / 60)
+  const nextMinutes = totalMinutes % 60
+  return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`
+}
+
+function isTimeAfter(leftTime, rightTime) {
+  const leftValue = formatTimeInput(leftTime)
+  const rightValue = formatTimeInput(rightTime)
+
+  if (!leftValue || !rightValue) {
+    return false
+  }
+
+  return leftValue > rightValue
+}
+
+function getDefaultCalendarForm(date = '') {
+  const eventDate = formatDateInput(date) || formatLocalDate(new Date())
+
+  return {
+    arrivalTime: '',
+    date: eventDate,
+    endTime: '10:00',
+    eventType: 'training',
+    invitedPlayerIds: [],
+    inviteTrialPlayers: false,
+    inviteWholeSquad: false,
+    location: '',
+    notes: '',
+    notifyInvitedFamilies: false,
+    opponent: '',
+    parentAudience: 'involved_players',
+    shareWithParents: false,
+    recurrenceFrequency: 'none',
+    recurrenceUntil: '',
+    startTime: '09:00',
+    teamId: '',
+    title: '',
+  }
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date)
+  nextDate.setDate(date.getDate() + days)
+  return nextDate
+}
+
+function addMonths(date, months) {
+  const nextDate = new Date(date)
+  nextDate.setMonth(date.getMonth() + months)
+  return nextDate
+}
+
+function buildRecurrenceDates({ date, frequency, until }) {
+  const normalizedFrequency = String(frequency ?? 'none').trim()
+  const startDateValue = formatDateInput(date)
+
+  if (!startDateValue || normalizedFrequency === 'none') {
+    return startDateValue ? [startDateValue] : []
+  }
+
+  const untilDateValue = formatDateInput(until)
+
+  if (!untilDateValue) {
+    throw new Error('Add a repeat until date for recurring events.')
+  }
+
+  const startDate = new Date(`${startDateValue}T00:00:00`)
+  const untilDate = new Date(`${untilDateValue}T23:59:59`)
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(untilDate.getTime())) {
+    throw new Error('Use a valid repeat until date.')
+  }
+
+  if (untilDate.getTime() < startDate.getTime()) {
+    throw new Error('Repeat until must be after the first event date.')
+  }
+
+  const dates = []
+  let cursor = new Date(startDate)
+
+  while (dates.length < 52 && cursor.getTime() <= untilDate.getTime()) {
+    dates.push(formatDateInput(cursor))
+
+    if (normalizedFrequency === 'weekly') {
+      cursor = addDays(cursor, 7)
+    } else if (normalizedFrequency === 'fortnightly') {
+      cursor = addDays(cursor, 14)
+    } else if (normalizedFrequency === 'monthly') {
+      cursor = addMonths(cursor, 1)
+    } else {
+      break
+    }
+  }
+
+  if (cursor.getTime() <= untilDate.getTime()) {
+    throw new Error('Recurring events are limited to 52 dates. Shorten the repeat range and try again.')
+  }
+
+  return dates
+}
+
+function canCreateClubCalendarEvent(user) {
+  return isClubAdmin(user)
+}
+
+function getCalendarEventTypeOptions(user, { clubWideOnly = false } = {}) {
+  if (clubWideOnly && canCreateClubCalendarEvent(user)) {
+    return EVENT_TYPE_OPTIONS.filter((option) => !['training', 'match'].includes(option.value))
+  }
+
+  if (canCreateClubCalendarEvent(user)) {
+    return EVENT_TYPE_OPTIONS
+  }
+
+  return EVENT_TYPE_OPTIONS.map((option) => {
+    if (option.value !== 'general') {
+      return option
+    }
+
+    return {
+      ...option,
+      label: option.clubOnlyLabel || 'Team event',
+    }
+  })
+}
+
+function getSafeCalendarTeamId(user, teamId) {
+  const normalizedTeamId = String(teamId ?? '').trim()
+
+  if (canCreateClubCalendarEvent(user)) {
+    return normalizedTeamId
+  }
+
+  return normalizedTeamId || String(user?.activeTeamId ?? '').trim()
+}
+
+function isClubWideShareableCalendarEvent({ form, safeTeamId, user }) {
+  const eventType = getTrimmedFormValue(form?.eventType)
+
+  return canCreateClubCalendarEvent(user)
+    && !safeTeamId
+    && eventType !== 'training'
+    && eventType !== 'match'
+}
+
+function getCalendarParentVisibility({ form, safeTeamId, user }) {
+  const parentVisible = form?.shareWithParents === true
+
+  if (!parentVisible) {
+    return {
+      parentAudience: 'none',
+      parentVisible: false,
+    }
+  }
+
+  return {
+    parentAudience: isClubWideShareableCalendarEvent({ form, safeTeamId, user }) ? 'all_club_parents' : form.parentAudience,
+    parentVisible: true,
+  }
+}
+
+function getTrimmedFormValue(value) {
+  return String(value ?? '').trim()
+}
+
+function escapeEventInviteHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
+
+function formatEventInviteDateTime(date, time) {
+  const dateValue = formatDateInput(date)
+  const timeValue = formatTimeInput(time)
+
+  if (!dateValue && !timeValue) {
+    return 'Time to be confirmed'
+  }
+
+  return `${dateValue || 'Date to be confirmed'}${timeValue ? ` at ${timeValue}` : ''}`
+}
+
+function buildCalendarEventInviteEmailHtml({
+  clubName,
+  eventTitle,
+  eventType,
+  location,
+  notes,
+  parentName,
+  playerName,
+  startsAtLabel,
+  teamName,
+}) {
+  const resolvedParent = parentName || 'Parent or guardian'
+  const resolvedPlayer = playerName || 'your child'
+  const resolvedClub = clubName || 'Your club'
+  const resolvedTeam = teamName || 'their team'
+  const resolvedTitle = eventTitle || 'Club event'
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 720px; margin: 0 auto;">
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Event invite</p>
+      <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.2;">${escapeEventInviteHtml(resolvedTitle)}</h1>
+      <p style="margin: 0 0 18px; font-size: 15px;">Hi ${escapeEventInviteHtml(resolvedParent)}, ${escapeEventInviteHtml(resolvedPlayer)} has been invited to this Football Player event.</p>
+      <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
+        <p style="margin: 0 0 8px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">Details</p>
+        <p style="margin: 0 0 6px; font-size: 14px;"><strong>When:</strong> ${escapeEventInviteHtml(startsAtLabel)}</p>
+        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Team:</strong> ${escapeEventInviteHtml(resolvedTeam)}</p>
+        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Type:</strong> ${escapeEventInviteHtml(eventType || 'Event')}</p>
+        ${location ? `<p style="margin: 0 0 6px; font-size: 14px;"><strong>Location:</strong> ${escapeEventInviteHtml(location)}</p>` : ''}
+        ${notes ? `<p style="margin: 0; font-size: 14px;"><strong>Notes:</strong> ${escapeEventInviteHtml(notes)}</p>` : ''}
+      </div>
+      <p style="margin: 0 0 18px; font-size: 14px;">You can also see this invite in the parent portal.</p>
+      <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeEventInviteHtml(resolvedClub)} | ${escapeEventInviteHtml(resolvedTeam)}</p>
+      <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
+        <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
+      </div>
+    </div>
+  `
+}
+
+function getEventInviteScheduledAt() {
+  return new Date(Date.now() + 10 * 60 * 1000).toISOString()
+}
+
+function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
+  const eventType = getTrimmedFormValue(form.eventType)
+  const title = getTrimmedFormValue(form.title)
+  const opponent = getTrimmedFormValue(form.opponent)
+  const date = formatDateInput(form.date)
+  const startTime = formatTimeInput(form.startTime)
+  const isMatch = eventType === 'match'
+  const isTraining = eventType === 'training'
+  const requiresTeam = !canCreateClubCalendarEvent(user) || isMatch || isTraining || Boolean(safeTeamId)
+
+  if (!eventType) {
+    throw new Error('Choose an event type.')
+  }
+
+  if (!date) {
+    throw new Error('Choose a date.')
+  }
+
+  if (requiresTeam && !safeTeamId) {
+    throw new Error('Choose a team for this event.')
+  }
+
+  if (!startTime) {
+    throw new Error(isMatch ? 'Kick-off time is required for a fixture.' : 'Choose a start time.')
+  }
+
+  if (isMatch) {
+    if (isPastMatchDayDate(date)) {
+      throw new Error('Match Day date must be today or in the future.')
+    }
+
+    if (!title && !opponent) {
+      throw new Error('Add an opponent or event title for this fixture.')
+    }
+
+    if (form.arrivalTime && isTimeAfter(form.arrivalTime, form.startTime)) {
+      throw new Error('Arrival time must be before kick-off time.')
+    }
+
+    return
+  }
+
+  if (sourceType === 'calendar' || (!isTraining && eventType !== 'match')) {
+    if (!title) {
+      throw new Error('Add an event title.')
+    }
+  }
+}
+
+function validateParentSharing({ form, safeTeamId, selectedPlayers, user }) {
+  if (!form.shareWithParents) {
+    return
+  }
+
+  if (isClubWideShareableCalendarEvent({ form, safeTeamId, user })) {
+    return
+  }
+
+  if (form.parentAudience === 'involved_players' && selectedPlayers.length === 0) {
+    throw new Error('You selected only parents of involved players, but no players are attached to this event. Add players or choose a wider parent audience.')
+  }
+
+  if (form.parentAudience === 'all_team_parents' && !safeTeamId) {
+    throw new Error('Choose a team before sharing with all parents in the team.')
+  }
+
+  if (form.parentAudience === 'all_club_parents' && !canCreateClubCalendarEvent(user)) {
+    throw new Error('Club parent sharing is only available to Club Admins.')
+  }
+}
+
+function getInvitesForCalendarEvent(event, invites = []) {
+  const sourceType = event?.sourceType || ''
+  const sourceId = String(event?.sourceId ?? '').trim()
+
+  if (!sourceId) {
+    return []
+  }
+
+  return invites.filter((invite) => {
+    if (sourceType === 'calendar') {
+      return invite.calendarEventId === sourceId
+    }
+
+    if (sourceType === 'session') {
+      return invite.assessmentSessionId === sourceId
+    }
+
+    return false
+  })
+}
+
+function getFormInviteFields(event, invites = []) {
+  const eventInvites = getInvitesForCalendarEvent(event, invites)
+
+  return {
+    invitedPlayerIds: eventInvites.map((invite) => invite.playerId).filter(Boolean),
+    inviteTrialPlayers: false,
+    inviteWholeSquad: false,
+    notifyInvitedFamilies: eventInvites.some((invite) => invite.notifyRequested),
+    parentAudience: eventInvites.length > 0 ? 'involved_players' : 'none',
+    shareWithParents: eventInvites.length > 0,
+  }
+}
+
+function getFormFromCalendarEvent(event, invites = []) {
+  const source = event?.data || {}
+  const sourceType = event?.sourceType || ''
+  const inviteFields = getFormInviteFields(event, invites)
+
+  if (sourceType === 'session') {
+    return {
+      ...getDefaultCalendarForm(source.sessionDate || event.date),
+      arrivalTime: formatTimeInput(source.arrivalTime),
+      date: formatDateInput(source.sessionDate || event.date),
+      endTime: source.sessionType === 'match'
+        ? addMinutesToTime(source.startTime, 120)
+        : formatTimeInput(source.endTime) || addMinutesToTime(source.startTime, 60),
+      eventType: source.sessionType === 'match' ? 'match' : 'training',
+      location: source.location || '',
+      notes: source.notes || '',
+      opponent: source.opponent || '',
+      startTime: formatTimeInput(source.startTime) || '09:00',
+      teamId: source.teamId || '',
+      title: source.title || '',
+      ...inviteFields,
+    }
+  }
+
+  if (sourceType === 'match-day') {
+    return {
+      ...getDefaultCalendarForm(source.matchDate || event.date),
+      arrivalTime: formatTimeInput(source.arrivalTime),
+      date: formatDateInput(source.matchDate || event.date),
+      endTime: addMinutesToTime(source.kickoffTime, 120),
+      eventType: 'match',
+      location: source.venueName || '',
+      notes: source.notes || '',
+      opponent: source.opponent || '',
+      startTime: formatTimeInput(source.kickoffTime) || '10:00',
+      teamId: source.teamId || '',
+      title: source.title || (source.opponent ? `Match vs ${source.opponent}` : ''),
+      ...inviteFields,
+    }
+  }
+
+  if (sourceType === 'calendar') {
+    const sourceParentAudience = source.parentAudience || inviteFields.parentAudience || 'none'
+
+    return {
+      ...getDefaultCalendarForm(source.startsAt || event.date),
+      date: formatDateInput(source.startsAt || event.date),
+      endTime: formatTimeInput(source.endsAt) || addMinutesToTime(source.startsAt, 60),
+      eventType: source.eventType || 'general',
+      location: source.location || '',
+      notes: source.notes || '',
+      recurrenceFrequency: source.recurrenceFrequency || 'none',
+      recurrenceUntil: source.recurrenceUntil || '',
+      startTime: formatTimeInput(source.startsAt) || '09:00',
+      teamId: source.teamId || '',
+      title: source.title || '',
+      ...inviteFields,
+      parentAudience: sourceParentAudience,
+      shareWithParents: Boolean(source.parentVisible || inviteFields.shareWithParents),
+    }
+  }
+
+  return getDefaultCalendarForm(event?.date)
+}
+
+function getCalendarInvitePlayers(players, teamId) {
+  const normalizedTeamId = String(teamId ?? '').trim()
+
+  if (!normalizedTeamId) {
+    return []
+  }
+
+  return (players ?? [])
+    .filter((player) => String(player.status ?? 'active') !== 'archived')
+    .filter((player) => String(player.teamId ?? '').trim() === normalizedTeamId)
+    .sort((left, right) =>
+      String(left.section ?? '').localeCompare(String(right.section ?? '')) ||
+      String(left.playerName ?? '').localeCompare(String(right.playerName ?? '')),
+    )
+}
+
+function buildSelectedInvitePlayers(form, invitePlayers) {
+  const selectedIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
+  const selectedPlayers = []
+  const addPlayer = (player) => {
+    if (!player?.id || selectedPlayers.some((selectedPlayer) => selectedPlayer.id === player.id)) {
+      return
+    }
+
+    selectedPlayers.push(player)
+  }
+
+  invitePlayers.forEach((player) => {
+    const section = String(player.section ?? '').trim().toLowerCase()
+
+    if (form.inviteWholeSquad && section === 'squad') {
+      addPlayer(player)
+      return
+    }
+
+    if (form.inviteTrialPlayers && section === 'trial') {
+      addPlayer(player)
+      return
+    }
+
+    if (selectedIds.has(String(player.id))) {
+      addPlayer(player)
+    }
+  })
+
+  return selectedPlayers
+}
+
+export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
-  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
+  const isClubWideCalendar = calendarOnly && isClubAdmin(user)
+  const activeTeamScope = isClubWideCalendar ? 'club-wide' : user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const workspaceStorageKey = user?.clubId ? `session-workspace:${user.clubId}:${user.id}:${activeTeamScope}` : ''
   const storedSessionWorkspace = useMemo(
@@ -100,6 +608,30 @@ export function SessionsPage({ setupOpen = false }) {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
+  const [assessmentReminders, setAssessmentReminders] = useState(() => {
+    const cachedAssessmentReminders = readViewCacheValue(cacheKey, 'assessmentReminders', [])
+    return Array.isArray(cachedAssessmentReminders) ? cachedAssessmentReminders : []
+  })
+  const [matchDays, setMatchDays] = useState(() => {
+    const cachedMatchDays = readViewCacheValue(cacheKey, 'matchDays', [])
+    return Array.isArray(cachedMatchDays) ? cachedMatchDays : []
+  })
+  const [polls, setPolls] = useState(() => {
+    const cachedPolls = readViewCacheValue(cacheKey, 'polls', [])
+    return Array.isArray(cachedPolls) ? cachedPolls : []
+  })
+  const [calendarItems, setCalendarItems] = useState(() => {
+    const cachedCalendarItems = readViewCacheValue(cacheKey, 'calendarItems', [])
+    return Array.isArray(cachedCalendarItems) ? cachedCalendarItems : []
+  })
+  const [calendarInvites, setCalendarInvites] = useState(() => {
+    const cachedCalendarInvites = readViewCacheValue(cacheKey, 'calendarInvites', [])
+    return Array.isArray(cachedCalendarInvites) ? cachedCalendarInvites : []
+  })
+  const [calendarView, setCalendarView] = useState('month')
+  const [calendarCursor, setCalendarCursor] = useState(() => new Date())
+  const [calendarModal, setCalendarModal] = useState(null)
+  const [calendarForm, setCalendarForm] = useState(() => getDefaultCalendarForm())
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
@@ -120,7 +652,6 @@ export function SessionsPage({ setupOpen = false }) {
   const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
   const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] = useState(false)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
@@ -150,11 +681,10 @@ export function SessionsPage({ setupOpen = false }) {
     () => getAssessmentCountForSession(evaluations, selectedSession),
     [evaluations, selectedSession],
   )
+  const canShowPollsInCalendar = isRecoveryModuleVisible('pollsAvailability', { user })
   const deleteSessionDisabledReason = selectedSession?.isHistorical
     ? 'This is a development history group. It cannot be deleted as a session.'
-    : selectedSessionAssessmentCount > 0
-      ? 'Sessions with development records cannot be deleted.'
-      : ''
+    : ''
   const completedPlayerNames = useMemo(() => {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
     const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
@@ -171,10 +701,50 @@ export function SessionsPage({ setupOpen = false }) {
     [combinedSessions, selectedSessionId],
   )
   const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
-  const completedSessionCount = combinedSessions.filter((session) => session.status === 'completed').length
-  const sessionQueueLabel = sessionPlayers.length > 0
-    ? `${assessedPlayerCount} of ${sessionPlayers.length} recorded`
-    : 'No players added'
+  const calendarEvents = useMemo(
+    () => buildFootballCalendarEvents({
+      assessmentReminders: isClubWideCalendar ? [] : assessmentReminders,
+      calendarEvents: calendarItems,
+      evaluations: isClubWideCalendar ? [] : evaluations,
+      matchDays: isClubWideCalendar ? [] : matchDays,
+      polls: isClubWideCalendar || !canShowPollsInCalendar ? [] : polls,
+      sessions: isClubWideCalendar ? [] : combinedSessions,
+    }),
+    [assessmentReminders, calendarItems, canShowPollsInCalendar, combinedSessions, evaluations, isClubWideCalendar, matchDays, polls],
+  )
+  const calendarInvitePlayers = useMemo(
+    () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId)),
+    [calendarForm.teamId, players, user],
+  )
+  const selectedCalendarInvitePlayers = useMemo(
+    () => buildSelectedInvitePlayers(calendarForm, calendarInvitePlayers),
+    [calendarForm, calendarInvitePlayers],
+  )
+  const currentCalendarEventInvites = useMemo(
+    () => getInvitesForCalendarEvent(calendarModal?.event, calendarInvites),
+    [calendarInvites, calendarModal?.event],
+  )
+
+  useEffect(() => {
+    const requestedAction = String(searchParams.get('action') ?? '').trim()
+
+    if (!['add-event', 'add-session', 'create-session'].includes(requestedAction)) {
+      return
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('action')
+    setSearchParams(nextSearchParams, { replace: true })
+
+    if (requestedAction === 'add-event') {
+      handleCalendarDateClick(formatLocalDate(new Date()))
+      return
+    }
+
+    handleOpenSessionCreateModal()
+  // This reacts only to explicit route quick actions.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     let isMounted = true
@@ -184,11 +754,83 @@ export function SessionsPage({ setupOpen = false }) {
       setErrorMessage('')
 
       try {
-        const [sessionsResult, playersResult, teamsResult, evaluationsResult] = await Promise.allSettled([
+        if (isClubWideCalendar) {
+          const [teamsResult, calendarItemsResult] = await Promise.allSettled([
+            withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
+            withRequestTimeout(() => getCalendarEvents({ user, clubWideOnly: true }), 'Could not load calendar events.'),
+          ])
+
+          if (!isMounted) {
+            return
+          }
+
+          const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : cachedValue?.teams || []
+          const nextCalendarItems =
+            calendarItemsResult.status === 'fulfilled' ? calendarItemsResult.value : cachedValue?.calendarItems || []
+
+          if (teamsResult.status === 'rejected') {
+            console.error(teamsResult.reason)
+          }
+
+          if (calendarItemsResult.status === 'rejected') {
+            console.error(calendarItemsResult.reason)
+          }
+
+          setSessions([])
+          setPlayers([])
+          setTeams(nextTeams)
+          setEvaluations([])
+          setMatchDays([])
+          setPolls([])
+          setCalendarItems(nextCalendarItems)
+          setCalendarInvites([])
+          setAssessmentReminders([])
+          setSelectedSessionId('')
+          setSessionForm((current) => ({
+            ...current,
+            teamId: '',
+            team: '',
+          }))
+          writeViewCache(cacheKey, {
+            sessions: [],
+            players: [],
+            teams: nextTeams,
+            evaluations: [],
+            matchDays: [],
+            polls: [],
+            calendarItems: nextCalendarItems,
+            calendarInvites: [],
+            assessmentReminders: [],
+          })
+
+          if (teamsResult.status === 'rejected' || calendarItemsResult.status === 'rejected') {
+            setErrorMessage('Some calendar data could not be refreshed. Existing data is still available where possible.')
+          }
+          return
+        }
+
+        const [
+          sessionsResult,
+          playersResult,
+          teamsResult,
+          evaluationsResult,
+          matchDaysResult,
+          pollsResult,
+          calendarItemsResult,
+          calendarInvitesResult,
+          assessmentRemindersResult,
+        ] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load historical sessions.'),
+          withRequestTimeout(() => getMatchDays({ user }), 'Could not load match days.'),
+          canShowPollsInCalendar
+            ? withRequestTimeout(() => getPolls({ user }), 'Could not load response cut offs.')
+            : Promise.resolve([]),
+          withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
+          withRequestTimeout(() => getCalendarEventInvites({ user }), 'Could not load calendar invites.'),
+          withRequestTimeout(() => getAssessmentReminderLogs({ user }), 'Could not load assessment reminders.'),
         ])
 
         if (!isMounted) {
@@ -200,6 +842,14 @@ export function SessionsPage({ setupOpen = false }) {
         const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : cachedValue?.teams || []
         const nextEvaluations =
           evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
+        const nextMatchDays = matchDaysResult.status === 'fulfilled' ? matchDaysResult.value : cachedValue?.matchDays || []
+        const nextPolls = pollsResult.status === 'fulfilled' ? pollsResult.value : cachedValue?.polls || []
+        const nextCalendarItems =
+          calendarItemsResult.status === 'fulfilled' ? calendarItemsResult.value : cachedValue?.calendarItems || []
+        const nextCalendarInvites =
+          calendarInvitesResult.status === 'fulfilled' ? calendarInvitesResult.value : cachedValue?.calendarInvites || []
+        const nextAssessmentReminders =
+          assessmentRemindersResult.status === 'fulfilled' ? assessmentRemindersResult.value : cachedValue?.assessmentReminders || []
 
         if (sessionsResult.status === 'rejected') {
           console.error(sessionsResult.reason)
@@ -217,10 +867,35 @@ export function SessionsPage({ setupOpen = false }) {
           console.error(evaluationsResult.reason)
         }
 
+        if (matchDaysResult.status === 'rejected') {
+          console.error(matchDaysResult.reason)
+        }
+
+        if (pollsResult.status === 'rejected') {
+          console.error(pollsResult.reason)
+        }
+
+        if (calendarItemsResult.status === 'rejected') {
+          console.error(calendarItemsResult.reason)
+        }
+
+        if (calendarInvitesResult.status === 'rejected') {
+          console.error(calendarInvitesResult.reason)
+        }
+
+        if (assessmentRemindersResult.status === 'rejected') {
+          console.error(assessmentRemindersResult.reason)
+        }
+
         setSessions(nextSessions)
         setPlayers(nextPlayers)
         setTeams(nextTeams)
         setEvaluations(nextEvaluations)
+        setMatchDays(nextMatchDays)
+        setPolls(nextPolls)
+        setCalendarItems(nextCalendarItems)
+        setCalendarInvites(nextCalendarInvites)
+        setAssessmentReminders(nextAssessmentReminders)
         setSelectedSessionId((current) => {
           const nextCombinedSessions = [...nextSessions, ...buildHistoricalSessionsFromEvaluations(nextEvaluations, nextSessions)]
 
@@ -255,6 +930,11 @@ export function SessionsPage({ setupOpen = false }) {
           players: nextPlayers,
           teams: nextTeams,
           evaluations: nextEvaluations,
+          matchDays: nextMatchDays,
+          polls: canShowPollsInCalendar ? nextPolls : [],
+          calendarItems: nextCalendarItems,
+          calendarInvites: nextCalendarInvites,
+          assessmentReminders: nextAssessmentReminders,
         })
 
         if (
@@ -279,7 +959,7 @@ export function SessionsPage({ setupOpen = false }) {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, completedSessionId, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
+  }, [cacheKey, canShowPollsInCalendar, completedSessionId, isClubWideCalendar, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -420,12 +1100,26 @@ export function SessionsPage({ setupOpen = false }) {
     }))
   }, [selectedSession])
 
-  if (!canCreateEvaluation(user)) {
+  if (!canCreateEvaluation(user) && !(calendarOnly && isClubAdmin(user))) {
     return <Navigate to="/" replace />
   }
 
   const writeSessionCache = (nextState = {}) => {
     writeViewCache(cacheKey, buildSessionCachePayload({ evaluations, nextState, players, sessions, teams }))
+  }
+
+  const writeCalendarAwareCache = (nextState = {}) => {
+    writeViewCache(cacheKey, {
+      evaluations,
+      matchDays,
+      players,
+      polls,
+      sessions,
+      teams,
+      calendarItems,
+      calendarInvites,
+      ...nextState,
+    })
   }
 
   const handleSessionFormChange = (event) => {
@@ -494,14 +1188,6 @@ export function SessionsPage({ setupOpen = false }) {
     }
   }
 
-  const handleCreateSessionFromModal = async (event) => {
-    const created = await handleCreateSession(event)
-
-    if (created) {
-      setIsCreateSessionModalOpen(false)
-    }
-  }
-
   const handleSessionSetupFocus = () => {
     const setupSection = document.getElementById('session-setup')
 
@@ -541,6 +1227,528 @@ export function SessionsPage({ setupOpen = false }) {
       behavior: 'smooth',
       block: 'start',
     })
+  }
+
+  const handleCalendarDateClick = (date) => {
+    setErrorMessage('')
+    setCalendarForm({
+      ...getDefaultCalendarForm(date),
+      eventType: isClubWideCalendar ? 'general' : getDefaultCalendarForm(date).eventType,
+      teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
+    })
+    setCalendarModal({ mode: 'create', event: null })
+  }
+
+  const handleOpenSessionCreateModal = () => {
+    setErrorMessage('')
+    setCalendarForm({
+      ...getDefaultCalendarForm(formatLocalDate(new Date())),
+      eventType: 'training',
+      teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
+    })
+    setCalendarModal({ mode: 'create', event: null, variant: 'session' })
+  }
+
+  const handleCalendarEventOpen = (event) => {
+    setErrorMessage('')
+    setCalendarForm(getFormFromCalendarEvent(event, calendarInvites))
+    setCalendarModal({ mode: 'view', event })
+  }
+
+  const openCalendarMatchDayWorkflow = (form) => {
+    const safeTeamId = getSafeCalendarTeamId(user, form.teamId)
+    const trimmedTitle = getTrimmedFormValue(form.title)
+    const trimmedOpponent = getTrimmedFormValue(form.opponent)
+
+    openMatchDayFixtureSetup({
+      arrivalTime: form.arrivalTime,
+      kickoffTime: form.startTime,
+      matchDate: form.date,
+      notes: form.notes,
+      opponent: trimmedOpponent || trimmedTitle,
+      parentAudience: form.shareWithParents ? form.parentAudience : 'none',
+      parentVisible: form.shareWithParents,
+      teamId: safeTeamId,
+      venueName: form.location,
+    }, { navigate })
+    setCalendarModal(null)
+    showToast({ title: 'Opening Match Day', message: 'Create this fixture in the full Match Day workflow.' })
+  }
+
+  const handleCalendarFormChange = (event) => {
+    const { checked, name, type, value } = event.target
+
+    setErrorMessage('')
+
+    if (name === 'eventType' && value === 'match' && calendarModal?.mode === 'create' && !calendarModal?.event) {
+      openCalendarMatchDayWorkflow({
+        ...calendarForm,
+        eventType: 'match',
+        endTime: addMinutesToTime(calendarForm.startTime, 120),
+      })
+      return
+    }
+
+    setCalendarForm((current) => {
+      if (name === 'invitedPlayerIds') {
+        const currentIds = Array.isArray(current.invitedPlayerIds) ? current.invitedPlayerIds : []
+        const nextIds = checked
+          ? [...new Set([...currentIds, value])]
+          : currentIds.filter((id) => id !== value)
+
+        return {
+          ...current,
+          invitedPlayerIds: nextIds,
+        }
+      }
+
+      const nextForm = {
+        ...current,
+        [name]: type === 'checkbox' ? checked : value,
+      }
+
+      if (name === 'shareWithParents') {
+        const currentSafeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, current.teamId)
+        nextForm.parentAudience = checked
+          ? isClubWideShareableCalendarEvent({ form: current, safeTeamId: currentSafeTeamId, user })
+            ? 'all_club_parents'
+            : (current.parentAudience === 'none' ? 'involved_players' : current.parentAudience)
+          : 'none'
+      }
+
+      if (name === 'teamId') {
+        const selectedTeam = teams.find((team) => team.id === value)
+        nextForm.team = selectedTeam?.name || ''
+        nextForm.invitedPlayerIds = []
+        nextForm.inviteTrialPlayers = false
+        nextForm.inviteWholeSquad = false
+        if (!value && current.parentAudience === 'all_team_parents') {
+          nextForm.parentAudience = 'all_club_parents'
+        }
+      }
+
+      if (name === 'eventType' && value === 'training' && !current.title) {
+        nextForm.title = ''
+      }
+
+      if (name === 'eventType' && value === 'match') {
+        nextForm.recurrenceFrequency = 'none'
+        nextForm.recurrenceUntil = ''
+        nextForm.endTime = addMinutesToTime(current.startTime, 120)
+      }
+
+      if (name === 'startTime' && nextForm.eventType === 'match') {
+        nextForm.endTime = addMinutesToTime(value, 120)
+      }
+
+      return nextForm
+    })
+  }
+
+  const getCalendarTeamName = (teamId) => {
+    const normalizedTeamId = String(teamId ?? '').trim()
+    return teams.find((team) => team.id === normalizedTeamId)?.name || user?.activeTeamName || ''
+  }
+
+  const replaceInvitesForSource = (inviteState, source, savedInvites) => {
+    const sourceColumn = source.calendarEventId ? 'calendarEventId' : 'assessmentSessionId'
+    const sourceId = source.calendarEventId || source.assessmentSessionId
+
+    return [
+      ...inviteState.filter((invite) => invite[sourceColumn] !== sourceId),
+      ...savedInvites,
+    ]
+  }
+
+  const queueCalendarEventInviteEmails = async ({
+    assessmentSessionId = '',
+    calendarEventId = '',
+    savedInvites = [],
+    safeTeamId = '',
+    sourceTitle = '',
+    teamName = '',
+  } = {}) => {
+    if (!calendarForm.notifyInvitedFamilies || !canUseUiFeature(user, CAPABILITIES.parentEmails)) {
+      return { queued: 0, failed: 0 }
+    }
+
+    const sourceColumn = calendarEventId ? 'calendarEventId' : 'assessmentSessionId'
+    const sourceId = calendarEventId || assessmentSessionId
+    const previousInvites = calendarInvites.filter((invite) => invite[sourceColumn] === sourceId)
+    const previouslyRequestedPlayerIds = new Set(
+      previousInvites
+        .filter((invite) => invite.notifyRequested)
+        .map((invite) => String(invite.playerId ?? '')),
+    )
+    const invitesToQueue = savedInvites
+      .filter((invite) => invite.notifyRequested)
+      .filter((invite) => !previouslyRequestedPlayerIds.has(String(invite.playerId ?? '')))
+      .filter((invite) => String(invite.parentContactEmail ?? '').trim())
+
+    if (invitesToQueue.length === 0) {
+      return { queued: 0, failed: 0 }
+    }
+
+    const startsAtLabel = formatEventInviteDateTime(calendarForm.date, calendarForm.startTime)
+    const scheduledAt = getEventInviteScheduledAt()
+    const results = await Promise.allSettled(invitesToQueue.map((invite) => createScheduledEmail({
+      user,
+      item: {
+        clubName: user?.clubName || 'Football Player',
+        communicationLog: {
+          clubId: user?.clubId,
+          playerId: invite.playerId,
+          userId: user?.id,
+          userName: user?.displayName || user?.name || '',
+          userEmail: user?.email || '',
+          recipientEmail: invite.parentContactEmail,
+          metadata: {
+            source: 'calendar_event_invite',
+            calendarEventId,
+            assessmentSessionId,
+            calendarEventInviteId: invite.id,
+            eventTitle: sourceTitle,
+            startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
+          },
+        },
+        displayName: user?.displayName || user?.name || 'Football Player',
+        html: buildCalendarEventInviteEmailHtml({
+          clubName: user?.clubName || 'Football Player',
+          eventTitle: sourceTitle,
+          eventType: calendarForm.eventType,
+          location: calendarForm.location,
+          notes: calendarForm.notes,
+          parentName: invite.parentContactName,
+          playerName: invite.player?.playerName,
+          startsAtLabel,
+          teamName,
+        }),
+        parentName: invite.parentContactName,
+        playerName: invite.player?.playerName,
+        scheduledAt,
+        subject: `Football Player: ${sourceTitle || 'Event invite'}`,
+        teamId: safeTeamId,
+        teamName,
+        toEmail: invite.parentContactEmail,
+      },
+    })))
+
+    return {
+      queued: results.filter((result) => result.status === 'fulfilled').length,
+      failed: results.filter((result) => result.status === 'rejected').length,
+    }
+  }
+
+  const handleCalendarSave = async (event) => {
+    event.preventDefault()
+    setIsSaving(true)
+    setErrorMessage('')
+
+    const activeEvent = calendarModal?.event || null
+    const sourceType = activeEvent?.sourceType || ''
+    const safeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, calendarForm.teamId)
+    const teamName = getCalendarTeamName(safeTeamId)
+    const isTraining = calendarForm.eventType === 'training'
+    const isMatch = calendarForm.eventType === 'match'
+    const trimmedTitle = getTrimmedFormValue(calendarForm.title)
+    const trimmedOpponent = getTrimmedFormValue(calendarForm.opponent)
+
+    try {
+      if (!canCreateClubCalendarEvent(user) && !safeTeamId) {
+        throw new Error('Choose your assigned team before saving this calendar event.')
+      }
+
+      validateCalendarForm({ form: calendarForm, safeTeamId, sourceType, user })
+      validateParentSharing({
+        form: calendarForm,
+        safeTeamId,
+        selectedPlayers: selectedCalendarInvitePlayers,
+        user,
+      })
+
+      if (isMatch && !sourceType) {
+        openMatchDayFixtureSetup({
+          arrivalTime: calendarForm.arrivalTime,
+          kickoffTime: calendarForm.startTime,
+          matchDate: calendarForm.date,
+          notes: calendarForm.notes,
+          opponent: trimmedOpponent || trimmedTitle,
+          parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
+          parentVisible: calendarForm.shareWithParents,
+          teamId: safeTeamId,
+          venueName: calendarForm.location,
+        }, { navigate })
+        setCalendarModal(null)
+        showToast({ title: 'Opening Match Day', message: 'Create this fixture in the full Match Day workflow.' })
+        return
+      }
+
+      const fixtureEndTime = isMatch ? addMinutesToTime(calendarForm.startTime, 120) : calendarForm.endTime
+      const recurrenceDates = isMatch
+        ? [formatDateInput(calendarForm.date)]
+        : buildRecurrenceDates({
+          date: calendarForm.date,
+          frequency: calendarForm.recurrenceFrequency,
+          until: calendarForm.recurrenceUntil,
+        })
+      let nextCalendarInvites = calendarInvites
+      let queuedInviteEmails = 0
+      let failedInviteEmails = 0
+      const shouldSyncInvites = Boolean(safeTeamId)
+      const syncInvites = async ({ calendarEventId = '', assessmentSessionId = '', sourceTitle = '' } = {}) => {
+        if (!shouldSyncInvites) {
+          return
+        }
+
+        const sharedInvolvedPlayers = calendarForm.shareWithParents && calendarForm.parentAudience === 'involved_players'
+        const savedInvites = await saveCalendarEventInvites({
+          user,
+          calendarEventId,
+          assessmentSessionId,
+          teamId: safeTeamId,
+          players: sharedInvolvedPlayers ? selectedCalendarInvitePlayers : [],
+          notifyRequested: sharedInvolvedPlayers && calendarForm.notifyInvitedFamilies,
+        })
+        if (sharedInvolvedPlayers && calendarForm.notifyInvitedFamilies) {
+          const queueResult = await queueCalendarEventInviteEmails({
+            assessmentSessionId,
+            calendarEventId,
+            safeTeamId,
+            savedInvites,
+            sourceTitle,
+            teamName,
+          })
+          queuedInviteEmails += queueResult.queued
+          failedInviteEmails += queueResult.failed
+        }
+        nextCalendarInvites = replaceInvitesForSource(nextCalendarInvites, { calendarEventId, assessmentSessionId }, savedInvites)
+      }
+
+      if (isTraining || (sourceType === 'session' && activeEvent?.data?.sessionType !== 'match')) {
+        if (sourceType === 'session' && calendarForm.recurrenceFrequency !== 'none') {
+          throw new Error('Recurring training can be created from a new event. Existing sessions are edited one at a time.')
+        }
+
+        const payload = {
+          endTime: calendarForm.endTime,
+          location: calendarForm.location,
+          notes: calendarForm.notes,
+          opponent: '',
+          sessionDate: calendarForm.date,
+          sessionType: 'training',
+          startTime: calendarForm.startTime,
+          team: teamName,
+          teamId: safeTeamId,
+          title: trimmedTitle || 'Training session',
+        }
+        const savedSessions = []
+
+        if (sourceType === 'session') {
+          const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
+          savedSessions.push(savedSession)
+        } else {
+          for (const sessionDate of recurrenceDates) {
+            const savedSession = await createAssessmentSession({
+              user,
+              session: {
+                ...payload,
+                sessionDate,
+              },
+            })
+            savedSessions.push(savedSession)
+          }
+        }
+
+        for (const savedSession of savedSessions) {
+          await syncInvites({ assessmentSessionId: savedSession.id, sourceTitle: savedSession.title })
+        }
+
+        const savedSessionIds = savedSessions.map((session) => session.id)
+        const nextSessions = [...savedSessions, ...sessions.filter((session) => !savedSessionIds.includes(session.id))]
+        setSessions(nextSessions)
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+        showToast({
+          title: sourceType === 'session' ? 'Session updated' : savedSessions.length > 1 ? 'Sessions created' : 'Session created',
+          message: savedSessions.length > 1 ? `${savedSessions.length} training sessions were added.` : savedSessions[0]?.title || 'Calendar updated.',
+        })
+      } else if (isMatch || sourceType === 'match-day' || (sourceType === 'session' && activeEvent?.data?.sessionType === 'match')) {
+        const payload = {
+          arrivalTime: calendarForm.arrivalTime,
+          endTime: fixtureEndTime,
+          location: calendarForm.location,
+          notes: calendarForm.notes,
+          opponent: trimmedOpponent,
+          sessionDate: calendarForm.date,
+          sessionType: 'match',
+          startTime: calendarForm.startTime,
+          team: teamName,
+          teamId: safeTeamId,
+          title: trimmedTitle || `Match vs ${trimmedOpponent}`,
+        }
+
+        if (sourceType === 'session') {
+          const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
+          const nextSessions = [savedSession, ...sessions.filter((session) => session.id !== savedSession.id)]
+          await syncInvites({ assessmentSessionId: savedSession.id, sourceTitle: savedSession.title })
+          setSessions(nextSessions)
+          setCalendarInvites(nextCalendarInvites)
+          writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+          showToast({ title: 'Match session updated', message: savedSession.title || 'Calendar updated.' })
+        } else if (sourceType === 'match-day') {
+          const payload = {
+            arrivalTime: calendarForm.arrivalTime,
+            homeAway: 'home',
+            kickoffTime: calendarForm.startTime,
+            matchDate: calendarForm.date,
+            notes: calendarForm.notes,
+            opponent: trimmedOpponent,
+            scorerRequestMessage: '',
+            status: 'scheduled',
+            teamId: safeTeamId,
+            venueAddress: '',
+            venueName: calendarForm.location,
+          }
+          const savedMatch = await updateMatchDay({ user, matchId: activeEvent.sourceId, updates: payload })
+          const nextMatchDays = [savedMatch, ...matchDays.filter((match) => match.id !== savedMatch.id)]
+          setMatchDays(nextMatchDays)
+          writeCalendarAwareCache({ matchDays: nextMatchDays })
+          showToast({ title: 'Fixture updated', message: savedMatch.opponent || 'Calendar updated.' })
+        } else {
+          const savedSession = await createAssessmentSession({ user, session: payload })
+          await syncInvites({ assessmentSessionId: savedSession.id, sourceTitle: savedSession.title })
+          const nextSessions = [savedSession, ...sessions.filter((session) => session.id !== savedSession.id)]
+          setSessions(nextSessions)
+          setCalendarInvites(nextCalendarInvites)
+          writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+          showToast({ title: 'Fixture created', message: savedSession.title || 'Calendar updated.' })
+        }
+      } else {
+        if (calendarForm.recurrenceFrequency !== 'none') {
+          buildRecurrenceDates({
+            date: calendarForm.date,
+            frequency: calendarForm.recurrenceFrequency,
+            until: calendarForm.recurrenceUntil,
+          })
+        }
+
+        const payload = {
+          endsAt: buildDateTime(calendarForm.date, calendarForm.endTime),
+          eventType: calendarForm.eventType,
+          location: calendarForm.location,
+          notes: calendarForm.notes,
+          ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
+          recurrenceFrequency: calendarForm.recurrenceFrequency,
+          recurrenceUntil: calendarForm.recurrenceUntil,
+          startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
+          teamId: safeTeamId,
+          title: trimmedTitle,
+        }
+        const savedEvent = sourceType === 'calendar'
+          ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
+          : await createCalendarEvent({ user, event: payload })
+        await syncInvites({ calendarEventId: savedEvent.id, sourceTitle: savedEvent.title })
+        const nextCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
+        setCalendarItems(nextCalendarItems)
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
+        showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
+      }
+
+      if (queuedInviteEmails > 0) {
+        showToast({
+          title: 'Family emails queued',
+          message: `${queuedInviteEmails} event invite email${queuedInviteEmails === 1 ? '' : 's'} added to the email queue.`,
+        })
+      }
+
+      if (failedInviteEmails > 0) {
+        showToast({
+          title: 'Some emails were not queued',
+          message: `${failedInviteEmails} event invite email${failedInviteEmails === 1 ? '' : 's'} could not be added to the queue. Parent portal invites were still saved.`,
+          tone: 'error',
+        })
+      }
+
+      setCalendarModal(null)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Calendar event could not be saved.')
+      showToast({ title: 'Calendar not saved', message: error.message || 'Calendar event could not be saved.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCalendarDelete = async () => {
+    const activeEvent = calendarModal?.event || null
+
+    if (!activeEvent?.sourceId) {
+      setErrorMessage('This calendar item cannot be changed from here.')
+      showToast({ title: 'Calendar item not changed', message: 'This calendar item cannot be changed from here.', tone: 'error' })
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      if (activeEvent.sourceType === 'calendar') {
+        await deleteCalendarEvent({ user, eventId: activeEvent.sourceId })
+        const nextCalendarItems = calendarItems.filter((item) => item.id !== activeEvent.sourceId)
+        const nextCalendarInvites = calendarInvites.filter((invite) => invite.calendarEventId !== activeEvent.sourceId)
+        setCalendarItems(nextCalendarItems)
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
+        showToast({ title: 'Event deleted', message: 'The calendar event was removed.' })
+      } else if (activeEvent.sourceType === 'session') {
+        const assessmentCount = getAssessmentCountForSession(evaluations, activeEvent.data)
+
+        if (assessmentCount > 0) {
+          setDeleteSessionTarget({
+            session: activeEvent.data,
+            assessmentCount,
+            playerCount: 0,
+            source: 'calendar',
+          })
+          setCalendarModal(null)
+          return
+        }
+
+        const deleteResult = await deleteAssessmentSession({ user, sessionId: activeEvent.sourceId })
+        const nextSessions = sessions.filter((session) => session.id !== activeEvent.sourceId)
+        const nextCalendarInvites = calendarInvites.filter((invite) => invite.assessmentSessionId !== activeEvent.sourceId)
+        setSessions(nextSessions)
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+        showToast({
+          title: deleteResult?.mode === 'cancelled' ? 'Session removed' : 'Session deleted',
+          message: deleteResult?.mode === 'cancelled'
+            ? 'The session was removed from the calendar. Player records stay in history.'
+            : 'The session was removed.',
+        })
+      } else if (activeEvent.sourceType === 'match-day') {
+        const cancelledMatch = await updateMatchDay({
+          user,
+          matchId: activeEvent.sourceId,
+          updates: { status: 'cancelled' },
+        })
+        const nextMatchDays = matchDays.filter((match) => match.id !== cancelledMatch.id)
+        setMatchDays(nextMatchDays)
+        writeCalendarAwareCache({ matchDays: nextMatchDays })
+        showToast({ title: 'Fixture cancelled', message: cancelledMatch.opponent || 'The fixture was cancelled.' })
+      } else {
+        throw new Error('This calendar item opens in its own area.')
+      }
+
+      setCalendarModal(null)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Calendar event could not be deleted.')
+      showToast({ title: 'Calendar not deleted', message: error.message || 'Calendar event could not be deleted.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleCompleteSession = async () => {
@@ -611,15 +1819,11 @@ export function SessionsPage({ setupOpen = false }) {
       return
     }
 
-    if (selectedSessionAssessmentCount > 0) {
-      setErrorMessage('This session has development records and cannot be deleted.')
-      return
-    }
-
     setDeleteSessionTarget({
       session: selectedSession,
       assessmentCount: selectedSessionAssessmentCount,
       playerCount: sessionPlayers.length,
+      source: 'session',
     })
   }
 
@@ -632,13 +1836,18 @@ export function SessionsPage({ setupOpen = false }) {
     setErrorMessage('')
 
     try {
-      await verifyCurrentUserPassword(user?.email, password)
-      await deleteAssessmentSession({
+      if ((deleteSessionTarget.assessmentCount ?? 0) === 0) {
+        await verifyCurrentUserPassword(user?.email, password)
+      }
+
+      const deleteResult = await deleteAssessmentSession({
         user,
         sessionId: deleteSessionTarget.session.id,
       })
       const nextSessions = sessions.filter((session) => session.id !== deleteSessionTarget.session.id)
+      const nextCalendarInvites = calendarInvites.filter((invite) => invite.assessmentSessionId !== deleteSessionTarget.session.id)
       setSessions(nextSessions)
+      setCalendarInvites(nextCalendarInvites)
       setSessionPlayers([])
       setSelectedPlayerIds([])
       setDeleteSessionTarget(null)
@@ -646,7 +1855,13 @@ export function SessionsPage({ setupOpen = false }) {
       writeSessionCache({
         sessions: nextSessions,
       })
-      showToast({ title: 'Session deleted', message: 'The session was removed.' })
+      writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+      showToast({
+        title: deleteResult?.mode === 'cancelled' ? 'Session removed' : 'Session deleted',
+        message: deleteResult?.mode === 'cancelled'
+          ? 'The session was removed from the calendar. Player records stay in history.'
+          : 'The session was removed.',
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not delete this session.')
@@ -895,53 +2110,136 @@ export function SessionsPage({ setupOpen = false }) {
     setSearchParams(nextSearchParams)
   }
 
+  const calendarTitle = (() => {
+    const teamName = String(user?.activeTeamName || user?.emailTeamName || user?.teamName || user?.team_name || '').trim()
+
+    if (teamName) {
+      return `${teamName} Calendar`
+    }
+
+    return user?.clubId ? 'Club Calendar' : 'Team Calendar'
+  })()
+
+  if (calendarOnly) {
+    return (
+      <div className="space-y-5">
+        <section className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-5 shadow-sm shadow-[#101828]/5 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>Calendar</p>
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
+                {isClubWideCalendar ? 'Club calendar' : calendarTitle}
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+                {isClubWideCalendar
+                  ? 'Club-wide events shared across the club.'
+                  : 'Plan training, fixtures, parent cut offs, and club events without opening the session tools.'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleCalendarDateClick(formatLocalDate(new Date()))}
+              className={primaryButtonClass}
+            >
+              Add event
+            </button>
+          </div>
+        </section>
+
+        {errorMessage ? <NoticeBanner title="Calendar needs attention" message={errorMessage} /> : null}
+
+        <FootballCalendar
+          cursor={calendarCursor}
+          events={calendarEvents}
+          isLoading={isLoading}
+          onCursorChange={setCalendarCursor}
+          onOpenEvent={handleCalendarEventOpen}
+          onViewChange={setCalendarView}
+          view={calendarView}
+        />
+
+        <CalendarEventModal
+          currentInvites={currentCalendarEventInvites}
+          event={calendarModal?.event}
+          form={calendarForm}
+          invitePlayers={calendarInvitePlayers}
+          isBusy={isSaving}
+          isOpen={Boolean(calendarModal)}
+          mode={calendarModal?.mode || 'create'}
+          onCancel={() => setCalendarModal(null)}
+          onChange={handleCalendarFormChange}
+          onDelete={handleCalendarDelete}
+          onEdit={() => {
+            const currentEvent = calendarModal?.event
+            if (currentEvent?.sourceType === 'match-day') {
+              setCalendarModal(null)
+              navigate(currentEvent.href || '/match-day')
+              return
+            }
+            setCalendarModal((current) => ({ ...current, mode: 'edit' }))
+          }}
+          onOpenWorkflow={() => {
+            const href = calendarModal?.event?.href
+            setCalendarModal(null)
+            navigate(href || '/sessions')
+          }}
+          onSubmit={handleCalendarSave}
+          selectedInvitePlayers={selectedCalendarInvitePlayers}
+          clubWideOnly={isClubWideCalendar}
+          teams={teams}
+          user={user}
+          variant={calendarModal?.variant || ''}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5">
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
-          <div>
-            <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className={eyebrowClass}>Session command</p>
-              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-                Run training from plan to player record.
-              </h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Sessions connect the football calendar to the coaching record. Create the block, add the squad, capture notes, then work through the player queue.
-              </p>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {sessionRuleCards.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#101828]/5">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">{item.label}</p>
-                    <p className={`mt-2 ${bodyTextClass}`}>{item.body}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="grid content-between border-t border-[#bbf7d0] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Current queue</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {selectedSession?.title || selectedSession?.team || 'No session selected'}
-              </p>
-              <p className={`mt-2 ${bodyTextClass}`}>
-                {selectedSession ? sessionQueueLabel : 'Create a session or open a saved one to start the player queue.'}
-              </p>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <SessionMetric label="Open" value={openSessionCount} isLoading={isLoading} />
-              <SessionMetric label="Complete" value={completedSessionCount} isLoading={isLoading} />
-              <SessionMetric label="Queued" value={sessionPlayers.length} isLoading={isSessionPlayersLoading} />
-              <SessionMetric label="Left" value={unassessedPlayerQueue.length} isLoading={isSessionPlayersLoading} />
-            </div>
-            <p className={`mt-4 ${bodyTextClass}`}>
-              Keep one active session selected so notes, records, and player progress stay together.
+      <section className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-5 shadow-sm shadow-[#101828]/5 sm:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className={eyebrowClass}>Sessions</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
+              Training and match sessions
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+              Create a block, add players, then record coach notes against the right session.
             </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem]">
+            <button
+              type="button"
+              onClick={handleOpenSessionCreateModal}
+              className={primaryButtonClass}
+            >
+              Create session
+            </button>
+            <button
+              type="button"
+              onClick={handleCurrentSessionFocus}
+              disabled={!selectedSession}
+              className={secondaryButtonClass}
+            >
+              Open selected
+            </button>
           </div>
         </div>
       </section>
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
+
+      <FootballCalendar
+        cursor={calendarCursor}
+        events={calendarEvents}
+        isLoading={isLoading}
+        onCursorChange={setCalendarCursor}
+        onOpenEvent={handleCalendarEventOpen}
+        onViewChange={setCalendarView}
+        view={calendarView}
+      />
 
       <section className="grid gap-3 md:grid-cols-4">
         <SessionSummaryCard isLoading={isLoading} label="Sessions" value={combinedSessions.length} caption="Saved training and match blocks." />
@@ -994,7 +2292,7 @@ export function SessionsPage({ setupOpen = false }) {
         assessedPlayerCount={assessedPlayerCount}
         isLoading={isLoading || isSessionPlayersLoading}
         onAssessAll={handleAssessAll}
-        onOpenCreateSession={() => setIsCreateSessionModalOpen(true)}
+        onOpenCreateSession={handleOpenSessionCreateModal}
         onOpenSessionSetup={handleSessionSetupFocus}
         selectedSession={selectedSession}
         selectedSessionCompleted={selectedSessionCompleted}
@@ -1128,16 +2426,20 @@ export function SessionsPage({ setupOpen = false }) {
       <ConfirmModal
         isOpen={Boolean(deleteSessionTarget)}
         isBusy={isSaving}
-        title="Delete session"
-        message="This removes the session and the player list. Sessions with development records cannot be deleted."
+        title={(deleteSessionTarget?.assessmentCount ?? 0) > 0 ? 'Remove this session from the calendar?' : 'Delete session'}
+        message={
+          (deleteSessionTarget?.assessmentCount ?? 0) > 0
+            ? "This session has saved player records attached. The player records will stay in each player's history, but the session will no longer appear as an active calendar item."
+            : 'This removes the session and the player list.'
+        }
         items={[
           `Session: ${deleteSessionTarget?.session?.title || deleteSessionTarget?.session?.team || 'Selected session'}`,
           `Players in session: ${deleteSessionTarget?.playerCount ?? 0}`,
           `Development records linked: ${deleteSessionTarget?.assessmentCount ?? 0}`,
         ]}
-        confirmLabel="Delete session"
+        confirmLabel={(deleteSessionTarget?.assessmentCount ?? 0) > 0 ? 'Remove session' : 'Delete session'}
         onCancel={() => setDeleteSessionTarget(null)}
-        requirePassword
+        requirePassword={(deleteSessionTarget?.assessmentCount ?? 0) === 0}
         onConfirm={(password) => void confirmDeleteSession(password)}
       />
 
@@ -1156,73 +2458,498 @@ export function SessionsPage({ setupOpen = false }) {
         onCancel={() => setCompleteSessionTarget(null)}
         onConfirm={() => void confirmCompleteSession()}
       />
-      <CreateSessionModal
-        form={sessionForm}
-        isLoading={isLoading}
-        isOpen={isCreateSessionModalOpen}
-        isSaving={isSaving}
-        onCancel={() => setIsCreateSessionModalOpen(false)}
-        onChange={handleSessionFormChange}
-        onSubmit={handleCreateSessionFromModal}
+      <CalendarEventModal
+        currentInvites={currentCalendarEventInvites}
+        event={calendarModal?.event}
+        form={calendarForm}
+        invitePlayers={calendarInvitePlayers}
+        isBusy={isSaving}
+        isOpen={Boolean(calendarModal)}
+        mode={calendarModal?.mode || 'create'}
+        onCancel={() => setCalendarModal(null)}
+        onChange={handleCalendarFormChange}
+        onDelete={handleCalendarDelete}
+        onEdit={() => {
+          const currentEvent = calendarModal?.event
+          if (currentEvent?.sourceType === 'match-day') {
+            setCalendarModal(null)
+            navigate(currentEvent.href || '/match-day')
+            return
+          }
+          setCalendarModal((current) => ({ ...current, mode: 'edit' }))
+        }}
+        onOpenWorkflow={() => {
+          const href = calendarModal?.event?.href
+          setCalendarModal(null)
+          navigate(href || '/sessions')
+        }}
+        onSubmit={handleCalendarSave}
+        selectedInvitePlayers={selectedCalendarInvitePlayers}
         teams={teams}
+        user={user}
+        variant={calendarModal?.variant || ''}
       />
     </div>
   )
 }
 
-function CreateSessionModal({
+function CalendarEventModal({
+  clubWideOnly = false,
+  currentInvites = [],
+  event,
   form,
-  isLoading,
+  invitePlayers = [],
+  isBusy,
   isOpen,
-  isSaving,
+  mode,
   onCancel,
   onChange,
+  onDelete,
+  onEdit,
+  onOpenWorkflow,
   onSubmit,
+  selectedInvitePlayers = [],
   teams,
+  user,
+  variant = '',
 }) {
   if (!isOpen) {
     return null
   }
 
+  const isEditing = mode !== 'view'
+  const editableSource = !event || event.editable !== false
+  const isInheritedClubEvent = Boolean(event?.isInheritedClubEvent || event?.data?.isInheritedClubEvent)
+  const showOpponent = form.eventType === 'match'
+  const isMatchFixture = form.eventType === 'match'
+  const showRecurrence = form.eventType !== 'match'
+  const isSessionCreate = mode === 'create' && variant === 'session'
+  const title = isSessionCreate ? 'Create session' : mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
+  const selectedSummary = isMatchFixture
+    ? [form.date, form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
+    : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
+  const canUseClubLevel = canCreateClubCalendarEvent(user)
+  const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
+  const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
+  const showInvites = !canShareClubWideWithParents && form.shareWithParents && form.parentAudience === 'involved_players'
+  const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
+  const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
+  const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
+  const inviteTeamId = canUseClubLevel ? form.teamId : form.teamId || user?.activeTeamId
+  const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
+  const eventTypeOptions = getCalendarEventTypeOptions(user, { clubWideOnly })
+  const parentAudienceOptions = [
+    { value: 'involved_players', label: 'Only parents of involved players' },
+    ...(hasInviteTeam ? [{ value: 'all_team_parents', label: 'All parents in the team' }] : []),
+    ...(canUseClubLevel ? [{ value: 'all_club_parents', label: 'All parents in the club' }] : []),
+  ]
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
+    <div className="fixed inset-0 z-[80] flex items-stretch justify-center overflow-hidden bg-[#101828]/45 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="create-session-modal-title"
-        className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15"
+        className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15 sm:max-h-[calc(100vh-2rem)]"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
-          <div className="min-w-0">
-            <p className={eyebrowClass}>Session setup</p>
-            <h2 id="create-session-modal-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-              Create session
-            </h2>
-            <p className={`mt-2 max-w-2xl ${bodyTextClass}`}>
-              Create one training or match block before adding the player queue.
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isBusy}
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="Close calendar event"
+        >
+          X
+        </button>
+        <div className="shrink-0 border-b border-[#d7e5dc] px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+          <p className={eyebrowClass}>Calendar</p>
+          <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            {isSessionCreate
+              ? 'Create a training or match session with time, location, notes, repeats, and player invites.'
+              : 'Add, move, edit, or cancel football activity from one place.'}
+          </p>
+          {isInheritedClubEvent ? (
+            <p className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46]">
+              This is a club-wide event managed by the Club Admin.
             </p>
+          ) : null}
+        </div>
+
+        {!isEditing ? (
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{event?.sourceType || 'event'}</p>
+            <h3 className="mt-2 text-xl font-black text-[#101828]">{event?.title || form.title || 'Calendar event'}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              {selectedSummary || event?.description || 'Calendar activity'}
+            </p>
+            {form.notes ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{form.notes}</p> : null}
+            {isMatchFixture ? (
+              <div className="mt-4 grid gap-3 rounded-lg border border-[#d7e5dc] bg-white p-3 sm:grid-cols-2">
+                {form.arrivalTime ? (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Arrival time</p>
+                    <p className="mt-1 text-sm font-black text-[#101828]">{form.arrivalTime}</p>
+                  </div>
+                ) : null}
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Kick-off time</p>
+                  <p className="mt-1 text-sm font-black text-[#101828]">{form.startTime || 'Not set'}</p>
+                </div>
+                {form.opponent ? (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Opponent</p>
+                    <p className="mt-1 text-sm font-black text-[#101828]">{form.opponent}</p>
+                  </div>
+                ) : null}
+                {form.location ? (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Location</p>
+                    <p className="mt-1 text-sm font-black text-[#101828]">{form.location}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {currentInvites.length > 0 ? (
+              <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Invited players</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {currentInvites.map((invite) => (
+                    <span key={invite.id} className="rounded-full border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#065f46]">
+                      {invite.player?.playerName || 'Player'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSaving}
-            title={isSaving ? 'Please wait while this session is saving.' : 'Close this window'}
-            aria-label="Close this window"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            X
-          </button>
-        </div>
-        <div className="px-5 py-5 sm:px-6">
-          <CreateSessionSection
-            form={form}
-            isLoading={isLoading}
-            isSaving={isSaving}
-            onChange={onChange}
-            onSubmit={onSubmit}
-            teams={teams}
-          />
-        </div>
+          </div>
+        ) : null}
+
+        {isEditing ? (
+          <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 px-5 py-5 sm:px-6">
+            <div className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Type</span>
+                <select
+                  name="eventType"
+                  value={form.eventType}
+                  onChange={onChange}
+                  disabled={isBusy || Boolean(event && event.sourceType !== 'calendar')}
+                  className={fieldClass}
+                >
+                  {eventTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              {clubWideOnly ? (
+                <div className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Scope</span>
+                  <div className={`${fieldClass} flex items-center`}>Club level</div>
+                  <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
+                    Club Admin calendar events are shared across the club and are not tied to one team.
+                  </span>
+                </div>
+              ) : (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Team</span>
+                  <select name="teamId" value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                    {canUseClubLevel ? <option value="">Club level</option> : null}
+                    {!canUseClubLevel && !form.teamId ? <option value="">Choose team</option> : null}
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                  {!canUseClubLevel ? (
+                    <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
+                      Team staff can only save events against their assigned team.
+                    </span>
+                  ) : null}
+                </label>
+              )}
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-[#101828]">Title</span>
+              <input
+                name="title"
+                value={form.title}
+                onChange={onChange}
+                placeholder={form.eventType === 'training' ? 'Example: U12 training' : 'Example: Parent response deadline'}
+                className={fieldClass}
+              />
+            </label>
+
+            {showOpponent ? (
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Opponent</span>
+                <input name="opponent" value={form.opponent} onChange={onChange} placeholder="Example: Riverside Juniors" className={fieldClass} />
+              </label>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Date</span>
+                <input name="date" type="date" min={isMatchFixture ? getTodayMatchDayDateValue() : undefined} value={form.date} onChange={onChange} required className={fieldClass} />
+              </label>
+              {isMatchFixture ? (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Arrival time</span>
+                  <input name="arrivalTime" type="time" value={form.arrivalTime} onChange={onChange} className={fieldClass} />
+                </label>
+              ) : null}
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">{isMatchFixture ? 'Kick-off time' : 'Start time'}</span>
+                <input name="startTime" type="time" value={form.startTime} onChange={onChange} required className={fieldClass} />
+              </label>
+              {!isMatchFixture ? (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">End time</span>
+                  <input name="endTime" type="time" value={form.endTime} onChange={onChange} className={fieldClass} />
+                </label>
+              ) : null}
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-[#101828]">Location</span>
+              <input name="location" value={form.location} onChange={onChange} placeholder="Pitch, venue, or meeting point" className={fieldClass} />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-[#101828]">Notes</span>
+              <textarea name="notes" value={form.notes} onChange={onChange} rows={4} className={fieldClass} />
+            </label>
+
+            {showRecurrence ? (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-[#101828]">Repeats</span>
+                    <select name="recurrenceFrequency" value={form.recurrenceFrequency} onChange={onChange} className={fieldClass}>
+                      {RECURRENCE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-[#101828]">Repeat until</span>
+                    <input
+                      name="recurrenceUntil"
+                      type="date"
+                      value={form.recurrenceUntil}
+                      onChange={onChange}
+                      disabled={form.recurrenceFrequency === 'none'}
+                      required={form.recurrenceFrequency !== 'none'}
+                      className={fieldClass}
+                    />
+                  </label>
+                </div>
+                <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
+                  Recurring training creates separate session rows. Custom events repeat on the calendar and are edited from this event.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <p className="text-sm font-black text-[#101828]">Repeats</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Recurring fixtures are not supported yet.
+                </p>
+              </div>
+            )}
+
+            {canShareClubWideWithParents ? (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="shareWithParents"
+                    checked={form.shareWithParents}
+                    onChange={onChange}
+                    disabled={isBusy}
+                    className="mt-1 h-5 w-5 accent-[#047857]"
+                  />
+                  <span>
+                    <span className="block text-sm font-black text-[#101828]">Share with parents</span>
+                    <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+                      Parents will see this event in their Parent Portal calendar.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            ) : (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Share with parents?</span>
+                  <select
+                    name="shareWithParents"
+                    value={form.shareWithParents ? 'yes' : 'no'}
+                    onChange={(event) => onChange({
+                      target: {
+                        checked: event.target.value === 'yes',
+                        name: 'shareWithParents',
+                        type: 'checkbox',
+                        value: event.target.value,
+                      },
+                    })}
+                    disabled={isBusy}
+                    className={fieldClass}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Parent audience</span>
+                  <select
+                    name="parentAudience"
+                    value={form.shareWithParents ? form.parentAudience : 'none'}
+                    onChange={onChange}
+                    disabled={isBusy || !form.shareWithParents}
+                    className={fieldClass}
+                  >
+                    <option value="none">Not shared</option>
+                    {parentAudienceOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+              {form.shareWithParents && form.parentAudience === 'involved_players' ? (
+                <p className="mt-3 rounded-lg border border-[#fedf89] bg-white px-3 py-3 text-xs font-bold leading-5 text-[#92400e]">
+                  Only involved players fails closed unless at least one player is attached below.
+                </p>
+              ) : null}
+            </div>
+            )}
+
+            {showInvites ? (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-[#101828]">Involved players</p>
+                    <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+                      These player records define which parents can see the event when the audience is limited to involved players.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#065f46]">
+                    {selectedInvitePlayers.length} selected
+                  </span>
+                </div>
+
+                {!hasInviteTeam ? (
+                  <p className="mt-4 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-3 text-sm font-bold text-[#92400e]">
+                    Choose a team before inviting players. Club level events can be saved without invites.
+                  </p>
+                ) : invitePlayers.length === 0 ? (
+                  <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+                    No active players are available for this team yet.
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                        <input
+                          type="checkbox"
+                          name="inviteWholeSquad"
+                          checked={form.inviteWholeSquad}
+                          onChange={onChange}
+                          disabled={isBusy || squadPlayers.length === 0}
+                          className="h-5 w-5 accent-[#047857]"
+                        />
+                        Whole squad
+                      </label>
+                      <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                        <input
+                          type="checkbox"
+                          name="inviteTrialPlayers"
+                          checked={form.inviteTrialPlayers}
+                          onChange={onChange}
+                          disabled={isBusy || trialPlayers.length === 0}
+                          className="h-5 w-5 accent-[#047857]"
+                        />
+                        Include trial players
+                      </label>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white">
+                      {invitePlayers.map((player) => (
+                        <label
+                          key={player.id}
+                          className="flex min-h-12 items-start gap-3 border-b border-[#d7e5dc] px-3 py-3 last:border-b-0"
+                        >
+                          <input
+                            type="checkbox"
+                            name="invitedPlayerIds"
+                            value={player.id}
+                            checked={invitedPlayerIds.has(String(player.id))}
+                            onChange={onChange}
+                            disabled={isBusy}
+                            className="mt-1 h-5 w-5 accent-[#047857]"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black text-[#101828]">{player.playerName}</span>
+                            <span className="block text-xs font-bold text-[#4b5f55]">
+                              {player.section || 'Player'}{player.parentEmail ? `, family email on file` : ', no family email on file'}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                      <input
+                        type="checkbox"
+                        name="notifyInvitedFamilies"
+                        checked={form.notifyInvitedFamilies}
+                        onChange={onChange}
+                        disabled={isBusy}
+                        className="mt-1 h-5 w-5 accent-[#047857]"
+                      />
+                      <span>
+                        Notify invited families
+                        <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+                          Saves the invite and adds a parent email to the holding queue for review before send time.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            ) : null}
+            </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div>
+                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                {event && editableSource ? (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    disabled={isBusy}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete'}
+                  </button>
+                ) : null}
+                <button type="button" onClick={onCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save event'}</button>
+              </div>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+            {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
+            {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Edit or move</button> : null}
+            <button type="button" onClick={onCancel} className={secondaryButtonClass}>Close</button>
+          </div>
+        )}
       </div>
     </div>
   )

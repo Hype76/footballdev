@@ -6,24 +6,29 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
-const choiceCardClass = 'flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
+const choiceCardClass = 'flex min-h-24 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
 const optionCardClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10'
 const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5] sm:w-auto'
 
 export function SubmitExportSection({
   availableEmailTemplates,
+  archiveAfterNoPlace,
   averageScore,
+  canArchiveAfterNoPlace,
   canSubmitEvaluation,
   contactNoun,
   hasSavedExportSelection,
+  includeAttendanceSummary,
   inviteDate,
   isDemoAccount,
   isLoadingEmailTemplates,
+  isNoPlaceOfferedTemplate,
   isPdfAttachmentApproved,
   isSaved,
   isSendingParentEmail,
   isSubmitting,
   lastSavedPlayerName,
+  onArchiveAfterNoPlaceChange,
   onClearExportFields,
   onEmailTemplateChange,
   onEmailSendModeChange,
@@ -32,6 +37,7 @@ export function SubmitExportSection({
   onPdfAttachmentApprovedChange,
   onScheduledEmailDateTimeChange,
   onEmailAfterSaveChange,
+  onIncludeAttendanceSummaryChange,
   onPrintBlankForm,
   onReorderExportField,
   onSelectAllExportFields,
@@ -46,6 +52,16 @@ export function SubmitExportSection({
   shouldShowInviteDate,
 }) {
   const isEmailEnabled = previewMode === 'email'
+  const submitActionLabel = isEmailEnabled
+    ? emailSendMode === 'scheduled'
+      ? 'Save and Schedule Email'
+      : 'Save and Send Email'
+    : 'Save development record'
+  const submittingLabel = isEmailEnabled
+    ? emailSendMode === 'scheduled'
+      ? 'Saving and scheduling...'
+      : 'Saving and emailing...'
+    : 'Saving...'
   const submitDisabledReason = isSubmitting
     ? 'Please wait while this development record is being saved.'
     : !canSubmitEvaluation
@@ -56,7 +72,7 @@ export function SubmitExportSection({
     <SectionCard
       storageKey="development-record-submit-v2"
       title="Submit and export"
-      description="Save the record first. Parent email and PDF output are optional and should only include useful football detail."
+      description="Save the record first. Parent email and PDF output are optional and should only include useful development detail."
     >
       <div className="mb-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] shadow-sm shadow-[#047857]/10">
         Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
@@ -125,20 +141,52 @@ export function SubmitExportSection({
             </label>
           ) : null}
 
-          <label className={choiceCardClass}>
-            <input
-              type="checkbox"
-              checked={Boolean(isPdfAttachmentApproved)}
-              onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
-            />
-            <span>
-              <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
-                Include the selected football details as a PDF attachment.
+          <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+            <label className={`${choiceCardClass} h-full`}>
+              <input
+                type="checkbox"
+                checked={Boolean(isPdfAttachmentApproved)}
+                onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Include the selected development details as a PDF attachment.
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+            <label className={`${choiceCardClass} h-full`}>
+              <input
+                type="checkbox"
+                checked={Boolean(includeAttendanceSummary)}
+                onChange={(event) => onIncludeAttendanceSummaryChange(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Include attendance summary</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Add saved training and match involvement to the email and PDF.
+                </span>
+              </span>
+            </label>
+          </div>
+          {isNoPlaceOfferedTemplate && canArchiveAfterNoPlace ? (
+            <label className={`${choiceCardClass} md:col-span-2`}>
+              <input
+                type="checkbox"
+                checked={Boolean(archiveAfterNoPlace)}
+                onChange={(event) => onArchiveAfterNoPlaceChange(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Move player to archive after saving</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Use this when no place is being offered and the record should stay available without keeping the player active.
+                </span>
+              </span>
+            </label>
+          ) : null}
           <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10 md:col-span-2">
             <span className="block text-sm font-black text-[#101828]">Send timing</span>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -229,7 +277,7 @@ export function SubmitExportSection({
           title={submitDisabledReason}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {isSubmitting ? (isSendingParentEmail ? 'Saving and emailing...' : 'Saving...') : 'Save development record'}
+          {isSubmitting || isSendingParentEmail ? submittingLabel : submitActionLabel}
         </button>
         <button
           type="button"

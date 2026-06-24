@@ -14,6 +14,7 @@ export function PlayerEvaluationsHistory({
   getAvailableEmailTemplates,
   getEvaluationParentContacts,
   getExportResponseItems,
+  getSelectedEmailSections,
   getSelectedEmailTemplateKey,
   getSelectedInviteDate,
   isDeleting,
@@ -34,6 +35,7 @@ export function PlayerEvaluationsHistory({
   onSelectedEmailTemplateChange,
   onSendParentEmail,
   onSendTestEmail,
+  onToggleEmailSection,
   onToggleEvaluationParentContact,
   onToggleExportField,
   page,
@@ -69,6 +71,7 @@ export function PlayerEvaluationsHistory({
             const canShare = canShareEvaluation(user, evaluation)
             const evaluationParentContacts = getEvaluationParentContacts(evaluation)
             const selectedTemplateKey = getSelectedEmailTemplateKey(evaluation)
+            const selectedEmailSectionState = getSelectedEmailSections(evaluation)
             const availableEmailTemplates = getAvailableEmailTemplates(evaluation)
             const shouldShowInviteDate = isInviteEmailTemplate(selectedTemplateKey)
             const hasSavedExportSelection = Array.isArray(selectedExportLabels)
@@ -100,11 +103,13 @@ export function PlayerEvaluationsHistory({
                 onSelectedEmailTemplateChange={onSelectedEmailTemplateChange}
                 onSendParentEmail={onSendParentEmail}
                 onSendTestEmail={onSendTestEmail}
+                onToggleEmailSection={onToggleEmailSection}
                 onToggleEvaluationParentContact={onToggleEvaluationParentContact}
                 onToggleExportField={onToggleExportField}
                 playerName={playerName}
                 responseItems={responseItems}
                 selectedExportLabels={selectedExportLabels}
+                selectedEmailSectionState={selectedEmailSectionState}
                 selectedInviteDate={getSelectedInviteDate(evaluation)}
                 selectedParentContacts={selectedParentContacts}
                 selectedReassignTargets={selectedReassignTargets}

@@ -359,11 +359,11 @@ export function ParentLinkingPage() {
               title="Checking who can be invited."
             />
           ) : players.length === 0 ? (
-            <ParentAccessStatePanel
-              action="Move the first player into Squad, add parent emails, then return here to invite families."
-              body="Family portal access is limited to squad players so families only see footballers who are part of the active team."
-              eyebrow="Setup required"
-              title="No squad players are ready for parent access."
+              <ParentAccessStatePanel
+                action="Move the first player into Squad, add parent emails, then return here to invite families."
+                body="Family portal access is limited to squad players so families only see players who are part of the active team."
+                eyebrow="Setup required"
+                title="No squad players are ready for parent access."
             />
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">

@@ -22,7 +22,7 @@ export function AllocateRoleSection({
       tourId="allocate-role-section"
       description={
         canAddMoreUsers
-          ? 'Invite one staff member at a time and choose the smallest role that covers their football work.'
+          ? 'Invite one staff member at a time. Pending means invited but not accepted, assigned means allocated by the Club Admin, and active means accepted and able to sign in.'
           : staffLimitMessage
       }
     >
@@ -39,7 +39,7 @@ export function AllocateRoleSection({
           <div className="mb-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Invite details</p>
             <p className={`mt-2 ${bodyTextClass}`}>
-              Use the email they will actually sign in with. Access should match the work they are expected to do this week.
+              Use the email they will sign in with. You can assign pending staff now, then they become active after accepting the invite.
             </p>
           </div>
 

@@ -28,7 +28,11 @@ export function PrimaryButton({ children, disabled = false, loading = false, onP
 export function MobileScreen({ children, refreshControl }) {
   return (
     <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
-      <ScrollView contentContainerStyle={styles.scroll} refreshControl={refreshControl}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={refreshControl}
+      >
         <View style={styles.shell}>{children}</View>
       </ScrollView>
     </SafeAreaView>
@@ -228,7 +232,7 @@ export function MobileLoginScreen({
   return (
     <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <NativeStatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.loginScroll}>
+      <ScrollView contentContainerStyle={styles.loginScroll} keyboardShouldPersistTaps="handled">
         <View style={styles.loginShell}>
           <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           <Text style={styles.kicker}>{kicker}</Text>

@@ -1,6 +1,8 @@
 import { supabase } from '../supabase-client.js'
 import { getPlayers } from './players.js'
 import { buildParentAppUrl } from '../app-origins.js'
+import { CAPABILITIES } from '../paywall-access.js'
+import { assertClubFeature } from './plan-gates.js'
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -15,6 +17,7 @@ function normalizeParentLink(row) {
     id: row.id,
     clubId: row.club_id,
     clubName: String(club?.name ?? '').trim(),
+    clubContactEmail: String(club?.contact_email ?? '').trim(),
     teamId: row.team_id,
     teamName: String(team?.name ?? player?.team ?? '').trim(),
     themeMode: String(team?.theme_mode ?? '').trim(),
@@ -67,7 +70,7 @@ function normalizeParentPortalMessage(row) {
 export async function getParentPortalLinks() {
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email)')
     .eq('status', 'active')
     .order('created_at', { ascending: false })
 
@@ -77,6 +80,105 @@ export async function getParentPortalLinks() {
   }
 
   return (data ?? []).map(normalizeParentLink)
+}
+
+export async function updateParentPortalDisplayName({ displayName }) {
+  const normalizedDisplayName = String(displayName ?? '').trim()
+
+  if (normalizedDisplayName.length < 2) {
+    throw new Error('Enter a display name with at least 2 characters.')
+  }
+
+  if (normalizedDisplayName.length > 80) {
+    throw new Error('Display name must be 80 characters or fewer.')
+  }
+
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      display_name: normalizedDisplayName,
+      name: normalizedDisplayName,
+      username: normalizedDisplayName,
+    },
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return {
+    displayName: normalizedDisplayName,
+    name: normalizedDisplayName,
+    username: normalizedDisplayName,
+    authEmail: String(data?.user?.email ?? '').trim().toLowerCase(),
+  }
+}
+
+export async function updateOwnParentPortalLinksEmail({ authUser, email }) {
+  const normalizedEmail = normalizeEmail(email)
+
+  if (!authUser?.id || !normalizedEmail) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('parent_player_links')
+    .update({
+      email: normalizedEmail,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('auth_user_id', authUser.id)
+    .eq('status', 'active')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email)')
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeParentLink)
+}
+
+export async function prepareParentPortalEmailChange({ email }) {
+  const normalizedEmail = normalizeEmail(email)
+
+  if (!normalizedEmail) {
+    throw new Error('Email is required.')
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    console.error(sessionError)
+    throw sessionError
+  }
+
+  const accessToken = sessionData?.session?.access_token
+
+  if (!accessToken) {
+    throw new Error('Login is required.')
+  }
+
+  const response = await fetch('/.netlify/functions/parent-portal-email-change', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ email: normalizedEmail }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Email could not be updated.')
+  }
+
+  return {
+    action: String(result.action ?? '').trim(),
+    email: normalizeEmail(result.email || normalizedEmail),
+    message: String(result.message ?? '').trim(),
+    transferredLinkIds: Array.isArray(result.transferredLinkIds) ? result.transferredLinkIds : [],
+  }
 }
 
 export async function getParentPortalMessages({ parentLinkId }) {
@@ -251,7 +353,7 @@ export async function revokeFamilyPortalLink({ linkId }) {
   return normalizeParentLink(revokedRow)
 }
 
-export async function createParentPortalInvites({ user, player, contacts }) {
+export async function createParentPortalInvites({ user, player, contacts, includeSentPending = false }) {
   if (!user?.clubId || !player?.id) {
     throw new Error('Choose a player before creating parent links.')
   }
@@ -272,6 +374,17 @@ export async function createParentPortalInvites({ user, player, contacts }) {
   }
 
   const teamId = player.teamId || user.activeTeamId || null
+  await assertClubFeature({
+    user: {
+      ...user,
+      activeTeamId: teamId,
+      teamId,
+      playerId: player.id,
+    },
+    clubId: user.clubId,
+    featureName: CAPABILITIES.parentInvitations,
+  })
+
   const emails = normalizedContacts.map((contact) => contact.email)
   const nowIso = new Date().toISOString()
 
@@ -309,20 +422,20 @@ export async function createParentPortalInvites({ user, player, contacts }) {
   )
   const resendRows = normalizedContacts
     .map((contact) => existingRowsByEmail.get(contact.email))
-    .filter((row) => row && row.status === 'pending' && !row.invite_sent_at)
+    .filter((row) => row && row.status === 'pending' && (includeSentPending || !row.invite_sent_at))
   const rows = normalizedContacts
     .filter((contact) => !existingRowsByEmail.has(contact.email) && !existingSentOrAcceptedEmails.has(contact.email))
     .map((contact) => ({
-    club_id: user.clubId,
-    team_id: teamId,
-    player_id: player.id,
-    link_type: 'parent',
-    email: contact.email,
-    status: 'pending',
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    invited_by: user.id,
-    invited_by_name: user.displayName || user.username || user.name || user.email,
-  }))
+      club_id: user.clubId,
+      team_id: teamId,
+      player_id: player.id,
+      link_type: 'parent',
+      email: contact.email,
+      status: 'pending',
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      invited_by: user.id,
+      invited_by_name: user.displayName || user.username || user.name || user.email,
+    }))
 
   if (rows.length === 0) {
     return resendRows.map((row) => ({

@@ -10,7 +10,7 @@ export function PlayerStatsCards({
     {
       label: 'Trial players',
       value: trialPlayerCount,
-      detail: 'Active footballers still waiting for the club decision.',
+      detail: 'Active players still waiting for the club decision.',
       to: '/players/current?section=Trial',
       action: 'Open trial list',
       tone: 'border-[#fedf89] bg-[#fffaeb] text-[#93370d]',

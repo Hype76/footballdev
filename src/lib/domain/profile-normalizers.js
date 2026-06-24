@@ -9,6 +9,7 @@ import {
   normalizeRoleRank,
   normalizeWords,
 } from './core-normalizers.js'
+import { normalizePlanKey } from '../plans.js'
 
 export function getSignupClubName(authUser) {
   const metadataClubName = String(
@@ -50,7 +51,7 @@ export function normalizeClubMembershipRow(row) {
     clubContactPhone: String(clubRow?.contact_phone ?? row.clubContactPhone ?? '').trim(),
     clubStatus: String(clubRow?.status ?? row.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: clubRow?.suspended_at ?? row.clubSuspendedAt ?? '',
-    planKey: String(clubRow?.plan_key ?? row.planKey ?? 'small_club').trim() || 'small_club',
+    planKey: normalizePlanKey(clubRow?.plan_key ?? row.planKey, { mapMissingToFree: true }),
     planStatus: String(clubRow?.plan_status ?? row.planStatus ?? 'active').trim() || 'active',
     isPlanComped: Boolean(clubRow?.is_plan_comped ?? row.isPlanComped ?? false),
     requireApproval: Boolean(clubRow?.require_approval ?? row.requireApproval ?? true),
@@ -102,7 +103,7 @@ export function normalizeUserProfile(profile) {
     clubContactPhone: String(getClubValue(profile.clubs, 'contact_phone') ?? profile.clubContactPhone ?? '').trim(),
     clubStatus: String(getClubValue(profile.clubs, 'status') ?? profile.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
-    planKey: String(getClubValue(profile.clubs, 'plan_key') ?? profile.planKey ?? 'small_club').trim() || 'small_club',
+    planKey: normalizePlanKey(getClubValue(profile.clubs, 'plan_key') ?? profile.planKey, { mapMissingToFree: true }),
     planStatus: String(getClubValue(profile.clubs, 'plan_status') ?? profile.planStatus ?? 'active').trim() || 'active',
     isPlanComped: testerAccessExpired ? false : isPlanComped,
     stripeCustomerId: String(getClubValue(profile.clubs, 'stripe_customer_id') ?? profile.stripeCustomerId ?? '').trim(),

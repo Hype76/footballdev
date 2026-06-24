@@ -75,6 +75,12 @@ export function ParentPortalLoginBox() {
       <p className="mt-2 text-sm font-semibold leading-7 text-[#4b5f55]">
         Use the parent account confirmed by email. You will be taken to the dedicated family portal after login.
       </p>
+      <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+        <p className="text-sm font-black text-[#101828]">No invite or cannot get in?</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+          Ask your club or team contact to send a parent invite to this email. If you already have an invite, use password reset or ask the club to resend the link.
+        </p>
+      </div>
 
       <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
         <label className="block">

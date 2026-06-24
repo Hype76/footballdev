@@ -28,7 +28,7 @@ export function PlayersListSection({
   const emptyState =
     viewFilter === 'evaluated'
       ? {
-          action: 'Switch the view or open the development workflow.',
+          action: 'Switch the view or open development records.',
           body: 'The register is filtering for players with completed development history. Clear the filter or record a player from a session.',
           title: 'No completed development records match this view.',
         }
@@ -53,7 +53,7 @@ export function PlayersListSection({
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#065f46]">Live register</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Find the footballer before you change the workflow</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Find the player before changing their record</h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
               Search by player, team, or position. Filter by section, then open the profile when the decision needs parent or development context.
             </p>

@@ -6,13 +6,14 @@ import {
   normalizeParentContacts,
   normalizePlayerContactType,
 } from '../../lib/supabase.js'
-import { formatUkDate, formatUkDateTime } from '../../lib/date-format.js'
+import { formatUkDate, formatUkDateTime, formatUkDateWords } from '../../lib/date-format.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   DIRECT_EMAIL_TEMPLATE_SECTION,
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
 import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
+import { buildProgressionEmailSections, getProgressionNumericFieldMap } from '../../lib/player-progression.js'
 
 export const PROFILE_EVALUATION_PAGE_SIZE = 5
 
@@ -57,14 +58,37 @@ export function getDraftParentContacts(player) {
 }
 
 export function getContactEmailAddresses(contact) {
-  return String(contact?.email ?? '')
+  const emails = String(contact?.email ?? contact?.parentEmail ?? contact?.parent_email ?? '')
     .split(/[;,]/)
     .map((email) => email.trim())
     .filter(Boolean)
+  const invalidEmails = emails.filter((email) => !isValidContactEmail(email))
+
+  if (invalidEmails.length > 0) {
+    throw new Error(`Check this contact email before sending: ${invalidEmails[0]}`)
+  }
+
+  return emails
 }
 
 export function getContactRecipientName(contact, fallbackName) {
   return String(contact?.name ?? '').trim() || String(fallbackName ?? '').trim() || 'Parent/Guardian'
+}
+
+export function isValidContactEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim())
+}
+
+export function getEmailReadyContactsForAudience(contacts, contactType) {
+  const availableContacts = (Array.isArray(contacts) ? contacts : [])
+    .filter((contact) => getContactEmailAddresses(contact).length > 0)
+  const exactContacts = availableContacts.filter((contact) => contact.type === contactType)
+
+  if (exactContacts.length > 0) {
+    return exactContacts
+  }
+
+  return availableContacts
 }
 
 export function buildCommentsFromMergedResponses(formResponses) {
@@ -134,27 +158,66 @@ export function buildEvaluationSummary(evaluation, mode = 'scored') {
 
 export function formatTrendDate(evaluation) {
   if (evaluation.date) {
-    return evaluation.date
+    return formatUkDateWords(evaluation.date, evaluation.date)
   }
 
-  return evaluation.createdAt ? formatUkDate(evaluation.createdAt, 'No date entered') : 'No date entered'
+  return evaluation.createdAt ? formatUkDateWords(evaluation.createdAt, 'No date entered') : 'No date entered'
 }
 
-export function buildRatingTrend(evaluations) {
+function getHistoricalCutoffKey(currentDate = new Date()) {
+  const parsedDate = currentDate instanceof Date ? currentDate : new Date(currentDate)
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().slice(0, 10)
+}
+
+function getEvaluationHistoryDateKey(evaluation) {
+  const value = evaluation?.date || evaluation?.createdAt
+  const parsedDate = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().slice(0, 10)
+}
+
+function isHistoricalEvaluation(evaluation, cutoffKey) {
+  if (!cutoffKey) {
+    return true
+  }
+
+  const dateKey = getEvaluationHistoryDateKey(evaluation)
+  return !dateKey || dateKey <= cutoffKey
+}
+
+export function buildRatingTrend(evaluations, { currentDate } = {}) {
+  const cutoffKey = getHistoricalCutoffKey(currentDate)
+
   return [...evaluations]
     .filter((evaluation) => evaluation.averageScore !== null)
-    .sort((left, right) => left.createdAt - right.createdAt)
+    .filter((evaluation) => isHistoricalEvaluation(evaluation, cutoffKey))
+    .sort((left, right) => {
+      const leftTime = new Date(left.date || left.createdAt).getTime()
+      const rightTime = new Date(right.date || right.createdAt).getTime()
+      return leftTime - rightTime
+    })
 }
 
-export function buildFieldMovement(evaluations) {
-  const chronologicalEvaluations = [...evaluations].sort((left, right) => left.createdAt - right.createdAt)
+export function buildFieldMovement(evaluations, fields = [], { currentDate } = {}) {
+  const cutoffKey = getHistoricalCutoffKey(currentDate)
+  const chronologicalEvaluations = [...evaluations]
+    .filter((evaluation) => isHistoricalEvaluation(evaluation, cutoffKey))
+    .sort((left, right) => {
+      const leftTime = new Date(left.date || left.createdAt).getTime()
+      const rightTime = new Date(right.date || right.createdAt).getTime()
+      return leftTime - rightTime
+    })
   const fieldValues = new Map()
+  const numericFieldMap = getProgressionNumericFieldMap(fields)
 
   chronologicalEvaluations.forEach((evaluation) => {
     Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
+      if (!numericFieldMap.has(String(label ?? '').trim().toLowerCase())) {
+        return
+      }
+
       const numericValue = Number(value)
 
-      if (Number.isNaN(numericValue)) {
+      if (!Number.isFinite(numericValue)) {
         return
       }
 
@@ -524,8 +587,10 @@ export function buildPlayerProfileParentEmailPayload({
   getSelectedEvaluationParentContacts,
   getSelectedExportResponseItems,
   getSelectedInviteDate,
+  progressionData,
   profileParentName,
   routePlayerName,
+  selectedEmailSections,
   selectedEmailTemplates,
   user,
 }) {
@@ -533,10 +598,14 @@ export function buildPlayerProfileParentEmailPayload({
   const selectedKey = selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
   const inviteDate = getSelectedInviteDate(evaluation)
   const responses = getSelectedExportResponseItems(evaluation)
+  const progressionSections = buildProgressionEmailSections({
+    progressionData,
+    sections: selectedEmailSections,
+  })
   const payloads = getContactTemplateAudiences(getEvaluationContactType(evaluation))
     .flatMap((audience) => {
       const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
-      const contacts = selectedContacts.filter((contact) => contact.type === contactType)
+      const contacts = getEmailReadyContactsForAudience(selectedContacts, contactType)
 
       if (contacts.length === 0) {
         return []
@@ -591,6 +660,7 @@ export function buildPlayerProfileParentEmailPayload({
               playerName: routePlayerName,
               summary: '',
               responses,
+              emailSections: progressionSections,
               subject: emailTemplate.subject,
               emailBody: emailTemplate.body,
               pdfHtml: buildAssessmentPdfHtml({
@@ -601,6 +671,7 @@ export function buildPlayerProfileParentEmailPayload({
                 session: evaluation.session,
                 logoUrl: user?.clubLogoUrl || null,
                 responseItems: responses,
+                emailSections: progressionSections,
               }),
               evaluationId: evaluation.id,
             },
@@ -620,6 +691,7 @@ export function buildPlayerProfileParentEmailPayload({
     recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
     recipientNames: payloads.map((item) => item.recipientNames).join(', '),
     responses,
+    emailSections: progressionSections,
     templateKey: selectedKey,
     templateName: payloads.map((item) => item.templateName).join(', '),
     usesDefaultTemplate: payloads.some((item) => item.selectedTemplate?.isDefaultTemplate),
@@ -633,7 +705,9 @@ export function buildPlayerDirectEmailPayload({
   inviteDate = '',
   player,
   responses = [],
+  progressionData = null,
   routePlayerName,
+  selectedEmailSections = null,
   selectedTemplate,
   sourceEvaluation = null,
   user,
@@ -648,8 +722,14 @@ export function buildPlayerDirectEmailPayload({
   const session = sourceEvaluation?.session || ''
   const responseItems = Array.isArray(responses) ? responses : []
   const summary = sourceEvaluation ? buildEvaluationSummary(sourceEvaluation, 'email') : ''
+  const progressionSections = progressionData
+    ? buildProgressionEmailSections({
+        progressionData,
+        sections: selectedEmailSections,
+      })
+    : []
   const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
-  const selectedContacts = contacts.filter((contact) => contact.type === contactType)
+  const selectedContacts = getEmailReadyContactsForAudience(contacts, contactType)
   const payloads = selectedContacts
     .flatMap((contact) =>
       getContactEmailAddresses(contact).map((recipientEmail) => {
@@ -694,6 +774,7 @@ export function buildPlayerDirectEmailPayload({
             playerName,
             summary,
             responses: responseItems,
+            emailSections: progressionSections,
             subject: emailTemplate.subject,
             emailBody: emailTemplate.body,
             pdfHtml: buildAssessmentPdfHtml({
@@ -704,6 +785,7 @@ export function buildPlayerDirectEmailPayload({
               session,
               logoUrl: user?.clubLogoUrl || null,
               responseItems,
+              emailSections: progressionSections,
             }),
             evaluationId: sourceEvaluation?.id || null,
           },
@@ -730,6 +812,7 @@ export function buildPlayerDirectEmailPayload({
     recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
     recipientNames: payloads.map((item) => item.recipientNames).join(', '),
     responses: responseItems,
+    emailSections: progressionSections,
     templateKey: selectedTemplate.key,
     templateName: selectedTemplate.label,
     usesDefaultTemplate: Boolean(selectedTemplate.isDefaultTemplate),

@@ -1,6 +1,7 @@
 export const FIELD_TYPE_OPTIONS = [
   { value: 'score_1_5', label: 'Score 1 to 5' },
   { value: 'score_1_10', label: 'Score 1 to 10' },
+  { value: 'number', label: 'Number' },
   { value: 'text', label: 'Text' },
   { value: 'textarea', label: 'Textarea' },
   { value: 'select', label: 'Select' },
@@ -11,6 +12,7 @@ export const initialFieldForm = {
   type: 'score_1_5',
   required: false,
   options: '1, 2, 3, 4, 5',
+  includeInProgressChart: false,
 }
 
 export const FIELD_PAGE_SIZE = 8
@@ -54,9 +56,21 @@ export function createDraftFromField(field) {
     required: field.required,
     options: field.options.join(', '),
     isEnabled: field.isEnabled,
+    includeInProgressChart: Boolean(field.includeInProgressChart),
   }
 }
 
 export function createDraftMap(fields) {
   return Object.fromEntries(fields.map((field) => [field.id, createDraftFromField(field)]))
+}
+
+export function buildReorderedFormFields({ customFields, defaultFields, fieldGroup, nextGroupFields }) {
+  const nextFields = fieldGroup === 'default'
+    ? [...nextGroupFields, ...customFields]
+    : [...defaultFields, ...nextGroupFields]
+
+  return nextFields.map((field, index) => ({
+    ...field,
+    orderIndex: index + 1,
+  }))
 }

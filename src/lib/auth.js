@@ -11,6 +11,8 @@ import {
   isParentPortalUser,
   isSuperAdmin,
 } from './auth-permissions.js'
+import { isParentPortalHost } from './app-origins.js'
+import { normalizePlanKey, PLAN_KEYS } from './plans.js'
 
 export {
   canAssignRole,
@@ -35,6 +37,7 @@ export {
   canViewEvaluation,
   canViewPlatformFeedback,
   getRoleLabel,
+  getWorkspaceHomeCopy,
   hasTeamWorkflowContext,
   isClubAdmin,
   isDemoAccount,
@@ -45,11 +48,13 @@ export {
 } from './auth-permissions.js'
 
 const AuthContext = createContext(null)
+const AUTH_ACCESS_BROWSER_FIXTURES_ENABLED = import.meta.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES === 'true'
 let authDataModulePromise = null
 let teamDataModulePromise = null
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
 const SELECTED_TEAM_STORAGE_KEY = 'selected-team-id'
 const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
+const SELECTED_ACCESS_MODE_EXPLICIT_KEY = 'selected-access-mode-explicit'
 const PLATFORM_ADMIN_ACCESS_OPTION = {
   id: 'platform_admin',
   label: 'Platform Admin',
@@ -101,6 +106,68 @@ function buildAccessModeOptions(options = [], hasPlatformAdminAccess = false) {
   return nextOptions
 }
 
+function FixtureAuthProviderLoader({ children }) {
+  const [FixtureAuthProvider, setFixtureAuthProvider] = useState(null)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+
+    import(/* @vite-ignore */ '/src/lib/auth-access-browser-fixtures.js')
+      .then((module) => {
+        if (isMounted) {
+          setFixtureAuthProvider(() => module.FixtureAuthProvider)
+        }
+      })
+      .catch((error) => {
+        console.error(error)
+        if (isMounted) {
+          setLoadError('Browser auth fixtures could not be loaded.')
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  if (loadError) {
+    return createElement(AuthContext.Provider, {
+      value: {
+        session: null,
+        authUser: null,
+        user: null,
+        clubOptions: [],
+        accessModeOptions: [],
+        teamOptions: [],
+        hasPlatformAdminAccess: false,
+        isLoading: false,
+        isProfileLoading: false,
+        authError: loadError,
+      },
+    }, children)
+  }
+
+  if (!FixtureAuthProvider) {
+    return createElement(AuthContext.Provider, {
+      value: {
+        session: null,
+        authUser: null,
+        user: null,
+        clubOptions: [],
+        accessModeOptions: [],
+        teamOptions: [],
+        hasPlatformAdminAccess: false,
+        isLoading: true,
+        isProfileLoading: false,
+        authError: '',
+      },
+    }, children)
+  }
+
+  return createElement(FixtureAuthProvider, { AuthContext }, children)
+}
+
 export async function verifyCurrentUserPassword(email, password) {
   const normalizedEmail = String(email ?? '').trim()
   const normalizedPassword = String(password ?? '')
@@ -122,6 +189,14 @@ export async function verifyCurrentUserPassword(email, password) {
 }
 
 export function AuthProvider({ children }) {
+  if (AUTH_ACCESS_BROWSER_FIXTURES_ENABLED) {
+    return createElement(FixtureAuthProviderLoader, null, children)
+  }
+
+  return createElement(RuntimeAuthProvider, null, children)
+}
+
+function RuntimeAuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
@@ -152,8 +227,8 @@ export function AuthProvider({ children }) {
       return profile
     }
 
-    const { getAssignedTeamsForUser } = await loadTeamDataModule()
-    const assignedTeams = await getAssignedTeamsForUser(profile)
+    const { getAssignedTeamsForUser, getTeams } = await loadTeamDataModule()
+    const assignedTeams = isClubAdmin(profile) ? await getTeams(profile) : await getAssignedTeamsForUser(profile)
 
     if (isClubAdmin(profile)) {
       setTeamOptions(assignedTeams)
@@ -174,7 +249,7 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
-        themeMode: selectedTeam.themeMode || profile.themeMode || '',
+        themeMode: profile.themeMode || '',
         themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
         themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
@@ -198,7 +273,7 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: onlyTeam.id,
         activeTeamName: onlyTeam.name,
-        themeMode: onlyTeam.themeMode || profile.themeMode || '',
+        themeMode: profile.themeMode || '',
         themeAccent: onlyTeam.themeAccent || profile.themeAccent || '',
         themeButtonStyle: onlyTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
@@ -221,7 +296,7 @@ export function AuthProvider({ children }) {
       ...profile,
       activeTeamId: selectedTeam.id,
       activeTeamName: selectedTeam.name,
-      themeMode: selectedTeam.themeMode || profile.themeMode || '',
+      themeMode: profile.themeMode || '',
       themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
       themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
     }
@@ -256,6 +331,11 @@ export function AuthProvider({ children }) {
   }
 
   const refreshPlatformAdminAccess = async (sessionUser = authUser) => {
+    if (isParentPortalHost()) {
+      setHasPlatformAdminAccess(false)
+      return false
+    }
+
     if (isDemoEmail(sessionUser?.email)) {
       setHasPlatformAdminAccess(false)
       return false
@@ -307,6 +387,7 @@ export function AuthProvider({ children }) {
     window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
     window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'platform_admin')
+    window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
     setClubOptions(result.user.clubOptions ?? [])
     setTeamOptions([])
     setHasPlatformAdminAccess(true)
@@ -344,6 +425,7 @@ export function AuthProvider({ children }) {
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
       window.sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY)
       setDemoRoleKeyState('')
       finishBootstrap()
@@ -371,9 +453,10 @@ export function AuthProvider({ children }) {
         const { fetchUserProfile } = await loadAuthDataModule()
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
         const selectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
+        const selectedAccessModeIsExplicit = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY) === 'true'
         const hasPlatformAccess = await refreshPlatformAdminAccess(nextSession.user)
 
-        if (selectedAccessMode === 'platform_admin' && hasPlatformAccess) {
+        if (hasPlatformAccess && selectedAccessMode !== 'parent' && (selectedAccessMode !== 'team' || !selectedAccessModeIsExplicit)) {
           const platformProfile = await openPlatformAdminProfile()
 
           if (!isMounted || activeSyncIdRef.current !== syncId) {
@@ -541,10 +624,12 @@ export function AuthProvider({ children }) {
       }
 
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextPreferredAccessMode)
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     } else {
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     }
@@ -572,6 +657,8 @@ export function AuthProvider({ children }) {
     try {
       const { selectUserClub } = await loadAuthDataModule()
       const profile = await selectUserClub(authUser, clubId)
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'team')
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profileWithTeam = await applyTeamSelection(profile)
@@ -611,6 +698,7 @@ export function AuthProvider({ children }) {
 
       const { fetchUserProfile } = await loadAuthDataModule()
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextAccessMode)
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profile = await fetchUserProfile(authUser, {
@@ -659,8 +747,10 @@ export function AuthProvider({ children }) {
     let selectedTeam = teamOptions.find((team) => String(team.id) === String(teamId))
 
     if (!selectedTeam && userRef.current) {
-      const { getAssignedTeamsForUser } = await loadTeamDataModule()
-      const nextTeamOptions = await getAssignedTeamsForUser(userRef.current)
+      const { getAssignedTeamsForUser, getTeams } = await loadTeamDataModule()
+      const nextTeamOptions = isClubAdmin(userRef.current)
+        ? await getTeams(userRef.current)
+        : await getAssignedTeamsForUser(userRef.current)
       setTeamOptions(nextTeamOptions)
       selectedTeam = nextTeamOptions.find((team) => String(team.id) === String(teamId))
     }
@@ -679,7 +769,7 @@ export function AuthProvider({ children }) {
         ...current,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
-        themeMode: selectedTeam.themeMode || current.themeMode || '',
+        themeMode: current.themeMode || '',
         themeAccent: selectedTeam.themeAccent || current.themeAccent || '',
         themeButtonStyle: selectedTeam.themeButtonStyle || current.themeButtonStyle || '',
       }
@@ -728,12 +818,80 @@ export function AuthProvider({ children }) {
     setUser(applyDemoRolePreview(profileWithTeam))
   }
 
-  const signUpWithClub = async ({ email, password, clubName, accessCode = '' }) => {
+  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.smallClub }) => {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const normalizedEmail = String(email ?? '').trim()
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
+    const normalizedPlanKey = normalizePlanKey(planKey) || PLAN_KEYS.smallClub
+
+    if (testSignupWithoutPayment) {
+      const prepareResponse = await fetch('/.netlify/functions/prepare-staging-test-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password,
+          clubName: normalizedClubName,
+          accessCode: String(accessCode ?? '').trim(),
+          planKey: normalizedPlanKey,
+        }),
+      })
+      const prepareResult = await prepareResponse.json().catch(() => ({}))
+
+      if (!prepareResponse.ok || prepareResult.success === false) {
+        const prepareError = new Error(prepareResult.message || 'Staging test signup could not be prepared.')
+        console.error(prepareError)
+        setAuthError(prepareError.message)
+        throw prepareError
+      }
+
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
+
+      if (signInError) {
+        console.error(signInError)
+        setAuthError(signInError.message || 'Login failed.')
+        throw signInError
+      }
+
+      if (!signInData?.session || !signInData?.user) {
+        const sessionError = new Error('Login session was not created.')
+        console.error(sessionError)
+        setAuthError(sessionError.message)
+        throw sessionError
+      }
+
+      const { createClubAndManagerProfile } = await loadAuthDataModule()
+      const profile = await createClubAndManagerProfile({
+        authUser: signInData.user,
+        clubName: normalizedClubName,
+        accessCode,
+        planKey: normalizedPlanKey,
+        forceNewClub: true,
+      })
+
+      setSession(signInData.session)
+      setAuthUser(signInData.user)
+      setUser(profile)
+      void refreshPlatformAdminAccess(signInData.user)
+      if (profile?.clubId) {
+        window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
+      }
+      setClubOptions([])
+      setTeamOptions([])
+      setIsProfileLoading(false)
+      setAuthError('')
+
+      return {
+        needsEmailVerification: false,
+        user: profile,
+        message: prepareResult.message || 'Access is ready. Continue into your workspace.',
+      }
+    }
 
     const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/sign-in`
     const { data, error } = await supabase.auth.signUp({
@@ -747,6 +905,7 @@ export function AuthProvider({ children }) {
           display_name: signupDisplayName,
           club_name: normalizedClubName,
           tester_access_code: String(accessCode ?? '').trim().toUpperCase(),
+          test_signup_plan_key: testSignupWithoutPayment ? normalizedPlanKey : undefined,
         },
       },
     })
@@ -785,6 +944,7 @@ export function AuthProvider({ children }) {
             authUser: signInData.user,
             clubName: normalizedClubName,
             accessCode,
+            planKey: normalizedPlanKey,
             forceNewClub: true,
           })
 
@@ -830,6 +990,7 @@ export function AuthProvider({ children }) {
           authUser: data.user,
           clubName: normalizedClubName,
           accessCode,
+          planKey: normalizedPlanKey,
           forceNewClub: testSignupWithoutPayment,
         })
         : await fetchUserProfile(data.user)
@@ -873,7 +1034,7 @@ export function AuthProvider({ children }) {
     const result = await response.json().catch(() => ({}))
 
     if (!response.ok || result.success === false) {
-      const error = new Error(result.message || 'Parent account could not be created.')
+      const error = new Error(result.message || 'Account could not be created.')
       console.error(error)
       setAuthError(error.message)
       throw error
@@ -945,7 +1106,7 @@ export function AuthProvider({ children }) {
         clubLogoUrl: String(clubDetails.logoUrl ?? current.clubLogoUrl ?? '').trim(),
         clubContactEmail: String(clubDetails.contactEmail ?? current.clubContactEmail ?? '').trim(),
         clubContactPhone: String(clubDetails.contactPhone ?? current.clubContactPhone ?? '').trim(),
-        planKey: String(clubDetails.planKey ?? current.planKey ?? 'small_club').trim(),
+        planKey: normalizePlanKey(clubDetails.planKey ?? current.planKey, { mapMissingToFree: true }),
         planStatus: String(clubDetails.planStatus ?? current.planStatus ?? 'active').trim(),
         isPlanComped: Boolean(clubDetails.isPlanComped ?? current.isPlanComped ?? false),
         stripeCustomerId: String(clubDetails.stripeCustomerId ?? current.stripeCustomerId ?? '').trim(),

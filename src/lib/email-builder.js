@@ -1,9 +1,17 @@
 import { formatUkDate } from './date-format.js'
 import { buildMainAppUrl } from './app-origins.js'
 import { supabase } from './supabase-client.js'
+import { sanitizeAssessmentEmailSections, sanitizeAssessmentOutputText } from './assessment-output-sanitizer.js'
+import { buildProgressionChartMarkup } from './progression-chart-markup.js'
+import {
+  DEFAULT_ASSESSMENT_SCORE_GUIDE,
+  formatDefaultAssessmentScoreForParent,
+  isDefaultAssessmentScoreLabel,
+  isDefaultAssessmentScoreValue,
+} from './assessment-scoring.js'
 
 function escapeHtml(value) {
-  return String(value ?? '')
+  return sanitizeAssessmentOutputText(value)
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -12,7 +20,7 @@ function escapeHtml(value) {
 }
 
 function formatLines(value) {
-  return escapeHtml(value)
+  return escapeHtml(sanitizeAssessmentOutputText(value))
     .split('\n')
     .map((line) => (line.trim() ? line : '&nbsp;'))
     .join('<br />')
@@ -32,6 +40,18 @@ function normaliseResponses(responses) {
   return []
 }
 
+function isScoredResponseItem(item) {
+  return isDefaultAssessmentScoreLabel(item?.label) && isDefaultAssessmentScoreValue(item?.value)
+}
+
+function formatParentResponseValue(item) {
+  return isScoredResponseItem(item) ? formatDefaultAssessmentScoreForParent(item.value) : item?.value
+}
+
+function hasScoredResponses(responseItems) {
+  return responseItems.some((item) => isScoredResponseItem(item))
+}
+
 function isExportableResponseValue(value) {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value !== 0
@@ -49,6 +69,29 @@ function chunkResponseRows(responseItems) {
   }
 
   return rows
+}
+
+function buildScoringKeyMarkup(responseItems) {
+  if (!hasScoredResponses(responseItems)) {
+    return ''
+  }
+
+  return `
+    <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
+      <p style="margin: 0 0 8px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">How scoring works</p>
+      <p style="margin: 0 0 10px; color: #142018; font-size: 13px; line-height: 1.55;">Player feedback is scored out of 10. A 5 means the player is broadly at the expected level, 6 gives coaches a clear way to show slightly above expected performance, and 10 means exceptional for this context rather than flawless.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+        <tbody>
+          ${DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `
+            <tr>
+              <td style="padding: 3px 8px 3px 0; color: #142018; font-size: 12px; font-weight: 700; white-space: nowrap;">${item.score} - ${escapeHtml(item.label)}</td>
+              <td style="padding: 3px 0; color: #4f6552; font-size: 12px; line-height: 1.4;">${escapeHtml(item.description)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
 }
 
 function buildInfoCard(label, value) {
@@ -94,7 +137,7 @@ function buildResponseMarkup(responseItems) {
                       <td width="50%" style="padding: 0 6px 10px 0; vertical-align: top;">
                         <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 10px 12px; min-height: 54px;">
                           <p style="margin: 0 0 5px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
-                          <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.45;">${formatLines(item.value || 'No data entered')}</p>
+                          <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.45;">${formatLines(formatParentResponseValue(item) || 'No data entered')}</p>
                         </div>
                       </td>
                     `,
@@ -108,6 +151,41 @@ function buildResponseMarkup(responseItems) {
       </tbody>
     </table>
   `
+}
+
+function buildEmailSectionMarkup(emailSections, { useChartContentIds = false } = {}) {
+  const sections = sanitizeAssessmentEmailSections(emailSections)
+
+  if (sections.length === 0) {
+    return ''
+  }
+
+  return `
+    <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 12px; margin: 0 0 20px;">
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Coach update</p>
+      ${sections.map((section, index) => `
+        <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 12px 14px; margin: 0 0 10px;">
+          <p style="margin: 0 0 6px; color: #142018; font-size: 14px; font-weight: 700;">${escapeHtml(section.title)}</p>
+          <p style="margin: 0; color: #4f6552; font-size: 13px; line-height: 1.5;">${formatLines(section.body)}</p>
+          ${section.chartPoints ? buildProgressionChartMarkup(section.chartPoints, {
+            imageSrc: useChartContentIds ? `cid:${section.chartContentId || `progression-chart-${index}@footballplayer.online`}` : '',
+          }) : ''}
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+export function getProgressionChartImages(emailSections = []) {
+  const contentSeed = `progression-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+  return sanitizeAssessmentEmailSections(emailSections)
+    .filter((section) => Array.isArray(section.chartPoints) && section.chartPoints.length >= 2)
+    .map((section, index) => ({
+      contentId: `${contentSeed}-${index}@footballplayer.online`,
+      filename: `player-progression-chart-${index + 1}.png`,
+      points: section.chartPoints,
+    }))
 }
 
 function getSafeLogoUrl(logoUrl) {
@@ -147,12 +225,14 @@ export function buildEmailHtml({
   section,
   session,
   responses,
+  emailSections,
   emailBody,
   logoUrl,
+  useChartContentIds = false,
 }) {
   const responseItems = normaliseResponses(responses)
-  const templateBody = String(emailBody ?? '').trim()
-  const hasTemplateBody = Boolean(String(emailBody ?? '').trim())
+  const templateBody = sanitizeAssessmentOutputText(emailBody).trim()
+  const hasTemplateBody = Boolean(templateBody)
   const resolvedTeam = teamName || team
   const resolvedClub = clubName || club
   const resolvedPlayer = playerName || 'Player'
@@ -210,8 +290,11 @@ export function buildEmailHtml({
         ${buildResponseMarkup(responseItems)}
       </div>
 
+      ${buildEmailSectionMarkup(emailSections, { useChartContentIds })}
+
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
       <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedClub || 'Club')} | ${escapeHtml(resolvedTeam || 'Team')}</p>
+      ${buildScoringKeyMarkup(responseItems)}
       ${buildPoweredByFooterMarkup()}
     </div>
   `
@@ -229,13 +312,31 @@ export function buildPlayerFeedbackSubject({ playerName, teamName, team }) {
 }
 
 export async function sendParentEmail(data) {
-  const html = buildEmailHtml(data)
+  const progressionChartImages = getProgressionChartImages(data.emailSections)
+  let chartIndex = 0
+  const emailSections = sanitizeAssessmentEmailSections(data.emailSections).map((section) => {
+    if (!Array.isArray(section.chartPoints) || section.chartPoints.length < 2) {
+      return section
+    }
+
+    const enrichedSection = {
+      ...section,
+      chartContentId: progressionChartImages[chartIndex]?.contentId || '',
+    }
+    chartIndex += 1
+    return enrichedSection
+  })
+  const html = buildEmailHtml({
+    ...data,
+    emailSections,
+    useChartContentIds: progressionChartImages.length > 0,
+  })
   const teamName = data.teamName || data.team
   const clubName = data.clubName || data.club
-  const subject = data.subject || buildPlayerFeedbackSubject({
+  const subject = sanitizeAssessmentOutputText(data.subject || buildPlayerFeedbackSubject({
     playerName: data.playerName,
     teamName,
-  })
+  }))
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token || ''
 
@@ -268,6 +369,7 @@ export async function sendParentEmail(data) {
       teamId: data.teamId,
       scheduledAt: data.scheduledAt,
       communicationLog: data.communicationLog,
+      progressionChartImages,
     }),
   })
 

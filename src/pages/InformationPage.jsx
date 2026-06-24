@@ -9,13 +9,15 @@ import {
   isSuperAdmin,
   useAuth,
 } from '../lib/auth.js'
-import { getPlanLimit, getPlanName, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature } from '../lib/paywall-ui.js'
+import { getPlanLimit, getPlanName } from '../lib/plans.js'
 import { formatLimit, onboardingVideoGuides, planGuides, platformAdminGuide } from '../lib/information-guides.js'
 import { getRoleQuickLinks } from '../lib/role-quick-links.js'
 
 const guideRules = [
   {
-    label: 'Start with the next job',
+    label: 'Start with the next action',
     body: 'Use the links and videos to complete a real football task, not to browse a generic help centre.',
   },
   {
@@ -78,7 +80,7 @@ export function InformationPage() {
   const currentPlanName = getPlanName(user)
   const currentPlanKey = String(user?.planKey ?? '').trim()
   const canUseBilling = canViewBilling(user)
-  const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const canUseAssessmentFields = canManageFormFields(user)
   const canUseStaffManagement = canManageUsers(user)
   const quickLinks = getRoleQuickLinks(user)

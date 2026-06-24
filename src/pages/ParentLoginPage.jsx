@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { buildParentAppUrl, getParentAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
-import { useAuth } from '../lib/auth.js'
+import { buildParentAppUrl, getMainAppOrigin, getParentAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import { isParentPortalUser, useAuth } from '../lib/auth.js'
+import {
+  canOpenParentPortal,
+  getSignedInAccountEmail,
+  rememberParentAccessIntent,
+} from '../lib/parent-auth-intent.js'
 import { supabase } from '../lib/supabase-client.js'
 
 const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
@@ -27,7 +32,7 @@ function getFriendlyLoginError(error) {
 }
 
 export function ParentLoginPage() {
-  const { resetPassword, session, signInWithPassword, signOut } = useAuth()
+  const { isProfileLoading, resetPassword, session, signInWithPassword, signOut, user } = useAuth()
   const [initialParams] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return {
@@ -60,6 +65,31 @@ export function ParentLoginPage() {
   const isParentHost = isParentPortalHost()
   const parentAppOrigin = getParentAppOrigin()
   const canRenderOnCurrentHost = parentAppOrigin === window.location.origin
+  const hasExistingSession = Boolean(session?.user) && !shouldClearExistingSession
+  const existingSessionCanOpenParentPortal = hasExistingSession && canOpenParentPortal(user)
+  const existingSessionIsParentWithoutLink = hasExistingSession && user && isParentPortalUser(user) && !canOpenParentPortal(user)
+  const existingSessionBlocksParentLogin = hasExistingSession && !existingSessionCanOpenParentPortal
+  const signedInEmail = getSignedInAccountEmail({ user, session })
+
+  useEffect(() => {
+    if (!isParentHost && !canRenderOnCurrentHost) {
+      return
+    }
+
+    rememberParentAccessIntent()
+  }, [canRenderOnCurrentHost, isParentHost])
+
+  useEffect(() => {
+    if (!isParentHost && !canRenderOnCurrentHost) {
+      return
+    }
+
+    if (!existingSessionCanOpenParentPortal) {
+      return
+    }
+
+    window.location.assign(buildParentAppUrl('/parent-portal'))
+  }, [canRenderOnCurrentHost, existingSessionCanOpenParentPortal, isParentHost])
 
   useEffect(() => {
     if (!isParentHost && !canRenderOnCurrentHost) {
@@ -221,6 +251,21 @@ export function ParentLoginPage() {
     }
   }
 
+  const handleSignOutForParentLogin = async () => {
+    setIsSubmitting(true)
+    setErrorMessage('')
+    setMessage('')
+
+    try {
+      await signOut()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      rememberParentAccessIntent()
+      window.location.assign(buildParentAppUrl('/parent-login'))
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#f7faf8] px-4 py-6 text-[#101828] sm:px-6 lg:px-8">
       <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-center">
@@ -231,7 +276,7 @@ export function ParentLoginPage() {
             Open the football updates linked to your child.
           </h1>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#4b5f55]">
-            Use the parent account confirmed by email. This view only shows club-shared messages, polls, match cards, and development reports for linked children.
+            Use the parent account confirmed by email. This view only shows club-shared updates, match cards, and child information the club has chosen to share.
           </p>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -254,14 +299,51 @@ export function ParentLoginPage() {
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
             Log in with the same email that received the club invite.
           </p>
+          <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+            <p className="text-sm font-black text-[#101828]">No invite or cannot get in?</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              Ask your club or team contact to send a parent invite to this email. If you already have an invite, try password reset or ask the club to resend the link.
+            </p>
+          </div>
 
-        {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? (
+        {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) || existingSessionCanOpenParentPortal ? (
           <p className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#4b5f55]">
-            Preparing parent login...
+            {existingSessionCanOpenParentPortal ? 'Opening parent portal...' : 'Preparing parent login...'}
           </p>
         ) : null}
 
-        {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? null : (
+        {existingSessionBlocksParentLogin && !existingSessionCanOpenParentPortal && !isSigningOutConfirmedSession ? (
+          <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+            <p className="text-sm font-black text-[#101828]">
+              {existingSessionIsParentWithoutLink ? 'Parent access is not linked yet' : 'Use a parent account for the Parent Portal'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              {isProfileLoading && !user
+                ? 'Checking the current browser session before opening parent access.'
+                : existingSessionIsParentWithoutLink
+                  ? 'This signed-in parent account is not linked to a child yet. Ask the club to send or refresh your parent invite, or sign out and continue with the linked parent account.'
+                  : `You are currently signed in${signedInEmail ? ` as ${signedInEmail}` : ''}. To use the Parent Portal, sign out and continue with a parent account.`}
+            </p>
+            <div className="mt-4 grid gap-3">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleSignOutForParentLogin}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Sign out and continue to Parent Login
+              </button>
+              <a
+                href={getMainAppOrigin()}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+              >
+                Go to main platform
+              </a>
+            </div>
+          </div>
+        ) : null}
+
+        {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) || existingSessionBlocksParentLogin || existingSessionCanOpenParentPortal ? null : (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-[#101828]">Email</span>

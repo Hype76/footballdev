@@ -309,35 +309,6 @@ function ParentHome() {
             />
           ) : null}
 
-          <Panel>
-            <Text style={styles.cardTitle}>Linked child</Text>
-            <Text style={styles.item}>{selectedLink?.playerName || 'No child selected'}</Text>
-            <Text style={styles.item}>{selectedLink?.teamName || 'Team not set'}</Text>
-            {parentLinks.length > 1 ? (
-              <ChildSelector
-                links={parentLinks}
-                onSelect={setSelectedLinkId}
-                selectedLinkId={selectedLink?.id || ''}
-              />
-            ) : null}
-          </Panel>
-
-          {isLoadingSummary ? (
-            <LoadingRow message="Loading parent summary..." />
-          ) : (
-            <OverviewPanel
-              isOpen={showOverview}
-              onToggle={() => setShowOverview((currentValue) => !currentValue)}
-              stats={[
-                { label: 'Children', value: summary?.linkedChildren || 0 },
-                { label: 'Matches', value: summary?.upcomingMatches || 0 },
-                { label: 'Unread', value: unreadMessageCount },
-                { label: 'To answer', value: unansweredPollCount },
-              ]}
-              summary={`${unreadMessageCount} unread | ${unansweredPollCount} to answer`}
-            />
-          )}
-
           {activeTab === 'matchday' ? (
             <MatchdayPanel
               activeActionId={activeActionId}
@@ -371,6 +342,35 @@ function ParentHome() {
               onToggleBiometrics={toggleBiometrics}
             />
           ) : null}
+
+          <Panel>
+            <Text style={styles.cardTitle}>Linked child</Text>
+            <Text style={styles.item}>{selectedLink?.playerName || 'No child selected'}</Text>
+            <Text style={styles.item}>{selectedLink?.teamName || 'Team not set'}</Text>
+            {parentLinks.length > 1 ? (
+              <ChildSelector
+                links={parentLinks}
+                onSelect={setSelectedLinkId}
+                selectedLinkId={selectedLink?.id || ''}
+              />
+            ) : null}
+          </Panel>
+
+          {isLoadingSummary ? (
+            <LoadingRow message="Loading parent summary..." />
+          ) : (
+            <OverviewPanel
+              isOpen={showOverview}
+              onToggle={() => setShowOverview((currentValue) => !currentValue)}
+              stats={[
+                { label: 'Children', value: summary?.linkedChildren || 0 },
+                { label: 'Matches', value: summary?.upcomingMatches || 0 },
+                { label: 'Unread', value: unreadMessageCount },
+                { label: 'To answer', value: unansweredPollCount },
+              ]}
+              summary={`${unreadMessageCount} unread | ${unansweredPollCount} to answer`}
+            />
+          )}
           <LegalFooter />
     </MobileScreen>
   )
