@@ -201,6 +201,35 @@ test('createPlatformClubResult sends production owner invites and reports accept
   assert.equal(mock.calls.some((call) => call.table === 'club_owner_invites' && call.action === 'update'), true)
 })
 
+test('createPlatformClubResult returns controlled auth errors before creating records', async () => {
+  setEnv({
+    CONTEXT: 'production',
+    NODE_ENV: 'production',
+    RESEND_API_KEY: 'resend-fixture-key',
+  })
+  const unauthenticatedMock = createMockSupabase()
+  const unauthenticatedResponse = await createPlatformClubResult(createEvent({}, { authorization: '' }), {
+    supabaseAdmin: unauthenticatedMock.supabaseAdmin,
+  })
+  const unauthenticatedParsed = parseResponse(unauthenticatedResponse)
+
+  assert.equal(unauthenticatedParsed.statusCode, 401)
+  assert.equal(unauthenticatedParsed.body.code, 'unauthenticated')
+  assert.equal(unauthenticatedMock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+
+  const forbiddenMock = createMockSupabase({
+    profile: { id: 'coach-1', email: 'coach@example.test', role: 'coach' },
+  })
+  const forbiddenResponse = await createPlatformClubResult(createEvent(), {
+    supabaseAdmin: forbiddenMock.supabaseAdmin,
+  })
+  const forbiddenParsed = parseResponse(forbiddenResponse)
+
+  assert.equal(forbiddenParsed.statusCode, 403)
+  assert.equal(forbiddenParsed.body.code, 'forbidden')
+  assert.equal(forbiddenMock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+})
+
 test('createPlatformClubResult treats production host as production when Netlify context is missing', async () => {
   setEnv({
     CONTEXT: '',

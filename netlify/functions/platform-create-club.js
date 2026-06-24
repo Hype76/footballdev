@@ -116,13 +116,13 @@ async function getPlatformAdminProfile(supabaseAdmin, event) {
   const token = getBearerToken(event)
 
   if (!token) {
-    throw Object.assign(new Error('Platform admin login is required.'), { statusCode: 401 })
+    throw Object.assign(new Error('Platform admin login is required.'), { statusCode: 401, code: 'unauthenticated' })
   }
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token)
 
   if (authError || !authData?.user) {
-    throw Object.assign(new Error('Platform admin login is required.'), { statusCode: 401 })
+    throw Object.assign(new Error('Platform admin login is required.'), { statusCode: 401, code: 'unauthenticated' })
   }
 
   const authUser = authData.user
@@ -135,7 +135,7 @@ async function getPlatformAdminProfile(supabaseAdmin, event) {
     .maybeSingle()
 
   if (profileError || profile?.role !== 'super_admin') {
-    throw Object.assign(new Error('Only platform admins can create clubs.'), { statusCode: 403 })
+    throw Object.assign(new Error('Only platform admins can create clubs.'), { statusCode: 403, code: 'forbidden' })
   }
 
   return {
