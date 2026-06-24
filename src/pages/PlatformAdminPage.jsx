@@ -75,15 +75,19 @@ function getPlatformActionErrorMessage(error, fallbackMessage) {
     return 'This team cannot be deleted because linked records still depend on it.'
   }
 
+  if (code === 'audit_failed') {
+    return 'The team could not be deleted because the audit log could not be written.'
+  }
+
   if (code === 'server_error' || code === '500') {
-    return 'The server could not complete this action. Please try again or contact support.'
+    return 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.'
   }
 
   if (code === 'network_error' || message.toLowerCase().includes('failed to fetch')) {
     return 'Network failure. Check your connection and try again.'
   }
 
-  return message || fallbackMessage || 'The server could not complete this action. Please try again or contact support.'
+  return message || fallbackMessage || 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.'
 }
 
 const PAGE_META = {

@@ -25,6 +25,14 @@ function httpError(code, message, statusCode = 500) {
   return Object.assign(new Error(message), { code, statusCode })
 }
 
+function safeErrorDetail(error) {
+  return {
+    supabaseCode: normalizeText(error?.code || error?.status || error?.statusCode),
+    supabaseHint: normalizeText(error?.hint),
+    supabaseDetails: normalizeText(error?.details),
+  }
+}
+
 function isPasswordAuthError(error) {
   const status = Number(error?.status || error?.statusCode || 0)
   const code = normalizeText(error?.code || error?.name).toLowerCase()
@@ -115,7 +123,11 @@ async function getAuthenticatedSuperAdmin(event, supabaseAdmin) {
   }
 }
 
-function normalizeDeleteError(error) {
+function normalizeDeleteError(error, stage = 'unknown') {
+  const message = normalizeText(error?.message).toLowerCase()
+  const details = normalizeText(error?.details).toLowerCase()
+  const hint = normalizeText(error?.hint).toLowerCase()
+
   if (error?.code === '23503') {
     return httpError(
       'deletion_conflict',
@@ -124,34 +136,79 @@ function normalizeDeleteError(error) {
     )
   }
 
+  if (message.includes('deletion_conflict') || details.includes('deletion_conflict')) {
+    return httpError(
+      'deletion_conflict',
+      'This team cannot be deleted because linked records still depend on it.',
+      409,
+    )
+  }
+
+  if (message.includes('team_not_found') || details.includes('team_not_found')) {
+    return httpError('team_not_found', 'Team was not found.', 404)
+  }
+
+  if (message.includes('team_club_mismatch') || details.includes('team_club_mismatch')) {
+    return httpError('team_club_mismatch', 'Selected team is not linked to the selected club.', 409)
+  }
+
+  if (message.includes('audit_failed') || details.includes('audit_failed') || hint.includes('audit_failed')) {
+    return httpError(
+      'audit_failed',
+      'The team could not be deleted because the audit log could not be written.',
+      500,
+    )
+  }
+
   if (error?.code && error?.statusCode) {
     return error
   }
 
-  return httpError('server_error', 'Team could not be deleted.', 500)
+  const serverError = httpError(
+    'server_error',
+    'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.',
+    500,
+  )
+  serverError.stage = stage
+  return serverError
 }
 
 export async function deletePlatformTeamResult(event, {
   supabaseAdmin = createSupabaseAdminClient(event),
   supabasePublic = createPublicSupabaseClient(event),
 } = {}) {
+  let failureStage = 'method_validation'
+  let safeTeamId = ''
+  let safeClubId = ''
+  let actorResolved = false
+
   try {
     if (event.httpMethod !== 'DELETE') {
       return jsonResponse(405, { success: false, code: 'method_not_allowed', message: 'Method Not Allowed' })
     }
 
+    failureStage = 'request_body_parsing'
     const body = parseBody(event)
+    failureStage = 'team_id_validation'
     const teamId = requireUuid(body.teamId, 'invalid_team_id', 'Team ID is required.')
+    safeTeamId = teamId
+    failureStage = 'club_id_validation'
     const clubId = requireUuid(body.clubId, 'invalid_club_id', 'Club ID is required.')
+    safeClubId = clubId
+    failureStage = 'password_validation'
     const password = String(body.password ?? '')
 
     if (!password) {
       throw httpError('missing_password', 'Enter your password to confirm this action.', 400)
     }
 
+    failureStage = 'platform_admin_resolution'
     const platformAdmin = await getAuthenticatedSuperAdmin(event, supabaseAdmin)
+    actorResolved = true
+    failureStage = 'password_verification'
     await verifyPlatformAdminPassword(supabasePublic, platformAdmin.email, password)
 
+    failureStage = 'team_fetch'
     const { data: team, error: teamError } = await supabaseAdmin
       .from('teams')
       .select('id, name, club_id')
@@ -170,35 +227,26 @@ export async function deletePlatformTeamResult(event, {
       throw httpError('team_club_mismatch', 'Selected team is not linked to the selected club.', 409)
     }
 
-    const { error: deleteError } = await supabaseAdmin
-      .from('teams')
-      .delete()
-      .eq('id', team.id)
-      .eq('club_id', clubId)
-
-    if (deleteError) {
-      throw normalizeDeleteError(deleteError)
-    }
-
-    const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
-      club_id: team.club_id,
-      actor_id: platformAdmin.id,
-      actor_email: platformAdmin.email,
-      actor_name: platformAdmin.name,
-      actor_role: platformAdmin.role,
-      actor_role_label: platformAdmin.roleLabel,
-      actor_role_rank: platformAdmin.roleRank,
-      action: 'platform_team_deleted',
-      entity_type: 'team',
-      entity_id: team.id,
-      metadata: {
-        teamName: team.name,
-        clubId: team.club_id,
-      },
+    failureStage = 'team_delete_transaction'
+    const { data: deleteData, error: deleteError } = await supabaseAdmin.rpc('delete_platform_team_transaction', {
+      p_team_id: team.id,
+      p_club_id: clubId,
+      p_actor_id: platformAdmin.id,
+      p_actor_email: platformAdmin.email,
+      p_actor_name: platformAdmin.name,
+      p_actor_role: platformAdmin.role,
+      p_actor_role_label: platformAdmin.roleLabel,
+      p_actor_role_rank: platformAdmin.roleRank,
     })
 
-    if (auditError) {
-      throw auditError
+    if (deleteError) {
+      throw normalizeDeleteError(deleteError, failureStage)
+    }
+
+    const deleteResult = Array.isArray(deleteData) ? deleteData[0] : deleteData
+
+    if (deleteResult?.deleted !== true) {
+      throw httpError('server_error', 'Team could not be deleted.', 500)
     }
 
     return jsonResponse(200, {
@@ -210,11 +258,20 @@ export async function deletePlatformTeamResult(event, {
       },
     })
   } catch (error) {
-    const normalizedError = normalizeDeleteError(error)
+    const normalizedError = normalizeDeleteError(error, failureStage)
+    const safeDetail = safeErrorDetail(error)
     console.error('Platform team delete failed', {
+      reference: 'FPO-V1-TEAMDELETE-ACTUALFIX-006',
+      stage: failureStage,
       code: normalizedError.code || 'server_error',
       statusCode: normalizedError.statusCode || 500,
       message: normalizedError.message || 'Team could not be deleted.',
+      actorResolved,
+      teamId: safeTeamId || undefined,
+      clubId: safeClubId || undefined,
+      supabaseCode: safeDetail.supabaseCode || undefined,
+      supabaseHint: safeDetail.supabaseHint || undefined,
+      supabaseDetails: safeDetail.supabaseDetails || undefined,
     })
 
     return jsonResponse(normalizedError.statusCode || 500, {

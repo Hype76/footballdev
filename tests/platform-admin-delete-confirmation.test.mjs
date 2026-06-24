@@ -102,7 +102,8 @@ test('Platform Admin modal error mapping covers password, session, permission, n
   assert.match(platformAdminPageSource, /This team could not be found\./)
   assert.match(platformAdminPageSource, /This team belongs to a different club than expected\./)
   assert.match(platformAdminPageSource, /This team cannot be deleted because linked records still depend on it\./)
-  assert.match(platformAdminPageSource, /The server could not complete this action\. Please try again or contact support\./)
+  assert.match(platformAdminPageSource, /The team could not be deleted because the audit log could not be written\./)
+  assert.match(platformAdminPageSource, /The server could not complete this action\. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006\./)
   assert.match(platformAdminPageSource, /Network failure\. Check your connection and try again\./)
 })
 

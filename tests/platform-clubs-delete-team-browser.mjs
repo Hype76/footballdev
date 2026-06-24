@@ -619,6 +619,16 @@ try {
         body: { success: false, code: 'deletion_conflict', message: 'This team cannot be deleted because linked records still depend on it.' },
         expected: 'This team cannot be deleted because linked records still depend on it.',
       },
+      {
+        status: 500,
+        body: { success: false, code: 'audit_failed', message: 'The team could not be deleted because the audit log could not be written.' },
+        expected: 'The team could not be deleted because the audit log could not be written.',
+      },
+      {
+        status: 500,
+        body: { success: false, code: 'server_error', message: 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.' },
+        expected: 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.',
+      },
     ]
 
     for (const nextCase of cases) {

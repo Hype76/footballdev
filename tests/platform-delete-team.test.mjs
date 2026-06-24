@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -6,6 +7,8 @@ process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||= 'test-publishable-key'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 
 const { deletePlatformTeamResult } = await import('../netlify/functions/platform-delete-team.js')
+const deleteTeamFunctionSource = readFileSync('netlify/functions/platform-delete-team.js', 'utf8')
+const deleteTeamMigrationSource = readFileSync('supabase/migrations/20260624105819_platform_delete_team_transaction.sql', 'utf8')
 
 const clubId = '11111111-1111-4111-8111-111111111111'
 const teamId = '22222222-2222-4222-8222-222222222222'
@@ -54,6 +57,7 @@ function createMockSupabase({
   auditError = null,
   passwordError = null,
   passwordThrows = null,
+  rpcData = [{ deleted: true, team_id: teamId, club_id: clubId, team_name: 'Disposable Team' }],
 } = {}) {
   const calls = []
 
@@ -137,6 +141,10 @@ function createMockSupabase({
             : { data: { user: null }, error: new Error('Invalid token') }
         ),
       },
+      rpc: async (functionName, payload) => {
+        calls.push({ service: 'rpc', action: functionName, payload })
+        return { data: rpcData, error: deleteError }
+      },
       from: (table) => new Query(table),
     },
   }
@@ -173,26 +181,35 @@ test('deletePlatformTeamResult returns 405 for unsupported methods', async () =>
   assert.equal(mock.calls.length, 0)
 })
 
-test('deletePlatformTeamResult deletes a disposable team once and writes a safe audit log', async () => {
+test('deletePlatformTeamResult deletes a disposable team through the transaction RPC', async () => {
   const mock = createMockSupabase()
   const response = await deletePlatformTeamResult(createEvent(), {
     supabaseAdmin: mock.supabaseAdmin,
     supabasePublic: mock.supabasePublic,
   })
   const parsed = parseResponse(response)
-  const auditPayload = mock.calls.find((call) => call.table === 'audit_logs' && call.action === 'insert')?.payload
+  const rpcCall = mock.calls.find((call) => call.service === 'rpc' && call.action === 'delete_platform_team_transaction')
 
   assert.equal(parsed.statusCode, 200)
   assert.equal(parsed.body.success, true)
   assert.equal(parsed.body.team.id, teamId)
-  assert.equal(mock.calls.filter((call) => call.table === 'teams' && call.action === 'delete' && !call.column).length, 1)
-  assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete' && call.column === 'id' && call.value === teamId), true)
-  assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete' && call.column === 'club_id' && call.value === clubId), true)
+  assert.deepEqual(rpcCall?.payload, {
+    p_team_id: teamId,
+    p_club_id: clubId,
+    p_actor_id: 'admin-1',
+    p_actor_email: 'admin@example.test',
+    p_actor_name: 'Platform Admin',
+    p_actor_role: 'super_admin',
+    p_actor_role_label: 'Super Admin',
+    p_actor_role_rank: 100,
+  })
+  assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete'), false)
+  assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
   assert.deepEqual(
     mock.calls.find((call) => call.service === 'auth')?.payload,
     { email: 'admin@example.test', password: '  FixturePass123!  ' },
   )
-  assert.equal(JSON.stringify(auditPayload).includes('FixturePass123'), false)
+  assert.equal(JSON.stringify(rpcCall?.payload).includes('FixturePass123'), false)
 })
 
 test('deletePlatformTeamResult rejects missing and invalid identifiers before delete', async () => {
@@ -310,6 +327,21 @@ test('deletePlatformTeamResult reports conflicts and avoids success audit on fai
   assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
 })
 
+test('deletePlatformTeamResult maps audit transaction failures to audit_failed without claiming success', async () => {
+  const mock = createMockSupabase({
+    deleteError: Object.assign(new Error('audit_failed'), { code: 'P0001', details: '23502: audit insert rejected' }),
+  })
+  const response = await deletePlatformTeamResult(createEvent(), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 500)
+  assert.equal(parsed.body.code, 'audit_failed')
+  assert.equal(parsed.body.message, 'The team could not be deleted because the audit log could not be written.')
+})
+
 test('deletePlatformTeamResult maps unexpected internal throws to server_error', async () => {
   const mock = createMockSupabase({
     teamError: new Error('Unexpected database failure'),
@@ -322,7 +354,7 @@ test('deletePlatformTeamResult maps unexpected internal throws to server_error',
 
   assert.equal(parsed.statusCode, 500)
   assert.equal(parsed.body.code, 'server_error')
-  assert.equal(parsed.body.message, 'Team could not be deleted.')
+  assert.equal(parsed.body.message, 'The server could not complete this action. Please contact support with reference FPO-V1-TEAMDELETE-ACTUALFIX-006.')
   assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), false)
 })
 
@@ -339,4 +371,40 @@ test('deletePlatformTeamResult never trusts a client supplied role', async () =>
   assert.equal(parsed.statusCode, 403)
   assert.equal(parsed.body.code, 'forbidden')
   assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'delete'), false)
+})
+
+test('deletePlatformTeamResult records safe diagnostics without logging passwords or bearer tokens', async () => {
+  const password = 'WrongFixturePassword!'
+  const token = 'secret-token-fixture'
+  const mock = createMockSupabase({
+    deleteError: Object.assign(new Error('Unexpected transaction failure'), {
+      code: 'PGRST999',
+      details: 'fixture detail',
+      hint: 'fixture hint',
+    }),
+  })
+  const { result: response, entries } = await captureConsoleError(() => deletePlatformTeamResult(createEvent({ password }, {
+    authorization: `Bearer ${token}`,
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  }))
+  const parsed = parseResponse(response)
+  const logged = JSON.stringify(entries)
+
+  assert.equal(parsed.statusCode, 500)
+  assert.equal(parsed.body.code, 'server_error')
+  assert.match(logged, /FPO-V1-TEAMDELETE-ACTUALFIX-006/)
+  assert.match(logged, /team_delete_transaction/)
+  assert.equal(logged.includes(password), false)
+  assert.equal(logged.includes(token), false)
+})
+
+test('deletePlatformTeamResult uses the transactional RPC and migration audit insert matches production columns', () => {
+  assert.match(deleteTeamFunctionSource, /rpc\('delete_platform_team_transaction'/)
+  assert.doesNotMatch(deleteTeamFunctionSource, /\.from\('teams'\)\s*[\s\S]*?\.delete\(\)/)
+  assert.match(deleteTeamMigrationSource, /insert into public\.audit_logs \(/)
+  assert.doesNotMatch(deleteTeamMigrationSource, /^\s+actor_role,\s*$/m)
+  assert.match(deleteTeamMigrationSource, /'actorRole'/)
+  assert.match(deleteTeamMigrationSource, /grant execute on function public\.delete_platform_team_transaction/)
 })
