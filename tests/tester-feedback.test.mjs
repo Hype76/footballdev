@@ -270,6 +270,10 @@ test('submitTesterFeedbackResult blocks unauthenticated and cross-club team cont
 test('tester feedback migration defines production table with RLS and spoofing protections', () => {
   assert.match(migrationSource, /create table if not exists public\.tester_feedback_reports/)
   assert.match(migrationSource, /alter table public\.tester_feedback_reports enable row level security/)
+  assert.match(migrationSource, /revoke all on public\.tester_feedback_reports from anon/)
+  assert.match(migrationSource, /revoke all on public\.tester_feedback_reports from public/)
+  assert.match(migrationSource, /revoke all on public\.tester_feedback_reports from authenticated/)
+  assert.match(migrationSource, /grant select, insert, update on public\.tester_feedback_reports to authenticated/)
   assert.match(migrationSource, /create policy tester_feedback_reports_insert_own/)
   assert.match(migrationSource, /submitted_by_user_id = auth\.uid\(\)/)
   assert.match(migrationSource, /status = 'new'/)

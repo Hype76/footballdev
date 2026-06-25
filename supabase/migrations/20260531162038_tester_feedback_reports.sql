@@ -66,6 +66,9 @@ execute function public.set_tester_feedback_reports_updated_at();
 
 alter table public.tester_feedback_reports enable row level security;
 
+revoke all on public.tester_feedback_reports from anon;
+revoke all on public.tester_feedback_reports from public;
+revoke all on public.tester_feedback_reports from authenticated;
 grant select, insert, update on public.tester_feedback_reports to authenticated;
 
 drop policy if exists tester_feedback_reports_insert_own on public.tester_feedback_reports;
