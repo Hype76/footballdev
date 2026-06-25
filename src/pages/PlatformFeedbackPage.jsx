@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { CreatePlatformFeedbackSection } from '../components/platform-feedback/CreatePlatformFeedbackSection.jsx'
+import { IssueReportsSection } from '../components/platform-feedback/IssueReportsSection.jsx'
 import { PlatformFeedbackBoardSection } from '../components/platform-feedback/PlatformFeedbackBoardSection.jsx'
 import { PlatformFeedbackHero } from '../components/platform-feedback/PlatformFeedbackHero.jsx'
 import { PlatformFeedbackStats } from '../components/platform-feedback/PlatformFeedbackStats.jsx'
@@ -12,8 +13,10 @@ import { FEEDBACK_PAGE_SIZE, PLATFORM_FEEDBACK_CACHE_KEY, getFeedbackStats } fro
 import {
   createPlatformFeedback,
   getPlatformFeedback,
+  getPlatformFeedbackReports,
   readViewCacheValue,
   unvotePlatformFeedback,
+  updatePlatformFeedbackReportStatus,
   votePlatformFeedback,
   withRequestTimeout,
   writeViewCache,
@@ -26,19 +29,35 @@ export function PlatformFeedbackPage() {
     const cachedItems = readViewCacheValue(PLATFORM_FEEDBACK_CACHE_KEY, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
   })
+  const [feedbackReports, setFeedbackReports] = useState(() => {
+    const cachedItems = readViewCacheValue(PLATFORM_FEEDBACK_CACHE_KEY, 'feedbackReports', [])
+    return Array.isArray(cachedItems) ? cachedItems : []
+  })
   const [message, setMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(() => feedbackItems.length === 0)
+  const [isLoading, setIsLoading] = useState(() => feedbackItems.length === 0 && feedbackReports.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [activeVoteId, setActiveVoteId] = useState('')
+  const [activeReportId, setActiveReportId] = useState('')
   const [feedbackPage, setFeedbackPage] = useState(1)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   const loadFeedback = async () => {
-    const nextItems = await withRequestTimeout(() => getPlatformFeedback(user), 'Could not load platform feedback.')
+    const [nextItems, nextReports] = await withRequestTimeout(
+      () => Promise.all([
+        getPlatformFeedback(user),
+        getPlatformFeedbackReports({
+          user,
+          accessToken: session?.access_token || '',
+        }),
+      ]),
+      'Could not load platform feedback.',
+    )
     setFeedbackItems(nextItems)
+    setFeedbackReports(nextReports)
     writeViewCache(PLATFORM_FEEDBACK_CACHE_KEY, {
       feedbackItems: nextItems,
+      feedbackReports: nextReports,
     })
   }
 
@@ -54,21 +73,32 @@ export function PlatformFeedbackPage() {
       setErrorMessage('')
 
       try {
-        const nextItems = await withRequestTimeout(() => getPlatformFeedback(user), 'Could not load platform feedback.')
+        const [nextItems, nextReports] = await withRequestTimeout(
+          () => Promise.all([
+            getPlatformFeedback(user),
+            getPlatformFeedbackReports({
+              user,
+              accessToken: session?.access_token || '',
+            }),
+          ]),
+          'Could not load platform feedback.',
+        )
 
         if (!isMounted) {
           return
         }
 
         setFeedbackItems(nextItems)
+        setFeedbackReports(nextReports)
         writeViewCache(PLATFORM_FEEDBACK_CACHE_KEY, {
           feedbackItems: nextItems,
+          feedbackReports: nextReports,
         })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setErrorMessage('Feedback could not be loaded right now.')
+          setErrorMessage('Issue reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-ADMIN-FIX-012.')
         }
       } finally {
         if (isMounted) {
@@ -82,7 +112,7 @@ export function PlatformFeedbackPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [session?.access_token, user])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -135,8 +165,41 @@ export function PlatformFeedbackPage() {
     }
   }
 
+  const handleReportStatusChange = async (report, action) => {
+    setActiveReportId(report.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const updatedReport = await updatePlatformFeedbackReportStatus({
+        user,
+        accessToken: session?.access_token || '',
+        reportId: report.id,
+        action,
+      })
+      setFeedbackReports((currentReports) => {
+        const nextReports = currentReports.map((item) => (item.id === updatedReport.id ? updatedReport : item))
+        writeViewCache(PLATFORM_FEEDBACK_CACHE_KEY, {
+          feedbackItems,
+          feedbackReports: nextReports,
+        })
+        return nextReports
+      })
+      setSuccessMessage(action === 'closed' ? 'Issue report closed.' : 'Issue report marked reviewed.')
+      showToast({
+        title: 'Issue report updated',
+        message: action === 'closed' ? 'The issue report has been closed.' : 'The issue report has been marked reviewed.',
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Issue report could not be updated. Please try again.')
+    } finally {
+      setActiveReportId('')
+    }
+  }
+
   const paginatedFeedback = getPaginatedItems(feedbackItems, feedbackPage, FEEDBACK_PAGE_SIZE)
-  const feedbackStats = getFeedbackStats(feedbackItems)
+  const feedbackStats = getFeedbackStats(feedbackItems, feedbackReports)
 
   if ((isAuthLoading && !session?.user) || (!user && isProfileLoading)) {
     return (
@@ -163,6 +226,16 @@ export function PlatformFeedbackPage() {
       <PlatformFeedbackHero isLoading={isLoading} />
 
       <PlatformFeedbackStats feedbackStats={feedbackStats} />
+
+      {isSuperAdmin(user) ? (
+        <IssueReportsSection
+          activeReportId={activeReportId}
+          isLoading={isLoading}
+          onStatusChange={handleReportStatusChange}
+          reports={feedbackReports}
+          showAdminActions
+        />
+      ) : null}
 
       {isSuperAdmin(user) ? null : (
         <CreatePlatformFeedbackSection
