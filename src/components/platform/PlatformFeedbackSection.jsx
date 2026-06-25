@@ -1,5 +1,6 @@
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { IssueReportsSection } from '../platform-feedback/IssueReportsSection.jsx'
 import { formatPlatformDate } from '../../lib/platform-admin-stats.js'
 
 const STATUS_OPTIONS = [
@@ -17,6 +18,7 @@ const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center roun
 const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 
 export function PlatformFeedbackSection({
+  activeReportId = '',
   drafts,
   feedbackItems,
   isLoading,
@@ -24,6 +26,7 @@ export function PlatformFeedbackSection({
   onDraftChange,
   onPageChange,
   onSave,
+  onSupportReportStatusChange,
   page,
   pageSize,
   paginatedItems,
@@ -39,55 +42,20 @@ export function PlatformFeedbackSection({
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
           Loading feedback...
         </div>
-      ) : feedbackItems.length === 0 && supportReports.length === 0 ? (
-        <div className={emptyStateClass}>
-          No platform feedback has been submitted yet.
-        </div>
       ) : (
         <div className="space-y-4">
-          {supportReports.length ? (
-            <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] p-5 shadow-sm shadow-[#047857]/10">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">Issue reports</p>
-                  <h3 className="mt-1 text-lg font-black text-[#101828]">Production Report Issue submissions</h3>
-                </div>
-                <p className="rounded-lg border border-[#bfdbfe] bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#1d4ed8]">
-                  {supportReports.length} visible
-                </p>
-              </div>
-              <div className="mt-4 space-y-3">
-                {supportReports.map((report) => (
-                  <div key={report.id} className="rounded-lg border border-[#bfdbfe] bg-white p-4">
-                    <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                      <div>
-                        <p className="text-sm font-black text-[#101828]">{report.title || 'Untitled report'}</p>
-                        <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">
-                          {report.summary || 'No summary provided.'}
-                        </p>
-                      </div>
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#1d4ed8]">
-                        {report.status || 'new'}
-                      </p>
-                    </div>
-                    <div className="mt-3 grid gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55] md:grid-cols-2 xl:grid-cols-4">
-                      <span>Type: {report.feedbackType || 'Unknown'}</span>
-                      <span>Severity: {report.severity || 'Unknown'}</span>
-                      <span>Module: {report.module || 'Unknown'}</span>
-                      <span>Route: {report.route || 'Unknown'}</span>
-                      <span>Reporter: {report.submittedByName || report.submittedByEmail || 'Unknown'}</span>
-                      <span>Club: {report.clubName || 'No club'}</span>
-                      <span>Team: {report.teamName || 'No team'}</span>
-                      <span>Date: {formatPlatformDate(report.createdAt)}</span>
-                    </div>
-                    <p className="mt-3 break-all text-xs font-semibold text-[#4b5f55]">Report ID: {report.id}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          <IssueReportsSection
+            activeReportId={activeReportId}
+            onStatusChange={onSupportReportStatusChange}
+            reports={supportReports}
+            showAdminActions={Boolean(onSupportReportStatusChange)}
+          />
 
-          {paginatedItems.items.map((item) => {
+          {feedbackItems.length === 0 ? (
+            <div className={emptyStateClass}>
+              No product ideas have been submitted yet.
+            </div>
+          ) : paginatedItems.items.map((item) => {
             const draft = drafts[item.id] ?? {
               status: item.status,
               adminComment: '',
@@ -168,12 +136,14 @@ export function PlatformFeedbackSection({
               </div>
             )
           })}
-          <Pagination
-            currentPage={page}
-            onPageChange={onPageChange}
-            pageSize={pageSize}
-            totalItems={feedbackItems.length}
-          />
+          {feedbackItems.length ? (
+            <Pagination
+              currentPage={page}
+              onPageChange={onPageChange}
+              pageSize={pageSize}
+              totalItems={feedbackItems.length}
+            />
+          ) : null}
         </div>
       )}
     </SectionCard>
