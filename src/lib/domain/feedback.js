@@ -108,6 +108,26 @@ export async function getPlatformFeedback(user) {
   })
 }
 
+export async function getPlatformFeedbackReports({ accessToken, user }) {
+  if (user?.role !== 'super_admin') {
+    return []
+  }
+
+  const response = await fetch('/.netlify/functions/platform-feedback-reports', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken || ''}`,
+    },
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Feedback reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-VISIBILITY-011.')
+  }
+
+  return Array.isArray(result.reports) ? result.reports : []
+}
+
 export async function createPlatformFeedback({ user, message }) {
   await blockDemoMutation(user)
 
@@ -220,7 +240,7 @@ export async function updatePlatformFeedback({ user, feedbackId, data }) {
     .from('platform_feedback')
     .update(payload)
     .eq('id', feedbackId)
-    .select('id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, created_by_email, message, created_at, users:created_by (email))')
+    .select('id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, message, created_at, users:created_by (email))')
     .single()
 
   if (error) {
