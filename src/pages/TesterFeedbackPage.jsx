@@ -29,7 +29,7 @@ export function TesterFeedbackPage() {
     feedbackType: 'bug',
     severity: 'medium',
     module: 'Shell/auth/workspace',
-    phase: 'phase_1',
+    phase: 'production',
     route: routeFromQuery || '/',
     pageTitle: document.title || '',
     title: '',
@@ -57,7 +57,7 @@ export function TesterFeedbackPage() {
 
     try {
       const created = await createTesterFeedbackReport({ report: form, user })
-      setStatusMessage(`Feedback saved. Report ID: ${created.id}`)
+      setStatusMessage(`Feedback sent. Report ID: ${created.id}`)
       setForm((current) => ({
         ...current,
         title: '',
@@ -80,10 +80,10 @@ export function TesterFeedbackPage() {
     <div className="space-y-5">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-6 sm:px-7">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Phase 1 QA</p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-[#101828]">Report tester feedback</h1>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Support</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-[#101828]">Report issue</h1>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-            Save bugs, confusion, and missing setup details directly into the staging database during recovery testing.
+            Send bugs, confusion, and missing setup details to the Football Player support team.
           </p>
         </div>
 
@@ -188,7 +188,7 @@ export function TesterFeedbackPage() {
               disabled={isSaving}
               className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSaving ? 'Saving feedback...' : 'Save feedback'}
+              {isSaving ? 'Sending feedback...' : 'Send feedback'}
             </button>
           </div>
         </form>

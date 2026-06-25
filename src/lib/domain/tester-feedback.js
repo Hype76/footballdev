@@ -1,5 +1,7 @@
 import { supabase } from '../supabase-client.js'
 
+export const TESTER_FEEDBACK_SAVE_ERROR_MESSAGE = 'Feedback could not be saved. Please try again or contact support.'
+
 export const TESTER_FEEDBACK_TYPES = [
   { label: 'Bug', value: 'bug' },
   { label: 'Suggestion', value: 'suggestion' },
@@ -36,38 +38,31 @@ export const TESTER_FEEDBACK_MODULES = [
 ]
 
 export async function createTesterFeedbackReport({ report, user }) {
-  const payload = {
-    submitted_by_user_id: user?.id || null,
-    submitted_by_email: user?.email || report.submittedByEmail || '',
-    submitted_by_name: user?.displayName || user?.name || report.submittedByName || '',
-    role: user?.role || '',
-    club_id: user?.clubId || null,
-    team_id: user?.activeTeamId || null,
-    module: report.module || '',
-    phase: report.phase || 'phase_1',
-    route: report.route || '',
-    page_title: report.pageTitle || null,
-    feedback_type: report.feedbackType || 'bug',
-    severity: report.severity || 'medium',
-    title: report.title || '',
-    summary: report.summary || '',
-    reproduction_steps: report.reproductionSteps || '',
-    expected_result: report.expectedResult || '',
-    actual_result: report.actualResult || '',
-    browser_device: report.browserDevice || '',
-    screenshot_url: report.screenshotUrl || null,
-    log_reference: report.logReference || null,
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  if (sessionError || !accessToken) {
+    throw new Error('Sign in before sending feedback.')
   }
 
-  const { data, error } = await supabase
-    .from('tester_feedback_reports')
-    .insert(payload)
-    .select('id, created_at')
-    .single()
+  const response = await fetch('/.netlify/functions/submit-tester-feedback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      report,
+      context: {
+        activeTeamId: user?.activeTeamId || '',
+      },
+    }),
+  })
+  const payload = await response.json().catch(() => ({}))
 
-  if (error) {
-    throw error
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.message || TESTER_FEEDBACK_SAVE_ERROR_MESSAGE)
   }
 
-  return data
+  return payload.report
 }

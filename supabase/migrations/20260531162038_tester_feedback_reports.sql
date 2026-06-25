@@ -75,14 +75,33 @@ for insert
 to authenticated
 with check (
   auth.uid() is not null
-  and (
-    submitted_by_user_id is null
-    or submitted_by_user_id = auth.uid()
-  )
+  and submitted_by_user_id = auth.uid()
+  and status = 'new'
+  and resolution_state = ''
+  and admin_notes is null
   and (
     current_user_role() = 'super_admin'
     or club_id is null
     or club_id = current_user_club_id()
+  )
+  and (
+    current_user_role() = 'super_admin'
+    or team_id is null
+    or exists (
+      select 1
+      from public.teams team
+      where team.id = tester_feedback_reports.team_id
+        and team.club_id = current_user_club_id()
+        and (
+          current_user_role() = 'admin'
+          or exists (
+            select 1
+            from public.team_staff staff
+            where staff.team_id = team.id
+              and staff.user_id = auth.uid()
+          )
+        )
+    )
   )
 );
 
