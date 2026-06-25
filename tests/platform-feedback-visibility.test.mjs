@@ -7,14 +7,20 @@ process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||= 'test-publishable-key'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 
 const { platformFeedbackReportsResult } = await import('../netlify/functions/platform-feedback-reports.js')
+const { platformFeedbackReportUpdateResult } = await import('../netlify/functions/platform-feedback-report-update.js')
 const { getFeedbackStats } = await import('../src/lib/platform-admin-stats.js')
-const { getPlatformFeedbackReports } = await import('../src/lib/domain/feedback.js')
+const { getFeedbackStats: getRouteFeedbackStats } = await import('../src/lib/platform-feedback-utils.js')
+const { getPlatformFeedbackReports, updatePlatformFeedbackReportStatus } = await import('../src/lib/domain/feedback.js')
 
 const platformAdminPageSource = readFileSync('src/pages/PlatformAdminPage.jsx', 'utf8')
+const platformFeedbackPageSource = readFileSync('src/pages/PlatformFeedbackPage.jsx', 'utf8')
 const platformFeedbackSectionSource = readFileSync('src/components/platform/PlatformFeedbackSection.jsx', 'utf8')
+const issueReportsSectionSource = readFileSync('src/components/platform-feedback/IssueReportsSection.jsx', 'utf8')
+const platformFeedbackBoardSectionSource = readFileSync('src/components/platform-feedback/PlatformFeedbackBoardSection.jsx', 'utf8')
 const feedbackDomainSource = readFileSync('src/lib/domain/feedback.js', 'utf8')
 const testerFeedbackFunctionSource = readFileSync('netlify/functions/submit-tester-feedback.js', 'utf8')
 const reportsFunctionSource = readFileSync('netlify/functions/platform-feedback-reports.js', 'utf8')
+const reportUpdateFunctionSource = readFileSync('netlify/functions/platform-feedback-report-update.js', 'utf8')
 const migrationSource = readFileSync('supabase/migrations/20260531162038_tester_feedback_reports.sql', 'utf8')
 const testerFeedbackPageSource = readFileSync('src/pages/TesterFeedbackPage.jsx', 'utf8')
 
@@ -27,6 +33,17 @@ function createEvent(headers = {}) {
       authorization: 'Bearer platform-admin-token',
       ...headers,
     },
+  }
+}
+
+function createUpdateEvent(body = {}, headers = {}) {
+  return {
+    httpMethod: 'POST',
+    headers: {
+      authorization: 'Bearer platform-admin-token',
+      ...headers,
+    },
+    body: JSON.stringify(body),
   }
 }
 
@@ -77,6 +94,7 @@ function createMockSupabase({
     },
   ],
   reportError = null,
+  updateError = null,
 } = {}) {
   const calls = []
 
@@ -85,10 +103,44 @@ function createMockSupabase({
       this.table = table
       this.action = 'select'
       this.payload = null
+      this.filters = []
     }
 
     select(columns) {
       calls.push({ table: this.table, action: 'select', columns })
+
+      if (this.table === 'tester_feedback_reports' && this.action === 'update') {
+        const updatedReport = {
+          ...reports[0],
+          status: this.payload.status,
+          resolution_state: this.payload.resolution_state,
+        }
+
+        return {
+          maybeSingle: () => Promise.resolve({ data: updatedReport, error: updateError }),
+        }
+      }
+
+      return this
+    }
+
+    insert(payload) {
+      this.action = 'insert'
+      this.payload = payload
+      calls.push({ table: this.table, action: 'insert', payload })
+      return Promise.resolve({ data: null, error: null })
+    }
+
+    update(payload) {
+      this.action = 'update'
+      this.payload = payload
+      calls.push({ table: this.table, action: 'update', payload })
+      return this
+    }
+
+    eq(column, value) {
+      this.filters.push({ column, value })
+      calls.push({ table: this.table, action: 'eq', column, value })
       return this
     }
 
@@ -151,9 +203,12 @@ test('documents the live mismatch between Report Issue storage and legacy Platfo
   assert.match(testerFeedbackFunctionSource, /\.from\('tester_feedback_reports'\)/)
   assert.match(feedbackDomainSource, /\.from\('platform_feedback'\)/)
   assert.match(platformAdminPageSource, /getPlatformFeedbackReports/)
+  assert.match(platformFeedbackPageSource, /getPlatformFeedbackReports/)
   assert.match(platformAdminPageSource, /feedbackReports/)
-  assert.match(platformFeedbackSectionSource, /Issue reports/)
-  assert.match(platformFeedbackSectionSource, /Report ID: \{report\.id\}/)
+  assert.match(platformFeedbackPageSource, /feedbackReports/)
+  assert.match(platformFeedbackSectionSource, /IssueReportsSection/)
+  assert.match(issueReportsSectionSource, /Issue reports/)
+  assert.match(issueReportsSectionSource, /Report ID: \{report\.id\}/)
 })
 
 test('platform admin review function reads submitted tester feedback reports with display fields', async () => {
@@ -216,12 +271,15 @@ test('platform admin review function maps schema failures to safe admin message'
   const parsed = parseResponse(response)
 
   assert.equal(parsed.statusCode, 503)
-  assert.equal(parsed.body.message, 'Feedback reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-VISIBILITY-011.')
+  assert.equal(parsed.body.message, 'Issue reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-ADMIN-FIX-012.')
   assert.doesNotMatch(JSON.stringify(parsed.body), /schema cache|tester_feedback_reports/i)
 })
 
-test('Platform Feedback stats and empty state include support reports', () => {
+test('Platform Feedback stats and empty states separate support reports from product ideas', () => {
   const stats = getFeedbackStats([], [
+    { id: reportId, status: 'new', phase: 'production' },
+  ])
+  const routeStats = getRouteFeedbackStats([], [
     { id: reportId, status: 'new', phase: 'production' },
   ])
 
@@ -229,7 +287,11 @@ test('Platform Feedback stats and empty state include support reports', () => {
   assert.equal(stats[0].value, 1)
   assert.equal(stats[1].label, 'Open items')
   assert.equal(stats[1].value, 1)
-  assert.match(platformFeedbackSectionSource, /feedbackItems\.length === 0 && supportReports\.length === 0/)
+  assert.equal(routeStats[0].value, 1)
+  assert.match(platformFeedbackSectionSource, /No product ideas have been submitted yet/)
+  assert.match(platformFeedbackBoardSectionSource, /No product ideas have been submitted yet/)
+  assert.match(issueReportsSectionSource, /No issue reports have been submitted yet/)
+  assert.doesNotMatch(platformFeedbackBoardSectionSource, /No feedback has been submitted yet/)
 })
 
 test('client review loader calls the protected function with bearer token and blocks non-admin callers', async () => {
@@ -267,6 +329,129 @@ test('client review loader calls the protected function with bearer token and bl
   }
 })
 
+test('direct Platform Feedback route displays issue reports through the protected admin report loader', () => {
+  assert.match(platformFeedbackPageSource, /getPlatformFeedbackReports/)
+  assert.match(platformFeedbackPageSource, /IssueReportsSection/)
+  assert.match(platformFeedbackPageSource, /updatePlatformFeedbackReportStatus/)
+  assert.match(platformFeedbackPageSource, /reports=\{feedbackReports\}/)
+  assert.match(platformFeedbackPageSource, /getFeedbackStats\(feedbackItems, feedbackReports\)/)
+})
+
+test('issue report container uses dark theme styling and renders required metadata', () => {
+  assert.match(issueReportsSectionSource, /bg-\[#0f1f18\]/)
+  assert.match(issueReportsSectionSource, /bg-\[#0b1712\]/)
+  assert.doesNotMatch(issueReportsSectionSource, /bg-\[#eff6ff\]|bg-white/)
+  assert.match(issueReportsSectionSource, /Production Report Issue submissions/)
+  assert.match(issueReportsSectionSource, /report\.title/)
+  assert.match(issueReportsSectionSource, /report\.summary/)
+  assert.match(issueReportsSectionSource, /report\.feedbackType/)
+  assert.match(issueReportsSectionSource, /report\.severity/)
+  assert.match(issueReportsSectionSource, /report\.module/)
+  assert.match(issueReportsSectionSource, /report\.route/)
+  assert.match(issueReportsSectionSource, /report\.submittedByName/)
+  assert.match(issueReportsSectionSource, /formatPlatformDate\(report\.createdAt\)/)
+  assert.match(issueReportsSectionSource, /Report ID: \{report\.id\}/)
+})
+
+test('platform admin can mark an issue report reviewed or closed through protected update function', async () => {
+  const reviewedMock = createMockSupabase()
+  const reviewedResponse = await platformFeedbackReportUpdateResult(createUpdateEvent({
+    reportId,
+    action: 'reviewed',
+  }), {
+    supabaseAdmin: reviewedMock.supabaseAdmin,
+  })
+  const reviewedParsed = parseResponse(reviewedResponse)
+  const reviewedUpdate = reviewedMock.calls.find((call) => call.table === 'tester_feedback_reports' && call.action === 'update')
+
+  assert.equal(reviewedParsed.statusCode, 200)
+  assert.equal(reviewedParsed.body.report.status, 'triaged')
+  assert.equal(reviewedUpdate.payload.status, 'triaged')
+  assert.equal(reviewedUpdate.payload.resolution_state, 'reviewed')
+  assert.equal(reviewedMock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), true)
+
+  const closedMock = createMockSupabase()
+  const closedResponse = await platformFeedbackReportUpdateResult(createUpdateEvent({
+    reportId,
+    action: 'closed',
+  }), {
+    supabaseAdmin: closedMock.supabaseAdmin,
+  })
+  const closedParsed = parseResponse(closedResponse)
+  const closedUpdate = closedMock.calls.find((call) => call.table === 'tester_feedback_reports' && call.action === 'update')
+
+  assert.equal(closedParsed.statusCode, 200)
+  assert.equal(closedParsed.body.report.status, 'fixed')
+  assert.equal(closedUpdate.payload.status, 'fixed')
+  assert.equal(closedUpdate.payload.resolution_state, 'closed')
+})
+
+test('normal user cannot update issue report status and cannot reach report update query', async () => {
+  const mock = createMockSupabase({
+    profile: {
+      id: 'user-1',
+      email: 'coach@example.test',
+      role: 'coach',
+      role_label: 'Coach',
+      role_rank: 20,
+    },
+  })
+  const response = await withMutedConsole(() => platformFeedbackReportUpdateResult(createUpdateEvent({
+    reportId,
+    action: 'reviewed',
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 403)
+  assert.equal(parsed.body.code, 'forbidden')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'update'), false)
+})
+
+test('client status update helper calls protected function and blocks non-admin callers', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options })
+    return {
+      ok: true,
+      json: async () => ({
+        success: true,
+        report: { id: reportId, status: 'triaged' },
+      }),
+    }
+  }
+
+  try {
+    const report = await updatePlatformFeedbackReportStatus({
+      user: { id: 'admin-1', role: 'super_admin' },
+      accessToken: 'token-123',
+      reportId,
+      action: 'reviewed',
+    })
+
+    assert.equal(report.status, 'triaged')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, '/.netlify/functions/platform-feedback-report-update')
+    assert.equal(calls[0].options.headers.Authorization, 'Bearer token-123')
+    assert.equal(JSON.parse(calls[0].options.body).reportId, reportId)
+
+    await assert.rejects(
+      () => updatePlatformFeedbackReportStatus({
+        user: { id: 'user-1', role: 'coach' },
+        accessToken: 'token-456',
+        reportId,
+        action: 'reviewed',
+      }),
+      /Only platform admins/,
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('tester feedback RLS and copy remain production-safe', () => {
   assert.match(migrationSource, /create policy tester_feedback_reports_select_scoped/)
   assert.match(migrationSource, /current_user_role\(\) = 'super_admin'/)
@@ -276,5 +461,8 @@ test('tester feedback RLS and copy remain production-safe', () => {
   assert.doesNotMatch(testerFeedbackPageSource, /staging database/i)
   assert.doesNotMatch(testerFeedbackPageSource, /recovery testing/i)
   assert.match(reportsFunctionSource, /profile\.role !== 'super_admin'/)
+  assert.match(reportUpdateFunctionSource, /profile\.role !== 'super_admin'/)
+  assert.match(reportUpdateFunctionSource, /tester_feedback_report_status_updated/)
   assert.doesNotMatch(reportsFunctionSource, /serviceRoleKey/)
+  assert.doesNotMatch(reportUpdateFunctionSource, /serviceRoleKey/)
 })
