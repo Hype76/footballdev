@@ -17,16 +17,19 @@ export function formatFeedbackDate(value) {
   return formatUkDate(parsedDate.toISOString().slice(0, 10), 'No date')
 }
 
-export function getFeedbackStats(feedbackItems) {
+export function getFeedbackStats(feedbackItems, supportReports = []) {
+  const reports = Array.isArray(supportReports) ? supportReports : []
+  const openSupportReports = reports.filter((report) => report.status === 'new' || report.status === 'triaged' || !report.status)
+
   return [
     {
       label: 'Feedback items',
-      value: feedbackItems.length,
-      caption: 'Ideas submitted',
+      value: feedbackItems.length + reports.length,
+      caption: reports.length ? 'Ideas and issue reports' : 'Ideas submitted',
     },
     {
       label: 'Open',
-      value: feedbackItems.filter((item) => item.status === 'open').length,
+      value: feedbackItems.filter((item) => item.status === 'open').length + openSupportReports.length,
       caption: 'Needs review',
     },
     {
