@@ -30,6 +30,7 @@ import {
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
+  updatePlatformFeedbackReportStatus,
   updatePlatformClubStatus,
   updatePlatformUserStatus,
   withRequestTimeout,
@@ -159,6 +160,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [updatingTeamId, setUpdatingTeamId] = useState('')
   const [updatingUserId, setUpdatingUserId] = useState('')
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
+  const [updatingReportId, setUpdatingReportId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -403,6 +405,39 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setConfirmErrorMessage('')
     setErrorMessage('')
     setSuccessMessage('')
+  }
+
+  const handleSupportReportStatusChange = async (report, action) => {
+    setUpdatingReportId(report.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const updatedReport = await updatePlatformFeedbackReportStatus({
+        user,
+        accessToken: session?.access_token || '',
+        reportId: report.id,
+        action,
+      })
+      setFeedbackReports((currentReports) => {
+        const nextReports = currentReports.map((item) => (item.id === updatedReport.id ? updatedReport : item))
+        writeViewCache(feedbackCacheKey, {
+          feedbackItems,
+          feedbackReports: nextReports,
+        })
+        return nextReports
+      })
+      setSuccessMessage(action === 'closed' ? 'Issue report closed.' : 'Issue report marked reviewed.')
+      showToast({
+        title: 'Issue report updated',
+        message: action === 'closed' ? 'The issue report has been closed.' : 'The issue report has been marked reviewed.',
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Issue report could not be updated. Please try again.')
+    } finally {
+      setUpdatingReportId('')
+    }
   }
 
   const confirmDeleteFeedback = async (password) => {
@@ -932,9 +967,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           onDraftChange={handleFeedbackDraftChange}
           onPageChange={setFeedbackPage}
           onSave={handleSaveFeedback}
+          onSupportReportStatusChange={handleSupportReportStatusChange}
           page={feedbackPage}
           pageSize={PLATFORM_FEEDBACK_PAGE_SIZE}
           paginatedItems={paginatedFeedbackItems}
+          activeReportId={updatingReportId}
           supportReports={feedbackReports}
           updatingFeedbackId={updatingFeedbackId}
         />
