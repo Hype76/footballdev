@@ -26,6 +26,7 @@ import {
   deletePlatformTeam,
   deletePlatformUser,
   getPlatformFeedback,
+  getPlatformFeedbackReports,
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
@@ -134,6 +135,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     const cachedItems = readViewCacheValue(feedbackCacheKey, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
   })
+  const [feedbackReports, setFeedbackReports] = useState(() => {
+    const cachedItems = readViewCacheValue(feedbackCacheKey, 'feedbackReports', [])
+    return Array.isArray(cachedItems) ? cachedItems : []
+  })
   const [feedbackDrafts, setFeedbackDrafts] = useState({})
   const [selectedClubId, setSelectedClubId] = useState('All')
   const [clubSearchTerm, setClubSearchTerm] = useState('')
@@ -145,7 +150,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
   const [accountActionTarget, setAccountActionTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => !stats)
-  const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
+  const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0 && feedbackReports.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
   const [isSavingPlatformAdmin, setIsSavingPlatformAdmin] = useState(false)
@@ -225,8 +230,14 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       }
 
       try {
-        const nextFeedbackItems = await withRequestTimeout(
-          () => getPlatformFeedback(user),
+        const [nextFeedbackItems, nextFeedbackReports] = await withRequestTimeout(
+          () => Promise.all([
+            getPlatformFeedback(user),
+            getPlatformFeedbackReports({
+              user,
+              accessToken: session?.access_token || '',
+            }),
+          ]),
           'Could not load platform feedback.',
         )
 
@@ -235,6 +246,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         }
 
         setFeedbackItems(nextFeedbackItems)
+        setFeedbackReports(nextFeedbackReports)
         setFeedbackDrafts(
           nextFeedbackItems.reduce((drafts, item) => {
             drafts[item.id] = {
@@ -246,12 +258,13 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         )
         writeViewCache(feedbackCacheKey, {
           feedbackItems: nextFeedbackItems,
+          feedbackReports: nextFeedbackReports,
         })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setErrorMessage('Platform feedback could not be refreshed right now.')
+          setErrorMessage('Feedback reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-VISIBILITY-011.')
         }
       } finally {
         if (isMounted) {
@@ -265,7 +278,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     return () => {
       isMounted = false
     }
-  }, [refreshKey, user])
+  }, [refreshKey, session?.access_token, user])
 
   const visibleClubs = useMemo(() => {
     const clubs = stats?.clubs ?? []
@@ -804,7 +817,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const dashboardStats = getPlatformDashboardStats(stats)
   const platformAdmins = stats?.platformAdmins ?? []
   const clubManagementStats = getClubManagementStats(stats)
-  const feedbackStats = getFeedbackStats(feedbackItems)
+  const feedbackStats = getFeedbackStats(feedbackItems, feedbackReports)
 
   if (!isSuperAdmin(user)) {
     return (
@@ -922,6 +935,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           page={feedbackPage}
           pageSize={PLATFORM_FEEDBACK_PAGE_SIZE}
           paginatedItems={paginatedFeedbackItems}
+          supportReports={feedbackReports}
           updatingFeedbackId={updatingFeedbackId}
         />
       ) : null}
