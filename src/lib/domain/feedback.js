@@ -122,10 +122,40 @@ export async function getPlatformFeedbackReports({ accessToken, user }) {
   const result = await response.json().catch(() => ({}))
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.message || 'Feedback reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-VISIBILITY-011.')
+    throw new Error(result.message || 'Issue reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-ADMIN-FIX-012.')
   }
 
   return Array.isArray(result.reports) ? result.reports : []
+}
+
+export async function updatePlatformFeedbackReportStatus({ accessToken, action, reportId, user }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can update issue reports.')
+  }
+
+  const response = await fetch('/.netlify/functions/platform-feedback-report-update', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken || ''}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action,
+      reportId,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Issue report could not be updated. Please try again.')
+  }
+
+  if (!result.report?.id) {
+    throw new Error('Issue report could not be updated. Please try again.')
+  }
+
+  invalidateMemoryCacheByPrefix('platform-feedback:')
+  return result.report
 }
 
 export async function createPlatformFeedback({ user, message }) {
