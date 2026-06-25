@@ -109,16 +109,19 @@ export function getClubManagementStats(stats) {
   ]
 }
 
-export function getFeedbackStats(feedbackItems = []) {
+export function getFeedbackStats(feedbackItems = [], supportReports = []) {
+  const reports = Array.isArray(supportReports) ? supportReports : []
+  const openSupportReports = reports.filter((report) => report.status === 'new' || report.status === 'triaged' || !report.status)
+
   return [
     {
       label: 'Feedback items',
-      value: feedbackItems.length,
-      caption: 'Submitted ideas',
+      value: feedbackItems.length + reports.length,
+      caption: reports.length ? 'Ideas and issue reports' : 'Submitted ideas',
     },
     {
       label: 'Open items',
-      value: feedbackItems.filter((item) => item.status === 'open').length,
+      value: feedbackItems.filter((item) => item.status === 'open').length + openSupportReports.length,
       caption: 'Needs review',
     },
     {
