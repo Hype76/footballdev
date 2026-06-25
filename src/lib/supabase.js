@@ -162,6 +162,7 @@ export {
   getPlatformFeedbackReports,
   unvotePlatformFeedback,
   updatePlatformFeedback,
+  updatePlatformFeedbackReportStatus,
   votePlatformFeedback,
 } from './domain/feedback.js'
 
