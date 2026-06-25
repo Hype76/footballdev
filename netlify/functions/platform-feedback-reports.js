@@ -1,7 +1,7 @@
 import { createSupabaseAdminClient } from './_supabase.js'
 
-const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-VISIBILITY-011'
-const FEEDBACK_REPORTS_LOAD_MESSAGE = 'Feedback reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-VISIBILITY-011.'
+const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-ADMIN-FIX-012'
+const FEEDBACK_REPORTS_LOAD_MESSAGE = 'Issue reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-ADMIN-FIX-012.'
 
 function jsonResponse(statusCode, payload) {
   return {
