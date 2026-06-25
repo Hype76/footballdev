@@ -240,7 +240,7 @@ export async function updatePlatformFeedback({ user, feedbackId, data }) {
     .from('platform_feedback')
     .update(payload)
     .eq('id', feedbackId)
-    .select('id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, message, created_at, users:created_by (email))')
+    .select('id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, created_by_email, message, created_at, users:created_by (email))')
     .single()
 
   if (error) {
