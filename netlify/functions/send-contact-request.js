@@ -1,7 +1,7 @@
-import process from 'node:process'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
+import { getPublicEmailErrorMessage } from './_email-provider.js'
+import { sendSupportNotification } from './_support-notification.js'
 
-const CONTACT_REQUEST_RECIPIENT = String(process.env.CONTACT_REQUEST_RECIPIENT || 'info@footballplayer.online').trim()
+const SUPPORT_REFERENCE = 'FPO-V1-SUPPORT-EMAIL-AUDIT-013'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -30,60 +30,6 @@ function cleanText(value) {
     .trim()
 }
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
-
-function buildContactRequestHtml({ name, email, phone, message, sourcePath }) {
-  const rows = [
-    ['Name', name],
-    ['Email', email],
-    ['Phone number', phone || 'Not provided'],
-    ['Page', sourcePath || 'Not recorded'],
-  ]
-
-  return `
-    <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5; padding: 24px;">
-      <div style="max-width: 640px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 18px; overflow: hidden;">
-        <div style="background: #101510; color: #ffffff; padding: 24px;">
-          <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Football Player</p>
-          <h1 style="margin: 0; font-size: 24px;">New contact request</h1>
-        </div>
-        <div style="padding: 24px; background: #ffffff;">
-          <p style="margin: 0 0 18px;">A visitor sent a message from the Football Player website.</p>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tbody>
-              ${rows
-                .map(
-                  ([label, value]) => `
-                    <tr>
-                      <td style="width: 180px; padding: 12px; border-bottom: 1px solid #e5e7eb; color: #4b5563; font-weight: 700;">${escapeHtml(label)}</td>
-                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${escapeHtml(value)}</td>
-                    </tr>
-                  `,
-                )
-                .join('')}
-            </tbody>
-          </table>
-          <div style="margin-top: 20px;">
-            <p style="margin: 0 0 8px; color: #4b5563; font-size: 14px; font-weight: 700;">Message</p>
-            <div style="white-space: pre-line; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px;">${escapeHtml(message || 'No message entered')}</div>
-          </div>
-          <p style="margin: 20px 0 0; color: #4b5563; font-size: 14px;">Reply directly to this email to contact the visitor.</p>
-          <div style="border-top: 1px solid #e5e7eb; margin-top: 20px; padding-top: 14px;">
-            <p style="margin: 0; color: #6b7280; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  `
-}
-
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
@@ -105,27 +51,21 @@ export async function handler(event) {
       return failureResponse(400, 'A valid email is required')
     }
 
-    const html = buildContactRequestHtml({
-      name,
-      email,
-      phone,
-      message,
-      sourcePath,
-    })
-
-    const response = await sendEmail({
-      from: createFromAddress('Football Player Contact'),
-      to: [CONTACT_REQUEST_RECIPIENT],
-      reply_to: email,
-      subject: `Website Contact: ${name}`,
-      html,
-    }, {
-      context: {
-        emailType: 'system_support_email',
-        actorEmail: email,
-        targetEntityType: 'public_contact_request',
-      },
-      publicMessage: 'Contact request could not be sent. Please try again in a moment.',
+    const response = await sendSupportNotification({
+      source: 'public_contact_request',
+      reportId: SUPPORT_REFERENCE,
+      type: 'contact',
+      severity: 'medium',
+      title: `Website contact: ${name}`,
+      summary: message || 'No message entered.',
+      route: sourcePath,
+      pageTitle: 'Contact us',
+      module: 'Public website',
+      phase: 'production',
+      reporterName: name,
+      reporterEmail: email,
+      browserDevice: phone ? `Phone: ${phone}` : '',
+      adminReviewUrl: 'https://footballplayer.online',
     })
 
     return successResponse({ id: response?.data?.id || response?.id || '' })

@@ -208,6 +208,58 @@ test('submitTesterFeedbackResult inserts valid signed-in feedback with server-de
   assert.equal(JSON.stringify(insertCall.payload).includes('spoofed@example.test'), false)
 })
 
+test('submitTesterFeedbackResult sends production support notification to the fixed support recipient', async () => {
+  const mock = createMockSupabase()
+  const notifications = []
+  const response = await submitTesterFeedbackResult(createEvent({
+    report: {
+      title: 'Support route failed',
+      summary: 'Support route summary',
+      recipient: 'attacker@example.test',
+    },
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supportNotificationSender: async (payload) => {
+      notifications.push(payload)
+      return {
+        sent: true,
+        skipped: false,
+        recipient: 'support@jelumalabs.com',
+      }
+    },
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.notification.recipient, 'support@jelumalabs.com')
+  assert.equal(notifications.length, 1)
+  assert.equal(notifications[0].reportId, '66666666-6666-4666-8666-666666666666')
+  assert.equal(notifications[0].reporterEmail, 'coach@example.test')
+  assert.equal(notifications[0].title, 'Support route failed')
+  assert.equal(JSON.stringify(notifications[0]).includes('attacker@example.test'), false)
+})
+
+test('submitTesterFeedbackResult keeps saved report successful when support notification fails safely', async () => {
+  const mock = createMockSupabase()
+  const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent(), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supportNotificationSender: async () => {
+      throw Object.assign(new Error('Provider secret failure detail'), {
+        code: 'provider_failed',
+        providerStatus: 502,
+      })
+    },
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.report.id, '66666666-6666-4666-8666-666666666666')
+  assert.equal(parsed.body.notification.reason, 'send_failed')
+  assert.doesNotMatch(JSON.stringify(parsed.body), /Provider secret failure detail/i)
+})
+
 test('submitTesterFeedbackResult rejects missing required title and summary before insert', async () => {
   for (const report of [
     { title: '', summary: 'Summary exists' },

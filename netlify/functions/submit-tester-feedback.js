@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from './_supabase.js'
+import { sendSupportNotification } from './_support-notification.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-LIVEFIX-010'
@@ -235,6 +236,7 @@ function safeDiagnostic(error) {
 
 export async function submitTesterFeedbackResult(event, {
   supabaseAdmin = createSupabaseAdminClient(event),
+  supportNotificationSender = sendSupportNotification,
 } = {}) {
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { success: false, code: 'method_not_allowed', message: 'Method Not Allowed' })
@@ -272,9 +274,57 @@ export async function submitTesterFeedbackResult(event, {
       throw error
     }
 
+    let notification = {
+      sent: false,
+      skipped: false,
+      reason: 'not_attempted',
+    }
+
+    try {
+      notification = await supportNotificationSender({
+        source: 'tester_feedback_report',
+        reportId: data.id,
+        type: report.feedback_type,
+        severity: report.severity,
+        title: report.title,
+        summary: report.summary,
+        route: report.route,
+        pageTitle: report.page_title,
+        module: report.module,
+        phase: report.phase,
+        reporterId: profile.id,
+        reporterName: profile.name,
+        reporterEmail: profile.email,
+        clubId: profile.clubId,
+        teamId,
+        submittedAt: data.created_at,
+        browserDevice: report.browser_device,
+        screenshotUrl: report.screenshot_url,
+        logReference: report.log_reference,
+        adminReviewUrl: 'https://footballplayer.online/platform-feedback',
+      })
+    } catch (notificationError) {
+      notification = {
+        sent: false,
+        skipped: false,
+        reason: 'send_failed',
+      }
+      const notificationDiagnostic = safeDiagnostic(notificationError)
+      console.error('tester_feedback_support_notification_failed', {
+        reference: SUPPORT_REFERENCE,
+        reportId: data.id,
+        actorId: profile.id,
+        clubId: profile.clubId || undefined,
+        code: normalizeText(notificationError?.code || notificationError?.name),
+        providerStatus: notificationError?.providerStatus || undefined,
+        message: notificationDiagnostic.message || undefined,
+      })
+    }
+
     return jsonResponse(200, {
       success: true,
       report: data,
+      notification,
     })
   } catch (error) {
     const normalizedError = publicError(error)

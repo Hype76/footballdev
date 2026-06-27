@@ -8,6 +8,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 
 const { platformFeedbackReportsResult } = await import('../netlify/functions/platform-feedback-reports.js')
 const { platformFeedbackReportUpdateResult } = await import('../netlify/functions/platform-feedback-report-update.js')
+const { platformFeedbackNotificationResult } = await import('../netlify/functions/platform-feedback-notification.js')
 const { getFeedbackStats } = await import('../src/lib/platform-admin-stats.js')
 const { getFeedbackStats: getRouteFeedbackStats } = await import('../src/lib/platform-feedback-utils.js')
 const { getPlatformFeedbackReports, updatePlatformFeedbackReportStatus } = await import('../src/lib/domain/feedback.js')
@@ -41,6 +42,17 @@ function createUpdateEvent(body = {}, headers = {}) {
     httpMethod: 'POST',
     headers: {
       authorization: 'Bearer platform-admin-token',
+      ...headers,
+    },
+    body: JSON.stringify(body),
+  }
+}
+
+function createNotificationEvent(body = {}, headers = {}) {
+  return {
+    httpMethod: 'POST',
+    headers: {
+      authorization: 'Bearer feedback-token',
       ...headers,
     },
     body: JSON.stringify(body),
@@ -167,6 +179,86 @@ function createMockSupabase({
     maybeSingle() {
       if (this.table === 'users') {
         return Promise.resolve({ data: profile, error: null })
+      }
+
+      return Promise.resolve({ data: null, error: null })
+    }
+  }
+
+  return {
+    calls,
+    supabaseAdmin: {
+      auth: {
+        getUser: async () => (
+          authUser
+            ? { data: { user: authUser }, error: null }
+            : { data: { user: null }, error: new Error('Invalid token') }
+        ),
+      },
+      from: (table) => new Query(table),
+    },
+  }
+}
+
+function createPlatformNotificationMock({
+  authUser = { id: 'user-1', email: 'coach@example.test' },
+  profile = {
+    id: 'user-1',
+    email: 'coach@example.test',
+    username: 'Fixture Coach',
+    name: 'Fixture Coach',
+    display_name: 'Fixture Coach',
+    role: 'coach',
+    role_label: 'Coach',
+    role_rank: 20,
+    club_id: 'club-1',
+  },
+  feedback = {
+    id: '11111111-1111-4111-8111-111111111111',
+    club_id: 'club-1',
+    created_by: 'user-1',
+    created_by_name: 'Fixture Coach',
+    created_by_email: 'coach@example.test',
+    message: 'Please add a roadmap feature.',
+    status: 'open',
+    created_at: '2026-06-27T10:00:00.000Z',
+    clubs: { name: 'Fixture Club' },
+  },
+} = {}) {
+  const calls = []
+
+  class Query {
+    constructor(table) {
+      this.table = table
+    }
+
+    select(columns) {
+      calls.push({ table: this.table, action: 'select', columns })
+      return this
+    }
+
+    or(expression) {
+      calls.push({ table: this.table, action: 'or', expression })
+      return this
+    }
+
+    limit(value) {
+      calls.push({ table: this.table, action: 'limit', value })
+      return this
+    }
+
+    eq(column, value) {
+      calls.push({ table: this.table, action: 'eq', column, value })
+      return this
+    }
+
+    maybeSingle() {
+      if (this.table === 'users') {
+        return Promise.resolve({ data: profile, error: null })
+      }
+
+      if (this.table === 'platform_feedback') {
+        return Promise.resolve({ data: feedback, error: null })
       }
 
       return Promise.resolve({ data: null, error: null })
@@ -384,6 +476,65 @@ test('platform admin can mark an issue report reviewed or closed through protect
   assert.equal(closedParsed.body.report.status, 'fixed')
   assert.equal(closedUpdate.payload.status, 'fixed')
   assert.equal(closedUpdate.payload.resolution_state, 'closed')
+})
+
+test('platform feedback notification reads saved product idea and sends support notification without client recipient control', async () => {
+  const feedbackId = '11111111-1111-4111-8111-111111111111'
+  const mock = createPlatformNotificationMock()
+  const notifications = []
+  const response = await platformFeedbackNotificationResult(createNotificationEvent({
+    feedbackId,
+    recipient: 'attacker@example.test',
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supportNotificationSender: async (payload) => {
+      notifications.push(payload)
+      return {
+        sent: true,
+        skipped: false,
+        recipient: 'support@jelumalabs.com',
+      }
+    },
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.notification.recipient, 'support@jelumalabs.com')
+  assert.equal(notifications.length, 1)
+  assert.equal(notifications[0].reportId, feedbackId)
+  assert.equal(notifications[0].type, 'feature_request')
+  assert.equal(notifications[0].summary, 'Please add a roadmap feature.')
+  assert.equal(notifications[0].reporterEmail, 'coach@example.test')
+  assert.equal(JSON.stringify(notifications[0]).includes('attacker@example.test'), false)
+})
+
+test('platform feedback notification blocks users who do not own the saved feedback', async () => {
+  const mock = createPlatformNotificationMock({
+    feedback: {
+      id: '11111111-1111-4111-8111-111111111111',
+      club_id: 'club-1',
+      created_by: 'other-user',
+      created_by_name: 'Other Coach',
+      created_by_email: 'other@example.test',
+      message: 'Hidden idea.',
+      status: 'open',
+      created_at: '2026-06-27T10:00:00.000Z',
+      clubs: { name: 'Fixture Club' },
+    },
+  })
+  const response = await withMutedConsole(() => platformFeedbackNotificationResult(createNotificationEvent({
+    feedbackId: '11111111-1111-4111-8111-111111111111',
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supportNotificationSender: async () => {
+      throw new Error('Should not send')
+    },
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 403)
+  assert.equal(parsed.body.code, 'forbidden')
 })
 
 test('normal user cannot update issue report status and cannot reach report update query', async () => {

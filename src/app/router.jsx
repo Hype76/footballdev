@@ -108,7 +108,7 @@ const primaryActionClassName =
 const secondaryActionClassName =
   'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
-const supportEmail = 'support@footballplayer.online'
+const supportEmail = 'support@jelumalabs.com'
 
 function LoadingScreen() {
   const showLoader = useDelayedLoader()

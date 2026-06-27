@@ -23,6 +23,48 @@ async function blockDemoMutation(account) {
   }
 }
 
+async function notifyPlatformFeedbackCreated(feedbackId) {
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    const accessToken = sessionData?.session?.access_token || ''
+
+    if (sessionError || !accessToken) {
+      return {
+        sent: false,
+        skipped: false,
+        reason: 'missing_session',
+      }
+    }
+
+    const response = await fetch('/.netlify/functions/platform-feedback-notification', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ feedbackId }),
+    })
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || 'Feedback notification could not be sent.')
+    }
+
+    return result.notification || {
+      sent: false,
+      skipped: false,
+      reason: 'unknown',
+    }
+  } catch (error) {
+    console.error('platform_feedback_notification_client_failed', error)
+    return {
+      sent: false,
+      skipped: false,
+      reason: 'send_failed',
+    }
+  }
+}
+
 function getEntryUserId(user) {
   return user?.id ?? null
 }
@@ -198,7 +240,13 @@ export async function createPlatformFeedback({ user, message }) {
     entityId: data.id,
   })
 
-  return normalizePlatformFeedbackRow(data)
+  const feedback = normalizePlatformFeedbackRow(data)
+  const notification = await notifyPlatformFeedbackCreated(feedback.id)
+
+  return {
+    ...feedback,
+    notification,
+  }
 }
 
 export async function votePlatformFeedback({ user, feedbackId }) {

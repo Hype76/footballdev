@@ -6,7 +6,7 @@ import { canViewBilling, useAuth } from '../lib/auth.js'
 import { formatUkDate } from '../lib/date-format.js'
 import { getPlanName } from '../lib/plans.js'
 
-const SUPPORT_EMAIL = 'support@footballplayer.online'
+const SUPPORT_EMAIL = 'support@jelumalabs.com'
 
 function formatDate(value) {
   if (!value) {

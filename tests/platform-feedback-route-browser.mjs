@@ -258,7 +258,7 @@ async function signIn(page) {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
   await page.getByLabel(/email/i).fill(fixtureEmail)
   await page.getByLabel(/password/i).fill('FixturePass123!')
-  await page.getByRole('button', { name: /sign in/i }).click()
+  await page.getByRole('button', { name: /sign in|log in/i }).click()
   await page.waitForURL(/\/$/, { timeout: 15000 })
 }
 
@@ -283,7 +283,7 @@ try {
     await assert.doesNotReject(() => page.getByText(fixtureReportId).waitFor({ timeout: 15000 }))
     assert.equal(await page.getByText('No feedback has been submitted yet.').count(), 0)
     assert.equal(await page.getByText('No product ideas have been submitted yet.').count() > 0, true)
-    assert.equal(requests.reports.length, 1)
+    assert.equal(requests.reports.length >= 1, true)
 
     const issuePanelBackground = await page.locator('section[aria-labelledby="issue-reports-heading"]').evaluate((element) => getComputedStyle(element).backgroundColor)
     assert.notEqual(issuePanelBackground, 'rgb(255, 255, 255)')

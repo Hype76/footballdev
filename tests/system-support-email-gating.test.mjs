@@ -7,7 +7,8 @@ const contactFunctionUrl = new URL('../netlify/functions/send-contact-request.js
 test('system support contact emails are not gated as parent emails', async () => {
   const source = await readFile(contactFunctionUrl, 'utf8')
 
-  assert.match(source, /emailType:\s*'system_support_email'/)
+  assert.match(source, /sendSupportNotification/)
+  assert.match(source, /public_contact_request/)
   assert.doesNotMatch(source, /_plan-gate/)
   assert.doesNotMatch(source, /assertPlanFeature/)
   assert.doesNotMatch(source, /hasPlanFeature/)

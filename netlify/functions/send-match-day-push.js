@@ -135,7 +135,7 @@ async function canSendForMatch({ authUser, profile, match, parentLinkId }) {
 function configureWebPush() {
   const publicKey = normalizeText(process.env.VITE_WEB_PUSH_PUBLIC_KEY || process.env.WEB_PUSH_PUBLIC_KEY)
   const privateKey = normalizeText(process.env.WEB_PUSH_PRIVATE_KEY)
-  const subject = normalizeText(process.env.WEB_PUSH_SUBJECT) || 'mailto:support@footballplayer.online'
+  const subject = normalizeText(process.env.WEB_PUSH_SUBJECT) || 'mailto:support@jelumalabs.com'
 
   if (!publicKey || !privateKey) {
     return false
