@@ -7,7 +7,12 @@ import { ArchivePlayerModal } from '../components/players/ArchivePlayerModal.jsx
 import { PlayersListSection } from '../components/players/PlayersListSection.jsx'
 import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
-import { PLAYER_PAGE_SIZE, getAverageScore, getPlayerKey } from '../hooks/players/playersPageUtils.js'
+import {
+  PLAYER_PAGE_SIZE,
+  buildPlayerProfilePath,
+  getAverageScore,
+  getPlayerKey,
+} from '../hooks/players/playersPageUtils.js'
 import {
   EVALUATION_SECTIONS,
   archivePlayer,
@@ -400,7 +405,7 @@ export function PlayersPage({
         onArchivePlayer={handleArchivePlayer}
         onFilterChange={updateListFilter}
         onMovePlayerToTrial={handleMovePlayerToTrial}
-        onOpenPlayer={(player) => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
+        onOpenPlayer={(player) => navigate(buildPlayerProfilePath(player))}
         onPageChange={setPlayerPage}
         onSearchChange={(nextSearchTerm) => {
           setSearchTerm(nextSearchTerm)

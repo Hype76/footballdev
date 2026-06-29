@@ -16,6 +16,11 @@ import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
 import { buildProgressionEmailSections, getProgressionNumericFieldMap } from '../../lib/player-progression.js'
 
 export const PROFILE_EVALUATION_PAGE_SIZE = 5
+export const PLAYER_PROFILE_SOURCES = Object.freeze({
+  history: 'history',
+  squad: 'squad',
+  trial: 'trial',
+})
 
 export function isNumericScore(value) {
   if (value === null || value === undefined || value === '') {
@@ -244,13 +249,69 @@ export function buildFieldMovement(evaluations, fields = [], { currentDate } = {
     .filter((item) => item.firstValue !== undefined && item.latestValue !== undefined)
 }
 
-export function getProfilePlayers(players) {
-  if (players.length <= 1) {
-    return players
+export function normalizePlayerProfileSource(source) {
+  const normalizedSource = String(source ?? '').trim().toLowerCase()
+
+  if (Object.values(PLAYER_PROFILE_SOURCES).includes(normalizedSource)) {
+    return normalizedSource
   }
 
-  const squadPlayer = players.find((player) => String(player.section ?? '').toLowerCase() === 'squad')
-  return [squadPlayer ?? players[0]]
+  return ''
+}
+
+export function isSavedPlayerProfileSource(source) {
+  const normalizedSource = normalizePlayerProfileSource(source)
+  return normalizedSource === PLAYER_PROFILE_SOURCES.squad || normalizedSource === PLAYER_PROFILE_SOURCES.trial
+}
+
+export function getProfilePlayers(players, { playerId = '' } = {}) {
+  const availablePlayers = Array.isArray(players) ? players : []
+  const normalizedPlayerId = String(playerId ?? '').trim()
+
+  if (normalizedPlayerId) {
+    const matchedPlayer = availablePlayers.find((player) => String(player?.id ?? '').trim() === normalizedPlayerId)
+    return matchedPlayer ? [matchedPlayer] : []
+  }
+
+  if (availablePlayers.length <= 1) {
+    return availablePlayers
+  }
+
+  const squadPlayer = availablePlayers.find((player) => String(player.section ?? '').toLowerCase() === 'squad')
+  return [squadPlayer ?? availablePlayers[0]]
+}
+
+export function isAmbiguousProfilePlayerSelection({ players, routePlayerId }) {
+  const availablePlayers = Array.isArray(players) ? players : []
+  return !String(routePlayerId ?? '').trim() && availablePlayers.length > 1
+}
+
+export function canUseProfilePlayerActions({ players, profilePlayers, routePlayerId }) {
+  const resolvedPlayers = Array.isArray(profilePlayers) ? profilePlayers : []
+
+  if (resolvedPlayers.length !== 1) {
+    return false
+  }
+
+  return !isAmbiguousProfilePlayerSelection({ players, routePlayerId })
+}
+
+export function getPlayerDetailsEmptyState({ profileSource, routePlayerId }) {
+  if (isSavedPlayerProfileSource(profileSource) && String(routePlayerId ?? '').trim()) {
+    return {
+      action: 'Refresh the player list and open this player again before changing saved details.',
+      body: 'This Squad or Trial link points to a saved player record that is no longer available.',
+      eyebrow: 'Saved player unavailable',
+      title: 'Saved player record could not be found.',
+    }
+  }
+
+  return {
+    action: 'Add the player to Trial or Squad so this profile has one saved football record to manage.',
+    body: 'This profile was opened from development history. Team, parent contacts, positions, and section rules need a saved player record.',
+    eyebrow: 'Profile setup',
+    title: 'Saved player details are not attached yet.',
+  }
 }
 
 export function getProfileContactDetails({ primaryPlayer, evaluations }) {

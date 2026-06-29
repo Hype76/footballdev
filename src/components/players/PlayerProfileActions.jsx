@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { canDeletePlayer } from '../../lib/auth.js'
 
 export function PlayerProfileActions({
+  canUseSavedPlayerActions = true,
   isDeleting,
   lastSection,
   lastTeam,
@@ -17,7 +18,7 @@ export function PlayerProfileActions({
       >
         Add Development Record
       </Link>
-      {canDeletePlayer(user) ? (
+      {canDeletePlayer(user) && canUseSavedPlayerActions ? (
         <button
           type="button"
           disabled={isDeleting}

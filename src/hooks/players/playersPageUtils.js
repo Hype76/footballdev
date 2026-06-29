@@ -13,6 +13,39 @@ export function getPlayerKey(playerName) {
   return String(playerName ?? '').trim().toLowerCase()
 }
 
+export function getPlayerProfileSourceForSection(section) {
+  const normalizedSection = String(section ?? '').trim().toLowerCase()
+
+  if (normalizedSection === 'squad') {
+    return 'squad'
+  }
+
+  if (normalizedSection === 'trial') {
+    return 'trial'
+  }
+
+  return ''
+}
+
+export function buildPlayerProfilePath(player) {
+  const playerName = String(player?.playerName ?? '').trim()
+  const params = new URLSearchParams()
+  const source = getPlayerProfileSourceForSection(player?.section)
+  const playerId = String(player?.playerId ?? player?.id ?? '').trim()
+
+  if (source) {
+    params.set('source', source)
+  }
+
+  if (playerId) {
+    params.set('playerId', playerId)
+  }
+
+  const query = params.toString()
+
+  return `/player/${encodeURIComponent(playerName)}${query ? `?${query}` : ''}`
+}
+
 export function getAverageScore(evaluations) {
   const scoredEvaluations = evaluations.filter((evaluation) => evaluation.averageScore !== null)
 

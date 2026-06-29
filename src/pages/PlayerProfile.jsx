@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PlayerDetailsSection } from '../components/players/PlayerDetailsSection.jsx'
 import { PlayerEvaluationsHistory } from '../components/players/PlayerEvaluationsHistory.jsx'
 import { PlayerMergeAssessments } from '../components/players/PlayerMergeAssessments.jsx'
@@ -63,9 +63,13 @@ import {
   getNextEvaluationParentContactIndexes,
   getMergeFieldLabels,
   getRemainingMergeCoreSourceId,
+  getPlayerDetailsEmptyState,
   getProfileContactDetails,
   getProfilePlayers,
   getReassignPlayerOptions,
+  isSavedPlayerProfileSource,
+  canUseProfilePlayerActions,
+  normalizePlayerProfileSource,
   keepOnlySelectedSourceIds,
   PROFILE_EVALUATION_PAGE_SIZE,
   removeEvaluationIdFromSelection,
@@ -125,12 +129,18 @@ function getPlayerPortalContacts(player) {
 export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const isDemoAccount = isDemoUser(user)
   const { showToast } = useToast()
   const routePlayerName = decodeURIComponent(id)
+  const profileSource = normalizePlayerProfileSource(searchParams.get('source'))
+  const routePlayerId = String(searchParams.get('playerId') ?? '').trim()
+  const shouldLoadSavedPlayerById = Boolean(routePlayerId && isSavedPlayerProfileSource(profileSource))
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
-  const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}` : ''
+  const cacheKey = user
+    ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}:${profileSource || 'name'}:${routePlayerId || 'no-id'}`
+    : ''
   const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
   const cachedFields = readViewCache(fieldsCacheKey)
   const hasCachedFieldConfig = Boolean(cachedFields?.dynamicFields)
@@ -233,7 +243,15 @@ export function PlayerProfile() {
               }),
             'Could not load player history. No data entered yet, or the request took too long.',
           ),
-          withRequestTimeout(() => getPlayers({ user, playerName: routePlayerName }), 'Could not load player details.'),
+          withRequestTimeout(
+            () =>
+              getPlayers({
+                user,
+                playerId: shouldLoadSavedPlayerById ? routePlayerId : undefined,
+                playerName: shouldLoadSavedPlayerById ? undefined : routePlayerName,
+              }),
+            'Could not load player details.',
+          ),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load player reassignment options.'),
         ])
 
@@ -312,7 +330,7 @@ export function PlayerProfile() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, routePlayerName, user, userScopeKey])
+  }, [cacheKey, routePlayerId, routePlayerName, shouldLoadSavedPlayerById, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -409,7 +427,18 @@ export function PlayerProfile() {
       ? scoredEvaluations.reduce((sum, evaluation) => sum + evaluation.averageScore, 0) / scoredEvaluations.length
       : null
 
-  const profilePlayers = useMemo(() => getProfilePlayers(players), [players])
+  const profilePlayers = useMemo(
+    () => getProfilePlayers(players, { playerId: shouldLoadSavedPlayerById ? routePlayerId : '' }),
+    [players, routePlayerId, shouldLoadSavedPlayerById],
+  )
+  const playerDetailsEmptyState = useMemo(
+    () => getPlayerDetailsEmptyState({ profileSource, routePlayerId }),
+    [profileSource, routePlayerId],
+  )
+  const canUseSavedPlayerActions = useMemo(
+    () => canUseProfilePlayerActions({ players, profilePlayers, routePlayerId: shouldLoadSavedPlayerById ? routePlayerId : '' }),
+    [players, profilePlayers, routePlayerId, shouldLoadSavedPlayerById],
+  )
   useEffect(() => {
     let isMounted = true
     const squadPlayers = profilePlayers.filter(isParentPortalInviteEligiblePlayer)
@@ -933,10 +962,10 @@ export function PlayerProfile() {
         setActivityLogs(nextActivity)
       }
 
-      if (!evaluation.isDirectEmail && emailConfirmTarget.templateKey === 'decline' && canDeletePlayer(user) && players.length > 0) {
+      if (!evaluation.isDirectEmail && emailConfirmTarget.templateKey === 'decline' && canDeletePlayer(user) && canUseSavedPlayerActions) {
         setNoPlaceArchiveTarget({
           playerName: routePlayerName,
-          playerCount: players.length,
+          playerCount: profilePlayers.length,
           evaluationCount: evaluations.length,
         })
       }
@@ -1559,9 +1588,14 @@ export function PlayerProfile() {
   }
 
   const handleDeletePlayer = async () => {
+    if (!canUseSavedPlayerActions) {
+      setErrorMessage('Open a resolved saved player record before deleting.')
+      return
+    }
+
     setPlayerDeleteTarget({
       playerName: routePlayerName,
-      playerCount: players.length,
+      playerCount: profilePlayers.length,
       evaluationCount: evaluations.length,
     })
   }
@@ -1606,7 +1640,7 @@ export function PlayerProfile() {
     try {
       await verifyCurrentUserPassword(user.email, password)
       await Promise.all(
-        players.map((player) =>
+        profilePlayers.map((player) =>
           archivePlayer({
             user,
             playerId: player.id,
@@ -1630,6 +1664,12 @@ export function PlayerProfile() {
       return
     }
 
+    if (!canUseSavedPlayerActions) {
+      setErrorMessage('Open a resolved saved player record before archiving.')
+      setNoPlaceArchiveTarget(null)
+      return
+    }
+
     const archiveReason = String(reason ?? '').trim()
 
     if (!archiveReason) {
@@ -1642,7 +1682,7 @@ export function PlayerProfile() {
 
     try {
       await Promise.all(
-        players.map((player) =>
+        profilePlayers.map((player) =>
           archivePlayer({
             user,
             playerId: player.id,
@@ -1732,12 +1772,14 @@ export function PlayerProfile() {
         onStartEditingPlayer={handleStartEditingPlayer}
         parentPortalInviteSendingKey={parentPortalInviteSendingKey}
         parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
+        playerDetailsEmptyState={playerDetailsEmptyState}
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}
         selectedDirectInviteDates={selectedDirectInviteDates}
       />
 
       <PlayerProfileActions
+        canUseSavedPlayerActions={canUseSavedPlayerActions}
         isDeleting={isDeleting}
         lastSection={lastSection}
         lastTeam={lastTeam}

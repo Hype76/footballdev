@@ -976,12 +976,14 @@ export async function getEvaluations({ user, status, playerName, section, includ
     })
 }
 
-export async function getPlayers({ user, section, playerName, status, includeArchived = false } = {}) {
+export async function getPlayers({ user, section, playerId, playerName, status, includeArchived = false } = {}) {
   if (!user?.clubId || user.role === 'super_admin') {
     return []
   }
 
-  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerName || 'all'}:${status || 'current'}:${includeArchived ? 'with-archived' : 'without-archived'}:${user.activeTeamId || user.activeTeamName || 'all'}`
+  const normalizedPlayerId = String(playerId ?? '').trim()
+  const playerCacheScope = normalizedPlayerId ? `id:${normalizedPlayerId}` : `name:${playerName || 'all'}`
+  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerCacheScope}:${status || 'current'}:${includeArchived ? 'with-archived' : 'without-archived'}:${user.activeTeamId || user.activeTeamName || 'all'}`
 
   return getCachedResource(cacheKey, async () => {
     let query = supabase
@@ -1007,7 +1009,9 @@ export async function getPlayers({ user, section, playerName, status, includeArc
       query = query.eq('team', user.activeTeamName)
     }
 
-    if (playerName) {
+    if (normalizedPlayerId) {
+      query = query.eq('id', normalizedPlayerId)
+    } else if (playerName) {
       query = query.eq('player_name', playerName)
     }
 

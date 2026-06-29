@@ -43,6 +43,12 @@ export function PlayerDetailsSection({
   parentPortalInviteSendingKey = '',
   parentPortalLinksByPlayerId = {},
   playerDrafts,
+  playerDetailsEmptyState = {
+    action: 'Add the player to Trial or Squad so this profile has one saved football record to manage.',
+    body: 'This profile was opened from development history. Team, parent contacts, positions, and section rules need a saved player record.',
+    eyebrow: 'Profile setup',
+    title: 'Saved player details are not attached yet.',
+  },
   profilePlayers,
   selectedDirectInviteDates,
 }) {
@@ -53,10 +59,10 @@ export function PlayerDetailsSection({
     >
       {profilePlayers.length === 0 ? (
         <PlayerStatePanel
-          action="Add the player to Trial or Squad so this profile has one saved football record to manage."
-          body="This profile was opened from development history. Team, parent contacts, positions, and section rules need a saved player record."
-          eyebrow="Profile setup"
-          title="Saved player details are not attached yet."
+          action={playerDetailsEmptyState.action}
+          body={playerDetailsEmptyState.body}
+          eyebrow={playerDetailsEmptyState.eyebrow}
+          title={playerDetailsEmptyState.title}
         />
       ) : (
         <div className="space-y-4">
