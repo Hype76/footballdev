@@ -121,18 +121,21 @@ export function PlayersListSection({
             return (
               <div
                 key={getPlayerKey(player.playerName)}
+                data-player-card={player.playerId || getPlayerKey(player.playerName)}
                 className="relative overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5 transition hover:-translate-y-0.5 hover:border-[#047857] hover:shadow-md"
               >
                 <div className={['absolute inset-y-0 left-0 w-1', stripeClass].join(' ')} />
                 <Link
                   to={playerProfilePath}
                   data-player-profile-href={playerProfilePath}
-                  className="w-full px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#047857]"
+                  data-player-card-content
+                  className="block w-full px-6 py-4 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#047857] sm:px-7"
                 >
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(7rem,1fr))] xl:items-center">
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex max-w-full flex-col gap-2 sm:flex-row sm:items-center">
                         <p
+                          data-player-card-name
                           className="min-w-0 truncate text-lg font-black text-[#101828]"
                           title={player.playerName}
                         >
@@ -169,7 +172,7 @@ export function PlayersListSection({
                     </div>
                   </div>
                 </Link>
-                <div className="grid gap-3 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="grid gap-3 border-t border-[#d7e5dc] bg-[#f7faf8] px-6 py-3 sm:px-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                   <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
                     {player.totalEvaluations > 0
                       ? `${player.totalEvaluations} development record${player.totalEvaluations === 1 ? '' : 's'} attached.`

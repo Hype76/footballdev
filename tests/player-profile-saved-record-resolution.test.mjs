@@ -207,6 +207,11 @@ test('runtime profile path uses id-scoped loading, safe empty state, and guarded
 
   assert.doesNotMatch(playersPageSource, /useNavigate/)
   assert.match(playersListSectionSource, /const playerProfilePath = buildPlayerProfilePath\(player\)/)
+  assert.match(playersListSectionSource, /data-player-card=\{player\.playerId \|\| getPlayerKey\(player\.playerName\)\}/)
+  assert.match(playersListSectionSource, /data-player-card-content/)
+  assert.match(playersListSectionSource, /block w-full px-6 py-4/)
+  assert.match(playersListSectionSource, /sm:px-7/)
+  assert.match(playersListSectionSource, /data-player-card-name/)
   assert.match(playersListSectionSource, /data-player-profile-href=\{playerProfilePath\}/)
   assert.match(playersListSectionSource, /to=\{playerProfilePath\}/)
   assert.match(recentlyAddedPlayersSectionSource, /to=\{buildPlayerProfilePath\(player\)\}/)
