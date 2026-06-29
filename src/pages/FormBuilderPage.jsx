@@ -14,6 +14,7 @@ import {
   createDraftFromField,
   createDraftMap,
   createScoreOptions,
+  countProgressionChartFields,
   FIELD_PAGE_SIZE,
   buildReorderedFormFields,
   getFieldTypeLabel,
@@ -163,6 +164,7 @@ export function FormBuilderPage() {
   const paginatedFields = getPaginatedItems(visibleFields, fieldPage, FIELD_PAGE_SIZE)
   const canUseCustomFields = canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)
   const enabledFieldsCount = fields.filter((field) => field.isEnabled).length
+  const progressionChartFieldsCount = countProgressionChartFields(fields)
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -496,7 +498,7 @@ export function FormBuilderPage() {
               <FormMetric label="Default" value={defaultFields.length} />
               <FormMetric label="Custom" value={customFields.length} />
               <FormMetric label="Enabled" value={enabledFieldsCount} />
-              <FormMetric label="Total" value={fields.length} />
+              <FormMetric label="Graph" value={progressionChartFieldsCount} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
               {canUseCustomFields ? 'Custom development fields are available for this team.' : createUiFeatureUnavailableMessage(user, CAPABILITIES.customDevelopmentFields)}

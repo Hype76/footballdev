@@ -30,6 +30,20 @@ export function isScoreType(type) {
   return type === 'score_1_5' || type === 'score_1_10'
 }
 
+export function isGraphableDevelopmentField(fieldOrType) {
+  const type = typeof fieldOrType === 'string' ? fieldOrType : fieldOrType?.type
+
+  return isScoreType(type)
+}
+
+export function isProgressionChartField(field = {}) {
+  return Boolean(field.isEnabled) && isGraphableDevelopmentField(field) && Boolean(field.includeInProgressChart)
+}
+
+export function countProgressionChartFields(fields = []) {
+  return (Array.isArray(fields) ? fields : []).filter(isProgressionChartField).length
+}
+
 export function createScoreOptions(type) {
   const maxValue = type === 'score_1_10' ? 10 : 5
   return Array.from({ length: maxValue }, (_, index) => String(index + 1))

@@ -4,9 +4,11 @@ import { test } from 'node:test'
 
 import {
   buildReorderedFormFields,
+  countProgressionChartFields,
   FIELD_TYPE_OPTIONS,
   getFieldTypeLabel,
   getOptionsForType,
+  isGraphableDevelopmentField,
   isScoreType,
 } from '../src/hooks/form-builder/formBuilderUtils.js'
 import { isAssessmentScoreFieldType } from '../src/lib/assessment-scoring.js'
@@ -93,6 +95,45 @@ test('loading defaults has stable IDs and labels without duplicates', () => {
     defaultFields.filter((field) => fitnessLabels.includes(field.label)).map((field) => field.label),
     fitnessLabels,
   )
+})
+
+test('default development fields distinguish output fields from progression graph fields', () => {
+  const fields = getDefaultFormFields()
+  const graphableFields = fields.filter(isGraphableDevelopmentField)
+  const graphFields = fields.filter((field) => field.includeInProgressChart)
+
+  assert.deepEqual(graphableFields.map((field) => field.label), [
+    'Technical',
+    'Tactical',
+    'Physical',
+    'Mentality',
+    'Coachability',
+  ])
+  assert.deepEqual(graphFields.map((field) => field.label), graphableFields.map((field) => field.label))
+  assert.equal(countProgressionChartFields(fields), 5)
+  assert.equal(fields.some((field) => field.type === 'textarea' && field.includeInProgressChart), false)
+  assert.equal(fields.some((field) => field.type === 'number' && field.includeInProgressChart), false)
+})
+
+test('Development Fields UI exposes graph status and default score toggle path', async () => {
+  const defaultFormSource = await readFile(
+    new URL('../src/components/form-builder/DefaultFormSection.jsx', import.meta.url),
+    'utf8',
+  )
+  const currentFieldsSource = await readFile(
+    new URL('../src/components/form-builder/CurrentFieldsSection.jsx', import.meta.url),
+    'utf8',
+  )
+  const formBuilderSource = await readFile(
+    new URL('../src/pages/FormBuilderPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(defaultFormSource, /Coach and parent output/)
+  assert.match(defaultFormSource, /Progress graph/)
+  assert.match(defaultFormSource, /isGraphableDevelopmentField/)
+  assert.match(currentFieldsSource, /field\.isDefault[\s\S]*onToggleProgressionChart/)
+  assert.match(formBuilderSource, /countProgressionChartFields\(fields\)/)
 })
 
 test('reordering default fields preserves custom field relative order', () => {

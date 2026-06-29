@@ -1,7 +1,12 @@
-import { getFieldTypeLabel } from '../../hooks/form-builder/formBuilderUtils.js'
+import {
+  getFieldTypeLabel,
+  isGraphableDevelopmentField,
+} from '../../hooks/form-builder/formBuilderUtils.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const defaultFieldCardClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10'
+const graphBadgeClass = 'rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-[#047857]'
+const outputBadgeClass = 'rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-[#4b5f55]'
 const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
 
 export function DefaultFormSection({
@@ -16,7 +21,7 @@ export function DefaultFormSection({
     <SectionCard
       title="Default form"
       tourId="default-form-section"
-      description="Load the baseline football development fields, then switch off anything your coaches will not use."
+      description="Load the baseline football development fields, then choose which score fields feed progress graphs."
     >
       <div className="space-y-4">
         <div className="grid gap-3 md:grid-cols-2">
@@ -24,6 +29,12 @@ export function DefaultFormSection({
             <div key={field.id} className={defaultFieldCardClass}>
               <p className="text-sm font-black text-[#101828]">{field.label}</p>
               <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{getFieldTypeLabel(field.type)}</p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em]">
+                <span className={outputBadgeClass}>Coach and parent output</span>
+                {isGraphableDevelopmentField(field) && field.includeInProgressChart ? (
+                  <span className={graphBadgeClass}>Progress graph</span>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
