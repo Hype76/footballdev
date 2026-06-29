@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import { canManageFeedbackForms as canManageFeedbackFormsFromAuth } from '../src/lib/auth-permissions.js'
 import {
   buildFeedbackFormSnapshot,
+  canCompleteFeedbackForms,
   canManageFeedbackForms,
   getUsableFeedbackFormFields,
   normalizeFeedbackFormField,
@@ -150,6 +151,49 @@ test('evaluation payload and row keep submitted form identity for history', () =
   assert.equal(row.feedbackFormId, feedbackFormId)
   assert.equal(row.feedbackFormName, 'Match day feedback')
   assert.equal(row.feedbackFormSnapshot.fields[0].value, 'Green')
+})
+
+test('named feedback form final save payload carries staff plan context for submission recheck', () => {
+  const payload = createEvaluationPayload({
+    assessmentSessionId: '',
+    availableTeams: [{ id: teamId, name: 'U12' }],
+    averageScore: null,
+    comments: { strengths: '', improvements: '', overall: '', selectedStrengths: [] },
+    editingEvaluation: null,
+    feedbackForm: { id: feedbackFormId, name: 'Match day feedback', teamId, version: 2 },
+    feedbackFormSnapshot: null,
+    formData: {
+      coachName: 'Coach One',
+      contactType: 'parent',
+      parentContacts: [],
+      playerName: 'Ava Green',
+      section: 'Squad',
+      session: '2026-06-29',
+      team: 'U12',
+    },
+    formResponses: { Impact: 'Green' },
+    id: '',
+    normalizedContactType: 'parent',
+    parentContacts: [],
+    savedPlayers: [],
+    scores: {},
+    user: user({ role: 'coach', roleRank: 30 }),
+  })
+  const rebuiltSubmissionUser = {
+    clubId: payload.clubId,
+    activeTeamId: payload.teamId,
+    role: payload.createdByRole,
+    roleRank: payload.createdByRoleRank,
+    planKey: payload.planKey,
+    planStatus: payload.planStatus,
+    isPlanComped: payload.isPlanComped,
+  }
+
+  assert.equal(payload.createdByRole, 'coach')
+  assert.equal(payload.createdByRoleRank, 30)
+  assert.equal(payload.planKey, 'small_club')
+  assert.equal(payload.planStatus, 'active')
+  assert.equal(canCompleteFeedbackForms(rebuiltSubmissionUser), true)
 })
 
 test('named feedback forms route, navigation, and migration stay manager scoped', async () => {

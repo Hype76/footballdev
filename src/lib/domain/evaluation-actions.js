@@ -49,6 +49,7 @@ export async function createEvaluation(data) {
     planKey: data.planKey,
     planStatus: data.planStatus,
     isPlanComped: data.isPlanComped,
+    testerAccessExpiresAt: data.testerAccessExpiresAt,
     isDemoAccount: data.isDemoAccount,
   }
 
@@ -226,6 +227,7 @@ export async function updateEvaluation(id, data, clubId) {
     planKey: data.planKey,
     planStatus: data.planStatus,
     isPlanComped: data.isPlanComped,
+    testerAccessExpiresAt: data.testerAccessExpiresAt,
     activeTeamId: data.teamId,
     teamId: data.teamId,
     isDemoAccount: data.isDemoAccount,
