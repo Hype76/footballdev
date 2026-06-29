@@ -164,6 +164,33 @@ async function assertVisibleTextContaining(page, text) {
   await page.getByText(text).first().waitFor({ state: 'visible', timeout: 15000 })
 }
 
+async function assertSidebarFooterContract(page, { reportIssueExpected = true } = {}) {
+  const sidebar = page.locator('aside')
+
+  await assertNoSetupGuideTrigger(page)
+  await sidebar.getByRole('button', { name: 'Sign out' }).waitFor({ state: 'visible', timeout: 15000 })
+
+  if (reportIssueExpected) {
+    await sidebar.getByText('Report issue', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
+  }
+}
+
+async function assertNoSetupGuideTrigger(page) {
+  assert.equal(await page.getByText('Open setup guide', { exact: true }).count(), 0)
+}
+
+async function openMobileNavigation(page) {
+  const onboardingDialog = page.getByRole('dialog', { name: /Club setup|Setup/i })
+
+  if (await onboardingDialog.count() > 0) {
+    await onboardingDialog.getByRole('button', { name: 'Close' }).click()
+    await onboardingDialog.waitFor({ state: 'detached', timeout: 15000 })
+  }
+
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('button', { name: 'Close navigation' }).waitFor({ state: 'visible', timeout: 15000 })
+}
+
 async function assertSelectedOption(page, label, expectedText) {
   const value = await page.getByLabel(label).evaluate((select) => {
     const option = select.options[select.selectedIndex]
@@ -198,6 +225,7 @@ try {
     await assertVisibleText(page, 'Platform control')
     await assertVisibleText(page, 'Platform tools')
     await assertSelectedOption(page, 'Access view', 'Platform admin')
+    await assertSidebarFooterContract(page)
     await context.close()
   })
 
@@ -210,6 +238,7 @@ try {
     await assertVisibleText(page, 'Club tools')
     await assertSelectedOption(page, 'Access view', 'Club admin view')
     assert.equal(await page.getByRole('option', { name: 'Platform admin' }).count(), 0)
+    await assertSidebarFooterContract(page)
     await context.close()
   })
 
@@ -221,6 +250,7 @@ try {
     await assertVisibleText(page, 'U12 Fixture Team')
     await assertVisibleText(page, 'Team tools')
     assert.equal(await page.getByRole('option', { name: 'Platform admin' }).count(), 0)
+    await assertSidebarFooterContract(page, { reportIssueExpected: false })
     await context.close()
   })
 
@@ -231,6 +261,7 @@ try {
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
     await assertVisibleText(page, 'Family portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
+    await assertNoSetupGuideTrigger(page)
     await context.close()
   })
 
@@ -254,6 +285,7 @@ try {
     await assertVisibleText(page, 'Family portal')
     await page.getByLabel('Access view').waitFor({ state: 'detached', timeout: 15000 })
     assert.equal(await page.getByLabel('Access view').count(), 0)
+    await assertNoSetupGuideTrigger(page)
     await context.close()
   })
 
@@ -264,6 +296,7 @@ try {
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team access')
     await assertVisibleText(page, 'Club-wide view')
+    await assertSidebarFooterContract(page)
     await context.close()
   })
 
@@ -275,6 +308,17 @@ try {
     await assertVisibleTextContaining(page, 'Fixture Child')
     assert.equal(await page.getByText('Platform admin', { exact: true }).count(), 0)
     assert.equal(getPlatformProbeCount(), 0)
+    await assertNoSetupGuideTrigger(page)
+    await context.close()
+  })
+
+  await runScenario('mobile drawer omits setup guide and keeps footer actions', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    const { page } = await preparePage(context)
+    await signIn(page, 'platform.fixture@footballplayer.test')
+    await page.waitForURL('**/platform-admin', { timeout: 15000 })
+    await openMobileNavigation(page)
+    await assertSidebarFooterContract(page)
     await context.close()
   })
 } catch (error) {
