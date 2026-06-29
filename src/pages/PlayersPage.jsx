@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
@@ -9,7 +9,6 @@ import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
 import {
   PLAYER_PAGE_SIZE,
-  buildPlayerProfilePath,
   getAverageScore,
   getPlayerKey,
 } from '../hooks/players/playersPageUtils.js'
@@ -48,7 +47,6 @@ export function PlayersPage({
 }) {
   const { user } = useAuth()
   const { showToast } = useToast()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedViewFilter = searchParams.get('view') || defaultView
   const requestedSection = searchParams.get('section') || 'All'
@@ -405,7 +403,6 @@ export function PlayersPage({
         onArchivePlayer={handleArchivePlayer}
         onFilterChange={updateListFilter}
         onMovePlayerToTrial={handleMovePlayerToTrial}
-        onOpenPlayer={(player) => navigate(buildPlayerProfilePath(player))}
         onPageChange={setPlayerPage}
         onSearchChange={(nextSearchTerm) => {
           setSearchTerm(nextSearchTerm)

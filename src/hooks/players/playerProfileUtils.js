@@ -297,7 +297,16 @@ export function canUseProfilePlayerActions({ players, profilePlayers, routePlaye
 }
 
 export function getPlayerDetailsEmptyState({ profileSource, routePlayerId }) {
-  if (isSavedPlayerProfileSource(profileSource) && String(routePlayerId ?? '').trim()) {
+  if (isSavedPlayerProfileSource(profileSource) && !String(routePlayerId ?? '').trim()) {
+    return {
+      action: 'Refresh the player list and open this saved player again before changing saved details.',
+      body: 'This Squad or Trial link is missing the saved player id, so the profile will not guess by name.',
+      eyebrow: 'Saved player link',
+      title: 'Saved player link is incomplete.',
+    }
+  }
+
+  if (isSavedPlayerProfileSource(profileSource)) {
     return {
       action: 'Refresh the player list and open this player again before changing saved details.',
       body: 'This Squad or Trial link points to a saved player record that is no longer available.',
@@ -311,6 +320,41 @@ export function getPlayerDetailsEmptyState({ profileSource, routePlayerId }) {
     body: 'This profile was opened from development history. Team, parent contacts, positions, and section rules need a saved player record.',
     eyebrow: 'Profile setup',
     title: 'Saved player details are not attached yet.',
+  }
+}
+
+export function getPlayerProfileResolutionDiagnostics({
+  isLoading = false,
+  players,
+  profilePlayers,
+  profileSource,
+  routePlayerId,
+  routePlayerName,
+  shouldLoadSavedPlayerById = false,
+} = {}) {
+  const normalizedSource = normalizePlayerProfileSource(profileSource)
+  const normalizedPlayerId = String(routePlayerId ?? '').trim()
+  const isSavedSource = isSavedPlayerProfileSource(normalizedSource)
+  const resolvedPlayers = Array.isArray(profilePlayers) ? profilePlayers : []
+  const lookupRows = Array.isArray(players) ? players : []
+  const lookupMode = shouldLoadSavedPlayerById ? 'saved-player-id' : isSavedSource ? 'saved-player-missing-id' : 'player-name'
+  const missingStateBranch = resolvedPlayers.length > 0
+    ? 'resolved-saved-player'
+    : shouldLoadSavedPlayerById && isLoading
+      ? 'saved-player-id-loading'
+      : shouldLoadSavedPlayerById
+        ? 'saved-player-id-not-found'
+        : isSavedSource
+          ? 'saved-player-id-missing'
+          : 'development-history-missing-details'
+
+  return {
+    lookupMode,
+    lookupResultCount: lookupRows.length,
+    missingStateBranch,
+    playerId: normalizedPlayerId,
+    routePlayerName: String(routePlayerName ?? '').trim(),
+    source: normalizedSource,
   }
 }
 

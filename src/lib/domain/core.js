@@ -1003,9 +1003,9 @@ export async function getPlayers({ user, section, playerId, playerName, status, 
       query = query.neq('status', 'archived')
     }
 
-    if (user.activeTeamId) {
+    if (!normalizedPlayerId && user.activeTeamId) {
       query = query.eq('team_id', user.activeTeamId)
-    } else if (user.activeTeamName) {
+    } else if (!normalizedPlayerId && user.activeTeamName) {
       query = query.eq('team', user.activeTeamName)
     }
 

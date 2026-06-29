@@ -22,6 +22,7 @@ export function PlayerDetailsSection({
   editingPlayerId,
   getDirectEmailTemplateOptions,
   getSelectedDirectEmailTemplateOption,
+  isLoadingPlayerDetails = false,
   isPromotingId,
   isSavingPlayer,
   onAddParentContact,
@@ -57,7 +58,14 @@ export function PlayerDetailsSection({
       title="Player details"
       description="Edit section, team, and parent contact details here."
     >
-      {profilePlayers.length === 0 ? (
+      {isLoadingPlayerDetails ? (
+        <PlayerStatePanel
+          action="Keep this profile open while the saved player record is checked."
+          body="The profile is resolving the saved player id before showing editable team, contact, and position details."
+          eyebrow="Loading player"
+          title="Checking saved player details."
+        />
+      ) : profilePlayers.length === 0 ? (
         <PlayerStatePanel
           action={playerDetailsEmptyState.action}
           body={playerDetailsEmptyState.body}

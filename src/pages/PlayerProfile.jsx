@@ -38,6 +38,7 @@ import {
   isParentPortalInviteEligiblePlayer,
   normalizeParentPortalInviteEmail,
 } from '../lib/parent-portal-invite-actions.js'
+import { buildPlayerProfilePath } from '../hooks/players/playersPageUtils.js'
 import {
   EMAIL_SECTION_DEFAULTS,
   buildProgressionEmailSections,
@@ -64,6 +65,7 @@ import {
   getMergeFieldLabels,
   getRemainingMergeCoreSourceId,
   getPlayerDetailsEmptyState,
+  getPlayerProfileResolutionDiagnostics,
   getProfileContactDetails,
   getProfilePlayers,
   getReassignPlayerOptions,
@@ -136,7 +138,8 @@ export function PlayerProfile() {
   const routePlayerName = decodeURIComponent(id)
   const profileSource = normalizePlayerProfileSource(searchParams.get('source'))
   const routePlayerId = String(searchParams.get('playerId') ?? '').trim()
-  const shouldLoadSavedPlayerById = Boolean(routePlayerId && isSavedPlayerProfileSource(profileSource))
+  const isSavedPlayerProfileRoute = isSavedPlayerProfileSource(profileSource)
+  const shouldLoadSavedPlayerById = Boolean(routePlayerId && isSavedPlayerProfileRoute)
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const cacheKey = user
     ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}:${profileSource || 'name'}:${routePlayerId || 'no-id'}`
@@ -165,7 +168,7 @@ export function PlayerProfile() {
   const [noteDraft, setNoteDraft] = useState('')
   const [editingPlayerId, setEditingPlayerId] = useState('')
   const [playerDrafts, setPlayerDrafts] = useState({})
-  const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
+  const [isLoading, setIsLoading] = useState(() => evaluations.length === 0 || (shouldLoadSavedPlayerById && players.length === 0))
   const [isSavingPlayer, setIsSavingPlayer] = useState(false)
   const [isSavingNote, setIsSavingNote] = useState(false)
   const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
@@ -243,15 +246,17 @@ export function PlayerProfile() {
               }),
             'Could not load player history. No data entered yet, or the request took too long.',
           ),
-          withRequestTimeout(
-            () =>
-              getPlayers({
-                user,
-                playerId: shouldLoadSavedPlayerById ? routePlayerId : undefined,
-                playerName: shouldLoadSavedPlayerById ? undefined : routePlayerName,
-              }),
-            'Could not load player details.',
-          ),
+          isSavedPlayerProfileRoute && !shouldLoadSavedPlayerById
+            ? Promise.resolve([])
+            : withRequestTimeout(
+                () =>
+                  getPlayers({
+                    user,
+                    playerId: shouldLoadSavedPlayerById ? routePlayerId : undefined,
+                    playerName: isSavedPlayerProfileRoute ? undefined : routePlayerName,
+                  }),
+                'Could not load player details.',
+              ),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load player reassignment options.'),
         ])
 
@@ -435,6 +440,20 @@ export function PlayerProfile() {
     () => getPlayerDetailsEmptyState({ profileSource, routePlayerId }),
     [profileSource, routePlayerId],
   )
+  const playerProfileResolutionDiagnostics = useMemo(
+    () =>
+      getPlayerProfileResolutionDiagnostics({
+        isLoading,
+        players,
+        profilePlayers,
+        profileSource,
+        routePlayerId,
+        routePlayerName,
+        shouldLoadSavedPlayerById,
+      }),
+    [isLoading, players, profilePlayers, profileSource, routePlayerId, routePlayerName, shouldLoadSavedPlayerById],
+  )
+  const isLoadingPlayerDetails = playerProfileResolutionDiagnostics.missingStateBranch === 'saved-player-id-loading'
   const canUseSavedPlayerActions = useMemo(
     () => canUseProfilePlayerActions({ players, profilePlayers, routePlayerId: shouldLoadSavedPlayerById ? routePlayerId : '' }),
     [players, profilePlayers, routePlayerId, shouldLoadSavedPlayerById],
@@ -1411,7 +1430,7 @@ export function PlayerProfile() {
       setEditingPlayerId('')
 
       if (savedPlayer.playerName !== routePlayerName) {
-        navigate(`/player/${encodeURIComponent(savedPlayer.playerName)}`)
+        navigate(buildPlayerProfilePath(savedPlayer))
       }
       showToast({ title: 'Player saved', message: `${savedPlayer.playerName} details have been updated.` })
     } catch (error) {
@@ -1743,6 +1762,7 @@ export function PlayerProfile() {
         getDirectEmailTemplateOptions={getDirectEmailTemplateOptions}
         getSelectedDirectEmailTemplateOption={getSelectedDirectEmailTemplateOption}
         isPromotingId={isPromotingId}
+        isLoadingPlayerDetails={isLoadingPlayerDetails}
         isSavingPlayer={isSavingPlayer}
         onAddParentContact={handleAddParentContact}
         onAddPlayerPosition={handleAddPlayerPosition}

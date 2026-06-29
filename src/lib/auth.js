@@ -114,7 +114,7 @@ function FixtureAuthProviderLoader({ children }) {
   useEffect(() => {
     let isMounted = true
 
-    import(/* @vite-ignore */ '/src/lib/auth-access-browser-fixtures.js')
+    import('./auth-access-browser-fixtures.js')
       .then((module) => {
         if (isMounted) {
           setFixtureAuthProvider(() => module.FixtureAuthProvider)

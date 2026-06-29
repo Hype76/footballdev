@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { buildPlayerProfilePath } from '../../hooks/players/playersPageUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
 
 export function RecentlyAddedPlayersSection({
@@ -36,7 +37,7 @@ export function RecentlyAddedPlayersSection({
           {paginatedRecentPlayers.items.map((player) => (
             <Link
               key={player.id}
-              to={`/player/${encodeURIComponent(player.playerName)}`}
+              to={buildPlayerProfilePath(player)}
               className="group rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#101828]/5 transition hover:-translate-y-0.5 hover:border-[#047857] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#047857]"
             >
               <p className="text-base font-black text-[#101828]">{player.playerName}</p>
