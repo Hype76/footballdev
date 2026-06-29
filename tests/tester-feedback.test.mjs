@@ -232,7 +232,7 @@ async function createMultipartEvent({
 }
 
 const emailEnv = {
-  FEEDBACK_NOTIFY_TO: 'support@jeluma.com',
+  FEEDBACK_NOTIFY_TO: 'support@jelumalabs.com',
   RESEND_API_KEY: 'resend-test-key',
   RESEND_FROM_EMAIL: 'feedback@footballplayer.online',
 }
@@ -314,7 +314,7 @@ test('submitTesterFeedbackResult inserts valid signed-in feedback with server-de
   assert.equal(JSON.stringify(insertCall.payload).includes('spoofed-user'), false)
   assert.equal(JSON.stringify(insertCall.payload).includes('spoofed@example.test'), false)
   assert.equal(email.calls.length, 1)
-  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
+  assert.deepEqual(email.calls[0].payload.to, ['support@jelumalabs.com'])
   assert.match(email.calls[0].payload.subject, /Report Issue: Fixture feedback title/)
   assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), false)
 })
@@ -351,10 +351,10 @@ test('submitTesterFeedbackResult uploads a JSON screenshot to private storage an
   assert.equal(metadataUpdateCall.payload.screenshot_mime_type, 'image/png')
   assert.equal(metadataUpdateCall.payload.screenshot_uploaded_by, userId)
   assert.equal(insertCall.payload.screenshot_url, null)
-  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
+  assert.deepEqual(email.calls[0].payload.to, ['support@jelumalabs.com'])
 })
 
-test('submitTesterFeedbackResult defaults tester feedback notifications to the Jeluma support inbox', async () => {
+test('submitTesterFeedbackResult defaults tester feedback notifications to the Jeluma Labs support inbox', async () => {
   const mock = createMockSupabase()
   const email = createEmailSender()
   const response = await submitTesterFeedbackResult(createEvent(), {
@@ -371,7 +371,7 @@ test('submitTesterFeedbackResult defaults tester feedback notifications to the J
 
   assert.equal(parsed.statusCode, 200)
   assert.equal(parsed.body.success, true)
-  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
+  assert.deepEqual(email.calls[0].payload.to, ['support@jelumalabs.com'])
   assert.equal(email.calls[0].payload.to.includes('info@footballplayer.online'), false)
 })
 
@@ -384,7 +384,7 @@ test('submitTesterFeedbackResult uses FEEDBACK_NOTIFY_TO as the only configurabl
     emailSender: email.emailSender,
     env: {
       CONTACT_REQUEST_RECIPIENT: 'info@footballplayer.online',
-      FEEDBACK_NOTIFY_TO: 'support@jeluma.com',
+      FEEDBACK_NOTIFY_TO: 'support@jelumalabs.com',
       RESEND_API_KEY: 'resend-test-key',
       RESEND_FROM_EMAIL: 'feedback@footballplayer.online',
     },
@@ -394,7 +394,7 @@ test('submitTesterFeedbackResult uses FEEDBACK_NOTIFY_TO as the only configurabl
 
   assert.equal(parsed.statusCode, 200)
   assert.equal(parsed.body.success, true)
-  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
+  assert.deepEqual(email.calls[0].payload.to, ['support@jelumalabs.com'])
 })
 
 test('tester feedback compatibility wrapper uses the same submit handler recipient path', () => {

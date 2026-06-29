@@ -9,7 +9,7 @@ const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-EMAIL-RECIPIENT-06'
 const MAX_TEXT_LENGTH = 4000
 const FEEDBACK_ATTACHMENT_BUCKET = 'tester-feedback-attachments'
 const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024
-const FEEDBACK_NOTIFICATION_RECIPIENT = 'support@jeluma.com'
+const FEEDBACK_NOTIFICATION_RECIPIENT = 'support@jelumalabs.com'
 const ALLOWED_ATTACHMENT_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const ATTACHMENT_EXTENSIONS = {
   'image/png': 'png',
