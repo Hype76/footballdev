@@ -3,6 +3,7 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function ConfiguredFieldsSection({
   enabledFields,
+  emptyMessage = 'No development fields are enabled for this club. Enable fields in Development Form first.',
   isFallbackFields,
   onResponseChange,
   responseValues,
@@ -19,7 +20,7 @@ export function ConfiguredFieldsSection({
     >
       {enabledFields.length === 0 ? (
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-6 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-          No development fields are enabled for this club. Enable fields in Development Form first.
+          {emptyMessage}
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

@@ -15,6 +15,7 @@ export const ROUTE_CAPABILITIES = Object.freeze({
   '/club-settings': CAPABILITIES.basicLogoBranding,
   '/email-queue': CAPABILITIES.parentEmails,
   '/end-season-stats': CAPABILITIES.basicClubAnalytics,
+  '/feedback-forms': CAPABILITIES.customDevelopmentFields,
   '/form-builder': CAPABILITIES.customDevelopmentFields,
   '/match-day': CAPABILITIES.matchDay,
   '/parent-email-templates': CAPABILITIES.parentEmails,

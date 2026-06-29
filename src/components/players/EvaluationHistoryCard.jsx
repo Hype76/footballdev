@@ -99,6 +99,12 @@ export function EvaluationHistoryCard({
             <p className="text-lg font-black text-[#101828]">{evaluationDateLabel}</p>
             {evaluation.session ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Session: {evaluation.session}</p> : null}
             <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Section: {evaluation.section || 'Trial'}</p>
+            {evaluation.feedbackFormName ? (
+              <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
+                Form: {evaluation.feedbackFormName}
+                {evaluation.feedbackFormVersion ? ` v${evaluation.feedbackFormVersion}` : ''}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex min-h-9 items-center rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-3 py-2 text-sm font-black text-[#047857]">
@@ -302,6 +308,11 @@ export function EvaluationHistoryCard({
 
       <div className="mt-5">
         <p className={eyebrowClass}>Responses</p>
+        {evaluation.feedbackFormName ? (
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            Saved from {evaluation.feedbackFormName}{evaluation.feedbackFormVersion ? ` v${evaluation.feedbackFormVersion}` : ''}.
+          </p>
+        ) : null}
         <div className="mt-3 space-y-2">
           {responseItems.length > 0 ? (
             responseItems.map((item) => (

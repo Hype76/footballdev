@@ -84,8 +84,10 @@ import {
   EVALUATION_SECTIONS,
   PLAYER_CONTACT_TYPES,
   archivePlayer,
+  buildFeedbackFormSnapshot,
   createCommunicationLog,
   createEvaluation,
+  getActiveFeedbackForms,
   getContactTemplateAudiences,
   getEvaluations,
   getAvailableTeamsForUser,
@@ -507,6 +509,64 @@ function DevelopmentRecordCommandPanel({
   )
 }
 
+function FeedbackFormSelectionSection({
+  feedbackForms,
+  isEditingHistoricalForm,
+  isLoadingFeedbackForms,
+  onSelectFeedbackForm,
+  selectedFeedbackForm,
+  selectedFeedbackFormId,
+}) {
+  if (isEditingHistoricalForm) {
+    return (
+      <section className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-5 shadow-sm shadow-[#047857]/10 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Feedback form</p>
+        <h3 className="mt-2 text-xl font-black text-[#101828]">{selectedFeedbackForm?.name || 'Historical form snapshot'}</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+          This record is using the form snapshot saved at submission time.
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-5 shadow-sm shadow-[#047857]/10 sm:px-6">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)] lg:items-end">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Feedback form</p>
+          <h3 className="mt-2 text-xl font-black text-[#101828]">Select feedback form</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            Choose the active team form to complete for this player.
+          </p>
+        </div>
+        <label className="block">
+          <span className="mb-2 block text-sm font-black text-[#101828]">Form</span>
+          <select
+            value={selectedFeedbackFormId}
+            onChange={(event) => onSelectFeedbackForm(event.target.value)}
+            disabled={isLoadingFeedbackForms || feedbackForms.length === 0}
+            className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">
+              {isLoadingFeedbackForms ? 'Loading forms' : feedbackForms.length === 0 ? 'Default development fields' : 'Choose a form'}
+            </option>
+            {feedbackForms.map((form) => (
+              <option key={form.id} value={form.id}>
+                {form.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {!isLoadingFeedbackForms && feedbackForms.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+          No feedback forms yet. A Team Admin or Manager can create reusable forms for coaches to complete.
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
 export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
@@ -549,6 +609,9 @@ export function CreateEvaluationPage() {
     const nextCachedFields = Array.isArray(cachedFields?.dynamicFields) ? cachedFields.dynamicFields : []
     return nextCachedFields
   })
+  const [feedbackForms, setFeedbackForms] = useState([])
+  const [selectedFeedbackFormId, setSelectedFeedbackFormId] = useState('')
+  const [isLoadingFeedbackForms, setIsLoadingFeedbackForms] = useState(false)
   const [availableTeams, setAvailableTeams] = useState(() => (Array.isArray(cachedTeams) ? cachedTeams : []))
   const [savedPlayers, setSavedPlayers] = useState([])
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(false)
@@ -1410,6 +1473,58 @@ export function CreateEvaluationPage() {
   useEffect(() => {
     let isMounted = true
 
+    const loadFeedbackForms = async () => {
+      if (!user || isPlatformOwner) {
+        setFeedbackForms([])
+        setSelectedFeedbackFormId('')
+        setIsLoadingFeedbackForms(false)
+        return
+      }
+
+      setIsLoadingFeedbackForms(true)
+
+      try {
+        const forms = await withRequestTimeout(
+          () => getActiveFeedbackForms({ user }),
+          'Could not load feedback forms.',
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        setFeedbackForms(forms)
+        setSelectedFeedbackFormId((current) => {
+          if (editingEvaluation?.feedbackFormId) {
+            return String(editingEvaluation.feedbackFormId)
+          }
+
+          return forms.some((form) => String(form.id) === String(current)) ? current : ''
+        })
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setFeedbackForms([])
+          setDataRefreshNotice((current) => current || 'Feedback forms could not be loaded. The default development fields are still available.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingFeedbackForms(false)
+        }
+      }
+    }
+
+    void loadFeedbackForms()
+
+    return () => {
+      isMounted = false
+    }
+  }, [editingEvaluation?.feedbackFormId, isPlatformOwner, user, userScopeKey])
+
+  useEffect(() => {
+    let isMounted = true
+
     const loadEmailTemplates = async () => {
       if (!user?.clubId || !canUseParentEmail) {
         setEmailTemplates([])
@@ -1596,15 +1711,50 @@ export function CreateEvaluationPage() {
       return
     }
 
-    setResponseValues(mapEvaluationResponsesToFieldValues(dynamicFields, editingEvaluation.formResponses))
+    const snapshotFields = editingEvaluation.feedbackFormSnapshot?.fields
+    const fieldsForEditing = Array.isArray(snapshotFields) && snapshotFields.length > 0 ? snapshotFields : dynamicFields
+    setResponseValues(mapEvaluationResponsesToFieldValues(fieldsForEditing, editingEvaluation.formResponses))
   }, [dynamicFields, editingEvaluation])
 
-  const enabledFields = useMemo(() => dynamicFields.filter((field) => field.isEnabled), [dynamicFields])
+  const selectedFeedbackForm = useMemo(
+    () => feedbackForms.find((form) => String(form.id) === String(selectedFeedbackFormId)) || null,
+    [feedbackForms, selectedFeedbackFormId],
+  )
+  const snapshotFields = editingEvaluation?.feedbackFormSnapshot?.fields
+  const hasHistoricalFeedbackFormSnapshot = Array.isArray(snapshotFields) && snapshotFields.length > 0
+  const activeFields = useMemo(() => {
+    if (hasHistoricalFeedbackFormSnapshot) {
+      return snapshotFields
+    }
+
+    if (feedbackForms.length > 0) {
+      return selectedFeedbackForm?.fields ?? []
+    }
+
+    return dynamicFields
+  }, [dynamicFields, feedbackForms.length, hasHistoricalFeedbackFormSnapshot, selectedFeedbackForm, snapshotFields])
+
+  useEffect(() => {
+    if (editingEvaluation) {
+      return
+    }
+
+    setResponseValues((current) => {
+      const emptyValues = createEmptyResponseValues(activeFields)
+      return Object.fromEntries(Object.keys(emptyValues).map((key) => [key, current[key] ?? '']))
+    })
+  }, [activeFields, editingEvaluation])
+
+  const enabledFields = useMemo(() => activeFields.filter((field) => field.isEnabled !== false), [activeFields])
   const formResponses = useMemo(() => buildFormResponses(enabledFields, responseValues), [enabledFields, responseValues])
   const scores = useMemo(() => buildScores(formResponses, enabledFields), [enabledFields, formResponses])
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses, enabledFields), [enabledFields, formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
+  const feedbackFormSnapshot = useMemo(
+    () => buildFeedbackFormSnapshot({ form: selectedFeedbackForm, formResponses }),
+    [formResponses, selectedFeedbackForm],
+  )
   const canSubmitEvaluation = availableTeams.length > 0
   const canConfigureEmailTemplates = canManageParentEmailTemplates(user) && canUseParentEmail
   const assessmentPlayerOptions = useMemo(() => {
@@ -1990,6 +2140,8 @@ export function CreateEvaluationPage() {
       averageScore,
       comments,
       editingEvaluation,
+      feedbackForm: selectedFeedbackForm,
+      feedbackFormSnapshot,
       formData,
       formResponses,
       id,
@@ -2004,6 +2156,7 @@ export function CreateEvaluationPage() {
     availableTeams,
     comments,
     editingEvaluation,
+    feedbackFormSnapshot,
     formData,
     formResponses,
     normalizedContactType,
@@ -2011,6 +2164,7 @@ export function CreateEvaluationPage() {
     parentContacts,
     savedPlayers,
     scores,
+    selectedFeedbackForm,
     searchParams,
     user,
   ])
@@ -2240,6 +2394,11 @@ export function CreateEvaluationPage() {
     if (!String(formData.team ?? '').trim()) {
       console.error('Development record submit failed: no team selected.')
       setActionErrorMessage('Select a team before submitting the development record.')
+      return
+    }
+
+    if (!editingEvaluation && feedbackForms.length > 0 && !selectedFeedbackForm) {
+      setActionErrorMessage('Select a feedback form before submitting the development record.')
       return
     }
 
@@ -2815,9 +2974,23 @@ export function CreateEvaluationPage() {
                 previousEvaluations={previousEvaluations}
               />
 
+              <FeedbackFormSelectionSection
+                feedbackForms={feedbackForms}
+                isEditingHistoricalForm={hasHistoricalFeedbackFormSnapshot}
+                isLoadingFeedbackForms={isLoadingFeedbackForms}
+                onSelectFeedbackForm={setSelectedFeedbackFormId}
+                selectedFeedbackForm={selectedFeedbackForm || {
+                  name: editingEvaluation?.feedbackFormName,
+                }}
+                selectedFeedbackFormId={selectedFeedbackFormId}
+              />
+
               <ConfiguredFieldsSection
                 enabledFields={enabledFields}
-                isFallbackFields={isFallbackFields}
+                emptyMessage={feedbackForms.length > 0 && !selectedFeedbackForm && !hasHistoricalFeedbackFormSnapshot
+                  ? 'Select a feedback form before completing the development fields.'
+                  : 'No development fields are enabled for this club. Enable fields in Development Form first.'}
+                isFallbackFields={isFallbackFields && feedbackForms.length === 0}
                 onResponseChange={handleResponseChange}
                 responseValues={responseValues}
               />

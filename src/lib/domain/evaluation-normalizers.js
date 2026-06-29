@@ -45,6 +45,31 @@ export function normalizeFormResponses(formResponses) {
   )
 }
 
+export function normalizeFeedbackFormSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return null
+  }
+
+  const fields = Array.isArray(snapshot.fields)
+    ? snapshot.fields.map((field, index) => ({
+        id: String(field.id ?? '').trim() || `snapshot-field-${index + 1}`,
+        label: String(field.label ?? '').trim(),
+        type: String(field.type ?? 'text').trim() || 'text',
+        options: Array.isArray(field.options) ? field.options.map((option) => String(option ?? '').trim()).filter(Boolean) : [],
+        required: Boolean(field.required),
+        orderIndex: Number(field.orderIndex ?? field.order_index ?? index + 1),
+        value: field.value ?? '',
+      })).filter((field) => field.label)
+    : []
+
+  return {
+    formId: snapshot.formId ?? snapshot.form_id ?? '',
+    formName: String(snapshot.formName ?? snapshot.form_name ?? '').trim(),
+    formVersion: Number(snapshot.formVersion ?? snapshot.form_version ?? 1) || 1,
+    fields,
+  }
+}
+
 export function buildLegacyFormResponses(row) {
   const legacyResponses = {}
   const scores = row?.scores && typeof row.scores === 'object' && !Array.isArray(row.scores) ? row.scores : {}
@@ -153,6 +178,10 @@ export function normalizeEvaluationRow(row) {
     reviewedAt: row.reviewed_at ?? row.reviewedAt ?? '',
     createdAt: Number.isNaN(createdAtValue) ? Date.now() : createdAtValue,
     formResponses,
+    feedbackFormId: row.feedback_form_id ?? row.feedbackFormId ?? '',
+    feedbackFormName: String(row.feedback_form_name ?? row.feedbackFormName ?? '').trim(),
+    feedbackFormVersion: row.feedback_form_version ?? row.feedbackFormVersion ?? null,
+    feedbackFormSnapshot: normalizeFeedbackFormSnapshot(row.feedback_form_snapshot ?? row.feedbackFormSnapshot),
   }
 }
 
@@ -213,6 +242,10 @@ export function mapEvaluationToRow(data) {
     average_score: data.averageScore,
     comments: data.comments,
     form_responses: data.formResponses,
+    feedback_form_id: data.feedbackFormId || null,
+    feedback_form_name: data.feedbackFormName || null,
+    feedback_form_version: data.feedbackFormVersion || null,
+    feedback_form_snapshot: data.feedbackFormSnapshot || {},
     decision: normalizedDecision,
     status: data.status,
     rejection_reason: data.rejectionReason || null,

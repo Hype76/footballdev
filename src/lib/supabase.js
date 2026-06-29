@@ -45,6 +45,24 @@ export {
 } from './domain/form-fields.js'
 
 export {
+  archiveFeedbackForm,
+  buildFeedbackFormSnapshot,
+  canCompleteFeedbackForms,
+  canManageFeedbackForms,
+  createFeedbackForm,
+  duplicateFeedbackForm,
+  FEEDBACK_FORM_FIELD_TYPES,
+  getActiveFeedbackFormForSubmission,
+  getActiveFeedbackForms,
+  getFeedbackForms,
+  getUsableFeedbackFormFields,
+  normalizeFeedbackFormField,
+  normalizeFeedbackFormRow,
+  updateFeedbackForm,
+  validateFeedbackFormDraft,
+} from './domain/feedback-forms.js'
+
+export {
   getDefaultClubParentEmailTemplates,
   getParentEmailTemplates,
   upsertParentEmailTemplate,

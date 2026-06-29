@@ -6,6 +6,7 @@ import {
   canCreateEvaluation,
   canManageClubSettings,
   canManageEmailQueue,
+  canManageFeedbackForms,
   canManageFormFields,
   canManageMatchDay,
   canManageParentEmailTemplates,
@@ -30,7 +31,7 @@ import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability 
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/parent-linking', '/email-queue', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/feedback-forms', '/parent-linking', '/email-queue', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',
@@ -40,6 +41,7 @@ const navIcons = {
   '/billing': 'card',
   '/club-settings': 'shield',
   '/email-queue': 'mail',
+  '/feedback-forms': 'template',
   '/end-season-stats': 'chart',
   '/form-builder': 'fields',
   '/calendar': 'calendar',
@@ -342,6 +344,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/form-builder') {
       return canManageFormFields(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.customDevelopmentFields)
+    }
+
+    if (item.path === '/feedback-forms') {
+      return canManageFeedbackForms(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.customDevelopmentFields)
     }
 
     if (item.path === '/parent-email-templates') {

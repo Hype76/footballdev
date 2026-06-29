@@ -1,5 +1,6 @@
 import {
   canCreateEvaluation,
+  canManageFeedbackForms,
   canManageFormFields,
   canManageParentEmailTemplates,
   canManageTeamSettings,
@@ -61,6 +62,10 @@ export function getRoleQuickLinks(user) {
 
   if (canManageFormFields(user) && canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
     pushVisibleLink(links, user, { label: 'Development Fields', path: '/form-builder' })
+  }
+
+  if (canManageFeedbackForms(user) && canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
+    pushVisibleLink(links, user, { label: 'Feedback Forms', path: '/feedback-forms' })
   }
 
   if (canManageParentEmailTemplates(user) && canUseUiFeature(user, CAPABILITIES.parentEmails)) {

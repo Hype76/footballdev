@@ -6,6 +6,7 @@ import {
   canCreateEvaluation,
   canManageClubSettings,
   canManageEmailQueue,
+  canManageFeedbackForms,
   canManageFormFields,
   canManageMatchDay,
   canManageParentEmailTemplates,
@@ -67,6 +68,7 @@ const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.j
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const EndSeasonStatsPage = lazyRoute(() => import('../pages/EndSeasonStatsPage.jsx'), 'EndSeasonStatsPage')
 const EmailQueuePage = lazyRoute(() => import('../pages/EmailQueuePage.jsx'), 'EmailQueuePage')
+const FeedbackFormsPage = lazyRoute(() => import('../pages/FeedbackFormsPage.jsx'), 'FeedbackFormsPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
@@ -402,6 +404,21 @@ function FormBuilderUnavailableState() {
       eyebrow="Development fields"
       title="Development fields are managed from team-level access."
       message="Choose a team-level coach, manager, or team admin account to manage custom development fields for that team."
+      actions={(
+        <a href="/coach" className={secondaryActionClassName}>
+          Return to workspace
+        </a>
+      )}
+    />
+  )
+}
+
+function FeedbackFormsUnavailableState() {
+  return (
+    <RouteGateState
+      eyebrow="Feedback forms"
+      title="Feedback forms are managed by Managers and Team Admins."
+      message="Coaches can complete active feedback forms, but reusable form structure is managed by the team leads."
       actions={(
         <a href="/coach" className={secondaryActionClassName}>
           Return to workspace
@@ -1015,6 +1032,28 @@ function RequireFormBuilderAccess() {
 
   if (!canManageFormFields(user)) {
     return <FormBuilderUnavailableState />
+  }
+
+  if (!canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.customDevelopmentFields} user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireFeedbackFormsAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!isRecoveryModuleVisible('formBuilder', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
+  if (!canManageFeedbackForms(user)) {
+    return <FeedbackFormsUnavailableState />
   }
 
   if (!canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
@@ -1813,6 +1852,22 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'User Access',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireFeedbackFormsAccess />,
+            children: [
+              {
+                path: 'feedback-forms',
+                element: (
+                  <PageSuspense>
+                    <FeedbackFormsPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Feedback Forms',
                 },
               },
             ],

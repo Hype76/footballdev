@@ -25,7 +25,34 @@ function createScoreOptions(fieldType) {
 
 function getFieldSelectOptions(field) {
   if (field.type === 'select') {
-    return field.options
+    return (field.options ?? []).map((option) => {
+      if (option && typeof option === 'object') {
+        return {
+          value: String(option.value ?? option.label ?? '').trim(),
+          label: String(option.label ?? option.value ?? '').trim(),
+        }
+      }
+
+      return {
+        value: String(option ?? '').trim(),
+        label: String(option ?? '').trim(),
+      }
+    }).filter((option) => option.value)
+  }
+
+  if (field.type === 'yes_no') {
+    return [
+      { value: 'Yes', label: 'Yes' },
+      { value: 'No', label: 'No' },
+    ]
+  }
+
+  if (field.type === 'traffic_light') {
+    return [
+      { value: 'Green', label: 'Green' },
+      { value: 'Amber', label: 'Amber' },
+      { value: 'Red', label: 'Red' },
+    ]
   }
 
   if (isScoreFieldType(field.type)) {
@@ -80,9 +107,16 @@ export function EvaluationFieldInput({ field, value, onChange }) {
     )
   }
 
-  if (field.type === 'select' || isScoreFieldType(field.type)) {
+  if (field.type === 'select' || field.type === 'yes_no' || field.type === 'traffic_light' || isScoreFieldType(field.type)) {
     const options = getFieldSelectOptions(field)
     const isScoreField = isScoreFieldType(field.type)
+    const placeholder = field.type === 'yes_no'
+      ? 'Select yes or no'
+      : field.type === 'traffic_light'
+        ? 'Select traffic light'
+        : isScoreField
+          ? 'Select score'
+          : 'Select option'
 
     return (
       <div className={isScoreField ? 'flex items-start gap-2' : ''}>
@@ -92,7 +126,7 @@ export function EvaluationFieldInput({ field, value, onChange }) {
           required={field.required}
           className={sharedClassName}
         >
-          <option value="">{isScoreField ? 'Select score' : 'Select option'}</option>
+          <option value="">{placeholder}</option>
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}

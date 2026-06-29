@@ -25,7 +25,7 @@ export function isNetworkError(error) {
 
 export function mapEvaluationResponsesToFieldValues(fields, formResponses = {}) {
   return Object.fromEntries(
-    fields.map((field) => [field.id, formResponses[field.label] ?? '']),
+    fields.map((field) => [field.id, field.value ?? formResponses[field.label] ?? '']),
   )
 }
 
@@ -395,6 +395,8 @@ export function createEvaluationPayload({
   averageScore,
   comments,
   editingEvaluation,
+  feedbackForm,
+  feedbackFormSnapshot,
   formData,
   formResponses,
   id,
@@ -442,6 +444,10 @@ export function createEvaluationPayload({
     averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
     comments,
     formResponses,
+    feedbackFormId: feedbackForm?.id || feedbackFormSnapshot?.formId || editingEvaluation?.feedbackFormId || '',
+    feedbackFormName: feedbackForm?.name || feedbackFormSnapshot?.formName || editingEvaluation?.feedbackFormName || '',
+    feedbackFormVersion: feedbackForm?.version || feedbackFormSnapshot?.formVersion || editingEvaluation?.feedbackFormVersion || null,
+    feedbackFormSnapshot: feedbackFormSnapshot || editingEvaluation?.feedbackFormSnapshot || null,
     decision: editingEvaluation?.decision || '',
     status: editingEvaluation?.status || 'Submitted',
     createdAt: editingEvaluation?.createdAt || new Date().toISOString(),

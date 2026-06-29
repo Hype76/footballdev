@@ -77,7 +77,7 @@ export function normalizeRoleRank(value, roleKey) {
 
 export function normalizeFieldType(value) {
   const normalizedValue = String(value ?? '').trim().toLowerCase()
-  const allowedTypes = ['text', 'textarea', 'number', 'select', 'score_1_5', 'score_1_10']
+  const allowedTypes = ['text', 'textarea', 'number', 'select', 'score_1_5', 'score_1_10', 'yes_no', 'traffic_light']
 
   return allowedTypes.includes(normalizedValue) ? normalizedValue : 'text'
 }

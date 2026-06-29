@@ -21,6 +21,10 @@ import {
   normalizeEvaluationRow,
 } from './evaluation-normalizers.js'
 import {
+  buildFeedbackFormSnapshot,
+  getActiveFeedbackFormForSubmission,
+} from './feedback-forms.js'
+import {
   CAPABILITIES,
 } from '../paywall-access.js'
 import {
@@ -89,6 +93,29 @@ export async function createEvaluation(data) {
     featureName: CAPABILITIES.assessments,
   })
 
+  let feedbackFormPayload = {}
+  if (data.feedbackFormId) {
+    const selectedForm = await getActiveFeedbackFormForSubmission({
+      formId: data.feedbackFormId,
+      user: {
+        ...evaluationUser,
+        activeTeamId: linkedTeamId || data.teamId,
+        teamId: linkedTeamId || data.teamId,
+      },
+    })
+    const feedbackFormSnapshot = buildFeedbackFormSnapshot({
+      form: selectedForm,
+      formResponses: data.formResponses,
+    })
+
+    feedbackFormPayload = {
+      feedbackFormId: selectedForm.id,
+      feedbackFormName: selectedForm.name,
+      feedbackFormVersion: selectedForm.version,
+      feedbackFormSnapshot,
+    }
+  }
+
   if (data.clubId && data.playerName && data.section) {
     await assertPlayerLimitForUpsert({
       user: evaluationUser,
@@ -144,6 +171,7 @@ export async function createEvaluation(data) {
 
   const payload = mapEvaluationToRow({
     ...data,
+    ...feedbackFormPayload,
     playerId: linkedPlayerId,
     teamId: linkedTeamId,
     updatedBy: data.updatedBy || data.coachId,
@@ -179,6 +207,8 @@ export async function createEvaluation(data) {
       playerName: data.playerName,
       section: data.section,
       team: data.team,
+      feedbackFormId: feedbackFormPayload.feedbackFormId || null,
+      feedbackFormName: feedbackFormPayload.feedbackFormName || '',
     },
   })
 

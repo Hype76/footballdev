@@ -1,10 +1,12 @@
 export const FIELD_TYPE_OPTIONS = [
-  { value: 'score_1_5', label: 'Score 1 to 5' },
   { value: 'score_1_10', label: 'Score 1 to 10' },
+  { value: 'text', label: 'Short text' },
+  { value: 'textarea', label: 'Long text' },
+  { value: 'yes_no', label: 'Yes / No' },
+  { value: 'select', label: 'Dropdown' },
+  { value: 'traffic_light', label: 'Traffic light' },
+  { value: 'score_1_5', label: 'Score 1 to 5' },
   { value: 'number', label: 'Number' },
-  { value: 'text', label: 'Text' },
-  { value: 'textarea', label: 'Textarea' },
-  { value: 'select', label: 'Select' },
 ]
 
 export const initialFieldForm = {
@@ -36,6 +38,14 @@ export function createScoreOptions(type) {
 export function getOptionsForType(type, optionsText) {
   if (isScoreType(type)) {
     return createScoreOptions(type)
+  }
+
+  if (type === 'yes_no') {
+    return ['Yes', 'No']
+  }
+
+  if (type === 'traffic_light') {
+    return ['Green', 'Amber', 'Red']
   }
 
   if (type === 'select') {

@@ -94,7 +94,7 @@ export function getRecoveryModuleForPath(path) {
     return 'platformFeedback'
   }
 
-  if (normalizedPath === '/form-builder') {
+  if (normalizedPath === '/form-builder' || normalizedPath === '/feedback-forms') {
     return 'formBuilder'
   }
 

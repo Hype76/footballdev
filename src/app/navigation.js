@@ -20,6 +20,11 @@ export const primaryNavigation = [
     helper: 'Record setup',
   },
   {
+    label: 'Feedback Forms',
+    path: '/feedback-forms',
+    helper: 'Named templates',
+  },
+  {
     label: 'Messages',
     path: '/email-queue',
     helper: 'Parent email queue',

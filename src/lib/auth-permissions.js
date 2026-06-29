@@ -135,6 +135,16 @@ export function canManageFormFields(user) {
     && Boolean(user?.activeTeamId)
 }
 
+export function canManageFeedbackForms(user) {
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && !isClubAdmin(user)
+    && isPlanAccessActive(user)
+    && Number(user?.roleRank ?? 0) >= 50
+    && Boolean(user?.activeTeamId)
+}
+
 export function canManageParentEmailTemplates(user) {
   return Boolean(user?.clubId) && !isSuperAdmin(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
 }
