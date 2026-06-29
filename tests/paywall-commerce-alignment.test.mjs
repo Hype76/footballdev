@@ -87,7 +87,7 @@ test('public pricing copy keeps Free preview-only and Single Team complete', () 
   assert.ok(largeClubPlan.features.includes('Integrations where available'))
 })
 
-test('checkout rejects unknown, Free, Large, and unconfigured Development Club plans', async () => {
+test('checkout rejects unknown, Free, Pilot, Large, and unconfigured Development Club plans', async () => {
   await withCheckoutEnv(async () => {
     const unknown = await createCheckoutSession(checkoutEvent({ planKey: 'future_enterprise_plus', billingCycle: 'monthly' }))
     assert.equal(unknown.statusCode, 400)
@@ -100,6 +100,10 @@ test('checkout rejects unknown, Free, Large, and unconfigured Development Club p
     const large = await createCheckoutSession(checkoutEvent({ planKey: PLAN_KEYS.largeClub, billingCycle: 'monthly' }))
     assert.equal(large.statusCode, 400)
     assert.match(JSON.parse(large.body).message, /not available for self-service checkout/)
+
+    const pilot = await createCheckoutSession(checkoutEvent({ planKey: PLAN_KEYS.pilot, billingCycle: 'monthly' }))
+    assert.equal(pilot.statusCode, 400)
+    assert.match(JSON.parse(pilot.body).message, /not available for self-service checkout/)
 
     const development = await createCheckoutSession(checkoutEvent({ planKey: PLAN_KEYS.developmentClub, billingCycle: 'monthly' }))
     assert.equal(development.statusCode, 400)
@@ -126,6 +130,7 @@ test('Stripe price mapping supports Development Club and fails closed for unknow
       planKey: '',
       billingCycle: '',
     })
+    assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.pilot), false)
   } finally {
     if (previousMonthly === undefined) {
       delete process.env.VITE_STRIPE_DEVELOPMENT_CLUB_MONTHLY_PRICE_ID

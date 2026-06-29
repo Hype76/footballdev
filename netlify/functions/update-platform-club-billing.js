@@ -170,7 +170,9 @@ export async function handler(event) {
     const nextPlanStatus = hasRequestedPlanStatus
       ? normalizePlanStatus(body.planStatus || 'active')
       : normalizePlanStatus(currentClub.plan_status || 'active')
-    const nextIsPlanComped = hasRequestedIsPlanComped ? Boolean(body.isPlanComped) : Boolean(currentClub.is_plan_comped)
+    const nextIsPlanComped = nextPlanKey === 'pilot'
+      ? true
+      : hasRequestedIsPlanComped ? Boolean(body.isPlanComped) : Boolean(currentClub.is_plan_comped)
     const shouldUpdateBilling = hasRequestedPlanKey || hasRequestedPlanStatus || hasRequestedIsPlanComped
     const shouldChangePause = shouldUpdateBilling && Boolean(currentClub.is_plan_comped) !== nextIsPlanComped
     const pauseResult = shouldChangePause

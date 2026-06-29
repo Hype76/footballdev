@@ -28,6 +28,15 @@ test('team allowance override controls the effective team limit without changing
   assert.equal(getPlanLimit({ ...largeClub, teamAllowanceOverride: '30' }, 'teams'), 30)
   assert.equal(getPlanLimit({ ...largeClub, teamLimitOverride: '' }, 'teams'), 10)
   assert.equal(getPlanLimit({ planKey: PLAN_KEYS.smallClub, planStatus: 'active', teamLimitOverride: 8 }, 'teams'), 8)
+
+  const pilot = {
+    planKey: PLAN_KEYS.pilot,
+    planStatus: 'active',
+  }
+
+  assert.equal(getPlanDefaultLimit(pilot, 'teams'), 10)
+  assert.equal(getPlanLimit(pilot, 'teams'), 10)
+  assert.equal(getPlanLimit({ ...pilot, teamLimitOverride: 18 }, 'teams'), 18)
 })
 
 test('team allowance override validation rejects unsafe values and keeps blank as plan default', () => {

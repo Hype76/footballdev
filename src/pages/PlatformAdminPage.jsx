@@ -493,7 +493,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setNewClubForm((current) => ({
       ...current,
       [fieldName]: value,
-      ...(fieldName === 'billingMode' && value === 'paid' && current.planKey === 'individual'
+      ...(fieldName === 'billingMode' && value === 'paid' && ['individual', 'pilot'].includes(current.planKey)
         ? { planKey: 'single_team' }
         : {}),
     }))

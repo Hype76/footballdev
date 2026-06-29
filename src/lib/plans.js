@@ -12,6 +12,7 @@ export const PLAN_KEYS = {
   smallClub: 'small_club',
   developmentClub: 'development_club',
   largeClub: 'large_club',
+  pilot: 'pilot',
 }
 
 export const PLAN_PURCHASE_MODES = {
@@ -53,6 +54,7 @@ export const PLAN_KEY_ALIASES = Object.freeze({
   large_club: PLAN_KEYS.largeClub,
   largeclub: PLAN_KEYS.largeClub,
   negotiated: PLAN_KEYS.largeClub,
+  pilot: PLAN_KEYS.pilot,
 })
 
 const PLAN_FEATURES_NONE = getFeatureFlagMapForPlan(PLAN_KEYS.individual)
@@ -60,6 +62,7 @@ const PLAN_FEATURES_SINGLE_TEAM = getFeatureFlagMapForPlan(PLAN_KEYS.singleTeam)
 const PLAN_FEATURES_SMALL_CLUB = getFeatureFlagMapForPlan(PLAN_KEYS.smallClub)
 const PLAN_FEATURES_DEVELOPMENT_CLUB = getFeatureFlagMapForPlan(PLAN_KEYS.developmentClub)
 const PLAN_FEATURES_LARGE_CLUB = getFeatureFlagMapForPlan(PLAN_KEYS.largeClub)
+const PLAN_FEATURES_PILOT = getFeatureFlagMapForPlan(PLAN_KEYS.pilot)
 
 const UNKNOWN_PLAN = Object.freeze({
   key: '',
@@ -191,11 +194,57 @@ export const PLAN_OPTIONS = [
     legacyAliases: ['Large Club', 'large_club', 'Contact', 'Contact sales'],
     safeDefaultBehavior: 'negotiated_plan_requires_explicit_key',
   },
+  {
+    key: PLAN_KEYS.pilot,
+    name: 'Pilot',
+    displayName: 'Pilot',
+    headlineMonthlyPrice: 'GBP 0',
+    price: 'GBP 0',
+    isFree: true,
+    isPaid: false,
+    requiresPayment: false,
+    purchaseMode: PLAN_PURCHASE_MODES.none,
+    state: PLAN_STATES.active,
+    isDeprecated: false,
+    isPublic: false,
+    isInternal: true,
+    mirrorsPlanKey: PLAN_KEYS.largeClub,
+    limits: {
+      teams: null,
+      staffLogins: null,
+      players: null,
+      monthlyEvaluations: null,
+    },
+    features: PLAN_FEATURES_PILOT,
+    legacyAliases: ['Pilot', 'pilot'],
+    safeDefaultBehavior: 'internal_comped_top_tier_access_without_checkout',
+  },
 ]
 
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
 export const PLAN_KEY_SET = new Set(PLAN_OPTIONS.map((plan) => plan.key))
 export const TEAM_LIMIT_OVERRIDE_MAX = 500
+export const PUBLIC_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => plan.isPublic !== false))
+export const INTERNAL_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => plan.isInternal === true))
+
+export function getPublicPlanOptions() {
+  return PUBLIC_PLAN_OPTIONS
+}
+
+export function isPublicPlanKey(value) {
+  const planKey = normalizePlanKey(value)
+  return Boolean(planKey && PLAN_BY_KEY[planKey]?.isPublic !== false)
+}
+
+export function isInternalPlanKey(value) {
+  const planKey = normalizePlanKey(value)
+  return Boolean(planKey && PLAN_BY_KEY[planKey]?.isInternal === true)
+}
+
+export function isPlanPaymentRequired(value) {
+  const plan = getPlan(value)
+  return plan.requiresPayment !== false && plan.isPaid === true
+}
 
 const NEGOTIATED_LIMIT_ALIASES = Object.freeze({
   teams: ['teams', 'teamLimit', 'team_limit', 'teamsLimit', 'teams_limit', 'maxTeams', 'max_teams'],
@@ -276,6 +325,10 @@ export function isPlanAccessActive(value) {
 
   if (!planKey) {
     return false
+  }
+
+  if (getPlan({ planKey }).requiresPayment === false) {
+    return true
   }
 
   if (isPlanComped(value)) {
@@ -445,7 +498,7 @@ function getNegotiatedLimitOverride(user, limitName) {
 export function getPlanDefaultLimit(user, limitName) {
   const planKey = getPlanKey(user)
 
-  if (planKey === PLAN_KEYS.largeClub && limitName === 'teams') {
+  if ((planKey === PLAN_KEYS.largeClub || planKey === PLAN_KEYS.pilot) && limitName === 'teams') {
     return PLAN_BY_KEY[PLAN_KEYS.developmentClub].limits.teams
   }
 
@@ -513,7 +566,7 @@ export function getPlanLimit(user, limitName) {
     }
   }
 
-  if (planKey === PLAN_KEYS.largeClub) {
+  if (planKey === PLAN_KEYS.largeClub || planKey === PLAN_KEYS.pilot) {
     if (limitName !== 'teams') {
       const negotiatedOverride = getNegotiatedLimitOverride(user, limitName)
 
@@ -602,9 +655,10 @@ function isLimitUpgrade(currentLimit, candidateLimit) {
 export function getUpgradePlanForLimit(limitName, planOrUser = null) {
   const currentPlanKey = planOrUser ? getPlanKey(planOrUser) : PLAN_KEYS.individual
   const currentLimit = PLAN_BY_KEY[currentPlanKey]?.limits?.[limitName] ?? 0
-  const currentIndex = PLAN_OPTIONS.findIndex((plan) => plan.key === currentPlanKey)
+  const visiblePlanOptions = getPublicPlanOptions()
+  const currentIndex = visiblePlanOptions.findIndex((plan) => plan.key === currentPlanKey)
   const searchStartIndex = currentIndex >= 0 ? currentIndex + 1 : 0
-  const matchedPlan = PLAN_OPTIONS
+  const matchedPlan = visiblePlanOptions
     .slice(searchStartIndex)
     .find((plan) => isLimitUpgrade(currentLimit, plan.limits[limitName]))
 

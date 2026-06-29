@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './lib/_supabase.js'
 import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
 import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
-import { normalizePlanKey, PLAN_KEYS, PLAN_KEY_SET } from '../../src/lib/plans.js'
+import { isPublicPlanKey, normalizePlanKey, PLAN_KEYS, PLAN_KEY_SET } from '../../src/lib/plans.js'
 
 const USER_PROFILE_SELECT = [
   'id',
@@ -30,7 +30,7 @@ const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_a
 const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
 const FREE_PLAN_KEY = PLAN_KEYS.individual
 const TEST_SIGNUP_PLAN_KEY = PLAN_KEYS.smallClub
-const TEST_SIGNUP_PLAN_KEYS = PLAN_KEY_SET
+const TEST_SIGNUP_PLAN_KEYS = new Set([...PLAN_KEY_SET].filter((planKey) => isPublicPlanKey(planKey)))
 const ORPHAN_STAGING_ACCOUNT_MESSAGE = 'This staging account is not linked to an active test workspace. Ask the platform admin for a fresh test invite or create a new staging test account.'
 const TEAM_MANAGER_ROLE = {
   role: 'head_manager',

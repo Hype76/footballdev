@@ -13,6 +13,7 @@ import {
   ACCESS_PLAN_KEYS,
   CAPABILITY_REGISTRY,
   PLAN_ORDER,
+  TOP_TIER_PLAN_KEY,
   isCapabilityIncludedForPlan,
 } from '../src/lib/paywall-capabilities.js'
 import {
@@ -45,6 +46,7 @@ test('capability registry covers every capability and maps approved tier ownersh
     PLAN_KEYS.developmentClub,
     PLAN_KEYS.largeClub,
   ])
+  assert.equal(TOP_TIER_PLAN_KEY, PLAN_KEYS.largeClub)
 
   for (const capabilityDefinition of Object.values(CAPABILITY_REGISTRY)) {
     assert.equal(capabilityDefinition.key in CAPABILITIES || Object.values(CAPABILITIES).includes(capabilityDefinition.key), true)
@@ -55,6 +57,12 @@ test('capability registry covers every capability and maps approved tier ownersh
         capabilityDefinition.includedPlans.includes(planKey),
       )
     }
+
+    assert.equal(
+      isCapabilityIncludedForPlan(PLAN_KEYS.pilot, capabilityDefinition.key),
+      isCapabilityIncludedForPlan(PLAN_KEYS.largeClub, capabilityDefinition.key),
+      capabilityDefinition.key,
+    )
   }
 
   const placementCases = [
@@ -167,6 +175,10 @@ test('approved tier transitions and setup-gated Large Club integrations are expl
 
   assert.equal(canUseFeature(context(PLAN_KEYS.largeClub), CAPABILITIES.nativeAppEntitlement), false)
   assert.equal(getFeatureAccess(context(PLAN_KEYS.largeClub), CAPABILITIES.nativeAppEntitlement).reason, 'readiness:hidden')
+
+  assert.equal(canUseFeature(context(PLAN_KEYS.pilot, { planStatus: 'past_due' }), CAPABILITIES.agreedServiceTerms), true)
+  assert.equal(canUseFeature(context(PLAN_KEYS.pilot), CAPABILITIES.integrations), false)
+  assert.equal(canUseFeature(context(PLAN_KEYS.pilot, { integrationsConfigured: true }), CAPABILITIES.integrations), true)
 })
 
 test('numeric limits and upgrade targets come from central configuration', () => {
@@ -179,6 +191,7 @@ test('numeric limits and upgrade targets come from central configuration', () =>
     [PLAN_KEYS.smallClub, 'teams', 5],
     [PLAN_KEYS.developmentClub, 'teams', 10],
     [PLAN_KEYS.largeClub, 'teams', 10],
+    [PLAN_KEYS.pilot, 'teams', 10],
   ]
 
   for (const [planKey, limitName, expectedLimit] of limitCases) {
@@ -190,6 +203,7 @@ test('numeric limits and upgrade targets come from central configuration', () =>
   assert.equal(getLimitAccess(context(PLAN_KEYS.singleTeam), 'unknownLimit').known, false)
   assert.equal(getAccessPlanLimit(context(PLAN_KEYS.largeClub, { negotiatedLimits: { teams: 25 } }), 'teams'), 25)
   assert.equal(getAccessPlanLimit(context(PLAN_KEYS.largeClub, { maxTeams: 30 }), 'teams'), 30)
+  assert.equal(getAccessPlanLimit(context(PLAN_KEYS.pilot, { teamLimitOverride: 18 }), 'teams'), 18)
 
   assert.equal(getUpgradePlanForLimit('teams', context(PLAN_KEYS.singleTeam)), 'Small Club')
   assert.equal(getUpgradePlanForLimit('teams', context(PLAN_KEYS.smallClub)), 'Development Club')

@@ -386,6 +386,10 @@ export async function createPlatformClubResult(event, {
     return failureResponse(400, 'Paid club setup needs a paid club plan.')
   }
 
+  if (billingMode === 'paid' && planKey === 'pilot') {
+    return failureResponse(400, 'Pilot workspaces must use unpaid billing access.')
+  }
+
   const deliveryPolicy = resolveInviteDeliveryPolicy(event, { stagingRequestImpl })
 
   if (deliveryPolicy.status === 'error') {
@@ -416,7 +420,7 @@ export async function createPlatformClubResult(event, {
       contact_phone: contactPhone,
       plan_key: planKey,
       plan_status: billingMode === 'paid' ? 'past_due' : 'active',
-      is_plan_comped: billingMode === 'unpaid',
+      is_plan_comped: billingMode === 'unpaid' || planKey === 'pilot',
       status: 'active',
       plan_updated_at: now,
     })

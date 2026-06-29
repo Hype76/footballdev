@@ -71,6 +71,10 @@ function isPaymentValid(accessContext, capabilityDefinition) {
     return true
   }
 
+  if (accessContext.plan?.requiresPayment === false) {
+    return true
+  }
+
   if (accessContext.isPlanComped) {
     return true
   }

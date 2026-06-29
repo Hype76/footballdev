@@ -7,8 +7,10 @@ import {
   getPlanKey,
   getPlanLimit,
   getPlanName,
+  getPublicPlanOptions,
   hasPlanFeature,
   isPlanAccessActive,
+  isPlanPaymentRequired,
   normalizePlanKey,
   PLAN_KEYS,
   PLAN_OPTIONS,
@@ -22,6 +24,7 @@ const canonicalPlans = [
   [PLAN_KEYS.smallClub, 'Small Club', 'GBP 34.99/month'],
   [PLAN_KEYS.developmentClub, 'Development Club', 'GBP 59.99/month'],
   [PLAN_KEYS.largeClub, 'Large Club', 'GBP 99.99+/month'],
+  [PLAN_KEYS.pilot, 'Pilot', 'GBP 0'],
 ]
 
 test('canonical plan registry exposes all approved plan definitions', () => {
@@ -57,6 +60,8 @@ test('plan aliases normalize through the explicit compatibility map', () => {
     ['large_club', PLAN_KEYS.largeClub],
     ['Large Club', PLAN_KEYS.largeClub],
     ['contact sales', PLAN_KEYS.largeClub],
+    ['pilot', PLAN_KEYS.pilot],
+    ['Pilot', PLAN_KEYS.pilot],
   ]
 
   for (const [input, expected] of cases) {
@@ -117,6 +122,10 @@ test('active paid plans retain current feature visibility without broad fallback
     planKey: PLAN_KEYS.largeClub,
     planStatus: 'active',
   }
+  const pilotUser = {
+    planKey: PLAN_KEYS.pilot,
+    planStatus: 'active',
+  }
 
   assert.equal(hasPlanFeature(singleTeamUser, 'parentEmail'), true)
   assert.equal(hasPlanFeature(singleTeamUser, 'auditLogs'), false)
@@ -136,6 +145,21 @@ test('active paid plans retain current feature visibility without broad fallback
   assert.equal(hasPlanFeature(largeClubUser, 'auditLogs'), true)
   assert.equal(getPlanLimit(largeClubUser, 'teams'), 10)
   assert.equal(getPlanLimit({ ...largeClubUser, negotiatedLimits: { teams: 24 } }, 'teams'), 24)
+
+  assert.equal(getPlanName(pilotUser), 'Pilot')
+  assert.equal(hasPlanFeature(pilotUser, 'auditLogs'), true)
+  assert.equal(hasPlanFeature(pilotUser, 'approvalWorkflow'), true)
+  assert.equal(getPlanLimit(pilotUser, 'teams'), 10)
+  assert.equal(getPlanLimit({ ...pilotUser, teamLimitOverride: 16 }, 'teams'), 16)
+  assert.equal(getPlanLimit({ ...pilotUser, negotiatedLimits: { teams: 24 } }, 'teams'), 24)
+  assert.equal(isPlanPaymentRequired(pilotUser), false)
+  assert.equal(isPlanAccessActive({ planKey: PLAN_KEYS.pilot, planStatus: 'past_due' }), true)
+  assert.deepEqual(getPlan(PLAN_KEYS.pilot).features, getPlan(PLAN_KEYS.largeClub).features)
+})
+
+test('Pilot is an internal plan and is absent from public plan helpers', () => {
+  assert.equal(PLAN_OPTIONS.some((plan) => plan.key === PLAN_KEYS.pilot), true)
+  assert.equal(getPublicPlanOptions().some((plan) => plan.key === PLAN_KEYS.pilot), false)
 })
 
 test('inactive paid subscriptions do not unlock paid features', () => {
