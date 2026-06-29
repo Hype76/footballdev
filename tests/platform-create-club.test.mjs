@@ -496,6 +496,43 @@ test('createPlatformClubResult rejects missing required form data before creatin
   assert.equal(mock.calls.some((call) => call.table === 'clubs'), false)
 })
 
+test('createPlatformClubResult keeps Pilot internal and comped', async () => {
+  setEnv({
+    CONTEXT: 'production',
+    NODE_ENV: 'production',
+    RESEND_API_KEY: 'resend-fixture-key',
+  })
+
+  const paidPilotMock = createMockSupabase()
+  const paidPilotResponse = await createPlatformClubResult(createEvent({
+    planKey: 'pilot',
+    billingMode: 'paid',
+  }), {
+    supabaseAdmin: paidPilotMock.supabaseAdmin,
+  })
+  const parsedPaidPilot = parseResponse(paidPilotResponse)
+
+  assert.equal(parsedPaidPilot.statusCode, 400)
+  assert.match(parsedPaidPilot.body.message, /Pilot workspaces must use unpaid billing access/)
+  assert.equal(paidPilotMock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+
+  const unpaidPilotMock = createMockSupabase()
+  const unpaidPilotResponse = await createPlatformClubResult(createEvent({
+    planKey: 'pilot',
+    billingMode: 'unpaid',
+  }), {
+    sendOwnerInviteEmailImpl: async () => ({ data: { id: 'email-1' } }),
+    supabaseAdmin: unpaidPilotMock.supabaseAdmin,
+  })
+  const parsedUnpaidPilot = parseResponse(unpaidPilotResponse)
+  const clubInsert = unpaidPilotMock.calls.find((call) => call.table === 'clubs' && call.action === 'insert')
+
+  assert.equal(parsedUnpaidPilot.statusCode, 200)
+  assert.equal(clubInsert.payload.plan_key, 'pilot')
+  assert.equal(clubInsert.payload.plan_status, 'active')
+  assert.equal(clubInsert.payload.is_plan_comped, true)
+})
+
 test('createPlatformClubResult preserves the club when owner invite insert fails', async () => {
   setEnv({
     CONTEXT: 'production',

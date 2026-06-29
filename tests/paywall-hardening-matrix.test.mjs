@@ -9,6 +9,7 @@ import {
   getPlanKey,
   getPlanLimit as getCanonicalPlanLimit,
   getPlanName,
+  getPublicPlanOptions,
   hasPlanFeature,
   isPlanAccessActive,
   normalizePlanKey,
@@ -47,7 +48,9 @@ test('approved plans, aliases, malformed values, and payment states fail closed 
     PLAN_KEYS.smallClub,
     PLAN_KEYS.developmentClub,
     PLAN_KEYS.largeClub,
+    PLAN_KEYS.pilot,
   ])
+  assert.equal(getPublicPlanOptions().some((plan) => plan.key === PLAN_KEYS.pilot), false)
 
   const aliasCases = [
     ['Individual Coach - Free', PLAN_KEYS.individual],
@@ -57,6 +60,7 @@ test('approved plans, aliases, malformed values, and payment states fail closed 
     ['dev club', PLAN_KEYS.developmentClub],
     ['Contact sales', PLAN_KEYS.largeClub],
     ['enterprise', PLAN_KEYS.largeClub],
+    ['Pilot', PLAN_KEYS.pilot],
   ]
 
   for (const [input, expected] of aliasCases) {
@@ -89,6 +93,7 @@ test('tier capability matrix enforces Free, Single, Small, Development, and Larg
   const small = context(PLAN_KEYS.smallClub, { role: 'admin', roleRank: 90 })
   const development = context(PLAN_KEYS.developmentClub, { role: 'admin', roleRank: 90 })
   const large = context(PLAN_KEYS.largeClub, { role: 'admin', roleRank: 90 })
+  const pilot = context(PLAN_KEYS.pilot, { role: 'admin', roleRank: 90, planStatus: 'past_due' })
 
   for (const capability of [
     CAPABILITIES.basicDevelopmentRecords,
@@ -183,6 +188,9 @@ test('tier capability matrix enforces Free, Single, Small, Development, and Larg
   assert.equal(canUseFeature(large, CAPABILITIES.integrations), false)
   assert.equal(getFeatureAccess(large, CAPABILITIES.integrations).reason, 'setup_required:integrationsConfigured')
   assert.equal(canUseFeature({ ...large, integrationsConfigured: true }, CAPABILITIES.integrations), true)
+  assert.equal(canUseFeature(pilot, CAPABILITIES.agreedServiceTerms), true)
+  assert.equal(canUseFeature(pilot, CAPABILITIES.integrations), false)
+  assert.equal(canUseFeature({ ...pilot, integrationsConfigured: true }, CAPABILITIES.integrations), true)
 })
 
 test('numeric limits and negotiated Large Club team limits are explicit', () => {
@@ -196,6 +204,7 @@ test('numeric limits and negotiated Large Club team limits are explicit', () => 
     [PLAN_KEYS.smallClub, 'teams', 5],
     [PLAN_KEYS.developmentClub, 'teams', 10],
     [PLAN_KEYS.largeClub, 'teams', 10],
+    [PLAN_KEYS.pilot, 'teams', 10],
   ]
 
   for (const [planKey, limitName, expected] of limitCases) {
@@ -205,6 +214,7 @@ test('numeric limits and negotiated Large Club team limits are explicit', () => 
 
   assert.equal(getPlanLimit(context(PLAN_KEYS.largeClub, { negotiatedLimits: { teams: 18 } }), 'teams'), 18)
   assert.equal(getPlanLimit(context(PLAN_KEYS.largeClub, { maxTeams: 22 }), 'teams'), 22)
+  assert.equal(getPlanLimit(context(PLAN_KEYS.pilot, { teamLimitOverride: 14 }), 'teams'), 14)
   assert.equal(getCanonicalPlanLimit(context(PLAN_KEYS.largeClub, { planStatus: 'past_due', negotiatedLimits: { teams: 18 } }), 'teams'), 0)
 })
 
@@ -249,6 +259,7 @@ test('commerce and Stripe mapping stay canonical and fail closed', () => {
   assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.developmentClub), true)
   assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.individual), false)
   assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.largeClub), false)
+  assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.pilot), false)
   assert.deepEqual(getPlanFromPriceId('price_unknown'), { planKey: '', billingCycle: '' })
 })
 
@@ -276,7 +287,7 @@ test('core controls and data rights are not premium commercial entitlements', ()
 })
 
 test('trusted function, RPC, RLS, and storage sources contain fail-closed paywall enforcement', () => {
-  const planGate = readSource('netlify/functions/_plan-gate.js')
+  const planGate = readSource('netlify/functions/lib/_plan-gate.js')
   const manageTeam = readSource('netlify/functions/manage-team.js')
   const sendParentEmail = readSource('netlify/functions/send-parent-email.js')
   const renderPdf = readSource('netlify/functions/render-pdf.js')
@@ -286,6 +297,7 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
   const domainTeamActions = readSource('src/lib/domain/team-actions.js')
   const serverMigration = readSource('supabase/migrations/20260622050850_paywall_server_enforcement.sql')
   const foundationMigration = readSource('supabase/migrations/20260622043000_paywall_plan_key_foundation.sql')
+  const pilotMigration = readSource('supabase/migrations/20260629153000_add_internal_pilot_tier.sql')
   const stripeWebhook = readSource('netlify/functions/stripe-webhook.js')
   const checkout = readSource('netlify/functions/create-checkout-session.js')
 
@@ -314,6 +326,11 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
   assert.match(serverMigration, /current_user_club_id\(\)::text/)
   assert.match(foundationMigration, /when 'large_club' then 10/)
   assert.doesNotMatch(foundationMigration, /target_plan_key = 'large_club' then\s+return true/)
+  assert.match(pilotMigration, /then 'pilot'/)
+  assert.match(pilotMigration, /target_entitlement_plan_key := case[\s\S]*when target_plan_key = 'pilot' then 'large_club'/)
+  assert.match(pilotMigration, /check \(plan_key in \('individual', 'single_team', 'small_club', 'development_club', 'large_club', 'pilot'\)\)/)
+  assert.match(pilotMigration, /target_is_plan_comped and target_plan_key <> 'pilot'/)
+  assert.match(pilotMigration, /when 'large_club' then 10/)
 
   assert.match(checkout, /isSelfServiceCheckoutPlanKey\(planKey\)/)
   assert.match(checkout, /\['monthly', 'annual'\]\.includes\(billingCycle\)/)

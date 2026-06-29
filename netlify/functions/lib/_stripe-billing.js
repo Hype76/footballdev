@@ -10,6 +10,7 @@ export const PLAN_BY_NAME = {
   'Small Club': 'small_club',
   'Development Club': 'development_club',
   'Large Club': 'large_club',
+  Pilot: 'pilot',
 }
 
 export const SELF_SERVICE_CHECKOUT_PLAN_KEYS = new Set([

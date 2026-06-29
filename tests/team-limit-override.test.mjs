@@ -28,6 +28,15 @@ test('team allowance override controls the effective team limit without changing
   assert.equal(getPlanLimit({ ...largeClub, teamAllowanceOverride: '30' }, 'teams'), 30)
   assert.equal(getPlanLimit({ ...largeClub, teamLimitOverride: '' }, 'teams'), 10)
   assert.equal(getPlanLimit({ planKey: PLAN_KEYS.smallClub, planStatus: 'active', teamLimitOverride: 8 }, 'teams'), 8)
+
+  const pilot = {
+    planKey: PLAN_KEYS.pilot,
+    planStatus: 'active',
+  }
+
+  assert.equal(getPlanDefaultLimit(pilot, 'teams'), 10)
+  assert.equal(getPlanLimit(pilot, 'teams'), 10)
+  assert.equal(getPlanLimit({ ...pilot, teamLimitOverride: 18 }, 'teams'), 18)
 })
 
 test('team allowance override validation rejects unsafe values and keeps blank as plan default', () => {
@@ -81,6 +90,7 @@ test('Platform Admin can save a custom team allowance without changing billing f
   const platformPage = await readFile(platformAdminPageUrl, 'utf8')
   const platformSection = await readFile(platformAccountManagementUrl, 'utf8')
 
+  assert.match(platformSection, /getAdminAssignablePlanOptions/)
   assert.match(platformSection, /Team allowance/)
   assert.match(platformSection, /Leave blank to use the plan default\./)
   assert.match(platformSection, /Effective allowance/)
@@ -92,6 +102,22 @@ test('Platform Admin can save a custom team allowance without changing billing f
   assert.match(billingFunction, /from\('club_team_limit_overrides'\)/)
   assert.match(billingFunction, /Club team allowance updated\./)
   assert.match(billingFunction, /shouldUpdateBilling && Boolean\(currentClub\.is_plan_comped\) !== nextIsPlanComped/)
+})
+
+test('Platform Admin plan controls expose Pilot as an admin-only free plan', async () => {
+  const billingFunction = await readFile(updatePlatformClubBillingUrl, 'utf8')
+  const platformPage = await readFile(platformAdminPageUrl, 'utf8')
+  const platformSection = await readFile(platformAccountManagementUrl, 'utf8')
+  const manageClubsSection = await readFile(new URL('../src/components/platform/ManageClubsSection.jsx', import.meta.url), 'utf8')
+
+  assert.match(manageClubsSection, /getAdminAssignablePlanOptions/)
+  assert.match(manageClubsSection, /value="paid" disabled=\{form\.planKey === PLAN_KEYS\.pilot\}/)
+  assert.match(platformSection, /getAdminAssignablePlanOptions/)
+  assert.match(platformSection, /isPilotPlan \|\| Boolean\(club\.isPlanComped\)/)
+  assert.match(platformSection, /Pilot access is always free\./)
+  assert.match(platformPage, /fieldName === 'planKey' && value === 'pilot'[\s\S]*billingMode: 'unpaid'/)
+  assert.match(platformPage, /isPlanComped: true, planStatus: 'active'/)
+  assert.match(billingFunction, /const nextIsPlanComped = nextPlanKey === 'pilot'/)
 })
 
 test('Club Admin create-team flow does not block on stale client-only team limit', async () => {

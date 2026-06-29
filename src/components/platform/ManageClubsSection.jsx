@@ -1,9 +1,14 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
-import { PLAN_OPTIONS } from '../../lib/plans.js'
+import { PLAN_KEYS, getAdminAssignablePlanOptions } from '../../lib/plans.js'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
+const adminAssignablePlanOptions = getAdminAssignablePlanOptions()
+
+function isPlanUnavailableForBillingMode(plan, billingMode) {
+  return billingMode === 'paid' && plan.key === PLAN_KEYS.individual
+}
 
 export function ManageClubsSection({
   createdInvite = null,
@@ -89,8 +94,8 @@ export function ManageClubsSection({
             onChange={(event) => onChange('planKey', event.target.value)}
             className={fieldClass}
           >
-            {PLAN_OPTIONS.map((plan) => (
-              <option key={plan.key} value={plan.key} disabled={form.billingMode === 'paid' && plan.key === 'individual'}>
+            {adminAssignablePlanOptions.map((plan) => (
+              <option key={plan.key} value={plan.key} disabled={isPlanUnavailableForBillingMode(plan, form.billingMode)}>
                 {plan.name}
               </option>
             ))}
@@ -103,7 +108,7 @@ export function ManageClubsSection({
             onChange={(event) => onChange('billingMode', event.target.value)}
             className={fieldClass}
           >
-            <option value="paid">Paid, show payments</option>
+            <option value="paid" disabled={form.planKey === PLAN_KEYS.pilot}>Paid, show payments</option>
             <option value="unpaid">Unpaid, hide payments</option>
           </select>
         </label>

@@ -493,7 +493,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setNewClubForm((current) => ({
       ...current,
       [fieldName]: value,
-      ...(fieldName === 'billingMode' && value === 'paid' && current.planKey === 'individual'
+      ...(fieldName === 'planKey' && value === 'pilot'
+        ? { billingMode: 'unpaid' }
+        : {}),
+      ...(fieldName === 'billingMode' && value === 'paid' && ['individual', 'pilot'].includes(current.planKey)
         ? { planKey: 'single_team' }
         : {}),
     }))
@@ -689,23 +692,25 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setSuccessMessage('')
 
     try {
+      const requestBody = fieldName === 'teamLimitOverride'
+        ? {
+            clubId: club.id,
+            teamLimitOverride: value,
+          }
+        : {
+            clubId: club.id,
+            [fieldName]: value,
+            ...(fieldName === 'planKey' && value === 'pilot'
+              ? { isPlanComped: true, planStatus: 'active' }
+              : {}),
+          }
       const response = await fetch('/.netlify/functions/update-platform-club-billing', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session?.access_token || ''}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(
-          fieldName === 'teamLimitOverride'
-            ? {
-                clubId: club.id,
-                teamLimitOverride: value,
-              }
-            : {
-                clubId: club.id,
-                [fieldName]: value,
-              },
-        ),
+        body: JSON.stringify(requestBody),
       })
       const result = await response.json().catch(() => ({}))
 

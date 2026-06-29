@@ -4,6 +4,7 @@ export const ACCESS_PLAN_KEYS = Object.freeze({
   smallClub: 'small_club',
   developmentClub: 'development_club',
   largeClub: 'large_club',
+  pilot: 'pilot',
 })
 
 export const ACCESS_READINESS = Object.freeze({
@@ -104,11 +105,22 @@ export const PLAN_ORDER = Object.freeze([
   ACCESS_PLAN_KEYS.largeClub,
 ])
 
+export const TOP_TIER_PLAN_KEY = ACCESS_PLAN_KEYS.largeClub
+export const INTERNAL_PLAN_KEYS = Object.freeze([
+  ACCESS_PLAN_KEYS.pilot,
+])
+
 const ALL_PLANS = PLAN_ORDER
 const SINGLE_TEAM_AND_ABOVE = PLAN_ORDER.slice(1)
 const SMALL_CLUB_AND_ABOVE = PLAN_ORDER.slice(2)
 const DEVELOPMENT_CLUB_AND_ABOVE = PLAN_ORDER.slice(3)
 const LARGE_CLUB_ONLY = [ACCESS_PLAN_KEYS.largeClub]
+
+export function getEntitlementPlanKey(planKey) {
+  return String(planKey ?? '').trim() === ACCESS_PLAN_KEYS.pilot
+    ? TOP_TIER_PLAN_KEY
+    : String(planKey ?? '').trim()
+}
 
 function capability({
   key,
@@ -315,7 +327,7 @@ export function isCapabilityIncludedForPlan(planKey, capabilityKey) {
     return false
   }
 
-  return capabilityDefinition.includedPlans.includes(String(planKey ?? '').trim())
+  return capabilityDefinition.includedPlans.includes(getEntitlementPlanKey(planKey))
 }
 
 export function getRequiredUpgradePlanKeyForCapability(capabilityKey, currentPlanKey = '') {
@@ -325,14 +337,16 @@ export function getRequiredUpgradePlanKeyForCapability(capabilityKey, currentPla
     return ''
   }
 
-  const currentIndex = PLAN_ORDER.indexOf(String(currentPlanKey ?? '').trim())
+  const currentIndex = PLAN_ORDER.indexOf(getEntitlementPlanKey(currentPlanKey))
   const searchStartIndex = currentIndex >= 0 ? currentIndex + 1 : 0
   return PLAN_ORDER.slice(searchStartIndex).find((planKey) => capabilityDefinition.includedPlans.includes(planKey)) || ''
 }
 
 export function getFeatureFlagMapForPlan(planKey) {
+  const entitlementPlanKey = getEntitlementPlanKey(planKey)
+
   return Object.freeze(Object.fromEntries(
-    LEGACY_PLAN_FEATURE_KEYS.map((featureName) => [featureName, isCapabilityIncludedForPlan(planKey, featureName)]),
+    LEGACY_PLAN_FEATURE_KEYS.map((featureName) => [featureName, isCapabilityIncludedForPlan(entitlementPlanKey, featureName)]),
   ))
 }
 
