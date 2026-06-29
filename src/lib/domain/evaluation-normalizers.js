@@ -58,6 +58,7 @@ export function normalizeFeedbackFormSnapshot(snapshot) {
         options: Array.isArray(field.options) ? field.options.map((option) => String(option ?? '').trim()).filter(Boolean) : [],
         required: Boolean(field.required),
         orderIndex: Number(field.orderIndex ?? field.order_index ?? index + 1),
+        includeInProgressChart: Boolean(field.includeInProgressChart ?? field.include_in_progress_chart),
         value: field.value ?? '',
       })).filter((field) => field.label)
     : []

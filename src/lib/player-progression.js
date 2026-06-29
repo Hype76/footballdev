@@ -218,7 +218,56 @@ function getProgressionNumericFields(fields = []) {
     })
 }
 
+function getEvaluationFeedbackFormSnapshot(evaluation = {}) {
+  const snapshot = evaluation.feedbackFormSnapshot ?? evaluation.feedback_form_snapshot
+  return snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) ? snapshot : null
+}
+
+function getEvaluationFeedbackFormId(evaluation = {}) {
+  const snapshot = getEvaluationFeedbackFormSnapshot(evaluation)
+  return String(evaluation.feedbackFormId ?? evaluation.feedback_form_id ?? snapshot?.formId ?? snapshot?.form_id ?? '').trim()
+}
+
+function getEvaluationFeedbackFormName(evaluation = {}) {
+  const snapshot = getEvaluationFeedbackFormSnapshot(evaluation)
+  return String(evaluation.feedbackFormName ?? evaluation.feedback_form_name ?? snapshot?.formName ?? snapshot?.form_name ?? '').trim()
+}
+
+function getSnapshotGraphFields(evaluation = {}) {
+  const snapshot = getEvaluationFeedbackFormSnapshot(evaluation)
+  const fields = Array.isArray(snapshot?.fields) ? snapshot.fields : []
+  return fields.filter(isProgressionScoreField)
+}
+
+function getEvaluationResponseForField(evaluation = {}, field = {}) {
+  if (isNumericValue(field.value)) {
+    return field.value
+  }
+
+  const responses = evaluation.formResponses ?? evaluation.form_responses ?? {}
+  const label = String(field.label ?? '').trim()
+
+  if (Object.prototype.hasOwnProperty.call(responses, label)) {
+    return responses[label]
+  }
+
+  const normalizedFieldId = String(field.id ?? '').trim()
+  if (normalizedFieldId && Object.prototype.hasOwnProperty.call(responses, normalizedFieldId)) {
+    return responses[normalizedFieldId]
+  }
+
+  return null
+}
+
 function getEvaluationChartScore(evaluation, chartFieldMap) {
+  if (getEvaluationFeedbackFormId(evaluation)) {
+    const values = getSnapshotGraphFields(evaluation)
+      .map((field) => normalizeScoreToTen(getEvaluationResponseForField(evaluation, field), field))
+      .filter((value) => Number.isFinite(value))
+
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null
+  }
+
   if (!chartFieldMap.size) {
     return isNumericValue(evaluation.averageScore) ? Number(evaluation.averageScore) : null
   }
@@ -238,6 +287,10 @@ function getEvaluationChartScore(evaluation, chartFieldMap) {
 }
 
 function hasAnyProgressionScore(evaluation, numericFieldMap = new Map(), chartFieldMap = new Map()) {
+  if (getEvaluationFeedbackFormId(evaluation)) {
+    return Number.isFinite(getEvaluationChartScore(evaluation, chartFieldMap))
+  }
+
   if (Number.isFinite(getEvaluationChartScore(evaluation, chartFieldMap))) {
     return true
   }
@@ -296,10 +349,11 @@ export function buildProgressionFocusAreas(fieldSeries = [], { limit = 4 } = {})
 
 function buildCategoryTrendLines(chronologicalEvaluations, fields = []) {
   const numericFields = getProgressionNumericFields(fields)
-  const fieldMap = new Map(numericFields.map((field, index) => [
+  const seriesMap = new Map(numericFields.map((field, index) => [
     normalizeFieldLabel(field.label),
     {
       field,
+      key: `field-${normalizeFieldLabel(field.label).replace(/[^a-z0-9]+/g, '-')}`,
       label: String(field.label ?? '').trim(),
       order: index,
       points: [],
@@ -309,9 +363,58 @@ function buildCategoryTrendLines(chronologicalEvaluations, fields = []) {
   chronologicalEvaluations.forEach((evaluation) => {
     const dateKey = getEvaluationDateKey(evaluation)
     const label = getEvaluationProgressionLabel(evaluation)
+    const feedbackFormId = getEvaluationFeedbackFormId(evaluation)
+
+    if (feedbackFormId) {
+      const feedbackFormName = getEvaluationFeedbackFormName(evaluation) || 'Feedback form'
+
+      getSnapshotGraphFields(evaluation).forEach((field, fieldIndex) => {
+        const fieldLabel = String(field.label ?? '').trim()
+        const normalizedScore = normalizeScoreToTen(getEvaluationResponseForField(evaluation, field), field)
+
+        if (!fieldLabel || !Number.isFinite(normalizedScore)) {
+          return
+        }
+
+        const fieldId = String(field.id ?? '').trim() || normalizeFieldLabel(fieldLabel)
+        const seriesKey = `form-${feedbackFormId}-field-${fieldId}`.replace(/[^a-zA-Z0-9_-]+/g, '-')
+        const existingSeries = seriesMap.get(seriesKey)
+        const series = existingSeries || {
+          field,
+          key: seriesKey,
+          label: `${feedbackFormName}: ${fieldLabel}`,
+          formId: feedbackFormId,
+          formName: feedbackFormName,
+          fieldId,
+          fieldLabel,
+          order: numericFields.length + seriesMap.size + fieldIndex,
+          points: [],
+        }
+
+        series.points.push({
+          id: `${evaluation.id || dateKey}-${seriesKey}`,
+          evaluationId: evaluation.id,
+          dateKey,
+          label,
+          value: normalizedScore,
+          session: String(evaluation.session ?? '').trim(),
+          team: String(evaluation.team ?? '').trim(),
+          formId: feedbackFormId,
+          formName: feedbackFormName,
+          fieldId,
+          fieldLabel,
+        })
+
+        if (!existingSeries) {
+          seriesMap.set(seriesKey, series)
+        }
+      })
+
+      return
+    }
 
     Object.entries(evaluation.formResponses ?? {}).forEach(([responseLabel, value]) => {
-      const series = fieldMap.get(normalizeFieldLabel(responseLabel))
+      const series = seriesMap.get(normalizeFieldLabel(responseLabel))
 
       if (!series) {
         return
@@ -335,7 +438,7 @@ function buildCategoryTrendLines(chronologicalEvaluations, fields = []) {
     })
   })
 
-  return Array.from(fieldMap.values())
+  return Array.from(seriesMap.values())
     .map((series) => {
       const publicSeries = { ...series }
       delete publicSeries.field
@@ -353,7 +456,7 @@ export function buildProgressionTrendLines({ scoreTrend = [], fieldSeries = [] }
     points: Array.isArray(scoreTrend) ? scoreTrend : [],
   }
   const categoryLines = fieldSeries.map((series, index) => ({
-    key: `field-${normalizeFieldLabel(series.label).replace(/[^a-z0-9]+/g, '-')}`,
+    key: series.key || `field-${normalizeFieldLabel(series.label).replace(/[^a-z0-9]+/g, '-')}`,
     label: series.label,
     kind: 'category',
     order: Number(series.order ?? index),
@@ -440,6 +543,8 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
         value: chartScore,
         session: String(evaluation.session ?? '').trim(),
         team: String(evaluation.team ?? '').trim(),
+        formId: getEvaluationFeedbackFormId(evaluation),
+        formName: getEvaluationFeedbackFormName(evaluation),
       }
     })
     .filter(Boolean)

@@ -215,6 +215,7 @@ export function createPrivateEvaluationDraftPayload({
   responseValues = {},
   saveVersion = 0,
   scheduledEmailDateTime = '',
+  selectedFeedbackFormId = '',
   selectedExportLabels = null,
   selectedParentContactIndexes = [0],
   savedAt = '',
@@ -222,6 +223,7 @@ export function createPrivateEvaluationDraftPayload({
   return {
     formData,
     responseValues,
+    selectedFeedbackFormId: normalizeText(selectedFeedbackFormId),
     lastUsedSession,
     previewMode,
     emailTemplateKey,

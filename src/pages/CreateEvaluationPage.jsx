@@ -106,6 +106,8 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
+const DEFAULT_FEEDBACK_FORM_ID = '__default_development_form__'
+
 function getReadyState(isReady) {
   return isReady
     ? {
@@ -511,7 +513,9 @@ function DevelopmentRecordCommandPanel({
 
 function FeedbackFormSelectionSection({
   feedbackForms,
+  hasUnavailableSelectedForm,
   isEditingHistoricalForm,
+  isDefaultFeedbackFormSelected,
   isLoadingFeedbackForms,
   onSelectFeedbackForm,
   selectedFeedbackForm,
@@ -536,7 +540,7 @@ function FeedbackFormSelectionSection({
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Feedback form</p>
           <h3 className="mt-2 text-xl font-black text-[#101828]">Select feedback form</h3>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Choose the active team form to complete for this player.
+            Choose the default development form or an active team form to complete for this player.
           </p>
         </div>
         <label className="block">
@@ -544,12 +548,16 @@ function FeedbackFormSelectionSection({
           <select
             value={selectedFeedbackFormId}
             onChange={(event) => onSelectFeedbackForm(event.target.value)}
-            disabled={isLoadingFeedbackForms || feedbackForms.length === 0}
+            disabled={isLoadingFeedbackForms}
             className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">
-              {isLoadingFeedbackForms ? 'Loading forms' : feedbackForms.length === 0 ? 'Default development fields' : 'Choose a form'}
+              {isLoadingFeedbackForms ? 'Loading forms' : 'Choose a form'}
             </option>
+            <option value={DEFAULT_FEEDBACK_FORM_ID}>Default development form</option>
+            {hasUnavailableSelectedForm ? (
+              <option value={selectedFeedbackFormId}>Saved form unavailable</option>
+            ) : null}
             {feedbackForms.map((form) => (
               <option key={form.id} value={form.id}>
                 {form.name}
@@ -561,6 +569,16 @@ function FeedbackFormSelectionSection({
       {!isLoadingFeedbackForms && feedbackForms.length === 0 ? (
         <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
           No feedback forms yet. A Team Admin or Manager can create reusable forms for coaches to complete.
+        </p>
+      ) : null}
+      {!isLoadingFeedbackForms && hasUnavailableSelectedForm ? (
+        <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+          This draft references a form that is not available. Choose the default development form or another active form before saving.
+        </p>
+      ) : null}
+      {!isLoadingFeedbackForms && isDefaultFeedbackFormSelected ? (
+        <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+          The default development fields will be used for this record.
         </p>
       ) : null}
     </section>
@@ -703,6 +721,7 @@ export function CreateEvaluationPage() {
       responseValues,
       saveVersion,
       scheduledEmailDateTime,
+      selectedFeedbackFormId,
       selectedExportLabels,
       selectedParentContactIndexes,
     })
@@ -719,6 +738,7 @@ export function CreateEvaluationPage() {
     previewMode,
     responseValues,
     scheduledEmailDateTime,
+    selectedFeedbackFormId,
     selectedExportLabels,
     selectedParentContactIndexes,
   ])
@@ -755,6 +775,7 @@ export function CreateEvaluationPage() {
     )
     setInviteDate(normalizeSessionValue(payload.inviteDate))
     setResponseValues(payload.responseValues && typeof payload.responseValues === 'object' ? payload.responseValues : {})
+    setSelectedFeedbackFormId(String(payload.selectedFeedbackFormId ?? '').trim())
     setLastUsedSession(nextSessionValue)
     setOfflineDraftId(restoredOfflineDraftId || createLocalId())
     setIsPdfAttachmentApproved(Boolean(payload.isPdfAttachmentApproved))
@@ -1499,7 +1520,7 @@ export function CreateEvaluationPage() {
             return String(editingEvaluation.feedbackFormId)
           }
 
-          return forms.some((form) => String(form.id) === String(current)) ? current : ''
+          return String(current ?? '').trim()
         })
       } catch (error) {
         console.error(error)
@@ -1722,17 +1743,29 @@ export function CreateEvaluationPage() {
   )
   const snapshotFields = editingEvaluation?.feedbackFormSnapshot?.fields
   const hasHistoricalFeedbackFormSnapshot = Array.isArray(snapshotFields) && snapshotFields.length > 0
+  const isDefaultFeedbackFormSelected = selectedFeedbackFormId === DEFAULT_FEEDBACK_FORM_ID
+  const hasUnavailableSelectedForm = Boolean(
+    selectedFeedbackFormId &&
+      !isDefaultFeedbackFormSelected &&
+      !selectedFeedbackForm &&
+      !hasHistoricalFeedbackFormSnapshot,
+  )
+  const hasFeedbackFormSelection = isDefaultFeedbackFormSelected || Boolean(selectedFeedbackForm)
   const activeFields = useMemo(() => {
     if (hasHistoricalFeedbackFormSnapshot) {
       return snapshotFields
     }
 
-    if (feedbackForms.length > 0) {
+    if (isDefaultFeedbackFormSelected) {
+      return dynamicFields
+    }
+
+    if (selectedFeedbackFormId) {
       return selectedFeedbackForm?.fields ?? []
     }
 
-    return dynamicFields
-  }, [dynamicFields, feedbackForms.length, hasHistoricalFeedbackFormSnapshot, selectedFeedbackForm, snapshotFields])
+    return []
+  }, [dynamicFields, hasHistoricalFeedbackFormSnapshot, isDefaultFeedbackFormSelected, selectedFeedbackForm, selectedFeedbackFormId, snapshotFields])
 
   useEffect(() => {
     if (editingEvaluation) {
@@ -2397,8 +2430,8 @@ export function CreateEvaluationPage() {
       return
     }
 
-    if (!editingEvaluation && feedbackForms.length > 0 && !selectedFeedbackForm) {
-      setActionErrorMessage('Select a feedback form before submitting the development record.')
+    if (!editingEvaluation && !hasFeedbackFormSelection) {
+      setActionErrorMessage('Choose the default development form or a saved feedback form before submitting the development record.')
       return
     }
 
@@ -2976,7 +3009,9 @@ export function CreateEvaluationPage() {
 
               <FeedbackFormSelectionSection
                 feedbackForms={feedbackForms}
+                hasUnavailableSelectedForm={hasUnavailableSelectedForm}
                 isEditingHistoricalForm={hasHistoricalFeedbackFormSnapshot}
+                isDefaultFeedbackFormSelected={isDefaultFeedbackFormSelected}
                 isLoadingFeedbackForms={isLoadingFeedbackForms}
                 onSelectFeedbackForm={setSelectedFeedbackFormId}
                 selectedFeedbackForm={selectedFeedbackForm || {
@@ -2987,10 +3022,12 @@ export function CreateEvaluationPage() {
 
               <ConfiguredFieldsSection
                 enabledFields={enabledFields}
-                emptyMessage={feedbackForms.length > 0 && !selectedFeedbackForm && !hasHistoricalFeedbackFormSnapshot
-                  ? 'Select a feedback form before completing the development fields.'
-                  : 'No development fields are enabled for this club. Enable fields in Development Form first.'}
-                isFallbackFields={isFallbackFields && feedbackForms.length === 0}
+                emptyMessage={!hasFeedbackFormSelection && !hasHistoricalFeedbackFormSnapshot
+                  ? 'Choose the default development form or a saved feedback form before completing the development fields.'
+                  : hasUnavailableSelectedForm
+                    ? 'The selected saved form is not available. Choose another form before completing the development fields.'
+                    : 'No development fields are enabled for this club. Enable fields in Development Form first.'}
+                isFallbackFields={isFallbackFields && isDefaultFeedbackFormSelected}
                 onResponseChange={handleResponseChange}
                 responseValues={responseValues}
               />

@@ -56,6 +56,7 @@ export {
   getActiveFeedbackForms,
   getFeedbackForms,
   getUsableFeedbackFormFields,
+  isGraphableFeedbackFormFieldType,
   normalizeFeedbackFormField,
   normalizeFeedbackFormRow,
   updateFeedbackForm,

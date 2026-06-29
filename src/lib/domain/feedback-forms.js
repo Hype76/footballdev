@@ -23,6 +23,7 @@ export const FEEDBACK_FORM_FIELD_TYPES = Object.freeze([
 
 const ACTIVE_STATUS = 'active'
 const ARCHIVED_STATUS = 'archived'
+const GRAPHABLE_FEEDBACK_FORM_FIELD_TYPES = new Set(['score_1_10'])
 
 function createFieldId() {
   return globalThis.crypto?.randomUUID?.() || `field-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -48,6 +49,10 @@ function normalizeFixedOptions(type, options) {
   return []
 }
 
+export function isGraphableFeedbackFormFieldType(type) {
+  return GRAPHABLE_FEEDBACK_FORM_FIELD_TYPES.has(String(type ?? '').trim())
+}
+
 export function canManageFeedbackForms(user) {
   return Boolean(user?.clubId)
     && Boolean(user?.activeTeamId)
@@ -66,6 +71,7 @@ export function canCompleteFeedbackForms(user) {
 export function normalizeFeedbackFormField(field = {}, index = 0) {
   const type = normalizeFieldType(field.type)
   const label = String(field.label ?? '').trim()
+  const includeInProgressChart = field.includeInProgressChart ?? field.include_in_progress_chart
 
   return {
     id: String(field.id ?? '').trim() || createFieldId(),
@@ -75,6 +81,7 @@ export function normalizeFeedbackFormField(field = {}, index = 0) {
     required: Boolean(field.required),
     orderIndex: Number(field.orderIndex ?? field.order_index ?? index + 1),
     isEnabled: field.isEnabled ?? field.is_enabled ?? true,
+    includeInProgressChart: isGraphableFeedbackFormFieldType(type) ? Boolean(includeInProgressChart) : false,
   }
 }
 

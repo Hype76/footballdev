@@ -10,6 +10,7 @@ import {
   duplicateFeedbackForm,
   FEEDBACK_FORM_FIELD_TYPES,
   getFeedbackForms,
+  isGraphableFeedbackFormFieldType,
   normalizeFeedbackFormField,
   updateFeedbackForm,
   validateFeedbackFormDraft,
@@ -26,7 +27,21 @@ function createEmptyField() {
     type: 'score_1_10',
     required: false,
     options: [],
+    includeInProgressChart: true,
   })
+}
+
+function reindexFields(fields = []) {
+  return fields.map((field, index) => ({
+    ...field,
+    orderIndex: index + 1,
+  }))
+}
+
+function stopTextInputSpacePropagation(event) {
+  if (event.key === ' ') {
+    event.stopPropagation()
+  }
 }
 
 function createEditorState(form = null) {
@@ -158,6 +173,13 @@ export function FeedbackFormsPage() {
     }))
   }
 
+  const addFieldAtTop = () => {
+    setEditor((current) => ({
+      ...current,
+      fields: reindexFields([createEmptyField(), ...current.fields]),
+    }))
+  }
+
   const moveField = (fieldId, direction) => {
     setEditor((current) => {
       const currentIndex = current.fields.findIndex((field) => field.id === fieldId)
@@ -173,10 +195,7 @@ export function FeedbackFormsPage() {
 
       return {
         ...current,
-        fields: fields.map((field, index) => ({
-          ...field,
-          orderIndex: index + 1,
-        })),
+        fields: reindexFields(fields),
       }
     })
   }
@@ -184,7 +203,7 @@ export function FeedbackFormsPage() {
   const removeField = (fieldId) => {
     setEditor((current) => ({
       ...current,
-      fields: current.fields.filter((field) => field.id !== fieldId),
+      fields: reindexFields(current.fields.filter((field) => field.id !== fieldId)),
     }))
   }
 
@@ -271,6 +290,7 @@ export function FeedbackFormsPage() {
               <input
                 value={editor.name}
                 onChange={(event) => setEditor((current) => ({ ...current, name: event.target.value }))}
+                onKeyDown={stopTextInputSpacePropagation}
                 className={fieldClass}
                 placeholder="Example: Match day feedback"
               />
@@ -278,7 +298,7 @@ export function FeedbackFormsPage() {
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
-                onClick={() => setEditor((current) => ({ ...current, fields: [...current.fields, createEmptyField()] }))}
+                onClick={addFieldAtTop}
                 className={secondaryButtonClass}
               >
                 Add field
@@ -297,12 +317,13 @@ export function FeedbackFormsPage() {
           <div className="space-y-3">
             {editor.fields.map((field, index) => (
               <div key={field.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_8rem_auto] lg:items-end">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_8rem_8rem_auto] lg:items-end">
                   <label className="block">
                     <span className="mb-2 block text-sm font-black text-[#101828]">Field label</span>
                     <input
                       value={field.label}
                       onChange={(event) => updateField(field.id, { label: event.target.value })}
+                      onKeyDown={stopTextInputSpacePropagation}
                       className={fieldClass}
                       placeholder="Example: Overall feedback"
                     />
@@ -330,6 +351,17 @@ export function FeedbackFormsPage() {
                     />
                     Required
                   </label>
+                  {isGraphableFeedbackFormFieldType(field.type) ? (
+                    <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828]">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(field.includeInProgressChart)}
+                        onChange={(event) => updateField(field.id, { includeInProgressChart: event.target.checked })}
+                        className="h-4 w-4 accent-[#047857]"
+                      />
+                      Graph
+                    </label>
+                  ) : null}
                   <div className="flex gap-2">
                     <button type="button" onClick={() => moveField(field.id, -1)} disabled={index === 0} className={secondaryButtonClass}>
                       Up
@@ -348,6 +380,7 @@ export function FeedbackFormsPage() {
                     <input
                       value={field.options.join(', ')}
                       onChange={(event) => updateField(field.id, { options: event.target.value })}
+                      onKeyDown={stopTextInputSpacePropagation}
                       className={fieldClass}
                       placeholder="Good, Average, Needs work"
                     />

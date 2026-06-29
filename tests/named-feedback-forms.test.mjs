@@ -13,6 +13,7 @@ import {
 } from '../src/lib/domain/feedback-forms.js'
 import { normalizeEvaluationRow } from '../src/lib/domain/evaluation-normalizers.js'
 import { createEvaluationPayload } from '../src/hooks/evaluations/evaluationFormUtils.js'
+import { buildPlayerProgressionData } from '../src/lib/player-progression.js'
 
 const clubId = '11111111-1111-4111-8111-111111111111'
 const teamId = '22222222-2222-4222-8222-222222222222'
@@ -61,6 +62,9 @@ test('feedback form draft validation rejects blank names and unusable fields', (
 
 test('V1 named feedback fields normalize to practical supported types', () => {
   assert.deepEqual(normalizeFeedbackFormField({ label: 'Rating', type: 'score_1_10' }).options, ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'])
+  assert.equal(normalizeFeedbackFormField({ label: 'Rating', type: 'score_1_10', includeInProgressChart: true }).includeInProgressChart, true)
+  assert.equal(normalizeFeedbackFormField({ label: 'Rating', type: 'score_1_10' }).includeInProgressChart, false)
+  assert.equal(normalizeFeedbackFormField({ label: 'Comment', type: 'textarea', includeInProgressChart: true }).includeInProgressChart, false)
   assert.deepEqual(normalizeFeedbackFormField({ label: 'Available', type: 'yes_no' }).options, ['Yes', 'No'])
   assert.deepEqual(normalizeFeedbackFormField({ label: 'Risk', type: 'traffic_light' }).options, ['Green', 'Amber', 'Red'])
   assert.deepEqual(
@@ -79,7 +83,7 @@ test('submitted feedback form snapshot preserves labels, version, and values', (
     name: 'Goalkeeper review',
     version: 3,
     fields: [
-      { id: 'handling', label: 'Handling', type: 'score_1_10', required: true, orderIndex: 1 },
+      { id: 'handling', label: 'Handling', type: 'score_1_10', required: true, orderIndex: 1, includeInProgressChart: true },
       { id: 'distribution', label: 'Distribution note', type: 'textarea', required: false, orderIndex: 2 },
     ],
   }
@@ -93,10 +97,72 @@ test('submitted feedback form snapshot preserves labels, version, and values', (
 
   assert.equal(snapshot.formName, 'Goalkeeper review')
   assert.equal(snapshot.formVersion, 3)
+  assert.equal(snapshot.fields[0].includeInProgressChart, true)
   assert.deepEqual(snapshot.fields.map((field) => [field.label, field.value]), [
     ['Handling', 8],
     ['Distribution note', 'Quick release.'],
   ])
+})
+
+test('named form graph data stays scoped to the submitted form snapshot', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-29',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+    ],
+    evaluations: [
+      {
+        id: 'default-record',
+        date: '2026-06-01',
+        averageScore: 4,
+        formResponses: {
+          Technical: 4,
+        },
+      },
+      {
+        id: 'named-no-graph',
+        date: '2026-06-08',
+        feedbackFormId: 'form-a',
+        feedbackFormName: 'Match day feedback',
+        averageScore: 9,
+        formResponses: {
+          Technical: 9,
+        },
+        feedbackFormSnapshot: {
+          formId: 'form-a',
+          formName: 'Match day feedback',
+          fields: [
+            { id: 'technical-a', label: 'Technical', type: 'score_1_10', includeInProgressChart: false, value: 9 },
+          ],
+        },
+      },
+      {
+        id: 'named-graph',
+        date: '2026-06-15',
+        feedbackFormId: 'form-b',
+        feedbackFormName: 'Coach review',
+        averageScore: 7,
+        formResponses: {
+          Technical: 7,
+        },
+        feedbackFormSnapshot: {
+          formId: 'form-b',
+          formName: 'Coach review',
+          fields: [
+            { id: 'technical-b', label: 'Technical', type: 'score_1_10', includeInProgressChart: true, value: 7 },
+          ],
+        },
+      },
+    ],
+  })
+
+  const defaultTechnicalLine = progression.trendLines.find((line) => line.label === 'Technical')
+  const namedTechnicalLine = progression.trendLines.find((line) => line.label === 'Coach review: Technical')
+
+  assert.deepEqual(progression.scoreTrend.map((point) => point.evaluationId), ['default-record', 'named-graph'])
+  assert.deepEqual(defaultTechnicalLine.points.map((point) => point.evaluationId), ['default-record'])
+  assert.deepEqual(namedTechnicalLine.points.map((point) => point.evaluationId), ['named-graph'])
+  assert.equal(progression.trendLines.some((line) => line.points.some((point) => point.evaluationId === 'named-no-graph')), false)
 })
 
 test('evaluation payload and row keep submitted form identity for history', () => {

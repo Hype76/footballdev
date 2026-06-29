@@ -298,6 +298,7 @@ test('private draft payload includes assessment, output, and delivery settings',
     },
     saveVersion: 7,
     scheduledEmailDateTime: '2026-06-20T18:30',
+    selectedFeedbackFormId: '__default_development_form__',
     selectedExportLabels: ['Technical', 'Comment'],
     selectedParentContactIndexes: [0, 1],
     savedAt: '2026-06-16T10:00:00.000Z',
@@ -308,6 +309,7 @@ test('private draft payload includes assessment, output, and delivery settings',
   assert.equal(payload.includeAttendanceSummary, false)
   assert.equal(payload.emailSendMode, 'scheduled')
   assert.equal(payload.scheduledEmailDateTime, '2026-06-20T18:30')
+  assert.equal(payload.selectedFeedbackFormId, '__default_development_form__')
   assert.deepEqual(payload.selectedExportLabels, ['Technical', 'Comment'])
   assert.equal(payload.archiveAfterNoPlace, true)
   assert.equal(payload.draftMeta.clientSaveVersion, 7)
@@ -711,8 +713,22 @@ test('private draft resume restores saved payload values', () => {
   assert.match(source, /const restorePrivateDraftPayload = useCallback/)
   assert.match(source, /setFormData\(createInitialFormData\(user, \{[\s\S]+restoredFormData/)
   assert.match(source, /setResponseValues\(payload\.responseValues/)
+  assert.match(source, /setSelectedFeedbackFormId\(String\(payload\.selectedFeedbackFormId/)
   assert.match(source, /restoredPrivateDraftExportLabelsRef/)
   assert.match(source, /setPrivateDraftStatus\('restored'\)/)
+})
+
+test('development record form selector requires an explicit default or saved form choice', () => {
+  const source = readFileSync(
+    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /const DEFAULT_FEEDBACK_FORM_ID = '__default_development_form__'/)
+  assert.match(source, /<option value=\{DEFAULT_FEEDBACK_FORM_ID\}>Default development form<\/option>/)
+  assert.match(source, /if \(!editingEvaluation && !hasFeedbackFormSelection\)/)
+  assert.match(source, /Choose the default development form or a saved feedback form/)
+  assert.doesNotMatch(source, /feedbackForms\.length > 0 && !selectedFeedbackForm/)
 })
 
 test('unclear football detail readiness card is removed', () => {
