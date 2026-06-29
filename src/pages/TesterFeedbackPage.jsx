@@ -82,7 +82,7 @@ export function TesterFeedbackPage() {
 
     try {
       const created = await createTesterFeedbackReport({ report: form, screenshotFile, user })
-      setStatusMessage(`Feedback sent. Report ID: ${created.id}`)
+      setStatusMessage(`Feedback sent. Report ID: ${created.id}${created.attachmentWarning ? `. ${created.attachmentWarning}` : ''}`)
       setForm((current) => ({
         ...current,
         title: '',

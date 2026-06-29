@@ -5,10 +5,10 @@ import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-UPLOAD-EMAIL-04'
+const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-UPLOAD-PARSE-05'
 const MAX_TEXT_LENGTH = 4000
 const FEEDBACK_ATTACHMENT_BUCKET = 'tester-feedback-attachments'
-const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024
 const ALLOWED_ATTACHMENT_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const ATTACHMENT_EXTENSIONS = {
   'image/png': 'png',
@@ -66,15 +66,7 @@ function parseJsonValue(value, fieldName) {
   }
 }
 
-async function normalizeAttachmentFile(file) {
-  if (!file || typeof file !== 'object' || typeof file.arrayBuffer !== 'function') {
-    return null
-  }
-
-  const fileSize = Number(file.size || 0)
-  const mimeType = normalizeText(file.type, { maxLength: 120 }).toLowerCase()
-  const originalFilename = normalizeText(file.name, { maxLength: 240 }) || 'screenshot'
-
+function validateAttachmentBasics({ fileSize, mimeType }) {
   if (fileSize <= 0) {
     return null
   }
@@ -87,20 +79,64 @@ async function normalizeAttachmentFile(file) {
   }
 
   if (fileSize > MAX_ATTACHMENT_BYTES) {
-    throw Object.assign(new Error('Screenshot must be 5 MB or smaller.'), {
+    throw Object.assign(new Error('Screenshot must be 3 MB or smaller.'), {
       code: 'attachment_too_large',
       statusCode: 400,
     })
+  }
+
+  return true
+}
+
+function hasPngSignature(buffer) {
+  return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))
+}
+
+function hasJpegSignature(buffer) {
+  return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+}
+
+function hasWebpSignature(buffer) {
+  return buffer.length >= 12
+    && buffer.toString('ascii', 0, 4) === 'RIFF'
+    && buffer.toString('ascii', 8, 12) === 'WEBP'
+}
+
+function validateAttachmentContent(buffer, mimeType) {
+  if (buffer.byteLength > MAX_ATTACHMENT_BYTES) {
+    throw Object.assign(new Error('Screenshot must be 3 MB or smaller.'), {
+      code: 'attachment_too_large',
+      statusCode: 400,
+    })
+  }
+
+  const isValid = (mimeType === 'image/png' && hasPngSignature(buffer))
+    || (mimeType === 'image/jpeg' && hasJpegSignature(buffer))
+    || (mimeType === 'image/webp' && hasWebpSignature(buffer))
+
+  if (!isValid) {
+    throw Object.assign(new Error('Screenshot file content did not match the selected image type.'), {
+      code: 'invalid_attachment_content',
+      statusCode: 400,
+    })
+  }
+}
+
+async function normalizeAttachmentFile(file) {
+  if (!file || typeof file !== 'object' || typeof file.arrayBuffer !== 'function') {
+    return null
+  }
+
+  const fileSize = Number(file.size || 0)
+  const mimeType = normalizeText(file.type, { maxLength: 120 }).toLowerCase()
+  const originalFilename = normalizeText(file.name, { maxLength: 240 }) || 'screenshot'
+
+  if (!validateAttachmentBasics({ fileSize, mimeType })) {
+    return null
   }
 
   const buffer = Buffer.from(await file.arrayBuffer())
-
-  if (buffer.byteLength > MAX_ATTACHMENT_BYTES) {
-    throw Object.assign(new Error('Screenshot must be 5 MB or smaller.'), {
-      code: 'attachment_too_large',
-      statusCode: 400,
-    })
-  }
+  validateAttachmentContent(buffer, mimeType)
 
   return {
     buffer,
@@ -110,35 +146,127 @@ async function normalizeAttachmentFile(file) {
   }
 }
 
-async function parseMultipartBody(event, contentType) {
-  try {
-    const rawBody = event.isBase64Encoded
-      ? Buffer.from(event.body || '', 'base64')
-      : Buffer.from(event.body || '', 'utf8')
-    const request = new Request('https://footballplayer.online/.netlify/functions/submit-tester-feedback', {
-      method: 'POST',
-      headers: {
-        'content-type': contentType,
-      },
-      body: rawBody,
-    })
-    const formData = await request.formData()
+function normalizeBase64Attachment(attachment) {
+  if (!attachment || typeof attachment !== 'object') {
+    return null
+  }
 
-    return {
-      attachment: await normalizeAttachmentFile(formData.get('screenshot')),
-      context: parseJsonValue(formData.get('context') || '{}', 'Context'),
-      report: parseJsonValue(formData.get('report') || '{}', 'Report'),
-    }
-  } catch (error) {
-    if (error?.statusCode) {
-      throw error
-    }
+  const encodedValue = normalizeText(attachment.contentBase64 || attachment.base64 || attachment.data, {
+    maxLength: MAX_ATTACHMENT_BYTES * 2,
+  })
 
-    throw Object.assign(new Error('Feedback upload could not be read.'), {
-      code: 'invalid_multipart_body',
+  if (!encodedValue) {
+    return null
+  }
+
+  const mimeType = normalizeText(attachment.mimeType || attachment.type, { maxLength: 120 }).toLowerCase()
+  const originalFilename = normalizeText(attachment.fileName || attachment.name, { maxLength: 240 }) || 'screenshot'
+  const declaredSize = Number(attachment.size || 0)
+
+  validateAttachmentBasics({ fileSize: declaredSize || 1, mimeType })
+
+  const contentBase64 = encodedValue.includes(',')
+    ? encodedValue.split(',').pop()
+    : encodedValue
+  const buffer = Buffer.from(String(contentBase64 || ''), 'base64')
+
+  if (!buffer.byteLength) {
+    return null
+  }
+
+  if (declaredSize > 0 && declaredSize !== buffer.byteLength) {
+    throw Object.assign(new Error('Screenshot file content did not match the uploaded metadata.'), {
+      code: 'invalid_attachment_content',
       statusCode: 400,
     })
   }
+
+  validateAttachmentContent(buffer, mimeType)
+
+  return {
+    buffer,
+    fileSize: buffer.byteLength,
+    mimeType,
+    originalFilename,
+  }
+}
+
+function isLikelyBase64Body(value) {
+  const text = String(value || '').trim()
+
+  return text.length > 0
+    && text.length % 4 === 0
+    && /^[A-Za-z0-9+/=\r\n]+$/.test(text)
+}
+
+function getMultipartBodyCandidates(event) {
+  const body = String(event.body || '')
+  const candidates = []
+  const seen = new Set()
+  const addCandidate = (label, buffer) => {
+    const key = `${label}:${buffer.toString('base64')}`
+
+    if (!seen.has(key)) {
+      candidates.push({ buffer, label })
+      seen.add(key)
+    }
+  }
+
+  if (event.isBase64Encoded) {
+    addCandidate('base64', Buffer.from(body, 'base64'))
+    return candidates
+  }
+
+  addCandidate('utf8', Buffer.from(body, 'utf8'))
+  addCandidate('latin1', Buffer.from(body, 'latin1'))
+
+  if (isLikelyBase64Body(body)) {
+    addCandidate('base64-fallback', Buffer.from(body, 'base64'))
+  }
+
+  return candidates
+}
+
+async function parseMultipartBody(event, contentType) {
+  let lastError = null
+
+  for (const candidate of getMultipartBodyCandidates(event)) {
+    try {
+      const request = new Request('https://footballplayer.online/.netlify/functions/submit-tester-feedback', {
+        method: 'POST',
+        headers: {
+          'content-type': contentType,
+        },
+        body: candidate.buffer,
+      })
+      const formData = await request.formData()
+
+      return {
+        attachment: await normalizeAttachmentFile(formData.get('screenshot')),
+        context: parseJsonValue(formData.get('context') || '{}', 'Context'),
+        report: parseJsonValue(formData.get('report') || '{}', 'Report'),
+      }
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (lastError?.statusCode) {
+    throw lastError
+  }
+
+  console.error('tester_feedback_multipart_parse_failed', {
+    bodyLength: String(event.body || '').length,
+    contentType: normalizeText(contentType, { maxLength: 160 }),
+    isBase64Encoded: Boolean(event.isBase64Encoded),
+    message: normalizeText(lastError?.message, { maxLength: 240 }),
+    reference: SUPPORT_REFERENCE,
+  })
+
+  throw Object.assign(new Error('Feedback upload could not be read.'), {
+    code: 'invalid_multipart_body',
+    statusCode: 400,
+  })
 }
 
 async function parseBody(event) {
@@ -150,7 +278,7 @@ async function parseBody(event) {
 
   const body = parseJsonValue(event.body || '{}', 'Request body')
   return {
-    attachment: null,
+    attachment: normalizeBase64Attachment(body.screenshotAttachment || body.attachment),
     context: body.context || {},
     report: body.report || {},
   }
@@ -403,6 +531,23 @@ async function uploadFeedbackAttachment(supabaseAdmin, metadata, attachment) {
   return metadata
 }
 
+async function updateFeedbackAttachmentMetadata(supabaseAdmin, { metadata, reportId }) {
+  if (!metadata?.screenshot_storage_path) {
+    return null
+  }
+
+  const { error } = await supabaseAdmin
+    .from('tester_feedback_reports')
+    .update(metadata)
+    .eq('id', reportId)
+
+  if (error) {
+    throw error
+  }
+
+  return metadata
+}
+
 async function removeUploadedAttachment(supabaseAdmin, metadata) {
   if (!metadata?.screenshot_storage_bucket || !metadata?.screenshot_storage_path) {
     return
@@ -418,6 +563,49 @@ async function removeUploadedAttachment(supabaseAdmin, metadata) {
       path: metadata.screenshot_storage_path,
       reference: SUPPORT_REFERENCE,
     })
+  }
+}
+
+async function attachFeedbackScreenshot(supabaseAdmin, { attachment, metadata, reportId }) {
+  if (!attachment || !metadata) {
+    return {
+      metadata: null,
+      uploaded: false,
+      warning: '',
+    }
+  }
+
+  let uploadedMetadata = null
+
+  try {
+    uploadedMetadata = await uploadFeedbackAttachment(supabaseAdmin, metadata, attachment)
+    await updateFeedbackAttachmentMetadata(supabaseAdmin, {
+      metadata: uploadedMetadata,
+      reportId,
+    })
+
+    return {
+      metadata: uploadedMetadata,
+      uploaded: true,
+      warning: '',
+    }
+  } catch (error) {
+    if (uploadedMetadata) {
+      await removeUploadedAttachment(supabaseAdmin, uploadedMetadata)
+    }
+
+    console.error('tester_feedback_attachment_upload_failed', {
+      code: normalizeText(error?.code || error?.status || error?.statusCode),
+      message: normalizeText(error?.message),
+      reference: SUPPORT_REFERENCE,
+      reportId,
+    })
+
+    return {
+      metadata: null,
+      uploaded: false,
+      warning: 'Feedback was saved, but screenshot upload failed.',
+    }
   }
 }
 
@@ -570,7 +758,6 @@ export async function submitTesterFeedbackResult(event, {
     })
     const reportId = randomUUID()
     const attachmentMetadata = getAttachmentMetadata(reportId, profile, body.attachment)
-    const uploadedAttachmentMetadata = await uploadFeedbackAttachment(supabaseAdmin, attachmentMetadata, body.attachment)
 
     const { data, error } = await supabaseAdmin
       .from('tester_feedback_reports')
@@ -583,7 +770,6 @@ export async function submitTesterFeedbackResult(event, {
         club_id: profile.clubId,
         team_id: teamId,
         ...report,
-        ...(uploadedAttachmentMetadata || {}),
         status: 'new',
         resolution_state: '',
       })
@@ -591,12 +777,17 @@ export async function submitTesterFeedbackResult(event, {
       .single()
 
     if (error) {
-      await removeUploadedAttachment(supabaseAdmin, uploadedAttachmentMetadata)
       throw error
     }
 
+    const attachmentResult = await attachFeedbackScreenshot(supabaseAdmin, {
+      attachment: body.attachment,
+      metadata: attachmentMetadata,
+      reportId: data.id,
+    })
+
     const emailNotification = await sendFeedbackNotification({
-      attachmentMetadata: uploadedAttachmentMetadata,
+      attachmentMetadata: attachmentResult.metadata,
       data,
       emailSender,
       env,
@@ -614,7 +805,8 @@ export async function submitTesterFeedbackResult(event, {
     return jsonResponse(200, {
       success: true,
       attachment: {
-        uploaded: Boolean(uploadedAttachmentMetadata?.screenshot_storage_path),
+        uploaded: attachmentResult.uploaded,
+        warning: attachmentResult.warning,
       },
       emailNotification: {
         status: emailNotification.status,

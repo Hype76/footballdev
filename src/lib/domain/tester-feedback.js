@@ -1,7 +1,7 @@
 import { supabase } from '../supabase-client.js'
 
 export const TESTER_FEEDBACK_SAVE_ERROR_MESSAGE = 'Feedback could not be saved. Please try again or contact support.'
-export const TESTER_FEEDBACK_SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024
+export const TESTER_FEEDBACK_SCREENSHOT_MAX_BYTES = 3 * 1024 * 1024
 export const TESTER_FEEDBACK_SCREENSHOT_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 
 export const TESTER_FEEDBACK_TYPES = [
@@ -49,7 +49,7 @@ export function validateTesterFeedbackScreenshot(file) {
   }
 
   if (file.size > TESTER_FEEDBACK_SCREENSHOT_MAX_BYTES) {
-    throw new Error('Screenshot must be 5 MB or smaller.')
+    throw new Error('Screenshot must be 3 MB or smaller.')
   }
 
   return file
@@ -65,31 +65,49 @@ export function formatTesterFeedbackScreenshotSize(bytes) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function buildTesterFeedbackRequestBody({ report, screenshotFile, user }) {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.addEventListener('load', () => resolve(String(reader.result || '')))
+    reader.addEventListener('error', () => reject(new Error('Screenshot could not be read.')))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function buildScreenshotAttachment(file) {
+  if (!file) {
+    return null
+  }
+
+  const dataUrl = await readFileAsDataUrl(file)
+  const [, contentBase64 = ''] = dataUrl.split(',', 2)
+
+  if (!contentBase64) {
+    throw new Error('Screenshot could not be read.')
+  }
+
+  return {
+    contentBase64,
+    fileName: file.name || 'screenshot',
+    mimeType: file.type,
+    size: file.size,
+  }
+}
+
+async function buildTesterFeedbackRequestBody({ report, screenshotFile, user }) {
   const context = {
     activeTeamId: user?.activeTeamId || '',
   }
 
-  if (!screenshotFile) {
-    return {
-      body: JSON.stringify({
-        context,
-        report,
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }
-  }
-
-  const body = new FormData()
-  body.set('report', JSON.stringify(report))
-  body.set('context', JSON.stringify(context))
-  body.set('screenshot', screenshotFile, screenshotFile.name || 'screenshot')
-
   return {
-    body,
-    headers: {},
+    body: JSON.stringify({
+      context,
+      report,
+      screenshotAttachment: await buildScreenshotAttachment(screenshotFile),
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
   }
 }
 
@@ -102,7 +120,7 @@ export async function createTesterFeedbackReport({ report, screenshotFile = null
   }
 
   const validatedScreenshot = validateTesterFeedbackScreenshot(screenshotFile)
-  const requestBody = buildTesterFeedbackRequestBody({
+  const requestBody = await buildTesterFeedbackRequestBody({
     report,
     screenshotFile: validatedScreenshot,
     user,
@@ -122,5 +140,8 @@ export async function createTesterFeedbackReport({ report, screenshotFile = null
     throw new Error(payload.message || TESTER_FEEDBACK_SAVE_ERROR_MESSAGE)
   }
 
-  return payload.report
+  return {
+    ...payload.report,
+    attachmentWarning: payload.attachment?.warning || '',
+  }
 }

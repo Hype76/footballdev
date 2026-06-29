@@ -23,6 +23,7 @@ const userId = '11111111-1111-4111-8111-111111111111'
 const clubId = '22222222-2222-4222-8222-222222222222'
 const teamId = '33333333-3333-4333-8333-333333333333'
 const otherTeamId = '44444444-4444-4444-8444-444444444444'
+const validPngBuffer = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c49444154789c63606060000000040001f61738550000000049454e44ae426082', 'hex')
 
 function createEvent(body = {}, headers = {}) {
   return {
@@ -179,7 +180,24 @@ function createMockSupabase({
   }
 }
 
-async function createMultipartEvent({ file = new File(['fixture image'], 'fixture.png', { type: 'image/png' }) } = {}) {
+function createScreenshotAttachment({
+  buffer = validPngBuffer,
+  fileName = '{BE0AD2EE-BA45-4190-BD7A-4666BDCAC9A8}.png',
+  mimeType = 'image/png',
+  size = buffer.length,
+} = {}) {
+  return {
+    contentBase64: buffer.toString('base64'),
+    fileName,
+    mimeType,
+    size,
+  }
+}
+
+async function createMultipartEvent({
+  file = new File([validPngBuffer], '{BE0AD2EE-BA45-4190-BD7A-4666BDCAC9A8}.png', { type: 'image/png' }),
+  isBase64Encoded = true,
+} = {}) {
   const jsonEvent = createEvent()
   const jsonBody = JSON.parse(jsonEvent.body)
   const formData = new FormData()
@@ -201,8 +219,10 @@ async function createMultipartEvent({ file = new File(['fixture image'], 'fixtur
       ...jsonEvent.headers,
       'content-type': request.headers.get('content-type'),
     },
-    body: Buffer.from(await request.arrayBuffer()).toString('base64'),
-    isBase64Encoded: true,
+    body: isBase64Encoded
+      ? Buffer.from(await request.arrayBuffer()).toString('base64')
+      : Buffer.from(await request.arrayBuffer()).toString('latin1'),
+    isBase64Encoded,
   }
 }
 
@@ -255,6 +275,9 @@ test('client submits through the protected Netlify function and not a direct bro
   assert.match(domainSource, /supabase\.auth\.getSession\(\)/)
   assert.match(domainSource, /fetch\('\/\.netlify\/functions\/submit-tester-feedback'/)
   assert.match(domainSource, /Authorization: `Bearer \$\{accessToken\}`/)
+  assert.match(domainSource, /screenshotAttachment/)
+  assert.match(domainSource, /Content-Type': 'application\/json'/)
+  assert.doesNotMatch(domainSource, /new FormData/)
   assert.doesNotMatch(domainSource, /\.from\('tester_feedback_reports'\)/)
 })
 
@@ -290,10 +313,12 @@ test('submitTesterFeedbackResult inserts valid signed-in feedback with server-de
   assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), false)
 })
 
-test('submitTesterFeedbackResult uploads an attached screenshot to private storage metadata before insert', async () => {
+test('submitTesterFeedbackResult uploads a JSON screenshot to private storage and updates metadata after insert', async () => {
   const mock = createMockSupabase()
   const email = createEmailSender()
-  const response = await submitTesterFeedbackResult(await createMultipartEvent(), {
+  const response = await submitTesterFeedbackResult(createEvent({
+    screenshotAttachment: createScreenshotAttachment(),
+  }), {
     emailSender: email.emailSender,
     env: emailEnv,
     supabaseAdmin: mock.supabaseAdmin,
@@ -301,23 +326,36 @@ test('submitTesterFeedbackResult uploads an attached screenshot to private stora
   const parsed = parseResponse(response)
   const uploadCall = mock.calls.find((call) => call.action === 'storage_upload')
   const insertCall = mock.calls.find((call) => call.table === 'tester_feedback_reports' && call.action === 'insert')
+  const metadataUpdateCall = mock.calls.find((call) => (
+    call.table === 'tester_feedback_reports'
+    && call.action === 'update'
+    && call.payload.screenshot_storage_path
+  ))
 
   assert.equal(parsed.statusCode, 200)
   assert.equal(parsed.body.attachment.uploaded, true)
+  assert.equal(parsed.body.attachment.warning, '')
   assert.equal(uploadCall.bucket, FEEDBACK_ATTACHMENT_BUCKET_NAME)
   assert.match(uploadCall.path, /^tester-feedback\/[0-9a-f-]+\/[0-9a-f-]+\.png$/)
   assert.equal(uploadCall.options.contentType, 'image/png')
-  assert.equal(insertCall.payload.screenshot_storage_bucket, FEEDBACK_ATTACHMENT_BUCKET_NAME)
-  assert.equal(insertCall.payload.screenshot_storage_path, uploadCall.path)
-  assert.equal(insertCall.payload.screenshot_original_filename, 'fixture.png')
-  assert.equal(insertCall.payload.screenshot_mime_type, 'image/png')
-  assert.equal(insertCall.payload.screenshot_uploaded_by, userId)
+  assert.equal(insertCall.payload.screenshot_storage_path, undefined)
+  assert.equal(metadataUpdateCall.payload.screenshot_storage_bucket, FEEDBACK_ATTACHMENT_BUCKET_NAME)
+  assert.equal(metadataUpdateCall.payload.screenshot_storage_path, uploadCall.path)
+  assert.equal(metadataUpdateCall.payload.screenshot_original_filename, '{BE0AD2EE-BA45-4190-BD7A-4666BDCAC9A8}.png')
+  assert.equal(metadataUpdateCall.payload.screenshot_mime_type, 'image/png')
+  assert.equal(metadataUpdateCall.payload.screenshot_uploaded_by, userId)
   assert.equal(insertCall.payload.screenshot_url, null)
 })
 
 test('submitTesterFeedbackResult rejects invalid screenshot uploads before insert', async () => {
   const mock = createMockSupabase()
-  const event = await createMultipartEvent({ file: new File(['plain text'], 'notes.txt', { type: 'text/plain' }) })
+  const event = createEvent({
+    screenshotAttachment: createScreenshotAttachment({
+      buffer: Buffer.from('plain text'),
+      fileName: 'notes.txt',
+      mimeType: 'text/plain',
+    }),
+  })
   const response = await withMutedConsole(() => submitTesterFeedbackResult(event, {
       emailSender: createEmailSender().emailSender,
       env: emailEnv,
@@ -329,6 +367,65 @@ test('submitTesterFeedbackResult rejects invalid screenshot uploads before inser
   assert.equal(parsed.body.code, 'invalid_attachment_type')
   assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), false)
   assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), false)
+})
+
+test('submitTesterFeedbackResult rejects screenshot content that does not match the claimed type', async () => {
+  const mock = createMockSupabase()
+  const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent({
+    screenshotAttachment: createScreenshotAttachment({
+      buffer: Buffer.from('plain text'),
+      mimeType: 'image/png',
+    }),
+  }), {
+    emailSender: createEmailSender().emailSender,
+    env: emailEnv,
+    supabaseAdmin: mock.supabaseAdmin,
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 400)
+  assert.equal(parsed.body.code, 'invalid_attachment_content')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), false)
+  assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), false)
+})
+
+test('submitTesterFeedbackResult keeps text feedback saved when screenshot storage upload fails', async () => {
+  const mock = createMockSupabase({
+    storageUploadError: new Error('Storage unavailable'),
+  })
+  const email = createEmailSender()
+  const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent({
+    screenshotAttachment: createScreenshotAttachment(),
+  }), {
+    emailSender: email.emailSender,
+    env: emailEnv,
+    supabaseAdmin: mock.supabaseAdmin,
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.attachment.uploaded, false)
+  assert.equal(parsed.body.attachment.warning, 'Feedback was saved, but screenshot upload failed.')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), true)
+  assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), true)
+  assert.equal(mock.calls.some((call) => call.payload?.screenshot_storage_path), false)
+  assert.equal(email.calls.length, 1)
+})
+
+test('submitTesterFeedbackResult still parses Netlify-style multipart screenshots', async () => {
+  const mock = createMockSupabase()
+  const response = await submitTesterFeedbackResult(await createMultipartEvent({ isBase64Encoded: false }), {
+    emailSender: createEmailSender().emailSender,
+    env: emailEnv,
+    supabaseAdmin: mock.supabaseAdmin,
+  })
+  const parsed = parseResponse(response)
+  const uploadCall = mock.calls.find((call) => call.action === 'storage_upload')
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.attachment.uploaded, true)
+  assert.equal(uploadCall.options.contentType, 'image/png')
 })
 
 test('submitTesterFeedbackResult keeps saved feedback when notification email fails', async () => {
