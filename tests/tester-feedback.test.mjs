@@ -16,6 +16,11 @@ const pageSource = readFileSync('src/pages/TesterFeedbackPage.jsx', 'utf8')
 const sidebarSource = readFileSync('src/components/layout/Sidebar.jsx', 'utf8')
 const domainSource = readFileSync('src/lib/domain/tester-feedback.js', 'utf8')
 const functionSource = readFileSync('netlify/functions/submit-tester-feedback.js', 'utf8')
+const compatibilityWrapperSource = readFileSync('netlify/functions/_t-tester-feedback.js', 'utf8')
+const contactRequestFunctionSource = readFileSync('netlify/functions/send-contact-request.js', 'utf8')
+const parentEmailFunctionSource = readFileSync('netlify/functions/send-parent-email.js', 'utf8')
+const parentInviteFunctionSource = readFileSync('netlify/functions/send-parent-portal-invite.js', 'utf8')
+const checkoutFunctionSource = readFileSync('netlify/functions/create-checkout-session.js', 'utf8')
 const migrationSource = readFileSync('supabase/migrations/20260531162038_tester_feedback_reports.sql', 'utf8')
 const uploadEmailMigrationSource = readFileSync('supabase/migrations/20260629085648_v1_feedback_upload_email.sql', 'utf8')
 
@@ -227,7 +232,7 @@ async function createMultipartEvent({
 }
 
 const emailEnv = {
-  FEEDBACK_NOTIFICATION_EMAIL: 'support@example.test',
+  FEEDBACK_NOTIFY_TO: 'support@jeluma.com',
   RESEND_API_KEY: 'resend-test-key',
   RESEND_FROM_EMAIL: 'feedback@footballplayer.online',
 }
@@ -309,6 +314,7 @@ test('submitTesterFeedbackResult inserts valid signed-in feedback with server-de
   assert.equal(JSON.stringify(insertCall.payload).includes('spoofed-user'), false)
   assert.equal(JSON.stringify(insertCall.payload).includes('spoofed@example.test'), false)
   assert.equal(email.calls.length, 1)
+  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
   assert.match(email.calls[0].payload.subject, /Report Issue: Fixture feedback title/)
   assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), false)
 })
@@ -345,6 +351,56 @@ test('submitTesterFeedbackResult uploads a JSON screenshot to private storage an
   assert.equal(metadataUpdateCall.payload.screenshot_mime_type, 'image/png')
   assert.equal(metadataUpdateCall.payload.screenshot_uploaded_by, userId)
   assert.equal(insertCall.payload.screenshot_url, null)
+  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
+})
+
+test('submitTesterFeedbackResult defaults tester feedback notifications to the Jeluma support inbox', async () => {
+  const mock = createMockSupabase()
+  const email = createEmailSender()
+  const response = await submitTesterFeedbackResult(createEvent(), {
+    emailSender: email.emailSender,
+    env: {
+      CONTACT_REQUEST_RECIPIENT: 'info@footballplayer.online',
+      FEEDBACK_NOTIFICATION_EMAIL: 'info@footballplayer.online',
+      RESEND_API_KEY: 'resend-test-key',
+      RESEND_FROM_EMAIL: 'feedback@footballplayer.online',
+    },
+    supabaseAdmin: mock.supabaseAdmin,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
+  assert.equal(email.calls[0].payload.to.includes('info@footballplayer.online'), false)
+})
+
+test('submitTesterFeedbackResult uses FEEDBACK_NOTIFY_TO as the only configurable tester feedback recipient', async () => {
+  const mock = createMockSupabase()
+  const email = createEmailSender()
+  const response = await submitTesterFeedbackResult(createEvent({
+    screenshotAttachment: createScreenshotAttachment(),
+  }), {
+    emailSender: email.emailSender,
+    env: {
+      CONTACT_REQUEST_RECIPIENT: 'info@footballplayer.online',
+      FEEDBACK_NOTIFY_TO: 'support@jeluma.com',
+      RESEND_API_KEY: 'resend-test-key',
+      RESEND_FROM_EMAIL: 'feedback@footballplayer.online',
+    },
+    supabaseAdmin: mock.supabaseAdmin,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.deepEqual(email.calls[0].payload.to, ['support@jeluma.com'])
+})
+
+test('tester feedback compatibility wrapper uses the same submit handler recipient path', () => {
+  assert.equal(compatibilityWrapperSource.trim(), "export { handler } from './submit-tester-feedback.js'")
+  assert.match(functionSource, /FEEDBACK_NOTIFY_TO/)
+  assert.doesNotMatch(functionSource, /CONTACT_REQUEST_RECIPIENT \|\| 'info@footballplayer\.online'/)
 })
 
 test('submitTesterFeedbackResult rejects invalid screenshot uploads before insert', async () => {
@@ -444,6 +500,27 @@ test('submitTesterFeedbackResult keeps saved feedback when notification email fa
   assert.equal(parsed.body.emailNotification.status, 'failed')
   assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), true)
   assert.equal(emailUpdate.payload.feedback_email_status, 'failed')
+})
+
+test('submitTesterFeedbackResult keeps saved feedback when feedback recipient config is invalid', async () => {
+  const mock = createMockSupabase()
+  const email = createEmailSender()
+  const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent(), {
+    emailSender: email.emailSender,
+    env: {
+      FEEDBACK_NOTIFY_TO: 'not-an-email-address',
+      RESEND_API_KEY: 'resend-test-key',
+      RESEND_FROM_EMAIL: 'feedback@footballplayer.online',
+    },
+    supabaseAdmin: mock.supabaseAdmin,
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.emailNotification.status, 'not_configured')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), true)
+  assert.equal(email.calls.length, 0)
 })
 
 test('submitTesterFeedbackResult rejects missing required title and summary before insert', async () => {
@@ -552,4 +629,13 @@ test('server function never trusts privileged client-supplied feedback fields', 
   assert.doesNotMatch(functionSource, /submittedByEmail/)
   assert.doesNotMatch(functionSource, /report\?\.clubId/)
   assert.doesNotMatch(functionSource, /report\?\.status/)
+})
+
+test('feedback recipient setting does not change unrelated transactional email flows', () => {
+  assert.match(contactRequestFunctionSource, /CONTACT_REQUEST_RECIPIENT/)
+  assert.match(contactRequestFunctionSource, /info@footballplayer\.online/)
+  assert.doesNotMatch(contactRequestFunctionSource, /FEEDBACK_NOTIFY_TO/)
+  assert.doesNotMatch(parentEmailFunctionSource, /FEEDBACK_NOTIFY_TO/)
+  assert.doesNotMatch(parentInviteFunctionSource, /FEEDBACK_NOTIFY_TO/)
+  assert.doesNotMatch(checkoutFunctionSource, /FEEDBACK_NOTIFY_TO/)
 })

@@ -5,10 +5,11 @@ import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-UPLOAD-PARSE-05'
+const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-EMAIL-RECIPIENT-06'
 const MAX_TEXT_LENGTH = 4000
 const FEEDBACK_ATTACHMENT_BUCKET = 'tester-feedback-attachments'
 const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024
+const FEEDBACK_NOTIFICATION_RECIPIENT = 'support@jeluma.com'
 const ALLOWED_ATTACHMENT_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const ATTACHMENT_EXTENSIONS = {
   'image/png': 'png',
@@ -487,7 +488,7 @@ function isValidEmail(value) {
 }
 
 function getFeedbackNotificationRecipient(env = process.env) {
-  return normalizeText(env.FEEDBACK_NOTIFICATION_EMAIL || env.CONTACT_REQUEST_RECIPIENT || 'info@footballplayer.online', { maxLength: 320 })
+  return normalizeText(env.FEEDBACK_NOTIFY_TO || FEEDBACK_NOTIFICATION_RECIPIENT, { maxLength: 320 }).toLowerCase()
 }
 
 function getAttachmentMetadata(reportId, profile, attachment) {
