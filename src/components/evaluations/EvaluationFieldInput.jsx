@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
   DEFAULT_ASSESSMENT_SCORE_GUIDE,
@@ -6,6 +5,7 @@ import {
   getDefaultAssessmentScoreOptions,
   isAssessmentScoreFieldType,
 } from '../../lib/assessment-scoring.js'
+import { HintPopover } from '../ui/HintPopover.jsx'
 
 function isScoreFieldType(fieldType) {
   return isAssessmentScoreFieldType(fieldType)
@@ -62,32 +62,42 @@ function getFieldSelectOptions(field) {
   return []
 }
 
-function ScoreInfo() {
-  const [isOpen, setIsOpen] = useState(false)
+function getScoreGuideItems(fieldType) {
+  if (fieldType === DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE) {
+    return DEFAULT_ASSESSMENT_SCORE_GUIDE
+  }
+
+  const maxValue = getAssessmentScoreMax(fieldType)
+  return Array.from({ length: maxValue }, (_, index) => ({
+    score: index + 1,
+    label: `Score ${index + 1}`,
+    description: `A ${index + 1} out of ${maxValue} score for this field.`,
+  }))
+}
+
+function ScoreInfo({ field }) {
+  const guideItems = getScoreGuideItems(field.type)
+  const maxScore = getAssessmentScoreMax(field.type)
 
   return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        aria-label="Score information"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((current) => !current)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#047857] transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:border-[#047857] focus:ring-2 focus:ring-[#d1fae5] focus:outline-none"
-      >
-        i
-      </button>
-      <span className={`absolute right-0 top-12 z-20 max-h-96 w-80 overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-4 text-left text-xs leading-5 text-[#4b5f55] shadow-lg shadow-[#101828]/10 group-hover:block group-focus-within:block ${isOpen ? 'block' : 'hidden'}`}>
-        <span className="mb-3 block text-sm font-black text-[#101828]">Scoring guide</span>
-        {DEFAULT_ASSESSMENT_SCORE_GUIDE.map((help) => (
-          <span key={help.label} className="mt-2 block">
-            <span className="font-black text-[#101828]">
+    <HintPopover
+      buttonLabel={`Show scoring guide for ${field.label}`}
+      title="Scoring guide"
+    >
+      <p className="text-sm font-semibold leading-6 text-[#4b5f55] dark:text-[#d7e5dc]">
+        Use this guide when scoring {field.label}. Scores run from 1 to {maxScore}.
+      </p>
+      <div className="mt-3 grid gap-2">
+        {guideItems.map((help) => (
+          <div key={`${help.score}-${help.label}`} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 dark:border-[#315244] dark:bg-[#172033]">
+            <p className="font-black text-[#101828] dark:text-white">
               {help.score}. {help.label}
-            </span>
-            <span className="mt-0.5 block text-[#4b5f55]">{help.description}</span>
-          </span>
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-[#4b5f55] dark:text-[#d7e5dc]">{help.description}</p>
+          </div>
         ))}
-      </span>
-    </span>
+      </div>
+    </HintPopover>
   )
 }
 
@@ -133,7 +143,7 @@ export function EvaluationFieldInput({ field, value, onChange }) {
             </option>
           ))}
         </select>
-        {isScoreField ? <ScoreInfo /> : null}
+        {isScoreField ? <ScoreInfo field={field} /> : null}
       </div>
     )
   }
