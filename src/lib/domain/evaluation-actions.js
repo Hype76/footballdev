@@ -38,6 +38,37 @@ import {
   blockDemoMutation,
 } from './demo-guards.js'
 
+function isDuplicateEvaluationIdConflict(error) {
+  const code = String(error?.code ?? '').trim()
+  const message = String(error?.message ?? '').toLowerCase()
+  const details = String(error?.details ?? '').toLowerCase()
+
+  return (
+    code === '23505' &&
+    (message.includes('duplicate key') || details.includes('already exists')) &&
+    (message.includes('evaluations_pkey') || details.includes('evaluations_pkey'))
+  )
+}
+
+async function recoverCreatedEvaluationFromDuplicateId(payload) {
+  if (!payload?.id) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('evaluations')
+    .select('*')
+    .eq('id', payload.id)
+    .maybeSingle()
+
+  if (error) {
+    console.error(error)
+    return null
+  }
+
+  return data || null
+}
+
 export async function createEvaluation(data) {
   const evaluationUser = {
     id: data.coachId,
@@ -186,6 +217,18 @@ export async function createEvaluation(data) {
     .single()
 
   if (error) {
+    if (isDuplicateEvaluationIdConflict(error)) {
+      const existingRow = await recoverCreatedEvaluationFromDuplicateId(payload)
+
+      if (existingRow) {
+        invalidateMemoryCacheByPrefix(`players:${data.clubId}:`)
+        invalidateMemoryCacheByPrefix(`evaluations:${data.clubId}:`)
+        invalidateMemoryCacheByPrefix(`assessment-sessions:${data.clubId}:`)
+        clearViewCaches()
+        return normalizeEvaluationRow(existingRow)
+      }
+    }
+
     console.error(error)
     throw error
   }

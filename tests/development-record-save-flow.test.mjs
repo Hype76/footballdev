@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import {
@@ -298,6 +299,10 @@ test('save failure message gives safe diagnostics for final database failures', 
     'The selected player, team, or session could not be matched. Refresh the player details and try again.',
   )
   assert.equal(
+    getDevelopmentRecordSaveFailureMessage({ code: '23505', message: 'duplicate key value violates unique constraint "evaluations_pkey"' }),
+    'This development record was already saved. Refresh the player profile before trying again.',
+  )
+  assert.equal(
     getDevelopmentRecordSaveFailureMessage({ code: '42501', message: 'new row violates row-level security policy' }),
     'Your account does not have permission to save this development record for the selected player.',
   )
@@ -309,4 +314,15 @@ test('save failure message gives safe diagnostics for final database failures', 
     getDevelopmentRecordSaveFailureMessage({ message: 'Please enter a report date before saving.' }),
     'Please enter a report date before saving.',
   )
+})
+
+test('final save retry recovers an existing draft-backed evaluation after duplicate id conflict', async () => {
+  const source = await readFile(new URL('../src/lib/domain/evaluation-actions.js', import.meta.url), 'utf8')
+
+  assert.match(source, /function isDuplicateEvaluationIdConflict\(error\)/)
+  assert.match(source, /code === '23505'/)
+  assert.match(source, /evaluations_pkey/)
+  assert.match(source, /\.from\('evaluations'\)[\s\S]*\.eq\('id', payload\.id\)[\s\S]*\.maybeSingle\(\)/)
+  assert.match(source, /isDuplicateEvaluationIdConflict\(error\)[\s\S]*recoverCreatedEvaluationFromDuplicateId\(payload\)/)
+  assert.match(source, /return normalizeEvaluationRow\(existingRow\)/)
 })

@@ -480,6 +480,10 @@ export function getDevelopmentRecordSaveFailureMessage(error) {
     return 'The selected player, team, or session could not be matched. Refresh the player details and try again.'
   }
 
+  if (code === '23505' || combinedMessage.includes('duplicate key')) {
+    return 'This development record was already saved. Refresh the player profile before trying again.'
+  }
+
   if (code === '42501' || combinedMessage.includes('row-level security') || combinedMessage.includes('permission denied')) {
     return 'Your account does not have permission to save this development record for the selected player.'
   }
