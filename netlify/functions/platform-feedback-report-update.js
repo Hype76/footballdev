@@ -132,6 +132,13 @@ function normalizeFeedbackReport(row) {
     browserDevice: normalizeText(row.browser_device, { maxLength: 1000 }),
     logReference: normalizeText(row.log_reference, { maxLength: 1000 }),
     adminNotes: normalizeText(row.admin_notes),
+    attachment: {
+      fileSize: Number(row.screenshot_file_size || 0),
+      hasAttachment: Boolean(row.screenshot_storage_bucket && row.screenshot_storage_path),
+      mimeType: normalizeText(row.screenshot_mime_type, { maxLength: 120 }),
+      originalFilename: normalizeText(row.screenshot_original_filename, { maxLength: 240 }),
+      uploadedAt: row.screenshot_uploaded_at ?? '',
+    },
   }
 }
 
@@ -202,7 +209,7 @@ export async function platformFeedbackReportUpdateResult(event, {
       .from('tester_feedback_reports')
       .update(updatePayload)
       .eq('id', reportId)
-      .select('id, created_at, submitted_by_user_id, submitted_by_email, submitted_by_name, role, club_id, team_id, module, phase, route, page_title, feedback_type, severity, status, resolution_state, title, summary, reproduction_steps, expected_result, actual_result, browser_device, log_reference, admin_notes, clubs:club_id (name), teams:team_id (name)')
+      .select('id, created_at, submitted_by_user_id, submitted_by_email, submitted_by_name, role, club_id, team_id, module, phase, route, page_title, feedback_type, severity, status, resolution_state, title, summary, reproduction_steps, expected_result, actual_result, browser_device, log_reference, admin_notes, screenshot_storage_bucket, screenshot_storage_path, screenshot_original_filename, screenshot_mime_type, screenshot_file_size, screenshot_uploaded_at, clubs:club_id (name), teams:team_id (name)')
       .maybeSingle()
 
     if (error) {

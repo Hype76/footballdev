@@ -13,6 +13,7 @@ import { FEEDBACK_PAGE_SIZE, PLATFORM_FEEDBACK_CACHE_KEY, getFeedbackStats } fro
 import {
   createPlatformFeedback,
   getPlatformFeedback,
+  getPlatformFeedbackAttachmentUrl,
   getPlatformFeedbackReports,
   readViewCacheValue,
   unvotePlatformFeedback,
@@ -37,6 +38,7 @@ export function PlatformFeedbackPage() {
   const [isLoading, setIsLoading] = useState(() => feedbackItems.length === 0 && feedbackReports.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [activeVoteId, setActiveVoteId] = useState('')
+  const [activeAttachmentId, setActiveAttachmentId] = useState('')
   const [activeReportId, setActiveReportId] = useState('')
   const [feedbackPage, setFeedbackPage] = useState(1)
   const [successMessage, setSuccessMessage] = useState('')
@@ -198,6 +200,26 @@ export function PlatformFeedbackPage() {
     }
   }
 
+  const handleReportAttachmentOpen = async (report) => {
+    setActiveAttachmentId(report.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const result = await getPlatformFeedbackAttachmentUrl({
+        user,
+        accessToken: session?.access_token || '',
+        reportId: report.id,
+      })
+      window.open(result.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Screenshot attachment could not be opened. Please try again.')
+    } finally {
+      setActiveAttachmentId('')
+    }
+  }
+
   const paginatedFeedback = getPaginatedItems(feedbackItems, feedbackPage, FEEDBACK_PAGE_SIZE)
   const feedbackStats = getFeedbackStats(feedbackItems, feedbackReports)
 
@@ -229,8 +251,10 @@ export function PlatformFeedbackPage() {
 
       {isSuperAdmin(user) ? (
         <IssueReportsSection
+          activeAttachmentId={activeAttachmentId}
           activeReportId={activeReportId}
           isLoading={isLoading}
+          onAttachmentOpen={handleReportAttachmentOpen}
           onStatusChange={handleReportStatusChange}
           reports={feedbackReports}
           showAdminActions

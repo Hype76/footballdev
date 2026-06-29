@@ -18,6 +18,7 @@ const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center roun
 const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 
 export function PlatformFeedbackSection({
+  activeAttachmentId = '',
   activeReportId = '',
   drafts,
   feedbackItems,
@@ -26,6 +27,7 @@ export function PlatformFeedbackSection({
   onDraftChange,
   onPageChange,
   onSave,
+  onSupportReportAttachmentOpen,
   onSupportReportStatusChange,
   page,
   pageSize,
@@ -45,7 +47,9 @@ export function PlatformFeedbackSection({
       ) : (
         <div className="space-y-4">
           <IssueReportsSection
+            activeAttachmentId={activeAttachmentId}
             activeReportId={activeReportId}
+            onAttachmentOpen={onSupportReportAttachmentOpen}
             onStatusChange={onSupportReportStatusChange}
             reports={supportReports}
             showAdminActions={Boolean(onSupportReportStatusChange)}

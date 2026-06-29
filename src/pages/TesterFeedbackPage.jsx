@@ -6,6 +6,8 @@ import {
   TESTER_FEEDBACK_SEVERITIES,
   TESTER_FEEDBACK_TYPES,
   createTesterFeedbackReport,
+  formatTesterFeedbackScreenshotSize,
+  validateTesterFeedbackScreenshot,
 } from '../lib/domain/tester-feedback.js'
 
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-bold text-[#101828] outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#d1fae5]'
@@ -38,15 +40,38 @@ export function TesterFeedbackPage() {
     expectedResult: '',
     actualResult: '',
     browserDevice: getDefaultBrowserDevice(),
-    screenshotUrl: '',
     logReference: '',
   })
+  const [screenshotFile, setScreenshotFile] = useState(null)
+  const [isDraggingScreenshot, setIsDraggingScreenshot] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const updateScreenshot = (file) => {
+    setErrorMessage('')
+
+    if (!file) {
+      setScreenshotFile(null)
+      return
+    }
+
+    try {
+      setScreenshotFile(validateTesterFeedbackScreenshot(file))
+    } catch (error) {
+      setScreenshotFile(null)
+      setErrorMessage(error.message || 'Screenshot could not be attached.')
+    }
+  }
+
+  const handleScreenshotDrop = (event) => {
+    event.preventDefault()
+    setIsDraggingScreenshot(false)
+    updateScreenshot(event.dataTransfer.files?.[0] || null)
   }
 
   const handleSubmit = async (event) => {
@@ -56,7 +81,7 @@ export function TesterFeedbackPage() {
     setIsSaving(true)
 
     try {
-      const created = await createTesterFeedbackReport({ report: form, user })
+      const created = await createTesterFeedbackReport({ report: form, screenshotFile, user })
       setStatusMessage(`Feedback sent. Report ID: ${created.id}`)
       setForm((current) => ({
         ...current,
@@ -65,9 +90,9 @@ export function TesterFeedbackPage() {
         reproductionSteps: '',
         expectedResult: '',
         actualResult: '',
-        screenshotUrl: '',
         logReference: '',
       }))
+      setScreenshotFile(null)
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Feedback could not be saved.')
@@ -160,10 +185,55 @@ export function TesterFeedbackPage() {
               <span className={labelClass}>Browser/device</span>
               <textarea value={form.browserDevice} onChange={(event) => updateField('browserDevice', event.target.value)} className={textareaClass} />
             </label>
-            <label className="block">
-              <span className={labelClass}>Screenshot URL</span>
-              <input value={form.screenshotUrl} onChange={(event) => updateField('screenshotUrl', event.target.value)} className={fieldClass} />
-            </label>
+            <div className="block">
+              <span className={labelClass}>Screenshot</span>
+              <label
+                onDragEnter={(event) => {
+                  event.preventDefault()
+                  setIsDraggingScreenshot(true)
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault()
+                  setIsDraggingScreenshot(true)
+                }}
+                onDragLeave={() => setIsDraggingScreenshot(false)}
+                onDrop={handleScreenshotDrop}
+                className={`flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-4 text-center text-sm font-black transition ${
+                  isDraggingScreenshot
+                    ? 'border-[#047857] bg-[#ecfdf5] text-[#047857]'
+                    : 'border-[#9dc9b4] bg-[#f7faf8] text-[#4b5f55] hover:border-[#047857] hover:bg-[#ecfdf5]'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => updateScreenshot(event.target.files?.[0] || null)}
+                  className="sr-only"
+                />
+                {screenshotFile ? (
+                  <>
+                    <span className="break-all text-[#101828]">{screenshotFile.name || 'Selected screenshot'}</span>
+                    <span className="mt-1 text-xs uppercase tracking-[0.12em] text-[#047857]">
+                      {formatTesterFeedbackScreenshotSize(screenshotFile.size)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>Upload screenshot</span>
+                    <span className="mt-1 text-xs uppercase tracking-[0.12em]">PNG, JPG, or WebP</span>
+                  </>
+                )}
+              </label>
+              {screenshotFile ? (
+                <button
+                  type="button"
+                  onClick={() => updateScreenshot(null)}
+                  className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-[#047857] underline decoration-[#9dc9b4] underline-offset-4 transition hover:text-[#065f46]"
+                >
+                  Remove screenshot
+                </button>
+              ) : null}
+            </div>
             <label className="block">
               <span className={labelClass}>Log reference</span>
               <input value={form.logReference} onChange={(event) => updateField('logReference', event.target.value)} className={fieldClass} />

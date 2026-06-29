@@ -29,8 +29,10 @@ function getVisibleReports(reports, showClosedReports) {
 }
 
 export function IssueReportsSection({
+  activeAttachmentId = '',
   activeReportId = '',
   isLoading = false,
+  onAttachmentOpen,
   onStatusChange,
   reports = [],
   showAdminActions = false,
@@ -92,6 +94,8 @@ export function IssueReportsSection({
             const normalizedStatus = String(report.status || 'new').trim() || 'new'
             const canMarkReviewed = showAdminActions && normalizedStatus !== 'triaged'
             const canMarkClosed = showAdminActions && normalizedStatus !== 'fixed'
+            const attachment = report.attachment || {}
+            const hasAttachment = Boolean(attachment.hasAttachment)
 
             return (
               <article key={report.id} className="rounded-lg border border-[#29483b] bg-[#0b1712] p-4 shadow-sm shadow-[#020806]/30">
@@ -117,6 +121,23 @@ export function IssueReportsSection({
                   <span>Date: {formatPlatformDate(report.createdAt)}</span>
                 </div>
                 <p className="mt-3 break-all text-xs font-semibold text-[#b9dcc8]">Report ID: {report.id}</p>
+                {hasAttachment ? (
+                  <div className="mt-3 flex flex-col gap-2 rounded-lg border border-[#29483b] bg-[#102019] px-3 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#c7f7d8] sm:flex-row sm:items-center sm:justify-between">
+                    <span className="break-words">
+                      Screenshot: {attachment.originalFilename || 'Attached'}
+                    </span>
+                    {showAdminActions ? (
+                      <button
+                        type="button"
+                        disabled={activeAttachmentId === report.id}
+                        onClick={() => onAttachmentOpen?.(report)}
+                        className={actionButtonClass}
+                      >
+                        {activeAttachmentId === report.id ? 'Opening...' : 'View screenshot'}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 {showAdminActions ? (
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <button

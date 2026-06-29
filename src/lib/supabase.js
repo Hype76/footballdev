@@ -176,6 +176,7 @@ export {
 export {
   createPlatformFeedback,
   deletePlatformFeedback,
+  getPlatformFeedbackAttachmentUrl,
   getPlatformFeedback,
   getPlatformFeedbackReports,
   unvotePlatformFeedback,

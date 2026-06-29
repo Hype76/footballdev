@@ -14,6 +14,7 @@ test('Report Issue feedback endpoints remain deployable top-level Netlify functi
   assert.ok(topLevelFunctions.includes('_t-tester-feedback'))
   assert.ok(topLevelFunctions.includes('platform-feedback-reports'))
   assert.ok(topLevelFunctions.includes('platform-feedback-report-update'))
+  assert.ok(topLevelFunctions.includes('platform-feedback-attachment-url'))
 })
 
 test('shared Netlify helpers do not consume deployable function slots', () => {

@@ -6,13 +6,18 @@ process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
 process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||= 'test-publishable-key'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 
-const { submitTesterFeedbackResult, FEEDBACK_SAVE_ERROR_MESSAGE } = await import('../netlify/functions/submit-tester-feedback.js')
+const {
+  FEEDBACK_ATTACHMENT_BUCKET_NAME,
+  FEEDBACK_SAVE_ERROR_MESSAGE,
+  submitTesterFeedbackResult,
+} = await import('../netlify/functions/submit-tester-feedback.js')
 
 const pageSource = readFileSync('src/pages/TesterFeedbackPage.jsx', 'utf8')
 const sidebarSource = readFileSync('src/components/layout/Sidebar.jsx', 'utf8')
 const domainSource = readFileSync('src/lib/domain/tester-feedback.js', 'utf8')
 const functionSource = readFileSync('netlify/functions/submit-tester-feedback.js', 'utf8')
 const migrationSource = readFileSync('supabase/migrations/20260531162038_tester_feedback_reports.sql', 'utf8')
+const uploadEmailMigrationSource = readFileSync('supabase/migrations/20260629085648_v1_feedback_upload_email.sql', 'utf8')
 
 const userId = '11111111-1111-4111-8111-111111111111'
 const clubId = '22222222-2222-4222-8222-222222222222'
@@ -40,7 +45,6 @@ function createEvent(body = {}, headers = {}) {
         expectedResult: 'Feedback saves',
         actualResult: 'Feedback failed',
         browserDevice: 'Fixture browser | 1280x720',
-        screenshotUrl: 'https://example.test/screenshot.png',
         logReference: 'log-fixture',
         submitted_by_user_id: 'spoofed-user',
         submittedByEmail: 'spoofed@example.test',
@@ -76,6 +80,7 @@ function createMockSupabase({
   team = { id: teamId, club_id: clubId },
   assignment = { id: '55555555-5555-4555-8555-555555555555' },
   insertError = null,
+  storageUploadError = null,
 } = {}) {
   const calls = []
 
@@ -110,6 +115,13 @@ function createMockSupabase({
       this.action = 'insert'
       this.payload = payload
       calls.push({ table: this.table, action: 'insert', payload })
+      return this
+    }
+
+    update(payload) {
+      this.action = 'update'
+      this.payload = payload
+      calls.push({ table: this.table, action: 'update', payload })
       return this
     }
 
@@ -151,8 +163,68 @@ function createMockSupabase({
         ),
       },
       from: (table) => new Query(table),
+      storage: {
+        from: (bucket) => ({
+          remove: async (paths) => {
+            calls.push({ action: 'storage_remove', bucket, paths })
+            return { data: null, error: null }
+          },
+          upload: async (path, fileBody, options) => {
+            calls.push({ action: 'storage_upload', bucket, path, fileBody, options })
+            return { data: { path }, error: storageUploadError }
+          },
+        }),
+      },
     },
   }
+}
+
+async function createMultipartEvent({ file = new File(['fixture image'], 'fixture.png', { type: 'image/png' }) } = {}) {
+  const jsonEvent = createEvent()
+  const jsonBody = JSON.parse(jsonEvent.body)
+  const formData = new FormData()
+  formData.set('report', JSON.stringify(jsonBody.report))
+  formData.set('context', JSON.stringify(jsonBody.context))
+
+  if (file) {
+    formData.set('screenshot', file, file.name || 'screenshot')
+  }
+
+  const request = new Request('https://footballplayer.online/.netlify/functions/submit-tester-feedback', {
+    method: 'POST',
+    body: formData,
+  })
+
+  return {
+    ...jsonEvent,
+    headers: {
+      ...jsonEvent.headers,
+      'content-type': request.headers.get('content-type'),
+    },
+    body: Buffer.from(await request.arrayBuffer()).toString('base64'),
+    isBase64Encoded: true,
+  }
+}
+
+const emailEnv = {
+  FEEDBACK_NOTIFICATION_EMAIL: 'support@example.test',
+  RESEND_API_KEY: 'resend-test-key',
+  RESEND_FROM_EMAIL: 'feedback@footballplayer.online',
+}
+
+function createEmailSender({ shouldFail = false } = {}) {
+  const calls = []
+  const emailSender = async (payload, options) => {
+    calls.push({ payload, options })
+
+    if (shouldFail) {
+      throw new Error('Email provider failed')
+    }
+
+    return { data: { id: 'email-1' } }
+  }
+
+  return { calls, emailSender }
 }
 
 async function withMutedConsole(callback) {
@@ -170,6 +242,9 @@ test('production feedback page and sidebar use production Report issue wording',
   assert.match(pageSource, /<h1[^>]*>Report issue<\/h1>/)
   assert.match(pageSource, /Send bugs, confusion, and missing setup details to the Football Player support team\./)
   assert.match(pageSource, /phase: 'production'/)
+  assert.match(pageSource, /Upload screenshot/)
+  assert.match(pageSource, /type="file"/)
+  assert.doesNotMatch(pageSource, /Screenshot URL/)
   assert.doesNotMatch(pageSource, /staging database/i)
   assert.doesNotMatch(pageSource, /recovery testing/i)
   assert.match(sidebarSource, /const feedbackRoute = `\/feedback\/new\?route=\$\{encodeURIComponent/)
@@ -185,7 +260,10 @@ test('client submits through the protected Netlify function and not a direct bro
 
 test('submitTesterFeedbackResult inserts valid signed-in feedback with server-derived identity and context', async () => {
   const mock = createMockSupabase()
+  const email = createEmailSender()
   const response = await submitTesterFeedbackResult(createEvent(), {
+    emailSender: email.emailSender,
+    env: emailEnv,
     supabaseAdmin: mock.supabaseAdmin,
   })
   const parsed = parseResponse(response)
@@ -204,8 +282,71 @@ test('submitTesterFeedbackResult inserts valid signed-in feedback with server-de
   assert.equal(insertCall.payload.browser_device, 'Fixture browser | 1280x720')
   assert.equal(insertCall.payload.status, 'new')
   assert.equal(insertCall.payload.resolution_state, '')
+  assert.equal(insertCall.payload.screenshot_url, null)
   assert.equal(JSON.stringify(insertCall.payload).includes('spoofed-user'), false)
   assert.equal(JSON.stringify(insertCall.payload).includes('spoofed@example.test'), false)
+  assert.equal(email.calls.length, 1)
+  assert.match(email.calls[0].payload.subject, /Report Issue: Fixture feedback title/)
+  assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), false)
+})
+
+test('submitTesterFeedbackResult uploads an attached screenshot to private storage metadata before insert', async () => {
+  const mock = createMockSupabase()
+  const email = createEmailSender()
+  const response = await submitTesterFeedbackResult(await createMultipartEvent(), {
+    emailSender: email.emailSender,
+    env: emailEnv,
+    supabaseAdmin: mock.supabaseAdmin,
+  })
+  const parsed = parseResponse(response)
+  const uploadCall = mock.calls.find((call) => call.action === 'storage_upload')
+  const insertCall = mock.calls.find((call) => call.table === 'tester_feedback_reports' && call.action === 'insert')
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.attachment.uploaded, true)
+  assert.equal(uploadCall.bucket, FEEDBACK_ATTACHMENT_BUCKET_NAME)
+  assert.match(uploadCall.path, /^tester-feedback\/[0-9a-f-]+\/[0-9a-f-]+\.png$/)
+  assert.equal(uploadCall.options.contentType, 'image/png')
+  assert.equal(insertCall.payload.screenshot_storage_bucket, FEEDBACK_ATTACHMENT_BUCKET_NAME)
+  assert.equal(insertCall.payload.screenshot_storage_path, uploadCall.path)
+  assert.equal(insertCall.payload.screenshot_original_filename, 'fixture.png')
+  assert.equal(insertCall.payload.screenshot_mime_type, 'image/png')
+  assert.equal(insertCall.payload.screenshot_uploaded_by, userId)
+  assert.equal(insertCall.payload.screenshot_url, null)
+})
+
+test('submitTesterFeedbackResult rejects invalid screenshot uploads before insert', async () => {
+  const mock = createMockSupabase()
+  const event = await createMultipartEvent({ file: new File(['plain text'], 'notes.txt', { type: 'text/plain' }) })
+  const response = await withMutedConsole(() => submitTesterFeedbackResult(event, {
+      emailSender: createEmailSender().emailSender,
+      env: emailEnv,
+      supabaseAdmin: mock.supabaseAdmin,
+    }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 400)
+  assert.equal(parsed.body.code, 'invalid_attachment_type')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), false)
+  assert.equal(mock.calls.some((call) => call.action === 'storage_upload'), false)
+})
+
+test('submitTesterFeedbackResult keeps saved feedback when notification email fails', async () => {
+  const mock = createMockSupabase()
+  const email = createEmailSender({ shouldFail: true })
+  const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent(), {
+    emailSender: email.emailSender,
+    env: emailEnv,
+    supabaseAdmin: mock.supabaseAdmin,
+  }))
+  const parsed = parseResponse(response)
+  const emailUpdate = mock.calls.find((call) => call.table === 'tester_feedback_reports' && call.action === 'update')
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.emailNotification.status, 'failed')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), true)
+  assert.equal(emailUpdate.payload.feedback_email_status, 'failed')
 })
 
 test('submitTesterFeedbackResult rejects missing required title and summary before insert', async () => {
@@ -215,6 +356,8 @@ test('submitTesterFeedbackResult rejects missing required title and summary befo
   ]) {
     const mock = createMockSupabase()
     const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent({ report }), {
+      emailSender: createEmailSender().emailSender,
+      env: emailEnv,
       supabaseAdmin: mock.supabaseAdmin,
     }))
     const parsed = parseResponse(response)
@@ -232,6 +375,8 @@ test('submitTesterFeedbackResult maps schema cache and table failures to a safe 
     }),
   })
   const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent(), {
+    emailSender: createEmailSender().emailSender,
+    env: emailEnv,
     supabaseAdmin: mock.supabaseAdmin,
   }))
   const parsed = parseResponse(response)
@@ -245,6 +390,8 @@ test('submitTesterFeedbackResult maps schema cache and table failures to a safe 
 test('submitTesterFeedbackResult blocks unauthenticated and cross-club team context', async () => {
   const unauthenticatedMock = createMockSupabase({ authUser: null })
   const unauthenticatedResponse = await withMutedConsole(() => submitTesterFeedbackResult(createEvent(), {
+    emailSender: createEmailSender().emailSender,
+    env: emailEnv,
     supabaseAdmin: unauthenticatedMock.supabaseAdmin,
   }))
   const unauthenticatedParsed = parseResponse(unauthenticatedResponse)
@@ -258,6 +405,8 @@ test('submitTesterFeedbackResult blocks unauthenticated and cross-club team cont
   const crossClubResponse = await withMutedConsole(() => submitTesterFeedbackResult(createEvent({
     context: { activeTeamId: otherTeamId },
   }), {
+    emailSender: createEmailSender().emailSender,
+    env: emailEnv,
     supabaseAdmin: crossClubMock.supabaseAdmin,
   }))
   const crossClubParsed = parseResponse(crossClubResponse)
@@ -284,6 +433,18 @@ test('tester feedback migration defines production table with RLS and spoofing p
   assert.match(migrationSource, /create policy tester_feedback_reports_select_scoped/)
   assert.doesNotMatch(migrationSource, /for select[\s\S]{0,120}using \(true\)/i)
   assert.doesNotMatch(migrationSource, /grant .* on public\.tester_feedback_reports to anon/i)
+})
+
+test('tester feedback upload migration creates private bucket and metadata constraints', () => {
+  assert.match(uploadEmailMigrationSource, /insert into storage\.buckets/)
+  assert.match(uploadEmailMigrationSource, /'tester-feedback-attachments'/)
+  assert.match(uploadEmailMigrationSource, /public,\s*[\r\n\s]*file_size_limit/i)
+  assert.match(uploadEmailMigrationSource, /false,\s*[\r\n\s]*5242880/i)
+  assert.match(uploadEmailMigrationSource, /allowed_mime_types/)
+  assert.match(uploadEmailMigrationSource, /screenshot_storage_path/)
+  assert.match(uploadEmailMigrationSource, /feedback_email_status/)
+  assert.match(uploadEmailMigrationSource, /tester_feedback_reports_screenshot_metadata_check/)
+  assert.doesNotMatch(uploadEmailMigrationSource, /create policy .*storage\.objects[\s\S]*using \(true\)/i)
 })
 
 test('server function never trusts privileged client-supplied feedback fields', () => {

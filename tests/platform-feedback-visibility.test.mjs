@@ -8,9 +8,14 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 
 const { platformFeedbackReportsResult } = await import('../netlify/functions/platform-feedback-reports.js')
 const { platformFeedbackReportUpdateResult } = await import('../netlify/functions/platform-feedback-report-update.js')
+const { platformFeedbackAttachmentUrlResult } = await import('../netlify/functions/platform-feedback-attachment-url.js')
 const { getFeedbackStats } = await import('../src/lib/platform-admin-stats.js')
 const { getFeedbackStats: getRouteFeedbackStats } = await import('../src/lib/platform-feedback-utils.js')
-const { getPlatformFeedbackReports, updatePlatformFeedbackReportStatus } = await import('../src/lib/domain/feedback.js')
+const {
+  getPlatformFeedbackAttachmentUrl,
+  getPlatformFeedbackReports,
+  updatePlatformFeedbackReportStatus,
+} = await import('../src/lib/domain/feedback.js')
 
 const platformAdminPageSource = readFileSync('src/pages/PlatformAdminPage.jsx', 'utf8')
 const platformFeedbackPageSource = readFileSync('src/pages/PlatformFeedbackPage.jsx', 'utf8')
@@ -20,6 +25,7 @@ const platformFeedbackBoardSectionSource = readFileSync('src/components/platform
 const feedbackDomainSource = readFileSync('src/lib/domain/feedback.js', 'utf8')
 const testerFeedbackFunctionSource = readFileSync('netlify/functions/submit-tester-feedback.js', 'utf8')
 const reportsFunctionSource = readFileSync('netlify/functions/platform-feedback-reports.js', 'utf8')
+const attachmentUrlFunctionSource = readFileSync('netlify/functions/platform-feedback-attachment-url.js', 'utf8')
 const reportUpdateFunctionSource = readFileSync('netlify/functions/platform-feedback-report-update.js', 'utf8')
 const migrationSource = readFileSync('supabase/migrations/20260531162038_tester_feedback_reports.sql', 'utf8')
 const testerFeedbackPageSource = readFileSync('src/pages/TesterFeedbackPage.jsx', 'utf8')
@@ -89,6 +95,12 @@ function createMockSupabase({
       browser_device: 'Fixture browser',
       log_reference: 'fixture-log',
       admin_notes: '',
+      screenshot_storage_bucket: 'tester-feedback-attachments',
+      screenshot_storage_path: `${reportId}/fixture.png`,
+      screenshot_original_filename: 'fixture.png',
+      screenshot_mime_type: 'image/png',
+      screenshot_file_size: 1234,
+      screenshot_uploaded_at: '2026-06-25T08:50:00.000Z',
       clubs: { name: 'Fixture Club' },
       teams: { name: 'U12 Fixture' },
     },
@@ -169,6 +181,10 @@ function createMockSupabase({
         return Promise.resolve({ data: profile, error: null })
       }
 
+      if (this.table === 'tester_feedback_reports') {
+        return Promise.resolve({ data: reports[0] ?? null, error: reportError })
+      }
+
       return Promise.resolve({ data: null, error: null })
     }
   }
@@ -184,6 +200,14 @@ function createMockSupabase({
         ),
       },
       from: (table) => new Query(table),
+      storage: {
+        from: (bucket) => ({
+          createSignedUrl: async (path, expiresIn, options) => {
+            calls.push({ action: 'create_signed_url', bucket, path, expiresIn, options })
+            return { data: { signedUrl: 'https://signed.example.test/fixture.png' }, error: null }
+          },
+        }),
+      },
     },
   }
 }
@@ -231,11 +255,55 @@ test('platform admin review function reads submitted tester feedback reports wit
   assert.equal(parsed.body.reports[0].route, '/platform-feedback')
   assert.equal(parsed.body.reports[0].phase, 'production')
   assert.equal(parsed.body.reports[0].clubName, 'Fixture Club')
+  assert.equal(parsed.body.reports[0].attachment.hasAttachment, true)
+  assert.equal(parsed.body.reports[0].attachment.originalFilename, 'fixture.png')
   assert.equal(parsed.body.stats.total, 1)
   assert.equal(parsed.body.stats.open, 1)
   assert.equal(parsed.body.stats.production, 1)
   assert.match(reportQuery.columns, /title/)
   assert.match(reportQuery.columns, /summary/)
+  assert.match(reportQuery.columns, /screenshot_storage_path/)
+})
+
+test('platform admin can request a short-lived signed screenshot URL', async () => {
+  const mock = createMockSupabase()
+  const response = await platformFeedbackAttachmentUrlResult(createUpdateEvent({
+    reportId,
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+  })
+  const parsed = parseResponse(response)
+  const signedUrlCall = mock.calls.find((call) => call.action === 'create_signed_url')
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.success, true)
+  assert.equal(parsed.body.signedUrl, 'https://signed.example.test/fixture.png')
+  assert.equal(parsed.body.expiresIn, 60)
+  assert.equal(signedUrlCall.bucket, 'tester-feedback-attachments')
+  assert.equal(signedUrlCall.path, `${reportId}/fixture.png`)
+})
+
+test('normal user cannot request a signed screenshot URL', async () => {
+  const mock = createMockSupabase({
+    profile: {
+      id: 'user-1',
+      email: 'coach@example.test',
+      role: 'coach',
+      role_label: 'Coach',
+      role_rank: 20,
+    },
+  })
+  const response = await withMutedConsole(() => platformFeedbackAttachmentUrlResult(createUpdateEvent({
+    reportId,
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 403)
+  assert.equal(parsed.body.code, 'forbidden')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports'), false)
+  assert.equal(mock.calls.some((call) => call.action === 'create_signed_url'), false)
 })
 
 test('platform admin review function denies normal users before report query', async () => {
@@ -329,6 +397,47 @@ test('client review loader calls the protected function with bearer token and bl
   }
 })
 
+test('client attachment helper calls protected signed URL function and blocks non-admin callers', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options })
+    return {
+      ok: true,
+      json: async () => ({
+        success: true,
+        signedUrl: 'https://signed.example.test/fixture.png',
+      }),
+    }
+  }
+
+  try {
+    const result = await getPlatformFeedbackAttachmentUrl({
+      user: { id: 'admin-1', role: 'super_admin' },
+      accessToken: 'token-123',
+      reportId,
+    })
+
+    assert.equal(result.signedUrl, 'https://signed.example.test/fixture.png')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, '/.netlify/functions/platform-feedback-attachment-url')
+    assert.equal(calls[0].options.headers.Authorization, 'Bearer token-123')
+    assert.equal(JSON.parse(calls[0].options.body).reportId, reportId)
+
+    await assert.rejects(
+      () => getPlatformFeedbackAttachmentUrl({
+        user: { id: 'user-1', role: 'coach' },
+        accessToken: 'token-456',
+        reportId,
+      }),
+      /Only platform admins/,
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('direct Platform Feedback route displays issue reports through the protected admin report loader', () => {
   assert.match(platformFeedbackPageSource, /getPlatformFeedbackReports/)
   assert.match(platformFeedbackPageSource, /IssueReportsSection/)
@@ -351,6 +460,8 @@ test('issue report container uses dark theme styling and renders required metada
   assert.match(issueReportsSectionSource, /report\.submittedByName/)
   assert.match(issueReportsSectionSource, /formatPlatformDate\(report\.createdAt\)/)
   assert.match(issueReportsSectionSource, /Report ID: \{report\.id\}/)
+  assert.match(issueReportsSectionSource, /View screenshot/)
+  assert.match(issueReportsSectionSource, /report\.attachment/)
 })
 
 test('platform admin can mark an issue report reviewed or closed through protected update function', async () => {
@@ -461,6 +572,8 @@ test('tester feedback RLS and copy remain production-safe', () => {
   assert.doesNotMatch(testerFeedbackPageSource, /staging database/i)
   assert.doesNotMatch(testerFeedbackPageSource, /recovery testing/i)
   assert.match(reportsFunctionSource, /profile\.role !== 'super_admin'/)
+  assert.match(attachmentUrlFunctionSource, /profile\.role !== 'super_admin'/)
+  assert.match(attachmentUrlFunctionSource, /createSignedUrl/)
   assert.match(reportUpdateFunctionSource, /profile\.role !== 'super_admin'/)
   assert.match(reportUpdateFunctionSource, /tester_feedback_report_status_updated/)
   assert.doesNotMatch(reportsFunctionSource, /serviceRoleKey/)

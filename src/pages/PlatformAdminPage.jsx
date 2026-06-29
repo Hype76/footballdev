@@ -26,6 +26,7 @@ import {
   deletePlatformTeam,
   deletePlatformUser,
   getPlatformFeedback,
+  getPlatformFeedbackAttachmentUrl,
   getPlatformFeedbackReports,
   getPlatformStats,
   readViewCacheValue,
@@ -160,6 +161,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [updatingTeamId, setUpdatingTeamId] = useState('')
   const [updatingUserId, setUpdatingUserId] = useState('')
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
+  const [openingAttachmentId, setOpeningAttachmentId] = useState('')
   const [updatingReportId, setUpdatingReportId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('')
@@ -437,6 +439,26 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       setErrorMessage('Issue report could not be updated. Please try again.')
     } finally {
       setUpdatingReportId('')
+    }
+  }
+
+  const handleSupportReportAttachmentOpen = async (report) => {
+    setOpeningAttachmentId(report.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const result = await getPlatformFeedbackAttachmentUrl({
+        user,
+        accessToken: session?.access_token || '',
+        reportId: report.id,
+      })
+      window.open(result.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Screenshot attachment could not be opened. Please try again.')
+    } finally {
+      setOpeningAttachmentId('')
     }
   }
 
@@ -967,10 +989,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           onDraftChange={handleFeedbackDraftChange}
           onPageChange={setFeedbackPage}
           onSave={handleSaveFeedback}
+          onSupportReportAttachmentOpen={handleSupportReportAttachmentOpen}
           onSupportReportStatusChange={handleSupportReportStatusChange}
           page={feedbackPage}
           pageSize={PLATFORM_FEEDBACK_PAGE_SIZE}
           paginatedItems={paginatedFeedbackItems}
+          activeAttachmentId={openingAttachmentId}
           activeReportId={updatingReportId}
           supportReports={feedbackReports}
           updatingFeedbackId={updatingFeedbackId}

@@ -158,6 +158,34 @@ export async function updatePlatformFeedbackReportStatus({ accessToken, action, 
   return result.report
 }
 
+export async function getPlatformFeedbackAttachmentUrl({ accessToken, reportId, user }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can open issue report screenshots.')
+  }
+
+  const response = await fetch('/.netlify/functions/platform-feedback-attachment-url', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken || ''}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      reportId,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Screenshot attachment could not be opened. Please try again.')
+  }
+
+  if (!result.signedUrl) {
+    throw new Error('Screenshot attachment could not be opened. Please try again.')
+  }
+
+  return result
+}
+
 export async function createPlatformFeedback({ user, message }) {
   await blockDemoMutation(user)
 
