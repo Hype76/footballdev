@@ -407,8 +407,10 @@ export function createEvaluationPayload({
   user,
 }) {
   const normalizedPlayerName = normalizePlayerName(formData.playerName)
-  const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
-  const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team, matchingTeam?.id)
+  const selectedTeamName = String(formData.team).trim()
+  const matchingTeam = availableTeams.find((team) => String(team.name ?? '').trim() === selectedTeamName)
+  const resolvedTeamId = matchingTeam?.id || feedbackForm?.teamId || user?.activeTeamId || ''
+  const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team, resolvedTeamId)
   const normalizedAssessmentSessionId = normalizeOptionalUuid(assessmentSessionId)
   const normalizedId = normalizeOptionalUuid(editingEvaluation?.id || id)
   const normalizedReportDate = normalizeDateOnly(formData.reportDate || formData.session || editingEvaluation?.date)
@@ -422,8 +424,8 @@ export function createEvaluationPayload({
     ...(normalizedId ? { id: normalizedId } : {}),
     playerName: normalizedPlayerName,
     playerId: matchingPlayer?.id || '',
-    team: String(formData.team).trim(),
-    teamId: matchingTeam?.id || '',
+    team: selectedTeamName,
+    teamId: resolvedTeamId,
     section: formData.section,
     assessmentSessionId: normalizedAssessmentSessionId,
     clubId: user?.clubId,

@@ -19,6 +19,7 @@ const playerId = '33333333-3333-4333-8333-333333333333'
 const coachId = '44444444-4444-4444-8444-444444444444'
 const evaluationId = '55555555-5555-4555-8555-555555555555'
 const assessmentSessionId = '66666666-6666-4666-8666-666666666666'
+const feedbackFormId = '77777777-7777-4777-8777-777777777777'
 
 function createBasePayload(overrides = {}) {
   return createEvaluationPayload({
@@ -117,6 +118,70 @@ test('final development record payload keeps valid scheduled session ids', () =>
 
   assert.equal(payload.assessmentSessionId, assessmentSessionId)
   assert.equal(row.assessment_session_id, assessmentSessionId)
+})
+
+test('final development record payload keeps active team id when team name lookup misses', () => {
+  const payload = createEvaluationPayload({
+    assessmentSessionId: '',
+    availableTeams: [{ id: '99999999-9999-4999-8999-999999999999', name: 'Other Team' }],
+    averageScore: 7,
+    comments: {
+      strengths: 'Good first touch.',
+      improvements: '',
+      overall: 'Positive session.',
+      selectedStrengths: [],
+    },
+    editingEvaluation: null,
+    feedbackForm: {
+      id: feedbackFormId,
+      name: 'Match feedback',
+      teamId,
+      version: 1,
+    },
+    feedbackFormSnapshot: null,
+    formData: {
+      coachName: 'Coach One',
+      contactType: 'parent',
+      parentContacts: [],
+      playerName: 'Clyde Bates',
+      section: 'Squad',
+      session: '2026-06-18',
+      team: 'Demo Team',
+    },
+    formResponses: {
+      Technical: 7,
+    },
+    id: evaluationId,
+    normalizedContactType: 'parent',
+    parentContacts: [],
+    savedPlayers: [
+      {
+        id: playerId,
+        playerName: 'Clyde Bates',
+        section: 'Squad',
+        team: 'Demo Team',
+        teamId,
+      },
+    ],
+    scores: {
+      Technical: 7,
+    },
+    user: {
+      activeTeamId: teamId,
+      clubId,
+      email: 'coach@example.com',
+      id: coachId,
+      name: 'Coach One',
+      username: 'Coach One',
+    },
+  })
+  const row = mapEvaluationToRow(payload)
+
+  assert.equal(payload.teamId, teamId)
+  assert.equal(payload.playerId, playerId)
+  assert.equal(payload.feedbackFormId, feedbackFormId)
+  assert.equal(row.team_id, teamId)
+  assert.equal(row.feedback_form_id, feedbackFormId)
 })
 
 test('final development record payload requires a valid report date', () => {
