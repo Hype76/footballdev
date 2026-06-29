@@ -264,6 +264,103 @@ export function isSavedPlayerProfileSource(source) {
   return normalizedSource === PLAYER_PROFILE_SOURCES.squad || normalizedSource === PLAYER_PROFILE_SOURCES.trial
 }
 
+export function getExpectedPlayerProfileSection(source) {
+  const normalizedSource = normalizePlayerProfileSource(source)
+
+  if (normalizedSource === PLAYER_PROFILE_SOURCES.squad) {
+    return 'Squad'
+  }
+
+  if (normalizedSource === PLAYER_PROFILE_SOURCES.trial) {
+    return 'Trial'
+  }
+
+  return ''
+}
+
+function normalizeScopeValue(value) {
+  return String(value ?? '').trim()
+}
+
+function normalizeScopeLabel(value) {
+  return normalizeScopeValue(value).toLowerCase()
+}
+
+export function getPlayerProfileTeamScope({ routeTeamId = '', user } = {}) {
+  return normalizeScopeValue(routeTeamId) || normalizeScopeValue(user?.activeTeamId)
+}
+
+export function requiresSavedPlayerTeamScope({
+  players,
+  profileSource,
+  routePlayerId = '',
+  routeTeamId = '',
+  user,
+} = {}) {
+  if (!isSavedPlayerProfileSource(profileSource) || !normalizeScopeValue(routePlayerId)) {
+    return false
+  }
+
+  if (getPlayerProfileTeamScope({ routeTeamId, user })) {
+    return false
+  }
+
+  return (Array.isArray(players) ? players : []).some((player) => normalizeScopeValue(player?.teamId))
+}
+
+export function isPlayerInRequestedProfileScope(player, {
+  profileSource,
+  routePlayerId = '',
+  routeTeamId = '',
+  user,
+} = {}) {
+  if (!player) {
+    return false
+  }
+
+  const expectedSection = getExpectedPlayerProfileSection(profileSource)
+  const normalizedRoutePlayerId = normalizeScopeValue(routePlayerId)
+  const normalizedRouteTeamId = getPlayerProfileTeamScope({ routeTeamId, user })
+  const normalizedUserClubId = normalizeScopeValue(user?.clubId)
+  const playerId = normalizeScopeValue(player.id)
+  const playerClubId = normalizeScopeValue(player.clubId)
+  const playerTeamId = normalizeScopeValue(player.teamId)
+
+  if (normalizedRoutePlayerId && playerId !== normalizedRoutePlayerId) {
+    return false
+  }
+
+  if (normalizedUserClubId && playerClubId && playerClubId !== normalizedUserClubId) {
+    return false
+  }
+
+  if (expectedSection && normalizeScopeLabel(player.section) !== expectedSection.toLowerCase()) {
+    return false
+  }
+
+  if (normalizedRouteTeamId) {
+    return Boolean(playerTeamId) && playerTeamId === normalizedRouteTeamId
+  }
+
+  return true
+}
+
+export function getScopedProfilePlayers(players, scope = {}) {
+  const availablePlayers = Array.isArray(players) ? players : []
+  const normalizedRoutePlayerId = normalizeScopeValue(scope.routePlayerId)
+
+  if (requiresSavedPlayerTeamScope({ ...scope, players: availablePlayers })) {
+    return []
+  }
+
+  if (normalizedRoutePlayerId) {
+    return availablePlayers.filter((player) => isPlayerInRequestedProfileScope(player, scope))
+  }
+
+  return getProfilePlayers(availablePlayers, { playerId: scope.routePlayerId })
+    .filter((player) => isPlayerInRequestedProfileScope(player, scope))
+}
+
 export function getProfilePlayers(players, { playerId = '' } = {}) {
   const availablePlayers = Array.isArray(players) ? players : []
   const normalizedPlayerId = String(playerId ?? '').trim()
@@ -296,7 +393,30 @@ export function canUseProfilePlayerActions({ players, profilePlayers, routePlaye
   return !isAmbiguousProfilePlayerSelection({ players, routePlayerId })
 }
 
-export function getPlayerDetailsEmptyState({ profileSource, routePlayerId }) {
+export function getPlayerDetailsEmptyState({
+  profileSource,
+  routePlayerId,
+  isScopeMismatch = false,
+  isTeamScopeMissing = false,
+} = {}) {
+  if (isTeamScopeMissing) {
+    return {
+      action: 'Refresh the player list and open this saved player again from the selected team.',
+      body: 'This saved player link is missing team scope, so the profile will not guess which team record to manage.',
+      eyebrow: 'Team scope missing',
+      title: 'Saved player team scope is incomplete.',
+    }
+  }
+
+  if (isScopeMismatch) {
+    return {
+      action: 'Refresh the player list and open this player from the selected team again.',
+      body: 'This player record could not be matched to the selected team.',
+      eyebrow: 'Scoped player mismatch',
+      title: 'Selected team player could not be matched.',
+    }
+  }
+
   if (isSavedPlayerProfileSource(profileSource) && !String(routePlayerId ?? '').trim()) {
     return {
       action: 'Refresh the player list and open this saved player again before changing saved details.',
@@ -330,23 +450,39 @@ export function getPlayerProfileResolutionDiagnostics({
   profileSource,
   routePlayerId,
   routePlayerName,
+  routeTeamId = '',
+  user,
   shouldLoadSavedPlayerById = false,
 } = {}) {
   const normalizedSource = normalizePlayerProfileSource(profileSource)
   const normalizedPlayerId = String(routePlayerId ?? '').trim()
+  const normalizedTeamId = getPlayerProfileTeamScope({ routeTeamId, user })
   const isSavedSource = isSavedPlayerProfileSource(normalizedSource)
   const resolvedPlayers = Array.isArray(profilePlayers) ? profilePlayers : []
   const lookupRows = Array.isArray(players) ? players : []
+  const isTeamScopeMissing = requiresSavedPlayerTeamScope({
+    players: lookupRows,
+    profileSource: normalizedSource,
+    routePlayerId: normalizedPlayerId,
+    routeTeamId,
+    user,
+  })
   const lookupMode = shouldLoadSavedPlayerById ? 'saved-player-id' : isSavedSource ? 'saved-player-missing-id' : 'player-name'
-  const missingStateBranch = resolvedPlayers.length > 0
-    ? 'resolved-saved-player'
-    : shouldLoadSavedPlayerById && isLoading
-      ? 'saved-player-id-loading'
-      : shouldLoadSavedPlayerById
-        ? 'saved-player-id-not-found'
-        : isSavedSource
-          ? 'saved-player-id-missing'
-          : 'development-history-missing-details'
+  let missingStateBranch = 'development-history-missing-details'
+
+  if (resolvedPlayers.length > 0) {
+    missingStateBranch = 'resolved-saved-player'
+  } else if (shouldLoadSavedPlayerById && isLoading) {
+    missingStateBranch = 'saved-player-id-loading'
+  } else if (isTeamScopeMissing) {
+    missingStateBranch = 'saved-player-team-scope-missing'
+  } else if (shouldLoadSavedPlayerById && lookupRows.length > 0) {
+    missingStateBranch = 'saved-player-scope-mismatch'
+  } else if (shouldLoadSavedPlayerById) {
+    missingStateBranch = 'saved-player-id-not-found'
+  } else if (isSavedSource) {
+    missingStateBranch = 'saved-player-id-missing'
+  }
 
   return {
     lookupMode,
@@ -355,6 +491,7 @@ export function getPlayerProfileResolutionDiagnostics({
     playerId: normalizedPlayerId,
     routePlayerName: String(routePlayerName ?? '').trim(),
     source: normalizedSource,
+    teamId: normalizedTeamId,
   }
 }
 

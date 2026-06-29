@@ -120,7 +120,7 @@ export function PlayersListSection({
 
             return (
               <div
-                key={getPlayerKey(player.playerName)}
+                key={player.playerId ? `saved:${player.playerId}:${player.teamId || 'no-team'}` : `history:${getPlayerKey(player.playerName)}:${player.teamId || player.team || 'no-team'}:${player.section || 'no-section'}`}
                 data-player-card={player.playerId || getPlayerKey(player.playerName)}
                 className="relative overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5 transition hover:-translate-y-0.5 hover:border-[#047857] hover:shadow-md"
               >

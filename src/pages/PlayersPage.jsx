@@ -128,40 +128,85 @@ export function PlayersPage({
   }, [cacheKey, user, userScopeKey])
 
   const playerRows = useMemo(() => {
-    const playersByName = new Map()
+    const playerRowsByKey = new Map()
+    const savedPlayerKeyById = new Map()
+    const getFallbackRowKey = (prefix, item) => [
+      prefix,
+      String(item?.clubId ?? '').trim(),
+      String(item?.teamId ?? '').trim(),
+      String(item?.section ?? '').trim().toLowerCase(),
+      getPlayerKey(item?.playerName),
+    ].join(':')
+    const attachEvaluation = (row, evaluation) => {
+      row.evaluations.push(evaluation)
+      if (!row.playerId && evaluation.playerId) {
+        row.playerId = evaluation.playerId
+      }
+      if (!row.teamId && evaluation.teamId) {
+        row.teamId = evaluation.teamId
+      }
+      if (!row.clubId && evaluation.clubId) {
+        row.clubId = evaluation.clubId
+      }
+    }
 
     players.forEach((player) => {
-      const key = getPlayerKey(player.playerName)
+      const playerNameKey = getPlayerKey(player.playerName)
 
-      if (!key) {
+      if (!playerNameKey) {
         return
       }
 
-      playersByName.set(key, {
+      const savedPlayerKey = player.id ? `saved:${player.id}` : getFallbackRowKey('saved', player)
+      playerRowsByKey.set(savedPlayerKey, {
+        clubId: player.clubId,
+        id: player.id,
         playerName: player.playerName,
         playerId: player.id,
         section: player.section,
         team: player.team,
+        teamId: player.teamId,
         status: player.status,
         positions: player.positions ?? [],
         parentName: player.parentName,
         parentEmail: player.parentEmail,
         evaluations: [],
       })
+
+      if (player.id) {
+        savedPlayerKeyById.set(String(player.id), savedPlayerKey)
+      }
     })
 
     evaluations.forEach((evaluation) => {
-      const key = getPlayerKey(evaluation.playerName)
+      const playerNameKey = getPlayerKey(evaluation.playerName)
 
-      if (!key) {
+      if (!playerNameKey) {
         return
       }
 
-      if (!playersByName.has(key)) {
-        playersByName.set(key, {
+      const linkedSavedPlayerKey = evaluation.playerId ? savedPlayerKeyById.get(String(evaluation.playerId)) : ''
+      const linkedSavedPlayer = linkedSavedPlayerKey ? playerRowsByKey.get(linkedSavedPlayerKey) : null
+      const linkedPlayerTeamId = String(linkedSavedPlayer?.teamId ?? '').trim()
+      const evaluationTeamId = String(evaluation.teamId ?? '').trim()
+      const canAttachToSavedPlayer =
+        Boolean(linkedSavedPlayer) &&
+        (!linkedPlayerTeamId || !evaluationTeamId || linkedPlayerTeamId === evaluationTeamId)
+
+      if (canAttachToSavedPlayer) {
+        attachEvaluation(linkedSavedPlayer, evaluation)
+        return
+      }
+
+      const historyRowKey = getFallbackRowKey('history', evaluation)
+
+      if (!playerRowsByKey.has(historyRowKey)) {
+        playerRowsByKey.set(historyRowKey, {
+          clubId: evaluation.clubId,
           playerName: evaluation.playerName,
           section: evaluation.section,
           team: evaluation.team,
+          teamId: evaluation.teamId,
           status: 'active',
           positions: [],
           playerId: evaluation.playerId || '',
@@ -171,10 +216,10 @@ export function PlayersPage({
         })
       }
 
-      playersByName.get(key).evaluations.push(evaluation)
+      attachEvaluation(playerRowsByKey.get(historyRowKey), evaluation)
     })
 
-    return Array.from(playersByName.values())
+    return Array.from(playerRowsByKey.values())
       .map((player) => {
         const sortedEvaluations = [...player.evaluations].sort((left, right) => right.createdAt - left.createdAt)
         const averageScore = getAverageScore(sortedEvaluations)

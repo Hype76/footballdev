@@ -64,14 +64,17 @@ import {
   getNextEvaluationParentContactIndexes,
   getMergeFieldLabels,
   getRemainingMergeCoreSourceId,
+  getExpectedPlayerProfileSection,
   getPlayerDetailsEmptyState,
   getPlayerProfileResolutionDiagnostics,
+  getPlayerProfileTeamScope,
   getProfileContactDetails,
-  getProfilePlayers,
+  getScopedProfilePlayers,
   getReassignPlayerOptions,
   isSavedPlayerProfileSource,
   canUseProfilePlayerActions,
   normalizePlayerProfileSource,
+  requiresSavedPlayerTeamScope,
   keepOnlySelectedSourceIds,
   PROFILE_EVALUATION_PAGE_SIZE,
   removeEvaluationIdFromSelection,
@@ -138,11 +141,14 @@ export function PlayerProfile() {
   const routePlayerName = decodeURIComponent(id)
   const profileSource = normalizePlayerProfileSource(searchParams.get('source'))
   const routePlayerId = String(searchParams.get('playerId') ?? '').trim()
+  const routeTeamId = String(searchParams.get('teamId') ?? '').trim()
   const isSavedPlayerProfileRoute = isSavedPlayerProfileSource(profileSource)
   const shouldLoadSavedPlayerById = Boolean(routePlayerId && isSavedPlayerProfileRoute)
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const scopedRouteTeamId = getPlayerProfileTeamScope({ routeTeamId, user })
+  const expectedProfileSection = getExpectedPlayerProfileSection(profileSource)
   const cacheKey = user
-    ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}:${profileSource || 'name'}:${routePlayerId || 'no-id'}`
+    ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}:${profileSource || 'name'}:${routePlayerId || 'no-id'}:${scopedRouteTeamId || 'no-team'}`
     : ''
   const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
   const cachedFields = readViewCache(fieldsCacheKey)
@@ -252,8 +258,10 @@ export function PlayerProfile() {
                 () =>
                   getPlayers({
                     user,
+                    section: shouldLoadSavedPlayerById ? expectedProfileSection : undefined,
                     playerId: shouldLoadSavedPlayerById ? routePlayerId : undefined,
                     playerName: isSavedPlayerProfileRoute ? undefined : routePlayerName,
+                    teamId: shouldLoadSavedPlayerById ? scopedRouteTeamId : undefined,
                   }),
                 'Could not load player details.',
               ),
@@ -335,7 +343,7 @@ export function PlayerProfile() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, routePlayerId, routePlayerName, shouldLoadSavedPlayerById, user, userScopeKey])
+  }, [cacheKey, expectedProfileSection, routePlayerId, routePlayerName, scopedRouteTeamId, shouldLoadSavedPlayerById, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -432,13 +440,37 @@ export function PlayerProfile() {
       ? scoredEvaluations.reduce((sum, evaluation) => sum + evaluation.averageScore, 0) / scoredEvaluations.length
       : null
 
-  const profilePlayers = useMemo(
-    () => getProfilePlayers(players, { playerId: shouldLoadSavedPlayerById ? routePlayerId : '' }),
-    [players, routePlayerId, shouldLoadSavedPlayerById],
+  const isTeamScopeMissing = useMemo(
+    () =>
+      requiresSavedPlayerTeamScope({
+        players,
+        profileSource,
+        routePlayerId: shouldLoadSavedPlayerById ? routePlayerId : '',
+        routeTeamId,
+        user,
+      }),
+    [players, profileSource, routePlayerId, routeTeamId, shouldLoadSavedPlayerById, user],
   )
+  const profilePlayers = useMemo(
+    () =>
+      getScopedProfilePlayers(players, {
+        profileSource,
+        routePlayerId: shouldLoadSavedPlayerById ? routePlayerId : '',
+        routeTeamId,
+        user,
+      }),
+    [players, profileSource, routePlayerId, routeTeamId, shouldLoadSavedPlayerById, user],
+  )
+  const isScopeMismatch = shouldLoadSavedPlayerById && !isLoading && !isTeamScopeMissing && Boolean(scopedRouteTeamId) && profilePlayers.length === 0
   const playerDetailsEmptyState = useMemo(
-    () => getPlayerDetailsEmptyState({ profileSource, routePlayerId }),
-    [profileSource, routePlayerId],
+    () =>
+      getPlayerDetailsEmptyState({
+        profileSource,
+        routePlayerId,
+        isScopeMismatch,
+        isTeamScopeMissing,
+      }),
+    [isScopeMismatch, isTeamScopeMissing, profileSource, routePlayerId],
   )
   const playerProfileResolutionDiagnostics = useMemo(
     () =>
@@ -449,9 +481,11 @@ export function PlayerProfile() {
         profileSource,
         routePlayerId,
         routePlayerName,
+        routeTeamId,
+        user,
         shouldLoadSavedPlayerById,
       }),
-    [isLoading, players, profilePlayers, profileSource, routePlayerId, routePlayerName, shouldLoadSavedPlayerById],
+    [isLoading, players, profilePlayers, profileSource, routePlayerId, routePlayerName, routeTeamId, shouldLoadSavedPlayerById, user],
   )
   const isLoadingPlayerDetails = playerProfileResolutionDiagnostics.missingStateBranch === 'saved-player-id-loading'
   const canUseSavedPlayerActions = useMemo(
@@ -469,7 +503,14 @@ export function PlayerProfile() {
       }
 
       const results = await Promise.allSettled(
-        squadPlayers.map(async (player) => [player.id, await getParentLinksForPlayer({ playerId: player.id })]),
+        squadPlayers.map(async (player) => [
+          player.id,
+          await getParentLinksForPlayer({
+            clubId: player.clubId || user?.clubId,
+            playerId: player.id,
+            teamId: player.teamId,
+          }),
+        ]),
       )
 
       if (!isMounted) {
@@ -1491,7 +1532,12 @@ export function PlayerProfile() {
       return
     }
 
-    const nextLinks = await getParentLinksForPlayer({ playerId })
+    const scopedPlayer = profilePlayers.find((player) => String(player.id) === String(playerId))
+    const nextLinks = await getParentLinksForPlayer({
+      clubId: scopedPlayer?.clubId || user?.clubId,
+      playerId,
+      teamId: scopedPlayer?.teamId,
+    })
     setParentPortalLinksByPlayerId((current) => ({
       ...current,
       [playerId]: nextLinks,

@@ -40,9 +40,28 @@ const fixtureAccessToken = `${fixtureAccessTokenBody}.${createSign('RSA-SHA256')
   .sign(fixtureJwtPrivateKey, 'base64url')}`
 const fixturePlayerId = 'player-fixture'
 const fixturePlayerName = 'Fixture Player'
-const fixturePlayerPath = `/player/${encodeURIComponent(fixturePlayerName)}?source=squad&playerId=${fixturePlayerId}`
+const fixturePlayerPath = `/player/${encodeURIComponent(fixturePlayerName)}?source=squad&playerId=${fixturePlayerId}&teamId=team-u12&clubId=club-fixture`
+const contaminatedPlayerId = 'player-contaminated'
+const contaminatedPlayerName = 'Jenson Bailey'
+const contaminatedPlayerPath = `/player/${encodeURIComponent(contaminatedPlayerName)}?source=squad&playerId=${contaminatedPlayerId}&teamId=team-u12&clubId=club-fixture`
 
 const players = [
+  {
+    id: fixturePlayerId,
+    club_id: 'club-fixture',
+    team_id: 'team-demo',
+    player_name: fixturePlayerName,
+    shirt_number: '46',
+    section: 'Squad',
+    team: 'Demo Team',
+    positions: ['Defender'],
+    parent_name: 'Demo Parent',
+    parent_email: 'demo.parent@example.test',
+    parent_contacts: [{ name: 'Demo Parent', email: 'demo.parent@example.test', type: 'parent' }],
+    status: 'active',
+    created_at: '2026-06-18T09:00:00.000Z',
+    updated_at: '2026-06-18T09:00:00.000Z',
+  },
   {
     id: fixturePlayerId,
     club_id: 'club-fixture',
@@ -58,6 +77,22 @@ const players = [
     status: 'active',
     created_at: '2026-06-20T09:00:00.000Z',
     updated_at: '2026-06-20T09:00:00.000Z',
+  },
+  {
+    id: contaminatedPlayerId,
+    club_id: 'club-fixture',
+    team_id: 'team-demo',
+    player_name: contaminatedPlayerName,
+    shirt_number: '99',
+    section: 'Squad',
+    team: 'Demo Team',
+    positions: ['Midfield'],
+    parent_name: 'Wrong Demo Parent',
+    parent_email: 'wrong.demo@example.test',
+    parent_contacts: [{ name: 'Wrong Demo Parent', email: 'wrong.demo@example.test', type: 'parent' }],
+    status: 'active',
+    created_at: '2026-06-21T09:00:00.000Z',
+    updated_at: '2026-06-21T09:00:00.000Z',
   },
   {
     id: 'player-name-collision',
@@ -98,6 +133,46 @@ const evaluations = [
     comments: { overall: 'Fixture note' },
     form_responses: { Control: '8' },
     created_at: '2026-06-20T10:00:00.000Z',
+  },
+  {
+    id: 'evaluation-contaminated',
+    club_id: 'club-fixture',
+    team_id: 'team-u12',
+    player_id: contaminatedPlayerId,
+    player_name: contaminatedPlayerName,
+    section: 'Squad',
+    team: 'U12 Fixture Team',
+    parent_name: 'Correct U12 Parent',
+    parent_email: 'correct.u12@example.test',
+    parent_contacts: [{ name: 'Correct U12 Parent', email: 'correct.u12@example.test', type: 'parent' }],
+    session: 'Contaminated fixture session',
+    coach: 'Coach Fixture',
+    date: '2026-06-21',
+    status: 'Submitted',
+    average_score: 6,
+    scores: { Control: 6 },
+    comments: { overall: 'U12 note' },
+    form_responses: { Control: '6' },
+    created_at: '2026-06-21T10:00:00.000Z',
+  },
+]
+
+const parentLinks = [
+  {
+    id: 'parent-link-fixture',
+    club_id: 'club-fixture',
+    team_id: 'team-u12',
+    player_id: fixturePlayerId,
+    email: 'parent.fixture@example.test',
+    status: 'active',
+  },
+  {
+    id: 'parent-link-demo',
+    club_id: 'club-fixture',
+    team_id: 'team-demo',
+    player_id: fixturePlayerId,
+    email: 'demo.parent@example.test',
+    status: 'active',
   },
 ]
 
@@ -193,12 +268,17 @@ function getFilterValue(searchParams, key) {
 
 function filterRows(rows, searchParams) {
   const id = getFilterValue(searchParams, 'id')
+  const playerId = getFilterValue(searchParams, 'player_id')
   const playerName = getFilterValue(searchParams, 'player_name')
   const teamId = getFilterValue(searchParams, 'team_id')
   const clubId = getFilterValue(searchParams, 'club_id')
+  const section = getFilterValue(searchParams, 'section')
 
   return rows.filter((row) => {
     if (id && row.id !== id) {
+      return false
+    }
+    if (playerId && row.player_id !== playerId) {
       return false
     }
     if (playerName && row.player_name !== playerName) {
@@ -208,6 +288,9 @@ function filterRows(rows, searchParams) {
       return false
     }
     if (clubId && row.club_id !== clubId) {
+      return false
+    }
+    if (section && row.section !== section) {
       return false
     }
     return true
@@ -256,16 +339,8 @@ async function preparePage(context) {
   const authRequests = []
   const routedRequests = []
 
-  await context.route('**/*', async (route) => {
-    const url = route.request().url()
-    if (url.includes('/rest/v1/') || url.includes('/auth/v1/')) {
-      routedRequests.push(url)
-    }
-    if (url.includes('/rest/v1/')) {
-      await fulfillJson(route, [])
-      return
-    }
-    await route.fallback()
+  await context.route('http://fixture.supabase.test/rest/v1/**', async (route) => {
+    await fulfillJson(route, [])
   })
 
   await context.route('**/auth/v1/token**', async (route) => {
@@ -347,8 +422,9 @@ async function preparePage(context) {
       },
     ])
   })
-  await context.route(/\/rest\/v1\/parent_player_links(?:\?|$)/, async (route) => {
-    await fulfillJson(route, [])
+  await context.route('**/rest/v1/parent_player_links**', async (route) => {
+    const url = new URL(route.request().url())
+    await fulfillJson(route, filterRows(parentLinks, url.searchParams))
   })
   await context.route(/\/rest\/v1\/player_staff_notes(?:\?|$)/, async (route) => {
     await fulfillJson(route, [])
@@ -360,9 +436,6 @@ async function preparePage(context) {
     await fulfillJson(route, [])
   })
   await context.route(/\/rest\/v1\/email_templates(?:\?|$)/, async (route) => {
-    await fulfillJson(route, [])
-  })
-  await context.route('http://fixture.supabase.test/rest/v1/**', async (route) => {
     await fulfillJson(route, [])
   })
   await context.route('**/.netlify/functions/**', async (route) => {
@@ -433,6 +506,8 @@ try {
   }
   const renderedHref = await profileLink.getAttribute('data-player-profile-href')
   assert.equal(renderedHref, fixturePlayerPath)
+  assert.equal(await page.locator(`[data-player-profile-href*="team-demo"]`).count(), 0)
+  assert.equal(await page.getByText('Demo Team', { exact: true }).count(), 0)
 
   const cardBox = await page.locator('[data-player-card]').first().boundingBox()
   const nameBox = await page.locator('[data-player-card-name]').first().boundingBox()
@@ -449,19 +524,36 @@ try {
   await page.waitForURL(`**${fixturePlayerPath}`, { timeout: 15000 })
 
   await page.getByRole('heading', { name: 'Player details' }).waitFor({ state: 'visible', timeout: 15000 })
+  await page.getByText('U12 Fixture Team', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('Contact: Fixture Parent', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('Email: parent.fixture@example.test', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('Forward', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByRole('button', { name: 'Edit Details' }).waitFor({ state: 'visible', timeout: 15000 })
 
+  assert.equal(await page.getByText('Demo Team', { exact: true }).count(), 0)
+  assert.equal(await page.getByText('Contact: Demo Parent', { exact: true }).count(), 0)
   assert.equal(await page.getByText('Saved player details are not attached yet.').count(), 0)
   assert.equal(await page.getByText('Saved player record could not be found.').count(), 0)
   assert.equal(await page.getByRole('button', { name: /^Delete player$/ }).count(), 0)
 
   const idLookupRequest = getPlayerRequests().find((url) => url.searchParams.get('id') === `eq.${fixturePlayerId}`)
   assert.ok(idLookupRequest, 'Expected a saved-player id lookup request.')
-  assert.equal(idLookupRequest.searchParams.has('team_id'), false)
+  assert.equal(idLookupRequest.searchParams.get('team_id'), 'eq.team-u12')
   assert.equal(idLookupRequest.searchParams.has('team'), false)
+
+  await page.goto(`${baseUrl}/players/current?section=Squad`, { waitUntil: 'domcontentloaded' })
+  const contaminatedLink = page.locator(`[data-player-profile-href="${contaminatedPlayerPath}"]`).first()
+  await contaminatedLink.waitFor({ state: 'visible', timeout: 15000 })
+  await contaminatedLink.click()
+  await page.waitForURL(`**${contaminatedPlayerPath}`, { timeout: 15000 })
+  await page.getByText('Selected team player could not be matched.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+  await page.getByText('This player record could not be matched to the selected team.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+
+  assert.equal(await page.getByText('Demo Team', { exact: true }).count(), 0)
+  assert.equal(await page.getByText('Contact: Wrong Demo Parent', { exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Edit Details' }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Send Email' }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Move to Trial' }).count(), 0)
 
   await wait(1000)
   const serviceWorkerState = await page.evaluate(async () => {

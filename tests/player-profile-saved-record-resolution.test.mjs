@@ -11,8 +11,11 @@ import {
   getPlayerDetailsEmptyState,
   getPlayerProfileResolutionDiagnostics,
   getProfilePlayers,
+  getScopedProfilePlayers,
   isSavedPlayerProfileSource,
+  isPlayerInRequestedProfileScope,
   normalizePlayerProfileSource,
+  requiresSavedPlayerTeamScope,
 } from '../src/hooks/players/playerProfileUtils.js'
 
 const playerProfileUrl = new URL('../src/pages/PlayerProfile.jsx', import.meta.url)
@@ -30,19 +33,22 @@ test('squad and trial rows open player profiles with canonical saved player ids'
 
   assert.equal(
     buildPlayerProfilePath({
+      clubId: 'club-123',
       playerId: 'player-123',
       playerName: 'U12 Tigers',
       section: 'Squad',
+      teamId: 'team-123',
     }),
-    '/player/U12%20Tigers?source=squad&playerId=player-123',
+    '/player/U12%20Tigers?source=squad&playerId=player-123&teamId=team-123&clubId=club-123',
   )
   assert.equal(
     buildPlayerProfilePath({
       playerId: 'trial-456',
       playerName: 'Trial Player',
       section: 'Trial',
+      teamId: 'trial-team',
     }),
-    '/player/Trial%20Player?source=trial&playerId=trial-456',
+    '/player/Trial%20Player?source=trial&playerId=trial-456&teamId=trial-team',
   )
   assert.equal(
     buildPlayerProfilePath({
@@ -60,6 +66,66 @@ test('profile player resolution prioritises the saved player id over name fallba
   assert.deepEqual(getProfilePlayers([trialPlayer, squadPlayer], { playerId: 'trial-1' }), [trialPlayer])
   assert.deepEqual(getProfilePlayers([trialPlayer, squadPlayer], { playerId: 'missing-player' }), [])
   assert.deepEqual(getProfilePlayers([trialPlayer, squadPlayer]), [squadPlayer])
+})
+
+test('scoped profile resolution blocks wrong team data and duplicate membership ambiguity', () => {
+  const user = { clubId: 'club-real', activeTeamId: '' }
+  const demoPlayer = {
+    id: 'player-shared',
+    clubId: 'club-real',
+    teamId: 'team-demo',
+    playerName: 'Jenson Bailey',
+    section: 'Squad',
+    team: 'Demo Team',
+    parentName: 'Demo Parent',
+  }
+  const realPlayer = {
+    id: 'player-shared',
+    clubId: 'club-real',
+    teamId: 'team-u14',
+    playerName: 'Jenson Bailey',
+    section: 'Squad',
+    team: 'U14 JPL 26/27',
+    parentName: 'Real Parent',
+  }
+
+  assert.deepEqual(
+    getScopedProfilePlayers([demoPlayer, realPlayer], {
+      profileSource: 'squad',
+      routePlayerId: 'player-shared',
+      routeTeamId: 'team-u14',
+      user,
+    }),
+    [realPlayer],
+  )
+  assert.deepEqual(
+    getScopedProfilePlayers([demoPlayer], {
+      profileSource: 'squad',
+      routePlayerId: 'player-shared',
+      routeTeamId: 'team-u14',
+      user,
+    }),
+    [],
+  )
+  assert.equal(
+    isPlayerInRequestedProfileScope(demoPlayer, {
+      profileSource: 'squad',
+      routePlayerId: 'player-shared',
+      routeTeamId: 'team-u14',
+      user,
+    }),
+    false,
+  )
+  assert.equal(
+    requiresSavedPlayerTeamScope({
+      players: [demoPlayer],
+      profileSource: 'squad',
+      routePlayerId: 'player-shared',
+      routeTeamId: '',
+      user,
+    }),
+    true,
+  )
 })
 
 test('source-aware empty states keep stale saved player links out of history mode', () => {
@@ -80,6 +146,21 @@ test('source-aware empty states keep stale saved player links out of history mod
   })
   assert.equal(missingIdState.title, 'Saved player link is incomplete.')
   assert.match(missingIdState.body, /will not guess by name/)
+
+  const missingTeamState = getPlayerDetailsEmptyState({
+    profileSource: 'squad',
+    routePlayerId: 'player-1',
+    isTeamScopeMissing: true,
+  })
+  assert.equal(missingTeamState.title, 'Saved player team scope is incomplete.')
+
+  const mismatchState = getPlayerDetailsEmptyState({
+    profileSource: 'squad',
+    routePlayerId: 'player-1',
+    isScopeMismatch: true,
+  })
+  assert.equal(mismatchState.title, 'Selected team player could not be matched.')
+  assert.match(mismatchState.body, /could not be matched to the selected team/)
 
   const historyState = getPlayerDetailsEmptyState({
     profileSource: 'history',
@@ -108,6 +189,7 @@ test('profile diagnostics prove id lookup, missing id, loading, and history bran
       playerId: 'squad-1',
       routePlayerName: 'Alex',
       source: 'squad',
+      teamId: '',
     },
   )
 
@@ -216,8 +298,11 @@ test('runtime profile path uses id-scoped loading, safe empty state, and guarded
   assert.match(playersListSectionSource, /to=\{playerProfilePath\}/)
   assert.match(recentlyAddedPlayersSectionSource, /to=\{buildPlayerProfilePath\(player\)\}/)
   assert.match(playerProfileSource, /useSearchParams/)
+  assert.match(playerProfileSource, /const routeTeamId = String\(searchParams\.get\('teamId'\)/)
   assert.match(playerProfileSource, /playerId: shouldLoadSavedPlayerById \? routePlayerId : undefined/)
+  assert.match(playerProfileSource, /teamId: shouldLoadSavedPlayerById \? scopedRouteTeamId : undefined/)
   assert.match(playerProfileSource, /playerName: isSavedPlayerProfileRoute \? undefined : routePlayerName/)
+  assert.match(playerProfileSource, /getScopedProfilePlayers/)
   assert.match(playerProfileSource, /getPlayerProfileResolutionDiagnostics/)
   assert.match(playerProfileSource, /isLoadingPlayerDetails=/)
   assert.match(playerProfileSource, /navigate\(buildPlayerProfilePath\(savedPlayer\)\)/)
@@ -226,7 +311,8 @@ test('runtime profile path uses id-scoped loading, safe empty state, and guarded
   assert.match(playerDetailsSource, /Checking saved player details\./)
   assert.match(playerDetailsSource, /playerDetailsEmptyState\.title/)
   assert.match(playerActionsSource, /canDeletePlayer\(user\) && canUseSavedPlayerActions/)
-  assert.match(coreDomainSource, /export async function getPlayers\(\{ user, section, playerId, playerName/)
-  assert.match(coreDomainSource, /if \(!normalizedPlayerId && user\.activeTeamId\)/)
+  assert.match(coreDomainSource, /export async function getPlayers\(\{ user, section, playerId, playerName, teamId/)
+  assert.match(coreDomainSource, /if \(normalizedTeamId\)/)
+  assert.match(coreDomainSource, /query = query\.eq\('team_id', normalizedTeamId\)/)
   assert.match(coreDomainSource, /query = query\.eq\('id', normalizedPlayerId\)/)
 })

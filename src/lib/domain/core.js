@@ -976,14 +976,16 @@ export async function getEvaluations({ user, status, playerName, section, includ
     })
 }
 
-export async function getPlayers({ user, section, playerId, playerName, status, includeArchived = false } = {}) {
+export async function getPlayers({ user, section, playerId, playerName, teamId, status, includeArchived = false } = {}) {
   if (!user?.clubId || user.role === 'super_admin') {
     return []
   }
 
   const normalizedPlayerId = String(playerId ?? '').trim()
+  const normalizedTeamId = String(teamId ?? '').trim()
   const playerCacheScope = normalizedPlayerId ? `id:${normalizedPlayerId}` : `name:${playerName || 'all'}`
-  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerCacheScope}:${status || 'current'}:${includeArchived ? 'with-archived' : 'without-archived'}:${user.activeTeamId || user.activeTeamName || 'all'}`
+  const teamCacheScope = normalizedTeamId || user.activeTeamId || user.activeTeamName || 'all'
+  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerCacheScope}:${teamCacheScope}:${status || 'current'}:${includeArchived ? 'with-archived' : 'without-archived'}`
 
   return getCachedResource(cacheKey, async () => {
     let query = supabase
@@ -1003,7 +1005,9 @@ export async function getPlayers({ user, section, playerId, playerName, status, 
       query = query.neq('status', 'archived')
     }
 
-    if (!normalizedPlayerId && user.activeTeamId) {
+    if (normalizedTeamId) {
+      query = query.eq('team_id', normalizedTeamId)
+    } else if (!normalizedPlayerId && user.activeTeamId) {
       query = query.eq('team_id', user.activeTeamId)
     } else if (!normalizedPlayerId && user.activeTeamName) {
       query = query.eq('team', user.activeTeamName)

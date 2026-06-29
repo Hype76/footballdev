@@ -255,17 +255,27 @@ export async function getParentLinkingPlayers({ user } = {}) {
   return getPlayers({ user, section: 'Squad', status: 'active' })
 }
 
-export async function getParentLinksForPlayer({ playerId }) {
+export async function getParentLinksForPlayer({ playerId, teamId, clubId } = {}) {
   if (!playerId) {
     return []
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('parent_player_links')
     .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .eq('player_id', playerId)
     .neq('status', 'revoked')
     .order('created_at', { ascending: false })
+
+  if (teamId) {
+    query = query.eq('team_id', teamId)
+  }
+
+  if (clubId) {
+    query = query.eq('club_id', clubId)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error(error)

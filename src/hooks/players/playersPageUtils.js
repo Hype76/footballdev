@@ -32,6 +32,9 @@ export function buildPlayerProfilePath(player) {
   const params = new URLSearchParams()
   const source = getPlayerProfileSourceForSection(player?.section)
   const playerId = String(player?.playerId ?? player?.id ?? '').trim()
+  const teamId = String(player?.teamId ?? player?.team_id ?? '').trim()
+  const clubId = String(player?.clubId ?? player?.club_id ?? '').trim()
+  const membershipId = String(player?.membershipId ?? player?.membership_id ?? player?.teamPlayerId ?? player?.team_player_id ?? '').trim()
 
   if (source) {
     params.set('source', source)
@@ -39,6 +42,18 @@ export function buildPlayerProfilePath(player) {
 
   if (playerId) {
     params.set('playerId', playerId)
+  }
+
+  if (teamId) {
+    params.set('teamId', teamId)
+  }
+
+  if (clubId) {
+    params.set('clubId', clubId)
+  }
+
+  if (membershipId) {
+    params.set('membershipId', membershipId)
   }
 
   const query = params.toString()
