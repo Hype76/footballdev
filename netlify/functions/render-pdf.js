@@ -2,7 +2,7 @@ import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
-} from './_plan-gate.js'
+} from './lib/_plan-gate.js'
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {

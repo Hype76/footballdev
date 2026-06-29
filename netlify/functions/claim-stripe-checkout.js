@@ -1,6 +1,6 @@
-import { supabaseAdmin } from './_supabase.js'
-import { json } from './_stripe-billing.js'
-import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { json } from './lib/_stripe-billing.js'
+import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''

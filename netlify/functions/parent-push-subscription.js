@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { supabaseAdmin } from './_supabase.js'
+import { supabaseAdmin } from './lib/_supabase.js'
 
 function jsonResponse(statusCode, payload) {
   return {

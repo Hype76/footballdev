@@ -1,4 +1,4 @@
-import { getFeatureAccess, normalizePlanKey } from '../../src/lib/paywall-access.js'
+import { getFeatureAccess, normalizePlanKey } from '../../../src/lib/paywall-access.js'
 import { supabaseAdmin } from './_supabase.js'
 
 function normalizeEmail(value) {

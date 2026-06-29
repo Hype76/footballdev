@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from './_supabase.js'
+import { createSupabaseAdminClient } from './lib/_supabase.js'
 import {
   classifyParentEmailChange,
   existingParentAlreadyLinkedMessage,
@@ -6,7 +6,7 @@ import {
   isParentEmailUniqueConflict,
   isValidEmail,
   normalizeEmail,
-} from './_parent-email-change-rules.js'
+} from './lib/_parent-email-change-rules.js'
 
 function jsonResponse(statusCode, payload) {
   return {

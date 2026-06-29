@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { normalizePlanKey as normalizeCanonicalPlanKey } from '../../src/lib/plans.js'
+import { normalizePlanKey as normalizeCanonicalPlanKey } from '../../../src/lib/plans.js'
 
 const STAGING_PROJECT_REF = 'llpufwzvgxyczxcjwupu'
 const LIVE_PROJECT_REF = 'hvapkizujvsahvgspser'

@@ -1,7 +1,7 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { supabaseAdmin } from './_supabase.js'
-import { arePaymentsDisabled, json } from './_stripe-billing.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''

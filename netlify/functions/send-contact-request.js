@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 
 const CONTACT_REQUEST_RECIPIENT = String(process.env.CONTACT_REQUEST_RECIPIENT || 'info@footballplayer.online').trim()
 

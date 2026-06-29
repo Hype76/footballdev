@@ -1,6 +1,6 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { json } from './_stripe-billing.js'
+import { json } from './lib/_stripe-billing.js'
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) {

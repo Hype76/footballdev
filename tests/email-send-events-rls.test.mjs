@@ -5,8 +5,8 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 const migrationUrl = new URL('../supabase/migrations/20260613065704_harden_email_send_events_rls.sql', import.meta.url)
-const emailLogStoreUrl = new URL('../netlify/functions/_email-log-store.js', import.meta.url)
-const supabaseHelperUrl = new URL('../netlify/functions/_supabase.js', import.meta.url)
+const emailLogStoreUrl = new URL('../netlify/functions/lib/_email-log-store.js', import.meta.url)
+const supabaseHelperUrl = new URL('../netlify/functions/lib/_supabase.js', import.meta.url)
 const repoRoot = fileURLToPath(new URL('../', import.meta.url))
 
 const browserSourceDirs = ['src', 'apps']

@@ -1,5 +1,5 @@
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
-import { createSupabaseAdminClient } from './_supabase.js'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { createSupabaseAdminClient } from './lib/_supabase.js'
 
 function jsonResponse(statusCode, payload) {
   return {

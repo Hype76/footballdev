@@ -1,6 +1,6 @@
 import process from 'node:process'
-import { supabaseAdmin } from './_supabase.js'
-import { sendEmail } from './_email-provider.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { sendEmail } from './lib/_email-provider.js'
 import {
   getFailedEmailLogs,
   getStoredResendPayload,
@@ -8,11 +8,11 @@ import {
   markEmailLogFailed,
   markEmailLogSent,
   unlockEmailLogForRetry,
-} from './_email-log-store.js'
+} from './lib/_email-log-store.js'
 import {
   assertPlanFeature,
   getClubPlanProfile,
-} from './_plan-gate.js'
+} from './lib/_plan-gate.js'
 
 void supabaseAdmin
 

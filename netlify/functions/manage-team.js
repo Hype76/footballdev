@@ -1,6 +1,6 @@
 import { createLimitUpgradeMessage, getPlanLimit } from '../../src/lib/plans.js'
-import { supabaseAdmin } from './_supabase.js'
-import { assertPlanFeature, getAuthenticatedPlanProfile } from './_plan-gate.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { assertPlanFeature, getAuthenticatedPlanProfile } from './lib/_plan-gate.js'
 
 function jsonResponse(statusCode, payload) {
   return {

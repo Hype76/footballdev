@@ -2,7 +2,7 @@ import process from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { buildPdfBuffer, buildPngBuffer } from '../../src/lib/pdf-builder.js'
 import { buildProgressionChartImageHtml } from '../../src/lib/progression-chart-markup.js'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
@@ -11,12 +11,12 @@ import {
   createServerAuditLog,
   markEmailLogFailed,
   markEmailLogSent,
-} from './_email-log-store.js'
-import { supabaseAdmin } from './_supabase.js'
+} from './lib/_email-log-store.js'
+import { supabaseAdmin } from './lib/_supabase.js'
 import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
-} from './_plan-gate.js'
+} from './lib/_plan-gate.js'
 
 void supabaseAdmin
 

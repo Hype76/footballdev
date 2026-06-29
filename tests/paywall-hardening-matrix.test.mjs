@@ -16,7 +16,7 @@ import {
   PLAN_OPTIONS,
 } from '../src/lib/plans.js'
 import { pricingPlans } from '../src/lib/login-pricing.js'
-import { getPlanFromPriceId, SELF_SERVICE_CHECKOUT_PLAN_KEYS } from '../netlify/functions/_stripe-billing.js'
+import { getPlanFromPriceId, SELF_SERVICE_CHECKOUT_PLAN_KEYS } from '../netlify/functions/lib/_stripe-billing.js'
 
 const activeBase = {
   clubId: 'club-1',

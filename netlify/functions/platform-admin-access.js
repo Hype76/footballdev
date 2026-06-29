@@ -1,5 +1,5 @@
-import { supabaseAdmin } from './_supabase.js'
-import { json } from './_stripe-billing.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { json } from './lib/_stripe-billing.js'
 import { normalizePlanKey } from '../../src/lib/plans.js'
 
 function getBearerToken(event) {

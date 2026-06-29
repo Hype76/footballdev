@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
-import { createSupabaseAdminClient, isStagingRequest } from './_supabase.js'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { createSupabaseAdminClient, isStagingRequest } from './lib/_supabase.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
 const VALID_BILLING_MODES = new Set(['paid', 'unpaid'])

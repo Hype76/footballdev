@@ -13,8 +13,8 @@ import {
   PLAN_KEYS,
   PLAN_OPTIONS,
 } from '../src/lib/plans.js'
-import { normalizePlanKey as normalizeStripePlanKey } from '../netlify/functions/_stripe-billing.js'
-import { shouldPromoteBillPayer } from '../netlify/functions/_billing-role-promotion.js'
+import { normalizePlanKey as normalizeStripePlanKey } from '../netlify/functions/lib/_stripe-billing.js'
+import { shouldPromoteBillPayer } from '../netlify/functions/lib/_billing-role-promotion.js'
 
 const canonicalPlans = [
   [PLAN_KEYS.individual, 'Individual Coach - Free', 'GBP 0'],

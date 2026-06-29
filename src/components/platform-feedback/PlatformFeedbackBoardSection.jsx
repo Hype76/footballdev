@@ -19,7 +19,7 @@ export function PlatformFeedbackBoardSection({
         </div>
       ) : feedbackItems.length === 0 ? (
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-          No feedback has been submitted yet.
+          No product ideas have been submitted yet.
         </div>
       ) : (
         <div className="space-y-3">

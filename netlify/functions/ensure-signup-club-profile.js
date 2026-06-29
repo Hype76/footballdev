@@ -1,6 +1,6 @@
-import { supabaseAdmin } from './_supabase.js'
-import { arePaymentsDisabled, json } from './_stripe-billing.js'
-import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
+import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { normalizePlanKey, PLAN_KEYS, PLAN_KEY_SET } from '../../src/lib/plans.js'
 
 const USER_PROFILE_SELECT = [

@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from './_supabase.js'
+import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
 function jsonResponse(statusCode, payload) {

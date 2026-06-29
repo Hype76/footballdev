@@ -1,7 +1,7 @@
 import process from 'node:process'
 import webpush from 'web-push'
-import { supabaseAdmin } from './_supabase.js'
-import { sendExpoPushMessages } from './_expo-push.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { sendExpoPushMessages } from './lib/_expo-push.js'
 
 function jsonResponse(statusCode, payload) {
   return {

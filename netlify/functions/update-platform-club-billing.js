@@ -1,8 +1,8 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { supabaseAdmin } from './_supabase.js'
-import { json, normalizePlanStatus } from './_stripe-billing.js'
-import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { json, normalizePlanStatus } from './lib/_stripe-billing.js'
+import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getPlanDefaultLimit, getPlanLimit, normalizePlanKey, normalizeTeamLimitOverride } from '../../src/lib/plans.js'
 
 function getBearerToken(event) {

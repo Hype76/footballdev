@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from './_supabase.js'
+import { createSupabaseAdminClient } from './lib/_supabase.js'
 
 const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-ADMIN-FIX-012'
 const FEEDBACK_REPORTS_LOAD_MESSAGE = 'Issue reports could not be loaded. Please contact support with reference FPO-V1-FEEDBACK-ADMIN-FIX-012.'

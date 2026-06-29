@@ -1,8 +1,8 @@
-import { supabaseAdmin } from './_supabase.js'
+import { supabaseAdmin } from './lib/_supabase.js'
 import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
-} from './_plan-gate.js'
+} from './lib/_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 

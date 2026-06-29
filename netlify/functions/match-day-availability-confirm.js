@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { createPublicSupabaseClient } from './_supabase.js'
+import { createPublicSupabaseClient } from './lib/_supabase.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 

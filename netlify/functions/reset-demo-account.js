@@ -1093,7 +1093,7 @@ export async function handler(event) {
       return failureResponse(500, `Missing required environment variables: ${missingEnvVars.join(', ')}`)
     }
 
-    ;({ supabaseAdmin } = await import('./_supabase.js'))
+    ;({ supabaseAdmin } = await import('./lib/_supabase.js'))
 
     const authUser = await ensureDemoAuthUser()
     const clubId = await ensureDemoClub()

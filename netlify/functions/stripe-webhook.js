@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { Buffer } from 'node:buffer'
 import Stripe from 'stripe'
-import { supabaseAdmin } from './_supabase.js'
+import { supabaseAdmin } from './lib/_supabase.js'
 import {
   getPlanFromPriceId,
   getSubscriptionPeriodEnd,
@@ -9,8 +9,8 @@ import {
   json,
   normalizePlanKey,
   normalizePlanStatus,
-} from './_stripe-billing.js'
-import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
+} from './lib/_stripe-billing.js'
+import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 
 function getRawBody(event) {
   return event.isBase64Encoded

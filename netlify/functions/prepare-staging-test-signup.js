@@ -1,6 +1,6 @@
 import process from 'node:process'
-import { createSupabaseAdminClient, resolveSupabaseEnvironment } from './_supabase.js'
-import { arePaymentsDisabled, json, normalizePlanKey } from './_stripe-billing.js'
+import { createSupabaseAdminClient, resolveSupabaseEnvironment } from './lib/_supabase.js'
+import { arePaymentsDisabled, json, normalizePlanKey } from './lib/_stripe-billing.js'
 
 const STAGING_PROJECT_REF = 'llpufwzvgxyczxcjwupu'
 const LIVE_PROJECT_REF = 'hvapkizujvsahvgspser'

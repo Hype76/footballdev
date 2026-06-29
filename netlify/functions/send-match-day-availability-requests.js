@@ -1,8 +1,8 @@
 import process from 'node:process'
 import { createHash, randomBytes } from 'node:crypto'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
-import { json } from './_stripe-billing.js'
-import { createPublicSupabaseClient } from './_supabase.js'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { json } from './lib/_stripe-billing.js'
+import { createPublicSupabaseClient } from './lib/_supabase.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''

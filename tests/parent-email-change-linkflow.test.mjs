@@ -4,12 +4,12 @@ import { test } from 'node:test'
 import {
   classifyParentEmailChange,
   getSafeEmailChangeErrorMessage,
-} from '../netlify/functions/_parent-email-change-rules.js'
+} from '../netlify/functions/lib/_parent-email-change-rules.js'
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentPortalDomainUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 const emailChangeFunctionUrl = new URL('../netlify/functions/parent-portal-email-change.js', import.meta.url)
-const emailChangeRulesUrl = new URL('../netlify/functions/_parent-email-change-rules.js', import.meta.url)
+const emailChangeRulesUrl = new URL('../netlify/functions/lib/_parent-email-change-rules.js', import.meta.url)
 
 const currentParent = { id: 'current-parent-auth', email: 'current@example.com' }
 const targetParent = { id: 'target-parent-auth', email: 'shared@example.com' }

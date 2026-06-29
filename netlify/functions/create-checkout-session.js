@@ -1,6 +1,6 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { arePaymentsDisabled, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json } from './_stripe-billing.js'
+import { arePaymentsDisabled, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json } from './lib/_stripe-billing.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
 function cleanString(value) {

@@ -1,7 +1,7 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { supabaseAdmin } from './_supabase.js'
-import { json } from './_stripe-billing.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { json } from './lib/_stripe-billing.js'
 
 function formatInvoice(invoice) {
   return {

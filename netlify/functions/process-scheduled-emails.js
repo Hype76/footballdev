@@ -1,7 +1,7 @@
 import process from 'node:process'
-import { markEmailLogFailed } from './_email-log-store.js'
-import { supabaseAdmin } from './_supabase.js'
-import { assertPlanFeature, getClubPlanProfile } from './_plan-gate.js'
+import { markEmailLogFailed } from './lib/_email-log-store.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 

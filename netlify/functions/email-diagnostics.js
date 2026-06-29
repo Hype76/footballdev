@@ -1,5 +1,5 @@
-import { createFromAddress, getEmailProviderConfig, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
-import { getAuthenticatedPlanProfile } from './_plan-gate.js'
+import { createFromAddress, getEmailProviderConfig, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { getAuthenticatedPlanProfile } from './lib/_plan-gate.js'
 
 function jsonResponse(statusCode, payload) {
   return {

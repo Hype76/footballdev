@@ -5,7 +5,7 @@ import {
   createFromAddress,
   getEmailProviderConfig,
   sendEmail,
-} from '../netlify/functions/_email-provider.js'
+} from '../netlify/functions/lib/_email-provider.js'
 
 const validEnv = {
   RESEND_API_KEY: 're_test_key',

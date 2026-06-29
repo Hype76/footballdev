@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from './_supabase.js'
+import { createSupabaseAdminClient } from './lib/_supabase.js'
 
 const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-ADMIN-FIX-012'
 const UPDATE_FAILED_MESSAGE = 'Issue report could not be updated. Please try again.'

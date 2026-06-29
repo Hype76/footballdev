@@ -1,5 +1,5 @@
-import { supabaseAdmin } from './_supabase.js'
-import { json } from './_stripe-billing.js'
+import { supabaseAdmin } from './lib/_supabase.js'
+import { json } from './lib/_stripe-billing.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''

@@ -7,7 +7,7 @@ import {
   getPriceMap,
   normalizePlanStatus,
   SELF_SERVICE_CHECKOUT_PLAN_KEYS,
-} from '../netlify/functions/_stripe-billing.js'
+} from '../netlify/functions/lib/_stripe-billing.js'
 import { handler as createCheckoutSession } from '../netlify/functions/create-checkout-session.js'
 import { formatPrice, formatPriceLabel, pricingPlans } from '../src/lib/login-pricing.js'
 import { PLAN_KEYS, PLAN_PURCHASE_MODES } from '../src/lib/plans.js'
