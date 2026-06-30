@@ -647,108 +647,40 @@ export async function selectMatchDayVolunteer({ user, match, volunteer, role = '
     throw new Error('Choose a valid volunteer role.')
   }
 
-  if (!match?.id || !volunteer?.parentLinkId) {
-    throw new Error('Choose a volunteer parent first.')
+  if (!match?.id || !volunteer?.requestId) {
+    throw new Error('Choose a volunteer response first.')
   }
 
   await assertMatchDayRecordInActiveTeamScope(user, match.id)
 
-  if (selected === false) {
-    const { error: deleteRoleError } = await supabase
-      .from('match_day_role_assignments')
-      .delete()
-      .eq('match_day_id', match.id)
-      .eq('role', normalizedRole)
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
 
-    if (deleteRoleError) {
-      console.error(deleteRoleError)
-      throw deleteRoleError
-    }
-
-    if (normalizedRole === 'scorer') {
-      const { error: deleteScorerError } = await supabase
-        .from('match_day_scorer_assignments')
-        .delete()
-        .eq('match_day_id', match.id)
-
-      if (deleteScorerError) {
-        console.error(deleteScorerError)
-        throw deleteScorerError
-      }
-    }
-
-    invalidateMemoryCacheByPrefix('match-day:')
-    return
+  if (!accessToken) {
+    throw new Error('Login is required.')
   }
 
-  const assignmentPayload = {
-    match_day_id: match.id,
-    club_id: match.clubId,
-    team_id: match.teamId || null,
-    role: normalizedRole,
-    parent_link_id: volunteer.parentLinkId,
-    auth_user_id: volunteer.authUserId || null,
-    assigned_by: getEntryUserId(user),
-    assigned_by_name: getEntryUserName(user),
-    updated_at: new Date().toISOString(),
-  }
+  const response = await fetch('/.netlify/functions/select-match-day-volunteer', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      matchDayId: match.id,
+      requestId: volunteer.requestId,
+      role: normalizedRole,
+      selected: selected !== false,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
 
-  const { error: roleError } = await supabase
-    .from('match_day_role_assignments')
-    .upsert(assignmentPayload, {
-      onConflict: 'match_day_id,role',
-    })
-
-  if (roleError) {
-    console.error(roleError)
-    throw roleError
-  }
-
-  if (normalizedRole === 'scorer') {
-    const { error: deleteError } = await supabase
-      .from('match_day_scorer_assignments')
-      .delete()
-      .eq('match_day_id', match.id)
-
-    if (deleteError) {
-      console.error(deleteError)
-      throw deleteError
-    }
-
-    const { error: insertError } = await supabase
-      .from('match_day_scorer_assignments')
-      .insert({
-        match_day_id: match.id,
-        club_id: match.clubId,
-        team_id: match.teamId || null,
-        parent_link_id: volunteer.parentLinkId,
-        auth_user_id: volunteer.authUserId || null,
-        assigned_by: getEntryUserId(user),
-        assigned_by_name: getEntryUserName(user),
-      })
-
-    if (insertError) {
-      console.error(insertError)
-      throw insertError
-    }
-
-    if (volunteer.id) {
-      const { error: updateError } = await supabase
-        .from('match_day_scorer_interest')
-        .update({
-          status: 'selected',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', volunteer.id)
-
-      if (updateError) {
-        console.error(updateError)
-        throw updateError
-      }
-    }
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Volunteer selection could not be updated.')
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
+  return result
 }
 
 export async function selectMatchDayScorer({ user, match, interest }) {

@@ -140,6 +140,10 @@ const volunteerRoleConfigs = [
   },
 ]
 
+function normalizeVolunteerText(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 function confirmMatchDayAction(message) {
   return window.confirm(message)
 }
@@ -229,6 +233,43 @@ function getAvailabilityHistoryForPlayer(match, row) {
 
 function getSelectedRoleAssignment(match, roleKey) {
   return (match.roleAssignments || []).find((assignment) => assignment.role === roleKey) || null
+}
+
+function isSelectedRoleVolunteer(selectedAssignment, row) {
+  if (!selectedAssignment || !row) {
+    return false
+  }
+
+  if (selectedAssignment.parentLinkId && row.parentLinkId) {
+    return String(selectedAssignment.parentLinkId) === String(row.parentLinkId)
+  }
+
+  const selectedEmail = normalizeVolunteerText(selectedAssignment.parentEmail)
+  const rowEmail = normalizeVolunteerText(row.parentEmail)
+  const selectedPlayerName = normalizeVolunteerText(selectedAssignment.playerName)
+  const rowPlayerName = normalizeVolunteerText(row.playerName)
+  return Boolean(
+    selectedEmail
+      && rowEmail
+      && selectedEmail === rowEmail
+      && selectedPlayerName
+      && rowPlayerName
+      && selectedPlayerName === rowPlayerName,
+  )
+}
+
+function getVolunteerSelectionReason(row) {
+  const isYesReply = normalizeVolunteerText(row?.response) === 'yes'
+
+  if (!isYesReply) {
+    return 'Only parents who replied Yes can be selected.'
+  }
+
+  if (!row?.requestId) {
+    return 'This response cannot be assigned because the request record is missing.'
+  }
+
+  return ''
 }
 
 function useModalPageScrollLock(isLocked) {
@@ -849,20 +890,23 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      await selectMatchDayVolunteer({ user, match, volunteer, role, selected })
-      if (selected && role === 'scorer') {
+      const result = await selectMatchDayVolunteer({ user, match, volunteer, role, selected })
+      const targetParentLinkId = result?.parentLinkId || volunteer.parentLinkId
+      if (selected && role === 'scorer' && targetParentLinkId) {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
           type: 'scorer_selected',
-          targetParentLinkIds: [volunteer.parentLinkId],
+          targetParentLinkIds: [targetParentLinkId],
         })
       }
       await loadData()
       showToast({
         title: selected ? `${roleLabel} selected` : `${roleLabel} deselected`,
-        message: selected && role === 'scorer'
-          ? 'This parent can now update the live score.'
-          : 'The Match Day volunteer selection has been updated.',
+        message: result?.warning
+          || (selected && role === 'scorer'
+            ? 'This parent can now update the live score.'
+            : 'The Match Day volunteer selection has been updated.'),
+        tone: result?.warning ? 'warning' : 'success',
       })
     } catch (error) {
       console.error(error)
@@ -1387,9 +1431,9 @@ function MatchDayCard({
                     {roleRows.length > 0 ? (
                       <div className="mt-2 space-y-2">
                         {roleRows.map((row) => {
-                          const isYesReply = String(row.response || '').toLowerCase() === 'yes'
-                          const isSelected = selectedAssignment && String(selectedAssignment.parentLinkId) === String(row.parentLinkId)
-                          const canSelect = isYesReply && row.parentLinkId
+                          const selectionReason = getVolunteerSelectionReason(row)
+                          const isSelected = isSelectedRoleVolunteer(selectedAssignment, row)
+                          const canSelect = !selectionReason
 
                           return (
                             <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1411,7 +1455,11 @@ function MatchDayCard({
                                   >
                                     {isSelected ? 'Deselect' : selectedAssignment ? 'Change' : 'Select'}
                                   </button>
-                                ) : null}
+                                ) : (
+                                  <span className="max-w-56 text-xs font-semibold leading-5 text-[#92400e]">
+                                    {selectionReason}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           )

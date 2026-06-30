@@ -6,6 +6,7 @@ const migrationUrl = new URL('../supabase/migrations/20260630121322_matchday_par
 const repairMigrationUrl = new URL('../supabase/migrations/20260630125915_repair_matchday_parent_response_rpc.sql', import.meta.url)
 const sharedModelMigrationUrl = new URL('../supabase/migrations/20260630153247_matchday_availability_shared_model.sql', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
+const selectVolunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)
 const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
@@ -132,6 +133,9 @@ test('confirmation function renders a form and submits availability plus role re
 
 test('domain normalizer exposes staff and parent response fields', async () => {
   const source = await readFile(domainUrl, 'utf8')
+  const selectVolunteerStart = source.indexOf('export async function selectMatchDayVolunteer')
+  const selectVolunteerEnd = source.indexOf('export async function selectMatchDayScorer')
+  const selectVolunteerSource = source.slice(selectVolunteerStart, selectVolunteerEnd)
 
   assert.match(source, /function normalizeAvailabilityRequest/)
   assert.match(source, /function normalizePlayerAvailability/)
@@ -147,7 +151,12 @@ test('domain normalizer exposes staff and parent response fields', async () => {
   assert.match(source, /playerAvailability,/)
   assert.match(source, /availabilityHistory,/)
   assert.match(source, /availabilityRequests,/)
-  assert.match(source, /export async function selectMatchDayVolunteer/)
+  assert.match(selectVolunteerSource, /export async function selectMatchDayVolunteer/)
+  assert.match(selectVolunteerSource, /volunteer\?\.requestId/)
+  assert.match(selectVolunteerSource, /supabase\.auth\.getSession\(\)/)
+  assert.match(selectVolunteerSource, /fetch\('\/\.netlify\/functions\/select-match-day-volunteer'/)
+  assert.match(selectVolunteerSource, /requestId: volunteer\.requestId/)
+  assert.doesNotMatch(selectVolunteerSource, /\.from\('match_day_role_assignments'\)/)
 })
 
 test('staff and parent pages surface availability and volunteer responses', async () => {
@@ -159,7 +168,30 @@ test('staff and parent pages surface availability and volunteer responses', asyn
   assert.match(staffSource, /getCurrentAvailabilityRows/)
   assert.match(staffSource, /getAvailabilityHistoryForPlayer/)
   assert.match(staffSource, /getSelectedRoleAssignment/)
+  assert.match(staffSource, /function getVolunteerSelectionReason/)
+  assert.match(staffSource, /const canSelect = !selectionReason/)
+  assert.match(staffSource, /Only parents who replied Yes can be selected\./)
+  assert.match(staffSource, /This response cannot be assigned because the request record is missing\./)
   assert.match(staffSource, /onVolunteerSelection\(match, row, role\.key, !isSelected\)/)
   assert.match(parentSource, /Your fixture response/)
   assert.match(parentSource, /Use the response email link to update availability and requested role replies\./)
+})
+
+test('staff volunteer selection is resolved server side and queues notifications', async () => {
+  const source = await readFile(selectVolunteerFunctionUrl, 'utf8')
+
+  assert.match(source, /createPublicSupabaseClient\(event, \{\s+global:\s+\{\s+headers:\s+\{\s+Authorization: `Bearer \$\{token\}`/s)
+  assert.match(source, /createSupabaseAdminClient\(event\)/)
+  assert.match(source, /requestId = normalizeText\(body\.requestId\)/)
+  assert.match(source, /\.from\('match_day_availability_requests'\)[\s\S]*\.eq\('id', requestId\)[\s\S]*\.eq\('match_day_id', match\.id\)/)
+  assert.match(source, /resolveParentLink\(adminSupabase, \{ match, request \}\)/)
+  assert.match(source, /request\.parent_link_id/)
+  assert.match(source, /normalizeEmail\(link\.email\) === requestEmail/)
+  assert.match(source, /\.from\('match_day_role_assignments'\)[\s\S]*\.upsert\(payload, \{ onConflict: 'match_day_id,role' \}\)/)
+  assert.match(source, /\.from\('match_day_scorer_assignments'\)[\s\S]*\.delete\(\)[\s\S]*\.eq\('match_day_id', match\.id\)/)
+  assert.match(source, /\.from\('scheduled_email_queue'\)[\s\S]*\.insert\(/)
+  assert.match(source, /resendPayload/)
+  assert.match(source, /requiredFeature: 'parentEmails'/)
+  assert.match(source, /Volunteer selection was saved, but notification email could not be queued\./)
+  assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY/)
 })
