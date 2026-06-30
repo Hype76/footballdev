@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import { test } from 'node:test'
+
+const migrationUrl = new URL('../supabase/migrations/20260630121322_matchday_parent_response_roles.sql', import.meta.url)
+const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
+const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
+const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
+const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
+const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
+
+test('migration adds parent availability volunteer response storage', async () => {
+  const migration = await readFile(migrationUrl, 'utf8')
+
+  assert.match(migration, /add column if not exists parent_link_id uuid references public\.parent_player_links/i)
+  assert.match(migration, /add column if not exists volunteer_scorer_response text not null default 'no_response'/i)
+  assert.match(migration, /add column if not exists volunteer_linesman_response text not null default 'no_response'/i)
+  assert.match(migration, /add column if not exists volunteer_referee_response text not null default 'no_response'/i)
+  assert.match(migration, /add column if not exists volunteer_responded_at timestamptz/i)
+  assert.match(migration, /check \(volunteer_scorer_response in \('no_response', 'yes', 'no'\)\)/i)
+})
+
+test('migration keeps token response writes behind security definer RPCs', async () => {
+  const migration = await readFile(migrationUrl, 'utf8')
+
+  assert.match(migration, /create or replace function public\.get_match_day_availability_response\(token_hash_value text\)[\s\S]*security definer[\s\S]*set search_path = public/i)
+  assert.match(migration, /create or replace function public\.submit_match_day_availability_response\([\s\S]*volunteer_scorer_response_value text default null[\s\S]*volunteer_linesman_response_value text default null[\s\S]*volunteer_referee_response_value text default null/i)
+  assert.match(migration, /normalized_token_hash !~ '\^\[a-f0-9\]\{64\}\$'/i)
+  assert.match(migration, /normalized_status not in \('available', 'unavailable', 'maybe'\)/i)
+  assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text\) to anon;/i)
+  assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text\) to authenticated;/i)
+})
+
+test('migration links scorer yes replies into existing scorer selection without replacing selected parents', async () => {
+  const migration = await readFile(migrationUrl, 'utf8')
+
+  assert.match(migration, /insert into public\.match_day_scorer_interest/i)
+  assert.match(migration, /on conflict \(match_day_id, parent_link_id\)[\s\S]*where public\.match_day_scorer_interest\.status <> 'selected'/i)
+  assert.match(migration, /next_scorer_response = 'no'[\s\S]*set status = 'declined'/i)
+})
+
+test('migration expands parent portal matchday RPC response state safely', async () => {
+  const migration = await readFile(migrationUrl, 'utf8')
+
+  assert.match(migration, /drop function if exists public\.get_parent_portal_match_days\(uuid\);/i)
+  assert.match(migration, /availability_status text[\s\S]*volunteer_scorer_response text[\s\S]*volunteer_linesman_response text[\s\S]*volunteer_referee_response text/i)
+  assert.match(migration, /left join lateral \([\s\S]*from public\.match_day_availability_requests request[\s\S]*request\.parent_link_id = link\.id/i)
+  assert.match(migration, /revoke execute on function public\.get_parent_portal_match_days\(uuid\) from anon;/i)
+  assert.doesNotMatch(migration, /grant execute on function public\.get_parent_portal_match_days\(uuid\) to anon;/i)
+})
+
+test('send function creates one response form link and stores parent link context', async () => {
+  const source = await readFile(sendFunctionUrl, 'utf8')
+
+  assert.match(source, /\.from\('parent_player_links'\)[\s\S]*\.eq\('status', 'active'\)/)
+  assert.match(source, /parent_link_id: parentLink\?\.id \|\| null/)
+  assert.match(source, /volunteer_scorer_response: 'no_response'/)
+  assert.match(source, /Open response form/)
+  assert.match(source, /match-day-availability-confirm\?token=\$\{token\}/)
+  assert.doesNotMatch(source, /status=available/)
+})
+
+test('confirmation function renders a form and submits availability plus role replies', async () => {
+  const source = await readFile(confirmFunctionUrl, 'utf8')
+
+  assert.match(source, /supabase\.rpc\('get_match_day_availability_response'/)
+  assert.match(source, /supabase\.rpc\('submit_match_day_availability_response'/)
+  assert.match(source, /roleFieldset\('volunteerScorerResponse', 'scorer'/)
+  assert.match(source, /roleFieldset\('volunteerLinesmanResponse', 'linesman'/)
+  assert.match(source, /roleFieldset\('volunteerRefereeResponse', 'referee'/)
+  assert.match(source, /legacyStatus/)
+  assert.match(source, /Fixture response/)
+})
+
+test('domain normalizer exposes staff and parent response fields', async () => {
+  const source = await readFile(domainUrl, 'utf8')
+
+  assert.match(source, /function normalizeAvailabilityRequest/)
+  assert.match(source, /match_day_availability_requests \(\*, players:player_id \(player_name\), parent_player_links:parent_link_id \(email\)\)/)
+  assert.match(source, /availabilityStatus: normalizeText\(row\.availability_status/)
+  assert.match(source, /volunteerScorerResponse: normalizeVolunteerResponse/)
+  assert.match(source, /availabilityRequests,/)
+})
+
+test('staff and parent pages surface availability and volunteer responses', async () => {
+  const staffSource = await readFile(staffPageUrl, 'utf8')
+  const parentSource = await readFile(parentPortalPageUrl, 'utf8')
+
+  assert.match(staffSource, /Player availability responses/)
+  assert.match(staffSource, /Volunteer responses by role/)
+  assert.match(staffSource, /Select scorer volunteer/)
+  assert.match(parentSource, /Your fixture response/)
+  assert.match(parentSource, /Use the response email link to update availability and requested role replies\./)
+})

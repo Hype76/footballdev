@@ -173,6 +173,35 @@ function normalizeScorerAssignment(row) {
   }
 }
 
+function normalizeVolunteerResponse(value) {
+  const normalizedValue = normalizeText(value)
+  return ['yes', 'no', 'no_response'].includes(normalizedValue) ? normalizedValue : 'no_response'
+}
+
+function normalizeAvailabilityRequest(row) {
+  const player = Array.isArray(row.players) ? row.players[0] : row.players
+  const parentLink = Array.isArray(row.parent_player_links) ? row.parent_player_links[0] : row.parent_player_links
+
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name),
+    recipientName: normalizeText(row.recipient_name ?? row.recipientName),
+    recipientEmail: normalizeText(row.recipient_email ?? row.recipientEmail ?? parentLink?.email),
+    recipientType: normalizeText(row.recipient_type ?? row.recipientType) || 'parent',
+    status: normalizeText(row.status) || 'pending',
+    respondedAt: row.responded_at ?? row.respondedAt ?? '',
+    sentAt: row.sent_at ?? row.sentAt ?? '',
+    volunteerScorerResponse: normalizeVolunteerResponse(row.volunteer_scorer_response ?? row.volunteerScorerResponse),
+    volunteerLinesmanResponse: normalizeVolunteerResponse(row.volunteer_linesman_response ?? row.volunteerLinesmanResponse),
+    volunteerRefereeResponse: normalizeVolunteerResponse(row.volunteer_referee_response ?? row.volunteerRefereeResponse),
+    volunteerRespondedAt: row.volunteer_responded_at ?? row.volunteerRespondedAt ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
 export function getInitialsFromFullName(value) {
   return normalizeText(value)
     .split(/[^A-Za-z0-9]+/)
@@ -191,6 +220,12 @@ export function normalizeMatchDay(row) {
     : []
   const rawEvents = Array.isArray(row.match_day_events) ? row.match_day_events : row.events
   const events = Array.isArray(rawEvents) ? rawEvents.map(normalizeMatchDayEvent) : []
+  const rawAvailabilityRequests = Array.isArray(row.match_day_availability_requests)
+    ? row.match_day_availability_requests
+    : row.availabilityRequests
+  const availabilityRequests = Array.isArray(rawAvailabilityRequests)
+    ? rawAvailabilityRequests.map(normalizeAvailabilityRequest)
+    : []
 
   return {
     id: row.id ?? '',
@@ -219,6 +254,12 @@ export function normalizeMatchDay(row) {
     motmPollExpiryHours: Number(row.motm_poll_expiry_hours ?? row.motmPollExpiryHours ?? 2),
     motmPollId: row.motm_poll_id ?? row.motmPollId ?? '',
     previousHiddenAt: row.previous_hidden_at ?? row.previousHiddenAt ?? '',
+    availabilityStatus: normalizeText(row.availability_status ?? row.availabilityStatus),
+    availabilityRespondedAt: row.availability_responded_at ?? row.availabilityRespondedAt ?? '',
+    volunteerScorerResponse: normalizeVolunteerResponse(row.volunteer_scorer_response ?? row.volunteerScorerResponse),
+    volunteerLinesmanResponse: normalizeVolunteerResponse(row.volunteer_linesman_response ?? row.volunteerLinesmanResponse),
+    volunteerRefereeResponse: normalizeVolunteerResponse(row.volunteer_referee_response ?? row.volunteerRefereeResponse),
+    volunteerRespondedAt: row.volunteer_responded_at ?? row.volunteerRespondedAt ?? '',
     hasInterest: Boolean(row.has_interest ?? row.hasInterest),
     isScorer: Boolean(row.is_scorer ?? row.isScorer),
     createdByName: normalizeText(row.created_by_name ?? row.createdByName),
@@ -226,6 +267,7 @@ export function normalizeMatchDay(row) {
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     scorerInterests: interests,
     scorerAssignments: assignments,
+    availabilityRequests,
     events,
   }
 }
@@ -305,6 +347,7 @@ function buildMatchSelect() {
     teams:team_id (name),
     match_day_scorer_interest (*, parent_player_links:parent_link_id (players:player_id (player_name))),
     match_day_scorer_assignments (*),
+    match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email)),
     match_day_events (*)
   `
 }

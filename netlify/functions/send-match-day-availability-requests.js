@@ -18,6 +18,15 @@ function normalizeEmail(value) {
   return normalizeText(value).toLowerCase()
 }
 
+function escapeHtml(value) {
+  return normalizeText(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function isValidEmail(value) {
   return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(normalizeText(value))
 }
@@ -84,9 +93,33 @@ function formatTime(value) {
   return normalizedValue ? normalizedValue.slice(0, 5) : 'Not set'
 }
 
-function buildAvailabilityEmail({ match, player, recipient, links }) {
+function getRequestedRoleLabels(match = {}) {
+  return [
+    match.request_scorer === true ? 'scorer' : '',
+    match.request_linesman === true ? 'linesman' : '',
+    match.request_referee === true ? 'referee' : '',
+  ].filter(Boolean)
+}
+
+function findParentLinkForContact(parentLinks, player, contact) {
+  if (contact.type !== 'parent') {
+    return null
+  }
+
+  const contactEmail = normalizeEmail(contact.email)
+  return parentLinks.find((link) =>
+    String(link.player_id) === String(player.id) &&
+    normalizeEmail(link.email) === contactEmail,
+  ) || null
+}
+
+function buildAvailabilityEmail({ match, player, recipient, responseUrl }) {
   const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
   const subject = `${teamName} availability: ${match.opponent || 'Fixture'}`
+  const requestedRoleLabels = getRequestedRoleLabels(match)
+  const roleText = requestedRoleLabels.length > 0
+    ? `This form also asks if you can help as ${requestedRoleLabels.join(', ')}.`
+    : ''
   const details = [
     ['Opponent', match.opponent || 'Not set'],
     ['Date', match.match_date || 'Not set'],
@@ -98,8 +131,8 @@ function buildAvailabilityEmail({ match, player, recipient, links }) {
 
   const rows = details.map(([label, value]) => `
     <tr>
-      <td style="padding:8px 0;color:#4b5f55;font-weight:700;">${label}</td>
-      <td style="padding:8px 0;color:#101828;font-weight:800;">${value}</td>
+      <td style="padding:8px 0;color:#4b5f55;font-weight:700;">${escapeHtml(label)}</td>
+      <td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(value)}</td>
     </tr>
   `).join('')
 
@@ -108,18 +141,16 @@ function buildAvailabilityEmail({ match, player, recipient, links }) {
     html: `
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
         <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Fixture availability</p>
-        <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Can ${player.player_name} play?</h1>
+        <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Can ${escapeHtml(player.player_name)} play?</h1>
         <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
-          ${recipient.type === 'player' ? 'Please confirm your availability.' : 'Please confirm availability for this player.'}
+          ${recipient.type === 'player' ? 'Please confirm your availability.' : 'Please confirm availability for this player.'} ${escapeHtml(roleText)}
         </p>
         <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">${rows}</table>
         <div style="display:block;margin:22px 0;">
-          <a href="${links.available}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Available</a>
-          <a href="${links.unavailable}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#b91c1c;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Not available</a>
-          <a href="${links.maybe}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Maybe</a>
+          <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Open response form</a>
         </div>
         <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
-          This link is unique to ${recipient.email}. Do not forward it.
+          This link is unique to ${escapeHtml(recipient.email)}. Do not forward it.
         </p>
       </div>
     `,
@@ -206,6 +237,16 @@ export async function handler(event) {
     const createdRequests = []
     const missingContacts = []
     let sentCount = 0
+    const { data: parentLinks, error: parentLinksError } = await supabase
+      .from('parent_player_links')
+      .select('id, player_id, email, status')
+      .eq('club_id', profile.club_id)
+      .in('player_id', playerIds)
+      .eq('status', 'active')
+
+    if (parentLinksError) {
+      throw parentLinksError
+    }
 
     for (const player of players ?? []) {
       if (match.team_id && player.team_id && String(player.team_id) !== String(match.team_id)) {
@@ -220,6 +261,7 @@ export async function handler(event) {
       }
 
       for (const contact of contacts) {
+        const parentLink = findParentLinkForContact(parentLinks ?? [], player, contact)
         const token = randomBytes(32).toString('hex')
         const tokenHash = hashToken(token)
         const { data: request, error: requestError } = await supabase
@@ -233,9 +275,14 @@ export async function handler(event) {
             recipient_email: contact.email,
             recipient_name: contact.name,
             recipient_type: contact.type,
+            parent_link_id: parentLink?.id || null,
             channel: 'email',
             token_hash: tokenHash,
             status: 'pending',
+            volunteer_scorer_response: 'no_response',
+            volunteer_linesman_response: 'no_response',
+            volunteer_referee_response: 'no_response',
+            volunteer_responded_at: null,
             created_by: profile.id,
             created_by_name: normalizeText(profile.display_name || profile.name || profile.email),
             updated_at: new Date().toISOString(),
@@ -249,12 +296,8 @@ export async function handler(event) {
           throw requestError
         }
 
-        const links = {
-          available: `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}&status=available`,
-          unavailable: `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}&status=unavailable`,
-          maybe: `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}&status=maybe`,
-        }
-        const email = buildAvailabilityEmail({ match, player, recipient: contact, links })
+        const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
+        const email = buildAvailabilityEmail({ match, player, recipient: contact, responseUrl })
 
         await sendEmail({
           from: createFromAddress('Football Player'),

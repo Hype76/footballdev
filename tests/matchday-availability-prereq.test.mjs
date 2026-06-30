@@ -152,13 +152,14 @@ test('Netlify confirmation function validates raw tokens and trusts the stored R
 
   assert.match(source, /const VALID_STATUSES = new Set\(\['available', 'unavailable', 'maybe'\]\)/)
   assert.match(source, /!\/\^\[a-f0-9\]\{64\}\$\/i\.test\(token\)/)
-  assert.match(source, /supabase\.rpc\('confirm_match_day_availability'/)
+  assert.match(source, /supabase\.rpc\('get_match_day_availability_response'/)
+  assert.match(source, /supabase\.rpc\('submit_match_day_availability_response'/)
   assert.match(source, /token_hash_value: hashToken\(token\)/)
-  assert.match(source, /const responseStatus = normalizeText\(response\.response_status\)\.toLowerCase\(\)/)
-  assert.match(source, /const statusLabel = responseStatus === 'unavailable' \? 'not available' : responseStatus \|\| status/)
+  assert.match(source, /function normalizeVolunteerParam\(value\)/)
+  assert.match(source, /legacyStatus/)
 })
 
-test('browser and mobile source do not directly manage availability request rows', async () => {
+test('browser and mobile source do not directly write availability request rows', async () => {
   const sourceFiles = []
 
   for (const dir of sourceDirs) {
@@ -169,7 +170,8 @@ test('browser and mobile source do not directly manage availability request rows
 
   for (const file of sourceFiles) {
     const source = await readFile(file, 'utf8')
-    if (source.includes('match_day_availability_requests') || source.includes('confirm_match_day_availability')) {
+    const writesAvailabilityRows = /from\('match_day_availability_requests'\)[\s\S]*\.(?:insert|upsert|update|delete)\(/.test(source)
+    if (writesAvailabilityRows || source.includes('confirm_match_day_availability')) {
       matches.push(file)
     }
   }

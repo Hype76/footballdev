@@ -105,8 +105,86 @@ const matchRuleCards = [
   },
 ]
 
+const availabilityStatusLabels = {
+  pending: 'No response',
+  available: 'Available',
+  unavailable: 'Not available',
+  maybe: 'Maybe',
+  expired: 'Expired',
+}
+
+const volunteerResponseLabels = {
+  yes: 'Yes',
+  no: 'No',
+  no_response: 'No response',
+}
+
+const volunteerRoleConfigs = [
+  {
+    key: 'scorer',
+    label: 'Scorer',
+    requestKey: 'requestScorer',
+    responseKey: 'volunteerScorerResponse',
+  },
+  {
+    key: 'linesman',
+    label: 'Linesman',
+    requestKey: 'requestLinesman',
+    responseKey: 'volunteerLinesmanResponse',
+  },
+  {
+    key: 'referee',
+    label: 'Referee',
+    requestKey: 'requestReferee',
+    responseKey: 'volunteerRefereeResponse',
+  },
+]
+
 function confirmMatchDayAction(message) {
   return window.confirm(message)
+}
+
+function formatResponseDateTime(value) {
+  if (!value) {
+    return 'Not replied yet'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString([], {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getAvailabilityStatusLabel(status) {
+  return availabilityStatusLabels[String(status || 'pending').toLowerCase()] || 'No response'
+}
+
+function getVolunteerResponseLabel(response) {
+  return volunteerResponseLabels[String(response || 'no_response').toLowerCase()] || 'No response'
+}
+
+function getRequestedVolunteerRoles(match) {
+  return volunteerRoleConfigs.filter((role) => match?.[role.requestKey] === true)
+}
+
+function getRoleResponseRows(match, role) {
+  return (match.availabilityRequests || [])
+    .filter((request) => ['yes', 'no'].includes(String(request[role.responseKey] || '').toLowerCase()))
+    .map((request) => ({
+      id: `${role.key}:${request.id}`,
+      playerName: request.playerName || 'Player',
+      parentLabel: request.recipientEmail || request.recipientName || 'Parent',
+      response: request[role.responseKey],
+      respondedAt: request.volunteerRespondedAt || request.respondedAt,
+    }))
 }
 
 function useModalPageScrollLock(isLocked) {
@@ -1089,6 +1167,8 @@ function MatchDayCard({
 }) {
   const isBusy = activeMatchId === match.id
   const selectedParentLinkIds = new Set(match.scorerAssignments.map((assignment) => String(assignment.parentLinkId)))
+  const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
+  const activeScorerInterests = match.scorerInterests.filter((interest) => interest.status !== 'declined')
   const currentMinute = getCurrentMatchMinute(match)
 
   return (
@@ -1190,10 +1270,85 @@ function MatchDayCard({
         </div>
 
         <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Parent scorer requests</h5>
-          {match.scorerInterests.length > 0 ? (
+          <h5 className="text-sm font-black text-[#101828]">Player availability responses</h5>
+          {match.availabilityRequests.length > 0 ? (
             <div className="mt-3 space-y-2">
-              {match.scorerInterests.map((interest) => {
+              {match.availabilityRequests.map((request) => (
+                <div key={request.id} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-[#101828]">{request.playerName || 'Player'}</p>
+                      <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+                        {request.recipientEmail || request.recipientName || 'Parent contact'}
+                      </p>
+                    </div>
+                    <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
+                      {getAvailabilityStatusLabel(request.status)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
+                    {formatResponseDateTime(request.respondedAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+              <p className="text-sm font-black text-[#101828]">No availability requests are linked to this fixture yet.</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                Request selected players to collect availability and parent volunteer replies.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className={panelClass}>
+          <h5 className="text-sm font-black text-[#101828]">Volunteer responses by role</h5>
+          {requestedVolunteerRoles.length > 0 ? (
+            <div className="mt-3 space-y-3">
+              {requestedVolunteerRoles.map((role) => {
+                const roleRows = getRoleResponseRows(match, role)
+
+                return (
+                  <div key={role.key} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+                    <p className="text-sm font-black text-[#101828]">{role.label}</p>
+                    {roleRows.length > 0 ? (
+                      <div className="mt-2 space-y-2">
+                        {roleRows.map((row) => (
+                          <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-[#101828]">{row.parentLabel}</p>
+                              <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Linked to {row.playerName}</p>
+                              <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{formatResponseDateTime(row.respondedAt)}</p>
+                            </div>
+                            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                              {getVolunteerResponseLabel(row.response)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No replies for this role yet.</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+              <p className="text-sm font-black text-[#101828]">No volunteer roles requested.</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                Enable scorer, linesman, or referee requests when creating the fixture to collect volunteer replies.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className={panelClass}>
+          <h5 className="text-sm font-black text-[#101828]">Select scorer volunteer</h5>
+          {activeScorerInterests.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {activeScorerInterests.map((interest) => {
                 const isSelected = selectedParentLinkIds.has(String(interest.parentLinkId))
 
                 return (
@@ -1221,9 +1376,9 @@ function MatchDayCard({
             </div>
           ) : (
             <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
-              <p className="text-sm font-black text-[#101828]">No parents have volunteered yet.</p>
+              <p className="text-sm font-black text-[#101828]">No scorer volunteers have been sent to selection yet.</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Keep the scorer request open or select a staff member to run the score from the touchline.
+                Scorer yes replies from linked parent contacts appear here so staff can select one for live score access.
               </p>
             </div>
           )}

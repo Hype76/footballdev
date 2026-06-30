@@ -1277,6 +1277,48 @@ function getMatchVolunteerRequestLabels(match = {}) {
   ].filter(Boolean)
 }
 
+const parentAvailabilityStatusLabels = {
+  pending: 'No response',
+  available: 'Available',
+  unavailable: 'Not available',
+  maybe: 'Maybe',
+  expired: 'Expired',
+}
+
+const parentVolunteerResponseLabels = {
+  yes: 'Yes',
+  no: 'No',
+  no_response: 'No response',
+}
+
+function getParentAvailabilityStatusLabel(value) {
+  return parentAvailabilityStatusLabels[String(value || 'pending').toLowerCase()] || 'No response'
+}
+
+function getParentVolunteerResponseLabel(value) {
+  return parentVolunteerResponseLabels[String(value || 'no_response').toLowerCase()] || 'No response'
+}
+
+function getParentMatchResponseRows(match = {}) {
+  const rows = [
+    ['Availability', getParentAvailabilityStatusLabel(match.availabilityStatus)],
+  ]
+
+  if (match.requestScorer !== false) {
+    rows.push(['Scorer', getParentVolunteerResponseLabel(match.volunteerScorerResponse)])
+  }
+
+  if (match.requestLinesman === true) {
+    rows.push(['Linesman', getParentVolunteerResponseLabel(match.volunteerLinesmanResponse)])
+  }
+
+  if (match.requestReferee === true) {
+    rows.push(['Referee', getParentVolunteerResponseLabel(match.volunteerRefereeResponse)])
+  }
+
+  return rows
+}
+
 function attachParentCalendarContext(event, link) {
   const contextLabel = event.isClubWide ? 'Club-wide' : formatParentChildTeamLabel(link)
 
@@ -1871,6 +1913,7 @@ function ParentMatchCard({
   const currentMinute = getCurrentMatchMinute(match, now)
   const volunteerRequestLabels = getMatchVolunteerRequestLabels(match)
   const canVolunteerAsScorer = match.requestScorer !== false
+  const responseRows = getParentMatchResponseRows(match)
 
   return (
     <article className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
@@ -1913,6 +1956,23 @@ function ParentMatchCard({
           ) : null}
         </div>
       </div>
+
+      {responseRows.length > 0 ? (
+        <div className={`${softPanelClass} mt-4`}>
+          <h5 className="text-sm font-black text-[#101828]">Your fixture response</h5>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {responseRows.map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">{label}</p>
+                <p className="mt-1 text-sm font-black text-[#101828]">{value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">
+            Use the response email link to update availability and requested role replies.
+          </p>
+        </div>
+      ) : null}
 
       {!match.isScorer && canVolunteerAsScorer ? (
         <div className="mt-4">
