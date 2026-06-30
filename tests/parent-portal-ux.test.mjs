@@ -151,9 +151,38 @@ test('parent dashboard exposes surfaced parent links without feature clutter', a
   assert.match(source, /lg:grid-cols-\[16rem_minmax\(0,1fr\)\]/)
   assert.match(shellSource, /hidden lg:block lg:sticky/)
   assert.match(shellSource, /pb-\[max\(0\.75rem,env\(safe-area-inset-bottom\)\)\]/)
+  assert.match(shellSource, /max-h-\[calc\(100dvh-2\.5rem\)\]/)
+  assert.match(shellSource, /overflow-y-auto overscroll-contain/)
   assert.doesNotMatch(source, /coming soon/i)
   assert.doesNotMatch(source, /staff shell/i)
   assert.doesNotMatch(source, /admin shell/i)
+})
+
+test('parent portal shell keeps sign out visible on desktop and mobile', async () => {
+  const [source, shellSource, messagesSource, pollsSource, familySource] = await Promise.all([
+    readFile(parentPortalPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+    readFile(parentMessagesPageUrl, 'utf8'),
+    readFile(parentPollsPageUrl, 'utf8'),
+    readFile(friendsFamilyPageUrl, 'utf8'),
+  ])
+
+  assert.match(shellSource, /function ParentPortalSignOutAction/)
+  assert.match(shellSource, /const \{ signOut \} = useAuth\(\)/)
+  assert.match(shellSource, /await signOut\(\)/)
+  assert.match(shellSource, /rememberParentAccessIntent\(\)/)
+  assert.match(shellSource, /window\.location\.replace\(isParentPortalHost\(\) \? '\/parent-login' : buildParentAppUrl\('\/parent-login'\)\)/)
+  assert.match(shellSource, /aria-label="Sign out of the parent portal"/)
+  assert.match(shellSource, /Sign out/)
+  assert.match(shellSource, /mt-3 shrink-0 border-t/)
+  assert.match(shellSource, /mt-2 border-t/)
+  assert.match(shellSource, /grid min-h-0 gap-2 overflow-y-auto overscroll-contain/)
+  assert.match(shellSource, /fixed inset-x-0 bottom-0 z-\[60\]/)
+  assert.match(source, /pb-44/)
+  assert.match(source, /activeSection === 'settings'/)
+  assert.match(messagesSource, /<ParentPortalRouteShell activeSection="messages"/)
+  assert.match(pollsSource, /<ParentPortalRouteShell activeSection="polls"/)
+  assert.match(familySource, /<ParentPortalRouteShell activeSection="family"/)
 })
 
 test('parent settings expose safe profile, notification, and theme controls', async () => {

@@ -265,6 +265,35 @@ try {
     await context.close()
   })
 
+  await runScenario('parent portal sign out is visible and clears the fixture session', async () => {
+    const desktopContext = await browser.newContext()
+    const { page: desktopPage } = await preparePage(desktopContext)
+    await parentSignIn(desktopPage, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await desktopPage.waitForURL('**/parent-portal', { timeout: 15000 })
+    await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
+    assert.ok(await desktopPage.getByRole('button', { name: /Sign out/ }).count() >= 2)
+    await desktopPage.goto(`${mainBaseUrl}/parent-portal?section=settings`, { waitUntil: 'domcontentloaded' })
+    await assertVisibleText(desktopPage, 'Parent settings')
+    await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
+    await desktopPage.getByRole('button', { name: /Sign out/ }).first().click()
+    await desktopPage.waitForURL('**/parent-login', { timeout: 15000 })
+    assert.equal(await desktopPage.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
+    await desktopContext.close()
+
+    const mobileContext = await browser.newContext({
+      isMobile: true,
+      viewport: { width: 390, height: 844 },
+    })
+    const { page: mobilePage } = await preparePage(mobileContext)
+    await parentSignIn(mobilePage, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await mobilePage.waitForURL('**/parent-portal', { timeout: 15000 })
+    await mobilePage.locator('div.fixed').getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
+    await mobilePage.goto(`${mainBaseUrl}/parent-portal?section=settings`, { waitUntil: 'domcontentloaded' })
+    await assertVisibleText(mobilePage, 'Parent settings')
+    await mobilePage.locator('div.fixed').getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
+    await mobileContext.close()
+  })
+
   await runScenario('multi-context user can switch between platform team and parent', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)

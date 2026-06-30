@@ -813,7 +813,7 @@ export function ParentPortalPage() {
   }
 
   return (
-    <div className="space-y-4 pb-28 sm:space-y-5 lg:pb-0">
+    <div className="space-y-4 pb-44 sm:space-y-5 lg:pb-0">
       <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
           <div className="min-w-0">

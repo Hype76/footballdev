@@ -1,4 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../lib/auth.js'
+import { buildParentAppUrl, isParentPortalHost } from '../../lib/app-origins.js'
+import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
 const parentPortalSections = [
@@ -32,56 +36,95 @@ export function ParentPortalSectionNav({
   ].join(' ')
   const wrapperClass = variant === 'mobile'
     ? `fixed inset-x-0 bottom-0 z-[60] border-t border-[#d7e5dc] bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-[#047857]/15 backdrop-blur ${className}`.trim()
-    : `rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 ${className}`.trim()
+    : `flex max-h-[calc(100dvh-2.5rem)] flex-col rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 ${className}`.trim()
   const listClass = variant === 'mobile'
     ? 'flex gap-2 overflow-x-auto overscroll-x-contain pb-1'
-    : 'grid gap-2'
+    : 'grid min-h-0 gap-2 overflow-y-auto overscroll-contain pr-1'
 
   return (
-    <nav aria-label="Parent portal sections" className={wrapperClass}>
-      <div className={listClass}>
-        {visibleSections.map((section) => {
-          const isActive = activeSection === section.id
-          const count = counts[section.id]
-          const content = (
-            <>
-              <span className="min-w-0">
-                <span className="block text-sm font-black">{section.label}</span>
-                <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
-              </span>
-              {typeof count === 'number' ? (
-                <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
-                  {count}
+    <div className={wrapperClass}>
+      <nav aria-label="Parent portal sections">
+        <div className={listClass}>
+          {visibleSections.map((section) => {
+            const isActive = activeSection === section.id
+            const count = counts[section.id]
+            const content = (
+              <>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black">{section.label}</span>
+                  <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
                 </span>
-              ) : null}
-            </>
-          )
+                {typeof count === 'number' ? (
+                  <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
+                    {count}
+                  </span>
+                ) : null}
+              </>
+            )
 
-          return (
-            <Link
-              key={section.id}
-              to={section.to}
-              onClick={(event) => {
-                if (!onSelect) {
-                  return
-                }
+            return (
+              <Link
+                key={section.id}
+                to={section.to}
+                onClick={(event) => {
+                  if (!onSelect) {
+                    return
+                  }
 
-                const nextUrl = new URL(section.to, window.location.origin)
-                if (nextUrl.pathname === window.location.pathname) {
-                  event.preventDefault()
-                  onSelect(section.id)
-                  window.history.replaceState(null, '', `${nextUrl.pathname}${nextUrl.search}`)
-                }
-              }}
-              className={itemClass(isActive)}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              {content}
-            </Link>
-          )
-        })}
+                  const nextUrl = new URL(section.to, window.location.origin)
+                  if (nextUrl.pathname === window.location.pathname) {
+                    event.preventDefault()
+                    onSelect(section.id)
+                    window.history.replaceState(null, '', `${nextUrl.pathname}${nextUrl.search}`)
+                  }
+                }}
+                className={itemClass(isActive)}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                {content}
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
+      <div className={variant === 'mobile' ? 'mt-2 border-t border-[#d7e5dc] pt-2' : 'mt-3 shrink-0 border-t border-[#d7e5dc] pt-3'}>
+        <ParentPortalSignOutAction variant={variant} />
       </div>
-    </nav>
+    </div>
+  )
+}
+
+function ParentPortalSignOutAction({ variant = 'desktop' }) {
+  const { signOut } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const buttonClass = [
+    'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#f2b8b5] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff4f3] disabled:cursor-not-allowed disabled:opacity-60',
+    variant === 'mobile' ? 'min-h-10 py-2.5' : '',
+  ].filter(Boolean).join(' ')
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+
+    try {
+      await signOut()
+      rememberParentAccessIntent()
+      window.location.replace(isParentPortalHost() ? '/parent-login' : buildParentAppUrl('/parent-login'))
+    } catch (error) {
+      console.error(error)
+      setIsSigningOut(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleSignOut}
+      disabled={isSigningOut}
+      aria-label="Sign out of the parent portal"
+      className={buttonClass}
+    >
+      {isSigningOut ? 'Signing out...' : 'Sign out'}
+    </button>
   )
 }
 
@@ -92,7 +135,7 @@ export function ParentPortalRouteShell({
   user,
 }) {
   return (
-    <div className="space-y-4 pb-28 sm:space-y-5 lg:pb-0">
+    <div className="space-y-4 pb-44 sm:space-y-5 lg:pb-0">
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
           activeSection={activeSection}
