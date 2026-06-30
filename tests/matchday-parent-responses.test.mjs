@@ -103,6 +103,8 @@ test('send function creates one response form link and stores parent link contex
   const source = await readFile(sendFunctionUrl, 'utf8')
 
   assert.match(source, /\.from\('parent_player_links'\)[\s\S]*\.eq\('status', 'active'\)/)
+  assert.match(source, /createSupabaseAdminClient\(event\)/)
+  assert.match(source, /const \{ data: parentLinks, error: parentLinksError \} = await adminSupabase/)
   assert.match(source, /parent_link_id: parentLink\?\.id \|\| null/)
   assert.match(source, /volunteer_scorer_response: 'no_response'/)
   assert.match(source, /Open response form/)

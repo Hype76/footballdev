@@ -2,7 +2,7 @@ import process from 'node:process'
 import { createHash, randomBytes } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
-import { createPublicSupabaseClient } from './lib/_supabase.js'
+import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -195,6 +195,7 @@ export async function handler(event) {
   try {
     const token = getBearerToken(event)
     const supabase = createRequestSupabaseClient(event, token)
+    const adminSupabase = createSupabaseAdminClient(event)
     const profile = await getAuthenticatedProfile(event, supabase)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
@@ -237,7 +238,7 @@ export async function handler(event) {
     const createdRequests = []
     const missingContacts = []
     let sentCount = 0
-    const { data: parentLinks, error: parentLinksError } = await supabase
+    const { data: parentLinks, error: parentLinksError } = await adminSupabase
       .from('parent_player_links')
       .select('id, player_id, email, status')
       .eq('club_id', profile.club_id)
