@@ -77,7 +77,6 @@ const compactInputClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
-const sectionHeaderClass = 'border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const modalValidationClass = 'mx-4 mb-3 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold leading-6 text-[#92400e] sm:mx-6'
@@ -89,21 +88,6 @@ const fixtureModalViewportBaseState = {
   viewportStyle: fixtureModalViewportBaseStyle,
   isKeyboardOpen: false,
 }
-
-const matchRuleCards = [
-  {
-    label: 'Create one match record',
-    body: 'Set the opponent, team, venue, scorer request, and match status before parent updates begin.',
-  },
-  {
-    label: 'Control live access',
-    body: 'Parent volunteers can help only after staff select them for that fixture.',
-  },
-  {
-    label: 'Finish with the result',
-    body: 'Score, goals, assists, venue, and notes stay attached to the same club fixture.',
-  },
-]
 
 const availabilityStatusLabels = {
   pending: 'No response',
@@ -477,6 +461,119 @@ function getCurrentMatchMinute(match, now = Date.now()) {
   return Math.max(Math.floor((now - startedAtTime) / 60000) + 1, 1)
 }
 
+function getMatchStatusLabel(status) {
+  return MATCH_DAY_STATUS_OPTIONS.find((option) => option.value === status)?.label || String(status || 'scheduled').replace(/_/g, ' ')
+}
+
+function getHomeAwayLabel(homeAway) {
+  return MATCH_DAY_HOME_AWAY_OPTIONS.find((option) => option.value === homeAway)?.label || String(homeAway || 'Home')
+}
+
+function getAvailabilityConflictCount(requests) {
+  const statusesByPlayer = new Map()
+
+  requests.forEach((request) => {
+    const playerKey = request.playerId || request.playerName
+    const status = String(request.status || 'pending').toLowerCase()
+
+    if (!playerKey || status === 'pending' || status === 'expired') {
+      return
+    }
+
+    const statuses = statusesByPlayer.get(playerKey) || new Set()
+    statuses.add(status)
+    statusesByPlayer.set(playerKey, statuses)
+  })
+
+  return [...statusesByPlayer.values()].filter((statuses) => statuses.size > 1).length
+}
+
+function getAvailabilityStats(match) {
+  const rows = getCurrentAvailabilityRows(match)
+  const requests = Array.isArray(match.availabilityRequests) ? match.availabilityRequests : []
+  const counts = {
+    available: 0,
+    expired: 0,
+    maybe: 0,
+    pending: 0,
+    unavailable: 0,
+  }
+
+  rows.forEach((row) => {
+    const status = String(row.status || 'pending').toLowerCase()
+    counts[status] = (counts[status] ?? 0) + 1
+  })
+
+  return {
+    ...counts,
+    total: rows.length,
+    conflictCount: getAvailabilityConflictCount(requests),
+  }
+}
+
+function getAvailabilitySummary(match) {
+  const stats = getAvailabilityStats(match)
+
+  if (stats.total === 0) {
+    return match.parentVisible ? 'Awaiting availability' : 'Staff only'
+  }
+
+  return `${stats.available} available, ${stats.pending} pending, ${stats.maybe} maybe, ${stats.unavailable} unavailable`
+}
+
+function getRoleStatus(match, roleKey) {
+  const role = volunteerRoleConfigs.find((item) => item.key === roleKey)
+  const selectedAssignment = getSelectedRoleAssignment(match, roleKey)
+
+  if (selectedAssignment) {
+    return 'Assigned'
+  }
+
+  if (!role || match[role.requestKey] !== true) {
+    return 'Not requested'
+  }
+
+  const yesReplies = getRoleResponseRows(match, role).filter((row) => String(row.response || '').toLowerCase() === 'yes')
+
+  if (yesReplies.length > 0) {
+    return `${yesReplies.length} volunteered`
+  }
+
+  return 'Needed'
+}
+
+function getNeedsAttentionItems(activeMatches) {
+  const availabilityStats = activeMatches.map(getAvailabilityStats)
+
+  return [
+    {
+      label: 'Needs scorer',
+      value: activeMatches.filter((match) => getRoleStatus(match, 'scorer') === 'Needed').length,
+      caption: 'Fixtures waiting for a scorer reply or selection.',
+    },
+    {
+      label: 'Needs referee',
+      value: activeMatches.filter((match) => getRoleStatus(match, 'referee') === 'Needed').length,
+      caption: 'Referee requests without an assigned volunteer.',
+    },
+    {
+      label: 'Needs linesman',
+      value: activeMatches.filter((match) => getRoleStatus(match, 'linesman') === 'Needed').length,
+      caption: 'Linesman requests without an assigned volunteer.',
+    },
+    {
+      label: 'Conflicts',
+      value: availabilityStats.reduce((total, stats) => total + stats.conflictCount, 0),
+      caption: 'Players with conflicting parent availability replies.',
+    },
+    {
+      label: 'Awaiting replies',
+      value: availabilityStats.reduce((total, stats) => total + stats.pending, 0),
+      caption: 'Availability requests still pending.',
+    },
+  ]
+}
+
 function isPreviousMatch(match) {
   if (match.status === 'full_time') {
     return true
@@ -511,6 +608,7 @@ export function MatchDayPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [expandedMatchId, setExpandedMatchId] = useState('')
   const [isFixtureFormOpen, setIsFixtureFormOpen] = useState(false)
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
@@ -533,6 +631,7 @@ export function MatchDayPage() {
     () => matches.reduce((total, match) => total + (Array.isArray(match.events) ? match.events.filter((event) => event.eventType === 'goal').length : 0), 0),
     [matches],
   )
+  const needsAttentionItems = useMemo(() => getNeedsAttentionItems(activeMatches), [activeMatches])
   const matchDaySummary = [
     {
       label: 'Live now',
@@ -999,47 +1098,39 @@ export function MatchDayPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
+      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#101828] text-white shadow-sm shadow-[#047857]/10">
+        <div className="grid gap-5 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
-            <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className={eyebrowClass}>Match day control</p>
-              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-                Run the fixture from scorer request to full time.
-              </h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Create the fixture, control who can update it, run the live score, and keep the final result in one club record.
-              </p>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {matchRuleCards.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Next fixture</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No fixture created'}
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                {nextMatch ? formatMatchDate(nextMatch) : 'Create a fixture to request a scorer and prepare the live board.'}
-              </p>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <MatchMetric label="Live" value={liveMatches} isLoading={isLoading} />
-              <MatchMetric label="Requests" value={scorerRequests} isLoading={isLoading} />
-              <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} />
-              <MatchMetric label="Goals" value={goalCount} isLoading={isLoading} />
-            </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Keep one active fixture visible so staff actions, scorer access, and parent updates stay aligned.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#86efac]">Match day control</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Match Day</h1>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#d1fae5]">
+              Scan fixtures, open one when needed, and keep scorer, score, availability, roles, and notes attached to the same record.
             </p>
           </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:min-w-[26rem] lg:grid-cols-1">
+            <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#86efac]">Next fixture</p>
+              <p className="mt-1 text-lg font-black tracking-tight">
+                {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No fixture created'}
+              </p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#d1fae5]">
+                {nextMatch ? formatMatchDate(nextMatch) : 'Create a fixture to request volunteers and prepare the live board.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsFixtureFormOpen(true)}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#86efac] px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#bbf7d0]"
+            >
+              Create fixture
+            </button>
+          </div>
+        </div>
+        <div className="grid gap-2 border-t border-white/10 bg-white/5 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
+          <MatchMetric label="Live" value={liveMatches} isLoading={isLoading} tone="dark" />
+          <MatchMetric label="Requests" value={scorerRequests} isLoading={isLoading} tone="dark" />
+          <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} tone="dark" />
+          <MatchMetric label="Goals" value={goalCount} isLoading={isLoading} tone="dark" />
         </div>
       </section>
 
@@ -1047,44 +1138,26 @@ export function MatchDayPage() {
 
       <section className="grid gap-3 md:grid-cols-4">
         {matchDaySummary.map((item) => (
-          <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
+          <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-            <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
+            <p className="mt-2 text-3xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
           </article>
         ))}
       </section>
 
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className={sectionHeaderClass}>
-          <p className={eyebrowClass}>Fixture setup</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create fixture</h2>
-          <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-            Set the opponent, arrival, venue, and parent-facing scorer request before choosing the players who need availability requests.
-          </p>
+        <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6">
+          <p className={eyebrowClass}>Needs attention</p>
         </div>
-        <div className="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className={panelClass}>
-              <p className={smallLabelClass}>Team</p>
-              <p className="text-sm font-black text-[#101828]">{selectedFixtureTeamName || user.activeTeamName || 'Choose in setup'}</p>
-            </div>
-            <div className={panelClass}>
-              <p className={smallLabelClass}>Squad</p>
-              <p className="text-sm font-black text-[#101828]">{fixturePlayers.length} active players</p>
-            </div>
-            <div className={panelClass}>
-              <p className={smallLabelClass}>Next step</p>
-              <p className="text-sm font-black text-[#101828]">Open setup, then pick who gets asked.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsFixtureFormOpen(true)}
-            className={`${primaryButtonClass} w-full lg:w-auto`}
-          >
-            Create fixture
-          </button>
+        <div className="grid gap-2 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5 lg:px-6">
+          {needsAttentionItems.map((item) => (
+            <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
+              <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -1157,12 +1230,21 @@ export function MatchDayPage() {
       ) : null}
 
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className={sectionHeaderClass}>
-          <p className={eyebrowClass}>Live board</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Run live and upcoming matches</h2>
-          <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-            Start the match, update the score, select parent scorers, and record goals with scorer and assist detail.
-          </p>
+        <div className="grid gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <p className={eyebrowClass}>Fixture list</p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Active fixtures</h2>
+            <p className={`mt-1 max-w-3xl ${bodyTextClass}`}>
+              Keep the list compact. Open one fixture to manage score, roles, availability detail, and notes.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsFixtureFormOpen(true)}
+            className={`${secondaryButtonClass} w-full sm:w-auto`}
+          >
+            Create fixture
+          </button>
         </div>
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
@@ -1170,12 +1252,13 @@ export function MatchDayPage() {
             Loading match day...
           </p>
         ) : activeMatches.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {activeMatches.map((match) => (
               <MatchDayCard
                 key={match.id}
                 activeMatchId={activeMatchId}
                 goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
+                isExpanded={expandedMatchId === match.id}
                 match={match}
                 onAddGoal={handleAddGoal}
                 onGoalFormChange={updateGoalForm}
@@ -1192,6 +1275,7 @@ export function MatchDayPage() {
                 onScoreSave={handleScoreSave}
                 onVolunteerSelection={handleVolunteerSelection}
                 onStatusChange={handleStatusChange}
+                onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
                 players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
               />
@@ -1251,6 +1335,7 @@ export function MatchDayPage() {
 function MatchDayCard({
   activeMatchId,
   goalForm,
+  isExpanded,
   match,
   onAddGoal,
   onGoalFormChange,
@@ -1259,6 +1344,7 @@ function MatchDayCard({
   onScoreSave,
   onVolunteerSelection,
   onStatusChange,
+  onToggle,
   players,
   scoreDraft,
 }) {
@@ -1266,17 +1352,20 @@ function MatchDayCard({
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
   const currentMinute = getCurrentMatchMinute(match)
+  const availabilityStats = getAvailabilityStats(match)
+  const events = Array.isArray(match.events) ? match.events : []
+  const scoreSummary = `${getClubScore(match)} - ${getOpponentScore(match)}`
 
   return (
-    <article className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <article className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+      <div className="grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
-              {match.status.replace(/_/g, ' ')}
+              {getMatchStatusLabel(match.status)}
             </span>
             <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
-              {match.homeAway}
+              {getHomeAwayLabel(match.homeAway)}
             </span>
             {match.teamName ? (
               <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
@@ -1284,27 +1373,200 @@ function MatchDayCard({
               </span>
             ) : null}
           </div>
-          <h4 className="mt-3 text-lg font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
-          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
-          {match.arrivalTime ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Arrival {match.arrivalTime}</p> : null}
-          {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{match.venueName}</p> : null}
-          {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">{match.notes}</p> : null}
+          <h4 className="mt-2 text-lg font-black leading-tight text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
+          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
+            {formatMatchDate(match)}
+            {match.venueName ? ` at ${match.venueName}` : ''}
+          </p>
         </div>
 
-        <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 text-center shadow-sm shadow-[#047857]/10">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Live score</p>
-          <p className="mt-2 text-4xl font-black text-[#101828]">
-            {getClubScore(match)} - {getOpponentScore(match)}
-          </p>
-          {currentMinute ? (
-            <p className="mt-2 text-sm font-black text-[#4b5f55]">{currentMinute} min</p>
-          ) : null}
+        <div className="grid gap-3 sm:grid-cols-[auto_auto] sm:items-center">
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-center">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#4b5f55]">Score</p>
+            <p className="mt-1 text-3xl font-black text-[#101828]">{scoreSummary}</p>
+            {currentMinute ? <p className="mt-1 text-xs font-black text-[#4b5f55]">{currentMinute} min</p> : null}
+          </div>
+          <button
+            type="button"
+            onClick={onToggle}
+            className={`${primaryButtonClass} w-full sm:w-auto`}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? 'Close' : 'Manage'}
+          </button>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Score and status</h5>
+      <div className="grid gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
+        <CompactFact label="Availability" value={getAvailabilitySummary(match)} />
+        <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
+        <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
+        <CompactFact label="Linesman" value={getRoleStatus(match, 'linesman')} />
+        <CompactFact label="Status" value={getMatchStatusLabel(match.status)} />
+      </div>
+
+      {isExpanded ? (
+        <div className="space-y-4 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-5">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <section className={panelClass}>
+              <h5 className="text-sm font-black text-[#101828]">Overview</h5>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                <DetailItem label="Team" value={match.teamName || 'Our team'} />
+                <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
+                <DetailItem label="Date and time" value={formatMatchDate(match)} />
+                <DetailItem label="Venue" value={match.venueName || getHomeAwayLabel(match.homeAway)} />
+                <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
+                <DetailItem label="Status" value={getMatchStatusLabel(match.status)} />
+              </dl>
+            </section>
+
+            <section className={panelClass}>
+              <h5 className="text-sm font-black text-[#101828]">Notes</h5>
+              {match.notes ? (
+                <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">{match.notes}</p>
+              ) : (
+                <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">No staff notes saved for this fixture.</p>
+              )}
+              {match.scorerRequestMessage ? (
+                <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  {match.scorerRequestMessage}
+                </p>
+              ) : null}
+            </section>
+          </div>
+
+          <section className={panelClass}>
+            <h5 className="text-sm font-black text-[#101828]">Availability</h5>
+            <div className="mt-3 grid gap-2 sm:grid-cols-5">
+              <AvailabilityCount label="Available" value={availabilityStats.available} />
+              <AvailabilityCount label="Pending" value={availabilityStats.pending} />
+              <AvailabilityCount label="Maybe" value={availabilityStats.maybe} />
+              <AvailabilityCount label="Unavailable" value={availabilityStats.unavailable} />
+              <AvailabilityCount label="Conflicts" value={availabilityStats.conflictCount} />
+            </div>
+            {currentAvailabilityRows.length > 0 ? (
+              <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                {currentAvailabilityRows.map((row) => {
+                  const historyRows = getAvailabilityHistoryForPlayer(match, row)
+
+                  return (
+                    <div key={row.id || row.playerId || row.playerName} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-[#101828]">{row.playerName || 'Player'}</p>
+                          <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+                            {row.selectedByEmail || row.selectedByName || 'No parent response yet'}
+                          </p>
+                        </div>
+                        <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
+                          {getAvailabilityStatusLabel(row.status)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
+                        {formatResponseDateTime(row.selectedAt)}
+                      </p>
+                      {historyRows.length > 0 ? (
+                        <div className="mt-3 space-y-1 border-t border-[#d7e5dc] pt-3">
+                          {historyRows.map((history) => (
+                            <p key={history.id} className="text-xs font-semibold text-[#4b5f55]">
+                              {getAvailabilityStatusLabel(history.previousStatus)} to {getAvailabilityStatusLabel(history.status)} by {history.selectedByEmail || history.selectedByName || 'Parent'} at {formatResponseDateTime(history.createdAt)}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+                <p className="text-sm font-black text-[#101828]">No availability requests are linked to this fixture yet.</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Request selected players to collect availability and parent volunteer replies.
+                </p>
+              </div>
+            )}
+          </section>
+
+          <section className={panelClass}>
+            <h5 className="text-sm font-black text-[#101828]">Roles</h5>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
+              <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
+              <CompactFact label="Linesman" value={getRoleStatus(match, 'linesman')} />
+            </div>
+            {requestedVolunteerRoles.length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {requestedVolunteerRoles.map((role) => {
+                  const roleRows = getRoleResponseRows(match, role)
+                  const selectedAssignment = getSelectedRoleAssignment(match, role.key)
+
+                  return (
+                    <div key={role.key} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <p className="text-sm font-black text-[#101828]">{role.label}</p>
+                        {selectedAssignment ? (
+                          <p className="text-xs font-black text-[#047857]">
+                            Selected: {selectedAssignment.parentEmail || selectedAssignment.playerName || 'Parent'}
+                          </p>
+                        ) : null}
+                      </div>
+                      {roleRows.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {roleRows.map((row) => {
+                            const selectionReason = getVolunteerSelectionReason(row)
+                            const isSelected = isSelectedRoleVolunteer(selectedAssignment, row)
+                            const canSelect = !selectionReason
+
+                            return (
+                              <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-[#101828]">{row.parentLabel}</p>
+                                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Linked to {row.playerName}</p>
+                                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{formatResponseDateTime(row.respondedAt)}</p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                                    {getVolunteerResponseLabel(row.response)}
+                                  </span>
+                                  {canSelect ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onVolunteerSelection(match, row, role.key, !isSelected)}
+                                      disabled={isBusy}
+                                      className={secondaryButtonClass}
+                                    >
+                                      {isSelected ? 'Deselect' : selectedAssignment ? 'Change' : 'Select'}
+                                    </button>
+                                  ) : (
+                                    <span className="max-w-56 text-xs font-semibold leading-5 text-[#92400e]">
+                                      {selectionReason}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No replies for this role yet.</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+                <p className="text-sm font-black text-[#101828]">No volunteer roles requested.</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Enable scorer, linesman, or referee requests when creating the fixture to collect volunteer replies.
+                </p>
+              </div>
+            )}
+          </section>
+
+          <section className={panelClass}>
+            <h5 className="text-sm font-black text-[#101828]">Score</h5>
           {match.status === 'scheduled' || match.status === 'scorer_request' ? (
             <button
               type="button"
@@ -1361,234 +1623,149 @@ function MatchDayCard({
               >
                 {option.label}
               </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Player availability</h5>
-          {currentAvailabilityRows.length > 0 ? (
-            <div className="mt-3 space-y-2">
-              {currentAvailabilityRows.map((row) => {
-                const historyRows = getAvailabilityHistoryForPlayer(match, row)
-
-                return (
-                <div key={row.id || row.playerId || row.playerName} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-[#101828]">{row.playerName || 'Player'}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                        {row.selectedByEmail || row.selectedByName || 'No parent response yet'}
-                      </p>
-                    </div>
-                    <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
-                      {getAvailabilityStatusLabel(row.status)}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
-                    {formatResponseDateTime(row.selectedAt)}
-                  </p>
-                  {historyRows.length > 0 ? (
-                    <div className="mt-3 space-y-1 border-t border-[#d7e5dc] pt-3">
-                      {historyRows.map((history) => (
-                        <p key={history.id} className="text-xs font-semibold text-[#4b5f55]">
-                          {getAvailabilityStatusLabel(history.previousStatus)} to {getAvailabilityStatusLabel(history.status)} by {history.selectedByEmail || history.selectedByName || 'Parent'} at {formatResponseDateTime(history.createdAt)}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              )})}
-            </div>
-          ) : (
-            <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
-              <p className="text-sm font-black text-[#101828]">No availability requests are linked to this fixture yet.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Request selected players to collect availability and parent volunteer replies.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Volunteer responses by role</h5>
-          {requestedVolunteerRoles.length > 0 ? (
-            <div className="mt-3 space-y-3">
-              {requestedVolunteerRoles.map((role) => {
-                const roleRows = getRoleResponseRows(match, role)
-                const selectedAssignment = getSelectedRoleAssignment(match, role.key)
-
-                return (
-                  <div key={role.key} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <p className="text-sm font-black text-[#101828]">{role.label}</p>
-                      {selectedAssignment ? (
-                        <p className="text-xs font-black text-[#047857]">
-                          Selected: {selectedAssignment.parentEmail || selectedAssignment.playerName || 'Parent'}
-                        </p>
-                      ) : null}
-                    </div>
-                    {roleRows.length > 0 ? (
-                      <div className="mt-2 space-y-2">
-                        {roleRows.map((row) => {
-                          const selectionReason = getVolunteerSelectionReason(row)
-                          const isSelected = isSelectedRoleVolunteer(selectedAssignment, row)
-                          const canSelect = !selectionReason
-
-                          return (
-                            <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="min-w-0">
-                                <p className="text-xs font-black text-[#101828]">{row.parentLabel}</p>
-                                <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Linked to {row.playerName}</p>
-                                <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{formatResponseDateTime(row.respondedAt)}</p>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-                                  {getVolunteerResponseLabel(row.response)}
-                                </span>
-                                {canSelect ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => onVolunteerSelection(match, row, role.key, !isSelected)}
-                                    disabled={isBusy}
-                                    className={secondaryButtonClass}
-                                  >
-                                    {isSelected ? 'Deselect' : selectedAssignment ? 'Change' : 'Select'}
-                                  </button>
-                                ) : (
-                                  <span className="max-w-56 text-xs font-semibold leading-5 text-[#92400e]">
-                                    {selectionReason}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No replies for this role yet.</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
-              <p className="text-sm font-black text-[#101828]">No volunteer roles requested.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Enable scorer, linesman, or referee requests when creating the fixture to collect volunteer replies.
-              </p>
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      <form className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10" onSubmit={(event) => onAddGoal(event, match)}>
-        <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <label className="block">
-            <span className={smallLabelClass}>Team</span>
-            <select
-              value={goalForm.teamSide}
-              onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })}
-              className={compactInputClass}
-            >
-              <option value="club">Our team</option>
-              <option value="opponent">Opponent</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className={smallLabelClass}>Scorer player</span>
-            <select
-              value=""
-              onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)}
-              className={compactInputClass}
-            >
-              <option value="">Choose player</option>
-              {players.map((player) => (
-                <option key={player.id} value={player.id}>{player.playerName}</option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className={smallLabelClass}>Scorer name</span>
-            <input
-              value={goalForm.scorerName}
-              onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })}
-              className={compactInputClass}
-            />
-          </label>
-          <label className="block">
-            <span className={smallLabelClass}>Scorer shirt</span>
-            <input
-              value={goalForm.scorerShirtNumber}
-              onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })}
-              className={compactInputClass}
-            />
-          </label>
-          <label className="block">
-            <span className={smallLabelClass}>Assist player</span>
-            <select
-              value=""
-              onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)}
-              className={compactInputClass}
-            >
-              <option value="">Choose player</option>
-              {players.map((player) => (
-                <option key={player.id} value={player.id}>{player.playerName}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className={smallLabelClass}>Assist name</span>
-            <input
-              value={goalForm.assistName}
-              onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })}
-              className={compactInputClass}
-            />
-          </label>
-          <label className="block">
-            <span className={smallLabelClass}>Assist shirt</span>
-            <input
-              value={goalForm.assistShirtNumber}
-              onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })}
-              className={compactInputClass}
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isBusy}
-            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Add goal
-          </button>
-        </div>
-      </form>
-
-      {match.events.length > 0 ? (
-        <div className="mt-4 space-y-2">
-          {match.events.slice(0, 6).map((event) => (
-            <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
-              <p className="text-sm font-black text-[#101828]">
-                {getMatchEventTitle(event)}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                {getMatchEventDetail(event)}
-              </p>
             </div>
-          ))}
+          </section>
+
+          <form className={panelClass} onSubmit={(event) => onAddGoal(event, match)}>
+            <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <label className="block">
+                <span className={smallLabelClass}>Team</span>
+                <select
+                  value={goalForm.teamSide}
+                  onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })}
+                  className={compactInputClass}
+                >
+                  <option value="club">Our team</option>
+                  <option value="opponent">Opponent</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Scorer player</span>
+                <select
+                  value=""
+                  onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)}
+                  className={compactInputClass}
+                >
+                  <option value="">Choose player</option>
+                  {players.map((player) => (
+                    <option key={player.id} value={player.id}>{player.playerName}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Scorer name</span>
+                <input
+                  value={goalForm.scorerName}
+                  onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })}
+                  className={compactInputClass}
+                />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Scorer shirt</span>
+                <input
+                  value={goalForm.scorerShirtNumber}
+                  onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })}
+                  className={compactInputClass}
+                />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Assist player</span>
+                <select
+                  value=""
+                  onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)}
+                  className={compactInputClass}
+                >
+                  <option value="">Choose player</option>
+                  {players.map((player) => (
+                    <option key={player.id} value={player.id}>{player.playerName}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Assist name</span>
+                <input
+                  value={goalForm.assistName}
+                  onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })}
+                  className={compactInputClass}
+                />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Assist shirt</span>
+                <input
+                  value={goalForm.assistShirtNumber}
+                  onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })}
+                  className={compactInputClass}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isBusy}
+                className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Add goal
+              </button>
+            </div>
+          </form>
+
+          {events.length > 0 ? (
+            <section className={panelClass}>
+              <h5 className="text-sm font-black text-[#101828]">Recent match events</h5>
+              <div className="mt-3 space-y-2">
+                {events.slice(0, 6).map((event) => (
+                  <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
+                    <p className="text-sm font-black text-[#101828]">
+                      {getMatchEventTitle(event)}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+                      {getMatchEventDetail(event)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       ) : null}
     </article>
   )
 }
 
-function MatchMetric({ isLoading, label, value }) {
+function CompactFact({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 shadow-sm">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
+    <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#047857]">{label}</p>
+      <p className="mt-1 text-sm font-black leading-5 text-[#101828]">{value}</p>
+    </div>
+  )
+}
+
+function DetailItem({ label, value }) {
+  return (
+    <div>
+      <dt className={smallLabelClass}>{label}</dt>
+      <dd className="font-black leading-6 text-[#101828]">{value}</dd>
+    </div>
+  )
+}
+
+function AvailabilityCount({ label, value }) {
+  return (
+    <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-center">
+      <p className="text-xl font-black text-[#101828]">{value}</p>
+      <p className="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">{label}</p>
+    </div>
+  )
+}
+
+function MatchMetric({ isLoading, label, tone = 'light', value }) {
+  const isDark = tone === 'dark'
+
+  return (
+    <div className={`rounded-lg border px-3 py-3 shadow-sm ${isDark ? 'border-white/10 bg-white/10' : 'border-[#d7e5dc] bg-white'}`}>
+      <p className={`text-[11px] font-black uppercase tracking-[0.14em] ${isDark ? 'text-[#86efac]' : 'text-[#047857]'}`}>{label}</p>
+      <p className={`mt-2 text-2xl font-black ${isDark ? 'text-white' : 'text-[#101828]'}`}>{isLoading ? '...' : value}</p>
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
 import {
   getTodayMatchDayDateValue,
   isPastMatchDayDate,
+  normalizeMatchDay,
 } from '../src/lib/domain/match-day.js'
 
 const eventRequestsMigrationUrl = new URL('../supabase/migrations/20260630100000_v1_team_season_reports_and_event_requests.sql', import.meta.url)
@@ -135,6 +136,51 @@ test('fixture setup Continue validates visibly and advances to squad selection',
   assert.match(source, /isFixtureDataLoading \? 'Loading squad\.\.\.' : 'Continue to squad'/)
   assert.match(source, /role="alert"/)
   assert.doesNotMatch(handlerSource, /if \(!form\.parentVisible\)[\s\S]*await createMatchDay/)
+})
+
+test('match day page keeps fixture controls behind one compact Manage panel', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /const \[expandedMatchId, setExpandedMatchId\] = useState\(''\)/)
+  assert.match(source, /isExpanded=\{expandedMatchId === match\.id\}/)
+  assert.match(source, /onToggle=\{\(\) => setExpandedMatchId/)
+  assert.match(source, /\{isExpanded \? 'Close' : 'Manage'\}/)
+  assert.match(source, /getAvailabilitySummary\(match\)/)
+  assert.match(source, /getRoleStatus\(match, 'referee'\)/)
+  assert.match(source, /getRoleStatus\(match, 'linesman'\)/)
+  assert.match(source, /getRoleResponseRows\(match, role\)/)
+})
+
+test('match day normalizer preserves seeded camel-case availability summaries', () => {
+  const match = normalizeMatchDay({
+    id: 'match-availability-fixture',
+    opponent: 'Riverside Juniors',
+    availabilityRequests: [
+      {
+        id: 'request-1',
+        matchDayId: 'match-availability-fixture',
+        playerId: 'player-1',
+        playerName: 'Ava Green',
+        recipientEmail: 'ava.parent@example.test',
+        status: 'available',
+      },
+      {
+        id: 'request-2',
+        matchDayId: 'match-availability-fixture',
+        playerId: 'player-2',
+        playerName: 'Mia Shah',
+        recipientEmail: 'mia.parent@example.test',
+        status: 'pending',
+      },
+    ],
+  })
+
+  assert.equal(match.availabilityRequests.length, 2)
+  assert.equal(match.availabilityRequests[0].status, 'available')
+  assert.equal(match.availabilityRequests[1].recipientEmail, 'mia.parent@example.test')
 })
 
 test('match day fixture setup saves parent volunteer request roles', () => {
