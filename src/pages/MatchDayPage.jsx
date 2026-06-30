@@ -601,6 +601,7 @@ export function MatchDayPage() {
         missingContactCount: 0,
         sentCount: 0,
       }
+      let availabilityWarning = ''
 
       if (canSendAvailabilityRequests) {
         const response = await fetch('/.netlify/functions/send-match-day-availability-requests', {
@@ -617,7 +618,7 @@ export function MatchDayPage() {
         result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false) {
-          throw new Error(result.message || 'Fixture availability requests could not be sent.')
+          availabilityWarning = result.message || 'Fixture availability requests could not be sent.'
         }
       }
 
@@ -636,9 +637,11 @@ export function MatchDayPage() {
       await loadData()
       showToast({
         title: 'Fixture created',
-        message: canSendAvailabilityRequests
-          ? `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`
-          : 'The fixture was saved. Availability sending is gated in this environment.',
+        message: availabilityWarning
+          ? `The fixture was saved, but availability requests could not be sent: ${availabilityWarning}`
+          : canSendAvailabilityRequests
+            ? `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`
+            : 'The fixture was saved. Availability sending is enabled only on production or approved live runtimes.',
       })
     } catch (error) {
       console.error(error)

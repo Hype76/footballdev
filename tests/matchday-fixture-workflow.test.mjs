@@ -174,3 +174,22 @@ test('match day fixture setup saves parent volunteer request roles', () => {
   assert.match(migration, /request_linesman boolean/i)
   assert.match(migration, /match_day\.request_referee/i)
 })
+
+test('match day fixture creation warns specifically when post-save availability sending fails', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const handlerStart = source.indexOf('const handleConfirmCreateMatch = async () => {')
+  const handlerEnd = source.indexOf('const handleStatusChange = async', handlerStart)
+  assert.notEqual(handlerStart, -1)
+  assert.notEqual(handlerEnd, -1)
+  const handlerSource = source.slice(handlerStart, handlerEnd)
+
+  assert.match(handlerSource, /let availabilityWarning = ''/)
+  assert.match(handlerSource, /availabilityWarning = result\.message \|\| 'Fixture availability requests could not be sent\.'/)
+  assert.doesNotMatch(handlerSource, /throw new Error\(result\.message \|\| 'Fixture availability requests could not be sent\.'\)/)
+  assert.match(handlerSource, /The fixture was saved, but availability requests could not be sent:/)
+  assert.match(handlerSource, /Availability sending is enabled only on production or approved live runtimes\./)
+  assert.doesNotMatch(handlerSource, /Availability sending is gated in this environment/)
+})

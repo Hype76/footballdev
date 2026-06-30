@@ -30,6 +30,10 @@ import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
 
+const QUICK_ACTION_POSITION_STORAGE_KEY = 'football-player:quick-action-position'
+const QUICK_ACTION_EDGE_GAP = 16
+const QUICK_ACTION_BUTTON_SIZE = 56
+
 export function Layout() {
   const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -337,7 +341,11 @@ function QuickActionHotbar({ user }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isVoiceNoteOpen, setIsVoiceNoteOpen] = useState(false)
   const [hasActiveOverlay, setHasActiveOverlay] = useState(false)
+  const [quickActionPosition, setQuickActionPosition] = useState(getStoredQuickActionPosition)
+  const [isDraggingQuickAction, setIsDraggingQuickAction] = useState(false)
   const panelRef = useRef(null)
+  const dragStateRef = useRef(null)
+  const suppressNextQuickActionClickRef = useRef(false)
   const canUseEvaluationQuickActions = canCreateEvaluation(user)
   const canUseClubCalendarQuickAction =
     isClubAdmin(user) && canUseUiFeature(user, CAPABILITIES.clubWideEvents) && isRecoveryPathVisible('/calendar', { user })
@@ -401,8 +409,99 @@ function QuickActionHotbar({ user }) {
     }
   }, [])
 
+  useEffect(() => {
+    const handleResize = () => {
+      setQuickActionPosition((current) => {
+        const nextPosition = clampQuickActionPosition(current ?? getDefaultQuickActionPosition())
+        saveQuickActionPosition(nextPosition)
+        return nextPosition
+      })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
   if (!canShowQuickActions) {
     return null
+  }
+
+  const handleQuickActionPointerDown = (event) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    const buttonRect = event.currentTarget.getBoundingClientRect()
+    const startPosition = quickActionPosition ?? {
+      x: buttonRect.left,
+      y: buttonRect.top,
+    }
+
+    dragStateRef.current = {
+      moved: false,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: startPosition.x,
+      startY: startPosition.y,
+    }
+
+    const handlePointerMove = (moveEvent) => {
+      const dragState = dragStateRef.current
+
+      if (!dragState || dragState.pointerId !== moveEvent.pointerId) {
+        return
+      }
+
+      const deltaX = moveEvent.clientX - dragState.startClientX
+      const deltaY = moveEvent.clientY - dragState.startClientY
+      const movedEnough = Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4
+
+      if (movedEnough) {
+        dragState.moved = true
+        setIsDraggingQuickAction(true)
+        setIsOpen(false)
+      }
+
+      if (!dragState.moved) {
+        return
+      }
+
+      moveEvent.preventDefault()
+      setQuickActionPosition(clampQuickActionPosition({
+        x: dragState.startX + deltaX,
+        y: dragState.startY + deltaY,
+      }))
+    }
+
+    const handlePointerUp = (upEvent) => {
+      const dragState = dragStateRef.current
+
+      if (dragState?.pointerId === upEvent.pointerId && dragState.moved) {
+        const finalPosition = clampQuickActionPosition({
+          x: dragState.startX + upEvent.clientX - dragState.startClientX,
+          y: dragState.startY + upEvent.clientY - dragState.startClientY,
+        })
+        suppressNextQuickActionClickRef.current = true
+        setQuickActionPosition(finalPosition)
+        saveQuickActionPosition(finalPosition)
+        window.setTimeout(() => {
+          suppressNextQuickActionClickRef.current = false
+        }, 0)
+      }
+
+      dragStateRef.current = null
+      setIsDraggingQuickAction(false)
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false })
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
   }
 
   const actions = [
@@ -420,9 +519,13 @@ function QuickActionHotbar({ user }) {
       <div
         ref={panelRef}
         className={[
-          'fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3 transition duration-150',
+          'fixed z-[70] flex flex-col items-end gap-3 transition duration-150',
           hasActiveOverlay ? 'pointer-events-none translate-y-2 opacity-0' : 'opacity-100',
         ].join(' ')}
+        style={{
+          left: `${quickActionPosition.x}px`,
+          top: `${quickActionPosition.y}px`,
+        }}
         aria-hidden={hasActiveOverlay ? 'true' : undefined}
       >
         {isOpen ? (
@@ -461,10 +564,18 @@ function QuickActionHotbar({ user }) {
 
         <button
           type="button"
-          onClick={() => setIsOpen((current) => !current)}
+          onPointerDown={handleQuickActionPointerDown}
+          onClick={(event) => {
+            if (suppressNextQuickActionClickRef.current) {
+              event.preventDefault()
+              return
+            }
+
+            setIsOpen((current) => !current)
+          }}
           aria-expanded={isOpen}
           aria-label={isOpen ? 'Close quick actions' : 'Open quick actions'}
-          className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#047857] text-3xl font-black leading-none text-white shadow-xl shadow-[#047857]/30 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-[var(--app-bg)]"
+          className={`inline-flex h-14 w-14 touch-none items-center justify-center rounded-full border border-[#bbf7d0] bg-[#047857] text-3xl font-black leading-none text-white shadow-xl shadow-[#047857]/30 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-[var(--app-bg)] ${isDraggingQuickAction ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           +
         </button>
@@ -477,6 +588,63 @@ function QuickActionHotbar({ user }) {
       />
     </>
   )
+}
+
+function getDefaultQuickActionPosition() {
+  if (typeof window === 'undefined') {
+    return {
+      x: QUICK_ACTION_EDGE_GAP,
+      y: QUICK_ACTION_EDGE_GAP,
+    }
+  }
+
+  return {
+    x: Math.max(QUICK_ACTION_EDGE_GAP, window.innerWidth - QUICK_ACTION_BUTTON_SIZE - 20),
+    y: Math.max(QUICK_ACTION_EDGE_GAP, window.innerHeight - QUICK_ACTION_BUTTON_SIZE - 20),
+  }
+}
+
+function clampQuickActionPosition(position) {
+  if (typeof window === 'undefined') {
+    return position
+  }
+
+  return {
+    x: Math.min(
+      Math.max(Number(position?.x ?? 0), QUICK_ACTION_EDGE_GAP),
+      Math.max(QUICK_ACTION_EDGE_GAP, window.innerWidth - QUICK_ACTION_BUTTON_SIZE - QUICK_ACTION_EDGE_GAP),
+    ),
+    y: Math.min(
+      Math.max(Number(position?.y ?? 0), QUICK_ACTION_EDGE_GAP),
+      Math.max(QUICK_ACTION_EDGE_GAP, window.innerHeight - QUICK_ACTION_BUTTON_SIZE - QUICK_ACTION_EDGE_GAP),
+    ),
+  }
+}
+
+function getStoredQuickActionPosition() {
+  if (typeof window === 'undefined') {
+    return getDefaultQuickActionPosition()
+  }
+
+  try {
+    const storedPosition = JSON.parse(window.localStorage.getItem(QUICK_ACTION_POSITION_STORAGE_KEY) || 'null')
+
+    if (storedPosition && Number.isFinite(storedPosition.x) && Number.isFinite(storedPosition.y)) {
+      return clampQuickActionPosition(storedPosition)
+    }
+  } catch {
+    window.localStorage.removeItem(QUICK_ACTION_POSITION_STORAGE_KEY)
+  }
+
+  return getDefaultQuickActionPosition()
+}
+
+function saveQuickActionPosition(position) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(QUICK_ACTION_POSITION_STORAGE_KEY, JSON.stringify(position))
 }
 
 function formatVoiceNoteDuration(seconds) {

@@ -221,12 +221,27 @@ test('shared match day push sender is guarded before the live function call', as
   assert.match(source, /return null[\s\S]*const token = await getAccessToken\(\)[\s\S]*send-match-day-push/)
 })
 
-test('live match day communications require explicit production opt in', () => {
+test('live match day communications still support explicit production opt in', () => {
   const runtime = {
     env: {
       MODE: 'production',
       PROD: true,
       VITE_ENABLE_LIVE_MATCHDAY_COMMUNICATIONS: 'true',
+    },
+    location: {
+      hostname: 'approved-live-football.example.com',
+    },
+  }
+
+  assert.equal(shouldSendMatchdayAvailabilityRequests({ parentVisible: true, runtime }), true)
+  assert.equal(shouldSendMatchdayPushNotification({ parentVisible: true, runtime }), true)
+})
+
+test('production Match Day communications are allowed on the live custom domain without the old build flag', () => {
+  const runtime = {
+    env: {
+      MODE: 'production',
+      PROD: true,
     },
     location: {
       hostname: 'footballplayer.online',
@@ -235,4 +250,35 @@ test('live match day communications require explicit production opt in', () => {
 
   assert.equal(shouldSendMatchdayAvailabilityRequests({ parentVisible: true, runtime }), true)
   assert.equal(shouldSendMatchdayPushNotification({ parentVisible: true, runtime }), true)
+})
+
+test('preview production builds stay gated unless explicitly approved', () => {
+  const runtime = {
+    env: {
+      MODE: 'production',
+      PROD: true,
+    },
+    location: {
+      hostname: 'preview-football-player.netlify.app',
+    },
+  }
+
+  assert.equal(shouldSendMatchdayAvailabilityRequests({ parentVisible: true, runtime }), false)
+  assert.equal(shouldSendMatchdayPushNotification({ parentVisible: true, runtime }), false)
+})
+
+test('preview hosts stay gated even with the old production opt in flag', () => {
+  const runtime = {
+    env: {
+      MODE: 'production',
+      PROD: true,
+      VITE_ENABLE_LIVE_MATCHDAY_COMMUNICATIONS: 'true',
+    },
+    location: {
+      hostname: 'deploy-preview-123--footballplayer-online.netlify.app',
+    },
+  }
+
+  assert.equal(shouldSendMatchdayAvailabilityRequests({ parentVisible: true, runtime }), false)
+  assert.equal(shouldSendMatchdayPushNotification({ parentVisible: true, runtime }), false)
 })
