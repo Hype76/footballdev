@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260630121322_matchday_parent_response_roles.sql', import.meta.url)
+const repairMigrationUrl = new URL('../supabase/migrations/20260630125915_repair_matchday_parent_response_rpc.sql', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
@@ -29,6 +30,23 @@ test('migration keeps token response writes behind security definer RPCs', async
   assert.match(migration, /normalized_status not in \('available', 'unavailable', 'maybe'\)/i)
   assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text\) to anon;/i)
   assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text\) to authenticated;/i)
+})
+
+test('repair migration qualifies match day parent response RPC columns', async () => {
+  const migration = await readFile(repairMigrationUrl, 'utf8')
+
+  assert.match(migration, /create or replace function public\.submit_match_day_availability_response\([\s\S]*volunteer_referee_response_value text default null/i)
+  assert.match(migration, /returns table \([\s\S]*volunteer_responded_at timestamptz[\s\S]*\)/i)
+  assert.match(migration, /language plpgsql[\s\S]*security definer[\s\S]*set search_path = public/i)
+  assert.match(migration, /update public\.match_day_availability_requests as availability[\s\S]*else availability\.volunteer_responded_at/i)
+  assert.match(migration, /where availability\.id = request_row\.id/i)
+  assert.match(migration, /from public\.parent_player_links as parent_link[\s\S]*where parent_link\.id = updated_row\.parent_link_id/i)
+  assert.match(migration, /update public\.match_day_scorer_interest as scorer_interest[\s\S]*where scorer_interest\.match_day_id = match_row\.id/i)
+  assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text\) to anon;/i)
+  assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text\) to authenticated;/i)
+  assert.doesNotMatch(migration, /drop function/i)
+  assert.doesNotMatch(migration, /cascade/i)
+  assert.doesNotMatch(migration, /else volunteer_responded_at/i)
 })
 
 test('migration links scorer yes replies into existing scorer selection without replacing selected parents', async () => {
