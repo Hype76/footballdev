@@ -52,6 +52,34 @@ function statusLabel(value) {
   return status || 'no response'
 }
 
+function sentenceStatusLabel(value) {
+  const label = statusLabel(value)
+  return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : 'No response'
+}
+
+function formatReadableTimestamp(value) {
+  const timestamp = normalizeText(value)
+
+  if (!timestamp) {
+    return 'time not recorded'
+  }
+
+  const date = new Date(timestamp)
+
+  if (Number.isNaN(date.getTime())) {
+    return timestamp
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(date)
+}
+
 function page({ title, message, content = '' }) {
   return `<!doctype html>
     <html lang="en">
@@ -72,6 +100,7 @@ function page({ title, message, content = '' }) {
           label { display: flex; gap: 10px; align-items: center; margin-top: 10px; color: #101828; font-weight: 800; }
           input[type="radio"] { width: 18px; height: 18px; accent-color: #047857; }
           button { min-height: 44px; border: 0; border-radius: 8px; background: #047857; color: #ffffff; font-weight: 900; font-size: 15px; cursor: pointer; }
+          .availability-summary { margin: 10px 0 2px; color: #101828; font-size: 14px; line-height: 1.5; font-weight: 800; }
           .details { margin-top: 16px; display: grid; gap: 8px; border: 1px solid #d7e5dc; border-radius: 10px; background: #f7faf8; padding: 14px; }
           .detail { display: flex; justify-content: space-between; gap: 14px; color: #4b5f55; font-size: 14px; font-weight: 800; }
           .detail strong { color: #101828; text-align: right; }
@@ -105,6 +134,15 @@ function detailRows(response) {
   `).join('')}</div>`
 }
 
+function currentAvailabilityAttribution(response, currentStatus) {
+  const selectedBy = normalizeText(response.current_availability_selected_by_name)
+    || normalizeText(response.current_availability_selected_by_email)
+    || 'the latest responder'
+  const selectedAt = formatReadableTimestamp(response.current_availability_selected_at)
+
+  return `<p class="availability-summary">Current answer: ${escapeHtml(sentenceStatusLabel(currentStatus))}, chosen by ${escapeHtml(selectedBy)} at ${escapeHtml(selectedAt)}. If this has changed, you can update it below.</p>`
+}
+
 function availabilityFieldset(response) {
   const currentStatus = normalizeText(response.current_availability_status || response.response_status).toLowerCase()
   const hasCurrentStatus = VALID_STATUSES.has(currentStatus)
@@ -116,6 +154,7 @@ function availabilityFieldset(response) {
 
   return `<fieldset>
     <legend>Player availability</legend>
+    ${hasCurrentStatus ? currentAvailabilityAttribution(response, currentStatus) : ''}
     ${hasCurrentStatus ? `
       <label>
         <input type="radio" name="status" value="" checked>

@@ -152,7 +152,7 @@ test('Netlify confirmation function validates raw tokens and trusts the stored R
 
   assert.match(source, /const VALID_STATUSES = new Set\(\['available', 'unavailable', 'maybe'\]\)/)
   assert.match(source, /!\/\^\[a-f0-9\]\{64\}\$\/i\.test\(token\)/)
-  assert.match(source, /supabase\.rpc\('get_match_day_availability_response'/)
+  assert.match(source, /supabase\.rpc\('get_match_day_availability_response_v2'/)
   assert.match(source, /supabase\.rpc\('submit_match_day_availability_response'/)
   assert.match(source, /token_hash_value: hashToken\(token\)/)
   assert.match(source, /function normalizeVolunteerParam\(value\)/)
