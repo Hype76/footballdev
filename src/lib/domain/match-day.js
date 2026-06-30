@@ -173,6 +173,24 @@ function normalizeScorerAssignment(row) {
   }
 }
 
+function normalizeRoleAssignment(row) {
+  const parentLink = Array.isArray(row.parent_player_links) ? row.parent_player_links[0] : row.parent_player_links
+  const player = Array.isArray(parentLink?.players) ? parentLink.players[0] : parentLink?.players
+
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? '',
+    role: normalizeText(row.role),
+    parentLinkId: row.parent_link_id ?? '',
+    authUserId: row.auth_user_id ?? parentLink?.auth_user_id ?? '',
+    parentEmail: normalizeText(parentLink?.email),
+    playerName: normalizeText(player?.player_name),
+    assignedByName: normalizeText(row.assigned_by_name),
+    createdAt: row.created_at ?? '',
+    updatedAt: row.updated_at ?? '',
+  }
+}
+
 function normalizeVolunteerResponse(value) {
   const normalizedValue = normalizeText(value)
   return ['yes', 'no', 'no_response'].includes(normalizedValue) ? normalizedValue : 'no_response'
@@ -181,13 +199,15 @@ function normalizeVolunteerResponse(value) {
 function normalizeAvailabilityRequest(row) {
   const player = Array.isArray(row.players) ? row.players[0] : row.players
   const parentLink = Array.isArray(row.parent_player_links) ? row.parent_player_links[0] : row.parent_player_links
+  const parentPlayer = Array.isArray(parentLink?.players) ? parentLink.players[0] : parentLink?.players
 
   return {
     id: row.id ?? '',
     matchDayId: row.match_day_id ?? row.matchDayId ?? '',
     parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
+    authUserId: row.auth_user_id ?? parentLink?.auth_user_id ?? '',
     playerId: row.player_id ?? row.playerId ?? '',
-    playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name),
+    playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name ?? parentPlayer?.player_name),
     recipientName: normalizeText(row.recipient_name ?? row.recipientName),
     recipientEmail: normalizeText(row.recipient_email ?? row.recipientEmail ?? parentLink?.email),
     recipientType: normalizeText(row.recipient_type ?? row.recipientType) || 'parent',
@@ -198,6 +218,41 @@ function normalizeAvailabilityRequest(row) {
     volunteerLinesmanResponse: normalizeVolunteerResponse(row.volunteer_linesman_response ?? row.volunteerLinesmanResponse),
     volunteerRefereeResponse: normalizeVolunteerResponse(row.volunteer_referee_response ?? row.volunteerRefereeResponse),
     volunteerRespondedAt: row.volunteer_responded_at ?? row.volunteerRespondedAt ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+function normalizePlayerAvailability(row) {
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    playerName: normalizeText(row.player_name ?? row.playerName),
+    status: normalizeText(row.status) || 'pending',
+    selectedByParentLinkId: row.selected_by_parent_link_id ?? row.selectedByParentLinkId ?? '',
+    selectedByRequestId: row.selected_by_request_id ?? row.selectedByRequestId ?? '',
+    selectedByName: normalizeText(row.selected_by_name ?? row.selectedByName),
+    selectedByEmail: normalizeText(row.selected_by_email ?? row.selectedByEmail),
+    selectedAt: row.selected_at ?? row.selectedAt ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
+function normalizeAvailabilityHistory(row) {
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    requestId: row.request_id ?? row.requestId ?? '',
+    parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
+    playerName: normalizeText(row.player_name ?? row.playerName),
+    previousStatus: normalizeText(row.previous_status ?? row.previousStatus),
+    status: normalizeText(row.status) || 'pending',
+    selectedByName: normalizeText(row.selected_by_name ?? row.selectedByName),
+    selectedByEmail: normalizeText(row.selected_by_email ?? row.selectedByEmail),
+    notificationQueueId: row.notification_queue_id ?? row.notificationQueueId ?? '',
+    notificationWarning: normalizeText(row.notification_warning ?? row.notificationWarning),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -218,6 +273,9 @@ export function normalizeMatchDay(row) {
   const assignments = Array.isArray(row.match_day_scorer_assignments)
     ? row.match_day_scorer_assignments.map(normalizeScorerAssignment)
     : []
+  const roleAssignments = Array.isArray(row.match_day_role_assignments)
+    ? row.match_day_role_assignments.map(normalizeRoleAssignment)
+    : []
   const rawEvents = Array.isArray(row.match_day_events) ? row.match_day_events : row.events
   const events = Array.isArray(rawEvents) ? rawEvents.map(normalizeMatchDayEvent) : []
   const rawAvailabilityRequests = Array.isArray(row.match_day_availability_requests)
@@ -225,6 +283,12 @@ export function normalizeMatchDay(row) {
     : row.availabilityRequests
   const availabilityRequests = Array.isArray(rawAvailabilityRequests)
     ? rawAvailabilityRequests.map(normalizeAvailabilityRequest)
+    : []
+  const playerAvailability = Array.isArray(row.match_day_player_availability)
+    ? row.match_day_player_availability.map(normalizePlayerAvailability)
+    : []
+  const availabilityHistory = Array.isArray(row.match_day_player_availability_history)
+    ? row.match_day_player_availability_history.map(normalizeAvailabilityHistory)
     : []
 
   return {
@@ -267,7 +331,10 @@ export function normalizeMatchDay(row) {
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     scorerInterests: interests,
     scorerAssignments: assignments,
+    roleAssignments,
     availabilityRequests,
+    playerAvailability,
+    availabilityHistory,
     events,
   }
 }
@@ -347,7 +414,10 @@ function buildMatchSelect() {
     teams:team_id (name),
     match_day_scorer_interest (*, parent_player_links:parent_link_id (players:player_id (player_name))),
     match_day_scorer_assignments (*),
-    match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email)),
+    match_day_role_assignments (*, parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
+    match_day_player_availability (*),
+    match_day_player_availability_history (*),
+    match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
     match_day_events (*)
   `
 }
@@ -564,50 +634,126 @@ export async function updateMatchDay({ user, matchId, updates }) {
   return normalizeMatchDay(data)
 }
 
-export async function selectMatchDayScorer({ user, match, interest }) {
+const MATCH_DAY_VOLUNTEER_ROLES = new Set(['scorer', 'linesman', 'referee'])
+
+export async function selectMatchDayVolunteer({ user, match, volunteer, role = 'scorer', selected = true }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
 
-  if (!match?.id || !interest?.parentLinkId) {
-    throw new Error('Choose an interested parent first.')
+  const normalizedRole = normalizeText(role)
+
+  if (!MATCH_DAY_VOLUNTEER_ROLES.has(normalizedRole)) {
+    throw new Error('Choose a valid volunteer role.')
+  }
+
+  if (!match?.id || !volunteer?.parentLinkId) {
+    throw new Error('Choose a volunteer parent first.')
   }
 
   await assertMatchDayRecordInActiveTeamScope(user, match.id)
 
-  const { error: insertError } = await supabase
-    .from('match_day_scorer_assignments')
-    .upsert({
-      match_day_id: match.id,
-      club_id: match.clubId,
-      team_id: match.teamId || null,
-      parent_link_id: interest.parentLinkId,
-      auth_user_id: interest.authUserId || null,
-      assigned_by: getEntryUserId(user),
-      assigned_by_name: getEntryUserName(user),
-    }, {
-      onConflict: 'match_day_id,parent_link_id',
-    })
+  if (selected === false) {
+    const { error: deleteRoleError } = await supabase
+      .from('match_day_role_assignments')
+      .delete()
+      .eq('match_day_id', match.id)
+      .eq('role', normalizedRole)
 
-  if (insertError) {
-    console.error(insertError)
-    throw insertError
+    if (deleteRoleError) {
+      console.error(deleteRoleError)
+      throw deleteRoleError
+    }
+
+    if (normalizedRole === 'scorer') {
+      const { error: deleteScorerError } = await supabase
+        .from('match_day_scorer_assignments')
+        .delete()
+        .eq('match_day_id', match.id)
+
+      if (deleteScorerError) {
+        console.error(deleteScorerError)
+        throw deleteScorerError
+      }
+    }
+
+    invalidateMemoryCacheByPrefix('match-day:')
+    return
   }
 
-  const { error: updateError } = await supabase
-    .from('match_day_scorer_interest')
-    .update({
-      status: 'selected',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', interest.id)
+  const assignmentPayload = {
+    match_day_id: match.id,
+    club_id: match.clubId,
+    team_id: match.teamId || null,
+    role: normalizedRole,
+    parent_link_id: volunteer.parentLinkId,
+    auth_user_id: volunteer.authUserId || null,
+    assigned_by: getEntryUserId(user),
+    assigned_by_name: getEntryUserName(user),
+    updated_at: new Date().toISOString(),
+  }
 
-  if (updateError) {
-    console.error(updateError)
-    throw updateError
+  const { error: roleError } = await supabase
+    .from('match_day_role_assignments')
+    .upsert(assignmentPayload, {
+      onConflict: 'match_day_id,role',
+    })
+
+  if (roleError) {
+    console.error(roleError)
+    throw roleError
+  }
+
+  if (normalizedRole === 'scorer') {
+    const { error: deleteError } = await supabase
+      .from('match_day_scorer_assignments')
+      .delete()
+      .eq('match_day_id', match.id)
+
+    if (deleteError) {
+      console.error(deleteError)
+      throw deleteError
+    }
+
+    const { error: insertError } = await supabase
+      .from('match_day_scorer_assignments')
+      .insert({
+        match_day_id: match.id,
+        club_id: match.clubId,
+        team_id: match.teamId || null,
+        parent_link_id: volunteer.parentLinkId,
+        auth_user_id: volunteer.authUserId || null,
+        assigned_by: getEntryUserId(user),
+        assigned_by_name: getEntryUserName(user),
+      })
+
+    if (insertError) {
+      console.error(insertError)
+      throw insertError
+    }
+
+    if (volunteer.id) {
+      const { error: updateError } = await supabase
+        .from('match_day_scorer_interest')
+        .update({
+          status: 'selected',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', volunteer.id)
+
+      if (updateError) {
+        console.error(updateError)
+        throw updateError
+      }
+    }
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
+}
+
+export async function selectMatchDayScorer({ user, match, interest }) {
+  assertMatchInActiveTeamScope(user, match)
+  return selectMatchDayVolunteer({ user, match, volunteer: interest, role: 'scorer', selected: true })
 }
 
 export async function addStaffMatchDayGoal({ user, match, goal }) {

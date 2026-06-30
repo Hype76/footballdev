@@ -23,7 +23,7 @@ import {
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
-  selectMatchDayScorer,
+  selectMatchDayVolunteer,
   updateMatchDay,
   withRequestTimeout,
 } from '../lib/supabase.js'
@@ -180,11 +180,55 @@ function getRoleResponseRows(match, role) {
     .filter((request) => ['yes', 'no'].includes(String(request[role.responseKey] || '').toLowerCase()))
     .map((request) => ({
       id: `${role.key}:${request.id}`,
+      requestId: request.id,
+      parentLinkId: request.parentLinkId,
+      authUserId: request.authUserId,
       playerName: request.playerName || 'Player',
+      parentName: request.recipientName,
+      parentEmail: request.recipientEmail,
       parentLabel: request.recipientEmail || request.recipientName || 'Parent',
       response: request[role.responseKey],
       respondedAt: request.volunteerRespondedAt || request.respondedAt,
     }))
+}
+
+function getCurrentAvailabilityRows(match) {
+  if (match.playerAvailability?.length > 0) {
+    return match.playerAvailability
+  }
+
+  const latestByPlayer = new Map()
+
+  for (const request of match.availabilityRequests || []) {
+    const key = request.playerId || request.playerName || request.id
+    const current = latestByPlayer.get(key)
+    const currentTime = current?.respondedAt || current?.createdAt || ''
+    const requestTime = request.respondedAt || request.createdAt || ''
+
+    if (!current || String(requestTime) > String(currentTime)) {
+      latestByPlayer.set(key, {
+        id: request.id,
+        playerId: request.playerId,
+        playerName: request.playerName,
+        status: request.status,
+        selectedByName: request.recipientName,
+        selectedByEmail: request.recipientEmail,
+        selectedAt: request.respondedAt,
+      })
+    }
+  }
+
+  return Array.from(latestByPlayer.values())
+}
+
+function getAvailabilityHistoryForPlayer(match, row) {
+  return (match.availabilityHistory || [])
+    .filter((entry) => String(entry.playerId || '') === String(row.playerId || ''))
+    .slice(0, 3)
+}
+
+function getSelectedRoleAssignment(match, roleKey) {
+  return (match.roleAssignments || []).find((assignment) => assignment.role === roleKey) || null
 }
 
 function useModalPageScrollLock(isLocked) {
@@ -792,10 +836,12 @@ export function MatchDayPage() {
     }
   }
 
-  const handleSelectScorer = async (match, interest) => {
-    const parentName = interest.parentEmail || interest.parentName || 'this parent'
+  const handleVolunteerSelection = async (match, volunteer, role, selected = true) => {
+    const parentName = volunteer.parentEmail || volunteer.parentName || 'this parent'
+    const roleLabel = volunteerRoleConfigs.find((candidate) => candidate.key === role)?.label || 'volunteer'
+    const actionLabel = selected ? `Select ${parentName} as ${roleLabel.toLowerCase()}?` : `Deselect ${parentName} as ${roleLabel.toLowerCase()}?`
 
-    if (!confirmMatchDayAction(`Select ${parentName} as a Match Day scorer? They will be able to update the live score.`)) {
+    if (!confirmMatchDayAction(actionLabel)) {
       return
     }
 
@@ -803,17 +849,24 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      await selectMatchDayScorer({ user, match, interest })
-      void sendMatchDayPushNotification({
-        matchDayId: match.id,
-        type: 'scorer_selected',
-        targetParentLinkIds: [interest.parentLinkId],
-      })
+      await selectMatchDayVolunteer({ user, match, volunteer, role, selected })
+      if (selected && role === 'scorer') {
+        void sendMatchDayPushNotification({
+          matchDayId: match.id,
+          type: 'scorer_selected',
+          targetParentLinkIds: [volunteer.parentLinkId],
+        })
+      }
       await loadData()
-      showToast({ title: 'Scorer selected', message: 'This parent can now update the live score.' })
+      showToast({
+        title: selected ? `${roleLabel} selected` : `${roleLabel} deselected`,
+        message: selected && role === 'scorer'
+          ? 'This parent can now update the live score.'
+          : 'The Match Day volunteer selection has been updated.',
+      })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Scorer could not be selected.')
+      setErrorMessage(error.message || 'Volunteer selection could not be updated.')
     } finally {
       setActiveMatchId('')
     }
@@ -1093,7 +1146,7 @@ export function MatchDayPage() {
                   },
                 }))}
                 onScoreSave={handleScoreSave}
-                onSelectScorer={handleSelectScorer}
+                onVolunteerSelection={handleVolunteerSelection}
                 onStatusChange={handleStatusChange}
                 players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
@@ -1160,15 +1213,14 @@ function MatchDayCard({
   onPlayerPick,
   onScoreDraftChange,
   onScoreSave,
-  onSelectScorer,
+  onVolunteerSelection,
   onStatusChange,
   players,
   scoreDraft,
 }) {
   const isBusy = activeMatchId === match.id
-  const selectedParentLinkIds = new Set(match.scorerAssignments.map((assignment) => String(assignment.parentLinkId)))
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
-  const activeScorerInterests = match.scorerInterests.filter((interest) => interest.status !== 'declined')
+  const currentAvailabilityRows = getCurrentAvailabilityRows(match)
   const currentMinute = getCurrentMatchMinute(match)
 
   return (
@@ -1270,27 +1322,39 @@ function MatchDayCard({
         </div>
 
         <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Player availability responses</h5>
-          {match.availabilityRequests.length > 0 ? (
+          <h5 className="text-sm font-black text-[#101828]">Player availability</h5>
+          {currentAvailabilityRows.length > 0 ? (
             <div className="mt-3 space-y-2">
-              {match.availabilityRequests.map((request) => (
-                <div key={request.id} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+              {currentAvailabilityRows.map((row) => {
+                const historyRows = getAvailabilityHistoryForPlayer(match, row)
+
+                return (
+                <div key={row.id || row.playerId || row.playerName} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-[#101828]">{request.playerName || 'Player'}</p>
+                      <p className="text-sm font-black text-[#101828]">{row.playerName || 'Player'}</p>
                       <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                        {request.recipientEmail || request.recipientName || 'Parent contact'}
+                        {row.selectedByEmail || row.selectedByName || 'No parent response yet'}
                       </p>
                     </div>
                     <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
-                      {getAvailabilityStatusLabel(request.status)}
+                      {getAvailabilityStatusLabel(row.status)}
                     </span>
                   </div>
                   <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
-                    {formatResponseDateTime(request.respondedAt)}
+                    {formatResponseDateTime(row.selectedAt)}
                   </p>
+                  {historyRows.length > 0 ? (
+                    <div className="mt-3 space-y-1 border-t border-[#d7e5dc] pt-3">
+                      {historyRows.map((history) => (
+                        <p key={history.id} className="text-xs font-semibold text-[#4b5f55]">
+                          {getAvailabilityStatusLabel(history.previousStatus)} to {getAvailabilityStatusLabel(history.status)} by {history.selectedByEmail || history.selectedByName || 'Parent'} at {formatResponseDateTime(history.createdAt)}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              ))}
+              )})}
             </div>
           ) : (
             <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
@@ -1308,24 +1372,50 @@ function MatchDayCard({
             <div className="mt-3 space-y-3">
               {requestedVolunteerRoles.map((role) => {
                 const roleRows = getRoleResponseRows(match, role)
+                const selectedAssignment = getSelectedRoleAssignment(match, role.key)
 
                 return (
                   <div key={role.key} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
-                    <p className="text-sm font-black text-[#101828]">{role.label}</p>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                      <p className="text-sm font-black text-[#101828]">{role.label}</p>
+                      {selectedAssignment ? (
+                        <p className="text-xs font-black text-[#047857]">
+                          Selected: {selectedAssignment.parentEmail || selectedAssignment.playerName || 'Parent'}
+                        </p>
+                      ) : null}
+                    </div>
                     {roleRows.length > 0 ? (
                       <div className="mt-2 space-y-2">
-                        {roleRows.map((row) => (
-                          <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="text-xs font-black text-[#101828]">{row.parentLabel}</p>
-                              <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Linked to {row.playerName}</p>
-                              <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{formatResponseDateTime(row.respondedAt)}</p>
+                        {roleRows.map((row) => {
+                          const isYesReply = String(row.response || '').toLowerCase() === 'yes'
+                          const isSelected = selectedAssignment && String(selectedAssignment.parentLinkId) === String(row.parentLinkId)
+                          const canSelect = isYesReply && row.parentLinkId
+
+                          return (
+                            <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <p className="text-xs font-black text-[#101828]">{row.parentLabel}</p>
+                                <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Linked to {row.playerName}</p>
+                                <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{formatResponseDateTime(row.respondedAt)}</p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                                  {getVolunteerResponseLabel(row.response)}
+                                </span>
+                                {canSelect ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onVolunteerSelection(match, row, role.key, !isSelected)}
+                                    disabled={isBusy}
+                                    className={secondaryButtonClass}
+                                  >
+                                    {isSelected ? 'Deselect' : selectedAssignment ? 'Change' : 'Select'}
+                                  </button>
+                                ) : null}
+                              </div>
                             </div>
-                            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-                              {getVolunteerResponseLabel(row.response)}
-                            </span>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     ) : (
                       <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No replies for this role yet.</p>
@@ -1344,45 +1434,6 @@ function MatchDayCard({
           )}
         </div>
 
-        <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Select scorer volunteer</h5>
-          {activeScorerInterests.length > 0 ? (
-            <div className="mt-3 space-y-2">
-              {activeScorerInterests.map((interest) => {
-                const isSelected = selectedParentLinkIds.has(String(interest.parentLinkId))
-
-                return (
-                  <div key={interest.id} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="text-sm font-black text-[#101828]">{interest.parentEmail || interest.parentName || 'Parent'}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                          {interest.playerName ? `Linked to ${interest.playerName}` : 'Family portal volunteer'}
-                        </p>
-                        {interest.message ? <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{interest.message}</p> : null}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onSelectScorer(match, interest)}
-                        disabled={isBusy || isSelected}
-                        className={secondaryButtonClass}
-                      >
-                        {isSelected ? 'Selected' : 'Select scorer'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
-              <p className="text-sm font-black text-[#101828]">No scorer volunteers have been sent to selection yet.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Scorer yes replies from linked parent contacts appear here so staff can select one for live score access.
-              </p>
-            </div>
-          )}
-        </div>
       </div>
 
       <form className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10" onSubmit={(event) => onAddGoal(event, match)}>

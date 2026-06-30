@@ -162,7 +162,7 @@ test('match day domain scopes reads and mutations to the active team', async () 
   const updateSection = source.slice(updateStart, updateEnd)
   assert.match(updateSection, /query = scopeMatchDayQueryToActiveTeam\(query, user\)/)
 
-  const scorerStart = source.indexOf('export async function selectMatchDayScorer')
+  const scorerStart = source.indexOf('export async function selectMatchDayVolunteer')
   const scorerEnd = source.indexOf('export async function addStaffMatchDayGoal', scorerStart)
   assert.notEqual(scorerStart, -1)
   assert.notEqual(scorerEnd, -1)

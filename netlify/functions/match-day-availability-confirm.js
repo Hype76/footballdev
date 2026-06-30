@@ -106,7 +106,8 @@ function detailRows(response) {
 }
 
 function availabilityFieldset(response) {
-  const currentStatus = normalizeText(response.response_status).toLowerCase()
+  const currentStatus = normalizeText(response.current_availability_status || response.response_status).toLowerCase()
+  const hasCurrentStatus = VALID_STATUSES.has(currentStatus)
   const choices = [
     ['available', 'Available'],
     ['unavailable', 'Not available'],
@@ -115,9 +116,15 @@ function availabilityFieldset(response) {
 
   return `<fieldset>
     <legend>Player availability</legend>
+    ${hasCurrentStatus ? `
+      <label>
+        <input type="radio" name="status" value="" checked>
+        <span>Keep ${statusLabel(currentStatus)}</span>
+      </label>
+    ` : ''}
     ${choices.map(([value, label]) => `
       <label>
-        <input type="radio" name="status" value="${value}" ${currentStatus === value ? 'checked' : ''} required>
+        <input type="radio" name="status" value="${value}" ${!hasCurrentStatus && currentStatus === value ? 'checked' : ''} ${hasCurrentStatus ? '' : 'required'}>
         <span>${label}</span>
       </label>
     `).join('')}
@@ -166,7 +173,7 @@ function normalizeVolunteerParam(value) {
 }
 
 async function getTokenResponse(supabase, token) {
-  const { data, error } = await supabase.rpc('get_match_day_availability_response', {
+  const { data, error } = await supabase.rpc('get_match_day_availability_response_v2', {
     token_hash_value: hashToken(token),
   })
 
@@ -179,14 +186,16 @@ async function getTokenResponse(supabase, token) {
 
 async function submitTokenResponse(supabase, token, params) {
   const status = normalizeText(params.get('status')).toLowerCase()
+  const hasVolunteerResponse = ['volunteerScorerResponse', 'volunteerLinesmanResponse', 'volunteerRefereeResponse']
+    .some((key) => normalizeVolunteerParam(params.get(key)))
 
-  if (!VALID_STATUSES.has(status)) {
+  if (!VALID_STATUSES.has(status) && !hasVolunteerResponse) {
     return null
   }
 
   const { data, error } = await supabase.rpc('submit_match_day_availability_response', {
     token_hash_value: hashToken(token),
-    status_value: status,
+    status_value: VALID_STATUSES.has(status) ? status : null,
     volunteer_scorer_response_value: normalizeVolunteerParam(params.get('volunteerScorerResponse')),
     volunteer_linesman_response_value: normalizeVolunteerParam(params.get('volunteerLinesmanResponse')),
     volunteer_referee_response_value: normalizeVolunteerParam(params.get('volunteerRefereeResponse')),
@@ -295,7 +304,9 @@ export async function handler(event) {
 
     return htmlResponse(200, page({
       title: 'Response saved',
-      message: `${response.player_name || 'The player'} is marked as ${statusLabel(response.response_status)}. Thank you for replying.`,
+      message: VALID_STATUSES.has(normalizeText(params.get('status')).toLowerCase())
+        ? `${response.player_name || 'The player'} is marked as ${statusLabel(response.response_status)}. Thank you for replying.`
+        : 'Your fixture response has been saved. Thank you for replying.',
     }))
   } catch (error) {
     console.error(error)

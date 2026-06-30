@@ -214,6 +214,7 @@ export {
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
   selectMatchDayScorer,
+  selectMatchDayVolunteer,
   isPastMatchDayDate,
   updateMatchDay,
   updateMatchDayScoreAsScorer,
