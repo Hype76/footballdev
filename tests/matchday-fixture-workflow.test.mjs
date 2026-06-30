@@ -12,6 +12,8 @@ import {
   isPastMatchDayDate,
 } from '../src/lib/domain/match-day.js'
 
+const eventRequestsMigrationUrl = new URL('../supabase/migrations/20260630100000_v1_team_season_reports_and_event_requests.sql', import.meta.url)
+
 function createWindowStub() {
   const values = new Map()
   const dispatchedEvents = []
@@ -133,4 +135,42 @@ test('fixture setup Continue validates visibly and advances to squad selection',
   assert.match(source, /isFixtureDataLoading \? 'Loading squad\.\.\.' : 'Continue to squad'/)
   assert.match(source, /role="alert"/)
   assert.doesNotMatch(handlerSource, /if \(!form\.parentVisible\)[\s\S]*await createMatchDay/)
+})
+
+test('match day fixture setup saves parent volunteer request roles', () => {
+  const pageSource = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const domainSource = readFileSync(
+    new URL('../src/lib/domain/match-day.js', import.meta.url),
+    'utf8',
+  )
+  const migration = readFileSync(eventRequestsMigrationUrl, 'utf8')
+  const parentPortalSource = readFileSync(
+    new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(pageSource, /requestScorer: true/)
+  assert.match(pageSource, /requestLinesman: false/)
+  assert.match(pageSource, /requestReferee: false/)
+  assert.match(pageSource, /Request scorer/)
+  assert.match(pageSource, /Request linesman/)
+  assert.match(pageSource, /Request referee/)
+  assert.match(domainSource, /request_scorer: requestScorer/)
+  assert.match(domainSource, /request_linesman: requestLinesman/)
+  assert.match(domainSource, /request_referee: requestReferee/)
+  assert.match(domainSource, /requestScorer: normalizeBoolean\(row\.request_scorer/)
+  assert.match(parentPortalSource, /getMatchVolunteerRequestLabels/)
+  assert.match(parentPortalSource, /match\.requestLinesman === true \? 'Linesman'/)
+  assert.match(parentPortalSource, /match\.requestReferee === true \? 'Referee'/)
+  assert.match(parentPortalSource, /\{label\} requested/)
+  assert.match(migration, /add column if not exists request_scorer boolean not null default false/i)
+  assert.match(migration, /add column if not exists request_linesman boolean not null default false/i)
+  assert.match(migration, /add column if not exists request_referee boolean not null default false/i)
+  assert.match(migration, /drop function if exists public\.get_parent_portal_match_days\(uuid\);[\s\S]*create function public\.get_parent_portal_match_days/i)
+  assert.doesNotMatch(migration, /drop function[^;]+cascade/i)
+  assert.match(migration, /request_linesman boolean/i)
+  assert.match(migration, /match_day\.request_referee/i)
 })

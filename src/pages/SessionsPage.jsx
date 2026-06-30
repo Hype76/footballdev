@@ -500,6 +500,9 @@ function getFormFromCalendarEvent(event, invites = []) {
       location: source.venueName || '',
       notes: source.notes || '',
       opponent: source.opponent || '',
+      requestScorer: source.requestScorer === true,
+      requestLinesman: source.requestLinesman === true,
+      requestReferee: source.requestReferee === true,
       startTime: formatTimeInput(source.kickoffTime) || '10:00',
       teamId: source.teamId || '',
       title: source.title || (source.opponent ? `Match vs ${source.opponent}` : ''),
@@ -577,6 +580,22 @@ function buildSelectedInvitePlayers(form, invitePlayers) {
   })
 
   return selectedPlayers
+}
+
+function buildCalendarNotificationPlayers(form, invitePlayers, selectedPlayers) {
+  if (!form.shareWithParents) {
+    return []
+  }
+
+  if (form.parentAudience === 'involved_players') {
+    return selectedPlayers
+  }
+
+  if (form.parentAudience === 'all_team_parents' && form.notifyInvitedFamilies) {
+    return invitePlayers
+  }
+
+  return []
 }
 
 export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
@@ -1501,15 +1520,18 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         }
 
         const sharedInvolvedPlayers = calendarForm.shareWithParents && calendarForm.parentAudience === 'involved_players'
+        const sharedAllTeamParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_team_parents'
+        const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
+        const notifyRequested = calendarForm.notifyInvitedFamilies && (sharedInvolvedPlayers || sharedAllTeamParents)
         const savedInvites = await saveCalendarEventInvites({
           user,
           calendarEventId,
           assessmentSessionId,
           teamId: safeTeamId,
-          players: sharedInvolvedPlayers ? selectedCalendarInvitePlayers : [],
-          notifyRequested: sharedInvolvedPlayers && calendarForm.notifyInvitedFamilies,
+          players: notificationPlayers,
+          notifyRequested,
         })
-        if (sharedInvolvedPlayers && calendarForm.notifyInvitedFamilies) {
+        if (notifyRequested) {
           const queueResult = await queueCalendarEventInviteEmails({
             assessmentSessionId,
             calendarEventId,
@@ -1603,8 +1625,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             matchDate: calendarForm.date,
             notes: calendarForm.notes,
             opponent: trimmedOpponent,
+            requestScorer: calendarForm.requestScorer,
+            requestLinesman: calendarForm.requestLinesman,
+            requestReferee: calendarForm.requestReferee,
             scorerRequestMessage: '',
-            status: 'scheduled',
+            status: calendarForm.requestScorer ? 'scorer_request' : 'scheduled',
             teamId: safeTeamId,
             venueAddress: '',
             venueName: calendarForm.location,
@@ -2822,6 +2847,24 @@ function CalendarEventModal({
                 <p className="mt-3 rounded-lg border border-[#fedf89] bg-white px-3 py-3 text-xs font-bold leading-5 text-[#92400e]">
                   Only involved players fails closed unless at least one player is attached below.
                 </p>
+              ) : null}
+              {form.shareWithParents && form.parentAudience === 'all_team_parents' && hasInviteTeam ? (
+                <label className="mt-4 flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                  <input
+                    type="checkbox"
+                    name="notifyInvitedFamilies"
+                    checked={form.notifyInvitedFamilies}
+                    onChange={onChange}
+                    disabled={isBusy}
+                    className="mt-1 h-5 w-5 accent-[#047857]"
+                  />
+                  <span>
+                    Notify team families
+                    <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+                      Adds an event invite email to the holding queue for linked parents in this team.
+                    </span>
+                  </span>
+                </label>
               ) : null}
             </div>
             )}

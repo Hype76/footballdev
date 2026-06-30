@@ -5,16 +5,26 @@ function normalizeText(value) {
 }
 
 function assertSeasonStatsAccess(user) {
-  if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin' || Number(user.roleRank ?? 0) < 50) {
+  if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin') {
     throw new Error('Manager access is required for end of season stats.')
+  }
+
+  if (user.role === 'admin') {
+    return
+  }
+
+  if (Number(user.roleRank ?? 0) < 20 || !normalizeText(user.activeTeamId)) {
+    throw new Error('Team access is required for end of season stats.')
   }
 }
 
 export async function getEndSeasonStats({ user, teamId = '' } = {}) {
   assertSeasonStatsAccess(user)
+  const isClubAdmin = user?.role === 'admin'
+  const safeTeamId = isClubAdmin ? normalizeText(teamId) || null : normalizeText(user.activeTeamId)
 
   const { data, error } = await supabase.rpc('get_end_season_stats', {
-    team_id_value: normalizeText(teamId) || user.activeTeamId || null,
+    team_id_value: safeTeamId,
   })
 
   if (error) {

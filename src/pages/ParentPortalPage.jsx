@@ -1269,6 +1269,14 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
   )
 }
 
+function getMatchVolunteerRequestLabels(match = {}) {
+  return [
+    match.requestScorer !== false ? 'Scorer' : '',
+    match.requestLinesman === true ? 'Linesman' : '',
+    match.requestReferee === true ? 'Referee' : '',
+  ].filter(Boolean)
+}
+
 function attachParentCalendarContext(event, link) {
   const contextLabel = event.isClubWide ? 'Club-wide' : formatParentChildTeamLabel(link)
 
@@ -1861,6 +1869,8 @@ function ParentMatchCard({
   const isBusy = activeMatchId === match.id
   const orderedPlayers = useMemo(() => orderPlayersWithRecentScorers(players, match), [match, players])
   const currentMinute = getCurrentMatchMinute(match, now)
+  const volunteerRequestLabels = getMatchVolunteerRequestLabels(match)
+  const canVolunteerAsScorer = match.requestScorer !== false
 
   return (
     <article className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
@@ -1882,6 +1892,15 @@ function ParentMatchCard({
           {match.scorerRequestMessage && !match.isScorer ? (
             <p className={`mt-3 whitespace-pre-wrap ${bodyTextClass}`}>{match.scorerRequestMessage}</p>
           ) : null}
+          {volunteerRequestLabels.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {volunteerRequestLabels.map((label) => (
+                <span key={label} className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
+                  {label} requested
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 text-center shadow-sm shadow-[#047857]/10">
@@ -1895,7 +1914,7 @@ function ParentMatchCard({
         </div>
       </div>
 
-      {!match.isScorer ? (
+      {!match.isScorer && canVolunteerAsScorer ? (
         <div className="mt-4">
           <button
             type="button"

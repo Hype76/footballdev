@@ -65,6 +65,18 @@ test('club admin calendar create flow is club-wide and uses a parent sharing tog
   assert.match(source, /Club Admin calendar events are shared across the club and are not tied to one team\./)
 })
 
+test('team-wide calendar parent sharing can queue linked parent emails', async () => {
+  const source = await readFile(sessionsPageUrl, 'utf8')
+
+  assert.match(source, /function buildCalendarNotificationPlayers\(form, invitePlayers, selectedPlayers\)/)
+  assert.match(source, /form\.parentAudience === 'all_team_parents' && form\.notifyInvitedFamilies/)
+  assert.match(source, /const sharedAllTeamParents = calendarForm\.shareWithParents && calendarForm\.parentAudience === 'all_team_parents'/)
+  assert.match(source, /const notificationPlayers = buildCalendarNotificationPlayers\(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers\)/)
+  assert.match(source, /notifyRequested,\s*\n\s*\}\)/)
+  assert.match(source, /Notify team families/)
+  assert.match(source, /Adds an event invite email to the holding queue for linked parents in this team\./)
+})
+
 test('parent portal can show shared club-wide calendar events once in all-linked mode', async () => {
   const pageSource = await readFile(parentPortalPageUrl, 'utf8')
   const migration = await readFile(parentCalendarMigrationUrl, 'utf8')

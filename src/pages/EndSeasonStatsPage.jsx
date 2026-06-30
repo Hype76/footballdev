@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canViewEndSeasonStats, useAuth } from '../lib/auth.js'
-import { getEndSeasonStats, getTeams, withRequestTimeout } from '../lib/supabase.js'
+import { canViewEndSeasonStats, isClubAdmin, useAuth } from '../lib/auth.js'
+import { getAvailableTeamsForUser, getEndSeasonStats, withRequestTimeout } from '../lib/supabase.js'
 
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -53,6 +53,7 @@ function compareText(left, right) {
 
 export function EndSeasonStatsPage() {
   const { user } = useAuth()
+  const canUseClubWideSeasonView = isClubAdmin(user)
   const [teams, setTeams] = useState([])
   const [selectedTeamId, setSelectedTeamId] = useState(user?.activeTeamId || '')
   const [stats, setStats] = useState([])
@@ -70,7 +71,7 @@ export function EndSeasonStatsPage() {
 
       try {
         const [nextTeams, nextStats] = await Promise.all([
-          withRequestTimeout(() => getTeams(user), 'Teams could not be loaded.'),
+          withRequestTimeout(() => getAvailableTeamsForUser(user), 'Teams could not be loaded.'),
           withRequestTimeout(() => getEndSeasonStats({ user, teamId: selectedTeamId }), 'End of season stats could not be loaded.'),
         ])
 
@@ -143,7 +144,7 @@ export function EndSeasonStatsPage() {
 
   const selectedTeamName = selectedTeamId
     ? teams.find((team) => team.id === selectedTeamId)?.name || 'Selected team'
-    : 'All teams'
+    : canUseClubWideSeasonView ? 'All teams' : user?.activeTeamName || 'Selected team'
   const totalGoals = stats.reduce((total, player) => total + Number(player.goals ?? 0), 0)
   const totalAssists = stats.reduce((total, player) => total + Number(player.assists ?? 0), 0)
   const totalVotes = stats.reduce((total, player) => total + Number(player.motmVotes ?? 0), 0)
@@ -207,22 +208,29 @@ export function EndSeasonStatsPage() {
         description="Stats are calculated from Match Day records and Player of the Match parent polls for the current calendar year."
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <label className="block md:min-w-72">
-            <span className={labelClass}>Team</span>
-            <select
-              value={selectedTeamId}
-              onChange={(event) => {
-                setSelectedTeamId(event.target.value)
-                setAwardsGeneratedAt('')
-              }}
-              className={fieldClass}
-            >
-              <option value="">All teams</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
-            </select>
-          </label>
+          {canUseClubWideSeasonView ? (
+            <label className="block md:min-w-72">
+              <span className={labelClass}>Team</span>
+              <select
+                value={selectedTeamId}
+                onChange={(event) => {
+                  setSelectedTeamId(event.target.value)
+                  setAwardsGeneratedAt('')
+                }}
+                className={fieldClass}
+              >
+                <option value="">All teams</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="block md:min-w-72">
+              <span className={labelClass}>Team</span>
+              <div className={`${fieldClass} flex items-center`}>{selectedTeamName}</div>
+            </div>
+          )}
 
           <button
             type="button"

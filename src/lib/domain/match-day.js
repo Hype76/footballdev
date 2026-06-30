@@ -93,6 +93,18 @@ function normalizeParentAudience(value) {
   return MATCH_DAY_PARENT_AUDIENCES.includes(normalizedValue) ? normalizedValue : 'none'
 }
 
+function normalizeBoolean(value) {
+  return value === true
+}
+
+function shouldRequestScorer(match = {}) {
+  if (match.requestScorer !== undefined) {
+    return normalizeBoolean(match.requestScorer)
+  }
+
+  return normalizeText(match.scorerRequestMessage) !== '' || normalizeText(match.status) === 'scorer_request'
+}
+
 export function calculateArrivalTime(kickoffTime, offsetMinutes) {
   const normalizedKickoffTime = normalizeTime(kickoffTime)
   const minutesBeforeKickoff = Number(offsetMinutes ?? 0)
@@ -194,6 +206,9 @@ export function normalizeMatchDay(row) {
     venueAddress: normalizeText(row.venue_address ?? row.venueAddress),
     notes: normalizeText(row.notes),
     scorerRequestMessage: normalizeText(row.scorer_request_message ?? row.scorerRequestMessage),
+    requestScorer: normalizeBoolean(row.request_scorer ?? row.requestScorer ?? row.status === 'scorer_request'),
+    requestLinesman: normalizeBoolean(row.request_linesman ?? row.requestLinesman),
+    requestReferee: normalizeBoolean(row.request_referee ?? row.requestReferee),
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     status: normalizeText(row.status) || 'scheduled',
@@ -357,6 +372,9 @@ export async function createMatchDay({ user, match }) {
   const venueAddress = normalizeText(match?.venueAddress)
   const teamId = normalizeTeamIdForMatch(user, match)
   const { parentVisible, parentAudience } = buildMatchDayParentVisibility(match)
+  const requestScorer = shouldRequestScorer(match)
+  const requestLinesman = normalizeBoolean(match?.requestLinesman)
+  const requestReferee = normalizeBoolean(match?.requestReferee)
 
   if (!opponent) {
     throw new Error('Opponent is required.')
@@ -395,9 +413,12 @@ export async function createMatchDay({ user, match }) {
       venue_address: venueAddress,
       notes: normalizeText(match?.notes),
       scorer_request_message: normalizeText(match?.scorerRequestMessage),
+      request_scorer: requestScorer,
+      request_linesman: requestLinesman,
+      request_referee: requestReferee,
       parent_visible: parentVisible,
       parent_audience: parentAudience,
-      status: normalizeStatus(match?.status || 'scorer_request'),
+      status: normalizeStatus(match?.status || (requestScorer ? 'scorer_request' : 'scheduled')),
       enable_motm_poll: Boolean(match?.enableMotmPoll ?? true),
       motm_poll_expiry_hours: Math.max(Number(match?.motmPollExpiryHours ?? 2), 1),
       created_by: getEntryUserId(user),
@@ -448,6 +469,9 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)
   if (updates.notes !== undefined) payload.notes = normalizeText(updates.notes)
   if (updates.scorerRequestMessage !== undefined) payload.scorer_request_message = normalizeText(updates.scorerRequestMessage)
+  if (updates.requestScorer !== undefined) payload.request_scorer = normalizeBoolean(updates.requestScorer)
+  if (updates.requestLinesman !== undefined) payload.request_linesman = normalizeBoolean(updates.requestLinesman)
+  if (updates.requestReferee !== undefined) payload.request_referee = normalizeBoolean(updates.requestReferee)
   if (updates.parentVisible !== undefined) {
     payload.parent_visible = updates.parentVisible !== false
     if (updates.parentVisible === false) {

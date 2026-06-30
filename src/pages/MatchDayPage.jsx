@@ -45,6 +45,9 @@ const EMPTY_MATCH_FORM = {
   notes: '',
   parentAudience: 'none',
   parentVisible: false,
+  requestScorer: true,
+  requestLinesman: false,
+  requestReferee: false,
   scorerRequestMessage: 'Can anyone help as live scorer for this match?',
   status: 'scorer_request',
   enableMotmPoll: true,
@@ -508,10 +511,20 @@ export function MatchDayPage() {
   }
 
   const updateForm = (updates) => {
-    setForm((currentForm) => ({
-      ...currentForm,
-      ...updates,
-    }))
+    setForm((currentForm) => {
+      const nextForm = {
+        ...currentForm,
+        ...updates,
+      }
+
+      if (updates.requestScorer === false && currentForm.status === 'scorer_request') {
+        nextForm.status = 'scheduled'
+      } else if (updates.requestScorer === true && currentForm.status === 'scheduled') {
+        nextForm.status = 'scorer_request'
+      }
+
+      return nextForm
+    })
     setErrorMessage('')
   }
 
@@ -1465,6 +1478,39 @@ function FixtureSetupModal({
               <span className={labelClass}>Scorer request message</span>
               <textarea value={form.scorerRequestMessage} onChange={(event) => updateForm({ scorerRequestMessage: event.target.value })} className={`${inputClass} min-h-24`} />
             </label>
+
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+              <p className="text-sm font-black text-[#101828]">Parent volunteer requests</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                  <input
+                    type="checkbox"
+                    checked={form.requestScorer}
+                    onChange={(event) => updateForm({ requestScorer: event.target.checked })}
+                    className="h-5 w-5 accent-[#047857]"
+                  />
+                  Request scorer
+                </label>
+                <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                  <input
+                    type="checkbox"
+                    checked={form.requestLinesman}
+                    onChange={(event) => updateForm({ requestLinesman: event.target.checked })}
+                    className="h-5 w-5 accent-[#047857]"
+                  />
+                  Request linesman
+                </label>
+                <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                  <input
+                    type="checkbox"
+                    checked={form.requestReferee}
+                    onChange={(event) => updateForm({ requestReferee: event.target.checked })}
+                    className="h-5 w-5 accent-[#047857]"
+                  />
+                  Request referee
+                </label>
+              </div>
+            </div>
 
             <label className="block">
               <span className={labelClass}>Match notes</span>

@@ -103,7 +103,15 @@ export function canManageTeamSettings(user) {
 }
 
 export function canViewEndSeasonStats(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
+  if (!user?.clubId || isSuperAdmin(user) || isParentPortalUser(user) || !isPlanAccessActive(user)) {
+    return false
+  }
+
+  if (isClubAdmin(user)) {
+    return true
+  }
+
+  return Number(user?.roleRank ?? 0) >= 20 && Boolean(user?.activeTeamId)
 }
 
 export function canManageTeamAppearance(user) {
