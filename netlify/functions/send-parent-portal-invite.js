@@ -192,6 +192,7 @@ export async function handler(event) {
       displayName,
       html,
       parentEmail,
+      copySender = false,
       senderEmail,
       subject,
     } = body
@@ -226,7 +227,7 @@ export async function handler(event) {
     const safeDisplayName = cleanHeaderPart(displayName || planProfile.name, 'Coach')
     const fromName = `${safeDisplayName} (${teamName} - ${clubName})`
     const safeReplyTo = cleanHeaderPart(normalizedSenderEmail || planProfile.email || inviteLink.clubs?.contact_email, '')
-    const senderCopyEmails = getSenderCopyEmails(senderEmail, recipient)
+    const senderCopyEmails = copySender === true ? getSenderCopyEmails(senderEmail, recipient) : []
     const emailHtml = String(html ?? '').trim()
 
     if (emailHtml.length > 200000) {

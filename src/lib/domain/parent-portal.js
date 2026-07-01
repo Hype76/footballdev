@@ -424,12 +424,35 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     throw existingError
   }
 
+  const { data: activeParentRows, error: activeParentError } = await supabase
+    .from('parent_player_links')
+    .select('email, auth_user_id')
+    .eq('club_id', user.clubId)
+    .eq('link_type', 'parent')
+    .eq('status', 'active')
+    .in('email', emails)
+
+  if (activeParentError) {
+    console.error(activeParentError)
+    throw activeParentError
+  }
+
+  const existingActiveParentEmails = new Set(
+    (activeParentRows ?? [])
+      .filter((row) => row.auth_user_id)
+      .map((row) => normalizeEmail(row.email)),
+  )
   const existingRowsByEmail = new Map((existingRows ?? []).map((row) => [normalizeEmail(row.email), row]))
   const existingSentOrAcceptedEmails = new Set(
     (existingRows ?? [])
       .filter((row) => row.status === 'active' || row.invite_sent_at)
       .map((row) => normalizeEmail(row.email)),
   )
+  const withInviteMetadata = (row) => ({
+    ...normalizeParentLink(row),
+    existingParentPortalUser: existingActiveParentEmails.has(normalizeEmail(row.email)),
+    inviteUrl: buildInviteUrl(row.invite_token),
+  })
   const resendRows = normalizedContacts
     .map((contact) => existingRowsByEmail.get(contact.email))
     .filter((row) => row && row.status === 'pending' && (includeSentPending || !row.invite_sent_at))
@@ -448,10 +471,7 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     }))
 
   if (rows.length === 0) {
-    return resendRows.map((row) => ({
-      ...normalizeParentLink(row),
-      inviteUrl: buildInviteUrl(row.invite_token),
-    }))
+    return resendRows.map(withInviteMetadata)
   }
 
   const { data, error } = await supabase
@@ -464,10 +484,7 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     throw error
   }
 
-  return [...resendRows, ...(data ?? [])].map((row) => ({
-    ...normalizeParentLink(row),
-    inviteUrl: buildInviteUrl(row.invite_token),
-  }))
+  return [...resendRows, ...(data ?? [])].map(withInviteMetadata)
 }
 
 export async function createParentPortalInvitesForPlayers({ user, players }) {

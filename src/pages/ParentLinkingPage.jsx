@@ -160,6 +160,7 @@ export function ParentLinkingPage() {
           parentEmail: invite.email,
           senderEmail: user.email,
           displayName: user.displayName || user.username || user.name,
+          existingParentPortalUser: invite.existingParentPortalUser,
           teamName: invite.teamName,
           clubName: invite.clubName || user.clubName,
           playerName: invite.playerName,
