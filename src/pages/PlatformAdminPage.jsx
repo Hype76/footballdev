@@ -12,6 +12,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { logPlatformStatsDiagnostic, normalizePlatformStatsPayload } from '../lib/domain/platform-normalizers.js'
+import { PLAN_KEYS } from '../lib/plans.js'
 import {
   formatPlatformDate,
   getClubManagementStats,
@@ -496,6 +497,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       ...(fieldName === 'billingMode' && value === 'paid' && current.planKey === 'individual'
         ? { planKey: 'single_team' }
         : {}),
+      ...(fieldName === 'planKey' && value === PLAN_KEYS.pilot
+        ? { billingMode: 'unpaid' }
+        : {}),
     }))
     setErrorMessage('')
     setConfirmErrorMessage('')
@@ -701,6 +705,13 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                 clubId: club.id,
                 teamLimitOverride: value,
               }
+            : fieldName === 'planKey' && value === PLAN_KEYS.pilot
+              ? {
+                  clubId: club.id,
+                  planKey: value,
+                  isPlanComped: true,
+                  planStatus: 'active',
+                }
             : {
                 clubId: club.id,
                 [fieldName]: value,

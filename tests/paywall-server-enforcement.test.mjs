@@ -7,6 +7,7 @@ import {
 } from '../src/lib/paywall-access.js'
 
 const migrationPath = 'supabase/migrations/20260622050850_paywall_server_enforcement.sql'
+const pilotMigrationPath = 'supabase/migrations/20260629153000_add_internal_pilot_tier.sql'
 
 function readSource(path) {
   return readFileSync(path, 'utf8')
@@ -33,6 +34,8 @@ test('server capability checks follow approved tier edges', () => {
   assert.equal(canUseFeature(paidContext('small_club', { role: 'admin', roleRank: 90 }), CAPABILITIES.approvalWorkflows), false)
   assert.equal(canUseFeature(paidContext('development_club', { role: 'admin', roleRank: 90 }), CAPABILITIES.approvalWorkflows), true)
   assert.equal(canUseFeature(paidContext('large_club'), CAPABILITIES.integrations), false)
+  assert.equal(canUseFeature(paidContext('pilot', { planStatus: 'past_due' }), CAPABILITIES.agreedServiceTerms), true)
+  assert.equal(canUseFeature(paidContext('pilot'), CAPABILITIES.integrations), false)
 })
 
 test('high-risk Netlify functions use authenticated plan profiles for user-token actions', () => {
@@ -65,4 +68,11 @@ test('migration fails closed and maps approved server-side feature tiers', () =>
   assert.match(sql, /public\.can_use_plan_feature\(calendar_events\.club_id, 'recurringEvents'\)/)
   assert.match(sql, /public\.can_use_plan_feature\(parent_player_links\.club_id, 'parentInvitations'\)/)
   assert.match(sql, /public\.can_use_plan_feature\(public\.current_user_club_id\(\), 'basicLogoBranding'\)/)
+
+  const pilotSql = readSource(pilotMigrationPath)
+  assert.match(pilotSql, /then 'pilot'/)
+  assert.match(pilotSql, /target_entitlement_plan_key := case[\s\S]*when target_plan_key = 'pilot' then 'large_club'/)
+  assert.match(pilotSql, /target_plan_key <> 'pilot'[\s\S]*not target_is_plan_comped[\s\S]*public\.is_club_plan_access_active/)
+  assert.match(pilotSql, /target_entitlement_plan_key in \('development_club', 'large_club'\)/)
+  assert.match(pilotSql, /target_is_plan_comped and target_plan_key <> 'pilot'/)
 })

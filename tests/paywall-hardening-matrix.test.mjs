@@ -9,6 +9,7 @@ import {
   getPlanKey,
   getPlanLimit as getCanonicalPlanLimit,
   getPlanName,
+  getPublicPlanOptions,
   hasPlanFeature,
   isPlanAccessActive,
   normalizePlanKey,
@@ -47,6 +48,15 @@ test('approved plans, aliases, malformed values, and payment states fail closed 
     PLAN_KEYS.smallClub,
     PLAN_KEYS.developmentClub,
     PLAN_KEYS.largeClub,
+    PLAN_KEYS.pilot,
+  ])
+
+  assert.deepEqual(getPublicPlanOptions().map((plan) => plan.key), [
+    PLAN_KEYS.individual,
+    PLAN_KEYS.singleTeam,
+    PLAN_KEYS.smallClub,
+    PLAN_KEYS.developmentClub,
+    PLAN_KEYS.largeClub,
   ])
 
   const aliasCases = [
@@ -57,6 +67,7 @@ test('approved plans, aliases, malformed values, and payment states fail closed 
     ['dev club', PLAN_KEYS.developmentClub],
     ['Contact sales', PLAN_KEYS.largeClub],
     ['enterprise', PLAN_KEYS.largeClub],
+    ['Pilot', PLAN_KEYS.pilot],
   ]
 
   for (const [input, expected] of aliasCases) {
@@ -249,6 +260,7 @@ test('commerce and Stripe mapping stay canonical and fail closed', () => {
   assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.developmentClub), true)
   assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.individual), false)
   assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.largeClub), false)
+  assert.equal(SELF_SERVICE_CHECKOUT_PLAN_KEYS.has(PLAN_KEYS.pilot), false)
   assert.deepEqual(getPlanFromPriceId('price_unknown'), { planKey: '', billingCycle: '' })
 })
 
@@ -276,7 +288,7 @@ test('core controls and data rights are not premium commercial entitlements', ()
 })
 
 test('trusted function, RPC, RLS, and storage sources contain fail-closed paywall enforcement', () => {
-  const planGate = readSource('netlify/functions/_plan-gate.js')
+  const planGate = readSource('netlify/functions/lib/_plan-gate.js')
   const manageTeam = readSource('netlify/functions/manage-team.js')
   const sendParentEmail = readSource('netlify/functions/send-parent-email.js')
   const renderPdf = readSource('netlify/functions/render-pdf.js')

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PLAN_OPTIONS, getPlanDefaultLimit, getPlanLimit, getPlanName } from '../../lib/plans.js'
+import { PLAN_KEYS, getAdminAssignablePlanOptions, getPlanDefaultLimit, getPlanLimit, getPlanName } from '../../lib/plans.js'
 import { formatPlatformDate } from '../../lib/platform-admin-stats.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
@@ -11,6 +11,7 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
+const adminAssignablePlanOptions = getAdminAssignablePlanOptions()
 
 function formatLimit(value) {
   if (value === null || value === undefined) {
@@ -166,6 +167,7 @@ function ClubSummary({
   updatingClubId,
 }) {
   const clubId = String(club?.id ?? '')
+  const isPilotPlan = club?.planKey === PLAN_KEYS.pilot
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
@@ -194,7 +196,7 @@ function ClubSummary({
                 Unknown plan
               </option>
             ) : null}
-            {PLAN_OPTIONS.map((plan) => (
+            {adminAssignablePlanOptions.map((plan) => (
               <option key={plan.key} value={plan.key}>
                 {plan.name}
               </option>
@@ -219,9 +221,9 @@ function ClubSummary({
         <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 md:mt-7">
           <input
             type="checkbox"
-            checked={Boolean(club.isPlanComped)}
-            disabled={updatingClubId === clubId}
-            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
+            checked={isPilotPlan || Boolean(club.isPlanComped)}
+            disabled={isPilotPlan || updatingClubId === clubId}
+            title={isPilotPlan ? 'Pilot access is always free.' : updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'isPlanComped', event.target.checked)}
             className="h-4 w-4 accent-[#047857]"
           />
@@ -236,7 +238,7 @@ function ClubSummary({
         updatingClubId={updatingClubId}
       />
       <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
-        Current plan: {getPlanName(club)}{club.isPlanComped ? ', Billing override: free access' : ''}
+        Current plan: {getPlanName(club)}{isPilotPlan || club.isPlanComped ? ', Billing override: free access' : ''}
       </p>
       {club.suspendedAt ? (
         <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>

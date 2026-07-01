@@ -67,6 +67,10 @@ function isReadinessActive(capabilityDefinition) {
 }
 
 function isPaymentValid(accessContext, capabilityDefinition) {
+  if (accessContext.plan?.requiresPayment === false) {
+    return true
+  }
+
   if (!capabilityDefinition.requiresPayment) {
     return true
   }

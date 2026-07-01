@@ -107,6 +107,79 @@ async function scanDistRefs() {
   }
 }
 
+function scanPilotPreservation() {
+  const checks = [
+    {
+      label: 'Pilot canonical plan preserved',
+      path: 'src/lib/plans.js',
+      pattern: /pilot: 'pilot'[\s\S]*getAdminAssignablePlanOptions[\s\S]*getPublicPlanOptions/,
+    },
+    {
+      label: 'Pilot admin assignment preserved',
+      path: 'src/components/platform/ManageClubsSection.jsx',
+      pattern: /getAdminAssignablePlanOptions[\s\S]*PLAN_KEYS\.pilot/,
+    },
+    {
+      label: 'Pilot existing-club admin assignment preserved',
+      path: 'src/components/platform/PlatformAccountManagementSection.jsx',
+      pattern: /getAdminAssignablePlanOptions[\s\S]*Pilot access is always free\./,
+    },
+    {
+      label: 'Pilot new-club flow forces unpaid access',
+      path: 'src/pages/PlatformAdminPage.jsx',
+      pattern: /fieldName === 'planKey' && value === PLAN_KEYS\.pilot[\s\S]*billingMode: 'unpaid'/,
+    },
+    {
+      label: 'Pilot public pricing exclusion preserved',
+      path: 'src/lib/login-pricing.js',
+      pattern: /PLAN_KEYS\.individual[\s\S]*PLAN_KEYS\.largeClub/,
+      negativePattern: /PLAN_KEYS\.pilot/,
+    },
+    {
+      label: 'Pilot checkout rejection preserved',
+      path: 'netlify/functions/lib/_stripe-billing.js',
+      pattern: /Pilot: 'pilot'[\s\S]*SELF_SERVICE_CHECKOUT_PLAN_KEYS = new Set\(\[[\s\S]*development_club[\s\S]*\]\)/,
+      negativePattern: /SELF_SERVICE_CHECKOUT_PLAN_KEYS = new Set\(\[[\s\S]*pilot[\s\S]*\]\)/,
+    },
+    {
+      label: 'Pilot create-club free guard preserved',
+      path: 'netlify/functions/platform-create-club.js',
+      pattern: /billingMode === 'paid' && planKey === 'pilot'[\s\S]*billingMode === 'unpaid' \|\| planKey === 'pilot'/,
+    },
+    {
+      label: 'Pilot update-club free guard preserved',
+      path: 'netlify/functions/update-platform-club-billing.js',
+      pattern: /const nextPlanStatus = nextPlanKey === 'pilot' \? 'active' : requestedPlanStatus[\s\S]*const nextIsPlanComped = nextPlanKey === 'pilot'/,
+    },
+  ]
+
+  const failures = []
+
+  for (const check of checks) {
+    let content = ''
+
+    try {
+      content = readFileSync(path.resolve(check.path), 'utf8')
+    } catch {
+      failures.push(`${check.label}: ${check.path} is missing.`)
+      continue
+    }
+
+    if (!check.pattern.test(content)) {
+      failures.push(`${check.label}: expected preservation marker was not found.`)
+    }
+
+    if (check.negativePattern?.test(content)) {
+      failures.push(`${check.label}: forbidden Pilot public or checkout marker was found.`)
+    }
+  }
+
+  return {
+    checked: true,
+    failures,
+  }
+}
+
 function hasProductionDeployRisk(command) {
   const normalized = command.toLowerCase()
   return normalized.includes('--prod')
@@ -151,6 +224,7 @@ export function evaluateSafety({
   dist = { exists: false, hasLiveRef: false, hasLegacyStagingRef: false },
   expectedSupabaseRef = '',
   mode = 'deploy',
+  pilot = { checked: false, failures: [] },
 } = {}) {
   const safeMode = normalizeMode(mode)
   const mainInvolved = [currentBranch, targetBranch, deployContext, intendedUrl, command]
@@ -168,6 +242,10 @@ export function evaluateSafety({
 
   if (dist.exists && !hasAnySupabaseRef(dist)) {
     failures.push('No known Supabase ref was identified in dist.')
+  }
+
+  if (pilot.checked && pilot.failures.length > 0) {
+    failures.push(...pilot.failures.map((failure) => `Pilot preservation check failed. ${failure}`))
   }
 
   if (safeMode === 'local-live') {
@@ -324,6 +402,7 @@ function printReport(report) {
   console.log(`Dist folder present: ${report.dist.exists ? 'yes' : 'no'}`)
   console.log(`Legacy staging Supabase ref present in dist: ${report.dist.hasLegacyStagingRef ? 'yes' : 'no'}`)
   console.log(`Live Supabase ref present in dist: ${report.dist.hasLiveRef ? 'yes' : 'no'}`)
+  console.log(`Pilot preservation checked: ${report.pilot.checked ? 'yes' : 'no'}`)
   console.log('')
 
   if (report.failures.length > 0) {
@@ -347,8 +426,9 @@ async function main() {
   const command = args.command || process.env.NETLIFY_DEPLOY_COMMAND || ''
   const expectedSupabaseRef = args['expected-supabase-ref'] || process.env.EXPECTED_SUPABASE_REF || ''
   const state = readJsonIfExists(path.resolve('.netlify', 'state.json'))
-  const siteId = state?.siteId || ''
+  const siteId = args['site-id'] || process.env.NETLIFY_SITE_ID || state?.siteId || ''
   const dist = await scanDistRefs()
+  const pilot = scanPilotPreservation()
   const result = evaluateSafety({
     command,
     currentBranch,
@@ -357,6 +437,7 @@ async function main() {
     expectedSupabaseRef,
     intendedUrl,
     mode,
+    pilot,
     siteId,
     targetBranch,
   })
@@ -371,6 +452,7 @@ async function main() {
     intendedUrl,
     mainInvolved: result.mainInvolved,
     mode: result.mode,
+    pilot,
     command,
     siteId,
     targetBranch,

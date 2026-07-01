@@ -108,6 +108,25 @@ test('real deploy safety blocks mixed or missing Supabase refs', () => {
   assert.match(missingResult.failures.join('\n'), /No known Supabase ref/)
 })
 
+test('deploy safety blocks missing Pilot preservation markers', () => {
+  const result = evaluateSafety({
+    currentBranch: 'main',
+    deployContext: 'production',
+    dist: liveDist,
+    expectedSupabaseRef: liveProjectRef,
+    mode: 'production-prep',
+    pilot: {
+      checked: true,
+      failures: ['Pilot admin assignment preserved: expected preservation marker was not found.'],
+    },
+    siteId: 'site-1',
+    targetBranch: 'main',
+    command: 'netlify deploy --prod --dir=dist --site site-1',
+  })
+
+  assert.match(result.failures.join('\n'), /Pilot preservation check failed/)
+})
+
 test('real deploy safety allows the parent staging branch host', () => {
   const result = evaluateSafety({
     command: 'netlify deploy --build --context branch:parent-staging --site site-1',
