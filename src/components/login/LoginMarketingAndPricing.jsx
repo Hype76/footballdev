@@ -5,7 +5,6 @@ const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#0478
 const titleClass = 'mt-3 text-3xl font-black tracking-tight text-[#101828] sm:text-4xl'
 const copyClass = 'mt-3 text-sm font-semibold leading-6 text-[#4b5f55]'
 const cardClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
-const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]'
 
 const operatingSystemRows = [
@@ -154,15 +153,9 @@ export function LoginMarketingAndPricing({
         {pricingPlans.map((plan) => {
           const priceLabel = formatPriceLabel(plan, billingCycle)
           const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
-          const isPopular = plan.name === 'Single Team'
 
           return (
             <div key={plan.name} className="relative flex flex-col rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
-              {isPopular ? (
-                <span className="absolute right-5 top-5 whitespace-nowrap rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#065f46]">
-                  Popular
-                </span>
-              ) : null}
               {showPromotion ? (
                 <div className="mb-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">
                   {getPromotionSummary(livePromotion)}
@@ -197,7 +190,7 @@ export function LoginMarketingAndPricing({
                   disabled={isSubmitting}
                   title={isSubmitting ? 'Please wait while your plan request is being processed.' : undefined}
                   onClick={() => onChoosePlan(plan)}
-                  className={[isPopular ? primaryButtonClass : secondaryButtonClass, isSubmitting ? 'cursor-not-allowed opacity-60' : ''].join(' ')}
+                  className={[secondaryButtonClass, isSubmitting ? 'cursor-not-allowed opacity-60' : ''].join(' ')}
                 >
                   {paymentsDisabled ? 'Create test club' : plan.purchaseMode === 'free' ? 'Start free' : plan.purchaseMode === 'contact_sales' ? 'Request demo' : 'Choose plan'}
                 </button>

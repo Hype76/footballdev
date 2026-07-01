@@ -7,7 +7,6 @@ import {
   publicEyebrowClass,
   publicHeadingClass,
   publicPageClass,
-  publicPrimaryButtonClass,
   publicSecondaryButtonClass,
   publicSectionClass,
   publicSubheadingClass,
@@ -219,7 +218,6 @@ export function PublicPricingPage() {
           {pricingPlans.map((plan) => {
             const priceLabel = formatPriceLabel(plan, billingCycle)
             const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
-            const isPopular = plan.name === 'Small Club'
             const planLabel = getPlanLabel(plan)
 
             return (
@@ -227,16 +225,10 @@ export function PublicPricingPage() {
                 key={plan.name}
                 className={[
                   'relative flex min-h-full flex-col overflow-hidden rounded-lg border p-5 shadow-sm shadow-black/20',
-                  isPopular ? 'border-[#c6ff1a]/70 bg-[#c6ff1a]/[0.085] shadow-[#c6ff1a]/10' : 'border-white/10 bg-white/[0.055]',
+                  'border-white/10 bg-white/[0.055]',
                 ].join(' ')}
               >
-                {isPopular ? <div className="absolute inset-x-0 top-0 h-1.5 bg-[#c6ff1a]" /> : null}
-                {isPopular ? (
-                  <span className="absolute right-4 top-4 rounded-lg bg-[#c6ff1a] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#06110a]">
-                    Best fit
-                  </span>
-                ) : null}
-                <div className={isPopular ? 'pt-4 pr-20' : 'pr-6'}>
+                <div className="pr-6">
                   <h2 className="text-xl font-black text-white">{planLabel}</h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-white/70">{plan.description}</p>
                 </div>
@@ -258,10 +250,7 @@ export function PublicPricingPage() {
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => handlePrimaryCta(plan)}
-                    className={[
-                      isPopular ? publicPrimaryButtonClass : publicSecondaryButtonClass,
-                      'disabled:cursor-not-allowed disabled:opacity-60',
-                    ].join(' ')}
+                    className={[publicSecondaryButtonClass, 'disabled:cursor-not-allowed disabled:opacity-60'].join(' ')}
                   >
                     {getPrimaryCtaLabel(plan)}
                   </button>

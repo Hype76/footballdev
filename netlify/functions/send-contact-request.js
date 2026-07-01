@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 
-const CONTACT_REQUEST_RECIPIENT = String(process.env.CONTACT_REQUEST_RECIPIENT || 'info@footballplayer.online').trim()
+const CONTACT_REQUEST_RECIPIENT = String(process.env.CONTACT_REQUEST_RECIPIENT || 'support@jelumalabs.com').trim()
 
 function jsonResponse(statusCode, payload) {
   return {
