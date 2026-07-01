@@ -1291,6 +1291,27 @@ const parentVolunteerResponseLabels = {
   no_response: 'No response',
 }
 
+const parentVolunteerRoleConfigs = [
+  {
+    key: 'scorer',
+    label: 'Scorer',
+    requestKey: 'requestScorer',
+    responseKey: 'volunteerScorerResponse',
+  },
+  {
+    key: 'linesman',
+    label: 'Linesman',
+    requestKey: 'requestLinesman',
+    responseKey: 'volunteerLinesmanResponse',
+  },
+  {
+    key: 'referee',
+    label: 'Referee',
+    requestKey: 'requestReferee',
+    responseKey: 'volunteerRefereeResponse',
+  },
+]
+
 function getParentAvailabilityStatusLabel(value) {
   return parentAvailabilityStatusLabels[String(value || 'pending').toLowerCase()] || 'No response'
 }
@@ -1317,6 +1338,98 @@ function getParentMatchResponseRows(match = {}) {
   }
 
   return rows
+}
+
+function isRoleRequested(match = {}, roleConfig) {
+  if (roleConfig.key === 'scorer') {
+    return match.requestScorer !== false
+  }
+
+  return match[roleConfig.requestKey] === true
+}
+
+function getParentSelectedRoleAssignment(match = {}, roleKey) {
+  const assignments = Array.isArray(match.roleAssignments) ? match.roleAssignments : []
+  return assignments.find((assignment) => assignment.role === roleKey) || null
+}
+
+function isParentSelectedForRole(match = {}, selectedLink = null, roleConfig) {
+  const assignment = getParentSelectedRoleAssignment(match, roleConfig.key)
+  const selectedLinkId = String(selectedLink?.id || '')
+
+  if (assignment?.isCurrentParent === true) {
+    return true
+  }
+
+  if (selectedLinkId && String(assignment?.parentLinkId || '') === selectedLinkId) {
+    return true
+  }
+
+  return roleConfig.key === 'scorer' && match.isScorer === true
+}
+
+function getParentRoleSelectionRows(match = {}, selectedLink = null) {
+  return parentVolunteerRoleConfigs
+    .filter((roleConfig) => isRoleRequested(match, roleConfig))
+    .map((roleConfig) => {
+      const response = String(match[roleConfig.responseKey] || 'no_response').toLowerCase()
+      const assignment = getParentSelectedRoleAssignment(match, roleConfig.key)
+      const isSelected = isParentSelectedForRole(match, selectedLink, roleConfig)
+      const roleLabel = roleConfig.label.toLowerCase()
+
+      if (isSelected) {
+        return {
+          key: roleConfig.key,
+          label: roleConfig.label,
+          badge: 'Selected',
+          tone: 'selected',
+          detail: `You have been selected as ${roleLabel} for this fixture.`,
+          isSelected: true,
+        }
+      }
+
+      if (response === 'yes' && assignment) {
+        return {
+          key: roleConfig.key,
+          label: roleConfig.label,
+          badge: 'Not selected',
+          tone: 'waiting',
+          detail: `You volunteered for ${roleLabel}. Another volunteer has been selected.`,
+          isSelected: false,
+        }
+      }
+
+      if (response === 'yes') {
+        return {
+          key: roleConfig.key,
+          label: roleConfig.label,
+          badge: 'Waiting',
+          tone: 'waiting',
+          detail: `You volunteered for ${roleLabel}. The team has not selected anyone yet.`,
+          isSelected: false,
+        }
+      }
+
+      if (response === 'no') {
+        return {
+          key: roleConfig.key,
+          label: roleConfig.label,
+          badge: 'Not available',
+          tone: 'quiet',
+          detail: `You said you cannot help as ${roleLabel}.`,
+          isSelected: false,
+        }
+      }
+
+      return {
+        key: roleConfig.key,
+        label: roleConfig.label,
+        badge: 'No response',
+        tone: 'quiet',
+        detail: `No ${roleLabel} volunteer response has been recorded yet.`,
+        isSelected: false,
+      }
+    })
 }
 
 function attachParentCalendarContext(event, link) {
@@ -1638,6 +1751,7 @@ function ParentMatchCardsPanel({
                 now={clockNow}
                 players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
+                selectedLink={selectedLink}
               />
             ))}
           </div>
@@ -1907,6 +2021,7 @@ function ParentMatchCard({
   now,
   players,
   scoreDraft,
+  selectedLink,
 }) {
   const isBusy = activeMatchId === match.id
   const orderedPlayers = useMemo(() => orderPlayersWithRecentScorers(players, match), [match, players])
@@ -1914,6 +2029,8 @@ function ParentMatchCard({
   const volunteerRequestLabels = getMatchVolunteerRequestLabels(match)
   const canVolunteerAsScorer = match.requestScorer !== false
   const responseRows = getParentMatchResponseRows(match)
+  const roleSelectionRows = getParentRoleSelectionRows(match, selectedLink)
+  const selectedRoleLabels = roleSelectionRows.filter((row) => row.isSelected).map((row) => row.label)
 
   return (
     <article className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
@@ -1923,11 +2040,11 @@ function ParentMatchCard({
             <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
               {match.status.replace(/_/g, ' ')}
             </span>
-            {match.isScorer ? (
-              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
-                Selected scorer
+            {selectedRoleLabels.map((label) => (
+              <span key={label} className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
+                Selected {label.toLowerCase()}
               </span>
-            ) : null}
+            ))}
           </div>
           <h4 className="mt-3 text-lg font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
@@ -1971,6 +2088,34 @@ function ParentMatchCard({
           <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">
             Use the response email link to update availability and requested role replies.
           </p>
+        </div>
+      ) : null}
+
+      {roleSelectionRows.length > 0 ? (
+        <div className={`${softPanelClass} mt-4`}>
+          <h5 className="text-sm font-black text-[#101828]">Volunteer role status</h5>
+          <div className="mt-3 grid gap-2">
+            {roleSelectionRows.map((row) => (
+              <div key={row.key} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="text-sm font-black text-[#101828]">{row.label}</p>
+                  <span
+                    className={[
+                      'inline-flex w-fit whitespace-nowrap rounded-full border px-2 py-1 text-xs font-black',
+                      row.tone === 'selected'
+                        ? 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+                        : row.tone === 'waiting'
+                          ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
+                          : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55]',
+                    ].join(' ')}
+                  >
+                    {row.badge}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{row.detail}</p>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 

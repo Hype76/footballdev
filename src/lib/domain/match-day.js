@@ -179,15 +179,16 @@ function normalizeRoleAssignment(row) {
 
   return {
     id: row.id ?? '',
-    matchDayId: row.match_day_id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
     role: normalizeText(row.role),
-    parentLinkId: row.parent_link_id ?? '',
-    authUserId: row.auth_user_id ?? parentLink?.auth_user_id ?? '',
-    parentEmail: normalizeText(parentLink?.email),
-    playerName: normalizeText(player?.player_name),
-    assignedByName: normalizeText(row.assigned_by_name),
-    createdAt: row.created_at ?? '',
-    updatedAt: row.updated_at ?? '',
+    parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
+    authUserId: row.auth_user_id ?? row.authUserId ?? parentLink?.auth_user_id ?? '',
+    parentEmail: normalizeText(row.parent_email ?? row.parentEmail ?? parentLink?.email),
+    playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name),
+    assignedByName: normalizeText(row.assigned_by_name ?? row.assignedByName),
+    isCurrentParent: row.is_current_parent === true || row.isCurrentParent === true,
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
 }
 
@@ -273,8 +274,13 @@ export function normalizeMatchDay(row) {
   const assignments = Array.isArray(row.match_day_scorer_assignments)
     ? row.match_day_scorer_assignments.map(normalizeScorerAssignment)
     : []
-  const roleAssignments = Array.isArray(row.match_day_role_assignments)
-    ? row.match_day_role_assignments.map(normalizeRoleAssignment)
+  const rawRoleAssignments = Array.isArray(row.match_day_role_assignments)
+    ? row.match_day_role_assignments
+    : Array.isArray(row.role_assignments)
+      ? row.role_assignments
+      : row.roleAssignments
+  const roleAssignments = Array.isArray(rawRoleAssignments)
+    ? rawRoleAssignments.map(normalizeRoleAssignment)
     : []
   const rawEvents = Array.isArray(row.match_day_events) ? row.match_day_events : row.events
   const events = Array.isArray(rawEvents) ? rawEvents.map(normalizeMatchDayEvent) : []

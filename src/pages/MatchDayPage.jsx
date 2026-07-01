@@ -256,6 +256,24 @@ function getVolunteerSelectionReason(row) {
   return ''
 }
 
+function getVolunteerRowStatus({ isSelected, response, selectedAssignment }) {
+  const normalizedResponse = normalizeVolunteerText(response)
+
+  if (isSelected) {
+    return 'Selected'
+  }
+
+  if (normalizedResponse === 'yes') {
+    return selectedAssignment ? 'Not selected, another volunteer selected' : 'Available volunteer'
+  }
+
+  if (normalizedResponse === 'no') {
+    return 'Not available'
+  }
+
+  return 'No response'
+}
+
 function useModalPageScrollLock(isLocked) {
   useEffect(() => {
     if (!isLocked || typeof document === 'undefined' || typeof window === 'undefined') {
@@ -612,6 +630,7 @@ export function MatchDayPage() {
   const [isFixtureFormOpen, setIsFixtureFormOpen] = useState(false)
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
+  const [isPreviousGamesOpen, setIsPreviousGamesOpen] = useState(false)
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
@@ -979,7 +998,13 @@ export function MatchDayPage() {
   const handleVolunteerSelection = async (match, volunteer, role, selected = true) => {
     const parentName = volunteer.parentEmail || volunteer.parentName || 'this parent'
     const roleLabel = volunteerRoleConfigs.find((candidate) => candidate.key === role)?.label || 'volunteer'
-    const actionLabel = selected ? `Select ${parentName} as ${roleLabel.toLowerCase()}?` : `Deselect ${parentName} as ${roleLabel.toLowerCase()}?`
+    const currentAssignment = getSelectedRoleAssignment(match, role)
+    const isReplacing = Boolean(selected && currentAssignment && !isSelectedRoleVolunteer(currentAssignment, volunteer))
+    const actionLabel = selected
+      ? isReplacing
+        ? `Replace the selected ${roleLabel.toLowerCase()} with ${parentName}?`
+        : `Select ${parentName} as ${roleLabel.toLowerCase()}?`
+      : `Deselect ${parentName} as ${roleLabel.toLowerCase()}?`
 
     if (!confirmMatchDayAction(actionLabel)) {
       return
@@ -1293,39 +1318,56 @@ export function MatchDayPage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div className="grid gap-4 bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
             <p className={eyebrowClass}>Results archive</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Previous games</h2>
-            <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-              Review completed results. Reset the list when a new season starts.
+            <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Previous games</h2>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+              {previousMatches.length} archived result{previousMatches.length === 1 ? '' : 's'}.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleResetPrevious}
-            disabled={isSaving || previousMatches.length === 0}
-            className={`${secondaryButtonClass} w-full sm:w-auto`}
-          >
-            Reset previous games
-          </button>
-        </div>
-        <div className="px-5 py-5 sm:px-6">
-        {previousMatches.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {previousMatches.map((match) => (
-              <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
-            ))}
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setIsPreviousGamesOpen((isOpen) => !isOpen)}
+              className={`${secondaryButtonClass} w-full sm:w-auto`}
+              aria-expanded={isPreviousGamesOpen}
+            >
+              {isPreviousGamesOpen ? 'Hide archive' : 'Show archive'}
+            </button>
           </div>
-        ) : (
-          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 shadow-sm shadow-[#047857]/10">
-            <p className="text-base font-black text-[#101828]">No previous games are showing.</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Completed fixtures appear here after full time so staff can review goals and results.
-            </p>
-          </div>
-        )}
         </div>
+        {isPreviousGamesOpen ? (
+          <div className="border-t border-[#d7e5dc] px-5 py-5 sm:px-6">
+            <div className="mb-4 flex flex-col gap-3 rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-bold leading-6 text-[#92400e]">
+                Reset only when starting a new season. Full time results will be hidden from the parent results list.
+              </p>
+              <button
+                type="button"
+                onClick={handleResetPrevious}
+                disabled={isSaving || previousMatches.length === 0}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#fdba74] bg-white px-4 py-2 text-sm font-black text-[#9a3412] transition hover:bg-[#ffedd5] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Reset previous games
+              </button>
+            </div>
+          {previousMatches.length > 0 ? (
+            <div className="grid gap-2 md:grid-cols-2">
+              {previousMatches.map((match) => (
+                <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 shadow-sm shadow-[#047857]/10">
+              <p className="text-base font-black text-[#101828]">No previous games are showing.</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                Completed fixtures appear here after full time so staff can review goals and results.
+              </p>
+            </div>
+          )}
+          </div>
+        ) : null}
       </section>
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
@@ -1517,6 +1559,7 @@ function MatchDayCard({
                             const selectionReason = getVolunteerSelectionReason(row)
                             const isSelected = isSelectedRoleVolunteer(selectedAssignment, row)
                             const canSelect = !selectionReason
+                            const rowStatus = getVolunteerRowStatus({ isSelected, response: row.response, selectedAssignment })
 
                             return (
                               <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1527,7 +1570,17 @@ function MatchDayCard({
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-                                    {getVolunteerResponseLabel(row.response)}
+                                    Response: {getVolunteerResponseLabel(row.response)}
+                                  </span>
+                                  <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${
+                                    isSelected
+                                      ? 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+                                      : normalizeVolunteerText(row.response) === 'yes'
+                                        ? 'border-[#d7e5dc] bg-white text-[#101828]'
+                                        : 'border-[#fed7aa] bg-[#fff7ed] text-[#92400e]'
+                                  }`}
+                                  >
+                                    {rowStatus}
                                   </span>
                                   {canSelect ? (
                                     <button
@@ -1536,7 +1589,7 @@ function MatchDayCard({
                                       disabled={isBusy}
                                       className={secondaryButtonClass}
                                     >
-                                      {isSelected ? 'Deselect' : selectedAssignment ? 'Change' : 'Select'}
+                                      {isSelected ? 'Deselect' : selectedAssignment ? 'Replace selected volunteer' : 'Select'}
                                     </button>
                                   ) : (
                                     <span className="max-w-56 text-xs font-semibold leading-5 text-[#92400e]">

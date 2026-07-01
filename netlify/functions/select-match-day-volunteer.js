@@ -31,6 +31,11 @@ function normalizeEmail(value) {
   return normalizeText(value).toLowerCase()
 }
 
+function normalizeHexColor(value) {
+  const normalizedValue = normalizeText(value)
+  return /^#[0-9a-f]{6}$/i.test(normalizedValue) ? normalizedValue : '#047857'
+}
+
 function escapeHtml(value) {
   return normalizeText(value)
     .replace(/&/g, '&amp;')
@@ -42,6 +47,12 @@ function escapeHtml(value) {
 
 function isValidEmail(value) {
   return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(normalizeText(value))
+}
+
+function getAppOrigin(event) {
+  const host = event.headers['x-forwarded-host'] || event.headers.host || 'footballplayer.online'
+  const protocol = event.headers['x-forwarded-proto'] || 'https'
+  return `${protocol}://${host}`.replace(/\/$/, '')
 }
 
 function createRequestSupabaseClient(event, token) {
@@ -90,7 +101,80 @@ function formatTime(value) {
 }
 
 function formatDate(value) {
-  return normalizeText(value) || 'Not set'
+  const normalizedValue = normalizeText(value)
+  const match = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})/)
+
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`
+  }
+
+  return normalizedValue || 'Not set'
+}
+
+function getGoogleDatePart(dateValue) {
+  const match = normalizeText(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return match ? `${match[1]}${match[2]}${match[3]}` : ''
+}
+
+function getNextGoogleDatePart(dateValue) {
+  const match = normalizeText(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})/)
+
+  if (!match) {
+    return ''
+  }
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1))
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function addMinutesToTime(value, minutesToAdd) {
+  const normalizedValue = normalizeText(value)
+
+  if (!/^\d{2}:\d{2}/.test(normalizedValue)) {
+    return ''
+  }
+
+  const [hours, minutes] = normalizedValue.slice(0, 5).split(':').map(Number)
+  const totalMinutes = (hours * 60) + minutes + Number(minutesToAdd || 0)
+  const wrappedMinutes = ((totalMinutes % 1440) + 1440) % 1440
+  const nextHours = Math.floor(wrappedMinutes / 60)
+  const nextMinutes = wrappedMinutes % 60
+  return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`
+}
+
+function buildGoogleCalendarLink({ match, roleLabel, teamName, opponent, portalUrl }) {
+  const datePart = getGoogleDatePart(match.match_date)
+
+  if (!datePart) {
+    return ''
+  }
+
+  const startTime = normalizeText(match.arrival_time || match.kickoff_time).slice(0, 5)
+  const endTime = normalizeText(match.kickoff_time).slice(0, 5)
+    ? addMinutesToTime(match.kickoff_time, 120)
+    : addMinutesToTime(startTime, 120)
+  const dates = startTime
+    ? `${datePart}T${startTime.replace(':', '')}00/${datePart}T${(endTime || addMinutesToTime(startTime, 120)).replace(':', '')}00`
+    : `${datePart}/${getNextGoogleDatePart(match.match_date) || datePart}`
+  const description = [
+    `Selected Match Day role: ${roleLabel}`,
+    `Team: ${teamName}`,
+    `Opponent: ${opponent}`,
+    `Kick-off: ${formatTime(match.kickoff_time)}`,
+    match.arrival_time ? `Arrival: ${formatTime(match.arrival_time)}` : '',
+    match.venue_name ? `Venue: ${match.venue_name}` : '',
+    portalUrl ? `Parent Portal: ${portalUrl}` : '',
+  ].filter(Boolean).join('\n')
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `${roleLabel}: ${teamName} vs ${opponent}`,
+    dates,
+    details: description,
+    location: normalizeText(match.venue_name || match.venue_address),
+    ctz: 'Europe/London',
+  })
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
 function getAssignmentParentEmail(assignment) {
@@ -108,10 +192,15 @@ function getAssignmentParentLabel(assignment) {
   return normalizeText(parentLink?.email || player?.player_name || 'Parent')
 }
 
-function buildRoleNotificationEmail({ match, profile, recipientEmail, recipientName, role, action }) {
+function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail, recipientName, role, action }) {
   const roleLabel = ROLE_CONFIG[role]?.label || 'Volunteer'
   const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
   const opponent = normalizeText(match.opponent || 'Fixture')
+  const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
+  const clubLogoUrl = normalizeText(match.clubs?.logo_url)
+  const accentColor = normalizeHexColor(match.teams?.theme_accent || match.clubs?.theme_accent || '#047857')
+  const portalUrl = `${appOrigin}/parent-portal`
+  const calendarUrl = buildGoogleCalendarLink({ match, roleLabel, teamName, opponent, portalUrl })
   const selectedCopy = action === 'selected'
     ? `You have been selected as ${roleLabel.toLowerCase()} for this fixture.`
     : `You are no longer selected as ${roleLabel.toLowerCase()} for this fixture.`
@@ -120,6 +209,7 @@ function buildRoleNotificationEmail({ match, profile, recipientEmail, recipientN
     ['Opponent', opponent],
     ['Date', formatDate(match.match_date)],
     ['Kick off', formatTime(match.kickoff_time)],
+    ['Arrival', formatTime(match.arrival_time)],
     ['Venue', normalizeText(match.venue_name) || 'Not set'],
   ]
   const rows = details.map(([label, value]) => `
@@ -132,23 +222,34 @@ function buildRoleNotificationEmail({ match, profile, recipientEmail, recipientN
   return {
     subject,
     html: `
-      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
-        <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Match Day volunteer</p>
-        <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">${escapeHtml(roleLabel)} update</h1>
+      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;background:#f7faf8;">
+        <div style="border:1px solid #d7e5dc;border-radius:12px;background:#ffffff;overflow:hidden;">
+          <div style="padding:20px 22px;background:${escapeHtml(accentColor)};color:#ffffff;">
+            ${clubLogoUrl ? `<img src="${escapeHtml(clubLogoUrl)}" alt="${escapeHtml(clubName)} logo" style="display:block;max-height:44px;max-width:180px;margin:0 0 12px;background:#ffffff;border-radius:8px;padding:6px;">` : ''}
+            <p style="margin:0;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">${escapeHtml(clubName)}</p>
+            <h1 style="margin:8px 0 0;font-size:26px;line-height:1.15;">${escapeHtml(roleLabel)} update</h1>
+          </div>
+          <div style="padding:22px;">
         <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
           Hi ${escapeHtml(recipientName || 'there')}, ${escapeHtml(selectedCopy)}
         </p>
         <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">${rows}</table>
+        <div style="display:block;margin:22px 0;">
+          <a href="${escapeHtml(portalUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:${escapeHtml(accentColor)};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">View in Parent Portal</a>
+          ${calendarUrl ? `<a href="${escapeHtml(calendarUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#101828;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Add to calendar</a>` : ''}
+        </div>
         <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
           Updated by ${escapeHtml(profile.display_name || profile.name || profile.email || 'team staff')}.
         </p>
+          </div>
+        </div>
       </div>
     `,
     to: [recipientEmail],
   }
 }
 
-async function queueRoleNotification(adminSupabase, { match, profile, recipientEmail, recipientName, role, action, parentLinkId }) {
+async function queueRoleNotification(adminSupabase, { appOrigin, match, profile, recipientEmail, recipientName, role, action, parentLinkId }) {
   const normalizedEmail = normalizeEmail(recipientEmail)
 
   if (!isValidEmail(normalizedEmail)) {
@@ -156,6 +257,7 @@ async function queueRoleNotification(adminSupabase, { match, profile, recipientE
   }
 
   const email = buildRoleNotificationEmail({
+    appOrigin,
     match,
     profile,
     recipientEmail: normalizedEmail,
@@ -231,7 +333,9 @@ async function resolveParentLink(adminSupabase, { match, request }) {
     }
 
     parentLink = data
-  } else {
+  }
+
+  if (!parentLink?.id) {
     const requestEmail = normalizeEmail(request.recipient_email)
     const { data, error } = await adminSupabase
       .from('parent_player_links')
@@ -254,10 +358,38 @@ async function resolveParentLink(adminSupabase, { match, request }) {
   }
 
   if (!parentLink?.id) {
+    const requestEmail = normalizeEmail(request.recipient_email)
+    const requestPlayerName = normalizeText(request.player_name).toLowerCase()
+    const { data, error } = await adminSupabase
+      .from('parent_player_links')
+      .select(baseSelect)
+      .eq('club_id', match.club_id)
+      .eq('status', 'active')
+
+    if (error) {
+      throw error
+    }
+
+    const matches = (data || []).filter((link) => {
+      const player = Array.isArray(link.players) ? link.players[0] : link.players
+      const sameTeam = !match.team_id || !link.team_id || String(link.team_id) === String(match.team_id)
+      return sameTeam
+        && normalizeEmail(link.email) === requestEmail
+        && normalizeText(player?.player_name).toLowerCase() === requestPlayerName
+    })
+
+    if (matches.length === 1) {
+      parentLink = matches[0]
+    } else if (matches.length > 1) {
+      throw Object.assign(new Error('This volunteer could not be assigned because more than one linked parent matches that response.'), { statusCode: 409 })
+    }
+  }
+
+  if (!parentLink?.id) {
     throw Object.assign(new Error('This volunteer could not be assigned because the linked parent account could not be resolved.'), { statusCode: 409 })
   }
 
-  if (String(parentLink.player_id || '') !== String(request.player_id || '')) {
+  if (request.player_id && parentLink.player_id && String(parentLink.player_id) !== String(request.player_id)) {
     throw Object.assign(new Error('This volunteer could not be assigned because the parent link does not match the response player.'), { statusCode: 409 })
   }
 
@@ -344,6 +476,7 @@ export async function handler(event) {
     const token = getBearerToken(event)
     const supabase = createRequestSupabaseClient(event, token)
     const adminSupabase = createSupabaseAdminClient(event)
+    const appOrigin = getAppOrigin(event)
     const profile = await getAuthenticatedProfile(event, supabase)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
@@ -362,7 +495,7 @@ export async function handler(event) {
 
     const { data: match, error: matchError } = await supabase
       .from('match_days')
-      .select('*, teams:team_id (name)')
+      .select('*, teams:team_id (name, theme_accent), clubs:club_id (name, logo_url)')
       .eq('id', matchDayId)
       .eq('club_id', profile.club_id)
       .maybeSingle()
@@ -436,6 +569,7 @@ export async function handler(event) {
       if (selected && !isSameSelection) {
         const queued = await queueRoleNotification(adminSupabase, {
           match,
+          appOrigin,
           profile,
           recipientEmail: parentLink.email || request.recipient_email,
           recipientName: request.recipient_name || parentLink.email,
@@ -452,6 +586,7 @@ export async function handler(event) {
         if (previousEmail && previousEmail !== normalizeEmail(parentLink.email || request.recipient_email)) {
           const queued = await queueRoleNotification(adminSupabase, {
             match,
+            appOrigin,
             profile,
             recipientEmail: previousEmail,
             recipientName: previousName,
@@ -463,6 +598,7 @@ export async function handler(event) {
         } else if (!selected) {
           const queued = await queueRoleNotification(adminSupabase, {
             match,
+            appOrigin,
             profile,
             recipientEmail: previousEmail,
             recipientName: previousName,

@@ -85,14 +85,19 @@ test('calendar match type selection routes to Match Day instead of generic save'
   assert.match(source, /setCalendarModal\(null\)/)
 })
 
-test('match day calendar item edit opens Match Day workflow', () => {
+test('match day calendar item edit stays inside the calendar modal', () => {
   const source = readFileSync(
     new URL('../src/pages/SessionsPage.jsx', import.meta.url),
     'utf8',
   )
 
-  assert.match(source, /currentEvent\?\.sourceType === 'match-day'/)
-  assert.match(source, /navigate\(currentEvent\.href \|\| '\/match-day'\)/)
+  assert.match(source, /setCalendarModal\(\(current\) => \(\{ \.\.\.current, mode: 'edit' \}\)\)/)
+  assert.doesNotMatch(source, /navigate\(currentEvent\.href \|\| '\/match-day'\)/)
+  assert.match(source, /Cancel this fixture\? This keeps existing history and removes it from the active calendar\./)
+  assert.match(source, /Move or reschedule/)
+  assert.match(source, /Cancel fixture/)
+  assert.match(source, /Delete event/)
+  assert.match(source, /Save changes/)
 })
 
 test('manual review Match Day migration removes missing player team assignment dependency', () => {
@@ -152,6 +157,10 @@ test('match day page keeps fixture controls behind one compact Manage panel', ()
   assert.match(source, /getRoleStatus\(match, 'referee'\)/)
   assert.match(source, /getRoleStatus\(match, 'linesman'\)/)
   assert.match(source, /getRoleResponseRows\(match, role\)/)
+  assert.match(source, /const \[isPreviousGamesOpen, setIsPreviousGamesOpen\] = useState\(false\)/)
+  assert.match(source, /aria-expanded=\{isPreviousGamesOpen\}/)
+  assert.match(source, /Show archive/)
+  assert.match(source, /Hide archive/)
 })
 
 test('match day normalizer preserves seeded camel-case availability summaries', () => {

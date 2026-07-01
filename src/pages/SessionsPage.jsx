@@ -1714,6 +1714,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return
     }
 
+    const deleteMessage = activeEvent.sourceType === 'match-day'
+      ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar.'
+      : activeEvent.sourceType === 'session'
+        ? 'Delete or remove this session from the calendar? Player records stay in history when a completed session is removed.'
+        : 'Delete this calendar event? This cannot be undone.'
+
+    if (!window.confirm(deleteMessage)) {
+      return
+    }
+
     setIsSaving(true)
     setErrorMessage('')
 
@@ -2196,12 +2206,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
           onEdit={() => {
-            const currentEvent = calendarModal?.event
-            if (currentEvent?.sourceType === 'match-day') {
-              setCalendarModal(null)
-              navigate(currentEvent.href || '/match-day')
-              return
-            }
             setCalendarModal((current) => ({ ...current, mode: 'edit' }))
           }}
           onOpenWorkflow={() => {
@@ -2495,12 +2499,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
         onEdit={() => {
-          const currentEvent = calendarModal?.event
-          if (currentEvent?.sourceType === 'match-day') {
-            setCalendarModal(null)
-            navigate(currentEvent.href || '/match-day')
-            return
-          }
           setCalendarModal((current) => ({ ...current, mode: 'edit' }))
         }}
         onOpenWorkflow={() => {
@@ -2978,19 +2976,32 @@ function CalendarEventModal({
                     disabled={isBusy}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete'}
+                    {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
                   </button>
                 ) : null}
                 <button type="button" onClick={onCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
-                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save event'}</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save changes'}</button>
               </div>
             </div>
           </form>
         ) : (
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
             {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
-            {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Edit or move</button> : null}
-            <button type="button" onClick={onCancel} className={secondaryButtonClass}>Close</button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              {event && editableSource ? (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  disabled={isBusy}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
+                </button>
+              ) : null}
+              {editableSource ? <button type="button" onClick={onEdit} className={secondaryButtonClass}>Edit event</button> : null}
+              {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Move or reschedule</button> : null}
+              <button type="button" onClick={onCancel} className={secondaryButtonClass}>Close</button>
+            </div>
           </div>
         )}
       </div>
