@@ -1,13 +1,7 @@
 const PRODUCTION_APP_ORIGIN = 'https://footballplayer.online'
-const STAGING_APP_ORIGIN = 'https://staging.footballplayer.online'
-const STAGING_ALIAS_APP_ORIGIN = 'https://football-os-staging.staging.footballplayer.online'
 const PRODUCTION_PARENT_ORIGIN = 'https://parent.footballplayer.online'
-const STAGING_PARENT_ORIGIN = 'https://parent-staging.staging.footballplayer.online'
-const STAGING_ALIAS_APP_HOST = 'football-os-staging.staging.footballplayer.online'
 const LEGACY_PRODUCTION_APP_HOST = 'playerfeedback.online'
-const LEGACY_STAGING_APP_HOST = 'staging.playerfeedback.online'
 const LEGACY_PRODUCTION_PARENT_HOST = 'parent.playerfeedback.online'
-const LEGACY_STAGING_PARENT_HOST = 'parent-staging.playerfeedback.online'
 
 function cleanOrigin(value) {
   return String(value ?? '').trim().replace(/\/$/, '')
@@ -21,14 +15,11 @@ export function isParentPortalHost(hostname = globalThis.location?.hostname ?? '
   const normalizedHost = String(hostname ?? '').trim().toLowerCase()
 
   return normalizedHost === 'parent.footballplayer.online'
-    || normalizedHost === 'parent-staging.footballplayer.online'
-    || normalizedHost === 'parent-staging.staging.footballplayer.online'
     || normalizedHost === LEGACY_PRODUCTION_PARENT_HOST
-    || normalizedHost === LEGACY_STAGING_PARENT_HOST
 }
 
 export function isParentInviteHost(hostname = globalThis.location?.hostname ?? '') {
-  return isParentPortalHost(hostname) || String(hostname ?? '').trim().toLowerCase() === STAGING_ALIAS_APP_HOST
+  return isParentPortalHost(hostname)
 }
 
 export function getMainAppOrigin() {
@@ -40,19 +31,7 @@ export function getMainAppOrigin() {
   }
 
   if (isParentPortalHost(currentHost)) {
-    return currentHost === 'parent-staging.footballplayer.online'
-      || currentHost === 'parent-staging.staging.footballplayer.online'
-      || currentHost === LEGACY_STAGING_PARENT_HOST
-      ? STAGING_APP_ORIGIN
-      : PRODUCTION_APP_ORIGIN
-  }
-
-  if (currentHost === 'staging.footballplayer.online' || currentHost === LEGACY_STAGING_APP_HOST) {
-    return STAGING_APP_ORIGIN
-  }
-
-  if (currentHost === STAGING_ALIAS_APP_HOST) {
-    return STAGING_ALIAS_APP_ORIGIN
+    return PRODUCTION_APP_ORIGIN
   }
 
   if (currentHost === 'footballplayer.online' || currentHost === LEGACY_PRODUCTION_APP_HOST) {
@@ -83,16 +62,7 @@ export function getParentAppOrigin() {
   }
 
   if (currentHost === 'localhost') {
-    return currentOrigin || STAGING_PARENT_ORIGIN
-  }
-
-  if (currentHost === 'staging.footballplayer.online'
-    || currentHost === STAGING_ALIAS_APP_HOST
-    || currentHost === 'parent-staging.footballplayer.online'
-    || currentHost === 'parent-staging.staging.footballplayer.online'
-    || currentHost === LEGACY_STAGING_APP_HOST
-    || currentHost === LEGACY_STAGING_PARENT_HOST) {
-    return STAGING_PARENT_ORIGIN
+    return currentOrigin || PRODUCTION_PARENT_ORIGIN
   }
 
   if (currentHost === 'footballplayer.online'

@@ -52,17 +52,8 @@ export function buildExistingParentAccountResponse({ email }) {
 
 function getBaseUrl(event) {
   const forwardedProto = event.headers['x-forwarded-proto'] || 'https'
-  const forwardedHost = event.headers['x-forwarded-host'] || event.headers.host || 'staging.footballplayer.online'
+  const forwardedHost = event.headers['x-forwarded-host'] || event.headers.host || 'parent.footballplayer.online'
   const normalizedHost = String(forwardedHost ?? '').trim().toLowerCase()
-
-  if (normalizedHost === 'staging.footballplayer.online'
-    || normalizedHost === 'parent-staging.footballplayer.online'
-    || normalizedHost === 'parent-staging.staging.footballplayer.online'
-    || normalizedHost === 'football-os-staging.staging.footballplayer.online'
-    || normalizedHost === 'staging.playerfeedback.online'
-    || normalizedHost === 'parent-staging.playerfeedback.online') {
-    return 'https://parent-staging.staging.footballplayer.online'
-  }
 
   if (normalizedHost === 'footballplayer.online'
     || normalizedHost === 'parent.footballplayer.online'

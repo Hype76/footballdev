@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build:staging && npm run verify:build-env"
+  command = "npm run build:live && npm run verify:build-env"
   publish = "dist"
 
 [build.environment]
@@ -13,13 +13,13 @@
   VITE_PAYMENTS_DISABLED = "false"
 
 [context.branch-deploy]
-  command = "npm run build:staging && npm run verify:build-env"
+  command = "node scripts/staging-retired.mjs branch-deploy"
 
 [context.branch-deploy.environment]
   VITE_PAYMENTS_DISABLED = "true"
 
 [context.deploy-preview]
-  command = "npm run build:staging && npm run verify:build-env"
+  command = "node scripts/staging-retired.mjs deploy-preview"
 
 [context.deploy-preview.environment]
   VITE_PAYMENTS_DISABLED = "true"

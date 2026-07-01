@@ -292,19 +292,19 @@ function resolveInviteDeliveryPolicy(event, {
 
   if (context === 'deploy-preview') {
     return {
-      status: 'skip',
-      label: 'deploy_preview',
-      reason: 'preview_policy',
-      message: 'Email delivery was skipped by preview policy.',
+      status: 'error',
+      label: 'retired_deploy_preview',
+      reason: 'retired_preview_policy',
+      message: 'V1 deploy previews are retired. Use production-only V1 validation unless a new isolated staging environment is explicitly approved.',
     }
   }
 
   if (context === 'branch-deploy' || branch.includes('staging') || useStagingPolicy) {
     return {
-      status: 'skip',
-      label: 'staging',
-      reason: 'staging_policy',
-      message: 'Email delivery was skipped by staging policy.',
+      status: 'error',
+      label: 'retired_staging',
+      reason: 'retired_staging_policy',
+      message: 'V1 staging club creation is retired. Use production-only V1 validation unless a new isolated staging environment is explicitly approved.',
     }
   }
 

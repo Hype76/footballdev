@@ -120,6 +120,7 @@ test('production preservation guards stay present before deploy', async () => {
 
   assert.match(safety, /liveProjectRef = 'hvapkizujvsahvgspser'/)
   assert.match(safety, /legacyStagingProjectRef = 'llpufwzvgxyczxcjwupu'/)
+  assert.match(safety, /V1 staging deploy safety checks are retired/)
   assert.match(safety, /Production prep requires the exact deploy command to be reviewed\./)
   assert.match(safety, /Unexpected legacy staging Supabase ref appears in a live-target build\./)
   assert.match(platformDeleteFunction, /export async function handler/)

@@ -1,10 +1,6 @@
 import process from 'node:process'
 import { normalizePlanKey as normalizeCanonicalPlanKey } from '../../../src/lib/plans.js'
 
-const STAGING_PROJECT_REF = 'llpufwzvgxyczxcjwupu'
-const LIVE_PROJECT_REF = 'hvapkizujvsahvgspser'
-const STAGING_BRANCHES = new Set(['football-os-staging', 'staging', 'codex/football-club-os-staging-rebuild'])
-
 export const PLAN_BY_NAME = {
   'Single Team': 'single_team',
   'Small Club': 'small_club',
@@ -111,36 +107,11 @@ export function getSubscriptionPeriodEnd(subscription) {
   return periodEnd ? new Date(periodEnd * 1000).toISOString() : null
 }
 
-export function arePaymentsDisabled(event = {}) {
+export function arePaymentsDisabled() {
   const envValue = (name) => globalThis.Netlify?.env?.get?.(name) ?? process.env[name]
   const value = envValue('VITE_PAYMENTS_DISABLED')
 
-  if (String(value ?? '').trim().toLowerCase() === 'true') {
-    return true
-  }
-
-  const context = String(envValue('CONTEXT') ?? '').trim().toLowerCase()
-  const branch = String(envValue('BRANCH') ?? '').trim().toLowerCase()
-  const host = String(event.headers?.['x-forwarded-host'] || event.headers?.host || '').trim().toLowerCase()
-  const supabaseUrl = String(envValue('STAGING_SUPABASE_URL') || envValue('VITE_SUPABASE_URL') || '').trim()
-  const isStagingSupabase = supabaseUrl.includes(`${STAGING_PROJECT_REF}.supabase.co`)
-  const isLiveSupabase = supabaseUrl.includes(`${LIVE_PROJECT_REF}.supabase.co`)
-  const hasStagingRuntimeEvidence = Boolean(
-    context === 'branch-deploy' ||
-      context === 'deploy-preview' ||
-      STAGING_BRANCHES.has(branch) ||
-      branch.includes('staging') ||
-      host.includes('football-os-staging') ||
-      host.includes('staging.footballplayer.online'),
-  )
-
-  return Boolean(
-    isStagingSupabase &&
-      hasStagingRuntimeEvidence &&
-      !isLiveSupabase &&
-      context !== 'production' &&
-      branch !== 'main',
-  )
+  return String(value ?? '').trim().toLowerCase() === 'true'
 }
 
 export function json(statusCode, body) {

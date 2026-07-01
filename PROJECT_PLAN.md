@@ -25,14 +25,14 @@ Football Player should give a club a trusted football workspace that is easier t
 
 ## 2. Environment Map
 
-Production and staging are separate boundaries. Recovery work must stay on staging Netlify and test Supabase until the user explicitly approves promotion.
+V1 production is the only active hosted boundary. The former V1 staging Netlify surface and test Supabase database were decommissioned on 2026-06-18.
 
 | Boundary | Current evidence | Rule |
 | --- | --- | --- |
 | Production Netlify | `netlify.toml` has `[context.production]` using `npm run build:live && npm run verify:build-env`. Existing production URL is documented in `docs/live-backup-baseline-2026-05-25.md`. | Do not deploy to production during recovery unless explicitly approved. |
-| Staging Netlify | `netlify.toml` branch and deploy preview contexts use `npm run build:staging && npm run verify:build-env`. Staging URLs and deploy evidence are documented in `docs/staging-verification-2026-05-27.md`. | All recovery builds and user review deployments belong here. |
+| Staging Netlify | `netlify.toml` branch and deploy preview contexts now fail closed with a retired-staging message. Historical staging URLs and deploy evidence remain in `docs/staging-verification-2026-05-27.md`. | Do not use V1 staging. Create a new isolated staging environment only with explicit approval. |
 | Live Supabase | `.env.production` points at the live Supabase project. Live project baseline is documented in `docs/live-backup-baseline-2026-05-25.md`. | Do not write to live Supabase during recovery. Do not copy staging data into live. |
-| Test Supabase | `.env.staging` and the baseline doc identify the test Supabase project used by staging. | Use this database for recovery testing, seed data, route audits, and role verification. |
+| Test Supabase | The former test Supabase project was retired. Historical refs remain only in docs or guardrails that assert the retired ref is forbidden. | Do not reference or attempt to use the retired test database. |
 
 Existing docs supporting the boundary:
 
@@ -40,30 +40,26 @@ Existing docs supporting the boundary:
 - `docs/staging-verification-2026-05-27.md`
 - `netlify.toml`
 - `.env.production`
-- `.env.staging`
 - `scripts/verify-web-build-env.mjs`
 
 Hard recovery rule:
 
-No production deploys, no live database writes, no live migration runs, and no staging-to-live data copies until the staged plan is verified and the user explicitly approves promotion.
+No production deploys, no live database writes, no live migration runs, and no new staging or test infrastructure unless the user explicitly approves the exact action.
 
 Netlify deploy safety rule:
 
-Before any Netlify deploy command, run `npm run check:netlify-deploy-safety` and print the deployment target evidence. The output must include the current git branch, target branch, Netlify site id when available, deploy context, intended URL or context, whether the command can trigger production, whether `main` is involved, and whether the live Supabase ref could be used.
+Before any production Netlify deploy preparation, run `npm run check:local-live-validation-safety` after `npm run build:live` and `npm run verify:build-env`. The output must include the current git branch, Netlify site id when available, whether `main` is involved, and whether the live Supabase ref is present while the retired staging ref is absent.
 
 The safety check must stop the work when any of these are true:
 
-- Target branch is `main`.
-- Deploy context is `production`, unless the user explicitly approved a production deploy in that exact prompt.
-- The live Supabase ref `hvapkizujvsahvgspser` appears in the staging build or staging deploy target.
-- The staging Supabase ref `llpufwzvgxyczxcjwupu` is not proven for staging.
+- A production deploy has not been explicitly approved in that exact prompt.
+- The retired staging Supabase ref `llpufwzvgxyczxcjwupu` appears in the build or deploy evidence.
 - Netlify CLI cannot prove the target context.
-- A staging deploy targets anything other than `football-os-staging`, unless the user explicitly approves another staging branch in that exact prompt.
-- The command uses `--prod` during staging work.
+- A branch deploy or deploy preview is being used as V1 staging.
 
 Known deploy ambiguity:
 
-An earlier `netlify deploy --trigger` attempt with a branch context republished the existing `main` commit in production context. It did not deploy staging setup-guide work to live and did not touch live Supabase, but it proved the CLI trigger path is unsafe for staging work unless the target context is independently proven. Future staging work must use the safety check first and must not use `netlify deploy --trigger` when the intended result is a staging branch deploy.
+An earlier `netlify deploy --trigger` attempt with a branch context republished the existing `main` commit in production context. It did not deploy staging setup-guide work to live and did not touch live Supabase, but it proved the CLI trigger path is unsafe unless the target context is independently proven. Do not use `netlify deploy --trigger` as a shortcut for V1 release work.
 
 ## 3. Current App Inventory
 
@@ -149,9 +145,9 @@ Important scripts in `package.json` and `scripts`:
 
 - `npm run build`
 - `npm run build:live`
-- `npm run build:staging`
+- `npm run build:staging` now fails closed because V1 staging is retired.
 - `npm run verify:build-env`
-- `npm run audit:staging-clicks`
+- `npm run audit:staging-clicks` now fails closed because V1 staging is retired.
 - `npm run lint`
 - `npm run preview`
 - Mobile gates such as `mobile:doctor`, `mobile:preflight`, `mobile:release-check`, `mobile:build:preflight`, `mobile:reviewer:preflight`, `mobile:store:preflight`, and store build or submit commands.

@@ -264,7 +264,7 @@ test('createPlatformClubResult treats production host as production when Netlify
   assert.equal(emailCalls.length, 1)
 })
 
-test('createPlatformClubResult skips email on staging and labels the invite correctly', async () => {
+test('createPlatformClubResult blocks retired staging club creation', async () => {
   setEnv({
     BRANCH: 'staging',
     CONTEXT: 'branch-deploy',
@@ -273,34 +273,46 @@ test('createPlatformClubResult skips email on staging and labels the invite corr
   })
   const mock = createMockSupabase()
   const emailCalls = []
-  const response = await createPlatformClubResult(createEvent({}, { host: 'football-os-staging.netlify.app' }), {
-    supabaseAdmin: mock.supabaseAdmin,
-    sendOwnerInviteEmailImpl: async (payload) => {
-      emailCalls.push(payload)
-      return { data: { id: 'email-1' } }
-    },
-  })
-  const parsed = parseResponse(response)
 
-  assert.equal(parsed.statusCode, 200)
-  assert.equal(parsed.body.success, true)
-  assert.equal(parsed.body.invite.sent, false)
-  assert.equal(parsed.body.invite.emailFailed, false)
-  assert.equal(parsed.body.invite.deliveryStatus, 'skipped')
-  assert.equal(parsed.body.invite.deliveryPolicy, 'staging')
-  assert.equal(parsed.body.invite.deliveryReason, 'staging_policy')
-  assert.match(parsed.body.invite.deliveryMessage, /staging policy/)
+  await assert.rejects(
+    () => createPlatformClubResult(createEvent({}, { host: 'football-os-staging.netlify.app' }), {
+      supabaseAdmin: mock.supabaseAdmin,
+      sendOwnerInviteEmailImpl: async (payload) => {
+        emailCalls.push(payload)
+        return { data: { id: 'email-1' } }
+      },
+    }),
+    /V1 staging club creation is retired/,
+  )
+
   assert.equal(emailCalls.length, 0)
 })
 
-test('createPlatformClubResult skips email on deploy preview, local development, and test policy', async () => {
+test('createPlatformClubResult blocks retired deploy preview club creation', async () => {
+  setEnv({
+    CONTEXT: 'deploy-preview',
+    NODE_ENV: 'production',
+    RESEND_API_KEY: 'resend-fixture-key',
+  })
+  const mock = createMockSupabase()
+  const emailCalls = []
+
+  await assert.rejects(
+    () => createPlatformClubResult(createEvent({}, { host: 'deploy-preview-123--footballplayer-online.netlify.app' }), {
+      supabaseAdmin: mock.supabaseAdmin,
+      sendOwnerInviteEmailImpl: async (payload) => {
+        emailCalls.push(payload)
+        return { data: { id: 'email-1' } }
+      },
+    }),
+    /V1 deploy previews are retired/,
+  )
+
+  assert.equal(emailCalls.length, 0)
+})
+
+test('createPlatformClubResult skips email on local development and test policy', async () => {
   const cases = [
-    {
-      env: { CONTEXT: 'deploy-preview', NODE_ENV: 'production', RESEND_API_KEY: 'resend-fixture-key' },
-      headers: { host: 'deploy-preview-123--footballplayer-online.netlify.app' },
-      expectedPolicy: 'deploy_preview',
-      expectedReason: 'preview_policy',
-    },
     {
       env: { CONTEXT: '', NETLIFY_DEV: 'true', NODE_ENV: 'development', RESEND_API_KEY: 'resend-fixture-key' },
       headers: { host: 'localhost:8888', 'x-forwarded-proto': 'http' },

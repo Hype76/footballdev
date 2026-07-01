@@ -22,17 +22,18 @@ export function isStagingRequest(event = {}) {
     || branch.includes('staging')
 }
 
+function assertNotRetiredStagingRequest(event = {}) {
+  if (isStagingRequest(event)) {
+    throw new Error('V1 staging runtime is retired. Use production-only V1 validation unless a new isolated staging environment is explicitly approved.')
+  }
+}
+
 export function resolveSupabaseEnvironment(event = {}, { publicOnly = false } = {}) {
-  const useStaging = isStagingRequest(event)
-  const supabaseUrl = useStaging
-    ? envValue('STAGING_SUPABASE_URL') || envValue('VITE_SUPABASE_URL')
-    : envValue('VITE_SUPABASE_URL')
-  const publishableKey = useStaging
-    ? envValue('STAGING_SUPABASE_PUBLISHABLE_KEY') || envValue('VITE_SUPABASE_PUBLISHABLE_KEY') || envValue('VITE_SUPABASE_ANON_KEY')
-    : envValue('VITE_SUPABASE_PUBLISHABLE_KEY') || envValue('VITE_SUPABASE_ANON_KEY')
-  const serviceRoleKey = useStaging
-    ? envValue('STAGING_SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_ROLE_KEY')
-    : envValue('SUPABASE_SERVICE_ROLE_KEY')
+  assertNotRetiredStagingRequest(event)
+
+  const supabaseUrl = envValue('VITE_SUPABASE_URL')
+  const publishableKey = envValue('VITE_SUPABASE_PUBLISHABLE_KEY') || envValue('VITE_SUPABASE_ANON_KEY')
+  const serviceRoleKey = envValue('SUPABASE_SERVICE_ROLE_KEY')
 
   if (!supabaseUrl) {
     throw new Error('Missing required Supabase URL environment variable.')
@@ -43,14 +44,14 @@ export function resolveSupabaseEnvironment(event = {}, { publicOnly = false } = 
       throw new Error('Missing required Supabase publishable key environment variable.')
     }
 
-    return { supabaseUrl, publishableKey, useStaging }
+    return { supabaseUrl, publishableKey, useStaging: false }
   }
 
   if (!serviceRoleKey) {
     throw new Error('Missing required Supabase service role environment variable.')
   }
 
-  return { supabaseUrl, serviceRoleKey, useStaging }
+  return { supabaseUrl, serviceRoleKey, useStaging: false }
 }
 
 export function createSupabaseAdminClient(event = {}) {

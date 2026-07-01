@@ -13,7 +13,7 @@ const liveDist = {
   hasLiveRef: true,
 }
 
-const stagingDist = {
+const retiredStagingDist = {
   exists: true,
   hasLegacyStagingRef: true,
   hasLiveRef: false,
@@ -21,10 +21,10 @@ const stagingDist = {
 
 test('local live validation allows live ref with no deploy command or context', () => {
   const result = evaluateSafety({
-    currentBranch: 'football-os-staging',
+    currentBranch: 'codex/fp-v1-staging-retire-safety-06',
     dist: liveDist,
     mode: 'local-live',
-    targetBranch: 'football-os-staging',
+    targetBranch: 'codex/fp-v1-staging-retire-safety-06',
   })
 
   assert.deepEqual(result.failures, [])
@@ -33,14 +33,14 @@ test('local live validation allows live ref with no deploy command or context', 
 test('local live validation blocks deploy commands and legacy staging refs', () => {
   const result = evaluateSafety({
     command: 'netlify deploy --dir=dist',
-    currentBranch: 'football-os-staging',
+    currentBranch: 'codex/fp-v1-staging-retire-safety-06',
     dist: {
       exists: true,
       hasLegacyStagingRef: true,
       hasLiveRef: false,
     },
     mode: 'local-live',
-    targetBranch: 'football-os-staging',
+    targetBranch: 'codex/fp-v1-staging-retire-safety-06',
   })
 
   assert.match(result.failures.join('\n'), /must not review or run a deploy command/)
@@ -52,16 +52,17 @@ test('real deploy safety requires an explicit expected Supabase ref', () => {
   const result = evaluateSafety({
     currentBranch: 'football-os-staging',
     deployContext: 'branch-deploy',
-    dist: stagingDist,
+    dist: retiredStagingDist,
     mode: 'deploy',
     siteId: 'site-1',
     targetBranch: 'football-os-staging',
   })
 
   assert.match(result.failures.join('\n'), /require --expected-supabase-ref/)
+  assert.match(result.failures.join('\n'), /staging deploy safety checks are retired/)
 })
 
-test('real deploy safety blocks unexpected refs in dist', () => {
+test('real deploy safety blocks retired staging refs in dist', () => {
   const result = evaluateSafety({
     currentBranch: 'football-os-staging',
     deployContext: 'branch-deploy',
@@ -74,6 +75,7 @@ test('real deploy safety blocks unexpected refs in dist', () => {
 
   assert.match(result.failures.join('\n'), /not proven in dist/)
   assert.match(result.failures.join('\n'), /Unexpected live Supabase ref/)
+  assert.match(result.failures.join('\n'), /Retired staging Supabase ref/)
 })
 
 test('real deploy safety blocks mixed or missing Supabase refs', () => {
@@ -127,12 +129,12 @@ test('deploy safety blocks missing Pilot preservation markers', () => {
   assert.match(result.failures.join('\n'), /Pilot preservation check failed/)
 })
 
-test('real deploy safety allows the parent staging branch host', () => {
+test('real deploy safety blocks the retired parent staging branch host', () => {
   const result = evaluateSafety({
     command: 'netlify deploy --build --context branch:parent-staging --site site-1',
     currentBranch: 'parent-staging',
     deployContext: 'branch:parent-staging',
-    dist: stagingDist,
+    dist: retiredStagingDist,
     expectedSupabaseRef: legacyStagingProjectRef,
     intendedUrl: 'https://parent-staging.staging.footballplayer.online',
     mode: 'deploy',
@@ -140,5 +142,6 @@ test('real deploy safety allows the parent staging branch host', () => {
     targetBranch: 'parent-staging',
   })
 
-  assert.deepEqual(result.failures, [])
+  assert.match(result.failures.join('\n'), /staging deploy safety checks are retired/)
+  assert.match(result.failures.join('\n'), /Retired staging Supabase ref/)
 })

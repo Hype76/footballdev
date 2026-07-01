@@ -3,7 +3,7 @@ import path from 'node:path'
 
 const distDir = path.resolve('dist')
 const liveProjectRef = 'hvapkizujvsahvgspser'
-const stagingProjectRef = 'llpufwzvgxyczxcjwupu'
+const retiredStagingProjectRef = 'llpufwzvgxyczxcjwupu'
 
 async function listJavaScriptFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true })
@@ -26,32 +26,23 @@ async function verifyBuildEnvironment() {
 
   const files = await listJavaScriptFiles(distDir)
   let hasLiveProject = false
-  let hasStagingProject = false
+  let hasRetiredStagingProject = false
 
   for (const file of files) {
     const content = await readFile(file, 'utf8')
     hasLiveProject ||= content.includes(liveProjectRef)
-    hasStagingProject ||= content.includes(stagingProjectRef)
+    hasRetiredStagingProject ||= content.includes(retiredStagingProjectRef)
   }
 
-  if (hasLiveProject && hasStagingProject) {
-    throw new Error('Build contains both live and staging Supabase project refs.')
+  if (hasRetiredStagingProject) {
+    throw new Error('Build contains retired staging Supabase project ref.')
   }
 
-  if (!hasLiveProject && !hasStagingProject) {
-    throw new Error('Build does not contain a known Supabase project ref.')
+  if (!hasLiveProject) {
+    throw new Error('Build does not contain the live Supabase project ref.')
   }
 
-  if (process.env.CONTEXT === 'production' && hasStagingProject) {
-    throw new Error('Production Netlify build is pointing at staging Supabase.')
-  }
-
-  if (process.env.CONTEXT && process.env.CONTEXT !== 'production' && hasLiveProject) {
-    throw new Error(`${process.env.CONTEXT} Netlify build is pointing at live Supabase.`)
-  }
-
-  const target = hasLiveProject ? 'live' : 'staging'
-  console.log(`Verified ${target} Supabase project in web build.`)
+  console.log('Verified live Supabase project in web build.')
 }
 
 verifyBuildEnvironment().catch((error) => {

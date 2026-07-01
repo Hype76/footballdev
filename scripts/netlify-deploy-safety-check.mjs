@@ -4,9 +4,6 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const safeStagingBranch = 'football-os-staging'
-const approvedStagingBranches = new Set([safeStagingBranch, 'parent-staging'])
-const stagingUrl = 'https://football-os-staging.staging.footballplayer.online'
 export const liveProjectRef = 'hvapkizujvsahvgspser'
 export const legacyStagingProjectRef = 'llpufwzvgxyczxcjwupu'
 const productionBranch = 'main'
@@ -285,6 +282,10 @@ export function evaluateSafety({
     }
   }
 
+  if (safeMode === 'deploy') {
+    failures.push('V1 staging deploy safety checks are retired. Use local-live validation or production-prep only.')
+  }
+
   if (!expectedSupabaseRef) {
     failures.push('Real deploy safety checks require --expected-supabase-ref.')
   }
@@ -307,6 +308,10 @@ export function evaluateSafety({
 
   if (expectedSupabaseRef === legacyStagingProjectRef && dist.hasLiveRef) {
     failures.push('Unexpected live Supabase ref appears in a staging-target build.')
+  }
+
+  if (expectedSupabaseRef === legacyStagingProjectRef) {
+    failures.push(`Retired staging Supabase ref ${legacyStagingProjectRef} must not be used for V1 deploys.`)
   }
 
   if (!siteId) {
@@ -334,28 +339,6 @@ export function evaluateSafety({
     }
   }
 
-  if (targetBranch === productionBranch) {
-    failures.push('Target branch is main.')
-  }
-
-  if (!approvedStagingBranches.has(targetBranch)) {
-    failures.push(`Target branch must be one of ${Array.from(approvedStagingBranches).join(', ')} for staging work.`)
-  }
-
-  if (!deployContext) {
-    failures.push('Netlify deploy context is not proven. Pass --context branch-deploy for staging.')
-  }
-
-  if (deployContext === 'production') {
-    failures.push('Deploy context is production.')
-  }
-
-  const approvedBranchContext = approvedStagingBranches.has(String(deployContext).replace(/^branch:/, ''))
-
-  if (deployContext && deployContext !== 'branch-deploy' && !approvedBranchContext) {
-    failures.push('Deploy context is not an approved staging context.')
-  }
-
   if (mainInvolved) {
     failures.push('The production branch name main is involved in the deploy evidence.')
   }
@@ -364,14 +347,8 @@ export function evaluateSafety({
     failures.push('The command or target can trigger production.')
   }
 
-  const commandIncludesApprovedBranch = Array.from(approvedStagingBranches).some((branch) => command.includes(branch))
-
-  if (command && !commandIncludesApprovedBranch) {
-    failures.push('Command under review does not include an approved staging branch.')
-  }
-
   if (command && command.toLowerCase().includes('netlify deploy --trigger')) {
-    failures.push('Netlify CLI trigger cannot prove target context safely for staging. Use an explicit branch build workflow instead.')
+    failures.push('Netlify CLI trigger cannot prove target context safely.')
   }
 
   if (command && command.toLowerCase().includes('--prod')) {
@@ -420,9 +397,9 @@ async function main() {
   const args = parseArgs(process.argv.slice(2))
   const mode = normalizeMode(args.mode || process.env.DEPLOY_SAFETY_MODE || 'deploy')
   const currentBranch = runGit(['branch', '--show-current'])
-  const targetBranch = args['target-branch'] || process.env.NETLIFY_TARGET_BRANCH || (mode === 'local-live' ? currentBranch : currentBranch)
+  const targetBranch = args['target-branch'] || process.env.NETLIFY_TARGET_BRANCH || currentBranch
   const deployContext = args.context || process.env.NETLIFY_DEPLOY_CONTEXT || (mode === 'local-live' ? '' : process.env.CONTEXT || '')
-  const intendedUrl = args['intended-url'] || process.env.NETLIFY_INTENDED_URL || (mode === 'local-live' ? 'local live-aligned validation' : stagingUrl)
+  const intendedUrl = args['intended-url'] || process.env.NETLIFY_INTENDED_URL || (mode === 'local-live' ? 'local live-aligned validation' : '')
   const command = args.command || process.env.NETLIFY_DEPLOY_COMMAND || ''
   const expectedSupabaseRef = args['expected-supabase-ref'] || process.env.EXPECTED_SUPABASE_REF || ''
   const state = readJsonIfExists(path.resolve('.netlify', 'state.json'))
