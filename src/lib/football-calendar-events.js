@@ -36,6 +36,18 @@ function addMonths(date, months) {
   return nextDate
 }
 
+function getCalendarEventDisplayType(eventType) {
+  if (eventType === 'training') {
+    return 'training'
+  }
+
+  if (eventType === 'match') {
+    return 'match'
+  }
+
+  return eventType === 'general' ? 'club-event' : 'deadline'
+}
+
 function buildCalendarEventOccurrences(calendarEvent) {
   const startsAt = new Date(calendarEvent.startsAt)
 
@@ -64,7 +76,7 @@ function buildCalendarEventOccurrences(calendarEvent) {
       occurrenceDate: date,
       date,
       time: toTimeOnly(calendarEvent.startsAt),
-      type: calendarEvent.eventType === 'general' ? 'club-event' : 'deadline',
+      type: getCalendarEventDisplayType(calendarEvent.eventType),
       title: occurrenceIndex === 0 ? calendarEvent.title : `${calendarEvent.title} repeats`,
       description: [isClubWide ? 'Club-wide' : '', calendarEvent.location, calendarEvent.notes].filter(Boolean).join(', ') || 'Calendar event',
       editable: calendarEvent.canEdit !== false,

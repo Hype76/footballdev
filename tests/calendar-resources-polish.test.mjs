@@ -5,6 +5,7 @@ import { test } from 'node:test'
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const resourceDomainUrl = new URL('../src/lib/domain/resource-library.js', import.meta.url)
 const calendarResourceMigrationUrl = new URL('../supabase/migrations/20260702083249_calendar_event_resource_links.sql', import.meta.url)
+const calendarEventTypesMigrationUrl = new URL('../supabase/migrations/20260702100653_calendar_event_training_match_types.sql', import.meta.url)
 const resourceArchiveRemoveMigrationUrl = new URL('../supabase/migrations/20260702091500_resource_library_archive_remove_rpc.sql', import.meta.url)
 const resourceArchiveRpcRepairMigrationUrl = new URL('../supabase/migrations/20260702092500_repair_resource_library_archive_rpc_return.sql', import.meta.url)
 const navigationUrl = new URL('../src/app/navigation.js', import.meta.url)
@@ -75,9 +76,11 @@ test('calendar UI attaches resources only to team custom events and protects rec
   const source = await readFile(sessionsPageUrl, 'utf8')
 
   assert.match(source, /function isCalendarResourceEventType\(eventType\)/)
-  assert.match(source, /!\['training', 'match'\]\.includes/)
+  assert.match(source, /\['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'\]\.includes/)
   assert.match(source, /const defaultForm = getDefaultCalendarForm\(date\)[\s\S]*eventType: \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType/)
+  assert.match(source, /const saveTrainingAsSession = isTraining && \(calendarModal\?\.variant === 'session' \|\| sourceType === 'session'\)/)
   assert.match(source, /const canShowTeamResourceArea = Boolean\(!isSessionCreate && !clubWideOnly && safeFormTeamId && canManageResourceLibrary\(user\)\)/)
+  assert.match(source, /const canUseCalendarResourceLinks = Boolean\(\(!event \|\| event\.sourceType === 'calendar'\) && isCalendarResourceEventType\(form\.eventType\)\)/)
   assert.match(source, /getResourceLibraryItems\(\{ user, teamId: calendarResourceTeamId \}\)/)
   assert.match(source, /getCalendarEventResources\(\{ user, eventId, teamId: eventTeamId \}\)/)
   assert.match(source, /syncCalendarEventResourceLinks\({[\s\S]*eventId: savedEvent\.id,[\s\S]*teamId: safeTeamId,[\s\S]*resourceIds: calendarForm\.resourceIds/)
@@ -92,9 +95,23 @@ test('calendar UI attaches resources only to team custom events and protects rec
   assert.match(source, /Choose how to update this repeating event before saving\./)
   assert.match(source, /This is a repeating event\. How should this date\/time change be applied\?/)
   assert.match(source, /required=\{repeatUpdateScopeRequired\}/)
+  assert.match(source, /deleteRepeatScope/)
+  assert.match(source, /Choose how to delete this repeating event before continuing\./)
+  assert.match(source, /This is a repeating event\. What do you want to delete\?/)
   assert.match(source, /Entire repeat series/)
   assert.match(source, /This event only is not available in V1/)
   assert.match(source, /This and future events is not available in V1/)
+})
+
+test('calendar event schema and domain allow training and match calendar-event rows', async () => {
+  const [migration, domain] = await Promise.all([
+    readFile(calendarEventTypesMigrationUrl, 'utf8'),
+    readFile(new URL('../src/lib/domain/calendar-events.js', import.meta.url), 'utf8'),
+  ])
+
+  assert.match(migration, /drop constraint if exists calendar_events_event_type_check/i)
+  assert.match(migration, /event_type in \('general', 'availability_deadline', 'parent_cutoff', 'training', 'match'\)/i)
+  assert.match(domain, /const EVENT_TYPES = \['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'\]/)
 })
 
 test('Developer Fields direct route remains while normal navigation hides it', async () => {

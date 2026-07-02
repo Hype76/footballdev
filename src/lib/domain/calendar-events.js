@@ -11,7 +11,7 @@ import {
 } from './core-normalizers.js'
 import { getSessionTeamsForUser } from './team-actions.js'
 
-const EVENT_TYPES = ['general', 'availability_deadline', 'parent_cutoff']
+const EVENT_TYPES = ['general', 'availability_deadline', 'parent_cutoff', 'training', 'match']
 const RECURRENCE_FREQUENCIES = ['none', 'weekly', 'fortnightly', 'monthly']
 const PARENT_AUDIENCES = ['none', 'involved_players', 'all_team_parents', 'all_club_parents']
 

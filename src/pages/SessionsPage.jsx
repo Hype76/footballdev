@@ -169,6 +169,7 @@ function getDefaultCalendarForm(date = '') {
     notifyInvitedFamilies: false,
     opponent: '',
     parentAudience: 'involved_players',
+    deleteRepeatScope: '',
     repeatUpdateScope: '',
     resourceIds: [],
     shareWithParents: false,
@@ -286,7 +287,7 @@ function isClubWideShareableCalendarEvent({ form, safeTeamId, user }) {
 }
 
 function isCalendarResourceEventType(eventType) {
-  return !['training', 'match'].includes(getTrimmedFormValue(eventType))
+  return ['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'].includes(getTrimmedFormValue(eventType))
 }
 
 function isRecurringCalendarEvent({ event, form } = {}) {
@@ -1632,6 +1633,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const teamName = getCalendarTeamName(safeTeamId)
     const isTraining = calendarForm.eventType === 'training'
     const isMatch = calendarForm.eventType === 'match'
+    const saveTrainingAsSession = isTraining && (calendarModal?.variant === 'session' || sourceType === 'session')
     const trimmedTitle = getTrimmedFormValue(calendarForm.title)
     const trimmedOpponent = getTrimmedFormValue(calendarForm.opponent)
 
@@ -1709,7 +1711,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         nextCalendarInvites = replaceInvitesForSource(nextCalendarInvites, { calendarEventId, assessmentSessionId }, savedInvites)
       }
 
-      if (isTraining || (sourceType === 'session' && activeEvent?.data?.sessionType !== 'match')) {
+      if (saveTrainingAsSession || (sourceType === 'session' && activeEvent?.data?.sessionType !== 'match')) {
         if (sourceType === 'session' && calendarForm.recurrenceFrequency !== 'none') {
           throw new Error('Recurring training can be created from a new event. Existing sessions are edited one at a time.')
         }
@@ -1888,6 +1890,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   const handleCalendarDelete = async () => {
     const activeEvent = calendarModal?.event || null
+    const requiresRepeatDeleteScope = isRecurringCalendarEvent({ event: activeEvent, form: calendarForm })
 
     if (!activeEvent?.sourceId) {
       setErrorMessage('This calendar item cannot be changed from here.')
@@ -1895,10 +1898,18 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return
     }
 
+    if (activeEvent.sourceType === 'calendar' && requiresRepeatDeleteScope && calendarForm.deleteRepeatScope !== 'entire_series') {
+      setErrorMessage('Choose how to delete this repeating event before continuing.')
+      showToast({ title: 'Calendar not deleted', message: 'Choose how to delete this repeating event before continuing.', tone: 'error' })
+      return
+    }
+
     const deleteMessage = activeEvent.sourceType === 'match-day'
       ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar.'
       : activeEvent.sourceType === 'session'
         ? 'Delete or remove this session from the calendar? Player records stay in history when a completed session is removed.'
+        : requiresRepeatDeleteScope
+          ? 'Delete this entire repeat series? This cannot be undone.'
         : 'Delete this calendar event? This cannot be undone.'
 
     if (!window.confirm(deleteMessage)) {
@@ -2807,6 +2818,34 @@ function CalendarResourceUnavailableNotice() {
   )
 }
 
+function CalendarRepeatDeleteScope({ isBusy, onChange, value }) {
+  return (
+    <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] p-4">
+      <p className="text-sm font-black leading-6 text-[#101828]">
+        This is a repeating event. What do you want to delete?
+      </p>
+      <label className="mt-3 block">
+        <span className="mb-2 block text-sm font-black text-[#101828]">Delete repeat</span>
+        <select
+          name="deleteRepeatScope"
+          value={value || ''}
+          onChange={onChange}
+          disabled={isBusy}
+          className={fieldClass}
+        >
+          <option value="">Choose delete scope</option>
+          <option value="this_event" disabled>This event only is not available in V1</option>
+          <option value="this_and_future" disabled>This and future events is not available in V1</option>
+          <option value="entire_series">Entire repeat series</option>
+        </select>
+      </label>
+      <p className="mt-2 text-xs font-bold leading-5 text-[#92400e]">
+        V1 stores this repeated calendar event as one series record, so deleting can only remove the full series safely.
+      </p>
+    </div>
+  )
+}
+
 function CalendarEventModal({
   attachedResources = [],
   clubWideOnly = false,
@@ -2850,11 +2889,14 @@ function CalendarEventModal({
   const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
   const showInvites = !canShareClubWideWithParents && form.shareWithParents && form.parentAudience === 'involved_players'
   const canShowTeamResourceArea = Boolean(!isSessionCreate && !clubWideOnly && safeFormTeamId && canManageResourceLibrary(user))
-  const canAttachResources = canShowTeamResourceArea && isCalendarResourceEventType(form.eventType)
+  const canUseCalendarResourceLinks = Boolean((!event || event.sourceType === 'calendar') && isCalendarResourceEventType(form.eventType))
+  const canAttachResources = canShowTeamResourceArea && canUseCalendarResourceLinks
   const selectedResourceIds = new Set(Array.isArray(form.resourceIds) ? form.resourceIds.map(String) : [])
   const isRecurringCalendarEdit = isRecurringCalendarEvent({ event, form })
   const repeatUpdateScopeRequired = hasRecurringCalendarDateTimeChange({ event, form })
   const showRepeatUpdateScope = isRecurringCalendarEdit
+  const showRepeatDeleteScope = Boolean(event && editableSource && isRecurringCalendarEdit)
+  const deleteButtonDisabled = isBusy || (showRepeatDeleteScope && form.deleteRepeatScope !== 'entire_series')
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
@@ -2946,6 +2988,15 @@ function CalendarEventModal({
               </div>
             ) : null}
             <CalendarAttachedResourcesList resources={attachedResources} />
+            {showRepeatDeleteScope ? (
+              <div className="mt-4">
+                <CalendarRepeatDeleteScope
+                  isBusy={isBusy}
+                  onChange={onChange}
+                  value={form.deleteRepeatScope}
+                />
+              </div>
+            ) : null}
           </div>
           </div>
         ) : null}
@@ -3072,7 +3123,9 @@ function CalendarEventModal({
                   </label>
                 </div>
                 <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
-                  Recurring training creates separate session rows. Custom events repeat on the calendar and are edited from this event.
+                  {isSessionCreate
+                    ? 'Recurring training creates separate session rows. Calendar events repeat on the calendar and are edited from this event.'
+                    : 'Repeating calendar events are stored as one series record and are edited from this event.'}
                 </p>
                 {showRepeatUpdateScope ? (
                   <div className="mt-4 rounded-lg border border-[#fedf89] bg-white p-3">
@@ -3122,6 +3175,14 @@ function CalendarEventModal({
               ) : (
                 <CalendarResourceUnavailableNotice />
               )
+            ) : null}
+
+            {showRepeatDeleteScope ? (
+              <CalendarRepeatDeleteScope
+                isBusy={isBusy}
+                onChange={onChange}
+                value={form.deleteRepeatScope}
+              />
             ) : null}
 
             {canShareClubWideWithParents ? (
@@ -3314,7 +3375,7 @@ function CalendarEventModal({
                   <button
                     type="button"
                     onClick={onDelete}
-                    disabled={isBusy}
+                    disabled={deleteButtonDisabled}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
@@ -3333,7 +3394,7 @@ function CalendarEventModal({
                 <button
                   type="button"
                   onClick={onDelete}
-                  disabled={isBusy}
+                  disabled={deleteButtonDisabled}
                   className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
