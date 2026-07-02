@@ -160,10 +160,13 @@ export {
   buildTrainingAvailabilityPayload,
   cancelPendingTrainingAvailabilityRequests,
   getDefaultTrainingAvailabilityForm,
+  getTrainingAvailabilityChipState,
   getTrainingAvailabilitySettingsForEvents,
   getTrainingAvailabilitySummaryForEvents,
+  normalizeTrainingAvailabilityDetail,
   saveTrainingAvailabilitySettings,
   summarizeTrainingAvailabilityRows,
+  TRAINING_AVAILABILITY_CHIP_STATES,
 } from './domain/training-availability.js'
 
 export {

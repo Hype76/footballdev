@@ -57,6 +57,7 @@ import {
   getCalendarEvents,
   getCalendarEventInvites,
   getDefaultTrainingAvailabilityForm,
+  getTrainingAvailabilityChipState,
   getMatchDays,
   getPolls,
   getResourceLibraryItems,
@@ -3202,6 +3203,77 @@ function CalendarRepeatDeleteScope({ isBusy, onChange, value }) {
   )
 }
 
+function getTrainingAvailabilityOccurrenceDate({ event, form } = {}) {
+  return formatDateInput(
+    event?.occurrenceDate
+      || event?.data?.recurrenceOccurrenceDate
+      || event?.date
+      || form?.date,
+  )
+}
+
+function getTrainingAvailabilityDetailsForOccurrence(summary, occurrenceDate) {
+  const details = Array.isArray(summary?.details) ? summary.details : []
+  const normalizedOccurrenceDate = formatDateInput(occurrenceDate)
+
+  if (!normalizedOccurrenceDate) {
+    return details
+  }
+
+  return details.filter((detail) => formatDateInput(detail.occurrenceDate || detail.occurrenceStartsAt) === normalizedOccurrenceDate)
+}
+
+function getTrainingAvailabilityDetailByPlayerId(details = []) {
+  return details.reduce((map, detail) => {
+    const playerId = String(detail.playerId ?? '').trim()
+
+    if (playerId && !map.has(playerId)) {
+      map.set(playerId, detail)
+    }
+
+    return map
+  }, new Map())
+}
+
+function getTrainingAvailabilityChipClasses(tone) {
+  if (tone === 'green') {
+    return 'border-[#86efac] bg-[#dcfce7] text-[#166534]'
+  }
+
+  if (tone === 'red') {
+    return 'border-[#fecaca] bg-[#fef2f2] text-[#991b1b]'
+  }
+
+  if (tone === 'orange') {
+    return 'border-[#fed7aa] bg-[#fff7ed] text-[#9a3412]'
+  }
+
+  return 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]'
+}
+
+function TrainingAvailabilityPlayerChip({ detail, invite }) {
+  const state = detail
+    ? {
+        label: detail.responseLabel,
+        tone: detail.responseTone,
+      }
+    : getTrainingAvailabilityChipState('pending')
+  const playerName = invite.player?.playerName || detail?.playerName || 'Player'
+  const statusLabel = state.label || 'No response'
+  const title = `${playerName}: ${statusLabel} for this session`
+
+  return (
+    <span
+      className={`inline-flex max-w-full flex-col rounded-lg border px-3 py-1.5 text-xs font-black ${getTrainingAvailabilityChipClasses(state.tone)}`}
+      title={title}
+      aria-label={title}
+    >
+      <span className="truncate">{playerName}</span>
+      <span className="mt-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] opacity-80">{statusLabel}</span>
+    </span>
+  )
+}
+
 function TrainingAvailabilitySummary({ summary }) {
   if (!summary) {
     return null
@@ -3238,6 +3310,36 @@ function TrainingAvailabilitySummary({ summary }) {
           Available {summary.available || 0}, not available {summary.unavailable || 0}, maybe {summary.maybe || 0}.
         </p>
       ) : null}
+    </div>
+  )
+}
+
+function TrainingAvailabilityParentNotes({ details = [] }) {
+  const notedDetails = details.filter((detail) => String(detail.note ?? '').trim())
+
+  if (notedDetails.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Parent notes</p>
+      <div className="mt-3 space-y-3">
+        {notedDetails.map((detail) => (
+          <div key={`${detail.requestPlayerId || detail.playerId}:${detail.respondedAt || detail.note}`} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <p className="text-sm font-black text-[#101828]">{detail.playerName || 'Player'}</p>
+              <span className={`w-fit rounded-full border px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] ${getTrainingAvailabilityChipClasses(detail.responseTone)}`}>
+                {detail.responseLabel || 'No response'}
+              </span>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">{detail.note}</p>
+            {detail.respondedByName ? (
+              <p className="mt-2 text-xs font-bold text-[#6d8076]">Submitted by {detail.respondedByName}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -3342,6 +3444,9 @@ function CalendarEventModal({
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
   const inviteTeamId = canUseClubLevel ? form.teamId : form.teamId || user?.activeTeamId
   const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
+  const availabilityOccurrenceDate = getTrainingAvailabilityOccurrenceDate({ event, form })
+  const trainingAvailabilityDetails = getTrainingAvailabilityDetailsForOccurrence(trainingAvailabilitySummary, availabilityOccurrenceDate)
+  const trainingAvailabilityDetailsByPlayerId = getTrainingAvailabilityDetailByPlayerId(trainingAvailabilityDetails)
   const eventTypeOptions = getCalendarEventTypeOptions(user, { clubWideOnly })
   const parentAudienceOptions = [
     { value: 'involved_players', label: 'Only parents of involved players' },
@@ -3419,15 +3524,22 @@ function CalendarEventModal({
               <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Invited players</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {currentInvites.map((invite) => (
-                    <span key={invite.id} className="rounded-full border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#065f46]">
-                      {invite.player?.playerName || 'Player'}
-                    </span>
-                  ))}
+                  {currentInvites.map((invite) => {
+                    const detail = trainingAvailabilityDetailsByPlayerId.get(String(invite.playerId ?? ''))
+
+                    return (
+                      <TrainingAvailabilityPlayerChip
+                        key={invite.id}
+                        detail={detail}
+                        invite={invite}
+                      />
+                    )
+                  })}
                 </div>
               </div>
             ) : null}
             {form.eventType === 'training' ? <TrainingAvailabilitySummary summary={trainingAvailabilitySummary} /> : null}
+            {form.eventType === 'training' ? <TrainingAvailabilityParentNotes details={trainingAvailabilityDetails} /> : null}
             <CalendarAttachedResourcesList resources={attachedResources} />
             {showRepeatDeleteScope ? (
               <div className="mt-4">

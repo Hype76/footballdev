@@ -95,6 +95,59 @@ test('domain helpers default training to yes, non-training to no, and keep summa
   assert.match(source, /training_availability_requests_cancelled/)
 })
 
+test('training availability chip state mapping covers accepted, unavailable, pending, and maybe', async () => {
+  const { getTrainingAvailabilityChipState } = await import(domainUrl.href)
+
+  assert.deepEqual(getTrainingAvailabilityChipState('available'), { label: 'Available', tone: 'green' })
+  assert.deepEqual(getTrainingAvailabilityChipState('accepted'), { label: 'Available', tone: 'green' })
+  assert.deepEqual(getTrainingAvailabilityChipState('not accepted'), { label: 'Not available', tone: 'red' })
+  assert.deepEqual(getTrainingAvailabilityChipState('unavailable'), { label: 'Not available', tone: 'red' })
+  assert.deepEqual(getTrainingAvailabilityChipState('maybe'), { label: 'Maybe', tone: 'orange' })
+  assert.deepEqual(getTrainingAvailabilityChipState(''), { label: 'No response', tone: 'blue' })
+})
+
+test('staff availability details include occurrence-specific response notes without parent emails', async () => {
+  const {
+    normalizeTrainingAvailabilityDetail,
+    summarizeTrainingAvailabilityRows,
+  } = await import(domainUrl.href)
+  const row = {
+    id: 'request-player-1',
+    request_id: 'request-1',
+    calendar_event_id: 'event-1',
+    player_id: 'player-1',
+    player_name: 'Jess Green',
+    status: 'responded',
+    recipient_email: 'parent@example.test',
+    training_availability_requests: {
+      id: 'request-1',
+      occurrence_date: '2026-07-12',
+      occurrence_starts_at: '2026-07-12T08:00:00+00:00',
+    },
+    training_availability_responses: {
+      status: 'maybe',
+      note: 'Might be late because of school trip.',
+      responded_at: '2026-07-10T12:00:00+00:00',
+      responded_by_email: 'parent@example.test',
+      responded_by_name: 'Jess parent',
+    },
+  }
+
+  const detail = normalizeTrainingAvailabilityDetail(row)
+  assert.equal(detail.occurrenceDate, '2026-07-12')
+  assert.equal(detail.playerId, 'player-1')
+  assert.equal(detail.responseLabel, 'Maybe')
+  assert.equal(detail.responseTone, 'orange')
+  assert.equal(detail.note, 'Might be late because of school trip.')
+  assert.equal(detail.respondedByName, 'Jess parent')
+  assert.equal(Object.hasOwn(detail, 'recipientEmail'), false)
+
+  const summary = summarizeTrainingAvailabilityRows([row])
+  assert.equal(summary.responded, 1)
+  assert.equal(summary.maybe, 1)
+  assert.equal(summary.details[0].note, 'Might be late because of school trip.')
+})
+
 test('scheduled processor creates per occurrence parent email requests without push, sms, or volunteer roles', async () => {
   const [processor, netlifyToml] = await Promise.all([
     readFile(processorUrl, 'utf8'),
@@ -120,6 +173,64 @@ test('scheduled processor creates per occurrence parent email requests without p
   assert.doesNotMatch(processor, /sendParentMobilePushById/)
   assert.doesNotMatch(processor, /sms/i)
   assert.doesNotMatch(processor, /scorer|linesman|referee/i)
+})
+
+test('first recurring training availability email includes schedule while response remains occurrence-specific', async () => {
+  process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
+  const {
+    buildAvailabilityEmail,
+    buildOccurrences,
+    buildTrainingAvailabilityCalendarIcs,
+    shouldIncludeRecurringSchedule,
+  } = await import(processorUrl.href)
+  const event = {
+    id: 'event-1',
+    title: 'U17 Green training',
+    starts_at: '2026-07-05T08:00:00+00:00',
+    ends_at: '2026-07-05T09:00:00+00:00',
+    recurrence_frequency: 'weekly',
+    recurrence_until: '2026-07-19',
+    location: 'Football Player Stadium',
+  }
+  const occurrences = buildOccurrences(event)
+
+  assert.equal(occurrences.length, 3)
+  assert.equal(shouldIncludeRecurringSchedule({ occurrence: occurrences[0], occurrences }), true)
+  assert.equal(shouldIncludeRecurringSchedule({ occurrence: occurrences[1], occurrences }), false)
+
+  const firstEmail = buildAvailabilityEmail({
+    event,
+    includeRecurringSchedule: shouldIncludeRecurringSchedule({ occurrence: occurrences[0], occurrences }),
+    occurrence: occurrences[0],
+    occurrences,
+    player: { player_name: 'Jess Green' },
+    recipient: { email: 'parent@example.test' },
+    responseUrl: 'https://footballplayer.online/.netlify/functions/training-availability-response?token=abc',
+    teamName: 'U17 Green',
+  })
+  const laterEmail = buildAvailabilityEmail({
+    event,
+    includeRecurringSchedule: shouldIncludeRecurringSchedule({ occurrence: occurrences[1], occurrences }),
+    occurrence: occurrences[1],
+    occurrences,
+    player: { player_name: 'Jess Green' },
+    recipient: { email: 'parent@example.test' },
+    responseUrl: 'https://footballplayer.online/.netlify/functions/training-availability-response?token=def',
+    teamName: 'U17 Green',
+  })
+  const ics = buildTrainingAvailabilityCalendarIcs({ event, occurrences, teamName: 'U17 Green' })
+
+  assert.match(firstEmail.html, /Upcoming dates/)
+  assert.match(firstEmail.html, /Add schedule to calendar/)
+  assert.match(firstEmail.html, /This availability response is for this session only\./)
+  assert.match(firstEmail.html, /token=abc/)
+  assert.doesNotMatch(firstEmail.html, /token=def/)
+  assert.doesNotMatch(laterEmail.html, /Upcoming dates/)
+  assert.match(laterEmail.html, /This availability response is for this session only\./)
+  assert.match(laterEmail.html, /token=def/)
+  assert.match(ics, /BEGIN:VCALENDAR/)
+  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 3)
 })
 
 test('training availability send gate uses explicit server environment flags', async () => {
@@ -175,6 +286,7 @@ test('parent response page only supports availability status and note', async ()
 
   assert.match(source, /VALID_STATUSES = new Set\(\['available', 'unavailable', 'maybe'\]\)/)
   assert.match(source, /Optional note/)
+  assert.match(source, /This availability response is for this session only\./)
   assert.match(source, /get_training_availability_response/)
   assert.match(source, /submit_training_availability_response/)
   assert.doesNotMatch(source, /volunteer/i)

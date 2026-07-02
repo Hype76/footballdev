@@ -90,7 +90,7 @@ function getOccurrenceEndDate(event, occurrenceDate) {
   return addDays(new Date(`${toDateOnly(occurrenceDate)}T00:00:00`), dayOffset)
 }
 
-function buildOccurrences(event) {
+export function buildOccurrences(event) {
   const startsAt = new Date(event.starts_at)
 
   if (Number.isNaN(startsAt.getTime())) {
@@ -180,8 +180,117 @@ function formatDateTime(value) {
   }).format(parsedDate)
 }
 
-function buildAvailabilityEmail({ event, occurrence, player, recipient, responseUrl, teamName }) {
+function formatDateLabel(value) {
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return 'Date to be confirmed'
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+  }).format(parsedDate)
+}
+
+function formatIcsDate(value) {
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  return parsedDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+}
+
+function escapeIcsText(value) {
+  return normalizeText(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;')
+}
+
+export function buildTrainingAvailabilityCalendarIcs({ event = {}, occurrences = [], teamName = '' } = {}) {
+  const validOccurrences = occurrences
+    .filter((occurrence) => formatIcsDate(occurrence.occurrenceStartsAt))
+    .slice(0, 52)
+
+  if (validOccurrences.length === 0) {
+    return ''
+  }
+
+  const calendarName = `${event.title || teamName || 'Training sessions'}`
+  const location = escapeIcsText(event.location || '')
+  const description = escapeIcsText('Training schedule from Football Player. Availability responses still apply to one session at a time.')
+  const events = validOccurrences.map((occurrence) => {
+    const startsAt = formatIcsDate(occurrence.occurrenceStartsAt)
+    const endsAt = formatIcsDate(occurrence.occurrenceEndsAt || occurrence.occurrenceStartsAt)
+    const uid = `training-availability-${event.id || 'event'}-${occurrence.occurrenceDate}@footballplayer.online`
+
+    return [
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${formatIcsDate(new Date())}`,
+      `DTSTART:${startsAt}`,
+      endsAt ? `DTEND:${endsAt}` : '',
+      `SUMMARY:${escapeIcsText(event.title || 'Training session')}`,
+      location ? `LOCATION:${location}` : '',
+      `DESCRIPTION:${description}`,
+      'END:VEVENT',
+    ].filter(Boolean).join('\r\n')
+  }).join('\r\n')
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Football Player//Training Availability//EN',
+    'CALSCALE:GREGORIAN',
+    `X-WR-CALNAME:${escapeIcsText(calendarName)}`,
+    events,
+    'END:VCALENDAR',
+  ].join('\r\n')
+}
+
+function buildSeriesScheduleHtml({ event, occurrences = [], teamName }) {
+  const upcomingOccurrences = occurrences
+    .filter((occurrence) => occurrence?.occurrenceStartsAt instanceof Date && !Number.isNaN(occurrence.occurrenceStartsAt.getTime()))
+    .slice(0, 12)
+
+  if (upcomingOccurrences.length <= 1) {
+    return ''
+  }
+
+  const ics = buildTrainingAvailabilityCalendarIcs({ event, occurrences: upcomingOccurrences, teamName })
+  const calendarHref = ics ? `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}` : ''
+
+  return `
+    <div style="border:1px solid #d7e5dc;border-radius:12px;background:#f7faf8;padding:14px 16px;margin:0 0 22px;">
+      <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;">Upcoming dates</p>
+      <p style="margin:0 0 10px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:700;">Add the full recurring schedule to your calendar, then answer this availability request for this session only.</p>
+      <ul style="margin:0 0 12px 18px;padding:0;color:#101828;font-size:14px;line-height:1.6;font-weight:800;">
+        ${upcomingOccurrences.map((item) => `<li>${escapeHtml(formatDateLabel(item.occurrenceStartsAt))}</li>`).join('')}
+      </ul>
+      ${calendarHref ? `<a href="${escapeHtml(calendarHref)}" style="display:inline-block;margin:0 0 4px;padding:10px 12px;border:1px solid #047857;color:#047857;text-decoration:none;border-radius:8px;font-weight:900;">Add schedule to calendar</a>` : ''}
+    </div>
+  `
+}
+
+export function shouldIncludeRecurringSchedule({ occurrence, occurrences = [] } = {}) {
+  const firstOccurrence = occurrences[0]
+  return Boolean(
+    firstOccurrence
+      && occurrences.length > 1
+      && occurrence?.occurrenceDate
+      && firstOccurrence.occurrenceDate === occurrence.occurrenceDate,
+  )
+}
+
+export function buildAvailabilityEmail({ event, includeRecurringSchedule = false, occurrence, occurrences = [], player, recipient, responseUrl, teamName }) {
   const subject = `Training availability: ${event.title || teamName || 'Training session'}`
+  const scheduleHtml = includeRecurringSchedule
+    ? buildSeriesScheduleHtml({ event, occurrences, teamName })
+    : ''
 
   return {
     subject,
@@ -192,12 +301,16 @@ function buildAvailabilityEmail({ event, occurrence, player, recipient, response
         <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
           Please confirm availability for this training session.
         </p>
+        <p style="margin:0 0 20px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:700;">
+          This availability response is for this session only.
+        </p>
         <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">
           <tr><td style="padding:8px 0;color:#4b5f55;font-weight:700;">Team</td><td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(teamName || 'Team')}</td></tr>
           <tr><td style="padding:8px 0;color:#4b5f55;font-weight:700;">Session</td><td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(event.title || 'Training session')}</td></tr>
           <tr><td style="padding:8px 0;color:#4b5f55;font-weight:700;">When</td><td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(formatDateTime(occurrence.occurrenceStartsAt))}</td></tr>
           <tr><td style="padding:8px 0;color:#4b5f55;font-weight:700;">Location</td><td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(event.location || 'Not set')}</td></tr>
         </table>
+        ${scheduleHtml}
         <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Open response form</a>
         <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
           This link is unique to ${escapeHtml(recipient.email)}. Do not forward it.
@@ -328,13 +441,22 @@ async function createRecipient({ contact, player, request, supabase }) {
   return { row: data, token }
 }
 
-async function sendRecipientEmail({ appOrigin, event, occurrence, player, recipient, requestPlayer, supabase, teamName, token }) {
+async function sendRecipientEmail({ appOrigin, event, occurrence, occurrences, player, recipient, requestPlayer, supabase, teamName, token }) {
   if (!token || ['sent', 'responded'].includes(normalizeText(requestPlayer.status))) {
     return 'skipped'
   }
 
   const responseUrl = `${appOrigin}/.netlify/functions/training-availability-response?token=${token}`
-  const email = buildAvailabilityEmail({ event, occurrence, player, recipient, responseUrl, teamName })
+  const email = buildAvailabilityEmail({
+    event,
+    includeRecurringSchedule: shouldIncludeRecurringSchedule({ occurrence, occurrences }),
+    occurrence,
+    occurrences,
+    player,
+    recipient,
+    responseUrl,
+    teamName,
+  })
 
   await sendEmail({
     from: createFromAddress('Football Player'),
@@ -369,7 +491,7 @@ async function sendRecipientEmail({ appOrigin, event, occurrence, player, recipi
   return 'sent'
 }
 
-async function processDueRequest({ appOrigin, event, occurrence, request, supabase }) {
+async function processDueRequest({ appOrigin, event, occurrence, occurrences, request, supabase }) {
   const { data: players, error: playersError } = await supabase
     .from('players')
     .select('id, club_id, team_id, player_name, parent_name, parent_email, contact_type, status')
@@ -414,6 +536,7 @@ async function processDueRequest({ appOrigin, event, occurrence, request, supaba
           appOrigin,
           event,
           occurrence,
+          occurrences,
           player,
           recipient: contact,
           requestPlayer: recipient.row,
@@ -509,6 +632,7 @@ export async function processTrainingAvailabilityRequests(event = {}) {
         appOrigin,
         event: due.event,
         occurrence,
+        occurrences,
         request: due.request,
         supabase,
       })

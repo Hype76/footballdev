@@ -135,6 +135,7 @@ function availabilityFieldset(response) {
 function responseForm({ token, response }) {
   return `
     ${detailRows(response)}
+    <p style="margin-top:16px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:700;">This availability response is for this session only.</p>
     <form method="post" action="/.netlify/functions/training-availability-response">
       <input type="hidden" name="token" value="${escapeHtml(token)}">
       ${availabilityFieldset(response)}
