@@ -475,13 +475,13 @@ export async function archiveResourceLibraryItem({ resourceId, user } = {}) {
     entityType: 'resource_library_item',
     entityId: normalizedResourceId,
     metadata: {
-      title: data?.[0]?.title || data?.title || '',
+      title: data?.[0]?.resource_title || data?.[0]?.title || data?.title || '',
     },
   })
 
   return normalizeResourceLibraryItem({
     id: normalizedResourceId,
-    title: data?.[0]?.title || data?.title || '',
+    title: data?.[0]?.resource_title || data?.[0]?.title || data?.title || '',
     club_id: user.clubId,
     team_id: activeTeamId,
     archived_at: new Date().toISOString(),

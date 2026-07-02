@@ -6,6 +6,7 @@ const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url
 const resourceDomainUrl = new URL('../src/lib/domain/resource-library.js', import.meta.url)
 const calendarResourceMigrationUrl = new URL('../supabase/migrations/20260702083249_calendar_event_resource_links.sql', import.meta.url)
 const resourceArchiveRemoveMigrationUrl = new URL('../supabase/migrations/20260702091500_resource_library_archive_remove_rpc.sql', import.meta.url)
+const resourceArchiveRpcRepairMigrationUrl = new URL('../supabase/migrations/20260702092500_repair_resource_library_archive_rpc_return.sql', import.meta.url)
 const navigationUrl = new URL('../src/app/navigation.js', import.meta.url)
 const roleQuickLinksUrl = new URL('../src/lib/role-quick-links.js', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
@@ -49,8 +50,9 @@ test('calendar resource domain helpers validate event team resources before sync
 })
 
 test('resource archive and assignment removal use team-scoped RPCs', async () => {
-  const [migration, source] = await Promise.all([
+  const [migration, repairMigration, source] = await Promise.all([
     readFile(resourceArchiveRemoveMigrationUrl, 'utf8'),
+    readFile(resourceArchiveRpcRepairMigrationUrl, 'utf8'),
     readFile(resourceDomainUrl, 'utf8'),
   ])
 
@@ -61,8 +63,12 @@ test('resource archive and assignment removal use team-scoped RPCs', async () =>
   assert.match(migration, /rli\.team_id = target_team_id/i)
   assert.match(migration, /revoke execute on function public\.remove_resource_library_link\(uuid, uuid, uuid\) from anon/i)
   assert.match(migration, /revoke execute on function public\.archive_resource_library_item\(uuid, uuid, uuid\) from anon/i)
+  assert.match(repairMigration, /drop function if exists public\.archive_resource_library_item\(uuid, uuid, uuid\)/i)
+  assert.match(repairMigration, /resource_id uuid/i)
+  assert.match(repairMigration, /resource_title text/i)
   assert.match(source, /rpc\('remove_resource_library_link'/)
   assert.match(source, /rpc\('archive_resource_library_item'/)
+  assert.match(source, /resource_title/)
 })
 
 test('calendar UI attaches resources only to team custom events and protects recurring edits', async () => {
