@@ -289,6 +289,11 @@ function isCalendarResourceEventType(eventType) {
   return !['training', 'match'].includes(getTrimmedFormValue(eventType))
 }
 
+function isRecurringCalendarEvent({ event, form } = {}) {
+  return event?.sourceType === 'calendar'
+    && getTrimmedFormValue(form?.recurrenceFrequency) !== 'none'
+}
+
 function getCalendarEventResourceIds(resources = []) {
   return (Array.isArray(resources) ? resources : [])
     .map((resource) => String(resource?.id ?? '').trim())
@@ -307,11 +312,7 @@ function formatResourceDate(value) {
 }
 
 function hasRecurringCalendarDateTimeChange({ event, form } = {}) {
-  if (event?.sourceType !== 'calendar') {
-    return false
-  }
-
-  if (getTrimmedFormValue(form?.recurrenceFrequency) === 'none') {
+  if (!isRecurringCalendarEvent({ event, form })) {
     return false
   }
 
@@ -800,12 +801,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     return sourceId ? calendarEventResourcesById[sourceId] || [] : []
   }, [calendarEventResourcesById, calendarModal?.event?.sourceId])
   const calendarResourceTeamId = useMemo(() => {
-    if (!calendarModal || isClubWideCalendar || !isCalendarResourceEventType(calendarForm.eventType)) {
+    if (!calendarModal || isClubWideCalendar) {
       return ''
     }
 
     return getSafeCalendarTeamId(user, calendarForm.teamId)
-  }, [calendarForm.eventType, calendarForm.teamId, calendarModal, isClubWideCalendar, user])
+  }, [calendarForm.teamId, calendarModal, isClubWideCalendar, user])
   const canAttachCalendarResources = Boolean(
     calendarModal
       && calendarResourceTeamId
@@ -1390,9 +1391,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   const handleCalendarDateClick = (date) => {
     setErrorMessage('')
+    const defaultForm = getDefaultCalendarForm(date)
     setCalendarForm({
-      ...getDefaultCalendarForm(date),
-      eventType: isClubWideCalendar ? 'general' : getDefaultCalendarForm(date).eventType,
+      ...defaultForm,
+      eventType: (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType,
       teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
     })
     setCalendarModal({ mode: 'create', event: null })
@@ -2736,9 +2738,9 @@ function CalendarResourceSelector({
     <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-black text-[#101828]">Attach team resources</p>
+          <p className="text-sm font-black text-[#101828]">Attached resources</p>
           <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
-            Existing files from this team only can be attached to this calendar event.
+            Select from Team Resource Library. Existing files from this team only can be attached to this calendar event.
           </p>
         </div>
         <span className="rounded-full border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#065f46]">
@@ -2752,7 +2754,7 @@ function CalendarResourceSelector({
         </p>
       ) : resourceOptions.length === 0 ? (
         <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
-          No active team resources are available to attach.
+          No resources in this team's library yet. Add resources from Team Resources first.
         </p>
       ) : (
         <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white">
@@ -2787,6 +2789,20 @@ function CalendarResourceSelector({
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function CalendarResourceUnavailableNotice() {
+  return (
+    <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+      <p className="text-sm font-black text-[#101828]">Attached resources</p>
+      <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+        Select from Team Resource Library.
+      </p>
+      <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+        Team Resource Library attachments are available for team calendar events in V1. Training sessions and match fixtures stay in their own workflows.
+      </p>
     </div>
   )
 }
@@ -2833,9 +2849,12 @@ function CalendarEventModal({
   const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
   const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
   const showInvites = !canShareClubWideWithParents && form.shareWithParents && form.parentAudience === 'involved_players'
-  const canAttachResources = !clubWideOnly && safeFormTeamId && isCalendarResourceEventType(form.eventType) && canManageResourceLibrary(user)
+  const canShowTeamResourceArea = Boolean(!isSessionCreate && !clubWideOnly && safeFormTeamId && canManageResourceLibrary(user))
+  const canAttachResources = canShowTeamResourceArea && isCalendarResourceEventType(form.eventType)
   const selectedResourceIds = new Set(Array.isArray(form.resourceIds) ? form.resourceIds.map(String) : [])
-  const showRepeatUpdateScope = hasRecurringCalendarDateTimeChange({ event, form })
+  const isRecurringCalendarEdit = isRecurringCalendarEvent({ event, form })
+  const repeatUpdateScopeRequired = hasRecurringCalendarDateTimeChange({ event, form })
+  const showRepeatUpdateScope = isRecurringCalendarEdit
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
@@ -3057,13 +3076,16 @@ function CalendarEventModal({
                 </p>
                 {showRepeatUpdateScope ? (
                   <div className="mt-4 rounded-lg border border-[#fedf89] bg-white p-3">
+                    <p className="mb-3 text-sm font-black leading-6 text-[#101828]">
+                      This is a repeating event. How should this date/time change be applied?
+                    </p>
                     <label className="block">
                       <span className="mb-2 block text-sm font-black text-[#101828]">Update repeat</span>
                       <select
                         name="repeatUpdateScope"
                         value={form.repeatUpdateScope || ''}
                         onChange={onChange}
-                        required
+                        required={repeatUpdateScopeRequired}
                         disabled={isBusy}
                         className={fieldClass}
                       >
@@ -3088,14 +3110,18 @@ function CalendarEventModal({
               </div>
             )}
 
-            {canAttachResources ? (
-              <CalendarResourceSelector
-                isBusy={isBusy}
-                isLoading={isResourcesLoading}
-                onChange={onChange}
-                resourceOptions={resourceOptions}
-                selectedResourceIds={selectedResourceIds}
-              />
+            {canShowTeamResourceArea ? (
+              canAttachResources ? (
+                <CalendarResourceSelector
+                  isBusy={isBusy}
+                  isLoading={isResourcesLoading}
+                  onChange={onChange}
+                  resourceOptions={resourceOptions}
+                  selectedResourceIds={selectedResourceIds}
+                />
+              ) : (
+                <CalendarResourceUnavailableNotice />
+              )
             ) : null}
 
             {canShareClubWideWithParents ? (

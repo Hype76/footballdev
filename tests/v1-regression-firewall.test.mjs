@@ -98,7 +98,7 @@ test('calendar and Match Day approved actions remain present', async () => {
   assert.match(layout, /saveQuickActionPosition/)
   assert.match(calendar, /eventType: 'training'/)
   assert.match(calendar, /eventType: 'match'/)
-  assert.match(calendar, /eventType: isClubWideCalendar \? 'general'/)
+  assert.match(calendar, /eventType: \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType/)
   assert.match(calendar, /Move or reschedule/)
   assert.match(calendar, /Cancel fixture/)
   assert.match(calendar, /Save changes/)
