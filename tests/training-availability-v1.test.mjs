@@ -99,6 +99,9 @@ test('scheduled processor creates per occurrence parent email requests without p
 
   assert.match(processor, /buildOccurrences/)
   assert.match(processor, /occurrenceDate/)
+  assert.match(processor, /event\.recurrence_until \? new Date\(`\$\{event\.recurrence_until\}T23:59:59`\) : addMonths\(new Date\(\), 3\)/)
+  assert.match(processor, /function getSendAt\(occurrence, setting\)/)
+  assert.match(processor, /if \(sendAt\.getTime\(\) > now\.getTime\(\)\) {[\s\S]*continue[\s\S]*}[\s\S]*const due = await upsertDueRequest/)
   assert.match(processor, /training_availability_requests/)
   assert.match(processor, /training_availability_request_players/)
   assert.match(processor, /findExistingRecipient/)

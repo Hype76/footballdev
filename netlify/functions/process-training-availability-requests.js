@@ -97,7 +97,7 @@ function buildOccurrences(event) {
   }
 
   const frequency = normalizeText(event.recurrence_frequency || 'none')
-  const until = event.recurrence_until ? new Date(`${event.recurrence_until}T23:59:59`) : startsAt
+  const until = event.recurrence_until ? new Date(`${event.recurrence_until}T23:59:59`) : addMonths(new Date(), 3)
   const maxDate = frequency === 'none' || Number.isNaN(until.getTime()) ? startsAt : until
   const occurrences = []
   let cursor = new Date(startsAt)
@@ -127,6 +127,10 @@ function buildOccurrences(event) {
   }
 
   return occurrences
+}
+
+function getSendAt(occurrence, setting) {
+  return addDays(occurrence.occurrenceStartsAt, -Number(setting.send_days_before ?? 2))
 }
 
 function getPlayerContacts({ parentLinks = [], player }) {
@@ -219,9 +223,8 @@ async function loadSettings(supabase) {
   })
 }
 
-async function upsertDueRequest({ occurrence, setting, supabase }) {
+async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
   const event = Array.isArray(setting.calendar_events) ? setting.calendar_events[0] : setting.calendar_events
-  const sendAt = addDays(occurrence.occurrenceStartsAt, -Number(setting.send_days_before ?? 2))
   const { data: existingRequest, error: existingRequestError } = await supabase
     .from('training_availability_requests')
     .select('*')
@@ -468,9 +471,15 @@ export async function processTrainingAvailabilityRequests(event = {}) {
         continue
       }
 
-      const due = await upsertDueRequest({ occurrence, setting, supabase })
+      const sendAt = getSendAt(occurrence, setting)
 
-      if (due.sendAt.getTime() > now.getTime() || !['pending', 'queued', 'partial_failed'].includes(normalizeText(due.request.status))) {
+      if (sendAt.getTime() > now.getTime()) {
+        continue
+      }
+
+      const due = await upsertDueRequest({ occurrence, sendAt, setting, supabase })
+
+      if (!['pending', 'queued', 'partial_failed'].includes(normalizeText(due.request.status))) {
         continue
       }
 
