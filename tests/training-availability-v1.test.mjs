@@ -106,6 +106,8 @@ test('scheduled processor creates per occurrence parent email requests without p
   assert.match(processor, /training_availability_requests/)
   assert.match(processor, /training_availability_request_players/)
   assert.match(processor, /findExistingRecipient/)
+  assert.match(processor, /\.select\('id, player_id, team_id, club_id, email, status'\)/)
+  assert.doesNotMatch(processor, /parent_name, display_name/)
   assert.match(processor, /send_days_before/)
   assert.match(processor, /assertPlanFeature\({[\s\S]*getClubPlanProfile\(due\.request\.club_id\)[\s\S]*}, 'parentEmails'\)/)
   assert.match(processor, /sendEmail/)

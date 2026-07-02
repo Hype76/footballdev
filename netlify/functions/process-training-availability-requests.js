@@ -384,7 +384,7 @@ async function processDueRequest({ appOrigin, event, occurrence, request, supaba
   const { data: parentLinks, error: parentLinksError } = playerIds.length > 0
     ? await supabase
       .from('parent_player_links')
-      .select('id, player_id, team_id, club_id, email, parent_name, display_name, status')
+      .select('id, player_id, team_id, club_id, email, status')
       .eq('club_id', request.club_id)
       .eq('team_id', request.team_id)
       .in('player_id', playerIds)
