@@ -48,6 +48,138 @@ function getCalendarEventDisplayType(eventType) {
   return eventType === 'general' ? 'club-event' : 'deadline'
 }
 
+function getDateTime(value) {
+  const parsedDate = new Date(value)
+  return Number.isNaN(parsedDate.getTime()) ? 0 : parsedDate.getTime()
+}
+
+function getSessionSeriesKey(session) {
+  if (session?.isHistorical || session?.sessionType === 'match') {
+    return ''
+  }
+
+  const createdAt = getDateTime(session.createdAt)
+
+  if (!createdAt) {
+    return ''
+  }
+
+  return [
+    session.clubId || '',
+    session.teamId || '',
+    String(session.team || '').trim().toLowerCase(),
+    String(session.sessionType || 'training').trim().toLowerCase(),
+    String(session.title || '').trim().toLowerCase(),
+    String(session.startTime || '').trim(),
+    String(session.endTime || '').trim(),
+    String(session.location || '').trim().toLowerCase(),
+    String(session.notes || '').trim().toLowerCase(),
+    session.createdBy || '',
+  ].join('|')
+}
+
+function getDayDifference(leftDate, rightDate) {
+  const left = new Date(`${toDateOnly(leftDate)}T00:00:00`)
+  const right = new Date(`${toDateOnly(rightDate)}T00:00:00`)
+
+  if (Number.isNaN(left.getTime()) || Number.isNaN(right.getTime())) {
+    return 0
+  }
+
+  return Math.round((right.getTime() - left.getTime()) / 86400000)
+}
+
+function getSessionSeriesFrequency(sortedSessions) {
+  const gaps = []
+
+  for (let index = 1; index < sortedSessions.length; index += 1) {
+    gaps.push(getDayDifference(sortedSessions[index - 1].sessionDate, sortedSessions[index].sessionDate))
+  }
+
+  if (gaps.length === 0 || gaps.some((gap) => gap <= 0)) {
+    return 'none'
+  }
+
+  if (gaps.every((gap) => gap === 7)) {
+    return 'weekly'
+  }
+
+  if (gaps.every((gap) => gap === 14)) {
+    return 'fortnightly'
+  }
+
+  const monthly = sortedSessions.every((session, index) => {
+    if (index === 0) {
+      return true
+    }
+
+    const previous = new Date(`${sortedSessions[index - 1].sessionDate}T00:00:00`)
+    const current = new Date(`${session.sessionDate}T00:00:00`)
+    const expected = addMonths(previous, 1)
+
+    return toDateOnly(expected) === toDateOnly(current)
+  })
+
+  return monthly ? 'monthly' : 'none'
+}
+
+function buildLegacySessionSeriesById(sessions = []) {
+  const groups = new Map()
+
+  sessions.forEach((session) => {
+    const key = getSessionSeriesKey(session)
+
+    if (!key) {
+      return
+    }
+
+    if (!groups.has(key)) {
+      groups.set(key, [])
+    }
+
+    groups.get(key).push(session)
+  })
+
+  const seriesById = new Map()
+
+  groups.forEach((group, key) => {
+    const sortedGroup = group
+      .filter((session) => toDateOnly(session.sessionDate))
+      .sort((left, right) => toDateOnly(left.sessionDate).localeCompare(toDateOnly(right.sessionDate)))
+
+    if (sortedGroup.length < 2) {
+      return
+    }
+
+    const createdTimes = sortedGroup.map((session) => getDateTime(session.createdAt)).filter(Boolean)
+    const createdWindowMs = Math.max(...createdTimes) - Math.min(...createdTimes)
+
+    if (createdTimes.length !== sortedGroup.length || createdWindowMs > 30 * 60 * 1000) {
+      return
+    }
+
+    const recurrenceFrequency = getSessionSeriesFrequency(sortedGroup)
+
+    if (recurrenceFrequency === 'none') {
+      return
+    }
+
+    const series = {
+      id: `legacy-session-series:${key}:${Math.min(...createdTimes)}`,
+      recurrenceFrequency,
+      recurrenceUntil: toDateOnly(sortedGroup[sortedGroup.length - 1].sessionDate),
+      sessionIds: sortedGroup.map((session) => session.id),
+      startsOn: toDateOnly(sortedGroup[0].sessionDate),
+    }
+
+    sortedGroup.forEach((session) => {
+      seriesById.set(session.id, series)
+    })
+  })
+
+  return seriesById
+}
+
 function buildCalendarEventOccurrences(calendarEvent) {
   const startsAt = new Date(calendarEvent.startsAt)
 
@@ -162,6 +294,7 @@ function buildAssessmentReminderEvents(assessmentReminders, evaluations) {
 }
 
 export function buildFootballCalendarEvents({ calendarEvents = [], sessions = [], evaluations = [], matchDays = [], polls = [], assessmentReminders = [] }) {
+  const legacySessionSeriesById = buildLegacySessionSeriesById(sessions)
   const sessionEvents = sessions
     .map((session) => {
       const date = toDateOnly(session.sessionDate || session.date)
@@ -171,6 +304,7 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
 
       const type = session.sessionType === 'match' ? 'match' : 'training'
       const title = session.title || (session.opponent ? `Match vs ${session.opponent}` : '') || (type === 'match' ? 'Match' : 'Training session')
+      const legacyRecurringSeries = legacySessionSeriesById.get(session.id) || null
 
       return {
         id: `session:${session.id}`,
@@ -190,7 +324,12 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
         editable: !session.isHistorical,
         sourceId: session.id,
         sourceType: 'session',
-        data: session,
+        data: legacyRecurringSeries ? {
+          ...session,
+          legacyRecurringSeries,
+          recurrenceFrequency: legacyRecurringSeries.recurrenceFrequency,
+          recurrenceUntil: legacyRecurringSeries.recurrenceUntil,
+        } : session,
       }
     })
     .filter(Boolean)

@@ -290,8 +290,15 @@ function isCalendarResourceEventType(eventType) {
   return ['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'].includes(getTrimmedFormValue(eventType))
 }
 
+function isLegacyRecurringSessionEvent(event) {
+  return event?.sourceType === 'session'
+    && event?.data?.sessionType !== 'match'
+    && Array.isArray(event?.data?.legacyRecurringSeries?.sessionIds)
+    && event.data.legacyRecurringSeries.sessionIds.length > 1
+}
+
 function isRecurringCalendarEvent({ event, form } = {}) {
-  return event?.sourceType === 'calendar'
+  return (event?.sourceType === 'calendar' || isLegacyRecurringSessionEvent(event))
     && getTrimmedFormValue(form?.recurrenceFrequency) !== 'none'
 }
 
@@ -318,13 +325,53 @@ function hasRecurringCalendarDateTimeChange({ event, form } = {}) {
   }
 
   const source = event?.data || {}
-  const sourceDate = formatDateInput(source.startsAt || event?.date)
-  const sourceStartTime = formatTimeInput(source.startsAt)
-  const sourceEndTime = formatTimeInput(source.endsAt) || addMinutesToTime(source.startsAt, 60)
+  const sourceDate = event?.sourceType === 'session'
+    ? formatDateInput(source.sessionDate || event?.date)
+    : formatDateInput(source.startsAt || event?.date)
+  const sourceStartTime = event?.sourceType === 'session'
+    ? formatTimeInput(source.startTime)
+    : formatTimeInput(source.startsAt)
+  const sourceEndTime = event?.sourceType === 'session'
+    ? formatTimeInput(source.endTime) || addMinutesToTime(source.startTime, 60)
+    : formatTimeInput(source.endsAt) || addMinutesToTime(source.startsAt, 60)
 
   return sourceDate !== formatDateInput(form?.date)
     || sourceStartTime !== formatTimeInput(form?.startTime)
     || sourceEndTime !== formatTimeInput(form?.endTime)
+}
+
+function getLegacyRecurringSessionSeries({ event, sessions = [] } = {}) {
+  if (!isLegacyRecurringSessionEvent(event)) {
+    return []
+  }
+
+  const seriesIds = new Set(event.data.legacyRecurringSeries.sessionIds.map(String))
+
+  return sessions
+    .filter((session) => seriesIds.has(String(session.id)))
+    .sort((left, right) => formatDateInput(left.sessionDate).localeCompare(formatDateInput(right.sessionDate)))
+}
+
+function getDayShift(fromDate, toDate) {
+  const from = new Date(`${formatDateInput(fromDate)}T00:00:00`)
+  const to = new Date(`${formatDateInput(toDate)}T00:00:00`)
+
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return 0
+  }
+
+  return Math.round((to.getTime() - from.getTime()) / 86400000)
+}
+
+function shiftDateByDays(dateValue, dayShift) {
+  const date = new Date(`${formatDateInput(dateValue)}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) {
+    return formatDateInput(dateValue)
+  }
+
+  date.setDate(date.getDate() + dayShift)
+  return formatDateInput(date)
 }
 
 function getCalendarParentVisibility({ form, safeTeamId, user }) {
@@ -532,6 +579,9 @@ function getFormFromCalendarEvent(event, invites = []) {
       location: source.location || '',
       notes: source.notes || '',
       opponent: source.opponent || '',
+      recurrenceFrequency: source.legacyRecurringSeries?.recurrenceFrequency || source.recurrenceFrequency || 'none',
+      recurrenceUntil: source.legacyRecurringSeries?.recurrenceUntil || source.recurrenceUntil || '',
+      repeatUpdateScope: '',
       startTime: formatTimeInput(source.startTime) || '09:00',
       teamId: source.teamId || '',
       title: source.title || '',
@@ -1528,6 +1578,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     })
   }
 
+  const handleCalendarResourceIdsChange = (resourceIds) => {
+    const nextResourceIds = [...new Set(
+      (Array.isArray(resourceIds) ? resourceIds : [])
+        .map((resourceId) => String(resourceId ?? '').trim())
+        .filter(Boolean),
+    )]
+
+    setCalendarForm((current) => ({
+      ...current,
+      resourceIds: nextResourceIds,
+    }))
+  }
+
   const getCalendarTeamName = (teamId) => {
     const normalizedTeamId = String(teamId ?? '').trim()
     return teams.find((team) => team.id === normalizedTeamId)?.name || user?.activeTeamName || ''
@@ -1712,10 +1775,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       }
 
       if (saveTrainingAsSession || (sourceType === 'session' && activeEvent?.data?.sessionType !== 'match')) {
-        if (sourceType === 'session' && calendarForm.recurrenceFrequency !== 'none') {
-          throw new Error('Recurring training can be created from a new event. Existing sessions are edited one at a time.')
-        }
-
         const payload = {
           endTime: calendarForm.endTime,
           location: calendarForm.location,
@@ -1731,8 +1790,38 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const savedSessions = []
 
         if (sourceType === 'session') {
-          const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
-          savedSessions.push(savedSession)
+          const legacySeriesSessions = getLegacyRecurringSessionSeries({ event: activeEvent, sessions })
+          const isLegacyRecurringSession = legacySeriesSessions.length > 1 && calendarForm.recurrenceFrequency !== 'none'
+          const requiresRepeatUpdateScope = hasRecurringCalendarDateTimeChange({ event: activeEvent, form: calendarForm })
+
+          if (requiresRepeatUpdateScope && calendarForm.repeatUpdateScope !== 'entire_series') {
+            throw new Error('Choose how to update this repeating event before saving.')
+          }
+
+          if (calendarForm.recurrenceFrequency !== 'none' && !isLegacyRecurringSession) {
+            throw new Error('This legacy training session does not have a safe repeat series link, so it cannot be moved as a series yet.')
+          }
+
+          if (isLegacyRecurringSession) {
+            const dayShift = getDayShift(activeEvent.data?.sessionDate || activeEvent.date, calendarForm.date)
+
+            for (const seriesSession of legacySeriesSessions) {
+              const savedSession = await updateAssessmentSession({
+                user,
+                sessionId: seriesSession.id,
+                session: {
+                  ...payload,
+                  sessionDate: seriesSession.id === activeEvent.sourceId
+                    ? calendarForm.date
+                    : shiftDateByDays(seriesSession.sessionDate, dayShift),
+                },
+              })
+              savedSessions.push(savedSession)
+            }
+          } else {
+            const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
+            savedSessions.push(savedSession)
+          }
         } else {
           for (const sessionDate of recurrenceDates) {
             const savedSession = await createAssessmentSession({
@@ -1757,7 +1846,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
         showToast({
           title: sourceType === 'session' ? 'Session updated' : savedSessions.length > 1 ? 'Sessions created' : 'Session created',
-          message: savedSessions.length > 1 ? `${savedSessions.length} training sessions were added.` : savedSessions[0]?.title || 'Calendar updated.',
+          message: sourceType === 'session' && savedSessions.length > 1
+            ? `${savedSessions.length} training sessions in the repeat series were updated.`
+            : savedSessions.length > 1 ? `${savedSessions.length} training sessions were added.` : savedSessions[0]?.title || 'Calendar updated.',
         })
       } else if (isMatch || sourceType === 'match-day' || (sourceType === 'session' && activeEvent?.data?.sessionType === 'match')) {
         const payload = {
@@ -1898,7 +1989,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return
     }
 
-    if (activeEvent.sourceType === 'calendar' && requiresRepeatDeleteScope && calendarForm.deleteRepeatScope !== 'entire_series') {
+    if (requiresRepeatDeleteScope && calendarForm.deleteRepeatScope !== 'entire_series') {
       setErrorMessage('Choose how to delete this repeating event before continuing.')
       showToast({ title: 'Calendar not deleted', message: 'Choose how to delete this repeating event before continuing.', tone: 'error' })
       return
@@ -1929,9 +2020,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         showToast({ title: 'Event deleted', message: 'The calendar event was removed.' })
       } else if (activeEvent.sourceType === 'session') {
-        const assessmentCount = getAssessmentCountForSession(evaluations, activeEvent.data)
+        const legacySeriesSessions = requiresRepeatDeleteScope
+          ? getLegacyRecurringSessionSeries({ event: activeEvent, sessions })
+          : []
+        const sessionsToDelete = legacySeriesSessions.length > 1 ? legacySeriesSessions : [activeEvent.data]
+        const assessmentCount = sessionsToDelete.reduce(
+          (total, session) => total + getAssessmentCountForSession(evaluations, session),
+          0,
+        )
 
-        if (assessmentCount > 0) {
+        if (assessmentCount > 0 && sessionsToDelete.length === 1) {
           setDeleteSessionTarget({
             session: activeEvent.data,
             assessmentCount,
@@ -1942,17 +2040,24 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           return
         }
 
-        const deleteResult = await deleteAssessmentSession({ user, sessionId: activeEvent.sourceId })
-        const nextSessions = sessions.filter((session) => session.id !== activeEvent.sourceId)
-        const nextCalendarInvites = calendarInvites.filter((invite) => invite.assessmentSessionId !== activeEvent.sourceId)
+        const deleteResults = []
+
+        for (const session of sessionsToDelete) {
+          deleteResults.push(await deleteAssessmentSession({ user, sessionId: session.id }))
+        }
+
+        const deletedSessionIds = new Set(sessionsToDelete.map((session) => session.id))
+        const hasCancelledSession = deleteResults.some((result) => result?.mode === 'cancelled')
+        const nextSessions = sessions.filter((session) => !deletedSessionIds.has(session.id))
+        const nextCalendarInvites = calendarInvites.filter((invite) => !deletedSessionIds.has(invite.assessmentSessionId))
         setSessions(nextSessions)
         setCalendarInvites(nextCalendarInvites)
         writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
         showToast({
-          title: deleteResult?.mode === 'cancelled' ? 'Session removed' : 'Session deleted',
-          message: deleteResult?.mode === 'cancelled'
+          title: hasCancelledSession ? 'Session removed' : sessionsToDelete.length > 1 ? 'Repeat series deleted' : 'Session deleted',
+          message: hasCancelledSession
             ? 'The session was removed from the calendar. Player records stay in history.'
-            : 'The session was removed.',
+            : sessionsToDelete.length > 1 ? `${sessionsToDelete.length} training sessions were removed.` : 'The session was removed.',
         })
       } else if (activeEvent.sourceType === 'match-day') {
         const cancelledMatch = await updateMatchDay({
@@ -2407,6 +2512,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             setCalendarModal(null)
             navigate(href || '/sessions')
           }}
+          onResourceIdsChange={handleCalendarResourceIdsChange}
           onSubmit={handleCalendarSave}
           resourceOptions={calendarResourceOptions}
           selectedInvitePlayers={selectedCalendarInvitePlayers}
@@ -2703,6 +2809,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           setCalendarModal(null)
           navigate(href || '/sessions')
         }}
+        onResourceIdsChange={handleCalendarResourceIdsChange}
         onSubmit={handleCalendarSave}
         resourceOptions={calendarResourceOptions}
         selectedInvitePlayers={selectedCalendarInvitePlayers}
@@ -2741,17 +2848,59 @@ function CalendarAttachedResourcesList({ resources = [] }) {
 function CalendarResourceSelector({
   isBusy,
   isLoading,
-  onChange,
+  onSelectionChange,
   resourceOptions = [],
   selectedResourceIds,
 }) {
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [draftResourceIds, setDraftResourceIds] = useState(() => [...selectedResourceIds])
+  const selectedResources = resourceOptions.filter((resource) => selectedResourceIds.has(String(resource.id)))
+  const draftSelectedIds = new Set(draftResourceIds.map(String))
+  const filteredResources = resourceOptions.filter((resource) => {
+    const matchesCategory = !categoryFilter || resource.category === categoryFilter
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase()
+    const matchesSearch = !normalizedSearchTerm || [
+      resource.title,
+      resource.originalFilename,
+      resource.description,
+    ].some((value) => String(value ?? '').toLowerCase().includes(normalizedSearchTerm))
+
+    return matchesCategory && matchesSearch
+  })
+
+  const openPicker = () => {
+    setDraftResourceIds([...selectedResourceIds])
+    setIsPickerOpen(true)
+  }
+
+  const toggleDraftResource = (resourceId, checked) => {
+    setDraftResourceIds((current) => {
+      const normalizedResourceId = String(resourceId ?? '').trim()
+
+      if (!normalizedResourceId) {
+        return current
+      }
+
+      return checked
+        ? [...new Set([...current, normalizedResourceId])]
+        : current.filter((id) => id !== normalizedResourceId)
+    })
+  }
+
+  const applySelection = () => {
+    onSelectionChange(draftResourceIds)
+    setIsPickerOpen(false)
+  }
+
   return (
     <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black text-[#101828]">Attached resources</p>
           <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
-            Select from Team Resource Library. Existing files from this team only can be attached to this calendar event.
+            Team Resource Library files from this event team only.
           </p>
         </div>
         <span className="rounded-full border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#065f46]">
@@ -2768,38 +2917,107 @@ function CalendarResourceSelector({
           No resources in this team's library yet. Add resources from Team Resources first.
         </p>
       ) : (
-        <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white">
-          {resourceOptions.map((resource) => {
-            const createdLabel = formatResourceDate(resource.createdAt)
-
-            return (
-              <label
-                key={resource.id}
-                className="flex min-h-12 items-start gap-3 border-b border-[#d7e5dc] px-3 py-3 last:border-b-0"
-              >
-                <input
-                  type="checkbox"
-                  name="resourceIds"
-                  value={resource.id}
-                  checked={selectedResourceIds.has(String(resource.id))}
-                  onChange={onChange}
-                  disabled={isBusy}
-                  className="mt-1 h-5 w-5 accent-[#047857]"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-black text-[#101828]">{resource.title || resource.originalFilename || 'Team resource'}</span>
-                  <span className="block text-xs font-bold leading-5 text-[#4b5f55]">
-                    {getResourceCategoryLabel(resource.category)}
-                    {resource.originalFilename ? `, ${resource.originalFilename}` : ''}
-                    {resource.fileSizeBytes ? `, ${formatResourceLibraryFileSize(resource.fileSizeBytes)}` : ''}
-                    {createdLabel ? `, added ${createdLabel}` : ''}
-                  </span>
+        <div className="mt-4 space-y-3">
+          {selectedResources.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {selectedResources.map((resource) => (
+                <span
+                  key={resource.id}
+                  className="inline-flex max-w-full items-center rounded-lg border border-[#bbf7d0] bg-white px-3 py-2 text-xs font-black text-[#065f46]"
+                >
+                  <span className="truncate">{resource.title || resource.originalFilename || 'Team resource'}</span>
                 </span>
-              </label>
-            )
-          })}
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+              No resources selected.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={openPicker}
+            disabled={isBusy}
+            className={secondaryButtonClass}
+          >
+            Choose from Team Resource Library
+          </button>
         </div>
       )}
+
+      {isPickerOpen ? (
+        <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-white p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <label className="block flex-1">
+              <span className="mb-2 block text-sm font-black text-[#101828]">Search resources</span>
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by title or filename"
+                className={fieldClass}
+              />
+            </label>
+            <label className="block lg:w-56">
+              <span className="mb-2 block text-sm font-black text-[#101828]">Category</span>
+              <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className={fieldClass}>
+                <option value="">All categories</option>
+                {RESOURCE_LIBRARY_CATEGORIES.map((category) => (
+                  <option key={category.value} value={category.value}>{category.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-black text-[#101828]">{draftSelectedIds.size} selected</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button type="button" onClick={() => setIsPickerOpen(false)} disabled={isBusy} className={secondaryButtonClass}>
+                Cancel
+              </button>
+              <button type="button" onClick={applySelection} disabled={isBusy} className={primaryButtonClass}>
+                Apply
+              </button>
+            </div>
+          </div>
+
+          {filteredResources.length === 0 ? (
+            <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 text-sm font-bold text-[#4b5f55]">
+              No matching team resources.
+            </p>
+          ) : (
+            <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white">
+              {filteredResources.map((resource) => {
+                const createdLabel = formatResourceDate(resource.createdAt)
+
+                return (
+                  <label
+                    key={resource.id}
+                    className="flex min-h-12 items-start gap-3 border-b border-[#d7e5dc] px-3 py-3 last:border-b-0"
+                  >
+                    <input
+                      type="checkbox"
+                      value={resource.id}
+                      checked={draftSelectedIds.has(String(resource.id))}
+                      onChange={(event) => toggleDraftResource(resource.id, event.target.checked)}
+                      disabled={isBusy}
+                      className="mt-1 h-5 w-5 accent-[#047857]"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black text-[#101828]">{resource.title || resource.originalFilename || 'Team resource'}</span>
+                      <span className="block text-xs font-bold leading-5 text-[#4b5f55]">
+                        {getResourceCategoryLabel(resource.category)}
+                        {resource.originalFilename ? `, ${resource.originalFilename}` : ''}
+                        {resource.fileSizeBytes ? `, ${formatResourceLibraryFileSize(resource.fileSizeBytes)}` : ''}
+                        {createdLabel ? `, added ${createdLabel}` : ''}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -2862,6 +3080,7 @@ function CalendarEventModal({
   onDelete,
   onEdit,
   onOpenWorkflow,
+  onResourceIdsChange,
   onSubmit,
   resourceOptions = [],
   selectedInvitePlayers = [],
@@ -3168,7 +3387,7 @@ function CalendarEventModal({
                 <CalendarResourceSelector
                   isBusy={isBusy}
                   isLoading={isResourcesLoading}
-                  onChange={onChange}
+                  onSelectionChange={onResourceIdsChange}
                   resourceOptions={resourceOptions}
                   selectedResourceIds={selectedResourceIds}
                 />
