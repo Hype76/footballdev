@@ -6,9 +6,11 @@ const migrationUrl = new URL('../supabase/migrations/20260702123330_training_ava
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/training-availability.js', import.meta.url)
 const processorUrl = new URL('../netlify/functions/process-training-availability-requests.js', import.meta.url)
+const sendGateUrl = new URL('../netlify/functions/lib/_training-availability-send-gate.js', import.meta.url)
 const responseUrl = new URL('../netlify/functions/training-availability-response.js', import.meta.url)
 const netlifyTomlUrl = new URL('../netlify.toml', import.meta.url)
 const matchDayProcessorUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
+const sendGateModuleUrl = new URL('../netlify/functions/lib/_training-availability-send-gate.js', import.meta.url)
 
 function getFunction(source, name) {
   const start = source.indexOf(`create or replace function public.${name}`)
@@ -112,10 +114,60 @@ test('scheduled processor creates per occurrence parent email requests without p
   assert.match(processor, /send_days_before/)
   assert.match(processor, /assertPlanFeature\({[\s\S]*getClubPlanProfile\(due\.request\.club_id\)[\s\S]*}, 'parentEmails'\)/)
   assert.match(processor, /sendEmail/)
+  assert.match(processor, /getTrainingAvailabilitySendGate/)
+  assert.match(processor, /const sendGate = getTrainingAvailabilitySendGate\(setting\)[\s\S]*if \(!sendGate\.allowed\) {[\s\S]*continue[\s\S]*}[\s\S]*const due = await upsertDueRequest/)
   assert.match(netlifyToml, /\[functions\."process-training-availability-requests"\]/)
   assert.doesNotMatch(processor, /sendParentMobilePushById/)
   assert.doesNotMatch(processor, /sms/i)
   assert.doesNotMatch(processor, /scorer|linesman|referee/i)
+})
+
+test('training availability send gate uses explicit server environment flags', async () => {
+  const source = await readFile(sendGateUrl, 'utf8')
+
+  assert.match(source, /TRAINING_AVAILABILITY_REAL_EMAILS_ENABLED/)
+  assert.match(source, /TRAINING_AVAILABILITY_FP_TEST_EMAILS_ENABLED/)
+  assert.match(source, /TRAINING_AVAILABILITY_FP_TEST_CLUB_IDS/)
+  assert.match(source, /allowed: isAllowlistedFpTest/)
+})
+
+test('training availability scheduled processor send gate fails closed for real email rollout', async () => {
+  const { getTrainingAvailabilitySendGate } = await import(sendGateModuleUrl.href)
+  const setting = { club_id: 'real-club-id' }
+
+  assert.deepEqual(
+    getTrainingAvailabilitySendGate(setting, {}),
+    { allowed: false, mode: 'real-disabled' },
+  )
+  assert.deepEqual(
+    getTrainingAvailabilitySendGate(setting, { TRAINING_AVAILABILITY_REAL_EMAILS_ENABLED: 'false' }),
+    { allowed: false, mode: 'real-disabled' },
+  )
+  assert.deepEqual(
+    getTrainingAvailabilitySendGate(setting, { TRAINING_AVAILABILITY_REAL_EMAILS_ENABLED: 'true' }),
+    { allowed: true, mode: 'real-enabled' },
+  )
+  assert.deepEqual(
+    getTrainingAvailabilitySendGate(
+      { club_id: 'fp-test-club-id' },
+      {
+        TRAINING_AVAILABILITY_REAL_EMAILS_ENABLED: 'false',
+        TRAINING_AVAILABILITY_FP_TEST_EMAILS_ENABLED: 'true',
+        TRAINING_AVAILABILITY_FP_TEST_CLUB_IDS: 'other-club-id, fp-test-club-id',
+      },
+    ),
+    { allowed: true, mode: 'fp-test-allowlist' },
+  )
+  assert.deepEqual(
+    getTrainingAvailabilitySendGate(
+      { club_id: 'fp-test-club-id' },
+      {
+        TRAINING_AVAILABILITY_FP_TEST_EMAILS_ENABLED: 'true',
+        TRAINING_AVAILABILITY_FP_TEST_CLUB_IDS: 'other-club-id',
+      },
+    ),
+    { allowed: false, mode: 'real-disabled' },
+  )
 })
 
 test('parent response page only supports availability status and note', async () => {

@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
+import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -452,6 +453,7 @@ export async function processTrainingAvailabilityRequests(event = {}) {
   const summary = {
     scanned: 0,
     due: 0,
+    gated: 0,
     sent: 0,
     skipped: 0,
     failed: 0,
@@ -474,6 +476,20 @@ export async function processTrainingAvailabilityRequests(event = {}) {
       const sendAt = getSendAt(occurrence, setting)
 
       if (sendAt.getTime() > now.getTime()) {
+        continue
+      }
+
+      const sendGate = getTrainingAvailabilitySendGate(setting)
+
+      if (!sendGate.allowed) {
+        summary.gated += 1
+        console.warn('Training availability send gated', {
+          calendarEventId: setting.calendar_event_id,
+          clubId: setting.club_id,
+          gateMode: sendGate.mode,
+          occurrenceDate: occurrence.occurrenceDate,
+          teamId: setting.team_id,
+        })
         continue
       }
 
