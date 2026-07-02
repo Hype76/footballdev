@@ -77,7 +77,7 @@ test('calendar UI attaches resources only to team custom events and protects rec
 
   assert.match(source, /function isCalendarResourceEventType\(eventType\)/)
   assert.match(source, /\['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'\]\.includes/)
-  assert.match(source, /const defaultForm = getDefaultCalendarForm\(date\)[\s\S]*eventType: \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType/)
+  assert.match(source, /const defaultForm = getDefaultCalendarForm\(date\)[\s\S]*const eventType = \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType[\s\S]*eventType,/)
   assert.match(source, /const saveTrainingAsSession = isTraining && \(calendarModal\?\.variant === 'session' \|\| sourceType === 'session'\)/)
   assert.match(source, /const canShowTeamResourceArea = Boolean\(!isSessionCreate && !clubWideOnly && safeFormTeamId && canManageResourceLibrary\(user\)\)/)
   assert.match(source, /const canUseCalendarResourceLinks = Boolean\(\(!event \|\| event\.sourceType === 'calendar'\) && isCalendarResourceEventType\(form\.eventType\)\)/)

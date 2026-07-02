@@ -27,6 +27,9 @@
 [functions."send-scheduled-emails"]
   schedule = "* * * * *"
 
+[functions."process-training-availability-requests"]
+  schedule = "*/15 * * * *"
+
 [[redirects]]
   from = "/supabase/*"
   to = "/404"

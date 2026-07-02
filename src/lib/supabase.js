@@ -157,6 +157,16 @@ export {
 } from './domain/calendar-events.js'
 
 export {
+  buildTrainingAvailabilityPayload,
+  cancelPendingTrainingAvailabilityRequests,
+  getDefaultTrainingAvailabilityForm,
+  getTrainingAvailabilitySettingsForEvents,
+  getTrainingAvailabilitySummaryForEvents,
+  saveTrainingAvailabilitySettings,
+  summarizeTrainingAvailabilityRows,
+} from './domain/training-availability.js'
+
+export {
   getCalendarEventInvites,
   getParentPortalEventInvites,
   saveCalendarEventInvites,

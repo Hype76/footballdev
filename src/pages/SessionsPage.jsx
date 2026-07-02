@@ -42,6 +42,7 @@ import {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
+  cancelPendingTrainingAvailabilityRequests,
   createCalendarEvent,
   createAssessmentSession,
   createPlayerStaffNote,
@@ -55,9 +56,12 @@ import {
   getCalendarEventResources,
   getCalendarEvents,
   getCalendarEventInvites,
+  getDefaultTrainingAvailabilityForm,
   getMatchDays,
   getPolls,
   getResourceLibraryItems,
+  getTrainingAvailabilitySettingsForEvents,
+  getTrainingAvailabilitySummaryForEvents,
   getTodayMatchDayDateValue,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
@@ -67,6 +71,7 @@ import {
   readViewCache,
   readViewCacheValue,
   saveCalendarEventInvites,
+  saveTrainingAvailabilitySettings,
   syncCalendarEventResourceLinks,
   updateCalendarEvent,
   updateAssessmentSession,
@@ -187,6 +192,7 @@ function getDefaultCalendarForm(date = '') {
     shareWithParents: false,
     recurrenceFrequency: 'none',
     recurrenceUntil: '',
+    ...getDefaultTrainingAvailabilityForm('training'),
     startTime: '09:00',
     teamId: '',
     title: '',
@@ -789,6 +795,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const [calendarEventResourcesById, setCalendarEventResourcesById] = useState({})
   const [calendarResourceOptions, setCalendarResourceOptions] = useState([])
   const [isCalendarResourcesLoading, setIsCalendarResourcesLoading] = useState(false)
+  const [trainingAvailabilitySettingsByEventId, setTrainingAvailabilitySettingsByEventId] = useState({})
+  const [trainingAvailabilitySummaryByEventId, setTrainingAvailabilitySummaryByEventId] = useState({})
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
@@ -885,6 +893,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
     return sourceId ? calendarEventResourcesById[sourceId] || [] : []
   }, [calendarEventResourcesById, calendarModal?.event?.sourceId])
+  const currentTrainingAvailabilitySummary = useMemo(() => {
+    const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
+    return sourceId ? trainingAvailabilitySummaryByEventId[sourceId] || null : null
+  }, [calendarModal?.event?.sourceId, trainingAvailabilitySummaryByEventId])
   const calendarResourceTeamId = useMemo(() => {
     if (!calendarModal || isClubWideCalendar) {
       return ''
@@ -933,6 +945,50 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       isMounted = false
     }
   }, [calendarResourceTeamId, canAttachCalendarResources, user, userScopeKey])
+
+  useEffect(() => {
+    let isMounted = true
+    const trainingEventIds = calendarItems
+      .filter((item) => item.eventType === 'training' && item.teamId)
+      .map((item) => item.id)
+      .filter(Boolean)
+
+    if (trainingEventIds.length === 0 || !user?.clubId || isClubWideCalendar) {
+      setTrainingAvailabilitySettingsByEventId({})
+      setTrainingAvailabilitySummaryByEventId({})
+      return () => {
+        isMounted = false
+      }
+    }
+
+    Promise.allSettled([
+      getTrainingAvailabilitySettingsForEvents({ user, eventIds: trainingEventIds }),
+      getTrainingAvailabilitySummaryForEvents({ user, eventIds: trainingEventIds }),
+    ])
+      .then(([settingsResult, summaryResult]) => {
+        if (!isMounted) {
+          return
+        }
+
+        if (settingsResult.status === 'fulfilled') {
+          setTrainingAvailabilitySettingsByEventId(settingsResult.value)
+        } else {
+          console.error(settingsResult.reason)
+          setTrainingAvailabilitySettingsByEventId({})
+        }
+
+        if (summaryResult.status === 'fulfilled') {
+          setTrainingAvailabilitySummaryByEventId(summaryResult.value)
+        } else {
+          console.error(summaryResult.reason)
+          setTrainingAvailabilitySummaryByEventId({})
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [calendarItems, isClubWideCalendar, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -1477,9 +1533,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const handleCalendarDateClick = (date) => {
     setErrorMessage('')
     const defaultForm = getDefaultCalendarForm(date)
+    const eventType = (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType
     setCalendarForm({
       ...defaultForm,
-      eventType: (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType,
+      eventType,
+      requestTrainingAvailability: eventType === 'training',
       teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
     })
     setCalendarModal({ mode: 'create', event: null })
@@ -1497,7 +1555,17 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   const handleCalendarEventOpen = (event) => {
     setErrorMessage('')
-    setCalendarForm(getFormFromCalendarEvent(event, calendarInvites))
+    const baseForm = getFormFromCalendarEvent(event, calendarInvites)
+    const sourceEventType = event?.data?.eventType || baseForm.eventType
+    const setting = event?.sourceType === 'calendar'
+      ? trainingAvailabilitySettingsByEventId[event.sourceId]
+      : null
+
+    setCalendarForm({
+      ...baseForm,
+      requestTrainingAvailability: sourceEventType === 'training' ? setting?.enabled ?? true : false,
+      trainingAvailabilitySendDaysBefore: setting?.sendDaysBefore ?? 2,
+    })
     setCalendarModal({ mode: 'view', event })
   }
 
@@ -1592,6 +1660,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
       if (name === 'eventType' && value === 'training' && !current.title) {
         nextForm.title = ''
+      }
+
+      if (name === 'eventType') {
+        nextForm.requestTrainingAvailability = value === 'training'
       }
 
       if (name === 'eventType' && value === 'match') {
@@ -1972,6 +2044,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
           : await createCalendarEvent({ user, event: payload })
         await syncInvites({ calendarEventId: savedEvent.id, sourceTitle: savedEvent.title })
+        let savedTrainingAvailabilitySetting = null
+
+        if (calendarForm.eventType === 'training' && safeTeamId) {
+          savedTrainingAvailabilitySetting = await saveTrainingAvailabilitySettings({
+            user,
+            event: savedEvent,
+            settings: {
+              requestTrainingAvailability: calendarForm.requestTrainingAvailability,
+              trainingAvailabilitySendDaysBefore: calendarForm.trainingAvailabilitySendDaysBefore,
+            },
+          })
+        }
+
         if (isCalendarResourceEventType(calendarForm.eventType) && safeTeamId && (sourceType === 'calendar' || calendarForm.resourceIds?.length > 0)) {
           const attachedResources = await syncCalendarEventResourceLinks({
             user,
@@ -1987,6 +2072,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const nextCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
         setCalendarItems(nextCalendarItems)
         setCalendarInvites(nextCalendarInvites)
+        if (savedTrainingAvailabilitySetting) {
+          setTrainingAvailabilitySettingsByEventId((current) => ({
+            ...current,
+            [savedEvent.id]: savedTrainingAvailabilitySetting,
+          }))
+        }
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
       }
@@ -2049,11 +2140,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     try {
       if (activeEvent.sourceType === 'calendar') {
+        if (activeEvent.data?.eventType === 'training') {
+          await cancelPendingTrainingAvailabilityRequests({ user, calendarEventId: activeEvent.sourceId })
+        }
         await deleteCalendarEvent({ user, eventId: activeEvent.sourceId })
         const nextCalendarItems = calendarItems.filter((item) => item.id !== activeEvent.sourceId)
         const nextCalendarInvites = calendarInvites.filter((invite) => invite.calendarEventId !== activeEvent.sourceId)
         setCalendarItems(nextCalendarItems)
         setCalendarInvites(nextCalendarInvites)
+        setTrainingAvailabilitySettingsByEventId((current) => {
+          const nextSettings = { ...current }
+          delete nextSettings[activeEvent.sourceId]
+          return nextSettings
+        })
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         showToast({ title: 'Event deleted', message: 'The calendar event was removed.' })
       } else if (activeEvent.sourceType === 'session') {
@@ -2553,6 +2652,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           onSubmit={handleCalendarSave}
           resourceOptions={calendarResourceOptions}
           selectedInvitePlayers={selectedCalendarInvitePlayers}
+          trainingAvailabilitySummary={currentTrainingAvailabilitySummary}
           clubWideOnly={isClubWideCalendar}
           teams={teams}
           user={user}
@@ -2850,6 +2950,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onSubmit={handleCalendarSave}
         resourceOptions={calendarResourceOptions}
         selectedInvitePlayers={selectedCalendarInvitePlayers}
+        trainingAvailabilitySummary={currentTrainingAvailabilitySummary}
         teams={teams}
         user={user}
         variant={calendarModal?.variant || ''}
@@ -3101,6 +3202,87 @@ function CalendarRepeatDeleteScope({ isBusy, onChange, value }) {
   )
 }
 
+function TrainingAvailabilitySummary({ summary }) {
+  if (!summary) {
+    return null
+  }
+
+  const responded = Number(summary.responded ?? 0)
+  const sent = Number(summary.sent ?? 0)
+  const pending = Number(summary.pending ?? 0)
+  const failed = Number(summary.failed ?? 0)
+
+  return (
+    <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Assigned availability</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-4">
+        <div>
+          <p className="text-lg font-black text-[#101828]">{responded}</p>
+          <p className="text-xs font-bold text-[#4b5f55]">responded</p>
+        </div>
+        <div>
+          <p className="text-lg font-black text-[#101828]">{sent}</p>
+          <p className="text-xs font-bold text-[#4b5f55]">sent</p>
+        </div>
+        <div>
+          <p className="text-lg font-black text-[#101828]">{pending}</p>
+          <p className="text-xs font-bold text-[#4b5f55]">pending</p>
+        </div>
+        <div>
+          <p className="text-lg font-black text-[#101828]">{failed}</p>
+          <p className="text-xs font-bold text-[#4b5f55]">failed</p>
+        </div>
+      </div>
+      {responded > 0 ? (
+        <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
+          Available {summary.available || 0}, not available {summary.unavailable || 0}, maybe {summary.maybe || 0}.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function TrainingAvailabilitySettings({ form, isBusy, onChange }) {
+  return (
+    <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+      <div className="grid gap-4 md:grid-cols-[1fr_12rem]">
+        <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+          <input
+            type="checkbox"
+            name="requestTrainingAvailability"
+            checked={form.requestTrainingAvailability === true}
+            onChange={onChange}
+            disabled={isBusy}
+            className="mt-1 h-5 w-5 accent-[#047857]"
+          />
+          <span>
+            Request player availability from parents?
+            <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+              Sends parent email requests for players in this team only.
+            </span>
+          </span>
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm font-black text-[#101828]">Send days before</span>
+          <input
+            name="trainingAvailabilitySendDaysBefore"
+            type="number"
+            min="0"
+            max="30"
+            value={form.trainingAvailabilitySendDaysBefore ?? 2}
+            onChange={onChange}
+            disabled={isBusy || form.requestTrainingAvailability !== true}
+            className={fieldClass}
+          />
+        </label>
+      </div>
+      <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
+        For repeating training, this applies separately to each occurrence.
+      </p>
+    </div>
+  )
+}
+
 function CalendarEventModal({
   attachedResources = [],
   clubWideOnly = false,
@@ -3121,6 +3303,7 @@ function CalendarEventModal({
   onSubmit,
   resourceOptions = [],
   selectedInvitePlayers = [],
+  trainingAvailabilitySummary = null,
   teams,
   user,
   variant = '',
@@ -3147,6 +3330,7 @@ function CalendarEventModal({
   const canShowTeamResourceArea = Boolean(!isSessionCreate && !clubWideOnly && safeFormTeamId && canManageResourceLibrary(user))
   const canUseCalendarResourceLinks = Boolean((!event || event.sourceType === 'calendar') && isCalendarResourceEventType(form.eventType))
   const canAttachResources = canShowTeamResourceArea && canUseCalendarResourceLinks
+  const canShowTrainingAvailability = Boolean(!isSessionCreate && !clubWideOnly && safeFormTeamId && form.eventType === 'training' && (!event || event.sourceType === 'calendar'))
   const selectedResourceIds = new Set(Array.isArray(form.resourceIds) ? form.resourceIds.map(String) : [])
   const isRecurringCalendarEdit = isRecurringCalendarEvent({ event, form })
   const repeatUpdateScopeRequired = hasRecurringCalendarDateTimeChange({ event, form })
@@ -3243,6 +3427,7 @@ function CalendarEventModal({
                 </div>
               </div>
             ) : null}
+            {form.eventType === 'training' ? <TrainingAvailabilitySummary summary={trainingAvailabilitySummary} /> : null}
             <CalendarAttachedResourcesList resources={attachedResources} />
             {showRepeatDeleteScope ? (
               <div className="mt-4">
@@ -3418,6 +3603,14 @@ function CalendarEventModal({
                 </p>
               </div>
             )}
+
+            {canShowTrainingAvailability ? (
+              <TrainingAvailabilitySettings
+                form={form}
+                isBusy={isBusy}
+                onChange={onChange}
+              />
+            ) : null}
 
             {canShowTeamResourceArea ? (
               canAttachResources ? (
