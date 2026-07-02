@@ -199,6 +199,19 @@ export {
 } from './domain/polls.js'
 
 export {
+  archiveStaffChatConversation,
+  createStaffChatConversation,
+  deleteStaffChatMessage,
+  getStaffChatConversations,
+  getStaffChatMessages,
+  getStaffChatStaffDirectory,
+  getStaffChatTeams,
+  markStaffChatConversationRead,
+  sendStaffChatMessage,
+  STAFF_CHAT_CONVERSATION_TYPES,
+} from './domain/staff-chat.js'
+
+export {
   addMatchDayGoalAsScorer,
   addStaffMatchDayGoal,
   calculateArrivalTime,

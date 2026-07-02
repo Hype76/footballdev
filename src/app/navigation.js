@@ -30,6 +30,11 @@ export const primaryNavigation = [
     helper: 'Parent email queue',
   },
   {
+    label: 'Staff Chat',
+    path: '/staff-chat',
+    helper: 'Staff-only messages',
+  },
+  {
     label: 'Polls',
     path: '/polls',
     helper: 'Create and track replies',

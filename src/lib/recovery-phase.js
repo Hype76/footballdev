@@ -22,6 +22,7 @@ export const RECOVERY_MODULES = {
   reports: { phase: 1 },
   sessions: { phase: 1 },
   shell: { phase: 1 },
+  staffChat: { phase: 1 },
   teamsStaff: { phase: 1 },
 }
 
@@ -76,6 +77,10 @@ export function getRecoveryModuleForPath(path) {
 
   if (['/email-queue', '/parent-email-templates'].includes(normalizedPath)) {
     return 'emailMessages'
+  }
+
+  if (normalizedPath === '/staff-chat') {
+    return 'staffChat'
   }
 
   if (normalizedPath === '/billing') {

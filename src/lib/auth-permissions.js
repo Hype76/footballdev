@@ -229,6 +229,14 @@ export function canManagePolls(user) {
   return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
 }
 
+export function canUseStaffChat(user) {
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && isPlanAccessActive(user)
+    && Number(user?.roleRank ?? 0) >= 20
+}
+
 export function canManageMatchDay(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)

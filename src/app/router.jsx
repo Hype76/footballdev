@@ -14,6 +14,7 @@ import {
   canManagePolls,
   canManageTeamSettings,
   canManageUsers,
+  canUseStaffChat,
   canViewActivityLog,
   canViewBilling,
   canViewEndSeasonStats,
@@ -97,6 +98,7 @@ const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx
 const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
+const StaffChatPage = lazyRoute(() => import('../pages/StaffChatPage.jsx'), 'StaffChatPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
 const TesterFeedbackPage = lazyRoute(() => import('../pages/TesterFeedbackPage.jsx'), 'TesterFeedbackPage')
@@ -978,6 +980,24 @@ function RequirePollAccess() {
   return <Outlet />
 }
 
+function RequireStaffChatAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!isRecoveryModuleVisible('staffChat', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
+  if (!canUseStaffChat(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequireMatchDayAccess() {
   const { element, user } = useWorkspaceRouteGate()
 
@@ -1713,6 +1733,22 @@ export const router = createBrowserRouter([
                         ),
                         handle: {
                           title: 'Availability',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    element: <RequireStaffChatAccess />,
+                    children: [
+                      {
+                        path: 'staff-chat',
+                        element: (
+                          <PageSuspense>
+                            <StaffChatPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Staff Chat',
                         },
                       },
                     ],

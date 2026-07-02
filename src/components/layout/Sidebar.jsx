@@ -14,6 +14,7 @@ import {
   canManagePolls,
   canManageTeamSettings,
   canManageUsers,
+  canUseStaffChat,
   canViewActivityLog,
   canViewBilling,
   canViewEndSeasonStats,
@@ -30,7 +31,7 @@ import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability 
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/feedback-forms', '/parent-linking', '/email-queue', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/feedback-forms', '/parent-linking', '/email-queue', '/staff-chat', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',
@@ -50,6 +51,7 @@ const navIcons = {
   '/players': 'players',
   '/polls': 'availability',
   '/sessions': 'calendar',
+  '/staff-chat': 'mail',
   '/teams': 'teams',
   '/user-access': 'staff',
   '/coach': 'home',
@@ -314,6 +316,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/email-queue') {
       return canUseTeamWorkflow && canManageEmailQueue(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.parentEmails)
+    }
+
+    if (item.path === '/staff-chat') {
+      return canUseStaffChat(displayUser)
     }
 
     if (item.path === '/polls') {
