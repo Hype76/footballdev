@@ -152,6 +152,24 @@ function getActiveResourceTeamId(user) {
   return activeTeamId
 }
 
+function getResourceLibraryTeamId(user, teamId = '', message = 'Choose a team before selecting resources.') {
+  const normalizedTeamId = normalizeText(teamId) || normalizeText(user?.activeTeamId)
+
+  if (!normalizedTeamId) {
+    throw new Error(message)
+  }
+
+  return normalizedTeamId
+}
+
+function normalizeResourceIds(resourceIds = []) {
+  return [...new Set(
+    (Array.isArray(resourceIds) ? resourceIds : [])
+      .map(normalizeText)
+      .filter(Boolean),
+  )]
+}
+
 function normalizeTeam(row) {
   const team = Array.isArray(row) ? row[0] : row
 
@@ -515,6 +533,160 @@ export async function getAssignedResourcesForPlayer({ playerId, user } = {}) {
       .filter(Boolean)
       .filter((item) => !item.archivedAt)
   })
+}
+
+export async function getCalendarEventResources({ eventId, teamId = '', user } = {}) {
+  if (!canUseResourceLibrary(user)) {
+    return []
+  }
+
+  const normalizedEventId = normalizeText(eventId)
+  const eventTeamId = getResourceLibraryTeamId(user, teamId, 'Choose the event team before viewing attached resources.')
+
+  if (!normalizedEventId) {
+    return []
+  }
+
+  return getCachedResource(getResourceLibraryCacheKey(user, `calendar-event:${normalizedEventId}:${eventTeamId}`), async () => {
+    const { data, error } = await supabase
+      .from('resource_library_links')
+      .select('*, resource_library_items(*)')
+      .eq('club_id', user.clubId)
+      .eq('team_id', eventTeamId)
+      .eq('linked_type', 'calendar_event')
+      .eq('linked_id', normalizedEventId)
+      .is('removed_at', null)
+      .order('assigned_at', { ascending: false })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? [])
+      .map((link) => {
+        const item = Array.isArray(link.resource_library_items) ? link.resource_library_items[0] : link.resource_library_items
+        return item ? {
+          ...normalizeResourceLibraryItem(item),
+          link: normalizeResourceLibraryLink(link),
+        } : null
+      })
+      .filter(Boolean)
+      .filter((item) => !item.archivedAt)
+  })
+}
+
+export async function syncCalendarEventResourceLinks({ eventId, resourceIds = [], teamId = '', user } = {}) {
+  await blockDemoMutation(user)
+  assertResourceLibraryManageAccess(user)
+
+  const normalizedEventId = normalizeText(eventId)
+  const eventTeamId = getResourceLibraryTeamId(user, teamId, 'Choose the event team before attaching resources.')
+  const desiredResourceIds = normalizeResourceIds(resourceIds)
+
+  if (!normalizedEventId) {
+    throw new Error('Save the calendar event before attaching resources.')
+  }
+
+  if (desiredResourceIds.length > 0) {
+    const { data: resources, error: resourceError } = await supabase
+      .from('resource_library_items')
+      .select('id')
+      .eq('club_id', user.clubId)
+      .eq('team_id', eventTeamId)
+      .is('archived_at', null)
+      .in('id', desiredResourceIds)
+
+    if (resourceError) {
+      console.error(resourceError)
+      throw resourceError
+    }
+
+    const foundResourceIds = new Set((resources ?? []).map((resource) => normalizeText(resource.id)))
+    const hasOutOfScopeResource = desiredResourceIds.some((resourceId) => !foundResourceIds.has(resourceId))
+
+    if (hasOutOfScopeResource) {
+      throw new Error('Attach resources from this event team only.')
+    }
+  }
+
+  const { data: existingLinks, error: linksError } = await supabase
+    .from('resource_library_links')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .eq('linked_type', 'calendar_event')
+    .eq('linked_id', normalizedEventId)
+    .is('removed_at', null)
+
+  if (linksError) {
+    console.error(linksError)
+    throw linksError
+  }
+
+  const desiredResourceIdSet = new Set(desiredResourceIds)
+  const existingActiveResourceIds = new Set(
+    (existingLinks ?? [])
+      .filter((link) => normalizeText(link.team_id) === eventTeamId)
+      .map((link) => normalizeText(link.resource_id)),
+  )
+  const linkIdsToRemove = (existingLinks ?? [])
+    .filter((link) => !desiredResourceIdSet.has(normalizeText(link.resource_id)) || normalizeText(link.team_id) !== eventTeamId)
+    .map((link) => normalizeText(link.id))
+    .filter(Boolean)
+  const resourceIdsToAdd = desiredResourceIds.filter((resourceId) => !existingActiveResourceIds.has(resourceId))
+
+  if (linkIdsToRemove.length > 0) {
+    const { error: removeError } = await supabase
+      .from('resource_library_links')
+      .update({
+        removed_at: new Date().toISOString(),
+        removed_by_profile_id: getEntryUserId(user),
+        ...getEntryIdentity(user, 'removed_by'),
+      })
+      .in('id', linkIdsToRemove)
+      .eq('club_id', user.clubId)
+
+    if (removeError) {
+      console.error(removeError)
+      throw removeError
+    }
+  }
+
+  if (resourceIdsToAdd.length > 0) {
+    const rows = resourceIdsToAdd.map((resourceId) => ({
+      resource_id: resourceId,
+      club_id: user.clubId,
+      team_id: eventTeamId,
+      linked_type: 'calendar_event',
+      linked_id: normalizedEventId,
+      assigned_by_profile_id: getEntryUserId(user),
+      ...getEntryIdentity(user, 'assigned_by'),
+    }))
+
+    const { error: insertError } = await supabase
+      .from('resource_library_links')
+      .insert(rows)
+
+    if (insertError) {
+      console.error(insertError)
+      throw insertError
+    }
+  }
+
+  invalidateMemoryCacheByPrefix(`resource-library:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'resource_library_event_resources_synced',
+    entityType: 'calendar_event',
+    entityId: normalizedEventId,
+    metadata: {
+      resourceCount: desiredResourceIds.length,
+      teamId: eventTeamId,
+    },
+  })
+
+  return getCalendarEventResources({ eventId: normalizedEventId, teamId: eventTeamId, user })
 }
 
 export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {

@@ -119,7 +119,7 @@ test('role quick links exclude recovery gated destinations', () => {
   assert.equal(managerLinks.includes('/activity-log'), false)
   assert.equal(managerLinks.includes('/billing'), false)
   assert.equal(managerLinks.includes('/platform-feedback'), false)
-  assert.equal(managerLinks.includes('/form-builder'), true)
+  assert.equal(managerLinks.includes('/form-builder'), false)
   assert.equal(superAdminLinks.includes('/activity-log'), false)
   assert.equal(superAdminLinks.includes('/platform-feedback'), true)
 })
@@ -136,7 +136,7 @@ test('billing direct route respects recovery before billing permission', async (
   assert.match(section, /return <RecoveryPhaseBlockedState \/>/)
 })
 
-test('form builder phase config, sidebar visibility, and route access agree', async () => {
+test('form builder phase config and direct route access stay preserved', async () => {
   const recoverySource = await readFile(recoveryUrl, 'utf8')
   const sidebarSource = await readFile(sidebarUrl, 'utf8')
   const routerSource = await readFile(routerUrl, 'utf8')
@@ -146,6 +146,7 @@ test('form builder phase config, sidebar visibility, and route access agree', as
   assert.doesNotMatch(recoverySource, /formBuilder: \{ phase: 1, clubAdminOnlyDuringRecovery: true \}/)
   assert.match(sidebarSource, /if \(!isRecoveryPathVisible\(item\.path, \{ user: displayUser \}\)\) \{/)
   assert.doesNotMatch(sidebarSource, /item\.path !== '\/form-builder'/)
+  assert.match(sidebarSource, /'\/form-builder': 'fields'/)
   assert.match(formBuilderSection, /isRecoveryModuleVisible\('formBuilder', \{ user \}\)/)
   assert.match(formBuilderSection, /canManageFormFields\(user\)/)
   assert.match(formBuilderSection, /canUseUiFeature\(user, CAPABILITIES\.customDevelopmentFields\)/)

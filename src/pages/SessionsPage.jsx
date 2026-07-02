@@ -9,7 +9,7 @@ import { SessionPlayersSection } from '../components/sessions/SessionPlayersSect
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
-import { canCreateEvaluation, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { canCreateEvaluation, canManageResourceLibrary, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
 import { canUseUiFeature } from '../lib/paywall-ui.js'
 import {
@@ -48,12 +48,16 @@ import {
   deleteCalendarEvent,
   deleteAssessmentSession,
   deletePlayerStaffNote,
+  formatResourceLibraryFileSize,
+  RESOURCE_LIBRARY_CATEGORIES,
   getEvaluations,
   getAssessmentReminderLogs,
+  getCalendarEventResources,
   getCalendarEvents,
   getCalendarEventInvites,
   getMatchDays,
   getPolls,
+  getResourceLibraryItems,
   getTodayMatchDayDateValue,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
@@ -63,6 +67,7 @@ import {
   readViewCache,
   readViewCacheValue,
   saveCalendarEventInvites,
+  syncCalendarEventResourceLinks,
   updateCalendarEvent,
   updateAssessmentSession,
   updateMatchDay,
@@ -164,6 +169,8 @@ function getDefaultCalendarForm(date = '') {
     notifyInvitedFamilies: false,
     opponent: '',
     parentAudience: 'involved_players',
+    repeatUpdateScope: '',
+    resourceIds: [],
     shareWithParents: false,
     recurrenceFrequency: 'none',
     recurrenceUntil: '',
@@ -276,6 +283,46 @@ function isClubWideShareableCalendarEvent({ form, safeTeamId, user }) {
     && !safeTeamId
     && eventType !== 'training'
     && eventType !== 'match'
+}
+
+function isCalendarResourceEventType(eventType) {
+  return !['training', 'match'].includes(getTrimmedFormValue(eventType))
+}
+
+function getCalendarEventResourceIds(resources = []) {
+  return (Array.isArray(resources) ? resources : [])
+    .map((resource) => String(resource?.id ?? '').trim())
+    .filter(Boolean)
+}
+
+function getResourceCategoryLabel(value) {
+  return RESOURCE_LIBRARY_CATEGORIES.find((category) => category.value === value)?.label || 'General'
+}
+
+function formatResourceDate(value) {
+  const timestamp = Date.parse(String(value ?? ''))
+  return Number.isNaN(timestamp)
+    ? ''
+    : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(timestamp))
+}
+
+function hasRecurringCalendarDateTimeChange({ event, form } = {}) {
+  if (event?.sourceType !== 'calendar') {
+    return false
+  }
+
+  if (getTrimmedFormValue(form?.recurrenceFrequency) === 'none') {
+    return false
+  }
+
+  const source = event?.data || {}
+  const sourceDate = formatDateInput(source.startsAt || event?.date)
+  const sourceStartTime = formatTimeInput(source.startsAt)
+  const sourceEndTime = formatTimeInput(source.endsAt) || addMinutesToTime(source.startsAt, 60)
+
+  return sourceDate !== formatDateInput(form?.date)
+    || sourceStartTime !== formatTimeInput(form?.startTime)
+    || sourceEndTime !== formatTimeInput(form?.endTime)
 }
 
 function getCalendarParentVisibility({ form, safeTeamId, user }) {
@@ -520,6 +567,8 @@ function getFormFromCalendarEvent(event, invites = []) {
       eventType: source.eventType || 'general',
       location: source.location || '',
       notes: source.notes || '',
+      repeatUpdateScope: '',
+      resourceIds: [],
       recurrenceFrequency: source.recurrenceFrequency || 'none',
       recurrenceUntil: source.recurrenceUntil || '',
       startTime: formatTimeInput(source.startsAt) || '09:00',
@@ -651,6 +700,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
   const [calendarModal, setCalendarModal] = useState(null)
   const [calendarForm, setCalendarForm] = useState(() => getDefaultCalendarForm())
+  const [calendarEventResourcesById, setCalendarEventResourcesById] = useState({})
+  const [calendarResourceOptions, setCalendarResourceOptions] = useState([])
+  const [isCalendarResourcesLoading, setIsCalendarResourcesLoading] = useState(false)
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
@@ -743,6 +795,94 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     () => getInvitesForCalendarEvent(calendarModal?.event, calendarInvites),
     [calendarInvites, calendarModal?.event],
   )
+  const currentCalendarEventResources = useMemo(() => {
+    const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
+    return sourceId ? calendarEventResourcesById[sourceId] || [] : []
+  }, [calendarEventResourcesById, calendarModal?.event?.sourceId])
+  const calendarResourceTeamId = useMemo(() => {
+    if (!calendarModal || isClubWideCalendar || !isCalendarResourceEventType(calendarForm.eventType)) {
+      return ''
+    }
+
+    return getSafeCalendarTeamId(user, calendarForm.teamId)
+  }, [calendarForm.eventType, calendarForm.teamId, calendarModal, isClubWideCalendar, user])
+  const canAttachCalendarResources = Boolean(
+    calendarModal
+      && calendarResourceTeamId
+      && isCalendarResourceEventType(calendarForm.eventType)
+      && canManageResourceLibrary(user),
+  )
+
+  useEffect(() => {
+    let isMounted = true
+
+    if (!canAttachCalendarResources) {
+      setCalendarResourceOptions([])
+      setIsCalendarResourcesLoading(false)
+      return () => {
+        isMounted = false
+      }
+    }
+
+    setIsCalendarResourcesLoading(true)
+    getResourceLibraryItems({ user, teamId: calendarResourceTeamId })
+      .then((items) => {
+        if (isMounted) {
+          setCalendarResourceOptions(items)
+        }
+      })
+      .catch((error) => {
+        console.error(error)
+        if (isMounted) {
+          setCalendarResourceOptions([])
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsCalendarResourcesLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [calendarResourceTeamId, canAttachCalendarResources, user, userScopeKey])
+
+  useEffect(() => {
+    let isMounted = true
+    const event = calendarModal?.event
+    const eventId = String(event?.sourceId ?? '').trim()
+    const eventTeamId = String(event?.data?.teamId ?? '').trim()
+
+    if (event?.sourceType !== 'calendar' || !eventId || !eventTeamId || !isCalendarResourceEventType(event?.data?.eventType)) {
+      return () => {
+        isMounted = false
+      }
+    }
+
+    getCalendarEventResources({ user, eventId, teamId: eventTeamId })
+      .then((resources) => {
+        if (!isMounted) {
+          return
+        }
+
+        setCalendarEventResourcesById((current) => ({
+          ...current,
+          [eventId]: resources,
+        }))
+        setCalendarForm((current) => ({
+          ...current,
+          resourceIds: getCalendarEventResourceIds(resources),
+        }))
+      })
+      .catch((error) => {
+        console.error(error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [calendarModal?.event, user, userScopeKey])
 
   useEffect(() => {
     const requestedAction = String(searchParams.get('action') ?? '').trim()
@@ -1309,6 +1449,18 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }
 
     setCalendarForm((current) => {
+      if (name === 'resourceIds') {
+        const currentIds = Array.isArray(current.resourceIds) ? current.resourceIds : []
+        const nextIds = checked
+          ? [...new Set([...currentIds, value])]
+          : currentIds.filter((id) => id !== value)
+
+        return {
+          ...current,
+          resourceIds: nextIds,
+        }
+      }
+
       if (name === 'invitedPlayerIds') {
         const currentIds = Array.isArray(current.invitedPlayerIds) ? current.invitedPlayerIds : []
         const nextIds = checked
@@ -1341,9 +1493,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         nextForm.invitedPlayerIds = []
         nextForm.inviteTrialPlayers = false
         nextForm.inviteWholeSquad = false
+        nextForm.resourceIds = []
         if (!value && current.parentAudience === 'all_team_parents') {
           nextForm.parentAudience = 'all_club_parents'
         }
+      }
+
+      if (['date', 'startTime', 'endTime'].includes(name)) {
+        nextForm.repeatUpdateScope = ''
       }
 
       if (name === 'eventType' && value === 'training' && !current.title) {
@@ -1354,6 +1511,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         nextForm.recurrenceFrequency = 'none'
         nextForm.recurrenceUntil = ''
         nextForm.endTime = addMinutesToTime(current.startTime, 120)
+      }
+
+      if (name === 'eventType' && !isCalendarResourceEventType(value)) {
+        nextForm.resourceIds = []
       }
 
       if (name === 'startTime' && nextForm.eventType === 'match') {
@@ -1649,6 +1810,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           showToast({ title: 'Fixture created', message: savedSession.title || 'Calendar updated.' })
         }
       } else {
+        const requiresRepeatUpdateScope = hasRecurringCalendarDateTimeChange({ event: activeEvent, form: calendarForm })
+
+        if (requiresRepeatUpdateScope && calendarForm.repeatUpdateScope !== 'entire_series') {
+          throw new Error('Choose how to update this repeating event before saving.')
+        }
+
         if (calendarForm.recurrenceFrequency !== 'none') {
           buildRecurrenceDates({
             date: calendarForm.date,
@@ -1673,6 +1840,18 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
           : await createCalendarEvent({ user, event: payload })
         await syncInvites({ calendarEventId: savedEvent.id, sourceTitle: savedEvent.title })
+        if (isCalendarResourceEventType(calendarForm.eventType) && safeTeamId && (sourceType === 'calendar' || calendarForm.resourceIds?.length > 0)) {
+          const attachedResources = await syncCalendarEventResourceLinks({
+            user,
+            eventId: savedEvent.id,
+            teamId: safeTeamId,
+            resourceIds: calendarForm.resourceIds,
+          })
+          setCalendarEventResourcesById((current) => ({
+            ...current,
+            [savedEvent.id]: attachedResources,
+          }))
+        }
         const nextCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
         setCalendarItems(nextCalendarItems)
         setCalendarInvites(nextCalendarInvites)
@@ -2195,11 +2374,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         />
 
         <CalendarEventModal
+          attachedResources={currentCalendarEventResources}
           currentInvites={currentCalendarEventInvites}
           event={calendarModal?.event}
           form={calendarForm}
           invitePlayers={calendarInvitePlayers}
           isBusy={isSaving}
+          isResourcesLoading={isCalendarResourcesLoading}
           isOpen={Boolean(calendarModal)}
           mode={calendarModal?.mode || 'create'}
           onCancel={() => setCalendarModal(null)}
@@ -2214,6 +2395,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             navigate(href || '/sessions')
           }}
           onSubmit={handleCalendarSave}
+          resourceOptions={calendarResourceOptions}
           selectedInvitePlayers={selectedCalendarInvitePlayers}
           clubWideOnly={isClubWideCalendar}
           teams={teams}
@@ -2488,11 +2670,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onConfirm={() => void confirmCompleteSession()}
       />
       <CalendarEventModal
+        attachedResources={currentCalendarEventResources}
         currentInvites={currentCalendarEventInvites}
         event={calendarModal?.event}
         form={calendarForm}
         invitePlayers={calendarInvitePlayers}
         isBusy={isSaving}
+        isResourcesLoading={isCalendarResourcesLoading}
         isOpen={Boolean(calendarModal)}
         mode={calendarModal?.mode || 'create'}
         onCancel={() => setCalendarModal(null)}
@@ -2507,6 +2691,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           navigate(href || '/sessions')
         }}
         onSubmit={handleCalendarSave}
+        resourceOptions={calendarResourceOptions}
         selectedInvitePlayers={selectedCalendarInvitePlayers}
         teams={teams}
         user={user}
@@ -2516,13 +2701,105 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   )
 }
 
+function CalendarAttachedResourcesList({ resources = [] }) {
+  if (!Array.isArray(resources) || resources.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Attached resources</p>
+      <div className="mt-3 grid gap-2">
+        {resources.map((resource) => (
+          <div key={resource.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
+            <p className="text-sm font-black text-[#101828]">{resource.title || resource.originalFilename || 'Team resource'}</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+              {getResourceCategoryLabel(resource.category)}
+              {resource.originalFilename ? `, ${resource.originalFilename}` : ''}
+              {resource.fileSizeBytes ? `, ${formatResourceLibraryFileSize(resource.fileSizeBytes)}` : ''}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CalendarResourceSelector({
+  isBusy,
+  isLoading,
+  onChange,
+  resourceOptions = [],
+  selectedResourceIds,
+}) {
+  return (
+    <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-[#101828]">Attach team resources</p>
+          <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+            Existing files from this team only can be attached to this calendar event.
+          </p>
+        </div>
+        <span className="rounded-full border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#065f46]">
+          {selectedResourceIds.size} selected
+        </span>
+      </div>
+
+      {isLoading ? (
+        <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+          Loading team resources.
+        </p>
+      ) : resourceOptions.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+          No active team resources are available to attach.
+        </p>
+      ) : (
+        <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white">
+          {resourceOptions.map((resource) => {
+            const createdLabel = formatResourceDate(resource.createdAt)
+
+            return (
+              <label
+                key={resource.id}
+                className="flex min-h-12 items-start gap-3 border-b border-[#d7e5dc] px-3 py-3 last:border-b-0"
+              >
+                <input
+                  type="checkbox"
+                  name="resourceIds"
+                  value={resource.id}
+                  checked={selectedResourceIds.has(String(resource.id))}
+                  onChange={onChange}
+                  disabled={isBusy}
+                  className="mt-1 h-5 w-5 accent-[#047857]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-[#101828]">{resource.title || resource.originalFilename || 'Team resource'}</span>
+                  <span className="block text-xs font-bold leading-5 text-[#4b5f55]">
+                    {getResourceCategoryLabel(resource.category)}
+                    {resource.originalFilename ? `, ${resource.originalFilename}` : ''}
+                    {resource.fileSizeBytes ? `, ${formatResourceLibraryFileSize(resource.fileSizeBytes)}` : ''}
+                    {createdLabel ? `, added ${createdLabel}` : ''}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CalendarEventModal({
+  attachedResources = [],
   clubWideOnly = false,
   currentInvites = [],
   event,
   form,
   invitePlayers = [],
   isBusy,
+  isResourcesLoading = false,
   isOpen,
   mode,
   onCancel,
@@ -2531,6 +2808,7 @@ function CalendarEventModal({
   onEdit,
   onOpenWorkflow,
   onSubmit,
+  resourceOptions = [],
   selectedInvitePlayers = [],
   teams,
   user,
@@ -2555,6 +2833,9 @@ function CalendarEventModal({
   const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
   const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
   const showInvites = !canShareClubWideWithParents && form.shareWithParents && form.parentAudience === 'involved_players'
+  const canAttachResources = !clubWideOnly && safeFormTeamId && isCalendarResourceEventType(form.eventType) && canManageResourceLibrary(user)
+  const selectedResourceIds = new Set(Array.isArray(form.resourceIds) ? form.resourceIds.map(String) : [])
+  const showRepeatUpdateScope = hasRecurringCalendarDateTimeChange({ event, form })
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
@@ -2645,6 +2926,7 @@ function CalendarEventModal({
                 </div>
               </div>
             ) : null}
+            <CalendarAttachedResourcesList resources={attachedResources} />
           </div>
           </div>
         ) : null}
@@ -2773,6 +3055,29 @@ function CalendarEventModal({
                 <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
                   Recurring training creates separate session rows. Custom events repeat on the calendar and are edited from this event.
                 </p>
+                {showRepeatUpdateScope ? (
+                  <div className="mt-4 rounded-lg border border-[#fedf89] bg-white p-3">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-[#101828]">Update repeat</span>
+                      <select
+                        name="repeatUpdateScope"
+                        value={form.repeatUpdateScope || ''}
+                        onChange={onChange}
+                        required
+                        disabled={isBusy}
+                        className={fieldClass}
+                      >
+                        <option value="">Choose update scope</option>
+                        <option value="this_event" disabled>This event only is not available in V1</option>
+                        <option value="this_and_future" disabled>This and future events is not available in V1</option>
+                        <option value="entire_series">Entire repeat series</option>
+                      </select>
+                    </label>
+                    <p className="mt-2 text-xs font-bold leading-5 text-[#92400e]">
+                      V1 stores this repeated custom event as one series record, so date and time edits can only update the full series safely.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
@@ -2782,6 +3087,16 @@ function CalendarEventModal({
                 </p>
               </div>
             )}
+
+            {canAttachResources ? (
+              <CalendarResourceSelector
+                isBusy={isBusy}
+                isLoading={isResourcesLoading}
+                onChange={onChange}
+                resourceOptions={resourceOptions}
+                selectedResourceIds={selectedResourceIds}
+              />
+            ) : null}
 
             {canShareClubWideWithParents ? (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">

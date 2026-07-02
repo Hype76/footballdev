@@ -33,7 +33,7 @@ import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability 
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/feedback-forms', '/parent-linking', '/email-queue', '/staff-chat', '/resources', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/feedback-forms', '/parent-linking', '/email-queue', '/staff-chat', '/resources', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',

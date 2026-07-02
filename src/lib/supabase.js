@@ -216,6 +216,7 @@ export {
   assignResourceLibraryItem,
   formatResourceLibraryFileSize,
   getAssignedResourcesForPlayer,
+  getCalendarEventResources,
   getResourceLibraryDownloadUrl,
   getResourceLibraryItems,
   getResourceLibraryPlayers,
@@ -226,6 +227,7 @@ export {
   RESOURCE_LIBRARY_CATEGORIES,
   RESOURCE_LIBRARY_MAX_FILE_SIZE_BYTES,
   removeResourceLibraryLink,
+  syncCalendarEventResourceLinks,
   uploadResourceLibraryItem,
   validateResourceLibraryFile,
 } from './domain/resource-library.js'

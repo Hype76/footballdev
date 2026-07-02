@@ -15,11 +15,6 @@ export const primaryNavigation = [
     helper: 'Records and notes',
   },
   {
-    label: 'Development Fields',
-    path: '/form-builder',
-    helper: 'Record setup',
-  },
-  {
     label: 'Feedback Forms',
     path: '/feedback-forms',
     helper: 'Named templates',
