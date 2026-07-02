@@ -62,6 +62,7 @@ test('parent token RPCs are the only anon training availability surface', async 
   assert.match(getResponse, /normalized_token_hash !~ '\^\[a-f0-9\]\{64\}\$'/i)
   assert.match(submitResponse, /normalized_status not in \('available', 'unavailable', 'maybe'\)/i)
   assert.match(submitResponse, /parent_link\.status = 'active'/i)
+  assert.match(submitResponse, /#variable_conflict use_column/i)
   assert.match(migration, /grant execute on function public\.get_training_availability_response\(text\) to anon, authenticated/i)
   assert.match(migration, /grant execute on function public\.submit_training_availability_response\(text, text, text\) to anon, authenticated/i)
 })

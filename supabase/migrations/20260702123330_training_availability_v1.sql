@@ -424,6 +424,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   normalized_token_hash text := lower(trim(coalesce(token_hash_value, '')));
   normalized_status text := lower(trim(coalesce(status_value, '')));
