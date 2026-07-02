@@ -430,16 +430,11 @@ export async function removeResourceLibraryLink({ linkId, user } = {}) {
     throw new Error('Choose an assigned resource before removing it.')
   }
 
-  const { error } = await supabase
-    .from('resource_library_links')
-    .update({
-      removed_at: new Date().toISOString(),
-      removed_by_profile_id: getEntryUserId(user),
-      ...getEntryIdentity(user, 'removed_by'),
-    })
-    .eq('id', normalizedLinkId)
-    .eq('club_id', user.clubId)
-    .eq('team_id', activeTeamId)
+  const { error } = await supabase.rpc('remove_resource_library_link', {
+    target_link_id: normalizedLinkId,
+    target_club_id: user.clubId,
+    target_team_id: activeTeamId,
+  })
 
   if (error) {
     console.error(error)
@@ -461,18 +456,11 @@ export async function archiveResourceLibraryItem({ resourceId, user } = {}) {
     throw new Error('Choose a resource before archiving it.')
   }
 
-  const { data, error } = await supabase
-    .from('resource_library_items')
-    .update({
-      archived_at: new Date().toISOString(),
-      archived_by_profile_id: getEntryUserId(user),
-      ...getEntryIdentity(user, 'archived_by'),
-    })
-    .eq('id', normalizedResourceId)
-    .eq('club_id', user.clubId)
-    .eq('team_id', activeTeamId)
-    .select('*, teams:team_id(id, name), resource_library_links(*)')
-    .single()
+  const { data, error } = await supabase.rpc('archive_resource_library_item', {
+    target_resource_id: normalizedResourceId,
+    target_club_id: user.clubId,
+    target_team_id: activeTeamId,
+  })
 
   if (error) {
     console.error(error)
@@ -487,11 +475,17 @@ export async function archiveResourceLibraryItem({ resourceId, user } = {}) {
     entityType: 'resource_library_item',
     entityId: normalizedResourceId,
     metadata: {
-      title: data?.title || '',
+      title: data?.[0]?.title || data?.title || '',
     },
   })
 
-  return normalizeResourceLibraryItem(data)
+  return normalizeResourceLibraryItem({
+    id: normalizedResourceId,
+    title: data?.[0]?.title || data?.title || '',
+    club_id: user.clubId,
+    team_id: activeTeamId,
+    archived_at: new Date().toISOString(),
+  })
 }
 
 export async function getAssignedResourcesForPlayer({ playerId, user } = {}) {
@@ -636,15 +630,15 @@ export async function syncCalendarEventResourceLinks({ eventId, resourceIds = []
   const resourceIdsToAdd = desiredResourceIds.filter((resourceId) => !existingActiveResourceIds.has(resourceId))
 
   if (linkIdsToRemove.length > 0) {
-    const { error: removeError } = await supabase
-      .from('resource_library_links')
-      .update({
-        removed_at: new Date().toISOString(),
-        removed_by_profile_id: getEntryUserId(user),
-        ...getEntryIdentity(user, 'removed_by'),
-      })
-      .in('id', linkIdsToRemove)
-      .eq('club_id', user.clubId)
+    const removeResults = await Promise.all(
+      linkIdsToRemove.map((linkId) =>
+        supabase.rpc('remove_resource_library_link', {
+          target_link_id: linkId,
+          target_club_id: user.clubId,
+          target_team_id: eventTeamId,
+        })),
+    )
+    const removeError = removeResults.find((result) => result.error)?.error
 
     if (removeError) {
       console.error(removeError)

@@ -5,6 +5,7 @@ import { test } from 'node:test'
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const resourceDomainUrl = new URL('../src/lib/domain/resource-library.js', import.meta.url)
 const calendarResourceMigrationUrl = new URL('../supabase/migrations/20260702083249_calendar_event_resource_links.sql', import.meta.url)
+const resourceArchiveRemoveMigrationUrl = new URL('../supabase/migrations/20260702091500_resource_library_archive_remove_rpc.sql', import.meta.url)
 const navigationUrl = new URL('../src/app/navigation.js', import.meta.url)
 const roleQuickLinksUrl = new URL('../src/lib/role-quick-links.js', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
@@ -42,8 +43,26 @@ test('calendar resource domain helpers validate event team resources before sync
   assert.match(source, /\.eq\('linked_type', 'calendar_event'\)/)
   assert.match(source, /\.eq\('team_id', eventTeamId\)/)
   assert.match(source, /\.from\('resource_library_items'\)[\s\S]*\.eq\('club_id', user\.clubId\)[\s\S]*\.eq\('team_id', eventTeamId\)[\s\S]*\.is\('archived_at', null\)[\s\S]*\.in\('id', desiredResourceIds\)/)
+  assert.match(source, /remove_resource_library_link/)
   assert.match(source, /Attach resources from this event team only\./)
   assert.match(source, /resource_library_event_resources_synced/)
+})
+
+test('resource archive and assignment removal use team-scoped RPCs', async () => {
+  const [migration, source] = await Promise.all([
+    readFile(resourceArchiveRemoveMigrationUrl, 'utf8'),
+    readFile(resourceDomainUrl, 'utf8'),
+  ])
+
+  assert.match(migration, /create or replace function public\.remove_resource_library_link/i)
+  assert.match(migration, /create or replace function public\.archive_resource_library_item/i)
+  assert.match(migration, /public\.current_user_can_manage_resource_library\(rli\.club_id, rli\.team_id\)/i)
+  assert.match(migration, /rll\.team_id = target_team_id/i)
+  assert.match(migration, /rli\.team_id = target_team_id/i)
+  assert.match(migration, /revoke execute on function public\.remove_resource_library_link\(uuid, uuid, uuid\) from anon/i)
+  assert.match(migration, /revoke execute on function public\.archive_resource_library_item\(uuid, uuid, uuid\) from anon/i)
+  assert.match(source, /rpc\('remove_resource_library_link'/)
+  assert.match(source, /rpc\('archive_resource_library_item'/)
 })
 
 test('calendar UI attaches resources only to team custom events and protects recurring edits', async () => {
