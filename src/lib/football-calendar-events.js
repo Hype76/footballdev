@@ -21,7 +21,25 @@ function toDateOnly(value) {
 
 function toTimeOnly(value) {
   const normalizedValue = String(value ?? '').trim()
-  return /^\d{2}:\d{2}/.test(normalizedValue) ? normalizedValue.slice(0, 5) : ''
+
+  if (/^\d{2}:\d{2}/.test(normalizedValue)) {
+    return normalizedValue.slice(0, 5)
+  }
+
+  const parsedDate = new Date(normalizedValue)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  return `${String(parsedDate.getHours()).padStart(2, '0')}:${String(parsedDate.getMinutes()).padStart(2, '0')}`
+}
+
+function buildDateTime(dateValue, timeValue) {
+  const date = toDateOnly(dateValue)
+  const time = toTimeOnly(timeValue)
+
+  return date && time ? `${date}T${time}:00` : ''
 }
 
 function addDays(date, days) {
@@ -200,6 +218,11 @@ function buildCalendarEventOccurrences(calendarEvent) {
     const date = toDateOnly(occurrenceDate)
     const isClubWide = Boolean(calendarEvent.isClubWide || !calendarEvent.teamId)
     const isInheritedClubEvent = Boolean(calendarEvent.isInheritedClubEvent)
+    const endDayOffset = getDayDifference(calendarEvent.startsAt, calendarEvent.endsAt || calendarEvent.startsAt)
+    const occurrenceEndDate = addDays(new Date(`${date}T00:00:00`), endDayOffset)
+    const occurrenceStartsAt = buildDateTime(date, calendarEvent.startsAt)
+    const occurrenceEndsAt = buildDateTime(occurrenceEndDate, calendarEvent.endsAt || calendarEvent.startsAt)
+    const isRecurring = frequency !== 'none'
 
     occurrences.push({
       id: occurrenceIndex === 0 ? `calendar:${calendarEvent.id}` : `calendar:${calendarEvent.id}:${date}`,
@@ -217,8 +240,17 @@ function buildCalendarEventOccurrences(calendarEvent) {
       location: calendarEvent.location,
       data: {
         ...calendarEvent,
+        startsAt: occurrenceStartsAt || calendarEvent.startsAt,
+        endsAt: occurrenceEndsAt || calendarEvent.endsAt,
+        isGeneratedOccurrence: isRecurring && occurrenceIndex > 0,
+        isRecurring,
         isClubWide,
         isInheritedClubEvent,
+        recurrenceOccurrenceDate: date,
+        recurrenceOccurrenceIndex: occurrenceIndex,
+        recurrenceSeriesId: calendarEvent.id,
+        seriesEndsAt: calendarEvent.endsAt,
+        seriesStartsAt: calendarEvent.startsAt,
         canEdit: calendarEvent.canEdit !== false,
       },
     })

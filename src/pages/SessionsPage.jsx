@@ -123,7 +123,19 @@ function formatLocalDate(date) {
 }
 
 function formatTimeInput(value) {
-  return /^\d{2}:\d{2}/.test(String(value ?? '').trim()) ? String(value).trim().slice(0, 5) : ''
+  const normalizedValue = String(value ?? '').trim()
+
+  if (/^\d{2}:\d{2}/.test(normalizedValue)) {
+    return normalizedValue.slice(0, 5)
+  }
+
+  const parsedDate = new Date(normalizedValue)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  return `${String(parsedDate.getHours()).padStart(2, '0')}:${String(parsedDate.getMinutes()).padStart(2, '0')}`
 }
 
 function buildDateTime(date, time) {
@@ -372,6 +384,28 @@ function shiftDateByDays(dateValue, dayShift) {
 
   date.setDate(date.getDate() + dayShift)
   return formatDateInput(date)
+}
+
+function getCalendarEventSeriesDateTimeFields({ event, form } = {}) {
+  if (event?.sourceType !== 'calendar' || getTrimmedFormValue(form?.recurrenceFrequency) === 'none') {
+    return {
+      endsAt: buildDateTime(form?.date, form?.endTime),
+      startsAt: buildDateTime(form?.date, form?.startTime),
+    }
+  }
+
+  const source = event?.data || {}
+  const occurrenceDate = formatDateInput(event?.occurrenceDate || source.recurrenceOccurrenceDate || source.startsAt || event?.date || form?.date)
+  const baseStartsAt = source.seriesStartsAt || source.startsAt
+  const baseEndsAt = source.seriesEndsAt || source.endsAt || source.seriesStartsAt || source.startsAt
+  const dayShift = getDayShift(occurrenceDate, form?.date)
+  const nextStartDate = shiftDateByDays(baseStartsAt, dayShift)
+  const nextEndDate = shiftDateByDays(baseEndsAt, dayShift)
+
+  return {
+    endsAt: buildDateTime(nextEndDate, form?.endTime),
+    startsAt: buildDateTime(nextStartDate, form?.startTime),
+  }
 }
 
 function getCalendarParentVisibility({ form, safeTeamId, user }) {
@@ -1912,22 +1946,25 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         }
 
         if (calendarForm.recurrenceFrequency !== 'none') {
+          const seriesDateTimeFields = getCalendarEventSeriesDateTimeFields({ event: activeEvent, form: calendarForm })
+
           buildRecurrenceDates({
-            date: calendarForm.date,
+            date: sourceType === 'calendar' ? seriesDateTimeFields.startsAt : calendarForm.date,
             frequency: calendarForm.recurrenceFrequency,
             until: calendarForm.recurrenceUntil,
           })
         }
 
+        const seriesDateTimeFields = getCalendarEventSeriesDateTimeFields({ event: activeEvent, form: calendarForm })
         const payload = {
-          endsAt: buildDateTime(calendarForm.date, calendarForm.endTime),
+          endsAt: seriesDateTimeFields.endsAt,
           eventType: calendarForm.eventType,
           location: calendarForm.location,
           notes: calendarForm.notes,
           ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
           recurrenceFrequency: calendarForm.recurrenceFrequency,
           recurrenceUntil: calendarForm.recurrenceUntil,
-          startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
+          startsAt: seriesDateTimeFields.startsAt,
           teamId: safeTeamId,
           title: trimmedTitle,
         }
