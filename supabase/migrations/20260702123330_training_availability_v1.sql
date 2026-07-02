@@ -108,6 +108,7 @@ on public.training_availability_responses(club_id, team_id, calendar_event_id, r
 create or replace function public.set_training_availability_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = timezone('utc', now());

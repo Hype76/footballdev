@@ -27,6 +27,7 @@ test('training availability migration is team scoped with RLS and no direct anon
   assert.match(migration, /occurrence_date date not null/i)
   assert.match(migration, /create table if not exists public\.training_availability_request_players/i)
   assert.match(migration, /create table if not exists public\.training_availability_responses/i)
+  assert.match(migration, /create or replace function public\.set_training_availability_updated_at\(\)[\s\S]*set search_path = public/i)
   assert.match(migration, /alter table public\.training_availability_settings force row level security/i)
   assert.match(migration, /alter table public\.training_availability_requests force row level security/i)
   assert.match(migration, /alter table public\.training_availability_request_players force row level security/i)
