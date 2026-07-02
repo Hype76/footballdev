@@ -155,6 +155,28 @@ function invalidTokenPage() {
   }))
 }
 
+function staleLinkPage() {
+  return htmlResponse(410, page({
+    title: 'This response link has expired',
+    message: 'This training session is no longer available or has been removed. Ask the club to send a new training availability request if they still need a reply.',
+  }))
+}
+
+function isMissingCalendarEventError(error) {
+  const errorText = `${normalizeText(error?.message)} ${normalizeText(error?.details)} ${normalizeText(error?.constraint)}`
+
+  return error?.code === '23503'
+    && errorText.includes('training_availability_responses_calendar_event_id_fkey')
+}
+
+function logStaleResponseLink(reason, event) {
+  console.warn('Training availability stale response link', {
+    reason,
+    method: normalizeText(event?.httpMethod || 'GET'),
+    statusCode: 410,
+  })
+}
+
 async function getTokenResponse(supabase, token) {
   const { data, error } = await supabase.rpc('get_training_availability_response', {
     token_hash_value: hashToken(token),
@@ -187,7 +209,7 @@ async function submitTokenResponse(supabase, token, params) {
   return data?.[0] ?? null
 }
 
-export async function handler(event) {
+export async function handler(event, { supabaseClient = null } = {}) {
   try {
     const params = event.httpMethod === 'POST' ? getFormBody(event) : new URLSearchParams(event.queryStringParameters || {})
     const token = normalizeText(params.get('token'))
@@ -196,16 +218,14 @@ export async function handler(event) {
       return invalidTokenPage()
     }
 
-    const supabase = createPublicSupabaseClient(event)
+    const supabase = supabaseClient || createPublicSupabaseClient(event)
 
     if (event.httpMethod === 'GET') {
       const response = await getTokenResponse(supabase, token)
 
       if (!response?.request_player_id) {
-        return htmlResponse(404, page({
-          title: 'This response link was not found',
-          message: 'Ask the club to send a new training availability request.',
-        }))
+        logStaleResponseLink('response_lookup_empty', event)
+        return staleLinkPage()
       }
 
       return htmlResponse(200, page({
@@ -222,13 +242,18 @@ export async function handler(event) {
       }))
     }
 
+    const existingResponse = await getTokenResponse(supabase, token)
+
+    if (!existingResponse?.request_player_id) {
+      logStaleResponseLink('response_preflight_empty', event)
+      return staleLinkPage()
+    }
+
     const response = await submitTokenResponse(supabase, token, params)
 
     if (!response?.request_player_id) {
-      return htmlResponse(404, page({
-        title: 'This response could not be saved',
-        message: 'Choose an availability response or ask the club to resend the request.',
-      }))
+      logStaleResponseLink('response_submit_empty', event)
+      return staleLinkPage()
     }
 
     return htmlResponse(200, page({
@@ -236,6 +261,11 @@ export async function handler(event) {
       message: `${response.player_name || 'The player'} is marked as ${statusLabel(response.response_status)}. Thank you for replying.`,
     }))
   } catch (error) {
+    if (isMissingCalendarEventError(error)) {
+      logStaleResponseLink('missing_calendar_event_fk', event)
+      return staleLinkPage()
+    }
+
     console.error(error)
     return htmlResponse(500, page({
       title: 'Response could not be saved',

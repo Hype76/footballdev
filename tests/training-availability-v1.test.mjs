@@ -287,11 +287,149 @@ test('parent response page only supports availability status and note', async ()
   assert.match(source, /VALID_STATUSES = new Set\(\['available', 'unavailable', 'maybe'\]\)/)
   assert.match(source, /Optional note/)
   assert.match(source, /This availability response is for this session only\./)
+  assert.match(source, /statusCode: 410/)
+  assert.match(source, /Training availability stale response link/)
   assert.match(source, /get_training_availability_response/)
   assert.match(source, /submit_training_availability_response/)
   assert.doesNotMatch(source, /volunteer/i)
   assert.doesNotMatch(source, /scorer|linesman|referee/i)
   assert.doesNotMatch(source, /sms/i)
+})
+
+test('parent response handler returns controlled stale response before submit when event no longer resolves', async () => {
+  const { handler } = await import(`${responseUrl.href}?stale-link=${Date.now()}`)
+  const calls = []
+  const supabaseClient = {
+    async rpc(name) {
+      calls.push(name)
+      if (name === 'get_training_availability_response') {
+        return { data: [], error: null }
+      }
+      return { data: [{ request_player_id: 'should-not-submit' }], error: null }
+    },
+  }
+
+  const response = await handler({
+    httpMethod: 'POST',
+    body: new URLSearchParams({
+      token: 'a'.repeat(64),
+      status: 'available',
+      note: 'Can attend',
+    }).toString(),
+    headers: {},
+  }, { supabaseClient })
+
+  assert.equal(response.statusCode, 410)
+  assert.match(response.body, /This response link has expired/)
+  assert.deepEqual(calls, ['get_training_availability_response'])
+})
+
+test('parent response handler still saves normal valid responses', async () => {
+  const { handler } = await import(`${responseUrl.href}?valid-response=${Date.now()}`)
+  const calls = []
+  const supabaseClient = {
+    async rpc(name) {
+      calls.push(name)
+      if (name === 'get_training_availability_response') {
+        return {
+          data: [{
+            request_player_id: 'request-player-1',
+            response_status: '',
+            player_name: 'Player',
+            team_name: 'Team',
+            event_title: 'Training',
+            occurrence_starts_at: '2026-07-12T08:00:00+00:00',
+          }],
+          error: null,
+        }
+      }
+
+      assert.equal(name, 'submit_training_availability_response')
+      return {
+        data: [{
+          request_player_id: 'request-player-1',
+          player_name: 'Player',
+          response_status: 'available',
+        }],
+        error: null,
+      }
+    },
+  }
+
+  const response = await handler({
+    httpMethod: 'POST',
+    body: new URLSearchParams({
+      token: 'b'.repeat(64),
+      status: 'available',
+      note: 'Can attend',
+    }).toString(),
+    headers: {},
+  }, { supabaseClient })
+
+  assert.equal(response.statusCode, 200)
+  assert.match(response.body, /Response saved/)
+  assert.deepEqual(calls, ['get_training_availability_response', 'submit_training_availability_response'])
+})
+
+test('parent response handler keeps malformed invalid token behaviour', async () => {
+  const { handler } = await import(`${responseUrl.href}?invalid-token=${Date.now()}`)
+  const supabaseClient = {
+    async rpc() {
+      throw new Error('RPC should not be called for malformed tokens')
+    },
+  }
+
+  const response = await handler({
+    httpMethod: 'POST',
+    body: new URLSearchParams({
+      token: 'not-a-token',
+      status: 'available',
+    }).toString(),
+    headers: {},
+  }, { supabaseClient })
+
+  assert.equal(response.statusCode, 400)
+  assert.match(response.body, /This response link is not valid/)
+})
+
+test('parent response handler converts missing calendar event FK race to controlled stale response', async () => {
+  const { handler } = await import(`${responseUrl.href}?fk-race=${Date.now()}`)
+  const calls = []
+  const supabaseClient = {
+    async rpc(name) {
+      calls.push(name)
+      if (name === 'get_training_availability_response') {
+        return {
+          data: [{
+            request_player_id: 'request-player-1',
+            response_status: '',
+          }],
+          error: null,
+        }
+      }
+
+      return {
+        data: null,
+        error: {
+          code: '23503',
+          message: 'insert or update on table "training_availability_responses" violates foreign key constraint "training_availability_responses_calendar_event_id_fkey"',
+        },
+      }
+    },
+  }
+
+  const response = await handler({
+    httpMethod: 'POST',
+    body: new URLSearchParams({
+      token: 'c'.repeat(64),
+      status: 'available',
+    }).toString(),
+    headers: {},
+  }, { supabaseClient })
+
+  assert.equal(response.statusCode, 410)
+  assert.match(response.body, /This response link has expired/)
+  assert.deepEqual(calls, ['get_training_availability_response', 'submit_training_availability_response'])
 })
 
 test('Match Day availability volunteer behavior remains isolated', async () => {
