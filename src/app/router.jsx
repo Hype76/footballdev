@@ -12,6 +12,7 @@ import {
   canManageParentEmailTemplates,
   canManageParentLinks,
   canManagePolls,
+  canUseResourceLibrary,
   canManageTeamSettings,
   canManageUsers,
   canUseStaffChat,
@@ -97,6 +98,7 @@ const PublicParentPortalLoginPage = lazyRoute(() => import('../pages/PublicParen
 const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx'), 'PublicParentsPage')
 const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
+const ResourceLibraryPage = lazyRoute(() => import('../pages/ResourceLibraryPage.jsx'), 'ResourceLibraryPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const StaffChatPage = lazyRoute(() => import('../pages/StaffChatPage.jsx'), 'StaffChatPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
@@ -998,6 +1000,24 @@ function RequireStaffChatAccess() {
   return <Outlet />
 }
 
+function RequireResourceLibraryAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!isRecoveryModuleVisible('resourceLibrary', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
+  if (!canUseResourceLibrary(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequireMatchDayAccess() {
   const { element, user } = useWorkspaceRouteGate()
 
@@ -1749,6 +1769,22 @@ export const router = createBrowserRouter([
                         ),
                         handle: {
                           title: 'Staff Chat',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    element: <RequireResourceLibraryAccess />,
+                    children: [
+                      {
+                        path: 'resources',
+                        element: (
+                          <PageSuspense>
+                            <ResourceLibraryPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Resource Library',
                         },
                       },
                     ],

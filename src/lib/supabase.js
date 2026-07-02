@@ -212,6 +212,25 @@ export {
 } from './domain/staff-chat.js'
 
 export {
+  archiveResourceLibraryItem,
+  assignResourceLibraryItem,
+  formatResourceLibraryFileSize,
+  getAssignedResourcesForPlayer,
+  getResourceLibraryDownloadUrl,
+  getResourceLibraryItems,
+  getResourceLibraryPlayers,
+  getResourceLibraryTeams,
+  normalizeResourceLibraryItem,
+  RESOURCE_LIBRARY_ALLOWED_MIME_TYPES,
+  RESOURCE_LIBRARY_BUCKET,
+  RESOURCE_LIBRARY_CATEGORIES,
+  RESOURCE_LIBRARY_MAX_FILE_SIZE_BYTES,
+  removeResourceLibraryLink,
+  uploadResourceLibraryItem,
+  validateResourceLibraryFile,
+} from './domain/resource-library.js'
+
+export {
   addMatchDayGoalAsScorer,
   addStaffMatchDayGoal,
   calculateArrivalTime,

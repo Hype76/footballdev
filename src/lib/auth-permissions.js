@@ -237,6 +237,18 @@ export function canUseStaffChat(user) {
     && Number(user?.roleRank ?? 0) >= 20
 }
 
+export function canUseResourceLibrary(user) {
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && isPlanAccessActive(user)
+    && Number(user?.roleRank ?? 0) >= 20
+}
+
+export function canManageResourceLibrary(user) {
+  return canUseResourceLibrary(user) && Number(user?.roleRank ?? 0) >= 50
+}
+
 export function canManageMatchDay(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)

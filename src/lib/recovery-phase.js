@@ -20,6 +20,7 @@ export const RECOVERY_MODULES = {
   players: { phase: 1 },
   pollsAvailability: { phase: 1 },
   reports: { phase: 1 },
+  resourceLibrary: { phase: 1 },
   sessions: { phase: 1 },
   shell: { phase: 1 },
   staffChat: { phase: 1 },
@@ -81,6 +82,10 @@ export function getRecoveryModuleForPath(path) {
 
   if (normalizedPath === '/staff-chat') {
     return 'staffChat'
+  }
+
+  if (normalizedPath === '/resources') {
+    return 'resourceLibrary'
   }
 
   if (normalizedPath === '/billing') {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PlayerDetailsSection } from '../components/players/PlayerDetailsSection.jsx'
+import { PlayerAssignedResources } from '../components/players/PlayerAssignedResources.jsx'
 import { PlayerEvaluationsHistory } from '../components/players/PlayerEvaluationsHistory.jsx'
 import { PlayerMergeAssessments } from '../components/players/PlayerMergeAssessments.jsx'
 import { PlayerOverview } from '../components/players/PlayerOverview.jsx'
@@ -1853,6 +1854,11 @@ export function PlayerProfile() {
         lastTeam={lastTeam}
         onDeletePlayer={handleDeletePlayer}
         playerName={routePlayerName}
+        user={user}
+      />
+
+      <PlayerAssignedResources
+        primaryPlayer={primaryPlayer}
         user={user}
       />
 

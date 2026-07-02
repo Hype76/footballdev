@@ -12,8 +12,10 @@ import {
   canManageParentEmailTemplates,
   canManageParentLinks,
   canManagePolls,
+  canManageResourceLibrary,
   canManageTeamSettings,
   canManageUsers,
+  canUseResourceLibrary,
   canUseStaffChat,
   canViewActivityLog,
   canViewBilling,
@@ -31,7 +33,7 @@ import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability 
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/feedback-forms', '/parent-linking', '/email-queue', '/staff-chat', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/feedback-forms', '/parent-linking', '/email-queue', '/staff-chat', '/resources', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',
@@ -50,6 +52,7 @@ const navIcons = {
   '/parent-linking': 'parents',
   '/players': 'players',
   '/polls': 'availability',
+  '/resources': 'folder',
   '/sessions': 'calendar',
   '/staff-chat': 'mail',
   '/teams': 'teams',
@@ -320,6 +323,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/staff-chat') {
       return canUseStaffChat(displayUser)
+    }
+
+    if (item.path === '/resources') {
+      return canUseResourceLibrary(displayUser) || canManageResourceLibrary(displayUser)
     }
 
     if (item.path === '/polls') {
@@ -744,6 +751,11 @@ function NavIcon({ name }) {
         <>
           <path {...common} d="M4 7h16v4H4V7Z" />
           <path {...common} d="M6 11v8h12v-8M10 15h4" />
+        </>
+      ) : name === 'folder' ? (
+        <>
+          <path {...common} d="M4 6h6l2 3h8v9.5A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5V6Z" />
+          <path {...common} d="M4 10h16" />
         </>
       ) : (
         <>

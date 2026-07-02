@@ -35,6 +35,11 @@ export const primaryNavigation = [
     helper: 'Staff-only messages',
   },
   {
+    label: 'Team Resources',
+    path: '/resources',
+    helper: 'Team file library',
+  },
+  {
     label: 'Polls',
     path: '/polls',
     helper: 'Create and track replies',
