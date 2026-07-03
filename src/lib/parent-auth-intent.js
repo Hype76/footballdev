@@ -1,5 +1,6 @@
 import { isParentPortalUser } from './auth-permissions.js'
 import {
+  normalizeLoginAccessIntent,
   SELECTED_ACCESS_MODE_STORAGE_KEY,
   rememberLoginAccessIntent,
 } from './login-access-intent.js'
@@ -24,6 +25,36 @@ export function normalizeParentIntentPath(pathname = '') {
 
 export function isParentIntentPath(pathname = '') {
   return parentIntentPaths.has(normalizeParentIntentPath(pathname))
+}
+
+export function isIntentionalParentAccessContext({
+  isParentHost = false,
+  loginAccessIntent = '',
+  pathname = '',
+} = {}) {
+  return Boolean(isParentHost)
+    || normalizeLoginAccessIntent(loginAccessIntent) === PARENT_ACCESS_MODE
+    || isParentIntentPath(pathname)
+}
+
+export function resolveAccessModeForRoute({
+  isParentHost = false,
+  loginAccessIntent = '',
+  pathname = '',
+  selectedAccessMode = '',
+} = {}) {
+  const normalizedAccessMode = normalizeLoginAccessIntent(selectedAccessMode)
+  const normalizedPath = normalizeParentIntentPath(pathname)
+
+  if (normalizedAccessMode === PARENT_ACCESS_MODE && normalizedPath === '/' && !isIntentionalParentAccessContext({
+    isParentHost,
+    loginAccessIntent,
+    pathname: normalizedPath,
+  })) {
+    return 'team'
+  }
+
+  return normalizedAccessMode
 }
 
 export function rememberParentAccessIntent() {

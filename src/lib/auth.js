@@ -14,6 +14,7 @@ import {
 import { isParentPortalHost } from './app-origins.js'
 import { normalizePlanKey, PLAN_KEYS } from './plans.js'
 import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessIntent } from './login-access-intent.js'
+import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 
 export {
   canAssignRole,
@@ -460,9 +461,18 @@ function RuntimeAuthProvider({ children }) {
 
         const { fetchUserProfile } = await loadAuthDataModule()
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
-        const selectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
+        const storedSelectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
         const selectedAccessModeIsExplicit = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY) === 'true'
         const loginAccessIntent = readLoginAccessIntent()
+        const selectedAccessMode = resolveAccessModeForRoute({
+          isParentHost: isParentPortalHost(),
+          loginAccessIntent,
+          pathname: window.location.pathname,
+          selectedAccessMode: storedSelectedAccessMode,
+        })
+        if (selectedAccessMode !== storedSelectedAccessMode) {
+          window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, selectedAccessMode)
+        }
         const hasPlatformAccess = await refreshPlatformAdminAccess(nextSession.user)
 
         if (hasPlatformAccess && selectedAccessMode !== 'parent' && (selectedAccessMode !== 'team' || !selectedAccessModeIsExplicit)) {

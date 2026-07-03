@@ -289,6 +289,24 @@ try {
     await context.close()
   })
 
+  await runScenario('stale parent mode staff session at root opens team view', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
+    await page.evaluate(() => {
+      window.sessionStorage.setItem('auth-access-browser-fixture-email', 'coach.fixture@footballplayer.test')
+      window.sessionStorage.setItem('selected-access-mode', 'parent')
+      window.sessionStorage.removeItem('login-access-intent')
+    })
+    await page.goto(`${mainBaseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertVisibleText(page, 'U12 Fixture Team')
+    await assertVisibleText(page, 'Team tools')
+    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Parent portal', { exact: true }).count(), 0)
+    await context.close()
+  })
+
   await runScenario('parent portal login opens family view', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)

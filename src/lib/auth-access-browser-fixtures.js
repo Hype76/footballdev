@@ -1,4 +1,6 @@
 import { createElement, useState } from 'react'
+import { isParentPortalHost } from './app-origins.js'
+import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 
 const FIXTURE_SESSION_KEY = 'auth-access-browser-fixture-email'
 const FIXTURE_ACCESS_MODE_KEY = 'selected-access-mode'
@@ -317,7 +319,16 @@ export function FixtureAuthProvider({ AuthContext, children }) {
   const [authError, setAuthError] = useState('')
 
   const account = getFixtureAccount(email)
-  const activeMode = mode || account?.defaultMode || ''
+  const loginAccessIntent = window.sessionStorage.getItem(FIXTURE_LOGIN_INTENT_KEY) || ''
+  const restoredMode = mode
+    ? resolveAccessModeForRoute({
+        isParentHost: isParentPortalHost(),
+        loginAccessIntent,
+        pathname: window.location.pathname,
+        selectedAccessMode: mode,
+      })
+    : ''
+  const activeMode = restoredMode || mode || account?.defaultMode || ''
   const user = account ? getProfileForMode(account, activeMode, selectedTeamId) : null
   const accessRouteMismatch = user ? null : getAccessRouteMismatch(account, activeMode)
   const session = account ? makeSession(email) : null

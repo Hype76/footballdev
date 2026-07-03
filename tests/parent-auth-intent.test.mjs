@@ -5,8 +5,10 @@ import { test } from 'node:test'
 import {
   canOpenParentPortal,
   hasActiveParentPortalLink,
+  isIntentionalParentAccessContext,
   isParentIntentPath,
   normalizeParentIntentPath,
+  resolveAccessModeForRoute,
 } from '../src/lib/parent-auth-intent.js'
 
 const parentLoginUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
@@ -45,6 +47,44 @@ test('parent portal access requires parent role and an active link in the loaded
   assert.equal(canOpenParentPortal(linkedParent), true)
   assert.equal(canOpenParentPortal(parentWithoutLinks), false)
   assert.equal(canOpenParentPortal(staffWithLinks), false)
+})
+
+test('stale parent access mode is ignored on normal app root without parent intent', () => {
+  assert.equal(isIntentionalParentAccessContext({
+    isParentHost: false,
+    loginAccessIntent: '',
+    pathname: '/',
+  }), false)
+  assert.equal(resolveAccessModeForRoute({
+    isParentHost: false,
+    loginAccessIntent: '',
+    pathname: '/',
+    selectedAccessMode: 'parent',
+  }), 'team')
+  assert.equal(resolveAccessModeForRoute({
+    isParentHost: false,
+    loginAccessIntent: '',
+    pathname: '/coach',
+    selectedAccessMode: 'parent',
+  }), 'parent')
+  assert.equal(resolveAccessModeForRoute({
+    isParentHost: false,
+    loginAccessIntent: '',
+    pathname: '/parent-portal',
+    selectedAccessMode: 'parent',
+  }), 'parent')
+  assert.equal(resolveAccessModeForRoute({
+    isParentHost: true,
+    loginAccessIntent: '',
+    pathname: '/',
+    selectedAccessMode: 'parent',
+  }), 'parent')
+  assert.equal(resolveAccessModeForRoute({
+    isParentHost: false,
+    loginAccessIntent: 'parent',
+    pathname: '/',
+    selectedAccessMode: 'parent',
+  }), 'parent')
 })
 
 test('parent login blocks an existing non-parent session instead of submitting under it', async () => {
