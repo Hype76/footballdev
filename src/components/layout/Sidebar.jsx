@@ -70,9 +70,15 @@ const navIcons = {
 const groupDescriptions = {
   'Club setup': 'Identity, staff, rules, audit',
   Management: 'Workspace controls',
+  'Match Operations': 'Match day and resources',
   'Platform setup': 'Support and billing',
   'Squad tools': 'Teams, reports, and records',
+  'Team Comms': 'Staff, parents, and replies',
 }
+
+const coreNavigationPaths = ['/calendar', '/players', '/assess-player', '/feedback-forms']
+const communicationNavigationPaths = ['/staff-chat', '/parent-linking', '/polls']
+const matchOperationsNavigationPaths = ['/match-day', '/resources']
 
 function getSidebarTourId(path) {
   return `sidebar-${String(path ?? '').replace(/^\//, '').replace(/\//g, '-') || 'home'}`
@@ -80,6 +86,13 @@ function getSidebarTourId(path) {
 
 function getNavIcon(path) {
   return navIcons[path] || 'home'
+}
+
+function pickNavigationItems(items, paths, excludedPaths = []) {
+  return paths
+    .filter((path) => !excludedPaths.includes(path))
+    .map((path) => items.find((item) => item.path === path))
+    .filter(Boolean)
 }
 
 function NavItemLabel({ item, pollCount = 0 }) {
@@ -339,7 +352,7 @@ export function Sidebar({ isOpen, onClose }) {
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = isCoachOnly ? [] : navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
-  const workspaceItems = useMemo(() => {
+  const parentPortalItems = useMemo(() => {
     if (isParentPortal) {
       return [
         { label: 'Calendar', path: '/parent-portal', helper: 'Events and match day' },
@@ -348,14 +361,17 @@ export function Sidebar({ isOpen, onClose }) {
       ].filter((item) => isRecoveryPathVisible(item.path, { user: displayUser }))
     }
 
-    const coachHomeItems = [{ label: 'Home', path: '/coach', helper: 'Today and next actions' }, ...coachNavigationItems]
-
-    if (!isCoachOnly) {
-      return coachHomeItems
-    }
-
-    return coachHomeItems.filter((item) => !['/polls', '/parent-linking'].includes(item.path))
-  }, [coachNavigationItems, displayUser, isCoachOnly, isParentPortal])
+    return []
+  }, [displayUser, isParentPortal])
+  const coachOnlyExcludedPaths = isCoachOnly ? ['/polls', '/parent-linking'] : []
+  const coreWorkspaceItems = isParentPortal
+    ? []
+    : [
+        { label: 'Home', path: '/coach', helper: 'Today and next actions' },
+        ...pickNavigationItems(coachNavigationItems, coreNavigationPaths, coachOnlyExcludedPaths),
+      ]
+  const communicationItems = isParentPortal ? [] : pickNavigationItems(coachNavigationItems, communicationNavigationPaths, coachOnlyExcludedPaths)
+  const matchOperationsItems = isParentPortal ? [] : pickNavigationItems(coachNavigationItems, matchOperationsNavigationPaths, coachOnlyExcludedPaths)
 
   return (
     <>
@@ -410,43 +426,31 @@ export function Sidebar({ isOpen, onClose }) {
         <OperationsStrip canUseTeamWorkflow={canUseTeamWorkflow} displayUser={displayUser} isParentPortal={isParentPortal} onClose={onClose} />
 
         <nav className="mt-4 space-y-3 pb-4">
-          <section className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2 shadow-sm shadow-[#101828]/5">
-            <div className="flex items-center justify-between px-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
-                {isParentPortal ? 'Family actions' : isCoachOnly ? 'Coach actions' : 'Club tools'}
-              </p>
-              <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[11px] font-black text-[#166534]">
-                Live
-              </span>
-            </div>
-            <div className="mt-2 grid gap-1.5">
-              {workspaceItems.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  data-tour-id={getSidebarTourId(item.path)}
-                  onClick={(event) => {
-                    if (event.currentTarget.getAttribute('aria-current') === 'page') {
-                      event.preventDefault()
-                      return
-                    }
+          {isParentPortal ? (
+            <PrimaryNavSection
+              title="Family actions"
+              items={parentPortalItems}
+              onClose={onClose}
+              pollCount={openPollCount}
+            />
+          ) : (
+            <>
+              <PrimaryNavSection
+                title={isCoachOnly ? 'Coach actions' : 'Club tools'}
+                items={coreWorkspaceItems}
+                onClose={onClose}
+                pollCount={openPollCount}
+              />
 
-                    onClose()
-                  }}
-                  className={({ isActive }) =>
-                    [
-                      'block rounded-lg px-3 py-3 transition',
-                      isActive
-                        ? 'bg-[#ecfdf5] text-[#065f46] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
-                        : 'bg-white text-[#4b5f55] shadow-sm shadow-[#047857]/5 hover:bg-[#ecfdf5] hover:text-[#101828]',
-                    ].join(' ')
-                  }
-                >
-                  <NavItemLabel item={item} pollCount={openPollCount} />
-                </NavLink>
-              ))}
-            </div>
-          </section>
+              {communicationItems.length > 0 ? (
+                <NavGroup title="Team Comms" items={communicationItems} onClose={onClose} pollCount={openPollCount} defaultOpen />
+              ) : null}
+
+              {matchOperationsItems.length > 0 ? (
+                <NavGroup title="Match Operations" items={matchOperationsItems} onClose={onClose} pollCount={openPollCount} defaultOpen />
+              ) : null}
+            </>
+          )}
 
           {!isParentPortal && teamNavigationItems.length > 0 ? (
             <NavGroup title="Squad tools" items={teamNavigationItems} onClose={onClose} pollCount={openPollCount} />
@@ -551,9 +555,51 @@ export function Sidebar({ isOpen, onClose }) {
   )
 }
 
-function NavGroup({ items, onClose, pollCount, title }) {
+function PrimaryNavSection({ items, onClose, pollCount, title }) {
   return (
-    <details className="group rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-sm shadow-[#047857]/10">
+    <section className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2 shadow-sm shadow-[#101828]/5">
+      <div className="flex items-center justify-between px-2">
+        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+          {title}
+        </p>
+        <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[11px] font-black text-[#166534]">
+          Live
+        </span>
+      </div>
+      <div className="mt-2 grid gap-1.5">
+        {items.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            data-tour-id={getSidebarTourId(item.path)}
+            onClick={(event) => {
+              if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                event.preventDefault()
+                return
+              }
+
+              onClose()
+            }}
+            className={({ isActive }) =>
+              [
+                'block rounded-lg px-3 py-3 transition',
+                isActive
+                  ? 'bg-[#ecfdf5] text-[#065f46] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
+                  : 'bg-white text-[#4b5f55] shadow-sm shadow-[#047857]/5 hover:bg-[#ecfdf5] hover:text-[#101828]',
+              ].join(' ')
+            }
+          >
+            <NavItemLabel item={item} pollCount={pollCount} />
+          </NavLink>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function NavGroup({ defaultOpen = false, items, onClose, pollCount, title }) {
+  return (
+    <details open={defaultOpen} className="group rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-sm shadow-[#047857]/10">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
         <span className="min-w-0 flex-1">
           <span className="block truncate whitespace-nowrap">{title}</span>

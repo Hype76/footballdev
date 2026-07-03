@@ -33,6 +33,9 @@ import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
 const QUICK_ACTION_POSITION_STORAGE_KEY = 'football-player:quick-action-position'
 const QUICK_ACTION_EDGE_GAP = 16
 const QUICK_ACTION_BUTTON_SIZE = 56
+const QUICK_ACTION_MENU_WIDTH = 288
+const QUICK_ACTION_MENU_GAP = 12
+const QUICK_ACTION_MENU_BREAKPOINT = 640
 
 export function Layout() {
   const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
@@ -513,6 +516,7 @@ function QuickActionHotbar({ user }) {
     { label: 'Add Voice Note', type: 'voice-note', isVisible: canUseEvaluationQuickActions },
   ]
   const visibleActions = actions.filter((action) => action.isVisible !== false)
+  const quickActionMenuStyle = getQuickActionMenuStyle(quickActionPosition, visibleActions.length)
 
   return (
     <>
@@ -529,7 +533,10 @@ function QuickActionHotbar({ user }) {
         aria-hidden={hasActiveOverlay ? 'true' : undefined}
       >
         {isOpen ? (
-          <div className="w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-2xl shadow-[#047857]/20">
+          <div
+            className="fixed rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-2xl shadow-[#047857]/20"
+            style={quickActionMenuStyle}
+          >
             <p className="px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Quick add</p>
             <div className="grid gap-1.5">
               {visibleActions.map((action) => (
@@ -618,6 +625,56 @@ function clampQuickActionPosition(position) {
       Math.max(Number(position?.y ?? 0), QUICK_ACTION_EDGE_GAP),
       Math.max(QUICK_ACTION_EDGE_GAP, window.innerHeight - QUICK_ACTION_BUTTON_SIZE - QUICK_ACTION_EDGE_GAP),
     ),
+  }
+}
+
+function getQuickActionMenuStyle(position, actionCount = 0) {
+  if (typeof window === 'undefined') {
+    return {
+      maxHeight: `calc(100vh - ${QUICK_ACTION_EDGE_GAP * 2}px)`,
+      overflowY: 'auto',
+      width: `${QUICK_ACTION_MENU_WIDTH}px`,
+    }
+  }
+
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  if (viewportWidth < QUICK_ACTION_MENU_BREAKPOINT) {
+    return {
+      bottom: `${QUICK_ACTION_EDGE_GAP}px`,
+      left: `${QUICK_ACTION_EDGE_GAP}px`,
+      maxHeight: `calc(100vh - ${QUICK_ACTION_EDGE_GAP * 2}px)`,
+      overflowY: 'auto',
+      right: `${QUICK_ACTION_EDGE_GAP}px`,
+      width: 'auto',
+    }
+  }
+
+  const safePosition = clampQuickActionPosition(position ?? getDefaultQuickActionPosition())
+  const menuWidth = Math.min(QUICK_ACTION_MENU_WIDTH, Math.max(0, viewportWidth - QUICK_ACTION_EDGE_GAP * 2))
+  const estimatedMenuHeight = Math.min(
+    viewportHeight - QUICK_ACTION_EDGE_GAP * 2,
+    58 + Math.max(1, Number(actionCount) || 1) * 54 + Math.max(0, Number(actionCount) - 1) * 6,
+  )
+  const maxLeft = Math.max(QUICK_ACTION_EDGE_GAP, viewportWidth - menuWidth - QUICK_ACTION_EDGE_GAP)
+  const left = Math.min(
+    Math.max(safePosition.x + QUICK_ACTION_BUTTON_SIZE - menuWidth, QUICK_ACTION_EDGE_GAP),
+    maxLeft,
+  )
+  const belowTop = safePosition.y + QUICK_ACTION_BUTTON_SIZE + QUICK_ACTION_MENU_GAP
+  const aboveTop = safePosition.y - QUICK_ACTION_MENU_GAP - estimatedMenuHeight
+  const hasRoomBelow = belowTop + estimatedMenuHeight <= viewportHeight - QUICK_ACTION_EDGE_GAP
+  const preferredTop = hasRoomBelow ? belowTop : aboveTop
+  const maxTop = Math.max(QUICK_ACTION_EDGE_GAP, viewportHeight - estimatedMenuHeight - QUICK_ACTION_EDGE_GAP)
+  const top = Math.min(Math.max(preferredTop, QUICK_ACTION_EDGE_GAP), maxTop)
+
+  return {
+    left: `${left}px`,
+    maxHeight: `calc(100vh - ${QUICK_ACTION_EDGE_GAP * 2}px)`,
+    overflowY: 'auto',
+    top: `${top}px`,
+    width: `${menuWidth}px`,
   }
 }
 
