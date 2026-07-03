@@ -115,8 +115,8 @@ export function HintPopover({
       return undefined
     }
 
-    updatePosition()
-    window.setTimeout(updatePosition, 0)
+    const animationFrameId = window.requestAnimationFrame(updatePosition)
+    const timeoutId = window.setTimeout(updatePosition, 0)
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
@@ -162,6 +162,8 @@ export function HintPopover({
     document.addEventListener('focusin', handleFocusIn)
 
     return () => {
+      window.cancelAnimationFrame(animationFrameId)
+      window.clearTimeout(timeoutId)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)

@@ -344,7 +344,7 @@ export function PlayerProfile() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, expectedProfileSection, routePlayerId, routePlayerName, scopedRouteTeamId, shouldLoadSavedPlayerById, user, userScopeKey])
+  }, [cacheKey, expectedProfileSection, isSavedPlayerProfileRoute, routePlayerId, routePlayerName, scopedRouteTeamId, shouldLoadSavedPlayerById, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -536,7 +536,7 @@ export function PlayerProfile() {
     return () => {
       isMounted = false
     }
-  }, [profilePlayers, userScopeKey])
+  }, [profilePlayers, user?.clubId, userScopeKey])
 
   const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
   const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
