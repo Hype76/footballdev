@@ -52,6 +52,11 @@ test('team mode must be explicit before it can override platform admin bootstrap
 test('topbar does not display platform admin as the selected access view for coach context', async () => {
   const source = await readFile(topbarUrl, 'utf8')
 
+  assert.match(source, /const currentActiveTeamId = String\(displayUser\?\.activeTeamId \?\? ''\)\.trim\(\)/)
+  assert.match(source, /const teamOptionsWithCurrent = currentActiveTeamId && !teamOptions\.some/)
+  assert.match(source, /name: displayUser\?\.activeTeamName \|\| 'Current team'/)
+  assert.match(source, /const selectedAccessViewValue =/)
+  assert.match(source, /value=\{selectedAccessViewValue\}/)
   assert.match(source, /const shouldShowCurrentTeamAccessOption =/)
   assert.match(source, /!isPlatformAdminView && !isParentPortalView && \(hasPlatformAdminAccess \|\| hasTeamAccessOption\) && !displayUser\?\.activeTeamId/)
   assert.match(source, /shouldShowCurrentTeamAccessOption \? '__team_access__' : ''/)

@@ -301,6 +301,22 @@ try {
     await context.close()
   })
 
+  await runScenario('dual-access fallback recovery shows current team instead of stale family label', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await parentSignIn(page, 'stale-label-dual.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await assertVisibleText(page, 'Account details unavailable')
+    await page.getByRole('button', { name: 'Open team workspace' }).click()
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertVisibleText(page, 'U17 Green')
+    await assertSelectedOption(page, 'Access view', 'Team: U17 Green')
+    assert.notEqual(await page.getByLabel('Access view').inputValue(), '__parent_portal__')
+    await assertVisibleText(page, 'Team tools')
+    await assertNoSetupGuideTrigger(page)
+    await context.close()
+  })
+
   await runScenario('parent-only unavailable fallback does not expose team recovery', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)

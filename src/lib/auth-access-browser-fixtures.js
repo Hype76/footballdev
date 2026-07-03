@@ -147,6 +147,25 @@ const fixtureAccounts = {
       { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
     ],
   },
+  'stale-label-dual.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'parent',
+    parentProfileUnavailable: true,
+    hideTeamOptions: true,
+    teamProfile: makeBaseProfile('stale-label-dual.fixture@footballplayer.test', {
+      name: 'Stale Label Fixture',
+      role: 'admin',
+      roleLabel: 'Team Admin',
+      roleRank: 80,
+      activeTeamId: 'team-u17-green',
+      activeTeamName: 'U17 Green',
+      parentPortalLinks,
+    }),
+    fallbackAccessModeOptions: [
+      { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
+    ],
+  },
   'multi.fixture@footballplayer.test': {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: true,
@@ -276,7 +295,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
   const hasPlatformAdminAccess = Boolean(account?.hasPlatformAdminAccess)
   const isParentProfile = user?.role === 'parent_portal'
   const isPlatformProfile = user?.role === 'super_admin'
-  const nextTeamOptions = user && !isParentProfile && !isPlatformProfile ? teamOptions : []
+  const nextTeamOptions = user && !isParentProfile && !isPlatformProfile && !account?.hideTeamOptions ? teamOptions : []
   const nextClubOptions = isPlatformProfile ? clubOptions : []
   const nextAccessModeOptions = Array.isArray(user?.accessModeOptions)
     ? user.accessModeOptions

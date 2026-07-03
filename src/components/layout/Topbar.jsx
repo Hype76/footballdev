@@ -27,11 +27,26 @@ export function Topbar({ title, onMenuClick }) {
   const hasParentPortalAccess = Array.isArray(displayUser?.parentPortalLinks) && displayUser.parentPortalLinks.length > 0
   const profileAccessModeOptions = Array.isArray(displayUser?.accessModeOptions) ? displayUser.accessModeOptions : []
   const hasTeamAccessOption = profileAccessModeOptions.some((option) => option?.id === 'team')
+  const currentActiveTeamId = String(displayUser?.activeTeamId ?? '').trim()
+  const teamOptionsWithCurrent = currentActiveTeamId && !teamOptions.some((team) => String(team.id) === currentActiveTeamId)
+    ? [
+        {
+          id: currentActiveTeamId,
+          name: displayUser?.activeTeamName || 'Current team',
+        },
+        ...teamOptions,
+      ]
+    : teamOptions
   const shouldShowClubAdminOption = !isPlatformAdminView && canUseClubAdminView
-  const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptions?.length > 0
+  const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptionsWithCurrent?.length > 0
   const shouldShowCurrentTeamAccessOption =
     !isPlatformAdminView && !isParentPortalView && (hasPlatformAdminAccess || hasTeamAccessOption) && !displayUser?.activeTeamId
-  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || hasTeamAccessOption || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
+  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || hasTeamAccessOption || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptionsWithCurrent?.length > 0
+  const selectedAccessViewValue = isPlatformAdminView
+    ? '__platform_admin__'
+    : isParentPortalView
+      ? '__parent_portal__'
+      : currentActiveTeamId || (shouldShowCurrentTeamAccessOption ? '__team_access__' : '')
   const workspaceContext = user?.role === 'super_admin'
     ? 'Platform control'
     : displayUser?.activeTeamName
@@ -231,11 +246,7 @@ export function Topbar({ title, onMenuClick }) {
                     Access view
                   </span>
                   <select
-                    value={isPlatformAdminView
-                      ? '__platform_admin__'
-                      : isParentPortalView
-                        ? '__parent_portal__'
-                        : displayUser?.activeTeamId || (shouldShowCurrentTeamAccessOption ? '__team_access__' : '')}
+                    value={selectedAccessViewValue}
                     onChange={handleTeamChange}
                     disabled={isSwitchingTeam}
                     title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
@@ -253,7 +264,7 @@ export function Topbar({ title, onMenuClick }) {
                       : null}
                     {shouldShowClubAdminOption ? <option value="">Club admin view</option> : null}
                     {shouldShowTeamPlaceholder ? <option value="">Select team</option> : null}
-                    {teamOptions.map((team) => (
+                    {teamOptionsWithCurrent.map((team) => (
                       <option key={team.id} value={team.id}>
                         Team: {team.name}
                       </option>
