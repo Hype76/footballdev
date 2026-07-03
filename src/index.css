@@ -401,6 +401,68 @@ body.theme-dark [class*='hover:border-[#0f9f6e]']:hover {
   border-color: var(--accent) !important;
 }
 
+.matchday-control-panel {
+  border-color: #d7e5dc;
+  background: #ffffff;
+  color: #101828;
+  box-shadow: 0 12px 28px rgb(4 120 87 / 0.08);
+}
+
+.matchday-control-eyebrow,
+.matchday-control-metric-label {
+  color: #047857;
+}
+
+.matchday-control-copy {
+  color: #4b5f55;
+}
+
+.matchday-control-next,
+.matchday-control-metric {
+  border-color: #d7e5dc;
+  background: #f7faf8;
+}
+
+.matchday-control-metrics {
+  border-color: #d7e5dc;
+  background: #f7faf8;
+}
+
+.matchday-control-metric-value {
+  color: #101828;
+}
+
+body.theme-dark .matchday-control-panel {
+  border-color: #d7e5dc;
+  background: #101828;
+  color: #ffffff;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.22);
+}
+
+body.theme-dark .matchday-control-eyebrow,
+body.theme-dark .matchday-control-metric-label {
+  color: #86efac;
+}
+
+body.theme-dark .matchday-control-copy {
+  color: #d1fae5;
+}
+
+body.theme-dark .matchday-control-next,
+body.theme-dark .matchday-control-metric {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.1);
+}
+
+body.theme-dark .matchday-control-metrics {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.05);
+}
+
+body.theme-dark .matchday-control-metric-value {
+  color: #ffffff;
+}
+
 #root {
   min-height: 100vh;
   background: var(--app-bg);

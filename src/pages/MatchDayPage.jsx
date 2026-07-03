@@ -1124,22 +1124,22 @@ export function MatchDayPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#101828] text-white shadow-sm shadow-[#047857]/10">
+      <section className="matchday-control-panel overflow-hidden rounded-lg border shadow-sm">
         <div className="grid gap-5 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#86efac]">Match day control</p>
+            <p className="matchday-control-eyebrow text-xs font-black uppercase tracking-[0.18em]">Match day control</p>
             <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Match Day</h1>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#d1fae5]">
+            <p className="matchday-control-copy mt-2 max-w-3xl text-sm font-semibold leading-6">
               Scan fixtures, open one when needed, and keep scorer, score, availability, roles, and notes attached to the same record.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:min-w-[26rem] lg:grid-cols-1">
-            <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#86efac]">Next fixture</p>
+            <div className="matchday-control-next rounded-lg border px-4 py-3">
+              <p className="matchday-control-eyebrow text-xs font-black uppercase tracking-[0.16em]">Next fixture</p>
               <p className="mt-1 text-lg font-black tracking-tight">
                 {nextMatch ? getMatchDayDisplayName(nextMatch) : 'No fixture created'}
               </p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-[#d1fae5]">
+              <p className="matchday-control-copy mt-1 text-sm font-semibold leading-6">
                 {nextMatch ? formatMatchDate(nextMatch) : 'Create a fixture to request volunteers and prepare the live board.'}
               </p>
             </div>
@@ -1152,11 +1152,11 @@ export function MatchDayPage() {
             </button>
           </div>
         </div>
-        <div className="grid gap-2 border-t border-white/10 bg-white/5 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
-          <MatchMetric label="Live" value={liveMatches} isLoading={isLoading} tone="dark" />
-          <MatchMetric label="Requests" value={scorerRequests} isLoading={isLoading} tone="dark" />
-          <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} tone="dark" />
-          <MatchMetric label="Goals" value={goalCount} isLoading={isLoading} tone="dark" />
+        <div className="matchday-control-metrics grid gap-2 border-t px-5 py-4 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
+          <MatchMetric label="Live" value={liveMatches} isLoading={isLoading} tone="control" />
+          <MatchMetric label="Requests" value={scorerRequests} isLoading={isLoading} tone="control" />
+          <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} tone="control" />
+          <MatchMetric label="Goals" value={goalCount} isLoading={isLoading} tone="control" />
         </div>
       </section>
 
@@ -1815,6 +1815,15 @@ function AvailabilityCount({ label, value }) {
 }
 
 function MatchMetric({ isLoading, label, tone = 'light', value }) {
+  if (tone === 'control') {
+    return (
+      <div className="matchday-control-metric rounded-lg border px-3 py-3 shadow-sm">
+        <p className="matchday-control-metric-label text-[11px] font-black uppercase tracking-[0.14em]">{label}</p>
+        <p className="matchday-control-metric-value mt-2 text-2xl font-black">{isLoading ? '...' : value}</p>
+      </div>
+    )
+  }
+
   const isDark = tone === 'dark'
 
   return (

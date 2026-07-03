@@ -214,7 +214,7 @@ export function PublicPricingPage() {
           </div>
         ) : null}
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-8 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-5">
           {pricingPlans.map((plan) => {
             const priceLabel = formatPriceLabel(plan, billingCycle)
             const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
@@ -224,17 +224,19 @@ export function PublicPricingPage() {
               <article
                 key={plan.name}
                 className={[
-                  'relative flex min-h-full flex-col overflow-hidden rounded-lg border p-5 shadow-sm shadow-black/20',
+                  'relative flex h-full min-h-[34rem] flex-col overflow-hidden rounded-lg border p-5 shadow-sm shadow-black/20',
                   'border-white/10 bg-white/[0.055]',
                 ].join(' ')}
               >
-                <div className="pr-6">
+                <div className="flex min-h-[8rem] flex-col pr-2">
                   <h2 className="text-xl font-black text-white">{planLabel}</h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-white/70">{plan.description}</p>
                 </div>
-                <div className="mt-5">
-                  <span className="text-3xl font-black text-white sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
-                  {priceLabel ? <span className="ml-2 text-sm font-semibold text-white/58">{priceLabel}</span> : null}
+                <div className="mt-1 flex min-h-[5.75rem] flex-col justify-start">
+                  <div>
+                    <span className="text-3xl font-black text-white sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
+                    {priceLabel ? <span className="ml-2 text-sm font-semibold text-white/58">{priceLabel}</span> : null}
+                  </div>
                   {showPromotion ? <p className="mt-2 text-xs font-black text-[#c6ff1a]">{getPromotionSummary(livePromotion)}</p> : null}
                 </div>
                 <ul className="mt-6 grow space-y-2.5">
@@ -245,7 +247,7 @@ export function PublicPricingPage() {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-6 grid gap-3">
+                <div className="mt-auto grid min-h-[7rem] content-end gap-3 pt-6">
                   <button
                     type="button"
                     disabled={isSubmitting}
