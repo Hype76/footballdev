@@ -162,15 +162,22 @@ async function preparePage(context) {
   }
 }
 
-async function signIn(page, email, baseUrl = mainBaseUrl) {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
+async function signIn(page, email, baseUrl = mainBaseUrl, access = 'club') {
+  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
+  await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
+  if (access === 'parent') {
+    await page.getByRole('button', { name: 'Parent' }).click()
+  } else {
+    await page.getByRole('button', { name: 'Club' }).click()
+  }
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
 }
 
 async function parentSignIn(page, email, baseUrl = parentBaseUrl) {
-  await page.goto(`${baseUrl}/parent-login`, { waitUntil: 'domcontentloaded' })
+  await page.goto(`${baseUrl}/parent-login`, { waitUntil: 'commit', timeout: 60000 })
+  await page.getByPlaceholder('you@example.com').waitFor({ state: 'visible', timeout: 60000 })
   await page.getByPlaceholder('you@example.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
   await page.getByRole('button', { name: /^Login$/ }).click()
@@ -218,6 +225,13 @@ async function assertSelectedOption(page, label, expectedText) {
   })
 
   assert.equal(value, expectedText)
+}
+
+async function seedSelectedAccessMode(page, mode) {
+  await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
+  await page.evaluate((nextMode) => {
+    window.sessionStorage.setItem('selected-access-mode', nextMode)
+  }, mode)
 }
 
 async function runScenario(name, callback) {
@@ -283,6 +297,77 @@ try {
     await assertVisibleText(page, 'Family portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
     await assertNoSetupGuideTrigger(page)
+    await context.close()
+  })
+
+  await runScenario('main parent tab resolves dual-access user to parent portal only', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'parent')
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await assertVisibleText(page, 'Family portal')
+    await assertVisibleTextContaining(page, 'Fixture Child')
+    assert.equal(await page.getByText('This sign-in is for club staff', { exact: true }).count(), 0)
+    await assertNoSetupGuideTrigger(page)
+    await context.close()
+  })
+
+  await runScenario('club tab resolves dual-access user to team workspace only', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'club')
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertVisibleText(page, 'Club-wide view')
+    await assertVisibleText(page, 'Club tools')
+    await assertSelectedOption(page, 'Access view', 'Team access')
+    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Team workspace unavailable', { exact: true }).count(), 0)
+    await assertSidebarFooterContract(page)
+    await context.close()
+  })
+
+  await runScenario('parent-only account using club login sees club-specific guidance', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl, 'club')
+    await assertVisibleText(page, 'This sign-in is for club staff')
+    await assertVisibleText(page, "This sign-in is for club staff. Use Parent login to view your child's updates.")
+    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
+    await context.close()
+  })
+
+  await runScenario('staff-only account using parent login sees parent-specific guidance', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await parentSignIn(page, 'coach.fixture@footballplayer.test', mainBaseUrl)
+    await assertVisibleText(page, 'This sign-in is for parent access')
+    await assertVisibleText(page, 'This sign-in is for parent access. Use Club login to manage your team workspace.')
+    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Team workspace unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
+    await context.close()
+  })
+
+  await runScenario('stale parent mode does not override club login intent', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await seedSelectedAccessMode(page, 'parent')
+    await signIn(page, 'coach.fixture@footballplayer.test', mainBaseUrl, 'club')
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertVisibleText(page, 'Team tools')
+    await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
+    await context.close()
+  })
+
+  await runScenario('stale team mode does not override parent login intent', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await seedSelectedAccessMode(page, 'team')
+    await parentSignIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await assertVisibleText(page, 'Family portal')
+    await assertVisibleTextContaining(page, 'Fixture Child')
     await context.close()
   })
 
@@ -368,12 +453,9 @@ try {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await signIn(page, 'multi.fixture@footballplayer.test')
-    await page.waitForURL('**/platform-admin', { timeout: 15000 })
-    await assertSelectedOption(page, 'Access view', 'Platform admin')
-
-    await page.getByLabel('Access view').selectOption({ label: 'Club: Fixture United' })
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team access')
+    await assertVisibleText(page, 'Club-wide view')
 
     await page.getByLabel('Access view').selectOption({ label: 'Team: U12 Fixture Team' })
     await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')

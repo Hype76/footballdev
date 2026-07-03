@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NoticeBanner } from '../ui/NoticeBanner.jsx'
 import { buildParentAppUrl } from '../../lib/app-origins.js'
+import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
 import { supabase } from '../../lib/supabase-client.js'
 
 function getFriendlyLoginError(error) {
@@ -35,6 +36,7 @@ export function ParentPortalLoginBox() {
     setErrorMessage('')
 
     try {
+      rememberParentAccessIntent()
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,

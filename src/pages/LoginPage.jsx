@@ -196,7 +196,7 @@ export function LoginPage() {
         await signInWithPassword({
           email: formData.email.trim(),
           password: formData.password,
-          preferredAccessMode: mode === 'parent-login' || parentInviteToken ? 'parent' : '',
+          preferredAccessMode: mode === 'parent-login' || parentInviteToken ? 'parent' : 'team',
         })
 
         if (parentInviteToken) {

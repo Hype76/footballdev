@@ -39,6 +39,7 @@ import {
   isParentIntentPath,
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
+import { readLoginAccessIntent } from '../lib/login-access-intent.js'
 import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
 import { TEAM_WORKSPACE_HOME_PATH } from '../lib/workspace-routes.js'
 
@@ -372,6 +373,72 @@ function ParentAccountIntentState({ session, type = 'mismatch', user }) {
   )
 }
 
+function LoginIntentMismatchState({ intent }) {
+  const { signOut } = useAuth()
+  const isParentIntent = intent === 'parent'
+  const title = isParentIntent ? 'This sign-in is for parent access' : 'This sign-in is for club staff'
+  const message = isParentIntent
+    ? 'This sign-in is for parent access. Use Club login to manage your team workspace.'
+    : "This sign-in is for club staff. Use Parent login to view your child's updates."
+  const primaryLabel = isParentIntent ? 'Use Club login' : 'Use Parent login'
+  const primaryTarget = isParentIntent ? '/sign-in' : getParentLoginTarget()
+  const secondaryTarget = isParentIntent ? getParentLoginTarget() : '/sign-in'
+
+  const handlePrimaryAction = async () => {
+    try {
+      await signOut()
+    } finally {
+      window.location.assign(primaryTarget)
+    }
+  }
+
+  const handleSecondaryAction = async () => {
+    try {
+      await signOut()
+    } finally {
+      window.location.assign(secondaryTarget)
+    }
+  }
+
+  return (
+    <RouteGateState
+      eyebrow={isParentIntent ? 'Parent login' : 'Club login'}
+      title={title}
+      message={message}
+      rules={[
+        {
+          title: 'Route-specific sign-in',
+          body: isParentIntent
+            ? 'Parent login opens accounts with an active parent-child link.'
+            : 'Club login opens club admins, team admins, coaches, and staff.',
+        },
+        {
+          title: 'Your account is still safe',
+          body: 'Sign out and use the matching login path for the access you need.',
+        },
+      ]}
+      actions={(
+        <>
+          <button
+            type="button"
+            onClick={handlePrimaryAction}
+            className={primaryActionClassName}
+          >
+            {primaryLabel}
+          </button>
+          <button
+            type="button"
+            onClick={handleSecondaryAction}
+            className={secondaryActionClassName}
+          >
+            Sign in with another account
+          </button>
+        </>
+      )}
+    />
+  )
+}
+
 function ClubSuspendedState() {
   return (
     <RouteGateState
@@ -665,7 +732,8 @@ function useWorkspaceRouteGate({
   showPlanAccessState = false,
   parentIntent = false,
 } = {}) {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { accessRouteMismatch, authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const loginIntent = readLoginAccessIntent()
 
   if (isLoading && !session?.user) {
     return { element: <LoadingScreen />, user: null }
@@ -684,6 +752,13 @@ function useWorkspaceRouteGate({
   }
 
   if (!user) {
+    if (accessRouteMismatch?.loginIntentMismatch) {
+      return {
+        element: <LoginIntentMismatchState intent={accessRouteMismatch.intendedAccessMode || loginIntent} />,
+        user: null,
+      }
+    }
+
     return {
       element: <AccountDetailsUnavailableState message={authError} />,
       user: null,
@@ -692,6 +767,10 @@ function useWorkspaceRouteGate({
 
   if (parentIntent) {
     if (!isParentPortalUser(user)) {
+      if (loginIntent === 'parent') {
+        return { element: <LoginIntentMismatchState intent="parent" />, user }
+      }
+
       return { element: <ParentAccountIntentState session={session} user={user} />, user }
     }
 
@@ -716,6 +795,14 @@ function useWorkspaceRouteGate({
 
   if (!redirectSuperAdmin && isParentPortalUser(user)) {
     return { element: null, user }
+  }
+
+  if (isParentPortalUser(user)) {
+    if (loginIntent === 'team') {
+      return { element: <LoginIntentMismatchState intent="team" />, user }
+    }
+
+    return { element: <RedirectToWorkspaceHome user={user} />, user }
   }
 
   if (isAccountSuspended(user)) {
@@ -821,13 +908,18 @@ function PageSuspense({ children }) {
 }
 
 function WorkspaceHome() {
-  const { authError, isProfileLoading, user } = useAuth()
+  const { accessRouteMismatch, authError, isProfileLoading, user } = useAuth()
+  const loginIntent = readLoginAccessIntent()
 
   if (!user && isProfileLoading) {
     return <DelayedRouteFallback />
   }
 
   if (!user) {
+    if (accessRouteMismatch?.loginIntentMismatch) {
+      return <LoginIntentMismatchState intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
+    }
+
     return <AccountDetailsUnavailableState message={authError} />
   }
 

@@ -13,6 +13,7 @@ import {
 } from './auth-permissions.js'
 import { isParentPortalHost } from './app-origins.js'
 import { normalizePlanKey, PLAN_KEYS } from './plans.js'
+import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessIntent } from './login-access-intent.js'
 
 export {
   canAssignRole,
@@ -208,6 +209,7 @@ function RuntimeAuthProvider({ children }) {
   const [accessModeOptions, setAccessModeOptions] = useState([])
   const [teamOptions, setTeamOptions] = useState([])
   const [hasPlatformAdminAccess, setHasPlatformAdminAccess] = useState(false)
+  const [accessRouteMismatch, setAccessRouteMismatch] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [authError, setAuthError] = useState('')
@@ -424,6 +426,7 @@ function RuntimeAuthProvider({ children }) {
       setAccessModeOptions([])
       setTeamOptions([])
       setHasPlatformAdminAccess(false)
+      setAccessRouteMismatch(null)
       setIsProfileLoading(false)
       setAuthError('')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
@@ -458,6 +461,7 @@ function RuntimeAuthProvider({ children }) {
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
         const selectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
         const selectedAccessModeIsExplicit = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY) === 'true'
+        const loginAccessIntent = readLoginAccessIntent()
         const hasPlatformAccess = await refreshPlatformAdminAccess(nextSession.user)
 
         if (hasPlatformAccess && selectedAccessMode !== 'parent' && (selectedAccessMode !== 'team' || !selectedAccessModeIsExplicit)) {
@@ -469,6 +473,7 @@ function RuntimeAuthProvider({ children }) {
 
           setAccessModeOptions([])
           setUser(platformProfile)
+          setAccessRouteMismatch(null)
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -477,6 +482,7 @@ function RuntimeAuthProvider({ children }) {
         const profile = await fetchUserProfile(nextSession.user, {
           selectedClubId,
           selectedAccessMode,
+          loginAccessIntent,
         })
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
@@ -486,6 +492,7 @@ function RuntimeAuthProvider({ children }) {
         if (profile?.requiresClubSelection) {
           setClubOptions(profile.clubOptions ?? [])
           setUser(null)
+          setAccessRouteMismatch(null)
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -493,6 +500,18 @@ function RuntimeAuthProvider({ children }) {
 
         if (profile?.requiresAccessModeSelection) {
           setAccessModeOptions(buildAccessModeOptions(profile.accessModeOptions, hasPlatformAccess))
+          setClubOptions([])
+          setUser(null)
+          setHasPlatformAdminAccess(hasPlatformAccess)
+          setAccessRouteMismatch(null)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
+        if (profile?.loginIntentMismatch) {
+          setAccessRouteMismatch(profile)
+          setAccessModeOptions([])
           setClubOptions([])
           setUser(null)
           setHasPlatformAdminAccess(hasPlatformAccess)
@@ -506,6 +525,7 @@ function RuntimeAuthProvider({ children }) {
           setClubOptions([])
           setUser(null)
           setHasPlatformAdminAccess(hasPlatformAccess)
+          setAccessRouteMismatch(null)
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -516,6 +536,7 @@ function RuntimeAuthProvider({ children }) {
           setClubOptions([])
           setUser(null)
           setHasPlatformAdminAccess(true)
+          setAccessRouteMismatch(null)
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -538,6 +559,7 @@ function RuntimeAuthProvider({ children }) {
         setUser((currentUser) =>
           areUsersEquivalent(currentUser, profileWithDemoPreview) ? currentUser : profileWithDemoPreview,
         )
+        setAccessRouteMismatch(null)
         setHasPlatformAdminAccess(hasPlatformAccess)
         setIsProfileLoading(false)
         setAuthError('')
@@ -551,6 +573,7 @@ function RuntimeAuthProvider({ children }) {
         if (!(options.background && isSameUser)) {
           setUser(null)
         }
+        setAccessRouteMismatch(null)
         setIsProfileLoading(false)
         setAuthError(error.message || 'Could not load user profile.')
       } finally {
@@ -639,11 +662,13 @@ function RuntimeAuthProvider({ children }) {
 
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextPreferredAccessMode)
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
+      rememberLoginAccessIntent(nextPreferredAccessMode)
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     } else {
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
+      clearLoginAccessIntent()
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     }
@@ -671,12 +696,14 @@ function RuntimeAuthProvider({ children }) {
     try {
       const { selectUserClub } = await loadAuthDataModule()
       const profile = await selectUserClub(authUser, clubId)
+      clearLoginAccessIntent()
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'team')
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profileWithTeam = await applyTeamSelection(profile)
       setUser(applyDemoRolePreview(profileWithTeam))
+      setAccessRouteMismatch(null)
       setAuthError('')
     } catch (error) {
       console.error(error)
@@ -703,14 +730,17 @@ function RuntimeAuthProvider({ children }) {
 
     try {
       if (nextAccessMode === 'platform_admin') {
+        clearLoginAccessIntent()
         const platformProfile = await openPlatformAdminProfile()
         setAccessModeOptions([])
         setUser(platformProfile)
+        setAccessRouteMismatch(null)
         setAuthError('')
         return
       }
 
       const { fetchUserProfile } = await loadAuthDataModule()
+      clearLoginAccessIntent()
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextAccessMode)
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
@@ -723,6 +753,7 @@ function RuntimeAuthProvider({ children }) {
         setClubOptions(profile.clubOptions ?? [])
         setAccessModeOptions([])
         setUser(null)
+        setAccessRouteMismatch(null)
         setAuthError('')
         return
       }
@@ -731,6 +762,7 @@ function RuntimeAuthProvider({ children }) {
       setAccessModeOptions([])
       setClubOptions(profile.clubOptions ?? [])
       setUser(applyDemoRolePreview(profileWithTeam))
+      setAccessRouteMismatch(null)
       setAuthError('')
     } catch (error) {
       console.error(error)
@@ -1152,6 +1184,7 @@ function RuntimeAuthProvider({ children }) {
     user,
     clubOptions,
     accessModeOptions,
+    accessRouteMismatch,
     teamOptions,
     hasPlatformAdminAccess,
     isLoading,

@@ -1,6 +1,10 @@
 import { isParentPortalUser } from './auth-permissions.js'
+import {
+  SELECTED_ACCESS_MODE_STORAGE_KEY,
+  rememberLoginAccessIntent,
+} from './login-access-intent.js'
 
-export const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
+export { SELECTED_ACCESS_MODE_STORAGE_KEY } from './login-access-intent.js'
 export const PARENT_ACCESS_MODE = 'parent'
 
 const parentIntentPaths = new Set([
@@ -23,11 +27,7 @@ export function isParentIntentPath(pathname = '') {
 }
 
 export function rememberParentAccessIntent() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, PARENT_ACCESS_MODE)
+  rememberLoginAccessIntent(PARENT_ACCESS_MODE)
 }
 
 export function hasActiveParentPortalLink(user) {

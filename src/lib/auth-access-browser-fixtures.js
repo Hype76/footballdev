@@ -3,6 +3,7 @@ import { createElement, useState } from 'react'
 const FIXTURE_SESSION_KEY = 'auth-access-browser-fixture-email'
 const FIXTURE_ACCESS_MODE_KEY = 'selected-access-mode'
 const FIXTURE_SELECTED_TEAM_KEY = 'selected-team-id'
+const FIXTURE_LOGIN_INTENT_KEY = 'login-access-intent'
 
 const teamOptions = [
   {
@@ -246,15 +247,11 @@ function getProfileForMode(account, mode, selectedTeamId = '') {
     return account.platformProfile
   }
 
-  if (mode === 'parent' && account.parentProfileUnavailable) {
-    return null
+  if (mode === 'parent') {
+    return account.parentProfileUnavailable ? null : account.parentProfile || null
   }
 
-  if (mode === 'parent' && account.parentProfile) {
-    return account.parentProfile
-  }
-
-  if (account.teamProfile) {
+  if (mode === 'team' && account.teamProfile) {
     return selectedTeam
       ? {
           ...account.teamProfile,
@@ -266,11 +263,43 @@ function getProfileForMode(account, mode, selectedTeamId = '') {
       : account.teamProfile
   }
 
-  if (account.platformProfile) {
+  if (mode === 'team' && account.platformProfile) {
     return account.platformProfile
   }
 
+  if (mode) {
+    return null
+  }
+
+  if (account.teamProfile) {
+    return account.teamProfile
+  }
+
   return account.parentProfile || null
+}
+
+function getAccessRouteMismatch(account, mode) {
+  if (!account) {
+    return null
+  }
+
+  if (mode === 'parent' && !account.parentProfile && !account.parentProfileUnavailable && (account.teamProfile || account.platformProfile)) {
+    return {
+      loginIntentMismatch: true,
+      intendedAccessMode: 'parent',
+      availableAccessMode: 'team',
+    }
+  }
+
+  if (mode === 'team' && !account.teamProfile && !account.platformProfile && account.parentProfile) {
+    return {
+      loginIntentMismatch: true,
+      intendedAccessMode: 'team',
+      availableAccessMode: 'parent',
+    }
+  }
+
+  return null
 }
 
 function makeSession(email) {
@@ -290,6 +319,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
   const account = getFixtureAccount(email)
   const activeMode = mode || account?.defaultMode || ''
   const user = account ? getProfileForMode(account, activeMode, selectedTeamId) : null
+  const accessRouteMismatch = user ? null : getAccessRouteMismatch(account, activeMode)
   const session = account ? makeSession(email) : null
   const authUser = session?.user || null
   const hasPlatformAdminAccess = Boolean(account?.hasPlatformAdminAccess)
@@ -314,6 +344,11 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     const nextMode = preferredAccessMode || nextAccount.defaultMode || 'team'
     window.sessionStorage.setItem(FIXTURE_SESSION_KEY, normalizedEmail)
     window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_KEY, nextMode)
+    if (preferredAccessMode) {
+      window.sessionStorage.setItem(FIXTURE_LOGIN_INTENT_KEY, nextMode)
+    } else {
+      window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
+    }
     window.sessionStorage.removeItem(FIXTURE_SELECTED_TEAM_KEY)
     setEmail(normalizedEmail)
     setMode(nextMode)
@@ -329,6 +364,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     }
 
     window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_KEY, normalizedMode)
+    window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
     if (normalizedMode !== 'team') {
       window.sessionStorage.removeItem(FIXTURE_SELECTED_TEAM_KEY)
       setSelectedTeamId('')
@@ -343,6 +379,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
 
   const selectClub = async () => {
     window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_KEY, 'team')
+    window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
     window.sessionStorage.removeItem(FIXTURE_SELECTED_TEAM_KEY)
     setSelectedTeamId('')
     setMode('team')
@@ -358,6 +395,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
 
     window.sessionStorage.setItem(FIXTURE_SELECTED_TEAM_KEY, selectedTeam.id)
     window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_KEY, 'team')
+    window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
     setSelectedTeamId(selectedTeam.id)
     setMode('team')
     setAuthError('')
@@ -367,6 +405,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     window.sessionStorage.removeItem(FIXTURE_SESSION_KEY)
     window.sessionStorage.removeItem(FIXTURE_ACCESS_MODE_KEY)
     window.sessionStorage.removeItem(FIXTURE_SELECTED_TEAM_KEY)
+    window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
     setEmail('')
     setMode('')
     setSelectedTeamId('')
@@ -379,6 +418,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     user,
     clubOptions: nextClubOptions,
     accessModeOptions: nextAccessModeOptions,
+    accessRouteMismatch,
     teamOptions: nextTeamOptions,
     hasPlatformAdminAccess,
     isLoading,

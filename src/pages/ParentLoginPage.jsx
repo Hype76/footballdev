@@ -10,8 +10,6 @@ import {
 } from '../lib/parent-auth-intent.js'
 import { supabase } from '../lib/supabase-client.js'
 
-const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
-
 function getFriendlyLoginError(error) {
   const rawMessage = String(error?.message ?? '').trim()
   const normalizedMessage = rawMessage.toLowerCase()
@@ -123,7 +121,7 @@ export function ParentLoginPage() {
       setIsSubmitting(true)
       setErrorMessage('')
       setMessage('Opening family portal...')
-      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
+      rememberParentAccessIntent()
 
       try {
         const { error } = await supabase.auth.setSession({

@@ -518,6 +518,7 @@ export async function selectUserClub(authUser, clubId) {
 export async function fetchUserProfile(authUser, options = {}) {
   const selectedClubId = String(options.selectedClubId ?? '').trim()
   const selectedAccessMode = String(options.selectedAccessMode ?? '').trim()
+  const loginAccessIntent = String(options.loginAccessIntent ?? '').trim()
   const cacheKey = `user-profile:${authUser?.id || ''}:${selectedClubId || 'active'}:${selectedAccessMode || 'default'}`
   const isDemoAuthUser = isDemoAccountValue(authUser)
 
@@ -613,12 +614,27 @@ export async function fetchUserProfile(authUser, options = {}) {
         const memberships = await getUserClubMemberships(authUser)
 
         if (memberships.length > 0) {
+          if (selectedAccessMode === 'team' && loginAccessIntent === 'team') {
+            return {
+              requiresClubSelection: true,
+              clubOptions: memberships,
+            }
+          }
+
           return {
             requiresAccessModeSelection: true,
             accessModeOptions: [
               { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
               { id: 'parent', label: 'Parent', meta: 'Open linked child access only' },
             ],
+          }
+        }
+
+        if (selectedAccessMode === 'team' && loginAccessIntent === 'team') {
+          return {
+            loginIntentMismatch: true,
+            intendedAccessMode: 'team',
+            availableAccessMode: 'parent',
           }
         }
 
@@ -662,6 +678,14 @@ export async function fetchUserProfile(authUser, options = {}) {
 
     const memberships = data.role === 'super_admin' ? [] : await getUserClubMemberships(authUser)
     const hasTeamAccess = Boolean(data?.club_id || memberships.length > 0 || data.role === 'super_admin')
+
+    if (selectedAccessMode === 'parent' && loginAccessIntent === 'parent' && !hasParentAccess && hasTeamAccess) {
+      return {
+        loginIntentMismatch: true,
+        intendedAccessMode: 'parent',
+        availableAccessMode: 'team',
+      }
+    }
 
     if (selectedAccessMode === 'parent' && !hasParentAccess && hasTeamAccess) {
       return {
