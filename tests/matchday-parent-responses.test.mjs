@@ -129,6 +129,11 @@ test('send function creates one response form link and stores parent link contex
   assert.match(source, /volunteer_scorer_response: 'no_response'/)
   assert.match(source, /Open response form/)
   assert.match(source, /match-day-availability-confirm\?token=\$\{token\}/)
+  assert.match(source, /\.from\('scheduled_email_queue'\)[\s\S]*\.insert\(/)
+  assert.match(source, /queuedCount: queuedEmails\.length/)
+  assert.match(source, /matchDayAvailabilityRequestId: request\.id/)
+  assert.match(source, /getMatchDayDisplayName/)
+  assert.doesNotMatch(source, /sendEmail\(/)
   assert.doesNotMatch(source, /status=available/)
 })
 

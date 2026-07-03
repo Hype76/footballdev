@@ -1,8 +1,9 @@
 import process from 'node:process'
 import { createHash, randomBytes } from 'node:crypto'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -115,13 +116,14 @@ function findParentLinkForContact(parentLinks, player, contact) {
 
 function buildAvailabilityEmail({ match, player, recipient, responseUrl }) {
   const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
-  const subject = `${teamName} availability: ${match.opponent || 'Fixture'}`
+  const matchName = getMatchDayDisplayName({ ...match, teamName })
+  const subject = `${teamName} availability: ${matchName}`
   const requestedRoleLabels = getRequestedRoleLabels(match)
   const roleText = requestedRoleLabels.length > 0
     ? `This form also asks if you can help as ${requestedRoleLabels.join(', ')}.`
     : ''
   const details = [
-    ['Opponent', match.opponent || 'Not set'],
+    ['Fixture', matchName],
     ['Date', match.match_date || 'Not set'],
     ['Kick off', formatTime(match.kickoff_time)],
     ['Arrival', formatTime(match.arrival_time)],
@@ -236,8 +238,8 @@ export async function handler(event) {
 
     const appOrigin = getAppOrigin(event)
     const createdRequests = []
+    const queuedEmails = []
     const missingContacts = []
-    let sentCount = 0
     const { data: parentLinks, error: parentLinksError } = await adminSupabase
       .from('parent_player_links')
       .select('id, player_id, email, status')
@@ -299,40 +301,74 @@ export async function handler(event) {
 
         const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
         const email = buildAvailabilityEmail({ match, player, recipient: contact, responseUrl })
-
-        await sendEmail({
-          from: createFromAddress('Football Player'),
-          to: [contact.email],
-          subject: email.subject,
-          html: email.html,
-        }, {
-          context: {
-            emailType: 'match_day_availability',
-            userRole: profile.role,
-            actorId: profile.id,
-            actorEmail: profile.email,
-            clubId: profile.club_id,
-            teamId: match.team_id,
-            targetEntityType: 'match_day_availability_request',
-            targetEntityId: request.id,
+        const payload = {
+          resendPayload: {
+            from: createFromAddress('Football Player'),
+            to: [contact.email],
+            subject: email.subject,
+            html: email.html,
           },
-          publicMessage: 'Availability email could not be sent. Please try again in a moment.',
-        })
+          displayName: 'Football Player',
+          teamName: normalizeText(match.teams?.name || match.team_name),
+          clubName: '',
+          playerName: normalizeText(player.player_name),
+          parentName: normalizeText(contact.name),
+          clubId: match.club_id,
+          teamId: match.team_id || null,
+          actorId: profile.id,
+          actorEmail: normalizeEmail(profile.email),
+          actorRole: profile.role || '',
+          requiredFeature: 'parentEmails',
+          communicationLog: {
+            clubId: match.club_id,
+            playerId: player.id,
+            userId: profile.id,
+            userName: normalizeText(profile.display_name || profile.name || profile.email),
+            userEmail: normalizeEmail(profile.email),
+            recipientEmail: contact.email,
+            metadata: {
+              type: 'match_day_availability',
+              matchDayId: match.id,
+              matchDayAvailabilityRequestId: request.id,
+            },
+          },
+          matchDayAvailability: {
+            matchDayId: match.id,
+            requestId: request.id,
+            playerId: player.id,
+            parentLinkId: parentLink?.id || '',
+          },
+        }
+        const { data: queuedEmail, error: queueError } = await adminSupabase
+          .from('scheduled_email_queue')
+          .insert({
+            club_id: match.club_id,
+            team_id: match.team_id || null,
+            created_by: profile.id,
+            created_by_email: normalizeEmail(profile.email),
+            to_email: contact.email,
+            subject: email.subject,
+            status: 'scheduled',
+            scheduled_at: new Date().toISOString(),
+            payload,
+          })
+          .select('id')
+          .single()
 
-        sentCount += 1
-        await supabase
-          .from('match_day_availability_requests')
-          .update({ sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-          .eq('id', request.id)
+        if (queueError) {
+          throw queueError
+        }
 
         createdRequests.push(request)
+        queuedEmails.push(queuedEmail)
       }
     }
 
     return json(200, {
       success: true,
       requestCount: createdRequests.length,
-      sentCount,
+      queuedCount: queuedEmails.length,
+      sentCount: 0,
       missingContactCount: missingContacts.length,
       missingContacts,
       emailConfigured: true,
@@ -341,9 +377,7 @@ export async function handler(event) {
     console.error(error)
     return json(error.statusCode || 400, {
       success: false,
-      message: error.publicMessage
-        ? getPublicEmailErrorMessage(error, 'Availability requests could not be sent. Please try again in a moment.')
-        : error.message || 'Availability requests could not be sent.',
+      message: error.message || 'Availability requests could not be queued.',
     })
   }
 }

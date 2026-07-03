@@ -1,3 +1,5 @@
+import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../lib/matchday-display.js'
+
 function formatPreviousMatchDate(match) {
   if (!match.matchDate) {
     return 'Date not set'
@@ -17,14 +19,6 @@ function formatPreviousMatchDate(match) {
     minute: match.kickoffTime ? '2-digit' : undefined,
   })
 }
-function getClubScore(match) {
-  return match.homeAway === 'away' ? match.awayScore : match.homeScore
-}
-
-function getOpponentScore(match) {
-  return match.homeAway === 'away' ? match.homeScore : match.awayScore
-}
-
 function getGoalEvents(match) {
   return Array.isArray(match.events)
     ? match.events.filter((event) => event.eventType === 'goal')
@@ -81,9 +75,9 @@ export function PreviousGameCard({ match, onOpen }) {
       className="block w-full rounded-lg border border-[#d7e5dc] bg-white p-4 text-left shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#0f9f6e] hover:bg-[#f7faf8] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e]"
     >
       <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
-      <h4 className="mt-2 text-base font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
+      <h4 className="mt-2 text-base font-black text-[#101828]">{getMatchDayDisplayName(match)}</h4>
       <p className="mt-2 text-3xl font-black text-[#101828]">
-        {getClubScore(match)} - {getOpponentScore(match)}
+        {getMatchDayDisplayScore(match)}
       </p>
       {goals.length > 0 ? (
         <div className="mt-3 space-y-2">
@@ -114,9 +108,9 @@ export function PreviousGameDetailModal({ match, onClose }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
-            <h3 className="mt-2 text-xl font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h3>
+            <h3 className="mt-2 text-xl font-black text-[#101828]">{getMatchDayDisplayName(match)}</h3>
             <p className="mt-2 text-4xl font-black text-[#101828]">
-              {getClubScore(match)} - {getOpponentScore(match)}
+              {getMatchDayDisplayScore(match)}
             </p>
             <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatPreviousMatchStatus(match)}</p>
           </div>

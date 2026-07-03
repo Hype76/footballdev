@@ -1,6 +1,7 @@
 import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
 const ROLE_CONFIG = {
   scorer: {
@@ -142,7 +143,7 @@ function addMinutesToTime(value, minutesToAdd) {
   return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`
 }
 
-function buildGoogleCalendarLink({ match, roleLabel, teamName, opponent, portalUrl }) {
+function buildGoogleCalendarLink({ match, matchName, roleLabel, teamName, opponent, portalUrl }) {
   const datePart = getGoogleDatePart(match.match_date)
 
   if (!datePart) {
@@ -167,7 +168,7 @@ function buildGoogleCalendarLink({ match, roleLabel, teamName, opponent, portalU
   ].filter(Boolean).join('\n')
   const params = new URLSearchParams({
     action: 'TEMPLATE',
-    text: `${roleLabel}: ${teamName} vs ${opponent}`,
+    text: `${roleLabel}: ${matchName}`,
     dates,
     details: description,
     location: normalizeText(match.venue_name || match.venue_address),
@@ -196,17 +197,18 @@ function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail,
   const roleLabel = ROLE_CONFIG[role]?.label || 'Volunteer'
   const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
   const opponent = normalizeText(match.opponent || 'Fixture')
+  const matchName = getMatchDayDisplayName({ ...match, teamName })
   const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
   const clubLogoUrl = normalizeText(match.clubs?.logo_url)
   const accentColor = normalizeHexColor(match.teams?.theme_accent || match.clubs?.theme_accent || '#047857')
   const portalUrl = `${appOrigin}/parent-portal`
-  const calendarUrl = buildGoogleCalendarLink({ match, roleLabel, teamName, opponent, portalUrl })
+  const calendarUrl = buildGoogleCalendarLink({ match, matchName, roleLabel, teamName, opponent, portalUrl })
   const selectedCopy = action === 'selected'
     ? `You have been selected as ${roleLabel.toLowerCase()} for this fixture.`
     : `You are no longer selected as ${roleLabel.toLowerCase()} for this fixture.`
-  const subject = `${teamName} Match Day ${roleLabel.toLowerCase()} update`
+  const subject = `${matchName} Match Day ${roleLabel.toLowerCase()} update`
   const details = [
-    ['Opponent', opponent],
+    ['Fixture', matchName],
     ['Date', formatDate(match.match_date)],
     ['Kick off', formatTime(match.kickoff_time)],
     ['Arrival', formatTime(match.arrival_time)],

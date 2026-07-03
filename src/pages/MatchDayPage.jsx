@@ -9,6 +9,7 @@ import {
   shouldSendMatchdayPushNotification,
 } from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
+import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import {
   addStaffMatchDayGoal,
   calculateArrivalTime,
@@ -436,14 +437,6 @@ function formatMatchDate(match) {
   })
 }
 
-function getClubScore(match) {
-  return match.homeAway === 'away' ? match.awayScore : match.homeScore
-}
-
-function getOpponentScore(match) {
-  return match.homeAway === 'away' ? match.homeScore : match.awayScore
-}
-
 function getMatchEventTitle(event) {
   return `${event.eventType === 'goal' ? 'Goal' : 'Update'}, Score: ${event.homeScore} - ${event.awayScore}`
 }
@@ -536,7 +529,7 @@ function getAvailabilitySummary(match) {
     return match.parentVisible ? 'Awaiting availability' : 'Staff only'
   }
 
-  return `${stats.available} available, ${stats.pending} pending, ${stats.maybe} maybe, ${stats.unavailable} unavailable`
+  return `${stats.available} available, ${stats.pending} no response, ${stats.maybe} maybe, ${stats.unavailable} unavailable`
 }
 
 function getRoleStatus(match, roleKey) {
@@ -587,7 +580,7 @@ function getNeedsAttentionItems(activeMatches) {
     {
       label: 'Awaiting replies',
       value: availabilityStats.reduce((total, stats) => total + stats.pending, 0),
-      caption: 'Availability requests still pending.',
+      caption: 'Availability requests with no parent response yet.',
     },
   ]
 }
@@ -921,7 +914,7 @@ export function MatchDayPage() {
         message: availabilityWarning
           ? `The fixture was saved, but availability requests could not be sent: ${availabilityWarning}`
           : canSendAvailabilityRequests
-            ? `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`
+            ? `${result.queuedCount ?? result.sentCount ?? 0} availability requests queued. ${result.missingContactCount ?? 0} players need contact details.`
             : 'The fixture was saved. Availability sending is enabled only on production or approved live runtimes.',
       })
     } catch (error) {
@@ -1136,7 +1129,7 @@ export function MatchDayPage() {
             <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#86efac]">Next fixture</p>
               <p className="mt-1 text-lg font-black tracking-tight">
-                {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No fixture created'}
+                {nextMatch ? getMatchDayDisplayName(nextMatch) : 'No fixture created'}
               </p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#d1fae5]">
                 {nextMatch ? formatMatchDate(nextMatch) : 'Create a fixture to request volunteers and prepare the live board.'}
@@ -1396,7 +1389,8 @@ function MatchDayCard({
   const currentMinute = getCurrentMatchMinute(match)
   const availabilityStats = getAvailabilityStats(match)
   const events = Array.isArray(match.events) ? match.events : []
-  const scoreSummary = `${getClubScore(match)} - ${getOpponentScore(match)}`
+  const displayParts = getMatchDayDisplayParts(match)
+  const scoreSummary = getMatchDayDisplayScore(match)
 
   return (
     <article className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -1415,7 +1409,7 @@ function MatchDayCard({
               </span>
             ) : null}
           </div>
-          <h4 className="mt-2 text-lg font-black leading-tight text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
+          <h4 className="mt-2 text-lg font-black leading-tight text-[#101828]">{getMatchDayDisplayName(match)}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
             {formatMatchDate(match)}
             {match.venueName ? ` at ${match.venueName}` : ''}
@@ -1481,7 +1475,7 @@ function MatchDayCard({
             <h5 className="text-sm font-black text-[#101828]">Availability</h5>
             <div className="mt-3 grid gap-2 sm:grid-cols-5">
               <AvailabilityCount label="Available" value={availabilityStats.available} />
-              <AvailabilityCount label="Pending" value={availabilityStats.pending} />
+              <AvailabilityCount label="No response" value={availabilityStats.pending} />
               <AvailabilityCount label="Maybe" value={availabilityStats.maybe} />
               <AvailabilityCount label="Unavailable" value={availabilityStats.unavailable} />
               <AvailabilityCount label="Conflicts" value={availabilityStats.conflictCount} />
@@ -1632,7 +1626,7 @@ function MatchDayCard({
           ) : null}
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <label className="block">
-              <span className={smallLabelClass}>Home</span>
+              <span className={smallLabelClass}>Home ({displayParts.firstSide === 'home' ? displayParts.firstTeam : 'home team'})</span>
               <input
                 type="number"
                 min="0"
@@ -1642,7 +1636,7 @@ function MatchDayCard({
               />
             </label>
             <label className="block">
-              <span className={smallLabelClass}>Away</span>
+              <span className={smallLabelClass}>Away ({displayParts.secondSide === 'away' ? displayParts.secondTeam : 'away team'})</span>
               <input
                 type="number"
                 min="0"

@@ -8,6 +8,9 @@ import {
   openMatchDayFixtureSetup,
 } from '../src/lib/matchday-workflow.js'
 import {
+  getMatchDayDisplayName,
+  getMatchDayDisplayParts,
+  getMatchDayDisplayScore,
   getTodayMatchDayDateValue,
   isPastMatchDayDate,
   normalizeMatchDay,
@@ -192,6 +195,44 @@ test('match day normalizer preserves seeded camel-case availability summaries', 
   assert.equal(match.availabilityRequests[1].recipientEmail, 'mia.parent@example.test')
 })
 
+test('match day display helper lists the home side first for home and away fixtures', () => {
+  const homeMatch = {
+    teamName: 'Cambourne Town',
+    opponent: 'Riverside Juniors',
+    homeAway: 'home',
+    homeScore: 2,
+    awayScore: 1,
+  }
+  const awayMatch = {
+    teamName: 'Cambourne Town',
+    opponent: 'Riverside Juniors',
+    homeAway: 'away',
+    homeScore: 3,
+    awayScore: 2,
+  }
+
+  assert.equal(getMatchDayDisplayName(homeMatch), 'Cambourne Town v Riverside Juniors')
+  assert.equal(getMatchDayDisplayScore(homeMatch), '2 - 1')
+  assert.deepEqual(getMatchDayDisplayParts(homeMatch), {
+    firstTeam: 'Cambourne Town',
+    secondTeam: 'Riverside Juniors',
+    firstScore: 2,
+    secondScore: 1,
+    firstSide: 'home',
+    secondSide: 'away',
+  })
+  assert.equal(getMatchDayDisplayName(awayMatch), 'Riverside Juniors v Cambourne Town')
+  assert.equal(getMatchDayDisplayScore(awayMatch), '3 - 2')
+  assert.deepEqual(getMatchDayDisplayParts(awayMatch), {
+    firstTeam: 'Riverside Juniors',
+    secondTeam: 'Cambourne Town',
+    firstScore: 3,
+    secondScore: 2,
+    firstSide: 'home',
+    secondSide: 'away',
+  })
+})
+
 test('match day fixture setup saves parent volunteer request roles', () => {
   const pageSource = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
@@ -230,7 +271,7 @@ test('match day fixture setup saves parent volunteer request roles', () => {
   assert.match(migration, /match_day\.request_referee/i)
 })
 
-test('match day fixture creation warns specifically when post-save availability sending fails', () => {
+test('match day fixture creation reports queued availability requests or post-save queue failures', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
@@ -245,6 +286,8 @@ test('match day fixture creation warns specifically when post-save availability 
   assert.match(handlerSource, /availabilityWarning = result\.message \|\| 'Fixture availability requests could not be sent\.'/)
   assert.doesNotMatch(handlerSource, /throw new Error\(result\.message \|\| 'Fixture availability requests could not be sent\.'\)/)
   assert.match(handlerSource, /The fixture was saved, but availability requests could not be sent:/)
+  assert.match(handlerSource, /availability requests queued/)
+  assert.match(handlerSource, /result\.queuedCount \?\? result\.sentCount/)
   assert.match(handlerSource, /Availability sending is enabled only on production or approved live runtimes\./)
   assert.doesNotMatch(handlerSource, /Availability sending is gated in this environment/)
 })

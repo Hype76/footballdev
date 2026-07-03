@@ -14,7 +14,6 @@ const parentPortalSections = [
   { id: 'results', label: 'Results', description: 'Previous games', to: '/parent-portal?section=results' },
   { id: 'messages', label: 'Messages', description: 'Club messages', to: '/parent-messages', recoveryPath: '/parent-messages' },
   { id: 'polls', label: 'Polls', description: 'Questions to answer', to: '/parent-polls', recoveryPath: '/parent-polls' },
-  { id: 'family', label: 'Family', description: 'Shared access', to: '/friends-family', recoveryPath: '/friends-family' },
   { id: 'settings', label: 'Settings', description: 'Profile and preferences', to: '/parent-portal?section=settings' },
 ]
 

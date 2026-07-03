@@ -1,3 +1,5 @@
+import { getMatchDayDisplayName } from './matchday-display.js'
+
 function toDateOnly(value) {
   if (value instanceof Date) {
     const year = value.getFullYear()
@@ -379,7 +381,7 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
         date,
         time: toTimeOnly(match.kickoffTime),
         type: 'match-day',
-        title: `${match.teamName || 'Team'} vs ${match.opponent || 'Opponent'}`,
+        title: getMatchDayDisplayName(match),
         description: [match.kickoffTime ? `Kick off ${match.kickoffTime}` : '', match.venueName].filter(Boolean).join(', '),
         href: '/match-day',
         editable: true,

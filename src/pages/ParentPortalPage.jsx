@@ -25,6 +25,7 @@ import {
 } from '../lib/supabase.js'
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
+import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import {
   getParentMatchDayErrorMessage,
   parentMatchDayActionErrorTitle,
@@ -114,14 +115,6 @@ function getCurrentMatchMinute(match, now = Date.now()) {
   }
 
   return Math.max(Math.floor((now - startedAtTime) / 60000) + 1, 1)
-}
-
-function getClubScore(match) {
-  return match.homeAway === 'away' ? match.awayScore : match.homeScore
-}
-
-function getOpponentScore(match) {
-  return match.homeAway === 'away' ? match.homeScore : match.awayScore
 }
 
 function getParentMatchEventTitle(event) {
@@ -1248,7 +1241,7 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
       date: match.matchDate || '',
       time: toTimeOnly(match.kickoffTime),
       type: 'match-day',
-      title: `${match.teamName || 'Team'} v ${match.opponent || 'Opponent'}`,
+      title: getMatchDayDisplayName(match),
       description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', match.venueName].filter(Boolean).join(', '),
       location: match.venueName,
       teamName: match.teamName || '',
@@ -1523,7 +1516,7 @@ function ParentOverviewPanel({
       id: 'matches',
       label: 'Match cards',
       count: activeMatches.length,
-      title: nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No active match card',
+      title: nextMatch ? getMatchDayDisplayName(nextMatch) : 'No active match card',
       detail: nextMatch ? formatMatchDate(nextMatch) : 'Live and upcoming match cards appear only when shared.',
     },
     {
@@ -2031,6 +2024,7 @@ function ParentMatchCard({
   const responseRows = getParentMatchResponseRows(match)
   const roleSelectionRows = getParentRoleSelectionRows(match, selectedLink)
   const selectedRoleLabels = roleSelectionRows.filter((row) => row.isSelected).map((row) => row.label)
+  const displayParts = getMatchDayDisplayParts(match)
 
   return (
     <article className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
@@ -2046,7 +2040,7 @@ function ParentMatchCard({
               </span>
             ))}
           </div>
-          <h4 className="mt-3 text-lg font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
+          <h4 className="mt-3 text-lg font-black text-[#101828]">{getMatchDayDisplayName(match)}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
           {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{match.venueName}</p> : null}
           {match.scorerRequestMessage && !match.isScorer ? (
@@ -2066,7 +2060,7 @@ function ParentMatchCard({
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 text-center shadow-sm shadow-[#047857]/10">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Live score</p>
           <p className="mt-2 text-4xl font-black text-[#101828]">
-            {getClubScore(match)} - {getOpponentScore(match)}
+            {getMatchDayDisplayScore(match)}
           </p>
           {currentMinute ? (
             <p className="mt-2 text-sm font-bold text-[#4b5f55]">{currentMinute} min</p>
@@ -2147,7 +2141,7 @@ function ParentMatchCard({
             <h5 className="text-sm font-black text-[#101828]">Update score</h5>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-[#4b5f55]">Home</span>
+                <span className="mb-1 block text-xs font-black text-[#4b5f55]">Home ({displayParts.firstSide === 'home' ? displayParts.firstTeam : 'home team'})</span>
                 <input
                   type="number"
                   min="0"
@@ -2157,7 +2151,7 @@ function ParentMatchCard({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-[#4b5f55]">Away</span>
+                <span className="mb-1 block text-xs font-black text-[#4b5f55]">Away ({displayParts.secondSide === 'away' ? displayParts.secondTeam : 'away team'})</span>
                 <input
                   type="number"
                   min="0"

@@ -1,5 +1,6 @@
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -136,11 +137,11 @@ function getTeamName(match) {
 
 function buildPayload({ match, profile, type }) {
   const teamName = getTeamName(match)
-  const opponent = normalizeText(match.opponent) || 'Opponent'
+  const matchName = getMatchDayDisplayName({ ...match, teamName })
 
   if (type === 'scorer_volunteer') {
     return {
-      body: `${profile.email} volunteered for ${teamName} v ${opponent}.`,
+      body: `${profile.email} volunteered for ${matchName}.`,
       data: {
         app: 'coach',
         matchDayId: match.id,
@@ -153,7 +154,7 @@ function buildPayload({ match, profile, type }) {
   }
 
   return {
-    body: `${teamName} v ${opponent}`,
+    body: matchName,
     data: {
       app: 'coach',
       matchDayId: match.id,

@@ -290,7 +290,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (isParentPortal) {
-      return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/parent-polls' || item.path === '/friends-family'
+      return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/parent-polls'
     }
 
     if (item.path === '/calendar') {
@@ -394,7 +394,6 @@ export function Sidebar({ isOpen, onClose }) {
         { label: 'Calendar', path: '/parent-portal', helper: 'Events and match day' },
         { label: 'Messages', path: '/parent-messages', helper: 'Club notices' },
         { label: 'Polls', path: '/parent-polls', helper: 'Reply requests' },
-        { label: 'Friends and Family', path: '/friends-family', helper: 'Shared access' },
       ].filter((item) => isRecoveryPathVisible(item.path, { user: displayUser }))
     }
 

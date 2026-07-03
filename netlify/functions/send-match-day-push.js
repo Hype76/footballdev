@@ -2,6 +2,7 @@ import process from 'node:process'
 import webpush from 'web-push'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
+import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../src/lib/matchday-display.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -150,18 +151,10 @@ function getTeamName(match) {
   return normalizeText(team?.name) || 'Our team'
 }
 
-function getClubScore(match) {
-  return match.home_away === 'away' ? match.away_score : match.home_score
-}
-
-function getOpponentScore(match) {
-  return match.home_away === 'away' ? match.home_score : match.away_score
-}
-
 function buildPayload({ match, type, event }) {
   const teamName = getTeamName(match)
-  const opponent = normalizeText(match.opponent) || 'Opponent'
-  const scoreLine = `${teamName} ${getClubScore(match)}-${getOpponentScore(match)} ${opponent}`
+  const matchName = getMatchDayDisplayName({ ...match, teamName })
+  const scoreLine = `${matchName}: ${getMatchDayDisplayScore(match)}`
   const eventScorer = normalizeText(event?.scorer_initials || event?.scorer_name)
   const isOpponentGoal = normalizeText(event?.team_side) === 'opponent'
   const minute = event?.minute !== null && event?.minute !== undefined ? `${event.minute}' ` : ''
@@ -230,7 +223,7 @@ function buildPayload({ match, type, event }) {
   if (type === 'scorer_selected') {
     return {
       title: 'You are the Match Day scorer',
-      body: `${teamName} v ${opponent}`,
+      body: matchName,
       tag: `match-day-${match.id}-scorer-selected`,
       renotify: true,
     }
@@ -239,7 +232,7 @@ function buildPayload({ match, type, event }) {
   if (type === 'scorer_request') {
     return {
       title: 'Scorer needed',
-      body: `${teamName} v ${opponent}`,
+      body: matchName,
       tag: `match-day-${match.id}-scorer-request`,
     }
   }

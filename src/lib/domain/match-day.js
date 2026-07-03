@@ -5,6 +5,7 @@ import { createAuditLog } from './audit.js'
 import { getEntryUserId, getEntryUserName } from './core-normalizers.js'
 import { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 
+export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 
 export const MATCH_DAY_STATUS_OPTIONS = [

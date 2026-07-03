@@ -60,7 +60,7 @@ test('parent dashboard uses section navigation instead of one long page', async 
   assert.match(shellSource, /id: 'results', label: 'Results'/)
   assert.match(shellSource, /id: 'messages', label: 'Messages'/)
   assert.match(shellSource, /id: 'polls', label: 'Polls'/)
-  assert.match(shellSource, /id: 'family', label: 'Family'/)
+  assert.doesNotMatch(shellSource, /id: 'family', label: 'Family'/)
   assert.match(shellSource, /id: 'settings', label: 'Settings'/)
   assert.match(shellSource, /aria-label="Parent portal sections"/)
   assert.match(shellSource, /isRecoveryPathVisible\(section\.recoveryPath, \{ user \}\)/)
@@ -144,7 +144,7 @@ test('parent dashboard exposes surfaced parent links without feature clutter', a
 
   assert.match(shellSource, /label: 'Messages'/)
   assert.match(shellSource, /label: 'Polls'/)
-  assert.match(shellSource, /label: 'Family'/)
+  assert.doesNotMatch(shellSource, /label: 'Family'/)
   assert.match(shellSource, /id: 'settings', label: 'Settings'/)
   assert.doesNotMatch(shellSource, /id: 'account', label: 'Account'/)
   assert.match(shellSource, /fixed inset-x-0 bottom-0 z-\[60\]/)
