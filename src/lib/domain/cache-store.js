@@ -68,11 +68,20 @@ export async function getCachedResource(cacheKey, task, ttlMs = MEMORY_CACHE_TTL
     return pendingRequest
   }
 
-  const nextRequest = Promise.resolve()
+  let nextRequest
+  nextRequest = Promise.resolve()
     .then(task)
-    .then((value) => writeMemoryCache(cacheKey, value, ttlMs))
+    .then((value) => {
+      // A mutation may invalidate a pending read. Let that caller finish, but do not cache its older snapshot.
+      if (inFlightMemoryRequests.get(cacheKey) !== nextRequest) {
+        return value
+      }
+      return writeMemoryCache(cacheKey, value, ttlMs)
+    })
     .finally(() => {
-      inFlightMemoryRequests.delete(cacheKey)
+      if (inFlightMemoryRequests.get(cacheKey) === nextRequest) {
+        inFlightMemoryRequests.delete(cacheKey)
+      }
     })
 
   inFlightMemoryRequests.set(cacheKey, nextRequest)

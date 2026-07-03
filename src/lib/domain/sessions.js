@@ -1,5 +1,6 @@
 import { supabase } from '../supabase-client.js'
 import {
+  clearViewCaches,
   getCachedResource,
   invalidateMemoryCacheByPrefix,
 } from './cache-store.js'
@@ -172,6 +173,7 @@ export async function createAssessmentSession({ user, session }) {
     throw error
   }
 
+  clearViewCaches()
   invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
   await createAuditLog({
     user,
@@ -261,6 +263,7 @@ export async function updateAssessmentSession({ user, sessionId, session }) {
     throw error
   }
 
+  clearViewCaches()
   invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
   await createAuditLog({
     user,
@@ -311,6 +314,7 @@ export async function completeAssessmentSession({ user, sessionId }) {
     throw error
   }
 
+  clearViewCaches()
   invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
   await createAuditLog({
     user,
@@ -429,6 +433,7 @@ export async function deleteAssessmentSession({ user, sessionId }) {
       throw error
     }
 
+    clearViewCaches()
     invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
     invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
     await createAuditLog({
@@ -463,6 +468,7 @@ export async function deleteAssessmentSession({ user, sessionId }) {
     throw error
   }
 
+  clearViewCaches()
   invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
   invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
   await createAuditLog({
@@ -527,6 +533,7 @@ export async function addPlayersToAssessmentSession({ user, sessionId, players }
     throw error
   }
 
+  clearViewCaches()
   invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
   await createAuditLog({
     user,
@@ -565,6 +572,7 @@ export async function updateAssessmentSessionPlayer({ user, sessionPlayerId, not
     throw error
   }
 
+  clearViewCaches()
   invalidateMemoryCacheByPrefix(`assessment-session-players:${data.session_id}`)
   return normalizeAssessmentSessionPlayerRow(data)
 }
@@ -583,6 +591,7 @@ export async function clearAssessmentSessionPlayers({ user, sessionId }) {
     throw error
   }
 
+  clearViewCaches()
   invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
   await createAuditLog({
     user,
