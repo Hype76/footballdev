@@ -187,15 +187,15 @@ function NavigateToParentInvite() {
 const accountRecoveryRules = [
   {
     title: 'Session is active',
-    body: 'This browser is signed in, but the account still needs a matching profile or parent portal link.',
+    body: 'This browser is signed in, but this parent portal path needs an active linked parent profile before it can open family details.',
   },
   {
-    title: 'Parent link is missing',
-    body: 'We could not find an active parent portal link for this account.',
+    title: 'Team access can still be available',
+    body: 'If this account also has team or staff access, use Open team workspace to continue without changing account data.',
   },
   {
     title: 'Use the invite email',
-    body: 'Make sure you are using the same email address that received the parent portal invite.',
+    body: 'For parent-only access, make sure you sign in with the same email address that received the parent portal invite.',
   },
 ]
 
@@ -235,6 +235,10 @@ function AccountDetailsUnavailableState({ message }) {
   const [isOpeningTeam, setIsOpeningTeam] = useState(false)
   const canOpenTeamWorkspace = Array.isArray(accessModeOptions)
     && accessModeOptions.some((option) => option?.id === 'team')
+  const fallbackMessage = message || 'Your login session is active, but this parent portal view cannot find an active linked parent profile for this account.'
+  const nextStepMessage = canOpenTeamWorkspace
+    ? 'You can open your team workspace now. Parent portal details can be reviewed separately if the club needs to refresh a parent invite.'
+    : 'Retry after a moment, or sign in again with the same email address that received the parent portal invite.'
 
   const handleOpenTeamWorkspace = async () => {
     setIsOpeningTeam(true)
@@ -258,41 +262,70 @@ function AccountDetailsUnavailableState({ message }) {
   }
 
   return (
-    <RouteGateState
-      title="Account details unavailable"
-      message={message || 'Your login session is active, but this account is not linked to an active parent portal profile. Ask your club or team contact to resend your parent portal invite, then sign in with the same email address that received it.'}
-      rules={accountRecoveryRules}
-      actions={(
-        <>
-          {canOpenTeamWorkspace ? (
+    <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)] sm:px-6 lg:px-8">
+      <section
+        className="w-full max-w-2xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/10"
+        aria-labelledby="account-details-unavailable-heading"
+      >
+        <div className="border-b border-[#d1fae5] bg-[#ecfdf5] px-5 py-5 sm:px-7">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Parent portal</p>
+          <h1 id="account-details-unavailable-heading" className="mt-3 text-3xl font-black leading-[1.05] tracking-tight text-[#101828] sm:text-4xl">
+            Account details unavailable
+          </h1>
+          <p className="mt-4 text-base font-semibold leading-7 text-[#4b5f55]">{fallbackMessage}</p>
+        </div>
+
+        <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
+          <div className="rounded-lg border border-[#bbf7d0] bg-[#f7faf8] px-4 py-4">
+            <p className="text-sm font-black text-[#101828]">Next step</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{nextStepMessage}</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+            {canOpenTeamWorkspace ? (
+              <button
+                type="button"
+                onClick={handleOpenTeamWorkspace}
+                disabled={isOpeningTeam}
+                className={primaryActionClassName}
+              >
+                {isOpeningTeam ? 'Opening...' : 'Open team workspace'}
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={handleOpenTeamWorkspace}
+              onClick={() => window.location.reload()}
+              className={canOpenTeamWorkspace ? secondaryActionClassName : primaryActionClassName}
               disabled={isOpeningTeam}
-              className={primaryActionClassName}
             >
-              {isOpeningTeam ? 'Opening...' : 'Open team workspace'}
+              Retry
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className={canOpenTeamWorkspace ? secondaryActionClassName : primaryActionClassName}
-            disabled={isOpeningTeam}
-          >
-            Retry
-          </button>
-          <button
-            type="button"
-            onClick={handleSignInAgain}
-            className={secondaryActionClassName}
-            disabled={isOpeningTeam}
-          >
-            Sign in again
-          </button>
-        </>
-      )}
-    />
+            <button
+              type="button"
+              onClick={handleSignInAgain}
+              className={secondaryActionClassName}
+              disabled={isOpeningTeam}
+            >
+              Sign in again
+            </button>
+          </div>
+
+          <details className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10" open>
+            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.18em] text-[#047857]">
+              What this means
+            </summary>
+            <div className="mt-4 grid gap-3">
+              {accountRecoveryRules.map((rule) => (
+                <article key={rule.title} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                  <p className="text-sm font-black text-[#101828]">{rule.title}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{rule.body}</p>
+                </article>
+              ))}
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
   )
 }
 
