@@ -50,6 +50,7 @@ test('sidebar groups V1 navigation without changing routes or visibility gates',
   assert.match(source, /const matchOperationsNavigationPaths = \['\/match-day', '\/resources'\]/)
   assert.match(source, /title="Team Comms"/)
   assert.match(source, /title="Match Operations"/)
+  assert.ok(source.indexOf('title="Match Operations"') < source.indexOf('title="Team Comms"'))
   assert.match(source, /const teamNavigationItems = isCoachOnly \? \[\] : navigationItems\.filter\(\(item\) => !coachNavigationPaths\.includes\(item\.path\)\)/)
   assert.match(source, /if \(item\.path === '\/staff-chat'\) \{[\s\S]*return canUseStaffChat\(displayUser\)/)
   assert.match(source, /if \(item\.path === '\/resources'\) \{[\s\S]*return canUseResourceLibrary\(displayUser\) \|\| canManageResourceLibrary\(displayUser\)/)

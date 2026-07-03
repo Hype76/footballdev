@@ -442,12 +442,12 @@ export function Sidebar({ isOpen, onClose }) {
                 pollCount={openPollCount}
               />
 
-              {communicationItems.length > 0 ? (
-                <NavGroup title="Team Comms" items={communicationItems} onClose={onClose} pollCount={openPollCount} defaultOpen />
-              ) : null}
-
               {matchOperationsItems.length > 0 ? (
                 <NavGroup title="Match Operations" items={matchOperationsItems} onClose={onClose} pollCount={openPollCount} defaultOpen />
+              ) : null}
+
+              {communicationItems.length > 0 ? (
+                <NavGroup title="Team Comms" items={communicationItems} onClose={onClose} pollCount={openPollCount} defaultOpen />
               ) : null}
             </>
           )}
