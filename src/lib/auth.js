@@ -34,6 +34,7 @@ export {
   canManageTeamSettings,
   canManageUsers,
   canShareEvaluation,
+  canUseClubStaffChat,
   canUseResourceLibrary,
   canUseStaffChat,
   canViewActivityLog,

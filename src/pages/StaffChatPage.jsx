@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { canUseStaffChat, useAuth } from '../lib/auth.js'
+import { canUseClubStaffChat, canUseStaffChat, useAuth } from '../lib/auth.js'
 import {
   archiveStaffChatConversation,
   createStaffChatConversation,
@@ -94,6 +94,12 @@ export function StaffChatPage() {
   const [isCreating, setIsCreating] = useState(false)
 
   const canOpenStaffChat = canUseStaffChat(user)
+  const canOpenClubStaffChat = canUseClubStaffChat(user)
+  const availableConversationTabs = useMemo(() => (
+    canOpenClubStaffChat
+      ? conversationTabs
+      : conversationTabs.filter((tab) => tab.key !== 'club_staff')
+  ), [canOpenClubStaffChat])
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedConversationId) ?? null
   const visibleConversations = conversations.filter((conversation) => conversation.type === activeType)
   const activeStaff = staff.filter((person) => person.id !== user?.id)
@@ -105,6 +111,7 @@ export function StaffChatPage() {
       setMessages([])
       setStaff([])
       setTeams([])
+      setSelectedConversationId('')
       setStatus('ready')
       return
     }
@@ -122,7 +129,7 @@ export function StaffChatPage() {
       setStaff(nextStaff)
       setTeams(nextTeams)
       setSelectedConversationId((current) => {
-        if (current && nextConversations.some((conversation) => conversation.id === current)) {
+        if (current && nextConversations.some((conversation) => conversation.id === current && conversation.type === activeType)) {
           return current
         }
 
@@ -141,9 +148,25 @@ export function StaffChatPage() {
   }, [loadStaffChat])
 
   useEffect(() => {
+    if (availableConversationTabs.some((tab) => tab.key === activeType)) {
+      return
+    }
+
+    setMessages([])
+    setSelectedConversationId('')
+    setActiveType(availableConversationTabs[0]?.key ?? 'team_staff')
+  }, [activeType, availableConversationTabs])
+
+  useEffect(() => {
+    setMessages([])
+    setSelectedConversationId('')
+  }, [user?.activeTeamId, user?.clubId, user?.id])
+
+  useEffect(() => {
     const nextConversation = conversations.find((conversation) => conversation.type === activeType)
 
     if (!selectedConversation || selectedConversation.type !== activeType) {
+      setMessages([])
       setSelectedConversationId(nextConversation?.id ?? '')
     }
   }, [activeType, conversations, selectedConversation])
@@ -156,6 +179,8 @@ export function StaffChatPage() {
         setMessages([])
         return
       }
+
+      setMessages([])
 
       try {
         const nextMessages = await getStaffChatMessages({ conversationId: selectedConversationId, user })
@@ -335,7 +360,7 @@ export function StaffChatPage() {
       <div className="grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)]">
         <aside className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm">
           <div className="grid grid-cols-2 gap-2">
-            {conversationTabs.map((tab) => (
+            {availableConversationTabs.map((tab) => (
               <button
                 key={tab.key}
                 type="button"

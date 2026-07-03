@@ -1,4 +1,4 @@
-import { canUseStaffChat } from '../auth-permissions.js'
+import { canUseClubStaffChat, canUseStaffChat } from '../auth-permissions.js'
 import { supabase } from '../supabase-client.js'
 import { createAuditLog } from './audit.js'
 import { clearViewCaches, getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
@@ -100,6 +100,76 @@ function getStaffChatCacheKey(user) {
   return `staff-chat:${user.clubId}:${user.id}:${user.activeTeamId || 'club'}`
 }
 
+export function canOpenStaffChatConversationForUser(conversation, user) {
+  if (!conversation || !canUseStaffChat(user)) {
+    return false
+  }
+
+  const currentUserId = normalizeText(user?.id)
+  const currentMember = conversation.currentMember
+    ?? conversation.members?.find((member) => member.userId === currentUserId)
+    ?? null
+
+  if (!currentUserId || !currentMember || currentMember.archivedAt) {
+    return false
+  }
+
+  if (conversation.type === 'club_staff') {
+    return canUseClubStaffChat(user)
+  }
+
+  if (conversation.type === 'team_staff') {
+    const activeTeamId = normalizeText(user?.activeTeamId)
+    return Boolean(activeTeamId) && normalizeText(conversation.teamId) === activeTeamId
+  }
+
+  if (conversation.type === 'direct') {
+    return conversation.members.length === 2
+  }
+
+  if (conversation.type === 'group') {
+    return true
+  }
+
+  return false
+}
+
+async function getReadableStaffChatConversation({ conversationId, user } = {}) {
+  assertStaffChatAccess(user)
+
+  const normalizedConversationId = normalizeText(conversationId)
+  if (!normalizedConversationId) {
+    throw new Error('Staff Chat conversation is not available.')
+  }
+
+  const { data, error } = await supabase
+    .from('staff_chat_conversations')
+    .select('id, club_id, team_id, type, staff_chat_members(id, conversation_id, club_id, user_id, archived_at)')
+    .eq('id', normalizedConversationId)
+    .eq('club_id', user.clubId)
+    .maybeSingle()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  if (!data) {
+    throw new Error('Staff Chat conversation is not available.')
+  }
+
+  const conversation = normalizeStaffChatConversation({
+    ...data,
+    currentUserId: user.id,
+  })
+
+  if (!canOpenStaffChatConversationForUser(conversation, user)) {
+    throw new Error('Staff Chat conversation is not available for the current access.')
+  }
+
+  return conversation
+}
+
 export async function getStaffChatConversations({ user } = {}) {
   if (!canUseStaffChat(user)) {
     return []
@@ -118,10 +188,12 @@ export async function getStaffChatConversations({ user } = {}) {
       throw error
     }
 
-    const conversations = (data ?? []).map((row) => normalizeStaffChatConversation({
-      ...row,
-      currentUserId: user.id,
-    }))
+    const conversations = (data ?? [])
+      .map((row) => normalizeStaffChatConversation({
+        ...row,
+        currentUserId: user.id,
+      }))
+      .filter((conversation) => canOpenStaffChatConversationForUser(conversation, user))
 
     if (conversations.length === 0) {
       return []
@@ -182,6 +254,8 @@ export async function getStaffChatMessages({ conversationId, user } = {}) {
     return []
   }
 
+  await getReadableStaffChatConversation({ conversationId: normalizedConversationId, user })
+
   const { data, error } = await supabase
     .from('staff_chat_messages')
     .select('*, users:sender_id(id, email, name, role, role_label, role_rank, club_id)')
@@ -220,7 +294,13 @@ export async function getStaffChatTeams({ user } = {}) {
     return []
   }
 
-  return getAvailableTeamsForUser(user)
+  const activeTeamId = normalizeText(user.activeTeamId)
+  if (!activeTeamId) {
+    return []
+  }
+
+  const teams = await getAvailableTeamsForUser(user)
+  return teams.filter((team) => normalizeText(team.id) === activeTeamId)
 }
 
 export async function createStaffChatConversation({ memberIds = [], teamId = '', title = '', type, user } = {}) {
@@ -228,10 +308,23 @@ export async function createStaffChatConversation({ memberIds = [], teamId = '',
   assertStaffChatAccess(user)
 
   const conversationType = normalizeConversationType(type)
+  const normalizedTeamId = normalizeText(teamId)
+
+  if (conversationType === 'club_staff' && !canUseClubStaffChat(user)) {
+    throw new Error('Club Staff Chat is only available to club-wide staff.')
+  }
+
+  if (conversationType === 'team_staff') {
+    const activeTeamId = normalizeText(user.activeTeamId)
+    if (!activeTeamId || normalizedTeamId !== activeTeamId) {
+      throw new Error('Choose the active team before opening Team Staff Chat.')
+    }
+  }
+
   const { data, error } = await supabase.rpc('create_staff_chat_conversation', {
     conversation_type: conversationType,
     title_value: normalizeText(title),
-    team_id_value: normalizeText(teamId) || null,
+    team_id_value: normalizedTeamId || null,
     member_ids: [...new Set(memberIds.map((id) => normalizeText(id)).filter(Boolean))],
   })
 
@@ -265,6 +358,8 @@ export async function sendStaffChatMessage({ body, conversationId, user } = {}) 
     throw new Error('Add a message before sending.')
   }
 
+  await getReadableStaffChatConversation({ conversationId, user })
+
   const { data, error } = await supabase
     .from('staff_chat_messages')
     .insert({
@@ -296,6 +391,8 @@ export async function markStaffChatConversationRead({ conversationId, user } = {
     return
   }
 
+  await getReadableStaffChatConversation({ conversationId: normalizedConversationId, user })
+
   const { error } = await supabase.rpc('mark_staff_chat_conversation_read', {
     conversation_id_value: normalizedConversationId,
   })
@@ -311,6 +408,8 @@ export async function markStaffChatConversationRead({ conversationId, user } = {
 export async function archiveStaffChatConversation({ conversationId, user } = {}) {
   await blockDemoMutation(user)
   assertStaffChatAccess(user)
+
+  await getReadableStaffChatConversation({ conversationId, user })
 
   const { error } = await supabase.rpc('archive_staff_chat_conversation', {
     conversation_id_value: normalizeText(conversationId),
@@ -328,6 +427,24 @@ export async function archiveStaffChatConversation({ conversationId, user } = {}
 export async function deleteStaffChatMessage({ messageId, user } = {}) {
   await blockDemoMutation(user)
   assertStaffChatAccess(user)
+
+  const { data: message, error: messageError } = await supabase
+    .from('staff_chat_messages')
+    .select('conversation_id')
+    .eq('id', normalizeText(messageId))
+    .eq('club_id', user.clubId)
+    .maybeSingle()
+
+  if (messageError) {
+    console.error(messageError)
+    throw messageError
+  }
+
+  if (!message?.conversation_id) {
+    throw new Error('Staff Chat message is not available.')
+  }
+
+  await getReadableStaffChatConversation({ conversationId: message.conversation_id, user })
 
   const { error } = await supabase.rpc('delete_staff_chat_message', {
     message_id_value: normalizeText(messageId),

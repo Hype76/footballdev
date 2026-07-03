@@ -237,6 +237,10 @@ export function canUseStaffChat(user) {
     && Number(user?.roleRank ?? 0) >= 20
 }
 
+export function canUseClubStaffChat(user) {
+  return canUseStaffChat(user) && Number(user?.roleRank ?? 0) >= 70
+}
+
 export function canUseResourceLibrary(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
