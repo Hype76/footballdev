@@ -31,7 +31,7 @@ import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk }
 import { isPlanAccessActive } from '../lib/plans.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../lib/paywall-ui.js'
-import { buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import { buildMainAppUrl, buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 import {
   canOpenParentPortal,
   getSignedInAccountEmail,
@@ -40,6 +40,7 @@ import {
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
 import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
+import { TEAM_WORKSPACE_HOME_PATH } from '../lib/workspace-routes.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -230,7 +231,22 @@ function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null,
 }
 
 function AccountDetailsUnavailableState({ message }) {
-  const { signOut } = useAuth()
+  const { accessModeOptions, selectAccessMode, signOut } = useAuth()
+  const [isOpeningTeam, setIsOpeningTeam] = useState(false)
+  const canOpenTeamWorkspace = Array.isArray(accessModeOptions)
+    && accessModeOptions.some((option) => option?.id === 'team')
+
+  const handleOpenTeamWorkspace = async () => {
+    setIsOpeningTeam(true)
+
+    try {
+      await selectAccessMode('team')
+      window.location.assign(buildMainAppUrl(TEAM_WORKSPACE_HOME_PATH))
+    } catch (error) {
+      console.error(error)
+      setIsOpeningTeam(false)
+    }
+  }
 
   const handleSignInAgain = async () => {
     try {
@@ -248,10 +264,21 @@ function AccountDetailsUnavailableState({ message }) {
       rules={accountRecoveryRules}
       actions={(
         <>
+          {canOpenTeamWorkspace ? (
+            <button
+              type="button"
+              onClick={handleOpenTeamWorkspace}
+              disabled={isOpeningTeam}
+              className={primaryActionClassName}
+            >
+              {isOpeningTeam ? 'Opening...' : 'Open team workspace'}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className={primaryActionClassName}
+            className={canOpenTeamWorkspace ? secondaryActionClassName : primaryActionClassName}
+            disabled={isOpeningTeam}
           >
             Retry
           </button>
@@ -259,6 +286,7 @@ function AccountDetailsUnavailableState({ message }) {
             type="button"
             onClick={handleSignInAgain}
             className={secondaryActionClassName}
+            disabled={isOpeningTeam}
           >
             Sign in again
           </button>

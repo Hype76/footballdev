@@ -558,6 +558,13 @@ export async function fetchUserProfile(authUser, options = {}) {
     if (data?.role === 'super_admin') {
       const memberships = await getUserClubMemberships(authUser)
 
+      if (selectedAccessMode === 'parent' && !hasParentAccess) {
+        return {
+          parentAccessUnavailable: true,
+          accessModeOptions: buildParentAccessModeOptions({ hasPlatformAccess: true }),
+        }
+      }
+
       if (hasParentAccess && !selectedAccessMode) {
         return {
           requiresAccessModeSelection: true,
@@ -655,6 +662,13 @@ export async function fetchUserProfile(authUser, options = {}) {
 
     const memberships = data.role === 'super_admin' ? [] : await getUserClubMemberships(authUser)
     const hasTeamAccess = Boolean(data?.club_id || memberships.length > 0 || data.role === 'super_admin')
+
+    if (selectedAccessMode === 'parent' && !hasParentAccess && hasTeamAccess) {
+      return {
+        parentAccessUnavailable: true,
+        accessModeOptions: buildParentAccessModeOptions({ hasTeamAccess: true }),
+      }
+    }
 
     if (hasTeamAccess && hasParentAccess && !selectedAccessMode) {
       return {

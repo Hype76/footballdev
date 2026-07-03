@@ -286,6 +286,34 @@ try {
     await context.close()
   })
 
+  await runScenario('dual-access parent fallback can recover to team workspace', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await parentSignIn(page, 'fallback-dual.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await assertVisibleText(page, 'Account details unavailable')
+    await page.getByRole('button', { name: 'Open team workspace' }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('button', { name: 'Open team workspace' }).click()
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertSelectedOption(page, 'Access view', 'Club admin view')
+    await assertVisibleText(page, 'Club-wide view')
+    await assertNoSetupGuideTrigger(page)
+    await context.close()
+  })
+
+  await runScenario('parent-only unavailable fallback does not expose team recovery', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await parentSignIn(page, 'parent-unlinked.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await assertVisibleText(page, 'Account details unavailable')
+    assert.equal(await page.getByRole('button', { name: 'Open team workspace' }).count(), 0)
+    await page.getByRole('button', { name: 'Retry' }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('button', { name: 'Sign in again' }).waitFor({ state: 'visible', timeout: 15000 })
+    await assertNoSetupGuideTrigger(page)
+    await context.close()
+  })
+
   await runScenario('parent portal sign out is visible and clears the fixture session', async () => {
     const desktopContext = await browser.newContext()
     const { page: desktopPage } = await preparePage(desktopContext)

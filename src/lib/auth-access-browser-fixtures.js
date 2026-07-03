@@ -123,6 +123,30 @@ const fixtureAccounts = {
       parentPortalLinks,
     }),
   },
+  'parent-unlinked.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'parent',
+    parentProfileUnavailable: true,
+  },
+  'fallback-dual.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'parent',
+    parentProfileUnavailable: true,
+    teamProfile: makeBaseProfile('fallback-dual.fixture@footballplayer.test', {
+      name: 'Fallback Dual Fixture',
+      role: 'admin',
+      roleLabel: 'Club Admin',
+      roleRank: 80,
+      activeTeamId: '',
+      activeTeamName: '',
+      parentPortalLinks: [],
+    }),
+    fallbackAccessModeOptions: [
+      { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
+    ],
+  },
   'multi.fixture@footballplayer.test': {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: true,
@@ -203,6 +227,10 @@ function getProfileForMode(account, mode, selectedTeamId = '') {
     return account.platformProfile
   }
 
+  if (mode === 'parent' && account.parentProfileUnavailable) {
+    return null
+  }
+
   if (mode === 'parent' && account.parentProfile) {
     return account.parentProfile
   }
@@ -250,7 +278,9 @@ export function FixtureAuthProvider({ AuthContext, children }) {
   const isPlatformProfile = user?.role === 'super_admin'
   const nextTeamOptions = user && !isParentProfile && !isPlatformProfile ? teamOptions : []
   const nextClubOptions = isPlatformProfile ? clubOptions : []
-  const nextAccessModeOptions = Array.isArray(user?.accessModeOptions) ? user.accessModeOptions : []
+  const nextAccessModeOptions = Array.isArray(user?.accessModeOptions)
+    ? user.accessModeOptions
+    : (activeMode === 'parent' && Array.isArray(account?.fallbackAccessModeOptions) ? account.fallbackAccessModeOptions : [])
 
   const signInWithPassword = async ({ email: nextEmail, password, preferredAccessMode = '' }) => {
     const normalizedEmail = String(nextEmail ?? '').trim().toLowerCase()

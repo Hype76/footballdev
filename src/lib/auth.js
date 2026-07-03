@@ -501,6 +501,16 @@ function RuntimeAuthProvider({ children }) {
           return
         }
 
+        if (profile?.parentAccessUnavailable) {
+          setAccessModeOptions(buildAccessModeOptions(profile.accessModeOptions, hasPlatformAccess))
+          setClubOptions([])
+          setUser(null)
+          setHasPlatformAdminAccess(hasPlatformAccess)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
         if (hasPlatformAccess && isParentPortalUser(profile) && !selectedAccessMode) {
           setAccessModeOptions(buildAccessModeOptions([PARENT_ACCESS_OPTION], hasPlatformAccess))
           setClubOptions([])
