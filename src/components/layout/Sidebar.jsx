@@ -5,7 +5,6 @@ import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
   canManageClubSettings,
-  canManageEmailQueue,
   canManageFeedbackForms,
   canManageFormFields,
   canManageMatchDay,
@@ -27,13 +26,12 @@ import {
   isSuperAdmin,
   useAuth,
 } from '../../lib/auth.js'
-import { getScheduledEmails } from '../../lib/domain/scheduled-emails.js'
 import { CAPABILITIES } from '../../lib/paywall-access.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../../lib/paywall-ui.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/feedback-forms', '/parent-linking', '/email-queue', '/staff-chat', '/resources', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/feedback-forms', '/parent-linking', '/staff-chat', '/resources', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',
@@ -84,8 +82,8 @@ function getNavIcon(path) {
   return navIcons[path] || 'home'
 }
 
-function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
-  const count = item.path === '/polls' ? pollCount : item.path === '/email-queue' ? queuedEmailCount : 0
+function NavItemLabel({ item, pollCount = 0 }) {
+  const count = item.path === '/polls' ? pollCount : 0
 
   return (
     <span className="flex min-w-0 items-center gap-3">
@@ -159,7 +157,6 @@ export function Sidebar({ isOpen, onClose }) {
   const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
   const feedbackRoute = `/feedback/new?route=${encodeURIComponent(`${location.pathname}${location.search}`)}`
   const [openPollCount, setOpenPollCount] = useState(0)
-  const [queuedEmailCount, setQueuedEmailCount] = useState(0)
 
   useEffect(() => {
     let isMounted = true
@@ -229,48 +226,6 @@ export function Sidebar({ isOpen, onClose }) {
     }
   }, [user])
 
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadQueuedEmailCount() {
-      if (
-        !canManageEmailQueue(user)
-        || !canUseUiFeature(user, CAPABILITIES.parentEmails)
-        || !isRecoveryModuleVisible('emailMessages', { user })
-      ) {
-        setQueuedEmailCount(0)
-        return
-      }
-
-      try {
-        const queuedEmails = await getScheduledEmails({ silentUnavailable: true, user })
-
-        if (isMounted) {
-          setQueuedEmailCount(queuedEmails.length)
-        }
-      } catch (error) {
-        console.error(error)
-
-        if (isMounted) {
-          setQueuedEmailCount(0)
-        }
-      }
-    }
-
-    void loadQueuedEmailCount()
-
-    const handleQueueChange = () => {
-      void loadQueuedEmailCount()
-    }
-
-    window.addEventListener('scheduled-email-queue-changed', handleQueueChange)
-
-    return () => {
-      isMounted = false
-      window.removeEventListener('scheduled-email-queue-changed', handleQueueChange)
-    }
-  }, [user])
-
   const handleSignOut = async () => {
     try {
       onClose()
@@ -315,10 +270,6 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/parent-linking') {
       return canUseTeamWorkflow && canManageParentLinks(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.parentInvitations)
-    }
-
-    if (item.path === '/email-queue') {
-      return canUseTeamWorkflow && canManageEmailQueue(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.parentEmails)
     }
 
     if (item.path === '/staff-chat') {
@@ -403,7 +354,7 @@ export function Sidebar({ isOpen, onClose }) {
       return coachHomeItems
     }
 
-    return coachHomeItems.filter((item) => !['/email-queue', '/polls', '/parent-linking'].includes(item.path))
+    return coachHomeItems.filter((item) => !['/polls', '/parent-linking'].includes(item.path))
   }, [coachNavigationItems, displayUser, isCoachOnly, isParentPortal])
 
   return (
@@ -491,18 +442,18 @@ export function Sidebar({ isOpen, onClose }) {
                     ].join(' ')
                   }
                 >
-                  <NavItemLabel item={item} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
+                  <NavItemLabel item={item} pollCount={openPollCount} />
                 </NavLink>
               ))}
             </div>
           </section>
 
           {!isParentPortal && teamNavigationItems.length > 0 ? (
-            <NavGroup title="Squad tools" items={teamNavigationItems} onClose={onClose} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
+            <NavGroup title="Squad tools" items={teamNavigationItems} onClose={onClose} pollCount={openPollCount} />
           ) : null}
 
           {!isParentPortal && !isCoachOnly && clubNavigationItems.length > 0 ? (
-            <NavGroup title={canManageClubSettings(displayUser) ? 'Club setup' : 'Management'} items={clubNavigationItems} onClose={onClose} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
+            <NavGroup title={canManageClubSettings(displayUser) ? 'Club setup' : 'Management'} items={clubNavigationItems} onClose={onClose} pollCount={openPollCount} />
           ) : null}
 
           {isSuperAdmin(displayUser) ? (
@@ -600,7 +551,7 @@ export function Sidebar({ isOpen, onClose }) {
   )
 }
 
-function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
+function NavGroup({ items, onClose, pollCount, title }) {
   return (
     <details className="group rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-sm shadow-[#047857]/10">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
@@ -637,7 +588,7 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
                 ].join(' ')
               }
             >
-              <NavItemLabel item={item} pollCount={pollCount} queuedEmailCount={queuedEmailCount} />
+              <NavItemLabel item={item} pollCount={pollCount} />
             </NavLink>
           ),
         )}
@@ -654,7 +605,7 @@ function PlatformNav({ canAccessPlatformFeedback, onClose }) {
     ...(canAccessPlatformFeedback ? [{ label: 'Platform Feedback', path: '/platform-feedback', helper: 'Requests and issues' }] : []),
   ]
 
-  return <NavGroup title="Platform setup" items={items} onClose={onClose} pollCount={0} queuedEmailCount={0} />
+  return <NavGroup title="Platform setup" items={items} onClose={onClose} pollCount={0} />
 }
 
 function DisabledNavItem({ item }) {

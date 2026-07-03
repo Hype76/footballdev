@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
 const DEMO_REQUEST_RECIPIENT = String(process.env.DEMO_REQUEST_RECIPIENT || 'support@jelumalabs.com').trim()
 
@@ -53,6 +54,7 @@ function buildDemoRequestHtml({ name, email, phone, clubTeamName, planName, bill
     <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5; padding: 24px;">
       <div style="max-width: 640px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 18px; overflow: hidden;">
         <div style="background: #101510; color: #ffffff; padding: 24px;">
+          ${buildEmailLogoMarkup({ altText: 'Football Player' })}
           <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Football Player</p>
           <h1 style="margin: 0; font-size: 24px;">New demo request</h1>
         </div>

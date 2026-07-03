@@ -1,5 +1,6 @@
 import { createFromAddress, getEmailProviderConfig, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { getAuthenticatedPlanProfile } from './lib/_plan-gate.js'
+import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -33,6 +34,7 @@ function escapeHtml(value) {
 function buildDiagnosticHtml(profile) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
+      ${buildEmailLogoMarkup({ altText: 'Football Player' })}
       <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Football Player</p>
       <h1 style="margin:0 0 12px;font-size:24px;line-height:1.15;">Email diagnostic passed</h1>
       <p style="margin:0;color:#4b5f55;font-size:15px;line-height:1.6;">

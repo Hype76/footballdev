@@ -1,6 +1,7 @@
 import process from 'node:process'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
+import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -74,11 +75,17 @@ function getBaseUrl(event) {
 function buildConfirmationEmailHtml({ actionLink, invite, email }) {
   const childName = invite.playerName || 'your child'
   const teamCopy = [invite.teamName, invite.clubName].filter(Boolean).join(' | ') || 'Football Player'
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: invite.clubName || 'Football Player',
+    clubLogoUrl: invite.clubLogoUrl,
+    origin: actionLink,
+  })
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
       <div style="border: 1px solid #e5eadf; border-radius: 12px; overflow: hidden;">
         <div style="background: #101510; color: #ffffff; padding: 24px;">
+          ${logoMarkup}
           <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Family portal</p>
           <h1 style="margin: 0; font-size: 24px;">Confirm family access</h1>
         </div>
@@ -104,7 +111,7 @@ function buildConfirmationEmailHtml({ actionLink, invite, email }) {
 async function getInvite(supabaseAdmin, token) {
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, email, status, expires_at, players:player_id (player_name), teams:team_id (name), clubs:club_id (name)')
+    .select('id, email, status, expires_at, players:player_id (player_name), teams:team_id (name), clubs:club_id (name, logo_url)')
     .eq('invite_token', token)
     .maybeSingle()
 
@@ -129,6 +136,7 @@ async function getInvite(supabaseAdmin, token) {
     playerName: String(player?.player_name ?? '').trim(),
     teamName: String(team?.name ?? '').trim(),
     clubName: String(club?.name ?? '').trim(),
+    clubLogoUrl: String(club?.logo_url ?? '').trim(),
   }
 }
 

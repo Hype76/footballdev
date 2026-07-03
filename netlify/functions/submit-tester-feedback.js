@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
+import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-EMAIL-RECIPIENT-06'
@@ -626,6 +627,7 @@ function buildFeedbackNotificationHtml({ attachmentMetadata, data, profile, repo
     <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5; padding: 24px;">
       <div style="max-width: 680px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 18px; overflow: hidden;">
         <div style="background: #101510; color: #ffffff; padding: 24px;">
+          ${buildEmailLogoMarkup({ altText: 'Football Player' })}
           <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Football Player</p>
           <h1 style="margin: 0; font-size: 24px;">New Report Issue submission</h1>
         </div>

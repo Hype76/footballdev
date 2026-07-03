@@ -1,6 +1,7 @@
 import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
 const ROLE_CONFIG = {
@@ -200,9 +201,15 @@ function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail,
   const matchName = getMatchDayDisplayName({ ...match, teamName })
   const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
   const clubLogoUrl = normalizeText(match.clubs?.logo_url)
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: clubName,
+    clubLogoUrl,
+    origin: appOrigin,
+  })
   const accentColor = normalizeHexColor(match.teams?.theme_accent || match.clubs?.theme_accent || '#047857')
   const portalUrl = `${appOrigin}/parent-portal`
   const calendarUrl = buildGoogleCalendarLink({ match, matchName, roleLabel, teamName, opponent, portalUrl })
+  const mapLinksMarkup = buildEventMapLinksMarkup(normalizeText(match.venue_address || match.venue_name))
   const selectedCopy = action === 'selected'
     ? `You have been selected as ${roleLabel.toLowerCase()} for this fixture.`
     : `You are no longer selected as ${roleLabel.toLowerCase()} for this fixture.`
@@ -213,6 +220,7 @@ function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail,
     ['Kick off', formatTime(match.kickoff_time)],
     ['Arrival', formatTime(match.arrival_time)],
     ['Venue', normalizeText(match.venue_name) || 'Not set'],
+    ['Address', normalizeText(match.venue_address) || 'Not set'],
   ]
   const rows = details.map(([label, value]) => `
     <tr>
@@ -227,7 +235,7 @@ function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail,
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;background:#f7faf8;">
         <div style="border:1px solid #d7e5dc;border-radius:12px;background:#ffffff;overflow:hidden;">
           <div style="padding:20px 22px;background:${escapeHtml(accentColor)};color:#ffffff;">
-            ${clubLogoUrl ? `<img src="${escapeHtml(clubLogoUrl)}" alt="${escapeHtml(clubName)} logo" style="display:block;max-height:44px;max-width:180px;margin:0 0 12px;background:#ffffff;border-radius:8px;padding:6px;">` : ''}
+            ${logoMarkup}
             <p style="margin:0;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">${escapeHtml(clubName)}</p>
             <h1 style="margin:8px 0 0;font-size:26px;line-height:1.15;">${escapeHtml(roleLabel)} update</h1>
           </div>
@@ -236,6 +244,7 @@ function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail,
           Hi ${escapeHtml(recipientName || 'there')}, ${escapeHtml(selectedCopy)}
         </p>
         <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">${rows}</table>
+        ${mapLinksMarkup}
         <div style="display:block;margin:22px 0;">
           <a href="${escapeHtml(portalUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:${escapeHtml(accentColor)};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">View in Parent Portal</a>
           ${calendarUrl ? `<a href="${escapeHtml(calendarUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#101828;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Add to calendar</a>` : ''}
@@ -277,7 +286,7 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
     },
     displayName: 'Football Player',
     teamName: normalizeText(match.teams?.name || match.team_name),
-    clubName: '',
+    clubName: normalizeText(match.clubs?.name),
     playerName: '',
     parentName: normalizeText(recipientName),
     clubId: match.club_id,

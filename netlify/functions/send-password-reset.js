@@ -1,5 +1,6 @@
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
+import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -30,9 +31,10 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;')
 }
 
-function buildResetEmail({ actionLink }) {
+function buildResetEmail({ actionLink, origin = '' }) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
+      ${buildEmailLogoMarkup({ altText: 'Football Player', origin })}
       <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Football Player</p>
       <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Reset your password</h1>
       <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;font-weight:700;">Use this secure link to choose a new password.</p>
@@ -86,7 +88,7 @@ export async function handler(event) {
       from: createFromAddress('Football Player'),
       to: [email],
       subject: 'Reset your Football Player password',
-      html: buildResetEmail({ actionLink }),
+      html: buildResetEmail({ actionLink, origin: redirectTo }),
     }, {
       context: {
         emailType: 'password_reset',

@@ -223,6 +223,10 @@ test('first recurring training availability email includes schedule while respon
 
   assert.match(firstEmail.html, /Upcoming dates/)
   assert.match(firstEmail.html, /Add schedule to calendar/)
+  assert.match(firstEmail.html, /football-player-logo\.png/)
+  assert.match(firstEmail.html, /Open in Google Maps/)
+  assert.match(firstEmail.html, /Open in Apple Maps/)
+  assert.match(firstEmail.html, /Football%20Player%20Stadium/)
   assert.match(firstEmail.html, /This availability response is for this session only\./)
   assert.match(firstEmail.html, /token=abc/)
   assert.doesNotMatch(firstEmail.html, /token=def/)

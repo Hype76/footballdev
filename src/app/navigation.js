@@ -10,7 +10,7 @@ export const primaryNavigation = [
     helper: 'Squads and records',
   },
   {
-    label: 'Development',
+    label: 'Feedback',
     path: '/assess-player',
     helper: 'Records and notes',
   },
@@ -18,11 +18,6 @@ export const primaryNavigation = [
     label: 'Feedback Forms',
     path: '/feedback-forms',
     helper: 'Named templates',
-  },
-  {
-    label: 'Messages',
-    path: '/email-queue',
-    helper: 'Parent email queue',
   },
   {
     label: 'Staff Chat',

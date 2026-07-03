@@ -48,15 +48,15 @@ test('batch 3 email queue and template routes are surfaced by recovery gates', (
   assert.equal(isRecoveryPathVisible('/billing', { user }), false)
 })
 
-test('email queue route still requires email queue permission and parentEmail plan access', async () => {
+test('email queue route is retained for platform admin direct access only', async () => {
   const source = await readFile(routerUrl, 'utf8')
   const section = getFunctionSection(source, 'RequireEmailQueueAccess')
 
-  assert.match(section, /isRecoveryModuleVisible\('emailMessages', \{ user \}\)/)
-  assert.match(section, /needsTeamWorkflowContext\(user\)/)
-  assert.match(section, /canManageEmailQueue\(user\)/)
-  assert.match(section, /canUseUiFeature\(user, CAPABILITIES\.parentEmails\)/)
-  assert.match(section, /return <FeatureUnavailableState capability=\{CAPABILITIES\.parentEmails\} user=\{user\} \/>/)
+  assert.match(section, /useWorkspaceRouteGate\(\{ redirectSuperAdmin: false \}\)/)
+  assert.match(section, /!isSuperAdmin\(user\)/)
+  assert.match(section, /return <RedirectToWorkspaceHome user=\{user\} \/>/)
+  assert.doesNotMatch(section, /canManageEmailQueue\(user\)/)
+  assert.doesNotMatch(section, /canUseUiFeature\(user, CAPABILITIES\.parentEmails\)/)
 })
 
 test('parent email template route still requires manager permission and parentEmail plan access', async () => {
@@ -87,27 +87,22 @@ test('surfaced email queue does not send or process emails from page load', asyn
   assert.match(domainSource, /export async function sendScheduledEmailNow/)
 })
 
-test('sidebar email queue count can load without processing due sends', async () => {
+test('sidebar no longer loads email queue counts for visible navigation', async () => {
   const sidebarSource = await readFile(sidebarUrl, 'utf8')
   const scheduledEmailsSource = await readFile(scheduledEmailsDomainUrl, 'utf8')
 
-  assert.match(sidebarSource, /!isRecoveryModuleVisible\('emailMessages', \{ user \}\)/)
-  assert.match(sidebarSource, /getScheduledEmails\(\{ silentUnavailable: true, user \}\)/)
+  assert.doesNotMatch(sidebarSource, /getScheduledEmails/)
+  assert.doesNotMatch(sidebarSource, /scheduled-email-queue-changed/)
   assert.doesNotMatch(scheduledEmailsSource, /export async function getScheduledEmails[\s\S]*processDueScheduledEmails\(\)/)
 })
 
-test('sidebar keeps email queue reachable even when no messages are queued', async () => {
+test('sidebar removes the customer-facing email queue navigation item', async () => {
   const sidebarSource = await readFile(sidebarUrl, 'utf8')
-  const emailQueueFilterStart = sidebarSource.indexOf("if (item.path === '/email-queue')")
-  assert.notEqual(emailQueueFilterStart, -1)
-  const emailQueueFilterEnd = sidebarSource.indexOf("if (item.path === '/polls')", emailQueueFilterStart)
-  assert.notEqual(emailQueueFilterEnd, -1)
-  const emailQueueFilter = sidebarSource.slice(emailQueueFilterStart, emailQueueFilterEnd)
+  const navigationSource = await readFile(new URL('../src/app/navigation.js', import.meta.url), 'utf8')
 
-  assert.match(emailQueueFilter, /canUseTeamWorkflow/)
-  assert.match(emailQueueFilter, /canManageEmailQueue\(displayUser\)/)
-  assert.match(emailQueueFilter, /canUseUiFeature\(displayUser, CAPABILITIES\.parentEmails\)/)
-  assert.doesNotMatch(emailQueueFilter, /queuedEmailCount\s*>\s*0/)
+  assert.doesNotMatch(navigationSource, /path: '\/email-queue'/)
+  assert.doesNotMatch(navigationSource, /Parent email queue/)
+  assert.doesNotMatch(sidebarSource, /item\.path === '\/email-queue'/)
 })
 
 test('parent email templates stay team scoped and do not send messages', async () => {

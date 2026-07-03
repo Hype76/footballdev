@@ -5,7 +5,6 @@ import { Layout } from '../components/layout/Layout.jsx'
 import {
   canCreateEvaluation,
   canManageClubSettings,
-  canManageEmailQueue,
   canManageFeedbackForms,
   canManageFormFields,
   canManageMatchDay,
@@ -1096,22 +1095,14 @@ function RequireParentLinkingAccess() {
 }
 
 function RequireEmailQueueAccess() {
-  const { element, user } = useWorkspaceRouteGate()
+  const { element, user } = useWorkspaceRouteGate({ redirectSuperAdmin: false })
 
   if (element) {
     return element
   }
 
-  if (!isRecoveryModuleVisible('emailMessages', { user })) {
-    return <RecoveryPhaseBlockedState />
-  }
-
-  if (needsTeamWorkflowContext(user)) {
-    return <TeamContextRequiredState />
-  }
-
-  if (!canManageEmailQueue(user) || !canUseUiFeature(user, CAPABILITIES.parentEmails)) {
-    return <FeatureUnavailableState capability={CAPABILITIES.parentEmails} user={user} />
+  if (!isSuperAdmin(user)) {
+    return <RedirectToWorkspaceHome user={user} />
   }
 
   return <Outlet />

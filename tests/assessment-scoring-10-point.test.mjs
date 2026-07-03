@@ -68,6 +68,29 @@ test('parent email and PDF scoring guide render 1 to 10 language', () => {
   }
 })
 
+test('parent email uses club logo before Football Player fallback', () => {
+  const brandedEmail = buildEmailHtml({
+    clubLogoUrl: 'https://cdn.example.com/club.png',
+    clubName: 'Club',
+    parentName: 'Parent',
+    playerName: 'Player',
+    responses: [],
+    teamName: 'U12',
+  })
+  const fallbackEmail = buildEmailHtml({
+    clubName: 'Club',
+    parentName: 'Parent',
+    playerName: 'Player',
+    responses: [],
+    teamName: 'U12',
+  })
+
+  assert.match(brandedEmail, /data-logo-source="club"/)
+  assert.match(brandedEmail, /https:\/\/cdn\.example\.com\/club\.png/)
+  assert.match(fallbackEmail, /data-logo-source="football-player"/)
+  assert.match(fallbackEmail, /football-player-logo\.png/)
+})
+
 test('parent email and PDF place scoring guide after report sections', () => {
   const responses = [
     { label: 'Technical', value: 6 },

@@ -4,6 +4,7 @@ import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
+import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -286,16 +287,25 @@ export function shouldIncludeRecurringSchedule({ occurrence, occurrences = [] } 
   )
 }
 
-export function buildAvailabilityEmail({ event, includeRecurringSchedule = false, occurrence, occurrences = [], player, recipient, responseUrl, teamName }) {
+export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSchedule = false, occurrence, occurrences = [], player, recipient, responseUrl, teamName }) {
   const subject = `Training availability: ${event.title || teamName || 'Training session'}`
   const scheduleHtml = includeRecurringSchedule
     ? buildSeriesScheduleHtml({ event, occurrences, teamName })
     : ''
+  const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs
+  const clubName = normalizeText(club?.name || 'Football Player')
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: clubName,
+    clubLogoUrl: normalizeText(club?.logo_url),
+    origin: appOrigin,
+  })
+  const mapLinksMarkup = buildEventMapLinksMarkup(event.location)
 
   return {
     subject,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
+        ${logoMarkup}
         <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Training availability</p>
         <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Can ${escapeHtml(player.player_name || 'your child')} attend?</h1>
         <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
@@ -310,6 +320,7 @@ export function buildAvailabilityEmail({ event, includeRecurringSchedule = false
           <tr><td style="padding:8px 0;color:#4b5f55;font-weight:700;">When</td><td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(formatDateTime(occurrence.occurrenceStartsAt))}</td></tr>
           <tr><td style="padding:8px 0;color:#4b5f55;font-weight:700;">Location</td><td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(event.location || 'Not set')}</td></tr>
         </table>
+        ${mapLinksMarkup}
         ${scheduleHtml}
         <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Open response form</a>
         <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
@@ -323,7 +334,7 @@ export function buildAvailabilityEmail({ event, includeRecurringSchedule = false
 async function loadSettings(supabase) {
   const { data, error } = await supabase
     .from('training_availability_settings')
-    .select('*, calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name))')
+    .select('*, calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url))')
     .eq('enabled', true)
     .limit(100)
 
@@ -448,6 +459,7 @@ async function sendRecipientEmail({ appOrigin, event, occurrence, occurrences, p
 
   const responseUrl = `${appOrigin}/.netlify/functions/training-availability-response?token=${token}`
   const email = buildAvailabilityEmail({
+    appOrigin,
     event,
     includeRecurringSchedule: shouldIncludeRecurringSchedule({ occurrence, occurrences }),
     occurrence,

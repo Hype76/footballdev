@@ -35,6 +35,18 @@ test('visible email queue excludes internal Match Day operational notifications'
   assert.match(selectVolunteerFunctionSource, /matchDayRoleSelection:\s*\{/)
 })
 
+test('match day emails include branded logo fallback and venue map links', () => {
+  assert.match(availabilityFunctionSource, /buildEmailLogoMarkup/)
+  assert.match(availabilityFunctionSource, /buildEventMapLinksMarkup/)
+  assert.match(availabilityFunctionSource, /venue_address \|\| match\.venue_name/)
+  assert.match(availabilityFunctionSource, /clubs:club_id \(name, logo_url\)/)
+
+  assert.match(selectVolunteerFunctionSource, /buildEmailLogoMarkup/)
+  assert.match(selectVolunteerFunctionSource, /buildEventMapLinksMarkup/)
+  assert.match(selectVolunteerFunctionSource, /venue_address \|\| match\.venue_name/)
+  assert.match(selectVolunteerFunctionSource, /\['Address', normalizeText\(match\.venue_address\) \|\| 'Not set'\]/)
+})
+
 test('queue list returns a plain preview instead of raw email html', () => {
   const normalizeRowStart = manageQueueSource.indexOf('function normalizeRow(row)')
   const normalizeRowEnd = manageQueueSource.indexOf('async function getQueueRow', normalizeRowStart)

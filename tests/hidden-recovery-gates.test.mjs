@@ -88,26 +88,24 @@ test('poll-derived calendar events stay behind the sessions poll gate', async ()
   assert.match(sessionsSource, /canShowPollsInCalendar[\s\S]*\? withRequestTimeout\(\(\) => getPolls\(\{ user \}\)/)
 })
 
-test('staff sidebar keeps count fetches behind module checks', async () => {
+test('staff sidebar keeps poll counts gated and no longer fetches email queue counts', async () => {
   const source = await readFile(sidebarUrl, 'utf8')
   const staffPollBranch = source.indexOf('if (canManagePolls(user))')
   const pollRecoveryGate = source.indexOf("!isRecoveryModuleVisible('pollsAvailability', { user })", staffPollBranch)
   const getPollsCall = source.indexOf('const polls = await getPolls({ user })', staffPollBranch)
-  const emailQueueGate = source.indexOf("!isRecoveryModuleVisible('emailMessages', { user })")
-  const getScheduledEmailsCall = source.indexOf('const queuedEmails = await getScheduledEmails')
 
   assert.notEqual(staffPollBranch, -1)
   assert.notEqual(pollRecoveryGate, -1)
   assert.notEqual(getPollsCall, -1)
-  assert.notEqual(emailQueueGate, -1)
-  assert.notEqual(getScheduledEmailsCall, -1)
   assert.ok(staffPollBranch < pollRecoveryGate)
   assert.ok(pollRecoveryGate < getPollsCall)
-  assert.ok(emailQueueGate < getScheduledEmailsCall)
+  assert.doesNotMatch(source, /getScheduledEmails/)
+  assert.doesNotMatch(source, /scheduled-email-queue-changed/)
 })
 
 test('role quick links exclude recovery gated destinations', () => {
-  const managerLinks = getRoleQuickLinks(staffUser()).map((link) => link.path)
+  const managerQuickLinks = getRoleQuickLinks(staffUser())
+  const managerLinks = managerQuickLinks.map((link) => link.path)
   const superAdminLinks = getRoleQuickLinks(staffUser({
     activeTeamId: '',
     clubId: '',
@@ -115,6 +113,11 @@ test('role quick links exclude recovery gated destinations', () => {
     roleRank: 1000,
   })).map((link) => link.path)
 
+  assert.deepEqual(
+    managerQuickLinks.find((link) => link.path === '/assess-player'),
+    { label: 'Feedback', path: '/assess-player' },
+  )
+  assert.equal(managerQuickLinks.some((link) => link.label === 'Development' && link.path === '/assess-player'), false)
   assert.equal(managerLinks.includes('/parent-email-templates'), true)
   assert.equal(managerLinks.includes('/activity-log'), false)
   assert.equal(managerLinks.includes('/billing'), false)

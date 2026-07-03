@@ -1,5 +1,6 @@
 import { formatUkDate } from './date-format.js'
 import { buildMainAppUrl, buildParentAppUrl } from './app-origins.js'
+import { buildEmailLogoMarkup } from './email-branding.js'
 import { supabase } from './supabase-client.js'
 import { sanitizeAssessmentEmailSections, sanitizeAssessmentOutputText } from './assessment-output-sanitizer.js'
 import { buildProgressionChartMarkup } from './progression-chart-markup.js'
@@ -188,21 +189,6 @@ export function getProgressionChartImages(emailSections = []) {
     }))
 }
 
-function getSafeLogoUrl(logoUrl) {
-  const normalizedLogoUrl = String(logoUrl ?? '').trim()
-
-  if (!normalizedLogoUrl) {
-    return ''
-  }
-
-  try {
-    const parsedUrl = new URL(normalizedLogoUrl)
-    return parsedUrl.protocol === 'https:' ? parsedUrl.href : ''
-  } catch {
-    return ''
-  }
-}
-
 export function shouldShowWebsiteAdvert(planKey) {
   return ['single_team', 'small_club'].includes(String(planKey ?? '').trim())
 }
@@ -227,7 +213,10 @@ export function buildEmailHtml({
   responses,
   emailSections,
   emailBody,
+  clubLogoUrl,
   logoUrl,
+  origin,
+  teamLogoUrl,
   useChartContentIds = false,
 }) {
   const responseItems = normaliseResponses(responses)
@@ -238,7 +227,12 @@ export function buildEmailHtml({
   const resolvedPlayer = playerName || 'Player'
   const resolvedParent = parentName || 'Parent or guardian'
   const resolvedSession = formatSessionForDisplay(session)
-  const safeLogoUrl = getSafeLogoUrl(logoUrl)
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: resolvedClub || resolvedTeam || 'Football Player',
+    clubLogoUrl: clubLogoUrl || logoUrl,
+    origin,
+    teamLogoUrl,
+  })
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 760px; margin: 0 auto;">
@@ -247,11 +241,7 @@ export function buildEmailHtml({
         <tbody>
           <tr>
             <td width="48%" style="vertical-align: top; padding: 0 18px 0 0;">
-              ${
-                safeLogoUrl
-                  ? `<img src="${escapeHtml(safeLogoUrl)}" alt="Club Logo" style="width: 58px; max-width: 58px; height: auto; display: block; margin: 0 0 10px;" />`
-                  : ''
-              }
+              ${logoMarkup}
               <h2 style="margin: 0 0 18px; font-size: 24px; line-height: 1.2;">${escapeHtml(resolvedClub || 'Club')}</h2>
               <p style="margin: 0 0 4px; color: #4f6552; font-size: 11px; font-weight: 700;">Player</p>
               <h1 style="margin: 0; font-size: 24px; line-height: 1.2;">${escapeHtml(resolvedPlayer)}</h1>
@@ -357,6 +347,7 @@ export async function sendParentEmail(data) {
       clubContactEmail: data.clubContactEmail,
       subject,
       html,
+      clubLogoUrl: data.clubLogoUrl || data.logoUrl,
       logoUrl: data.logoUrl,
       pdfHtml: data.pdfHtml,
       playerName: data.playerName,
@@ -387,11 +378,15 @@ export async function sendParentEmail(data) {
 }
 
 export function buildParentPortalInviteHtml({
+  clubLogoUrl,
   clubName,
   existingParentPortalUser = false,
   inviteUrl,
+  logoUrl,
+  origin,
   playerName,
   teamName,
+  teamLogoUrl,
 }) {
   const resolvedClub = String(clubName ?? '').trim() || 'Your club'
   const resolvedPlayer = String(playerName ?? '').trim() || 'your child'
@@ -401,9 +396,16 @@ export function buildParentPortalInviteHtml({
   const actionCopy = existingParentPortalUser
     ? 'Open the link below and sign in with your existing parent portal account. After sign-in, Football Player will attach this child or team context to your parent portal safely.'
     : 'Open the link below, create your parent password, then confirm your email address. After confirmation, you will return to the parent login page.'
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: resolvedClub,
+    clubLogoUrl: clubLogoUrl || logoUrl,
+    origin,
+    teamLogoUrl,
+  })
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
+      ${logoMarkup}
       <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Family portal invite</p>
       <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
       <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to view parent updates for ${escapeHtml(resolvedPlayer)} in ${escapeHtml(resolvedTeam)}.</p>
@@ -456,6 +458,7 @@ export async function sendParentPortalInvite(data) {
       subject: data.subject,
       teamName: data.teamName,
       clubName: data.clubName,
+      clubLogoUrl: data.clubLogoUrl || data.logoUrl,
       html,
     }),
   })
@@ -474,20 +477,28 @@ export function buildStaffInviteUrl(token) {
 }
 
 export function buildStaffInviteHtml({
+  clubLogoUrl,
   clubName,
   inviteUrl,
   logoUrl,
+  origin,
   roleLabel,
   teamName,
+  teamLogoUrl,
 }) {
   const resolvedClub = String(clubName ?? '').trim() || 'Your club'
   const resolvedRole = String(roleLabel ?? '').trim() || 'Staff'
   const resolvedTeam = String(teamName ?? '').trim() || 'your team'
-  const safeLogoUrl = getSafeLogoUrl(logoUrl)
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: resolvedClub,
+    clubLogoUrl: clubLogoUrl || logoUrl,
+    origin,
+    teamLogoUrl,
+  })
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
-      ${safeLogoUrl ? `<img src="${escapeHtml(safeLogoUrl)}" alt="${escapeHtml(resolvedClub)} logo" style="display: block; max-width: 84px; max-height: 84px; margin: 0 0 18px;" />` : ''}
+      ${logoMarkup}
       <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Staff invite</p>
       <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
       <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to join ${escapeHtml(resolvedTeam)} as ${escapeHtml(resolvedRole)}.</p>

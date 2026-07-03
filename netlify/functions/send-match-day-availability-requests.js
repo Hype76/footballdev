@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
 function getBearerToken(event) {
@@ -114,10 +115,17 @@ function findParentLinkForContact(parentLinks, player, contact) {
   ) || null
 }
 
-function buildAvailabilityEmail({ match, player, recipient, responseUrl }) {
+function buildAvailabilityEmail({ appOrigin, match, player, recipient, responseUrl }) {
   const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
   const matchName = getMatchDayDisplayName({ ...match, teamName })
   const subject = `${teamName} availability: ${matchName}`
+  const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: clubName,
+    clubLogoUrl: normalizeText(match.clubs?.logo_url),
+    origin: appOrigin,
+  })
+  const mapLinksMarkup = buildEventMapLinksMarkup(normalizeText(match.venue_address || match.venue_name))
   const requestedRoleLabels = getRequestedRoleLabels(match)
   const roleText = requestedRoleLabels.length > 0
     ? `This form also asks if you can help as ${requestedRoleLabels.join(', ')}.`
@@ -142,12 +150,14 @@ function buildAvailabilityEmail({ match, player, recipient, responseUrl }) {
     subject,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
+        ${logoMarkup}
         <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Fixture availability</p>
         <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Can ${escapeHtml(player.player_name)} play?</h1>
         <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
           ${recipient.type === 'player' ? 'Please confirm your availability.' : 'Please confirm availability for this player.'} ${escapeHtml(roleText)}
         </p>
         <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">${rows}</table>
+        ${mapLinksMarkup}
         <div style="display:block;margin:22px 0;">
           <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Open response form</a>
         </div>
@@ -213,7 +223,7 @@ export async function handler(event) {
 
     const { data: match, error: matchError } = await supabase
       .from('match_days')
-      .select('*, teams:team_id (name)')
+      .select('*, teams:team_id (name), clubs:club_id (name, logo_url)')
       .eq('id', matchDayId)
       .eq('club_id', profile.club_id)
       .maybeSingle()
@@ -300,7 +310,7 @@ export async function handler(event) {
         }
 
         const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
-        const email = buildAvailabilityEmail({ match, player, recipient: contact, responseUrl })
+        const email = buildAvailabilityEmail({ appOrigin, match, player, recipient: contact, responseUrl })
         const payload = {
           resendPayload: {
             from: createFromAddress('Football Player'),
@@ -310,7 +320,7 @@ export async function handler(event) {
           },
           displayName: 'Football Player',
           teamName: normalizeText(match.teams?.name || match.team_name),
-          clubName: '',
+          clubName: normalizeText(match.clubs?.name),
           playerName: normalizeText(player.player_name),
           parentName: normalizeText(contact.name),
           clubId: match.club_id,
