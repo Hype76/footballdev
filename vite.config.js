@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         disable: !enablePwa,
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: [
           'favicon.ico',
           'apple-touch-icon.png',
@@ -72,8 +72,9 @@ export default defineConfig(({ mode }) => {
           importScripts: ['push-sw.js'],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg}'],
           cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true,
+          // Keep update activation user-driven so hard refreshes do not trigger a second page load.
+          clientsClaim: false,
+          skipWaiting: false,
           navigateFallback: null,
           runtimeCaching: [
             {
