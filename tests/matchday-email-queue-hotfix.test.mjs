@@ -81,7 +81,8 @@ test('match day select and deselect stays unlocked after optional refresh troubl
   const handlerSource = matchDayPageSource.slice(handlerStart, handlerEnd)
 
   assert.match(handlerSource, /const result = await selectMatchDayVolunteer/)
-  assert.match(handlerSource, /try \{\s*await loadData\(\)\s*\} catch \(refreshError\)/)
+  assert.match(handlerSource, /try \{[\s\S]*await loadData\(\)[\s\S]*\} catch \(refreshError\)/)
+  assert.match(handlerSource, /setMatches\(reconcileSavedSelection\)/)
   assert.match(handlerSource, /Volunteer selection was saved, but Match Day could not be refreshed/)
   assert.match(handlerSource, /finally \{\s*setActiveMatchId\(''\)/)
   assert.match(selectVolunteerFunctionSource, /catch \(notificationError\)[\s\S]*Volunteer selection was saved, but notification email could not be queued\./)

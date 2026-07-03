@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
@@ -32,6 +33,10 @@ import {
   consumeFixtureSetupIntent,
   FIXTURE_SETUP_EVENT,
 } from '../lib/matchday-workflow.js'
+import {
+  getMatchDayVolunteerActionKey,
+  reconcileMatchDayVolunteerSelectionInList,
+} from '../lib/matchday-volunteer-state.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -131,6 +136,28 @@ function normalizeVolunteerText(value) {
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
+}
+
+function getVolunteerConfirmationCopy({ match, roleLabel, selected, volunteer }) {
+  const parentName = volunteer.parentEmail || volunteer.parentName || 'this parent'
+  const currentAssignment = getSelectedRoleAssignment(match, roleLabel.key)
+  const isReplacing = Boolean(selected && currentAssignment && !isSelectedRoleVolunteer(currentAssignment, volunteer))
+  const title = selected
+    ? isReplacing
+      ? `Replace ${roleLabel.label.toLowerCase()}`
+      : `Select ${roleLabel.label.toLowerCase()}`
+    : `Deselect ${roleLabel.label.toLowerCase()}`
+  const message = selected
+    ? isReplacing
+      ? `Replace the selected ${roleLabel.label.toLowerCase()} with ${parentName}?`
+      : `Select ${parentName} as ${roleLabel.label.toLowerCase()}?`
+    : `Deselect ${parentName} as ${roleLabel.label.toLowerCase()}?`
+
+  return {
+    title,
+    message,
+    confirmLabel: selected ? 'Confirm selection' : 'Confirm deselect',
+  }
 }
 
 function formatResponseDateTime(value) {
@@ -624,6 +651,9 @@ export function MatchDayPage() {
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
   const [isPreviousGamesOpen, setIsPreviousGamesOpen] = useState(false)
+  const [volunteerSelectionPrompt, setVolunteerSelectionPrompt] = useState(null)
+  const [activeVolunteerSelectionKey, setActiveVolunteerSelectionKey] = useState('')
+  const [volunteerSelectionStatus, setVolunteerSelectionStatus] = useState(null)
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
@@ -988,28 +1018,65 @@ export function MatchDayPage() {
     }
   }
 
-  const handleVolunteerSelection = async (match, volunteer, role, selected = true) => {
-    const parentName = volunteer.parentEmail || volunteer.parentName || 'this parent'
-    const roleLabel = volunteerRoleConfigs.find((candidate) => candidate.key === role)?.label || 'volunteer'
-    const currentAssignment = getSelectedRoleAssignment(match, role)
-    const isReplacing = Boolean(selected && currentAssignment && !isSelectedRoleVolunteer(currentAssignment, volunteer))
-    const actionLabel = selected
-      ? isReplacing
-        ? `Replace the selected ${roleLabel.toLowerCase()} with ${parentName}?`
-        : `Select ${parentName} as ${roleLabel.toLowerCase()}?`
-      : `Deselect ${parentName} as ${roleLabel.toLowerCase()}?`
+  const openVolunteerSelectionPrompt = (match, volunteer, role, selected = true) => {
+    const roleLabel = volunteerRoleConfigs.find((candidate) => candidate.key === role)
 
-    if (!confirmMatchDayAction(actionLabel)) {
+    if (!roleLabel) {
       return
     }
 
+    setVolunteerSelectionPrompt({
+      ...getVolunteerConfirmationCopy({ match, roleLabel, selected, volunteer }),
+      match,
+      role,
+      roleLabel: roleLabel.label,
+      selected,
+      volunteer,
+    })
+  }
+
+  const handleVolunteerSelection = async () => {
+    const prompt = volunteerSelectionPrompt
+
+    if (!prompt) {
+      return
+    }
+
+    const { match, volunteer, role, roleLabel, selected } = prompt
+    const actionKey = getMatchDayVolunteerActionKey({ matchId: match.id, requestId: volunteer.requestId, role })
+
     setActiveMatchId(match.id)
+    setActiveVolunteerSelectionKey(actionKey)
+    setVolunteerSelectionStatus({
+      key: actionKey,
+      tone: 'loading',
+      message: selected ? `Saving ${roleLabel.toLowerCase()} selection...` : `Saving ${roleLabel.toLowerCase()} deselection...`,
+    })
     setErrorMessage('')
 
     try {
       const result = await selectMatchDayVolunteer({ user, match, volunteer, role, selected })
       let refreshWarning = ''
       const targetParentLinkId = result?.parentLinkId || volunteer.parentLinkId
+      const savedAt = new Date().toISOString()
+      const reconcileSavedSelection = (currentMatches) => reconcileMatchDayVolunteerSelectionInList(currentMatches, {
+        matchId: match.id,
+        now: savedAt,
+        result,
+        role,
+        selected,
+        user,
+        volunteer,
+      })
+
+      setMatches(reconcileSavedSelection)
+
+      setVolunteerSelectionStatus({
+        key: actionKey,
+        tone: 'success',
+        message: selected ? `${roleLabel} selected.` : `${roleLabel} deselected.`,
+      })
+
       if (selected && role === 'scorer' && targetParentLinkId) {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
@@ -1019,10 +1086,16 @@ export function MatchDayPage() {
       }
       try {
         await loadData()
+        setMatches(reconcileSavedSelection)
       } catch (refreshError) {
         console.error(refreshError)
         refreshWarning = 'Volunteer selection was saved, but Match Day could not be refreshed. Refresh the page before making another role change.'
         setErrorMessage(refreshWarning)
+        setVolunteerSelectionStatus({
+          key: actionKey,
+          tone: 'warning',
+          message: 'Saved. Refresh the page before making another role change.',
+        })
       }
       showToast({
         title: selected ? `${roleLabel} selected` : `${roleLabel} deselected`,
@@ -1033,11 +1106,21 @@ export function MatchDayPage() {
             : 'The Match Day volunteer selection has been updated.'),
         tone: result?.warning || refreshWarning ? 'warning' : 'success',
       })
+      setVolunteerSelectionPrompt(null)
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Volunteer selection could not be updated.')
+      const message = error.message || 'Volunteer selection could not be updated.'
+      setErrorMessage(message)
+      setVolunteerSelectionStatus({
+        key: actionKey,
+        tone: 'error',
+        message,
+      })
+      showToast({ title: `${roleLabel} not updated`, message, tone: 'error' })
+      throw error
     } finally {
       setActiveMatchId('')
+      setActiveVolunteerSelectionKey('')
     }
   }
 
@@ -1299,11 +1382,13 @@ export function MatchDayPage() {
                   },
                 }))}
                 onScoreSave={handleScoreSave}
-                onVolunteerSelection={handleVolunteerSelection}
+                activeVolunteerSelectionKey={activeVolunteerSelectionKey}
+                onVolunteerSelection={openVolunteerSelectionPrompt}
                 onStatusChange={handleStatusChange}
                 onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
                 players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
+                volunteerSelectionStatus={volunteerSelectionStatus}
               />
             ))}
           </div>
@@ -1372,11 +1457,21 @@ export function MatchDayPage() {
       </section>
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
+      <ConfirmModal
+        confirmLabel={volunteerSelectionPrompt?.confirmLabel || 'Confirm selection'}
+        isBusy={Boolean(activeVolunteerSelectionKey)}
+        isOpen={Boolean(volunteerSelectionPrompt)}
+        message={volunteerSelectionPrompt?.message || ''}
+        title={volunteerSelectionPrompt?.title || 'Confirm volunteer selection'}
+        onCancel={() => setVolunteerSelectionPrompt(null)}
+        onConfirm={handleVolunteerSelection}
+      />
     </div>
   )
 }
 function MatchDayCard({
   activeMatchId,
+  activeVolunteerSelectionKey,
   goalForm,
   isExpanded,
   match,
@@ -1390,6 +1485,7 @@ function MatchDayCard({
   onToggle,
   players,
   scoreDraft,
+  volunteerSelectionStatus,
 }) {
   const isBusy = activeMatchId === match.id
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
@@ -1562,6 +1658,9 @@ function MatchDayCard({
                             const isSelected = isSelectedRoleVolunteer(selectedAssignment, row)
                             const canSelect = !selectionReason
                             const rowStatus = getVolunteerRowStatus({ isSelected, response: row.response, selectedAssignment })
+                            const actionKey = getMatchDayVolunteerActionKey({ matchId: match.id, requestId: row.requestId, role: role.key })
+                            const isVolunteerActionBusy = activeVolunteerSelectionKey === actionKey
+                            const rowActionStatus = volunteerSelectionStatus?.key === actionKey ? volunteerSelectionStatus : null
 
                             return (
                               <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1591,13 +1690,27 @@ function MatchDayCard({
                                       disabled={isBusy}
                                       className={secondaryButtonClass}
                                     >
-                                      {isSelected ? 'Deselect' : selectedAssignment ? 'Replace selected volunteer' : 'Select'}
+                                      {isVolunteerActionBusy ? 'Saving...' : isSelected ? 'Deselect' : selectedAssignment ? 'Replace selected volunteer' : 'Select'}
                                     </button>
                                   ) : (
                                     <span className="max-w-56 text-xs font-semibold leading-5 text-[#92400e]">
                                       {selectionReason}
                                     </span>
                                   )}
+                                  {rowActionStatus ? (
+                                    <span
+                                      role={rowActionStatus.tone === 'error' ? 'alert' : 'status'}
+                                      className={`max-w-64 text-xs font-bold leading-5 ${
+                                        rowActionStatus.tone === 'error'
+                                          ? 'text-red-700'
+                                          : rowActionStatus.tone === 'warning'
+                                            ? 'text-[#92400e]'
+                                            : 'text-[#047857]'
+                                      }`}
+                                    >
+                                      {rowActionStatus.message}
+                                    </span>
+                                  ) : null}
                                 </div>
                               </div>
                             )
