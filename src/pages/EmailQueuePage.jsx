@@ -42,8 +42,8 @@ function createEditDraft(item) {
     id: item?.id || '',
     toEmail: item?.toEmail || '',
     subject: item?.subject || '',
-    html: item?.html || '',
     scheduledAt: toDateTimeLocal(item?.scheduledAt),
+    previewText: item?.previewText || '',
   }
 }
 
@@ -88,6 +88,7 @@ export function EmailQueuePage() {
   const attachedCount = useMemo(() => sortedQueue.filter((item) => item.hasAttachment).length, [sortedQueue])
   const readyCount = useMemo(() => sortedQueue.filter((item) => !item.lastError).length, [sortedQueue])
   const nextQueuedEmail = sortedQueue[0] || null
+  const isQueueModalOpen = Boolean(editingItem || deleteTarget)
 
   useEffect(() => {
     let isMounted = true
@@ -140,6 +141,7 @@ export function EmailQueuePage() {
   const closeEditor = () => {
     setEditingItem(null)
     setEditDraft(createEditDraft(null))
+    setErrorMessage('')
   }
 
   const saveEdit = async () => {
@@ -239,7 +241,7 @@ export function EmailQueuePage() {
         </div>
       </section>
 
-      {errorMessage ? <NoticeBanner title="Email queue action failed" message={errorMessage} /> : null}
+      {errorMessage && !isQueueModalOpen ? <NoticeBanner title="Email queue action failed" message={errorMessage} /> : null}
 
       <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
         <div className="mb-4 flex flex-col gap-2 border-b border-[#d7e5dc] pb-4 sm:flex-row sm:items-end sm:justify-between">
@@ -257,7 +259,7 @@ export function EmailQueuePage() {
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-5 py-8">
               <p className="text-lg font-black text-[#101828]">No emails are waiting to send.</p>
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#4b5f55]">
-                Queue items appear after a coach schedules a parent or player email from sessions, player records, or match day.
+                Queue items appear after a coach schedules a parent or player email from sessions or player records.
               </p>
           </div>
         ) : (
@@ -293,7 +295,10 @@ export function EmailQueuePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDeleteTarget(item)}
+                      onClick={() => {
+                        setDeleteTarget(item)
+                        setErrorMessage('')
+                      }}
                       disabled={Boolean(busyId)}
                       className={dangerButtonClass}
                     >
@@ -314,6 +319,7 @@ export function EmailQueuePage() {
         message="Review and edit this email before its scheduled send time."
         confirmLabel="Save changes"
         confirmDisabled={!editDraft.toEmail || !editDraft.subject || !editDraft.scheduledAt}
+        errorMessage={errorMessage}
         onCancel={closeEditor}
         onClose={closeEditor}
         onConfirm={() => void saveEdit()}
@@ -339,17 +345,11 @@ export function EmailQueuePage() {
             value={editDraft.scheduledAt}
             onChange={(scheduledAt) => setEditDraft((current) => ({ ...current, scheduledAt }))}
           />
-          <label className="block">
-            <span className={labelClass}>Email HTML</span>
-            <textarea
-              value={editDraft.html}
-              onChange={(event) => setEditDraft((current) => ({ ...current, html: event.target.value }))}
-              rows={8}
-              className="min-h-40 w-full rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 font-mono text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
-            />
-          </label>
-          <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 text-black">
-            <div dangerouslySetInnerHTML={{ __html: editDraft.html }} />
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+            <p className="text-sm font-black text-[#101828]">Message preview</p>
+            <p className="mt-2 whitespace-pre-line break-words text-sm font-semibold leading-6 text-[#4b5f55]">
+              {editDraft.previewText || 'No preview is available for this queued email.'}
+            </p>
           </div>
         </div>
       </ConfirmModal>
@@ -361,8 +361,15 @@ export function EmailQueuePage() {
         message="This removes the email from the holding queue and it will not be sent."
         items={[deleteTarget?.subject || 'Queued email', deleteTarget?.toEmail || 'No recipient']}
         confirmLabel="Delete email"
-        onCancel={() => setDeleteTarget(null)}
-        onClose={() => setDeleteTarget(null)}
+        errorMessage={errorMessage}
+        onCancel={() => {
+          setDeleteTarget(null)
+          setErrorMessage('')
+        }}
+        onClose={() => {
+          setDeleteTarget(null)
+          setErrorMessage('')
+        }}
         onConfirm={() => void confirmDelete()}
       />
 

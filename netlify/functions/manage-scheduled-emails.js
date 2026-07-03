@@ -55,9 +55,49 @@ function canUseQueue(profile) {
   return Boolean(profile?.clubId) && profile.role !== 'super_admin' && Number(profile.roleRank ?? 0) >= 20
 }
 
+function htmlToPlainText(value) {
+  return String(value ?? '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n\s+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+}
+
+function isVisibleHoldingQueuePayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return true
+  }
+
+  if (payload.visibleInEmailQueue === false) {
+    return false
+  }
+
+  if (payload.matchDayAvailability || payload.matchDayRoleSelection || payload.matchDayAvailabilityChange) {
+    return false
+  }
+
+  if (String(payload.actorEmail ?? '').trim().toLowerCase() === 'match-day-system') {
+    return false
+  }
+
+  return true
+}
+
 function normalizeRow(row) {
   const payload = row.payload || {}
   const resendPayload = payload.resendPayload || {}
+  const html = String(resendPayload.html ?? '')
 
   return {
     id: row.id,
@@ -69,7 +109,7 @@ function normalizeRow(row) {
     subject: row.subject,
     status: row.status,
     scheduledAt: row.scheduled_at,
-    html: String(resendPayload.html ?? ''),
+    previewText: htmlToPlainText(html),
     hasAttachment: Boolean(resendPayload.attachments?.length),
     lastError: row.last_error,
     attempts: row.attempts,
@@ -110,7 +150,7 @@ async function listQueue({ profile }) {
     .eq('club_id', profile.clubId)
     .in('status', ['scheduled', 'failed'])
     .order('scheduled_at', { ascending: true })
-    .limit(100)
+    .limit(250)
 
   if (Number(profile.roleRank ?? 0) < 50) {
     query = query.eq('created_by', profile.id)
@@ -123,7 +163,10 @@ async function listQueue({ profile }) {
     throw new Error('Email queue could not be loaded.')
   }
 
-  return (data ?? []).map(normalizeRow)
+  return (data ?? [])
+    .filter((row) => isVisibleHoldingQueuePayload(row.payload))
+    .slice(0, 100)
+    .map(normalizeRow)
 }
 
 async function createQueueItem({ body, profile }) {
@@ -214,7 +257,10 @@ async function updateQueueItem({ body, profile }) {
   }
 
   const subject = String(body.subject ?? '').trim() || 'Football Player'
-  const html = String(body.html ?? '').trim() || '<p>No content</p>'
+  const existingResendPayload = (row.payload || {}).resendPayload || {}
+  const html = Object.prototype.hasOwnProperty.call(body, 'html')
+    ? String(body.html ?? '').trim() || '<p>No content</p>'
+    : String(existingResendPayload.html ?? '').trim() || '<p>No content</p>'
   const payload = {
     ...(row.payload || {}),
     resendPayload: {

@@ -1008,6 +1008,7 @@ export function MatchDayPage() {
 
     try {
       const result = await selectMatchDayVolunteer({ user, match, volunteer, role, selected })
+      let refreshWarning = ''
       const targetParentLinkId = result?.parentLinkId || volunteer.parentLinkId
       if (selected && role === 'scorer' && targetParentLinkId) {
         void sendMatchDayPushNotification({
@@ -1016,14 +1017,21 @@ export function MatchDayPage() {
           targetParentLinkIds: [targetParentLinkId],
         })
       }
-      await loadData()
+      try {
+        await loadData()
+      } catch (refreshError) {
+        console.error(refreshError)
+        refreshWarning = 'Volunteer selection was saved, but Match Day could not be refreshed. Refresh the page before making another role change.'
+        setErrorMessage(refreshWarning)
+      }
       showToast({
         title: selected ? `${roleLabel} selected` : `${roleLabel} deselected`,
         message: result?.warning
+          || refreshWarning
           || (selected && role === 'scorer'
             ? 'This parent can now update the live score.'
             : 'The Match Day volunteer selection has been updated.'),
-        tone: result?.warning ? 'warning' : 'success',
+        tone: result?.warning || refreshWarning ? 'warning' : 'success',
       })
     } catch (error) {
       console.error(error)
