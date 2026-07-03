@@ -160,6 +160,9 @@ const fixtureAccounts = {
       activeTeamId: '',
       activeTeamName: '',
       parentPortalLinks,
+      accessModeOptions: [
+        { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
+      ],
     }),
   },
   'teamless.fixture@footballplayer.test': {
@@ -247,6 +250,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
   const isPlatformProfile = user?.role === 'super_admin'
   const nextTeamOptions = user && !isParentProfile && !isPlatformProfile ? teamOptions : []
   const nextClubOptions = isPlatformProfile ? clubOptions : []
+  const nextAccessModeOptions = Array.isArray(user?.accessModeOptions) ? user.accessModeOptions : []
 
   const signInWithPassword = async ({ email: nextEmail, password, preferredAccessMode = '' }) => {
     const normalizedEmail = String(nextEmail ?? '').trim().toLowerCase()
@@ -325,7 +329,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     authUser,
     user,
     clubOptions: nextClubOptions,
-    accessModeOptions: [],
+    accessModeOptions: nextAccessModeOptions,
     teamOptions: nextTeamOptions,
     hasPlatformAdminAccess,
     isLoading,

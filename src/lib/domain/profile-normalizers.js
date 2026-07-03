@@ -134,5 +134,7 @@ export function normalizeUserProfile(profile) {
     activeTeamId: String(profile.activeTeamId ?? '').trim(),
     activeTeamName: String(profile.activeTeamName ?? '').trim(),
     clubOptions: Array.isArray(profile.clubOptions) ? profile.clubOptions : [],
+    parentPortalLinks: Array.isArray(profile.parentPortalLinks) ? profile.parentPortalLinks : [],
+    accessModeOptions: Array.isArray(profile.accessModeOptions) ? profile.accessModeOptions : [],
   }
 }

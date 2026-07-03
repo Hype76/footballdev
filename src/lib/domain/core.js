@@ -305,7 +305,7 @@ async function getParentPortalMemberships(authUser) {
   })
 }
 
-function normalizeParentPortalProfile(authUser, parentLinks) {
+function normalizeParentPortalProfile(authUser, parentLinks, options = {}) {
   const selectedLink = parentLinks[0]
 
   return {
@@ -330,11 +330,24 @@ function normalizeParentPortalProfile(authUser, parentLinks) {
     themeAccent: selectedLink?.themeAccent ?? '',
     themeButtonStyle: selectedLink?.themeButtonStyle ?? '',
     parentPortalLinks: parentLinks,
+    accessModeOptions: Array.isArray(options.accessModeOptions) ? options.accessModeOptions : [],
     selectedParentLinkId: selectedLink?.id ?? '',
     selectedPlayerId: selectedLink?.playerId ?? '',
     selectedPlayerName: selectedLink?.playerName ?? '',
     selectedPlayerSection: selectedLink?.playerSection ?? '',
   }
+}
+
+function buildParentAccessModeOptions({ hasPlatformAccess = false, hasTeamAccess = false } = {}) {
+  const options = []
+
+  if (hasPlatformAccess) {
+    options.push({ id: 'platform_admin', label: 'Platform Admin', meta: 'Open platform administration tools' })
+  } else if (hasTeamAccess) {
+    options.push({ id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' })
+  }
+
+  return options
 }
 
 async function syncMembershipFromUserRow(data, authUser) {
@@ -533,7 +546,13 @@ export async function fetchUserProfile(authUser, options = {}) {
     const hasParentAccess = parentLinks.length > 0
 
     if (hasParentAccess && selectedAccessMode === 'parent') {
-      return normalizeParentPortalProfile(authUser, parentLinks)
+      const memberships = isDemoAuthUser ? [] : await getUserClubMemberships(authUser)
+      const hasPlatformAccess = data?.role === 'super_admin'
+      const hasTeamAccess = Boolean(data?.club_id || memberships.length > 0 || hasPlatformAccess)
+
+      return normalizeParentPortalProfile(authUser, parentLinks, {
+        accessModeOptions: buildParentAccessModeOptions({ hasPlatformAccess, hasTeamAccess }),
+      })
     }
 
     if (data?.role === 'super_admin') {
@@ -584,6 +603,18 @@ export async function fetchUserProfile(authUser, options = {}) {
       }
 
       if (hasParentAccess) {
+        const memberships = await getUserClubMemberships(authUser)
+
+        if (memberships.length > 0) {
+          return {
+            requiresAccessModeSelection: true,
+            accessModeOptions: [
+              { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
+              { id: 'parent', label: 'Parent', meta: 'Open linked child access only' },
+            ],
+          }
+        }
+
         return normalizeParentPortalProfile(authUser, parentLinks)
       }
 
@@ -669,6 +700,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       ...data,
       clubs: clubData,
       email: data.email || authUser.email,
+      parentPortalLinks: parentLinks,
     })
   })
 }

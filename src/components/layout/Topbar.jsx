@@ -25,11 +25,13 @@ export function Topbar({ title, onMenuClick }) {
   const isPlatformAdminView = displayUser?.role === 'super_admin'
   const isParentPortalView = displayUser?.role === 'parent_portal'
   const hasParentPortalAccess = Array.isArray(displayUser?.parentPortalLinks) && displayUser.parentPortalLinks.length > 0
+  const profileAccessModeOptions = Array.isArray(displayUser?.accessModeOptions) ? displayUser.accessModeOptions : []
+  const hasTeamAccessOption = profileAccessModeOptions.some((option) => option?.id === 'team')
   const shouldShowClubAdminOption = !isPlatformAdminView && canUseClubAdminView
   const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptions?.length > 0
   const shouldShowCurrentTeamAccessOption =
-    !isPlatformAdminView && !isParentPortalView && hasPlatformAdminAccess && !displayUser?.activeTeamId
-  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
+    !isPlatformAdminView && !isParentPortalView && (hasPlatformAdminAccess || hasTeamAccessOption) && !displayUser?.activeTeamId
+  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || hasTeamAccessOption || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
   const workspaceContext = user?.role === 'super_admin'
     ? 'Platform control'
     : displayUser?.activeTeamName
@@ -97,6 +99,15 @@ export function Topbar({ title, onMenuClick }) {
     }
 
     if (teamId === '__team_access__') {
+      try {
+        setIsSwitchingTeam(true)
+        await selectAccessMode('team')
+        navigate('/coach')
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsSwitchingTeam(false)
+      }
       return
     }
 
@@ -232,7 +243,7 @@ export function Topbar({ title, onMenuClick }) {
                   >
                     {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
                     {hasParentPortalAccess ? <option value="__parent_portal__">Family portal</option> : null}
-                    {shouldShowCurrentTeamAccessOption ? <option value="__team_access__">Team access</option> : null}
+                    {shouldShowCurrentTeamAccessOption || (isParentPortalView && hasTeamAccessOption) ? <option value="__team_access__">Team access</option> : null}
                     {isPlatformAdminView
                       ? clubOptions.map((club) => (
                           <option key={club.clubId} value={`__club__:${club.clubId}`}>

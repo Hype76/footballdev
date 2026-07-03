@@ -46,6 +46,26 @@ async function waitForPort(host, port, timeoutMs = 30000) {
   throw new Error(`Timed out waiting for ${host}:${port}`)
 }
 
+async function waitForHttpOk(url, timeoutMs = 30000) {
+  const startedAt = Date.now()
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const response = await fetch(url)
+
+      if (response.ok) {
+        return
+      }
+    } catch {
+      // Vite can accept the port before the SPA route is ready.
+    }
+
+    await wait(250)
+  }
+
+  throw new Error(`Timed out waiting for ${url} to return HTTP 200`)
+}
+
 function startDevServer() {
   const env = {
     ...process.env,
@@ -210,6 +230,7 @@ let browser
 
 try {
   await waitForPort('127.0.0.1', port)
+  await waitForHttpOk(`${mainBaseUrl}/sign-in`)
 
   browser = await chromium.launch({
     args: [
@@ -272,9 +293,11 @@ try {
     await desktopPage.waitForURL('**/parent-portal', { timeout: 15000 })
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
     assert.ok(await desktopPage.getByRole('button', { name: /Sign out/ }).count() >= 2)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Open team workspace' }).count(), 0)
     await desktopPage.goto(`${mainBaseUrl}/parent-portal?section=settings`, { waitUntil: 'domcontentloaded' })
     await assertVisibleText(desktopPage, 'Parent settings')
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
+    assert.equal(await desktopPage.getByRole('button', { name: 'Open team workspace' }).count(), 0)
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().click()
     await desktopPage.waitForURL('**/parent-login', { timeout: 15000 })
     assert.equal(await desktopPage.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
@@ -314,6 +337,10 @@ try {
     await assertVisibleText(page, 'Family portal')
     await page.getByLabel('Access view').waitFor({ state: 'detached', timeout: 15000 })
     assert.equal(await page.getByLabel('Access view').count(), 0)
+    await page.getByRole('button', { name: 'Open team workspace' }).click()
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertSelectedOption(page, 'Access view', 'Team access')
+    await assertVisibleText(page, 'Club-wide view')
     await assertNoSetupGuideTrigger(page)
     await context.close()
   })

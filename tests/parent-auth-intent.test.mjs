@@ -93,8 +93,22 @@ test('active parent-player link resolves to parent portal profile without app us
 
   assert.match(section, /const parentLinks = isDemoAuthUser \? \[\] : await getParentPortalMemberships\(authUser\)/)
   assert.match(section, /const hasParentAccess = parentLinks\.length > 0/)
-  assert.match(section, /if \(hasParentAccess && selectedAccessMode === 'parent'\) \{\s*return normalizeParentPortalProfile\(authUser, parentLinks\)/)
-  assert.match(section, /if \(hasParentAccess\) \{\s*return normalizeParentPortalProfile\(authUser, parentLinks\)/)
+  assert.match(section, /if \(hasParentAccess && selectedAccessMode === 'parent'\) \{[\s\S]*return normalizeParentPortalProfile\(authUser, parentLinks, \{/)
+  assert.match(section, /if \(hasParentAccess\) \{[\s\S]*return normalizeParentPortalProfile\(authUser, parentLinks\)/)
+})
+
+test('dual access parent mode carries a safe route back to team access', async () => {
+  const source = await readFile(parentProfileSourceUrl, 'utf8')
+  const profileStart = source.indexOf('export async function fetchUserProfile')
+  const profileEnd = source.indexOf('export async function updatePassword', profileStart)
+  const section = source.slice(profileStart, profileEnd)
+
+  assert.match(source, /function buildParentAccessModeOptions/)
+  assert.match(source, /options\.push\(\{ id: 'team', label: 'Team \/ Coach', meta: 'Open coaching and club tools' \}\)/)
+  assert.match(section, /const memberships = isDemoAuthUser \? \[\] : await getUserClubMemberships\(authUser\)/)
+  assert.match(section, /const hasTeamAccess = Boolean\(data\?\.club_id \|\| memberships\.length > 0 \|\| hasPlatformAccess\)/)
+  assert.match(section, /accessModeOptions: buildParentAccessModeOptions\(\{ hasPlatformAccess, hasTeamAccess \}\)/)
+  assert.match(section, /parentPortalLinks: parentLinks/)
 })
 
 test('parent routes preserve parent intent while main sign-in remains separate', async () => {

@@ -53,8 +53,8 @@ test('topbar does not display platform admin as the selected access view for coa
   const source = await readFile(topbarUrl, 'utf8')
 
   assert.match(source, /const shouldShowCurrentTeamAccessOption =/)
-  assert.match(source, /!isPlatformAdminView && !isParentPortalView && hasPlatformAdminAccess && !displayUser\?\.activeTeamId/)
+  assert.match(source, /!isPlatformAdminView && !isParentPortalView && \(hasPlatformAdminAccess \|\| hasTeamAccessOption\) && !displayUser\?\.activeTeamId/)
   assert.match(source, /shouldShowCurrentTeamAccessOption \? '__team_access__' : ''/)
   assert.match(source, /<option value="__team_access__">Team access<\/option>/)
-  assert.match(source, /if \(teamId === '__team_access__'\) \{\s*return\s*\}/)
+  assert.match(source, /if \(teamId === '__team_access__'\) \{\s*try \{\s*setIsSwitchingTeam\(true\)\s*await selectAccessMode\('team'\)\s*navigate\('\/coach'\)/)
 })

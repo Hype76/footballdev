@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
-import { buildParentAppUrl, isParentPortalHost } from '../../lib/app-origins.js'
+import { buildMainAppUrl, buildParentAppUrl, isParentPortalHost } from '../../lib/app-origins.js'
 import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
+import { TEAM_WORKSPACE_HOME_PATH } from '../../lib/workspace-routes.js'
 
 const parentPortalSections = [
   { id: 'overview', label: 'Overview', description: 'Start here', to: '/parent-portal?section=overview' },
@@ -95,12 +96,31 @@ export function ParentPortalSectionNav({
 }
 
 function ParentPortalSignOutAction({ variant = 'desktop' }) {
-  const { signOut } = useAuth()
+  const { selectAccessMode, signOut, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isOpeningTeam, setIsOpeningTeam] = useState(false)
+  const accessModeOptions = Array.isArray(user?.accessModeOptions) ? user.accessModeOptions : []
+  const canOpenTeamWorkspace = accessModeOptions.some((option) => option?.id === 'team')
   const buttonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#f2b8b5] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff4f3] disabled:cursor-not-allowed disabled:opacity-60',
     variant === 'mobile' ? 'min-h-10 py-2.5' : '',
   ].filter(Boolean).join(' ')
+  const switchButtonClass = [
+    'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#047857] bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/10 transition hover:bg-[#036c4a] disabled:cursor-not-allowed disabled:opacity-60',
+    variant === 'mobile' ? 'min-h-10 py-2.5' : '',
+  ].filter(Boolean).join(' ')
+
+  const handleOpenTeamWorkspace = async () => {
+    setIsOpeningTeam(true)
+
+    try {
+      await selectAccessMode('team')
+      window.location.assign(buildMainAppUrl(TEAM_WORKSPACE_HOME_PATH))
+    } catch (error) {
+      console.error(error)
+      setIsOpeningTeam(false)
+    }
+  }
 
   const handleSignOut = async () => {
     setIsSigningOut(true)
@@ -108,7 +128,7 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
     try {
       await signOut()
       rememberParentAccessIntent()
-      window.location.replace(isParentPortalHost() ? '/parent-login' : buildParentAppUrl('/parent-login'))
+      window.location.assign(isParentPortalHost() ? '/parent-login' : buildParentAppUrl('/parent-login'))
     } catch (error) {
       console.error(error)
       setIsSigningOut(false)
@@ -116,15 +136,28 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleSignOut}
-      disabled={isSigningOut}
-      aria-label="Sign out of the parent portal"
-      className={buttonClass}
-    >
-      {isSigningOut ? 'Signing out...' : 'Sign out'}
-    </button>
+    <div className="grid gap-2">
+      {canOpenTeamWorkspace ? (
+        <button
+          type="button"
+          onClick={handleOpenTeamWorkspace}
+          disabled={isOpeningTeam || isSigningOut}
+          aria-label="Open team workspace"
+          className={switchButtonClass}
+        >
+          {isOpeningTeam ? 'Opening...' : 'Open team workspace'}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={isSigningOut || isOpeningTeam}
+        aria-label="Sign out of the parent portal"
+        className={buttonClass}
+      >
+        {isSigningOut ? 'Signing out...' : 'Sign out'}
+      </button>
+    </div>
   )
 }
 
