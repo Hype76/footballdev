@@ -194,6 +194,45 @@ function volunteerFields(response) {
   ].filter(Boolean).join('')
 }
 
+function yesNoFieldset({ name, legend, currentValue }) {
+  const normalizedValue = currentValue === true ? 'yes' : 'no'
+
+  return `<fieldset>
+    <legend>${escapeHtml(legend)}</legend>
+    <label>
+      <input type="radio" name="${escapeHtml(name)}" value="yes" ${normalizedValue === 'yes' ? 'checked' : ''}>
+      <span>Yes</span>
+    </label>
+    <label>
+      <input type="radio" name="${escapeHtml(name)}" value="no" ${normalizedValue === 'no' ? 'checked' : ''}>
+      <span>No</span>
+    </label>
+  </fieldset>`
+}
+
+function transportFields(response) {
+  const seatsOffered = Math.max(0, Number.parseInt(response.transport_seats_offered ?? 0, 10) || 0)
+
+  return `<fieldset>
+    <legend>Transport help</legend>
+    <p class="availability-summary">Staff coordinate transport manually. These answers are not shared with other parents.</p>
+    ${yesNoFieldset({
+      name: 'transportNeedsLift',
+      legend: 'Does this player need a lift?',
+      currentValue: response.transport_needs_lift === true,
+    })}
+    ${yesNoFieldset({
+      name: 'transportCanOfferLift',
+      legend: 'Can you offer a lift?',
+      currentValue: response.transport_can_offer_lift === true,
+    })}
+    <label>
+      <span>Seats offered</span>
+      <input type="number" name="transportSeatsOffered" min="0" step="1" value="${escapeHtml(String(seatsOffered))}">
+    </label>
+  </fieldset>`
+}
+
 function responseForm({ token, response }) {
   return `
     ${detailRows(response)}
@@ -201,6 +240,7 @@ function responseForm({ token, response }) {
       <input type="hidden" name="token" value="${escapeHtml(token)}">
       ${availabilityFieldset(response)}
       ${volunteerFields(response)}
+      ${transportFields(response)}
       <button type="submit">Save response</button>
     </form>
   `
@@ -209,6 +249,34 @@ function responseForm({ token, response }) {
 function normalizeVolunteerParam(value) {
   const normalizedValue = normalizeText(value).toLowerCase()
   return VALID_VOLUNTEER_RESPONSES.has(normalizedValue) ? normalizedValue : null
+}
+
+function normalizeBooleanParam(value) {
+  const normalizedValue = normalizeText(value).toLowerCase()
+
+  if (normalizedValue === 'yes' || normalizedValue === 'true') {
+    return true
+  }
+
+  if (normalizedValue === 'no' || normalizedValue === 'false') {
+    return false
+  }
+
+  return null
+}
+
+function normalizeSeatsParam(value, canOfferLift) {
+  if (canOfferLift !== true) {
+    return 0
+  }
+
+  const parsedValue = Number.parseInt(String(value ?? ''), 10)
+
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    return 0
+  }
+
+  return parsedValue
 }
 
 async function getTokenResponse(supabase, token) {
@@ -225,10 +293,14 @@ async function getTokenResponse(supabase, token) {
 
 async function submitTokenResponse(supabase, token, params) {
   const status = normalizeText(params.get('status')).toLowerCase()
+  const transportNeedsLift = normalizeBooleanParam(params.get('transportNeedsLift'))
+  const transportCanOfferLift = normalizeBooleanParam(params.get('transportCanOfferLift'))
+  const transportSeatsOffered = normalizeSeatsParam(params.get('transportSeatsOffered'), transportCanOfferLift)
   const hasVolunteerResponse = ['volunteerScorerResponse', 'volunteerLinesmanResponse', 'volunteerRefereeResponse']
     .some((key) => normalizeVolunteerParam(params.get(key)))
+  const hasTransportResponse = transportNeedsLift !== null || transportCanOfferLift !== null || params.has('transportSeatsOffered')
 
-  if (!VALID_STATUSES.has(status) && !hasVolunteerResponse) {
+  if (!VALID_STATUSES.has(status) && !hasVolunteerResponse && !hasTransportResponse) {
     return null
   }
 
@@ -238,6 +310,9 @@ async function submitTokenResponse(supabase, token, params) {
     volunteer_scorer_response_value: normalizeVolunteerParam(params.get('volunteerScorerResponse')),
     volunteer_linesman_response_value: normalizeVolunteerParam(params.get('volunteerLinesmanResponse')),
     volunteer_referee_response_value: normalizeVolunteerParam(params.get('volunteerRefereeResponse')),
+    transport_needs_lift_value: transportNeedsLift,
+    transport_can_offer_lift_value: transportCanOfferLift,
+    transport_seats_offered_value: transportSeatsOffered,
   })
 
   if (error) {
@@ -393,6 +468,7 @@ export async function handler(event) {
     }
 
     const previousResponse = await getTokenResponse(supabase, token)
+    const submittedStatus = normalizeText(params.get('status')).toLowerCase()
     const response = await submitTokenResponse(supabase, token, params)
 
     if (!response?.request_id) {
@@ -409,11 +485,13 @@ export async function handler(event) {
       }))
     }
 
-    await createAvailabilityEventLogEntry(event, { previousResponse, response })
+    if (VALID_STATUSES.has(submittedStatus)) {
+      await createAvailabilityEventLogEntry(event, { previousResponse, response })
+    }
 
     return htmlResponse(200, page({
       title: 'Response saved',
-      message: VALID_STATUSES.has(normalizeText(params.get('status')).toLowerCase())
+      message: VALID_STATUSES.has(submittedStatus)
         ? `${response.player_name || 'The player'} is marked as ${statusLabel(response.response_status)}. Thank you for replying.`
         : 'Your fixture response has been saved. Thank you for replying.',
     }))

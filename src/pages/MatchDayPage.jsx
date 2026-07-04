@@ -216,9 +216,41 @@ function getRoleResponseRows(match, role) {
     }))
 }
 
+function hasTransportResponse(row) {
+  return row?.transportNeedsLift === true
+    || row?.transportCanOfferLift === true
+    || Number(row?.transportSeatsOffered || 0) > 0
+    || Boolean(row?.transportRespondedAt)
+}
+
+function getLatestTransportResponseForPlayer(match, row) {
+  const playerKey = getAvailabilityPlayerKey(row)
+
+  return (match.availabilityRequests || [])
+    .filter((request) => getAvailabilityPlayerKey(request) === playerKey && hasTransportResponse(request))
+    .sort((first, second) => {
+      const firstTime = first.transportRespondedAt || first.updatedAt || first.respondedAt || first.createdAt || ''
+      const secondTime = second.transportRespondedAt || second.updatedAt || second.respondedAt || second.createdAt || ''
+      return String(secondTime).localeCompare(String(firstTime))
+    })[0] || null
+}
+
+function mergeTransportResponse(match, row) {
+  const transportResponse = hasTransportResponse(row) ? row : getLatestTransportResponseForPlayer(match, row)
+  const canOfferLift = transportResponse?.transportCanOfferLift === true
+
+  return {
+    ...row,
+    transportNeedsLift: transportResponse?.transportNeedsLift === true,
+    transportCanOfferLift: canOfferLift,
+    transportSeatsOffered: canOfferLift ? Number(transportResponse?.transportSeatsOffered || 0) : 0,
+    transportRespondedAt: transportResponse?.transportRespondedAt || '',
+  }
+}
+
 function getCurrentAvailabilityRows(match) {
   if (match.playerAvailability?.length > 0) {
-    return match.playerAvailability
+    return match.playerAvailability.map((row) => mergeTransportResponse(match, row))
   }
 
   const latestByPlayer = new Map()
@@ -238,11 +270,15 @@ function getCurrentAvailabilityRows(match) {
         selectedByName: request.recipientName,
         selectedByEmail: request.recipientEmail,
         selectedAt: request.respondedAt,
+        transportNeedsLift: request.transportNeedsLift,
+        transportCanOfferLift: request.transportCanOfferLift,
+        transportSeatsOffered: request.transportSeatsOffered,
+        transportRespondedAt: request.transportRespondedAt,
       })
     }
   }
 
-  return Array.from(latestByPlayer.values())
+  return Array.from(latestByPlayer.values()).map((row) => mergeTransportResponse(match, row))
 }
 
 function getAvailabilityHistoryForPlayer(match, row) {
@@ -844,12 +880,32 @@ function getTransportRiskRows(match) {
       })
     }
 
+    if (row.transportNeedsLift === true) {
+      reasons.push({
+        key: 'needs_lift',
+        label: 'Needs lift',
+        detail: 'Parent says this player needs transport help. Staff coordinate manually.',
+      })
+    }
+
+    if (row.transportCanOfferLift === true) {
+      reasons.push({
+        key: 'lift_offer',
+        label: row.transportSeatsOffered > 0 ? `Lift offered (${row.transportSeatsOffered})` : 'Lift offered',
+        detail: 'Parent can offer transport help. Staff coordinate manually.',
+      })
+    }
+
     if (reasons.length > 0) {
       riskRows.push({
         id: row.id || row.playerId || row.playerName,
         playerKey,
         playerName: row.playerName || 'Player',
         status,
+        transportNeedsLift: row.transportNeedsLift,
+        transportCanOfferLift: row.transportCanOfferLift,
+        transportSeatsOffered: row.transportSeatsOffered,
+        transportRespondedAt: row.transportRespondedAt,
         reasons,
       })
     }
@@ -861,9 +917,12 @@ function getTransportRiskRows(match) {
 function getTransportRiskSummary(rows) {
   const summary = {
     conflicts: 0,
+    liftOffers: 0,
     maybe: 0,
     needsFollowUp: rows.length,
+    needsLift: 0,
     noResponse: 0,
+    seatsOffered: 0,
     unavailable: 0,
   }
 
@@ -874,8 +933,17 @@ function getTransportRiskSummary(rows) {
       summary.conflicts += 1
     }
 
+    if (reasonKeys.has('lift_offer')) {
+      summary.liftOffers += 1
+      summary.seatsOffered += Number(row.transportSeatsOffered || 0)
+    }
+
     if (reasonKeys.has('maybe')) {
       summary.maybe += 1
+    }
+
+    if (reasonKeys.has('needs_lift')) {
+      summary.needsLift += 1
     }
 
     if (reasonKeys.has('no_response')) {
@@ -2236,6 +2304,27 @@ function MatchDayCard({
                       <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
                         {formatResponseDateTime(row.selectedAt)}
                       </p>
+                      {hasTransportResponse(row) ? (
+                        <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Transport response</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                              {row.transportNeedsLift ? 'Needs lift' : 'No lift needed'}
+                            </span>
+                            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                              {row.transportCanOfferLift ? 'Can offer lift' : 'No lift offered'}
+                            </span>
+                            {row.transportCanOfferLift ? (
+                              <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                                {Number(row.transportSeatsOffered || 0)} seats
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
+                            Staff coordinate transport manually. {formatResponseDateTime(row.transportRespondedAt)}
+                          </p>
+                        </div>
+                      ) : null}
                       {historyRows.length > 0 ? (
                         <div className="mt-3 space-y-1 border-t border-[#d7e5dc] pt-3">
                           {historyRows.map((history) => (
@@ -2684,7 +2773,7 @@ function TransportRiskPanel({ rows, summary }) {
         <div>
           <h5 className="text-sm font-black text-[#101828]">Transport risk</h5>
           <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-            Derived from availability responses. This is not confirmed lift or carpool status.
+            Derived from availability responses and structured transport replies. Staff coordinate manually.
           </p>
         </div>
         <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${
@@ -2697,13 +2786,18 @@ function TransportRiskPanel({ rows, summary }) {
         </span>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-5">
+      <div className="mt-3 grid gap-2 sm:grid-cols-7">
         <AvailabilityCount label="Follow-up" value={summary.needsFollowUp} />
         <AvailabilityCount label="No response" value={summary.noResponse} />
         <AvailabilityCount label="Maybe" value={summary.maybe} />
         <AvailabilityCount label="Unavailable" value={summary.unavailable} />
         <AvailabilityCount label="Conflicts" value={summary.conflicts} />
+        <AvailabilityCount label="Needs lift" value={summary.needsLift} />
+        <AvailabilityCount label="Lift offers" value={summary.liftOffers} />
       </div>
+      <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
+        Seats offered: {summary.seatsOffered}
+      </p>
 
       {rows.length > 0 ? (
         <div className="mt-3 grid gap-2 lg:grid-cols-2">
@@ -2713,7 +2807,7 @@ function TransportRiskPanel({ rows, summary }) {
                 <div className="min-w-0">
                   <p className="text-sm font-black text-[#101828]">{row.playerName}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                    Selected player without confirmed available response.
+                    Staff transport follow-up signal.
                   </p>
                 </div>
                 <span className="inline-flex w-fit rounded-lg border border-[#fed7aa] bg-white px-3 py-1 text-xs font-black text-[#92400e]">
@@ -2727,6 +2821,11 @@ function TransportRiskPanel({ rows, summary }) {
                   </span>
                 ))}
               </div>
+              {hasTransportResponse(row) ? (
+                <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Transport response recorded {formatResponseDateTime(row.transportRespondedAt)}.
+                </p>
+              ) : null}
             </article>
           ))}
         </div>

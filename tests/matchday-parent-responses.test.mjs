@@ -6,6 +6,7 @@ const migrationUrl = new URL('../supabase/migrations/20260630121322_matchday_par
 const repairMigrationUrl = new URL('../supabase/migrations/20260630125915_repair_matchday_parent_response_rpc.sql', import.meta.url)
 const sharedModelMigrationUrl = new URL('../supabase/migrations/20260630153247_matchday_availability_shared_model.sql', import.meta.url)
 const parentRoleStateMigrationUrl = new URL('../supabase/migrations/20260701082353_matchday_parent_role_selection_state.sql', import.meta.url)
+const transportResponseMigrationUrl = new URL('../supabase/migrations/20260704145027_matchday_transport_response_fields.sql', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 const selectVolunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)
 const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
@@ -119,6 +120,35 @@ test('shared availability RPC preserves existing submit signature and adds a v2 
   assert.doesNotMatch(parentPortalSignature, /availability_selected_by_name text/i)
 })
 
+test('transport response migration adds structured staff-only fields and safe checks', async () => {
+  const migration = await readFile(transportResponseMigrationUrl, 'utf8')
+
+  assert.match(migration, /add column if not exists transport_needs_lift boolean not null default false/i)
+  assert.match(migration, /add column if not exists transport_can_offer_lift boolean not null default false/i)
+  assert.match(migration, /add column if not exists transport_seats_offered integer not null default 0/i)
+  assert.match(migration, /add column if not exists transport_responded_at timestamptz/i)
+  assert.match(migration, /constraint match_day_availability_transport_seats_check/i)
+  assert.match(migration, /transport_seats_offered >= 0/i)
+  assert.match(migration, /transport_can_offer_lift is true[\s\S]*or transport_seats_offered = 0/i)
+  assert.doesNotMatch(migration, /transport_note/i)
+  assert.doesNotMatch(migration, /free[-_\s]?text/i)
+})
+
+test('transport response RPCs read and store structured token response fields', async () => {
+  const migration = await readFile(transportResponseMigrationUrl, 'utf8')
+
+  assert.match(migration, /drop function if exists public\.get_match_day_availability_response_v2\(text\);/i)
+  assert.match(migration, /transport_needs_lift boolean[\s\S]*transport_can_offer_lift boolean[\s\S]*transport_seats_offered integer[\s\S]*transport_responded_at timestamptz/i)
+  assert.match(migration, /coalesce\(request_row\.transport_needs_lift, false\)/i)
+  assert.match(migration, /transport_needs_lift_value boolean default null[\s\S]*transport_can_offer_lift_value boolean default null[\s\S]*transport_seats_offered_value integer default null/i)
+  assert.match(migration, /has_transport_response := transport_needs_lift_value is not null[\s\S]*transport_seats_offered_value is not null/i)
+  assert.match(migration, /when next_transport_can_offer_lift is true then greatest\(coalesce\(transport_seats_offered_value, request_row\.transport_seats_offered, 0\), 0\)[\s\S]*else 0/i)
+  assert.match(migration, /transport_responded_at = case[\s\S]*when has_transport_response then timezone\('utc', now\(\)\)/i)
+  assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text, boolean, boolean, integer\) to anon;/i)
+  assert.match(migration, /grant execute on function public\.submit_match_day_availability_response\(text, text, text, text, text, boolean, boolean, integer\) to authenticated;/i)
+  assert.doesNotMatch(migration, /cascade/i)
+})
+
 test('send function creates one response form link and stores parent link context', async () => {
   const source = await readFile(sendFunctionUrl, 'utf8')
 
@@ -155,6 +185,25 @@ test('confirmation function renders a form and submits availability plus role re
   assert.match(source, /Fixture response/)
 })
 
+test('confirmation function captures structured transport response without free text notes', async () => {
+  const source = await readFile(confirmFunctionUrl, 'utf8')
+
+  assert.match(source, /function transportFields\(response\)/)
+  assert.match(source, /name: 'transportNeedsLift'/)
+  assert.match(source, /Does this player need a lift\?/)
+  assert.match(source, /name: 'transportCanOfferLift'/)
+  assert.match(source, /Can you offer a lift\?/)
+  assert.match(source, /name="transportSeatsOffered" min="0" step="1"/)
+  assert.match(source, /Staff coordinate transport manually\. These answers are not shared with other parents\./)
+  assert.match(source, /function normalizeBooleanParam/)
+  assert.match(source, /function normalizeSeatsParam/)
+  assert.match(source, /transport_needs_lift_value: transportNeedsLift/)
+  assert.match(source, /transport_can_offer_lift_value: transportCanOfferLift/)
+  assert.match(source, /transport_seats_offered_value: transportSeatsOffered/)
+  assert.match(source, /if \(VALID_STATUSES\.has\(submittedStatus\)\)[\s\S]*createAvailabilityEventLogEntry/)
+  assert.doesNotMatch(source, /transportNote|transport_note|textarea[\s\S]*Transport/)
+})
+
 test('domain normalizer exposes staff and parent response fields', async () => {
   const source = await readFile(domainUrl, 'utf8')
   const selectVolunteerStart = source.indexOf('export async function selectMatchDayVolunteer')
@@ -183,6 +232,17 @@ test('domain normalizer exposes staff and parent response fields', async () => {
   assert.match(selectVolunteerSource, /fetch\('\/\.netlify\/functions\/select-match-day-volunteer'/)
   assert.match(selectVolunteerSource, /requestId: volunteer\.requestId/)
   assert.doesNotMatch(selectVolunteerSource, /\.from\('match_day_role_assignments'\)/)
+})
+
+test('domain normalizer exposes structured transport fields safely', async () => {
+  const source = await readFile(domainUrl, 'utf8')
+
+  assert.match(source, /function normalizeNonNegativeInteger/)
+  assert.match(source, /transportNeedsLift: row\.transport_needs_lift === true/)
+  assert.match(source, /transportCanOfferLift,/)
+  assert.match(source, /transportSeatsOffered: transportCanOfferLift[\s\S]*normalizeNonNegativeInteger\(row\.transport_seats_offered/)
+  assert.match(source, /transportRespondedAt: row\.transport_responded_at/)
+  assert.match(source, /updatedAt: row\.updated_at/)
 })
 
 test('staff and parent pages surface availability and volunteer responses', async () => {
@@ -236,9 +296,17 @@ test('staff transport risk summary is staff only and availability derived', asyn
   assert.match(helperSource, /key: 'unavailable'/)
   assert.match(helperSource, /key: 'maybe'/)
   assert.match(helperSource, /key: 'conflict'/)
+  assert.match(helperSource, /key: 'needs_lift'/)
+  assert.match(helperSource, /key: 'lift_offer'/)
   assert.match(panelSource, /Transport risk/)
   assert.match(panelSource, /Derived from availability responses/)
+  assert.match(panelSource, /structured transport replies/)
+  assert.match(panelSource, /Staff coordinate manually/)
   assert.match(panelSource, /Needs staff follow-up/)
+  assert.match(panelSource, /Needs lift/)
+  assert.match(panelSource, /Lift offers/)
+  assert.match(panelSource, /Seats offered:/)
+  assert.match(panelSource, /Transport response recorded/)
   assert.match(panelSource, /No transport risk detected from availability responses\./)
   assert.doesNotMatch(helperSource, /fetch\(/)
   assert.doesNotMatch(helperSource, /localStorage/)
@@ -247,6 +315,7 @@ test('staff transport risk summary is staff only and availability derived', asyn
   assert.doesNotMatch(parentSource, /Transport risk/)
   assert.doesNotMatch(parentSource, /Derived from availability responses/)
   assert.doesNotMatch(parentSource, /Needs staff follow-up/)
+  assert.doesNotMatch(parentSource, /Needs lift|Lift offers|Can offer lift|Seats offered/)
 })
 
 test('staff volunteer selection is resolved server side and queues notifications', async () => {
