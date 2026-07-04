@@ -114,11 +114,33 @@ export function PlayerOverview({
                   {fieldMovement.map((item) => (
                     <div key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-                      <p className="mt-2 text-sm font-black text-[#101828]">
-                        {item.firstValue} to {item.latestValue}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-                        {item.change > 0 ? '+' : ''}{item.change.toFixed(1)} change
+                      <dl className="mt-3 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <dt className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">First recorded</dt>
+                          <dd className="text-right text-sm font-black text-[#101828]">
+                            {item.firstValue}
+                            <span className="block text-xs font-semibold text-[#4b5f55]">{item.firstDateLabel}</span>
+                          </dd>
+                        </div>
+                        {item.previousValue !== null ? (
+                          <div className="flex items-start justify-between gap-3">
+                            <dt className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Previous record</dt>
+                            <dd className="text-right text-sm font-black text-[#101828]">
+                              {item.previousValue}
+                              <span className="block text-xs font-semibold text-[#4b5f55]">{item.previousDateLabel}</span>
+                            </dd>
+                          </div>
+                        ) : null}
+                        <div className="flex items-start justify-between gap-3">
+                          <dt className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Current record</dt>
+                          <dd className="text-right text-sm font-black text-[#101828]">
+                            {item.currentValue}
+                            <span className="block text-xs font-semibold text-[#4b5f55]">{item.currentDateLabel}</span>
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="mt-3 border-t border-[#d7e5dc] pt-3 text-sm font-semibold text-[#4b5f55]">
+                        {item.change > 0 ? '+' : ''}{item.change.toFixed(1)} change since first recorded
                       </p>
                     </div>
                   ))}

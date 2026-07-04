@@ -301,6 +301,7 @@ test('field movement only renders numeric field metadata as range cards', () => 
   const evaluations = [
     {
       id: 'evaluation-1',
+      date: '2026-06-01',
       createdAt: new Date('2026-06-01T10:00:00.000Z'),
       formResponses: {
         Technical: 6,
@@ -313,7 +314,17 @@ test('field movement only renders numeric field metadata as range cards', () => 
     },
     {
       id: 'evaluation-2',
+      date: '2026-06-08',
       createdAt: new Date('2026-06-08T10:00:00.000Z'),
+      formResponses: {
+        Technical: 7,
+        Coachability: 7,
+      },
+    },
+    {
+      id: 'evaluation-3',
+      date: '2026-06-18',
+      createdAt: new Date('2026-06-18T10:00:00.000Z'),
       formResponses: {
         Technical: 8,
         Coachability: 7,
@@ -328,7 +339,16 @@ test('field movement only renders numeric field metadata as range cards', () => 
   const movement = buildFieldMovement(evaluations, fields)
 
   assert.deepEqual(movement.map((item) => item.label), ['Technical', 'Coachability'])
-  assert.equal(movement.find((item) => item.label === 'Technical')?.change, 2)
+  const technicalMovement = movement.find((item) => item.label === 'Technical')
+  assert.equal(technicalMovement?.firstValue, 6)
+  assert.equal(technicalMovement?.latestValue, 8)
+  assert.equal(technicalMovement?.change, 2)
+  assert.equal(technicalMovement?.firstDateLabel, '1 Jun 2026')
+  assert.equal(technicalMovement?.previousValue, 7)
+  assert.equal(technicalMovement?.previousDateLabel, '8 Jun 2026')
+  assert.equal(technicalMovement?.currentValue, 8)
+  assert.equal(technicalMovement?.currentDateLabel, '18 Jun 2026')
+  assert.equal(technicalMovement?.recordedCount, 3)
   assert.equal(movement.some((item) => item.label === 'Strengths'), false)
   assert.equal(movement.some((item) => item.label === 'Improvements'), false)
   assert.equal(movement.some((item) => item.label === 'Overall Comments'), false)
@@ -599,6 +619,19 @@ test('progression component labels scored record counts when saved history diffe
   assert.match(source, /Oldest records are on the left and newest records are on the right/)
   assert.match(source, /Progression trend will appear after at least two dated scored records/)
   assert.match(source, /need a valid date before charting/)
+})
+
+test('player overview field movement cards label saved-record context clearly', () => {
+  const source = readFileSync(
+    new URL('../src/components/players/PlayerOverview.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /First recorded/)
+  assert.match(source, /Previous record/)
+  assert.match(source, /Current record/)
+  assert.match(source, /change since first recorded/)
+  assert.doesNotMatch(source, /firstValue\} to \{item\.latestValue/)
 })
 
 test('player profile date displays use the shared British formatter', () => {

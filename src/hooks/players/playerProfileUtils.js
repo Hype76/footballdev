@@ -230,20 +230,34 @@ export function buildFieldMovement(evaluations, fields = [], { currentDate } = {
         fieldValues.set(label, [])
       }
 
-      fieldValues.get(label).push(numericValue)
+      fieldValues.get(label).push({
+        dateLabel: formatTrendDate(evaluation),
+        evaluationId: evaluation.id || '',
+        value: numericValue,
+      })
     })
   })
 
   return Array.from(fieldValues.entries())
     .map(([label, values]) => {
-      const firstValue = values[0]
-      const latestValue = values[values.length - 1]
+      const firstEntry = values[0]
+      const latestEntry = values[values.length - 1]
+      const previousEntry = values.length > 1 ? values[values.length - 2] : null
+      const firstValue = firstEntry?.value
+      const latestValue = latestEntry?.value
 
       return {
         label,
         firstValue,
+        firstDateLabel: firstEntry?.dateLabel || 'No date entered',
+        previousValue: previousEntry?.value ?? null,
+        previousDateLabel: previousEntry?.dateLabel || '',
         latestValue,
+        latestDateLabel: latestEntry?.dateLabel || 'No date entered',
+        currentValue: latestValue,
+        currentDateLabel: latestEntry?.dateLabel || 'No date entered',
         change: latestValue - firstValue,
+        recordedCount: values.length,
       }
     })
     .filter((item) => item.firstValue !== undefined && item.latestValue !== undefined)
