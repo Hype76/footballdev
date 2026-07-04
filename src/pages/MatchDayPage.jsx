@@ -555,6 +555,85 @@ function getMatchEventDetailItems(event) {
   return items.filter(Boolean)
 }
 
+function normalizeStaffGoalText(value) {
+  return String(value ?? '').trim()
+}
+
+function normalizeStaffGoalScore(value) {
+  const score = Number(value ?? 0)
+  return Number.isFinite(score) ? score : 0
+}
+
+function getStaffGoalScoreImpact(match = {}, teamSide = 'club') {
+  const normalizedTeamSide = normalizeStaffGoalText(teamSide) === 'opponent' ? 'opponent' : 'club'
+  let nextHomeScore = normalizeStaffGoalScore(match.homeScore ?? match.home_score)
+  let nextAwayScore = normalizeStaffGoalScore(match.awayScore ?? match.away_score)
+  const homeAway = normalizeStaffGoalText(match.homeAway ?? match.home_away)
+
+  if (normalizedTeamSide === 'club') {
+    if (homeAway === 'away') {
+      nextAwayScore += 1
+    } else {
+      nextHomeScore += 1
+    }
+  } else if (homeAway === 'away') {
+    nextHomeScore += 1
+  } else {
+    nextAwayScore += 1
+  }
+
+  return {
+    homeScore: nextHomeScore,
+    awayScore: nextAwayScore,
+    teamSide: normalizedTeamSide,
+  }
+}
+
+function formatStaffGoalPersonPreview(name, shirtNumber, fallback) {
+  const normalizedName = normalizeStaffGoalText(name)
+  const normalizedShirtNumber = normalizeStaffGoalText(shirtNumber)
+
+  if (normalizedName && normalizedShirtNumber) {
+    return `${normalizedName} #${normalizedShirtNumber}`
+  }
+
+  if (normalizedName) {
+    return normalizedName
+  }
+
+  if (normalizedShirtNumber) {
+    return `Shirt #${normalizedShirtNumber}`
+  }
+
+  return fallback
+}
+
+function buildStaffGoalPreview(match = {}, goalForm = {}) {
+  const scoreImpact = getStaffGoalScoreImpact(match, goalForm.teamSide)
+  const previewMatch = {
+    ...match,
+    homeScore: scoreImpact.homeScore,
+    awayScore: scoreImpact.awayScore,
+  }
+  const goalSideName = scoreImpact.teamSide === 'opponent'
+    ? normalizeStaffGoalText(match.opponent) || 'Opponent'
+    : normalizeStaffGoalText(match.teamName ?? match.team_name) || 'Our team'
+
+  return {
+    assistPreview: formatStaffGoalPersonPreview(goalForm.assistName, goalForm.assistShirtNumber, 'No assist recorded'),
+    goalSideLabel: scoreImpact.teamSide === 'opponent' ? 'Opponent' : 'Our team',
+    goalSideName,
+    homeScore: scoreImpact.homeScore,
+    awayScore: scoreImpact.awayScore,
+    minutePreview: normalizeStaffGoalText(goalForm.minute) || 'Auto from match clock',
+    notePreview: normalizeStaffGoalText(goalForm.notes) || 'No note entered',
+    scoreAfter: getMatchDayDisplayScore(previewMatch),
+    scoreBefore: getMatchDayDisplayScore(match),
+    scorerPreview: formatStaffGoalPersonPreview(goalForm.scorerName, goalForm.scorerShirtNumber, 'No scorer selected'),
+    teamSide: scoreImpact.teamSide,
+  }
+}
+
 function formatEventLogTimestamp(value) {
   if (!value) {
     return 'Time not recorded'
@@ -1595,12 +1674,14 @@ export function MatchDayPage() {
 
   const handleAddGoal = async (event, match) => {
     event.preventDefault()
+    const formGoal = goalForms[match.id] ?? EMPTY_GOAL_FORM
     const goal = {
-      ...(goalForms[match.id] ?? EMPTY_GOAL_FORM),
-      minute: getCurrentMatchMinute(match, Date.now()) ?? '',
+      ...formGoal,
+      minute: normalizeStaffGoalText(formGoal.minute) || (getCurrentMatchMinute(match, Date.now()) ?? ''),
     }
+    const goalPreview = buildStaffGoalPreview(match, goal)
 
-    if (!confirmMatchDayAction('Add this goal to the live feed and update the family portal score?')) {
+    if (!confirmMatchDayAction(`Add this ${goalPreview.goalSideLabel.toLowerCase()} goal and change the score from ${goalPreview.scoreBefore} to ${goalPreview.scoreAfter}?`)) {
       return
     }
 
@@ -1941,6 +2022,7 @@ function MatchDayCard({
   const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
   const displayParts = getMatchDayDisplayParts(match)
   const scoreSummary = getMatchDayDisplayScore(match)
+  const goalPreview = buildStaffGoalPreview(match, goalForm)
 
   return (
     <article className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -2246,19 +2328,47 @@ function MatchDayCard({
           </section>
 
           <form className={panelClass} onSubmit={(event) => onAddGoal(event, match)}>
-            <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <label className="block">
-                <span className={smallLabelClass}>Team</span>
-                <select
-                  value={goalForm.teamSide}
-                  onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })}
-                  className={compactInputClass}
-                >
-                  <option value="club">Our team</option>
-                  <option value="opponent">Opponent</option>
-                </select>
-              </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  {goalPreview.goalSideLabel} goal for {goalPreview.goalSideName}
+                </p>
+              </div>
+              <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                Result if saved: {goalPreview.scoreAfter}
+              </span>
+            </div>
+
+            <div className="mt-3 border-t border-[#d7e5dc] pt-3">
+              <p className={smallLabelClass}>Goal side</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  { label: 'Our team', value: 'club' },
+                  { label: 'Opponent', value: 'opponent' },
+                ].map((option) => {
+                  const isSelected = goalPreview.teamSide === option.value
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => onGoalFormChange(match.id, { teamSide: option.value })}
+                      className={`min-h-10 rounded-lg border px-3 py-2 text-left text-sm font-black transition ${
+                        isSelected
+                          ? 'border-[#047857] bg-[#ecfdf5] text-[#047857]'
+                          : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#0f9f6e] hover:bg-[#f7faf8]'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 border-t border-[#d7e5dc] pt-3 md:grid-cols-3">
               <label className="block">
                 <span className={smallLabelClass}>Scorer player</span>
                 <select
@@ -2268,7 +2378,9 @@ function MatchDayCard({
                 >
                   <option value="">Choose player</option>
                   {players.map((player) => (
-                    <option key={player.id} value={player.id}>{player.playerName}</option>
+                    <option key={player.id} value={player.id}>
+                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -2297,7 +2409,9 @@ function MatchDayCard({
                 >
                   <option value="">Choose player</option>
                   {players.map((player) => (
-                    <option key={player.id} value={player.id}>{player.playerName}</option>
+                    <option key={player.id} value={player.id}>
+                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -2317,6 +2431,26 @@ function MatchDayCard({
                   className={compactInputClass}
                 />
               </label>
+              <label className="block">
+                <span className={smallLabelClass}>Minute</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="130"
+                  value={goalForm.minute}
+                  onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })}
+                  placeholder="Auto"
+                  className={compactInputClass}
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className={smallLabelClass}>Note</span>
+                <textarea
+                  value={goalForm.notes}
+                  onChange={(event) => onGoalFormChange(match.id, { notes: event.target.value })}
+                  className={`${compactInputClass} min-h-20`}
+                />
+              </label>
               <button
                 type="submit"
                 disabled={isBusy}
@@ -2324,6 +2458,29 @@ function MatchDayCard({
               >
                 Add goal
               </button>
+            </div>
+
+            <div className="mt-3 grid gap-3 border-t border-[#d7e5dc] pt-3 lg:grid-cols-[0.9fr_1.1fr]">
+              <div>
+                <p className={smallLabelClass}>Score preview</p>
+                <p className="text-2xl font-black text-[#101828]">{goalPreview.scoreBefore} to {goalPreview.scoreAfter}</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Home after save: {goalPreview.homeScore}. Away after save: {goalPreview.awayScore}.
+                </p>
+              </div>
+              <dl className="grid gap-2 sm:grid-cols-2">
+                {[
+                  ['Scorer', goalPreview.scorerPreview],
+                  ['Assist', goalPreview.assistPreview],
+                  ['Minute', goalPreview.minutePreview],
+                  ['Note', goalPreview.notePreview],
+                ].map(([label, value]) => (
+                  <div key={label} className="border-l-2 border-[#d7e5dc] pl-3">
+                    <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-[#047857]">{label}</dt>
+                    <dd className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{value}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </form>
 
