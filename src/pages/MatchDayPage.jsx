@@ -39,6 +39,7 @@ import {
   reconcileMatchDayVolunteerSelectionInList,
 } from '../lib/matchday-volunteer-state.js'
 import { reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
+import { reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -1712,14 +1713,27 @@ export function MatchDayPage() {
         updates.phaseStartedAt = new Date().toISOString()
       }
 
-      await updateMatchDay({ user, matchId: match.id, updates })
+      const savedMatch = await updateMatchDay({ user, matchId: match.id, updates })
+      const reconcileSavedMatch = (currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
+        match: savedMatch,
+        matchId: match.id,
+      })
+
+      setMatches(reconcileSavedMatch)
       if (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time') {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
           type: status,
         })
       }
-      await loadData()
+      try {
+        await loadData()
+        setMatches(reconcileSavedMatch)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileSavedMatch)
+        setErrorMessage(loadError.message || 'Match status was saved, but Match Day could not be refreshed. Refresh the page before making another status change.')
+      }
       showToast({ title: 'Match updated', message: 'The match status has been updated.' })
     } catch (error) {
       console.error(error)
@@ -1743,7 +1757,7 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      await updateMatchDay({
+      const savedMatch = await updateMatchDay({
         user,
         matchId: match.id,
         updates: {
@@ -1751,7 +1765,20 @@ export function MatchDayPage() {
           awayScore: draft.awayScore,
         },
       })
-      await loadData()
+      const reconcileSavedMatch = (currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
+        match: savedMatch,
+        matchId: match.id,
+      })
+
+      setMatches(reconcileSavedMatch)
+      try {
+        await loadData()
+        setMatches(reconcileSavedMatch)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileSavedMatch)
+        setErrorMessage(loadError.message || 'Score was saved, but Match Day could not be refreshed. Refresh the page before making another score change.')
+      }
       showToast({ title: 'Score updated', message: 'The family portal score has been updated.' })
     } catch (error) {
       console.error(error)

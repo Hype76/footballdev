@@ -11,6 +11,10 @@ import {
   reconcileMatchDayGoal,
   reconcileMatchDayGoalInList,
 } from '../src/lib/matchday-goal-state.js'
+import {
+  reconcileMatchDayUpdate,
+  reconcileMatchDayUpdateInList,
+} from '../src/lib/matchday-update-state.js'
 
 function createMatch() {
   return {
@@ -308,4 +312,87 @@ test('staff add goal handler locally reconciles before and after canonical load 
   assert.match(handlerSource, /await loadData\(\)[\s\S]*setMatches\(reconcileSavedGoal\)/)
   assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileSavedGoal\)[\s\S]*Goal was added, but the latest Match Day data could not be refreshed\./)
   assert.doesNotMatch(handlerSource, /sendEmail|scheduled_email_queue|match_day_availability|transport/i)
+})
+
+test('match update reconciliation replaces visible status and score for one row', () => {
+  const match = {
+    id: 'match-1',
+    status: 'scheduled',
+    homeScore: 0,
+    awayScore: 0,
+    eventLog: [{ id: 'old-log' }],
+  }
+  const savedMatch = {
+    id: 'match-1',
+    status: 'full_time',
+    homeScore: 3,
+    awayScore: 2,
+    eventLog: [{ id: 'server-log' }],
+  }
+
+  const [nextMatch, untouchedMatch] = reconcileMatchDayUpdateInList([match, { id: 'match-2', status: 'scheduled' }], {
+    match: savedMatch,
+    matchId: 'match-1',
+  })
+
+  assert.equal(nextMatch.status, 'full_time')
+  assert.equal(nextMatch.homeScore, 3)
+  assert.equal(nextMatch.awayScore, 2)
+  assert.deepEqual(nextMatch.eventLog, [{ id: 'server-log' }])
+  assert.equal(untouchedMatch.id, 'match-2')
+  assert.equal(untouchedMatch.status, 'scheduled')
+})
+
+test('match update reconciliation preserves relation arrays when a partial saved match omits them', () => {
+  const nextMatch = reconcileMatchDayUpdate({
+    id: 'match-1',
+    status: 'scheduled',
+    roleAssignments: [{ id: 'role-1' }],
+    availabilityRequests: [{ id: 'request-1' }],
+    eventLog: [{ id: 'log-1' }],
+    events: [{ id: 'event-1' }],
+  }, {
+    id: 'match-1',
+    status: 'live',
+  })
+
+  assert.equal(nextMatch.status, 'live')
+  assert.deepEqual(nextMatch.roleAssignments, [{ id: 'role-1' }])
+  assert.deepEqual(nextMatch.availabilityRequests, [{ id: 'request-1' }])
+  assert.deepEqual(nextMatch.eventLog, [{ id: 'log-1' }])
+  assert.deepEqual(nextMatch.events, [{ id: 'event-1' }])
+})
+
+test('staff status handler reconciles saved status before and after canonical load without changing push send', () => {
+  const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
+  const handlerStart = source.indexOf('const handleStatusChange = async (match, status) => {')
+  const handlerEnd = source.indexOf('const handleScoreSave = async', handlerStart)
+  const handlerSource = source.slice(handlerStart, handlerEnd)
+
+  assert.notEqual(handlerStart, -1)
+  assert.notEqual(handlerEnd, -1)
+  assert.match(handlerSource, /const savedMatch = await updateMatchDay\(\{ user, matchId: match\.id, updates \}\)/)
+  assert.match(handlerSource, /const reconcileSavedMatch = \(currentMatches\) => reconcileMatchDayUpdateInList/)
+  assert.match(handlerSource, /setMatches\(reconcileSavedMatch\)[\s\S]*void sendMatchDayPushNotification/)
+  assert.match(handlerSource, /type: status/)
+  assert.match(handlerSource, /await loadData\(\)[\s\S]*setMatches\(reconcileSavedMatch\)/)
+  assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileSavedMatch\)[\s\S]*Match status was saved, but Match Day could not be refreshed\./)
+  assert.doesNotMatch(handlerSource, /sendEmail|scheduled_email_queue|match_day_availability|transport/i)
+})
+
+test('staff manual score handler reconciles saved score before and after canonical load without sending push', () => {
+  const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
+  const handlerStart = source.indexOf('const handleScoreSave = async (match) => {')
+  const handlerEnd = source.indexOf('const openVolunteerSelectionPrompt =', handlerStart)
+  const handlerSource = source.slice(handlerStart, handlerEnd)
+
+  assert.notEqual(handlerStart, -1)
+  assert.notEqual(handlerEnd, -1)
+  assert.match(handlerSource, /const savedMatch = await updateMatchDay\(/)
+  assert.match(handlerSource, /homeScore: draft\.homeScore/)
+  assert.match(handlerSource, /awayScore: draft\.awayScore/)
+  assert.match(handlerSource, /const reconcileSavedMatch = \(currentMatches\) => reconcileMatchDayUpdateInList/)
+  assert.match(handlerSource, /setMatches\(reconcileSavedMatch\)[\s\S]*await loadData\(\)[\s\S]*setMatches\(reconcileSavedMatch\)/)
+  assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileSavedMatch\)[\s\S]*Score was saved, but Match Day could not be refreshed\./)
+  assert.doesNotMatch(handlerSource, /sendMatchDayPushNotification|sendEmail|scheduled_email_queue|match_day_availability|transport/i)
 })
