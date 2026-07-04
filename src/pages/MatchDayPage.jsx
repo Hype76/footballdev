@@ -958,6 +958,59 @@ function getTransportRiskSummary(rows) {
   return summary
 }
 
+function createTransportCoordinationGroup(label, rows) {
+  return {
+    label,
+    rows,
+    count: rows.length,
+  }
+}
+
+function getTransportCoordinationSummary(rows = []) {
+  const coordinationRows = rows.map((row) => {
+    const status = String(row.status || 'pending').toLowerCase()
+    const transportSeatsOffered = row.transportCanOfferLift === true ? Number(row.transportSeatsOffered || 0) : 0
+
+    return {
+      id: row.id || row.playerId || row.playerName,
+      playerName: row.playerName || 'Player',
+      status,
+      transportNeedsLift: row.transportNeedsLift === true,
+      transportCanOfferLift: row.transportCanOfferLift === true,
+      transportSeatsOffered,
+      transportRespondedAt: row.transportRespondedAt || '',
+    }
+  })
+  const needsLift = coordinationRows.filter((row) => row.transportNeedsLift === true)
+  const canOfferSeats = coordinationRows.filter((row) => row.transportCanOfferLift === true)
+  const noResponse = coordinationRows.filter((row) => !['available', 'maybe', 'unavailable'].includes(row.status))
+  const maybe = coordinationRows.filter((row) => row.status === 'maybe')
+  const unavailable = coordinationRows.filter((row) => row.status === 'unavailable')
+  const chaseKeys = new Set([
+    ...needsLift.map((row) => row.id),
+    ...noResponse.map((row) => row.id),
+    ...maybe.map((row) => row.id),
+    ...unavailable.map((row) => row.id),
+  ])
+  const seatsOffered = canOfferSeats.reduce((total, row) => total + row.transportSeatsOffered, 0)
+  const liftNeeds = needsLift.length
+  const seatBalance = seatsOffered - liftNeeds
+
+  return {
+    groups: [
+      createTransportCoordinationGroup('Needs lift', needsLift),
+      createTransportCoordinationGroup('Can offer seats', canOfferSeats),
+      createTransportCoordinationGroup('No response', noResponse),
+      createTransportCoordinationGroup('Maybe', maybe),
+      createTransportCoordinationGroup('Unavailable', unavailable),
+    ],
+    chaseList: coordinationRows.filter((row) => chaseKeys.has(row.id)),
+    liftNeeds,
+    seatBalance,
+    seatsOffered,
+  }
+}
+
 function getAvailabilityStats(match) {
   const rows = getCurrentAvailabilityRows(match)
   const requests = Array.isArray(match.availabilityRequests) ? match.availabilityRequests : []
@@ -2185,6 +2238,7 @@ function MatchDayCard({
   const availabilityStats = getAvailabilityStats(match)
   const transportRiskRows = getTransportRiskRows(match)
   const transportRiskSummary = getTransportRiskSummary(transportRiskRows)
+  const transportCoordination = getTransportCoordinationSummary(currentAvailabilityRows)
   const events = Array.isArray(match.events) ? match.events : []
   const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
   const displayParts = getMatchDayDisplayParts(match)
@@ -2349,6 +2403,8 @@ function MatchDayCard({
           </section>
 
           <TransportRiskPanel rows={transportRiskRows} summary={transportRiskSummary} />
+
+          <TransportCoordinationPanel summary={transportCoordination} />
 
           <section className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Roles</h5>
@@ -2838,6 +2894,109 @@ function TransportRiskPanel({ rows, summary }) {
         </div>
       )}
     </section>
+  )
+}
+
+function getTransportCapacityLabel(seatBalance) {
+  if (seatBalance < 0) {
+    return 'Potential shortfall'
+  }
+
+  if (seatBalance > 0) {
+    return 'Potential surplus'
+  }
+
+  return 'Capacity balanced'
+}
+
+function TransportCoordinationPanel({ summary }) {
+  const capacityLabel = getTransportCapacityLabel(summary.seatBalance)
+
+  return (
+    <section className={panelClass}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h5 className="text-sm font-black text-[#101828]">Transport coordination</h5>
+            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
+              Staff-only
+            </span>
+          </div>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+            Manual coordination only. No matching has been created.
+          </p>
+        </div>
+        <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${
+          summary.seatBalance < 0
+            ? 'border-[#fed7aa] bg-[#fff7ed] text-[#92400e]'
+            : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+        }`}
+        >
+          {capacityLabel}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <AvailabilityCount label="Lift needs" value={summary.liftNeeds} />
+        <AvailabilityCount label="Seats offered" value={summary.seatsOffered} />
+        <AvailabilityCount label="Balance" value={summary.seatBalance} />
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        {summary.groups.map((group) => (
+          <TransportCoordinationGroup key={group.label} group={group} />
+        ))}
+      </div>
+
+      <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white p-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Staff chase list</p>
+        {summary.chaseList.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {summary.chaseList.map((row) => (
+              <span key={row.id || row.playerName} className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
+                {row.playerName}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            No transport or availability chase items from current responses.
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function TransportCoordinationGroup({ group }) {
+  return (
+    <article className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-black text-[#101828]">{group.label}</p>
+        <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
+          {group.count}
+        </span>
+      </div>
+      {group.rows.length > 0 ? (
+        <div className="mt-2 space-y-2">
+          {group.rows.map((row) => (
+            <div key={row.id || row.playerName} className="rounded-lg border border-[#e8f1ec] bg-[#f7faf8] px-3 py-2">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-black text-[#101828]">{row.playerName}</p>
+                <span className="text-xs font-black text-[#4b5f55]">{getAvailabilityStatusLabel(row.status)}</span>
+              </div>
+              {row.transportCanOfferLift ? (
+                <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+                  Seats offered: {row.transportSeatsOffered}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No players in this group.</p>
+      )}
+    </article>
   )
 }
 
