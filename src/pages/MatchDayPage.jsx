@@ -525,6 +525,51 @@ function getEventLogTypeLabel(entry) {
   return labels[eventType] || eventType.replace(/_/g, ' ')
 }
 
+const EVENT_LOG_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'squad', label: 'Squad' },
+  { key: 'availability', label: 'Availability' },
+  { key: 'roles', label: 'Roles' },
+  { key: 'invites', label: 'Invites' },
+  { key: 'match', label: 'Match' },
+]
+
+const EVENT_LOG_TYPE_FILTERS = {
+  invite_prepared: 'invites',
+  invite_queued: 'invites',
+  linesman_updated: 'roles',
+  match_day_created: 'match',
+  match_day_updated: 'match',
+  match_role_assigned: 'roles',
+  match_role_removed: 'roles',
+  note_updated: 'match',
+  player_availability_changed: 'availability',
+  player_deselected: 'squad',
+  player_selected: 'squad',
+  scorer_updated: 'match',
+}
+
+function getEventLogFilterKey(entry) {
+  const eventType = String(entry?.eventType || '')
+  const directFilter = EVENT_LOG_TYPE_FILTERS[eventType]
+
+  if (directFilter) {
+    return directFilter
+  }
+
+  if (
+    eventType.includes('fixture')
+    || eventType.includes('match')
+    || eventType.includes('note')
+    || eventType.includes('score')
+    || eventType.includes('scorer')
+  ) {
+    return 'match'
+  }
+
+  return 'other'
+}
+
 function getEventLogDetail(entry) {
   const previousStatus = entry.previousValue?.status
   const nextStatus = entry.newValue?.status
@@ -2284,18 +2329,63 @@ function ReadinessItem({ item }) {
 }
 
 function MatchDayEventLogPanel({ entries }) {
-  const recentEntries = Array.isArray(entries) ? entries.slice(0, 8) : []
+  const [selectedFilterKey, setSelectedFilterKey] = useState('all')
+  const eventEntries = Array.isArray(entries) ? entries : []
+  const filters = EVENT_LOG_FILTERS.map((filter) => ({
+    ...filter,
+    count: filter.key === 'all'
+      ? eventEntries.length
+      : eventEntries.filter((entry) => getEventLogFilterKey(entry) === filter.key).length,
+  }))
+  const activeFilter = filters.find((filter) => filter.key === selectedFilterKey) || filters[0]
+  const filteredEntries = activeFilter.key === 'all'
+    ? eventEntries
+    : eventEntries.filter((entry) => getEventLogFilterKey(entry) === activeFilter.key)
+  const recentEntries = filteredEntries.slice(0, 8)
+  const emptyFilterLabel = activeFilter.label.toLowerCase()
 
   return (
     <section className={panelClass}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h5 className="text-sm font-black text-[#101828]">Event Log</h5>
-          <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{recentEntries.length} recent entries</p>
+          <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+            {activeFilter.key === 'all'
+              ? `${eventEntries.length} recent entries`
+              : `${recentEntries.length} of ${eventEntries.length} recent entries`}
+          </p>
         </div>
       </div>
 
-      {recentEntries.length > 0 ? (
+      <div className="mt-3 flex flex-wrap gap-2" aria-label="Event log filters">
+        {filters.map((filter) => {
+          const isActive = filter.key === activeFilter.key
+
+          return (
+            <button
+              key={filter.key}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setSelectedFilterKey(filter.key)}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-black transition ${
+                isActive
+                  ? 'border-[#047857] bg-[#ecfdf5] text-[#047857]'
+                  : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#9ac7b4] hover:bg-[#f7faf8]'
+              }`}
+            >
+              <span>{filter.label}</span>
+              <span className="rounded-md bg-[#f7faf8] px-1.5 py-0.5 text-[11px] text-[#4b5f55]">{filter.count}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {eventEntries.length === 0 ? (
+        <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+          <p className="text-sm font-black text-[#101828]">No event log entries yet.</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">New Match Day changes will appear here.</p>
+        </div>
+      ) : recentEntries.length > 0 ? (
         <div className="mt-3 space-y-2">
           {recentEntries.map((entry) => {
             const detail = getEventLogDetail(entry)
@@ -2322,8 +2412,8 @@ function MatchDayEventLogPanel({ entries }) {
         </div>
       ) : (
         <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
-          <p className="text-sm font-black text-[#101828]">No event log entries yet.</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">New Match Day changes will appear here.</p>
+          <p className="text-sm font-black text-[#101828]">No {emptyFilterLabel} entries yet.</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">Use All to see the full Match Day event log.</p>
         </div>
       )}
     </section>
