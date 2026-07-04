@@ -42,7 +42,22 @@ test('scorer select reconciles the visible row immediately and keeps adjacent ro
   const nextMatch = reconcileMatchDayVolunteerSelection(createMatch(), {
     matchId: 'match-1',
     now: '2026-07-03T20:00:00.000Z',
-    result: { parentLinkId: 'parent-1', authUserId: 'auth-1' },
+    result: {
+      parentLinkId: 'parent-1',
+      authUserId: 'auth-1',
+      assignment: {
+        id: 'role-assignment-scorer-1',
+        matchDayId: 'match-1',
+        role: 'scorer',
+        parentLinkId: 'parent-1',
+        authUserId: 'auth-1',
+        parentEmail: 'saved-parent@example.test',
+        playerName: 'Ava Saved',
+        assignedByName: 'Saved Coach',
+        createdAt: '2026-07-03T19:59:00.000Z',
+        updatedAt: '2026-07-03T20:00:00.000Z',
+      },
+    },
     role: 'scorer',
     selected: true,
     user: { email: 'coach@example.test' },
@@ -53,21 +68,22 @@ test('scorer select reconciles the visible row immediately and keeps adjacent ro
   assert.deepEqual(
     nextMatch.roleAssignments.find((assignment) => assignment.role === 'scorer'),
     {
-      id: 'local-match-1-scorer',
+      id: 'role-assignment-scorer-1',
       matchDayId: 'match-1',
       role: 'scorer',
       parentLinkId: 'parent-1',
       authUserId: 'auth-1',
-      parentEmail: 'parent@example.test',
-      playerName: 'Ava Green',
-      assignedByName: 'coach@example.test',
+      parentEmail: 'saved-parent@example.test',
+      playerName: 'Ava Saved',
+      assignedByName: 'Saved Coach',
       isCurrentParent: false,
-      createdAt: '2026-07-03T20:00:00.000Z',
+      createdAt: '2026-07-03T19:59:00.000Z',
       updatedAt: '2026-07-03T20:00:00.000Z',
     },
   )
   assert.equal(nextMatch.roleAssignments.find((assignment) => assignment.role === 'referee')?.parentLinkId, 'parent-referee')
   assert.equal(nextMatch.scorerAssignments[0].parentLinkId, 'parent-1')
+  assert.equal(nextMatch.scorerAssignments[0].id, 'role-assignment-scorer-1')
 })
 
 test('linesman select replaces only the linesman assignment and persists through list reconciliation', () => {
@@ -89,7 +105,20 @@ test('linesman select replaces only the linesman assignment and persists through
   const [nextMatch, untouchedMatch] = reconcileMatchDayVolunteerSelectionInList([match, { id: 'match-2', roleAssignments: [] }], {
     matchId: 'match-1',
     now: '2026-07-03T20:05:00.000Z',
-    result: { parentLinkId: 'parent-2' },
+    result: {
+      parentLinkId: 'parent-2',
+      assignment: {
+        id: 'role-assignment-linesman-1',
+        matchDayId: 'match-1',
+        role: 'linesman',
+        parentLinkId: 'parent-2',
+        parentEmail: 'saved-line@example.test',
+        playerName: 'Mia Saved',
+        assignedByName: 'Coach Green',
+        createdAt: '2026-07-03T20:05:00.000Z',
+        updatedAt: '2026-07-03T20:05:00.000Z',
+      },
+    },
     role: 'linesman',
     selected: true,
     user: { name: 'Coach Green' },
@@ -103,7 +132,9 @@ test('linesman select replaces only the linesman assignment and persists through
 
   assert.equal(untouchedMatch.id, 'match-2')
   assert.equal(nextMatch.roleAssignments.filter((assignment) => assignment.role === 'linesman').length, 1)
-  assert.equal(nextMatch.roleAssignments.find((assignment) => assignment.role === 'linesman')?.parentEmail, 'line@example.test')
+  assert.equal(nextMatch.roleAssignments.find((assignment) => assignment.role === 'linesman')?.id, 'role-assignment-linesman-1')
+  assert.equal(nextMatch.roleAssignments.find((assignment) => assignment.role === 'linesman')?.parentEmail, 'saved-line@example.test')
+  assert.equal(nextMatch.roleAssignments.find((assignment) => assignment.role === 'linesman')?.playerName, 'Mia Saved')
   assert.equal(nextMatch.roleAssignments.find((assignment) => assignment.role === 'referee')?.parentLinkId, 'parent-referee')
 })
 

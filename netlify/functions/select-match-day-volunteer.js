@@ -426,6 +426,25 @@ async function getCurrentAssignment(adminSupabase, matchDayId, role) {
   return data
 }
 
+function normalizeRoleAssignmentResponse(row = {}) {
+  const parentLink = Array.isArray(row.parent_player_links) ? row.parent_player_links[0] : row.parent_player_links
+  const player = Array.isArray(parentLink?.players) ? parentLink.players[0] : parentLink?.players
+
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    role: normalizeText(row.role),
+    parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
+    authUserId: row.auth_user_id ?? row.authUserId ?? parentLink?.auth_user_id ?? '',
+    parentEmail: normalizeText(row.parent_email ?? row.parentEmail ?? parentLink?.email),
+    playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name),
+    assignedByName: normalizeText(row.assigned_by_name ?? row.assignedByName),
+    isCurrentParent: false,
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
 async function upsertRoleAssignment(adminSupabase, { match, parentLink, profile, role }) {
   const payload = {
     match_day_id: match.id,
@@ -438,13 +457,17 @@ async function upsertRoleAssignment(adminSupabase, { match, parentLink, profile,
     assigned_by_name: normalizeText(profile.display_name || profile.name || profile.email),
     updated_at: new Date().toISOString(),
   }
-  const { error } = await adminSupabase
+  const { data, error } = await adminSupabase
     .from('match_day_role_assignments')
     .upsert(payload, { onConflict: 'match_day_id,role' })
+    .select('*, parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))')
+    .single()
 
   if (error) {
     throw error
   }
+
+  return normalizeRoleAssignmentResponse(data || payload)
 }
 
 async function syncLegacyScorerAssignment(adminSupabase, { match, parentLink, profile, selected }) {
@@ -613,6 +636,7 @@ export async function handler(event) {
     const isSameSelection = String(previousParentLinkId || '') === String(parentLink.id)
     const queuedNotifications = []
     let notificationWarning = ''
+    let savedAssignment = null
 
     if (selected === false) {
       if (!isSameSelection) {
@@ -633,7 +657,7 @@ export async function handler(event) {
         await syncLegacyScorerAssignment(adminSupabase, { match, parentLink, profile, selected: false })
       }
     } else {
-      await upsertRoleAssignment(adminSupabase, { match, parentLink, profile, role })
+      savedAssignment = await upsertRoleAssignment(adminSupabase, { match, parentLink, profile, role })
 
       if (role === 'scorer') {
         await syncLegacyScorerAssignment(adminSupabase, { match, parentLink, profile, selected: true })
@@ -710,8 +734,13 @@ export async function handler(event) {
 
     return json(200, {
       success: true,
-      parentLinkId: parentLink.id,
-      authUserId: parentLink.auth_user_id || '',
+      role,
+      selected,
+      assignment: selected ? savedAssignment : null,
+      removedRole: selected ? '' : role,
+      assignmentId: savedAssignment?.id || '',
+      parentLinkId: savedAssignment?.parentLinkId || parentLink.id,
+      authUserId: savedAssignment?.authUserId || parentLink.auth_user_id || '',
       notificationQueuedCount: queuedNotifications.length,
       notificationQueueIds: queuedNotifications,
       warning: notificationWarning,
