@@ -7,6 +7,10 @@ import {
   reconcileMatchDayVolunteerSelection,
   reconcileMatchDayVolunteerSelectionInList,
 } from '../src/lib/matchday-volunteer-state.js'
+import {
+  reconcileMatchDayGoal,
+  reconcileMatchDayGoalInList,
+} from '../src/lib/matchday-goal-state.js'
 
 function createMatch() {
   return {
@@ -190,4 +194,118 @@ test('Match Day volunteer selection uses app modal and local reconciliation inst
   assert.match(handlerSource, /showToast\(\{ title: `\$\{roleLabel\} not updated`/)
   assert.doesNotMatch(handlerSource, /confirmMatchDayAction|window\.confirm/)
   assert.doesNotMatch(promptSource, /window\.confirm/)
+})
+
+test('staff goal reconciliation updates score, timeline, and event log source immediately', () => {
+  const match = {
+    id: 'match-1',
+    clubId: 'club-1',
+    teamId: 'team-1',
+    status: 'scheduled',
+    homeAway: 'home',
+    homeScore: 0,
+    awayScore: 0,
+    events: [],
+    eventLog: [],
+  }
+  const savedEvent = {
+    id: 'goal-event-1',
+    matchDayId: 'match-1',
+    eventType: 'goal',
+    teamSide: 'club',
+    minute: 12,
+    scorerName: 'Ava Green',
+    scorerInitials: 'AG',
+    scorerShirtNumber: '9',
+    homeScore: 1,
+    awayScore: 0,
+    createdByName: 'Coach One',
+    createdAt: '2026-07-04T18:30:00.000Z',
+  }
+
+  const nextMatch = reconcileMatchDayGoal(match, {
+    event: savedEvent,
+    user: { email: 'coach@example.test', role: 'coach' },
+  })
+
+  assert.equal(nextMatch.homeScore, 1)
+  assert.equal(nextMatch.awayScore, 0)
+  assert.equal(nextMatch.status, 'live')
+  assert.equal(nextMatch.events.length, 1)
+  assert.equal(nextMatch.events[0].id, 'goal-event-1')
+  assert.equal(nextMatch.events[0].scorerName, 'Ava Green')
+  assert.equal(nextMatch.eventLog.length, 1)
+  assert.equal(nextMatch.eventLog[0].eventType, 'scorer_updated')
+  assert.equal(nextMatch.eventLog[0].eventLabel, 'Goal added')
+  assert.equal(nextMatch.eventLog[0].metadata.goalEventId, 'goal-event-1')
+  assert.deepEqual(nextMatch.eventLog[0].newValue, {
+    homeScore: 1,
+    awayScore: 0,
+    status: 'live',
+  })
+})
+
+test('staff goal reconciliation is idempotent across canonical reload follow-up', () => {
+  const match = {
+    id: 'match-1',
+    clubId: 'club-1',
+    teamId: 'team-1',
+    status: 'live',
+    homeScore: 1,
+    awayScore: 1,
+    events: [
+      {
+        id: 'goal-event-1',
+        matchDayId: 'match-1',
+        eventType: 'goal',
+        teamSide: 'opponent',
+        homeScore: 1,
+        awayScore: 1,
+      },
+    ],
+    eventLog: [
+      {
+        id: 'server-log-1',
+        matchDayId: 'match-1',
+        eventType: 'scorer_updated',
+        metadata: {
+          goalEventId: 'goal-event-1',
+        },
+      },
+    ],
+  }
+  const [nextMatch, untouchedMatch] = reconcileMatchDayGoalInList([match, { id: 'match-2', events: [], eventLog: [] }], {
+    event: {
+      id: 'goal-event-1',
+      matchDayId: 'match-1',
+      eventType: 'goal',
+      teamSide: 'opponent',
+      homeScore: 1,
+      awayScore: 1,
+    },
+    matchId: 'match-1',
+    user: { name: 'Coach One' },
+  })
+
+  assert.equal(untouchedMatch.id, 'match-2')
+  assert.equal(nextMatch.events.length, 1)
+  assert.equal(nextMatch.eventLog.length, 1)
+  assert.equal(nextMatch.eventLog[0].id, 'server-log-1')
+})
+
+test('staff add goal handler locally reconciles before and after canonical load without changing push send', () => {
+  const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
+  const handlerStart = source.indexOf('const handleAddGoal = async (event, match) => {')
+  const handlerEnd = source.indexOf('const handleResetPrevious = async', handlerStart)
+  const handlerSource = source.slice(handlerStart, handlerEnd)
+
+  assert.notEqual(handlerStart, -1)
+  assert.notEqual(handlerEnd, -1)
+  assert.match(handlerSource, /const savedEvent = await addStaffMatchDayGoal\(\{ user, match, goal \}\)/)
+  assert.match(handlerSource, /const reconcileSavedGoal = \(currentMatches\) => reconcileMatchDayGoalInList/)
+  assert.match(handlerSource, /setMatches\(reconcileSavedGoal\)[\s\S]*void sendMatchDayPushNotification/)
+  assert.match(handlerSource, /eventId: savedEvent\.id/)
+  assert.match(handlerSource, /await loadData\(\)[\s\S]*setMatches\(reconcileSavedGoal\)/)
+  assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileSavedGoal\)[\s\S]*Goal was added, but the latest Match Day data could not be refreshed\./)
+  assert.doesNotMatch(handlerSource, /sendEmail|scheduled_email_queue|match_day_availability|transport/i)
 })

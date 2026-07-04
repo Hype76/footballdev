@@ -1,0 +1,163 @@
+function normalizeText(value) {
+  return String(value ?? '').trim()
+}
+
+function normalizeScore(value) {
+  const score = Number(value ?? 0)
+  return Number.isFinite(score) ? score : 0
+}
+
+function normalizeGoalEvent(event = {}, match = {}) {
+  return {
+    id: normalizeText(event.id),
+    matchDayId: normalizeText(event.matchDayId) || normalizeText(match.id),
+    eventType: normalizeText(event.eventType) || 'goal',
+    teamSide: normalizeText(event.teamSide) === 'opponent' ? 'opponent' : 'club',
+    minute: event.minute ?? null,
+    scorerName: normalizeText(event.scorerName),
+    scorerInitials: normalizeText(event.scorerInitials),
+    scorerShirtNumber: normalizeText(event.scorerShirtNumber),
+    assistName: normalizeText(event.assistName),
+    assistInitials: normalizeText(event.assistInitials),
+    assistShirtNumber: normalizeText(event.assistShirtNumber),
+    homeScore: normalizeScore(event.homeScore ?? match.homeScore),
+    awayScore: normalizeScore(event.awayScore ?? match.awayScore),
+    notes: normalizeText(event.notes),
+    createdByName: normalizeText(event.createdByName),
+    createdAt: event.createdAt || '',
+  }
+}
+
+function getGoalEventKey(event = {}) {
+  const normalizedEvent = normalizeGoalEvent(event)
+
+  return normalizedEvent.id || [
+    normalizedEvent.matchDayId,
+    normalizedEvent.eventType,
+    normalizedEvent.teamSide,
+    normalizedEvent.minute ?? '',
+    normalizedEvent.homeScore,
+    normalizedEvent.awayScore,
+    normalizedEvent.scorerName,
+    normalizedEvent.createdAt,
+  ].join(':')
+}
+
+function hasMatchingGoalEvent(events, savedEvent) {
+  const savedKey = getGoalEventKey(savedEvent)
+
+  return events.some((event) => getGoalEventKey(event) === savedKey)
+}
+
+function getSavedStatus(match = {}) {
+  return ['scheduled', 'scorer_request'].includes(normalizeText(match.status))
+    ? 'live'
+    : normalizeText(match.status) || 'scheduled'
+}
+
+function getActorName(user = {}, savedEvent = {}) {
+  return normalizeText(savedEvent.createdByName)
+    || normalizeText(user.displayName)
+    || normalizeText(user.name)
+    || normalizeText(user.email)
+}
+
+export function buildLocalMatchDayGoalEventLogEntry({
+  event,
+  match = {},
+  now = new Date().toISOString(),
+  user = {},
+}) {
+  const savedEvent = normalizeGoalEvent(event, match)
+  const goalEventId = savedEvent.id
+  const eventKey = getGoalEventKey(savedEvent)
+
+  return {
+    id: `local-goal-log-${goalEventId || eventKey}`,
+    clubId: normalizeText(match.clubId),
+    teamId: normalizeText(match.teamId),
+    matchDayId: savedEvent.matchDayId || normalizeText(match.id),
+    playerId: '',
+    playerName: '',
+    actorUserId: normalizeText(user.id),
+    actorDisplayName: getActorName(user, savedEvent),
+    actorRole: normalizeText(user.roleLabel || user.role) || 'staff',
+    eventType: 'scorer_updated',
+    eventLabel: 'Goal added',
+    previousValue: {
+      homeScore: normalizeScore(match.homeScore),
+      awayScore: normalizeScore(match.awayScore),
+      status: normalizeText(match.status),
+    },
+    newValue: {
+      homeScore: savedEvent.homeScore,
+      awayScore: savedEvent.awayScore,
+      status: getSavedStatus(match),
+    },
+    metadata: {
+      goalEventId,
+      teamSide: savedEvent.teamSide,
+      minute: savedEvent.minute,
+      scorerName: savedEvent.scorerName,
+      source: 'staff_match_day',
+      localReconciled: true,
+    },
+    createdAt: savedEvent.createdAt || now,
+  }
+}
+
+function hasMatchingGoalEventLogEntry(entries, savedEvent) {
+  const goalEventId = normalizeText(savedEvent.id)
+  const localEntryId = `local-goal-log-${goalEventId || getGoalEventKey(savedEvent)}`
+
+  return entries.some((entry) => (
+    normalizeText(entry.id) === localEntryId
+    || (goalEventId && normalizeText(entry.metadata?.goalEventId) === goalEventId)
+  ))
+}
+
+export function reconcileMatchDayGoal(match, {
+  event,
+  now,
+  user,
+} = {}) {
+  if (!match?.id || !event) {
+    return match
+  }
+
+  const savedEvent = normalizeGoalEvent(event, match)
+  const currentEvents = Array.isArray(match.events) ? match.events : []
+  const currentEventLog = Array.isArray(match.eventLog) ? match.eventLog : []
+  const nextEvents = hasMatchingGoalEvent(currentEvents, savedEvent)
+    ? currentEvents
+    : [savedEvent, ...currentEvents]
+  const localEventLogEntry = buildLocalMatchDayGoalEventLogEntry({
+    event: savedEvent,
+    match,
+    now,
+    user,
+  })
+  const nextEventLog = hasMatchingGoalEventLogEntry(currentEventLog, savedEvent)
+    ? currentEventLog
+    : [localEventLogEntry, ...currentEventLog]
+
+  return {
+    ...match,
+    status: getSavedStatus(match),
+    homeScore: savedEvent.homeScore,
+    awayScore: savedEvent.awayScore,
+    events: nextEvents,
+    eventLog: nextEventLog,
+  }
+}
+
+export function reconcileMatchDayGoalInList(matches, {
+  matchId,
+  ...options
+} = {}) {
+  return (matches || []).map((match) => (
+    String(match.id) === String(matchId)
+      ? reconcileMatchDayGoal(match, options)
+      : match
+  ))
+}

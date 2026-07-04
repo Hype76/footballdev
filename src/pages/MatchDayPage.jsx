@@ -38,6 +38,7 @@ import {
   getMatchDayVolunteerActionKey,
   reconcileMatchDayVolunteerSelectionInList,
 } from '../lib/matchday-volunteer-state.js'
+import { reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -1907,17 +1908,31 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      const event = await addStaffMatchDayGoal({ user, match, goal })
+      const savedEvent = await addStaffMatchDayGoal({ user, match, goal })
+      const reconcileSavedGoal = (currentMatches) => reconcileMatchDayGoalInList(currentMatches, {
+        event: savedEvent,
+        matchId: match.id,
+        user,
+      })
+
+      setMatches(reconcileSavedGoal)
       void sendMatchDayPushNotification({
         matchDayId: match.id,
         type: 'goal',
-        eventId: event.id,
+        eventId: savedEvent.id,
       })
       setGoalForms((currentForms) => ({
         ...currentForms,
         [match.id]: EMPTY_GOAL_FORM,
       }))
-      await loadData()
+      try {
+        await loadData()
+        setMatches(reconcileSavedGoal)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileSavedGoal)
+        setErrorMessage(loadError.message || 'Goal was added, but the latest Match Day data could not be refreshed.')
+      }
       showToast({ title: 'Goal added', message: 'The live feed has been updated.' })
     } catch (error) {
       console.error(error)
