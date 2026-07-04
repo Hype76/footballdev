@@ -249,6 +249,7 @@ export {
   addMatchDayGoalAsScorer,
   addStaffMatchDayGoal,
   calculateArrivalTime,
+  createMatchDayEventLogEntry,
   createMatchDay,
   expressMatchDayScorerInterest,
   getTodayMatchDayDateValue,

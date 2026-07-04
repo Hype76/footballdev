@@ -480,6 +480,39 @@ function getMatchEventDetail(event) {
   return detailParts.filter(Boolean).join(', ')
 }
 
+function formatEventLogTimestamp(value) {
+  if (!value) {
+    return 'Time not recorded'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString([], {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getEventLogActorLabel(entry) {
+  return entry.actorDisplayName || entry.actorRole || 'System'
+}
+
+function getEventLogDetail(entry) {
+  const details = [
+    entry.playerName ? `Player: ${entry.playerName}` : '',
+    entry.metadata?.role ? `Role: ${String(entry.metadata.role).replace(/_/g, ' ')}` : '',
+    entry.metadata?.fields?.length ? `Changed: ${entry.metadata.fields.join(', ')}` : '',
+  ]
+
+  return details.filter(Boolean).join(', ')
+}
+
 function getCurrentMatchMinute(match, now = Date.now()) {
   if (match.status === 'scheduled' || match.status === 'scorer_request') {
     return null
@@ -1493,6 +1526,7 @@ function MatchDayCard({
   const currentMinute = getCurrentMatchMinute(match)
   const availabilityStats = getAvailabilityStats(match)
   const events = Array.isArray(match.events) ? match.events : []
+  const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
   const displayParts = getMatchDayDisplayParts(match)
   const scoreSummary = getMatchDayDisplayScore(match)
 
@@ -1573,6 +1607,8 @@ function MatchDayCard({
                 </p>
               ) : null}
             </section>
+
+            <MatchDayEventLogPanel entries={eventLog} />
           </div>
 
           <section className={panelClass}>
@@ -1897,6 +1933,53 @@ function MatchDayCard({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function MatchDayEventLogPanel({ entries }) {
+  const recentEntries = Array.isArray(entries) ? entries.slice(0, 8) : []
+
+  return (
+    <section className={panelClass}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h5 className="text-sm font-black text-[#101828]">Event Log</h5>
+          <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{recentEntries.length} recent entries</p>
+        </div>
+      </div>
+
+      {recentEntries.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {recentEntries.map((entry) => {
+            const detail = getEventLogDetail(entry)
+
+            return (
+              <div key={entry.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-[#101828]">{entry.eventLabel || 'Match Day update'}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+                      {getEventLogActorLabel(entry)} at {formatEventLogTimestamp(entry.createdAt)}
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
+                    {String(entry.eventType || 'update').replace(/_/g, ' ')}
+                  </span>
+                </div>
+                {detail ? (
+                  <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">{detail}</p>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+          <p className="text-sm font-black text-[#101828]">No event log entries yet.</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">New Match Day changes will appear here.</p>
+        </div>
+      )}
+    </section>
   )
 }
 

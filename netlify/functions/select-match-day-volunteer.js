@@ -478,6 +478,65 @@ async function syncLegacyScorerAssignment(adminSupabase, { match, parentLink, pr
   }
 }
 
+async function createMatchDayEventLogEntry(adminSupabase, {
+  action,
+  match,
+  metadata = {},
+  newValue = null,
+  parentLink,
+  previousAssignment,
+  profile,
+  request,
+  role,
+}) {
+  if (!match?.team_id) {
+    return
+  }
+
+  const roleLabel = ROLE_CONFIG[role]?.label || 'Volunteer'
+  const isRemoved = action === 'removed'
+  const eventType = isRemoved ? 'match_role_removed' : 'match_role_assigned'
+  const eventLabel = isRemoved ? `${roleLabel} removed` : `${roleLabel} assigned`
+  const previousParentLinkId = normalizeText(previousAssignment?.parent_link_id)
+  const nextParentLinkId = isRemoved ? '' : normalizeText(parentLink?.id)
+
+  const { error } = await adminSupabase
+    .from('match_day_event_log')
+    .insert({
+      club_id: match.club_id,
+      team_id: match.team_id,
+      match_day_id: match.id,
+      player_id: request?.player_id || null,
+      actor_user_id: profile.id,
+      actor_display_name: normalizeText(profile.display_name || profile.name || profile.email),
+      actor_role: normalizeText(profile.role_label || profile.role),
+      event_type: eventType,
+      event_label: eventLabel,
+      previous_value: previousParentLinkId
+        ? {
+            role,
+            parentLinkId: previousParentLinkId,
+          }
+        : null,
+      new_value: newValue || (nextParentLinkId
+        ? {
+            role,
+            parentLinkId: nextParentLinkId,
+          }
+        : null),
+      metadata: {
+        role,
+        requestId: request?.id || '',
+        source: 'select_match_day_volunteer',
+        ...metadata,
+      },
+    })
+
+  if (error) {
+    console.warn('Match Day event log write failed', error)
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed.' })
@@ -623,6 +682,25 @@ export async function handler(event) {
     } catch (notificationError) {
       console.error('Match Day volunteer notification queue failed', notificationError)
       notificationWarning = 'Volunteer selection was saved, but notification email could not be queued.'
+    }
+
+    try {
+      await createMatchDayEventLogEntry(adminSupabase, {
+        action: selected === false ? 'removed' : 'assigned',
+        match,
+        metadata: {
+          notificationQueuedCount: queuedNotifications.length,
+          notificationWarning,
+          replacedExisting: Boolean(previousAssignment?.id && selected && !isSameSelection),
+        },
+        parentLink,
+        previousAssignment,
+        profile,
+        request,
+        role,
+      })
+    } catch (eventLogError) {
+      console.warn('Match Day event log write failed', eventLogError)
     }
 
     return json(200, {

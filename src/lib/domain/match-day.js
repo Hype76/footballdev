@@ -36,6 +36,20 @@ export const MATCH_DAY_ARRIVAL_OPTIONS = [
 ]
 
 const MATCH_DAY_PARENT_AUDIENCES = ['none', 'involved_players', 'all_team_parents', 'all_club_parents']
+const MATCH_DAY_EVENT_LOG_TYPES = new Set([
+  'match_day_created',
+  'match_day_updated',
+  'player_selected',
+  'player_deselected',
+  'player_availability_changed',
+  'match_role_assigned',
+  'match_role_removed',
+  'scorer_updated',
+  'linesman_updated',
+  'invite_prepared',
+  'invite_queued',
+  'note_updated',
+])
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -259,6 +273,28 @@ function normalizeAvailabilityHistory(row) {
   }
 }
 
+function normalizeMatchDayEventLogEntry(row) {
+  const player = Array.isArray(row.players) ? row.players[0] : row.players
+
+  return {
+    id: row.id ?? '',
+    clubId: row.club_id ?? row.clubId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name),
+    actorUserId: row.actor_user_id ?? row.actorUserId ?? '',
+    actorDisplayName: normalizeText(row.actor_display_name ?? row.actorDisplayName),
+    actorRole: normalizeText(row.actor_role ?? row.actorRole),
+    eventType: normalizeText(row.event_type ?? row.eventType),
+    eventLabel: normalizeText(row.event_label ?? row.eventLabel),
+    previousValue: row.previous_value ?? row.previousValue ?? null,
+    newValue: row.new_value ?? row.newValue ?? null,
+    metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
 export function getInitialsFromFullName(value) {
   return normalizeText(value)
     .split(/[^A-Za-z0-9]+/)
@@ -296,6 +332,9 @@ export function normalizeMatchDay(row) {
     : []
   const availabilityHistory = Array.isArray(row.match_day_player_availability_history)
     ? row.match_day_player_availability_history.map(normalizeAvailabilityHistory)
+    : []
+  const eventLog = Array.isArray(row.match_day_event_log)
+    ? row.match_day_event_log.map(normalizeMatchDayEventLogEntry)
     : []
 
   return {
@@ -342,6 +381,7 @@ export function normalizeMatchDay(row) {
     availabilityRequests,
     playerAvailability,
     availabilityHistory,
+    eventLog,
     events,
   }
 }
@@ -425,6 +465,7 @@ function buildMatchSelect() {
     match_day_player_availability (*),
     match_day_player_availability_history (*),
     match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
+    match_day_event_log (*, players:player_id (player_name)),
     match_day_events (*)
   `
 }
@@ -435,6 +476,214 @@ function normalizeTeamIdForMatch(user, match) {
   }
 
   return normalizeText(match?.teamId) || null
+}
+
+function getActorRole(user) {
+  return normalizeText(user?.roleLabel || user?.role)
+}
+
+function normalizeEventLogType(eventType) {
+  const normalizedEventType = normalizeText(eventType)
+  return MATCH_DAY_EVENT_LOG_TYPES.has(normalizedEventType) ? normalizedEventType : 'match_day_updated'
+}
+
+function getMatchDayEventLogLabel(eventType, fallbackLabel = '') {
+  const label = normalizeText(fallbackLabel)
+
+  if (label) {
+    return label
+  }
+
+  switch (eventType) {
+    case 'match_day_created':
+      return 'Fixture created'
+    case 'player_selected':
+      return 'Player selected'
+    case 'player_deselected':
+      return 'Player deselected'
+    case 'player_availability_changed':
+      return 'Availability changed'
+    case 'match_role_assigned':
+      return 'Volunteer role assigned'
+    case 'match_role_removed':
+      return 'Volunteer role removed'
+    case 'scorer_updated':
+      return 'Scorer updated'
+    case 'linesman_updated':
+      return 'Linesman updated'
+    case 'invite_prepared':
+      return 'Invite prepared'
+    case 'invite_queued':
+      return 'Invite queued'
+    case 'note_updated':
+      return 'Note updated'
+    case 'match_day_updated':
+    default:
+      return 'Fixture updated'
+  }
+}
+
+function sanitizeEventLogObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  const nextValue = {}
+  Object.entries(value).forEach(([key, itemValue]) => {
+    if (itemValue === undefined) {
+      return
+    }
+
+    nextValue[key] = itemValue
+  })
+
+  return Object.keys(nextValue).length > 0 ? nextValue : null
+}
+
+function buildMatchDaySnapshot(row) {
+  if (!row) {
+    return null
+  }
+
+  return sanitizeEventLogObject({
+    opponent: normalizeText(row.opponent),
+    matchDate: row.match_date ?? null,
+    kickoffTime: row.kickoff_time ?? null,
+    arrivalTime: row.arrival_time ?? null,
+    homeAway: normalizeText(row.home_away),
+    venueName: normalizeText(row.venue_name),
+    venueAddress: normalizeText(row.venue_address),
+    notes: normalizeText(row.notes),
+    scorerRequestMessage: normalizeText(row.scorer_request_message),
+    requestScorer: row.request_scorer === true,
+    requestLinesman: row.request_linesman === true,
+    requestReferee: row.request_referee === true,
+    parentVisible: row.parent_visible === true,
+    parentAudience: normalizeText(row.parent_audience),
+    status: normalizeText(row.status),
+    homeScore: Number(row.home_score ?? 0),
+    awayScore: Number(row.away_score ?? 0),
+  })
+}
+
+function buildMatchDaySnapshotFromMatch(match) {
+  if (!match) {
+    return null
+  }
+
+  return sanitizeEventLogObject({
+    opponent: normalizeText(match.opponent),
+    matchDate: match.matchDate || null,
+    kickoffTime: match.kickoffTime || null,
+    arrivalTime: match.arrivalTime || null,
+    homeAway: normalizeText(match.homeAway),
+    venueName: normalizeText(match.venueName),
+    venueAddress: normalizeText(match.venueAddress),
+    notes: normalizeText(match.notes),
+    scorerRequestMessage: normalizeText(match.scorerRequestMessage),
+    requestScorer: match.requestScorer === true,
+    requestLinesman: match.requestLinesman === true,
+    requestReferee: match.requestReferee === true,
+    parentVisible: match.parentVisible === true,
+    parentAudience: normalizeText(match.parentAudience),
+    status: normalizeText(match.status),
+    homeScore: Number(match.homeScore ?? 0),
+    awayScore: Number(match.awayScore ?? 0),
+  })
+}
+
+function buildChangedSnapshot(previousValue, newValue) {
+  const previousChanges = {}
+  const newChanges = {}
+  const keys = new Set([
+    ...Object.keys(previousValue ?? {}),
+    ...Object.keys(newValue ?? {}),
+  ])
+
+  keys.forEach((key) => {
+    const previousItem = previousValue?.[key] ?? null
+    const newItem = newValue?.[key] ?? null
+
+    if (JSON.stringify(previousItem) !== JSON.stringify(newItem)) {
+      previousChanges[key] = previousItem
+      newChanges[key] = newItem
+    }
+  })
+
+  return {
+    previousValue: sanitizeEventLogObject(previousChanges),
+    newValue: sanitizeEventLogObject(newChanges),
+  }
+}
+
+async function getMatchDayEventLogSnapshot({ user, matchId }) {
+  const normalizedMatchId = normalizeText(matchId)
+
+  if (!normalizedMatchId) {
+    return null
+  }
+
+  let query = supabase
+    .from('match_days')
+    .select('opponent, match_date, kickoff_time, arrival_time, home_away, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, home_score, away_score')
+    .eq('id', normalizedMatchId)
+    .eq('club_id', user.clubId)
+
+  query = scopeMatchDayQueryToActiveTeam(query, user)
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    console.warn('Match Day event log snapshot could not be loaded', error)
+    return null
+  }
+
+  return buildMatchDaySnapshot(data)
+}
+
+export async function createMatchDayEventLogEntry({
+  eventLabel = '',
+  eventType = 'match_day_updated',
+  match,
+  metadata = {},
+  newValue = null,
+  playerId = null,
+  previousValue = null,
+  user,
+} = {}) {
+  const normalizedEventType = normalizeEventLogType(eventType)
+  const matchDayId = normalizeText(match?.id ?? match?.matchDayId)
+  const teamId = normalizeText(match?.teamId ?? match?.team_id ?? user?.activeTeamId)
+
+  if (!user?.clubId || !matchDayId || !teamId) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('match_day_event_log')
+    .insert({
+      club_id: user.clubId,
+      team_id: teamId,
+      match_day_id: matchDayId,
+      player_id: normalizeText(playerId) || null,
+      actor_user_id: getEntryUserId(user) || null,
+      actor_display_name: getEntryUserName(user),
+      actor_role: getActorRole(user),
+      event_type: normalizedEventType,
+      event_label: getMatchDayEventLogLabel(normalizedEventType, eventLabel),
+      previous_value: sanitizeEventLogObject(previousValue),
+      new_value: sanitizeEventLogObject(newValue),
+      metadata: sanitizeEventLogObject(metadata) || {},
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.warn('Match Day event log write failed', error)
+    return null
+  }
+
+  return normalizeMatchDayEventLogEntry(data)
 }
 
 export async function getMatchDays({ user } = {}) {
@@ -565,6 +814,16 @@ export async function createMatchDay({ user, match }) {
       venueName,
     },
   })
+  await createMatchDayEventLogEntry({
+    user,
+    match: data,
+    eventType: 'match_day_created',
+    eventLabel: 'Fixture created',
+    newValue: buildMatchDaySnapshot(data),
+    metadata: {
+      source: 'staff_match_day',
+    },
+  })
 
   return normalizeMatchDay(data)
 }
@@ -572,6 +831,7 @@ export async function createMatchDay({ user, match }) {
 export async function updateMatchDay({ user, matchId, updates }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
+  const previousSnapshot = await getMatchDayEventLogSnapshot({ user, matchId })
 
   const payload = {
     updated_at: new Date().toISOString(),
@@ -638,7 +898,26 @@ export async function updateMatchDay({ user, matchId, updates }) {
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
-  return normalizeMatchDay(data)
+  const normalizedMatch = normalizeMatchDay(data)
+  const nextSnapshot = buildMatchDaySnapshotFromMatch(normalizedMatch)
+  const { previousValue, newValue } = buildChangedSnapshot(previousSnapshot, nextSnapshot)
+  const updatedFields = Object.keys(newValue ?? {})
+  const eventType = updatedFields.length === 1 && updatedFields.includes('notes') ? 'note_updated' : 'match_day_updated'
+
+  await createMatchDayEventLogEntry({
+    user,
+    match: normalizedMatch,
+    eventType,
+    eventLabel: eventType === 'note_updated' ? 'Note updated' : 'Fixture updated',
+    previousValue,
+    newValue,
+    metadata: {
+      fields: updatedFields,
+      source: 'staff_match_day',
+    },
+  })
+
+  return normalizedMatch
 }
 
 const MATCH_DAY_VOLUNTEER_ROLES = new Set(['scorer', 'linesman', 'referee'])
@@ -774,6 +1053,29 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
+  await createMatchDayEventLogEntry({
+    user,
+    match,
+    eventType: 'scorer_updated',
+    eventLabel: 'Goal added',
+    previousValue: {
+      homeScore: Number(match.homeScore ?? 0),
+      awayScore: Number(match.awayScore ?? 0),
+      status: normalizeText(match.status),
+    },
+    newValue: {
+      homeScore: nextHomeScore,
+      awayScore: nextAwayScore,
+      status: ['scheduled', 'scorer_request'].includes(match.status) ? 'live' : match.status,
+    },
+    metadata: {
+      goalEventId: data.id,
+      teamSide,
+      minute: payload.minute,
+      scorerName: payload.scorer_name,
+      source: 'staff_match_day',
+    },
+  })
   return normalizeMatchDayEvent(data)
 }
 
