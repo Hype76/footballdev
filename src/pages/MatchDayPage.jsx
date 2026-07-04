@@ -39,7 +39,7 @@ import {
   reconcileMatchDayVolunteerSelectionInList,
 } from '../lib/matchday-volunteer-state.js'
 import { reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
-import { reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
+import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -1629,6 +1629,11 @@ export function MatchDayPage() {
 
     try {
       const createdMatch = await createMatchDay({ user, match: form })
+      const reconcileCreatedMatch = (currentMatches) => reconcileCreatedMatchDayInList(currentMatches, {
+        match: createdMatch,
+      })
+
+      setMatches(reconcileCreatedMatch)
       await logFixtureSquadSelectionEvents({
         availablePlayerIds,
         match: createdMatch,
@@ -1682,7 +1687,14 @@ export function MatchDayPage() {
       setForm(EMPTY_MATCH_FORM)
       setIsFixtureFormOpen(false)
       setSquadSelection(EMPTY_SQUAD_SELECTION)
-      await loadData()
+      try {
+        await loadData()
+        setMatches(reconcileCreatedMatch)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileCreatedMatch)
+        setErrorMessage(loadError.message || 'Fixture was saved, but Match Day could not be refreshed. Refresh the page before creating another fixture.')
+      }
       showToast({
         title: 'Fixture created',
         message: availabilityWarning

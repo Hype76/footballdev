@@ -12,6 +12,7 @@ import {
   reconcileMatchDayGoalInList,
 } from '../src/lib/matchday-goal-state.js'
 import {
+  reconcileCreatedMatchDayInList,
   reconcileMatchDayUpdate,
   reconcileMatchDayUpdateInList,
 } from '../src/lib/matchday-update-state.js'
@@ -361,6 +362,68 @@ test('match update reconciliation preserves relation arrays when a partial saved
   assert.deepEqual(nextMatch.availabilityRequests, [{ id: 'request-1' }])
   assert.deepEqual(nextMatch.eventLog, [{ id: 'log-1' }])
   assert.deepEqual(nextMatch.events, [{ id: 'event-1' }])
+})
+
+test('created fixture reconciliation inserts the saved match immediately', () => {
+  const createdMatch = {
+    id: 'match-new',
+    opponent: 'Rovers',
+    matchDate: '2026-07-12',
+    status: 'scheduled',
+  }
+  const currentMatches = [{ id: 'match-existing', opponent: 'Town' }]
+
+  const [nextMatch, existingMatch] = reconcileCreatedMatchDayInList(currentMatches, {
+    match: createdMatch,
+  })
+
+  assert.equal(nextMatch.id, 'match-new')
+  assert.equal(nextMatch.opponent, 'Rovers')
+  assert.equal(existingMatch.id, 'match-existing')
+})
+
+test('created fixture reconciliation is idempotent after canonical reload', () => {
+  const createdMatch = {
+    id: 'match-new',
+    opponent: 'Rovers',
+    matchDate: '2026-07-12',
+    status: 'scheduled',
+    eventLog: [{ id: 'created-log' }],
+  }
+  const currentMatches = [
+    {
+      id: 'match-new',
+      opponent: 'Rovers',
+      roleAssignments: [{ id: 'role-1' }],
+    },
+    { id: 'match-existing' },
+  ]
+
+  const nextMatches = reconcileCreatedMatchDayInList(currentMatches, {
+    match: createdMatch,
+  })
+
+  assert.equal(nextMatches.length, 2)
+  assert.equal(nextMatches[0].id, 'match-new')
+  assert.deepEqual(nextMatches[0].roleAssignments, [{ id: 'role-1' }])
+  assert.deepEqual(nextMatches[0].eventLog, [{ id: 'created-log' }])
+})
+
+test('staff fixture creation handler reconciles locally around canonical load without changing sends', () => {
+  const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
+  const handlerStart = source.indexOf('const handleConfirmCreateMatch = async () => {')
+  const handlerEnd = source.indexOf('const handleStatusChange = async', handlerStart)
+  const handlerSource = source.slice(handlerStart, handlerEnd)
+
+  assert.notEqual(handlerStart, -1)
+  assert.notEqual(handlerEnd, -1)
+  assert.match(handlerSource, /const createdMatch = await createMatchDay\(\{ user, match: form \}\)/)
+  assert.match(handlerSource, /const reconcileCreatedMatch = \(currentMatches\) => reconcileCreatedMatchDayInList/)
+  assert.match(handlerSource, /setMatches\(reconcileCreatedMatch\)[\s\S]*logFixtureSquadSelectionEvents/)
+  assert.match(handlerSource, /logFixtureSquadSelectionEvents[\s\S]*send-match-day-availability-requests/)
+  assert.match(handlerSource, /send-match-day-availability-requests[\s\S]*void sendMatchDayPushNotification/)
+  assert.match(handlerSource, /await loadData\(\)[\s\S]*setMatches\(reconcileCreatedMatch\)/)
+  assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileCreatedMatch\)[\s\S]*Fixture was saved, but Match Day could not be refreshed\./)
 })
 
 test('staff status handler reconciles saved status before and after canonical load without changing push send', () => {
