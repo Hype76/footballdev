@@ -110,6 +110,13 @@ const volunteerResponseLabels = {
   no_response: 'No response',
 }
 
+const parentAudienceLabels = {
+  all_club_parents: 'All club parents',
+  all_team_parents: 'All team parents',
+  involved_players: 'Involved players',
+  none: 'Staff only',
+}
+
 const volunteerRoleConfigs = [
   {
     key: 'scorer',
@@ -701,6 +708,199 @@ function getRoleStatus(match, roleKey) {
   }
 
   return 'Needed'
+}
+
+function getLatestEventLogEntry(match) {
+  const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
+
+  return eventLog[0] || null
+}
+
+function getLatestInviteLogEntry(match) {
+  const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
+
+  return eventLog.find((entry) => ['invite_queued', 'invite_prepared'].includes(entry.eventType)) || null
+}
+
+function getAvailabilityRequestStateLabel({ latestInvite, requestCount }) {
+  if (latestInvite?.eventType === 'invite_queued') {
+    return 'Invite queued'
+  }
+
+  if (latestInvite?.eventType === 'invite_prepared') {
+    return 'Invite prepared'
+  }
+
+  if (requestCount > 0) {
+    return 'Request linked'
+  }
+
+  return 'No availability request queued'
+}
+
+function getMatchDaySetupReadiness(match) {
+  const missingFields = []
+
+  if (!match.opponent) {
+    missingFields.push('opponent')
+  }
+
+  if (!match.matchDate) {
+    missingFields.push('date')
+  }
+
+  if (!match.kickoffTime) {
+    missingFields.push('kickoff')
+  }
+
+  if (!match.venueName && !match.homeAway) {
+    missingFields.push('venue')
+  }
+
+  if (missingFields.length > 0) {
+    return {
+      detail: `Missing ${missingFields.join(', ')}`,
+      label: 'Setup',
+      status: 'Needs attention',
+      tone: 'warning',
+    }
+  }
+
+  return {
+    detail: 'Fixture details present',
+    label: 'Setup',
+    status: 'Ready',
+    tone: 'success',
+  }
+}
+
+function getMatchDayVisibilityReadiness(match) {
+  if (match.parentVisible === true) {
+    return {
+      detail: parentAudienceLabels[match.parentAudience] || 'Selected parent audience',
+      label: 'Parent visibility',
+      status: 'Visible to parents',
+      tone: 'success',
+    }
+  }
+
+  return {
+    detail: 'Staff view only',
+    label: 'Parent visibility',
+    status: 'Not visible to parents',
+    tone: 'neutral',
+  }
+}
+
+function getMatchDayAvailabilityReadiness(match) {
+  const stats = getAvailabilityStats(match)
+  const requests = Array.isArray(match.availabilityRequests) ? match.availabilityRequests : []
+  const latestInvite = getLatestInviteLogEntry(match)
+  const requestState = getAvailabilityRequestStateLabel({
+    latestInvite,
+    requestCount: requests.length,
+  })
+  const responseDetail = stats.total > 0
+    ? `${stats.available} available, ${stats.pending} no response, ${stats.maybe} maybe, ${stats.unavailable} unavailable`
+    : 'No responses yet'
+
+  if (requests.length === 0 && !latestInvite) {
+    return {
+      detail: responseDetail,
+      label: 'Availability',
+      status: requestState,
+      tone: 'neutral',
+    }
+  }
+
+  return {
+    detail: responseDetail,
+    label: 'Availability',
+    status: stats.pending > 0 || latestInvite ? requestState : 'Ready',
+    tone: stats.pending > 0 ? 'warning' : 'success',
+  }
+}
+
+function getMatchDayRoleReadiness(match) {
+  const roleStatuses = volunteerRoleConfigs.map((role) => ({
+    label: role.label,
+    status: getRoleStatus(match, role.key),
+  }))
+  const requestedRoles = roleStatuses.filter((role) => role.status !== 'Not requested')
+  const neededRoles = roleStatuses.filter((role) => role.status === 'Needed')
+  const pendingRoles = roleStatuses.filter((role) => role.status.includes('volunteered'))
+
+  if (requestedRoles.length === 0) {
+    return {
+      detail: roleStatuses.map((role) => `${role.label}: ${role.status}`).join(', '),
+      label: 'Roles',
+      status: 'Not requested',
+      tone: 'neutral',
+    }
+  }
+
+  if (neededRoles.length > 0) {
+    return {
+      detail: roleStatuses.map((role) => `${role.label}: ${role.status}`).join(', '),
+      label: 'Roles',
+      status: 'Needs attention',
+      tone: 'warning',
+    }
+  }
+
+  if (pendingRoles.length > 0) {
+    return {
+      detail: roleStatuses.map((role) => `${role.label}: ${role.status}`).join(', '),
+      label: 'Roles',
+      status: 'Pending',
+      tone: 'warning',
+    }
+  }
+
+  return {
+    detail: roleStatuses.map((role) => `${role.label}: ${role.status}`).join(', '),
+    label: 'Roles',
+    status: 'Ready',
+    tone: 'success',
+  }
+}
+
+function getMatchDayLatestSignalReadiness(match) {
+  const latestEntry = getLatestEventLogEntry(match)
+
+  if (!latestEntry) {
+    return {
+      detail: 'No logged activity for this fixture.',
+      label: 'Latest change',
+      status: 'No event log entries yet',
+      tone: 'neutral',
+    }
+  }
+
+  return {
+    detail: `${latestEntry.eventLabel || 'Match Day update'} at ${formatEventLogTimestamp(latestEntry.createdAt)}`,
+    label: 'Latest change',
+    status: getEventLogTypeLabel(latestEntry),
+    tone: 'success',
+  }
+}
+
+function getMatchDayReadinessSummary(match) {
+  const items = [
+    getMatchDaySetupReadiness(match),
+    getMatchDayVisibilityReadiness(match),
+    getMatchDayAvailabilityReadiness(match),
+    getMatchDayRoleReadiness(match),
+    getMatchDayLatestSignalReadiness(match),
+  ]
+  const hasNeedsAttention = items.some((item) => item.status === 'Needs attention')
+  const hasPending = items.some((item) => item.tone === 'warning')
+
+  return {
+    items,
+    status: hasNeedsAttention ? 'Needs attention' : hasPending ? 'Pending' : 'Ready',
+    tone: hasNeedsAttention || hasPending ? 'warning' : 'success',
+  }
 }
 
 function getNeedsAttentionItems(activeMatches) {
@@ -1681,6 +1881,8 @@ function MatchDayCard({
 
       {isExpanded ? (
         <div className="space-y-4 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-5">
+          <MatchDayReadinessPanel match={match} />
+
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <section className={panelClass}>
               <h5 className="text-sm font-black text-[#101828]">Overview</h5>
@@ -2032,6 +2234,51 @@ function MatchDayCard({
           ) : null}
         </div>
       ) : null}
+    </article>
+  )
+}
+
+function MatchDayReadinessPanel({ match }) {
+  const readiness = getMatchDayReadinessSummary(match)
+
+  return (
+    <section className={panelClass}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h5 className="text-sm font-black text-[#101828]">Match readiness</h5>
+        <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${
+          readiness.tone === 'success'
+            ? 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+            : 'border-[#fed7aa] bg-[#fff7ed] text-[#92400e]'
+        }`}
+        >
+          {readiness.status}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+        {readiness.items.map((item) => (
+          <ReadinessItem key={item.label} item={item} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ReadinessItem({ item }) {
+  const toneClass = item.tone === 'success'
+    ? 'border-[#bbf7d0] bg-white text-[#047857]'
+    : item.tone === 'warning'
+      ? 'border-[#fed7aa] bg-white text-[#92400e]'
+      : 'border-[#d7e5dc] bg-white text-[#4b5f55]'
+
+  return (
+    <article className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#047857]">{item.label}</p>
+        <span className={`inline-flex w-fit rounded-lg border px-2 py-1 text-[11px] font-black ${toneClass}`}>
+          {item.status}
+        </span>
+      </div>
+      <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">{item.detail}</p>
     </article>
   )
 }

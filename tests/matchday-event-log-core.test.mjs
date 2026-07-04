@@ -96,6 +96,44 @@ test('staff Match Day page renders a staff-only event log panel and empty state'
   assert.match(source, /getEventLogDetail/)
 })
 
+test('staff Match Day page renders a readiness panel from existing fixture data only', async () => {
+  const source = await readFile(staffPageUrl, 'utf8')
+  const panelStart = source.indexOf('function MatchDayReadinessPanel')
+  const panelEnd = source.indexOf('function MatchDayEventLogPanel', panelStart)
+  const readinessStart = source.indexOf('function getAvailabilityRequestStateLabel')
+  const readinessEnd = source.indexOf('function getNeedsAttentionItems', readinessStart)
+
+  assert.notEqual(panelStart, -1)
+  assert.notEqual(panelEnd, -1)
+  assert.notEqual(readinessStart, -1)
+  assert.notEqual(readinessEnd, -1)
+
+  const panelSource = source.slice(panelStart, panelEnd)
+  const readinessSource = source.slice(readinessStart, readinessEnd)
+
+  assert.match(source, /<MatchDayReadinessPanel match=\{match\} \/>/)
+  assert.match(source, /function getMatchDaySetupReadiness/)
+  assert.match(source, /function getMatchDayVisibilityReadiness/)
+  assert.match(source, /function getMatchDayAvailabilityReadiness/)
+  assert.match(source, /function getMatchDayRoleReadiness/)
+  assert.match(source, /function getMatchDayLatestSignalReadiness/)
+  assert.match(panelSource, /Match readiness/)
+  assert.match(readinessSource, /Fixture details present/)
+  assert.match(readinessSource, /Visible to parents/)
+  assert.match(readinessSource, /Not visible to parents/)
+  assert.match(readinessSource, /No availability request queued/)
+  assert.match(readinessSource, /No responses yet/)
+  assert.match(readinessSource, /No event log entries yet/)
+  assert.match(readinessSource, /getEventLogTypeLabel\(latestEntry\)/)
+  assert.match(readinessSource, /getRoleStatus\(match, role\.key\)/)
+  assert.doesNotMatch(panelSource, /fetch\(/)
+  assert.doesNotMatch(readinessSource, /fetch\(/)
+  assert.doesNotMatch(panelSource, /createMatchDayEventLogEntry/)
+  assert.doesNotMatch(readinessSource, /createMatchDayEventLogEntry/)
+  assert.doesNotMatch(panelSource, /sendMatchDayPushNotification/)
+  assert.doesNotMatch(readinessSource, /sendMatchDayPushNotification/)
+})
+
 test('staff fixture squad selection logs safe player selected and deselected entries', async () => {
   const source = await readFile(staffPageUrl, 'utf8')
 
@@ -177,5 +215,8 @@ test('parent portal does not expose the staff event log in this batch', async ()
 
   assert.doesNotMatch(parentSource, /match_day_event_log/i)
   assert.doesNotMatch(parentSource, /Event Log/)
+  assert.doesNotMatch(parentSource, /Match readiness/)
+  assert.doesNotMatch(parentSource, /No availability request queued/)
   assert.match(staffSource, /Event Log/)
+  assert.match(staffSource, /Match readiness/)
 })
