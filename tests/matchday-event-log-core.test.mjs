@@ -8,6 +8,8 @@ const migrationUrl = new URL('../supabase/migrations/20260704084216_match_day_ev
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const selectVolunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)
+const availabilityConfirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
+const sendAvailabilityFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 
 test('match day event log migration creates a staff scoped RLS table', async () => {
@@ -94,6 +96,26 @@ test('staff Match Day page renders a staff-only event log panel and empty state'
   assert.match(source, /getEventLogDetail/)
 })
 
+test('staff fixture squad selection logs safe player selected and deselected entries', async () => {
+  const source = await readFile(staffPageUrl, 'utf8')
+
+  assert.match(source, /createMatchDayEventLogEntry,/)
+  assert.match(source, /async function logFixtureSquadSelectionEvents/)
+  assert.match(source, /eventType: 'player_selected'/)
+  assert.match(source, /eventType: 'player_deselected'/)
+  assert.match(source, /source: 'staff_fixture_squad_selection'/)
+  assert.match(source, /selectionMode === 'individual'[\s\S]*deselectedPlayers/)
+  assert.match(source, /await logFixtureSquadSelectionEvents\(\{[\s\S]*selectedPlayerIds,[\s\S]*selectionMode,[\s\S]*user,/)
+})
+
+test('staff squad selection can reselect a player after deselection before saving', async () => {
+  const source = await readFile(staffPageUrl, 'utf8')
+
+  assert.match(source, /const selectedIds = new Set\(current\.selectedPlayerIds\)/)
+  assert.match(source, /if \(selectedIds\.has\(playerId\)\) \{[\s\S]*selectedIds\.delete\(playerId\)[\s\S]*\} else \{[\s\S]*selectedIds\.add\(playerId\)/)
+  assert.match(source, /selectedPlayerIds: \[\.\.\.selectedIds\]/)
+})
+
 test('server volunteer selection logs role changes without changing email queue behavior', async () => {
   const source = await readFile(selectVolunteerFunctionUrl, 'utf8')
 
@@ -101,12 +123,52 @@ test('server volunteer selection logs role changes without changing email queue 
   assert.match(source, /\.from\('match_day_event_log'\)[\s\S]*\.insert\(/)
   assert.match(source, /event_type: eventType/)
   assert.match(source, /eventLabel/)
+  assert.match(source, /role === 'linesman'[\s\S]*'linesman_updated'/)
+  assert.match(source, /action: isRemoved \? 'removed' : 'assigned'/)
   assert.match(source, /notificationQueuedCount: queuedNotifications\.length/)
   assert.match(source, /source: 'select_match_day_volunteer'/)
   assert.match(source, /console\.warn\('Match Day event log write failed'/)
   assert.match(source, /\.from\('scheduled_email_queue'\)[\s\S]*\.insert\(/)
   assert.match(source, /Volunteer selection was saved, but notification email could not be queued\./)
   assert.doesNotMatch(source, /sendEmail\(/)
+})
+
+test('availability invite preparation and queueing logs do not create new queue behavior', async () => {
+  const source = await readFile(sendAvailabilityFunctionUrl, 'utf8')
+
+  assert.match(source, /async function createMatchDayEventLogEntry/)
+  assert.match(source, /eventType: 'invite_prepared'/)
+  assert.match(source, /eventType: 'invite_queued'/)
+  assert.match(source, /source: 'send_match_day_availability_requests'/)
+  assert.match(source, /\.from\('scheduled_email_queue'\)[\s\S]*\.insert\(/)
+  assert.match(source, /queuedEmails\.push\(queuedEmail\)/)
+  assert.doesNotMatch(source, /sendEmail\(/)
+  assert.doesNotMatch(source, /recipientEmail: contact\.email[\s\S]*match_day_event_log/)
+})
+
+test('parent availability response logging uses safe public-token metadata', async () => {
+  const source = await readFile(availabilityConfirmFunctionUrl, 'utf8')
+
+  assert.match(source, /createSupabaseAdminClient/)
+  assert.match(source, /async function createAvailabilityEventLogEntry/)
+  assert.match(source, /event_type: 'player_availability_changed'/)
+  assert.match(source, /actor_display_name: actorUserId \? 'Parent response' : 'Public response link'/)
+  assert.match(source, /actor_role: actorUserId \? 'parent_portal' : 'public_token'/)
+  assert.match(source, /source: 'match_day_availability_confirm'/)
+  assert.match(source, /previous_value: previousStatus/)
+  assert.doesNotMatch(source, /recipient_email[\s\S]*metadata/)
+})
+
+test('event log UI renders Batch 2 event types with safe details', async () => {
+  const source = await readFile(staffPageUrl, 'utf8')
+
+  assert.match(source, /function getEventLogTypeLabel/)
+  assert.match(source, /invite_prepared: 'invite prepared'/)
+  assert.match(source, /invite_queued: 'invite queued'/)
+  assert.match(source, /linesman_updated: 'linesman'/)
+  assert.match(source, /player_availability_changed: 'availability'/)
+  assert.match(source, /Availability: \$\{previousStatus \|\| 'not recorded'\} to \$\{nextStatus \|\| 'not recorded'\}/)
+  assert.match(source, /Notifications queued: \$\{Number\(entry\.metadata\.notificationQueuedCount\)\}/)
 })
 
 test('parent portal does not expose the staff event log in this batch', async () => {

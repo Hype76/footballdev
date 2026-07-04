@@ -199,6 +199,46 @@ async function getAuthenticatedProfile(event, supabase) {
   return profile
 }
 
+async function createMatchDayEventLogEntry(adminSupabase, {
+  eventLabel = '',
+  eventType = 'match_day_updated',
+  match,
+  metadata = {},
+  newValue = null,
+  playerId = null,
+  previousValue = null,
+  profile,
+} = {}) {
+  if (!match?.id || !match?.club_id || !match?.team_id) {
+    return
+  }
+
+  try {
+    const { error } = await adminSupabase
+      .from('match_day_event_log')
+      .insert({
+        club_id: match.club_id,
+        team_id: match.team_id,
+        match_day_id: match.id,
+        player_id: playerId || null,
+        actor_user_id: profile?.id || null,
+        actor_display_name: normalizeText(profile?.display_name || profile?.name || profile?.email),
+        actor_role: normalizeText(profile?.role_label || profile?.role),
+        event_type: eventType,
+        event_label: eventLabel,
+        previous_value: previousValue,
+        new_value: newValue,
+        metadata,
+      })
+
+    if (error) {
+      console.warn('Match Day event log write failed', error)
+    }
+  } catch (error) {
+    console.warn('Match Day event log write failed', error)
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed.' })
@@ -309,6 +349,24 @@ export async function handler(event) {
           throw requestError
         }
 
+        await createMatchDayEventLogEntry(adminSupabase, {
+          eventType: 'invite_prepared',
+          eventLabel: `${normalizeText(player.player_name) || 'Player'} invite prepared`,
+          match,
+          metadata: {
+            channel: 'email',
+            hasParentLink: Boolean(parentLink?.id),
+            recipientType: contact.type,
+            requestId: request.id,
+            source: 'send_match_day_availability_requests',
+          },
+          newValue: {
+            status: request.status,
+          },
+          playerId: player.id,
+          profile,
+        })
+
         const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
         const email = buildAvailabilityEmail({ appOrigin, match, player, recipient: contact, responseUrl })
         const payload = {
@@ -368,6 +426,23 @@ export async function handler(event) {
         if (queueError) {
           throw queueError
         }
+
+        await createMatchDayEventLogEntry(adminSupabase, {
+          eventType: 'invite_queued',
+          eventLabel: `${normalizeText(player.player_name) || 'Player'} invite queued`,
+          match,
+          metadata: {
+            channel: 'email',
+            queueId: queuedEmail.id,
+            requestId: request.id,
+            source: 'send_match_day_availability_requests',
+          },
+          newValue: {
+            queued: true,
+          },
+          playerId: player.id,
+          profile,
+        })
 
         createdRequests.push(request)
         queuedEmails.push(queuedEmail)

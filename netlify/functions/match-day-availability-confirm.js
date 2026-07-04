@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { Buffer } from 'node:buffer'
-import { createPublicSupabaseClient } from './lib/_supabase.js'
+import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 const VALID_VOLUNTEER_RESPONSES = new Set(['yes', 'no'])
@@ -247,6 +247,70 @@ async function submitTokenResponse(supabase, token, params) {
   return data?.[0] ?? null
 }
 
+async function createAvailabilityEventLogEntry(event, { previousResponse, response } = {}) {
+  if (!response?.request_id) {
+    return
+  }
+
+  try {
+    const adminSupabase = createSupabaseAdminClient(event)
+    const { data: request, error: requestError } = await adminSupabase
+      .from('match_day_availability_requests')
+      .select('id, match_day_id, club_id, team_id, player_id, player_name, status, parent_link_id, parent_player_links:parent_link_id (auth_user_id)')
+      .eq('id', response.request_id)
+      .maybeSingle()
+
+    if (requestError || !request?.id || !request.team_id) {
+      if (requestError) {
+        console.warn('Match Day event log request lookup failed', requestError)
+      }
+      return
+    }
+
+    const previousStatus = normalizeText(previousResponse?.current_availability_status || previousResponse?.response_status || '').toLowerCase()
+    const nextStatus = normalizeText(response.response_status || request.status).toLowerCase()
+    const parentLink = Array.isArray(request.parent_player_links)
+      ? request.parent_player_links[0]
+      : request.parent_player_links
+    const actorUserId = normalizeText(parentLink?.auth_user_id) || null
+    const { error } = await adminSupabase
+      .from('match_day_event_log')
+      .insert({
+        club_id: request.club_id,
+        team_id: request.team_id,
+        match_day_id: request.match_day_id,
+        player_id: request.player_id || null,
+        actor_user_id: actorUserId,
+        actor_display_name: actorUserId ? 'Parent response' : 'Public response link',
+        actor_role: actorUserId ? 'parent_portal' : 'public_token',
+        event_type: 'player_availability_changed',
+        event_label: `${request.player_name || 'Player'} availability changed`,
+        previous_value: previousStatus
+          ? {
+              status: previousStatus,
+            }
+          : null,
+        new_value: {
+          status: nextStatus,
+        },
+        metadata: {
+          hasAuthenticatedParent: Boolean(actorUserId),
+          requestId: request.id,
+          source: 'match_day_availability_confirm',
+          volunteerRefereeResponse: normalizeText(response.volunteer_referee_response),
+          volunteerScorerResponse: normalizeText(response.volunteer_scorer_response),
+          volunteerLinesmanResponse: normalizeText(response.volunteer_linesman_response),
+        },
+      })
+
+    if (error) {
+      console.warn('Match Day event log write failed', error)
+    }
+  } catch (error) {
+    console.warn('Match Day event log write failed', error)
+  }
+}
+
 function invalidTokenPage() {
   return htmlResponse(400, page({
     title: 'This response link is not valid',
@@ -273,6 +337,7 @@ export async function handler(event) {
           return invalidTokenPage()
         }
 
+        const previousResponse = await getTokenResponse(supabase, token)
         const response = await submitTokenResponse(supabase, token, new URLSearchParams({ status: legacyStatus }))
 
         if (!response?.request_id) {
@@ -288,6 +353,8 @@ export async function handler(event) {
             message: 'Ask the club to send a new fixture availability request.',
           }))
         }
+
+        await createAvailabilityEventLogEntry(event, { previousResponse, response })
 
         return htmlResponse(200, page({
           title: 'Availability confirmed',
@@ -325,6 +392,7 @@ export async function handler(event) {
       }))
     }
 
+    const previousResponse = await getTokenResponse(supabase, token)
     const response = await submitTokenResponse(supabase, token, params)
 
     if (!response?.request_id) {
@@ -340,6 +408,8 @@ export async function handler(event) {
         message: 'Ask the club to send a new fixture availability request.',
       }))
     }
+
+    await createAvailabilityEventLogEntry(event, { previousResponse, response })
 
     return htmlResponse(200, page({
       title: 'Response saved',

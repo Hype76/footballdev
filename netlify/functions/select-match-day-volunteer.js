@@ -495,7 +495,11 @@ async function createMatchDayEventLogEntry(adminSupabase, {
 
   const roleLabel = ROLE_CONFIG[role]?.label || 'Volunteer'
   const isRemoved = action === 'removed'
-  const eventType = isRemoved ? 'match_role_removed' : 'match_role_assigned'
+  const eventType = role === 'linesman'
+    ? 'linesman_updated'
+    : isRemoved
+      ? 'match_role_removed'
+      : 'match_role_assigned'
   const eventLabel = isRemoved ? `${roleLabel} removed` : `${roleLabel} assigned`
   const previousParentLinkId = normalizeText(previousAssignment?.parent_link_id)
   const nextParentLinkId = isRemoved ? '' : normalizeText(parentLink?.id)
@@ -525,6 +529,7 @@ async function createMatchDayEventLogEntry(adminSupabase, {
           }
         : null),
       metadata: {
+        action: isRemoved ? 'removed' : 'assigned',
         role,
         requestId: request?.id || '',
         source: 'select_match_day_volunteer',

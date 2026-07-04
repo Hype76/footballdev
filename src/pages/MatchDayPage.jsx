@@ -15,6 +15,7 @@ import {
   addStaffMatchDayGoal,
   calculateArrivalTime,
   createMatchDay,
+  createMatchDayEventLogEntry,
   getTodayMatchDayDateValue,
   getMatchDays,
   getMatchLocations,
@@ -503,10 +504,45 @@ function getEventLogActorLabel(entry) {
   return entry.actorDisplayName || entry.actorRole || 'System'
 }
 
+function getEventLogTypeLabel(entry) {
+  const eventType = String(entry.eventType || 'update')
+  const labels = {
+    invite_prepared: 'invite prepared',
+    invite_queued: 'invite queued',
+    linesman_updated: 'linesman',
+    player_availability_changed: 'availability',
+    player_deselected: 'player deselected',
+    player_selected: 'player selected',
+  }
+
+  return labels[eventType] || eventType.replace(/_/g, ' ')
+}
+
 function getEventLogDetail(entry) {
+  const previousStatus = entry.previousValue?.status
+  const nextStatus = entry.newValue?.status
+  const selectionState = entry.eventType === 'player_selected'
+    ? 'Selected for this fixture'
+    : entry.eventType === 'player_deselected'
+      ? 'Deselected from this fixture'
+      : ''
+  const inviteState = entry.eventType === 'invite_prepared'
+    ? 'Availability invite prepared'
+    : entry.eventType === 'invite_queued'
+      ? 'Availability invite queued'
+      : ''
   const details = [
     entry.playerName ? `Player: ${entry.playerName}` : '',
     entry.metadata?.role ? `Role: ${String(entry.metadata.role).replace(/_/g, ' ')}` : '',
+    entry.metadata?.action ? `Action: ${String(entry.metadata.action).replace(/_/g, ' ')}` : '',
+    previousStatus || nextStatus
+      ? `Availability: ${previousStatus || 'not recorded'} to ${nextStatus || 'not recorded'}`
+      : '',
+    selectionState,
+    inviteState,
+    Number.isFinite(Number(entry.metadata?.notificationQueuedCount))
+      ? `Notifications queued: ${Number(entry.metadata.notificationQueuedCount)}`
+      : '',
     entry.metadata?.fields?.length ? `Changed: ${entry.metadata.fields.join(', ')}` : '',
   ]
 
@@ -579,6 +615,60 @@ function getAvailabilityStats(match) {
     ...counts,
     total: rows.length,
     conflictCount: getAvailabilityConflictCount(requests),
+  }
+}
+
+async function logFixtureSquadSelectionEvents({
+  availablePlayerIds,
+  match,
+  players,
+  selectedPlayerIds,
+  selectionMode,
+  user,
+}) {
+  const selectedIds = new Set(selectedPlayerIds.map(String))
+  const availableIds = new Set(availablePlayerIds.map(String))
+  const selectedPlayers = players.filter((player) => selectedIds.has(String(player.id)))
+  const deselectedPlayers = selectionMode === 'individual'
+    ? players.filter((player) => availableIds.has(String(player.id)) && !selectedIds.has(String(player.id)))
+    : []
+
+  const logEvents = [
+    ...selectedPlayers.map((player) => ({
+      eventLabel: `${player.playerName || 'Player'} selected`,
+      eventType: 'player_selected',
+      newValue: {
+        selected: true,
+      },
+      player,
+    })),
+    ...deselectedPlayers.map((player) => ({
+      eventLabel: `${player.playerName || 'Player'} deselected`,
+      eventType: 'player_deselected',
+      newValue: {
+        selected: false,
+      },
+      previousValue: {
+        selected: true,
+      },
+      player,
+    })),
+  ]
+
+  for (const logEvent of logEvents) {
+    await createMatchDayEventLogEntry({
+      user,
+      match,
+      eventType: logEvent.eventType,
+      eventLabel: logEvent.eventLabel,
+      playerId: logEvent.player.id,
+      previousValue: logEvent.previousValue,
+      newValue: logEvent.newValue,
+      metadata: {
+        selectionMode,
+        source: 'staff_fixture_squad_selection',
+      },
+    })
   }
 }
 
@@ -915,6 +1005,8 @@ export function MatchDayPage() {
 
   const handleConfirmCreateMatch = async () => {
     const selectedPlayerIds = squadSelection.selectedPlayerIds
+    const selectionMode = squadSelection.mode
+    const availablePlayerIds = fixturePlayers.map((player) => player.id)
 
     if (selectedPlayerIds.length === 0) {
       setErrorMessage('Select at least one player before creating the fixture.')
@@ -926,6 +1018,14 @@ export function MatchDayPage() {
 
     try {
       const createdMatch = await createMatchDay({ user, match: form })
+      await logFixtureSquadSelectionEvents({
+        availablePlayerIds,
+        match: createdMatch,
+        players: fixturePlayers,
+        selectedPlayerIds,
+        selectionMode,
+        user,
+      })
       const communicationRuntime = {
         env: import.meta.env,
         location: window.location,
@@ -1963,7 +2063,7 @@ function MatchDayEventLogPanel({ entries }) {
                     </p>
                   </div>
                   <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
-                    {String(entry.eventType || 'update').replace(/_/g, ' ')}
+                    {getEventLogTypeLabel(entry)}
                   </span>
                 </div>
                 {detail ? (
