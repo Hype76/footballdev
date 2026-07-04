@@ -40,6 +40,31 @@ test('hint popover has dismissal, collision, and one-open-at-a-time behaviour', 
   assert.match(source, /clamp\(buttonRect\.right - width/)
 })
 
+test('score hint popover uses light theme tokens while preserving dark mode classes', async () => {
+  const [inputSource, popoverSource] = await Promise.all([
+    readFile(inputUrl, 'utf8'),
+    readFile(hintPopoverUrl, 'utf8'),
+  ])
+
+  assert.match(popoverSource, /bg-\[var\(--panel-bg\)\]/)
+  assert.match(popoverSource, /border-\[var\(--border-color\)\]/)
+  assert.match(popoverSource, /text-\[var\(--text-muted\)\]/)
+  assert.match(popoverSource, /text-\[var\(--text-primary\)\]/)
+  assert.match(popoverSource, /text-\[var\(--text-secondary\)\]/)
+  assert.match(popoverSource, /hover:bg-\[var\(--accent-soft\)\]/)
+  assert.match(popoverSource, /focus:ring-\[var\(--accent-soft\)\]/)
+  assert.match(popoverSource, /dark:bg-\[#101828\]/)
+  assert.match(popoverSource, /dark:text-\[#d7e5dc\]/)
+  assert.match(popoverSource, /dark:text-\[#8ee6bd\]/)
+
+  assert.match(inputSource, /bg-\[var\(--panel-alt\)\]/)
+  assert.match(inputSource, /border-\[var\(--border-color\)\]/)
+  assert.match(inputSource, /text-\[var\(--text-muted\)\]/)
+  assert.match(inputSource, /text-\[var\(--text-primary\)\]/)
+  assert.match(inputSource, /dark:bg-\[#172033\]/)
+  assert.match(inputSource, /dark:text-\[#d7e5dc\]/)
+})
+
 test('score hint fix is not dependent on changing SectionCard overflow', async () => {
   const source = await readFile(sectionCardUrl, 'utf8')
 

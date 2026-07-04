@@ -148,11 +148,11 @@ function getTableName(url) {
 async function fulfillJson(route, status, payload) {
   await route.fulfill({
     status,
-    headers: {
-      'access-control-allow-origin': '*',
-      'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info',
-      'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    },
+      headers: {
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info, prefer',
+        'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+      },
     contentType: 'application/json',
     body: status === 204 ? '' : JSON.stringify(payload),
   })
@@ -222,6 +222,22 @@ async function getPopover(page) {
   return popover
 }
 
+async function setThemeMode(page, mode) {
+  await page.evaluate((nextMode) => {
+    const root = document.documentElement
+    const body = document.body
+
+    window.localStorage.setItem('app-theme-mode', nextMode)
+    window.localStorage.setItem('app-theme-accent', 'green')
+    window.localStorage.setItem('app-theme-button-style', 'solid')
+    root.classList.remove('theme-light', 'theme-dark')
+    body.classList.remove('theme-light', 'theme-dark')
+    root.classList.add(nextMode === 'dark' ? 'theme-dark' : 'theme-light')
+    body.classList.add(nextMode === 'dark' ? 'theme-dark' : 'theme-light')
+  }, mode)
+  await page.locator(`body.theme-${mode}`).waitFor({ state: 'attached', timeout: 15000 })
+}
+
 async function assertReadablePopover(page, fieldLabel) {
   const popover = await getPopover(page)
   await popover.getByText(`Use this guide when scoring ${fieldLabel}.`).waitFor({ state: 'visible', timeout: 15000 })
@@ -255,6 +271,29 @@ async function assertReadablePopover(page, fieldLabel) {
   assert.ok(metrics.bottom <= metrics.viewportHeight)
 }
 
+async function assertPopoverTheme(page, expectedTheme) {
+  const popover = await getPopover(page)
+  const theme = await popover.evaluate((element) => {
+    const styles = window.getComputedStyle(element)
+    return {
+      backgroundColor: styles.backgroundColor,
+      borderColor: styles.borderColor,
+      color: styles.color,
+    }
+  })
+
+  if (expectedTheme === 'light') {
+    assert.equal(theme.backgroundColor, 'rgb(255, 255, 255)')
+    assert.equal(theme.borderColor, 'rgb(215, 229, 220)')
+    assert.equal(theme.color, 'rgb(75, 95, 85)')
+    return
+  }
+
+  assert.equal(theme.backgroundColor, 'rgb(20, 32, 28)')
+  assert.equal(theme.borderColor, 'rgb(70, 96, 82)')
+  assert.equal(theme.color, 'rgb(215, 227, 220)')
+}
+
 const server = startDevServer()
 let browser
 
@@ -266,10 +305,13 @@ try {
   const { page, consoleErrors } = await preparePage(context)
 
   await signIn(page)
+  await setThemeMode(page, 'light')
   await openDevelopmentForm(page)
+  await setThemeMode(page, 'light')
 
   await page.getByRole('button', { name: 'Show scoring guide for Distribution' }).click()
   await assertReadablePopover(page, 'Distribution')
+  await assertPopoverTheme(page, 'light')
 
   await page.getByRole('button', { name: 'Show scoring guide for Low Balls' }).click()
   await assertReadablePopover(page, 'Low Balls')
@@ -284,9 +326,18 @@ try {
   await page.mouse.click(6, 6)
   await page.locator('[data-score-hint-popover="true"]').waitFor({ state: 'detached', timeout: 15000 })
 
+  await setThemeMode(page, 'dark')
+  await page.getByRole('button', { name: 'Show scoring guide for Distribution' }).click()
+  await assertReadablePopover(page, 'Distribution')
+  await assertPopoverTheme(page, 'dark')
+  await page.keyboard.press('Escape')
+  await page.locator('[data-score-hint-popover="true"]').waitFor({ state: 'detached', timeout: 15000 })
+
+  await setThemeMode(page, 'light')
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Show scoring guide for Distribution' }).click()
   await assertReadablePopover(page, 'Distribution')
+  await assertPopoverTheme(page, 'light')
 
   await page.getByLabel('Confidence').selectOption('Amber')
   await page.getByText('Submit and export', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })

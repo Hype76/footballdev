@@ -84,16 +84,16 @@ function ScoreInfo({ field }) {
       buttonLabel={`Show scoring guide for ${field.label}`}
       title="Scoring guide"
     >
-      <p className="text-sm font-semibold leading-6 text-[#4b5f55] dark:text-[#d7e5dc]">
+      <p className="text-sm font-semibold leading-6 text-[var(--text-muted)] dark:text-[#d7e5dc]">
         Use this guide when scoring {field.label}. Scores run from 1 to {maxScore}.
       </p>
       <div className="mt-3 grid gap-2">
         {guideItems.map((help) => (
-          <div key={`${help.score}-${help.label}`} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 dark:border-[#315244] dark:bg-[#172033]">
-            <p className="font-black text-[#101828] dark:text-white">
+          <div key={`${help.score}-${help.label}`} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 shadow-sm shadow-[#101828]/5 dark:border-[#315244] dark:bg-[#172033] dark:shadow-black/10">
+            <p className="font-black text-[var(--text-primary)] dark:text-white">
               {help.score}. {help.label}
             </p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-[#4b5f55] dark:text-[#d7e5dc]">{help.description}</p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-[var(--text-muted)] dark:text-[#d7e5dc]">{help.description}</p>
           </div>
         ))}
       </div>

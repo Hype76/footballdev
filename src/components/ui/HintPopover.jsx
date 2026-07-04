@@ -186,15 +186,15 @@ export function HintPopover({
       data-score-hint-popover="true"
       onPointerEnter={() => window.clearTimeout(closeTimerRef.current)}
       onPointerLeave={scheduleHoverClose}
-      className="fixed z-[120] overflow-y-auto rounded-lg border border-[#9dc9b4] bg-white p-4 text-left text-sm leading-6 text-[#34443b] shadow-2xl shadow-[#101828]/20 outline-none dark:border-[#315244] dark:bg-[#101828] dark:text-[#d7e5dc]"
+      className="fixed z-[120] overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-left text-sm leading-6 text-[var(--text-muted)] shadow-2xl shadow-[#101828]/12 ring-1 ring-white/80 outline-none dark:border-[#315244] dark:bg-[#101828] dark:text-[#d7e5dc] dark:shadow-black/35 dark:ring-white/5"
       style={position || { left: EDGE_GAP, top: EDGE_GAP, width: DESKTOP_WIDTH }}
     >
       <div className="flex items-start justify-between gap-4">
-        <p className="text-base font-black text-[#101828] dark:text-white">{title}</p>
+        <p className="text-base font-black text-[var(--text-primary)] dark:text-white">{title}</p>
         <button
           type="button"
           onClick={closePopover}
-          className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] text-sm font-black text-[#4b5f55] transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:border-[#047857] focus:outline-none focus:ring-2 focus:ring-[#d1fae5] dark:border-[#315244] dark:bg-[#1f2937] dark:text-[#d7e5dc]"
+          className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] text-sm font-black text-[var(--text-muted)] shadow-sm shadow-[#101828]/5 transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] dark:border-[#315244] dark:bg-[#1f2937] dark:text-[#d7e5dc] dark:hover:bg-[#253348] dark:hover:text-white"
           aria-label={`Close ${title}`}
         >
           X
@@ -231,7 +231,7 @@ export function HintPopover({
           }
         }}
         onPointerLeave={scheduleHoverClose}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#047857] transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:border-[#047857] focus:outline-none focus:ring-2 focus:ring-[#d1fae5] dark:border-[#315244] dark:bg-[#101828] dark:text-[#8ee6bd]"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-sm font-black text-[var(--text-secondary)] shadow-sm shadow-[#047857]/10 transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] dark:border-[#315244] dark:bg-[#101828] dark:text-[#8ee6bd] dark:hover:bg-[#172033] dark:hover:text-[#c7ff32]"
       >
         i
       </button>
