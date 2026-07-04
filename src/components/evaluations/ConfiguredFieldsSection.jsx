@@ -6,6 +6,7 @@ export function ConfiguredFieldsSection({
   emptyMessage = 'No development fields are enabled for this club. Enable fields in Development Form first.',
   isFallbackFields,
   onResponseChange,
+  previousFieldValues = {},
   responseValues,
 }) {
   return (
@@ -30,7 +31,12 @@ export function ConfiguredFieldsSection({
                 {field.label}
                 {field.required ? ' *' : ''}
               </span>
-              <EvaluationFieldInput field={field} value={responseValues[field.id] ?? ''} onChange={onResponseChange} />
+              <EvaluationFieldInput
+                field={field}
+                previousValue={previousFieldValues[field.id]}
+                value={responseValues[field.id] ?? ''}
+                onChange={onResponseChange}
+              />
             </label>
           ))}
         </div>

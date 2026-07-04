@@ -53,6 +53,7 @@ import {
   buildComments,
   buildFormResponses,
   buildParentEmailJobs,
+  buildPreviousFieldValueMap,
   buildScores,
   createEvaluationPayload,
   createOfflineEvaluationDraft,
@@ -1784,6 +1785,10 @@ export function CreateEvaluationPage() {
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses, enabledFields), [enabledFields, formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
+  const previousFieldValues = useMemo(
+    () => buildPreviousFieldValueMap(enabledFields, previousEvaluations),
+    [enabledFields, previousEvaluations],
+  )
   const feedbackFormSnapshot = useMemo(
     () => buildFeedbackFormSnapshot({ form: selectedFeedbackForm, formResponses }),
     [formResponses, selectedFeedbackForm],
@@ -3029,6 +3034,7 @@ export function CreateEvaluationPage() {
                     : 'No development fields are enabled for this club. Enable fields in Development Form first.'}
                 isFallbackFields={isFallbackFields && isDefaultFeedbackFormSelected}
                 onResponseChange={handleResponseChange}
+                previousFieldValues={previousFieldValues}
                 responseValues={responseValues}
               />
 

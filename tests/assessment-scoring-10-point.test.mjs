@@ -11,7 +11,7 @@ import { buildAssessmentPdfHtml } from '../src/lib/assessment-pdf-html.js'
 import { canEditEvaluation } from '../src/lib/auth-permissions.js'
 import { getDefaultFormFields } from '../src/lib/domain/core-defaults.js'
 import { buildEmailHtml } from '../src/lib/email-builder.js'
-import { buildPreviousAssessmentItems } from '../src/hooks/evaluations/evaluationFormUtils.js'
+import { buildPreviousAssessmentItems, buildPreviousFieldValueMap } from '../src/hooks/evaluations/evaluationFormUtils.js'
 import { buildPlayerProgressionData } from '../src/lib/player-progression.js'
 import { buildProgressionChartMarkup, getProgressionChartSummary } from '../src/lib/progression-chart-markup.js'
 
@@ -142,6 +142,97 @@ test('submitted assessment summaries show default 1 to 10 labels only for defaul
 
   assert.equal(items.find((item) => item.label === 'Technical')?.value, '8 / 10 - Very Good')
   assert.equal(items.find((item) => item.label === 'Bleep Test')?.value, '7.1')
+})
+
+test('previous field value map chooses the latest comparable form response', () => {
+  const previousValues = buildPreviousFieldValueMap(
+    [
+      { id: 'technical', label: 'Technical', type: 'score_1_10' },
+      { id: 'focus', label: 'Focus area', type: 'text' },
+    ],
+    [
+      {
+        id: 'older',
+        createdAt: '2026-06-05T10:00:00.000Z',
+        date: '5 Jun 2026',
+        coach: 'Coach Sam',
+        formResponses: {
+          Technical: 6,
+          'Focus area': 'Scanning',
+        },
+      },
+      {
+        id: 'latest',
+        createdAt: '2026-06-12T10:00:00.000Z',
+        date: '12 Jun 2026',
+        coach: 'Coach Steve',
+        formResponses: {
+          Technical: 7,
+          'Focus area': 'First touch',
+        },
+      },
+    ],
+  )
+
+  assert.equal(previousValues.technical.value, 7)
+  assert.equal(previousValues.technical.valueLabel, '7')
+  assert.equal(previousValues.technical.dateLabel, '12 Jun 2026')
+  assert.equal(previousValues.technical.coach, 'Coach Steve')
+  assert.equal(previousValues.focus.valueLabel, 'First touch')
+})
+
+test('previous field value map prefers snapshot field ids and avoids unrelated forms', () => {
+  const previousValues = buildPreviousFieldValueMap(
+    [{ id: 'current-impact', label: 'Impact', type: 'traffic_light' }],
+    [
+      {
+        id: 'other-form',
+        createdAt: '2026-06-20T10:00:00.000Z',
+        feedbackFormSnapshot: {
+          fields: [{ id: 'other-impact', label: 'Impact', value: 'Red' }],
+        },
+        formResponses: { Impact: 'Red' },
+      },
+      {
+        id: 'same-form',
+        createdAt: '2026-06-10T10:00:00.000Z',
+        feedbackFormSnapshot: {
+          fields: [{ id: 'current-impact', label: 'Impact', value: 'Green' }],
+        },
+        formResponses: { Impact: 'Green' },
+      },
+    ],
+  )
+
+  assert.equal(previousValues['current-impact'].valueLabel, 'Green')
+  assert.equal(previousValues['current-impact'].evaluationId, 'same-form')
+})
+
+test('previous field value map falls back to labels and legacy scores only when comparable', () => {
+  const previousValues = buildPreviousFieldValueMap(
+    [
+      { id: 'technical', label: 'Technical', type: 'score_1_10' },
+      { id: 'legacy-fitness', label: 'Bleep Test', type: 'number' },
+      { id: 'empty-note', label: 'Coach note', type: 'text' },
+    ],
+    [
+      {
+        id: 'legacy',
+        createdAt: '2026-06-08T10:00:00.000Z',
+        formResponses: {
+          'Coach note': '',
+        },
+        scores: {
+          Technical: 5,
+          'Bleep Test': 7.1,
+        },
+      },
+    ],
+  )
+
+  assert.equal(previousValues.technical.valueLabel, '5')
+  assert.equal(previousValues['legacy-fitness'].valueLabel, '7.1')
+  assert.equal(previousValues['empty-note'], undefined)
 })
 
 test('progression chart scoring is displayed on a 10 point scale', () => {

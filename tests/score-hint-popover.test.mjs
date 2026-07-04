@@ -71,3 +71,14 @@ test('score hint fix is not dependent on changing SectionCard overflow', async (
   assert.match(source, /overflow-hidden/)
   assert.match(source, /SectionCard/)
 })
+
+test('evaluation fields can render compact read-only previous value hints', async () => {
+  const source = await readFile(inputUrl, 'utf8')
+
+  assert.match(source, /function PreviousValueHint/)
+  assert.match(source, /Previous:/)
+  assert.match(source, /previousValue\.valueLabel/)
+  assert.match(source, /previousValue\.dateLabel/)
+  assert.match(source, /previousValue\.coach/)
+  assert.doesNotMatch(source, /onChange\(field\.id, previousValue/)
+})

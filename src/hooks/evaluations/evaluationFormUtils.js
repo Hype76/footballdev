@@ -1,5 +1,5 @@
 import { getClubSettings } from '../../lib/supabase.js'
-import { formatUkDate, normalizeDateOnly } from '../../lib/date-format.js'
+import { formatUkDate, formatUkDateWords, normalizeDateOnly } from '../../lib/date-format.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   normalizeEmailTemplateAudience,
@@ -31,6 +31,10 @@ export function mapEvaluationResponsesToFieldValues(fields, formResponses = {}) 
 
 function normalizeAssessmentLabel(value) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function normalizePreviousFieldKey(value) {
+  return normalizeAssessmentLabel(value).replace(/\s+/g, ' ')
 }
 
 export function getContactEmailAddresses(contact) {
@@ -70,6 +74,154 @@ function formatAssessmentValue(label, value) {
   }
 
   return String(value ?? '').trim() || 'No data entered'
+}
+
+function isEnteredPreviousFieldValue(value) {
+  if (Array.isArray(value)) {
+    return value.some((item) => String(item ?? '').trim())
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.keys(value).length > 0
+  }
+
+  return String(value ?? '').trim() !== ''
+}
+
+function formatPreviousFieldValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? '').trim()).filter(Boolean).join(', ')
+  }
+
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+
+  return String(value ?? '').trim()
+}
+
+function getPreviousEvaluationTimestamp(evaluation = {}, fallbackIndex = 0) {
+  const createdAtValue = Number(evaluation.createdAt ?? evaluation.created_at)
+
+  if (Number.isFinite(createdAtValue)) {
+    return createdAtValue
+  }
+
+  const createdAtDate = new Date(evaluation.createdAt ?? evaluation.created_at ?? '').getTime()
+
+  if (!Number.isNaN(createdAtDate)) {
+    return createdAtDate
+  }
+
+  const normalizedDate = normalizeDateOnly(evaluation.date || evaluation.session)
+
+  if (normalizedDate) {
+    const dateTimestamp = new Date(`${normalizedDate}T00:00:00.000Z`).getTime()
+
+    if (!Number.isNaN(dateTimestamp)) {
+      return dateTimestamp
+    }
+  }
+
+  return -fallbackIndex
+}
+
+function getPreviousEvaluationDateLabel(evaluation = {}) {
+  const sourceDate = evaluation.date || evaluation.session
+  return sourceDate ? formatUkDateWords(sourceDate, '') : ''
+}
+
+function getPreviousFieldSnapshotValue(evaluation = {}, field = {}) {
+  const snapshotFields = Array.isArray(evaluation.feedbackFormSnapshot?.fields)
+    ? evaluation.feedbackFormSnapshot.fields
+    : []
+
+  if (snapshotFields.length === 0) {
+    return undefined
+  }
+
+  const fieldId = String(field.id ?? '').trim()
+  const normalizedLabel = normalizePreviousFieldKey(field.label)
+  const findById = fieldId
+    ? snapshotFields.find((snapshotField) => String(snapshotField?.id ?? '').trim() === fieldId)
+    : null
+
+  if (findById && isEnteredPreviousFieldValue(findById.value)) {
+    return findById.value
+  }
+
+  const canFallBackToLabel = !fieldId || snapshotFields.some((snapshotField) => !String(snapshotField?.id ?? '').trim())
+
+  if (!canFallBackToLabel) {
+    return undefined
+  }
+
+  const findByLabel = snapshotFields.find((snapshotField) => normalizePreviousFieldKey(snapshotField?.label) === normalizedLabel)
+  return findByLabel && isEnteredPreviousFieldValue(findByLabel.value) ? findByLabel.value : undefined
+}
+
+function getPreviousFieldResponseValue(evaluation = {}, field = {}) {
+  const formResponses = evaluation.formResponses && typeof evaluation.formResponses === 'object' ? evaluation.formResponses : {}
+  const normalizedLabel = normalizePreviousFieldKey(field.label)
+  const responseEntry = Object.entries(formResponses).find(([label]) => normalizePreviousFieldKey(label) === normalizedLabel)
+
+  if (responseEntry && isEnteredPreviousFieldValue(responseEntry[1])) {
+    return responseEntry[1]
+  }
+
+  const scores = evaluation.scores && typeof evaluation.scores === 'object' ? evaluation.scores : {}
+  const scoreEntry = Object.entries(scores).find(([label]) => normalizePreviousFieldKey(label) === normalizedLabel)
+
+  if (scoreEntry && isEnteredPreviousFieldValue(scoreEntry[1])) {
+    return scoreEntry[1]
+  }
+
+  return undefined
+}
+
+export function buildPreviousFieldValueMap(fields = [], previousEvaluations = []) {
+  const sortedEvaluations = [...previousEvaluations]
+    .filter(Boolean)
+    .sort((left, right) => getPreviousEvaluationTimestamp(right) - getPreviousEvaluationTimestamp(left))
+
+  return Object.fromEntries(
+    fields
+      .map((field) => {
+        const fieldId = String(field?.id ?? '').trim()
+
+        if (!fieldId) {
+          return null
+        }
+
+        for (const evaluation of sortedEvaluations) {
+          const snapshotFields = Array.isArray(evaluation.feedbackFormSnapshot?.fields)
+            ? evaluation.feedbackFormSnapshot.fields
+            : []
+          const value = snapshotFields.length > 0
+            ? getPreviousFieldSnapshotValue(evaluation, field)
+            : getPreviousFieldResponseValue(evaluation, field)
+
+          if (!isEnteredPreviousFieldValue(value)) {
+            continue
+          }
+
+          return [
+            fieldId,
+            {
+              value,
+              valueLabel: formatPreviousFieldValue(value),
+              dateLabel: getPreviousEvaluationDateLabel(evaluation),
+              session: String(evaluation.session ?? '').trim(),
+              coach: String(evaluation.coach ?? evaluation.createdByName ?? '').trim(),
+              evaluationId: evaluation.id,
+            },
+          ]
+        }
+
+        return null
+      })
+      .filter(Boolean),
+  )
 }
 
 export function buildPreviousAssessmentItems(evaluation) {

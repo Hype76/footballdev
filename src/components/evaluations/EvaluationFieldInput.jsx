@@ -101,19 +101,46 @@ function ScoreInfo({ field }) {
   )
 }
 
-export function EvaluationFieldInput({ field, value, onChange }) {
+function PreviousValueHint({ previousValue }) {
+  if (!previousValue?.valueLabel) {
+    return null
+  }
+
+  const context = [previousValue.dateLabel, previousValue.coach].filter(Boolean).join(', ')
+
+  return (
+    <p className="mt-2 inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--panel-alt)] px-2.5 py-1 text-xs font-black leading-5 text-[var(--text-muted)] dark:border-[#315244] dark:bg-[#172033] dark:text-[#d7e5dc]">
+      <span>Previous:</span>
+      <span className="break-words text-[var(--text-primary)] dark:text-white">{previousValue.valueLabel}</span>
+      {context ? <span className="font-semibold text-[var(--text-secondary)] dark:text-[#8ee6bd]">{context}</span> : null}
+    </p>
+  )
+}
+
+function FieldInputFrame({ children, previousValue }) {
+  return (
+    <>
+      {children}
+      <PreviousValueHint previousValue={previousValue} />
+    </>
+  )
+}
+
+export function EvaluationFieldInput({ field, previousValue, value, onChange }) {
   const sharedClassName =
     'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 
   if (field.type === 'textarea') {
     return (
-      <textarea
-        value={value}
-        onChange={(event) => onChange(field.id, event.target.value)}
-        required={field.required}
-        rows="4"
-        className="min-h-32 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
-      />
+      <FieldInputFrame previousValue={previousValue}>
+        <textarea
+          value={value}
+          onChange={(event) => onChange(field.id, event.target.value)}
+          required={field.required}
+          rows="4"
+          className="min-h-32 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
+        />
+      </FieldInputFrame>
     )
   }
 
@@ -129,47 +156,53 @@ export function EvaluationFieldInput({ field, value, onChange }) {
           : 'Select option'
 
     return (
-      <div className={isScoreField ? 'flex items-start gap-2' : ''}>
-        <select
-          value={value}
-          onChange={(event) => onChange(field.id, event.target.value)}
-          required={field.required}
-          className={sharedClassName}
-        >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        {isScoreField ? <ScoreInfo field={field} /> : null}
-      </div>
+      <FieldInputFrame previousValue={previousValue}>
+        <div className={isScoreField ? 'flex items-start gap-2' : ''}>
+          <select
+            value={value}
+            onChange={(event) => onChange(field.id, event.target.value)}
+            required={field.required}
+            className={sharedClassName}
+          >
+            <option value="">{placeholder}</option>
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {isScoreField ? <ScoreInfo field={field} /> : null}
+        </div>
+      </FieldInputFrame>
     )
   }
 
   if (field.type === 'number') {
     return (
+      <FieldInputFrame previousValue={previousValue}>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          value={value}
+          onChange={(event) => onChange(field.id, event.target.value)}
+          required={field.required}
+          className={sharedClassName}
+        />
+      </FieldInputFrame>
+    )
+  }
+
+  return (
+    <FieldInputFrame previousValue={previousValue}>
       <input
-        type="number"
-        inputMode="decimal"
-        min="0"
-        step="0.01"
+        type="text"
         value={value}
         onChange={(event) => onChange(field.id, event.target.value)}
         required={field.required}
         className={sharedClassName}
       />
-    )
-  }
-
-  return (
-    <input
-      type="text"
-      value={value}
-      onChange={(event) => onChange(field.id, event.target.value)}
-      required={field.required}
-      className={sharedClassName}
-    />
+    </FieldInputFrame>
   )
 }

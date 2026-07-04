@@ -10,6 +10,7 @@ import {
   getDevelopmentRecordSaveFailureMessage,
   normalizeOptionalUuid,
   buildParentEmailJobs,
+  buildPreviousFieldValueMap,
 } from '../src/hooks/evaluations/evaluationFormUtils.js'
 import { mapEvaluationToRow } from '../src/lib/domain/evaluation-normalizers.js'
 import { PLAYER_CONTACT_TYPES } from '../src/lib/domain/contact-utils.js'
@@ -206,6 +207,28 @@ test('final development record payload does not send invalid fallback ids to uui
 
   assert.equal(payload.id, undefined)
   assert.equal(row.id, undefined)
+})
+
+test('previous field hints stay out of final development record payload', () => {
+  const previousFieldValues = buildPreviousFieldValueMap(
+    [{ id: 'technical', label: 'Technical', type: 'score_1_10' }],
+    [
+      {
+        id: 'previous-evaluation',
+        createdAt: '2026-06-10T10:00:00.000Z',
+        formResponses: { Technical: 6 },
+      },
+    ],
+  )
+  const payload = createBasePayload()
+
+  assert.equal(previousFieldValues.technical.value, 6)
+  assert.equal(Object.prototype.hasOwnProperty.call(payload, 'previousFieldValues'), false)
+  assert.equal(Object.prototype.hasOwnProperty.call(payload, 'previousValues'), false)
+  assert.deepEqual(payload.formResponses, {
+    Technical: 7,
+    'Overall Comments': 'Positive session.',
+  })
 })
 
 test('email output can prepare a selected linked parent recipient without sending email', () => {
