@@ -1,5 +1,37 @@
 import { useEffect, useState } from 'react'
 
+const overlayClassName = 'fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6'
+const panelClassName =
+  'relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-[var(--text-primary)] shadow-xl shadow-[#101828]/10 ring-1 ring-white/70 sm:p-6'
+const closeButtonClassName =
+  'absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--accent-soft)] text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)] hover:bg-[var(--panel-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60'
+const eyebrowClassName = 'text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]'
+const titleClassName = 'mt-3 pr-12 text-2xl font-black tracking-tight text-[var(--text-primary)]'
+const messageClassName = 'mt-3 text-sm font-semibold leading-6 text-[var(--text-muted)]'
+const itemsPanelClassName =
+  'mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] p-4 shadow-sm shadow-[#101828]/5'
+const itemTitleClassName = 'text-sm font-black text-[var(--text-primary)]'
+const itemRowClassName = 'min-w-0 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2'
+const itemLabelClassName = 'block text-xs font-black uppercase tracking-[0.12em] text-[var(--text-secondary)]'
+const itemValueClassName = 'mt-1 block min-w-0 break-words text-sm font-semibold leading-6 text-[var(--text-muted)]'
+const labelTextClassName = 'mb-2 block text-sm font-black text-[var(--text-primary)]'
+const fieldClassName =
+  'min-h-28 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--panel-bg)] focus:ring-2 focus:ring-[var(--accent-soft)]'
+const passwordFieldWrapClassName =
+  'flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] focus-within:border-[var(--accent)] focus-within:bg-[var(--panel-bg)] focus-within:ring-2 focus-within:ring-[var(--accent-soft)]'
+const passwordInputClassName =
+  'min-h-11 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none'
+const passwordToggleClassName =
+  'min-h-11 border-l border-[var(--border-color)] px-4 py-3 text-sm font-black text-[var(--text-muted)] transition hover:bg-[var(--accent-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)]'
+const errorMessageClassName =
+  'mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-bold text-[var(--danger-text)]'
+const cancelButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60'
+const destructiveConfirmButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-black text-[var(--danger-text)] shadow-sm transition hover:border-[var(--danger-text)] hover:bg-[var(--panel-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--danger-border)] disabled:cursor-not-allowed disabled:opacity-60'
+const defaultConfirmButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-black text-[var(--button-primary-text)] shadow-sm shadow-[#101828]/10 transition hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60'
+
 export function ConfirmModal({
   cancelLabel = 'Cancel',
   children,
@@ -125,15 +157,15 @@ export function ConfirmModal({
           : undefined
   const isDestructiveAction = /delete|remove|suspend|revoke/i.test(confirmLabel)
   const confirmButtonClass = isDestructiveAction
-    ? 'inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 shadow-sm transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
-    : 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
+    ? destructiveConfirmButtonClassName
+    : defaultConfirmButtonClassName
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
+    <div className={overlayClassName}>
       <div
         role="dialog"
         aria-modal="true"
-        className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-xl shadow-[#047857]/15 sm:p-6"
+        className={panelClassName}
       >
         <button
           type="button"
@@ -141,17 +173,17 @@ export function ConfirmModal({
           disabled={isBusy}
           title={isBusy ? 'Please wait while this action finishes.' : 'Close this window'}
           aria-label="Close this window"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className={closeButtonClassName}
         >
           X
         </button>
         <form onSubmit={handleConfirm}>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Please confirm</p>
-          <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
-          {message ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{message}</p> : null}
+          <p className={eyebrowClassName}>Please confirm</p>
+          <h2 className={titleClassName}>{title}</h2>
+          {message ? <p className={messageClassName}>{message}</p> : null}
         {items.length > 0 ? (
-          <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
-            <p className="text-sm font-black text-[#101828]">{itemsTitle}</p>
+          <div className={itemsPanelClassName}>
+            <p className={itemTitleClassName}>{itemsTitle}</p>
             <ul
               className={
                 hasCompactItems
@@ -160,13 +192,13 @@ export function ConfirmModal({
               }
             >
               {itemRows.map((item) => (
-                <li key={item.key} className="min-w-0 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+                <li key={item.key} className={itemRowClassName}>
                   {item.label ? (
-                    <span className="block text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">
+                    <span className={itemLabelClassName}>
                       {item.label}
                     </span>
                   ) : null}
-                  <span className="mt-1 block min-w-0 break-words text-sm font-semibold leading-6 text-[#4b5f55]">
+                  <span className={itemValueClassName}>
                     {item.value}
                   </span>
                 </li>
@@ -177,7 +209,7 @@ export function ConfirmModal({
           {children ? <div className="mt-4">{children}</div> : null}
           {requireReason ? (
           <label className="mt-4 block">
-            <span className="mb-2 block text-sm font-black text-[#101828]">{reasonLabel}</span>
+            <span className={labelTextClassName}>{reasonLabel}</span>
             <textarea
               value={reason}
               onChange={(event) => {
@@ -186,16 +218,16 @@ export function ConfirmModal({
               }}
               placeholder={reasonPlaceholder}
               rows={4}
-              className="min-h-28 w-full rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
+              className={fieldClassName}
             />
           </label>
         ) : null}
           {requirePassword ? (
           <label className="mt-4 block">
-            <span className="mb-2 block text-sm font-black text-[#101828]">
+            <span className={labelTextClassName}>
               Enter your password to confirm
             </span>
-            <div className="flex rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] focus-within:border-[#0f9f6e] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#bbf7d0]">
+            <div className={passwordFieldWrapClassName}>
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
@@ -204,12 +236,12 @@ export function ConfirmModal({
                   setValidationError('')
                 }}
                 autoComplete="current-password"
-                className="min-h-11 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none"
+                className={passwordInputClassName}
               />
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible((current) => !current)}
-                className="min-h-11 border-l border-[#d7e5dc] px-4 py-3 text-sm font-black text-[#4b5f55] transition hover:bg-[#d1fae5]"
+                className={passwordToggleClassName}
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -217,7 +249,7 @@ export function ConfirmModal({
           </label>
         ) : null}
           {visibleErrorMessage ? (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            <div className={errorMessageClassName}>
               {visibleErrorMessage}
             </div>
           ) : null}
@@ -228,7 +260,7 @@ export function ConfirmModal({
               onClick={handleCancel}
               disabled={isActionBusy}
               title={cancelDisabledReason}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+              className={cancelButtonClassName}
             >
               {cancelLabel}
             </button>

@@ -70,6 +70,34 @@ test('ConfirmModal locks repeated submissions while an async confirmation is pen
   assert.match(confirmModalSource, /const isActionBusy = isBusy \|\| isSubmitting/)
 })
 
+test('ConfirmModal uses shared theme tokens for light and dark mode styling', () => {
+  const requiredTokenClasses = [
+    'border-[var(--border-color)]',
+    'bg-[var(--panel-bg)]',
+    'bg-[var(--panel-soft)]',
+    'text-[var(--text-primary)]',
+    'text-[var(--text-muted)]',
+    'text-[var(--text-secondary)]',
+    'bg-[var(--accent-soft)]',
+    'border-[var(--accent)]',
+    'bg-[var(--button-primary)]',
+    'text-[var(--button-primary-text)]',
+    'border-[var(--danger-border)]',
+    'bg-[var(--danger-soft)]',
+    'text-[var(--danger-text)]',
+  ]
+
+  for (const tokenClass of requiredTokenClasses) {
+    assert.ok(confirmModalSource.includes(tokenClass), `ConfirmModal should use ${tokenClass}`)
+  }
+
+  assert.doesNotMatch(confirmModalSource, /border-\[#d7e5dc\]/)
+  assert.doesNotMatch(confirmModalSource, /bg-\[#ecfdf5\]/)
+  assert.doesNotMatch(confirmModalSource, /text-\[#101828\]/)
+  assert.doesNotMatch(confirmModalSource, /text-\[#4b5f55\]/)
+  assert.doesNotMatch(confirmModalSource, /bg-\[#047857\]/)
+})
+
 test('Platform Admin team delete failures keep the modal target open', () => {
   const teamHandler = getFunctionSource(platformAdminPageSource, 'confirmDeleteTeam')
 
