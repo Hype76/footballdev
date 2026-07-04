@@ -472,20 +472,87 @@ function formatMatchDate(match) {
   })
 }
 
-function getMatchEventTitle(event) {
-  return `${event.eventType === 'goal' ? 'Goal' : 'Update'}, Score: ${event.homeScore} - ${event.awayScore}`
+function formatMatchEventTimestamp(value) {
+  if (!value) {
+    return 'Time not recorded'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString([], {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-function getMatchEventDetail(event) {
-  const detailParts = [
-    event.minute !== null ? `Minute: ${event.minute}` : '',
-    `Player: ${event.scorerInitials || event.scorerName || 'Score update'}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}`,
+function getMatchEventTypeLabel(event) {
+  if (event.eventType === 'goal') {
+    return event.teamSide === 'opponent' ? 'Opponent goal' : 'Our goal'
+  }
+
+  if (event.eventType === 'score_correction') {
+    return 'Score correction'
+  }
+
+  if (event.eventType === 'status_change') {
+    return 'Status update'
+  }
+
+  if (event.eventType === 'note') {
+    return 'Match note'
+  }
+
+  return 'Match update'
+}
+
+function getMatchEventToneClass(event) {
+  if (event.eventType === 'score_correction') {
+    return 'border-[#facc15] bg-[#fefce8] text-[#854d0e]'
+  }
+
+  if (event.eventType === 'goal' && event.teamSide === 'opponent') {
+    return 'border-[#fed7aa] bg-[#fff7ed] text-[#92400e]'
+  }
+
+  if (event.eventType === 'goal') {
+    return 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+  }
+
+  return 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828]'
+}
+
+function getMatchEventScoreLabel(event) {
+  const homeScore = Number(event.homeScore)
+  const awayScore = Number(event.awayScore)
+
+  if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) {
+    return 'Score not recorded'
+  }
+
+  return `${homeScore} - ${awayScore}`
+}
+
+function getMatchEventDetailItems(event) {
+  const scorerLabel = event.scorerInitials || event.scorerName
+  const assistLabel = event.assistInitials || event.assistName
+  const items = [
+    event.minute !== null && event.minute !== undefined ? { label: 'Minute', value: `${event.minute}` } : null,
+    scorerLabel ? { label: 'Scorer', value: `${scorerLabel}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}` } : null,
     event.assistInitials || event.assistName
-      ? `Assist: ${event.assistInitials || event.assistName}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}`
-      : '',
+      ? { label: 'Assist', value: `${assistLabel}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` }
+      : null,
+    event.notes ? { label: 'Note', value: event.notes } : null,
+    event.createdByName ? { label: 'Recorded by', value: event.createdByName } : null,
+    { label: 'Time', value: formatMatchEventTimestamp(event.createdAt) },
   ]
 
-  return detailParts.filter(Boolean).join(', ')
+  return items.filter(Boolean)
 }
 
 function formatEventLogTimestamp(value) {
@@ -2260,26 +2327,70 @@ function MatchDayCard({
             </div>
           </form>
 
-          {events.length > 0 ? (
-            <section className={panelClass}>
-              <h5 className="text-sm font-black text-[#101828]">Recent match events</h5>
-              <div className="mt-3 space-y-2">
-                {events.slice(0, 6).map((event) => (
-                  <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
-                    <p className="text-sm font-black text-[#101828]">
-                      {getMatchEventTitle(event)}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                      {getMatchEventDetail(event)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <MatchTimelinePanel events={events} />
         </div>
       ) : null}
     </article>
+  )
+}
+
+function MatchTimelinePanel({ events }) {
+  const timelineEvents = Array.isArray(events) ? events : []
+  const recentEvents = timelineEvents.slice(0, 8)
+
+  return (
+    <section className={panelClass}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h5 className="text-sm font-black text-[#101828]">Match Timeline</h5>
+          <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+            {timelineEvents.length} recorded match {timelineEvents.length === 1 ? 'event' : 'events'}
+          </p>
+        </div>
+        <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+          Staff view
+        </span>
+      </div>
+
+      {timelineEvents.length === 0 ? (
+        <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+          <p className="text-sm font-black text-[#101828]">No match timeline events yet.</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            Goals and score corrections will appear here when they are recorded.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {recentEvents.map((event) => {
+            const detailItems = getMatchEventDetailItems(event)
+
+            return (
+              <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-[#101828]">{getMatchEventTypeLabel(event)}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Score after event: {getMatchEventScoreLabel(event)}</p>
+                  </div>
+                  <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>
+                    {event.eventType === 'goal' && event.teamSide === 'opponent' ? 'Opponent' : event.eventType === 'goal' ? 'Our team' : getMatchEventTypeLabel(event)}
+                  </span>
+                </div>
+                {detailItems.length > 0 ? (
+                  <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {detailItems.map((item) => (
+                      <div key={`${event.id}-${item.label}`} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                        <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-[#047857]">{item.label}</dt>
+                        <dd className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }
 
