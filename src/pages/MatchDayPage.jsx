@@ -774,11 +774,15 @@ function getHomeAwayLabel(homeAway) {
   return MATCH_DAY_HOME_AWAY_OPTIONS.find((option) => option.value === homeAway)?.label || String(homeAway || 'Home')
 }
 
-function getAvailabilityConflictCount(requests) {
+function getAvailabilityPlayerKey(row) {
+  return String(row?.playerId || row?.playerName || row?.id || '').trim()
+}
+
+function getAvailabilityConflictKeys(requests) {
   const statusesByPlayer = new Map()
 
   requests.forEach((request) => {
-    const playerKey = request.playerId || request.playerName
+    const playerKey = getAvailabilityPlayerKey(request)
     const status = String(request.status || 'pending').toLowerCase()
 
     if (!playerKey || status === 'pending' || status === 'expired') {
@@ -790,7 +794,100 @@ function getAvailabilityConflictCount(requests) {
     statusesByPlayer.set(playerKey, statuses)
   })
 
-  return [...statusesByPlayer.values()].filter((statuses) => statuses.size > 1).length
+  return new Set(
+    [...statusesByPlayer.entries()]
+      .filter(([, statuses]) => statuses.size > 1)
+      .map(([playerKey]) => playerKey),
+  )
+}
+
+function getAvailabilityConflictCount(requests) {
+  return getAvailabilityConflictKeys(requests).size
+}
+
+function getTransportRiskRows(match) {
+  const currentRows = getCurrentAvailabilityRows(match)
+  const requests = Array.isArray(match.availabilityRequests) ? match.availabilityRequests : []
+  const conflictKeys = getAvailabilityConflictKeys(requests)
+  const riskRows = []
+
+  currentRows.forEach((row) => {
+    const playerKey = getAvailabilityPlayerKey(row)
+    const status = String(row.status || 'pending').toLowerCase()
+    const reasons = []
+
+    if (status === 'unavailable') {
+      reasons.push({
+        key: 'unavailable',
+        label: 'Unavailable',
+        detail: 'Selected player does not have a clear available response.',
+      })
+    } else if (status === 'maybe') {
+      reasons.push({
+        key: 'maybe',
+        label: 'Maybe',
+        detail: 'Selected player does not have a clear available response.',
+      })
+    } else if (status !== 'available') {
+      reasons.push({
+        key: 'no_response',
+        label: 'No response yet',
+        detail: 'Selected player does not have a clear available response.',
+      })
+    }
+
+    if (playerKey && conflictKeys.has(playerKey)) {
+      reasons.push({
+        key: 'conflict',
+        label: 'Conflicting response',
+        detail: 'More than one availability status exists for this player.',
+      })
+    }
+
+    if (reasons.length > 0) {
+      riskRows.push({
+        id: row.id || row.playerId || row.playerName,
+        playerKey,
+        playerName: row.playerName || 'Player',
+        status,
+        reasons,
+      })
+    }
+  })
+
+  return riskRows
+}
+
+function getTransportRiskSummary(rows) {
+  const summary = {
+    conflicts: 0,
+    maybe: 0,
+    needsFollowUp: rows.length,
+    noResponse: 0,
+    unavailable: 0,
+  }
+
+  rows.forEach((row) => {
+    const reasonKeys = new Set(row.reasons.map((reason) => reason.key))
+
+    if (reasonKeys.has('conflict')) {
+      summary.conflicts += 1
+    }
+
+    if (reasonKeys.has('maybe')) {
+      summary.maybe += 1
+    }
+
+    if (reasonKeys.has('no_response')) {
+      summary.noResponse += 1
+    }
+
+    if (reasonKeys.has('unavailable')) {
+      summary.unavailable += 1
+    }
+  })
+
+  return summary
 }
 
 function getAvailabilityStats(match) {
@@ -2018,6 +2115,8 @@ function MatchDayCard({
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
   const currentMinute = getCurrentMatchMinute(match)
   const availabilityStats = getAvailabilityStats(match)
+  const transportRiskRows = getTransportRiskRows(match)
+  const transportRiskSummary = getTransportRiskSummary(transportRiskRows)
   const events = Array.isArray(match.events) ? match.events : []
   const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
   const displayParts = getMatchDayDisplayParts(match)
@@ -2159,6 +2258,8 @@ function MatchDayCard({
               </div>
             )}
           </section>
+
+          <TransportRiskPanel rows={transportRiskRows} summary={transportRiskSummary} />
 
           <section className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Roles</h5>
@@ -2572,6 +2673,71 @@ function MatchDayReadinessPanel({ match }) {
           <ReadinessItem key={item.label} item={item} />
         ))}
       </div>
+    </section>
+  )
+}
+
+function TransportRiskPanel({ rows, summary }) {
+  return (
+    <section className={panelClass}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h5 className="text-sm font-black text-[#101828]">Transport risk</h5>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+            Derived from availability responses. This is not confirmed lift or carpool status.
+          </p>
+        </div>
+        <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${
+          summary.needsFollowUp > 0
+            ? 'border-[#fed7aa] bg-[#fff7ed] text-[#92400e]'
+            : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+        }`}
+        >
+          {summary.needsFollowUp > 0 ? 'Needs staff follow-up' : 'No risk detected'}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-5">
+        <AvailabilityCount label="Follow-up" value={summary.needsFollowUp} />
+        <AvailabilityCount label="No response" value={summary.noResponse} />
+        <AvailabilityCount label="Maybe" value={summary.maybe} />
+        <AvailabilityCount label="Unavailable" value={summary.unavailable} />
+        <AvailabilityCount label="Conflicts" value={summary.conflicts} />
+      </div>
+
+      {rows.length > 0 ? (
+        <div className="mt-3 grid gap-2 lg:grid-cols-2">
+          {rows.map((row) => (
+            <article key={row.id || row.playerKey || row.playerName} className="rounded-lg border border-[#fed7aa] bg-[#fff7ed] p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-[#101828]">{row.playerName}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                    Selected player without confirmed available response.
+                  </p>
+                </div>
+                <span className="inline-flex w-fit rounded-lg border border-[#fed7aa] bg-white px-3 py-1 text-xs font-black text-[#92400e]">
+                  {getAvailabilityStatusLabel(row.status)}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {row.reasons.map((reason) => (
+                  <span key={reason.key} title={reason.detail} className="inline-flex w-fit rounded-lg border border-[#fed7aa] bg-white px-3 py-1 text-xs font-black text-[#92400e]">
+                    {reason.label}
+                  </span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
+          <p className="text-sm font-black text-[#101828]">No transport risk detected from availability responses.</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            Staff should still use normal safeguarding checks before match day.
+          </p>
+        </div>
+      )}
     </section>
   )
 }

@@ -213,6 +213,42 @@ test('staff and parent pages surface availability and volunteer responses', asyn
   assert.match(parentSource, /Use the response email link to update availability and requested role replies\./)
 })
 
+test('staff transport risk summary is staff only and availability derived', async () => {
+  const staffSource = await readFile(staffPageUrl, 'utf8')
+  const parentSource = await readFile(parentPortalPageUrl, 'utf8')
+  const helperStart = staffSource.indexOf('function getTransportRiskRows')
+  const helperEnd = staffSource.indexOf('function getAvailabilityStats', helperStart)
+  const panelStart = staffSource.indexOf('function TransportRiskPanel')
+  const panelEnd = staffSource.indexOf('function ReadinessItem', panelStart)
+
+  assert.notEqual(helperStart, -1)
+  assert.notEqual(helperEnd, -1)
+  assert.notEqual(panelStart, -1)
+  assert.notEqual(panelEnd, -1)
+
+  const helperSource = staffSource.slice(helperStart, helperEnd)
+  const panelSource = staffSource.slice(panelStart, panelEnd)
+
+  assert.match(helperSource, /getCurrentAvailabilityRows\(match\)/)
+  assert.match(helperSource, /getAvailabilityConflictKeys\(requests\)/)
+  assert.match(helperSource, /status !== 'available'/)
+  assert.match(helperSource, /key: 'no_response'/)
+  assert.match(helperSource, /key: 'unavailable'/)
+  assert.match(helperSource, /key: 'maybe'/)
+  assert.match(helperSource, /key: 'conflict'/)
+  assert.match(panelSource, /Transport risk/)
+  assert.match(panelSource, /Derived from availability responses/)
+  assert.match(panelSource, /Needs staff follow-up/)
+  assert.match(panelSource, /No transport risk detected from availability responses\./)
+  assert.doesNotMatch(helperSource, /fetch\(/)
+  assert.doesNotMatch(helperSource, /localStorage/)
+  assert.doesNotMatch(panelSource, /fetch\(/)
+  assert.doesNotMatch(panelSource, /recipientEmail|selectedByEmail|parentEmail/)
+  assert.doesNotMatch(parentSource, /Transport risk/)
+  assert.doesNotMatch(parentSource, /Derived from availability responses/)
+  assert.doesNotMatch(parentSource, /Needs staff follow-up/)
+})
+
 test('staff volunteer selection is resolved server side and queues notifications', async () => {
   const source = await readFile(selectVolunteerFunctionUrl, 'utf8')
 
