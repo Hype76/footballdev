@@ -12,6 +12,7 @@ import {
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import {
+  addStaffMatchDayEvent,
   addStaffMatchDayGoal,
   calculateArrivalTime,
   createMatchDay,
@@ -38,7 +39,7 @@ import {
   getMatchDayVolunteerActionKey,
   reconcileMatchDayVolunteerSelectionInList,
 } from '../lib/matchday-volunteer-state.js'
-import { reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
+import { reconcileMatchDayEventInList, reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
 import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
 
 const EMPTY_MATCH_FORM = {
@@ -111,6 +112,22 @@ const volunteerResponseLabels = {
   no: 'No',
   no_response: 'No response',
 }
+
+const EMPTY_MATCH_EVENT_FORM = {
+  eventType: 'yellow_card',
+  teamSide: 'club',
+  minute: '',
+  playerName: '',
+  playerShirtNumber: '',
+  notes: '',
+}
+
+const MATCH_EVENT_TYPE_OPTIONS = [
+  { value: 'yellow_card', label: 'Yellow card', confirmLabel: 'yellow card' },
+  { value: 'red_card', label: 'Red card', confirmLabel: 'red card' },
+  { value: 'substitution', label: 'Substitution', confirmLabel: 'substitution' },
+  { value: 'water_break', label: 'Water break', confirmLabel: 'water break' },
+]
 
 const parentAudienceLabels = {
   all_club_parents: 'All club parents',
@@ -546,10 +563,42 @@ function getMatchEventTypeLabel(event) {
     return 'Match note'
   }
 
+  if (event.eventType === 'yellow_card') {
+    return 'Yellow card'
+  }
+
+  if (event.eventType === 'red_card') {
+    return 'Red card'
+  }
+
+  if (event.eventType === 'substitution') {
+    return 'Substitution'
+  }
+
+  if (event.eventType === 'water_break') {
+    return 'Water break'
+  }
+
   return 'Match update'
 }
 
 function getMatchEventToneClass(event) {
+  if (event.eventType === 'yellow_card') {
+    return 'border-[#facc15] bg-[#fefce8] text-[#854d0e]'
+  }
+
+  if (event.eventType === 'red_card') {
+    return 'border-[#fecaca] bg-[#fef2f2] text-[#991b1b]'
+  }
+
+  if (event.eventType === 'substitution') {
+    return 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]'
+  }
+
+  if (event.eventType === 'water_break') {
+    return 'border-[#bae6fd] bg-[#f0f9ff] text-[#0369a1]'
+  }
+
   if (event.eventType === 'score_correction') {
     return 'border-[#facc15] bg-[#fefce8] text-[#854d0e]'
   }
@@ -563,6 +612,17 @@ function getMatchEventToneClass(event) {
   }
 
   return 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828]'
+}
+
+function getMatchEventBadge(event) {
+  const badges = {
+    yellow_card: { label: 'Yellow card', text: '', className: 'border-[#ca8a04] bg-[#facc15]' },
+    red_card: { label: 'Red card', text: '', className: 'border-[#b91c1c] bg-[#dc2626]' },
+    substitution: { label: 'Substitution', text: 'Swap', className: 'border-[#1d4ed8] bg-[#dbeafe] text-[#1d4ed8]' },
+    water_break: { label: 'Water break', text: 'Water', className: 'border-[#0284c7] bg-[#e0f2fe] text-[#0369a1]' },
+  }
+
+  return badges[event.eventType] || null
 }
 
 function getMatchEventScoreLabel(event) {
@@ -579,9 +639,10 @@ function getMatchEventScoreLabel(event) {
 function getMatchEventDetailItems(event) {
   const scorerLabel = event.scorerInitials || event.scorerName
   const assistLabel = event.assistInitials || event.assistName
+  const playerLabel = scorerLabel ? `${scorerLabel}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}` : ''
   const items = [
     event.minute !== null && event.minute !== undefined ? { label: 'Minute', value: `${event.minute}` } : null,
-    scorerLabel ? { label: 'Scorer', value: `${scorerLabel}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}` } : null,
+    scorerLabel ? { label: event.eventType === 'goal' ? 'Scorer' : 'Player', value: playerLabel } : null,
     event.assistInitials || event.assistName
       ? { label: 'Assist', value: `${assistLabel}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` }
       : null,
@@ -704,6 +765,10 @@ function getEventLogTypeLabel(entry) {
     player_availability_changed: 'availability',
     player_deselected: 'player deselected',
     player_selected: 'player selected',
+    red_card: 'red card',
+    substitution: 'substitution',
+    water_break: 'water break',
+    yellow_card: 'yellow card',
   }
 
   return labels[eventType] || eventType.replace(/_/g, ' ')
@@ -730,7 +795,11 @@ const EVENT_LOG_TYPE_FILTERS = {
   player_availability_changed: 'availability',
   player_deselected: 'squad',
   player_selected: 'squad',
+  red_card: 'match',
   scorer_updated: 'match',
+  substitution: 'match',
+  water_break: 'match',
+  yellow_card: 'match',
 }
 
 function getEventLogFilterKey(entry) {
@@ -770,6 +839,8 @@ function getEventLogDetail(entry) {
   const details = [
     entry.playerName ? `Player: ${entry.playerName}` : '',
     entry.metadata?.role ? `Role: ${String(entry.metadata.role).replace(/_/g, ' ')}` : '',
+    entry.metadata?.playerName ? `Player: ${entry.metadata.playerName}` : '',
+    entry.metadata?.minute !== null && entry.metadata?.minute !== undefined ? `Minute: ${entry.metadata.minute}` : '',
     entry.metadata?.action ? `Action: ${String(entry.metadata.action).replace(/_/g, ' ')}` : '',
     previousStatus || nextStatus
       ? `Availability: ${previousStatus || 'not recorded'} to ${nextStatus || 'not recorded'}`
@@ -1375,6 +1446,7 @@ export function MatchDayPage() {
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(EMPTY_MATCH_FORM)
   const [goalForms, setGoalForms] = useState({})
+  const [matchEventForms, setMatchEventForms] = useState({})
   const [scoreDrafts, setScoreDrafts] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -1917,6 +1989,17 @@ export function MatchDayPage() {
     }))
   }
 
+  const updateMatchEventForm = (matchId, updates) => {
+    setMatchEventForms((currentForms) => ({
+      ...currentForms,
+      [matchId]: {
+        ...EMPTY_MATCH_EVENT_FORM,
+        ...(currentForms[matchId] ?? {}),
+        ...updates,
+      },
+    }))
+  }
+
   const handlePlayerPick = (matchId, fieldPrefix, playerId) => {
     const player = squadPlayers.find((candidate) => String(candidate.id) === String(playerId))
 
@@ -1927,6 +2010,19 @@ export function MatchDayPage() {
     updateGoalForm(matchId, {
       [`${fieldPrefix}Name`]: player.playerName,
       [`${fieldPrefix}ShirtNumber`]: player.shirtNumber || '',
+    })
+  }
+
+  const handleMatchEventPlayerPick = (matchId, playerId) => {
+    const player = squadPlayers.find((candidate) => String(candidate.id) === String(playerId))
+
+    if (!player) {
+      return
+    }
+
+    updateMatchEventForm(matchId, {
+      playerName: player.playerName,
+      playerShirtNumber: player.shirtNumber || '',
     })
   }
 
@@ -1976,6 +2072,52 @@ export function MatchDayPage() {
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Goal could not be added.')
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
+  const handleAddMatchEvent = async (event, match) => {
+    event.preventDefault()
+    const formEvent = matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM
+    const eventTypeOption = MATCH_EVENT_TYPE_OPTIONS.find((option) => option.value === formEvent.eventType) || MATCH_EVENT_TYPE_OPTIONS[0]
+    const matchEvent = {
+      ...formEvent,
+      minute: normalizeStaffGoalText(formEvent.minute) || (getCurrentMatchMinute(match, Date.now()) ?? ''),
+    }
+
+    if (!confirmMatchDayAction(`Add this ${eventTypeOption.confirmLabel} to the match timeline?`)) {
+      return
+    }
+
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+
+    try {
+      const savedEvent = await addStaffMatchDayEvent({ user, match, event: matchEvent })
+      const reconcileSavedEvent = (currentMatches) => reconcileMatchDayEventInList(currentMatches, {
+        event: savedEvent,
+        matchId: match.id,
+        user,
+      })
+
+      setMatches(reconcileSavedEvent)
+      setMatchEventForms((currentForms) => ({
+        ...currentForms,
+        [match.id]: EMPTY_MATCH_EVENT_FORM,
+      }))
+      try {
+        await loadData()
+        setMatches(reconcileSavedEvent)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileSavedEvent)
+        setErrorMessage(loadError.message || 'Match event was added, but the latest Match Day data could not be refreshed.')
+      }
+      showToast({ title: 'Match event added', message: `${eventTypeOption.label} has been added to the timeline.` })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Match event could not be added.')
     } finally {
       setActiveMatchId('')
     }
@@ -2167,8 +2309,12 @@ export function MatchDayPage() {
                 goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
                 isExpanded={expandedMatchId === match.id}
                 match={match}
+                matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
                 onAddGoal={handleAddGoal}
+                onAddMatchEvent={handleAddMatchEvent}
                 onGoalFormChange={updateGoalForm}
+                onMatchEventFormChange={updateMatchEventForm}
+                onMatchEventPlayerPick={handleMatchEventPlayerPick}
                 onPlayerPick={handlePlayerPick}
                 onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
                   ...currentDrafts,
@@ -2273,8 +2419,12 @@ function MatchDayCard({
   goalForm,
   isExpanded,
   match,
+  matchEventForm,
   onAddGoal,
+  onAddMatchEvent,
   onGoalFormChange,
+  onMatchEventFormChange,
+  onMatchEventPlayerPick,
   onPlayerPick,
   onScoreDraftChange,
   onScoreSave,
@@ -2784,6 +2934,93 @@ function MatchDayCard({
             </div>
           </form>
 
+          <form className={panelClass} onSubmit={(event) => onAddMatchEvent(event, match)}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h5 className="text-sm font-black text-[#101828]">Add match event</h5>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Cards, substitutions, and water breaks are timeline-only entries.
+                </p>
+              </div>
+              <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+                Score unchanged
+              </span>
+            </div>
+
+            <div className="mt-3 grid gap-3 border-t border-[#d7e5dc] pt-3 md:grid-cols-4">
+              <label className="block">
+                <span className={smallLabelClass}>Event type</span>
+                <select
+                  value={matchEventForm.eventType}
+                  onChange={(event) => onMatchEventFormChange(match.id, { eventType: event.target.value })}
+                  className={compactInputClass}
+                >
+                  {MATCH_EVENT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Player</span>
+                <select
+                  value=""
+                  onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)}
+                  className={compactInputClass}
+                >
+                  <option value="">Choose player</option>
+                  {players.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Player name</span>
+                <input
+                  value={matchEventForm.playerName}
+                  onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })}
+                  className={compactInputClass}
+                />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Player shirt</span>
+                <input
+                  value={matchEventForm.playerShirtNumber}
+                  onChange={(event) => onMatchEventFormChange(match.id, { playerShirtNumber: event.target.value })}
+                  className={compactInputClass}
+                />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Minute</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="130"
+                  value={matchEventForm.minute}
+                  onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })}
+                  placeholder="Auto"
+                  className={compactInputClass}
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className={smallLabelClass}>Note</span>
+                <textarea
+                  value={matchEventForm.notes}
+                  onChange={(event) => onMatchEventFormChange(match.id, { notes: event.target.value })}
+                  className={`${compactInputClass} min-h-20`}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isBusy}
+                className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#101828] px-4 py-2 text-sm font-black text-white transition hover:bg-[#24324a] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Add event
+              </button>
+            </div>
+          </form>
+
           <MatchTimelinePanel events={events} />
         </div>
       ) : null}
@@ -2820,12 +3057,24 @@ function MatchTimelinePanel({ events }) {
         <div className="mt-3 space-y-2">
           {recentEvents.map((event) => {
             const detailItems = getMatchEventDetailItems(event)
+            const badge = getMatchEventBadge(event)
 
             return (
               <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-[#101828]">{getMatchEventTypeLabel(event)}</p>
+                    <p className="flex min-w-0 items-center gap-2 text-sm font-black text-[#101828]">
+                      {badge ? (
+                        <span
+                          className={`inline-flex h-5 min-w-4 shrink-0 items-center justify-center rounded-sm border px-1 text-[10px] font-black leading-none ${badge.className}`}
+                          title={badge.label}
+                          aria-label={badge.label}
+                        >
+                          {badge.text}
+                        </span>
+                      ) : null}
+                      <span className="min-w-0 truncate">{getMatchEventTypeLabel(event)}</span>
+                    </p>
                     <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Score after event: {getMatchEventScoreLabel(event)}</p>
                   </div>
                   <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>

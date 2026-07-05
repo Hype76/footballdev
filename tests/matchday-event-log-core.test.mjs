@@ -5,7 +5,9 @@ import { test } from 'node:test'
 import { normalizeMatchDay } from '../src/lib/domain/match-day.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260704084216_match_day_event_log_core.sql', import.meta.url)
+const matchEventTypesMigrationUrl = new URL('../supabase/migrations/20260705073252_matchday_event_types_cards_subs_water.sql', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
+const goalStateUrl = new URL('../src/lib/matchday-goal-state.js', import.meta.url)
 const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const selectVolunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)
 const availabilityConfirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
@@ -215,6 +217,56 @@ test('staff match timeline handles partial and unknown match events without new 
   assert.match(source, /event\.notes \? \{ label: 'Note', value: event\.notes \} : null/)
   assert.match(source, /event\.createdByName \? \{ label: 'Recorded by', value: event\.createdByName \} : null/)
   assert.doesNotMatch(source, /\.from\('match_day_events'\)[\s\S]*\.insert\([\s\S]*function MatchTimelinePanel/)
+})
+
+test('Match Day event type migration adds cards substitutions and water breaks narrowly', async () => {
+  const migration = await readFile(matchEventTypesMigrationUrl, 'utf8')
+
+  assert.match(migration, /alter table public\.match_day_events[\s\S]*drop constraint if exists match_day_events_type_check/i)
+  assert.match(migration, /event_type in \([\s\S]*'goal'[\s\S]*'score_correction'[\s\S]*'status_change'[\s\S]*'note'[\s\S]*'yellow_card'[\s\S]*'red_card'[\s\S]*'substitution'[\s\S]*'water_break'/i)
+  assert.match(migration, /alter table public\.match_day_event_log[\s\S]*drop constraint if exists match_day_event_log_event_type_check/i)
+  assert.match(migration, /match_day_event_log_event_type_check[\s\S]*'yellow_card'[\s\S]*'red_card'[\s\S]*'substitution'[\s\S]*'water_break'/i)
+  assert.doesNotMatch(migration, /create table/i)
+  assert.doesNotMatch(migration, /insert into/i)
+  assert.doesNotMatch(migration, /update public\./i)
+})
+
+test('staff Match Day event model accepts and logs cards substitutions and water breaks only', async () => {
+  const domain = await readFile(domainUrl, 'utf8')
+  const goalState = await readFile(goalStateUrl, 'utf8')
+
+  assert.match(domain, /const MATCH_DAY_STAFF_EVENT_TYPES = new Set\(\[[\s\S]*'yellow_card'[\s\S]*'red_card'[\s\S]*'substitution'[\s\S]*'water_break'/)
+  assert.match(domain, /export async function addStaffMatchDayEvent/)
+  assert.match(domain, /event_type: eventType/)
+  assert.match(domain, /home_score: Number\(match\.homeScore \?\? 0\)/)
+  assert.match(domain, /away_score: Number\(match\.awayScore \?\? 0\)/)
+  assert.match(domain, /eventType,[\s\S]*eventLabel: getMatchDayEventLogLabel\(eventType\)/)
+  assert.doesNotMatch(domain, /suspension|disciplinary|season card|card total|substitution statistics/i)
+  assert.match(goalState, /export function reconcileMatchDayEvent/)
+  assert.match(goalState, /event\.eventType \?\? event\.event_type/)
+  assert.match(goalState, /scorerName: normalizeText\(event\.scorerName \?\? event\.scorer_name\)/)
+})
+
+test('staff Match Day page renders compact cards substitutions and water break controls and badges', async () => {
+  const source = await readFile(staffPageUrl, 'utf8')
+  const timelineStart = source.indexOf('function MatchTimelinePanel')
+  const timelineEnd = source.indexOf('function MatchDayReadinessPanel', timelineStart)
+  const timelineSource = source.slice(timelineStart, timelineEnd)
+
+  assert.match(source, /const EMPTY_MATCH_EVENT_FORM = \{[\s\S]*eventType: 'yellow_card'/)
+  assert.match(source, /const MATCH_EVENT_TYPE_OPTIONS = \[[\s\S]*yellow_card[\s\S]*red_card[\s\S]*substitution[\s\S]*water_break/)
+  assert.match(source, /const handleAddMatchEvent = async \(event, match\) =>/)
+  assert.match(source, /const savedEvent = await addStaffMatchDayEvent\(\{ user, match, event: matchEvent \}\)/)
+  assert.match(source, /reconcileMatchDayEventInList/)
+  assert.doesNotMatch(source, /sendMatchDayPushNotification\(\{[\s\S]*type: 'yellow_card'/)
+  assert.match(source, /Cards, substitutions, and water breaks are timeline-only entries\./)
+  assert.match(source, /Score unchanged/)
+  assert.match(timelineSource, /getMatchEventBadge\(event\)/)
+  assert.match(timelineSource, /aria-label=\{badge\.label\}/)
+  assert.match(source, /yellow_card: \{ label: 'Yellow card'/)
+  assert.match(source, /red_card: \{ label: 'Red card'/)
+  assert.match(source, /substitution: \{ label: 'Substitution'/)
+  assert.match(source, /water_break: \{ label: 'Water break'/)
 })
 
 test('staff event log filters map known and unknown event types safely', async () => {

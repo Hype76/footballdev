@@ -49,6 +49,17 @@ const MATCH_DAY_EVENT_LOG_TYPES = new Set([
   'invite_prepared',
   'invite_queued',
   'note_updated',
+  'yellow_card',
+  'red_card',
+  'substitution',
+  'water_break',
+])
+
+const MATCH_DAY_STAFF_EVENT_TYPES = new Set([
+  'yellow_card',
+  'red_card',
+  'substitution',
+  'water_break',
 ])
 
 function normalizeText(value) {
@@ -535,6 +546,14 @@ function getMatchDayEventLogLabel(eventType, fallbackLabel = '') {
       return 'Invite queued'
     case 'note_updated':
       return 'Note updated'
+    case 'yellow_card':
+      return 'Yellow card'
+    case 'red_card':
+      return 'Red card'
+    case 'substitution':
+      return 'Substitution'
+    case 'water_break':
+      return 'Water break'
     case 'match_day_updated':
     default:
       return 'Fixture updated'
@@ -1203,6 +1222,73 @@ export async function updateMatchDayScoreAsScorer({ parentLinkId, matchDayId, ho
     console.error(error)
     throw error
   }
+
+  return data
+}
+
+export async function addStaffMatchDayEvent({ user, match, event }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  const eventType = normalizeText(event?.eventType)
+  if (!MATCH_DAY_STAFF_EVENT_TYPES.has(eventType)) {
+    throw new Error('Choose a supported Match Day event type.')
+  }
+
+  const payload = {
+    match_day_id: match.id,
+    club_id: match.clubId,
+    team_id: match.teamId || null,
+    event_type: eventType,
+    team_side: normalizeText(event?.teamSide) === 'opponent' ? 'opponent' : 'club',
+    minute: event?.minute ? Number(event.minute) : null,
+    scorer_name: normalizeText(event?.playerName),
+    scorer_initials: getInitialsFromFullName(event?.playerName),
+    scorer_shirt_number: normalizeText(event?.playerShirtNumber),
+    assist_name: '',
+    assist_initials: '',
+    assist_shirt_number: '',
+    home_score: Number(match.homeScore ?? 0),
+    away_score: Number(match.awayScore ?? 0),
+    notes: normalizeText(event?.notes),
+    created_by: getEntryUserId(user),
+    created_by_name: getEntryUserName(user),
+  }
+
+  const { data, error } = await supabase
+    .from('match_day_events')
+    .insert(payload)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  await createMatchDayEventLogEntry({
+    user,
+    match,
+    eventType,
+    eventLabel: getMatchDayEventLogLabel(eventType),
+    previousValue: null,
+    newValue: {
+      eventType,
+      teamSide: payload.team_side,
+      minute: payload.minute,
+      playerName: payload.scorer_name,
+      notes: payload.notes,
+    },
+    metadata: {
+      matchEventId: data.id,
+      teamSide: payload.team_side,
+      minute: payload.minute,
+      playerName: payload.scorer_name,
+      source: 'staff_match_day',
+    },
+  })
 
   return data
 }
