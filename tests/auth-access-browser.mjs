@@ -227,6 +227,12 @@ async function assertSelectedOption(page, label, expectedText) {
   assert.equal(value, expectedText)
 }
 
+async function waitForPathname(page, pathname) {
+  await page.waitForFunction((expectedPathname) => window.location.pathname === expectedPathname, pathname, {
+    timeout: 15000,
+  })
+}
+
 async function seedSelectedAccessMode(page, mode) {
   await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
   await page.evaluate((nextMode) => {
@@ -389,49 +395,45 @@ try {
     await context.close()
   })
 
-  await runScenario('dual-access parent fallback can recover to team workspace', async () => {
+  await runScenario('dual-access parent fallback redirects to parent login without team recovery', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'fallback-dual.fixture@footballplayer.test', mainBaseUrl)
-    await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await assertVisibleText(page, 'Account details unavailable')
-    await assertVisibleText(page, 'What this means')
-    await assertVisibleText(page, 'Next step')
-    await page.getByRole('button', { name: 'Open team workspace' }).waitFor({ state: 'visible', timeout: 15000 })
-    await page.getByRole('button', { name: 'Open team workspace' }).click()
-    await page.waitForURL('**/coach', { timeout: 15000 })
-    await assertSelectedOption(page, 'Access view', 'Club admin view')
-    await assertVisibleText(page, 'Club-wide view')
+    await waitForPathname(page, '/parent-login')
+    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Open team workspace' }).count(), 0)
+    assert.equal(await page.getByText('Fixture Child').count(), 0)
     await assertNoSetupGuideTrigger(page)
     await context.close()
   })
 
-  await runScenario('dual-access fallback recovery shows current team instead of stale family label', async () => {
+  await runScenario('dual-access fallback redirect does not show stale family label', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'stale-label-dual.fixture@footballplayer.test', mainBaseUrl)
-    await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await assertVisibleText(page, 'Account details unavailable')
-    await page.getByRole('button', { name: 'Open team workspace' }).click()
-    await page.waitForURL('**/coach', { timeout: 15000 })
-    await assertVisibleText(page, 'U17 Green')
-    await assertSelectedOption(page, 'Access view', 'Team: U17 Green')
-    assert.notEqual(await page.getByLabel('Access view').inputValue(), '__parent_portal__')
-    await assertVisibleText(page, 'Team tools')
+    await waitForPathname(page, '/parent-login')
+    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('U17 Green').count(), 0)
+    assert.equal(await page.getByLabel('Access view').count(), 0)
+    assert.equal(await page.getByText('Team tools', { exact: true }).count(), 0)
     await assertNoSetupGuideTrigger(page)
     await context.close()
   })
 
-  await runScenario('parent-only unavailable fallback does not expose team recovery', async () => {
+  await runScenario('parent-only unavailable fallback redirects to parent login without exposing data', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'parent-unlinked.fixture@footballplayer.test', mainBaseUrl)
-    await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await assertVisibleText(page, 'Account details unavailable')
-    await assertVisibleText(page, 'What this means')
+    await waitForPathname(page, '/parent-login')
+    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Open team workspace' }).count(), 0)
-    await page.getByRole('button', { name: 'Retry' }).waitFor({ state: 'visible', timeout: 15000 })
-    await page.getByRole('button', { name: 'Sign in again' }).waitFor({ state: 'visible', timeout: 15000 })
+    assert.equal(await page.getByRole('button', { name: 'Retry' }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Sign in again' }).count(), 0)
+    assert.equal(await page.getByText('Fixture Child').count(), 0)
     await assertNoSetupGuideTrigger(page)
     await context.close()
   })
@@ -484,10 +486,7 @@ try {
     await assertVisibleText(page, 'Family portal')
     await page.getByLabel('Access view').waitFor({ state: 'detached', timeout: 15000 })
     assert.equal(await page.getByLabel('Access view').count(), 0)
-    await page.getByRole('button', { name: 'Open team workspace' }).click()
-    await page.waitForURL('**/coach', { timeout: 15000 })
-    await assertSelectedOption(page, 'Access view', 'Team access')
-    await assertVisibleText(page, 'Club-wide view')
+    await assertVisibleTextContaining(page, 'Fixture Child')
     await assertNoSetupGuideTrigger(page)
     await context.close()
   })

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { Component, Suspense, lazy, useEffect, useState } from 'react'
+import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
@@ -30,17 +30,15 @@ import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk }
 import { isPlanAccessActive } from '../lib/plans.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../lib/paywall-ui.js'
-import { buildMainAppUrl, buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import { buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 import {
   canOpenParentPortal,
-  getSignedInAccountEmail,
   hasActiveParentPortalLink,
   isParentIntentPath,
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
 import { readLoginAccessIntent } from '../lib/login-access-intent.js'
 import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
-import { TEAM_WORKSPACE_HOME_PATH } from '../lib/workspace-routes.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -184,21 +182,6 @@ function NavigateToParentInvite() {
   return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
 }
 
-const accountRecoveryRules = [
-  {
-    title: 'Session is active',
-    body: 'This browser is signed in, but this parent portal path needs an active linked parent profile before it can open family details.',
-  },
-  {
-    title: 'Team access can still be available',
-    body: 'If this account also has team or staff access, use Open team workspace to continue without changing account data.',
-  },
-  {
-    title: 'Use the invite email',
-    body: 'For parent-only access, make sure you sign in with the same email address that received the parent portal invite.',
-  },
-]
-
 function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null, rules = [] }) {
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -230,146 +213,42 @@ function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null,
   )
 }
 
-function AccountDetailsUnavailableState({ message }) {
-  const { accessModeOptions, selectAccessMode, signOut } = useAuth()
-  const [isOpeningTeam, setIsOpeningTeam] = useState(false)
-  const canOpenTeamWorkspace = Array.isArray(accessModeOptions)
-    && accessModeOptions.some((option) => option?.id === 'team')
-  const fallbackMessage = message || 'Your login session is active, but this parent portal view cannot find an active linked parent profile for this account.'
-  const nextStepMessage = canOpenTeamWorkspace
-    ? 'You can open your team workspace now. Parent portal details can be reviewed separately if the club needs to refresh a parent invite.'
-    : 'Retry after a moment, or sign in again with the same email address that received the parent portal invite.'
-
-  const handleOpenTeamWorkspace = async () => {
-    setIsOpeningTeam(true)
-
-    try {
-      await selectAccessMode('team')
-      window.location.assign(buildMainAppUrl(TEAM_WORKSPACE_HOME_PATH))
-    } catch (error) {
-      console.error(error)
-      setIsOpeningTeam(false)
-    }
-  }
-
-  const handleSignInAgain = async () => {
-    try {
-      await signOut()
-    } finally {
-      window.sessionStorage.clear()
-      window.location.assign(isParentHost() ? '/parent-login' : '/sign-in')
-    }
-  }
-
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)] sm:px-6 lg:px-8">
-      <section
-        className="w-full max-w-2xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/10"
-        aria-labelledby="account-details-unavailable-heading"
-      >
-        <div className="border-b border-[#d1fae5] bg-[#ecfdf5] px-5 py-5 sm:px-7">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Parent portal</p>
-          <h1 id="account-details-unavailable-heading" className="mt-3 text-3xl font-black leading-[1.05] tracking-tight text-[#101828] sm:text-4xl">
-            Account details unavailable
-          </h1>
-          <p className="mt-4 text-base font-semibold leading-7 text-[#4b5f55]">{fallbackMessage}</p>
-        </div>
-
-        <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
-          <div className="rounded-lg border border-[#bbf7d0] bg-[#f7faf8] px-4 py-4">
-            <p className="text-sm font-black text-[#101828]">Next step</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{nextStepMessage}</p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-            {canOpenTeamWorkspace ? (
-              <button
-                type="button"
-                onClick={handleOpenTeamWorkspace}
-                disabled={isOpeningTeam}
-                className={primaryActionClassName}
-              >
-                {isOpeningTeam ? 'Opening...' : 'Open team workspace'}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className={canOpenTeamWorkspace ? secondaryActionClassName : primaryActionClassName}
-              disabled={isOpeningTeam}
-            >
-              Retry
-            </button>
-            <button
-              type="button"
-              onClick={handleSignInAgain}
-              className={secondaryActionClassName}
-              disabled={isOpeningTeam}
-            >
-              Sign in again
-            </button>
-          </div>
-
-          <details className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10" open>
-            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.18em] text-[#047857]">
-              What this means
-            </summary>
-            <div className="mt-4 grid gap-3">
-              {accountRecoveryRules.map((rule) => (
-                <article key={rule.title} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
-                  <p className="text-sm font-black text-[#101828]">{rule.title}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{rule.body}</p>
-                </article>
-              ))}
-            </div>
-          </details>
-        </div>
-      </section>
-    </main>
-  )
-}
-
-function ParentAccountIntentState({ session, type = 'mismatch', user }) {
+function ParentAccessSignInRedirect() {
   const { signOut } = useAuth()
-  const email = getSignedInAccountEmail({ user, session })
-  const isNoLink = type === 'no-link'
+  const redirectStartedRef = useRef(false)
 
-  const handleSwitchToParentLogin = async () => {
-    try {
-      await signOut()
-    } finally {
+  useEffect(() => {
+    if (redirectStartedRef.current) {
+      return undefined
+    }
+
+    redirectStartedRef.current = true
+    let isMounted = true
+
+    const redirectToParentSignIn = async () => {
+      try {
+        await signOut()
+      } catch (error) {
+        console.error(error)
+      }
+
+      if (!isMounted) {
+        return
+      }
+
+      window.sessionStorage.clear()
       rememberParentAccessIntent()
       window.location.assign(getParentLoginTarget())
     }
-  }
 
-  return (
-    <RouteGateState
-      eyebrow="Parent portal"
-      title={isNoLink ? 'Parent access is not linked yet' : 'Use a parent account for the Parent Portal'}
-      message={isNoLink
-        ? 'This signed-in parent account is not linked to a child yet. Ask the club to send or refresh your parent invite, or sign out and continue with the linked parent account.'
-        : `You are currently signed in${email ? ` as ${email}` : ''}. To use the Parent Portal, sign out and continue with a parent account.`}
-      rules={[
-        { title: 'Parent access only', body: 'The Parent Portal opens only for accounts with an active parent-child link.' },
-        { title: 'Main session protected', body: 'A staff or main-platform session cannot silently open the Parent Portal or reroute this parent action.' },
-      ]}
-      actions={(
-        <>
-          <button
-            type="button"
-            onClick={handleSwitchToParentLogin}
-            className={primaryActionClassName}
-          >
-            Sign out and continue to Parent Login
-          </button>
-          <a href={getMainAppOrigin()} className={secondaryActionClassName}>
-            Go to main platform
-          </a>
-        </>
-      )}
-    />
-  )
+    void redirectToParentSignIn()
+
+    return () => {
+      isMounted = false
+    }
+  }, [signOut])
+
+  return <LoadingScreen />
 }
 
 function LoginIntentMismatchState({ intent }) {
@@ -731,7 +610,7 @@ function useWorkspaceRouteGate({
   showPlanAccessState = false,
   parentIntent = false,
 } = {}) {
-  const { accessRouteMismatch, authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { accessRouteMismatch, isLoading, isProfileLoading, session, user } = useAuth()
   const loginIntent = readLoginAccessIntent()
 
   if (isLoading && !session?.user) {
@@ -759,7 +638,7 @@ function useWorkspaceRouteGate({
     }
 
     return {
-      element: <AccountDetailsUnavailableState message={authError} />,
+      element: <ParentAccessSignInRedirect />,
       user: null,
     }
   }
@@ -770,11 +649,11 @@ function useWorkspaceRouteGate({
         return { element: <LoginIntentMismatchState intent="parent" />, user }
       }
 
-      return { element: <ParentAccountIntentState session={session} user={user} />, user }
+      return { element: <ParentAccessSignInRedirect />, user }
     }
 
     if (!hasActiveParentPortalLink(user)) {
-      return { element: <ParentAccountIntentState session={session} type="no-link" user={user} />, user }
+      return { element: <ParentAccessSignInRedirect />, user }
     }
 
     return { element: null, user }
@@ -907,7 +786,7 @@ function PageSuspense({ children }) {
 }
 
 function WorkspaceHome() {
-  const { accessRouteMismatch, authError, isProfileLoading, user } = useAuth()
+  const { accessRouteMismatch, isProfileLoading, user } = useAuth()
   const loginIntent = readLoginAccessIntent()
 
   if (!user && isProfileLoading) {
@@ -919,7 +798,7 @@ function WorkspaceHome() {
       return <LoginIntentMismatchState intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
     }
 
-    return <AccountDetailsUnavailableState message={authError} />
+    return <ParentAccessSignInRedirect />
   }
 
   if (isSuperAdmin(user)) {
@@ -1062,7 +941,7 @@ function RequireParentPortalAccess() {
   }
 
   if (!canOpenParentPortal(user)) {
-    return <ParentAccountIntentState type={isParentPortalUser(user) ? 'no-link' : 'mismatch'} user={user} />
+    return <ParentAccessSignInRedirect />
   }
 
   if (!isRecoveryPathVisible(location.pathname, { user })) {
