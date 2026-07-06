@@ -33,6 +33,10 @@ test('visible email queue excludes internal Match Day operational notifications'
 
   assert.match(availabilityFunctionSource, /matchDayAvailability:\s*\{/)
   assert.match(selectVolunteerFunctionSource, /matchDayRoleSelection:\s*\{/)
+  assert.match(availabilityFunctionSource, /visibleInEmailQueue: false/)
+  assert.match(availabilityFunctionSource, /purpose: 'availability_request_notification'/)
+  assert.match(selectVolunteerFunctionSource, /visibleInEmailQueue: false/)
+  assert.match(selectVolunteerFunctionSource, /purpose: 'role_selection_notification'/)
 })
 
 test('match day emails include branded logo fallback and venue map links', () => {
@@ -84,6 +88,9 @@ test('match day select and deselect stays unlocked after optional refresh troubl
   assert.match(handlerSource, /try \{[\s\S]*await loadData\(\)[\s\S]*\} catch \(refreshError\)/)
   assert.match(handlerSource, /setMatches\(reconcileSavedSelection\)/)
   assert.match(handlerSource, /Volunteer selection was saved, but Match Day could not be refreshed/)
+  assert.match(handlerSource, /setVolunteerSelectionStatus\(\{[\s\S]*tone: 'error'/)
+  assert.doesNotMatch(handlerSource, /setErrorMessage\(message\)/)
+  assert.doesNotMatch(handlerSource, /showToast\(\{ title: `\$\{roleLabel\} not updated`/)
   assert.match(handlerSource, /finally \{\s*setActiveMatchId\(''\)/)
   assert.match(selectVolunteerFunctionSource, /catch \(notificationError\)[\s\S]*Volunteer selection was saved, but notification email could not be queued\./)
 })

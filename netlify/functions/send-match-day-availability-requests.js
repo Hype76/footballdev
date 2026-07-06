@@ -370,6 +370,7 @@ export async function handler(event) {
         const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
         const email = buildAvailabilityEmail({ appOrigin, match, player, recipient: contact, responseUrl })
         const payload = {
+          visibleInEmailQueue: false,
           resendPayload: {
             from: createFromAddress('Football Player'),
             to: [contact.email],
@@ -405,6 +406,7 @@ export async function handler(event) {
             requestId: request.id,
             playerId: player.id,
             parentLinkId: parentLink?.id || '',
+            purpose: 'availability_request_notification',
           },
         }
         const { data: queuedEmail, error: queueError } = await adminSupabase

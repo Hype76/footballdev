@@ -1772,7 +1772,7 @@ export function MatchDayPage() {
         message: availabilityWarning
           ? `The fixture was saved, but availability requests could not be sent: ${availabilityWarning}`
           : canSendAvailabilityRequests
-            ? `${result.queuedCount ?? result.sentCount ?? 0} availability requests queued. ${result.missingContactCount ?? 0} players need contact details.`
+            ? `${result.queuedCount ?? result.sentCount ?? 0} availability request notification${(result.queuedCount ?? result.sentCount ?? 0) === 1 ? '' : 's'} scheduled. ${result.missingContactCount ?? 0} players need contact details.`
             : 'The fixture was saved. Availability sending is enabled only on production or approved live runtimes.',
       })
     } catch (error) {
@@ -1964,13 +1964,11 @@ export function MatchDayPage() {
     } catch (error) {
       console.error(error)
       const message = error.message || 'Volunteer selection could not be updated.'
-      setErrorMessage(message)
       setVolunteerSelectionStatus({
         key: actionKey,
         tone: 'error',
         message,
       })
-      showToast({ title: `${roleLabel} not updated`, message, tone: 'error' })
       throw error
     } finally {
       setActiveMatchId('')

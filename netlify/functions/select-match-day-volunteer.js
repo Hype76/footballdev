@@ -278,6 +278,7 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
   })
 
   const payload = {
+    visibleInEmailQueue: false,
     resendPayload: {
       from: createFromAddress('Football Player'),
       to: email.to,
@@ -300,6 +301,7 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
       role,
       action,
       parentLinkId,
+      purpose: 'role_selection_notification',
     },
   }
 
@@ -397,7 +399,81 @@ async function resolveParentLink(adminSupabase, { match, request }) {
   }
 
   if (!parentLink?.id) {
+    parentLink = await resolveRequestScopedParentLink(adminSupabase, { baseSelect, match, request })
+  }
+
+  if (!parentLink?.id) {
     throw Object.assign(new Error('This volunteer could not be assigned because the linked parent account could not be resolved.'), { statusCode: 409 })
+  }
+
+  assertParentLinkMatchesVolunteerResponse({ match, parentLink, request })
+
+  return parentLink
+}
+
+async function resolveRequestScopedParentLink(adminSupabase, { baseSelect, match, request }) {
+  const requestEmail = normalizeEmail(request.recipient_email)
+  const requestParentLinkId = normalizeText(request.parent_link_id)
+
+  if (requestParentLinkId) {
+    const { data, error } = await adminSupabase
+      .from('parent_player_links')
+      .select(baseSelect)
+      .eq('id', requestParentLinkId)
+      .eq('club_id', match.club_id)
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
+
+    if (data?.id) {
+      assertParentLinkMatchesVolunteerResponse({ match, parentLink: data, request })
+      return data
+    }
+  }
+
+  if (!requestEmail || !request.player_id) {
+    return null
+  }
+
+  const { data, error } = await adminSupabase
+    .from('parent_player_links')
+    .select(baseSelect)
+    .eq('club_id', match.club_id)
+    .eq('player_id', request.player_id)
+
+  if (error) {
+    throw error
+  }
+
+  const matches = (data || []).filter((link) => {
+    try {
+      assertParentLinkMatchesVolunteerResponse({ match, parentLink: link, request })
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  if (matches.length === 1) {
+    return matches[0]
+  }
+
+  if (matches.length > 1) {
+    throw Object.assign(new Error('This volunteer could not be assigned because more than one linked parent matches that response.'), { statusCode: 409 })
+  }
+
+  return null
+}
+
+function assertParentLinkMatchesVolunteerResponse({ match, parentLink, request }) {
+  if (!parentLink?.id) {
+    throw Object.assign(new Error('This volunteer could not be assigned because the linked parent account could not be resolved.'), { statusCode: 409 })
+  }
+
+  if (String(parentLink.club_id || '') !== String(match.club_id || '')) {
+    throw Object.assign(new Error('This volunteer could not be assigned because the parent link is outside this club.'), { statusCode: 403 })
   }
 
   if (request.player_id && parentLink.player_id && String(parentLink.player_id) !== String(request.player_id)) {
@@ -408,7 +484,12 @@ async function resolveParentLink(adminSupabase, { match, request }) {
     throw Object.assign(new Error('This volunteer could not be assigned because the parent link is outside this team.'), { statusCode: 409 })
   }
 
-  return parentLink
+  const requestEmail = normalizeEmail(request.recipient_email)
+  const parentEmail = normalizeEmail(parentLink.email)
+
+  if (requestEmail && parentEmail && requestEmail !== parentEmail) {
+    throw Object.assign(new Error('This volunteer could not be assigned because the parent link does not match the response contact.'), { statusCode: 409 })
+  }
 }
 
 async function getCurrentAssignment(adminSupabase, matchDayId, role) {
@@ -608,7 +689,7 @@ export async function handler(event) {
 
     const { data: request, error: requestError } = await adminSupabase
       .from('match_day_availability_requests')
-      .select('id, match_day_id, club_id, team_id, player_id, player_name, recipient_email, recipient_name, parent_link_id, volunteer_scorer_response, volunteer_linesman_response, volunteer_referee_response')
+      .select('id, match_day_id, club_id, team_id, player_id, player_name, recipient_email, recipient_name, parent_link_id, status, volunteer_scorer_response, volunteer_linesman_response, volunteer_referee_response')
       .eq('id', requestId)
       .eq('match_day_id', match.id)
       .eq('club_id', match.club_id)
@@ -624,6 +705,10 @@ export async function handler(event) {
 
     if (match.team_id && request.team_id && String(request.team_id) !== String(match.team_id)) {
       throw Object.assign(new Error('Volunteer response is outside this team.'), { statusCode: 403 })
+    }
+
+    if (String(request.status || '').toLowerCase() === 'expired') {
+      throw Object.assign(new Error('This volunteer response has expired. Ask the parent to submit a fresh Match Day response.'), { statusCode: 409 })
     }
 
     if (String(request[roleConfig.responseField] || '').toLowerCase() !== 'yes') {

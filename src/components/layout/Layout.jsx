@@ -36,6 +36,7 @@ const QUICK_ACTION_BUTTON_SIZE = 56
 const QUICK_ACTION_MENU_WIDTH = 288
 const QUICK_ACTION_MENU_GAP = 12
 const QUICK_ACTION_MENU_BREAKPOINT = 640
+const QUICK_ACTION_MOBILE_BOTTOM_CLEARANCE = 112
 
 export function Layout() {
   const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
@@ -605,16 +606,33 @@ function getDefaultQuickActionPosition() {
     }
   }
 
+  if (isMobileQuickActionViewport()) {
+    return {
+      x: Math.max(QUICK_ACTION_EDGE_GAP, window.innerWidth - QUICK_ACTION_BUTTON_SIZE - QUICK_ACTION_EDGE_GAP),
+      y: QUICK_ACTION_EDGE_GAP,
+    }
+  }
+
   return {
     x: Math.max(QUICK_ACTION_EDGE_GAP, window.innerWidth - QUICK_ACTION_BUTTON_SIZE - 20),
     y: Math.max(QUICK_ACTION_EDGE_GAP, window.innerHeight - QUICK_ACTION_BUTTON_SIZE - 20),
   }
 }
 
+function isMobileQuickActionViewport() {
+  return typeof window !== 'undefined' && window.innerWidth < 768
+}
+
+function getQuickActionBottomClearance() {
+  return isMobileQuickActionViewport() ? QUICK_ACTION_MOBILE_BOTTOM_CLEARANCE : QUICK_ACTION_EDGE_GAP
+}
+
 function clampQuickActionPosition(position) {
   if (typeof window === 'undefined') {
     return position
   }
+
+  const bottomClearance = getQuickActionBottomClearance()
 
   return {
     x: Math.min(
@@ -623,7 +641,7 @@ function clampQuickActionPosition(position) {
     ),
     y: Math.min(
       Math.max(Number(position?.y ?? 0), QUICK_ACTION_EDGE_GAP),
-      Math.max(QUICK_ACTION_EDGE_GAP, window.innerHeight - QUICK_ACTION_BUTTON_SIZE - QUICK_ACTION_EDGE_GAP),
+      Math.max(QUICK_ACTION_EDGE_GAP, window.innerHeight - QUICK_ACTION_BUTTON_SIZE - bottomClearance),
     ),
   }
 }
