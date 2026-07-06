@@ -28,14 +28,14 @@ export function ParentPortalSectionNav({
   const visibleSections = parentPortalSections.filter((section) =>
     !section.recoveryPath || isRecoveryPathVisible(section.recoveryPath, { user }))
   const itemClass = (isActive) => [
-    'flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
-    variant === 'mobile' ? 'w-[8.5rem] shrink-0' : 'w-full',
+    'flex items-center justify-between gap-3 rounded-lg border px-3 text-left transition',
+    variant === 'mobile' ? 'min-h-11 w-[5.75rem] shrink-0 justify-center py-2 text-center' : 'min-h-12 w-full py-2',
     isActive
       ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
       : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#047857] hover:bg-white',
   ].join(' ')
   const wrapperClass = variant === 'mobile'
-    ? `fixed inset-x-0 bottom-0 z-[60] border-t border-[#d7e5dc] bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-[#047857]/15 backdrop-blur ${className}`.trim()
+    ? `fixed inset-x-0 bottom-0 z-[60] max-h-[38dvh] overflow-y-auto border-t border-[#d7e5dc] bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-[#047857]/15 backdrop-blur ${className}`.trim()
     : `flex max-h-[calc(100dvh-2.5rem)] flex-col rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 ${className}`.trim()
   const listClass = variant === 'mobile'
     ? 'flex gap-2 overflow-x-auto overscroll-x-contain pb-1'
@@ -51,8 +51,10 @@ export function ParentPortalSectionNav({
             const content = (
               <>
                 <span className="min-w-0">
-                  <span className="block text-sm font-black">{section.label}</span>
-                  <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
+                  <span className="block text-xs font-black sm:text-sm">{section.label}</span>
+                  {variant === 'mobile' ? null : (
+                    <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
+                  )}
                 </span>
                 {typeof count === 'number' ? (
                   <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
@@ -87,7 +89,7 @@ export function ParentPortalSectionNav({
           })}
         </div>
       </nav>
-      <div className={variant === 'mobile' ? 'mt-2 border-t border-[#d7e5dc] pt-2' : 'mt-3 shrink-0 border-t border-[#d7e5dc] pt-3'}>
+      <div className={variant === 'mobile' ? 'mt-1 border-t border-[#d7e5dc] pt-1.5' : 'mt-3 shrink-0 border-t border-[#d7e5dc] pt-3'}>
         <ParentPortalSignOutAction variant={variant} />
       </div>
     </div>
@@ -102,11 +104,11 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
   const canOpenTeamWorkspace = accessModeOptions.some((option) => option?.id === 'team')
   const buttonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#f2b8b5] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff4f3] disabled:cursor-not-allowed disabled:opacity-60',
-    variant === 'mobile' ? 'min-h-10 py-2.5' : '',
+    variant === 'mobile' ? 'min-h-9 px-3 py-2 text-xs' : '',
   ].filter(Boolean).join(' ')
   const switchButtonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#047857] bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/10 transition hover:bg-[#036c4a] disabled:cursor-not-allowed disabled:opacity-60',
-    variant === 'mobile' ? 'min-h-10 py-2.5' : '',
+    variant === 'mobile' ? 'min-h-9 px-3 py-2 text-xs' : '',
   ].filter(Boolean).join(' ')
 
   const handleOpenTeamWorkspace = async () => {
@@ -135,7 +137,7 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
   }
 
   return (
-    <div className="grid gap-2">
+    <div className={variant === 'mobile' && canOpenTeamWorkspace ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}>
       {canOpenTeamWorkspace ? (
         <button
           type="button"
@@ -167,7 +169,7 @@ export function ParentPortalRouteShell({
   user,
 }) {
   return (
-    <div className="space-y-4 pb-44 sm:space-y-5 lg:pb-0">
+    <div className="space-y-4 pb-28 sm:space-y-5 lg:pb-0">
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
           activeSection={activeSection}
