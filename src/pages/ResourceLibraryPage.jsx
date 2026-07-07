@@ -8,12 +8,12 @@ import {
   RESOURCE_LIBRARY_CATEGORIES,
   archiveResourceLibraryItem,
   assignResourceLibraryItem,
-  createExternalResourceLibraryItem,
   formatResourceLibraryFileSize,
   getResourceLibraryDownloadUrl,
   getResourceLibraryItems,
   getResourceLibraryPlayers,
   uploadResourceLibraryItem,
+  validateResourceLibraryFile,
 } from '../lib/supabase.js'
 
 const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
@@ -26,9 +26,7 @@ function createUploadDraft() {
     title: '',
     description: '',
     category: 'general',
-    externalUrl: '',
     file: null,
-    resourceType: 'file',
   }
 }
 
@@ -44,7 +42,7 @@ function getCategoryLabel(value) {
 
 function getResourceMeta(resource) {
   const scope = resource.teamName || 'Active team'
-  const size = resource.resourceType === 'external_link' ? 'External link' : formatResourceLibraryFileSize(resource.fileSizeBytes)
+  const size = formatResourceLibraryFileSize(resource.fileSizeBytes)
   return `${scope} | ${getCategoryLabel(resource.category)} | ${size}`
 }
 
@@ -65,7 +63,7 @@ function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownloa
             <div className="min-w-0">
               <p className="text-lg font-black text-[#101828]">{resource.title}</p>
               <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getResourceMeta(resource)}</p>
-              <p className="mt-1 break-words text-xs font-semibold text-[#66756c]">{resource.externalUrl || resource.originalFilename}</p>
+              <p className="mt-1 break-words text-xs font-semibold text-[#66756c]">{resource.originalFilename}</p>
               {resource.description ? (
                 <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{resource.description}</p>
               ) : null}
@@ -75,7 +73,7 @@ function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownloa
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button type="button" onClick={() => onDownload(resource)} disabled={downloadingId === resource.id} className={secondaryButtonClass}>
-                {downloadingId === resource.id ? 'Preparing...' : resource.resourceType === 'external_link' ? 'Open' : 'Download'}
+                {downloadingId === resource.id ? 'Preparing...' : 'Download'}
               </button>
               {canManage ? (
                 <button type="button" onClick={() => onArchive(resource)} disabled={isSaving} className={dangerButtonClass}>
@@ -101,7 +99,7 @@ export function ResourceLibraryPage() {
   const [players, setPlayers] = useState([])
   const [filters, setFilters] = useState({ category: '', searchTerm: '' })
   const [uploadDraft, setUploadDraft] = useState(() => createUploadDraft())
-  const [assignmentDraft, setAssignmentDraft] = useState({ parentVisible: false, resourceId: '', linkedType: 'player', linkedId: '' })
+  const [assignmentDraft, setAssignmentDraft] = useState({ resourceId: '', linkedType: 'player', linkedId: '' })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [downloadingId, setDownloadingId] = useState('')
@@ -169,23 +167,15 @@ export function ResourceLibraryPage() {
     setSuccessMessage('')
 
     try {
-      const resource = uploadDraft.resourceType === 'external_link'
-        ? await createExternalResourceLibraryItem({
-          user,
-          title: uploadDraft.title,
-          description: uploadDraft.description,
-          category: uploadDraft.category,
-          teamId: activeTeamId,
-          externalUrl: uploadDraft.externalUrl,
-        })
-        : await uploadResourceLibraryItem({
-          user,
-          title: uploadDraft.title,
-          description: uploadDraft.description,
-          category: uploadDraft.category,
-          teamId: activeTeamId,
-          file: uploadDraft.file,
-        })
+      validateResourceLibraryFile(uploadDraft.file)
+      const resource = await uploadResourceLibraryItem({
+        user,
+        title: uploadDraft.title,
+        description: uploadDraft.description,
+        category: uploadDraft.category,
+        teamId: activeTeamId,
+        file: uploadDraft.file,
+      })
 
       setUploadDraft(createUploadDraft())
       await refreshResources()
@@ -217,15 +207,14 @@ export function ResourceLibraryPage() {
         targets: [{
           linkedType: assignmentDraft.linkedType,
           linkedId: assignmentDraft.linkedType === 'team' ? activeTeamId : assignmentDraft.linkedId,
-          parentVisible: assignmentDraft.linkedType === 'player' && assignmentDraft.parentVisible === true,
           teamId: selectedTeamId,
         }],
       })
 
-      setAssignmentDraft({ parentVisible: false, resourceId: '', linkedType: 'player', linkedId: '' })
+      setAssignmentDraft({ resourceId: '', linkedType: 'player', linkedId: '' })
       await refreshResources()
       setSuccessMessage('Resource assignment saved.')
-      showToast({ title: 'Resource assigned', message: assignmentDraft.parentVisible ? 'Staff and linked parents can now see this player resource.' : 'Staff can now see the assignment in the permitted scope.' })
+      showToast({ title: 'Resource assigned', message: 'Staff can now see the assignment in the permitted scope.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not assign this resource.')
@@ -346,32 +335,6 @@ export function ResourceLibraryPage() {
                 <span className="mt-2 block text-sm font-semibold text-[#4b5f55]">{activeTeamName}</span>
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#101828]">Resource type</span>
-                <select
-                  value={uploadDraft.resourceType}
-                  onChange={(event) => setUploadDraft((current) => ({ ...current, resourceType: event.target.value, file: null, externalUrl: '' }))}
-                  className={fieldClass}
-                >
-                  <option value="file">File</option>
-                  <option value="external_link">External link</option>
-                </select>
-              </label>
-              {uploadDraft.resourceType === 'external_link' ? (
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">External link</span>
-                  <input
-                    type="url"
-                    value={uploadDraft.externalUrl}
-                    onChange={(event) => setUploadDraft((current) => ({ ...current, externalUrl: event.target.value }))}
-                    onKeyDown={stopTextInputSpacePropagation}
-                    className={fieldClass}
-                    placeholder="https://"
-                  />
-                </label>
-              ) : null}
-            </div>
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#101828]">Description</span>
               <textarea
@@ -383,23 +346,17 @@ export function ResourceLibraryPage() {
               />
             </label>
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-              {uploadDraft.resourceType === 'file' ? (
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">File</span>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.webp"
-                    onChange={(event) => setUploadDraft((current) => ({ ...current, file: event.target.files?.[0] ?? null }))}
-                    className={fieldClass}
-                  />
-                </label>
-              ) : (
-                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55]">
-                  External links are saved in the team scope and are staff-only until assigned to a player with parent sharing enabled.
-                </div>
-              )}
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">File</span>
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.webp"
+                  onChange={(event) => setUploadDraft((current) => ({ ...current, file: event.target.files?.[0] ?? null }))}
+                  className={fieldClass}
+                />
+              </label>
               <button type="submit" disabled={isSaving} className={primaryButtonClass}>
-                {isSaving ? 'Saving...' : uploadDraft.resourceType === 'external_link' ? 'Save link' : 'Upload resource'}
+                {isSaving ? 'Saving...' : 'Upload resource'}
               </button>
             </div>
           </form>
@@ -408,7 +365,7 @@ export function ResourceLibraryPage() {
 
       {canManage ? (
         <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
-          <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)_14rem_auto] lg:items-end" onSubmit={handleAssign}>
+          <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)_auto] lg:items-end" onSubmit={handleAssign}>
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#101828]">Resource</span>
               <select
@@ -426,7 +383,7 @@ export function ResourceLibraryPage() {
               <span className="mb-2 block text-sm font-black text-[#101828]">Assign to</span>
               <select
                 value={assignmentDraft.linkedType}
-                onChange={(event) => setAssignmentDraft({ parentVisible: false, resourceId: assignmentDraft.resourceId, linkedType: event.target.value, linkedId: event.target.value === 'team' ? activeTeamId : '' })}
+                onChange={(event) => setAssignmentDraft({ resourceId: assignmentDraft.resourceId, linkedType: event.target.value, linkedId: event.target.value === 'team' ? activeTeamId : '' })}
                 className={fieldClass}
               >
                 <option value="player">Player</option>
@@ -446,16 +403,6 @@ export function ResourceLibraryPage() {
                   ? <option value={activeTeamId}>{activeTeamName}</option>
                   : filteredPlayers.map((player) => <option key={player.id} value={player.id}>{player.playerName} | {player.team || 'No team'}</option>)}
               </select>
-            </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
-              <input
-                type="checkbox"
-                checked={assignmentDraft.parentVisible}
-                onChange={(event) => setAssignmentDraft((current) => ({ ...current, parentVisible: event.target.checked }))}
-                disabled={assignmentDraft.linkedType !== 'player'}
-                className="h-5 w-5 accent-[#047857] disabled:opacity-60"
-              />
-              Parent share
             </label>
             <button type="submit" disabled={isSaving} className={primaryButtonClass}>
               Save assignment

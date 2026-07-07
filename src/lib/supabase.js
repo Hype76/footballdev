@@ -227,11 +227,9 @@ export {
 export {
   archiveResourceLibraryItem,
   assignResourceLibraryItem,
-  createExternalResourceLibraryItem,
   formatResourceLibraryFileSize,
   getAssignedResourcesForPlayer,
   getCalendarEventResources,
-  getParentPortalPlayerResources,
   getResourceLibraryDownloadUrl,
   getResourceLibraryItems,
   getResourceLibraryPlayers,
