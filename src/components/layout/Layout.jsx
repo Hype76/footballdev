@@ -37,6 +37,16 @@ const QUICK_ACTION_MENU_WIDTH = 288
 const QUICK_ACTION_MENU_GAP = 12
 const QUICK_ACTION_MENU_BREAKPOINT = 640
 const QUICK_ACTION_MOBILE_BOTTOM_CLEARANCE = 112
+const COACH_MODE_STORAGE_KEY = 'football-player:coach-mode'
+const COACH_MODE_CHANGED_EVENT = 'football-player:coach-mode-changed'
+
+function getStoredCoachModePreference() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(COACH_MODE_STORAGE_KEY) === 'coach'
+}
 
 export function Layout() {
   const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
@@ -346,6 +356,7 @@ function QuickActionHotbar({ user }) {
   const [isVoiceNoteOpen, setIsVoiceNoteOpen] = useState(false)
   const [hasActiveOverlay, setHasActiveOverlay] = useState(false)
   const [quickActionPosition, setQuickActionPosition] = useState(getStoredQuickActionPosition)
+  const [isCoachMode, setIsCoachMode] = useState(getStoredCoachModePreference)
   const [isDraggingQuickAction, setIsDraggingQuickAction] = useState(false)
   const panelRef = useRef(null)
   const dragStateRef = useRef(null)
@@ -360,6 +371,20 @@ function QuickActionHotbar({ user }) {
     && !isParentPortalUser(user)
     && Number(user?.roleRank ?? 0) >= 20
     && (canUseEvaluationQuickActions || canUseClubCalendarQuickAction || canUsePollQuickAction)
+
+  useEffect(() => {
+    const handleCoachModeChange = () => {
+      setIsCoachMode(getStoredCoachModePreference())
+    }
+
+    window.addEventListener(COACH_MODE_CHANGED_EVENT, handleCoachModeChange)
+    window.addEventListener('storage', handleCoachModeChange)
+
+    return () => {
+      window.removeEventListener(COACH_MODE_CHANGED_EVENT, handleCoachModeChange)
+      window.removeEventListener('storage', handleCoachModeChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isOpen) {
@@ -513,10 +538,12 @@ function QuickActionHotbar({ user }) {
     { label: 'Add Session', href: '/sessions/start?action=create-session', isVisible: canUseEvaluationQuickActions },
     { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1', isVisible: canUseEvaluationQuickActions },
     { label: 'Add Event', href: '/calendar?action=add-event', isVisible: canUseEvaluationQuickActions || canUseClubCalendarQuickAction },
+    { label: 'Add Match', href: '/calendar?action=add-event&type=match', isVisible: canUseEvaluationQuickActions || canUseClubCalendarQuickAction, coachModeVisible: true },
     { label: 'Create Poll', href: '/polls?action=create-poll', isVisible: canUsePollQuickAction },
-    { label: 'Add Voice Note', type: 'voice-note', isVisible: canUseEvaluationQuickActions },
+    { label: 'Add Voice Note', type: 'voice-note', isVisible: canUseEvaluationQuickActions, coachModeVisible: true },
   ]
-  const visibleActions = actions.filter((action) => action.isVisible !== false)
+  actions[2].coachModeVisible = true
+  const visibleActions = actions.filter((action) => action.isVisible !== false && (!isCoachMode || action.coachModeVisible === true))
   const quickActionMenuStyle = getQuickActionMenuStyle(quickActionPosition, visibleActions.length)
 
   return (

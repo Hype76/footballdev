@@ -10,6 +10,7 @@ import {
 } from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
+import { getMatchLocationSummary } from '../lib/match-location.js'
 import {
   addStaffMatchDayEvent,
   addStaffMatchDayGoal,
@@ -127,6 +128,26 @@ const MATCH_EVENT_TYPE_OPTIONS = [
   { value: 'substitution', label: 'Substitution', confirmLabel: 'substitution' },
   { value: 'water_break', label: 'Water break', confirmLabel: 'water break' },
 ]
+
+const MATCH_DAY_ACTIVE_FIXTURE_MODE_STORAGE_KEY = 'football-player:match-day-active-fixture-mode'
+const MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY = 'football-player:match-day-game-mode-pauses'
+
+function getStoredActiveFixtureMode() {
+  if (typeof window === 'undefined') {
+    return 'next'
+  }
+
+  const storedValue = window.localStorage.getItem(MATCH_DAY_ACTIVE_FIXTURE_MODE_STORAGE_KEY)
+  return storedValue === 'all' ? 'all' : 'next'
+}
+
+function saveActiveFixtureMode(mode) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(MATCH_DAY_ACTIVE_FIXTURE_MODE_STORAGE_KEY, mode === 'all' ? 'all' : 'next')
+}
 
 const parentAudienceLabels = {
   all_club_parents: 'All club parents',
@@ -1455,11 +1476,18 @@ export function MatchDayPage() {
   const [isFixtureFormOpen, setIsFixtureFormOpen] = useState(false)
   const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
   const [isPreviousGamesOpen, setIsPreviousGamesOpen] = useState(false)
+  const [activeFixtureMode, setActiveFixtureMode] = useState(getStoredActiveFixtureMode)
+  const [gameModeMatchId, setGameModeMatchId] = useState('')
+  const [gameModePauseState, setGameModePauseState] = useState({})
   const [volunteerSelectionPrompt, setVolunteerSelectionPrompt] = useState(null)
   const [activeVolunteerSelectionKey, setActiveVolunteerSelectionKey] = useState('')
   const [volunteerSelectionStatus, setVolunteerSelectionStatus] = useState(null)
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
+  const displayedActiveMatches = useMemo(
+    () => (activeFixtureMode === 'all' ? activeMatches : activeMatches.slice(0, 1)),
+    [activeFixtureMode, activeMatches],
+  )
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
   const liveMatches = useMemo(
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
@@ -1525,6 +1553,33 @@ export function MatchDayPage() {
   )
 
   useModalPageScrollLock(isFixtureFormOpen || squadSelection.isOpen)
+
+  useEffect(() => {
+    saveActiveFixtureMode(activeFixtureMode)
+  }, [activeFixtureMode])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      const storedValue = JSON.parse(window.localStorage.getItem(MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY) || '{}')
+      if (storedValue && typeof storedValue === 'object' && !Array.isArray(storedValue)) {
+        setGameModePauseState(storedValue)
+      }
+    } catch {
+      window.localStorage.removeItem(MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY, JSON.stringify(gameModePauseState))
+  }, [gameModePauseState])
 
   useEffect(() => {
     const openFixtureSetup = (setupIntent = consumeFixtureSetupIntent()) => {
@@ -1823,6 +1878,100 @@ export function MatchDayPage() {
     } finally {
       setActiveMatchId('')
     }
+  }
+
+  const handleGameModeStart = async (match) => {
+    if (!confirmMatchDayAction('Start this match in Game Mode and begin the live clock?')) {
+      return
+    }
+
+    setGameModeMatchId(match.id)
+    await saveMatchStatus(match, 'live')
+  }
+
+  const saveMatchStatus = async (match, status) => {
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+
+    try {
+      const updates = { status }
+      if (status === 'live' && !match.phaseStartedAt) {
+        updates.phaseStartedAt = new Date().toISOString()
+      }
+
+      const savedMatch = await updateMatchDay({ user, matchId: match.id, updates })
+      const reconcileSavedMatch = (currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
+        match: savedMatch,
+        matchId: match.id,
+      })
+
+      setMatches(reconcileSavedMatch)
+      if (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time') {
+        void sendMatchDayPushNotification({
+          matchDayId: match.id,
+          type: status,
+        })
+      }
+      try {
+        await loadData()
+        setMatches(reconcileSavedMatch)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileSavedMatch)
+        setErrorMessage(loadError.message || 'Match status was saved, but Match Day could not be refreshed. Refresh the page before making another status change.')
+      }
+      showToast({ title: 'Match updated', message: 'The match status has been updated.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Match status could not be updated.')
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
+  const handleGameModeStatusChange = async (match, status) => {
+    if (status === 'full_time' && !confirmMatchDayAction('Confirm full time and prepare this result for final submission?')) {
+      return
+    }
+
+    await saveMatchStatus(match, status)
+    if (status === 'full_time') {
+      setGameModeMatchId('')
+    }
+  }
+
+  const handleGameModeHydrationToggle = async (match) => {
+    const isPaused = Boolean(gameModePauseState[match.id]?.hydrationPaused)
+    if (!isPaused && !confirmMatchDayAction('Pause for hydration and add a water break to the timeline?')) {
+      return
+    }
+
+    if (!isPaused) {
+      const minute = getCurrentMatchMinute(match, Date.now()) ?? ''
+      const savedEvent = await addStaffMatchDayEvent({
+        user,
+        match,
+        event: {
+          eventType: 'water_break',
+          teamSide: 'club',
+          minute,
+          notes: 'Hydration pause',
+        },
+      })
+      setMatches((currentMatches) => reconcileMatchDayEventInList(currentMatches, {
+        event: savedEvent,
+        matchId: match.id,
+        user,
+      }))
+    }
+
+    setGameModePauseState((current) => ({
+      ...current,
+      [match.id]: {
+        hydrationPaused: !isPaused,
+        pausedAt: !isPaused ? new Date().toISOString() : '',
+      },
+    }))
   }
 
   const handleScoreSave = async (match) => {
@@ -2283,13 +2432,35 @@ export function MatchDayPage() {
               Keep the list compact. Open one fixture to manage score, roles, availability detail, and notes.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsFixtureFormOpen(true)}
-            className={`${secondaryButtonClass} w-full sm:w-auto`}
-          >
-            Create fixture
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-[#d7e5dc] bg-white p-1">
+              {[
+                { label: 'Next game', value: 'next' },
+                { label: 'List all', value: 'all' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setActiveFixtureMode(option.value)}
+                  aria-pressed={activeFixtureMode === option.value}
+                  className={`min-h-10 rounded-md px-3 py-2 text-sm font-black transition ${
+                    activeFixtureMode === option.value
+                      ? 'bg-[#047857] text-white'
+                      : 'bg-white text-[#101828] hover:bg-[#ecfdf5]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsFixtureFormOpen(true)}
+              className={`${secondaryButtonClass} w-full sm:w-auto`}
+            >
+              Create fixture
+            </button>
+          </div>
         </div>
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
@@ -2298,16 +2469,22 @@ export function MatchDayPage() {
           </p>
         ) : activeMatches.length > 0 ? (
           <div className="space-y-3">
-            {activeMatches.map((match) => (
+            {displayedActiveMatches.map((match) => (
               <MatchDayCard
                 key={match.id}
                 activeMatchId={activeMatchId}
+                gameModePauseState={gameModePauseState[match.id] ?? {}}
                 goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
+                isGameMode={gameModeMatchId === match.id}
                 isExpanded={expandedMatchId === match.id}
                 match={match}
                 matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
                 onAddGoal={handleAddGoal}
                 onAddMatchEvent={handleAddMatchEvent}
+                onGameModeBack={() => setGameModeMatchId('')}
+                onGameModeHydrationToggle={handleGameModeHydrationToggle}
+                onGameModeStart={handleGameModeStart}
+                onGameModeStatusChange={handleGameModeStatusChange}
                 onGoalFormChange={updateGoalForm}
                 onMatchEventFormChange={updateMatchEventForm}
                 onMatchEventPlayerPick={handleMatchEventPlayerPick}
@@ -2331,6 +2508,11 @@ export function MatchDayPage() {
                 volunteerSelectionStatus={volunteerSelectionStatus}
               />
             ))}
+            {activeFixtureMode === 'next' && activeMatches.length > 1 ? (
+              <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55]">
+                Showing the next upcoming fixture only. Use List all to show the rest of the active fixtures.
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 shadow-sm shadow-[#047857]/10">
@@ -2384,12 +2566,18 @@ export function MatchDayPage() {
                 <MatchDayCard
                   key={match.id}
                   activeMatchId={activeMatchId}
+                  gameModePauseState={{}}
                   goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
+                  isGameMode={false}
                   isExpanded={expandedMatchId === match.id}
                   match={match}
                   matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
                   onAddGoal={handleAddGoal}
                   onAddMatchEvent={handleAddMatchEvent}
+                  onGameModeBack={() => setGameModeMatchId('')}
+                  onGameModeHydrationToggle={handleGameModeHydrationToggle}
+                  onGameModeStart={handleGameModeStart}
+                  onGameModeStatusChange={handleGameModeStatusChange}
                   onGoalFormChange={updateGoalForm}
                   onMatchEventFormChange={updateMatchEventForm}
                   onMatchEventPlayerPick={handleMatchEventPlayerPick}
@@ -2441,12 +2629,18 @@ export function MatchDayPage() {
 function MatchDayCard({
   activeMatchId,
   activeVolunteerSelectionKey,
+  gameModePauseState,
   goalForm,
+  isGameMode,
   isExpanded,
   match,
   matchEventForm,
   onAddGoal,
   onAddMatchEvent,
+  onGameModeBack,
+  onGameModeHydrationToggle,
+  onGameModeStart,
+  onGameModeStatusChange,
   onGoalFormChange,
   onMatchEventFormChange,
   onMatchEventPlayerPick,
@@ -2473,6 +2667,7 @@ function MatchDayCard({
   const displayParts = getMatchDayDisplayParts(match)
   const scoreSummary = getMatchDayDisplayScore(match)
   const goalPreview = buildStaffGoalPreview(match, goalForm)
+  const locationSummary = getMatchLocationSummary(match)
 
   return (
     <article className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -2494,7 +2689,7 @@ function MatchDayCard({
           <h4 className="mt-2 text-lg font-black leading-tight text-[#101828]">{getMatchDayDisplayName(match)}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
             {formatMatchDate(match)}
-            {match.venueName ? ` at ${match.venueName}` : ''}
+            {locationSummary.venueName ? ` at ${locationSummary.venueName}` : ''}
           </p>
         </div>
 
@@ -2506,11 +2701,11 @@ function MatchDayCard({
           </div>
           <button
             type="button"
-            onClick={onToggle}
+            onClick={isGameMode ? onGameModeBack : onToggle}
             className={`${primaryButtonClass} w-full sm:w-auto`}
             aria-expanded={isExpanded}
           >
-            {isExpanded ? 'Close' : 'Manage'}
+            {isGameMode ? 'Back' : <>{isExpanded ? 'Close' : 'Manage'}</>}
           </button>
         </div>
       </div>
@@ -2523,9 +2718,48 @@ function MatchDayCard({
         <CompactFact label="Status" value={getMatchStatusLabel(match.status)} />
       </div>
 
+      {isGameMode ? (
+        <MatchDayGameModePanel
+          gameModePauseState={gameModePauseState}
+          goalForm={goalForm}
+          isBusy={isBusy}
+          matchEventForm={matchEventForm}
+          match={match}
+          onAddGoal={onAddGoal}
+          onAddMatchEvent={onAddMatchEvent}
+          onBack={onGameModeBack}
+          onGoalFormChange={onGoalFormChange}
+          onMatchEventFormChange={onMatchEventFormChange}
+          onMatchEventPlayerPick={onMatchEventPlayerPick}
+          onHydrationToggle={onGameModeHydrationToggle}
+          onPlayerPick={onPlayerPick}
+          onStatusChange={onGameModeStatusChange}
+          players={players}
+        />
+      ) : null}
+
       {isExpanded ? (
         <div className="space-y-4 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-5">
           <MatchDayReadinessPanel match={match} />
+
+          <section className={panelClass}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h5 className="text-sm font-black text-[#101828]">Game Mode</h5>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Open a minimal live scoring view with goal, card, hydration, half time, full time, and back controls.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onGameModeStart(match)}
+                disabled={isBusy || match.status === 'full_time'}
+                className={`${primaryButtonClass} w-full sm:w-auto`}
+              >
+                {['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status) ? 'Open Game Mode' : 'Start Game Mode'}
+              </button>
+            </div>
+          </section>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <section className={panelClass}>
@@ -2534,7 +2768,7 @@ function MatchDayCard({
                 <DetailItem label="Team" value={match.teamName || 'Our team'} />
                 <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
-                <DetailItem label="Venue" value={match.venueName || getHomeAwayLabel(match.homeAway)} />
+                <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
                 <DetailItem label="Status" value={getMatchStatusLabel(match.status)} />
               </dl>
@@ -3050,6 +3284,132 @@ function MatchDayCard({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function MatchDayGameModePanel({
+  gameModePauseState,
+  goalForm,
+  isBusy,
+  match,
+  matchEventForm,
+  onAddGoal,
+  onAddMatchEvent,
+  onBack,
+  onGoalFormChange,
+  onMatchEventFormChange,
+  onMatchEventPlayerPick,
+  onHydrationToggle,
+  onPlayerPick,
+  onStatusChange,
+  players,
+}) {
+  const [activeFlow, setActiveFlow] = useState('')
+  const scoreSummary = getMatchDayDisplayScore(match)
+  const currentMinute = gameModePauseState?.hydrationPaused ? null : getCurrentMatchMinute(match)
+  const isPaused = Boolean(gameModePauseState?.hydrationPaused)
+  const cardEventType = matchEventForm.eventType === 'red_card' ? 'red_card' : 'yellow_card'
+
+  return (
+    <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-5">
+      <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className={eyebrowClass}>Game Mode</p>
+            <h5 className="mt-2 text-2xl font-black text-[#101828]">{scoreSummary}</h5>
+            <p className="mt-1 text-sm font-bold text-[#4b5f55]">
+              {isPaused ? 'Hydration paused' : currentMinute ? `${currentMinute} min` : getMatchStatusLabel(match.status)}
+            </p>
+          </div>
+          <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <button type="button" onClick={() => setActiveFlow((current) => (current === 'goal' ? '' : 'goal'))} className={primaryButtonClass}>Goal</button>
+          <button type="button" onClick={() => setActiveFlow((current) => (current === 'card' ? '' : 'card'))} className={secondaryButtonClass}>Card</button>
+          <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy} className={secondaryButtonClass}>
+            {isPaused ? 'Resume' : 'Hydration'}
+          </button>
+          <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={isBusy} className={secondaryButtonClass}>HT</button>
+          <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={isBusy} className={secondaryButtonClass}>FT</button>
+          <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
+        </div>
+
+        {activeFlow === 'goal' ? (
+          <form className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" onSubmit={(event) => onAddGoal(event, match)}>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="block">
+                <span className={smallLabelClass}>Goal side</span>
+                <select value={goalForm.teamSide} onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
+                  <option value="club">Our team</option>
+                  <option value="opponent">Opponent</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Scorer</span>
+                <select value="" onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)} className={compactInputClass}>
+                  <option value="">Choose player</option>
+                  {players.map((player) => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Minute</span>
+                <input type="number" min="0" max="130" value={goalForm.minute} onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })} placeholder="Auto" className={compactInputClass} />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Scorer name</span>
+                <input value={goalForm.scorerName} onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })} className={compactInputClass} />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Shirt</span>
+                <input value={goalForm.scorerShirtNumber} onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })} className={compactInputClass} />
+              </label>
+              <div className="grid grid-cols-2 gap-2 md:items-end">
+                <button type="button" onClick={() => setActiveFlow('')} className={secondaryButtonClass}>Cancel</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>Save goal</button>
+              </div>
+            </div>
+          </form>
+        ) : null}
+
+        {activeFlow === 'card' ? (
+          <form className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" onSubmit={(event) => onAddMatchEvent(event, match)}>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="block">
+                <span className={smallLabelClass}>Card</span>
+                <select value={cardEventType} onChange={(event) => onMatchEventFormChange(match.id, { eventType: event.target.value })} className={compactInputClass}>
+                  <option value="yellow_card">Yellow card</option>
+                  <option value="red_card">Red card</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Player</span>
+                <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
+                  <option value="">Choose player</option>
+                  {players.map((player) => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Minute</span>
+                <input type="number" min="0" max="130" value={matchEventForm.minute} onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })} placeholder="Auto" className={compactInputClass} />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Player name</span>
+                <input value={matchEventForm.playerName} onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })} className={compactInputClass} />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Shirt</span>
+                <input value={matchEventForm.playerShirtNumber} onChange={(event) => onMatchEventFormChange(match.id, { playerShirtNumber: event.target.value })} className={compactInputClass} />
+              </label>
+              <div className="grid grid-cols-2 gap-2 md:items-end">
+                <button type="button" onClick={() => setActiveFlow('')} className={secondaryButtonClass}>Cancel</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>Save card</button>
+              </div>
+            </div>
+          </form>
+        ) : null}
+      </section>
+    </div>
   )
 }
 

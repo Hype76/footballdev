@@ -19,6 +19,7 @@ import {
   getParentPortalEventInvites,
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
+  getParentPortalPlayerResources,
   getParentPortalSharedCalendarEvents,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
@@ -26,6 +27,7 @@ import {
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
+import { getMatchCalendarLocation, getMatchVenueDisplay } from '../lib/match-location.js'
 import {
   getParentMatchDayErrorMessage,
   parentMatchDayActionErrorTitle,
@@ -52,7 +54,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
-const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'settings'])
+const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'resources', 'settings'])
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -284,6 +286,7 @@ export function ParentPortalPage() {
   const [eventInvites, setEventInvites] = useState([])
   const [matches, setMatches] = useState([])
   const [players, setPlayers] = useState([])
+  const [playerResources, setPlayerResources] = useState([])
   const [sharedCalendarEvents, setSharedCalendarEvents] = useState([])
   const [goalForms, setGoalForms] = useState({})
   const [scoreDrafts, setScoreDrafts] = useState({})
@@ -323,9 +326,10 @@ export function ParentPortalPage() {
     invites: eventInvites.length,
     matches: activeMatches.length,
     results: previousMatches.length,
+    resources: playerResources.length,
     messages: 0,
     polls: 0,
-  }), [activeMatches.length, eventInvites.length, previousMatches.length, visibleCalendarEvents.length])
+  }), [activeMatches.length, eventInvites.length, playerResources.length, previousMatches.length, visibleCalendarEvents.length])
   const squadPlayers = useMemo(
     () =>
       players
@@ -419,6 +423,7 @@ export function ParentPortalPage() {
         setMatches([])
         setEventInvites([])
         setPlayers([])
+        setPlayerResources([])
         setSharedCalendarEvents([])
         setMatchError('')
         setMatchErrorTitle(parentMatchDayLoadErrorTitle)
@@ -432,11 +437,12 @@ export function ParentPortalPage() {
       }
 
       try {
-        const [nextMatches, nextPlayers, nextEventInvites, nextSharedCalendarEvents] = await Promise.all([
+        const [nextMatches, nextPlayers, nextEventInvites, nextSharedCalendarEvents, nextPlayerResources] = await Promise.all([
           getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
           getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }),
           getParentPortalEventInvites({ parentLinkId: selectedLink.id }),
           getParentPortalSharedCalendarEvents({ parentLinkId: selectedLink.id }),
+          getParentPortalPlayerResources({ parentLinkId: selectedLink.id }),
         ])
 
         if (isCurrent) {
@@ -444,6 +450,7 @@ export function ParentPortalPage() {
           setPlayers(nextPlayers)
           setEventInvites(nextEventInvites)
           setSharedCalendarEvents(nextSharedCalendarEvents)
+          setPlayerResources(nextPlayerResources)
         }
       } catch (error) {
         console.error(error)
@@ -453,6 +460,7 @@ export function ParentPortalPage() {
             setMatches([])
             setEventInvites([])
             setPlayers([])
+            setPlayerResources([])
             setSharedCalendarEvents([])
           }
           setMatchErrorTitle(parentMatchDayLoadErrorTitle)
@@ -909,6 +917,14 @@ export function ParentPortalPage() {
             />
           ) : null}
 
+          {activeSection === 'resources' ? (
+            <ParentResourcesPanel
+              isLoading={isLoadingMatches}
+              resources={playerResources}
+              selectedLink={selectedLink}
+            />
+          ) : null}
+
           {activeSection === 'settings' ? (
             <ParentSettingsPanel
               authUser={authUser}
@@ -1242,8 +1258,8 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
       time: toTimeOnly(match.kickoffTime),
       type: 'match-day',
       title: getMatchDayDisplayName(match),
-      description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', match.venueName].filter(Boolean).join(', '),
-      location: match.venueName,
+      description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
+      location: getMatchCalendarLocation(match),
       teamName: match.teamName || '',
       editable: false,
       data: match,
@@ -1780,6 +1796,62 @@ function ParentResultsPanel({ onOpen, previousMatches }) {
           Previous shared results will appear here after the club completes and shares match cards.
         </p>
       )}
+    </section>
+  )
+}
+
+function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
+  const openResource = (resource) => {
+    const url = String(resource.externalUrl || '').trim()
+
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className={eyebrowClass}>Resources</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Shared player resources</h3>
+        </div>
+        <p className="text-sm font-black text-[#4b5f55]">{resources.length} shared</p>
+      </div>
+
+      <div className="mt-4">
+        {!selectedLink ? (
+          <p className={emptyClass}>{noChildMessage}</p>
+        ) : isLoading ? (
+          <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
+            Loading resources...
+          </p>
+        ) : resources.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {resources.map((resource) => (
+              <article key={resource.link?.id || resource.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
+                  {resource.category.replace(/_/g, ' ')}
+                </p>
+                <h4 className="mt-2 text-lg font-black text-[#101828]">{resource.title}</h4>
+                {resource.description ? <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{resource.description}</p> : null}
+                <button
+                  type="button"
+                  onClick={() => openResource(resource)}
+                  disabled={!resource.externalUrl}
+                  className={`${secondaryButtonClass} mt-4 w-full sm:w-auto`}
+                >
+                  Open resource
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className={emptyClass}>
+            No resources have been shared for this child yet. Staff-only resources do not appear here.
+          </p>
+        )}
+      </div>
     </section>
   )
 }

@@ -191,6 +191,7 @@ export function normalizeResourceLibraryLink(row) {
     assignedByName: normalizeText(row.assigned_by_name ?? row.assignedByName),
     assignedByEmail: normalizeText(row.assigned_by_email ?? row.assignedByEmail),
     assignedAt: row.assigned_at ?? row.assignedAt ?? '',
+    parentVisible: Boolean(row.parent_visible ?? row.parentVisible ?? false),
     removedAt: row.removed_at ?? row.removedAt ?? '',
   }
 }
@@ -207,6 +208,8 @@ export function normalizeResourceLibraryItem(row) {
     title: normalizeText(row.title),
     description: normalizeText(row.description),
     category: normalizeCategory(row.category),
+    resourceType: normalizeText(row.resource_type ?? row.resourceType) || 'file',
+    externalUrl: normalizeText(row.external_url ?? row.externalUrl),
     storageBucket: normalizeText(row.storage_bucket ?? row.storageBucket) || RESOURCE_LIBRARY_BUCKET,
     storagePath: normalizeText(row.storage_path ?? row.storagePath),
     originalFilename: normalizeText(row.original_filename ?? row.originalFilename),
@@ -219,6 +222,17 @@ export function normalizeResourceLibraryItem(row) {
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     links: links.filter((link) => !link.removedAt),
+  }
+}
+
+function normalizeExternalResourceUrl(value) {
+  const normalizedValue = normalizeText(value)
+
+  try {
+    const parsedUrl = new URL(normalizedValue)
+    return ['http:', 'https:'].includes(parsedUrl.protocol) ? parsedUrl.href : ''
+  } catch {
+    return ''
   }
 }
 
@@ -356,6 +370,66 @@ export async function uploadResourceLibraryItem({ category = 'general', descript
   return normalizeResourceLibraryItem(data)
 }
 
+export async function createExternalResourceLibraryItem({ category = 'general', description = '', externalUrl = '', teamId = '', title = '', user } = {}) {
+  await blockDemoMutation(user)
+  assertResourceLibraryManageAccess(user)
+
+  const normalizedTitle = normalizeText(title)
+  const safeExternalUrl = normalizeExternalResourceUrl(externalUrl)
+
+  if (!normalizedTitle) {
+    throw new Error('Add a title before saving this resource link.')
+  }
+
+  if (!safeExternalUrl) {
+    throw new Error('Add a valid http or https link before saving this resource.')
+  }
+
+  const normalizedTeamId = normalizeText(teamId) || getActiveResourceTeamId(user)
+
+  const { data, error } = await supabase
+    .from('resource_library_items')
+    .insert({
+      club_id: user.clubId,
+      team_id: normalizedTeamId,
+      title: normalizedTitle,
+      description: normalizeText(description),
+      category: normalizeCategory(category),
+      resource_type: 'external_link',
+      external_url: safeExternalUrl,
+      storage_bucket: RESOURCE_LIBRARY_BUCKET,
+      storage_path: '',
+      original_filename: safeExternalUrl,
+      mime_type: 'text/plain',
+      file_size_bytes: 1,
+      uploaded_by_profile_id: getEntryUserId(user),
+      ...getEntryIdentity(user, 'uploaded_by'),
+    })
+    .select('*, teams:team_id(id, name), resource_library_links(*)')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`resource-library:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'resource_library_external_link_created',
+    entityType: 'resource_library_item',
+    entityId: data.id,
+    metadata: {
+      title: normalizedTitle,
+      teamId: normalizedTeamId,
+      category: normalizeCategory(category),
+    },
+  })
+
+  return normalizeResourceLibraryItem(data)
+}
+
 export async function assignResourceLibraryItem({ resourceId, targets = [], user } = {}) {
   await blockDemoMutation(user)
   assertResourceLibraryManageAccess(user)
@@ -366,6 +440,7 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], user
     .map((target) => ({
       linkedType: normalizeText(target.linkedType),
       linkedId: normalizeText(target.linkedId),
+      parentVisible: Boolean(target.parentVisible),
       teamId: normalizeText(target.teamId) || activeTeamId,
     }))
     .filter((target) => target.linkedId && ['player', 'team'].includes(target.linkedType))
@@ -390,6 +465,7 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], user
     team_id: activeTeamId,
     linked_type: target.linkedType,
     linked_id: target.linkedId,
+    parent_visible: target.linkedType === 'player' && target.parentVisible === true,
     assigned_by_profile_id: getEntryUserId(user),
     ...getEntryIdentity(user, 'assigned_by'),
   }))
@@ -527,6 +603,39 @@ export async function getAssignedResourcesForPlayer({ playerId, user } = {}) {
       .filter(Boolean)
       .filter((item) => !item.archivedAt)
   })
+}
+
+export async function getParentPortalPlayerResources({ parentLinkId } = {}) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+
+  if (!normalizedParentLinkId) {
+    return []
+  }
+
+  const { data, error } = await supabase.rpc('get_parent_portal_player_resources', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? [])
+    .map((row) => normalizeResourceLibraryItem({
+      ...row,
+      links: [{
+        id: row.link_id,
+        resourceId: row.id,
+        clubId: row.club_id,
+        teamId: row.team_id,
+        linkedType: 'player',
+        linkedId: row.player_id,
+        parentVisible: true,
+        assignedAt: row.assigned_at,
+      }],
+    }))
+    .filter((item) => !item.archivedAt)
 }
 
 export async function getCalendarEventResources({ eventId, teamId = '', user } = {}) {
@@ -695,7 +804,7 @@ export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {
 
   const { data, error } = await supabase
     .from('resource_library_items')
-    .select('id, storage_path, storage_bucket')
+    .select('id, resource_type, external_url, storage_path, storage_bucket')
     .eq('id', normalizedResourceId)
     .eq('club_id', user.clubId)
     .eq('team_id', activeTeamId)
@@ -705,6 +814,10 @@ export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {
   if (error) {
     console.error(error)
     throw error
+  }
+
+  if (normalizeText(data.resource_type) === 'external_link') {
+    return normalizeExternalResourceUrl(data.external_url)
   }
 
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage

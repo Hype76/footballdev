@@ -1,4 +1,5 @@
 import { getMatchDayDisplayName } from './matchday-display.js'
+import { getMatchCalendarLocation, getMatchVenueDisplay } from './match-location.js'
 
 function toDateOnly(value) {
   if (value instanceof Date) {
@@ -382,7 +383,8 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
         time: toTimeOnly(match.kickoffTime),
         type: 'match-day',
         title: getMatchDayDisplayName(match),
-        description: [match.kickoffTime ? `Kick off ${match.kickoffTime}` : '', match.venueName].filter(Boolean).join(', '),
+        description: [match.kickoffTime ? `Kick off ${match.kickoffTime}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
+        location: getMatchCalendarLocation(match),
         href: '/match-day',
         editable: true,
         sourceId: match.id,

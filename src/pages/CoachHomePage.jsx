@@ -30,6 +30,50 @@ const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#065f
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white'
+const COACH_MODE_STORAGE_KEY = 'football-player:coach-mode'
+const COACH_MODE_CHANGED_EVENT = 'football-player:coach-mode-changed'
+
+function getStoredCoachModePreference() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(COACH_MODE_STORAGE_KEY) === 'coach'
+}
+
+function saveCoachModePreference(isCoachMode) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(COACH_MODE_STORAGE_KEY, isCoachMode ? 'coach' : 'full')
+  window.dispatchEvent(new CustomEvent(COACH_MODE_CHANGED_EVENT))
+}
+
+function CoachModeToggle({ isCoachMode, onChange }) {
+  return (
+    <div className="rounded-lg border border-[#d7e5dc] bg-white p-1 shadow-sm shadow-[#047857]/10">
+      {[
+        { label: 'Coach Mode', value: true },
+        { label: 'Full Mode', value: false },
+      ].map((option) => (
+        <button
+          key={option.label}
+          type="button"
+          onClick={() => onChange(option.value)}
+          aria-pressed={isCoachMode === option.value}
+          className={`min-h-10 rounded-md px-3 py-2 text-sm font-black transition ${
+            isCoachMode === option.value
+              ? 'bg-[#047857] text-white'
+              : 'bg-white text-[#101828] hover:bg-[#ecfdf5]'
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function getActiveSession(sessions) {
   const openSessions = sessions.filter((session) => session.status !== 'completed')
@@ -138,6 +182,7 @@ function ClubAdminHomeView({
 }) {
   const homeCopy = getWorkspaceHomeCopy(user)
   const greeting = getCoachGreeting(user)
+  const [isCoachMode, setIsCoachMode] = useState(getStoredCoachModePreference)
   const adminActions = [
     {
       label: 'Manage teams',
@@ -194,6 +239,15 @@ function ClubAdminHomeView({
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
               Club Admin access for shared club setup and staff controls.
             </p>
+            <div className="mt-4">
+              <CoachModeToggle
+                isCoachMode={isCoachMode}
+                onChange={(value) => {
+                  setIsCoachMode(value)
+                  saveCoachModePreference(value)
+                }}
+              />
+            </div>
           </aside>
         </div>
       </section>
@@ -204,7 +258,7 @@ function ClubAdminHomeView({
         </div>
       ) : null}
 
-      <section className={surfaceClass}>
+      {!isCoachMode ? <section className={surfaceClass}>
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Club overview</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
@@ -222,9 +276,9 @@ function ClubAdminHomeView({
             </div>
           ))}
         </div>
-      </section>
+      </section> : null}
 
-      <section className={surfaceClass}>
+      {!isCoachMode ? <section className={surfaceClass}>
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Admin actions</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Club setup tools</h2>
@@ -244,7 +298,7 @@ function ClubAdminHomeView({
             </Link>
           ))}
         </div>
-      </section>
+      </section> : null}
     </div>
   )
 }
@@ -272,6 +326,7 @@ export function CoachHomePage() {
   const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
+  const [isCoachMode, setIsCoachMode] = useState(getStoredCoachModePreference)
   const isClubWideAdminHome = isClubAdmin(user) && !user?.activeTeamId
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
   const greeting = getCoachGreeting(user)
@@ -563,6 +618,15 @@ export function CoachHomePage() {
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
               {user?.roleLabel || 'Coach'} access for {user?.clubName || 'this club'}.
             </p>
+            <div className="mt-4">
+              <CoachModeToggle
+                isCoachMode={isCoachMode}
+                onChange={(value) => {
+                  setIsCoachMode(value)
+                  saveCoachModePreference(value)
+                }}
+              />
+            </div>
           </aside>
         </div>
       </section>
@@ -594,7 +658,7 @@ export function CoachHomePage() {
           </div>
         </div>
 
-        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4">
+        {!isCoachMode ? <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4">
           {secondaryActions.map((action) => (
             <Link
               key={action.path}
@@ -605,14 +669,14 @@ export function CoachHomePage() {
               <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.description}</span>
             </Link>
           ))}
-        </div>
+        </div> : null}
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {!isCoachMode ? <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {snapshotItems.map((item) => (
           <CoachMetric key={item.label} label={item.label} value={item.value} isLoading={isLoading} />
         ))}
-      </section>
+      </section> : null}
 
       {unassignedVoiceNotes.length > 0 || voiceNotePanelMessage ? (
         <section className={surfaceClass}>
@@ -676,7 +740,7 @@ export function CoachHomePage() {
         </section>
       ) : null}
 
-      <section className={surfaceClass}>
+      {!isCoachMode ? <section className={surfaceClass}>
         <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -714,7 +778,7 @@ export function CoachHomePage() {
             </div>
           ) : null}
         </div>
-      </section>
+      </section> : null}
 
       {voiceNotePickerNote ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#00150b]/70 px-3 py-4 backdrop-blur-sm sm:items-center">
