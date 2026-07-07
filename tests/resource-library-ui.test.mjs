@@ -28,13 +28,16 @@ test('Resource Library route and navigation are staff-only gated without removin
   assert.match(sidebar, /'\/staff-chat'/)
 })
 
-test('Resource Library UI keeps V1 staff file scope and excludes public sharing features', async () => {
+test('Resource Library UI keeps V1 staff scope and uses explicit parent sharing', async () => {
   const page = await readFile(pageUrl, 'utf8')
 
   assert.match(page, /Team Resource Library/)
   assert.match(page, /Team Resources/)
   assert.match(page, /Upload resource/)
+  assert.match(page, /External link/)
+  assert.match(page, /Save link/)
   assert.match(page, /Save assignment/)
+  assert.match(page, /Parent share/)
   assert.match(page, /Download/)
   assert.match(page, /Archive/)
   assert.match(page, /canManageResourceLibrary/)
@@ -42,7 +45,6 @@ test('Resource Library UI keeps V1 staff file scope and excludes public sharing 
   assert.doesNotMatch(page, /club-wide/i)
   assert.doesNotMatch(page, /shared club/i)
   assert.doesNotMatch(page, /club resource/i)
-  assert.doesNotMatch(page, /public access/i)
   assert.doesNotMatch(page, /send email/i)
   assert.doesNotMatch(page, /push notification/i)
   assert.doesNotMatch(page, /chat attachment/i)
@@ -58,6 +60,7 @@ test('Player Profile includes the staff-only assigned resources section', async 
   assert.match(assignedResources, /Assigned resources/)
   assert.match(assignedResources, /getAssignedResourcesForPlayer/)
   assert.match(assignedResources, /getResourceLibraryDownloadUrl/)
+  assert.match(assignedResources, /Shared with linked parents/)
   assert.match(assignedResources, /canUseResourceLibrary\(user\)/)
   assert.match(assignedResources, /canManageResourceLibrary\(user\)/)
 })

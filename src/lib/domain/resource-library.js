@@ -179,6 +179,10 @@ function normalizeTeam(row) {
   } : null
 }
 
+function normalizeExternalLink(row) {
+  return Array.isArray(row) ? row[0] : row
+}
+
 export function normalizeResourceLibraryLink(row) {
   return {
     id: row.id ?? '',
@@ -191,6 +195,7 @@ export function normalizeResourceLibraryLink(row) {
     assignedByName: normalizeText(row.assigned_by_name ?? row.assignedByName),
     assignedByEmail: normalizeText(row.assigned_by_email ?? row.assignedByEmail),
     assignedAt: row.assigned_at ?? row.assignedAt ?? '',
+    parentVisible: Boolean(row.parent_visible ?? row.parentVisible ?? false),
     removedAt: row.removed_at ?? row.removedAt ?? '',
   }
 }
@@ -198,6 +203,9 @@ export function normalizeResourceLibraryLink(row) {
 export function normalizeResourceLibraryItem(row) {
   const team = normalizeTeam(row.teams ?? row.team)
   const links = (row.resource_library_links ?? row.links ?? []).map(normalizeResourceLibraryLink)
+  const externalLink = normalizeExternalLink(row.resource_library_external_links ?? row.externalLink)
+  const externalUrl = normalizeText(row.external_url ?? row.externalUrl ?? externalLink?.external_url)
+  const resourceType = normalizeText(row.resource_type ?? row.resourceType) || (externalUrl ? 'external_link' : 'file')
 
   return {
     id: row.id ?? '',
@@ -207,6 +215,8 @@ export function normalizeResourceLibraryItem(row) {
     title: normalizeText(row.title),
     description: normalizeText(row.description),
     category: normalizeCategory(row.category),
+    resourceType,
+    externalUrl,
     storageBucket: normalizeText(row.storage_bucket ?? row.storageBucket) || RESOURCE_LIBRARY_BUCKET,
     storagePath: normalizeText(row.storage_path ?? row.storagePath),
     originalFilename: normalizeText(row.original_filename ?? row.originalFilename),
@@ -219,6 +229,17 @@ export function normalizeResourceLibraryItem(row) {
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     links: links.filter((link) => !link.removedAt),
+  }
+}
+
+function normalizeExternalResourceUrl(value) {
+  const normalizedValue = normalizeText(value)
+
+  try {
+    const parsedUrl = new URL(normalizedValue)
+    return ['http:', 'https:'].includes(parsedUrl.protocol) ? parsedUrl.href : ''
+  } catch {
+    return ''
   }
 }
 
@@ -254,7 +275,7 @@ export async function getResourceLibraryItems({ category = '', searchTerm = '', 
   return getCachedResource(getResourceLibraryCacheKey(user, `${normalizedCategory || 'all'}:${normalizedTeamId || 'all'}:${normalizedSearchTerm || 'searchless'}`), async () => {
     let query = supabase
       .from('resource_library_items')
-      .select('*, teams:team_id(id, name), resource_library_links(*)')
+      .select('*, teams:team_id(id, name), resource_library_links(*), resource_library_external_links(external_url)')
       .eq('club_id', user.clubId)
       .is('archived_at', null)
       .order('updated_at', { ascending: false })
@@ -282,6 +303,7 @@ export async function getResourceLibraryItems({ category = '', searchTerm = '', 
       item.title,
       item.description,
       item.originalFilename,
+      item.externalUrl,
       item.teamName,
     ].some((value) => value.toLowerCase().includes(normalizedSearchTerm)))
   })
@@ -331,7 +353,7 @@ export async function uploadResourceLibraryItem({ category = 'general', descript
       uploaded_by_profile_id: getEntryUserId(user),
       ...getEntryIdentity(user, 'uploaded_by'),
     })
-    .select('*, teams:team_id(id, name), resource_library_links(*)')
+    .select('*, teams:team_id(id, name), resource_library_links(*), resource_library_external_links(external_url)')
     .single()
 
   if (error) {
@@ -356,6 +378,56 @@ export async function uploadResourceLibraryItem({ category = 'general', descript
   return normalizeResourceLibraryItem(data)
 }
 
+export async function createExternalResourceLibraryItem({ category = 'general', description = '', externalUrl = '', teamId = '', title = '', user } = {}) {
+  await blockDemoMutation(user)
+  assertResourceLibraryManageAccess(user)
+
+  const normalizedTitle = normalizeText(title)
+  const safeExternalUrl = normalizeExternalResourceUrl(externalUrl)
+
+  if (!normalizedTitle) {
+    throw new Error('Add a title before saving this resource link.')
+  }
+
+  if (!safeExternalUrl) {
+    throw new Error('Add a valid http or https link before saving this resource.')
+  }
+
+  const normalizedTeamId = normalizeText(teamId) || getActiveResourceTeamId(user)
+
+  const { data, error } = await supabase.rpc('create_external_resource_library_item', {
+    target_club_id: user.clubId,
+    target_team_id: normalizedTeamId,
+    title_value: normalizedTitle,
+    description_value: normalizeText(description),
+    category_value: normalizeCategory(category),
+    external_url_value: safeExternalUrl,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const resource = Array.isArray(data) ? data[0] : data
+
+  invalidateMemoryCacheByPrefix(`resource-library:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'resource_library_external_link_created',
+    entityType: 'resource_library_item',
+    entityId: resource?.id || '',
+    metadata: {
+      title: normalizedTitle,
+      teamId: normalizedTeamId,
+      category: normalizeCategory(category),
+    },
+  })
+
+  return normalizeResourceLibraryItem(resource ?? {})
+}
+
 export async function assignResourceLibraryItem({ resourceId, targets = [], user } = {}) {
   await blockDemoMutation(user)
   assertResourceLibraryManageAccess(user)
@@ -366,6 +438,7 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], user
     .map((target) => ({
       linkedType: normalizeText(target.linkedType),
       linkedId: normalizeText(target.linkedId),
+      parentVisible: Boolean(target.parentVisible),
       teamId: normalizeText(target.teamId) || activeTeamId,
     }))
     .filter((target) => target.linkedId && ['player', 'team'].includes(target.linkedType))
@@ -390,6 +463,7 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], user
     team_id: activeTeamId,
     linked_type: target.linkedType,
     linked_id: target.linkedId,
+    parent_visible: target.linkedType === 'player' && target.parentVisible === true,
     assigned_by_profile_id: getEntryUserId(user),
     ...getEntryIdentity(user, 'assigned_by'),
   }))
@@ -503,7 +577,7 @@ export async function getAssignedResourcesForPlayer({ playerId, user } = {}) {
   return getCachedResource(getResourceLibraryCacheKey(user, `player:${normalizedPlayerId}`), async () => {
     const { data, error } = await supabase
       .from('resource_library_links')
-      .select('*, resource_library_items(*)')
+      .select('*, resource_library_items(*, resource_library_external_links(external_url))')
       .eq('club_id', user.clubId)
       .eq('team_id', activeTeamId)
       .eq('linked_type', 'player')
@@ -529,6 +603,39 @@ export async function getAssignedResourcesForPlayer({ playerId, user } = {}) {
   })
 }
 
+export async function getParentPortalPlayerResources({ parentLinkId } = {}) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+
+  if (!normalizedParentLinkId) {
+    return []
+  }
+
+  const { data, error } = await supabase.rpc('get_parent_portal_player_resources', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? [])
+    .map((row) => normalizeResourceLibraryItem({
+      ...row,
+      links: [{
+        id: row.link_id,
+        resourceId: row.id,
+        clubId: row.club_id,
+        teamId: row.team_id,
+        linkedType: 'player',
+        linkedId: row.player_id,
+        parentVisible: true,
+        assignedAt: row.assigned_at,
+      }],
+    }))
+    .filter((item) => !item.archivedAt)
+}
+
 export async function getCalendarEventResources({ eventId, teamId = '', user } = {}) {
   if (!canUseResourceLibrary(user)) {
     return []
@@ -544,7 +651,7 @@ export async function getCalendarEventResources({ eventId, teamId = '', user } =
   return getCachedResource(getResourceLibraryCacheKey(user, `calendar-event:${normalizedEventId}:${eventTeamId}`), async () => {
     const { data, error } = await supabase
       .from('resource_library_links')
-      .select('*, resource_library_items(*)')
+      .select('*, resource_library_items(*, resource_library_external_links(external_url))')
       .eq('club_id', user.clubId)
       .eq('team_id', eventTeamId)
       .eq('linked_type', 'calendar_event')
@@ -695,7 +802,7 @@ export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {
 
   const { data, error } = await supabase
     .from('resource_library_items')
-    .select('id, storage_path, storage_bucket')
+    .select('id, storage_path, storage_bucket, resource_library_external_links(external_url)')
     .eq('id', normalizedResourceId)
     .eq('club_id', user.clubId)
     .eq('team_id', activeTeamId)
@@ -705,6 +812,13 @@ export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {
   if (error) {
     console.error(error)
     throw error
+  }
+
+  const externalLink = normalizeExternalLink(data.resource_library_external_links)
+  const externalUrl = normalizeExternalResourceUrl(externalLink?.external_url)
+
+  if (externalUrl) {
+    return externalUrl
   }
 
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage

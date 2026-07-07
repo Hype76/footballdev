@@ -9,6 +9,14 @@ import {
 
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
+function getResourceFileLabel(resource) {
+  if (resource.resourceType === 'external_link') {
+    return resource.externalUrl || 'External link'
+  }
+
+  return `${resource.originalFilename} | ${formatResourceLibraryFileSize(resource.fileSizeBytes)}`
+}
+
 export function PlayerAssignedResources({ primaryPlayer, user }) {
   const [resources, setResources] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -127,15 +135,20 @@ export function PlayerAssignedResources({ primaryPlayer, user }) {
                 <div className="min-w-0">
                   <p className="text-base font-black text-[#101828]">{resource.title}</p>
                   <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-                    {resource.originalFilename} | {formatResourceLibraryFileSize(resource.fileSizeBytes)}
+                    {getResourceFileLabel(resource)}
                   </p>
+                  {resource.link?.parentVisible ? (
+                    <p className="mt-2 w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-2 py-1 text-xs font-black text-[#047857]">
+                      Shared with linked parents
+                    </p>
+                  ) : null}
                   {resource.description ? (
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{resource.description}</p>
                   ) : null}
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <button type="button" onClick={() => void handleDownload(resource)} disabled={downloadingId === resource.id} className={secondaryButtonClass}>
-                    {downloadingId === resource.id ? 'Preparing...' : 'Download'}
+                    {downloadingId === resource.id ? 'Preparing...' : resource.resourceType === 'external_link' ? 'Open' : 'Download'}
                   </button>
                   {canManage ? (
                     <button type="button" onClick={() => void handleRemove(resource)} disabled={removingLinkId === resource.link?.id} className={secondaryButtonClass}>

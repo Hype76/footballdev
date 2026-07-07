@@ -43,7 +43,7 @@ test('parent dashboard explains linked child and multiple child selection', asyn
   assert.match(source, /Team not available/)
   assert.doesNotMatch(source, /Other linked children/)
   assert.match(source, /You only see updates the club has shared for this child/)
-  assert.match(source, /Dates, invites, match cards, and results appear here when the club shares them/)
+  assert.match(source, /Dates, invites, match cards, resources, and results appear here when the club shares them/)
 })
 
 test('parent dashboard uses section navigation instead of one long page', async () => {
@@ -58,6 +58,7 @@ test('parent dashboard uses section navigation instead of one long page', async 
   assert.match(shellSource, /id: 'invites', label: 'Invites'/)
   assert.match(shellSource, /id: 'matches', label: 'Match cards'/)
   assert.match(shellSource, /id: 'results', label: 'Results'/)
+  assert.match(shellSource, /id: 'resources', label: 'Resources'/)
   assert.match(shellSource, /id: 'messages', label: 'Messages'/)
   assert.match(shellSource, /id: 'polls', label: 'Polls'/)
   assert.doesNotMatch(shellSource, /id: 'family', label: 'Family'/)
@@ -110,7 +111,7 @@ test('parent dashboard no data states are helpful and not errors', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
   assert.match(source, /Nothing has been shared yet/)
-  assert.match(source, /When the club shares dates, invites, match cards, messages, or results, they'll appear here/)
+  assert.match(source, /When the club shares dates, invites, match cards, resources, messages, or results, they'll appear here/)
   assert.match(source, /No shared calendar activity is available for this child yet/)
   assert.match(source, /When the club shares a parent-visible date, it will appear here/)
   assert.match(source, /No event invites are waiting for this child/)

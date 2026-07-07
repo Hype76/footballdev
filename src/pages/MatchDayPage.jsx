@@ -2116,6 +2116,7 @@ export function MatchDayPage() {
         tone: 'error',
         message,
       })
+      showToast({ title: `${roleLabel} not updated`, message, tone: 'error' })
       throw error
     } finally {
       setActiveMatchId('')

@@ -90,7 +90,7 @@ test('match day select and deselect stays unlocked after optional refresh troubl
   assert.match(handlerSource, /Volunteer selection was saved, but Match Day could not be refreshed/)
   assert.match(handlerSource, /setVolunteerSelectionStatus\(\{[\s\S]*tone: 'error'/)
   assert.doesNotMatch(handlerSource, /setErrorMessage\(message\)/)
-  assert.doesNotMatch(handlerSource, /showToast\(\{ title: `\$\{roleLabel\} not updated`/)
+  assert.match(handlerSource, /showToast\(\{ title: `\$\{roleLabel\} not updated`/)
   assert.match(handlerSource, /finally \{\s*setActiveMatchId\(''\)/)
   assert.match(selectVolunteerFunctionSource, /catch \(notificationError\)[\s\S]*Volunteer selection was saved, but notification email could not be queued\./)
 })
