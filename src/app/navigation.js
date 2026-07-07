@@ -10,12 +10,12 @@ export const primaryNavigation = [
     helper: 'Squads and records',
   },
   {
-    label: 'Feedback',
+    label: 'Development',
     path: '/assess-player',
     helper: 'Records and notes',
   },
   {
-    label: 'Feedback Forms',
+    label: 'Development Forms',
     path: '/feedback-forms',
     helper: 'Named templates',
   },

@@ -513,7 +513,7 @@ export function Sidebar({ isOpen, onClose }) {
                     ].join(' ')
                   }
                 >
-                  Feedback
+                  Development
                 </NavLink>
               ) : null}
             </>

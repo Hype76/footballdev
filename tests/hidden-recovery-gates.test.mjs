@@ -115,9 +115,9 @@ test('role quick links exclude recovery gated destinations', () => {
 
   assert.deepEqual(
     managerQuickLinks.find((link) => link.path === '/assess-player'),
-    { label: 'Feedback', path: '/assess-player' },
+    { label: 'Development', path: '/assess-player' },
   )
-  assert.equal(managerQuickLinks.some((link) => link.label === 'Development' && link.path === '/assess-player'), false)
+  assert.equal(managerQuickLinks.some((link) => link.label === 'Feedback' && link.path === '/assess-player'), false)
   assert.equal(managerLinks.includes('/parent-email-templates'), true)
   assert.equal(managerLinks.includes('/activity-log'), false)
   assert.equal(managerLinks.includes('/billing'), false)

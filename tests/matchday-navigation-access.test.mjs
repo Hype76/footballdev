@@ -15,6 +15,8 @@ import {
 
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
+const navigationUrl = new URL('../src/app/navigation.js', import.meta.url)
+const roleQuickLinksUrl = new URL('../src/lib/role-quick-links.js', import.meta.url)
 const authUrl = new URL('../src/lib/auth.js', import.meta.url)
 const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 
@@ -99,6 +101,29 @@ test('sidebar keeps match day behind team workflow context and staff permission'
   assert.match(source, /if \(isParentPortal\) \{/)
   assert.match(source, /return item\.path === '\/parent-portal' \|\| item\.path === '\/parent-messages' \|\| item\.path === '\/parent-polls'/)
   assert.doesNotMatch(source, /return item\.path === '\/parent-portal' \|\| item\.path === '\/parent-messages' \|\| item\.path === '\/parent-polls' \|\| item\.path === '\/friends-family'/)
+})
+
+test('sidebar development labels keep existing route targets and gates', async () => {
+  const navigationSource = await readFile(navigationUrl, 'utf8')
+  const sidebarSource = await readFile(sidebarUrl, 'utf8')
+  const roleQuickLinksSource = await readFile(roleQuickLinksUrl, 'utf8')
+
+  assert.match(navigationSource, /label: 'Development',\s+path: '\/assess-player'/)
+  assert.match(navigationSource, /label: 'Development Forms',\s+path: '\/feedback-forms'/)
+  assert.doesNotMatch(navigationSource, /label: 'Development Fields'/)
+
+  assert.match(roleQuickLinksSource, /label: 'Development', path: '\/assess-player'/)
+  assert.match(roleQuickLinksSource, /label: 'Development Forms', path: '\/feedback-forms'/)
+
+  const platformFeedbackStart = sidebarSource.indexOf('to="/platform-feedback"')
+  assert.notEqual(platformFeedbackStart, -1)
+  const platformFeedbackEnd = sidebarSource.indexOf('</NavLink>', platformFeedbackStart)
+  assert.notEqual(platformFeedbackEnd, -1)
+  const platformFeedbackSection = sidebarSource.slice(platformFeedbackStart, platformFeedbackEnd)
+
+  assert.match(platformFeedbackSection, /Development/)
+  assert.doesNotMatch(platformFeedbackSection, />\s*Feedback\s*</)
+  assert.match(sidebarSource, /canAccessPlatformFeedback && isRecoveryModuleVisible\('platformFeedback', \{ user: displayUser \}\)/)
 })
 
 test('team chooser does not auto-select a single team for club admins', async () => {

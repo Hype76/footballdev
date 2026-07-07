@@ -55,12 +55,12 @@ export function getRoleQuickLinks(user) {
     }
     pushVisibleLink(links, user, { label: 'Players', path: '/players' })
     if (canUseUiFeature(user, CAPABILITIES.assessments)) {
-      pushVisibleLink(links, user, { label: 'Feedback', path: '/assess-player' })
+      pushVisibleLink(links, user, { label: 'Development', path: '/assess-player' })
     }
   }
 
   if (canManageFeedbackForms(user) && canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
-    pushVisibleLink(links, user, { label: 'Feedback Forms', path: '/feedback-forms' })
+    pushVisibleLink(links, user, { label: 'Development Forms', path: '/feedback-forms' })
   }
 
   if (canManageParentEmailTemplates(user) && canUseUiFeature(user, CAPABILITIES.parentEmails)) {

@@ -162,8 +162,48 @@ test('match day page keeps fixture controls behind one compact Manage panel', ()
   assert.match(source, /getRoleResponseRows\(match, role\)/)
   assert.match(source, /const \[isPreviousGamesOpen, setIsPreviousGamesOpen\] = useState\(false\)/)
   assert.match(source, /aria-expanded=\{isPreviousGamesOpen\}/)
-  assert.match(source, /Show archive/)
-  assert.match(source, /Hide archive/)
+  assert.match(source, /Show previous games/)
+  assert.match(source, /Hide previous games/)
+})
+
+test('match day separates previous games without removing staff controls', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  const groupingStart = source.indexOf('function isPreviousMatch(match)')
+  const groupingEnd = source.indexOf('function sortMatches(matches)', groupingStart)
+  assert.notEqual(groupingStart, -1)
+  assert.notEqual(groupingEnd, -1)
+  const groupingSource = source.slice(groupingStart, groupingEnd)
+
+  assert.match(groupingSource, /\['full_time', 'postponed', 'cancelled'\]\.includes\(match\.status\)/)
+  assert.match(groupingSource, /new Date\(`\$\{match\.matchDate\}T23:59:59`\)\.getTime\(\) < Date\.now\(\)/)
+  assert.match(source, /const activeMatches = useMemo\(\(\) => sortMatches\(matches\.filter\(\(match\) => !isPreviousMatch\(match\)\)\)/)
+  assert.match(source, /const previousMatches = useMemo\(\(\) => sortMatches\(matches\.filter\(isPreviousMatch\)\)\.reverse\(\)/)
+
+  const previousSectionStart = source.indexOf('<h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Previous games</h2>')
+  const previousSectionEnd = source.indexOf('function MatchDayCard(', previousSectionStart)
+  assert.notEqual(previousSectionStart, -1)
+  assert.notEqual(previousSectionEnd, -1)
+  const previousSection = source.slice(previousSectionStart, previousSectionEnd)
+
+  assert.match(previousSection, /previousMatches\.map\(\(match\) => \(/)
+  assert.match(previousSection, /<MatchDayCard/)
+  assert.doesNotMatch(previousSection, /<PreviousGameCard/)
+  assert.match(previousSection, /onStatusChange=\{handleStatusChange\}/)
+  assert.match(previousSection, /onScoreSave=\{handleScoreSave\}/)
+  assert.match(previousSection, /onVolunteerSelection=\{openVolunteerSelectionPrompt\}/)
+  assert.match(previousSection, /onAddGoal=\{handleAddGoal\}/)
+  assert.match(previousSection, /onAddMatchEvent=\{handleAddMatchEvent\}/)
+  assert.match(previousSection, /onMatchEventFormChange=\{updateMatchEventForm\}/)
+  assert.match(previousSection, /onMatchEventPlayerPick=\{handleMatchEventPlayerPick\}/)
+  assert.match(previousSection, /onPlayerPick=\{handlePlayerPick\}/)
+  assert.match(previousSection, /onGoalFormChange=\{updateGoalForm\}/)
+  assert.match(previousSection, /matchEventForm=\{matchEventForms\[match\.id\] \?\? EMPTY_MATCH_EVENT_FORM\}/)
+  assert.match(previousSection, /scoreDraft=\{scoreDrafts\[match\.id\] \?\? \{ homeScore: match\.homeScore, awayScore: match\.awayScore \}\}/)
+  assert.match(previousSection, /volunteerSelectionStatus=\{volunteerSelectionStatus\}/)
 })
 
 test('match day normalizer preserves seeded camel-case availability summaries', () => {

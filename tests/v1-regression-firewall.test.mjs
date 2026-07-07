@@ -38,7 +38,7 @@ test('V1 regression firewall source note names the protected release rules', asy
   assert.match(doc, /Missing approved behaviour is a blocker, not a cosmetic issue\./)
 })
 
-test('Feedback Forms remains visible and Development Fields direct route stays preserved', async () => {
+test('Development Forms remains visible and Development Fields direct route stays preserved', async () => {
   const [router, navigation, sidebar, roleQuickLinks, createEvaluation, feedbackForms] = await Promise.all([
     readSource('router'),
     readSource('navigation'),
@@ -52,11 +52,11 @@ test('Feedback Forms remains visible and Development Fields direct route stays p
   assert.match(router, /path: 'form-builder'/)
   assert.match(router, /function RequireFeedbackFormsAccess/)
   assert.match(router, /function RequireFormBuilderAccess/)
-  assert.match(navigation, /label: 'Feedback Forms'[\s\S]*path: '\/feedback-forms'/)
+  assert.match(navigation, /label: 'Development Forms'[\s\S]*path: '\/feedback-forms'/)
   assert.doesNotMatch(navigation, /label: 'Development Fields'[\s\S]*path: '\/form-builder'/)
   assert.match(sidebar, /canManageFeedbackForms\(displayUser\)/)
   assert.match(sidebar, /'\/form-builder': 'fields'/)
-  assert.match(roleQuickLinks, /label: 'Feedback Forms', path: '\/feedback-forms'/)
+  assert.match(roleQuickLinks, /label: 'Development Forms', path: '\/feedback-forms'/)
   assert.doesNotMatch(roleQuickLinks, /label: 'Development Fields', path: '\/form-builder'/)
   assert.match(createEvaluation, /getActiveFeedbackForms/)
   assert.match(createEvaluation, /Choose a form/)

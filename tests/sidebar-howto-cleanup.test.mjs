@@ -25,13 +25,14 @@ test('information route and page are preserved for direct URL access', async () 
 test('other expected sidebar navigation entries remain defined', async () => {
   const source = await readFile(navigationUrl, 'utf8')
 
-  assert.match(source, /label: 'Feedback',\s+path: '\/assess-player',\s+helper: 'Records and notes'/)
-  assert.doesNotMatch(source, /label: 'Development',\s+path: '\/assess-player'/)
+  assert.match(source, /label: 'Development',\s+path: '\/assess-player',\s+helper: 'Records and notes'/)
+  assert.doesNotMatch(source, /label: 'Feedback',\s+path: '\/assess-player'/)
 
   for (const label of [
     'Calendar',
     'Players',
-    'Feedback',
+    'Development',
+    'Development Forms',
     'Polls',
     'Match Day',
     'Teams',

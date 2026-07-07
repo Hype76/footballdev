@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
@@ -1418,7 +1417,7 @@ function getNeedsAttentionItems(activeMatches) {
 }
 
 function isPreviousMatch(match) {
-  if (match.status === 'full_time') {
+  if (['full_time', 'postponed', 'cancelled'].includes(match.status)) {
     return true
   }
 
@@ -1454,7 +1453,6 @@ export function MatchDayPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [expandedMatchId, setExpandedMatchId] = useState('')
   const [isFixtureFormOpen, setIsFixtureFormOpen] = useState(false)
-  const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
   const [isPreviousGamesOpen, setIsPreviousGamesOpen] = useState(false)
   const [volunteerSelectionPrompt, setVolunteerSelectionPrompt] = useState(null)
@@ -2348,10 +2346,10 @@ export function MatchDayPage() {
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-4 bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
-            <p className={eyebrowClass}>Results archive</p>
+            <p className={eyebrowClass}>Match operations</p>
             <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Previous games</h2>
-            <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
-              {previousMatches.length} archived result{previousMatches.length === 1 ? '' : 's'}.
+            <p className={`mt-1 max-w-3xl ${bodyTextClass}`}>
+              Older, completed, postponed, and cancelled fixtures stay here with the same staff controls.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -2361,7 +2359,7 @@ export function MatchDayPage() {
               className={`${secondaryButtonClass} w-full sm:w-auto`}
               aria-expanded={isPreviousGamesOpen}
             >
-              {isPreviousGamesOpen ? 'Hide archive' : 'Show archive'}
+              {isPreviousGamesOpen ? 'Hide previous games' : 'Show previous games'}
             </button>
           </div>
         </div>
@@ -2381,16 +2379,46 @@ export function MatchDayPage() {
               </button>
             </div>
           {previousMatches.length > 0 ? (
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="space-y-3">
               {previousMatches.map((match) => (
-                <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
+                <MatchDayCard
+                  key={match.id}
+                  activeMatchId={activeMatchId}
+                  goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
+                  isExpanded={expandedMatchId === match.id}
+                  match={match}
+                  matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
+                  onAddGoal={handleAddGoal}
+                  onAddMatchEvent={handleAddMatchEvent}
+                  onGoalFormChange={updateGoalForm}
+                  onMatchEventFormChange={updateMatchEventForm}
+                  onMatchEventPlayerPick={handleMatchEventPlayerPick}
+                  onPlayerPick={handlePlayerPick}
+                  onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
+                    ...currentDrafts,
+                    [match.id]: {
+                      homeScore: match.homeScore,
+                      awayScore: match.awayScore,
+                      ...(currentDrafts[match.id] ?? {}),
+                      ...updates,
+                    },
+                  }))}
+                  onScoreSave={handleScoreSave}
+                  activeVolunteerSelectionKey={activeVolunteerSelectionKey}
+                  onVolunteerSelection={openVolunteerSelectionPrompt}
+                  onStatusChange={handleStatusChange}
+                  onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
+                  players={squadPlayers}
+                  scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
+                  volunteerSelectionStatus={volunteerSelectionStatus}
+                />
               ))}
             </div>
           ) : (
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 shadow-sm shadow-[#047857]/10">
               <p className="text-base font-black text-[#101828]">No previous games are showing.</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Completed fixtures appear here after full time so staff can review goals and results.
+                Completed, cancelled, postponed, and past fixtures appear here without changing their management rules.
               </p>
             </div>
           )}
@@ -2398,7 +2426,6 @@ export function MatchDayPage() {
         ) : null}
       </section>
 
-      <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
       <ConfirmModal
         confirmLabel={volunteerSelectionPrompt?.confirmLabel || 'Confirm selection'}
         isBusy={Boolean(activeVolunteerSelectionKey)}
