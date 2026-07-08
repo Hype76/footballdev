@@ -206,6 +206,86 @@ test('match day separates previous games without removing staff controls', () =>
   assert.match(previousSection, /volunteerSelectionStatus=\{volunteerSelectionStatus\}/)
 })
 
+test('staff live match console polls match state without full page reload', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const refreshStart = source.indexOf('async function refreshLiveMatches()')
+  const refreshEnd = source.indexOf('const updateForm = (updates) => {', refreshStart)
+  assert.notEqual(refreshStart, -1)
+  assert.notEqual(refreshEnd, -1)
+  const refreshSource = source.slice(refreshStart, refreshEnd)
+
+  assert.match(source, /const LIVE_MATCH_REFRESH_INTERVAL_MS = 15000/)
+  assert.match(source, /const LIVE_MATCH_CLOCK_INTERVAL_MS = 15000/)
+  assert.match(refreshSource, /getMatchDays\(\{ user \}\)/)
+  assert.match(refreshSource, /setMatches\(nextMatches\)/)
+  assert.match(refreshSource, /setLiveRefreshStatus\('ok'\)/)
+  assert.match(refreshSource, /setLiveRefreshStatus\('warning'\)/)
+  assert.match(refreshSource, /window\.setInterval\(\(\) => \{/)
+  assert.doesNotMatch(refreshSource, /window\.location|reload\(|loadData\(/)
+})
+
+test('staff live controls expose pause, resume, timer, and action feedback', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const statusHandlerStart = source.indexOf('const handleStatusChange = async (match, status) => {')
+  const statusHandlerEnd = source.indexOf('const handleScoreSave = async (match) => {', statusHandlerStart)
+  assert.notEqual(statusHandlerStart, -1)
+  assert.notEqual(statusHandlerEnd, -1)
+  const statusHandlerSource = source.slice(statusHandlerStart, statusHandlerEnd)
+
+  assert.match(source, /const RUNNING_MATCH_STATUSES = new Set\(\['live', 'second_half', 'extra_time', 'penalties'\]\)/)
+  assert.match(source, /const PAUSED_MATCH_STATUSES = new Set\(\['half_time'\]\)/)
+  assert.match(source, /const LIVE_CONTROL_STATUSES = \['half_time', 'second_half', 'extra_time', 'penalties', 'full_time'\]/)
+  assert.match(source, /return \{ label: 'Resume', status: 'second_half' \}/)
+  assert.match(source, /\? 'Paused' : 'Ready'/)
+  assert.match(source, /Live sync retrying/)
+  assert.match(statusHandlerSource, /RUNNING_MATCH_STATUSES\.has\(status\)/)
+  assert.match(statusHandlerSource, /updates\.phaseStartedAt = new Date\(\)\.toISOString\(\)/)
+  assert.match(statusHandlerSource, /setMatchActionStatus\(\{\s*key: `\$\{match\.id\}:status`/)
+  assert.match(statusHandlerSource, /tone: 'success'/)
+  assert.match(statusHandlerSource, /tone: 'error'/)
+})
+
+test('staff goal logging closes the expanded mobile panel after successful save only', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const goalHandlerStart = source.indexOf('const handleAddGoal = async (event, match) => {')
+  const goalHandlerEnd = source.indexOf('const handleResetPrevious = async () => {', goalHandlerStart)
+  assert.notEqual(goalHandlerStart, -1)
+  assert.notEqual(goalHandlerEnd, -1)
+  const goalHandlerSource = source.slice(goalHandlerStart, goalHandlerEnd)
+
+  assert.match(goalHandlerSource, /await addStaffMatchDayGoal\(\{ user, match, goal \}\)/)
+  assert.match(goalHandlerSource, /setGoalForms\(\(currentForms\) => \(\{/)
+  assert.match(goalHandlerSource, /setExpandedMatchId\(\(currentId\) => \(currentId === match\.id \? '' : currentId\)\)/)
+  assert.match(goalHandlerSource, /Goal added\./)
+  assert.doesNotMatch(goalHandlerSource.slice(goalHandlerSource.indexOf('catch (error)')), /setExpandedMatchId/)
+})
+
+test('parent live score polling remains in the parent portal', () => {
+  const source = readFileSync(
+    new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const loadStart = source.indexOf('async function runLoad({ showLoading = false } = {})')
+  const loadEnd = source.indexOf('useEffect(() => {', source.indexOf('window.clearInterval(intervalId)', loadStart))
+  assert.notEqual(loadStart, -1)
+  assert.notEqual(loadEnd, -1)
+  const loadSource = source.slice(loadStart, loadEnd)
+
+  assert.match(loadSource, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\)/)
+  assert.match(loadSource, /setMatches\(nextMatches\)/)
+  assert.match(loadSource, /window\.setInterval\(\(\) => \{/)
+  assert.match(loadSource, /60000/)
+})
+
 test('match day normalizer preserves seeded camel-case availability summaries', () => {
   const match = normalizeMatchDay({
     id: 'match-availability-fixture',

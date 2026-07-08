@@ -98,6 +98,11 @@ const fixtureModalViewportBaseState = {
   viewportStyle: fixtureModalViewportBaseStyle,
   isKeyboardOpen: false,
 }
+const LIVE_MATCH_REFRESH_INTERVAL_MS = 15000
+const LIVE_MATCH_CLOCK_INTERVAL_MS = 15000
+const RUNNING_MATCH_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
+const PAUSED_MATCH_STATUSES = new Set(['half_time'])
+const LIVE_CONTROL_STATUSES = ['half_time', 'second_half', 'extra_time', 'penalties', 'full_time']
 
 const availabilityStatusLabels = {
   pending: 'No response',
@@ -877,11 +882,7 @@ function getEventLogDetail(entry) {
 }
 
 function getCurrentMatchMinute(match, now = Date.now()) {
-  if (match.status === 'scheduled' || match.status === 'scorer_request') {
-    return null
-  }
-
-  if (match.status === 'full_time' || match.status === 'postponed' || match.status === 'cancelled') {
+  if (!RUNNING_MATCH_STATUSES.has(match.status)) {
     return null
   }
 
@@ -897,6 +898,28 @@ function getCurrentMatchMinute(match, now = Date.now()) {
 
 function getMatchStatusLabel(status) {
   return MATCH_DAY_STATUS_OPTIONS.find((option) => option.value === status)?.label || String(status || 'scheduled').replace(/_/g, ' ')
+}
+
+function getMatchPeriodLabel(status) {
+  if (status === 'live') return 'First half'
+  if (status === 'half_time') return 'Half time'
+  if (status === 'second_half') return 'Second half'
+  if (status === 'extra_time') return 'Extra time'
+  if (status === 'penalties') return 'Penalties'
+  if (status === 'full_time') return 'Full time'
+  return 'Pre-match'
+}
+
+function getPrimaryLiveAction(match) {
+  if (match.status === 'scheduled' || match.status === 'scorer_request') {
+    return { label: 'Start match', status: 'live' }
+  }
+
+  if (PAUSED_MATCH_STATUSES.has(match.status)) {
+    return { label: 'Resume', status: 'second_half' }
+  }
+
+  return null
 }
 
 function getHomeAwayLabel(homeAway) {
@@ -1482,6 +1505,9 @@ export function MatchDayPage() {
   const [volunteerSelectionPrompt, setVolunteerSelectionPrompt] = useState(null)
   const [activeVolunteerSelectionKey, setActiveVolunteerSelectionKey] = useState('')
   const [volunteerSelectionStatus, setVolunteerSelectionStatus] = useState(null)
+  const [matchActionStatus, setMatchActionStatus] = useState(null)
+  const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
+  const [liveClockNow, setLiveClockNow] = useState(Date.now())
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
   const displayedActiveMatches = useMemo(
@@ -1669,6 +1695,51 @@ export function MatchDayPage() {
     }
   }, [user])
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setLiveClockNow(Date.now())
+    }, LIVE_MATCH_CLOCK_INTERVAL_MS)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    async function refreshLiveMatches() {
+      if (!canManageMatchDay(user)) {
+        return
+      }
+
+      try {
+        const nextMatches = await withRequestTimeout(
+          () => getMatchDays({ user }),
+          'Match Day live state could not be refreshed.',
+        )
+
+        if (isCurrent) {
+          setMatches(nextMatches)
+          setLiveRefreshStatus('ok')
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isCurrent) {
+          setLiveRefreshStatus('warning')
+        }
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshLiveMatches()
+    }, LIVE_MATCH_REFRESH_INTERVAL_MS)
+
+    return () => {
+      isCurrent = false
+      window.clearInterval(intervalId)
+    }
+  }, [user])
+
   if (!canManageMatchDay(user)) {
     return <Navigate to="/" replace />
   }
@@ -1842,11 +1913,16 @@ export function MatchDayPage() {
     }
 
     setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:status`,
+      tone: 'loading',
+      message: `${getMatchStatusLabel(status)} saving...`,
+    })
     setErrorMessage('')
 
     try {
       const updates = { status }
-      if (status === 'live' && !match.phaseStartedAt) {
+      if (RUNNING_MATCH_STATUSES.has(status) && (match.status !== status || !match.phaseStartedAt)) {
         updates.phaseStartedAt = new Date().toISOString()
       }
 
@@ -1871,10 +1947,21 @@ export function MatchDayPage() {
         setMatches(reconcileSavedMatch)
         setErrorMessage(loadError.message || 'Match status was saved, but Match Day could not be refreshed. Refresh the page before making another status change.')
       }
-      showToast({ title: 'Match updated', message: 'The match status has been updated.' })
+      setMatchActionStatus({
+        key: `${match.id}:status`,
+        tone: 'success',
+        message: `${getMatchStatusLabel(status)} saved.`,
+      })
+      showToast({ title: 'Match updated', message: `${getMatchStatusLabel(status)} is now showing.` })
     } catch (error) {
       console.error(error)
+      const message = error.message || 'Match status could not be updated.'
       setErrorMessage(error.message || 'Match status could not be updated.')
+      setMatchActionStatus({
+        key: `${match.id}:status`,
+        tone: 'error',
+        message,
+      })
     } finally {
       setActiveMatchId('')
     }
@@ -1985,6 +2072,11 @@ export function MatchDayPage() {
     }
 
     setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:score`,
+      tone: 'loading',
+      message: 'Saving score...',
+    })
     setErrorMessage('')
 
     try {
@@ -2010,10 +2102,21 @@ export function MatchDayPage() {
         setMatches(reconcileSavedMatch)
         setErrorMessage(loadError.message || 'Score was saved, but Match Day could not be refreshed. Refresh the page before making another score change.')
       }
+      setMatchActionStatus({
+        key: `${match.id}:score`,
+        tone: 'success',
+        message: 'Score saved.',
+      })
       showToast({ title: 'Score updated', message: 'The family portal score has been updated.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Score could not be updated.')
+      const message = error.message || 'Score could not be updated.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:score`,
+        tone: 'error',
+        message,
+      })
     } finally {
       setActiveMatchId('')
     }
@@ -2186,6 +2289,11 @@ export function MatchDayPage() {
     }
 
     setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:goal`,
+      tone: 'loading',
+      message: 'Adding goal...',
+    })
     setErrorMessage('')
 
     try {
@@ -2206,6 +2314,7 @@ export function MatchDayPage() {
         ...currentForms,
         [match.id]: EMPTY_GOAL_FORM,
       }))
+      setExpandedMatchId((currentId) => (currentId === match.id ? '' : currentId))
       try {
         await loadData()
         setMatches(reconcileSavedGoal)
@@ -2214,10 +2323,21 @@ export function MatchDayPage() {
         setMatches(reconcileSavedGoal)
         setErrorMessage(loadError.message || 'Goal was added, but the latest Match Day data could not be refreshed.')
       }
+      setMatchActionStatus({
+        key: `${match.id}:goal`,
+        tone: 'success',
+        message: 'Goal added.',
+      })
       showToast({ title: 'Goal added', message: 'The live feed has been updated.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Goal could not be added.')
+      const message = error.message || 'Goal could not be added.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:goal`,
+        tone: 'error',
+        message,
+      })
     } finally {
       setActiveMatchId('')
     }
@@ -2478,8 +2598,11 @@ export function MatchDayPage() {
                 goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
                 isGameMode={gameModeMatchId === match.id}
                 isExpanded={expandedMatchId === match.id}
+                liveRefreshStatus={liveRefreshStatus}
                 match={match}
                 matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
+                matchActionStatus={matchActionStatus}
+                now={liveClockNow}
                 onAddGoal={handleAddGoal}
                 onAddMatchEvent={handleAddMatchEvent}
                 onGameModeBack={() => setGameModeMatchId('')}
@@ -2634,8 +2757,11 @@ function MatchDayCard({
   goalForm,
   isGameMode,
   isExpanded,
+  liveRefreshStatus,
   match,
   matchEventForm,
+  matchActionStatus,
+  now,
   onAddGoal,
   onAddMatchEvent,
   onGameModeBack,
@@ -2658,7 +2784,7 @@ function MatchDayCard({
   const isBusy = activeMatchId === match.id
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
-  const currentMinute = getCurrentMatchMinute(match)
+  const currentMinute = getCurrentMatchMinute(match, now)
   const availabilityStats = getAvailabilityStats(match)
   const transportRiskRows = getTransportRiskRows(match)
   const transportRiskSummary = getTransportRiskSummary(transportRiskRows)
@@ -2669,15 +2795,25 @@ function MatchDayCard({
   const scoreSummary = getMatchDayDisplayScore(match)
   const goalPreview = buildStaffGoalPreview(match, goalForm)
   const locationSummary = getMatchLocationSummary(match)
+  const primaryLiveAction = getPrimaryLiveAction(match)
+  const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
+  const isLiveConsole = RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status)
+  const matchPeriodLabel = getMatchPeriodLabel(match.status)
+  const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
 
   return (
-    <article className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-      <div className="grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+    <article className={`overflow-hidden rounded-lg border shadow-sm shadow-[#047857]/10 ${isLiveConsole ? 'border-[#047857] bg-[#f8fffb]' : 'border-[#d7e5dc] bg-white'}`}>
+      <div className={`grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${isLiveConsole ? 'bg-[#ecfdf5]' : ''}`}>
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
               {getMatchStatusLabel(match.status)}
             </span>
+            {isLiveConsole ? (
+              <span className="inline-flex w-fit rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-1 text-xs font-black text-[#92400e]">
+                {matchPeriodLabel}
+              </span>
+            ) : null}
             <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
               {getHomeAwayLabel(match.homeAway)}
             </span>
@@ -2692,24 +2828,83 @@ function MatchDayCard({
             {formatMatchDate(match)}
             {locationSummary.venueName ? ` at ${locationSummary.venueName}` : ''}
           </p>
+          {isLiveConsole ? (
+            <p className={`mt-3 w-fit rounded-lg border px-3 py-2 text-xs font-black ${
+              liveRefreshStatus === 'warning'
+                ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
+                : 'border-[#bbf7d0] bg-white text-[#047857]'
+            }`}
+            >
+              {liveSyncLabel}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-[auto_auto] sm:items-center">
-          <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-center">
+          <div className="grid min-w-[12rem] gap-2 rounded-lg border border-[#047857] bg-white px-4 py-4 text-center shadow-sm shadow-[#047857]/10">
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#4b5f55]">Score</p>
-            <p className="mt-1 text-3xl font-black text-[#101828]">{scoreSummary}</p>
-            {currentMinute ? <p className="mt-1 text-xs font-black text-[#4b5f55]">{currentMinute} min</p> : null}
+            <p className="text-4xl font-black leading-none text-[#101828] sm:text-5xl">{scoreSummary}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Timer</p>
+                <p className="mt-1 text-lg font-black text-[#101828]">
+                  {currentMinute ? `${currentMinute} min` : PAUSED_MATCH_STATUSES.has(match.status) ? 'Paused' : 'Ready'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Period</p>
+                <p className="mt-1 text-lg font-black text-[#101828]">{matchPeriodLabel}</p>
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={isGameMode ? onGameModeBack : onToggle}
-            className={`${primaryButtonClass} w-full sm:w-auto`}
-            aria-expanded={isExpanded}
-          >
-            {isGameMode ? 'Back' : <>{isExpanded ? 'Close' : 'Manage'}</>}
-          </button>
+          <div className="grid gap-2">
+            {isGameMode ? (
+              <button
+                type="button"
+                onClick={onGameModeBack}
+                disabled={isBusy}
+                className={`${primaryButtonClass} w-full sm:w-auto`}
+              >
+                Back
+              </button>
+            ) : primaryLiveAction ? (
+              <button
+                type="button"
+                onClick={() => onStatusChange(match, primaryLiveAction.status)}
+                disabled={isBusy}
+                className={`${primaryButtonClass} w-full sm:w-auto`}
+              >
+                {isBusy ? 'Saving...' : primaryLiveAction.label}
+              </button>
+            ) : null}
+            {!isGameMode ? (
+              <button
+                type="button"
+                onClick={onToggle}
+                className={`${primaryLiveAction ? secondaryButtonClass : primaryButtonClass} w-full sm:w-auto`}
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? 'Close' : 'Manage'}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
+
+      {controlStatus ? (
+        <div
+          role={controlStatus.tone === 'error' ? 'alert' : 'status'}
+          className={`border-t px-4 py-3 text-sm font-black sm:px-5 ${
+            controlStatus.tone === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : controlStatus.tone === 'loading'
+                ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
+                : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+          }`}
+        >
+          {controlStatus.message}
+        </div>
+      ) : null}
 
       <div className="grid gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
         <CompactFact label="Availability" value={getAvailabilitySummary(match)} />
@@ -3019,21 +3214,26 @@ function MatchDayCard({
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {MATCH_DAY_STATUS_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => onStatusChange(match, option.value)}
-                disabled={isBusy}
-                className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                  match.status === option.value
-                    ? 'border-[#047857] bg-[#047857] text-white'
-                    : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
-                }`}
-              >
-                {option.label}
-              </button>
-              ))}
+            {LIVE_CONTROL_STATUSES.map((statusValue) => {
+              const option = MATCH_DAY_STATUS_OPTIONS.find((candidate) => candidate.value === statusValue)
+              const controlLabel = match.status === 'half_time' && statusValue === 'second_half' ? 'Resume' : option.label
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onStatusChange(match, option.value)}
+                  disabled={isBusy || match.status === option.value}
+                  className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    match.status === option.value
+                      ? 'border-[#047857] bg-[#047857] text-white'
+                      : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
+                  }`}
+                >
+                  {isBusy ? 'Saving...' : controlLabel}
+                </button>
+              )
+            })}
             </div>
           </section>
 
