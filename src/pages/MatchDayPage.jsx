@@ -101,7 +101,7 @@ const fixtureModalViewportBaseState = {
   isKeyboardOpen: false,
 }
 const LIVE_MATCH_REFRESH_INTERVAL_MS = 15000
-const LIVE_MATCH_CLOCK_INTERVAL_MS = 15000
+const LIVE_MATCH_CLOCK_INTERVAL_MS = 1000
 const RUNNING_MATCH_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
 const PAUSED_MATCH_STATUSES = new Set(['half_time'])
 const LIVE_CONTROL_STATUSES = ['half_time', 'second_half', 'extra_time', 'penalties', 'full_time']
@@ -982,6 +982,36 @@ function getCurrentMatchMinute(match, now = Date.now()) {
   }
 
   return Math.max(Math.floor((now - startedAtTime) / 60000) + 1, 1)
+}
+
+function getCurrentMatchElapsedSeconds(match, now = Date.now()) {
+  if (!RUNNING_MATCH_STATUSES.has(match.status)) {
+    return null
+  }
+
+  const startedAt = new Date(match.phaseStartedAt || match.updatedAt || now)
+  const startedAtTime = Number.isNaN(startedAt.getTime()) ? now : startedAt.getTime()
+
+  if (startedAtTime > now) {
+    return null
+  }
+
+  return Math.max(Math.floor((now - startedAtTime) / 1000), 0)
+}
+
+function formatLiveMatchClock(match, now = Date.now(), gameModePauseState = {}) {
+  if (gameModePauseState?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status)) {
+    return 'Paused'
+  }
+
+  const elapsedSeconds = getCurrentMatchElapsedSeconds(match, now)
+  if (elapsedSeconds === null) {
+    return 'Ready'
+  }
+
+  const minutes = Math.floor(elapsedSeconds / 60)
+  const seconds = String(elapsedSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
 }
 
 function getMatchStatusLabel(status) {
@@ -3003,7 +3033,7 @@ function MatchDayCard({
   const isBusy = activeMatchId === match.id
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
-  const currentMinute = getCurrentMatchMinute(match, now)
+  const liveClockLabel = formatLiveMatchClock(match, now, gameModePauseState)
   const availabilityStats = getAvailabilityStats(match)
   const transportRiskRows = getTransportRiskRows(match)
   const transportRiskSummary = getTransportRiskSummary(transportRiskRows)
@@ -3067,7 +3097,7 @@ function MatchDayCard({
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Timer</p>
                 <p className="mt-1 text-lg font-black text-[#101828]">
-                  {currentMinute ? `${currentMinute} min` : PAUSED_MATCH_STATUSES.has(match.status) ? 'Paused' : 'Ready'}
+                  {liveClockLabel}
                 </p>
               </div>
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
@@ -3125,6 +3155,19 @@ function MatchDayCard({
         </div>
       ) : null}
 
+      {isLiveConsole && !isGameMode ? (
+        <LiveMatchQuickActions
+          gameModePauseState={gameModePauseState}
+          isBusy={isBusy}
+          isExpanded={isExpanded}
+          match={match}
+          onGameModeStart={onGameModeStart}
+          onHydrationToggle={onGameModeHydrationToggle}
+          onStatusChange={onStatusChange}
+          onToggle={onToggle}
+        />
+      ) : null}
+
       <div className="grid gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
         <CompactFact label="Availability" value={getAvailabilitySummary(match)} />
         <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
@@ -3140,6 +3183,7 @@ function MatchDayCard({
           isBusy={isBusy}
           matchEventForm={matchEventForm}
           match={match}
+          now={now}
           onAddGoal={onAddGoal}
           onAddMatchEvent={onAddMatchEvent}
           onBack={onGameModeBack}
@@ -3723,6 +3767,85 @@ function MatchDayCard({
   )
 }
 
+function LiveMatchQuickActions({
+  gameModePauseState,
+  isBusy,
+  isExpanded,
+  match,
+  onGameModeStart,
+  onHydrationToggle,
+  onStatusChange,
+  onToggle,
+}) {
+  const isPaused = Boolean(gameModePauseState?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status))
+  const canMoveToHalfTime = match.status === 'live'
+
+  const handlePauseResume = () => {
+    if (PAUSED_MATCH_STATUSES.has(match.status)) {
+      onStatusChange(match, 'second_half')
+      return
+    }
+
+    onHydrationToggle(match)
+  }
+
+  const openManagePanel = () => {
+    if (!isExpanded) {
+      onToggle()
+    }
+  }
+
+  return (
+    <section className="border-t border-[#bbf7d0] bg-white px-4 py-4 sm:px-5" aria-label="Live match actions">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <p className={eyebrowClass}>Live actions</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <button type="button" onClick={openManagePanel} className={primaryButtonClass}>
+            Add goal
+          </button>
+          <button type="button" onClick={openManagePanel} className={secondaryButtonClass}>
+            Add event/card
+          </button>
+          <button
+            type="button"
+            onClick={handlePauseResume}
+            disabled={isBusy}
+            className={secondaryButtonClass}
+          >
+            {isPaused ? 'Resume' : 'Pause'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onStatusChange(match, 'half_time')}
+            disabled={isBusy || !canMoveToHalfTime}
+            className={secondaryButtonClass}
+          >
+            Half time
+          </button>
+          <button
+            type="button"
+            onClick={() => onStatusChange(match, 'full_time')}
+            disabled={isBusy}
+            className={secondaryButtonClass}
+          >
+            Full time
+          </button>
+          <button
+            type="button"
+            onClick={() => onGameModeStart(match)}
+            disabled={isBusy || match.status === 'full_time'}
+            className={secondaryButtonClass}
+          >
+            Open Game Mode
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function MatchDayGameModePanel({
   gameModePauseState,
   goalForm,
@@ -3738,11 +3861,12 @@ function MatchDayGameModePanel({
   onHydrationToggle,
   onPlayerPick,
   onStatusChange,
+  now,
   players,
 }) {
   const [activeFlow, setActiveFlow] = useState('')
   const scoreSummary = getMatchDayDisplayScore(match)
-  const currentMinute = gameModePauseState?.hydrationPaused ? null : getCurrentMatchMinute(match)
+  const liveClockLabel = formatLiveMatchClock(match, now, gameModePauseState)
   const isPaused = Boolean(gameModePauseState?.hydrationPaused)
   const cardEventType = matchEventForm.eventType === 'red_card' ? 'red_card' : 'yellow_card'
 
@@ -3754,7 +3878,7 @@ function MatchDayGameModePanel({
             <p className={eyebrowClass}>Game Mode</p>
             <h5 className="mt-2 text-2xl font-black text-[#101828]">{scoreSummary}</h5>
             <p className="mt-1 text-sm font-bold text-[#4b5f55]">
-              {isPaused ? 'Hydration paused' : currentMinute ? `${currentMinute} min` : getMatchStatusLabel(match.status)}
+              {isPaused ? 'Hydration paused' : liveClockLabel}
             </p>
           </div>
           <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
