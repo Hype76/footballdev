@@ -34,7 +34,7 @@ test('other expected sidebar navigation entries remain defined', async () => {
     'Development',
     'Development Forms',
     'Polls',
-    'Match Day',
+    'Game Day',
     'Teams',
     'Parent Invites',
     'Activity Log',

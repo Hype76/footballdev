@@ -1902,7 +1902,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Match Day',
+                  title: 'Game Day',
                 },
               },
             ],

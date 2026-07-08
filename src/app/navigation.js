@@ -35,9 +35,9 @@ export const primaryNavigation = [
     helper: 'Create and track replies',
   },
   {
-    label: 'Match Day',
+    label: 'Game Day',
     path: '/match-day',
-    helper: 'Squad, score, minutes',
+    helper: 'Pitch-side match tools',
   },
   {
     label: 'Teams',

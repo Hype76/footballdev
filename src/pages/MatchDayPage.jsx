@@ -23,7 +23,7 @@ import {
   getMatchLocations,
   getPlayers,
   getTeams,
-  isPastMatchDayDate,
+  isPastMatchDayDateTime,
   MATCH_DAY_ARRIVAL_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
@@ -523,8 +523,8 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
     return 'Add an opponent before continuing to squad selection.'
   }
 
-  if (isPastMatchDayDate(form.matchDate)) {
-    return 'Match Day date must be today or in the future.'
+  if (isPastMatchDayDateTime(form.matchDate, form.kickoffTime)) {
+    return 'Fixture date and time cannot be in the past.'
   }
 
   if (availablePlayerIds.length === 0) {
@@ -609,7 +609,7 @@ function getMatchEventTypeLabel(event, match = {}) {
   }
 
   if (event.eventType === 'substitution') {
-    return 'Substitution'
+    return event.teamSide === 'opponent' ? `${opponentName} substitution` : 'Substitution'
   }
 
   if (event.eventType === 'water_break') {
@@ -1641,8 +1641,8 @@ export function MatchDayPage() {
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
     [activeMatches],
   )
-  const mobileLivePriorityMatch = useMemo(
-    () => activeMatches.find(isLiveMatchConsoleState) || null,
+  const pitchsidePriorityMatch = useMemo(
+    () => activeMatches.find(isLiveMatchConsoleState) || activeMatches[0] || null,
     [activeMatches],
   )
   const scorerRequests = useMemo(
@@ -2680,11 +2680,11 @@ export function MatchDayPage() {
 
   return (
     <div className="space-y-5">
-      <section className="matchday-control-panel overflow-hidden rounded-lg border shadow-sm">
+      <section className="matchday-control-panel hidden overflow-hidden rounded-lg border shadow-sm xl:block">
         <div className="grid gap-5 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
-            <p className="matchday-control-eyebrow text-xs font-black uppercase tracking-[0.18em]">Match day control</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Match Day</h1>
+            <p className="matchday-control-eyebrow text-xs font-black uppercase tracking-[0.18em]">Game day control</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Game Day</h1>
             <p className="matchday-control-copy mt-2 max-w-3xl text-sm font-semibold leading-6">
               Scan fixtures, open one when needed, and keep scorer, score, availability, roles, and notes attached to the same record.
             </p>
@@ -2718,77 +2718,21 @@ export function MatchDayPage() {
 
       {errorMessage ? <NoticeBanner title="Match Day action failed" message={errorMessage} /> : null}
 
-      {mobileLivePriorityMatch ? (
-        <MobileLiveMatchPriorityPanel
-          gameModePauseState={gameModePauseState[mobileLivePriorityMatch.id] ?? {}}
-          isBusy={activeMatchId === mobileLivePriorityMatch.id}
-          isExpanded={expandedMatchId === mobileLivePriorityMatch.id}
+      {pitchsidePriorityMatch ? (
+        <PitchsideCockpitPanel
+          gameModePauseState={gameModePauseState[pitchsidePriorityMatch.id] ?? {}}
+          isBusy={activeMatchId === pitchsidePriorityMatch.id}
+          isExpanded={expandedMatchId === pitchsidePriorityMatch.id}
           liveRefreshStatus={liveRefreshStatus}
-          match={mobileLivePriorityMatch}
+          match={pitchsidePriorityMatch}
           matchActionStatus={matchActionStatus}
           now={liveClockNow}
           onGameModeStart={handleGameModeOpen}
           onHydrationToggle={handleGameModeHydrationToggle}
           onStatusChange={handleStatusChange}
-          onToggle={() => setExpandedMatchId((currentId) => (currentId === mobileLivePriorityMatch.id ? '' : mobileLivePriorityMatch.id))}
+          onToggle={() => setExpandedMatchId((currentId) => (currentId === pitchsidePriorityMatch.id ? '' : pitchsidePriorityMatch.id))}
         />
       ) : null}
-
-      <section className="lg:hidden">
-        <details className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-          <summary className="cursor-pointer bg-[#f7faf8] px-5 py-4 text-sm font-black text-[#101828]">
-            Match Day overview and needs attention
-          </summary>
-          <div className="grid gap-3 px-5 py-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {matchDaySummary.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-                  <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
-                </article>
-              ))}
-            </div>
-            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
-              <p className={eyebrowClass}>Needs attention</p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {needsAttentionItems.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
-                    <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-        </details>
-      </section>
-
-      <section className="hidden gap-3 lg:grid lg:grid-cols-4">
-        {matchDaySummary.map((item) => (
-          <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="hidden overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 lg:block">
-        <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6">
-          <p className={eyebrowClass}>Needs attention</p>
-        </div>
-        <div className="grid gap-2 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5 lg:px-6">
-          {needsAttentionItems.map((item) => (
-            <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
-              <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
-            </article>
-          ))}
-        </div>
-      </section>
 
       {isFixtureFormOpen ? (
         <FixtureSetupModal
@@ -2965,6 +2909,62 @@ export function MatchDayPage() {
         </div>
       </section>
 
+      <section className="xl:hidden">
+        <details className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+          <summary className="cursor-pointer bg-[#f7faf8] px-5 py-4 text-sm font-black text-[#101828]">
+            Game Day overview and needs attention
+          </summary>
+          <div className="grid gap-3 px-5 py-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {matchDaySummary.map((item) => (
+                <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
+                  <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
+                </article>
+              ))}
+            </div>
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+              <p className={eyebrowClass}>Needs attention</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {needsAttentionItems.map((item) => (
+                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
+                    <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section className="hidden gap-3 xl:grid xl:grid-cols-4">
+        {matchDaySummary.map((item) => (
+          <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
+            <p className="mt-2 text-3xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="hidden overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 xl:block">
+        <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6">
+          <p className={eyebrowClass}>Needs attention</p>
+        </div>
+        <div className="grid gap-2 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5 lg:px-6">
+          {needsAttentionItems.map((item) => (
+            <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
+              <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-4 bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
@@ -3069,7 +3069,7 @@ export function MatchDayPage() {
   )
 }
 
-function MobileLiveMatchPriorityPanel({
+function PitchsideCockpitPanel({
   gameModePauseState,
   isBusy,
   isExpanded,
@@ -3087,11 +3087,13 @@ function MobileLiveMatchPriorityPanel({
   const matchPeriodLabel = getMatchPeriodLabel(match.status)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
   const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
+  const primaryLiveAction = getPrimaryLiveAction(match)
+  const isLiveConsole = RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status)
 
   return (
-    <section className="lg:hidden overflow-hidden rounded-lg border border-[#047857] bg-[#f8fffb] shadow-sm shadow-[#047857]/10" aria-label="Mobile live match priority controls">
+    <section className="xl:hidden overflow-hidden rounded-lg border border-[#047857] bg-[#f8fffb] shadow-sm shadow-[#047857]/10" aria-label="Pitchside Game Day cockpit">
       <div className="bg-[#ecfdf5] px-4 py-4">
-        <p className={eyebrowClass}>Live match</p>
+        <p className={eyebrowClass}>Game Day cockpit</p>
         <h2 className="mt-2 text-xl font-black leading-tight text-[#101828]">{getMatchDayDisplayName(match)}</h2>
         <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -3140,16 +3142,47 @@ function MobileLiveMatchPriorityPanel({
         </div>
       ) : null}
 
-      <LiveMatchQuickActions
-        gameModePauseState={gameModePauseState}
-        isBusy={isBusy}
-        isExpanded={isExpanded}
-        match={match}
-        onGameModeStart={onGameModeStart}
-        onHydrationToggle={onHydrationToggle}
-        onStatusChange={onStatusChange}
-        onToggle={onToggle}
-      />
+      {isLiveConsole ? (
+        <LiveMatchQuickActions
+          gameModePauseState={gameModePauseState}
+          isBusy={isBusy}
+          isExpanded={isExpanded}
+          match={match}
+          onGameModeStart={onGameModeStart}
+          onHydrationToggle={onHydrationToggle}
+          onStatusChange={onStatusChange}
+          onToggle={onToggle}
+        />
+      ) : (
+        <div className="grid gap-2 border-t border-[#bbf7d0] bg-white px-4 py-3 sm:grid-cols-3">
+          {primaryLiveAction ? (
+            <button
+              type="button"
+              onClick={() => onStatusChange(match, primaryLiveAction.status)}
+              disabled={isBusy}
+              className={primaryButtonClass}
+            >
+              {isBusy ? 'Saving...' : primaryLiveAction.label}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onToggle}
+            className={primaryLiveAction ? secondaryButtonClass : primaryButtonClass}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? 'Close fixture' : 'Manage fixture'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onGameModeStart(match)}
+            disabled={isBusy || match.status === 'full_time'}
+            className={secondaryButtonClass}
+          >
+            Open Game Mode
+          </button>
+        </div>
+      )}
     </section>
   )
 }
@@ -3206,6 +3239,7 @@ function MatchDayCard({
   const isLiveConsole = RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status)
   const matchPeriodLabel = getMatchPeriodLabel(match.status)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
+  const isOpponentMatchEvent = matchEventForm.teamSide === 'opponent'
 
   return (
     <article className={`overflow-hidden rounded-lg border shadow-sm shadow-[#047857]/10 ${isLiveConsole ? 'border-[#047857] bg-[#f8fffb]' : 'border-[#d7e5dc] bg-white'}`}>
@@ -3355,10 +3389,12 @@ function MatchDayCard({
       ) : null}
 
       {isExpanded ? (
-        <div className="space-y-4 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-5">
-          <MatchDayReadinessPanel match={match} />
+        <div className="flex flex-col gap-4 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-5">
+          <div className="order-6">
+            <MatchDayReadinessPanel match={match} />
+          </div>
 
-          <section className={panelClass}>
+          <section className={`${panelClass} order-1`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h5 className="text-sm font-black text-[#101828]">Game Mode</h5>
@@ -3377,7 +3413,7 @@ function MatchDayCard({
             </div>
           </section>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="order-7 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <section className={panelClass}>
               <h5 className="text-sm font-black text-[#101828]">Overview</h5>
               <dl className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -3407,7 +3443,7 @@ function MatchDayCard({
             <MatchDayEventLogPanel entries={eventLog} />
           </div>
 
-          <section className={panelClass}>
+          <section className={`${panelClass} order-8`}>
             <h5 className="text-sm font-black text-[#101828]">Availability</h5>
             <div className="mt-3 grid gap-2 sm:grid-cols-5">
               <AvailabilityCount label="Available" value={availabilityStats.available} />
@@ -3481,11 +3517,15 @@ function MatchDayCard({
             )}
           </section>
 
-          <TransportRiskPanel rows={transportRiskRows} summary={transportRiskSummary} />
+          <div className="order-9">
+            <TransportRiskPanel rows={transportRiskRows} summary={transportRiskSummary} />
+          </div>
 
-          <TransportCoordinationPanel summary={transportCoordination} />
+          <div className="order-10">
+            <TransportCoordinationPanel summary={transportCoordination} />
+          </div>
 
-          <section className={panelClass}>
+          <section className={`${panelClass} order-11`}>
             <h5 className="text-sm font-black text-[#101828]">Roles</h5>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
@@ -3590,7 +3630,7 @@ function MatchDayCard({
             )}
           </section>
 
-          <section className={panelClass}>
+          <section className={`${panelClass} order-2`}>
             <h5 className="text-sm font-black text-[#101828]">Score</h5>
           {match.status === 'scheduled' || match.status === 'scorer_request' ? (
             <button
@@ -3657,7 +3697,7 @@ function MatchDayCard({
             </div>
           </section>
 
-          <form className={panelClass} onSubmit={(event) => onAddGoal(event, match)}>
+          <form className={`${panelClass} order-3`} onSubmit={(event) => onAddGoal(event, match)}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
@@ -3814,7 +3854,7 @@ function MatchDayCard({
             </div>
           </form>
 
-          <form className={panelClass} onSubmit={(event) => onAddMatchEvent(event, match)}>
+          <form className={`${panelClass} order-4`} onSubmit={(event) => onAddMatchEvent(event, match)}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h5 className="text-sm font-black text-[#101828]">Add match event</h5>
@@ -3826,6 +3866,11 @@ function MatchDayCard({
                 Score unchanged
               </span>
             </div>
+            {isOpponentMatchEvent ? (
+              <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-bold leading-5 text-[#4b5f55]">
+                Opponent player details can stay blank. The timeline will use {getOpponentMatchName(match)} when a name is not available.
+              </p>
+            ) : null}
 
             <div className="mt-3 grid gap-3 border-t border-[#d7e5dc] pt-3 md:grid-cols-4">
               <label className="block">
@@ -3852,7 +3897,7 @@ function MatchDayCard({
                 </select>
               </label>
               <label className="block">
-                <span className={smallLabelClass}>Player</span>
+                <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player optional' : 'Player'}</span>
                 <select
                   value=""
                   onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)}
@@ -3867,7 +3912,7 @@ function MatchDayCard({
                 </select>
               </label>
               <label className="block">
-                <span className={smallLabelClass}>Player name</span>
+                <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player name optional' : 'Player name'}</span>
                 <input
                   value={matchEventForm.playerName}
                   onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })}
@@ -3912,12 +3957,14 @@ function MatchDayCard({
             </div>
           </form>
 
-          <MatchTimelinePanel
-            events={events}
-            match={match}
-            onCorrectGoal={onCorrectGoal}
-            onVoidGoal={onVoidGoal}
-          />
+          <div className="order-5">
+            <MatchTimelinePanel
+              events={events}
+              match={match}
+              onCorrectGoal={onCorrectGoal}
+              onVoidGoal={onVoidGoal}
+            />
+          </div>
         </div>
       ) : null}
     </article>
@@ -4027,7 +4074,7 @@ function MatchDayGameModePanel({
   const isPaused = Boolean(gameModePauseState?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status))
   const isFullTime = match.status === 'full_time'
   const canMoveToHalfTime = match.status === 'live'
-  const cardEventType = matchEventForm.eventType === 'red_card' ? 'red_card' : 'yellow_card'
+  const isOpponentGameModeEvent = matchEventForm.teamSide === 'opponent'
 
   return (
     <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-5">
@@ -4045,7 +4092,7 @@ function MatchDayGameModePanel({
 
         <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <button type="button" onClick={() => setActiveFlow((current) => (current === 'goal' ? '' : 'goal'))} disabled={isFullTime} className={primaryButtonClass}>Goal</button>
-          <button type="button" onClick={() => setActiveFlow((current) => (current === 'card' ? '' : 'card'))} disabled={isFullTime} className={secondaryButtonClass}>Card</button>
+          <button type="button" onClick={() => setActiveFlow((current) => (current === 'card' ? '' : 'card'))} disabled={isFullTime} className={secondaryButtonClass}>Event</button>
           <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>
             {isPaused ? 'Resume' : 'Hydration'}
           </button>
@@ -4072,6 +4119,13 @@ function MatchDayGameModePanel({
                 </select>
               </label>
               <label className="block">
+                <span className={smallLabelClass}>Assist player</span>
+                <select value="" onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)} className={compactInputClass}>
+                  <option value="">Choose player</option>
+                  {players.map((player) => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
+                </select>
+              </label>
+              <label className="block">
                 <span className={smallLabelClass}>Minute</span>
                 <input type="number" min="0" max="130" value={goalForm.minute} onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })} placeholder="Auto" className={compactInputClass} />
               </label>
@@ -4080,8 +4134,16 @@ function MatchDayGameModePanel({
                 <input value={goalForm.scorerName} onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })} className={compactInputClass} />
               </label>
               <label className="block">
-                <span className={smallLabelClass}>Shirt</span>
+                <span className={smallLabelClass}>Scorer shirt</span>
                 <input value={goalForm.scorerShirtNumber} onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })} className={compactInputClass} />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Assist name</span>
+                <input value={goalForm.assistName} onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })} className={compactInputClass} />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Assist shirt</span>
+                <input value={goalForm.assistShirtNumber} onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })} className={compactInputClass} />
               </label>
               <div className="grid grid-cols-2 gap-2 md:items-end">
                 <button type="button" onClick={() => setActiveFlow('')} className={secondaryButtonClass}>Cancel</button>
@@ -4093,12 +4155,16 @@ function MatchDayGameModePanel({
 
         {activeFlow === 'card' ? (
           <form className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" onSubmit={(event) => onAddMatchEvent(event, match)}>
+            {isOpponentGameModeEvent ? (
+              <p className="mb-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-bold leading-5 text-[#4b5f55]">
+                Opponent player details can stay blank. The timeline will use {getOpponentMatchName(match)} when a name is not available.
+              </p>
+            ) : null}
             <div className="grid gap-3 md:grid-cols-3">
               <label className="block">
-                <span className={smallLabelClass}>Card</span>
-                <select value={cardEventType} onChange={(event) => onMatchEventFormChange(match.id, { eventType: event.target.value })} className={compactInputClass}>
-                  <option value="yellow_card">Yellow card</option>
-                  <option value="red_card">Red card</option>
+                <span className={smallLabelClass}>Event type</span>
+                <select value={matchEventForm.eventType} onChange={(event) => onMatchEventFormChange(match.id, { eventType: event.target.value })} className={compactInputClass}>
+                  {MATCH_EVENT_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label className="block">
@@ -4109,7 +4175,7 @@ function MatchDayGameModePanel({
                 </select>
               </label>
               <label className="block">
-                <span className={smallLabelClass}>Player</span>
+                <span className={smallLabelClass}>{isOpponentGameModeEvent ? 'Opponent player optional' : 'Player'}</span>
                 <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
                   <option value="">Choose player</option>
                   {players.map((player) => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
@@ -4120,7 +4186,7 @@ function MatchDayGameModePanel({
                 <input type="number" min="0" max="130" value={matchEventForm.minute} onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })} placeholder="Auto" className={compactInputClass} />
               </label>
               <label className="block">
-                <span className={smallLabelClass}>Player name</span>
+                <span className={smallLabelClass}>{isOpponentGameModeEvent ? 'Opponent player name optional' : 'Player name'}</span>
                 <input value={matchEventForm.playerName} onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })} className={compactInputClass} />
               </label>
               <label className="block">
@@ -4129,7 +4195,7 @@ function MatchDayGameModePanel({
               </label>
               <div className="grid grid-cols-2 gap-2 md:items-end">
                 <button type="button" onClick={() => setActiveFlow('')} className={secondaryButtonClass}>Cancel</button>
-                <button type="submit" disabled={isBusy} className={primaryButtonClass}>Save card</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>Save event</button>
               </div>
             </div>
           </form>

@@ -165,7 +165,7 @@ test('staff Match Day page renders a staff-only match timeline from existing mat
 
 test('staff add goal panel previews score impact and fallback details without new write paths', async () => {
   const source = await readFile(staffPageUrl, 'utf8')
-  const formStart = source.indexOf('<form className={panelClass} onSubmit={(event) => onAddGoal(event, match)}')
+  const formStart = source.indexOf('<form className={`${panelClass} order-3`} onSubmit={(event) => onAddGoal(event, match)}')
   const formEnd = source.indexOf('<MatchTimelinePanel', formStart)
   const handlerStart = source.indexOf('const handleAddGoal = async (event, match) => {')
   const handlerEnd = source.indexOf('const handleResetPrevious = async', handlerStart)
@@ -271,6 +271,34 @@ test('staff Match Day page renders compact cards substitutions and water break c
   assert.match(source, /red_card: \{ label: 'Red card'/)
   assert.match(source, /substitution: \{ label: 'Substitution'/)
   assert.match(source, /water_break: \{ label: 'Water break'/)
+})
+
+test('opponent match events can omit player names while using opponent labels', async () => {
+  const [source, domain] = await Promise.all([
+    readFile(staffPageUrl, 'utf8'),
+    readFile(domainUrl, 'utf8'),
+  ])
+  const eventWriterStart = domain.indexOf('export async function addStaffMatchDayEvent')
+  const eventWriterEnd = domain.indexOf('export async function addMatchDayGoalAsScorer', eventWriterStart)
+  const eventWriterSource = domain.slice(eventWriterStart, eventWriterEnd)
+  const labelStart = source.indexOf('function getMatchEventTypeLabel(event, match = {})')
+  const labelEnd = source.indexOf('function getMatchEventScoreLabel', labelStart)
+  const labelSource = source.slice(labelStart, labelEnd)
+
+  assert.notEqual(eventWriterStart, -1)
+  assert.notEqual(eventWriterEnd, -1)
+  assert.notEqual(labelStart, -1)
+  assert.notEqual(labelEnd, -1)
+  assert.match(eventWriterSource, /team_side: normalizeText\(event\?\.teamSide\) === 'opponent' \? 'opponent' : 'club'/)
+  assert.match(eventWriterSource, /scorer_name: normalizeText\(event\?\.playerName\)/)
+  assert.doesNotMatch(eventWriterSource, /playerName[\s\S]{0,80}throw new Error/)
+  assert.match(source, /Opponent player optional/)
+  assert.match(source, /Opponent player name optional/)
+  assert.match(source, /Opponent player details can stay blank/)
+  assert.match(labelSource, /const opponentName = getOpponentMatchName\(match\)/)
+  assert.match(labelSource, /event\.teamSide === 'opponent' \? `\$\{opponentName\} yellow card` : 'Yellow card'/)
+  assert.match(labelSource, /event\.teamSide === 'opponent' \? `\$\{opponentName\} red card` : 'Red card'/)
+  assert.match(labelSource, /event\.teamSide === 'opponent' \? `\$\{opponentName\} substitution` : 'Substitution'/)
 })
 
 test('staff event log filters map known and unknown event types safely', async () => {

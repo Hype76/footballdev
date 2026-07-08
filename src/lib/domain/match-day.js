@@ -108,9 +108,50 @@ export function isPastMatchDayDate(matchDate, now = new Date()) {
   return normalizedMatchDate < getTodayMatchDayDateValue(now)
 }
 
+export function isPastMatchDayDateTime(matchDate, kickoffTime, now = new Date()) {
+  const normalizedMatchDate = normalizeDateOnly(matchDate)
+
+  if (!normalizedMatchDate) {
+    return false
+  }
+
+  const today = getTodayMatchDayDateValue(now)
+
+  if (normalizedMatchDate < today) {
+    return true
+  }
+
+  if (normalizedMatchDate > today) {
+    return false
+  }
+
+  const normalizedKickoffTime = normalizeTime(kickoffTime)
+
+  if (!normalizedKickoffTime || !(now instanceof Date) || Number.isNaN(now.getTime())) {
+    return false
+  }
+
+  const fixtureDateTime = new Date(`${normalizedMatchDate}T${normalizedKickoffTime}`)
+
+  if (Number.isNaN(fixtureDateTime.getTime())) {
+    return false
+  }
+
+  const currentMinute = new Date(now)
+  currentMinute.setSeconds(0, 0)
+
+  return fixtureDateTime.getTime() < currentMinute.getTime()
+}
+
 function assertMatchDayDateIsCurrentOrFuture(matchDate) {
   if (isPastMatchDayDate(matchDate)) {
     throw new Error('Match Day date must be today or in the future.')
+  }
+}
+
+function assertMatchDayDateTimeIsCurrentOrFuture(matchDate, kickoffTime) {
+  if (isPastMatchDayDateTime(matchDate, kickoffTime)) {
+    throw new Error('Fixture date and time cannot be in the past.')
   }
 }
 
@@ -792,7 +833,7 @@ export async function createMatchDay({ user, match }) {
     throw new Error('Opponent is required.')
   }
 
-  assertMatchDayDateIsCurrentOrFuture(match?.matchDate)
+  assertMatchDayDateTimeIsCurrentOrFuture(match?.matchDate, match?.kickoffTime)
 
   if (parentVisible && parentAudience === 'all_team_parents' && !teamId) {
     throw new Error('Choose a team before sharing this fixture with all team parents.')

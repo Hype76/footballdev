@@ -270,6 +270,7 @@ export {
   selectMatchDayScorer,
   selectMatchDayVolunteer,
   isPastMatchDayDate,
+  isPastMatchDayDateTime,
   updateMatchDay,
   updateMatchDayScoreAsScorer,
   voidMatchDayGoalAsScorer,

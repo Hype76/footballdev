@@ -13,6 +13,7 @@ import {
   getMatchDayDisplayScore,
   getTodayMatchDayDateValue,
   isPastMatchDayDate,
+  isPastMatchDayDateTime,
   normalizeMatchDay,
 } from '../src/lib/domain/match-day.js'
 
@@ -116,12 +117,16 @@ test('manual review Match Day migration removes missing player team assignment d
 })
 
 test('match day date helper blocks past dates and allows today', () => {
-  const now = new Date('2026-06-16T12:00:00Z')
+  const now = new Date('2026-06-16T12:00:00')
 
   assert.equal(getTodayMatchDayDateValue(now), '2026-06-16')
   assert.equal(isPastMatchDayDate('2026-06-15', now), true)
   assert.equal(isPastMatchDayDate('2026-06-16', now), false)
   assert.equal(isPastMatchDayDate('2026-06-17', now), false)
+  assert.equal(isPastMatchDayDateTime('2026-06-16', '11:59', now), true)
+  assert.equal(isPastMatchDayDateTime('2026-06-16', '12:00', now), false)
+  assert.equal(isPastMatchDayDateTime('2026-06-16', '12:01', now), false)
+  assert.equal(isPastMatchDayDateTime('2026-06-16', '', now), false)
 })
 
 test('fixture setup Continue validates visibly and advances to squad selection', () => {
@@ -140,6 +145,8 @@ test('fixture setup Continue validates visibly and advances to squad selection',
   assert.match(handlerSource, /setErrorMessage\(validationMessage\)/)
   assert.match(handlerSource, /setSquadSelection\(\{/)
   assert.match(source, /Add an opponent before continuing to squad selection\./)
+  assert.match(source, /isPastMatchDayDateTime\(form\.matchDate, form\.kickoffTime\)/)
+  assert.match(source, /Fixture date and time cannot be in the past\./)
   assert.match(source, /onSubmit=\{handleCreateMatch\} noValidate/)
   assert.match(source, /isFixtureDataLoading \? 'Loading squad\.\.\.' : 'Continue to squad'/)
   assert.match(source, /role="alert"/)
@@ -266,39 +273,59 @@ test('staff live controls expose pause, resume, timer, and action feedback', () 
   assert.match(statusHandlerSource, /tone: 'error'/)
 })
 
-test('mobile Match Day renders live priority controls before lower priority content', () => {
+test('phone and tablet Game Day renders pitchside cockpit before lower priority content', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
   )
-  const mobilePanelStart = source.indexOf('function MobileLiveMatchPriorityPanel')
-  const mobilePanelEnd = source.indexOf('function MatchDayCard', mobilePanelStart)
-  const mobileRenderStart = source.indexOf('{mobileLivePriorityMatch ? (')
-  const mobileOverviewStart = source.indexOf('Match Day overview and needs attention')
-  const desktopSummaryStart = source.indexOf('<section className="hidden gap-3 lg:grid lg:grid-cols-4">')
+  const cockpitPanelStart = source.indexOf('function PitchsideCockpitPanel')
+  const cockpitPanelEnd = source.indexOf('function MatchDayCard', cockpitPanelStart)
+  const cockpitRenderStart = source.indexOf('{pitchsidePriorityMatch ? (')
+  const fixtureListStart = source.indexOf('>Active fixtures</h2>')
+  const mobileOverviewStart = source.indexOf('Game Day overview and needs attention')
+  const desktopSummaryStart = source.indexOf('<section className="hidden gap-3 xl:grid xl:grid-cols-4">')
   const routeGuardStart = source.indexOf('if (!canManageMatchDay(user))')
-  assert.notEqual(mobilePanelStart, -1)
-  assert.notEqual(mobilePanelEnd, -1)
-  assert.notEqual(mobileRenderStart, -1)
+  assert.notEqual(cockpitPanelStart, -1)
+  assert.notEqual(cockpitPanelEnd, -1)
+  assert.notEqual(cockpitRenderStart, -1)
+  assert.notEqual(fixtureListStart, -1)
   assert.notEqual(mobileOverviewStart, -1)
   assert.notEqual(desktopSummaryStart, -1)
   assert.notEqual(routeGuardStart, -1)
-  assert.ok(routeGuardStart < mobileRenderStart)
-  assert.ok(mobileRenderStart < mobileOverviewStart)
+  assert.ok(routeGuardStart < cockpitRenderStart)
+  assert.ok(cockpitRenderStart < fixtureListStart)
+  assert.ok(fixtureListStart < mobileOverviewStart)
   assert.ok(mobileOverviewStart < desktopSummaryStart)
 
-  const mobilePanelSource = source.slice(mobilePanelStart, mobilePanelEnd)
-  assert.match(source, /const mobileLivePriorityMatch = useMemo\([\s\S]*activeMatches\.find\(isLiveMatchConsoleState\)/)
+  const cockpitPanelSource = source.slice(cockpitPanelStart, cockpitPanelEnd)
+  assert.match(source, /const pitchsidePriorityMatch = useMemo\([\s\S]*activeMatches\.find\(isLiveMatchConsoleState\) \|\| activeMatches\[0\]/)
   assert.match(source, /function isLiveMatchConsoleState\(match\)/)
-  assert.match(mobilePanelSource, /aria-label="Mobile live match priority controls"/)
-  assert.match(mobilePanelSource, /lg:hidden/)
-  assert.match(mobilePanelSource, /Score/)
-  assert.match(mobilePanelSource, /Timer/)
-  assert.match(mobilePanelSource, /Period/)
-  assert.match(mobilePanelSource, /LiveMatchQuickActions/)
-  assert.match(mobilePanelSource, /onToggle=\{onToggle\}/)
-  assert.match(source, /<summary className="cursor-pointer[\s\S]*Match Day overview and needs attention/)
-  assert.match(source, /className="hidden overflow-hidden rounded-lg border border-\[#d7e5dc\][\s\S]*lg:block"/)
+  assert.match(cockpitPanelSource, /aria-label="Pitchside Game Day cockpit"/)
+  assert.match(cockpitPanelSource, /xl:hidden/)
+  assert.match(cockpitPanelSource, /Score/)
+  assert.match(cockpitPanelSource, /Timer/)
+  assert.match(cockpitPanelSource, /Period/)
+  assert.match(cockpitPanelSource, /LiveMatchQuickActions/)
+  assert.match(cockpitPanelSource, /Manage fixture/)
+  assert.match(cockpitPanelSource, /Open Game Mode/)
+  assert.match(cockpitPanelSource, /onToggle=\{onToggle\}/)
+  assert.match(source, /<summary className="cursor-pointer[\s\S]*Game Day overview and needs attention/)
+  assert.match(source, /className="hidden overflow-hidden rounded-lg border border-\[#d7e5dc\][\s\S]*xl:block"/)
+})
+
+test('expanded Game Day fixture orders pitchside inputs before admin detail panels', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /<section className=\{`\$\{panelClass\} order-1`\}>[\s\S]*Game Mode/)
+  assert.match(source, /<section className=\{`\$\{panelClass\} order-2`\}>[\s\S]*Score/)
+  assert.match(source, /<form className=\{`\$\{panelClass\} order-3`\} onSubmit=\{\(event\) => onAddGoal\(event, match\)\}>/)
+  assert.match(source, /<form className=\{`\$\{panelClass\} order-4`\} onSubmit=\{\(event\) => onAddMatchEvent\(event, match\)\}>/)
+  assert.match(source, /<div className="order-5">[\s\S]*<MatchTimelinePanel/)
+  assert.match(source, /<div className="order-6">[\s\S]*<MatchDayReadinessPanel match=\{match\} \/>/)
+  assert.match(source, /<div className="order-7 grid gap-4/)
 })
 
 test('parent Match Day calendar events expose Add to calendar only after parent portal filtering', () => {
