@@ -80,6 +80,84 @@ function formatReadableTimestamp(value) {
   }).format(date)
 }
 
+function formatTime(value) {
+  const normalizedValue = normalizeText(value)
+  return normalizedValue ? normalizedValue.slice(0, 5) : 'Not set'
+}
+
+function getGoogleDatePart(dateValue) {
+  const match = normalizeText(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})/)
+
+  if (!match) {
+    return ''
+  }
+
+  return `${match[1]}${match[2]}${match[3]}`
+}
+
+function getNextGoogleDatePart(dateValue) {
+  const match = normalizeText(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})/)
+
+  if (!match) {
+    return ''
+  }
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1))
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function addMinutesToTime(value, minutesToAdd) {
+  const normalizedValue = normalizeText(value)
+
+  if (!/^\d{2}:\d{2}/.test(normalizedValue)) {
+    return ''
+  }
+
+  const [hours, minutes] = normalizedValue.slice(0, 5).split(':').map(Number)
+  const totalMinutes = (hours * 60) + minutes + Number(minutesToAdd || 0)
+  const wrappedMinutes = ((totalMinutes % 1440) + 1440) % 1440
+  const nextHours = Math.floor(wrappedMinutes / 60)
+  const nextMinutes = wrappedMinutes % 60
+  return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`
+}
+
+function buildFixtureResponseCalendarUrl(response) {
+  const datePart = getGoogleDatePart(response.match_date)
+
+  if (!datePart) {
+    return ''
+  }
+
+  const teamName = normalizeText(response.team_name || 'Team')
+  const opponent = normalizeText(response.opponent || 'Opponent')
+  const startTime = normalizeText(response.arrival_time || response.kickoff_time).slice(0, 5)
+  const kickoffTime = normalizeText(response.kickoff_time).slice(0, 5)
+  const endTime = kickoffTime
+    ? addMinutesToTime(kickoffTime, 120)
+    : addMinutesToTime(startTime, 120)
+  const dates = startTime
+    ? `${datePart}T${startTime.replace(':', '')}00/${datePart}T${(endTime || addMinutesToTime(startTime, 120)).replace(':', '')}00`
+    : `${datePart}/${getNextGoogleDatePart(response.match_date) || datePart}`
+  const details = [
+    `Player: ${normalizeText(response.player_name || 'Player')}`,
+    `Team: ${teamName}`,
+    `Opponent: ${opponent}`,
+    `Kick-off: ${formatTime(response.kickoff_time)}`,
+    response.arrival_time ? `Arrival: ${formatTime(response.arrival_time)}` : '',
+    response.venue_name ? `Venue: ${response.venue_name}` : '',
+  ].filter(Boolean).join('\n')
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Fixture: ${teamName} v ${opponent}`,
+    dates,
+    details,
+    location: normalizeText(response.venue_address || response.venue_name),
+    ctz: 'Europe/London',
+  })
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
 function page({ title, message, content = '' }) {
   return `<!doctype html>
     <html lang="en">
@@ -104,6 +182,8 @@ function page({ title, message, content = '' }) {
           .details { margin-top: 16px; display: grid; gap: 8px; border: 1px solid #d7e5dc; border-radius: 10px; background: #f7faf8; padding: 14px; }
           .detail { display: flex; justify-content: space-between; gap: 14px; color: #4b5f55; font-size: 14px; font-weight: 800; }
           .detail strong { color: #101828; text-align: right; }
+          .calendar-action { margin-top: 12px; }
+          .calendar-action a { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border-radius: 8px; background: #101828; color: #ffffff; padding: 0 16px; text-decoration: none; font-size: 15px; font-weight: 900; }
         </style>
       </head>
       <body>
@@ -120,6 +200,7 @@ function page({ title, message, content = '' }) {
 }
 
 function detailRows(response) {
+  const calendarUrl = buildFixtureResponseCalendarUrl(response)
   const rows = [
     ['Player', response.player_name || 'Player'],
     ['Fixture', `${response.team_name || 'Team'} v ${response.opponent || 'Opponent'}`],
@@ -131,7 +212,8 @@ function detailRows(response) {
 
   return `<div class="details">${rows.map(([label, value]) => `
     <div class="detail"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
-  `).join('')}</div>`
+  `).join('')}</div>
+  ${calendarUrl ? `<p class="calendar-action"><a href="${escapeHtml(calendarUrl)}" target="_blank" rel="noopener noreferrer">Add to calendar</a></p>` : ''}`
 }
 
 function currentAvailabilityAttribution(response, currentStatus) {

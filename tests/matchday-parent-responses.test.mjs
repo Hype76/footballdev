@@ -185,6 +185,39 @@ test('confirmation function renders a form and submits availability plus role re
   assert.match(source, /Fixture response/)
 })
 
+test('confirmation function renders Add to calendar near fixture details without maps or volunteer dependency', async () => {
+  const source = await readFile(confirmFunctionUrl, 'utf8')
+  const calendarStart = source.indexOf('function buildFixtureResponseCalendarUrl')
+  const calendarEnd = source.indexOf('function page', calendarStart)
+  const detailStart = source.indexOf('function detailRows')
+  const detailEnd = source.indexOf('function currentAvailabilityAttribution', detailStart)
+  const responseFormStart = source.indexOf('function responseForm')
+  const responseFormEnd = source.indexOf('function normalizeVolunteerParam', responseFormStart)
+  assert.notEqual(calendarStart, -1)
+  assert.notEqual(calendarEnd, -1)
+  assert.notEqual(detailStart, -1)
+  assert.notEqual(detailEnd, -1)
+  assert.notEqual(responseFormStart, -1)
+  assert.notEqual(responseFormEnd, -1)
+
+  const calendarSource = source.slice(calendarStart, calendarEnd)
+  const detailSource = source.slice(detailStart, detailEnd)
+  const responseFormSource = source.slice(responseFormStart, responseFormEnd)
+
+  assert.match(calendarSource, /response\.match_date/)
+  assert.match(calendarSource, /response\.arrival_time \|\| response\.kickoff_time/)
+  assert.match(calendarSource, /response\.venue_address \|\| response\.venue_name/)
+  assert.match(calendarSource, /https:\/\/calendar\.google\.com\/calendar\/render/)
+  assert.match(calendarSource, /ctz: 'Europe\/London'/)
+  assert.doesNotMatch(calendarSource, /volunteerScorerResponse|volunteerLinesmanResponse|volunteerRefereeResponse/)
+  assert.match(detailSource, /const calendarUrl = buildFixtureResponseCalendarUrl\(response\)/)
+  assert.match(detailSource, /<p class="calendar-action"><a href="\$\{escapeHtml\(calendarUrl\)\}" target="_blank" rel="noopener noreferrer">Add to calendar<\/a><\/p>/)
+  assert.match(responseFormSource, /\$\{detailRows\(response\)\}[\s\S]*<form method="post" action="\/\.netlify\/functions\/match-day-availability-confirm">/)
+  assert.match(responseFormSource, /<button type="submit">Save response<\/button>/)
+  assert.doesNotMatch(detailSource, /maps|directions/i)
+  assert.doesNotMatch(calendarSource, /maps|directions/i)
+})
+
 test('confirmation function captures structured transport response without free text notes', async () => {
   const source = await readFile(confirmFunctionUrl, 'utf8')
 

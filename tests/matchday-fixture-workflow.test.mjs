@@ -266,6 +266,41 @@ test('staff live controls expose pause, resume, timer, and action feedback', () 
   assert.match(statusHandlerSource, /tone: 'error'/)
 })
 
+test('mobile Match Day renders live priority controls before lower priority content', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const mobilePanelStart = source.indexOf('function MobileLiveMatchPriorityPanel')
+  const mobilePanelEnd = source.indexOf('function MatchDayCard', mobilePanelStart)
+  const mobileRenderStart = source.indexOf('{mobileLivePriorityMatch ? (')
+  const mobileOverviewStart = source.indexOf('Match Day overview and needs attention')
+  const desktopSummaryStart = source.indexOf('<section className="hidden gap-3 lg:grid lg:grid-cols-4">')
+  const routeGuardStart = source.indexOf('if (!canManageMatchDay(user))')
+  assert.notEqual(mobilePanelStart, -1)
+  assert.notEqual(mobilePanelEnd, -1)
+  assert.notEqual(mobileRenderStart, -1)
+  assert.notEqual(mobileOverviewStart, -1)
+  assert.notEqual(desktopSummaryStart, -1)
+  assert.notEqual(routeGuardStart, -1)
+  assert.ok(routeGuardStart < mobileRenderStart)
+  assert.ok(mobileRenderStart < mobileOverviewStart)
+  assert.ok(mobileOverviewStart < desktopSummaryStart)
+
+  const mobilePanelSource = source.slice(mobilePanelStart, mobilePanelEnd)
+  assert.match(source, /const mobileLivePriorityMatch = useMemo\([\s\S]*activeMatches\.find\(isLiveMatchConsoleState\)/)
+  assert.match(source, /function isLiveMatchConsoleState\(match\)/)
+  assert.match(mobilePanelSource, /aria-label="Mobile live match priority controls"/)
+  assert.match(mobilePanelSource, /lg:hidden/)
+  assert.match(mobilePanelSource, /Score/)
+  assert.match(mobilePanelSource, /Timer/)
+  assert.match(mobilePanelSource, /Period/)
+  assert.match(mobilePanelSource, /LiveMatchQuickActions/)
+  assert.match(mobilePanelSource, /onToggle=\{onToggle\}/)
+  assert.match(source, /<summary className="cursor-pointer[\s\S]*Match Day overview and needs attention/)
+  assert.match(source, /className="hidden overflow-hidden rounded-lg border border-\[#d7e5dc\][\s\S]*lg:block"/)
+})
+
 test('parent Match Day calendar events expose Add to calendar only after parent portal filtering', () => {
   const source = readFileSync(
     new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),

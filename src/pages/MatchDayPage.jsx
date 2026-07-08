@@ -1028,6 +1028,10 @@ function getMatchPeriodLabel(status) {
   return 'Pre-match'
 }
 
+function isLiveMatchConsoleState(match) {
+  return RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status)
+}
+
 function getPrimaryLiveAction(match) {
   if (match.status === 'scheduled' || match.status === 'scorer_request') {
     return { label: 'Start match', status: 'live' }
@@ -1635,6 +1639,10 @@ export function MatchDayPage() {
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
   const liveMatches = useMemo(
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
+    [activeMatches],
+  )
+  const mobileLivePriorityMatch = useMemo(
+    () => activeMatches.find(isLiveMatchConsoleState) || null,
     [activeMatches],
   )
   const scorerRequests = useMemo(
@@ -2710,7 +2718,54 @@ export function MatchDayPage() {
 
       {errorMessage ? <NoticeBanner title="Match Day action failed" message={errorMessage} /> : null}
 
-      <section className="grid gap-3 md:grid-cols-4">
+      {mobileLivePriorityMatch ? (
+        <MobileLiveMatchPriorityPanel
+          gameModePauseState={gameModePauseState[mobileLivePriorityMatch.id] ?? {}}
+          isBusy={activeMatchId === mobileLivePriorityMatch.id}
+          isExpanded={expandedMatchId === mobileLivePriorityMatch.id}
+          liveRefreshStatus={liveRefreshStatus}
+          match={mobileLivePriorityMatch}
+          matchActionStatus={matchActionStatus}
+          now={liveClockNow}
+          onGameModeStart={handleGameModeOpen}
+          onHydrationToggle={handleGameModeHydrationToggle}
+          onStatusChange={handleStatusChange}
+          onToggle={() => setExpandedMatchId((currentId) => (currentId === mobileLivePriorityMatch.id ? '' : mobileLivePriorityMatch.id))}
+        />
+      ) : null}
+
+      <section className="lg:hidden">
+        <details className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+          <summary className="cursor-pointer bg-[#f7faf8] px-5 py-4 text-sm font-black text-[#101828]">
+            Match Day overview and needs attention
+          </summary>
+          <div className="grid gap-3 px-5 py-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {matchDaySummary.map((item) => (
+                <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
+                  <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
+                </article>
+              ))}
+            </div>
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+              <p className={eyebrowClass}>Needs attention</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {needsAttentionItems.map((item) => (
+                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
+                    <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section className="hidden gap-3 lg:grid lg:grid-cols-4">
         {matchDaySummary.map((item) => (
           <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
@@ -2720,7 +2775,7 @@ export function MatchDayPage() {
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+      <section className="hidden overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 lg:block">
         <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6">
           <p className={eyebrowClass}>Needs attention</p>
         </div>
@@ -3013,6 +3068,92 @@ export function MatchDayPage() {
     </div>
   )
 }
+
+function MobileLiveMatchPriorityPanel({
+  gameModePauseState,
+  isBusy,
+  isExpanded,
+  liveRefreshStatus,
+  match,
+  matchActionStatus,
+  now,
+  onGameModeStart,
+  onHydrationToggle,
+  onStatusChange,
+  onToggle,
+}) {
+  const scoreSummary = getMatchDayDisplayScore(match)
+  const liveClockLabel = formatLiveMatchClock(match, now, gameModePauseState)
+  const matchPeriodLabel = getMatchPeriodLabel(match.status)
+  const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
+  const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
+
+  return (
+    <section className="lg:hidden overflow-hidden rounded-lg border border-[#047857] bg-[#f8fffb] shadow-sm shadow-[#047857]/10" aria-label="Mobile live match priority controls">
+      <div className="bg-[#ecfdf5] px-4 py-4">
+        <p className={eyebrowClass}>Live match</p>
+        <h2 className="mt-2 text-xl font-black leading-tight text-[#101828]">{getMatchDayDisplayName(match)}</h2>
+        <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-[#047857] bg-white px-3 py-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Score</p>
+            <p className="mt-1 text-4xl font-black leading-none text-[#101828]">{scoreSummary}</p>
+          </div>
+          <div className="grid gap-2">
+            <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Timer</p>
+              <p className="mt-1 text-lg font-black text-[#101828]">{liveClockLabel}</p>
+            </div>
+            <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Period</p>
+              <p className="mt-1 text-lg font-black text-[#101828]">{matchPeriodLabel}</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="inline-flex rounded-lg border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#047857]">
+            {getMatchStatusLabel(match.status)}
+          </span>
+          <span className={`inline-flex rounded-lg border px-3 py-1 text-xs font-black ${
+            liveRefreshStatus === 'warning'
+              ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
+              : 'border-[#bbf7d0] bg-white text-[#047857]'
+          }`}
+          >
+            {liveSyncLabel}
+          </span>
+        </div>
+      </div>
+
+      {controlStatus ? (
+        <div
+          role={controlStatus.tone === 'error' ? 'alert' : 'status'}
+          className={`border-t px-4 py-3 text-sm font-black ${
+            controlStatus.tone === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : controlStatus.tone === 'loading'
+                ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
+                : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+          }`}
+        >
+          {controlStatus.message}
+        </div>
+      ) : null}
+
+      <LiveMatchQuickActions
+        gameModePauseState={gameModePauseState}
+        isBusy={isBusy}
+        isExpanded={isExpanded}
+        match={match}
+        onGameModeStart={onGameModeStart}
+        onHydrationToggle={onHydrationToggle}
+        onStatusChange={onStatusChange}
+        onToggle={onToggle}
+      />
+    </section>
+  )
+}
+
 function MatchDayCard({
   activeMatchId,
   activeVolunteerSelectionKey,
