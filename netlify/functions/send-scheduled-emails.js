@@ -13,12 +13,3 @@ export async function handler() {
     body: JSON.stringify(result.payload),
   }
 }
-
-export default async function scheduledHandler() {
-  const result = await handler()
-
-  return new Response(result.body, {
-    status: result.statusCode,
-    headers: result.headers,
-  })
-}
