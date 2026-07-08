@@ -23,6 +23,12 @@ function normalizeGoalEvent(event = {}, match = {}) {
     homeScore: normalizeScore(event.homeScore ?? event.home_score ?? match.homeScore),
     awayScore: normalizeScore(event.awayScore ?? event.away_score ?? match.awayScore),
     notes: normalizeText(event.notes),
+    eventStatus: normalizeText(event.eventStatus ?? event.event_status) || 'active',
+    correctedAt: event.correctedAt || event.corrected_at || '',
+    correctedByName: normalizeText(event.correctedByName ?? event.corrected_by_name),
+    voidedAt: event.voidedAt || event.voided_at || '',
+    voidedByName: normalizeText(event.voidedByName ?? event.voided_by_name),
+    correctionReason: normalizeText(event.correctionReason ?? event.correction_reason),
     createdByName: normalizeText(event.createdByName ?? event.created_by_name),
     createdAt: event.createdAt || event.created_at || '',
   }
@@ -237,6 +243,110 @@ export function reconcileMatchDayEventInList(matches, {
   return (matches || []).map((match) => (
     String(match.id) === String(matchId)
       ? reconcileMatchDayEvent(match, options)
+      : match
+  ))
+}
+
+function normalizeGoalCorrectionResult(result = {}, match = {}) {
+  const event = normalizeGoalEvent(result.event || result, match)
+
+  return {
+    matchDayId: normalizeText(result.matchDayId ?? result.match_day_id) || event.matchDayId || normalizeText(match.id),
+    homeScore: normalizeScore(result.homeScore ?? result.home_score ?? event.homeScore),
+    awayScore: normalizeScore(result.awayScore ?? result.away_score ?? event.awayScore),
+    status: normalizeText(result.status) || normalizeText(match.status),
+    event,
+  }
+}
+
+function buildLocalGoalCorrectionLogEntry({
+  action = 'corrected',
+  event,
+  match = {},
+  now = new Date().toISOString(),
+  user = {},
+}) {
+  const correctedEvent = normalizeGoalEvent(event, match)
+  const isVoided = action === 'voided' || correctedEvent.eventStatus === 'voided'
+  const label = isVoided ? 'Goal removed' : 'Goal corrected'
+
+  return {
+    id: `local-goal-correction-log-${correctedEvent.id}-${isVoided ? 'voided' : 'corrected'}-${now}`,
+    clubId: normalizeText(match.clubId),
+    teamId: normalizeText(match.teamId),
+    matchDayId: correctedEvent.matchDayId || normalizeText(match.id),
+    playerId: '',
+    playerName: '',
+    actorUserId: normalizeText(user.id),
+    actorDisplayName: getActorName(user, correctedEvent),
+    actorRole: normalizeText(user.roleLabel || user.role) || 'staff',
+    eventType: 'scorer_updated',
+    eventLabel: label,
+    previousValue: {
+      homeScore: normalizeScore(match.homeScore),
+      awayScore: normalizeScore(match.awayScore),
+    },
+    newValue: {
+      homeScore: correctedEvent.homeScore,
+      awayScore: correctedEvent.awayScore,
+      eventStatus: correctedEvent.eventStatus,
+    },
+    metadata: {
+      goalEventId: correctedEvent.id,
+      correctionAction: isVoided ? 'voided' : 'corrected',
+      teamSide: correctedEvent.teamSide,
+      source: 'match_day_goal_correction_rpc',
+      localReconciled: true,
+    },
+    createdAt: correctedEvent.correctedAt || correctedEvent.voidedAt || now,
+  }
+}
+
+export function reconcileMatchDayGoalCorrection(match, {
+  action = 'corrected',
+  result,
+  now,
+  user,
+} = {}) {
+  if (!match?.id || !result) {
+    return match
+  }
+
+  const normalizedResult = normalizeGoalCorrectionResult(result, match)
+  const correctedEvent = normalizedResult.event
+  const currentEvents = Array.isArray(match.events) ? match.events : []
+  const replacedEvents = currentEvents.some((event) => normalizeText(event.id) === correctedEvent.id)
+    ? currentEvents.map((event) => (normalizeText(event.id) === correctedEvent.id ? correctedEvent : event))
+    : [correctedEvent, ...currentEvents]
+  const currentEventLog = Array.isArray(match.eventLog) ? match.eventLog : []
+  const nextEventLog = [
+    buildLocalGoalCorrectionLogEntry({
+      action,
+      event: correctedEvent,
+      match,
+      now,
+      user,
+    }),
+    ...currentEventLog,
+  ]
+
+  return {
+    ...match,
+    status: normalizedResult.status || match.status,
+    homeScore: normalizedResult.homeScore,
+    awayScore: normalizedResult.awayScore,
+    events: replacedEvents,
+    eventLog: nextEventLog,
+  }
+}
+
+export function reconcileMatchDayGoalCorrectionInList(matches, {
+  matchId,
+  ...options
+} = {}) {
+  return (matches || []).map((match) => (
+    String(match.id) === String(matchId)
+      ? reconcileMatchDayGoalCorrection(match, options)
       : match
   ))
 }

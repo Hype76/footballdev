@@ -15,6 +15,7 @@ import {
   addStaffMatchDayEvent,
   addStaffMatchDayGoal,
   calculateArrivalTime,
+  correctStaffMatchDayGoal,
   createMatchDay,
   createMatchDayEventLogEntry,
   getTodayMatchDayDateValue,
@@ -29,6 +30,7 @@ import {
   resetPreviousMatchDayResults,
   selectMatchDayVolunteer,
   updateMatchDay,
+  voidStaffMatchDayGoal,
   withRequestTimeout,
 } from '../lib/supabase.js'
 import {
@@ -39,7 +41,7 @@ import {
   getMatchDayVolunteerActionKey,
   reconcileMatchDayVolunteerSelectionInList,
 } from '../lib/matchday-volunteer-state.js'
-import { reconcileMatchDayEventInList, reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
+import { reconcileMatchDayEventInList, reconcileMatchDayGoalCorrectionInList, reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
 import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
 
 const EMPTY_MATCH_FORM = {
@@ -571,9 +573,19 @@ function formatMatchEventTimestamp(value) {
   })
 }
 
-function getMatchEventTypeLabel(event) {
+function getOpponentMatchName(match) {
+  return normalizeStaffGoalText(match?.opponent) || 'Opponent'
+}
+
+function getMatchEventTypeLabel(event, match = {}) {
+  const opponentName = getOpponentMatchName(match)
+
   if (event.eventType === 'goal') {
-    return event.teamSide === 'opponent' ? 'Opponent goal' : 'Our goal'
+    if (event.eventStatus === 'voided') {
+      return event.teamSide === 'opponent' ? `${opponentName} goal removed` : 'Our goal removed'
+    }
+
+    return event.teamSide === 'opponent' ? `${opponentName} goal` : 'Our goal'
   }
 
   if (event.eventType === 'score_correction') {
@@ -589,11 +601,11 @@ function getMatchEventTypeLabel(event) {
   }
 
   if (event.eventType === 'yellow_card') {
-    return 'Yellow card'
+    return event.teamSide === 'opponent' ? `${opponentName} yellow card` : 'Yellow card'
   }
 
   if (event.eventType === 'red_card') {
-    return 'Red card'
+    return event.teamSide === 'opponent' ? `${opponentName} red card` : 'Red card'
   }
 
   if (event.eventType === 'substitution') {
@@ -608,6 +620,10 @@ function getMatchEventTypeLabel(event) {
 }
 
 function getMatchEventToneClass(event) {
+  if (event.eventStatus === 'voided') {
+    return 'border-[#cbd5e1] bg-[#f8fafc] text-[#475569]'
+  }
+
   if (event.eventType === 'yellow_card') {
     return 'border-[#facc15] bg-[#fefce8] text-[#854d0e]'
   }
@@ -672,7 +688,11 @@ function getMatchEventDetailItems(event) {
       ? { label: 'Assist', value: `${assistLabel}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` }
       : null,
     event.notes ? { label: 'Note', value: event.notes } : null,
+    event.eventStatus === 'corrected' ? { label: 'Correction', value: event.correctionReason || 'Goal details corrected' } : null,
+    event.eventStatus === 'voided' ? { label: 'Correction', value: event.correctionReason || 'Goal removed from score' } : null,
     event.createdByName ? { label: 'Recorded by', value: event.createdByName } : null,
+    event.correctedByName ? { label: 'Corrected by', value: event.correctedByName } : null,
+    event.voidedByName ? { label: 'Removed by', value: event.voidedByName } : null,
     { label: 'Time', value: formatMatchEventTimestamp(event.createdAt) },
   ]
 
@@ -755,6 +775,74 @@ function buildStaffGoalPreview(match = {}, goalForm = {}) {
     scoreBefore: getMatchDayDisplayScore(match),
     scorerPreview: formatStaffGoalPersonPreview(goalForm.scorerName, goalForm.scorerShirtNumber, 'No scorer selected'),
     teamSide: scoreImpact.teamSide,
+  }
+}
+
+function promptGoalCorrectionInput(event) {
+  const teamSide = window.prompt('Goal side: club or opponent', event.teamSide || 'club')
+
+  if (teamSide === null) {
+    return null
+  }
+
+  const normalizedTeamSide = normalizeStaffGoalText(teamSide).toLowerCase()
+  if (!['club', 'opponent'].includes(normalizedTeamSide)) {
+    window.alert('Goal side must be club or opponent.')
+    return null
+  }
+
+  const scorerName = window.prompt('Scorer name', event.scorerName || '')
+  if (scorerName === null) {
+    return null
+  }
+
+  const scorerShirtNumber = window.prompt('Scorer shirt number', event.scorerShirtNumber || '')
+  if (scorerShirtNumber === null) {
+    return null
+  }
+
+  const assistName = window.prompt('Assist name', event.assistName || '')
+  if (assistName === null) {
+    return null
+  }
+
+  const assistShirtNumber = window.prompt('Assist shirt number', event.assistShirtNumber || '')
+  if (assistShirtNumber === null) {
+    return null
+  }
+
+  const minute = window.prompt('Minute, blank if not recorded', event.minute ?? '')
+  if (minute === null) {
+    return null
+  }
+
+  const trimmedMinute = normalizeStaffGoalText(minute)
+  if (trimmedMinute && (Number(trimmedMinute) < 0 || Number(trimmedMinute) > 130)) {
+    window.alert('Minute must be between 0 and 130.')
+    return null
+  }
+
+  const notes = window.prompt('Goal note', event.notes || '')
+  if (notes === null) {
+    return null
+  }
+
+  const reason = window.prompt('Correction reason', event.correctionReason || 'Corrected goal details')
+  if (reason === null) {
+    return null
+  }
+
+  return {
+    goal: {
+      teamSide: normalizedTeamSide,
+      scorerName,
+      scorerShirtNumber,
+      assistName,
+      assistShirtNumber,
+      minute: trimmedMinute,
+      notes,
+    },
+    reason,
   }
 }
 
@@ -2343,6 +2431,131 @@ export function MatchDayPage() {
     }
   }
 
+  const handleCorrectGoal = async (match, goalEvent) => {
+    const correctionInput = promptGoalCorrectionInput(goalEvent)
+
+    if (!correctionInput) {
+      return
+    }
+
+    if (!confirmMatchDayAction('Save this goal correction and update the score if needed?')) {
+      return
+    }
+
+    setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:goal-correction`,
+      tone: 'loading',
+      message: 'Correcting goal...',
+    })
+    setErrorMessage('')
+
+    try {
+      const result = await correctStaffMatchDayGoal({
+        user,
+        match,
+        event: goalEvent,
+        goal: correctionInput.goal,
+        reason: correctionInput.reason,
+      })
+      const reconcileCorrectedGoal = (currentMatches) => reconcileMatchDayGoalCorrectionInList(currentMatches, {
+        action: 'corrected',
+        result,
+        matchId: match.id,
+        user,
+      })
+
+      setMatches(reconcileCorrectedGoal)
+      try {
+        await loadData()
+        setMatches(reconcileCorrectedGoal)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileCorrectedGoal)
+        setErrorMessage(loadError.message || 'Goal was corrected, but the latest Match Day data could not be refreshed.')
+      }
+      setMatchActionStatus({
+        key: `${match.id}:goal-correction`,
+        tone: 'success',
+        message: 'Goal corrected.',
+      })
+      showToast({ title: 'Goal corrected', message: 'The score and timeline have been updated.' })
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'Goal could not be corrected.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:goal-correction`,
+        tone: 'error',
+        message,
+      })
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
+  const handleVoidGoal = async (match, goalEvent) => {
+    const reason = window.prompt('Removal reason', goalEvent.correctionReason || 'Goal entered in error')
+
+    if (reason === null) {
+      return
+    }
+
+    if (!confirmMatchDayAction('Remove this goal from the score while keeping it in the timeline history?')) {
+      return
+    }
+
+    setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:goal-void`,
+      tone: 'loading',
+      message: 'Removing goal...',
+    })
+    setErrorMessage('')
+
+    try {
+      const result = await voidStaffMatchDayGoal({
+        user,
+        match,
+        event: goalEvent,
+        reason,
+      })
+      const reconcileVoidedGoal = (currentMatches) => reconcileMatchDayGoalCorrectionInList(currentMatches, {
+        action: 'voided',
+        result,
+        matchId: match.id,
+        user,
+      })
+
+      setMatches(reconcileVoidedGoal)
+      try {
+        await loadData()
+        setMatches(reconcileVoidedGoal)
+      } catch (loadError) {
+        console.error(loadError)
+        setMatches(reconcileVoidedGoal)
+        setErrorMessage(loadError.message || 'Goal was removed, but the latest Match Day data could not be refreshed.')
+      }
+      setMatchActionStatus({
+        key: `${match.id}:goal-void`,
+        tone: 'success',
+        message: 'Goal removed.',
+      })
+      showToast({ title: 'Goal removed', message: 'The score and timeline have been updated.' })
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'Goal could not be removed.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:goal-void`,
+        tone: 'error',
+        message,
+      })
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
   const handleAddMatchEvent = async (event, match) => {
     event.preventDefault()
     const formEvent = matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM
@@ -2605,6 +2818,7 @@ export function MatchDayPage() {
                 now={liveClockNow}
                 onAddGoal={handleAddGoal}
                 onAddMatchEvent={handleAddMatchEvent}
+                onCorrectGoal={handleCorrectGoal}
                 onGameModeBack={() => setGameModeMatchId('')}
                 onGameModeHydrationToggle={handleGameModeHydrationToggle}
                 onGameModeStart={handleGameModeStart}
@@ -2627,6 +2841,7 @@ export function MatchDayPage() {
                 onVolunteerSelection={openVolunteerSelectionPrompt}
                 onStatusChange={handleStatusChange}
                 onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
+                onVoidGoal={handleVoidGoal}
                 players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                 volunteerSelectionStatus={volunteerSelectionStatus}
@@ -2698,6 +2913,7 @@ export function MatchDayPage() {
                   matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
                   onAddGoal={handleAddGoal}
                   onAddMatchEvent={handleAddMatchEvent}
+                  onCorrectGoal={handleCorrectGoal}
                   onGameModeBack={() => setGameModeMatchId('')}
                   onGameModeHydrationToggle={handleGameModeHydrationToggle}
                   onGameModeStart={handleGameModeStart}
@@ -2720,6 +2936,7 @@ export function MatchDayPage() {
                   onVolunteerSelection={openVolunteerSelectionPrompt}
                   onStatusChange={handleStatusChange}
                   onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
+                  onVoidGoal={handleVoidGoal}
                   players={squadPlayers}
                   scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                   volunteerSelectionStatus={volunteerSelectionStatus}
@@ -2764,6 +2981,7 @@ function MatchDayCard({
   now,
   onAddGoal,
   onAddMatchEvent,
+  onCorrectGoal,
   onGameModeBack,
   onGameModeHydrationToggle,
   onGameModeStart,
@@ -2777,6 +2995,7 @@ function MatchDayCard({
   onVolunteerSelection,
   onStatusChange,
   onToggle,
+  onVoidGoal,
   players,
   scoreDraft,
   volunteerSelectionStatus,
@@ -2915,7 +3134,7 @@ function MatchDayCard({
       </div>
 
       {isGameMode ? (
-        <MatchDayGameModePanel
+          <MatchDayGameModePanel
           gameModePauseState={gameModePauseState}
           goalForm={goalForm}
           isBusy={isBusy}
@@ -3421,6 +3640,17 @@ function MatchDayCard({
                 </select>
               </label>
               <label className="block">
+                <span className={smallLabelClass}>Team</span>
+                <select
+                  value={matchEventForm.teamSide}
+                  onChange={(event) => onMatchEventFormChange(match.id, { teamSide: event.target.value })}
+                  className={compactInputClass}
+                >
+                  <option value="club">Our team</option>
+                  <option value="opponent">Opponent</option>
+                </select>
+              </label>
+              <label className="block">
                 <span className={smallLabelClass}>Player</span>
                 <select
                   value=""
@@ -3481,7 +3711,12 @@ function MatchDayCard({
             </div>
           </form>
 
-          <MatchTimelinePanel events={events} />
+          <MatchTimelinePanel
+            events={events}
+            match={match}
+            onCorrectGoal={onCorrectGoal}
+            onVoidGoal={onVoidGoal}
+          />
         </div>
       ) : null}
     </article>
@@ -3584,6 +3819,13 @@ function MatchDayGameModePanel({
                 </select>
               </label>
               <label className="block">
+                <span className={smallLabelClass}>Team</span>
+                <select value={matchEventForm.teamSide} onChange={(event) => onMatchEventFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
+                  <option value="club">Our team</option>
+                  <option value="opponent">Opponent</option>
+                </select>
+              </label>
+              <label className="block">
                 <span className={smallLabelClass}>Player</span>
                 <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
                   <option value="">Choose player</option>
@@ -3614,7 +3856,7 @@ function MatchDayGameModePanel({
   )
 }
 
-function MatchTimelinePanel({ events }) {
+function MatchTimelinePanel({ events, match, onCorrectGoal, onVoidGoal }) {
   const timelineEvents = Array.isArray(events) ? events : []
   const recentEvents = timelineEvents.slice(0, 8)
 
@@ -3644,6 +3886,7 @@ function MatchTimelinePanel({ events }) {
           {recentEvents.map((event) => {
             const detailItems = getMatchEventDetailItems(event)
             const badge = getMatchEventBadge(event)
+            const canCorrectGoal = event.eventType === 'goal' && event.eventStatus !== 'voided'
 
             return (
               <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
@@ -3659,13 +3902,39 @@ function MatchTimelinePanel({ events }) {
                           {badge.text}
                         </span>
                       ) : null}
-                      <span className="min-w-0 truncate">{getMatchEventTypeLabel(event)}</span>
+                      <span className="min-w-0 truncate">{getMatchEventTypeLabel(event, match)}</span>
                     </p>
                     <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Score after event: {getMatchEventScoreLabel(event)}</p>
                   </div>
-                  <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>
-                    {event.eventType === 'goal' && event.teamSide === 'opponent' ? 'Opponent' : event.eventType === 'goal' ? 'Our team' : getMatchEventTypeLabel(event)}
-                  </span>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>
+                      {event.eventStatus === 'voided'
+                        ? 'Removed'
+                        : event.eventType === 'goal' && event.teamSide === 'opponent'
+                          ? getOpponentMatchName(match)
+                          : event.eventType === 'goal'
+                            ? 'Our team'
+                            : getMatchEventTypeLabel(event, match)}
+                    </span>
+                    {canCorrectGoal ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onCorrectGoal(match, event)}
+                          className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onVoidGoal(match, event)}
+                          className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#fecaca] bg-white px-3 py-1 text-xs font-black text-[#991b1b] transition hover:bg-[#fef2f2]"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
                 {detailItems.length > 0 ? (
                   <dl className="mt-3 grid gap-2 sm:grid-cols-2">

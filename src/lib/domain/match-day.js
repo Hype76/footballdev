@@ -164,6 +164,12 @@ function normalizeMatchDayEvent(row) {
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     notes: normalizeText(row.notes),
+    eventStatus: normalizeText(row.event_status ?? row.eventStatus) || 'active',
+    correctedAt: row.corrected_at ?? row.correctedAt ?? '',
+    correctedByName: normalizeText(row.corrected_by_name ?? row.correctedByName),
+    voidedAt: row.voided_at ?? row.voidedAt ?? '',
+    voidedByName: normalizeText(row.voided_by_name ?? row.voidedByName),
+    correctionReason: normalizeText(row.correction_reason ?? row.correctionReason),
     createdByName: normalizeText(row.created_by_name ?? row.createdByName),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
@@ -1226,6 +1232,79 @@ export async function updateMatchDayScoreAsScorer({ parentLinkId, matchDayId, ho
   return data
 }
 
+function normalizeGoalCorrectionResult(data) {
+  const result = data ?? {}
+  const event = result.event ? normalizeMatchDayEvent(result.event) : null
+
+  return {
+    matchDayId: result.matchDayId ?? result.match_day_id ?? event?.matchDayId ?? '',
+    homeScore: Number(result.homeScore ?? result.home_score ?? event?.homeScore ?? 0),
+    awayScore: Number(result.awayScore ?? result.away_score ?? event?.awayScore ?? 0),
+    status: normalizeText(result.status),
+    event,
+  }
+}
+
+function buildGoalCorrectionPayload({ match, event, parentLinkId = '', goal = {}, reason = '' }) {
+  const sourceEvent = event || {}
+
+  return {
+    match_day_id_value: match?.id || sourceEvent.matchDayId || sourceEvent.match_day_id,
+    goal_event_id_value: sourceEvent.id,
+    parent_link_id_value: normalizeText(parentLinkId) || null,
+    team_side_value: normalizeText(goal?.teamSide ?? sourceEvent.teamSide ?? sourceEvent.team_side) === 'opponent' ? 'opponent' : 'club',
+    scorer_name_value: normalizeText(goal?.scorerName ?? sourceEvent.scorerName ?? sourceEvent.scorer_name),
+    scorer_shirt_number_value: normalizeText(goal?.scorerShirtNumber ?? sourceEvent.scorerShirtNumber ?? sourceEvent.scorer_shirt_number),
+    assist_name_value: normalizeText(goal?.assistName ?? sourceEvent.assistName ?? sourceEvent.assist_name),
+    assist_shirt_number_value: normalizeText(goal?.assistShirtNumber ?? sourceEvent.assistShirtNumber ?? sourceEvent.assist_shirt_number),
+    minute_value: goal?.minute === '' || goal?.minute === null || goal?.minute === undefined ? null : Number(goal.minute),
+    notes_value: normalizeText(goal?.notes ?? sourceEvent.notes),
+    correction_reason_value: normalizeText(reason),
+  }
+}
+
+export async function correctStaffMatchDayGoal({ user, match, event, goal, reason = '' }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  const { data, error } = await supabase.rpc('correct_match_day_goal', buildGoalCorrectionPayload({
+    match,
+    event,
+    goal,
+    reason,
+  }))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  return normalizeGoalCorrectionResult(data)
+}
+
+export async function voidStaffMatchDayGoal({ user, match, event, reason = '' }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  const { data, error } = await supabase.rpc('void_match_day_goal', {
+    match_day_id_value: match?.id || event?.matchDayId || event?.match_day_id,
+    goal_event_id_value: event?.id,
+    parent_link_id_value: null,
+    reason_value: normalizeText(reason),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  return normalizeGoalCorrectionResult(data)
+}
+
 export async function addStaffMatchDayEvent({ user, match, event }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
@@ -1312,4 +1391,39 @@ export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }
   }
 
   return data
+}
+
+export async function correctMatchDayGoalAsScorer({ parentLinkId, match, event, goal, reason = '' }) {
+  const { data, error } = await supabase.rpc('correct_match_day_goal', buildGoalCorrectionPayload({
+    parentLinkId,
+    match,
+    event,
+    goal,
+    reason,
+  }))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeGoalCorrectionResult(data)
+}
+
+export async function voidMatchDayGoalAsScorer({ parentLinkId, match, event, reason = '' }) {
+  const { data, error } = await supabase.rpc('void_match_day_goal', {
+    match_day_id_value: match?.id || event?.matchDayId || event?.match_day_id,
+    goal_event_id_value: event?.id,
+    parent_link_id_value: parentLinkId,
+    reason_value: normalizeText(reason),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeGoalCorrectionResult(data)
 }

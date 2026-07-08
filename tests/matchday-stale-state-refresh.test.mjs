@@ -8,6 +8,8 @@ import {
   reconcileMatchDayVolunteerSelectionInList,
 } from '../src/lib/matchday-volunteer-state.js'
 import {
+  reconcileMatchDayGoalCorrection,
+  reconcileMatchDayGoalCorrectionInList,
   reconcileMatchDayGoal,
   reconcileMatchDayGoalInList,
 } from '../src/lib/matchday-goal-state.js'
@@ -296,6 +298,115 @@ test('staff goal reconciliation is idempotent across canonical reload follow-up'
   assert.equal(nextMatch.events.length, 1)
   assert.equal(nextMatch.eventLog.length, 1)
   assert.equal(nextMatch.eventLog[0].id, 'server-log-1')
+})
+
+test('staff goal correction reconciliation replaces the goal row and score', () => {
+  const match = {
+    id: 'match-1',
+    clubId: 'club-1',
+    teamId: 'team-1',
+    status: 'live',
+    homeAway: 'home',
+    homeScore: 1,
+    awayScore: 0,
+    events: [
+      {
+        id: 'goal-event-1',
+        matchDayId: 'match-1',
+        eventType: 'goal',
+        teamSide: 'club',
+        scorerName: 'Ava Green',
+        homeScore: 1,
+        awayScore: 0,
+      },
+    ],
+    eventLog: [],
+  }
+
+  const nextMatch = reconcileMatchDayGoalCorrection(match, {
+    action: 'corrected',
+    result: {
+      matchDayId: 'match-1',
+      homeScore: 0,
+      awayScore: 1,
+      status: 'live',
+      event: {
+        id: 'goal-event-1',
+        matchDayId: 'match-1',
+        eventType: 'goal',
+        teamSide: 'opponent',
+        scorerName: 'Rovers 9',
+        homeScore: 0,
+        awayScore: 1,
+        eventStatus: 'corrected',
+        correctionReason: 'Wrong side selected',
+      },
+    },
+    user: { email: 'coach@example.test', role: 'coach' },
+  })
+
+  assert.equal(nextMatch.homeScore, 0)
+  assert.equal(nextMatch.awayScore, 1)
+  assert.equal(nextMatch.events.length, 1)
+  assert.equal(nextMatch.events[0].id, 'goal-event-1')
+  assert.equal(nextMatch.events[0].teamSide, 'opponent')
+  assert.equal(nextMatch.events[0].eventStatus, 'corrected')
+  assert.equal(nextMatch.eventLog[0].eventLabel, 'Goal corrected')
+  assert.equal(nextMatch.eventLog[0].metadata.correctionAction, 'corrected')
+})
+
+test('staff goal void reconciliation keeps history and prevents duplicate match changes', () => {
+  const match = {
+    id: 'match-1',
+    clubId: 'club-1',
+    teamId: 'team-1',
+    status: 'live',
+    homeScore: 1,
+    awayScore: 0,
+    events: [
+      {
+        id: 'goal-event-1',
+        matchDayId: 'match-1',
+        eventType: 'goal',
+        teamSide: 'club',
+        homeScore: 1,
+        awayScore: 0,
+      },
+    ],
+    eventLog: [],
+  }
+
+  const [nextMatch, untouchedMatch] = reconcileMatchDayGoalCorrectionInList([match, { id: 'match-2', homeScore: 2, events: [] }], {
+    action: 'voided',
+    matchId: 'match-1',
+    result: {
+      matchDayId: 'match-1',
+      homeScore: 0,
+      awayScore: 0,
+      status: 'live',
+      event: {
+        id: 'goal-event-1',
+        matchDayId: 'match-1',
+        eventType: 'goal',
+        teamSide: 'club',
+        homeScore: 0,
+        awayScore: 0,
+        eventStatus: 'voided',
+        correctionReason: 'Duplicate goal',
+      },
+    },
+    user: { email: 'coach@example.test', role: 'coach' },
+  })
+
+  assert.equal(untouchedMatch.id, 'match-2')
+  assert.equal(untouchedMatch.homeScore, 2)
+  assert.equal(nextMatch.homeScore, 0)
+  assert.equal(nextMatch.awayScore, 0)
+  assert.equal(nextMatch.events.length, 1)
+  assert.equal(nextMatch.events[0].eventStatus, 'voided')
+  assert.equal(nextMatch.events[0].correctionReason, 'Duplicate goal')
+  assert.equal(nextMatch.eventLog[0].eventLabel, 'Goal removed')
+  assert.equal(nextMatch.eventLog[0].metadata.correctionAction, 'voided')
 })
 
 test('staff add goal handler locally reconciles before and after canonical load without changing push send', () => {

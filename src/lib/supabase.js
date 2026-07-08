@@ -249,6 +249,8 @@ export {
 
 export {
   addMatchDayGoalAsScorer,
+  correctMatchDayGoalAsScorer,
+  correctStaffMatchDayGoal,
   addStaffMatchDayEvent,
   addStaffMatchDayGoal,
   calculateArrivalTime,
@@ -269,6 +271,8 @@ export {
   isPastMatchDayDate,
   updateMatchDay,
   updateMatchDayScoreAsScorer,
+  voidMatchDayGoalAsScorer,
+  voidStaffMatchDayGoal,
 } from './domain/match-day.js'
 
 export {
