@@ -1385,6 +1385,10 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    path: '/parent',
+    element: <Navigate to="/parents" replace />,
+  },
+  {
     path: '/parents',
     element: <PublicOnly />,
     children: [

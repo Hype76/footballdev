@@ -22,6 +22,7 @@ test('parent intent paths include login portal and legacy parent entry points', 
   assert.equal(isParentIntentPath('/parent-login'), true)
   assert.equal(isParentIntentPath('/parent-portal'), true)
   assert.equal(isParentIntentPath('/parents/portal'), true)
+  assert.equal(isParentIntentPath('/parent'), false)
   assert.equal(isParentIntentPath('/parent-messages'), true)
   assert.equal(isParentIntentPath('/parent-polls'), true)
   assert.equal(isParentIntentPath('/friends-family'), true)
@@ -202,6 +203,23 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   assert.match(publicSection, /return <Navigate to=\{isParentHost\(\) \? '\/parent-portal' : '\/'\} replace \/>/)
   assert.match(parentAccessSection, /parentIntent: true/)
   assert.doesNotMatch(parentAccessSection, /RedirectToWorkspaceHome/)
+})
+
+test('singular parent route aliases to the public parents page without changing parent auth routes', async () => {
+  const source = await readFile(routerUrl, 'utf8')
+  const aliasIndex = source.indexOf("path: '/parent'")
+  const parentsIndex = source.indexOf("path: '/parents'")
+  const parentLoginIndex = source.indexOf("path: '/parent-login'")
+  const parentPortalIndex = source.indexOf("path: 'parent-portal'")
+
+  assert.ok(aliasIndex > -1)
+  assert.ok(parentsIndex > aliasIndex)
+  assert.ok(parentLoginIndex > parentsIndex)
+  assert.ok(parentPortalIndex > parentLoginIndex)
+  assert.match(source, /path: '\/parent',\s*element: <Navigate to="\/parents" replace \/>/)
+  assert.match(source, /path: '\/parents',\s*element: <PublicOnly \/>/)
+  assert.match(source, /path: '\/parent-login',\s*element: \(\s*<PageSuspense>\s*<ParentLoginPage \/>/)
+  assert.match(source, /path: 'parent-portal',\s*element: \(\s*<PageSuspense>\s*<ParentPortalPage \/>/)
 })
 
 test('netlify serves parent host routes through the SPA router', async () => {
