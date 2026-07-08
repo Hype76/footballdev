@@ -539,13 +539,14 @@ test('staff fixture creation handler reconciles locally around canonical load wi
 
 test('staff status handler reconciles saved status before and after canonical load without changing push send', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
-  const handlerStart = source.indexOf('const handleStatusChange = async (match, status) => {')
+  const handlerStart = source.indexOf('const reconcileSavedTimerMatch = async')
   const handlerEnd = source.indexOf('const handleScoreSave = async', handlerStart)
   const handlerSource = source.slice(handlerStart, handlerEnd)
 
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
-  assert.match(handlerSource, /const savedMatch = await updateMatchDay\(\{ user, matchId: match\.id, updates \}\)/)
+  assert.match(handlerSource, /const savedMatch = await setMatchDayTimerState\(\{ user, match, action \}\)/)
+  assert.match(handlerSource, /const savedMatch = await updateMatchDay\(\{ user, matchId: match\.id, updates: \{ status \} \}\)/)
   assert.match(handlerSource, /const reconcileSavedMatch = \(currentMatches\) => reconcileMatchDayUpdateInList/)
   assert.match(handlerSource, /setMatches\(reconcileSavedMatch\)[\s\S]*void sendMatchDayPushNotification/)
   assert.match(handlerSource, /type: status/)

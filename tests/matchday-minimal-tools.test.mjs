@@ -10,6 +10,7 @@ import {
 } from '../src/lib/match-location.js'
 
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
+const matchDayTimerMigrationUrl = new URL('../supabase/migrations/20260708165903_match_day_timer_state.sql', import.meta.url)
 const calendarEventsUrl = new URL('../src/lib/football-calendar-events.js', import.meta.url)
 const parentPortalUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
@@ -48,7 +49,10 @@ test('Match Day active fixture toggle persists locally and never reads previous 
 })
 
 test('Game Mode exposes minimal live controls and keeps full management separate', async () => {
-  const source = await readFile(matchDayPageUrl, 'utf8')
+  const [source, timerMigration] = await Promise.all([
+    readFile(matchDayPageUrl, 'utf8'),
+    readFile(matchDayTimerMigrationUrl, 'utf8'),
+  ])
 
   assert.match(source, /function MatchDayGameModePanel/)
   assert.match(source, /Start Game Mode/)
@@ -63,8 +67,8 @@ test('Game Mode exposes minimal live controls and keeps full management separate
   assert.match(source, /Hydration/)
   assert.match(source, /onStatusChange\(match, 'full_time'\)/)
   assert.match(source, /Confirm full time and prepare this result for final submission/)
-  assert.match(source, /eventType: 'water_break'/)
-  assert.match(source, /Hydration pause/)
+  assert.match(timerMigration, /'water_break'/)
+  assert.match(timerMigration, /'Hydration pause'/)
   assert.match(source, /onAddGoal\(event, match\)/)
   assert.match(source, /onAddMatchEvent\(event, match\)/)
 })

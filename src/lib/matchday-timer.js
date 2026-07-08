@@ -1,0 +1,133 @@
+export const RUNNING_MATCH_TIMER_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
+export const FROZEN_MATCH_TIMER_STATUSES = new Set(['paused', 'half_time', 'hydration', 'full_time'])
+export const RESUMABLE_MATCH_TIMER_STATUSES = new Set(['paused', 'half_time', 'hydration'])
+
+const NON_CLOCK_MATCH_STATUSES = new Set(['scheduled', 'scorer_request', 'postponed', 'cancelled'])
+
+function normalizeText(value) {
+  return String(value ?? '').trim()
+}
+
+function normalizeNonNegativeInteger(value) {
+  const numberValue = Number(value ?? 0)
+  return Number.isFinite(numberValue) ? Math.max(Math.floor(numberValue), 0) : 0
+}
+
+function getTimestampMs(value) {
+  const timestamp = new Date(value || 0).getTime()
+  return Number.isNaN(timestamp) || timestamp <= 0 ? null : timestamp
+}
+
+export function getMatchTimerState(match = {}, now = Date.now()) {
+  const nowMs = Number.isFinite(Number(now)) ? Number(now) : Date.now()
+  const status = normalizeText(match.status) || 'scheduled'
+  const timerStatus = normalizeText(match.timerStatus ?? match.timer_status)
+  const storedElapsedSeconds = normalizeNonNegativeInteger(match.timerElapsedSeconds ?? match.timer_elapsed_seconds)
+  const timerStartedAtMs = getTimestampMs(match.timerStartedAt ?? match.timer_started_at)
+
+  if (timerStatus === 'running') {
+    if (!timerStartedAtMs || timerStartedAtMs > nowMs) {
+      return {
+        elapsedSeconds: storedElapsedSeconds,
+        timerStatus,
+        isRunning: true,
+        isFrozen: false,
+      }
+    }
+
+    return {
+      elapsedSeconds: storedElapsedSeconds + Math.max(Math.floor((nowMs - timerStartedAtMs) / 1000), 0),
+      timerStatus,
+      isRunning: true,
+      isFrozen: false,
+    }
+  }
+
+  if (FROZEN_MATCH_TIMER_STATUSES.has(timerStatus)) {
+    return {
+      elapsedSeconds: storedElapsedSeconds,
+      timerStatus,
+      isRunning: false,
+      isFrozen: true,
+    }
+  }
+
+  if (NON_CLOCK_MATCH_STATUSES.has(status)) {
+    return {
+      elapsedSeconds: null,
+      timerStatus: 'not_started',
+      isRunning: false,
+      isFrozen: false,
+    }
+  }
+
+  if (RUNNING_MATCH_TIMER_STATUSES.has(status)) {
+    const fallbackStartedAtMs = getTimestampMs(match.phaseStartedAt ?? match.phase_started_at ?? match.updatedAt ?? match.updated_at) ?? nowMs
+
+    if (fallbackStartedAtMs > nowMs) {
+      return {
+        elapsedSeconds: null,
+        timerStatus: 'not_started',
+        isRunning: false,
+        isFrozen: false,
+      }
+    }
+
+    return {
+      elapsedSeconds: Math.max(Math.floor((nowMs - fallbackStartedAtMs) / 1000), 0),
+      timerStatus: 'running',
+      isRunning: true,
+      isFrozen: false,
+    }
+  }
+
+  if (status === 'half_time' || status === 'full_time') {
+    return {
+      elapsedSeconds: storedElapsedSeconds,
+      timerStatus: status,
+      isRunning: false,
+      isFrozen: true,
+    }
+  }
+
+  return {
+    elapsedSeconds: null,
+    timerStatus: 'not_started',
+    isRunning: false,
+    isFrozen: false,
+  }
+}
+
+export function getMatchTimerElapsedSeconds(match = {}, now = Date.now()) {
+  return getMatchTimerState(match, now).elapsedSeconds
+}
+
+export function getMatchTimerMinute(match = {}, now = Date.now()) {
+  const status = normalizeText(match.status)
+  if (NON_CLOCK_MATCH_STATUSES.has(status) || status === 'full_time') {
+    return null
+  }
+
+  const elapsedSeconds = getMatchTimerElapsedSeconds(match, now)
+  return elapsedSeconds === null ? null : Math.max(Math.floor(elapsedSeconds / 60) + 1, 1)
+}
+
+export function formatMatchTimerClock(match = {}, now = Date.now()) {
+  const elapsedSeconds = getMatchTimerElapsedSeconds(match, now)
+  if (elapsedSeconds === null) {
+    return 'Ready'
+  }
+
+  const minutes = Math.floor(elapsedSeconds / 60)
+  const seconds = String(elapsedSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+}
+
+export function isMatchTimerPaused(match = {}) {
+  const state = getMatchTimerState(match)
+  return RESUMABLE_MATCH_TIMER_STATUSES.has(state.timerStatus) || normalizeText(match.status) === 'half_time'
+}
+
+export function isMatchTimerRunning(match = {}) {
+  return getMatchTimerState(match).isRunning
+}

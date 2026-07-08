@@ -30,6 +30,7 @@ import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHA
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import { getMatchCalendarLocation, getMatchVenueDisplay } from '../lib/match-location.js'
+import { getMatchTimerMinute } from '../lib/matchday-timer.js'
 import {
   getParentMatchDayErrorMessage,
   parentMatchDayActionErrorTitle,
@@ -103,22 +104,7 @@ function formatParentEventDate(invite) {
 }
 
 function getCurrentMatchMinute(match, now = Date.now()) {
-  if (match.status === 'scheduled' || match.status === 'scorer_request') {
-    return null
-  }
-
-  if (match.status === 'full_time' || match.status === 'postponed' || match.status === 'cancelled') {
-    return null
-  }
-
-  const startedAt = new Date(match.phaseStartedAt || match.updatedAt || now)
-  const startedAtTime = Number.isNaN(startedAt.getTime()) ? now : startedAt.getTime()
-
-  if (startedAtTime > now) {
-    return null
-  }
-
-  return Math.max(Math.floor((now - startedAtTime) / 60000) + 1, 1)
+  return getMatchTimerMinute(match, now)
 }
 
 function getParentMatchEventTitle(event) {

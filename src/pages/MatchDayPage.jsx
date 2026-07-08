@@ -29,6 +29,7 @@ import {
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
   selectMatchDayVolunteer,
+  setMatchDayTimerState,
   updateMatchDay,
   voidStaffMatchDayGoal,
   withRequestTimeout,
@@ -43,6 +44,11 @@ import {
 } from '../lib/matchday-volunteer-state.js'
 import { reconcileMatchDayEventInList, reconcileMatchDayGoalCorrectionInList, reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
 import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
+import {
+  formatMatchTimerClock,
+  getMatchTimerMinute,
+  isMatchTimerPaused,
+} from '../lib/matchday-timer.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -137,7 +143,6 @@ const MATCH_EVENT_TYPE_OPTIONS = [
 ]
 
 const MATCH_DAY_ACTIVE_FIXTURE_MODE_STORAGE_KEY = 'football-player:match-day-active-fixture-mode'
-const MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY = 'football-player:match-day-game-mode-pauses'
 
 function getStoredActiveFixtureMode() {
   if (typeof window === 'undefined') {
@@ -970,48 +975,11 @@ function getEventLogDetail(entry) {
 }
 
 function getCurrentMatchMinute(match, now = Date.now()) {
-  if (!RUNNING_MATCH_STATUSES.has(match.status)) {
-    return null
-  }
-
-  const startedAt = new Date(match.phaseStartedAt || match.updatedAt || now)
-  const startedAtTime = Number.isNaN(startedAt.getTime()) ? now : startedAt.getTime()
-
-  if (startedAtTime > now) {
-    return null
-  }
-
-  return Math.max(Math.floor((now - startedAtTime) / 60000) + 1, 1)
+  return getMatchTimerMinute(match, now)
 }
 
-function getCurrentMatchElapsedSeconds(match, now = Date.now()) {
-  if (!RUNNING_MATCH_STATUSES.has(match.status)) {
-    return null
-  }
-
-  const startedAt = new Date(match.phaseStartedAt || match.updatedAt || now)
-  const startedAtTime = Number.isNaN(startedAt.getTime()) ? now : startedAt.getTime()
-
-  if (startedAtTime > now) {
-    return null
-  }
-
-  return Math.max(Math.floor((now - startedAtTime) / 1000), 0)
-}
-
-function formatLiveMatchClock(match, now = Date.now(), gameModePauseState = {}) {
-  if (gameModePauseState?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status)) {
-    return 'Paused'
-  }
-
-  const elapsedSeconds = getCurrentMatchElapsedSeconds(match, now)
-  if (elapsedSeconds === null) {
-    return 'Ready'
-  }
-
-  const minutes = Math.floor(elapsedSeconds / 60)
-  const seconds = String(elapsedSeconds % 60).padStart(2, '0')
-  return `${minutes}:${seconds}`
+function formatLiveMatchClock(match, now = Date.now()) {
+  return formatMatchTimerClock(match, now)
 }
 
 function getMatchStatusLabel(status) {
@@ -1029,7 +997,7 @@ function getMatchPeriodLabel(status) {
 }
 
 function isLiveMatchConsoleState(match) {
-  return RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status)
+  return RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status) || isMatchTimerPaused(match)
 }
 
 function getPrimaryLiveAction(match) {
@@ -1623,7 +1591,6 @@ export function MatchDayPage() {
   const [isPreviousGamesOpen, setIsPreviousGamesOpen] = useState(false)
   const [activeFixtureMode, setActiveFixtureMode] = useState(getStoredActiveFixtureMode)
   const [gameModeMatchId, setGameModeMatchId] = useState('')
-  const [gameModePauseState, setGameModePauseState] = useState({})
   const [volunteerSelectionPrompt, setVolunteerSelectionPrompt] = useState(null)
   const [activeVolunteerSelectionKey, setActiveVolunteerSelectionKey] = useState('')
   const [volunteerSelectionStatus, setVolunteerSelectionStatus] = useState(null)
@@ -1709,29 +1676,6 @@ export function MatchDayPage() {
   useEffect(() => {
     saveActiveFixtureMode(activeFixtureMode)
   }, [activeFixtureMode])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    try {
-      const storedValue = JSON.parse(window.localStorage.getItem(MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY) || '{}')
-      if (storedValue && typeof storedValue === 'object' && !Array.isArray(storedValue)) {
-        setGameModePauseState(storedValue)
-      }
-    } catch {
-      window.localStorage.removeItem(MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    window.localStorage.setItem(MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY, JSON.stringify(gameModePauseState))
-  }, [gameModePauseState])
 
   useEffect(() => {
     const openFixtureSetup = (setupIntent = consumeFixtureSetupIntent()) => {
@@ -2033,8 +1977,110 @@ export function MatchDayPage() {
     }
   }
 
-  const handleStatusChange = async (match, status) => {
-    if (!confirmMatchDayAction(`Change this match status to ${status.replace(/_/g, ' ')}? Parents may receive a live update.`)) {
+  const getTimerActionForStatus = (match, status) => {
+    if (status === 'live' && (match.status === 'scheduled' || match.status === 'scorer_request')) {
+      return 'start'
+    }
+
+    if (status === 'half_time') {
+      return 'half_time'
+    }
+
+    if (status === 'second_half' && (PAUSED_MATCH_STATUSES.has(match.status) || isMatchTimerPaused(match))) {
+      return 'resume'
+    }
+
+    if (status === 'full_time') {
+      return 'full_time'
+    }
+
+    return ''
+  }
+
+  const reconcileSavedTimerMatch = async (match, savedMatch, loadErrorMessage) => {
+    const reconcileSavedMatch = (currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
+      match: savedMatch,
+      matchId: match.id,
+    })
+
+    setMatches(reconcileSavedMatch)
+    try {
+      await loadData()
+      setMatches(reconcileSavedMatch)
+    } catch (loadError) {
+      console.error(loadError)
+      setMatches(reconcileSavedMatch)
+      setErrorMessage(loadError.message || loadErrorMessage)
+    }
+  }
+
+  const persistTimerAction = async (match, action, {
+    busyKey = 'status',
+    loadingMessage = 'Match clock saving...',
+    successMessage = 'Match clock saved.',
+    toastMessage = 'The match clock has been updated.',
+    pushType = '',
+    closeGameMode = false,
+  } = {}) => {
+    setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:${busyKey}`,
+      tone: 'loading',
+      message: loadingMessage,
+    })
+    setErrorMessage('')
+
+    try {
+      const savedMatch = await setMatchDayTimerState({ user, match, action })
+      if (pushType) {
+        void sendMatchDayPushNotification({
+          matchDayId: match.id,
+          type: pushType,
+        })
+      }
+      await reconcileSavedTimerMatch(match, savedMatch, 'Match clock was saved, but Match Day could not be refreshed. Refresh the page before making another clock change.')
+      setMatchActionStatus({
+        key: `${match.id}:${busyKey}`,
+        tone: 'success',
+        message: successMessage,
+      })
+      showToast({ title: 'Match updated', message: toastMessage })
+      if (closeGameMode) {
+        setGameModeMatchId('')
+      }
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'Match clock could not be updated.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:${busyKey}`,
+        tone: 'error',
+        message,
+      })
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
+  const saveMatchStatus = async (match, status, { shouldConfirm = false } = {}) => {
+    if (shouldConfirm && !confirmMatchDayAction(`Change this match status to ${status.replace(/_/g, ' ')}? Parents may receive a live update.`)) {
+      return
+    }
+
+    const timerAction = getTimerActionForStatus(match, status)
+    if (timerAction) {
+      const timerPushType = status === 'second_half' && PAUSED_MATCH_STATUSES.has(match.status)
+        ? 'second_half'
+        : status === 'half_time' || status === 'full_time'
+          ? status
+          : ''
+      await persistTimerAction(match, timerAction, {
+        loadingMessage: `${getMatchStatusLabel(status)} saving...`,
+        successMessage: `${getMatchStatusLabel(status)} saved.`,
+        toastMessage: `${getMatchStatusLabel(status)} is now showing.`,
+        pushType: timerPushType,
+        closeGameMode: status === 'full_time',
+      })
       return
     }
 
@@ -2047,32 +2093,14 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      const updates = { status }
-      if (RUNNING_MATCH_STATUSES.has(status) && (match.status !== status || !match.phaseStartedAt)) {
-        updates.phaseStartedAt = new Date().toISOString()
-      }
-
-      const savedMatch = await updateMatchDay({ user, matchId: match.id, updates })
-      const reconcileSavedMatch = (currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
-        match: savedMatch,
-        matchId: match.id,
-      })
-
-      setMatches(reconcileSavedMatch)
+      const savedMatch = await updateMatchDay({ user, matchId: match.id, updates: { status } })
       if (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time') {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
           type: status,
         })
       }
-      try {
-        await loadData()
-        setMatches(reconcileSavedMatch)
-      } catch (loadError) {
-        console.error(loadError)
-        setMatches(reconcileSavedMatch)
-        setErrorMessage(loadError.message || 'Match status was saved, but Match Day could not be refreshed. Refresh the page before making another status change.')
-      }
+      await reconcileSavedTimerMatch(match, savedMatch, 'Match status was saved, but Match Day could not be refreshed. Refresh the page before making another status change.')
       setMatchActionStatus({
         key: `${match.id}:status`,
         tone: 'success',
@@ -2082,7 +2110,7 @@ export function MatchDayPage() {
     } catch (error) {
       console.error(error)
       const message = error.message || 'Match status could not be updated.'
-      setErrorMessage(error.message || 'Match status could not be updated.')
+      setErrorMessage(message)
       setMatchActionStatus({
         key: `${match.id}:status`,
         tone: 'error',
@@ -2091,6 +2119,10 @@ export function MatchDayPage() {
     } finally {
       setActiveMatchId('')
     }
+  }
+
+  const handleStatusChange = async (match, status) => {
+    await saveMatchStatus(match, status, { shouldConfirm: true })
   }
 
   const handleGameModeOpen = async (match) => {
@@ -2106,101 +2138,41 @@ export function MatchDayPage() {
     }
   }
 
-  const saveMatchStatus = async (match, status) => {
-    setActiveMatchId(match.id)
-    setErrorMessage('')
-
-    try {
-      const updates = { status }
-      if (status === 'live' && !match.phaseStartedAt) {
-        updates.phaseStartedAt = new Date().toISOString()
-      }
-
-      const savedMatch = await updateMatchDay({ user, matchId: match.id, updates })
-      const reconcileSavedMatch = (currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
-        match: savedMatch,
-        matchId: match.id,
-      })
-
-      setMatches(reconcileSavedMatch)
-      if (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time') {
-        void sendMatchDayPushNotification({
-          matchDayId: match.id,
-          type: status,
-        })
-      }
-      try {
-        await loadData()
-        setMatches(reconcileSavedMatch)
-      } catch (loadError) {
-        console.error(loadError)
-        setMatches(reconcileSavedMatch)
-        setErrorMessage(loadError.message || 'Match status was saved, but Match Day could not be refreshed. Refresh the page before making another status change.')
-      }
-      showToast({ title: 'Match updated', message: 'The match status has been updated.' })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Match status could not be updated.')
-    } finally {
-      setActiveMatchId('')
-    }
-  }
-
   const handleGameModeStatusChange = async (match, status) => {
     if (status === 'full_time' && !confirmMatchDayAction('Confirm full time and prepare this result for final submission?')) {
       return
     }
 
-    setGameModePauseState((current) => ({
-      ...current,
-      [match.id]: {
-        ...(current[match.id] ?? {}),
-        hydrationPaused: false,
-      },
-    }))
     await saveMatchStatus(match, status)
-    if (status === 'full_time') {
-      setGameModeMatchId('')
-    }
   }
 
-  const handleGameModeHydrationToggle = async (match) => {
-    const isPaused = Boolean(gameModePauseState[match.id]?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status))
-    if (PAUSED_MATCH_STATUSES.has(match.status)) {
-      await handleGameModeStatusChange(match, 'second_half')
-      return
-    }
-
-    if (!isPaused && !confirmMatchDayAction('Pause for hydration and add a water break to the timeline?')) {
-      return
-    }
-
-    if (!isPaused) {
-      const minute = getCurrentMatchMinute(match, Date.now()) ?? ''
-      const savedEvent = await addStaffMatchDayEvent({
-        user,
-        match,
-        event: {
-          eventType: 'water_break',
-          teamSide: 'club',
-          minute,
-          notes: 'Hydration pause',
-        },
+  const handleGameModeHydrationToggle = async (match, pauseAction = 'hydration') => {
+    if (isMatchTimerPaused(match)) {
+      await persistTimerAction(match, 'resume', {
+        busyKey: 'timer',
+        loadingMessage: 'Resume saving...',
+        successMessage: 'Resume saved.',
+        toastMessage: 'The match clock has resumed.',
+        pushType: PAUSED_MATCH_STATUSES.has(match.status) ? 'second_half' : '',
       })
-      setMatches((currentMatches) => reconcileMatchDayEventInList(currentMatches, {
-        event: savedEvent,
-        matchId: match.id,
-        user,
-      }))
+      return
     }
 
-    setGameModePauseState((current) => ({
-      ...current,
-      [match.id]: {
-        hydrationPaused: !isPaused,
-        pausedAt: !isPaused ? new Date().toISOString() : '',
-      },
-    }))
+    const action = pauseAction === 'pause' ? 'pause' : 'hydration'
+    const confirmMessage = action === 'pause'
+      ? 'Pause this match clock?'
+      : 'Pause for hydration and add a water break to the timeline?'
+
+    if (!confirmMatchDayAction(confirmMessage)) {
+      return
+    }
+
+    await persistTimerAction(match, action, {
+      busyKey: 'timer',
+      loadingMessage: action === 'pause' ? 'Pause saving...' : 'Hydration saving...',
+      successMessage: action === 'pause' ? 'Pause saved.' : 'Hydration saved.',
+      toastMessage: action === 'pause' ? 'The match clock is paused.' : 'The hydration pause has been added.',
+    })
   }
 
   const handleScoreSave = async (match) => {
@@ -2720,7 +2692,6 @@ export function MatchDayPage() {
 
       {pitchsidePriorityMatch ? (
         <PitchsideCockpitPanel
-          gameModePauseState={gameModePauseState[pitchsidePriorityMatch.id] ?? {}}
           isBusy={activeMatchId === pitchsidePriorityMatch.id}
           isExpanded={expandedMatchId === pitchsidePriorityMatch.id}
           liveRefreshStatus={liveRefreshStatus}
@@ -2852,7 +2823,6 @@ export function MatchDayPage() {
               <MatchDayCard
                 key={match.id}
                 activeMatchId={activeMatchId}
-                gameModePauseState={gameModePauseState[match.id] ?? {}}
                 goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
                 isGameMode={gameModeMatchId === match.id}
                 isExpanded={expandedMatchId === match.id}
@@ -3003,10 +2973,9 @@ export function MatchDayPage() {
           {previousMatches.length > 0 ? (
             <div className="space-y-3">
               {previousMatches.map((match) => (
-                <MatchDayCard
-                  key={match.id}
-                  activeMatchId={activeMatchId}
-                  gameModePauseState={{}}
+                  <MatchDayCard
+                    key={match.id}
+                    activeMatchId={activeMatchId}
                   goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
                   isGameMode={false}
                   isExpanded={expandedMatchId === match.id}
@@ -3070,7 +3039,6 @@ export function MatchDayPage() {
 }
 
 function PitchsideCockpitPanel({
-  gameModePauseState,
   isBusy,
   isExpanded,
   liveRefreshStatus,
@@ -3083,12 +3051,12 @@ function PitchsideCockpitPanel({
   onToggle,
 }) {
   const scoreSummary = getMatchDayDisplayScore(match)
-  const liveClockLabel = formatLiveMatchClock(match, now, gameModePauseState)
+  const liveClockLabel = formatLiveMatchClock(match, now)
   const matchPeriodLabel = getMatchPeriodLabel(match.status)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
   const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
   const primaryLiveAction = getPrimaryLiveAction(match)
-  const isLiveConsole = RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status)
+  const isLiveConsole = isLiveMatchConsoleState(match)
 
   return (
     <section className="xl:hidden overflow-hidden rounded-lg border border-[#047857] bg-[#f8fffb] shadow-sm shadow-[#047857]/10" aria-label="Pitchside Game Day cockpit">
@@ -3144,7 +3112,6 @@ function PitchsideCockpitPanel({
 
       {isLiveConsole ? (
         <LiveMatchQuickActions
-          gameModePauseState={gameModePauseState}
           isBusy={isBusy}
           isExpanded={isExpanded}
           match={match}
@@ -3190,7 +3157,6 @@ function PitchsideCockpitPanel({
 function MatchDayCard({
   activeMatchId,
   activeVolunteerSelectionKey,
-  gameModePauseState,
   goalForm,
   isGameMode,
   isExpanded,
@@ -3223,7 +3189,7 @@ function MatchDayCard({
   const isBusy = activeMatchId === match.id
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
-  const liveClockLabel = formatLiveMatchClock(match, now, gameModePauseState)
+  const liveClockLabel = formatLiveMatchClock(match, now)
   const availabilityStats = getAvailabilityStats(match)
   const transportRiskRows = getTransportRiskRows(match)
   const transportRiskSummary = getTransportRiskSummary(transportRiskRows)
@@ -3236,7 +3202,7 @@ function MatchDayCard({
   const locationSummary = getMatchLocationSummary(match)
   const primaryLiveAction = getPrimaryLiveAction(match)
   const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
-  const isLiveConsole = RUNNING_MATCH_STATUSES.has(match.status) || PAUSED_MATCH_STATUSES.has(match.status)
+  const isLiveConsole = isLiveMatchConsoleState(match)
   const matchPeriodLabel = getMatchPeriodLabel(match.status)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
   const isOpponentMatchEvent = matchEventForm.teamSide === 'opponent'
@@ -3348,7 +3314,6 @@ function MatchDayCard({
 
       {isLiveConsole && !isGameMode ? (
         <LiveMatchQuickActions
-          gameModePauseState={gameModePauseState}
           isBusy={isBusy}
           isExpanded={isExpanded}
           match={match}
@@ -3369,7 +3334,6 @@ function MatchDayCard({
 
       {isGameMode ? (
           <MatchDayGameModePanel
-          gameModePauseState={gameModePauseState}
           goalForm={goalForm}
           isBusy={isBusy}
           matchEventForm={matchEventForm}
@@ -3972,7 +3936,6 @@ function MatchDayCard({
 }
 
 function LiveMatchQuickActions({
-  gameModePauseState,
   isBusy,
   isExpanded,
   match,
@@ -3981,7 +3944,7 @@ function LiveMatchQuickActions({
   onStatusChange,
   onToggle,
 }) {
-  const isPaused = Boolean(gameModePauseState?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status))
+  const isPaused = isMatchTimerPaused(match)
   const canMoveToHalfTime = match.status === 'live'
 
   const handlePauseResume = () => {
@@ -3990,7 +3953,12 @@ function LiveMatchQuickActions({
       return
     }
 
-    onHydrationToggle(match)
+    if (isPaused) {
+      onHydrationToggle(match, 'pause')
+      return
+    }
+
+    onHydrationToggle(match, 'pause')
   }
 
   const openManagePanel = () => {
@@ -4051,7 +4019,6 @@ function LiveMatchQuickActions({
 }
 
 function MatchDayGameModePanel({
-  gameModePauseState,
   goalForm,
   isBusy,
   match,
@@ -4070,8 +4037,8 @@ function MatchDayGameModePanel({
 }) {
   const [activeFlow, setActiveFlow] = useState('')
   const scoreSummary = getMatchDayDisplayScore(match)
-  const liveClockLabel = formatLiveMatchClock(match, now, gameModePauseState)
-  const isPaused = Boolean(gameModePauseState?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status))
+  const liveClockLabel = formatLiveMatchClock(match, now)
+  const isPaused = isMatchTimerPaused(match)
   const isFullTime = match.status === 'full_time'
   const canMoveToHalfTime = match.status === 'live'
   const isOpponentGameModeEvent = matchEventForm.teamSide === 'opponent'
@@ -4084,7 +4051,7 @@ function MatchDayGameModePanel({
             <p className={eyebrowClass}>Game Mode</p>
             <h5 className="mt-2 text-2xl font-black text-[#101828]">{scoreSummary}</h5>
             <p className="mt-1 text-sm font-bold text-[#4b5f55]">
-              {isPaused ? 'Hydration paused' : liveClockLabel}
+              {liveClockLabel}
             </p>
           </div>
           <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>

@@ -61,6 +61,8 @@ const MATCH_DAY_STAFF_EVENT_TYPES = new Set([
   'substitution',
   'water_break',
 ])
+const MATCH_DAY_TIMER_ACTIONS = new Set(['start', 'pause', 'half_time', 'hydration', 'resume', 'full_time'])
+const MATCH_DAY_TIMER_STATUSES = new Set(['not_started', 'running', 'paused', 'half_time', 'hydration', 'full_time'])
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -436,6 +438,10 @@ export function normalizeMatchDay(row) {
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     phaseStartedAt: row.phase_started_at ?? row.phaseStartedAt ?? '',
+    timerStartedAt: row.timer_started_at ?? row.timerStartedAt ?? '',
+    timerPausedAt: row.timer_paused_at ?? row.timerPausedAt ?? '',
+    timerElapsedSeconds: normalizeNonNegativeInteger(row.timer_elapsed_seconds ?? row.timerElapsedSeconds),
+    timerStatus: normalizeTimerStatus(row.timer_status ?? row.timerStatus),
     enableMotmPoll: Boolean(row.enable_motm_poll ?? row.enableMotmPoll ?? true),
     motmPollExpiryHours: Number(row.motm_poll_expiry_hours ?? row.motmPollExpiryHours ?? 2),
     motmPollId: row.motm_poll_id ?? row.motmPollId ?? '',
@@ -524,6 +530,11 @@ async function assertMatchDayRecordInActiveTeamScope(user, matchId) {
 function normalizeStatus(value) {
   const normalizedStatus = normalizeText(value)
   return MATCH_DAY_STATUS_OPTIONS.some((option) => option.value === normalizedStatus) ? normalizedStatus : 'scheduled'
+}
+
+function normalizeTimerStatus(value) {
+  const normalizedStatus = normalizeText(value)
+  return MATCH_DAY_TIMER_STATUSES.has(normalizedStatus) ? normalizedStatus : 'not_started'
 }
 
 function normalizeHomeAway(value) {
@@ -1004,6 +1015,57 @@ export async function updateMatchDay({ user, matchId, updates }) {
   return normalizedMatch
 }
 
+function normalizeMatchDayTimerResult(data, fallbackMatch = {}) {
+  const result = data ?? {}
+
+  return {
+    id: result.id ?? result.matchDayId ?? result.match_day_id ?? fallbackMatch.id ?? '',
+    status: normalizeStatus(result.status ?? fallbackMatch.status),
+    phaseStartedAt: result.phaseStartedAt ?? result.phase_started_at ?? fallbackMatch.phaseStartedAt ?? '',
+    timerStartedAt: result.timerStartedAt ?? result.timer_started_at ?? '',
+    timerPausedAt: result.timerPausedAt ?? result.timer_paused_at ?? '',
+    timerElapsedSeconds: normalizeNonNegativeInteger(result.timerElapsedSeconds ?? result.timer_elapsed_seconds),
+    timerStatus: normalizeTimerStatus(result.timerStatus ?? result.timer_status),
+    updatedAt: result.updatedAt ?? result.updated_at ?? '',
+  }
+}
+
+export async function setMatchDayTimerState({ user, match, matchId, action }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  const normalizedAction = normalizeText(action)
+
+  if (!normalizedMatchId) {
+    throw new Error('Choose a match day first.')
+  }
+
+  if (!MATCH_DAY_TIMER_ACTIONS.has(normalizedAction)) {
+    throw new Error('Choose a supported match clock action.')
+  }
+
+  if (match?.id) {
+    assertMatchInActiveTeamScope(user, match)
+  }
+
+  await assertMatchDayRecordInActiveTeamScope(user, normalizedMatchId)
+
+  const { data, error } = await supabase.rpc('set_match_day_timer_state', {
+    match_day_id_value: normalizedMatchId,
+    action_value: normalizedAction,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayTimerResult(data, match)
+}
+
 const MATCH_DAY_VOLUNTEER_ROLES = new Set(['scorer', 'linesman', 'referee'])
 
 export async function selectMatchDayVolunteer({ user, match, volunteer, role = 'scorer', selected = true }) {
@@ -1062,6 +1124,10 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
+
+  if (['scheduled', 'scorer_request'].includes(normalizeText(match.status))) {
+    await setMatchDayTimerState({ user, match, action: 'start' })
+  }
 
   const teamSide = normalizeText(goal?.teamSide) === 'opponent' ? 'opponent' : 'club'
   let nextHomeScore = Number(match.homeScore ?? 0)

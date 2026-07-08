@@ -269,6 +269,7 @@ export {
   resetPreviousMatchDayResults,
   selectMatchDayScorer,
   selectMatchDayVolunteer,
+  setMatchDayTimerState,
   isPastMatchDayDate,
   isPastMatchDayDateTime,
   updateMatchDay,
