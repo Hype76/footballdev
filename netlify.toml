@@ -6,6 +6,10 @@
   NODE_VERSION = "22.17.0"
   VITE_PAYMENTS_DISABLED = "true"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [context.production]
   command = "npm run build:live && npm run verify:build-env"
 
