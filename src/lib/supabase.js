@@ -241,6 +241,7 @@ export {
   RESOURCE_LIBRARY_BUCKET,
   RESOURCE_LIBRARY_CATEGORIES,
   RESOURCE_LIBRARY_MAX_FILE_SIZE_BYTES,
+  RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH,
   removeResourceLibraryLink,
   syncCalendarEventResourceLinks,
   uploadResourceLibraryItem,

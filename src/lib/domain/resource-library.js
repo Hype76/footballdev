@@ -9,6 +9,7 @@ import { getAvailableTeamsForUser } from './team-actions.js'
 
 export const RESOURCE_LIBRARY_BUCKET = 'resource-library'
 export const RESOURCE_LIBRARY_MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
+export const RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH = 500
 export const RESOURCE_LIBRARY_ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -66,6 +67,20 @@ const BLOCKED_EXTENSIONS = new Set([
 
 function normalizeText(value) {
   return String(value ?? '').trim()
+}
+
+function normalizeShareDescription(value) {
+  const description = normalizeText(value)
+
+  if (description.length > RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH) {
+    throw new Error(`Share descriptions must be ${RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH} characters or fewer.`)
+  }
+
+  return description
+}
+
+function getResourceLibraryTargetKey(target) {
+  return `${target.linkedType}:${target.linkedId}`
 }
 
 function normalizeCategory(value) {
@@ -196,6 +211,7 @@ export function normalizeResourceLibraryLink(row) {
     assignedByEmail: normalizeText(row.assigned_by_email ?? row.assignedByEmail),
     assignedAt: row.assigned_at ?? row.assignedAt ?? '',
     parentVisible: Boolean(row.parent_visible ?? row.parentVisible ?? false),
+    shareDescription: normalizeText(row.share_description ?? row.shareDescription),
     removedAt: row.removed_at ?? row.removedAt ?? '',
   }
 }
@@ -428,13 +444,14 @@ export async function createExternalResourceLibraryItem({ category = 'general', 
   return normalizeResourceLibraryItem(resource ?? {})
 }
 
-export async function assignResourceLibraryItem({ resourceId, targets = [], user } = {}) {
+export async function assignResourceLibraryItem({ resourceId, targets = [], shareDescription = '', user } = {}) {
   await blockDemoMutation(user)
   assertResourceLibraryManageAccess(user)
 
   const normalizedResourceId = normalizeText(resourceId)
   const activeTeamId = getActiveResourceTeamId(user)
-  const normalizedTargets = targets
+  const normalizedShareDescription = normalizeShareDescription(shareDescription)
+  const normalizedTargets = Array.from(new Map(targets
     .map((target) => ({
       linkedType: normalizeText(target.linkedType),
       linkedId: normalizeText(target.linkedId),
@@ -442,6 +459,7 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], user
       teamId: normalizeText(target.teamId) || activeTeamId,
     }))
     .filter((target) => target.linkedId && ['player', 'team'].includes(target.linkedType))
+    .map((target) => [getResourceLibraryTargetKey(target), target])).values())
 
   if (!normalizedResourceId) {
     throw new Error('Choose a resource before assigning it.')
@@ -457,16 +475,40 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], user
     throw new Error('Team resources can only be assigned inside the active team.')
   }
 
-  const rows = normalizedTargets.map((target) => ({
+  const linkedTypes = [...new Set(normalizedTargets.map((target) => target.linkedType))]
+  const linkedIds = [...new Set(normalizedTargets.map((target) => target.linkedId))]
+  const { data: existingLinks, error: existingError } = await supabase
+    .from('resource_library_links')
+    .select('*')
+    .eq('resource_id', normalizedResourceId)
+    .eq('club_id', user.clubId)
+    .eq('team_id', activeTeamId)
+    .in('linked_type', linkedTypes)
+    .in('linked_id', linkedIds)
+    .is('removed_at', null)
+
+  if (existingError) {
+    console.error(existingError)
+    throw existingError
+  }
+
+  const existingLinkKeys = new Set((existingLinks ?? []).map((link) => getResourceLibraryTargetKey(normalizeResourceLibraryLink(link))))
+  const targetsToInsert = normalizedTargets.filter((target) => !existingLinkKeys.has(getResourceLibraryTargetKey(target)))
+  const rows = targetsToInsert.map((target) => ({
     resource_id: normalizedResourceId,
     club_id: user.clubId,
     team_id: activeTeamId,
     linked_type: target.linkedType,
     linked_id: target.linkedId,
     parent_visible: target.linkedType === 'player' && target.parentVisible === true,
+    share_description: normalizedShareDescription || null,
     assigned_by_profile_id: getEntryUserId(user),
     ...getEntryIdentity(user, 'assigned_by'),
   }))
+
+  if (rows.length === 0) {
+    return (existingLinks ?? []).map(normalizeResourceLibraryLink)
+  }
 
   const { data, error } = await supabase
     .from('resource_library_links')
@@ -487,6 +529,9 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], user
     entityId: normalizedResourceId,
     metadata: {
       targetCount: normalizedTargets.length,
+      insertedCount: targetsToInsert.length,
+      duplicateCount: normalizedTargets.length - targetsToInsert.length,
+      hasShareDescription: Boolean(normalizedShareDescription),
     },
   })
 
@@ -630,6 +675,7 @@ export async function getParentPortalPlayerResources({ parentLinkId } = {}) {
         linkedType: 'player',
         linkedId: row.player_id,
         parentVisible: true,
+        shareDescription: row.share_description,
         assignedAt: row.assigned_at,
       }],
     }))

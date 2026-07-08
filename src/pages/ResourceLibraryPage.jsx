@@ -6,6 +6,7 @@ import { useToast } from '../components/ui/toast-context.js'
 import { canManageResourceLibrary, canUseResourceLibrary, useAuth } from '../lib/auth.js'
 import {
   RESOURCE_LIBRARY_CATEGORIES,
+  RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH,
   archiveResourceLibraryItem,
   assignResourceLibraryItem,
   createExternalResourceLibraryItem,
@@ -29,6 +30,16 @@ function createUploadDraft() {
     externalUrl: '',
     file: null,
     resourceType: 'file',
+  }
+}
+
+function createAssignmentDraft() {
+  return {
+    parentVisible: false,
+    resourceId: '',
+    linkedType: 'player',
+    linkedId: '',
+    shareDescription: '',
   }
 }
 
@@ -101,7 +112,7 @@ export function ResourceLibraryPage() {
   const [players, setPlayers] = useState([])
   const [filters, setFilters] = useState({ category: '', searchTerm: '' })
   const [uploadDraft, setUploadDraft] = useState(() => createUploadDraft())
-  const [assignmentDraft, setAssignmentDraft] = useState({ parentVisible: false, resourceId: '', linkedType: 'player', linkedId: '' })
+  const [assignmentDraft, setAssignmentDraft] = useState(() => createAssignmentDraft())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [downloadingId, setDownloadingId] = useState('')
@@ -111,6 +122,8 @@ export function ResourceLibraryPage() {
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => String(player.teamId ?? '') === activeTeamId)
   }, [activeTeamId, players])
+  const isSquadAssignment = assignmentDraft.linkedType === 'squad'
+  const canShareWithParents = ['player', 'squad'].includes(assignmentDraft.linkedType)
 
   useEffect(() => {
     let isMounted = true
@@ -206,26 +219,45 @@ export function ResourceLibraryPage() {
     setSuccessMessage('')
 
     try {
+      const isTeamAssignment = assignmentDraft.linkedType === 'team'
       const selectedPlayer = players.find((player) => String(player.id) === String(assignmentDraft.linkedId))
-      const selectedTeamId = assignmentDraft.linkedType === 'team'
+      const selectedTeamId = isTeamAssignment || isSquadAssignment
         ? activeTeamId
         : selectedPlayer?.teamId || activeTeamId
+      const targets = isSquadAssignment
+        ? filteredPlayers.map((player) => ({
+          linkedType: 'player',
+          linkedId: player.id,
+          parentVisible: assignmentDraft.parentVisible === true,
+          teamId: player.teamId || activeTeamId,
+        }))
+        : [{
+          linkedType: assignmentDraft.linkedType,
+          linkedId: isTeamAssignment ? activeTeamId : assignmentDraft.linkedId,
+          parentVisible: assignmentDraft.linkedType === 'player' && assignmentDraft.parentVisible === true,
+          teamId: selectedTeamId,
+        }]
+
+      if (isSquadAssignment && targets.length === 0) {
+        throw new Error('No players are available in the active squad.')
+      }
 
       await assignResourceLibraryItem({
         user,
         resourceId: assignmentDraft.resourceId,
-        targets: [{
-          linkedType: assignmentDraft.linkedType,
-          linkedId: assignmentDraft.linkedType === 'team' ? activeTeamId : assignmentDraft.linkedId,
-          parentVisible: assignmentDraft.linkedType === 'player' && assignmentDraft.parentVisible === true,
-          teamId: selectedTeamId,
-        }],
+        targets,
+        shareDescription: assignmentDraft.shareDescription,
       })
 
-      setAssignmentDraft({ parentVisible: false, resourceId: '', linkedType: 'player', linkedId: '' })
+      setAssignmentDraft(createAssignmentDraft())
       await refreshResources()
-      setSuccessMessage('Resource assignment saved.')
-      showToast({ title: 'Resource assigned', message: assignmentDraft.parentVisible ? 'Staff and linked parents can now see this player resource.' : 'Staff can now see the assignment in the permitted scope.' })
+      setSuccessMessage(isSquadAssignment ? `Resource assignment saved for ${targets.length} squad players.` : 'Resource assignment saved.')
+      showToast({
+        title: 'Resource assigned',
+        message: assignmentDraft.parentVisible && canShareWithParents
+          ? 'Staff and linked parents can now see this resource.'
+          : 'Staff can now see the assignment in the permitted scope.',
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not assign this resource.')
@@ -408,58 +440,88 @@ export function ResourceLibraryPage() {
 
       {canManage ? (
         <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
-          <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)_14rem_auto] lg:items-end" onSubmit={handleAssign}>
+          <form className="space-y-3" onSubmit={handleAssign}>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)_14rem_auto] lg:items-end">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Resource</span>
+                <select
+                  value={assignmentDraft.resourceId}
+                  onChange={(event) => setAssignmentDraft((current) => ({ ...current, resourceId: event.target.value }))}
+                  className={fieldClass}
+                >
+                  <option value="">Choose resource</option>
+                  {resources.map((resource) => (
+                    <option key={resource.id} value={resource.id}>{resource.title}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Assign to</span>
+                <select
+                  value={assignmentDraft.linkedType}
+                  onChange={(event) => {
+                    const linkedType = event.target.value
+                    setAssignmentDraft((current) => ({
+                      ...current,
+                      parentVisible: linkedType === 'team' ? false : current.parentVisible,
+                      linkedType,
+                      linkedId: ['team', 'squad'].includes(linkedType) ? activeTeamId : '',
+                    }))
+                  }}
+                  className={fieldClass}
+                >
+                  <option value="player">Player</option>
+                  <option value="squad">Full squad</option>
+                  <option value="team">Team</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">{isSquadAssignment ? 'Squad' : assignmentDraft.linkedType === 'team' ? 'Team' : 'Player'}</span>
+                <select
+                  value={assignmentDraft.linkedId}
+                  onChange={(event) => setAssignmentDraft((current) => ({ ...current, linkedId: event.target.value }))}
+                  disabled={assignmentDraft.linkedType === 'team' || isSquadAssignment}
+                  className={fieldClass}
+                >
+                  <option value="">{assignmentDraft.linkedType === 'team' || isSquadAssignment ? 'Choose team' : 'Choose player'}</option>
+                  {assignmentDraft.linkedType === 'team' || isSquadAssignment
+                    ? <option value={activeTeamId}>{activeTeamName}</option>
+                    : filteredPlayers.map((player) => <option key={player.id} value={player.id}>{player.playerName} | {player.team || 'No team'}</option>)}
+                </select>
+              </label>
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+                <input
+                  type="checkbox"
+                  checked={assignmentDraft.parentVisible}
+                  onChange={(event) => setAssignmentDraft((current) => ({ ...current, parentVisible: event.target.checked }))}
+                  disabled={!canShareWithParents}
+                  className="h-5 w-5 accent-[#047857] disabled:opacity-60"
+                />
+                Parent share
+              </label>
+              <button type="submit" disabled={isSaving} className={primaryButtonClass}>
+                Save assignment
+              </button>
+            </div>
             <label className="block">
-              <span className="mb-2 block text-sm font-black text-[#101828]">Resource</span>
-              <select
-                value={assignmentDraft.resourceId}
-                onChange={(event) => setAssignmentDraft((current) => ({ ...current, resourceId: event.target.value }))}
-                className={fieldClass}
-              >
-                <option value="">Choose resource</option>
-                {resources.map((resource) => (
-                  <option key={resource.id} value={resource.id}>{resource.title}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-black text-[#101828]">Assign to</span>
-              <select
-                value={assignmentDraft.linkedType}
-                onChange={(event) => setAssignmentDraft({ parentVisible: false, resourceId: assignmentDraft.resourceId, linkedType: event.target.value, linkedId: event.target.value === 'team' ? activeTeamId : '' })}
-                className={fieldClass}
-              >
-                <option value="player">Player</option>
-                <option value="team">Team</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-black text-[#101828]">{assignmentDraft.linkedType === 'team' ? 'Team' : 'Player'}</span>
-              <select
-                value={assignmentDraft.linkedId}
-                onChange={(event) => setAssignmentDraft((current) => ({ ...current, linkedId: event.target.value }))}
-                disabled={assignmentDraft.linkedType === 'team'}
-                className={fieldClass}
-              >
-                <option value="">{assignmentDraft.linkedType === 'team' ? 'Choose team' : 'Choose player'}</option>
-                {assignmentDraft.linkedType === 'team'
-                  ? <option value={activeTeamId}>{activeTeamName}</option>
-                  : filteredPlayers.map((player) => <option key={player.id} value={player.id}>{player.playerName} | {player.team || 'No team'}</option>)}
-              </select>
-            </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
-              <input
-                type="checkbox"
-                checked={assignmentDraft.parentVisible}
-                onChange={(event) => setAssignmentDraft((current) => ({ ...current, parentVisible: event.target.checked }))}
-                disabled={assignmentDraft.linkedType !== 'player'}
-                className="h-5 w-5 accent-[#047857] disabled:opacity-60"
+              <span className="mb-2 flex items-center justify-between gap-3 text-sm font-black text-[#101828]">
+                <span>Description</span>
+                <span className="text-xs font-bold text-[#4b5f55]">{assignmentDraft.shareDescription.length}/{RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH}</span>
+              </span>
+              <textarea
+                value={assignmentDraft.shareDescription}
+                maxLength={RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH}
+                onChange={(event) => setAssignmentDraft((current) => ({ ...current, shareDescription: event.target.value }))}
+                onKeyDown={stopTextInputSpacePropagation}
+                className={`${fieldClass} min-h-24 resize-y`}
+                placeholder="Why this resource is being shared"
               />
-              Parent share
             </label>
-            <button type="submit" disabled={isSaving} className={primaryButtonClass}>
-              Save assignment
-            </button>
+            {isSquadAssignment ? (
+              <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55]">
+                Share with {filteredPlayers.length} squad players in {activeTeamName}.
+              </p>
+            ) : null}
           </form>
         </section>
       ) : null}
