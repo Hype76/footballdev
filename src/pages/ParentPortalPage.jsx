@@ -1369,6 +1369,71 @@ function toTimeOnly(value) {
   return /^\d{2}:\d{2}/.test(normalizedValue) ? normalizedValue.slice(0, 5) : ''
 }
 
+function addMinutesToTime(value, minutesToAdd) {
+  const normalizedValue = toTimeOnly(value)
+  if (!normalizedValue) {
+    return ''
+  }
+
+  const [hours, minutes] = normalizedValue.split(':').map(Number)
+  const totalMinutes = (hours * 60) + minutes + Number(minutesToAdd || 0)
+  const wrappedMinutes = ((totalMinutes % 1440) + 1440) % 1440
+  return `${String(Math.floor(wrappedMinutes / 60)).padStart(2, '0')}:${String(wrappedMinutes % 60).padStart(2, '0')}`
+}
+
+function getGoogleCalendarDatePart(value) {
+  const match = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return match ? `${match[1]}${match[2]}${match[3]}` : ''
+}
+
+function getNextGoogleCalendarDatePart(value) {
+  const match = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) {
+    return ''
+  }
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1))
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function buildParentMatchDayCalendarUrl(event) {
+  if (event?.sourceType !== 'parent-match-day' || !event.date) {
+    return ''
+  }
+
+  const data = event.data || {}
+  const datePart = getGoogleCalendarDatePart(event.date)
+  if (!datePart) {
+    return ''
+  }
+
+  const startTime = toTimeOnly(data.arrivalTime || data.kickoffTime || event.time)
+  const endTime = toTimeOnly(data.kickoffTime)
+    ? addMinutesToTime(data.kickoffTime, 120)
+    : addMinutesToTime(startTime, 120)
+  const dates = startTime
+    ? `${datePart}T${startTime.replace(':', '')}00/${datePart}T${(endTime || addMinutesToTime(startTime, 120)).replace(':', '')}00`
+    : `${datePart}/${getNextGoogleCalendarDatePart(event.date) || datePart}`
+  const details = [
+    `Team: ${event.teamName || data.teamName || 'Team'}`,
+    data.opponent ? `Opponent: ${data.opponent}` : '',
+    data.kickoffTime ? `Kick-off: ${toTimeOnly(data.kickoffTime)}` : '',
+    data.arrivalTime ? `Arrival: ${toTimeOnly(data.arrivalTime)}` : '',
+    data.venueName ? `Venue: ${data.venueName}` : '',
+    'Parent Portal: https://footballplayer.online/parent-portal',
+  ].filter(Boolean).join('\n')
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: event.title || getMatchDayDisplayName(data),
+    dates,
+    details,
+    location: event.location || data.venueAddress || data.venueName || '',
+    ctz: 'Europe/London',
+  })
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
 function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCalendarEvents = [] }) {
   const sharedEvents = sharedCalendarEvents
     .map((event) => ({
@@ -2032,6 +2097,7 @@ function ParentCalendarEventModal({ event, onClose }) {
 
   const data = event.data || {}
   const isMatch = event.sourceType === 'parent-match-day'
+  const calendarUrl = buildParentMatchDayCalendarUrl(event)
   const startLabel = event.time || data.kickoffTime || ''
   const meetLabel = data.arrivalTime ? `Meet time: ${data.arrivalTime}` : ''
   const typeLabel = isMatch
@@ -2079,6 +2145,16 @@ function ParentCalendarEventModal({ event, onClose }) {
               <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
                 Opponent: {data.opponent}
               </p>
+            ) : null}
+            {calendarUrl ? (
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={`inline-flex w-full sm:w-auto ${primaryButtonClass}`}
+              >
+                Add to calendar
+              </a>
             ) : null}
           </div>
         </div>

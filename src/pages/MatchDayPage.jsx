@@ -2085,13 +2085,17 @@ export function MatchDayPage() {
     }
   }
 
-  const handleGameModeStart = async (match) => {
-    if (!confirmMatchDayAction('Start this match in Game Mode and begin the live clock?')) {
-      return
-    }
-
+  const handleGameModeOpen = async (match) => {
     setGameModeMatchId(match.id)
-    await saveMatchStatus(match, 'live')
+
+    if (match.status === 'scheduled' || match.status === 'scorer_request') {
+      if (!confirmMatchDayAction('Start this match in Game Mode and begin the live clock?')) {
+        setGameModeMatchId('')
+        return
+      }
+
+      await saveMatchStatus(match, 'live')
+    }
   }
 
   const saveMatchStatus = async (match, status) => {
@@ -2139,6 +2143,13 @@ export function MatchDayPage() {
       return
     }
 
+    setGameModePauseState((current) => ({
+      ...current,
+      [match.id]: {
+        ...(current[match.id] ?? {}),
+        hydrationPaused: false,
+      },
+    }))
     await saveMatchStatus(match, status)
     if (status === 'full_time') {
       setGameModeMatchId('')
@@ -2146,7 +2157,12 @@ export function MatchDayPage() {
   }
 
   const handleGameModeHydrationToggle = async (match) => {
-    const isPaused = Boolean(gameModePauseState[match.id]?.hydrationPaused)
+    const isPaused = Boolean(gameModePauseState[match.id]?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status))
+    if (PAUSED_MATCH_STATUSES.has(match.status)) {
+      await handleGameModeStatusChange(match, 'second_half')
+      return
+    }
+
     if (!isPaused && !confirmMatchDayAction('Pause for hydration and add a water break to the timeline?')) {
       return
     }
@@ -2851,7 +2867,7 @@ export function MatchDayPage() {
                 onCorrectGoal={handleCorrectGoal}
                 onGameModeBack={() => setGameModeMatchId('')}
                 onGameModeHydrationToggle={handleGameModeHydrationToggle}
-                onGameModeStart={handleGameModeStart}
+                onGameModeStart={handleGameModeOpen}
                 onGameModeStatusChange={handleGameModeStatusChange}
                 onGoalFormChange={updateGoalForm}
                 onMatchEventFormChange={updateMatchEventForm}
@@ -2946,7 +2962,7 @@ export function MatchDayPage() {
                   onCorrectGoal={handleCorrectGoal}
                   onGameModeBack={() => setGameModeMatchId('')}
                   onGameModeHydrationToggle={handleGameModeHydrationToggle}
-                  onGameModeStart={handleGameModeStart}
+                  onGameModeStart={handleGameModeOpen}
                   onGameModeStatusChange={handleGameModeStatusChange}
                   onGoalFormChange={updateGoalForm}
                   onMatchEventFormChange={updateMatchEventForm}
@@ -3867,7 +3883,9 @@ function MatchDayGameModePanel({
   const [activeFlow, setActiveFlow] = useState('')
   const scoreSummary = getMatchDayDisplayScore(match)
   const liveClockLabel = formatLiveMatchClock(match, now, gameModePauseState)
-  const isPaused = Boolean(gameModePauseState?.hydrationPaused)
+  const isPaused = Boolean(gameModePauseState?.hydrationPaused || PAUSED_MATCH_STATUSES.has(match.status))
+  const isFullTime = match.status === 'full_time'
+  const canMoveToHalfTime = match.status === 'live'
   const cardEventType = matchEventForm.eventType === 'red_card' ? 'red_card' : 'yellow_card'
 
   return (
@@ -3885,13 +3903,13 @@ function MatchDayGameModePanel({
         </div>
 
         <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <button type="button" onClick={() => setActiveFlow((current) => (current === 'goal' ? '' : 'goal'))} className={primaryButtonClass}>Goal</button>
-          <button type="button" onClick={() => setActiveFlow((current) => (current === 'card' ? '' : 'card'))} className={secondaryButtonClass}>Card</button>
-          <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy} className={secondaryButtonClass}>
+          <button type="button" onClick={() => setActiveFlow((current) => (current === 'goal' ? '' : 'goal'))} disabled={isFullTime} className={primaryButtonClass}>Goal</button>
+          <button type="button" onClick={() => setActiveFlow((current) => (current === 'card' ? '' : 'card'))} disabled={isFullTime} className={secondaryButtonClass}>Card</button>
+          <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>
             {isPaused ? 'Resume' : 'Hydration'}
           </button>
-          <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={isBusy} className={secondaryButtonClass}>HT</button>
-          <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={isBusy} className={secondaryButtonClass}>FT</button>
+          <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={isBusy || !canMoveToHalfTime || isFullTime} className={secondaryButtonClass}>HT</button>
+          <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={isBusy || isFullTime} className={secondaryButtonClass}>FT</button>
           <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
         </div>
 

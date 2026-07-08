@@ -73,6 +73,8 @@ test('Coach Mode is a local UI preference and filters quick actions only', async
   assert.match(layout, /COACH_MODE_STORAGE_KEY = 'football-player:coach-mode'/)
   assert.match(layout, /Add Assessment/)
   assert.match(layout, /Add Match/)
+  assert.match(layout, /Game Day/)
+  assert.match(layout, /href: '\/match-day'/)
   assert.match(layout, /Add Voice Note/)
   assert.match(layout, /!isCoachMode \|\| action\.coachModeVisible === true/)
   assert.match(coachHome, /Coach Mode/)

@@ -266,6 +266,83 @@ test('staff live controls expose pause, resume, timer, and action feedback', () 
   assert.match(statusHandlerSource, /tone: 'error'/)
 })
 
+test('parent Match Day calendar events expose Add to calendar only after parent portal filtering', () => {
+  const source = readFileSync(
+    new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const calendarBuilderStart = source.indexOf('function buildParentCalendarEvents')
+  const calendarBuilderEnd = source.indexOf('function getMatchVolunteerRequestLabels', calendarBuilderStart)
+  const modalStart = source.indexOf('function ParentCalendarEventModal')
+  const modalEnd = source.indexOf('function ParentUpcomingEvents', modalStart)
+  assert.notEqual(calendarBuilderStart, -1)
+  assert.notEqual(calendarBuilderEnd, -1)
+  assert.notEqual(modalStart, -1)
+  assert.notEqual(modalEnd, -1)
+  const calendarBuilderSource = source.slice(calendarBuilderStart, calendarBuilderEnd)
+  const modalSource = source.slice(modalStart, modalEnd)
+
+  assert.match(source, /function buildParentMatchDayCalendarUrl\(event\)/)
+  assert.match(source, /event\?\.sourceType !== 'parent-match-day'/)
+  assert.match(source, /new URLSearchParams\(\{[\s\S]*action: 'TEMPLATE'[\s\S]*ctz: 'Europe\/London'/)
+  assert.match(source, /Parent Portal: https:\/\/footballplayer\.online\/parent-portal/)
+  assert.match(calendarBuilderSource, /const matchEvents = matches[\s\S]*sourceType: 'parent-match-day'/)
+  assert.match(modalSource, /const calendarUrl = buildParentMatchDayCalendarUrl\(event\)/)
+  assert.match(modalSource, /Add to calendar/)
+  assert.doesNotMatch(modalSource, /getParentPortalMatchDays\(|getParentPortalSharedCalendarEvents\(|fetch\(|supabase/)
+})
+
+test('parent portal keeps role selection and involved-child calendar scope separate', () => {
+  const source = readFileSync(
+    new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const roleStart = source.indexOf('function getParentRoleSelectionRows')
+  const roleEnd = source.indexOf('function ParentMatchCardsPanel', roleStart)
+  const calendarBuilderStart = source.indexOf('function buildParentCalendarEvents')
+  const calendarBuilderEnd = source.indexOf('function getMatchVolunteerRequestLabels', calendarBuilderStart)
+  assert.notEqual(roleStart, -1)
+  assert.notEqual(roleEnd, -1)
+  assert.notEqual(calendarBuilderStart, -1)
+  assert.notEqual(calendarBuilderEnd, -1)
+  const roleSource = source.slice(roleStart, roleEnd)
+  const calendarBuilderSource = source.slice(calendarBuilderStart, calendarBuilderEnd)
+
+  assert.match(roleSource, /key: roleConfig\.key/)
+  assert.match(roleSource, /isSelected: true/)
+  assert.match(roleSource, /You have been selected as \$\{roleLabel\} for this fixture\./)
+  assert.match(calendarBuilderSource, /matches[\s\S]*\.map\(\(match\) => \(\{[\s\S]*data: match/)
+  assert.doesNotMatch(calendarBuilderSource, /all_team_parents|all_club_parents|parent_audience|parentAudience/)
+})
+
+test('Game Mode opens existing live state without restarting and matches pause resume rules', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const openStart = source.indexOf('const handleGameModeOpen = async (match) => {')
+  const openEnd = source.indexOf('const saveMatchStatus = async', openStart)
+  const gameModeStart = source.indexOf('function MatchDayGameModePanel')
+  const gameModeEnd = source.indexOf('function MatchTimelinePanel', gameModeStart)
+  assert.notEqual(openStart, -1)
+  assert.notEqual(openEnd, -1)
+  assert.notEqual(gameModeStart, -1)
+  assert.notEqual(gameModeEnd, -1)
+  const openSource = source.slice(openStart, openEnd)
+  const gameModeSource = source.slice(gameModeStart, gameModeEnd)
+
+  assert.match(openSource, /setGameModeMatchId\(match\.id\)/)
+  assert.match(openSource, /if \(match\.status === 'scheduled' \|\| match\.status === 'scorer_request'\)/)
+  assert.match(openSource, /await saveMatchStatus\(match, 'live'\)/)
+  assert.doesNotMatch(openSource.replace(/if \(match\.status === 'scheduled' \|\| match\.status === 'scorer_request'\)[\s\S]*/, ''), /saveMatchStatus\(match, 'live'\)/)
+  assert.match(source, /onGameModeStart=\{handleGameModeOpen\}/)
+  assert.match(gameModeSource, /gameModePauseState\?\.hydrationPaused \|\| PAUSED_MATCH_STATUSES\.has\(match\.status\)/)
+  assert.match(gameModeSource, /\{isPaused \? 'Resume' : 'Hydration'\}/)
+  assert.match(gameModeSource, /const canMoveToHalfTime = match\.status === 'live'/)
+  assert.match(gameModeSource, /disabled=\{isBusy \|\| !canMoveToHalfTime \|\| isFullTime\}/)
+  assert.match(gameModeSource, /disabled=\{isBusy \|\| isFullTime\}/)
+})
+
 test('staff goal logging closes the expanded mobile panel after successful save only', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
