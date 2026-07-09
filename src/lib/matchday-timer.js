@@ -8,6 +8,11 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+function normalizeFiniteTimestamp(value) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null
+}
+
 function normalizeNonNegativeInteger(value) {
   const numberValue = Number(value ?? 0)
   return Number.isFinite(numberValue) ? Math.max(Math.floor(numberValue), 0) : 0
@@ -96,6 +101,36 @@ export function getMatchTimerState(match = {}, now = Date.now()) {
     isRunning: false,
     isFrozen: false,
   }
+}
+
+export function createServerClockSample({ serverNowMs, sampledAtMs } = {}) {
+  const normalizedServerNowMs = normalizeFiniteTimestamp(serverNowMs)
+  const normalizedSampledAtMs = normalizeFiniteTimestamp(sampledAtMs)
+
+  if (!normalizedServerNowMs || !normalizedSampledAtMs) {
+    return null
+  }
+
+  return {
+    serverNowMs: normalizedServerNowMs,
+    sampledAtMs: normalizedSampledAtMs,
+  }
+}
+
+export function createServerClockSampleFromDateHeader(dateHeader, { sampledAtMs = Date.now() } = {}) {
+  const serverNowMs = Date.parse(dateHeader || '')
+  return createServerClockSample({ serverNowMs, sampledAtMs })
+}
+
+export function getServerSyncedNowMs(clockSample = null, now = Date.now()) {
+  const nowMs = Number.isFinite(Number(now)) ? Number(now) : Date.now()
+  const sample = createServerClockSample(clockSample)
+
+  if (!sample) {
+    return nowMs
+  }
+
+  return Math.floor(sample.serverNowMs + Math.max(nowMs - sample.sampledAtMs, 0))
 }
 
 export function getMatchTimerElapsedSeconds(match = {}, now = Date.now()) {

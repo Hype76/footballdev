@@ -31,6 +31,7 @@ import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import { getMatchCalendarLocation, getMatchVenueDisplay } from '../lib/match-location.js'
 import { getMatchTimerMinute } from '../lib/matchday-timer.js'
+import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
 import {
   getParentMatchDayErrorMessage,
   parentMatchDayActionErrorTitle,
@@ -356,7 +357,10 @@ export function ParentPortalPage() {
   const [sharedCalendarEvents, setSharedCalendarEvents] = useState([])
   const [goalForms, setGoalForms] = useState({})
   const [scoreDrafts, setScoreDrafts] = useState({})
-  const [clockNow, setClockNow] = useState(() => Date.now())
+  const clockNow = useServerSyncedClock({
+    syncIntervalMs: 60000,
+    tickIntervalMs: 1000,
+  })
   const [activeMatchId, setActiveMatchId] = useState('')
   const [isLoadingMatches, setIsLoadingMatches] = useState(false)
   const [pushState, setPushState] = useState(() => getPushSupportState())
@@ -610,14 +614,6 @@ export function ParentPortalPage() {
   }, [calendarScope, links])
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setClockNow(Date.now())
-    }, 60000)
-
-    return () => window.clearInterval(intervalId)
-  }, [])
-
-  useEffect(() => {
     let isCurrent = true
 
     async function loadPushState() {
@@ -856,7 +852,7 @@ export function ParentPortalPage() {
         matchDayId: match.id,
         goal: {
           ...(goalForms[match.id] ?? EMPTY_GOAL_FORM),
-          minute: getCurrentMatchMinute(match, Date.now()) ?? '',
+          minute: getCurrentMatchMinute(match, clockNow) ?? '',
         },
       })
       void sendMatchDayPushNotification({

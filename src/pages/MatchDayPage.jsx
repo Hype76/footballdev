@@ -44,6 +44,7 @@ import {
 } from '../lib/matchday-volunteer-state.js'
 import { reconcileMatchDayEventInList, reconcileMatchDayGoalCorrectionInList, reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
 import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
+import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
 import {
   formatMatchTimerClock,
   getMatchTimerMinute,
@@ -1546,7 +1547,10 @@ export function MatchDayPage() {
   const [goalCorrectionModal, setGoalCorrectionModal] = useState(null)
   const [goalCorrectionError, setGoalCorrectionError] = useState('')
   const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
-  const [liveClockNow, setLiveClockNow] = useState(Date.now())
+  const liveClockNow = useServerSyncedClock({
+    syncIntervalMs: LIVE_MATCH_REFRESH_INTERVAL_MS,
+    tickIntervalMs: LIVE_MATCH_CLOCK_INTERVAL_MS,
+  })
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
   const displayedActiveMatches = useMemo(
@@ -1721,14 +1725,6 @@ export function MatchDayPage() {
       isMounted = false
     }
   }, [user])
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setLiveClockNow(Date.now())
-    }, LIVE_MATCH_CLOCK_INTERVAL_MS)
-
-    return () => window.clearInterval(intervalId)
-  }, [])
 
   useEffect(() => {
     let isCurrent = true
@@ -2417,7 +2413,7 @@ export function MatchDayPage() {
     const formGoal = goalForms[match.id] ?? EMPTY_GOAL_FORM
     const goal = {
       ...formGoal,
-      minute: normalizeStaffGoalText(formGoal.minute) || (getCurrentMatchMinute(match, Date.now()) ?? ''),
+      minute: normalizeStaffGoalText(formGoal.minute) || (getCurrentMatchMinute(match, liveClockNow) ?? ''),
     }
 
     setActiveMatchId(match.id)
@@ -2667,7 +2663,7 @@ export function MatchDayPage() {
     const eventTypeOption = MATCH_EVENT_TYPE_OPTIONS.find((option) => option.value === formEvent.eventType) || MATCH_EVENT_TYPE_OPTIONS[0]
     const matchEvent = {
       ...formEvent,
-      minute: normalizeStaffGoalText(formEvent.minute) || (getCurrentMatchMinute(match, Date.now()) ?? ''),
+      minute: normalizeStaffGoalText(formEvent.minute) || (getCurrentMatchMinute(match, liveClockNow) ?? ''),
     }
 
     setActiveMatchId(match.id)

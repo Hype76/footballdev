@@ -3,7 +3,10 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import {
+  createServerClockSample,
+  createServerClockSampleFromDateHeader,
   formatMatchTimerClock,
+  getServerSyncedNowMs,
   getMatchTimerElapsedSeconds,
   getMatchTimerMinute,
   isMatchTimerPaused,
@@ -66,6 +69,51 @@ test('match timer helper keeps running and frozen m:ss displays stable', () => {
     status: 'live',
     phaseStartedAt: '2026-07-08T11:59:30Z',
   }, now), '1:00')
+})
+
+test('server clock sample keeps live timer display consistent across client clock skew', () => {
+  const serverStartedAt = Date.parse('2026-07-08T12:00:00Z')
+  const serverNow = Date.parse('2026-07-08T12:00:30Z')
+  const clientAClock = Date.parse('2026-07-08T12:00:44Z')
+  const clientBClock = Date.parse('2026-07-08T12:00:16Z')
+  const match = {
+    status: 'live',
+    timerStatus: 'running',
+    timerElapsedSeconds: 0,
+    timerStartedAt: new Date(serverStartedAt).toISOString(),
+  }
+
+  const clientASample = createServerClockSample({
+    serverNowMs: serverNow,
+    sampledAtMs: clientAClock,
+  })
+  const clientBSample = createServerClockSample({
+    serverNowMs: serverNow,
+    sampledAtMs: clientBClock,
+  })
+
+  assert.equal(formatMatchTimerClock(match, getServerSyncedNowMs(clientASample, clientAClock)), '0:30')
+  assert.equal(formatMatchTimerClock(match, getServerSyncedNowMs(clientBSample, clientBClock)), '0:30')
+  assert.equal(formatMatchTimerClock(match, getServerSyncedNowMs(clientASample, clientAClock + 5000)), '0:35')
+  assert.equal(formatMatchTimerClock(match, getServerSyncedNowMs(clientBSample, clientBClock + 5000)), '0:35')
+})
+
+test('server clock sync preserves frozen timer state across pause hydration half time and full time', () => {
+  const skewedClientClock = Date.parse('2026-07-08T12:01:14Z')
+  const serverNow = Date.parse('2026-07-08T12:01:00Z')
+  const sample = createServerClockSampleFromDateHeader(new Date(serverNow).toUTCString(), {
+    sampledAtMs: skewedClientClock,
+  })
+  const syncedNow = getServerSyncedNowMs(sample, skewedClientClock + 30000)
+
+  for (const timerStatus of ['paused', 'hydration', 'half_time', 'full_time']) {
+    assert.equal(formatMatchTimerClock({
+      status: timerStatus === 'full_time' ? 'full_time' : 'live',
+      timerStatus,
+      timerElapsedSeconds: 1800,
+      timerStartedAt: '2026-07-08T12:00:00Z',
+    }, syncedNow), '30:00')
+  }
 })
 
 test('timer migration adds durable columns and a locked staff RPC without client elapsed input', async () => {
@@ -139,15 +187,19 @@ test('app wiring uses the timer RPC and removes local Game Mode pause state', as
   ])
 
   assert.match(page, /setMatchDayTimerState/)
+  assert.match(page, /useServerSyncedClock/)
   assert.match(page, /formatMatchTimerClock\(match, now\)/)
   assert.match(page, /getMatchTimerMinute\(match, now\)/)
   assert.match(page, /isMatchTimerPaused\(match\)/)
   assert.match(page, /onHydrationToggle\(match, 'pause'\)/)
+  assert.doesNotMatch(page, /setLiveClockNow\(Date\.now\(\)\)/)
   assert.doesNotMatch(page, /MATCH_DAY_GAME_MODE_PAUSE_STORAGE_KEY/)
   assert.doesNotMatch(page, /gameModePauseState/)
   assert.doesNotMatch(page, /setGameModePauseState/)
 
+  assert.match(parentPortal, /useServerSyncedClock/)
   assert.match(parentPortal, /getMatchTimerMinute\(match, now\)/)
+  assert.doesNotMatch(parentPortal, /setClockNow\(Date\.now\(\)\)/)
   assert.match(domain, /supabase\.rpc\('set_match_day_timer_state'/)
   assert.match(domain, /timerStartedAt: row\.timer_started_at/)
   assert.match(domain, /timerElapsedSeconds: normalizeNonNegativeInteger\(row\.timer_elapsed_seconds/)
