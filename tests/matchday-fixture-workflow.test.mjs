@@ -451,8 +451,12 @@ test('Match Timeline uses persisted events, stable ordering, and the approved em
   const timelineSource = source.slice(timelineStart, timelineEnd)
 
   assert.match(orderingSource, /\.sort\(\(left, right\) => \{/)
-  assert.match(orderingSource, /getMatchEventSortMinute\(right\) - getMatchEventSortMinute\(left\)/)
   assert.match(orderingSource, /getMatchEventSortTime\(right\) - getMatchEventSortTime\(left\)/)
+  assert.match(orderingSource, /getMatchEventSortMinute\(right\) - getMatchEventSortMinute\(left\)/)
+  assert.ok(
+    orderingSource.indexOf('getMatchEventSortTime(right) - getMatchEventSortTime(left)')
+      < orderingSource.indexOf('getMatchEventSortMinute(right) - getMatchEventSortMinute(left)'),
+  )
   assert.match(orderingSource, /String\(right\.id \|\| ''\)\.localeCompare/)
   assert.match(timelineSource, /const timelineEvents = getOrderedMatchTimelineEvents\(events\)/)
   assert.match(timelineSource, /const visibleTimelineEvents = isExpanded \? timelineEvents : timelineEvents\.slice\(0, 3\)/)
@@ -464,6 +468,8 @@ test('Match Timeline uses persisted events, stable ordering, and the approved em
   assert.match(timelineSource, /getMatchEventDetailItems\(event\)/)
   assert.match(timelineSource, /getMatchEventBadge\(event\)/)
   assert.match(timelineSource, /event\.eventType === 'goal' && event\.eventStatus !== 'voided'/)
+  assert.match(timelineSource, /const isLatestEvent = eventIndex === 0/)
+  assert.match(timelineSource, /Undo last event/)
   assert.match(timelineSource, /isReadOnly \? \(/)
   assert.doesNotMatch(timelineSource, /slice\(0, 8\)/)
 })

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 const overlayClassName = 'fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6'
 const panelClassName =
-  'relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-[var(--text-primary)] shadow-xl shadow-[#101828]/10 ring-1 ring-white/70 sm:p-6'
+  'relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-[var(--text-primary)] shadow-xl shadow-[#101828]/10 ring-1 ring-white/70 sm:p-6'
 const closeButtonClassName =
   'absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--accent-soft)] text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)] hover:bg-[var(--panel-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60'
 const eyebrowClassName = 'text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]'
@@ -155,7 +155,7 @@ export function ConfirmModal({
         : requireReason && !reason.trim()
           ? 'Enter a reason before confirming.'
           : undefined
-  const isDestructiveAction = /delete|remove|suspend|revoke/i.test(confirmLabel)
+  const isDestructiveAction = /delete|remove|suspend|revoke|undo/i.test(confirmLabel)
   const confirmButtonClass = isDestructiveAction
     ? destructiveConfirmButtonClassName
     : defaultConfirmButtonClassName

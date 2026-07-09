@@ -2762,6 +2762,7 @@ export function MatchDayPage() {
         tone: 'error',
         message,
       })
+      throw error
     } finally {
       setActiveMatchId('')
     }
@@ -2889,22 +2890,29 @@ export function MatchDayPage() {
     })
   }
 
-  const handleVoidGoal = (match, goalEvent) => {
+  const handleVoidGoal = (match, goalEvent, { isLatestEvent = false } = {}) => {
+    const playerLabel = goalEvent.scorerName || goalEvent.scorerInitials || 'Not recorded'
+    const minuteLabel = goalEvent.minute === null || goalEvent.minute === undefined
+      ? 'Not recorded'
+      : `${goalEvent.minute}'`
+
     setPendingMatchAction({
       type: 'goalVoid',
       matchId: match.id,
       eventId: goalEvent.id,
-      title: 'Remove goal from score',
-      message: 'Remove this goal from the score while keeping the timeline history.',
-      confirmLabel: 'Remove goal',
-      itemsTitle: 'Goal removal',
-      requireReason: true,
+      title: isLatestEvent ? 'Undo last event' : 'Remove goal from score',
+      message: isLatestEvent
+        ? 'Are you sure you want to undo this event? The goal will be removed from the score and retained in the timeline as removed.'
+        : 'Remove this goal from the score while keeping the timeline history.',
+      confirmLabel: isLatestEvent ? 'Undo event' : 'Remove goal',
+      itemsTitle: isLatestEvent ? 'This will remove' : 'Goal removal',
+      requireReason: !isLatestEvent,
       reasonLabel: 'Removal reason',
       reasonPlaceholder: goalEvent.correctionReason || 'Goal entered in error',
       items: [
-        `Fixture: ${getMatchDayDisplayName(match)}`,
-        `Current score: ${getMatchDayDisplayScore(match)}`,
-        `Goal: ${getMatchEventTypeLabel(goalEvent, match)}`,
+        `Event: ${getMatchEventTypeLabel(goalEvent, match)}`,
+        `Player: ${playerLabel}`,
+        `Minute: ${minuteLabel}`,
       ],
     })
   }
@@ -4558,16 +4566,16 @@ function getOrderedMatchTimelineEvents(events) {
   return (Array.isArray(events) ? events : [])
     .slice()
     .sort((left, right) => {
-      const minuteDifference = getMatchEventSortMinute(right) - getMatchEventSortMinute(left)
-
-      if (minuteDifference !== 0) {
-        return minuteDifference
-      }
-
       const timeDifference = getMatchEventSortTime(right) - getMatchEventSortTime(left)
 
       if (timeDifference !== 0) {
         return timeDifference
+      }
+
+      const minuteDifference = getMatchEventSortMinute(right) - getMatchEventSortMinute(left)
+
+      if (minuteDifference !== 0) {
+        return minuteDifference
       }
 
       return String(right.id || '').localeCompare(String(left.id || ''))
@@ -4609,10 +4617,11 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
         </div>
       ) : (
         <div className="mt-3 space-y-2">
-          {visibleTimelineEvents.map((event) => {
+          {visibleTimelineEvents.map((event, eventIndex) => {
             const detailItems = getMatchEventDetailItems(event)
             const badge = getMatchEventBadge(event)
             const canCorrectGoal = !isReadOnly && event.eventType === 'goal' && event.eventStatus !== 'voided'
+            const isLatestEvent = eventIndex === 0
 
             return (
               <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
@@ -4633,6 +4642,11 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
                     <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Score after event: {getMatchEventScoreLabel(event)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
+                    {isLatestEvent ? (
+                      <span className="inline-flex w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
+                        Latest event
+                      </span>
+                    ) : null}
                     <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>
                       {event.eventStatus === 'voided'
                         ? 'Removed'
@@ -4649,14 +4663,14 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
                           onClick={() => onCorrectGoal(match, event)}
                           className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
                         >
-                          Edit
+                          {isLatestEvent ? 'Correct' : 'Edit'}
                         </button>
                         <button
                           type="button"
-                          onClick={() => onVoidGoal(match, event)}
+                          onClick={() => onVoidGoal(match, event, { isLatestEvent })}
                           className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#fecaca] bg-white px-3 py-1 text-xs font-black text-[#991b1b] transition hover:bg-[#fef2f2]"
                         >
-                          Remove
+                          {isLatestEvent ? 'Undo last event' : 'Remove'}
                         </button>
                       </>
                     ) : null}
