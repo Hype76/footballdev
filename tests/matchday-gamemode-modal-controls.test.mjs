@@ -43,6 +43,67 @@ test('Game Mode owns live goal and event entry through app modals', async () => 
   assert.match(cardSlice, /Manage stays focused on fixture setup, score checks, roles, availability, notes, and history/)
 })
 
+test('Game Mode modal fields prevent opponent and own-team mixed states', async () => {
+  const source = await readFile(matchDayPageUrl, 'utf8')
+  const liveEntrySlice = source.slice(
+    source.indexOf('function LiveMatchEntryModal'),
+    source.indexOf('function getMatchEventSortMinute'),
+  )
+  const goalCorrectionSlice = source.slice(
+    source.indexOf('function GoalCorrectionModal'),
+    source.indexOf('function LiveMatchEntryModal'),
+  )
+
+  assert.match(source, /function getGoalSideFormReset\(teamSide\)/)
+  assert.match(source, /function getMatchEventTeamSideFormReset\(teamSide\)/)
+  assert.match(source, /function getMatchEventPlayerLabels\(eventType, isOpponentTeamSide\)/)
+  assert.match(source, /scorerName: '',[\s\S]*scorerShirtNumber: '',[\s\S]*assistName: '',[\s\S]*assistShirtNumber: '',/)
+  assert.match(source, /playerName: '',[\s\S]*playerShirtNumber: '',/)
+
+  assert.match(liveEntrySlice, /const isOpponentGoal = goalForm\.teamSide === 'opponent'/)
+  assert.match(liveEntrySlice, /onGoalFormChange\(match\.id, getGoalSideFormReset\(event\.target\.value\)\)/)
+  assert.match(liveEntrySlice, /\{!isOpponentGoal \? \([\s\S]*Scorer player/)
+  assert.match(liveEntrySlice, /\{isOpponentGoal \? 'Opponent scorer name optional' : 'Scorer name'\}/)
+  assert.match(liveEntrySlice, /\{isOpponentGoal \? 'Opponent scorer shirt optional' : 'Scorer shirt'\}/)
+  assert.match(liveEntrySlice, /\{!isOpponentGoal \? \([\s\S]*Assist player[\s\S]*Assist name[\s\S]*Assist shirt/)
+
+  assert.match(liveEntrySlice, /const isOpponentMatchEvent = matchEventForm\.teamSide === 'opponent'/)
+  assert.match(liveEntrySlice, /const matchEventPlayerLabels = getMatchEventPlayerLabels\(matchEventForm\.eventType, isOpponentMatchEvent\)/)
+  assert.match(liveEntrySlice, /onMatchEventFormChange\(match\.id, getMatchEventTeamSideFormReset\(event\.target\.value\)\)/)
+  assert.match(liveEntrySlice, /\{matchEventPlayerLabels\.playerSelect \? \([\s\S]*onMatchEventPlayerPick/)
+  assert.match(source, /playerSelect: null,[\s\S]*playerName: 'Opponent player name optional'/)
+  assert.match(source, /playerSelect: 'Player Off',[\s\S]*playerName: 'Player Off name'[\s\S]*notes: 'Player On \/ note'/)
+
+  assert.match(goalCorrectionSlice, /const isOpponentGoal = goal\.teamSide === 'opponent'/)
+  assert.match(goalCorrectionSlice, /updateGoal\(getGoalSideFormReset\(event\.target\.value\)\)/)
+  assert.match(goalCorrectionSlice, /\{!isOpponentGoal \? \([\s\S]*Scorer player/)
+  assert.match(goalCorrectionSlice, /\{isOpponentGoal \? 'Opponent scorer name optional' : 'Scorer name'\}/)
+  assert.match(goalCorrectionSlice, /\{!isOpponentGoal \? \([\s\S]*Assist player[\s\S]*Assist name[\s\S]*Assist shirt/)
+})
+
+test('Mobile Game Mode prioritises one cockpit and removes duplicate Back controls', async () => {
+  const source = await readFile(matchDayPageUrl, 'utf8')
+  const cardSlice = source.slice(
+    source.indexOf('function MatchDayCard'),
+    source.indexOf('function LiveMatchQuickActions'),
+  )
+  const gameModeSlice = source.slice(
+    source.indexOf('function MatchDayGameModePanel'),
+    source.indexOf('function GoalCorrectionModal'),
+  )
+
+  assert.match(cardSlice, /\{isExpanded && !isGameMode \? \(/)
+  assert.match(gameModeSlice, /game-mode-cockpit/)
+  assert.match(gameModeSlice, /aria-label="Game Mode cockpit"/)
+  assert.match(gameModeSlice, /Score/)
+  assert.match(gameModeSlice, /Timer/)
+  assert.match(gameModeSlice, /Period/)
+  assert.match(gameModeSlice, /Exit Game Mode/)
+  assert.doesNotMatch(gameModeSlice, />Back</)
+  assert.match(gameModeSlice, /grid-cols-2[\s\S]*sm:grid-cols-3[\s\S]*lg:grid-cols-5/)
+  assert.match(gameModeSlice, /<MatchTimelinePanel events=\{events\} match=\{match\} isReadOnly \/>/)
+})
+
 test('Half Time, Full Time, score overwrite, goal removal, and reset use app modals only', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
   const gameModeStatusStart = source.indexOf('const handleGameModeStatusChange = async (match, status) => {')

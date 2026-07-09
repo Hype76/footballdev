@@ -56,7 +56,7 @@ test('Game Mode exposes minimal live controls and keeps full management separate
 
   assert.match(source, /function MatchDayGameModePanel/)
   assert.match(source, /Start Game Mode/)
-  for (const label of ['Goal', 'Event', 'HT', 'FT', 'Back']) {
+  for (const label of ['Goal', 'Event', 'HT', 'FT', 'Exit Game Mode']) {
     assert.match(source, new RegExp(`>${label}<`))
   }
   assert.match(source, /Assist player/)

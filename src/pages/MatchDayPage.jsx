@@ -143,6 +143,56 @@ const MATCH_EVENT_TYPE_OPTIONS = [
   { value: 'water_break', label: 'Water break', confirmLabel: 'water break' },
 ]
 
+function getGoalSideFormReset(teamSide) {
+  return {
+    teamSide: teamSide === 'opponent' ? 'opponent' : 'club',
+    scorerName: '',
+    scorerShirtNumber: '',
+    assistName: '',
+    assistShirtNumber: '',
+  }
+}
+
+function getMatchEventTeamSideFormReset(teamSide) {
+  return {
+    teamSide: teamSide === 'opponent' ? 'opponent' : 'club',
+    playerName: '',
+    playerShirtNumber: '',
+  }
+}
+
+function getMatchEventPlayerLabels(eventType, isOpponentTeamSide) {
+  if (eventType === 'substitution') {
+    return isOpponentTeamSide
+      ? {
+          playerSelect: null,
+          playerName: 'Opponent player off optional',
+          playerShirt: 'Opponent player shirt',
+          notes: 'Player On / note',
+        }
+      : {
+          playerSelect: 'Player Off',
+          playerName: 'Player Off name',
+          playerShirt: 'Player Off shirt',
+          notes: 'Player On / note',
+        }
+  }
+
+  return isOpponentTeamSide
+    ? {
+        playerSelect: null,
+        playerName: 'Opponent player name optional',
+        playerShirt: 'Opponent player shirt',
+        notes: 'Note',
+      }
+    : {
+        playerSelect: 'Player',
+        playerName: 'Player name',
+        playerShirt: 'Player shirt',
+        notes: 'Note',
+      }
+}
+
 const MATCH_DAY_ACTIVE_FIXTURE_MODE_STORAGE_KEY = 'football-player:match-day-active-fixture-mode'
 
 function getStoredActiveFixtureMode() {
@@ -3481,16 +3531,7 @@ function MatchDayCard({
             </div>
           </div>
           <div className="grid gap-2">
-            {isGameMode ? (
-              <button
-                type="button"
-                onClick={onGameModeBack}
-                disabled={isBusy}
-                className={`${primaryButtonClass} w-full sm:w-auto`}
-              >
-                Back
-              </button>
-            ) : primaryLiveAction ? (
+            {!isGameMode && primaryLiveAction ? (
               <button
                 type="button"
                 onClick={() => (
@@ -3569,7 +3610,7 @@ function MatchDayCard({
         />
       ) : null}
 
-      {isExpanded ? (
+      {isExpanded && !isGameMode ? (
         <div className="flex flex-col gap-4 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-5">
           <div className="order-6">
             <MatchDayReadinessPanel match={match} />
@@ -3991,19 +4032,32 @@ function MatchDayGameModePanel({
   const isPaused = isMatchTimerPaused(match)
   const isFullTime = match.status === 'full_time'
   const canMoveToHalfTime = match.status === 'live'
+  const matchPeriodLabel = getMatchPeriodLabel(match.status)
 
   return (
-    <div className="grid gap-4 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-5">
-      <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
+    <div className="game-mode-cockpit grid gap-3 border-t border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 sm:gap-4 sm:px-5 sm:py-4">
+      <section aria-label="Game Mode cockpit" className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className={eyebrowClass}>Game Mode</p>
-            <h5 className="mt-2 text-2xl font-black text-[#101828]">{scoreSummary}</h5>
-            <p className="mt-1 text-sm font-bold text-[#4b5f55]">
-              {liveClockLabel}
-            </p>
+            <h5 className="mt-2 text-xl font-black text-[#101828] sm:text-2xl">Live controller</h5>
           </div>
-          <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
+          <button type="button" onClick={onBack} className={secondaryButtonClass}>Exit Game Mode</button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Score</p>
+            <p className="mt-1 text-lg font-black text-[#101828] sm:text-xl">{scoreSummary}</p>
+          </div>
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Timer</p>
+            <p className="mt-1 text-lg font-black text-[#101828] sm:text-xl">{liveClockLabel}</p>
+          </div>
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Period</p>
+            <p className="mt-1 text-lg font-black text-[#101828] sm:text-xl">{matchPeriodLabel}</p>
+          </div>
         </div>
 
         {isPaused ? (
@@ -4012,7 +4066,7 @@ function MatchDayGameModePanel({
           </div>
         ) : null}
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <button type="button" onClick={() => onOpenGoalModal(match)} disabled={isBusy || isFullTime} className={primaryButtonClass}>Goal</button>
           <button type="button" onClick={() => onOpenEventModal(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>Event</button>
           <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>
@@ -4020,7 +4074,6 @@ function MatchDayGameModePanel({
           </button>
           <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={isBusy || !canMoveToHalfTime || isFullTime} className={secondaryButtonClass}>HT</button>
           <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={isBusy || isFullTime} className={secondaryButtonClass}>FT</button>
-          <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
         </div>
       </section>
       <MatchTimelinePanel events={events} match={match} isReadOnly />
@@ -4040,6 +4093,7 @@ function GoalCorrectionModal({
 }) {
   const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
   const goal = modal.goal || EMPTY_GOAL_FORM
+  const isOpponentGoal = goal.teamSide === 'opponent'
   const updateGoal = (updates) => onUpdate({ goal: updates })
   const pickPlayer = (fieldPrefix, playerId) => {
     const player = players.find((candidate) => String(candidate.id) === String(playerId))
@@ -4085,49 +4139,55 @@ function GoalCorrectionModal({
             <div className="grid gap-3 md:grid-cols-3">
               <label className="block md:col-span-3">
                 <span className={smallLabelClass}>Goal side</span>
-                <select value={goal.teamSide} onChange={(event) => updateGoal({ teamSide: event.target.value })} className={compactInputClass}>
+                <select value={goal.teamSide} onChange={(event) => updateGoal(getGoalSideFormReset(event.target.value))} className={compactInputClass}>
                   <option value="club">Our team</option>
                   <option value="opponent">Opponent</option>
                 </select>
               </label>
+              {!isOpponentGoal ? (
+                <label className="block">
+                  <span className={smallLabelClass}>Scorer player</span>
+                  <select value="" onChange={(event) => pickPlayer('scorer', event.target.value)} className={compactInputClass}>
+                    <option value="">Choose player</option>
+                    {players.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="block">
-                <span className={smallLabelClass}>Scorer player</span>
-                <select value="" onChange={(event) => pickPlayer('scorer', event.target.value)} className={compactInputClass}>
-                  <option value="">Choose player</option>
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Scorer name</span>
+                <span className={smallLabelClass}>{isOpponentGoal ? 'Opponent scorer name optional' : 'Scorer name'}</span>
                 <input value={goal.scorerName} onChange={(event) => updateGoal({ scorerName: event.target.value })} className={compactInputClass} />
               </label>
               <label className="block">
-                <span className={smallLabelClass}>Scorer shirt</span>
+                <span className={smallLabelClass}>{isOpponentGoal ? 'Opponent scorer shirt optional' : 'Scorer shirt'}</span>
                 <input value={goal.scorerShirtNumber} onChange={(event) => updateGoal({ scorerShirtNumber: event.target.value })} className={compactInputClass} />
               </label>
-              <label className="block">
-                <span className={smallLabelClass}>Assist player</span>
-                <select value="" onChange={(event) => pickPlayer('assist', event.target.value)} className={compactInputClass}>
-                  <option value="">Choose player</option>
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Assist name</span>
-                <input value={goal.assistName} onChange={(event) => updateGoal({ assistName: event.target.value })} className={compactInputClass} />
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Assist shirt</span>
-                <input value={goal.assistShirtNumber} onChange={(event) => updateGoal({ assistShirtNumber: event.target.value })} className={compactInputClass} />
-              </label>
+              {!isOpponentGoal ? (
+                <>
+                  <label className="block">
+                    <span className={smallLabelClass}>Assist player</span>
+                    <select value="" onChange={(event) => pickPlayer('assist', event.target.value)} className={compactInputClass}>
+                      <option value="">Choose player</option>
+                      {players.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className={smallLabelClass}>Assist name</span>
+                    <input value={goal.assistName} onChange={(event) => updateGoal({ assistName: event.target.value })} className={compactInputClass} />
+                  </label>
+                  <label className="block">
+                    <span className={smallLabelClass}>Assist shirt</span>
+                    <input value={goal.assistShirtNumber} onChange={(event) => updateGoal({ assistShirtNumber: event.target.value })} className={compactInputClass} />
+                  </label>
+                </>
+              ) : null}
               <label className="block">
                 <span className={smallLabelClass}>Minute</span>
                 <input type="number" min="0" max="130" value={goal.minute} onChange={(event) => updateGoal({ minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
@@ -4177,7 +4237,9 @@ function LiveMatchEntryModal({
   const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
   const goalPreview = buildStaffGoalPreview(match, goalForm)
   const isGoalMode = mode === 'goal'
+  const isOpponentGoal = goalForm.teamSide === 'opponent'
   const isOpponentMatchEvent = matchEventForm.teamSide === 'opponent'
+  const matchEventPlayerLabels = getMatchEventPlayerLabels(matchEventForm.eventType, isOpponentMatchEvent)
   const title = isGoalMode ? 'Add goal' : 'Add match event'
 
   return (
@@ -4226,49 +4288,55 @@ function LiveMatchEntryModal({
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <label className="block md:col-span-3">
                   <span className={smallLabelClass}>Goal side</span>
-                  <select value={goalForm.teamSide} onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
+                  <select value={goalForm.teamSide} onChange={(event) => onGoalFormChange(match.id, getGoalSideFormReset(event.target.value))} className={compactInputClass}>
                     <option value="club">Our team</option>
                     <option value="opponent">Opponent</option>
                   </select>
                 </label>
+                {!isOpponentGoal ? (
+                  <label className="block">
+                    <span className={smallLabelClass}>Scorer player</span>
+                    <select value="" onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)} className={compactInputClass}>
+                      <option value="">Choose player</option>
+                      {players.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="block">
-                  <span className={smallLabelClass}>Scorer player</span>
-                  <select value="" onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)} className={compactInputClass}>
-                    <option value="">Choose player</option>
-                    {players.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className={smallLabelClass}>Scorer name</span>
+                  <span className={smallLabelClass}>{isOpponentGoal ? 'Opponent scorer name optional' : 'Scorer name'}</span>
                   <input value={goalForm.scorerName} onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })} className={compactInputClass} />
                 </label>
                 <label className="block">
-                  <span className={smallLabelClass}>Scorer shirt</span>
+                  <span className={smallLabelClass}>{isOpponentGoal ? 'Opponent scorer shirt optional' : 'Scorer shirt'}</span>
                   <input value={goalForm.scorerShirtNumber} onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })} className={compactInputClass} />
                 </label>
-                <label className="block">
-                  <span className={smallLabelClass}>Assist player</span>
-                  <select value="" onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)} className={compactInputClass}>
-                    <option value="">Choose player</option>
-                    {players.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className={smallLabelClass}>Assist name</span>
-                  <input value={goalForm.assistName} onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })} className={compactInputClass} />
-                </label>
-                <label className="block">
-                  <span className={smallLabelClass}>Assist shirt</span>
-                  <input value={goalForm.assistShirtNumber} onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })} className={compactInputClass} />
-                </label>
+                {!isOpponentGoal ? (
+                  <>
+                    <label className="block">
+                      <span className={smallLabelClass}>Assist player</span>
+                      <select value="" onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)} className={compactInputClass}>
+                        <option value="">Choose player</option>
+                        {players.map((player) => (
+                          <option key={player.id} value={player.id}>
+                            {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className={smallLabelClass}>Assist name</span>
+                      <input value={goalForm.assistName} onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })} className={compactInputClass} />
+                    </label>
+                    <label className="block">
+                      <span className={smallLabelClass}>Assist shirt</span>
+                      <input value={goalForm.assistShirtNumber} onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })} className={compactInputClass} />
+                    </label>
+                  </>
+                ) : null}
                 <label className="block">
                   <span className={smallLabelClass}>Minute</span>
                   <input type="number" min="0" max="130" value={goalForm.minute} onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
@@ -4305,28 +4373,30 @@ function LiveMatchEntryModal({
                 </label>
                 <label className="block">
                   <span className={smallLabelClass}>Team</span>
-                  <select value={matchEventForm.teamSide} onChange={(event) => onMatchEventFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
+                  <select value={matchEventForm.teamSide} onChange={(event) => onMatchEventFormChange(match.id, getMatchEventTeamSideFormReset(event.target.value))} className={compactInputClass}>
                     <option value="club">Our team</option>
                     <option value="opponent">Opponent</option>
                   </select>
                 </label>
+                {matchEventPlayerLabels.playerSelect ? (
+                  <label className="block">
+                    <span className={smallLabelClass}>{matchEventPlayerLabels.playerSelect}</span>
+                    <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
+                      <option value="">Choose player</option>
+                      {players.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="block">
-                  <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player optional' : 'Player'}</span>
-                  <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
-                    <option value="">Choose player</option>
-                    {players.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player name optional' : 'Player name'}</span>
+                  <span className={smallLabelClass}>{matchEventPlayerLabels.playerName}</span>
                   <input value={matchEventForm.playerName} onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })} className={compactInputClass} />
                 </label>
                 <label className="block">
-                  <span className={smallLabelClass}>Player shirt</span>
+                  <span className={smallLabelClass}>{matchEventPlayerLabels.playerShirt}</span>
                   <input value={matchEventForm.playerShirtNumber} onChange={(event) => onMatchEventFormChange(match.id, { playerShirtNumber: event.target.value })} className={compactInputClass} />
                 </label>
                 <label className="block">
@@ -4334,7 +4404,7 @@ function LiveMatchEntryModal({
                   <input type="number" min="0" max="130" value={matchEventForm.minute} onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
                 </label>
                 <label className="block md:col-span-3">
-                  <span className={smallLabelClass}>Note</span>
+                  <span className={smallLabelClass}>{matchEventPlayerLabels.notes}</span>
                   <textarea value={matchEventForm.notes} onChange={(event) => onMatchEventFormChange(match.id, { notes: event.target.value })} className={`${compactInputClass} min-h-24`} />
                 </label>
               </div>
