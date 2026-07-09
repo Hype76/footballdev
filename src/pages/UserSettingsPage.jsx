@@ -25,7 +25,12 @@ import {
   getStoredThemeMode,
   saveThemePreferences,
 } from '../lib/theme.js'
-import { resetOnboarding } from '../lib/onboarding.js'
+import {
+  buildOnboardingPlan,
+  getOnboardingProgress,
+  loadOnboardingSnapshot,
+  openOnboarding,
+} from '../lib/onboarding.js'
 
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
@@ -52,7 +57,9 @@ export function UserSettingsPage() {
   const [isSavingEmail, setIsSavingEmail] = useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
-  const [isRestartingOnboarding, setIsRestartingOnboarding] = useState(false)
+  const [isOpeningOnboarding, setIsOpeningOnboarding] = useState(false)
+  const [onboardingSnapshot, setOnboardingSnapshot] = useState(null)
+  const [isLoadingOnboardingSnapshot, setIsLoadingOnboardingSnapshot] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
@@ -104,6 +111,43 @@ export function UserSettingsPage() {
 
     return () => window.clearTimeout(timeoutId)
   }, [successMessage])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadSetupProgress() {
+      if (!user?.id || !showSetupChecklistSettings) {
+        setOnboardingSnapshot(null)
+        return
+      }
+
+      setIsLoadingOnboardingSnapshot(true)
+
+      try {
+        const nextSnapshot = await loadOnboardingSnapshot(user)
+
+        if (isMounted) {
+          setOnboardingSnapshot(nextSnapshot)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setOnboardingSnapshot(null)
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingOnboardingSnapshot(false)
+        }
+      }
+    }
+
+    void loadSetupProgress()
+
+    return () => {
+      isMounted = false
+    }
+  }, [showSetupChecklistSettings, user, user?.activeTeamId, user?.clubId, user?.id])
 
   const handleProfileSubmit = async (event) => {
     event.preventDefault()
@@ -350,33 +394,17 @@ export function UserSettingsPage() {
 
   const getOnboardingScope = () => (canManageClubSettings(user) || canManageTeamSettings(user) ? 'workspace' : 'user')
 
-  const handleRestartSetup = async () => {
-    const scope = getOnboardingScope()
-    setIsRestartingOnboarding(true)
+  const handleOpenSetup = () => {
+    setIsOpeningOnboarding(true)
 
     try {
-      await resetOnboarding({ scope, user })
-      if (scope === 'workspace') {
-        updateCurrentUserDetails({
-          workspaceOnboardingCompletedSteps: [],
-          workspaceOnboardingDismissedAt: null,
-          workspaceOnboardingEnabled: true,
-          workspaceOnboardingResetAt: new Date().toISOString(),
-        })
-      } else {
-        updateCurrentUserDetails({
-          userOnboardingCompletedSteps: [],
-          userOnboardingDismissedAt: null,
-          userOnboardingEnabled: true,
-          userOnboardingResetAt: new Date().toISOString(),
-        })
-      }
-      showToast({ title: 'Setup checklist opened', message: 'The first-run checklist will show above the page.' })
+      openOnboarding()
+      showToast({ title: 'Setup opened', message: 'The setup checklist is available in Settings.' })
     } catch (error) {
       console.error(error)
-      showToast({ title: 'Setup checklist not opened', message: error.message || 'Could not reset setup.', tone: 'error' })
+      showToast({ title: 'Setup not opened', message: error.message || 'Could not open setup.', tone: 'error' })
     } finally {
-      setIsRestartingOnboarding(false)
+      window.setTimeout(() => setIsOpeningOnboarding(false), 250)
     }
   }
 
@@ -395,6 +423,9 @@ export function UserSettingsPage() {
       : user?.clubName || 'No club assigned'
   const onboardingScope = getOnboardingScope()
   const onboardingScopeLabel = onboardingScope === 'workspace' ? 'workspace' : 'account'
+  const onboardingPlan = buildOnboardingPlan(user, onboardingSnapshot ?? {})
+  const onboardingProgress = getOnboardingProgress(onboardingPlan)
+  const onboardingNextStep = onboardingPlan?.steps?.find((step) => !step.complete) ?? onboardingPlan?.steps?.[0] ?? null
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -448,8 +479,13 @@ export function UserSettingsPage() {
 
           {showSetupChecklistSettings ? (
             <SetupChecklistSettingsSection
-              isRestarting={isRestartingOnboarding}
-              onRestart={handleRestartSetup}
+              isHidden={Boolean(onboardingPlan?.manualState?.dismissedAt)}
+              isLoading={isLoadingOnboardingSnapshot}
+              isOpening={isOpeningOnboarding}
+              nextStep={onboardingNextStep}
+              onOpen={handleOpenSetup}
+              plan={onboardingPlan}
+              progress={onboardingProgress}
               scopeLabel={onboardingScopeLabel}
             />
           ) : null}

@@ -1376,7 +1376,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
   }, [currentPath, user?.id])
 
   useEffect(() => {
-    if (!isClubAdminSetup || !plan?.manualState?.enabled || plan.manualState?.dismissedAt || progress.isComplete) {
+    if (suppressSetup || !isClubAdminSetup || !plan?.manualState?.enabled || plan.manualState?.dismissedAt || progress.isComplete) {
       setIsClubAdminWizardOpen(false)
       return
     }
@@ -1384,7 +1384,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
     const firstIncompleteIndex = clubAdminSteps.findIndex((step) => !step.complete)
     setClubAdminWizardStepIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0)
     setIsClubAdminWizardOpen(true)
-  }, [clubAdminSteps, isClubAdminSetup, plan?.manualState?.dismissedAt, plan?.manualState?.enabled, progress.isComplete])
+  }, [clubAdminSteps, isClubAdminSetup, plan?.manualState?.dismissedAt, plan?.manualState?.enabled, progress.isComplete, suppressSetup])
 
   useEffect(() => {
     const handleOpenOnboarding = async () => {
@@ -1597,7 +1597,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
 
   return (
     <>
-      {isClubAdminSetup && isClubAdminWizardOpen && clubAdminActiveStep ? (
+      {!suppressSetup && isClubAdminSetup && isClubAdminWizardOpen && clubAdminActiveStep ? (
         <OnboardingActionModal
           action={clubAdminActiveStep}
           onCancel={() => setIsClubAdminWizardOpen(false)}

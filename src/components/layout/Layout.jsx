@@ -264,7 +264,7 @@ export function Layout() {
   const needsAccessModeSelection = !user && accessModeOptions.length > 0
   const needsClubSelection = !needsAccessModeSelection && !isSuperAdmin(user) && clubOptions.length > 1
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
-  const shouldSuppressOnboardingSetup = false
+  const shouldSuppressOnboardingSetup = location.pathname !== '/user-settings'
 
   if (shouldBypassMainShell) {
     return (
