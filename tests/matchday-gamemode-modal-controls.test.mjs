@@ -58,7 +58,7 @@ test('Game Mode modal fields prevent opponent and own-team mixed states', async 
   assert.match(source, /function getMatchEventTeamSideFormReset\(teamSide\)/)
   assert.match(source, /function getMatchEventPlayerLabels\(eventType, isOpponentTeamSide\)/)
   assert.match(source, /scorerName: '',[\s\S]*scorerShirtNumber: '',[\s\S]*assistName: '',[\s\S]*assistShirtNumber: '',/)
-  assert.match(source, /playerName: '',[\s\S]*playerShirtNumber: '',/)
+  assert.match(source, /playerId: '',[\s\S]*playerName: '',[\s\S]*playerShirtNumber: '',[\s\S]*playerOnId: '',[\s\S]*playerOnName: '',[\s\S]*playerOnShirtNumber: '',/)
 
   assert.match(liveEntrySlice, /const isOpponentGoal = goalForm\.teamSide === 'opponent'/)
   assert.match(liveEntrySlice, /onGoalFormChange\(match\.id, getGoalSideFormReset\(event\.target\.value\)\)/)
@@ -71,8 +71,8 @@ test('Game Mode modal fields prevent opponent and own-team mixed states', async 
   assert.match(liveEntrySlice, /const matchEventPlayerLabels = getMatchEventPlayerLabels\(matchEventForm\.eventType, isOpponentMatchEvent\)/)
   assert.match(liveEntrySlice, /onMatchEventFormChange\(match\.id, getMatchEventTeamSideFormReset\(event\.target\.value\)\)/)
   assert.match(liveEntrySlice, /\{matchEventPlayerLabels\.playerSelect \? \([\s\S]*onMatchEventPlayerPick/)
-  assert.match(source, /playerSelect: null,[\s\S]*playerName: 'Opponent player name optional'/)
-  assert.match(source, /playerSelect: 'Player Off',[\s\S]*playerName: 'Player Off name'[\s\S]*notes: 'Player On \/ note'/)
+  assert.match(source, /playerSelect: null,[\s\S]*playerName: 'Opponent player name optional'[\s\S]*playerOnSelect: null/)
+  assert.match(source, /playerSelect: 'Player Off',[\s\S]*playerName: 'Player Off name'[\s\S]*playerOnSelect: 'Player On'[\s\S]*playerOnName: 'Player On name'[\s\S]*notes: 'Note'/)
 
   assert.match(goalCorrectionSlice, /const isOpponentGoal = goal\.teamSide === 'opponent'/)
   assert.match(goalCorrectionSlice, /updateGoal\(getGoalSideFormReset\(event\.target\.value\)\)/)

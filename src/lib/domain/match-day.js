@@ -1423,19 +1423,22 @@ export async function addStaffMatchDayEvent({ user, match, event }) {
     throw new Error('Choose a supported Match Day event type.')
   }
 
+  const isSubstitution = eventType === 'substitution'
+  const teamSide = normalizeText(event?.teamSide) === 'opponent' ? 'opponent' : 'club'
+
   const payload = {
     match_day_id: match.id,
     club_id: match.clubId,
     team_id: match.teamId || null,
     event_type: eventType,
-    team_side: normalizeText(event?.teamSide) === 'opponent' ? 'opponent' : 'club',
+    team_side: teamSide,
     minute: assertValidMatchDayEventMinute(event?.minute),
     scorer_name: normalizeText(event?.playerName),
     scorer_initials: getInitialsFromFullName(event?.playerName),
     scorer_shirt_number: normalizeText(event?.playerShirtNumber),
-    assist_name: '',
-    assist_initials: '',
-    assist_shirt_number: '',
+    assist_name: isSubstitution ? normalizeText(event?.playerOnName) : '',
+    assist_initials: isSubstitution ? getInitialsFromFullName(event?.playerOnName) : '',
+    assist_shirt_number: isSubstitution ? normalizeText(event?.playerOnShirtNumber) : '',
     home_score: Number(match.homeScore ?? 0),
     away_score: Number(match.awayScore ?? 0),
     notes: normalizeText(event?.notes),
@@ -1466,6 +1469,7 @@ export async function addStaffMatchDayEvent({ user, match, event }) {
       teamSide: payload.team_side,
       minute: payload.minute,
       playerName: payload.scorer_name,
+      playerOnName: payload.assist_name,
       notes: payload.notes,
     },
     metadata: {
@@ -1473,11 +1477,12 @@ export async function addStaffMatchDayEvent({ user, match, event }) {
       teamSide: payload.team_side,
       minute: payload.minute,
       playerName: payload.scorer_name,
+      playerOnName: payload.assist_name,
       source: 'staff_match_day',
     },
   })
 
-  return data
+  return normalizeMatchDayEvent(data)
 }
 
 export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }) {

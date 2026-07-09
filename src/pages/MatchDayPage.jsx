@@ -135,8 +135,12 @@ const EMPTY_MATCH_EVENT_FORM = {
   eventType: 'yellow_card',
   teamSide: 'club',
   minute: '',
+  playerId: '',
   playerName: '',
   playerShirtNumber: '',
+  playerOnId: '',
+  playerOnName: '',
+  playerOnShirtNumber: '',
   notes: '',
 }
 
@@ -160,8 +164,12 @@ function getGoalSideFormReset(teamSide) {
 function getMatchEventTeamSideFormReset(teamSide) {
   return {
     teamSide: teamSide === 'opponent' ? 'opponent' : 'club',
+    playerId: '',
     playerName: '',
     playerShirtNumber: '',
+    playerOnId: '',
+    playerOnName: '',
+    playerOnShirtNumber: '',
   }
 }
 
@@ -171,14 +179,20 @@ function getMatchEventPlayerLabels(eventType, isOpponentTeamSide) {
       ? {
           playerSelect: null,
           playerName: 'Opponent player off optional',
-          playerShirt: 'Opponent player shirt',
-          notes: 'Player On / note',
+          playerShirt: 'Opponent player off shirt',
+          playerOnSelect: null,
+          playerOnName: 'Opponent player on optional',
+          playerOnShirt: 'Opponent player on shirt',
+          notes: 'Note',
         }
       : {
           playerSelect: 'Player Off',
           playerName: 'Player Off name',
           playerShirt: 'Player Off shirt',
-          notes: 'Player On / note',
+          playerOnSelect: 'Player On',
+          playerOnName: 'Player On name',
+          playerOnShirt: 'Player On shirt',
+          notes: 'Note',
         }
   }
 
@@ -187,12 +201,18 @@ function getMatchEventPlayerLabels(eventType, isOpponentTeamSide) {
         playerSelect: null,
         playerName: 'Opponent player name optional',
         playerShirt: 'Opponent player shirt',
+        playerOnSelect: null,
+        playerOnName: null,
+        playerOnShirt: null,
         notes: 'Note',
       }
     : {
         playerSelect: 'Player',
         playerName: 'Player name',
         playerShirt: 'Player shirt',
+        playerOnSelect: null,
+        playerOnName: null,
+        playerOnShirt: null,
         notes: 'Note',
       }
 }
@@ -741,6 +761,21 @@ function getMatchEventDetailItems(event) {
   const scorerLabel = event.scorerInitials || event.scorerName
   const assistLabel = event.assistInitials || event.assistName
   const playerLabel = scorerLabel ? `${scorerLabel}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}` : ''
+  const playerOnLabel = assistLabel ? `${assistLabel}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` : ''
+
+  if (event.eventType === 'substitution') {
+    const substitutionItems = [
+      event.minute !== null && event.minute !== undefined ? { label: 'Minute', value: `${event.minute}` } : null,
+      scorerLabel ? { label: 'Player Off', value: playerLabel } : null,
+      assistLabel ? { label: 'Player On', value: playerOnLabel } : null,
+      event.notes ? { label: 'Note', value: event.notes } : null,
+      event.createdByName ? { label: 'Recorded by', value: event.createdByName } : null,
+      { label: 'Time', value: formatMatchEventTimestamp(event.createdAt) },
+    ]
+
+    return substitutionItems.filter(Boolean)
+  }
+
   const items = [
     event.minute !== null && event.minute !== undefined ? { label: 'Minute', value: `${event.minute}` } : null,
     scorerLabel ? { label: event.eventType === 'goal' ? 'Scorer' : 'Player', value: playerLabel } : null,
@@ -2453,7 +2488,7 @@ export function MatchDayPage() {
     })
   }
 
-  const handleMatchEventPlayerPick = (matchId, playerId) => {
+  const handleMatchEventPlayerPick = (matchId, fieldPrefix, playerId) => {
     const player = squadPlayers.find((candidate) => String(candidate.id) === String(playerId))
 
     if (!player) {
@@ -2461,8 +2496,9 @@ export function MatchDayPage() {
     }
 
     updateMatchEventForm(matchId, {
-      playerName: player.playerName,
-      playerShirtNumber: player.shirtNumber || '',
+      [`${fieldPrefix}Id`]: player.id,
+      [`${fieldPrefix}Name`]: player.playerName,
+      [`${fieldPrefix}ShirtNumber`]: player.shirtNumber || '',
     })
   }
 
@@ -2747,6 +2783,23 @@ export function MatchDayPage() {
         key: `${match.id}:event`,
         tone: 'error',
         message: MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE,
+      })
+      return
+    }
+
+    const isOwnTeamSubstitution = formEvent.eventType === 'substitution' && formEvent.teamSide !== 'opponent'
+    if (
+      isOwnTeamSubstitution
+      && formEvent.playerId
+      && formEvent.playerOnId
+      && String(formEvent.playerId) === String(formEvent.playerOnId)
+    ) {
+      const message = 'Choose a different Player On for this substitution.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:event`,
+        tone: 'error',
+        message,
       })
       return
     }
@@ -4272,6 +4325,7 @@ function LiveMatchEntryModal({
   const isGoalMode = mode === 'goal'
   const isOpponentGoal = goalForm.teamSide === 'opponent'
   const isOpponentMatchEvent = matchEventForm.teamSide === 'opponent'
+  const isSubstitutionEvent = matchEventForm.eventType === 'substitution'
   const matchEventPlayerLabels = getMatchEventPlayerLabels(matchEventForm.eventType, isOpponentMatchEvent)
   const title = isGoalMode ? 'Add goal' : 'Add match event'
 
@@ -4419,10 +4473,10 @@ function LiveMatchEntryModal({
                 {matchEventPlayerLabels.playerSelect ? (
                   <label className="block">
                     <span className={smallLabelClass}>{matchEventPlayerLabels.playerSelect}</span>
-                    <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
+                    <select value={matchEventForm.playerId} onChange={(event) => onMatchEventPlayerPick(match.id, 'player', event.target.value)} className={compactInputClass}>
                       <option value="">Choose player</option>
                       {players.map((player) => (
-                        <option key={player.id} value={player.id}>
+                        <option key={player.id} value={player.id} disabled={isSubstitutionEvent && String(player.id) === String(matchEventForm.playerOnId)}>
                           {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
                         </option>
                       ))}
@@ -4431,12 +4485,37 @@ function LiveMatchEntryModal({
                 ) : null}
                 <label className="block">
                   <span className={smallLabelClass}>{matchEventPlayerLabels.playerName}</span>
-                  <input value={matchEventForm.playerName} onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })} className={compactInputClass} />
+                  <input value={matchEventForm.playerName} onChange={(event) => onMatchEventFormChange(match.id, { playerId: '', playerName: event.target.value })} className={compactInputClass} />
                 </label>
                 <label className="block">
                   <span className={smallLabelClass}>{matchEventPlayerLabels.playerShirt}</span>
                   <input value={matchEventForm.playerShirtNumber} onChange={(event) => onMatchEventFormChange(match.id, { playerShirtNumber: event.target.value })} className={compactInputClass} />
                 </label>
+                {matchEventPlayerLabels.playerOnSelect ? (
+                  <label className="block">
+                    <span className={smallLabelClass}>{matchEventPlayerLabels.playerOnSelect}</span>
+                    <select value={matchEventForm.playerOnId} onChange={(event) => onMatchEventPlayerPick(match.id, 'playerOn', event.target.value)} className={compactInputClass}>
+                      <option value="">Choose player</option>
+                      {players.map((player) => (
+                        <option key={player.id} value={player.id} disabled={String(player.id) === String(matchEventForm.playerId)}>
+                          {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {matchEventPlayerLabels.playerOnName ? (
+                  <label className="block">
+                    <span className={smallLabelClass}>{matchEventPlayerLabels.playerOnName}</span>
+                    <input value={matchEventForm.playerOnName} onChange={(event) => onMatchEventFormChange(match.id, { playerOnId: '', playerOnName: event.target.value })} className={compactInputClass} />
+                  </label>
+                ) : null}
+                {matchEventPlayerLabels.playerOnShirt ? (
+                  <label className="block">
+                    <span className={smallLabelClass}>{matchEventPlayerLabels.playerOnShirt}</span>
+                    <input value={matchEventForm.playerOnShirtNumber} onChange={(event) => onMatchEventFormChange(match.id, { playerOnShirtNumber: event.target.value })} className={compactInputClass} />
+                  </label>
+                ) : null}
                 <label className="block">
                   <span className={smallLabelClass}>Minute</span>
                   <input type="number" min="0" max="130" value={matchEventForm.minute} onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
