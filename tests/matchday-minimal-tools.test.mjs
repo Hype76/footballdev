@@ -66,7 +66,7 @@ test('Game Mode exposes minimal live controls and keeps full management separate
   assert.match(source, /Save event/)
   assert.match(source, /Hydration/)
   assert.match(source, /onStatusChange\(match, 'full_time'\)/)
-  assert.match(source, /Confirm full time and prepare this result for final submission/)
+  assert.match(source, /End this match and freeze the final score for the live result/)
   assert.match(timerMigration, /'water_break'/)
   assert.match(timerMigration, /'Hydration pause'/)
   assert.match(source, /onAddGoal\(event, match\)/)

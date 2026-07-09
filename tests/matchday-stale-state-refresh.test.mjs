@@ -412,7 +412,7 @@ test('staff goal void reconciliation keeps history and prevents duplicate match 
 test('staff add goal handler locally reconciles before and after canonical load without changing push send', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
   const handlerStart = source.indexOf('const handleAddGoal = async (event, match) => {')
-  const handlerEnd = source.indexOf('const handleResetPrevious = async', handlerStart)
+  const handlerEnd = source.indexOf('const openGoalCorrectionModal =', handlerStart)
   const handlerSource = source.slice(handlerStart, handlerEnd)
 
   assert.notEqual(handlerStart, -1)
@@ -540,7 +540,7 @@ test('staff fixture creation handler reconciles locally around canonical load wi
 test('staff status handler reconciles saved status before and after canonical load without changing push send', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
   const handlerStart = source.indexOf('const reconcileSavedTimerMatch = async')
-  const handlerEnd = source.indexOf('const handleScoreSave = async', handlerStart)
+  const handlerEnd = source.indexOf('const performScoreSave = async', handlerStart)
   const handlerSource = source.slice(handlerStart, handlerEnd)
 
   assert.notEqual(handlerStart, -1)
@@ -557,7 +557,7 @@ test('staff status handler reconciles saved status before and after canonical lo
 
 test('staff manual score handler reconciles saved score before and after canonical load without sending push', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
-  const handlerStart = source.indexOf('const handleScoreSave = async (match) => {')
+  const handlerStart = source.indexOf('const performScoreSave = async (match) => {')
   const handlerEnd = source.indexOf('const openVolunteerSelectionPrompt =', handlerStart)
   const handlerSource = source.slice(handlerStart, handlerEnd)
 

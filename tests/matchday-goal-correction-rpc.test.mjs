@@ -97,7 +97,10 @@ test('staff and scorer UI expose correction controls only through RPC handlers',
   const staffPage = await readFile(staffPageUrl, 'utf8')
   const parentPage = await readFile(parentPageUrl, 'utf8')
 
-  assert.match(staffPage, /const handleCorrectGoal = async \(match, goalEvent\) =>/)
+  assert.match(staffPage, /const performGoalCorrection = async \(event\) =>/)
+  assert.match(staffPage, /const handleCorrectGoal = \(match, goalEvent\) =>/)
+  assert.match(staffPage, /openGoalCorrectionModal\(match, goalEvent\)/)
+  assert.match(staffPage, /function GoalCorrectionModal/)
   assert.match(staffPage, /await correctStaffMatchDayGoal\(/)
   assert.match(staffPage, /await voidStaffMatchDayGoal\(/)
   assert.match(staffPage, /reconcileMatchDayGoalCorrectionInList/)

@@ -193,10 +193,6 @@ function normalizeVolunteerText(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
-function confirmMatchDayAction(message) {
-  return window.confirm(message)
-}
-
 function getVolunteerConfirmationCopy({ match, roleLabel, selected, volunteer }) {
   const parentName = volunteer.parentEmail || volunteer.parentName || 'this parent'
   const currentAssignment = getSelectedRoleAssignment(match, roleLabel.key)
@@ -783,71 +779,20 @@ function buildStaffGoalPreview(match = {}, goalForm = {}) {
   }
 }
 
-function promptGoalCorrectionInput(event) {
-  const teamSide = window.prompt('Goal side: club or opponent', event.teamSide || 'club')
-
-  if (teamSide === null) {
-    return null
-  }
-
-  const normalizedTeamSide = normalizeStaffGoalText(teamSide).toLowerCase()
-  if (!['club', 'opponent'].includes(normalizedTeamSide)) {
-    window.alert('Goal side must be club or opponent.')
-    return null
-  }
-
-  const scorerName = window.prompt('Scorer name', event.scorerName || '')
-  if (scorerName === null) {
-    return null
-  }
-
-  const scorerShirtNumber = window.prompt('Scorer shirt number', event.scorerShirtNumber || '')
-  if (scorerShirtNumber === null) {
-    return null
-  }
-
-  const assistName = window.prompt('Assist name', event.assistName || '')
-  if (assistName === null) {
-    return null
-  }
-
-  const assistShirtNumber = window.prompt('Assist shirt number', event.assistShirtNumber || '')
-  if (assistShirtNumber === null) {
-    return null
-  }
-
-  const minute = window.prompt('Minute, blank if not recorded', event.minute ?? '')
-  if (minute === null) {
-    return null
-  }
-
-  const trimmedMinute = normalizeStaffGoalText(minute)
-  if (trimmedMinute && (Number(trimmedMinute) < 0 || Number(trimmedMinute) > 130)) {
-    window.alert('Minute must be between 0 and 130.')
-    return null
-  }
-
-  const notes = window.prompt('Goal note', event.notes || '')
-  if (notes === null) {
-    return null
-  }
-
-  const reason = window.prompt('Correction reason', event.correctionReason || 'Corrected goal details')
-  if (reason === null) {
-    return null
-  }
-
+function buildGoalCorrectionDraft(event = {}) {
   return {
     goal: {
-      teamSide: normalizedTeamSide,
-      scorerName,
-      scorerShirtNumber,
-      assistName,
-      assistShirtNumber,
-      minute: trimmedMinute,
-      notes,
+      teamSide: ['club', 'opponent'].includes(normalizeStaffGoalText(event.teamSide).toLowerCase())
+        ? normalizeStaffGoalText(event.teamSide).toLowerCase()
+        : 'club',
+      scorerName: event.scorerName || '',
+      scorerShirtNumber: event.scorerShirtNumber || '',
+      assistName: event.assistName || '',
+      assistShirtNumber: event.assistShirtNumber || '',
+      minute: event.minute ?? '',
+      notes: event.notes || '',
     },
-    reason,
+    reason: event.correctionReason || 'Corrected goal details',
   }
 }
 
@@ -1002,11 +947,11 @@ function isLiveMatchConsoleState(match) {
 
 function getPrimaryLiveAction(match) {
   if (match.status === 'scheduled' || match.status === 'scorer_request') {
-    return { label: 'Start match', status: 'live' }
+    return { label: 'Start Match', status: 'live' }
   }
 
   if (PAUSED_MATCH_STATUSES.has(match.status)) {
-    return { label: 'Resume', status: 'second_half' }
+    return { label: 'Resume Match', status: 'second_half' }
   }
 
   return null
@@ -1595,6 +1540,11 @@ export function MatchDayPage() {
   const [activeVolunteerSelectionKey, setActiveVolunteerSelectionKey] = useState('')
   const [volunteerSelectionStatus, setVolunteerSelectionStatus] = useState(null)
   const [matchActionStatus, setMatchActionStatus] = useState(null)
+  const [liveEntryModal, setLiveEntryModal] = useState(null)
+  const [pendingStatusAction, setPendingStatusAction] = useState(null)
+  const [pendingMatchAction, setPendingMatchAction] = useState(null)
+  const [goalCorrectionModal, setGoalCorrectionModal] = useState(null)
+  const [goalCorrectionError, setGoalCorrectionError] = useState('')
   const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
   const [liveClockNow, setLiveClockNow] = useState(Date.now())
 
@@ -1671,7 +1621,14 @@ export function MatchDayPage() {
     [selectedFixtureTeamId, selectedFixtureTeamName, squadPlayers],
   )
 
-  useModalPageScrollLock(isFixtureFormOpen || squadSelection.isOpen)
+  useModalPageScrollLock(
+    isFixtureFormOpen
+      || squadSelection.isOpen
+      || Boolean(liveEntryModal)
+      || Boolean(pendingStatusAction)
+      || Boolean(pendingMatchAction)
+      || Boolean(goalCorrectionModal),
+  )
 
   useEffect(() => {
     saveActiveFixtureMode(activeFixtureMode)
@@ -2062,11 +2019,7 @@ export function MatchDayPage() {
     }
   }
 
-  const saveMatchStatus = async (match, status, { shouldConfirm = false } = {}) => {
-    if (shouldConfirm && !confirmMatchDayAction(`Change this match status to ${status.replace(/_/g, ' ')}? Parents may receive a live update.`)) {
-      return
-    }
-
+  const saveMatchStatus = async (match, status) => {
     const timerAction = getTimerActionForStatus(match, status)
     if (timerAction) {
       const timerPushType = status === 'second_half' && PAUSED_MATCH_STATUSES.has(match.status)
@@ -2122,25 +2075,91 @@ export function MatchDayPage() {
   }
 
   const handleStatusChange = async (match, status) => {
-    await saveMatchStatus(match, status, { shouldConfirm: true })
+    if (status === 'live' || status === 'second_half') {
+      await handleGameModeOpen(match)
+      return
+    }
+
+    setPendingStatusAction({
+      matchId: match.id,
+      status,
+      title: `Confirm ${getMatchStatusLabel(status).toLowerCase()}`,
+      message: `Change this match status to ${getMatchStatusLabel(status).toLowerCase()}? Parents may receive a live update.`,
+      confirmLabel: 'Confirm status',
+      items: [
+        `Fixture: ${getMatchDayDisplayName(match)}`,
+        `Current score: ${getMatchDayDisplayScore(match)}`,
+        `Current period: ${getMatchPeriodLabel(match.status)}`,
+      ],
+    })
   }
 
   const handleGameModeOpen = async (match) => {
     setGameModeMatchId(match.id)
 
     if (match.status === 'scheduled' || match.status === 'scorer_request') {
-      if (!confirmMatchDayAction('Start this match in Game Mode and begin the live clock?')) {
-        setGameModeMatchId('')
-        return
-      }
-
       await saveMatchStatus(match, 'live')
+      return
+    }
+
+    if (PAUSED_MATCH_STATUSES.has(match.status)) {
+      await saveMatchStatus(match, 'second_half')
     }
   }
 
   const handleGameModeStatusChange = async (match, status) => {
-    if (status === 'full_time' && !confirmMatchDayAction('Confirm full time and prepare this result for final submission?')) {
+    if (status === 'half_time') {
+      setPendingStatusAction({
+        matchId: match.id,
+        status,
+        title: 'Confirm half time',
+        message: 'Mark this fixture as half time and freeze the match clock at the current elapsed time.',
+        confirmLabel: 'Confirm half time',
+        items: [
+          `Fixture: ${getMatchDayDisplayName(match)}`,
+          `Current score: ${getMatchDayDisplayScore(match)}`,
+          `Timer: ${formatLiveMatchClock(match, liveClockNow)}`,
+        ],
+      })
       return
+    }
+
+    if (status === 'full_time') {
+      setPendingStatusAction({
+        matchId: match.id,
+        status,
+        title: 'Confirm full time',
+        message: 'End this match and freeze the final score for the live result.',
+        confirmLabel: 'Confirm full time',
+        items: [
+          `Fixture: ${getMatchDayDisplayName(match)}`,
+          `Final score: ${getMatchDayDisplayScore(match)}`,
+          `Timer: ${formatLiveMatchClock(match, liveClockNow)}`,
+        ],
+      })
+      return
+    }
+
+    await saveMatchStatus(match, status)
+  }
+
+  const handleConfirmStatusAction = async () => {
+    if (!pendingStatusAction) {
+      return
+    }
+
+    const match = matches.find((candidate) => candidate.id === pendingStatusAction.matchId)
+    const status = pendingStatusAction.status
+
+    setPendingStatusAction(null)
+
+    if (!match) {
+      setErrorMessage('This fixture could not be found. Refresh Match Day before trying again.')
+      return
+    }
+
+    if (status === 'live' || status === 'second_half') {
+      setGameModeMatchId(match.id)
     }
 
     await saveMatchStatus(match, status)
@@ -2159,14 +2178,6 @@ export function MatchDayPage() {
     }
 
     const action = pauseAction === 'pause' ? 'pause' : 'hydration'
-    const confirmMessage = action === 'pause'
-      ? 'Pause this match clock?'
-      : 'Pause for hydration and add a water break to the timeline?'
-
-    if (!confirmMatchDayAction(confirmMessage)) {
-      return
-    }
-
     await persistTimerAction(match, action, {
       busyKey: 'timer',
       loadingMessage: action === 'pause' ? 'Pause saving...' : 'Hydration saving...',
@@ -2175,14 +2186,10 @@ export function MatchDayPage() {
     })
   }
 
-  const handleScoreSave = async (match) => {
+  const performScoreSave = async (match) => {
     const draft = scoreDrafts[match.id] ?? {
       homeScore: match.homeScore,
       awayScore: match.awayScore,
-    }
-
-    if (!confirmMatchDayAction(`Save this score as ${draft.homeScore || 0} - ${draft.awayScore || 0} for the family portal?`)) {
-      return
     }
 
     setActiveMatchId(match.id)
@@ -2363,6 +2370,22 @@ export function MatchDayPage() {
     }))
   }
 
+  const openLiveEntryModal = (match, type) => {
+    if (!match || match.status === 'full_time') {
+      return
+    }
+
+    setGameModeMatchId(match.id)
+    setLiveEntryModal({
+      matchId: match.id,
+      type,
+    })
+  }
+
+  const closeLiveEntryModal = () => {
+    setLiveEntryModal(null)
+  }
+
   const handlePlayerPick = (matchId, fieldPrefix, playerId) => {
     const player = squadPlayers.find((candidate) => String(candidate.id) === String(playerId))
 
@@ -2396,11 +2419,6 @@ export function MatchDayPage() {
       ...formGoal,
       minute: normalizeStaffGoalText(formGoal.minute) || (getCurrentMatchMinute(match, Date.now()) ?? ''),
     }
-    const goalPreview = buildStaffGoalPreview(match, goal)
-
-    if (!confirmMatchDayAction(`Add this ${goalPreview.goalSideLabel.toLowerCase()} goal and change the score from ${goalPreview.scoreBefore} to ${goalPreview.scoreAfter}?`)) {
-      return
-    }
 
     setActiveMatchId(match.id)
     setMatchActionStatus({
@@ -2428,6 +2446,7 @@ export function MatchDayPage() {
         ...currentForms,
         [match.id]: EMPTY_GOAL_FORM,
       }))
+      setLiveEntryModal(null)
       setExpandedMatchId((currentId) => (currentId === match.id ? '' : currentId))
       try {
         await loadData()
@@ -2457,15 +2476,72 @@ export function MatchDayPage() {
     }
   }
 
-  const handleCorrectGoal = async (match, goalEvent) => {
-    const correctionInput = promptGoalCorrectionInput(goalEvent)
+  const openGoalCorrectionModal = (match, goalEvent) => {
+    setGoalCorrectionError('')
+    setGoalCorrectionModal({
+      matchId: match.id,
+      eventId: goalEvent.id,
+      ...buildGoalCorrectionDraft(goalEvent),
+    })
+  }
 
-    if (!correctionInput) {
+  const closeGoalCorrectionModal = () => {
+    setGoalCorrectionModal(null)
+    setGoalCorrectionError('')
+  }
+
+  const updateGoalCorrectionModal = (updates) => {
+    setGoalCorrectionModal((currentModal) => {
+      if (!currentModal) {
+        return currentModal
+      }
+
+      return {
+        ...currentModal,
+        ...updates,
+        goal: {
+          ...currentModal.goal,
+          ...(updates.goal || {}),
+        },
+      }
+    })
+    setGoalCorrectionError('')
+  }
+
+  const performGoalCorrection = async (event) => {
+    event.preventDefault()
+
+    if (!goalCorrectionModal) {
       return
     }
 
-    if (!confirmMatchDayAction('Save this goal correction and update the score if needed?')) {
+    const match = matches.find((candidate) => candidate.id === goalCorrectionModal.matchId)
+    const goalEvent = match?.events?.find((candidate) => candidate.id === goalCorrectionModal.eventId)
+
+    if (!match || !goalEvent) {
+      setGoalCorrectionError('This goal could not be found. Refresh Match Day before trying again.')
       return
+    }
+
+    const normalizedTeamSide = normalizeStaffGoalText(goalCorrectionModal.goal.teamSide).toLowerCase()
+    if (!['club', 'opponent'].includes(normalizedTeamSide)) {
+      setGoalCorrectionError('Goal side must be our team or opponent.')
+      return
+    }
+
+    const trimmedMinute = normalizeStaffGoalText(goalCorrectionModal.goal.minute)
+    if (trimmedMinute && (Number(trimmedMinute) < 0 || Number(trimmedMinute) > 130)) {
+      setGoalCorrectionError('Minute must be between 0 and 130.')
+      return
+    }
+
+    const correctionInput = {
+      goal: {
+        ...goalCorrectionModal.goal,
+        teamSide: normalizedTeamSide,
+        minute: trimmedMinute,
+      },
+      reason: normalizeStaffGoalText(goalCorrectionModal.reason) || 'Corrected goal details',
     }
 
     setActiveMatchId(match.id)
@@ -2505,10 +2581,12 @@ export function MatchDayPage() {
         tone: 'success',
         message: 'Goal corrected.',
       })
+      closeGoalCorrectionModal()
       showToast({ title: 'Goal corrected', message: 'The score and timeline have been updated.' })
     } catch (error) {
       console.error(error)
       const message = error.message || 'Goal could not be corrected.'
+      setGoalCorrectionError(message)
       setErrorMessage(message)
       setMatchActionStatus({
         key: `${match.id}:goal-correction`,
@@ -2520,14 +2598,15 @@ export function MatchDayPage() {
     }
   }
 
-  const handleVoidGoal = async (match, goalEvent) => {
-    const reason = window.prompt('Removal reason', goalEvent.correctionReason || 'Goal entered in error')
+  const handleCorrectGoal = (match, goalEvent) => {
+    openGoalCorrectionModal(match, goalEvent)
+  }
 
-    if (reason === null) {
-      return
-    }
+  const performVoidGoal = async (match, goalEvent, reason) => {
+    const removalReason = normalizeStaffGoalText(reason) || 'Goal entered in error'
 
-    if (!confirmMatchDayAction('Remove this goal from the score while keeping it in the timeline history?')) {
+    if (!match || !goalEvent) {
+      setErrorMessage('This goal could not be found. Refresh Match Day before trying again.')
       return
     }
 
@@ -2544,7 +2623,7 @@ export function MatchDayPage() {
         user,
         match,
         event: goalEvent,
-        reason,
+        reason: removalReason,
       })
       const reconcileVoidedGoal = (currentMatches) => reconcileMatchDayGoalCorrectionInList(currentMatches, {
         action: 'voided',
@@ -2591,11 +2670,12 @@ export function MatchDayPage() {
       minute: normalizeStaffGoalText(formEvent.minute) || (getCurrentMatchMinute(match, Date.now()) ?? ''),
     }
 
-    if (!confirmMatchDayAction(`Add this ${eventTypeOption.confirmLabel} to the match timeline?`)) {
-      return
-    }
-
     setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:event`,
+      tone: 'loading',
+      message: `Adding ${eventTypeOption.confirmLabel}...`,
+    })
     setErrorMessage('')
 
     try {
@@ -2611,6 +2691,7 @@ export function MatchDayPage() {
         ...currentForms,
         [match.id]: EMPTY_MATCH_EVENT_FORM,
       }))
+      setLiveEntryModal(null)
       try {
         await loadData()
         setMatches(reconcileSavedEvent)
@@ -2619,22 +2700,27 @@ export function MatchDayPage() {
         setMatches(reconcileSavedEvent)
         setErrorMessage(loadError.message || 'Match event was added, but the latest Match Day data could not be refreshed.')
       }
+      setMatchActionStatus({
+        key: `${match.id}:event`,
+        tone: 'success',
+        message: `${eventTypeOption.label} added.`,
+      })
       showToast({ title: 'Match event added', message: `${eventTypeOption.label} has been added to the timeline.` })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Match event could not be added.')
+      const message = error.message || 'Match event could not be added.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:event`,
+        tone: 'error',
+        message,
+      })
     } finally {
       setActiveMatchId('')
     }
   }
 
-  const handleResetPrevious = async () => {
-    const confirmed = confirmMatchDayAction('Reset previous games for the season? This hides full time results from the family portal previous games list.')
-
-    if (!confirmed) {
-      return
-    }
-
+  const performResetPrevious = async () => {
     setIsSaving(true)
     setErrorMessage('')
 
@@ -2649,6 +2735,102 @@ export function MatchDayPage() {
       setIsSaving(false)
     }
   }
+
+  const handleResetPrevious = () => {
+    setPendingMatchAction({
+      type: 'resetPrevious',
+      title: 'Reset previous games',
+      message: 'Hide full time results from the family portal previous games list for the current season reset.',
+      confirmLabel: 'Reset previous games',
+      itemsTitle: 'Previous games reset',
+      items: [
+        `Previous games: ${previousMatches.length}`,
+        'Parent results list: Full time results will be hidden',
+      ],
+    })
+  }
+
+  const handleVoidGoal = (match, goalEvent) => {
+    setPendingMatchAction({
+      type: 'goalVoid',
+      matchId: match.id,
+      eventId: goalEvent.id,
+      title: 'Remove goal from score',
+      message: 'Remove this goal from the score while keeping the timeline history.',
+      confirmLabel: 'Remove goal',
+      itemsTitle: 'Goal removal',
+      requireReason: true,
+      reasonLabel: 'Removal reason',
+      reasonPlaceholder: goalEvent.correctionReason || 'Goal entered in error',
+      items: [
+        `Fixture: ${getMatchDayDisplayName(match)}`,
+        `Current score: ${getMatchDayDisplayScore(match)}`,
+        `Goal: ${getMatchEventTypeLabel(goalEvent, match)}`,
+      ],
+    })
+  }
+
+  const handleScoreSave = (match) => {
+    const draft = scoreDrafts[match.id] ?? {
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+    }
+
+    setPendingMatchAction({
+      type: 'score',
+      matchId: match.id,
+      title: 'Confirm score update',
+      message: 'Save this score to Match Day and the family portal live score.',
+      confirmLabel: 'Save score',
+      itemsTitle: 'Score update',
+      items: [
+        `Fixture: ${getMatchDayDisplayName(match)}`,
+        `Current score: ${getMatchDayDisplayScore(match)}`,
+        `New score: ${Number(draft.homeScore || 0)} - ${Number(draft.awayScore || 0)}`,
+      ],
+    })
+  }
+
+  const handleConfirmPendingMatchAction = async (_password, reason) => {
+    const action = pendingMatchAction
+
+    if (!action) {
+      return
+    }
+
+    if (action.type === 'resetPrevious') {
+      await performResetPrevious()
+      setPendingMatchAction(null)
+      return
+    }
+
+    const match = matches.find((candidate) => candidate.id === action.matchId)
+
+    if (!match) {
+      setPendingMatchAction(null)
+      setErrorMessage('This fixture could not be found. Refresh Match Day before trying again.')
+      return
+    }
+
+    if (action.type === 'score') {
+      await performScoreSave(match)
+      setPendingMatchAction(null)
+      return
+    }
+
+    if (action.type === 'goalVoid') {
+      const goalEvent = match.events?.find((candidate) => candidate.id === action.eventId)
+      await performVoidGoal(match, goalEvent, reason)
+      setPendingMatchAction(null)
+    }
+  }
+
+  const liveEntryMatch = liveEntryModal
+    ? matches.find((candidate) => candidate.id === liveEntryModal.matchId)
+    : null
+  const goalCorrectionMatch = goalCorrectionModal
+    ? matches.find((candidate) => candidate.id === goalCorrectionModal.matchId)
+    : null
 
   return (
     <div className="space-y-5">
@@ -2823,25 +3005,19 @@ export function MatchDayPage() {
               <MatchDayCard
                 key={match.id}
                 activeMatchId={activeMatchId}
-                goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
                 isGameMode={gameModeMatchId === match.id}
                 isExpanded={expandedMatchId === match.id}
                 liveRefreshStatus={liveRefreshStatus}
                 match={match}
-                matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
                 matchActionStatus={matchActionStatus}
                 now={liveClockNow}
-                onAddGoal={handleAddGoal}
-                onAddMatchEvent={handleAddMatchEvent}
                 onCorrectGoal={handleCorrectGoal}
                 onGameModeBack={() => setGameModeMatchId('')}
                 onGameModeHydrationToggle={handleGameModeHydrationToggle}
                 onGameModeStart={handleGameModeOpen}
                 onGameModeStatusChange={handleGameModeStatusChange}
-                onGoalFormChange={updateGoalForm}
-                onMatchEventFormChange={updateMatchEventForm}
-                onMatchEventPlayerPick={handleMatchEventPlayerPick}
-                onPlayerPick={handlePlayerPick}
+                onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
+                onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
                 onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
                   ...currentDrafts,
                   [match.id]: {
@@ -2857,7 +3033,6 @@ export function MatchDayPage() {
                 onStatusChange={handleStatusChange}
                 onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
                 onVoidGoal={handleVoidGoal}
-                players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                 volunteerSelectionStatus={volunteerSelectionStatus}
               />
@@ -2976,22 +3151,16 @@ export function MatchDayPage() {
                   <MatchDayCard
                     key={match.id}
                     activeMatchId={activeMatchId}
-                  goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
                   isGameMode={false}
                   isExpanded={expandedMatchId === match.id}
                   match={match}
-                  matchEventForm={matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM}
-                  onAddGoal={handleAddGoal}
-                  onAddMatchEvent={handleAddMatchEvent}
                   onCorrectGoal={handleCorrectGoal}
                   onGameModeBack={() => setGameModeMatchId('')}
                   onGameModeHydrationToggle={handleGameModeHydrationToggle}
                   onGameModeStart={handleGameModeOpen}
                   onGameModeStatusChange={handleGameModeStatusChange}
-                  onGoalFormChange={updateGoalForm}
-                  onMatchEventFormChange={updateMatchEventForm}
-                  onMatchEventPlayerPick={handleMatchEventPlayerPick}
-                  onPlayerPick={handlePlayerPick}
+                  onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
+                  onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
                   onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
                     ...currentDrafts,
                     [match.id]: {
@@ -3007,7 +3176,6 @@ export function MatchDayPage() {
                   onStatusChange={handleStatusChange}
                   onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
                   onVoidGoal={handleVoidGoal}
-                  players={squadPlayers}
                   scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                   volunteerSelectionStatus={volunteerSelectionStatus}
                 />
@@ -3024,6 +3192,64 @@ export function MatchDayPage() {
           </div>
         ) : null}
       </section>
+
+      <ConfirmModal
+        confirmLabel={pendingStatusAction?.confirmLabel || 'Confirm'}
+        isBusy={Boolean(activeMatchId)}
+        isOpen={Boolean(pendingStatusAction)}
+        items={pendingStatusAction?.items || []}
+        itemsTitle="Match state"
+        message={pendingStatusAction?.message || ''}
+        title={pendingStatusAction?.title || 'Confirm match status'}
+        onCancel={() => setPendingStatusAction(null)}
+        onConfirm={handleConfirmStatusAction}
+      />
+
+      <ConfirmModal
+        confirmLabel={pendingMatchAction?.confirmLabel || 'Confirm'}
+        isBusy={Boolean(activeMatchId) || isSaving}
+        isOpen={Boolean(pendingMatchAction)}
+        items={pendingMatchAction?.items || []}
+        itemsTitle={pendingMatchAction?.itemsTitle || 'Match action'}
+        message={pendingMatchAction?.message || ''}
+        reasonLabel={pendingMatchAction?.reasonLabel || 'Reason'}
+        reasonPlaceholder={pendingMatchAction?.reasonPlaceholder || ''}
+        requireReason={Boolean(pendingMatchAction?.requireReason)}
+        title={pendingMatchAction?.title || 'Confirm match action'}
+        onCancel={() => setPendingMatchAction(null)}
+        onConfirm={handleConfirmPendingMatchAction}
+      />
+
+      {goalCorrectionModal && goalCorrectionMatch ? (
+        <GoalCorrectionModal
+          errorMessage={goalCorrectionError}
+          isBusy={activeMatchId === goalCorrectionMatch.id}
+          match={goalCorrectionMatch}
+          modal={goalCorrectionModal}
+          players={squadPlayers}
+          onClose={closeGoalCorrectionModal}
+          onSubmit={performGoalCorrection}
+          onUpdate={updateGoalCorrectionModal}
+        />
+      ) : null}
+
+      {liveEntryMatch ? (
+        <LiveMatchEntryModal
+          goalForm={goalForms[liveEntryMatch.id] ?? EMPTY_GOAL_FORM}
+          isBusy={activeMatchId === liveEntryMatch.id}
+          match={liveEntryMatch}
+          matchEventForm={matchEventForms[liveEntryMatch.id] ?? EMPTY_MATCH_EVENT_FORM}
+          mode={liveEntryModal.type}
+          players={squadPlayers}
+          onAddGoal={handleAddGoal}
+          onAddMatchEvent={handleAddMatchEvent}
+          onClose={closeLiveEntryModal}
+          onGoalFormChange={updateGoalForm}
+          onMatchEventFormChange={updateMatchEventForm}
+          onMatchEventPlayerPick={handleMatchEventPlayerPick}
+          onPlayerPick={handlePlayerPick}
+        />
+      ) : null}
 
       <ConfirmModal
         confirmLabel={volunteerSelectionPrompt?.confirmLabel || 'Confirm selection'}
@@ -3125,7 +3351,11 @@ function PitchsideCockpitPanel({
           {primaryLiveAction ? (
             <button
               type="button"
-              onClick={() => onStatusChange(match, primaryLiveAction.status)}
+              onClick={() => (
+                primaryLiveAction.status === 'live' || primaryLiveAction.status === 'second_half'
+                  ? onGameModeStart(match)
+                  : onStatusChange(match, primaryLiveAction.status)
+              )}
               disabled={isBusy}
               className={primaryButtonClass}
             >
@@ -3157,32 +3387,25 @@ function PitchsideCockpitPanel({
 function MatchDayCard({
   activeMatchId,
   activeVolunteerSelectionKey,
-  goalForm,
   isGameMode,
   isExpanded,
   liveRefreshStatus,
   match,
-  matchEventForm,
   matchActionStatus,
   now,
-  onAddGoal,
-  onAddMatchEvent,
   onCorrectGoal,
   onGameModeBack,
   onGameModeHydrationToggle,
   onGameModeStart,
   onGameModeStatusChange,
-  onGoalFormChange,
-  onMatchEventFormChange,
-  onMatchEventPlayerPick,
-  onPlayerPick,
+  onOpenEventModal,
+  onOpenGoalModal,
   onScoreDraftChange,
   onScoreSave,
   onVolunteerSelection,
   onStatusChange,
   onToggle,
   onVoidGoal,
-  players,
   scoreDraft,
   volunteerSelectionStatus,
 }) {
@@ -3198,14 +3421,12 @@ function MatchDayCard({
   const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
   const displayParts = getMatchDayDisplayParts(match)
   const scoreSummary = getMatchDayDisplayScore(match)
-  const goalPreview = buildStaffGoalPreview(match, goalForm)
   const locationSummary = getMatchLocationSummary(match)
   const primaryLiveAction = getPrimaryLiveAction(match)
   const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
   const isLiveConsole = isLiveMatchConsoleState(match)
   const matchPeriodLabel = getMatchPeriodLabel(match.status)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
-  const isOpponentMatchEvent = matchEventForm.teamSide === 'opponent'
 
   return (
     <article className={`overflow-hidden rounded-lg border shadow-sm shadow-[#047857]/10 ${isLiveConsole ? 'border-[#047857] bg-[#f8fffb]' : 'border-[#d7e5dc] bg-white'}`}>
@@ -3276,7 +3497,11 @@ function MatchDayCard({
             ) : primaryLiveAction ? (
               <button
                 type="button"
-                onClick={() => onStatusChange(match, primaryLiveAction.status)}
+                onClick={() => (
+                  primaryLiveAction.status === 'live' || primaryLiveAction.status === 'second_half'
+                    ? onGameModeStart(match)
+                    : onStatusChange(match, primaryLiveAction.status)
+                )}
                 disabled={isBusy}
                 className={`${primaryButtonClass} w-full sm:w-auto`}
               >
@@ -3334,21 +3559,14 @@ function MatchDayCard({
 
       {isGameMode ? (
           <MatchDayGameModePanel
-          goalForm={goalForm}
           isBusy={isBusy}
-          matchEventForm={matchEventForm}
           match={match}
           now={now}
-          onAddGoal={onAddGoal}
-          onAddMatchEvent={onAddMatchEvent}
           onBack={onGameModeBack}
-          onGoalFormChange={onGoalFormChange}
-          onMatchEventFormChange={onMatchEventFormChange}
-          onMatchEventPlayerPick={onMatchEventPlayerPick}
           onHydrationToggle={onGameModeHydrationToggle}
-          onPlayerPick={onPlayerPick}
+          onOpenEventModal={onOpenEventModal}
+          onOpenGoalModal={onOpenGoalModal}
           onStatusChange={onGameModeStatusChange}
-          players={players}
         />
       ) : null}
 
@@ -3661,265 +3879,22 @@ function MatchDayCard({
             </div>
           </section>
 
-          <form className={`${panelClass} order-3`} onSubmit={(event) => onAddGoal(event, match)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
-                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                  {goalPreview.goalSideLabel} goal for {goalPreview.goalSideName}
-                </p>
-              </div>
-              <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-                Result if saved: {goalPreview.scoreAfter}
-              </span>
-            </div>
-
-            <div className="mt-3 border-t border-[#d7e5dc] pt-3">
-              <p className={smallLabelClass}>Goal side</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {[
-                  { label: 'Our team', value: 'club' },
-                  { label: 'Opponent', value: 'opponent' },
-                ].map((option) => {
-                  const isSelected = goalPreview.teamSide === option.value
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      aria-pressed={isSelected}
-                      onClick={() => onGoalFormChange(match.id, { teamSide: option.value })}
-                      className={`min-h-10 rounded-lg border px-3 py-2 text-left text-sm font-black transition ${
-                        isSelected
-                          ? 'border-[#047857] bg-[#ecfdf5] text-[#047857]'
-                          : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#0f9f6e] hover:bg-[#f7faf8]'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-3 border-t border-[#d7e5dc] pt-3 md:grid-cols-3">
-              <label className="block">
-                <span className={smallLabelClass}>Scorer player</span>
-                <select
-                  value=""
-                  onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)}
-                  className={compactInputClass}
-                >
-                  <option value="">Choose player</option>
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Scorer name</span>
-                <input
-                  value={goalForm.scorerName}
-                  onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })}
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Scorer shirt</span>
-                <input
-                  value={goalForm.scorerShirtNumber}
-                  onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })}
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Assist player</span>
-                <select
-                  value=""
-                  onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)}
-                  className={compactInputClass}
-                >
-                  <option value="">Choose player</option>
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Assist name</span>
-                <input
-                  value={goalForm.assistName}
-                  onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })}
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Assist shirt</span>
-                <input
-                  value={goalForm.assistShirtNumber}
-                  onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })}
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Minute</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="130"
-                  value={goalForm.minute}
-                  onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })}
-                  placeholder="Auto"
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block md:col-span-2">
-                <span className={smallLabelClass}>Note</span>
-                <textarea
-                  value={goalForm.notes}
-                  onChange={(event) => onGoalFormChange(match.id, { notes: event.target.value })}
-                  className={`${compactInputClass} min-h-20`}
-                />
-              </label>
+          <section className={`${panelClass} order-3`}>
+            <h5 className="text-sm font-black text-[#101828]">Live scoring</h5>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+              Use Game Mode for goals, cards, substitutions, hydration, half time, and full time. Manage stays focused on fixture setup, score checks, roles, availability, notes, and history.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <button
-                type="submit"
-                disabled={isBusy}
-                className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => onGameModeStart(match)}
+                disabled={isBusy || match.status === 'full_time'}
+                className={`${primaryButtonClass} w-full sm:w-auto`}
               >
-                Add goal
+                {isLiveConsole ? 'Open Game Mode' : 'Start Match'}
               </button>
             </div>
-
-            <div className="mt-3 grid gap-3 border-t border-[#d7e5dc] pt-3 lg:grid-cols-[0.9fr_1.1fr]">
-              <div>
-                <p className={smallLabelClass}>Score preview</p>
-                <p className="text-2xl font-black text-[#101828]">{goalPreview.scoreBefore} to {goalPreview.scoreAfter}</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                  Home after save: {goalPreview.homeScore}. Away after save: {goalPreview.awayScore}.
-                </p>
-              </div>
-              <dl className="grid gap-2 sm:grid-cols-2">
-                {[
-                  ['Scorer', goalPreview.scorerPreview],
-                  ['Assist', goalPreview.assistPreview],
-                  ['Minute', goalPreview.minutePreview],
-                  ['Note', goalPreview.notePreview],
-                ].map(([label, value]) => (
-                  <div key={label} className="border-l-2 border-[#d7e5dc] pl-3">
-                    <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-[#047857]">{label}</dt>
-                    <dd className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </form>
-
-          <form className={`${panelClass} order-4`} onSubmit={(event) => onAddMatchEvent(event, match)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h5 className="text-sm font-black text-[#101828]">Add match event</h5>
-                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                  Cards, substitutions, and water breaks are timeline-only entries.
-                </p>
-              </div>
-              <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-                Score unchanged
-              </span>
-            </div>
-            {isOpponentMatchEvent ? (
-              <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-bold leading-5 text-[#4b5f55]">
-                Opponent player details can stay blank. The timeline will use {getOpponentMatchName(match)} when a name is not available.
-              </p>
-            ) : null}
-
-            <div className="mt-3 grid gap-3 border-t border-[#d7e5dc] pt-3 md:grid-cols-4">
-              <label className="block">
-                <span className={smallLabelClass}>Event type</span>
-                <select
-                  value={matchEventForm.eventType}
-                  onChange={(event) => onMatchEventFormChange(match.id, { eventType: event.target.value })}
-                  className={compactInputClass}
-                >
-                  {MATCH_EVENT_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Team</span>
-                <select
-                  value={matchEventForm.teamSide}
-                  onChange={(event) => onMatchEventFormChange(match.id, { teamSide: event.target.value })}
-                  className={compactInputClass}
-                >
-                  <option value="club">Our team</option>
-                  <option value="opponent">Opponent</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player optional' : 'Player'}</span>
-                <select
-                  value=""
-                  onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)}
-                  className={compactInputClass}
-                >
-                  <option value="">Choose player</option>
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player name optional' : 'Player name'}</span>
-                <input
-                  value={matchEventForm.playerName}
-                  onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })}
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Player shirt</span>
-                <input
-                  value={matchEventForm.playerShirtNumber}
-                  onChange={(event) => onMatchEventFormChange(match.id, { playerShirtNumber: event.target.value })}
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Minute</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="130"
-                  value={matchEventForm.minute}
-                  onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })}
-                  placeholder="Auto"
-                  className={compactInputClass}
-                />
-              </label>
-              <label className="block md:col-span-2">
-                <span className={smallLabelClass}>Note</span>
-                <textarea
-                  value={matchEventForm.notes}
-                  onChange={(event) => onMatchEventFormChange(match.id, { notes: event.target.value })}
-                  className={`${compactInputClass} min-h-20`}
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={isBusy}
-                className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#101828] px-4 py-2 text-sm font-black text-white transition hover:bg-[#24324a] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Add event
-              </button>
-            </div>
-          </form>
+          </section>
 
           <div className="order-5">
             <MatchTimelinePanel
@@ -3945,8 +3920,6 @@ function LiveMatchQuickActions({
   onToggle,
 }) {
   const isPaused = isMatchTimerPaused(match)
-  const canMoveToHalfTime = match.status === 'live'
-
   const handlePauseResume = () => {
     if (PAUSED_MATCH_STATUSES.has(match.status)) {
       onStatusChange(match, 'second_half')
@@ -3973,12 +3946,14 @@ function LiveMatchQuickActions({
         <div>
           <p className={eyebrowClass}>Live actions</p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-          <button type="button" onClick={openManagePanel} className={primaryButtonClass}>
-            Add goal
-          </button>
-          <button type="button" onClick={openManagePanel} className={secondaryButtonClass}>
-            Add event/card
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => onGameModeStart(match)}
+            disabled={isBusy || match.status === 'full_time'}
+            className={primaryButtonClass}
+          >
+            Open Game Mode
           </button>
           <button
             type="button"
@@ -3990,27 +3965,10 @@ function LiveMatchQuickActions({
           </button>
           <button
             type="button"
-            onClick={() => onStatusChange(match, 'half_time')}
-            disabled={isBusy || !canMoveToHalfTime}
+            onClick={openManagePanel}
             className={secondaryButtonClass}
           >
-            Half time
-          </button>
-          <button
-            type="button"
-            onClick={() => onStatusChange(match, 'full_time')}
-            disabled={isBusy}
-            className={secondaryButtonClass}
-          >
-            Full time
-          </button>
-          <button
-            type="button"
-            onClick={() => onGameModeStart(match)}
-            disabled={isBusy || match.status === 'full_time'}
-            className={secondaryButtonClass}
-          >
-            Open Game Mode
+            Manage fixture
           </button>
         </div>
       </div>
@@ -4019,29 +3977,20 @@ function LiveMatchQuickActions({
 }
 
 function MatchDayGameModePanel({
-  goalForm,
   isBusy,
   match,
-  matchEventForm,
-  onAddGoal,
-  onAddMatchEvent,
   onBack,
-  onGoalFormChange,
-  onMatchEventFormChange,
-  onMatchEventPlayerPick,
   onHydrationToggle,
-  onPlayerPick,
+  onOpenEventModal,
+  onOpenGoalModal,
   onStatusChange,
   now,
-  players,
 }) {
-  const [activeFlow, setActiveFlow] = useState('')
   const scoreSummary = getMatchDayDisplayScore(match)
   const liveClockLabel = formatLiveMatchClock(match, now)
   const isPaused = isMatchTimerPaused(match)
   const isFullTime = match.status === 'full_time'
   const canMoveToHalfTime = match.status === 'live'
-  const isOpponentGameModeEvent = matchEventForm.teamSide === 'opponent'
 
   return (
     <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-5">
@@ -4057,9 +4006,15 @@ function MatchDayGameModePanel({
           <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
         </div>
 
+        {isPaused ? (
+          <div className="mt-4 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-black text-[#92400e]">
+            Match clock paused. Use Resume to continue from the frozen time.
+          </div>
+        ) : null}
+
         <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <button type="button" onClick={() => setActiveFlow((current) => (current === 'goal' ? '' : 'goal'))} disabled={isFullTime} className={primaryButtonClass}>Goal</button>
-          <button type="button" onClick={() => setActiveFlow((current) => (current === 'card' ? '' : 'card'))} disabled={isFullTime} className={secondaryButtonClass}>Event</button>
+          <button type="button" onClick={() => onOpenGoalModal(match)} disabled={isBusy || isFullTime} className={primaryButtonClass}>Goal</button>
+          <button type="button" onClick={() => onOpenEventModal(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>Event</button>
           <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>
             {isPaused ? 'Resume' : 'Hydration'}
           </button>
@@ -4067,106 +4022,330 @@ function MatchDayGameModePanel({
           <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={isBusy || isFullTime} className={secondaryButtonClass}>FT</button>
           <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
         </div>
+      </section>
+    </div>
+  )
+}
 
-        {activeFlow === 'goal' ? (
-          <form className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" onSubmit={(event) => onAddGoal(event, match)}>
+function GoalCorrectionModal({
+  errorMessage,
+  isBusy,
+  match,
+  modal,
+  onClose,
+  onSubmit,
+  onUpdate,
+  players,
+}) {
+  const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
+  const goal = modal.goal || EMPTY_GOAL_FORM
+  const updateGoal = (updates) => onUpdate({ goal: updates })
+  const pickPlayer = (fieldPrefix, playerId) => {
+    const player = players.find((candidate) => String(candidate.id) === String(playerId))
+
+    if (!player) {
+      return
+    }
+
+    updateGoal({
+      [`${fieldPrefix}Name`]: player.playerName,
+      [`${fieldPrefix}ShirtNumber`]: player.shirtNumber || '',
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-x-0 top-[var(--fixture-modal-viewport-top)] z-50 box-border flex h-[var(--fixture-modal-viewport-height)] items-stretch justify-center overflow-hidden bg-[#101828]/55 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:inset-0 sm:h-auto sm:items-center sm:px-4 sm:py-6"
+      style={viewportStyle}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goal-correction-title"
+        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]"
+      >
+        <div className="shrink-0 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className={eyebrowClass}>Match Timeline</p>
+              <h3 id="goal-correction-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Edit goal</h3>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+                {getMatchDayDisplayName(match)}
+              </p>
+            </div>
+            <button type="button" onClick={onClose} disabled={isBusy} className={secondaryButtonClass}>
+              Close
+            </button>
+          </div>
+        </div>
+
+        <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={onSubmit}>
+          <div className={`${isKeyboardOpen ? 'scroll-pb-8' : 'scroll-pb-32'} min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6`}>
             <div className="grid gap-3 md:grid-cols-3">
-              <label className="block">
+              <label className="block md:col-span-3">
                 <span className={smallLabelClass}>Goal side</span>
-                <select value={goalForm.teamSide} onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
+                <select value={goal.teamSide} onChange={(event) => updateGoal({ teamSide: event.target.value })} className={compactInputClass}>
                   <option value="club">Our team</option>
                   <option value="opponent">Opponent</option>
                 </select>
               </label>
               <label className="block">
-                <span className={smallLabelClass}>Scorer</span>
-                <select value="" onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)} className={compactInputClass}>
+                <span className={smallLabelClass}>Scorer player</span>
+                <select value="" onChange={(event) => pickPlayer('scorer', event.target.value)} className={compactInputClass}>
                   <option value="">Choose player</option>
-                  {players.map((player) => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
+                  {players.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                    </option>
+                  ))}
                 </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Assist player</span>
-                <select value="" onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)} className={compactInputClass}>
-                  <option value="">Choose player</option>
-                  {players.map((player) => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Minute</span>
-                <input type="number" min="0" max="130" value={goalForm.minute} onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })} placeholder="Auto" className={compactInputClass} />
               </label>
               <label className="block">
                 <span className={smallLabelClass}>Scorer name</span>
-                <input value={goalForm.scorerName} onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })} className={compactInputClass} />
+                <input value={goal.scorerName} onChange={(event) => updateGoal({ scorerName: event.target.value })} className={compactInputClass} />
               </label>
               <label className="block">
                 <span className={smallLabelClass}>Scorer shirt</span>
-                <input value={goalForm.scorerShirtNumber} onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })} className={compactInputClass} />
+                <input value={goal.scorerShirtNumber} onChange={(event) => updateGoal({ scorerShirtNumber: event.target.value })} className={compactInputClass} />
+              </label>
+              <label className="block">
+                <span className={smallLabelClass}>Assist player</span>
+                <select value="" onChange={(event) => pickPlayer('assist', event.target.value)} className={compactInputClass}>
+                  <option value="">Choose player</option>
+                  {players.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block">
                 <span className={smallLabelClass}>Assist name</span>
-                <input value={goalForm.assistName} onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })} className={compactInputClass} />
+                <input value={goal.assistName} onChange={(event) => updateGoal({ assistName: event.target.value })} className={compactInputClass} />
               </label>
               <label className="block">
                 <span className={smallLabelClass}>Assist shirt</span>
-                <input value={goalForm.assistShirtNumber} onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })} className={compactInputClass} />
-              </label>
-              <div className="grid grid-cols-2 gap-2 md:items-end">
-                <button type="button" onClick={() => setActiveFlow('')} className={secondaryButtonClass}>Cancel</button>
-                <button type="submit" disabled={isBusy} className={primaryButtonClass}>Save goal</button>
-              </div>
-            </div>
-          </form>
-        ) : null}
-
-        {activeFlow === 'card' ? (
-          <form className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" onSubmit={(event) => onAddMatchEvent(event, match)}>
-            {isOpponentGameModeEvent ? (
-              <p className="mb-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-bold leading-5 text-[#4b5f55]">
-                Opponent player details can stay blank. The timeline will use {getOpponentMatchName(match)} when a name is not available.
-              </p>
-            ) : null}
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="block">
-                <span className={smallLabelClass}>Event type</span>
-                <select value={matchEventForm.eventType} onChange={(event) => onMatchEventFormChange(match.id, { eventType: event.target.value })} className={compactInputClass}>
-                  {MATCH_EVENT_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>Team</span>
-                <select value={matchEventForm.teamSide} onChange={(event) => onMatchEventFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
-                  <option value="club">Our team</option>
-                  <option value="opponent">Opponent</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className={smallLabelClass}>{isOpponentGameModeEvent ? 'Opponent player optional' : 'Player'}</span>
-                <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
-                  <option value="">Choose player</option>
-                  {players.map((player) => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
-                </select>
+                <input value={goal.assistShirtNumber} onChange={(event) => updateGoal({ assistShirtNumber: event.target.value })} className={compactInputClass} />
               </label>
               <label className="block">
                 <span className={smallLabelClass}>Minute</span>
-                <input type="number" min="0" max="130" value={matchEventForm.minute} onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })} placeholder="Auto" className={compactInputClass} />
+                <input type="number" min="0" max="130" value={goal.minute} onChange={(event) => updateGoal({ minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
               </label>
-              <label className="block">
-                <span className={smallLabelClass}>{isOpponentGameModeEvent ? 'Opponent player name optional' : 'Player name'}</span>
-                <input value={matchEventForm.playerName} onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })} className={compactInputClass} />
+              <label className="block md:col-span-2">
+                <span className={smallLabelClass}>Note</span>
+                <textarea value={goal.notes} onChange={(event) => updateGoal({ notes: event.target.value })} className={`${compactInputClass} min-h-24`} />
               </label>
-              <label className="block">
-                <span className={smallLabelClass}>Shirt</span>
-                <input value={matchEventForm.playerShirtNumber} onChange={(event) => onMatchEventFormChange(match.id, { playerShirtNumber: event.target.value })} className={compactInputClass} />
+              <label className="block md:col-span-3">
+                <span className={smallLabelClass}>Correction reason</span>
+                <textarea value={modal.reason} onChange={(event) => onUpdate({ reason: event.target.value })} className={`${compactInputClass} min-h-24`} />
               </label>
-              <div className="grid grid-cols-2 gap-2 md:items-end">
-                <button type="button" onClick={() => setActiveFlow('')} className={secondaryButtonClass}>Cancel</button>
-                <button type="submit" disabled={isBusy} className={primaryButtonClass}>Save event</button>
+            </div>
+            {errorMessage ? (
+              <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {errorMessage}
+              </div>
+            ) : null}
+          </div>
+          <div className="shrink-0 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:px-6">
+            <div className="grid gap-2 sm:grid-cols-[auto_auto] sm:justify-end">
+              <button type="button" onClick={onClose} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
+              <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save correction'}</button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+function LiveMatchEntryModal({
+  goalForm,
+  isBusy,
+  match,
+  matchEventForm,
+  mode,
+  onAddGoal,
+  onAddMatchEvent,
+  onClose,
+  onGoalFormChange,
+  onMatchEventFormChange,
+  onMatchEventPlayerPick,
+  onPlayerPick,
+  players,
+}) {
+  const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
+  const goalPreview = buildStaffGoalPreview(match, goalForm)
+  const isGoalMode = mode === 'goal'
+  const isOpponentMatchEvent = matchEventForm.teamSide === 'opponent'
+  const title = isGoalMode ? 'Add goal' : 'Add match event'
+
+  return (
+    <div
+      className="fixed inset-x-0 top-[var(--fixture-modal-viewport-top)] z-50 box-border flex h-[var(--fixture-modal-viewport-height)] items-stretch justify-center overflow-hidden bg-[#101828]/55 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:inset-0 sm:h-auto sm:items-center sm:px-4 sm:py-6"
+      style={viewportStyle}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="live-entry-title"
+        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]"
+      >
+        <div className="shrink-0 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className={eyebrowClass}>Game Mode</p>
+              <h3 id="live-entry-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{title}</h3>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+                {getMatchDayDisplayName(match)}
+              </p>
+            </div>
+            <button type="button" onClick={onClose} disabled={isBusy} className={secondaryButtonClass}>
+              Close
+            </button>
+          </div>
+        </div>
+
+        {isGoalMode ? (
+          <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={(event) => onAddGoal(event, match)}>
+            <div className={`${isKeyboardOpen ? 'scroll-pb-8' : 'scroll-pb-32'} min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6`}>
+              <div className="grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3 sm:grid-cols-2">
+                <div>
+                  <p className={smallLabelClass}>Score preview</p>
+                  <p className="text-2xl font-black text-[#101828]">{goalPreview.scoreBefore} to {goalPreview.scoreAfter}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                    {goalPreview.goalSideLabel} goal for {goalPreview.goalSideName}.
+                  </p>
+                </div>
+                <dl className="grid gap-2">
+                  <DetailItem label="Minute" value={goalPreview.minutePreview} />
+                  <DetailItem label="Scorer" value={goalPreview.scorerPreview} />
+                </dl>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <label className="block md:col-span-3">
+                  <span className={smallLabelClass}>Goal side</span>
+                  <select value={goalForm.teamSide} onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
+                    <option value="club">Our team</option>
+                    <option value="opponent">Opponent</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Scorer player</span>
+                  <select value="" onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)} className={compactInputClass}>
+                    <option value="">Choose player</option>
+                    {players.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Scorer name</span>
+                  <input value={goalForm.scorerName} onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })} className={compactInputClass} />
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Scorer shirt</span>
+                  <input value={goalForm.scorerShirtNumber} onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })} className={compactInputClass} />
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Assist player</span>
+                  <select value="" onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)} className={compactInputClass}>
+                    <option value="">Choose player</option>
+                    {players.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Assist name</span>
+                  <input value={goalForm.assistName} onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })} className={compactInputClass} />
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Assist shirt</span>
+                  <input value={goalForm.assistShirtNumber} onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })} className={compactInputClass} />
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Minute</span>
+                  <input type="number" min="0" max="130" value={goalForm.minute} onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className={smallLabelClass}>Note</span>
+                  <textarea value={goalForm.notes} onChange={(event) => onGoalFormChange(match.id, { notes: event.target.value })} className={`${compactInputClass} min-h-24`} />
+                </label>
+              </div>
+            </div>
+            <div className="shrink-0 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:px-6">
+              <div className="grid gap-2 sm:grid-cols-[auto_auto] sm:justify-end">
+                <button type="button" onClick={onClose} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save goal'}</button>
               </div>
             </div>
           </form>
-        ) : null}
+        ) : (
+          <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={(event) => onAddMatchEvent(event, match)}>
+            <div className={`${isKeyboardOpen ? 'scroll-pb-8' : 'scroll-pb-32'} min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6`}>
+              {isOpponentMatchEvent ? (
+                <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-xs font-bold leading-5 text-[#4b5f55]">
+                  Opponent player details can stay blank. The timeline will use {getOpponentMatchName(match)} when a name is not available.
+                </p>
+              ) : null}
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <label className="block">
+                  <span className={smallLabelClass}>Event type</span>
+                  <select value={matchEventForm.eventType} onChange={(event) => onMatchEventFormChange(match.id, { eventType: event.target.value })} className={compactInputClass}>
+                    {MATCH_EVENT_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Team</span>
+                  <select value={matchEventForm.teamSide} onChange={(event) => onMatchEventFormChange(match.id, { teamSide: event.target.value })} className={compactInputClass}>
+                    <option value="club">Our team</option>
+                    <option value="opponent">Opponent</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player optional' : 'Player'}</span>
+                  <select value="" onChange={(event) => onMatchEventPlayerPick(match.id, event.target.value)} className={compactInputClass}>
+                    <option value="">Choose player</option>
+                    {players.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>{isOpponentMatchEvent ? 'Opponent player name optional' : 'Player name'}</span>
+                  <input value={matchEventForm.playerName} onChange={(event) => onMatchEventFormChange(match.id, { playerName: event.target.value })} className={compactInputClass} />
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Player shirt</span>
+                  <input value={matchEventForm.playerShirtNumber} onChange={(event) => onMatchEventFormChange(match.id, { playerShirtNumber: event.target.value })} className={compactInputClass} />
+                </label>
+                <label className="block">
+                  <span className={smallLabelClass}>Minute</span>
+                  <input type="number" min="0" max="130" value={matchEventForm.minute} onChange={(event) => onMatchEventFormChange(match.id, { minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
+                </label>
+                <label className="block md:col-span-3">
+                  <span className={smallLabelClass}>Note</span>
+                  <textarea value={matchEventForm.notes} onChange={(event) => onMatchEventFormChange(match.id, { notes: event.target.value })} className={`${compactInputClass} min-h-24`} />
+                </label>
+              </div>
+            </div>
+            <div className="shrink-0 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:px-6">
+              <div className="grid gap-2 sm:grid-cols-[auto_auto] sm:justify-end">
+                <button type="button" onClick={onClose} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save event'}</button>
+              </div>
+            </div>
+          </form>
+        )}
       </section>
     </div>
   )
