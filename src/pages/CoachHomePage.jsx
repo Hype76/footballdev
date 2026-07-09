@@ -52,7 +52,10 @@ function saveCoachModePreference(isCoachMode) {
 
 function CoachModeToggle({ isCoachMode, onChange }) {
   return (
-    <div className="rounded-lg border border-[#d7e5dc] bg-white p-1 shadow-sm shadow-[#047857]/10">
+    <div
+      className="grid w-full grid-cols-2 gap-1 rounded-lg border border-[#d7e5dc] bg-white p-1 shadow-sm shadow-[#047857]/10"
+      aria-label="Coach mode display"
+    >
       {[
         { label: 'Coach Mode', value: true },
         { label: 'Full Mode', value: false },
@@ -62,7 +65,7 @@ function CoachModeToggle({ isCoachMode, onChange }) {
           type="button"
           onClick={() => onChange(option.value)}
           aria-pressed={isCoachMode === option.value}
-          className={`min-h-10 rounded-md px-3 py-2 text-sm font-black transition ${
+          className={`min-h-10 w-full min-w-0 rounded-md px-3 py-2 text-center text-sm font-black transition ${
             isCoachMode === option.value
               ? 'bg-[#047857] text-white'
               : 'bg-white text-[#101828] hover:bg-[#ecfdf5]'

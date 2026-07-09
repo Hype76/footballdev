@@ -88,6 +88,12 @@ test('Coach Mode is a local UI preference and filters quick actions only', async
   assert.match(layout, /!isCoachMode \|\| action\.coachModeVisible === true/)
   assert.match(coachHome, /Coach Mode/)
   assert.match(coachHome, /Full Mode/)
+  assert.match(coachHome, /className="grid w-full grid-cols-2 gap-1/)
+  assert.match(coachHome, /aria-label="Coach mode display"/)
+  assert.match(coachHome, /className={`min-h-10 w-full min-w-0 rounded-md px-3 py-2 text-center/)
+  assert.match(coachHome, /aria-pressed={isCoachMode === option\.value}/)
+  assert.match(coachHome, /onClick={\(\) => onChange\(option\.value\)}/)
+  assert.match(coachHome, /window\.localStorage\.setItem\(COACH_MODE_STORAGE_KEY, isCoachMode \? 'coach' : 'full'\)/)
   assert.doesNotMatch(`${layout}\n${coachHome}`, /roleRank\s*=/)
 })
 
