@@ -531,6 +531,17 @@ function RuntimeAuthProvider({ children }) {
           return
         }
 
+        if (profile?.teamAccessUnavailable) {
+          setAccessRouteMismatch(profile)
+          setAccessModeOptions([])
+          setClubOptions([])
+          setUser(null)
+          setHasPlatformAdminAccess(hasPlatformAccess)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
         if (profile?.parentAccessUnavailable) {
           setAccessModeOptions(buildAccessModeOptions(profile.accessModeOptions, hasPlatformAccess))
           setClubOptions([])
@@ -691,6 +702,7 @@ function RuntimeAuthProvider({ children }) {
 
     if (error) {
       console.error(error)
+      clearLoginAccessIntent()
       setAuthError(error.message || 'Login failed.')
       throw error
     }

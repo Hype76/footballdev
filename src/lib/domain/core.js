@@ -421,10 +421,17 @@ async function applyActiveMembership(authUser, membership) {
   return data
 }
 
-async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
+async function resolveIncompleteClubProfile(authUser, selectedClubId = '', { allowClubCreation = true } = {}) {
   const memberships = await getUserClubMemberships(authUser)
 
   if (memberships.length === 0) {
+    if (!allowClubCreation) {
+      return {
+        teamAccessUnavailable: true,
+        intendedAccessMode: 'team',
+      }
+    }
+
     return createClubAndManagerProfile({
       authUser,
       clubName: getSignupClubName(authUser),
@@ -442,6 +449,17 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
     memberships.find((membership) => String(membership.clubId) === selectedClubId) ?? memberships[0]
 
   return applyActiveMembership(authUser, selectedMembership)
+}
+
+export function shouldCompleteSignupClubProfile({ selectedAccessMode = '', loginAccessIntent = '' } = {}) {
+  const normalizedSelectedAccessMode = String(selectedAccessMode ?? '').trim()
+  const normalizedLoginAccessIntent = String(loginAccessIntent ?? '').trim()
+
+  if (['team', 'parent', 'platform_admin'].includes(normalizedLoginAccessIntent)) {
+    return false
+  }
+
+  return normalizedSelectedAccessMode !== 'parent'
 }
 
 async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false, signupIntent = false }) {
@@ -545,6 +563,10 @@ export async function fetchUserProfile(authUser, options = {}) {
     let data = await loadUserRow()
     const parentLinks = isDemoAuthUser ? [] : await getParentPortalMemberships(authUser)
     const hasParentAccess = parentLinks.length > 0
+    const allowSignupClubProfileCompletion = shouldCompleteSignupClubProfile({
+      selectedAccessMode,
+      loginAccessIntent,
+    })
 
     if (hasParentAccess && selectedAccessMode === 'parent') {
       const memberships = isDemoAuthUser ? [] : await getUserClubMemberships(authUser)
@@ -584,7 +606,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       })
     }
 
-    if (!isDemoAuthUser && data?.role === 'admin' && data?.club_id) {
+    if (!isDemoAuthUser && allowSignupClubProfileCompletion && data?.role === 'admin' && data?.club_id) {
       try {
         const ensuredProfile = await ensureSignupClubProfileWithServer({
           authUser,
@@ -641,7 +663,13 @@ export async function fetchUserProfile(authUser, options = {}) {
         return normalizeParentPortalProfile(authUser, parentLinks)
       }
 
-      data = await resolveIncompleteClubProfile(authUser, selectedClubId)
+      data = await resolveIncompleteClubProfile(authUser, selectedClubId, {
+        allowClubCreation: allowSignupClubProfileCompletion,
+      })
+      if (data?.teamAccessUnavailable) {
+        return data
+      }
+
       if (data?.requiresClubSelection) {
         return data
       }
@@ -650,7 +678,13 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     if (!isDemoAuthUser && data?.role !== 'super_admin' && !data?.club_id) {
-      data = await resolveIncompleteClubProfile(authUser, selectedClubId)
+      data = await resolveIncompleteClubProfile(authUser, selectedClubId, {
+        allowClubCreation: allowSignupClubProfileCompletion,
+      })
+      if (data?.teamAccessUnavailable) {
+        return data
+      }
+
       if (data?.requiresClubSelection) {
         return data
       }

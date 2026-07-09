@@ -331,6 +331,45 @@ function LoginIntentMismatchState({ intent }) {
   )
 }
 
+function TeamAccessUnavailableState() {
+  const { signOut } = useAuth()
+
+  const handleReturnToClubLogin = async () => {
+    try {
+      await signOut()
+    } finally {
+      window.location.assign('/sign-in')
+    }
+  }
+
+  return (
+    <RouteGateState
+      eyebrow="Club login"
+      title="Club staff access was not found"
+      message="This account signed in successfully, but it is not linked to a club staff profile."
+      rules={[
+        {
+          title: 'No club data changed',
+          body: 'Club login does not create a new club or change an existing club profile.',
+        },
+        {
+          title: 'Use the right access path',
+          body: 'Ask a club admin to invite this email, or use Sign Up if you need to create a new club.',
+        },
+      ]}
+      actions={(
+        <button
+          type="button"
+          onClick={handleReturnToClubLogin}
+          className={primaryActionClassName}
+        >
+          Return to Club login
+        </button>
+      )}
+    />
+  )
+}
+
 function ClubSuspendedState() {
   return (
     <RouteGateState
@@ -654,6 +693,13 @@ function useWorkspaceRouteGate({
       }
     }
 
+    if (accessRouteMismatch?.teamAccessUnavailable) {
+      return {
+        element: <TeamAccessUnavailableState />,
+        user: null,
+      }
+    }
+
     return {
       element: <ParentAccessSignInRedirect />,
       user: null,
@@ -813,6 +859,10 @@ function WorkspaceHome() {
   if (!user) {
     if (accessRouteMismatch?.loginIntentMismatch) {
       return <LoginIntentMismatchState intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
+    }
+
+    if (accessRouteMismatch?.teamAccessUnavailable) {
+      return <TeamAccessUnavailableState />
     }
 
     return <ParentAccessSignInRedirect />

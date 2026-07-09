@@ -141,6 +141,31 @@ test('production auth success copy avoids staging workspace wording', async () =
   assert.doesNotMatch(source, /Continue into your test workspace/i)
 })
 
+test('club login intent does not run create-club completion fallback', async () => {
+  const profileSource = await readFile(parentProfileSourceUrl, 'utf8')
+  const authSource = await readFile(authSourceUrl, 'utf8')
+  const routerSource = await readFile(routerUrl, 'utf8')
+  const profileStart = profileSource.indexOf('export async function fetchUserProfile')
+  const profileEnd = profileSource.indexOf('export async function selectUserClub', profileStart)
+  const profileSection = profileSource.slice(profileStart, profileEnd)
+  const signInStart = authSource.indexOf('const signInWithPassword = async')
+  const signInEnd = authSource.indexOf('const selectClub = async', signInStart)
+  const signInSection = authSource.slice(signInStart, signInEnd)
+
+  assert.match(profileSource, /export function shouldCompleteSignupClubProfile/)
+  assert.match(profileSource, /if \(\['team', 'parent', 'platform_admin'\]\.includes\(normalizedLoginAccessIntent\)\) \{\s*return false\s*\}/)
+  assert.match(profileSection, /allowSignupClubProfileCompletion/)
+  assert.match(profileSection, /allowSignupClubProfileCompletion && data\?\.role === 'admin' && data\?\.club_id/)
+  assert.match(profileSection, /allowClubCreation: allowSignupClubProfileCompletion/)
+  assert.match(profileSource, /teamAccessUnavailable: true/)
+  assert.match(profileSection, /if \(data\?\.teamAccessUnavailable\) \{\s*return data\s*\}/)
+  assert.match(authSource, /if \(profile\?\.teamAccessUnavailable\) \{[\s\S]*setAccessRouteMismatch\(profile\)/)
+  assert.match(routerSource, /function TeamAccessUnavailableState/)
+  assert.match(routerSource, /Club staff access was not found/)
+  assert.match(routerSource, /accessRouteMismatch\?\.teamAccessUnavailable/)
+  assert.match(signInSection, /if \(error\) \{[\s\S]*clearLoginAccessIntent\(\)/)
+})
+
 test('active parent-player link resolves to parent portal profile without app user row', async () => {
   const source = await readFile(parentProfileSourceUrl, 'utf8')
   const profileStart = source.indexOf('export async function fetchUserProfile')
