@@ -10,9 +10,12 @@ export const PARENT_ACCESS_MODE = 'parent'
 
 const parentIntentPaths = new Set([
   '/parent-login',
+  '/parents-login',
+  '/parent/sign-in',
   '/parent-portal',
   '/parent-messages',
   '/parent-polls',
+  '/parents/sign-in',
   '/friends-family',
   '/parents/portal',
 ])

@@ -20,6 +20,9 @@ const netlifyRedirectsUrl = new URL('../public/_redirects', import.meta.url)
 
 test('parent intent paths include login portal and legacy parent entry points', () => {
   assert.equal(isParentIntentPath('/parent-login'), true)
+  assert.equal(isParentIntentPath('/parents-login'), true)
+  assert.equal(isParentIntentPath('/parent/sign-in'), true)
+  assert.equal(isParentIntentPath('/parents/sign-in'), true)
   assert.equal(isParentIntentPath('/parent-portal'), true)
   assert.equal(isParentIntentPath('/parents/portal'), true)
   assert.equal(isParentIntentPath('/parent'), false)
@@ -112,6 +115,9 @@ test('parent access unavailable redirects to parent login without fallback expla
   assert.match(section, /rememberParentAccessIntent\(\)/)
   assert.match(section, /window\.location\.assign\(getParentLoginTarget\(\)\)/)
   assert.match(source, /element: <ParentAccessSignInRedirect \/>/)
+  assert.match(source, /function buildParentSignInPath/)
+  assert.match(source, /params\.set\('tab', 'parent'\)/)
+  assert.match(source, /path: '\/parent-login',\s*element: <ParentSignInRedirect \/>/)
   assert.doesNotMatch(source, /function AccountDetailsUnavailableState/)
   assert.doesNotMatch(source, /function ParentAccountIntentState/)
   assert.doesNotMatch(source, /const accountRecoveryRules = \[/)
@@ -182,13 +188,13 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   const parentAccessSection = source.slice(parentAccessStart, parentAccessEnd)
 
   assert.match(rootSection, /if \(!session\?\.user\) \{\s*return isParentHost\(\) \? \(/)
-  assert.match(rootSection, /<Navigate to="\/parent-login" replace \/>/)
+  assert.match(rootSection, /<ParentSignInRedirect \/>/)
   assert.match(rootSection, /if \(isParentHost\(\)\) \{\s*return <Navigate to="\/parent-portal" replace \/>/)
   assert.match(requireUserSection, /const location = useLocation\(\)/)
-  assert.match(requireUserSection, /if \(isParentIntentPath\(location\.pathname\)\) \{\s*return <ParentLoginRedirect \/>/)
-  assert.match(requireUserSection, /return <Navigate to=\{isParentHost\(\) \? '\/parent-login' : '\/sign-in'\} replace \/>/)
+  assert.match(requireUserSection, /if \(isParentIntentPath\(location\.pathname\)\) \{\s*return <ParentSignInRedirect \/>/)
+  assert.match(requireUserSection, /return isParentHost\(\) \? <ParentSignInRedirect \/> : <Navigate to="\/sign-in" replace \/>/)
   assert.match(gateSection, /parentIntent = false/)
-  assert.match(gateSection, /if \(parentIntent\) \{\s*return \{ element: <ParentLoginRedirect \/>/)
+  assert.match(gateSection, /if \(parentIntent\) \{\s*return \{ element: <ParentSignInRedirect \/>/)
   assert.match(gateSection, /return \{ element: <ParentAccessSignInRedirect \/>/)
   assert.match(gateSection, /if \(isParentHost\(\) && isParentPortalUser\(user\)\) \{\s*return \{ element: <Navigate to="\/parent-portal" replace \/>/)
 
@@ -205,7 +211,7 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   assert.doesNotMatch(parentAccessSection, /RedirectToWorkspaceHome/)
 })
 
-test('singular parent route aliases to the public parents page without changing parent auth routes', async () => {
+test('singular parent route aliases to the public parents page while legacy parent login routes use unified sign-in', async () => {
   const source = await readFile(routerUrl, 'utf8')
   const aliasIndex = source.indexOf("path: '/parent'")
   const parentsIndex = source.indexOf("path: '/parents'")
@@ -218,7 +224,10 @@ test('singular parent route aliases to the public parents page without changing 
   assert.ok(parentPortalIndex > parentLoginIndex)
   assert.match(source, /path: '\/parent',\s*element: <Navigate to="\/parents" replace \/>/)
   assert.match(source, /path: '\/parents',\s*element: <PublicOnly \/>/)
-  assert.match(source, /path: '\/parent-login',\s*element: \(\s*<PageSuspense>\s*<ParentLoginPage \/>/)
+  assert.match(source, /path: '\/parent-login',\s*element: <ParentSignInRedirect \/>/)
+  assert.match(source, /path: '\/parents-login',\s*element: <ParentSignInRedirect \/>/)
+  assert.match(source, /path: '\/parent\/sign-in',\s*element: <ParentSignInRedirect \/>/)
+  assert.match(source, /path: '\/parents\/sign-in',\s*element: <ParentSignInRedirect \/>/)
   assert.match(source, /path: 'parent-portal',\s*element: \(\s*<PageSuspense>\s*<ParentPortalPage \/>/)
 })
 

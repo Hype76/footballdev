@@ -22,7 +22,7 @@ test('parent portal renders visible sign out actions in the main header and sett
   assert.match(settingsSection, /className="w-full sm:w-auto"/)
 })
 
-test('parent portal sign out uses the auth helper and redirects to parent login', async () => {
+test('parent portal sign out uses the auth helper and redirects to unified parent sign-in', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
   const componentStart = source.indexOf('export function ParentPortalPage()')
   const handlerStart = source.indexOf('const handleParentSignOut = async () => {', componentStart)
@@ -30,9 +30,10 @@ test('parent portal sign out uses the auth helper and redirects to parent login'
   const handlerSection = source.slice(handlerStart, handlerEnd)
 
   assert.match(source, /const \{ authUser, resetPassword, signOut, user \} = useAuth\(\)/)
+  assert.match(source, /import \{ buildMainAppUrl \} from '\.\.\/lib\/app-origins\.js'/)
   assert.match(handlerSection, /await signOut\(\)/)
   assert.match(handlerSection, /window\.sessionStorage\.clear\(\)/)
-  assert.match(handlerSection, /window\.location\.replace\('\/parent-login'\)/)
+  assert.match(handlerSection, /window\.location\.replace\(buildMainAppUrl\('\/sign-in\?tab=parent'\)\)/)
   assert.doesNotMatch(handlerSection, /window\.location\.assign/)
   assert.match(source, /onClick=\{onSignOut\}/)
 })
@@ -55,7 +56,8 @@ test('signed-out parent portal route remains protected after sign out', async ()
   const gateEnd = routerSource.indexOf('function WorkspaceHome', gateStart)
   const gateSection = routerSource.slice(gateStart, gateEnd)
 
-  assert.match(gateSection, /if \(!session\?\.user\) \{[\s\S]*if \(parentIntent\) \{[\s\S]*<ParentLoginRedirect \/>/)
-  assert.match(gateSection, /return \{ element: <Navigate to=\{isParentHost\(\) \? '\/parent-login' : '\/sign-in'\} replace \/>/)
-  assert.match(routerSource, /function ParentLoginRedirect\(\) \{[\s\S]*<Navigate to="\/parent-login" replace \/>/)
+  assert.match(gateSection, /if \(!session\?\.user\) \{[\s\S]*if \(parentIntent\) \{[\s\S]*<ParentSignInRedirect \/>/)
+  assert.match(gateSection, /element: isParentHost\(\) \? <ParentSignInRedirect \/> : <Navigate to="\/sign-in" replace \/>/)
+  assert.match(routerSource, /function buildParentSignInPath[\s\S]*params\.set\('tab', 'parent'\)/)
+  assert.match(routerSource, /function ParentSignInRedirect\(\) \{[\s\S]*buildMainAppUrl\(targetPath\)/)
 })

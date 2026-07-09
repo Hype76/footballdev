@@ -176,11 +176,13 @@ async function signIn(page, email, baseUrl = mainBaseUrl, access = 'club') {
 }
 
 async function parentSignIn(page, email, baseUrl = parentBaseUrl) {
-  await page.goto(`${baseUrl}/parent-login`, { waitUntil: 'commit', timeout: 60000 })
-  await page.getByPlaceholder('you@example.com').waitFor({ state: 'visible', timeout: 60000 })
-  await page.getByPlaceholder('you@example.com').fill(email)
+  await page.goto(`${baseUrl}/sign-in?tab=parent`, { waitUntil: 'commit', timeout: 60000 })
+  await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
+  await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 60000 })
+  await page.getByRole('button', { name: 'Parent' }).click()
+  await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
-  await page.getByRole('button', { name: /^Login$/ }).click()
+  await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
 }
 
 async function assertVisibleText(page, text) {
@@ -395,11 +397,23 @@ try {
     await context.close()
   })
 
-  await runScenario('dual-access parent fallback redirects to parent login without team recovery', async () => {
+  await runScenario('legacy parent login routes redirect to unified parent sign-in', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await page.goto(`${mainBaseUrl}/parent-login?parentInvite=fixture-token&confirmed=1`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
+    assert.equal(new URL(page.url()).searchParams.get('parentInvite'), 'fixture-token')
+    await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
+    await context.close()
+  })
+
+  await runScenario('dual-access parent fallback redirects to unified parent sign-in without team recovery', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'fallback-dual.fixture@footballplayer.test', mainBaseUrl)
-    await waitForPathname(page, '/parent-login')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
@@ -413,7 +427,8 @@ try {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'stale-label-dual.fixture@footballplayer.test', mainBaseUrl)
-    await waitForPathname(page, '/parent-login')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('U17 Green').count(), 0)
     assert.equal(await page.getByLabel('Access view').count(), 0)
@@ -422,11 +437,12 @@ try {
     await context.close()
   })
 
-  await runScenario('parent-only unavailable fallback redirects to parent login without exposing data', async () => {
+  await runScenario('parent-only unavailable fallback redirects to unified parent sign-in without exposing data', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'parent-unlinked.fixture@footballplayer.test', mainBaseUrl)
-    await waitForPathname(page, '/parent-login')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
@@ -451,7 +467,8 @@ try {
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await desktopPage.getByRole('button', { name: 'Open team workspace' }).count(), 0)
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().click()
-    await desktopPage.waitForURL('**/parent-login', { timeout: 15000 })
+    await waitForPathname(desktopPage, '/sign-in')
+    assert.equal(new URL(desktopPage.url()).searchParams.get('tab'), 'parent')
     assert.equal(await desktopPage.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     await desktopContext.close()
 

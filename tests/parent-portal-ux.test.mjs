@@ -180,7 +180,7 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
   assert.match(shellSource, /Open team workspace/)
   assert.match(shellSource, /await signOut\(\)/)
   assert.match(shellSource, /rememberParentAccessIntent\(\)/)
-  assert.match(shellSource, /window\.location\.assign\(isParentPortalHost\(\) \? '\/parent-login' : buildParentAppUrl\('\/parent-login'\)\)/)
+  assert.match(shellSource, /window\.location\.assign\(buildMainAppUrl\('\/sign-in\?tab=parent'\)\)/)
   assert.match(shellSource, /aria-label="Sign out of the parent portal"/)
   assert.match(shellSource, /Sign out/)
   assert.match(shellSource, /mt-3 shrink-0 border-t/)

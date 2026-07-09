@@ -6,6 +6,7 @@ import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
+import { rememberParentAccessIntent } from '../lib/parent-auth-intent.js'
 
 const initialFormData = {
   email: '',
@@ -42,6 +43,24 @@ function getFriendlyAuthErrorMessage(error, mode) {
   return rawMessage || 'Authentication failed.'
 }
 
+function getRequestedLoginMode(params) {
+  const requestedMode = String(params.get('tab') ?? params.get('mode') ?? params.get('access') ?? '').trim().toLowerCase()
+
+  if (requestedMode === 'parent' || requestedMode === 'parent-login') {
+    return 'parent-login'
+  }
+
+  if (requestedMode === 'signup' || requestedMode === 'sign-up') {
+    return 'signup'
+  }
+
+  if (requestedMode === 'club' || requestedMode === 'team' || requestedMode === 'login') {
+    return 'login'
+  }
+
+  return ''
+}
+
 export function LoginPage() {
   usePublicThemeScope()
 
@@ -61,10 +80,18 @@ export function LoginPage() {
     const params = new URLSearchParams(window.location.search)
     const checkoutStatus = params.get('checkout')
     const nextParentInviteToken = String(params.get('parentInvite') ?? '').trim()
+    const requestedLoginMode = getRequestedLoginMode(params)
+
+    if (requestedLoginMode === 'parent-login') {
+      rememberParentAccessIntent()
+    }
 
     if (nextParentInviteToken) {
       setParentInviteToken(nextParentInviteToken)
+      setMode('parent-login')
       setLocalMessage('Log in or create a parent account to accept your child link.')
+    } else if (requestedLoginMode) {
+      setMode(requestedLoginMode)
     }
 
     if (checkoutStatus === 'success') {
@@ -201,6 +228,8 @@ export function LoginPage() {
 
         if (parentInviteToken) {
           window.location.assign(`/parent-invite/${parentInviteToken}`)
+        } else if (mode === 'parent-login') {
+          window.location.assign('/parent-portal')
         }
       }
     } catch (error) {

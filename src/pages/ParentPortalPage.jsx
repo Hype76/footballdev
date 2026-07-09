@@ -5,6 +5,7 @@ import { ParentPortalSectionNav } from '../components/parent-portal/ParentPortal
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
+import { buildMainAppUrl } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import {
   getCurrentPushSubscription,
@@ -464,7 +465,7 @@ export function ParentPortalPage() {
     try {
       await signOut()
       window.sessionStorage.clear()
-      window.location.replace('/parent-login')
+      window.location.replace(buildMainAppUrl('/sign-in?tab=parent'))
     } catch (error) {
       console.error(error)
       const message = 'We could not sign you out. Please try again.'

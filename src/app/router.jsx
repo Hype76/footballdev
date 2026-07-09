@@ -30,7 +30,7 @@ import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk }
 import { isPlanAccessActive } from '../lib/plans.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../lib/paywall-ui.js'
-import { buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import { buildMainAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 import {
   canOpenParentPortal,
   hasActiveParentPortalLink,
@@ -78,7 +78,6 @@ const MatchDayPage = lazyRoute(() => import('../pages/MatchDayPage.jsx'), 'Match
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
 const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTemplatesPage.jsx'), 'ParentEmailTemplatesPage')
 const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx'), 'ParentInvitePage')
-const ParentLoginPage = lazyRoute(() => import('../pages/ParentLoginPage.jsx'), 'ParentLoginPage')
 const ParentLinkingPage = lazyRoute(() => import('../pages/ParentLinkingPage.jsx'), 'ParentLinkingPage')
 const ParentMessagesPage = lazyRoute(() => import('../pages/ParentMessagesPage.jsx'), 'ParentMessagesPage')
 const ParentPollsPage = lazyRoute(() => import('../pages/ParentPollsPage.jsx'), 'ParentPollsPage')
@@ -93,7 +92,6 @@ const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPa
 const PollsPage = lazyRoute(() => import('../pages/PollsPage.jsx'), 'PollsPage')
 const PublicFeaturesPage = lazyRoute(() => import('../pages/PublicFeaturesPage.jsx'), 'PublicFeaturesPage')
 const PublicLandingPage = lazyRoute(() => import('../pages/PublicLandingPage.jsx'), 'PublicLandingPage')
-const PublicParentPortalLoginPage = lazyRoute(() => import('../pages/PublicParentPortalLoginPage.jsx'), 'PublicParentPortalLoginPage')
 const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx'), 'PublicParentsPage')
 const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
@@ -166,16 +164,32 @@ function isParentHost() {
   return isParentPortalHost()
 }
 
-function getParentLoginTarget() {
-  return isParentHost() ? '/parent-login' : buildParentAppUrl('/parent-login')
+function buildParentSignInPath({ hash = '', search = '' } = {}) {
+  const params = new URLSearchParams(String(search || '').replace(/^\?/, ''))
+  params.set('tab', 'parent')
+  const nextSearch = params.toString()
+  const nextHash = hash ? String(hash).startsWith('#') ? String(hash) : `#${hash}` : ''
+
+  return `/sign-in${nextSearch ? `?${nextSearch}` : ''}${nextHash}`
 }
 
-function ParentLoginRedirect() {
+function getParentLoginTarget() {
+  const targetPath = buildParentSignInPath()
+  return isParentHost() ? buildMainAppUrl(targetPath) : targetPath
+}
+
+function ParentSignInRedirect() {
+  const location = useLocation()
+  const targetPath = buildParentSignInPath({
+    hash: location.hash,
+    search: location.search,
+  })
+
   if (isParentHost()) {
-    return <Navigate to="/parent-login" replace />
+    return <ExternalRedirect to={buildMainAppUrl(targetPath)} />
   }
 
-  return <ExternalRedirect to={buildParentAppUrl('/parent-login')} />
+  return <Navigate to={targetPath} replace />
 }
 
 function NavigateToParentInvite() {
@@ -619,10 +633,13 @@ function useWorkspaceRouteGate({
 
   if (!session?.user) {
     if (parentIntent) {
-      return { element: <ParentLoginRedirect />, user: null }
+      return { element: <ParentSignInRedirect />, user: null }
     }
 
-    return { element: <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />, user: null }
+    return {
+      element: isParentHost() ? <ParentSignInRedirect /> : <Navigate to="/sign-in" replace />,
+      user: null,
+    }
   }
 
   if (!user && isProfileLoading) {
@@ -841,7 +858,7 @@ function PublicLandingOrWorkspaceHome() {
 
   if (!session?.user) {
     return isParentHost() ? (
-      <Navigate to="/parent-login" replace />
+      <ParentSignInRedirect />
     ) : (
       <PageSuspense>
         <PublicLandingPage />
@@ -870,10 +887,10 @@ function RequireUser() {
 
   if (!session?.user) {
     if (isParentIntentPath(location.pathname)) {
-      return <ParentLoginRedirect />
+      return <ParentSignInRedirect />
     }
 
-    return <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />
+    return isParentHost() ? <ParentSignInRedirect /> : <Navigate to="/sign-in" replace />
   }
 
   return <Outlet />
@@ -1331,7 +1348,7 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: isParentHost() ? (
-      <Navigate to="/parent-login" replace />
+      <ParentSignInRedirect />
     ) : (
       <PublicOnly />
     ),
@@ -1402,11 +1419,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'portal',
-        element: (
-          <PageSuspense>
-            <PublicParentPortalLoginPage />
-          </PageSuspense>
-        ),
+        element: <ParentSignInRedirect />,
       },
     ],
   },
@@ -1450,11 +1463,19 @@ export const router = createBrowserRouter([
   },
   {
     path: '/parent-login',
-    element: (
-      <PageSuspense>
-        <ParentLoginPage />
-      </PageSuspense>
-    ),
+    element: <ParentSignInRedirect />,
+  },
+  {
+    path: '/parents-login',
+    element: <ParentSignInRedirect />,
+  },
+  {
+    path: '/parent/sign-in',
+    element: <ParentSignInRedirect />,
+  },
+  {
+    path: '/parents/sign-in',
+    element: <ParentSignInRedirect />,
   },
   {
     element: <RequireUser />,

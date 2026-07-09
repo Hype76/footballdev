@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
-import { buildMainAppUrl, buildParentAppUrl, isParentPortalHost } from '../../lib/app-origins.js'
+import { buildMainAppUrl } from '../../lib/app-origins.js'
 import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 import { TEAM_WORKSPACE_HOME_PATH } from '../../lib/workspace-routes.js'
@@ -130,7 +130,7 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
     try {
       await signOut()
       rememberParentAccessIntent()
-      window.location.assign(isParentPortalHost() ? '/parent-login' : buildParentAppUrl('/parent-login'))
+      window.location.assign(buildMainAppUrl('/sign-in?tab=parent'))
     } catch (error) {
       console.error(error)
       setIsSigningOut(false)
