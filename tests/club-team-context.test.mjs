@@ -4,7 +4,7 @@ import { test } from 'node:test'
 
 const teamManagementPageUrl = new URL('../src/pages/TeamManagementPage.jsx', import.meta.url)
 const onboardingProviderUrl = new URL('../src/components/onboarding/OnboardingProvider.jsx', import.meta.url)
-const topbarUrl = new URL('../src/components/layout/Topbar.jsx', import.meta.url)
+const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
 const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
 const manageTeamFunctionUrl = new URL('../netlify/functions/manage-team.js', import.meta.url)
 
@@ -53,10 +53,11 @@ test('onboarding manage teams action refreshes teams without selecting the new t
 })
 
 test('manual team switching remains available through explicit team selectors', async () => {
-  const topbarSource = await readFile(topbarUrl, 'utf8')
+  const sidebarSource = await readFile(sidebarUrl, 'utf8')
   const layoutSource = await readFile(layoutUrl, 'utf8')
 
-  assert.match(topbarSource, /await selectTeam\(teamId\)/)
+  assert.match(sidebarSource, /await selectTeam\(teamId\)/)
+  assert.match(sidebarSource, /<span className="text-\[11px\] font-black uppercase tracking-\[0\.16em\] text-\[#4b5f55\]">\s*Access view\s*<\/span>/)
   assert.match(layoutSource, /await selectTeam\(teamId\)/)
 })
 

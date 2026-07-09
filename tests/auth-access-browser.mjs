@@ -197,11 +197,35 @@ async function assertSidebarFooterContract(page, { reportIssueExpected = true } 
   const sidebar = page.locator('aside')
 
   await assertNoSetupGuideTrigger(page)
+  await sidebar.getByRole('link', { name: 'Settings' }).waitFor({ state: 'visible', timeout: 15000 })
   await sidebar.getByRole('button', { name: 'Sign out' }).waitFor({ state: 'visible', timeout: 15000 })
 
   if (reportIssueExpected) {
     await sidebar.getByText('Report issue', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
   }
+}
+
+async function assertHeaderContextPanelRemoved(page) {
+  const header = page.locator('header')
+
+  await header.waitFor({ state: 'visible', timeout: 15000 })
+  assert.equal(await header.getByText('View', { exact: true }).count(), 0)
+  assert.equal(await header.getByText('Focus', { exact: true }).count(), 0)
+  assert.equal(await header.getByText('Team tools', { exact: true }).count(), 0)
+  assert.equal(await header.getByLabel('Access view').count(), 0)
+  assert.equal(await header.getByRole('link', { name: 'Settings' }).count(), 0)
+  assert.equal(await header.getByRole('button', { name: /Sign out/ }).count(), 0)
+}
+
+async function assertSidebarWorkspaceControls(page, { accessViewExpected = true } = {}) {
+  const sidebar = page.locator('aside')
+
+  if (accessViewExpected) {
+    await sidebar.getByLabel('Access view').waitFor({ state: 'visible', timeout: 15000 })
+  }
+
+  await sidebar.getByRole('link', { name: 'Settings' }).waitFor({ state: 'visible', timeout: 15000 })
+  await sidebar.getByRole('button', { name: 'Sign out' }).waitFor({ state: 'visible', timeout: 15000 })
 }
 
 async function assertNoSetupGuideTrigger(page) {
@@ -268,6 +292,8 @@ try {
     await assertVisibleText(page, 'Platform control')
     await assertVisibleText(page, 'Platform tools')
     await assertSelectedOption(page, 'Access view', 'Platform admin')
+    await assertHeaderContextPanelRemoved(page)
+    await assertSidebarWorkspaceControls(page)
     await assertSidebarFooterContract(page)
     await context.close()
   })
@@ -281,6 +307,8 @@ try {
     await assertVisibleText(page, 'Club tools')
     await assertSelectedOption(page, 'Access view', 'Club admin view')
     assert.equal(await page.getByRole('option', { name: 'Platform admin' }).count(), 0)
+    await assertHeaderContextPanelRemoved(page)
+    await assertSidebarWorkspaceControls(page)
     await assertSidebarFooterContract(page)
     await context.close()
   })
@@ -293,6 +321,8 @@ try {
     await assertVisibleText(page, 'U12 Fixture Team')
     await assertVisibleText(page, 'Team tools')
     assert.equal(await page.getByRole('option', { name: 'Platform admin' }).count(), 0)
+    await assertHeaderContextPanelRemoved(page)
+    await assertSidebarWorkspaceControls(page, { accessViewExpected: false })
     await assertSidebarFooterContract(page, { reportIssueExpected: false })
     await context.close()
   })
@@ -536,7 +566,9 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'platform.fixture@footballplayer.test')
     await page.waitForURL('**/platform-admin', { timeout: 15000 })
+    await assertHeaderContextPanelRemoved(page)
     await openMobileNavigation(page)
+    await assertSidebarWorkspaceControls(page)
     await assertSidebarFooterContract(page)
     await context.close()
   })

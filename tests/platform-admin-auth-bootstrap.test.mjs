@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const authUrl = new URL('../src/lib/auth.js', import.meta.url)
-const topbarUrl = new URL('../src/components/layout/Topbar.jsx', import.meta.url)
+const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
 
 test('verified platform admin access opens platform admin before club selection', async () => {
   const source = await readFile(authUrl, 'utf8')
@@ -49,8 +49,8 @@ test('team mode must be explicit before it can override platform admin bootstrap
   assert.match(signedOutSection, /window\.sessionStorage\.removeItem\(SELECTED_ACCESS_MODE_EXPLICIT_KEY\)/)
 })
 
-test('topbar does not display platform admin as the selected access view for coach context', async () => {
-  const source = await readFile(topbarUrl, 'utf8')
+test('sidebar does not display platform admin as the selected access view for coach context', async () => {
+  const source = await readFile(sidebarUrl, 'utf8')
 
   assert.match(source, /const currentActiveTeamId = String\(displayUser\?\.activeTeamId \?\? ''\)\.trim\(\)/)
   assert.match(source, /const teamOptionsWithCurrent = currentActiveTeamId && !teamOptions\.some/)
@@ -58,7 +58,7 @@ test('topbar does not display platform admin as the selected access view for coa
   assert.match(source, /const selectedAccessViewValue =/)
   assert.match(source, /value=\{selectedAccessViewValue\}/)
   assert.match(source, /const shouldShowCurrentTeamAccessOption =/)
-  assert.match(source, /!isPlatformAdminView && !isParentPortalView && \(hasPlatformAdminAccess \|\| hasTeamAccessOption\) && !displayUser\?\.activeTeamId/)
+  assert.match(source, /!isPlatformAdminView && !isParentPortal && \(hasPlatformAdminAccess \|\| hasTeamAccessOption\) && !displayUser\?\.activeTeamId/)
   assert.match(source, /shouldShowCurrentTeamAccessOption \? '__team_access__' : ''/)
   assert.match(source, /<option value="__team_access__">Team access<\/option>/)
   assert.match(source, /if \(teamId === '__team_access__'\) \{\s*try \{\s*setIsSwitchingTeam\(true\)\s*await selectAccessMode\('team'\)\s*navigate\('\/coach'\)/)

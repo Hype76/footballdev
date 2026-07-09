@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.png'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
@@ -24,8 +24,10 @@ import {
   isClubAdmin,
   isParentPortalUser,
   isSuperAdmin,
+  getRoleLabel,
   useAuth,
 } from '../../lib/auth.js'
+import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
 import { CAPABILITIES } from '../../lib/paywall-access.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../../lib/paywall-ui.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
@@ -159,8 +161,23 @@ function OperationsStrip({ canUseTeamWorkflow, displayUser, isParentPortal, onCl
 }
 
 export function Sidebar({ isOpen, onClose }) {
-  const { signOut, user } = useAuth()
+  const {
+    authUser,
+    clubOptions,
+    demoRoleKey,
+    hasPlatformAdminAccess,
+    isProfileLoading,
+    selectAccessMode,
+    selectClub,
+    selectPlatformAdmin,
+    selectTeam,
+    setDemoRolePreview,
+    signOut,
+    teamOptions,
+    user,
+  } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const displayUser = user
   const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
   const isParentPortal = isParentPortalUser(displayUser)
@@ -170,6 +187,50 @@ export function Sidebar({ isOpen, onClose }) {
   const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
   const feedbackRoute = `/feedback/new?route=${encodeURIComponent(`${location.pathname}${location.search}`)}`
   const [openPollCount, setOpenPollCount] = useState(0)
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
+  const isPlatformAdminView = isSuperAdmin(displayUser)
+  const canUseClubAdminView = isClubAdmin(displayUser)
+  const roleLabel = displayUser ? getRoleLabel(displayUser) : 'Loading access'
+  const userLabel = displayUser?.email || authUser?.email || displayUser?.name || 'Loading user'
+  const teamLabel = displayUser?.activeTeamName || (canUseClubAdminView ? 'Club-wide' : clubLabel)
+  const hasParentPortalAccess = Array.isArray(displayUser?.parentPortalLinks) && displayUser.parentPortalLinks.length > 0
+  const profileAccessModeOptions = Array.isArray(displayUser?.accessModeOptions) ? displayUser.accessModeOptions : []
+  const hasTeamAccessOption = profileAccessModeOptions.some((option) => option?.id === 'team')
+  const currentActiveTeamId = String(displayUser?.activeTeamId ?? '').trim()
+  const teamOptionsWithCurrent = currentActiveTeamId && !teamOptions.some((team) => String(team.id) === currentActiveTeamId)
+    ? [
+        {
+          id: currentActiveTeamId,
+          name: displayUser?.activeTeamName || 'Current team',
+        },
+        ...teamOptions,
+      ]
+    : teamOptions
+  const shouldShowClubAdminOption = !isPlatformAdminView && canUseClubAdminView
+  const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptionsWithCurrent?.length > 0
+  const shouldShowCurrentTeamAccessOption =
+    !isPlatformAdminView && !isParentPortal && (hasPlatformAdminAccess || hasTeamAccessOption) && !displayUser?.activeTeamId
+  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || hasTeamAccessOption || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptionsWithCurrent?.length > 0
+  const selectedAccessViewValue = isPlatformAdminView
+    ? '__platform_admin__'
+    : isParentPortal
+      ? '__parent_portal__'
+      : currentActiveTeamId || (shouldShowCurrentTeamAccessOption ? '__team_access__' : '')
+  const workspaceContext = isPlatformAdminView
+    ? 'Platform control'
+    : displayUser?.activeTeamName
+      ? displayUser.activeTeamName
+      : canUseClubAdminView
+        ? 'Club-wide view'
+        : isProfileLoading ? 'Opening workspace' : 'Team required'
+  const workLaneLabel = isPlatformAdminView
+    ? 'Platform tools'
+    : isParentPortal
+      ? 'Family tools'
+      : canUseClubAdminView && !displayUser?.activeTeamName
+        ? 'Club tools'
+        : 'Team tools'
 
   useEffect(() => {
     let isMounted = true
@@ -241,10 +302,84 @@ export function Sidebar({ isOpen, onClose }) {
 
   const handleSignOut = async () => {
     try {
+      setIsSigningOut(true)
       onClose()
       await signOut()
     } catch (error) {
       console.error(error)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
+
+  const handleTeamChange = async (event) => {
+    const teamId = event.target.value
+
+    if (teamId === '__platform_admin__') {
+      try {
+        setIsSwitchingTeam(true)
+        await selectPlatformAdmin()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsSwitchingTeam(false)
+      }
+      return
+    }
+
+    if (teamId === '__parent_portal__') {
+      try {
+        setIsSwitchingTeam(true)
+        await selectAccessMode('parent')
+        navigate('/parent-portal')
+        onClose()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsSwitchingTeam(false)
+      }
+      return
+    }
+
+    if (teamId === '__team_access__') {
+      try {
+        setIsSwitchingTeam(true)
+        await selectAccessMode('team')
+        navigate('/coach')
+        onClose()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsSwitchingTeam(false)
+      }
+      return
+    }
+
+    if (teamId.startsWith('__club__:')) {
+      try {
+        setIsSwitchingTeam(true)
+        await selectClub(teamId.replace('__club__:', ''))
+        onClose()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsSwitchingTeam(false)
+      }
+      return
+    }
+
+    if (teamId === user?.activeTeamId) {
+      return
+    }
+
+    try {
+      setIsSwitchingTeam(true)
+      await selectTeam(teamId)
+      onClose()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsSwitchingTeam(false)
     }
   }
 
@@ -417,9 +552,70 @@ export function Sidebar({ isOpen, onClose }) {
 
           <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
             <p className="text-xs font-black text-[#101828]">{isParentPortal ? 'Family view' : isCoachOnly ? 'Team workspace' : 'Club workspace'}</p>
+            <p className="mt-1 truncate whitespace-nowrap text-sm font-black text-[#047857]">{workspaceContext}</p>
             <p className="mt-1 text-[11px] font-semibold leading-5 text-[#66756c]">
-              {isParentPortal ? 'Fixtures, messages, and replies.' : isCoachOnly ? 'Sessions, players, and development notes.' : 'Players, training, parents, and match day.'}
+              {workLaneLabel} | {teamLabel}
             </p>
+          </div>
+
+          <div className="mt-3 grid gap-2">
+            {isDemoUser(displayUser) ? (
+              <label className="grid gap-1">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+                  Demo role
+                </span>
+                <select
+                  value={demoRoleKey || ''}
+                  onChange={(event) => setDemoRolePreview(event.target.value)}
+                  className="min-h-11 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#0f9f6e]"
+                >
+                  <option value="">Default role</option>
+                  {DEMO_ROLE_OPTIONS.map((role) => (
+                    <option key={role.role} value={role.role}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {shouldShowWorkspaceSelector ? (
+              <label className="grid gap-1">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+                  Access view
+                </span>
+                <select
+                  value={selectedAccessViewValue}
+                  onChange={handleTeamChange}
+                  disabled={isSwitchingTeam}
+                  title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
+                  className="min-h-11 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#0f9f6e] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
+                  {hasParentPortalAccess ? <option value="__parent_portal__">Family portal</option> : null}
+                  {shouldShowCurrentTeamAccessOption || (isParentPortal && hasTeamAccessOption) ? <option value="__team_access__">Team access</option> : null}
+                  {isPlatformAdminView
+                    ? clubOptions.map((club) => (
+                        <option key={club.clubId} value={`__club__:${club.clubId}`}>
+                          Club: {club.clubName || 'Unnamed club'}
+                        </option>
+                      ))
+                    : null}
+                  {shouldShowClubAdminOption ? <option value="">Club admin view</option> : null}
+                  {shouldShowTeamPlaceholder ? <option value="">Select team</option> : null}
+                  {teamOptionsWithCurrent.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      Team: {team.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+              <p className="truncate whitespace-nowrap text-xs font-black text-[#101828]">{workLaneLabel}</p>
+              <p className="mt-1 truncate whitespace-nowrap text-[11px] font-semibold text-[#66756c]">{roleLabel}, {userLabel}</p>
+            </div>
           </div>
         </div>
 
@@ -542,12 +738,36 @@ export function Sidebar({ isOpen, onClose }) {
               Report issue
             </NavLink>
           ) : null}
+          <NavLink
+            to="/user-settings"
+            data-tour-id="sidebar-user-settings"
+            onClick={(event) => {
+              if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                event.preventDefault()
+                return
+              }
+
+              onClose()
+            }}
+            className={({ isActive }) =>
+              [
+                'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
+                isActive
+                  ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
+                  : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
+              ].join(' ')
+            }
+          >
+            Settings
+          </NavLink>
           <button
             type="button"
             onClick={handleSignOut}
+            disabled={isSigningOut}
+            title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#f7faf8]"
           >
-            Sign out
+            {isSigningOut ? 'Signing out...' : 'Sign out'}
           </button>
         </div>
       </aside>
