@@ -4,6 +4,7 @@ import { blockDemoMutation } from './demo-guards.js'
 import { createAuditLog } from './audit.js'
 import { getEntryUserId, getEntryUserName } from './core-normalizers.js'
 import { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
+import { assertValidMatchDayEventMinute } from '../matchday-event-minute.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
@@ -1151,7 +1152,7 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     team_id: match.teamId || null,
     event_type: 'goal',
     team_side: teamSide,
-    minute: goal?.minute ? Number(goal.minute) : null,
+    minute: assertValidMatchDayEventMinute(goal?.minute),
     scorer_name: normalizeText(goal?.scorerName),
     scorer_initials: getInitialsFromFullName(goal?.scorerName),
     scorer_shirt_number: normalizeText(goal?.scorerShirtNumber),
@@ -1428,7 +1429,7 @@ export async function addStaffMatchDayEvent({ user, match, event }) {
     team_id: match.teamId || null,
     event_type: eventType,
     team_side: normalizeText(event?.teamSide) === 'opponent' ? 'opponent' : 'club',
-    minute: event?.minute ? Number(event.minute) : null,
+    minute: assertValidMatchDayEventMinute(event?.minute),
     scorer_name: normalizeText(event?.playerName),
     scorer_initials: getInitialsFromFullName(event?.playerName),
     scorer_shirt_number: normalizeText(event?.playerShirtNumber),
@@ -1488,7 +1489,7 @@ export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }
     scorer_shirt_number_value: normalizeText(goal?.scorerShirtNumber),
     assist_name_value: normalizeText(goal?.assistName),
     assist_shirt_number_value: normalizeText(goal?.assistShirtNumber),
-    minute_value: goal?.minute ? Number(goal.minute) : null,
+    minute_value: assertValidMatchDayEventMinute(goal?.minute),
     notes_value: normalizeText(goal?.notes),
   })
 

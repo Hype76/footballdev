@@ -44,10 +44,14 @@ import {
 } from '../lib/matchday-volunteer-state.js'
 import { reconcileMatchDayEventInList, reconcileMatchDayGoalCorrectionInList, reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
 import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
+import {
+  getMatchDayEventSaveErrorMessage,
+  MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE,
+  resolveMatchDayEventMinute,
+} from '../lib/matchday-event-minute.js'
 import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
 import {
   formatMatchTimerClock,
-  getMatchTimerMinute,
   isMatchTimerPaused,
 } from '../lib/matchday-timer.js'
 
@@ -968,10 +972,6 @@ function getEventLogDetail(entry) {
   ]
 
   return details.filter(Boolean).join(', ')
-}
-
-function getCurrentMatchMinute(match, now = Date.now()) {
-  return getMatchTimerMinute(match, now)
 }
 
 function formatLiveMatchClock(match, now = Date.now()) {
@@ -2395,6 +2395,8 @@ export function MatchDayPage() {
   }
 
   const updateGoalForm = (matchId, updates) => {
+    setErrorMessage('')
+    setMatchActionStatus((currentStatus) => (currentStatus?.key === `${matchId}:goal` ? null : currentStatus))
     setGoalForms((currentForms) => ({
       ...currentForms,
       [matchId]: {
@@ -2406,6 +2408,8 @@ export function MatchDayPage() {
   }
 
   const updateMatchEventForm = (matchId, updates) => {
+    setErrorMessage('')
+    setMatchActionStatus((currentStatus) => (currentStatus?.key === `${matchId}:event` ? null : currentStatus))
     setMatchEventForms((currentForms) => ({
       ...currentForms,
       [matchId]: {
@@ -2461,9 +2465,25 @@ export function MatchDayPage() {
   const handleAddGoal = async (event, match) => {
     event.preventDefault()
     const formGoal = goalForms[match.id] ?? EMPTY_GOAL_FORM
+    const resolvedMinute = resolveMatchDayEventMinute({
+      manualMinute: formGoal.minute,
+      match,
+      now: liveClockNow,
+    })
+
+    if (!resolvedMinute.isValid) {
+      setErrorMessage(MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE)
+      setMatchActionStatus({
+        key: `${match.id}:goal`,
+        tone: 'error',
+        message: MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE,
+      })
+      return
+    }
+
     const goal = {
       ...formGoal,
-      minute: normalizeStaffGoalText(formGoal.minute) || (getCurrentMatchMinute(match, liveClockNow) ?? ''),
+      minute: resolvedMinute.minute ?? '',
     }
 
     setActiveMatchId(match.id)
@@ -2510,7 +2530,7 @@ export function MatchDayPage() {
       showToast({ title: 'Goal added', message: 'The live feed has been updated.' })
     } catch (error) {
       console.error(error)
-      const message = error.message || 'Goal could not be added.'
+      const message = getMatchDayEventSaveErrorMessage(error, 'Goal could not be added.')
       setErrorMessage(message)
       setMatchActionStatus({
         key: `${match.id}:goal`,
@@ -2711,9 +2731,25 @@ export function MatchDayPage() {
     event.preventDefault()
     const formEvent = matchEventForms[match.id] ?? EMPTY_MATCH_EVENT_FORM
     const eventTypeOption = MATCH_EVENT_TYPE_OPTIONS.find((option) => option.value === formEvent.eventType) || MATCH_EVENT_TYPE_OPTIONS[0]
+    const resolvedMinute = resolveMatchDayEventMinute({
+      manualMinute: formEvent.minute,
+      match,
+      now: liveClockNow,
+    })
+
+    if (!resolvedMinute.isValid) {
+      setErrorMessage(MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE)
+      setMatchActionStatus({
+        key: `${match.id}:event`,
+        tone: 'error',
+        message: MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE,
+      })
+      return
+    }
+
     const matchEvent = {
       ...formEvent,
-      minute: normalizeStaffGoalText(formEvent.minute) || (getCurrentMatchMinute(match, liveClockNow) ?? ''),
+      minute: resolvedMinute.minute ?? '',
     }
 
     setActiveMatchId(match.id)
@@ -2754,7 +2790,7 @@ export function MatchDayPage() {
       showToast({ title: 'Match event added', message: `${eventTypeOption.label} has been added to the timeline.` })
     } catch (error) {
       console.error(error)
-      const message = error.message || 'Match event could not be added.'
+      const message = getMatchDayEventSaveErrorMessage(error, 'Match event could not be added.')
       setErrorMessage(message)
       setMatchActionStatus({
         key: `${match.id}:event`,
@@ -2877,6 +2913,7 @@ export function MatchDayPage() {
   const goalCorrectionMatch = goalCorrectionModal
     ? matches.find((candidate) => candidate.id === goalCorrectionModal.matchId)
     : null
+  const isGameModeActive = Boolean(gameModeMatchId)
 
   return (
     <div className="space-y-5">
@@ -2919,18 +2956,20 @@ export function MatchDayPage() {
       {errorMessage ? <NoticeBanner title="Match Day action failed" message={errorMessage} /> : null}
 
       {pitchsidePriorityMatch ? (
-        <PitchsideCockpitPanel
-          isBusy={activeMatchId === pitchsidePriorityMatch.id}
-          isExpanded={expandedMatchId === pitchsidePriorityMatch.id}
-          liveRefreshStatus={liveRefreshStatus}
-          match={pitchsidePriorityMatch}
-          matchActionStatus={matchActionStatus}
-          now={liveClockNow}
-          onGameModeStart={handleGameModeOpen}
-          onHydrationToggle={handleGameModeHydrationToggle}
-          onStatusChange={handleStatusChange}
-          onToggle={() => setExpandedMatchId((currentId) => (currentId === pitchsidePriorityMatch.id ? '' : pitchsidePriorityMatch.id))}
-        />
+        <div className={isGameModeActive ? 'hidden xl:block' : ''}>
+          <PitchsideCockpitPanel
+            isBusy={activeMatchId === pitchsidePriorityMatch.id}
+            isExpanded={expandedMatchId === pitchsidePriorityMatch.id}
+            liveRefreshStatus={liveRefreshStatus}
+            match={pitchsidePriorityMatch}
+            matchActionStatus={matchActionStatus}
+            now={liveClockNow}
+            onGameModeStart={handleGameModeOpen}
+            onHydrationToggle={handleGameModeHydrationToggle}
+            onStatusChange={handleStatusChange}
+            onToggle={() => setExpandedMatchId((currentId) => (currentId === pitchsidePriorityMatch.id ? '' : pitchsidePriorityMatch.id))}
+          />
+        </div>
       ) : null}
 
       {isFixtureFormOpen ? (
@@ -3001,8 +3040,8 @@ export function MatchDayPage() {
         />
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+      <section className={`overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 ${isGameModeActive ? 'border-0 bg-transparent shadow-none xl:border xl:border-[#d7e5dc] xl:bg-white xl:shadow-sm' : ''}`}>
+        <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center`}>
           <div>
             <p className={eyebrowClass}>Fixture list</p>
             <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Active fixtures</h2>
@@ -3040,7 +3079,7 @@ export function MatchDayPage() {
             </button>
           </div>
         </div>
-        <div className="px-5 py-5 sm:px-6">
+        <div className={isGameModeActive ? 'px-0 py-0 xl:px-5 xl:py-5' : 'px-5 py-5 sm:px-6'}>
         {isLoading ? (
           <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
             Loading match day...
@@ -3084,7 +3123,7 @@ export function MatchDayPage() {
               />
             ))}
             {activeFixtureMode === 'next' && activeMatches.length > 1 ? (
-              <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55]">
+              <p className={`rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55] ${isGameModeActive ? 'hidden xl:block' : ''}`}>
                 Showing the next upcoming fixture only. Use List all to show the rest of the active fixtures.
               </p>
             ) : null}
@@ -3100,7 +3139,7 @@ export function MatchDayPage() {
         </div>
       </section>
 
-      <section className="xl:hidden">
+      <section className={isGameModeActive ? 'hidden' : 'xl:hidden'}>
         <details className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
           <summary className="cursor-pointer bg-[#f7faf8] px-5 py-4 text-sm font-black text-[#101828]">
             Game Day overview and needs attention
@@ -3156,7 +3195,7 @@ export function MatchDayPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+      <section className={`overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 ${isGameModeActive ? 'hidden xl:block' : ''}`}>
         <div className="grid gap-4 bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
             <p className={eyebrowClass}>Match operations</p>
@@ -3281,6 +3320,7 @@ export function MatchDayPage() {
 
       {liveEntryMatch ? (
         <LiveMatchEntryModal
+          errorMessage={matchActionStatus?.key?.startsWith(`${liveEntryMatch.id}:`) && matchActionStatus.tone === 'error' ? matchActionStatus.message : ''}
           goalForm={goalForms[liveEntryMatch.id] ?? EMPTY_GOAL_FORM}
           isBusy={activeMatchId === liveEntryMatch.id}
           match={liveEntryMatch}
@@ -3473,6 +3513,13 @@ function MatchDayCard({
   const isLiveConsole = isLiveMatchConsoleState(match)
   const matchPeriodLabel = getMatchPeriodLabel(match.status)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
+  const openManageFromGameMode = () => {
+    onGameModeBack()
+
+    if (!isExpanded) {
+      onToggle()
+    }
+  }
 
   return (
     <article className={`overflow-hidden rounded-lg border shadow-sm shadow-[#047857]/10 ${isLiveConsole ? 'border-[#047857] bg-[#f8fffb]' : 'border-[#d7e5dc] bg-white'}`}>
@@ -3606,6 +3653,7 @@ function MatchDayCard({
           onHydrationToggle={onGameModeHydrationToggle}
           onOpenEventModal={onOpenEventModal}
           onOpenGoalModal={onOpenGoalModal}
+          onManage={openManageFromGameMode}
           onStatusChange={onGameModeStatusChange}
         />
       ) : null}
@@ -4022,6 +4070,7 @@ function MatchDayGameModePanel({
   match,
   onBack,
   onHydrationToggle,
+  onManage,
   onOpenEventModal,
   onOpenGoalModal,
   onStatusChange,
@@ -4042,7 +4091,10 @@ function MatchDayGameModePanel({
             <p className={eyebrowClass}>Game Mode</p>
             <h5 className="mt-2 text-xl font-black text-[#101828] sm:text-2xl">Live controller</h5>
           </div>
-          <button type="button" onClick={onBack} className={secondaryButtonClass}>Exit Game Mode</button>
+          <div className="grid gap-2 sm:grid-cols-[auto_auto]">
+            <button type="button" onClick={onManage} className={secondaryButtonClass}>Manage fixture</button>
+            <button type="button" onClick={onBack} className={secondaryButtonClass}>Exit Game Mode</button>
+          </div>
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
@@ -4220,6 +4272,7 @@ function GoalCorrectionModal({
 }
 
 function LiveMatchEntryModal({
+  errorMessage,
   goalForm,
   isBusy,
   match,
@@ -4346,6 +4399,11 @@ function LiveMatchEntryModal({
                   <textarea value={goalForm.notes} onChange={(event) => onGoalFormChange(match.id, { notes: event.target.value })} className={`${compactInputClass} min-h-24`} />
                 </label>
               </div>
+              {errorMessage ? (
+                <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  {errorMessage}
+                </div>
+              ) : null}
             </div>
             <div className="shrink-0 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:px-6">
               <div className="grid gap-2 sm:grid-cols-[auto_auto] sm:justify-end">
@@ -4408,6 +4466,11 @@ function LiveMatchEntryModal({
                   <textarea value={matchEventForm.notes} onChange={(event) => onMatchEventFormChange(match.id, { notes: event.target.value })} className={`${compactInputClass} min-h-24`} />
                 </label>
               </div>
+              {errorMessage ? (
+                <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  {errorMessage}
+                </div>
+              ) : null}
             </div>
             <div className="shrink-0 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:px-6">
               <div className="grid gap-2 sm:grid-cols-[auto_auto] sm:justify-end">

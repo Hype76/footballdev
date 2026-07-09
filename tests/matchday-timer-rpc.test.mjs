@@ -189,7 +189,7 @@ test('app wiring uses the timer RPC and removes local Game Mode pause state', as
   assert.match(page, /setMatchDayTimerState/)
   assert.match(page, /useServerSyncedClock/)
   assert.match(page, /formatMatchTimerClock\(match, now\)/)
-  assert.match(page, /getMatchTimerMinute\(match, now\)/)
+  assert.match(page, /resolveMatchDayEventMinute\({[\s\S]*now: liveClockNow/)
   assert.match(page, /isMatchTimerPaused\(match\)/)
   assert.match(page, /onHydrationToggle\(match, 'pause'\)/)
   assert.doesNotMatch(page, /setLiveClockNow\(Date\.now\(\)\)/)
