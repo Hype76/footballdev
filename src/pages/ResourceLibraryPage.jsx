@@ -39,6 +39,7 @@ function createAssignmentDraft() {
     resourceId: '',
     linkedType: 'player',
     linkedId: '',
+    linkedPlayerIds: [],
     shareDescription: '',
   }
 }
@@ -124,6 +125,18 @@ export function ResourceLibraryPage() {
   }, [activeTeamId, players])
   const isSquadAssignment = assignmentDraft.linkedType === 'squad'
   const canShareWithParents = ['player', 'squad'].includes(assignmentDraft.linkedType)
+  const selectedPlayerIds = useMemo(() => {
+    if (Array.isArray(assignmentDraft.linkedPlayerIds)) {
+      return assignmentDraft.linkedPlayerIds.map((playerId) => String(playerId)).filter(Boolean)
+    }
+
+    return assignmentDraft.linkedId ? [String(assignmentDraft.linkedId)] : []
+  }, [assignmentDraft.linkedId, assignmentDraft.linkedPlayerIds])
+  const filteredPlayerIdSet = useMemo(() => new Set(filteredPlayers.map((player) => String(player.id))), [filteredPlayers])
+  const selectedActivePlayerIds = useMemo(() => {
+    return selectedPlayerIds.filter((playerId) => filteredPlayerIdSet.has(playerId))
+  }, [filteredPlayerIdSet, selectedPlayerIds])
+  const selectedPlayerIdSet = useMemo(() => new Set(selectedActivePlayerIds), [selectedActivePlayerIds])
 
   useEffect(() => {
     let isMounted = true
@@ -220,10 +233,11 @@ export function ResourceLibraryPage() {
 
     try {
       const isTeamAssignment = assignmentDraft.linkedType === 'team'
-      const selectedPlayer = players.find((player) => String(player.id) === String(assignmentDraft.linkedId))
-      const selectedTeamId = isTeamAssignment || isSquadAssignment
-        ? activeTeamId
-        : selectedPlayer?.teamId || activeTeamId
+      const isPlayerAssignment = assignmentDraft.linkedType === 'player'
+      const selectedPlayerIdLookup = new Set(selectedActivePlayerIds)
+      const selectedPlayers = isPlayerAssignment
+        ? filteredPlayers.filter((player) => selectedPlayerIdLookup.has(String(player.id)))
+        : []
       const targets = isSquadAssignment
         ? filteredPlayers.map((player) => ({
           linkedType: 'player',
@@ -231,11 +245,18 @@ export function ResourceLibraryPage() {
           parentVisible: assignmentDraft.parentVisible === true,
           teamId: player.teamId || activeTeamId,
         }))
+        : isPlayerAssignment
+          ? selectedPlayers.map((player) => ({
+            linkedType: 'player',
+            linkedId: player.id,
+            parentVisible: assignmentDraft.parentVisible === true,
+            teamId: player.teamId || activeTeamId,
+          }))
         : [{
           linkedType: assignmentDraft.linkedType,
           linkedId: isTeamAssignment ? activeTeamId : assignmentDraft.linkedId,
           parentVisible: assignmentDraft.linkedType === 'player' && assignmentDraft.parentVisible === true,
-          teamId: selectedTeamId,
+          teamId: activeTeamId,
         }]
 
       if (isSquadAssignment && targets.length === 0) {
@@ -251,7 +272,7 @@ export function ResourceLibraryPage() {
 
       setAssignmentDraft(createAssignmentDraft())
       await refreshResources()
-      setSuccessMessage(isSquadAssignment ? `Resource assignment saved for ${targets.length} squad players.` : 'Resource assignment saved.')
+      setSuccessMessage(isSquadAssignment || isPlayerAssignment ? `Resource assignment saved for ${targets.length} player${targets.length === 1 ? '' : 's'}.` : 'Resource assignment saved.')
       showToast({
         title: 'Resource assigned',
         message: assignmentDraft.parentVisible && canShareWithParents
@@ -264,6 +285,45 @@ export function ResourceLibraryPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handlePlayerSelectionChange = (playerId, isSelected) => {
+    const normalizedPlayerId = String(playerId)
+
+    setAssignmentDraft((current) => {
+      const currentIds = Array.isArray(current.linkedPlayerIds)
+        ? current.linkedPlayerIds.map((id) => String(id)).filter(Boolean)
+        : current.linkedId
+          ? [String(current.linkedId)]
+          : []
+      const nextIds = isSelected
+        ? [...new Set([...currentIds, normalizedPlayerId])]
+        : currentIds.filter((id) => id !== normalizedPlayerId)
+
+      return {
+        ...current,
+        linkedId: nextIds[0] || '',
+        linkedPlayerIds: nextIds,
+      }
+    })
+  }
+
+  const handleSelectAllPlayers = () => {
+    const nextIds = filteredPlayers.map((player) => String(player.id)).filter(Boolean)
+
+    setAssignmentDraft((current) => ({
+      ...current,
+      linkedId: nextIds[0] || '',
+      linkedPlayerIds: nextIds,
+    }))
+  }
+
+  const handleClearSelectedPlayers = () => {
+    setAssignmentDraft((current) => ({
+      ...current,
+      linkedId: '',
+      linkedPlayerIds: [],
+    }))
   }
 
   const handleArchive = async (resource) => {
@@ -466,29 +526,68 @@ export function ResourceLibraryPage() {
                       parentVisible: linkedType === 'team' ? false : current.parentVisible,
                       linkedType,
                       linkedId: ['team', 'squad'].includes(linkedType) ? activeTeamId : '',
+                      linkedPlayerIds: [],
                     }))
                   }}
                   className={fieldClass}
                 >
-                  <option value="player">Player</option>
+                  <option value="player">Players</option>
                   <option value="squad">Full squad</option>
                   <option value="team">Team</option>
                 </select>
               </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#101828]">{isSquadAssignment ? 'Squad' : assignmentDraft.linkedType === 'team' ? 'Team' : 'Player'}</span>
-                <select
-                  value={assignmentDraft.linkedId}
-                  onChange={(event) => setAssignmentDraft((current) => ({ ...current, linkedId: event.target.value }))}
-                  disabled={assignmentDraft.linkedType === 'team' || isSquadAssignment}
-                  className={fieldClass}
-                >
-                  <option value="">{assignmentDraft.linkedType === 'team' || isSquadAssignment ? 'Choose team' : 'Choose player'}</option>
-                  {assignmentDraft.linkedType === 'team' || isSquadAssignment
-                    ? <option value={activeTeamId}>{activeTeamName}</option>
-                    : filteredPlayers.map((player) => <option key={player.id} value={player.id}>{player.playerName} | {player.team || 'No team'}</option>)}
-                </select>
-              </label>
+              {assignmentDraft.linkedType === 'player' ? (
+                <div className="block">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="block text-sm font-black text-[#101828]">Players</span>
+                    <span className="text-xs font-bold text-[#4b5f55]">{selectedActivePlayerIds.length} selected</span>
+                  </div>
+                  <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <button type="button" onClick={handleSelectAllPlayers} disabled={filteredPlayers.length === 0} className={`${secondaryButtonClass} min-h-9 px-3 py-2 text-xs`}>
+                        Select all
+                      </button>
+                      <button type="button" onClick={handleClearSelectedPlayers} disabled={selectedActivePlayerIds.length === 0} className={`${secondaryButtonClass} min-h-9 px-3 py-2 text-xs`}>
+                        Clear
+                      </button>
+                    </div>
+                    <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
+                      {filteredPlayers.length === 0 ? (
+                        <p className="px-2 py-3 text-sm font-bold text-[#4b5f55]">No players are available in this team.</p>
+                      ) : filteredPlayers.map((player) => {
+                        const playerId = String(player.id)
+
+                        return (
+                          <label key={player.id} className="flex min-h-11 items-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-bold text-[#101828]">
+                            <input
+                              type="checkbox"
+                              checked={selectedPlayerIdSet.has(playerId)}
+                              onChange={(event) => handlePlayerSelectionChange(playerId, event.target.checked)}
+                              className="h-5 w-5 accent-[#047857]"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate">{player.playerName}</span>
+                              <span className="block truncate text-xs text-[#66756c]">{player.team || activeTeamName}</span>
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">{isSquadAssignment ? 'Squad' : 'Team'}</span>
+                  <select
+                    value={assignmentDraft.linkedId}
+                    onChange={(event) => setAssignmentDraft((current) => ({ ...current, linkedId: event.target.value }))}
+                    disabled
+                    className={fieldClass}
+                  >
+                    <option value={activeTeamId}>{activeTeamName}</option>
+                  </select>
+                </label>
+              )}
               <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
                 <input
                   type="checkbox"
