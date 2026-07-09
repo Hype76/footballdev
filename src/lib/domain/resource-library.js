@@ -248,6 +248,21 @@ export function normalizeResourceLibraryItem(row) {
   }
 }
 
+function normalizeParentPortalResourceItem(row) {
+  const item = normalizeResourceLibraryItem(row)
+
+  delete item.fileSizeBytes
+  delete item.mimeType
+  delete item.originalFilename
+  delete item.storageBucket
+  delete item.storagePath
+  delete item.uploadedBy
+  delete item.uploadedByEmail
+  delete item.uploadedByName
+
+  return item
+}
+
 function normalizeExternalResourceUrl(value) {
   const normalizedValue = normalizeText(value)
 
@@ -665,7 +680,7 @@ export async function getParentPortalPlayerResources({ parentLinkId } = {}) {
   }
 
   return (data ?? [])
-    .map((row) => normalizeResourceLibraryItem({
+    .map((row) => normalizeParentPortalResourceItem({
       ...row,
       links: [{
         id: row.link_id,

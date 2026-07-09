@@ -469,6 +469,38 @@ export function normalizeMatchDay(row) {
   }
 }
 
+function normalizeParentPortalMatchDay(row) {
+  const match = normalizeMatchDay(row)
+
+  delete match.availabilityHistory
+  delete match.availabilityRequests
+  delete match.createdByName
+  delete match.eventLog
+  delete match.playerAvailability
+  delete match.scorerAssignments
+  delete match.scorerInterests
+
+  return {
+    ...match,
+    roleAssignments: match.roleAssignments.map((assignment) => ({
+      role: assignment.role,
+      parentLinkId: assignment.parentLinkId,
+      isCurrentParent: assignment.isCurrentParent,
+      createdAt: assignment.createdAt,
+      updatedAt: assignment.updatedAt,
+    })),
+    events: match.events.map((event) => {
+      const parentEvent = { ...event }
+
+      delete parentEvent.correctedByName
+      delete parentEvent.createdByName
+      delete parentEvent.voidedByName
+
+      return parentEvent
+    }),
+  }
+}
+
 function assertStaffMatchDayAccess(user) {
   if (
     !user?.clubId ||
@@ -1281,7 +1313,7 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     throw error
   }
 
-  return (data ?? []).map(normalizeMatchDay)
+  return (data ?? []).map(normalizeParentPortalMatchDay)
 }
 
 export async function getParentPortalMatchDayPlayers({ parentLinkId }) {

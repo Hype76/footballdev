@@ -10,6 +10,7 @@ import { buildMatchDayParentVisibility } from '../src/lib/matchday-parent-visibi
 
 const migrationUrl = new URL('../supabase/migrations/20260613120000_parent_calendar_visibility_controls.sql', import.meta.url)
 const grantHardeningMigrationUrl = new URL('../supabase/migrations/20260614031058_harden_parent_portal_rpc_execute_grants.sql', import.meta.url)
+const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 
 async function readMigration() {
   return readFile(migrationUrl, 'utf8')
@@ -90,6 +91,19 @@ test('parent match day RPC preserves parent link, scorer, and event gates', asyn
   assert.match(rpc, /from public\.match_day_scorer_assignments/)
   assert.match(rpc, /from public\.match_day_events event/)
   assert.match(rpc, /event\.match_day_id = match_day\.id/)
+})
+
+test('parent match day client trims unused staff and actor fields after RPC normalization', async () => {
+  const source = await readFile(matchDayDomainUrl, 'utf8')
+
+  assert.match(source, /function normalizeParentPortalMatchDay/)
+  assert.match(source, /delete match\.createdByName/)
+  assert.match(source, /delete match\.eventLog/)
+  assert.match(source, /delete match\.scorerAssignments/)
+  assert.match(source, /roleAssignments: match\.roleAssignments\.map/)
+  assert.match(source, /delete parentEvent\.correctedByName/)
+  assert.match(source, /delete parentEvent\.createdByName/)
+  assert.match(source, /return \(data \?\? \[\]\)\.map\(normalizeParentPortalMatchDay\)/)
 })
 
 test('parent match day RPC supports each parent audience and fails closed by relationship', async () => {

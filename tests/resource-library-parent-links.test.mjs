@@ -65,11 +65,17 @@ test('Staff UI exposes explicit parent sharing without changing non-player assig
 })
 
 test('Parent portal reads shared resources only through the scoped RPC helper', async () => {
-  const [parentPortalPage, parentPortalShell] = await Promise.all([
+  const [domain, parentPortalPage, parentPortalShell] = await Promise.all([
+    readFile(domainUrl, 'utf8'),
     readFile(parentPortalPageUrl, 'utf8'),
     readFile(parentPortalShellUrl, 'utf8'),
   ])
 
+  assert.match(domain, /function normalizeParentPortalResourceItem/)
+  assert.match(domain, /delete item\.storageBucket/)
+  assert.match(domain, /delete item\.storagePath/)
+  assert.match(domain, /delete item\.uploadedByEmail/)
+  assert.match(domain, /normalizeParentPortalResourceItem\(\{[\s\S]*shareDescription: row\.share_description/)
   assert.match(parentPortalShell, /id: 'resources'/)
   assert.match(parentPortalShell, /to: '\/parent-portal\?section=resources'/)
   assert.match(parentPortalPage, /parentPortalSectionIds = new Set\(\['overview', 'calendar', 'invites', 'matches', 'results', 'resources', 'settings'\]\)/)

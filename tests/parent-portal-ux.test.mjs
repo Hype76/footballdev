@@ -232,6 +232,25 @@ test('parent settings expose safe profile, notification, and theme controls', as
   assert.match(source, /!value\.includes\('@'\)/)
 })
 
+test('parent scorer actions use app modal fields instead of browser dialogs', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const modalStart = source.indexOf('function ParentMatchActionModal')
+  const settingsStart = source.indexOf('function ParentSettingsPanel')
+  const modalSource = source.slice(modalStart, settingsStart)
+
+  assert.notEqual(modalStart, -1)
+  assert.notEqual(settingsStart, -1)
+  assert.match(source, /getParentMatchActionModalCopy/)
+  assert.match(source, /openParentMatchActionModal\(\{ type: 'correctGoal'/)
+  assert.match(source, /openParentMatchActionModal\(\{ type: 'voidGoal'/)
+  assert.match(source, /const handleParentMatchActionConfirm = async/)
+  assert.match(modalSource, /<ConfirmModal/)
+  assert.match(modalSource, /Goal side/)
+  assert.match(modalSource, /Correction reason/)
+  assert.match(modalSource, /Removal reason/)
+  assert.doesNotMatch(source, /window\.confirm|window\.prompt|window\.alert|confirmMatchDayAction|promptParentGoalCorrectionInput/)
+})
+
 test('parent portal shell persists navigation on messages polls and family routes', async () => {
   const [messagesSource, pollsSource, familySource, shellSource] = await Promise.all([
     readFile(parentMessagesPageUrl, 'utf8'),
@@ -245,6 +264,8 @@ test('parent portal shell persists navigation on messages polls and family route
   assert.match(familySource, /<ParentPortalRouteShell activeSection="family"/)
   assert.match(shellSource, /variant="desktop"/)
   assert.match(shellSource, /variant="mobile"/)
+  assert.match(shellSource, /const parentPortalSections = \[/)
+  assert.doesNotMatch(shellSource, /id: 'family'|to: '\/friends-family'|Friends and Family/)
   assert.doesNotMatch(shellSource, /coach|admin|staff/i)
 })
 

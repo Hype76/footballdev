@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { ParentPortalSectionNav } from '../components/parent-portal/ParentPortalShell.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { buildMainAppUrl } from '../lib/app-origins.js'
@@ -49,6 +50,10 @@ const EMPTY_GOAL_FORM = {
   assistShirtNumber: '',
   notes: '',
 }
+const EMPTY_GOAL_CORRECTION_FORM = {
+  ...EMPTY_GOAL_FORM,
+  reason: 'Corrected goal details',
+}
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
@@ -60,10 +65,6 @@ const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'resources', 'settings'])
-
-function confirmMatchDayAction(message) {
-  return window.confirm(message)
-}
 
 function formatMatchDate(match) {
   if (!match.matchDate) {
@@ -135,71 +136,135 @@ function getParentMatchEventDetail(event) {
   return detailParts.filter(Boolean).join(', ')
 }
 
-function promptParentGoalCorrectionInput(event) {
-  const teamSide = window.prompt('Goal side: club or opponent', event.teamSide || 'club')
-
-  if (teamSide === null) {
-    return null
+function getGoalCorrectionFormFromEvent(event) {
+  return {
+    teamSide: event.teamSide || 'club',
+    minute: event.minute ?? '',
+    scorerName: event.scorerName || '',
+    scorerShirtNumber: event.scorerShirtNumber || '',
+    assistName: event.assistName || '',
+    assistShirtNumber: event.assistShirtNumber || '',
+    notes: event.notes || '',
+    reason: event.correctionReason || 'Corrected goal details',
   }
+}
 
-  const normalizedTeamSide = String(teamSide || '').trim().toLowerCase()
+function getValidatedGoalInput(form) {
+  const normalizedTeamSide = String(form.teamSide || '').trim().toLowerCase()
+  const trimmedMinute = String(form.minute ?? '').trim()
+
   if (!['club', 'opponent'].includes(normalizedTeamSide)) {
-    window.alert('Goal side must be club or opponent.')
-    return null
+    throw new Error('Goal side must be club or opponent.')
   }
 
-  const scorerName = window.prompt('Scorer name', event.scorerName || '')
-  if (scorerName === null) {
-    return null
-  }
-
-  const scorerShirtNumber = window.prompt('Scorer shirt number', event.scorerShirtNumber || '')
-  if (scorerShirtNumber === null) {
-    return null
-  }
-
-  const assistName = window.prompt('Assist name', event.assistName || '')
-  if (assistName === null) {
-    return null
-  }
-
-  const assistShirtNumber = window.prompt('Assist shirt number', event.assistShirtNumber || '')
-  if (assistShirtNumber === null) {
-    return null
-  }
-
-  const minute = window.prompt('Minute, blank if not recorded', event.minute ?? '')
-  if (minute === null) {
-    return null
-  }
-
-  const trimmedMinute = String(minute || '').trim()
   if (trimmedMinute && (Number(trimmedMinute) < 0 || Number(trimmedMinute) > 130)) {
-    window.alert('Minute must be between 0 and 130.')
-    return null
-  }
-
-  const notes = window.prompt('Goal note', event.notes || '')
-  if (notes === null) {
-    return null
-  }
-
-  const reason = window.prompt('Correction reason', event.correctionReason || 'Corrected goal details')
-  if (reason === null) {
-    return null
+    throw new Error('Minute must be between 0 and 130.')
   }
 
   return {
-    goal: {
-      teamSide: normalizedTeamSide,
-      scorerName,
-      scorerShirtNumber,
-      assistName,
-      assistShirtNumber,
-      minute: trimmedMinute,
-      notes,
-    },
-    reason,
+    teamSide: normalizedTeamSide,
+    scorerName: form.scorerName || '',
+    scorerShirtNumber: form.scorerShirtNumber || '',
+    assistName: form.assistName || '',
+    assistShirtNumber: form.assistShirtNumber || '',
+    minute: trimmedMinute,
+    notes: form.notes || '',
+  }
+}
+
+function getParentMatchActionModalCopy(action) {
+  if (!action) {
+    return {
+      title: 'Confirm Match Day action',
+      message: '',
+      confirmLabel: 'Confirm',
+      items: [],
+    }
+  }
+
+  if (action.type === 'volunteer') {
+    return {
+      title: 'Volunteer as scorer',
+      message: 'Send your interest to become the Match Day scorer for this game?',
+      confirmLabel: 'Send interest',
+      items: [getMatchDayDisplayName(action.match)],
+    }
+  }
+
+  if (action.type === 'enableNotifications') {
+    return {
+      title: 'Enable Match Day notifications',
+      message: 'Allow this device to receive Match Day updates for the selected child.',
+      confirmLabel: 'Enable notifications',
+      items: [],
+    }
+  }
+
+  if (action.type === 'disableNotifications') {
+    return {
+      title: 'Disable Match Day notifications',
+      message: 'This device will stop receiving Match Day updates for the selected child.',
+      confirmLabel: 'Disable notifications',
+      items: [],
+    }
+  }
+
+  if (action.type === 'score') {
+    const draft = action.draft || {}
+
+    return {
+      title: 'Save live score',
+      message: 'Save this score for everyone following the match?',
+      confirmLabel: 'Save score',
+      items: [
+        getMatchDayDisplayName(action.match),
+        `Score: ${draft.homeScore || 0} - ${draft.awayScore || 0}`,
+        `Status: ${String(draft.status || action.match?.status || '').replace(/_/g, ' ')}`,
+      ],
+    }
+  }
+
+  if (action.type === 'start') {
+    return {
+      title: 'Start match',
+      message: 'Start this match and begin the live match clock?',
+      confirmLabel: 'Start match',
+      items: [getMatchDayDisplayName(action.match)],
+    }
+  }
+
+  if (action.type === 'addGoal') {
+    return {
+      title: 'Add goal',
+      message: 'Add this goal to the live Match Day feed?',
+      confirmLabel: 'Add goal',
+      items: [getMatchDayDisplayName(action.match)],
+    }
+  }
+
+  if (action.type === 'correctGoal') {
+    return {
+      title: 'Edit goal',
+      message: 'Update this goal and keep the score consistent.',
+      confirmLabel: 'Save correction',
+      items: [getParentMatchEventTitle(action.goalEvent)],
+    }
+  }
+
+  if (action.type === 'voidGoal') {
+    return {
+      title: 'Remove goal',
+      message: 'Remove this goal from the score while keeping it in the match history.',
+      confirmLabel: 'Remove goal',
+      items: [getParentMatchEventTitle(action.goalEvent)],
+    }
+  }
+
+  return {
+    title: 'Confirm Match Day action',
+    message: '',
+    confirmLabel: 'Confirm',
+    items: [],
   }
 }
 
@@ -357,6 +422,9 @@ export function ParentPortalPage() {
   const [playerResources, setPlayerResources] = useState([])
   const [sharedCalendarEvents, setSharedCalendarEvents] = useState([])
   const [goalForms, setGoalForms] = useState({})
+  const [parentMatchAction, setParentMatchAction] = useState(null)
+  const [goalCorrectionForm, setGoalCorrectionForm] = useState(EMPTY_GOAL_CORRECTION_FORM)
+  const [goalVoidReason, setGoalVoidReason] = useState('Goal entered in error')
   const [scoreDrafts, setScoreDrafts] = useState({})
   const clockNow = useServerSyncedClock({
     syncIntervalMs: 60000,
@@ -648,12 +716,18 @@ export function ParentPortalPage() {
     }
   }, [selectedLink?.id])
 
-  const handleVolunteer = async (match) => {
-    if (!selectedLink?.id) {
-      return
-    }
+  const openParentMatchActionModal = (action) => {
+    setParentMatchAction(action)
+  }
 
-    if (!confirmMatchDayAction('Send your interest to become the Match Day scorer for this game?')) {
+  const closeParentMatchActionModal = () => {
+    setParentMatchAction(null)
+    setGoalCorrectionForm(EMPTY_GOAL_CORRECTION_FORM)
+    setGoalVoidReason('Goal entered in error')
+  }
+
+  const performVolunteer = async (match) => {
+    if (!selectedLink?.id) {
       return
     }
 
@@ -676,12 +750,8 @@ export function ParentPortalPage() {
     }
   }
 
-  const handleEnableNotifications = async () => {
+  const performEnableNotifications = async () => {
     if (!selectedLink?.id) {
-      return
-    }
-
-    if (!confirmMatchDayAction('Enable Match Day notifications on this device?')) {
       return
     }
 
@@ -703,12 +773,8 @@ export function ParentPortalPage() {
     }
   }
 
-  const handleDisableNotifications = async () => {
+  const performDisableNotifications = async () => {
     if (!selectedLink?.id) {
-      return
-    }
-
-    if (!confirmMatchDayAction('Disable Match Day notifications on this device?')) {
       return
     }
 
@@ -728,18 +794,8 @@ export function ParentPortalPage() {
     }
   }
 
-  const handleScoreSave = async (match) => {
+  const performScoreSave = async (match, draft) => {
     if (!selectedLink?.id) {
-      return
-    }
-
-    const draft = scoreDrafts[match.id] ?? {
-      homeScore: match.homeScore,
-      awayScore: match.awayScore,
-      status: match.status,
-    }
-
-    if (!confirmMatchDayAction(`Save this score as ${draft.homeScore || 0} - ${draft.awayScore || 0} for everyone following the match?`)) {
       return
     }
 
@@ -772,12 +828,8 @@ export function ParentPortalPage() {
     }
   }
 
-  const handleStartMatch = async (match) => {
+  const performStartMatch = async (match) => {
     if (!selectedLink?.id) {
-      return
-    }
-
-    if (!confirmMatchDayAction('Start this match and begin the live match clock?')) {
       return
     }
 
@@ -832,14 +884,8 @@ export function ParentPortalPage() {
     })
   }
 
-  const handleAddGoal = async (event, match) => {
-    event.preventDefault()
-
+  const performAddGoal = async (match) => {
     if (!selectedLink?.id) {
-      return
-    }
-
-    if (!confirmMatchDayAction('Add this goal to the live Match Day feed?')) {
       return
     }
 
@@ -876,20 +922,13 @@ export function ParentPortalPage() {
     }
   }
 
-  const handleCorrectGoal = async (match, goalEvent) => {
+  const performCorrectGoal = async (match, goalEvent) => {
     if (!selectedLink?.id || !match.isScorer) {
       return
     }
 
-    const correctionInput = promptParentGoalCorrectionInput(goalEvent)
-
-    if (!correctionInput) {
-      return
-    }
-
-    if (!confirmMatchDayAction('Save this goal correction and update the score if needed?')) {
-      return
-    }
+    const goal = getValidatedGoalInput(goalCorrectionForm)
+    const reason = String(goalCorrectionForm.reason || '').trim() || 'Corrected goal details'
 
     setActiveMatchId(match.id)
     setMatchError('')
@@ -900,8 +939,8 @@ export function ParentPortalPage() {
         parentLinkId: selectedLink.id,
         match,
         event: goalEvent,
-        goal: correctionInput.goal,
-        reason: correctionInput.reason,
+        goal,
+        reason,
       })
       await loadMatches()
       showToast({ title: 'Goal corrected', message: 'The live feed has been updated.' })
@@ -913,20 +952,12 @@ export function ParentPortalPage() {
     }
   }
 
-  const handleVoidGoal = async (match, goalEvent) => {
+  const performVoidGoal = async (match, goalEvent) => {
     if (!selectedLink?.id || !match.isScorer) {
       return
     }
 
-    const reason = window.prompt('Removal reason', goalEvent.correctionReason || 'Goal entered in error')
-
-    if (reason === null) {
-      return
-    }
-
-    if (!confirmMatchDayAction('Remove this goal from the score while keeping it in the match history?')) {
-      return
-    }
+    const reason = String(goalVoidReason || '').trim() || 'Goal entered in error'
 
     setActiveMatchId(match.id)
     setMatchError('')
@@ -947,6 +978,78 @@ export function ParentPortalPage() {
     } finally {
       setActiveMatchId('')
     }
+  }
+
+  const handleVolunteer = (match) => {
+    openParentMatchActionModal({ type: 'volunteer', match })
+  }
+
+  const handleEnableNotifications = () => {
+    openParentMatchActionModal({ type: 'enableNotifications' })
+  }
+
+  const handleDisableNotifications = () => {
+    openParentMatchActionModal({ type: 'disableNotifications' })
+  }
+
+  const handleScoreSave = (match) => {
+    const draft = scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }
+    openParentMatchActionModal({ type: 'score', match, draft })
+  }
+
+  const handleStartMatch = (match) => {
+    openParentMatchActionModal({ type: 'start', match })
+  }
+
+  const handleAddGoal = (event, match) => {
+    event.preventDefault()
+    openParentMatchActionModal({ type: 'addGoal', match })
+  }
+
+  const handleCorrectGoal = (match, goalEvent) => {
+    if (!selectedLink?.id || !match.isScorer) {
+      return
+    }
+
+    setGoalCorrectionForm(getGoalCorrectionFormFromEvent(goalEvent))
+    openParentMatchActionModal({ type: 'correctGoal', match, goalEvent })
+  }
+
+  const handleVoidGoal = (match, goalEvent) => {
+    if (!selectedLink?.id || !match.isScorer) {
+      return
+    }
+
+    setGoalVoidReason(goalEvent.correctionReason || 'Goal entered in error')
+    openParentMatchActionModal({ type: 'voidGoal', match, goalEvent })
+  }
+
+  const handleParentMatchActionConfirm = async () => {
+    if (!parentMatchAction) {
+      return
+    }
+
+    const { draft, goalEvent, match, type } = parentMatchAction
+
+    if (type === 'volunteer') {
+      await performVolunteer(match)
+    } else if (type === 'enableNotifications') {
+      await performEnableNotifications()
+    } else if (type === 'disableNotifications') {
+      await performDisableNotifications()
+    } else if (type === 'score') {
+      await performScoreSave(match, draft)
+    } else if (type === 'start') {
+      await performStartMatch(match)
+    } else if (type === 'addGoal') {
+      await performAddGoal(match)
+    } else if (type === 'correctGoal') {
+      await performCorrectGoal(match, goalEvent)
+    } else if (type === 'voidGoal') {
+      await performVoidGoal(match, goalEvent)
+    }
+
+    closeParentMatchActionModal()
   }
 
   return (
@@ -1096,7 +1199,143 @@ export function ParentPortalPage() {
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
       <ParentCalendarEventModal event={selectedCalendarEvent} onClose={() => setSelectedCalendarEvent(null)} />
+      <ParentMatchActionModal
+        action={parentMatchAction}
+        goalCorrectionForm={goalCorrectionForm}
+        goalVoidReason={goalVoidReason}
+        isBusy={Boolean(activeMatchId) || isUpdatingPush}
+        onCancel={closeParentMatchActionModal}
+        onConfirm={handleParentMatchActionConfirm}
+        onGoalCorrectionFormChange={(updates) => setGoalCorrectionForm((current) => ({ ...current, ...updates }))}
+        onGoalVoidReasonChange={setGoalVoidReason}
+      />
     </div>
+  )
+}
+
+function ParentMatchActionModal({
+  action,
+  goalCorrectionForm,
+  goalVoidReason,
+  isBusy,
+  onCancel,
+  onConfirm,
+  onGoalCorrectionFormChange,
+  onGoalVoidReasonChange,
+}) {
+  const modalCopy = getParentMatchActionModalCopy(action)
+  const isGoalCorrection = action?.type === 'correctGoal'
+  const isGoalRemoval = action?.type === 'voidGoal'
+
+  return (
+    <ConfirmModal
+      cancelLabel="Cancel"
+      confirmLabel={modalCopy.confirmLabel}
+      isBusy={isBusy}
+      isOpen={Boolean(action)}
+      items={modalCopy.items}
+      itemsTitle="Match Day action"
+      message={modalCopy.message}
+      onCancel={onCancel}
+      onClose={onCancel}
+      onConfirm={onConfirm}
+      title={modalCopy.title}
+    >
+      {isGoalCorrection ? (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-black text-[#4b5f55]">Goal side</span>
+            <select
+              value={goalCorrectionForm.teamSide}
+              onChange={(event) => onGoalCorrectionFormChange({ teamSide: event.target.value })}
+              className={fieldClass}
+            >
+              <option value="club">Club</option>
+              <option value="opponent">Opponent</option>
+            </select>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-black text-[#4b5f55]">Scorer name</span>
+              <input
+                type="text"
+                value={goalCorrectionForm.scorerName}
+                onChange={(event) => onGoalCorrectionFormChange({ scorerName: event.target.value })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-black text-[#4b5f55]">Scorer shirt number</span>
+              <input
+                type="text"
+                value={goalCorrectionForm.scorerShirtNumber}
+                onChange={(event) => onGoalCorrectionFormChange({ scorerShirtNumber: event.target.value })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-black text-[#4b5f55]">Assist name</span>
+              <input
+                type="text"
+                value={goalCorrectionForm.assistName}
+                onChange={(event) => onGoalCorrectionFormChange({ assistName: event.target.value })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-black text-[#4b5f55]">Assist shirt number</span>
+              <input
+                type="text"
+                value={goalCorrectionForm.assistShirtNumber}
+                onChange={(event) => onGoalCorrectionFormChange({ assistShirtNumber: event.target.value })}
+                className={fieldClass}
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-black text-[#4b5f55]">Minute</span>
+            <input
+              type="number"
+              min="0"
+              max="130"
+              value={goalCorrectionForm.minute}
+              onChange={(event) => onGoalCorrectionFormChange({ minute: event.target.value })}
+              className={fieldClass}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-black text-[#4b5f55]">Notes</span>
+            <textarea
+              rows={3}
+              value={goalCorrectionForm.notes}
+              onChange={(event) => onGoalCorrectionFormChange({ notes: event.target.value })}
+              className={fieldClass}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-black text-[#4b5f55]">Correction reason</span>
+            <textarea
+              rows={3}
+              value={goalCorrectionForm.reason}
+              onChange={(event) => onGoalCorrectionFormChange({ reason: event.target.value })}
+              className={fieldClass}
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {isGoalRemoval ? (
+        <label className="block">
+          <span className="mb-1 block text-xs font-black text-[#4b5f55]">Removal reason</span>
+          <textarea
+            rows={4}
+            value={goalVoidReason}
+            onChange={(event) => onGoalVoidReasonChange(event.target.value)}
+            className={fieldClass}
+          />
+        </label>
+      ) : null}
+    </ConfirmModal>
   )
 }
 
