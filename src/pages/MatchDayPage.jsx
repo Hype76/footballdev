@@ -3545,17 +3545,20 @@ function MatchDayCard({
         />
       ) : null}
 
-      <div className="grid gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
-        <CompactFact label="Availability" value={getAvailabilitySummary(match)} />
-        <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
-        <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
-        <CompactFact label="Linesman" value={getRoleStatus(match, 'linesman')} />
-        <CompactFact label="Status" value={getMatchStatusLabel(match.status)} />
-      </div>
+      {!isGameMode ? (
+        <div className="grid gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
+          <CompactFact label="Availability" value={getAvailabilitySummary(match)} />
+          <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
+          <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
+          <CompactFact label="Linesman" value={getRoleStatus(match, 'linesman')} />
+          <CompactFact label="Status" value={getMatchStatusLabel(match.status)} />
+        </div>
+      ) : null}
 
       {isGameMode ? (
-          <MatchDayGameModePanel
+        <MatchDayGameModePanel
           isBusy={isBusy}
+          events={events}
           match={match}
           now={now}
           onBack={onGameModeBack}
@@ -3974,6 +3977,7 @@ function LiveMatchQuickActions({
 
 function MatchDayGameModePanel({
   isBusy,
+  events,
   match,
   onBack,
   onHydrationToggle,
@@ -3989,7 +3993,7 @@ function MatchDayGameModePanel({
   const canMoveToHalfTime = match.status === 'live'
 
   return (
-    <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-5">
+    <div className="grid gap-4 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-5">
       <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -4019,6 +4023,7 @@ function MatchDayGameModePanel({
           <button type="button" onClick={onBack} className={secondaryButtonClass}>Back</button>
         </div>
       </section>
+      <MatchTimelinePanel events={events} match={match} isReadOnly />
     </div>
   )
 }
@@ -4347,9 +4352,38 @@ function LiveMatchEntryModal({
   )
 }
 
-function MatchTimelinePanel({ events, match, onCorrectGoal, onVoidGoal }) {
-  const timelineEvents = Array.isArray(events) ? events : []
-  const recentEvents = timelineEvents.slice(0, 8)
+function getMatchEventSortMinute(event) {
+  const minute = Number(event.minute)
+  return Number.isFinite(minute) ? minute : Number.MAX_SAFE_INTEGER
+}
+
+function getMatchEventSortTime(event) {
+  const time = new Date(event.createdAt || event.correctedAt || event.voidedAt || 0).getTime()
+  return Number.isFinite(time) ? time : 0
+}
+
+function getOrderedMatchTimelineEvents(events) {
+  return (Array.isArray(events) ? events : [])
+    .slice()
+    .sort((left, right) => {
+      const minuteDifference = getMatchEventSortMinute(left) - getMatchEventSortMinute(right)
+
+      if (minuteDifference !== 0) {
+        return minuteDifference
+      }
+
+      const timeDifference = getMatchEventSortTime(left) - getMatchEventSortTime(right)
+
+      if (timeDifference !== 0) {
+        return timeDifference
+      }
+
+      return String(left.id || '').localeCompare(String(right.id || ''))
+    })
+}
+
+function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, onVoidGoal }) {
+  const timelineEvents = getOrderedMatchTimelineEvents(events)
 
   return (
     <section className={panelClass}>
@@ -4360,24 +4394,30 @@ function MatchTimelinePanel({ events, match, onCorrectGoal, onVoidGoal }) {
             {timelineEvents.length} recorded match {timelineEvents.length === 1 ? 'event' : 'events'}
           </p>
         </div>
-        <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-          Staff view
-        </span>
+        {isReadOnly ? (
+          <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+            Read-only
+          </span>
+        ) : (
+          <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
+            Staff view
+          </span>
+        )}
       </div>
 
       {timelineEvents.length === 0 ? (
         <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
-          <p className="text-sm font-black text-[#101828]">No match timeline events yet.</p>
+          <p className="text-sm font-black text-[#101828]">No match events yet.</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Goals and score corrections will appear here when they are recorded.
+            Goals, cards and match actions will appear here once recorded.
           </p>
         </div>
       ) : (
         <div className="mt-3 space-y-2">
-          {recentEvents.map((event) => {
+          {timelineEvents.map((event) => {
             const detailItems = getMatchEventDetailItems(event)
             const badge = getMatchEventBadge(event)
-            const canCorrectGoal = event.eventType === 'goal' && event.eventStatus !== 'voided'
+            const canCorrectGoal = !isReadOnly && event.eventType === 'goal' && event.eventStatus !== 'voided'
 
             return (
               <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">

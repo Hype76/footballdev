@@ -409,6 +409,85 @@ test('Game Mode opens existing live state without restarting and matches pause r
   assert.match(gameModeSource, /disabled=\{isBusy \|\| isFullTime\}/)
 })
 
+test('Game Mode hides admin readiness cards and shows a persisted read-only timeline', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const cardStart = source.indexOf('function MatchDayCard')
+  const cardEnd = source.indexOf('function LiveMatchQuickActions', cardStart)
+  const gameModeStart = source.indexOf('function MatchDayGameModePanel')
+  const gameModeEnd = source.indexOf('function GoalCorrectionModal', gameModeStart)
+  assert.notEqual(cardStart, -1)
+  assert.notEqual(cardEnd, -1)
+  assert.notEqual(gameModeStart, -1)
+  assert.notEqual(gameModeEnd, -1)
+  const cardSource = source.slice(cardStart, cardEnd)
+  const gameModeSource = source.slice(gameModeStart, gameModeEnd)
+
+  assert.match(cardSource, /const events = Array\.isArray\(match\.events\) \? match\.events : \[\]/)
+  assert.match(cardSource, /\{!isGameMode \? \([\s\S]*<CompactFact label="Availability" value=\{getAvailabilitySummary\(match\)\} \/>[\s\S]*<CompactFact label="Scorer" value=\{getRoleStatus\(match, 'scorer'\)\} \/>[\s\S]*<CompactFact label="Referee" value=\{getRoleStatus\(match, 'referee'\)\} \/>[\s\S]*<CompactFact label="Linesman" value=\{getRoleStatus\(match, 'linesman'\)\} \/>[\s\S]*<CompactFact label="Status" value=\{getMatchStatusLabel\(match\.status\)\} \/>/)
+  assert.match(cardSource, /events=\{events\}[\s\S]*match=\{match\}[\s\S]*onBack=\{onGameModeBack\}/)
+  assert.match(gameModeSource, /events,/)
+  assert.match(gameModeSource, /<MatchTimelinePanel events=\{events\} match=\{match\} isReadOnly \/>/)
+  assert.doesNotMatch(gameModeSource, /getAvailabilitySummary|getRoleStatus|getMatchStatusLabel\(match\.status\)|CompactFact label="Availability"|CompactFact label="Scorer"|CompactFact label="Referee"|CompactFact label="Linesman"|CompactFact label="Status"/)
+})
+
+test('Match Timeline uses persisted events, stable ordering, and the approved empty state', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const orderingStart = source.indexOf('function getOrderedMatchTimelineEvents')
+  const timelineStart = source.indexOf('function MatchTimelinePanel')
+  const timelineEnd = source.indexOf('function MatchDayReadinessPanel', timelineStart)
+  assert.notEqual(orderingStart, -1)
+  assert.notEqual(timelineStart, -1)
+  assert.notEqual(timelineEnd, -1)
+  const orderingSource = source.slice(orderingStart, timelineStart)
+  const timelineSource = source.slice(timelineStart, timelineEnd)
+
+  assert.match(orderingSource, /\.sort\(\(left, right\) => \{/)
+  assert.match(orderingSource, /getMatchEventSortMinute\(left\) - getMatchEventSortMinute\(right\)/)
+  assert.match(orderingSource, /getMatchEventSortTime\(left\) - getMatchEventSortTime\(right\)/)
+  assert.match(orderingSource, /String\(left\.id \|\| ''\)\.localeCompare/)
+  assert.match(timelineSource, /const timelineEvents = getOrderedMatchTimelineEvents\(events\)/)
+  assert.match(timelineSource, /No match events yet\./)
+  assert.match(timelineSource, /Goals, cards and match actions will appear here once recorded\./)
+  assert.match(timelineSource, /getMatchEventDetailItems\(event\)/)
+  assert.match(timelineSource, /getMatchEventBadge\(event\)/)
+  assert.match(timelineSource, /event\.eventType === 'goal' && event\.eventStatus !== 'voided'/)
+  assert.match(timelineSource, /isReadOnly \? \(/)
+  assert.doesNotMatch(timelineSource, /slice\(0, 8\)/)
+})
+
+test('post-game Manage detail keeps admin facts and the persisted timeline available', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const matchCardStart = source.indexOf('function MatchDayCard')
+  const matchCardEnd = source.indexOf('function LiveMatchQuickActions', matchCardStart)
+  const previousSectionStart = source.indexOf('<h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Previous games</h2>')
+  const previousSectionEnd = source.indexOf('</section>', previousSectionStart)
+  assert.notEqual(matchCardStart, -1)
+  assert.notEqual(matchCardEnd, -1)
+  assert.notEqual(previousSectionStart, -1)
+  assert.notEqual(previousSectionEnd, -1)
+  const matchCardSource = source.slice(matchCardStart, matchCardEnd)
+  const previousSection = source.slice(previousSectionStart, previousSectionEnd)
+
+  assert.match(previousSection, /previousMatches\.map\(\(match\) => \(/)
+  assert.match(previousSection, /<MatchDayCard/)
+  assert.match(previousSection, /isGameMode=\{false\}/)
+  assert.match(matchCardSource, /<MatchDayReadinessPanel match=\{match\} \/>/)
+  assert.match(matchCardSource, /<CompactFact label="Availability" value=\{getAvailabilitySummary\(match\)\} \/>/)
+  assert.match(matchCardSource, /<CompactFact label="Scorer" value=\{getRoleStatus\(match, 'scorer'\)\} \/>/)
+  assert.match(matchCardSource, /<CompactFact label="Referee" value=\{getRoleStatus\(match, 'referee'\)\} \/>/)
+  assert.match(matchCardSource, /<CompactFact label="Linesman" value=\{getRoleStatus\(match, 'linesman'\)\} \/>/)
+  assert.match(matchCardSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*onCorrectGoal=\{onCorrectGoal\}[\s\S]*onVoidGoal=\{onVoidGoal\}/)
+})
+
 test('staff goal logging closes the expanded mobile panel after successful save only', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
