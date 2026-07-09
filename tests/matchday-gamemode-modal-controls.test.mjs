@@ -100,7 +100,7 @@ test('Mobile Game Mode prioritises one cockpit and removes duplicate Back contro
   assert.match(gameModeSlice, /Period/)
   assert.match(gameModeSlice, /Exit Game Mode/)
   assert.doesNotMatch(gameModeSlice, />Back</)
-  assert.match(gameModeSlice, /grid-cols-2[\s\S]*sm:grid-cols-3[\s\S]*lg:grid-cols-5/)
+  assert.match(gameModeSlice, /grid-cols-2[\s\S]*sm:grid-cols-3[\s\S]*lg:grid-cols-6/)
   assert.match(gameModeSlice, /<MatchTimelinePanel events=\{events\} match=\{match\} isReadOnly \/>/)
 })
 
@@ -128,6 +128,8 @@ test('Hydration stays direct and shows visible paused or resume state', async ()
   )
 
   assert.match(source, /const handleGameModeHydrationToggle = async \(match, pauseAction = 'hydration'\) =>/)
+  assert.match(gameModeSlice, /onHydrationToggle\(match, 'pause'\)/)
+  assert.match(gameModeSlice, />Pause</)
   assert.match(gameModeSlice, /Match clock paused\. Use Resume to continue from the frozen time\./)
   assert.match(gameModeSlice, /isPaused \? 'Resume' : 'Hydration'/)
   assert.doesNotMatch(gameModeSlice, /setPendingStatusAction[\s\S]{0,120}hydration/i)

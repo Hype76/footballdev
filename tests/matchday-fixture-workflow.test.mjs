@@ -233,7 +233,7 @@ test('staff live match console polls match state without full page reload', () =
   assert.doesNotMatch(refreshSource, /window\.location|reload\(|loadData\(/)
 })
 
-test('staff live controls expose pause, resume, timer, and action feedback', () => {
+test('staff live controls keep timer feedback while Pause stays in Game Mode', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
@@ -257,11 +257,14 @@ test('staff live controls expose pause, resume, timer, and action feedback', () 
   assert.match(source, /isLiveConsole && !isGameMode/)
   assert.match(source, /function LiveMatchEntryModal/)
   assert.doesNotMatch(source.slice(source.indexOf('function LiveMatchQuickActions'), source.indexOf('function MatchDayGameModePanel')), /Add goal|Add event\/card/)
-  assert.match(source, /'Pause'/)
+  assert.doesNotMatch(source.slice(source.indexOf('function LiveMatchQuickActions'), source.indexOf('function MatchDayGameModePanel')), /'Pause'|handlePauseResume|onHydrationToggle\(match, 'pause'\)/)
   assert.match(source, /Confirm half time/)
   assert.match(source, /Confirm full time/)
   assert.match(source, /Open Game Mode/)
-  assert.match(source, /onHydrationToggle\(match, 'pause'\)/)
+  assert.match(source.slice(source.indexOf('function MatchDayGameModePanel'), source.indexOf('function GoalCorrectionModal')), /onHydrationToggle\(match, 'pause'\)/)
+  assert.match(source.slice(source.indexOf('function MatchDayGameModePanel'), source.indexOf('function GoalCorrectionModal')), /isPaused \? 'Resume' : 'Hydration'/)
+  assert.match(source, /const handleGameModeHydrationToggle = async \(match, pauseAction = 'hydration'\) =>/)
+  assert.match(source, /const action = pauseAction === 'pause' \? 'pause' : 'hydration'/)
   assert.match(source, /onStatusChange\(match, 'half_time'\)/)
   assert.match(source, /onStatusChange\(match, 'full_time'\)/)
   assert.match(source, /Live sync retrying/)
@@ -448,10 +451,14 @@ test('Match Timeline uses persisted events, stable ordering, and the approved em
   const timelineSource = source.slice(timelineStart, timelineEnd)
 
   assert.match(orderingSource, /\.sort\(\(left, right\) => \{/)
-  assert.match(orderingSource, /getMatchEventSortMinute\(left\) - getMatchEventSortMinute\(right\)/)
-  assert.match(orderingSource, /getMatchEventSortTime\(left\) - getMatchEventSortTime\(right\)/)
-  assert.match(orderingSource, /String\(left\.id \|\| ''\)\.localeCompare/)
+  assert.match(orderingSource, /getMatchEventSortMinute\(right\) - getMatchEventSortMinute\(left\)/)
+  assert.match(orderingSource, /getMatchEventSortTime\(right\) - getMatchEventSortTime\(left\)/)
+  assert.match(orderingSource, /String\(right\.id \|\| ''\)\.localeCompare/)
   assert.match(timelineSource, /const timelineEvents = getOrderedMatchTimelineEvents\(events\)/)
+  assert.match(timelineSource, /const visibleTimelineEvents = isExpanded \? timelineEvents : timelineEvents\.slice\(0, 3\)/)
+  assert.match(timelineSource, /visibleTimelineEvents\.map/)
+  assert.match(timelineSource, /Show all/)
+  assert.match(timelineSource, /Show less/)
   assert.match(timelineSource, /No match events yet\./)
   assert.match(timelineSource, /Goals, cards and match actions will appear here once recorded\./)
   assert.match(timelineSource, /getMatchEventDetailItems\(event\)/)
@@ -630,6 +637,32 @@ test('match day fixture setup saves parent volunteer request roles', () => {
   assert.doesNotMatch(migration, /drop function[^;]+cascade/i)
   assert.match(migration, /request_linesman boolean/i)
   assert.match(migration, /match_day\.request_referee/i)
+})
+
+test('fixture request checkboxes stay first-click stable on mobile', () => {
+  const source = readFileSync(
+    new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
+    'utf8',
+  )
+  const editableStart = source.indexOf('function isFixtureEditableElement')
+  const editableEnd = source.indexOf('function blurActiveFixtureControl', editableStart)
+  const modalStart = source.indexOf('function FixtureSetupModal')
+  const modalEnd = source.indexOf('function FixtureSquadSelectionModal', modalStart)
+  const editableSource = source.slice(editableStart, editableEnd)
+  const modalSource = source.slice(modalStart, modalEnd)
+
+  assert.notEqual(editableStart, -1)
+  assert.notEqual(editableEnd, -1)
+  assert.notEqual(modalStart, -1)
+  assert.notEqual(modalEnd, -1)
+  assert.match(editableSource, /element\?\.type !== 'checkbox'/)
+  assert.match(editableSource, /element\?\.type !== 'radio'/)
+  assert.match(modalSource, /id="matchday-request-scorer"[\s\S]*checked=\{form\.requestScorer === true\}/)
+  assert.match(modalSource, /id="matchday-request-linesman"[\s\S]*checked=\{form\.requestLinesman === true\}/)
+  assert.match(modalSource, /id="matchday-request-referee"[\s\S]*checked=\{form\.requestReferee === true\}/)
+  assert.match(modalSource, /onChange=\{\(event\) => updateForm\(\{ requestScorer: event\.target\.checked \}\)\}/)
+  assert.match(modalSource, /onChange=\{\(event\) => updateForm\(\{ requestLinesman: event\.target\.checked \}\)\}/)
+  assert.match(modalSource, /onChange=\{\(event\) => updateForm\(\{ requestReferee: event\.target\.checked \}\)\}/)
 })
 
 test('match day fixture creation reports queued availability requests or post-save queue failures', () => {

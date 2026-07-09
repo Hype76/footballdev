@@ -522,7 +522,11 @@ function useFixtureModalViewportStyle() {
 }
 
 function isFixtureEditableElement(element) {
-  return ['INPUT', 'SELECT', 'TEXTAREA'].includes(element?.tagName)
+  if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(element?.tagName)) {
+    return false
+  }
+
+  return element?.type !== 'checkbox' && element?.type !== 'radio'
 }
 
 function blurActiveFixtureControl() {
@@ -4003,25 +4007,8 @@ function LiveMatchQuickActions({
   isExpanded,
   match,
   onGameModeStart,
-  onHydrationToggle,
-  onStatusChange,
   onToggle,
 }) {
-  const isPaused = isMatchTimerPaused(match)
-  const handlePauseResume = () => {
-    if (PAUSED_MATCH_STATUSES.has(match.status)) {
-      onStatusChange(match, 'second_half')
-      return
-    }
-
-    if (isPaused) {
-      onHydrationToggle(match, 'pause')
-      return
-    }
-
-    onHydrationToggle(match, 'pause')
-  }
-
   const openManagePanel = () => {
     if (!isExpanded) {
       onToggle()
@@ -4034,7 +4021,7 @@ function LiveMatchQuickActions({
         <div>
           <p className={eyebrowClass}>Live actions</p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           <button
             type="button"
             onClick={() => onGameModeStart(match)}
@@ -4042,14 +4029,6 @@ function LiveMatchQuickActions({
             className={primaryButtonClass}
           >
             Open Game Mode
-          </button>
-          <button
-            type="button"
-            onClick={handlePauseResume}
-            disabled={isBusy}
-            className={secondaryButtonClass}
-          >
-            {isPaused ? 'Resume' : 'Pause'}
           </button>
           <button
             type="button"
@@ -4118,9 +4097,10 @@ function MatchDayGameModePanel({
           </div>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <button type="button" onClick={() => onOpenGoalModal(match)} disabled={isBusy || isFullTime} className={primaryButtonClass}>Goal</button>
           <button type="button" onClick={() => onOpenEventModal(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>Event</button>
+          <button type="button" onClick={() => onHydrationToggle(match, 'pause')} disabled={isBusy || isFullTime || isPaused} className={secondaryButtonClass}>Pause</button>
           <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>
             {isPaused ? 'Resume' : 'Hydration'}
           </button>
@@ -4487,11 +4467,11 @@ function LiveMatchEntryModal({
 
 function getMatchEventSortMinute(event) {
   const minute = Number(event.minute)
-  return Number.isFinite(minute) ? minute : Number.MAX_SAFE_INTEGER
+  return Number.isFinite(minute) ? minute : -1
 }
 
 function getMatchEventSortTime(event) {
-  const time = new Date(event.createdAt || event.correctedAt || event.voidedAt || 0).getTime()
+  const time = new Date(event.correctedAt || event.voidedAt || event.createdAt || 0).getTime()
   return Number.isFinite(time) ? time : 0
 }
 
@@ -4499,24 +4479,27 @@ function getOrderedMatchTimelineEvents(events) {
   return (Array.isArray(events) ? events : [])
     .slice()
     .sort((left, right) => {
-      const minuteDifference = getMatchEventSortMinute(left) - getMatchEventSortMinute(right)
+      const minuteDifference = getMatchEventSortMinute(right) - getMatchEventSortMinute(left)
 
       if (minuteDifference !== 0) {
         return minuteDifference
       }
 
-      const timeDifference = getMatchEventSortTime(left) - getMatchEventSortTime(right)
+      const timeDifference = getMatchEventSortTime(right) - getMatchEventSortTime(left)
 
       if (timeDifference !== 0) {
         return timeDifference
       }
 
-      return String(left.id || '').localeCompare(String(right.id || ''))
+      return String(right.id || '').localeCompare(String(left.id || ''))
     })
 }
 
 function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, onVoidGoal }) {
+  const [isExpanded, setIsExpanded] = useState(false)
   const timelineEvents = getOrderedMatchTimelineEvents(events)
+  const hasTimelineOverflow = timelineEvents.length > 3
+  const visibleTimelineEvents = isExpanded ? timelineEvents : timelineEvents.slice(0, 3)
 
   return (
     <section className={panelClass}>
@@ -4547,7 +4530,7 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
         </div>
       ) : (
         <div className="mt-3 space-y-2">
-          {timelineEvents.map((event) => {
+          {visibleTimelineEvents.map((event) => {
             const detailItems = getMatchEventDetailItems(event)
             const badge = getMatchEventBadge(event)
             const canCorrectGoal = !isReadOnly && event.eventType === 'goal' && event.eventStatus !== 'voided'
@@ -4613,6 +4596,15 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
               </div>
             )
           })}
+          {hasTimelineOverflow ? (
+            <button
+              type="button"
+              onClick={() => setIsExpanded((currentValue) => !currentValue)}
+              className={`${secondaryButtonClass} w-full`}
+            >
+              {isExpanded ? 'Show less' : `Show all ${timelineEvents.length} events`}
+            </button>
+          ) : null}
         </div>
       )}
     </section>
@@ -5129,8 +5121,9 @@ function FixtureSetupModal({
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                   <input
+                    id="matchday-request-scorer"
                     type="checkbox"
-                    checked={form.requestScorer}
+                    checked={form.requestScorer === true}
                     onChange={(event) => updateForm({ requestScorer: event.target.checked })}
                     className="h-5 w-5 accent-[#047857]"
                   />
@@ -5138,8 +5131,9 @@ function FixtureSetupModal({
                 </label>
                 <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                   <input
+                    id="matchday-request-linesman"
                     type="checkbox"
-                    checked={form.requestLinesman}
+                    checked={form.requestLinesman === true}
                     onChange={(event) => updateForm({ requestLinesman: event.target.checked })}
                     className="h-5 w-5 accent-[#047857]"
                   />
@@ -5147,8 +5141,9 @@ function FixtureSetupModal({
                 </label>
                 <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                   <input
+                    id="matchday-request-referee"
                     type="checkbox"
-                    checked={form.requestReferee}
+                    checked={form.requestReferee === true}
                     onChange={(event) => updateForm({ requestReferee: event.target.checked })}
                     className="h-5 w-5 accent-[#047857]"
                   />
