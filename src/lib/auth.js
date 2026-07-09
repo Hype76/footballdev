@@ -703,6 +703,10 @@ function RuntimeAuthProvider({ children }) {
     if (error) {
       console.error(error)
       clearLoginAccessIntent()
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       setAuthError(error.message || 'Login failed.')
       throw error
     }

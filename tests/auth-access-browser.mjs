@@ -193,6 +193,22 @@ async function assertVisibleTextContaining(page, text) {
   await page.getByText(text).first().waitFor({ state: 'visible', timeout: 15000 })
 }
 
+async function assertLoginAccessStateCleared(page) {
+  const accessState = await page.evaluate(() => ({
+    selectedAccessMode: window.sessionStorage.getItem('selected-access-mode'),
+    selectedAccessModeExplicit: window.sessionStorage.getItem('selected-access-mode-explicit'),
+    selectedTeamId: window.sessionStorage.getItem('selected-team-id'),
+    loginAccessIntent: window.sessionStorage.getItem('login-access-intent'),
+  }))
+
+  assert.deepEqual(accessState, {
+    selectedAccessMode: null,
+    selectedAccessModeExplicit: null,
+    selectedTeamId: null,
+    loginAccessIntent: null,
+  })
+}
+
 async function assertSidebarFooterContract(page, { reportIssueExpected = true } = {}) {
   const sidebar = page.locator('aside')
 
@@ -424,6 +440,39 @@ try {
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
     await assertVisibleText(page, 'Family portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
+    await context.close()
+  })
+
+  await runScenario('failed club login clears stale parent access intent', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await seedSelectedAccessMode(page, 'parent')
+    await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
+    await page.getByRole('button', { name: 'Club' }).click()
+    await page.getByPlaceholder('you@club.com').fill('coach.fixture@footballplayer.test')
+    await page.getByPlaceholder('Enter password').fill('WrongFixturePass123!')
+    await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+    await assertVisibleText(page, 'Fixture login failed.')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(await page.getByText('Login again before creating your club').count(), 0)
+    await assertLoginAccessStateCleared(page)
+    await context.close()
+  })
+
+  await runScenario('failed parent login clears stale team access intent', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await seedSelectedAccessMode(page, 'team')
+    await page.goto(`${mainBaseUrl}/sign-in?tab=parent`, { waitUntil: 'commit', timeout: 60000 })
+    await page.getByRole('button', { name: 'Parent' }).click()
+    await page.getByPlaceholder('you@club.com').fill('parent.fixture@footballplayer.test')
+    await page.getByPlaceholder('Enter password').fill('WrongFixturePass123!')
+    await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+    await assertVisibleText(page, 'Fixture login failed.')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
+    assert.equal(await page.getByText('Login again before creating your club').count(), 0)
+    await assertLoginAccessStateCleared(page)
     await context.close()
   })
 

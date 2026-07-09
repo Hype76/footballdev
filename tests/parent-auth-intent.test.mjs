@@ -164,6 +164,10 @@ test('club login intent does not run create-club completion fallback', async () 
   assert.match(routerSource, /Club staff access was not found/)
   assert.match(routerSource, /accessRouteMismatch\?\.teamAccessUnavailable/)
   assert.match(signInSection, /if \(error\) \{[\s\S]*clearLoginAccessIntent\(\)/)
+  assert.match(signInSection, /if \(error\) \{[\s\S]*window\.sessionStorage\.removeItem\(SELECTED_ACCESS_MODE_STORAGE_KEY\)/)
+  assert.match(signInSection, /if \(error\) \{[\s\S]*window\.sessionStorage\.removeItem\(SELECTED_ACCESS_MODE_EXPLICIT_KEY\)/)
+  assert.match(signInSection, /if \(error\) \{[\s\S]*window\.sessionStorage\.removeItem\(SELECTED_CLUB_STORAGE_KEY\)/)
+  assert.match(signInSection, /if \(error\) \{[\s\S]*window\.sessionStorage\.removeItem\(SELECTED_TEAM_STORAGE_KEY\)/)
 })
 
 test('active parent-player link resolves to parent portal profile without app user row', async () => {

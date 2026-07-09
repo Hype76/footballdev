@@ -4,6 +4,7 @@ import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 
 const FIXTURE_SESSION_KEY = 'auth-access-browser-fixture-email'
 const FIXTURE_ACCESS_MODE_KEY = 'selected-access-mode'
+const FIXTURE_ACCESS_MODE_EXPLICIT_KEY = 'selected-access-mode-explicit'
 const FIXTURE_SELECTED_TEAM_KEY = 'selected-team-id'
 const FIXTURE_LOGIN_INTENT_KEY = 'login-access-intent'
 
@@ -242,6 +243,13 @@ function getFixtureAccount(email) {
   return fixtureAccounts[String(email ?? '').trim().toLowerCase()] || null
 }
 
+function clearPendingFixtureAccessState() {
+  window.sessionStorage.removeItem(FIXTURE_ACCESS_MODE_KEY)
+  window.sessionStorage.removeItem(FIXTURE_ACCESS_MODE_EXPLICIT_KEY)
+  window.sessionStorage.removeItem(FIXTURE_SELECTED_TEAM_KEY)
+  window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
+}
+
 function getProfileForMode(account, mode, selectedTeamId = '') {
   const selectedTeam = teamOptions.find((team) => String(team.id) === String(selectedTeamId))
 
@@ -348,7 +356,10 @@ export function FixtureAuthProvider({ AuthContext, children }) {
 
     if (!nextAccount || password !== nextAccount.password) {
       const message = 'Fixture login failed.'
+      clearPendingFixtureAccessState()
       setAuthError(message)
+      setMode('')
+      setSelectedTeamId('')
       throw new Error(message)
     }
 
@@ -414,9 +425,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
 
   const signOut = async () => {
     window.sessionStorage.removeItem(FIXTURE_SESSION_KEY)
-    window.sessionStorage.removeItem(FIXTURE_ACCESS_MODE_KEY)
-    window.sessionStorage.removeItem(FIXTURE_SELECTED_TEAM_KEY)
-    window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
+    clearPendingFixtureAccessState()
     setEmail('')
     setMode('')
     setSelectedTeamId('')
