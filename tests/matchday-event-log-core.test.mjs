@@ -137,7 +137,7 @@ test('staff Match Day page renders a staff-only match timeline from existing mat
 
   assert.notEqual(panelStart, -1)
   assert.notEqual(panelEnd, -1)
-  assert.match(source, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*match=\{match\}[\s\S]*onCorrectGoal=\{onCorrectGoal\}[\s\S]*onVoidGoal=\{onVoidGoal\}/)
+  assert.match(source, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*match=\{match\}[\s\S]*onCorrectGoal=\{onCorrectGoal\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)
   assert.match(source, /function getMatchEventTypeLabel\(event, match = \{\}\)/)
   assert.match(source, /function getMatchEventScoreLabel\(event\)/)
   assert.match(source, /function getMatchEventDetailItems\(event\)/)

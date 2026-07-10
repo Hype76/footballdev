@@ -29,6 +29,11 @@ function normalizeGoalEvent(event = {}, match = {}) {
     voidedAt: event.voidedAt || event.voided_at || '',
     voidedByName: normalizeText(event.voidedByName ?? event.voided_by_name),
     correctionReason: normalizeText(event.correctionReason ?? event.correction_reason),
+    correctionMetadata: event.correctionMetadata && typeof event.correctionMetadata === 'object'
+      ? event.correctionMetadata
+      : event.correction_metadata && typeof event.correction_metadata === 'object'
+        ? event.correction_metadata
+        : {},
     createdByName: normalizeText(event.createdByName ?? event.created_by_name),
     createdAt: event.createdAt || event.created_at || '',
   }
@@ -347,6 +352,86 @@ export function reconcileMatchDayGoalCorrectionInList(matches, {
   return (matches || []).map((match) => (
     String(match.id) === String(matchId)
       ? reconcileMatchDayGoalCorrection(match, options)
+      : match
+  ))
+}
+
+function buildLocalMatchDayEventVoidLogEntry({ event, match = {}, now = new Date().toISOString(), user = {} }) {
+  const voidedEvent = normalizeGoalEvent(event, match)
+  const eventLabels = {
+    goal: 'Goal voided',
+    yellow_card: 'Yellow card voided',
+    red_card: 'Red card voided',
+    substitution: 'Substitution voided',
+    water_break: 'Water break voided',
+  }
+
+  return {
+    id: `local-match-event-void-log-${voidedEvent.id}-${now}`,
+    clubId: normalizeText(match.clubId),
+    teamId: normalizeText(match.teamId),
+    matchDayId: voidedEvent.matchDayId || normalizeText(match.id),
+    playerId: '',
+    playerName: '',
+    actorUserId: normalizeText(user.id),
+    actorDisplayName: getActorName(user, voidedEvent),
+    actorRole: normalizeText(user.roleLabel || user.role) || 'staff',
+    eventType: voidedEvent.eventType === 'goal' ? 'scorer_updated' : voidedEvent.eventType,
+    eventLabel: eventLabels[voidedEvent.eventType] || 'Event voided',
+    previousValue: {
+      homeScore: normalizeScore(match.homeScore),
+      awayScore: normalizeScore(match.awayScore),
+    },
+    newValue: {
+      homeScore: voidedEvent.homeScore,
+      awayScore: voidedEvent.awayScore,
+      eventStatus: 'voided',
+      reason: voidedEvent.correctionReason,
+    },
+    metadata: {
+      matchEventId: voidedEvent.id,
+      undoAction: 'voided',
+      source: 'match_day_event_void_rpc',
+      localReconciled: true,
+    },
+    createdAt: voidedEvent.voidedAt || now,
+  }
+}
+
+export function reconcileMatchDayEventVoid(match, { result, now, user } = {}) {
+  if (!match?.id || !result) {
+    return match
+  }
+
+  const normalizedResult = normalizeGoalCorrectionResult(result, match)
+  const voidedEvent = normalizedResult.event
+  const authoritativeEvents = Array.isArray(result.events)
+    ? result.events.map((event) => normalizeGoalEvent(event, match))
+    : []
+  const currentEvents = Array.isArray(match.events) ? match.events : []
+  const nextEvents = authoritativeEvents.length > 0
+    ? authoritativeEvents
+    : currentEvents.some((event) => normalizeText(event.id) === voidedEvent.id)
+      ? currentEvents.map((event) => (normalizeText(event.id) === voidedEvent.id ? voidedEvent : event))
+      : [voidedEvent, ...currentEvents]
+
+  return {
+    ...match,
+    status: normalizedResult.status || match.status,
+    homeScore: normalizedResult.homeScore,
+    awayScore: normalizedResult.awayScore,
+    events: nextEvents,
+    eventLog: [
+      buildLocalMatchDayEventVoidLogEntry({ event: voidedEvent, match, now, user }),
+      ...(Array.isArray(match.eventLog) ? match.eventLog : []),
+    ],
+  }
+}
+
+export function reconcileMatchDayEventVoidInList(matches, { matchId, ...options } = {}) {
+  return (matches || []).map((match) => (
+    String(match.id) === String(matchId)
+      ? reconcileMatchDayEventVoid(match, options)
       : match
   ))
 }

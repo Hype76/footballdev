@@ -101,10 +101,11 @@ test('Mobile Game Mode prioritises one cockpit and removes duplicate Back contro
   assert.match(gameModeSlice, /Exit Game Mode/)
   assert.doesNotMatch(gameModeSlice, />Back</)
   assert.match(gameModeSlice, /grid-cols-2[\s\S]*sm:grid-cols-3[\s\S]*lg:grid-cols-6/)
-  assert.match(gameModeSlice, /<MatchTimelinePanel events=\{events\} match=\{match\} isReadOnly \/>/)
+  assert.match(gameModeSlice, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*match=\{match\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)
+  assert.doesNotMatch(gameModeSlice, /<MatchTimelinePanel[^>]*isReadOnly/)
 })
 
-test('Half Time, Full Time, score overwrite, goal removal, and reset use app modals only', async () => {
+test('Half Time, Full Time, score overwrite, event void, and reset use app modals only', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
   const gameModeStatusStart = source.indexOf('const handleGameModeStatusChange = async (match, status) => {')
   const gameModeStatus = source.slice(gameModeStatusStart, source.indexOf('const handleConfirmStatusAction', gameModeStatusStart))
@@ -115,7 +116,8 @@ test('Half Time, Full Time, score overwrite, goal removal, and reset use app mod
   assert.match(gameModeStatus, /status === 'full_time'/)
   assert.match(gameModeStatus, /Confirm full time/)
   assert.match(source, /setPendingMatchAction\(\{[\s\S]*type: 'score'/)
-  assert.match(source, /setPendingMatchAction\(\{[\s\S]*type: 'goalVoid'/)
+  assert.match(source, /setUndoEventModal\(\{[\s\S]*eventId: timelineEvent\.id/)
+  assert.match(source, /function UndoEventModal/)
   assert.match(source, /setPendingMatchAction\(\{[\s\S]*type: 'resetPrevious'/)
   assert.doesNotMatch(source, /window\.confirm|window\.prompt|window\.alert|confirmMatchDayAction|promptGoalCorrectionInput/)
 })

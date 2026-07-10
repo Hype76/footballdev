@@ -31,7 +31,7 @@ import {
   selectMatchDayVolunteer,
   setMatchDayTimerState,
   updateMatchDay,
-  voidStaffMatchDayGoal,
+  voidStaffMatchDayEvent,
   withRequestTimeout,
 } from '../lib/supabase.js'
 import {
@@ -42,7 +42,12 @@ import {
   getMatchDayVolunteerActionKey,
   reconcileMatchDayVolunteerSelectionInList,
 } from '../lib/matchday-volunteer-state.js'
-import { reconcileMatchDayEventInList, reconcileMatchDayGoalCorrectionInList, reconcileMatchDayGoalInList } from '../lib/matchday-goal-state.js'
+import {
+  reconcileMatchDayEventInList,
+  reconcileMatchDayEventVoidInList,
+  reconcileMatchDayGoalCorrectionInList,
+  reconcileMatchDayGoalInList,
+} from '../lib/matchday-goal-state.js'
 import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
 import {
   getMatchDayEventSaveErrorMessage,
@@ -54,6 +59,12 @@ import {
   formatMatchTimerClock,
   isMatchTimerPaused,
 } from '../lib/matchday-timer.js'
+import {
+  getMatchDayUndoReasonOptions,
+  isMatchDayEventUndoSupported,
+  MATCH_DAY_UNDO_NOTE_MAX_LENGTH,
+  validateMatchDayEventUndoInput,
+} from '../lib/matchday-event-undo.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -662,7 +673,7 @@ function getMatchEventTypeLabel(event, match = {}) {
 
   if (event.eventType === 'goal') {
     if (event.eventStatus === 'voided') {
-      return event.teamSide === 'opponent' ? `${opponentName} goal removed` : 'Our goal removed'
+      return event.teamSide === 'opponent' ? `${opponentName} goal voided` : 'Our goal voided'
     }
 
     return event.teamSide === 'opponent' ? `${opponentName} goal` : 'Our goal'
@@ -762,6 +773,14 @@ function getMatchEventDetailItems(event) {
   const assistLabel = event.assistInitials || event.assistName
   const playerLabel = scorerLabel ? `${scorerLabel}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}` : ''
   const playerOnLabel = assistLabel ? `${assistLabel}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` : ''
+  const voidedItems = event.eventStatus === 'voided'
+    ? [
+        { label: 'Reason', value: event.correctionReason || 'Event voided' },
+        event.correctionMetadata?.undoNote ? { label: 'Undo note', value: event.correctionMetadata.undoNote } : null,
+        event.voidedByName ? { label: 'Voided by', value: event.voidedByName } : null,
+        event.voidedAt ? { label: 'Voided at', value: formatMatchEventTimestamp(event.voidedAt) } : null,
+      ].filter(Boolean)
+    : []
 
   if (event.eventType === 'substitution') {
     const substitutionItems = [
@@ -769,6 +788,7 @@ function getMatchEventDetailItems(event) {
       scorerLabel ? { label: 'Player Off', value: playerLabel } : null,
       assistLabel ? { label: 'Player On', value: playerOnLabel } : null,
       event.notes ? { label: 'Note', value: event.notes } : null,
+      ...voidedItems,
       event.createdByName ? { label: 'Recorded by', value: event.createdByName } : null,
       { label: 'Time', value: formatMatchEventTimestamp(event.createdAt) },
     ]
@@ -784,10 +804,9 @@ function getMatchEventDetailItems(event) {
       : null,
     event.notes ? { label: 'Note', value: event.notes } : null,
     event.eventStatus === 'corrected' ? { label: 'Correction', value: event.correctionReason || 'Goal details corrected' } : null,
-    event.eventStatus === 'voided' ? { label: 'Correction', value: event.correctionReason || 'Goal removed from score' } : null,
+    ...voidedItems,
     event.createdByName ? { label: 'Recorded by', value: event.createdByName } : null,
     event.correctedByName ? { label: 'Corrected by', value: event.correctedByName } : null,
-    event.voidedByName ? { label: 'Removed by', value: event.voidedByName } : null,
     { label: 'Time', value: formatMatchEventTimestamp(event.createdAt) },
   ]
 
@@ -888,6 +907,55 @@ function buildGoalCorrectionDraft(event = {}) {
     },
     reason: event.correctionReason || 'Corrected goal details',
   }
+}
+
+function getMatchEventUndoSubject(event = {}, match = {}) {
+  const teamName = event.teamSide === 'opponent'
+    ? getOpponentMatchName(match)
+    : normalizeStaffGoalText(match.teamName ?? match.team_name) || 'Our team'
+  const player = formatStaffGoalPersonPreview(
+    event.scorerName || event.scorerInitials,
+    event.scorerShirtNumber,
+    teamName,
+  )
+
+  if (event.eventType === 'substitution') {
+    const playerOn = formatStaffGoalPersonPreview(
+      event.assistName || event.assistInitials,
+      event.assistShirtNumber,
+      'Player on not recorded',
+    )
+    return `${player} off, ${playerOn} on`
+  }
+
+  if (event.eventType === 'water_break') {
+    return getMatchDayDisplayName(match)
+  }
+
+  return `${teamName}: ${player}`
+}
+
+function getMatchDayEventUndoErrorMessage(error) {
+  const message = normalizeStaffGoalText(error?.message)
+
+  if (
+    message === 'Choose a reason for undo before confirming.'
+    || message === 'Add a short note when Other is selected.'
+    || message.startsWith('Keep the undo note to ')
+    || message === 'This timeline event cannot be voided.'
+  ) {
+    return message
+  }
+
+  if (message.includes('already voided')) {
+    return 'This timeline event is already voided. Refresh Match Day to see the latest history.'
+  }
+
+  if (message.includes('Coach or manager access')) {
+    return 'Coach or manager access is required to void this event.'
+  }
+
+  return 'This event could not be voided. Refresh Match Day and try again.'
 }
 
 function formatEventLogTimestamp(value) {
@@ -1635,6 +1703,8 @@ export function MatchDayPage() {
   const [pendingMatchAction, setPendingMatchAction] = useState(null)
   const [goalCorrectionModal, setGoalCorrectionModal] = useState(null)
   const [goalCorrectionError, setGoalCorrectionError] = useState('')
+  const [undoEventModal, setUndoEventModal] = useState(null)
+  const [undoEventError, setUndoEventError] = useState('')
   const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
   const liveClockNow = useServerSyncedClock({
     syncIntervalMs: LIVE_MATCH_REFRESH_INTERVAL_MS,
@@ -1720,7 +1790,8 @@ export function MatchDayPage() {
       || Boolean(liveEntryModal)
       || Boolean(pendingStatusAction)
       || Boolean(pendingMatchAction)
-      || Boolean(goalCorrectionModal),
+      || Boolean(goalCorrectionModal)
+      || Boolean(undoEventModal),
   )
 
   useEffect(() => {
@@ -2708,64 +2779,108 @@ export function MatchDayPage() {
     openGoalCorrectionModal(match, goalEvent)
   }
 
-  const performVoidGoal = async (match, goalEvent, reason) => {
-    const removalReason = normalizeStaffGoalText(reason) || 'Goal entered in error'
+  const closeUndoEventModal = () => {
+    setUndoEventModal(null)
+    setUndoEventError('')
+  }
 
-    if (!match || !goalEvent) {
-      setErrorMessage('This goal could not be found. Refresh Match Day before trying again.')
+  const updateUndoEventModal = (updates) => {
+    setUndoEventModal((currentModal) => currentModal ? { ...currentModal, ...updates } : currentModal)
+    setUndoEventError('')
+  }
+
+  const performVoidEvent = async (submitEvent) => {
+    submitEvent.preventDefault()
+
+    if (!undoEventModal) {
+      return
+    }
+
+    const match = matches.find((candidate) => candidate.id === undoEventModal.matchId)
+    const timelineEvent = match?.events?.find((candidate) => candidate.id === undoEventModal.eventId)
+
+    if (!match || !timelineEvent) {
+      setUndoEventError('This timeline event could not be found. Refresh Match Day before trying again.')
+      return
+    }
+
+    let validatedUndo
+    try {
+      validatedUndo = validateMatchDayEventUndoInput({
+        eventType: timelineEvent.eventType,
+        note: undoEventModal.note,
+        reasonCode: undoEventModal.reasonCode,
+      })
+    } catch (error) {
+      setUndoEventError(getMatchDayEventUndoErrorMessage(error))
       return
     }
 
     setActiveMatchId(match.id)
     setMatchActionStatus({
-      key: `${match.id}:goal-void`,
+      key: `${match.id}:event-void`,
       tone: 'loading',
-      message: 'Removing goal...',
+      message: 'Voiding event...',
     })
     setErrorMessage('')
+    setUndoEventError('')
 
     try {
-      const result = await voidStaffMatchDayGoal({
+      const result = await voidStaffMatchDayEvent({
         user,
         match,
-        event: goalEvent,
-        reason: removalReason,
+        event: timelineEvent,
+        reasonCode: validatedUndo.reasonCode,
+        note: validatedUndo.note,
       })
-      const reconcileVoidedGoal = (currentMatches) => reconcileMatchDayGoalCorrectionInList(currentMatches, {
-        action: 'voided',
+      const reconcileVoidedEvent = (currentMatches) => reconcileMatchDayEventVoidInList(currentMatches, {
         result,
         matchId: match.id,
         user,
       })
 
-      setMatches(reconcileVoidedGoal)
+      setMatches(reconcileVoidedEvent)
       try {
         await loadData()
-        setMatches(reconcileVoidedGoal)
+        setMatches(reconcileVoidedEvent)
       } catch (loadError) {
         console.error(loadError)
-        setMatches(reconcileVoidedGoal)
-        setErrorMessage(loadError.message || 'Goal was removed, but the latest Match Day data could not be refreshed.')
+        setMatches(reconcileVoidedEvent)
+        setErrorMessage('The event was voided, but the latest Match Day data could not be refreshed. Refresh before making another timeline change.')
       }
       setMatchActionStatus({
-        key: `${match.id}:goal-void`,
+        key: `${match.id}:event-void`,
         tone: 'success',
-        message: 'Goal removed.',
+        message: 'Event voided.',
       })
-      showToast({ title: 'Goal removed', message: 'The score and timeline have been updated.' })
+      closeUndoEventModal()
+      showToast({ title: 'Event voided', message: timelineEvent.eventType === 'goal' ? 'The score and timeline have been updated.' : 'The timeline has been updated.' })
     } catch (error) {
       console.error(error)
-      const message = error.message || 'Goal could not be removed.'
-      setErrorMessage(message)
+      const message = getMatchDayEventUndoErrorMessage(error)
+      setUndoEventError(message)
       setMatchActionStatus({
-        key: `${match.id}:goal-void`,
+        key: `${match.id}:event-void`,
         tone: 'error',
         message,
       })
-      throw error
     } finally {
       setActiveMatchId('')
     }
+  }
+
+  const handleUndoEvent = (match, timelineEvent) => {
+    if (!isMatchDayEventUndoSupported(timelineEvent)) {
+      return
+    }
+
+    setUndoEventError('')
+    setUndoEventModal({
+      matchId: match.id,
+      eventId: timelineEvent.id,
+      note: '',
+      reasonCode: '',
+    })
   }
 
   const handleAddMatchEvent = async (event, match) => {
@@ -2890,33 +3005,6 @@ export function MatchDayPage() {
     })
   }
 
-  const handleVoidGoal = (match, goalEvent, { isLatestEvent = false } = {}) => {
-    const playerLabel = goalEvent.scorerName || goalEvent.scorerInitials || 'Not recorded'
-    const minuteLabel = goalEvent.minute === null || goalEvent.minute === undefined
-      ? 'Not recorded'
-      : `${goalEvent.minute}'`
-
-    setPendingMatchAction({
-      type: 'goalVoid',
-      matchId: match.id,
-      eventId: goalEvent.id,
-      title: isLatestEvent ? 'Undo last event' : 'Remove goal from score',
-      message: isLatestEvent
-        ? 'Are you sure you want to undo this event? The goal will be removed from the score and retained in the timeline as removed.'
-        : 'Remove this goal from the score while keeping the timeline history.',
-      confirmLabel: isLatestEvent ? 'Undo event' : 'Remove goal',
-      itemsTitle: isLatestEvent ? 'This will remove' : 'Goal removal',
-      requireReason: !isLatestEvent,
-      reasonLabel: 'Removal reason',
-      reasonPlaceholder: goalEvent.correctionReason || 'Goal entered in error',
-      items: [
-        `Event: ${getMatchEventTypeLabel(goalEvent, match)}`,
-        `Player: ${playerLabel}`,
-        `Minute: ${minuteLabel}`,
-      ],
-    })
-  }
-
   const handleScoreSave = (match) => {
     const draft = scoreDrafts[match.id] ?? {
       homeScore: match.homeScore,
@@ -2938,7 +3026,7 @@ export function MatchDayPage() {
     })
   }
 
-  const handleConfirmPendingMatchAction = async (_password, reason) => {
+  const handleConfirmPendingMatchAction = async () => {
     const action = pendingMatchAction
 
     if (!action) {
@@ -2965,11 +3053,6 @@ export function MatchDayPage() {
       return
     }
 
-    if (action.type === 'goalVoid') {
-      const goalEvent = match.events?.find((candidate) => candidate.id === action.eventId)
-      await performVoidGoal(match, goalEvent, reason)
-      setPendingMatchAction(null)
-    }
   }
 
   const liveEntryMatch = liveEntryModal
@@ -2978,6 +3061,10 @@ export function MatchDayPage() {
   const goalCorrectionMatch = goalCorrectionModal
     ? matches.find((candidate) => candidate.id === goalCorrectionModal.matchId)
     : null
+  const undoEventMatch = undoEventModal
+    ? matches.find((candidate) => candidate.id === undoEventModal.matchId)
+    : null
+  const undoTimelineEvent = undoEventMatch?.events?.find((candidate) => candidate.id === undoEventModal?.eventId) ?? null
   const isGameModeActive = Boolean(gameModeMatchId)
 
   return (
@@ -3182,7 +3269,7 @@ export function MatchDayPage() {
                 onVolunteerSelection={openVolunteerSelectionPrompt}
                 onStatusChange={handleStatusChange}
                 onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
-                onVoidGoal={handleVoidGoal}
+                onUndoEvent={handleUndoEvent}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                 volunteerSelectionStatus={volunteerSelectionStatus}
               />
@@ -3325,7 +3412,7 @@ export function MatchDayPage() {
                   onVolunteerSelection={openVolunteerSelectionPrompt}
                   onStatusChange={handleStatusChange}
                   onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
-                  onVoidGoal={handleVoidGoal}
+                  onUndoEvent={handleUndoEvent}
                   scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                   volunteerSelectionStatus={volunteerSelectionStatus}
                 />
@@ -3369,6 +3456,19 @@ export function MatchDayPage() {
         onCancel={() => setPendingMatchAction(null)}
         onConfirm={handleConfirmPendingMatchAction}
       />
+
+      {undoEventModal && undoEventMatch && undoTimelineEvent ? (
+        <UndoEventModal
+          errorMessage={undoEventError}
+          event={undoTimelineEvent}
+          isBusy={activeMatchId === undoEventMatch.id}
+          match={undoEventMatch}
+          modal={undoEventModal}
+          onClose={closeUndoEventModal}
+          onSubmit={performVoidEvent}
+          onUpdate={updateUndoEventModal}
+        />
+      ) : null}
 
       {goalCorrectionModal && goalCorrectionMatch ? (
         <GoalCorrectionModal
@@ -3556,7 +3656,7 @@ function MatchDayCard({
   onVolunteerSelection,
   onStatusChange,
   onToggle,
-  onVoidGoal,
+  onUndoEvent,
   scoreDraft,
   volunteerSelectionStatus,
 }) {
@@ -3720,6 +3820,8 @@ function MatchDayCard({
           onOpenGoalModal={onOpenGoalModal}
           onManage={openManageFromGameMode}
           onStatusChange={onGameModeStatusChange}
+          onCorrectGoal={onCorrectGoal}
+          onUndoEvent={onUndoEvent}
         />
       ) : null}
 
@@ -4054,7 +4156,7 @@ function MatchDayCard({
               events={events}
               match={match}
               onCorrectGoal={onCorrectGoal}
-              onVoidGoal={onVoidGoal}
+              onUndoEvent={onUndoEvent}
             />
           </div>
         </div>
@@ -4109,11 +4211,13 @@ function MatchDayGameModePanel({
   events,
   match,
   onBack,
+  onCorrectGoal,
   onHydrationToggle,
   onManage,
   onOpenEventModal,
   onOpenGoalModal,
   onStatusChange,
+  onUndoEvent,
   now,
 }) {
   const scoreSummary = getMatchDayDisplayScore(match)
@@ -4169,7 +4273,124 @@ function MatchDayGameModePanel({
           <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={isBusy || isFullTime} className={secondaryButtonClass}>FT</button>
         </div>
       </section>
-      <MatchTimelinePanel events={events} match={match} isReadOnly />
+      <MatchTimelinePanel
+        events={events}
+        match={match}
+        onCorrectGoal={onCorrectGoal}
+        onUndoEvent={onUndoEvent}
+      />
+    </div>
+  )
+}
+
+function UndoEventModal({
+  errorMessage,
+  event,
+  isBusy,
+  match,
+  modal,
+  onClose,
+  onSubmit,
+  onUpdate,
+}) {
+  const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
+  const reasonOptions = getMatchDayUndoReasonOptions(event)
+  const isOtherReason = modal.reasonCode === 'other'
+  const hasValidReason = reasonOptions.some((option) => option.value === modal.reasonCode)
+  const canConfirm = hasValidReason && (!isOtherReason || normalizeStaffGoalText(modal.note))
+  const minuteLabel = event.minute === null || event.minute === undefined ? 'Not recorded' : `${event.minute}'`
+
+  return (
+    <div
+      className="fixed inset-x-0 top-[var(--fixture-modal-viewport-top)] z-[80] box-border flex h-[var(--fixture-modal-viewport-height)] items-stretch justify-center overflow-hidden bg-[#101828]/55 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:inset-0 sm:h-auto sm:items-center sm:px-4 sm:py-6"
+      style={viewportStyle}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="undo-event-title"
+        className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]"
+      >
+        <div className="shrink-0 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>Match Timeline</p>
+              <h3 id="undo-event-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Undo event</h3>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">{getMatchDayDisplayName(match)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isBusy}
+              title="Close"
+              aria-label="Close"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-lg font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              X
+            </button>
+          </div>
+        </div>
+
+        <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={onSubmit}>
+          <div className={`${isKeyboardOpen ? 'scroll-pb-8' : 'scroll-pb-32'} min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6`}>
+            <dl className="grid gap-2 sm:grid-cols-2">
+              <DetailItem label="Event type" value={getMatchEventTypeLabel(event, match)} />
+              <DetailItem label="Player or team" value={getMatchEventUndoSubject(event, match)} />
+              <DetailItem label="Minute" value={minuteLabel} />
+              <DetailItem
+                label="Score impact"
+                value={event.eventType === 'goal' ? 'Recalculate from non-voided goals' : 'No score change'}
+              />
+            </dl>
+
+            <label className="mt-4 block">
+              <span className={smallLabelClass}>Reason for undo</span>
+              <select
+                value={modal.reasonCode}
+                onChange={(changeEvent) => onUpdate({ reasonCode: changeEvent.target.value })}
+                className={compactInputClass}
+                required
+              >
+                <option value="">Choose a reason</option>
+                {reasonOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="mt-4 block">
+              <span className={smallLabelClass}>{isOtherReason ? 'Short note required' : 'Short note optional'}</span>
+              <textarea
+                value={modal.note}
+                onChange={(changeEvent) => onUpdate({ note: changeEvent.target.value })}
+                maxLength={MATCH_DAY_UNDO_NOTE_MAX_LENGTH}
+                required={isOtherReason}
+                rows={4}
+                className={`${compactInputClass} min-h-24`}
+              />
+            </label>
+
+            {errorMessage ? (
+              <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {errorMessage}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="shrink-0 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:px-6">
+            <div className="grid gap-2 sm:grid-cols-[auto_auto] sm:justify-end">
+              <button type="button" onClick={onClose} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
+              <button
+                type="submit"
+                disabled={isBusy || !canConfirm}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecaca] bg-[#fef2f2] px-5 py-3 text-sm font-black text-[#991b1b] transition hover:border-[#991b1b] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? 'Voiding...' : 'Void event'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
     </div>
   )
 }
@@ -4582,7 +4803,7 @@ function getOrderedMatchTimelineEvents(events) {
     })
 }
 
-function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, onVoidGoal }) {
+function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, onUndoEvent }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const timelineEvents = getOrderedMatchTimelineEvents(events)
   const hasTimelineOverflow = timelineEvents.length > 3
@@ -4621,6 +4842,7 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
             const detailItems = getMatchEventDetailItems(event)
             const badge = getMatchEventBadge(event)
             const canCorrectGoal = !isReadOnly && event.eventType === 'goal' && event.eventStatus !== 'voided'
+            const canUndoEvent = !isReadOnly && isMatchDayEventUndoSupported(event)
             const isLatestEvent = eventIndex === 0
 
             return (
@@ -4649,7 +4871,7 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
                     ) : null}
                     <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>
                       {event.eventStatus === 'voided'
-                        ? 'Removed'
+                        ? 'Voided'
                         : event.eventType === 'goal' && event.teamSide === 'opponent'
                           ? getOpponentMatchName(match)
                           : event.eventType === 'goal'
@@ -4657,22 +4879,22 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
                             : getMatchEventTypeLabel(event, match)}
                     </span>
                     {canCorrectGoal ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onCorrectGoal(match, event)}
-                          className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
-                        >
-                          {isLatestEvent ? 'Correct' : 'Edit'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onVoidGoal(match, event, { isLatestEvent })}
-                          className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#fecaca] bg-white px-3 py-1 text-xs font-black text-[#991b1b] transition hover:bg-[#fef2f2]"
-                        >
-                          {isLatestEvent ? 'Undo last event' : 'Remove'}
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => onCorrectGoal(match, event)}
+                        className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
+                      >
+                        {isLatestEvent ? 'Correct' : 'Edit'}
+                      </button>
+                    ) : null}
+                    {canUndoEvent ? (
+                      <button
+                        type="button"
+                        onClick={() => onUndoEvent(match, event)}
+                        className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#fecaca] bg-white px-3 py-1 text-xs font-black text-[#991b1b] transition hover:bg-[#fef2f2]"
+                      >
+                        Undo event
+                      </button>
                     ) : null}
                   </div>
                 </div>

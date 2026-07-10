@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import {
   createServerClockSample,
   createServerClockSampleFromDateHeader,
+  DEFAULT_MATCH_HALF_SECONDS,
   formatMatchTimerClock,
   getServerSyncedNowMs,
   getMatchTimerElapsedSeconds,
@@ -13,6 +14,7 @@ import {
 } from '../src/lib/matchday-timer.js'
 
 const timerMigrationUrl = new URL('../supabase/migrations/20260708165903_match_day_timer_state.sql', import.meta.url)
+const universalUndoTimerMigrationUrl = new URL('../supabase/migrations/20260710050137_matchday_universal_event_undo_second_half_floor.sql', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
@@ -52,7 +54,7 @@ test('match timer helper keeps running and frozen m:ss displays stable', () => {
     timerStatus: 'running',
     timerElapsedSeconds: 300,
     timerStartedAt: '2026-07-08T12:00:00Z',
-  }, now), '5:30')
+  }, now), '45:30')
 
   assert.equal(formatMatchTimerClock({
     status: 'full_time',
@@ -69,6 +71,26 @@ test('match timer helper keeps running and frozen m:ss displays stable', () => {
     status: 'live',
     phaseStartedAt: '2026-07-08T11:59:30Z',
   }, now), '1:00')
+})
+
+test('second half clock starts at 45:00 and event minute stays in the second half', () => {
+  const secondHalfStart = Date.parse('2026-07-08T13:00:00Z')
+  const match = {
+    status: 'second_half',
+    timerStatus: 'running',
+    timerElapsedSeconds: 0,
+    timerStartedAt: new Date(secondHalfStart).toISOString(),
+  }
+
+  assert.equal(DEFAULT_MATCH_HALF_SECONDS, 2700)
+  assert.equal(formatMatchTimerClock(match, secondHalfStart), '45:00')
+  assert.equal(formatMatchTimerClock(match, secondHalfStart + 30000), '45:30')
+  assert.ok(getMatchTimerMinute(match, secondHalfStart) >= 45)
+  assert.equal(formatMatchTimerClock({
+    ...match,
+    timerStatus: 'paused',
+    timerElapsedSeconds: 120,
+  }, secondHalfStart + 30000), '45:00')
 })
 
 test('server clock sample keeps live timer display consistent across client clock skew', () => {
@@ -145,6 +167,17 @@ test('timer migration adds durable columns and a locked staff RPC without client
   assert.doesNotMatch(rpc, /client_elapsed|elapsed_seconds_value|timer_elapsed_seconds_value/i)
   assert.match(migration, /revoke execute on function public\.set_match_day_timer_state\(uuid, text\) from anon;/i)
   assert.match(migration, /grant execute on function public\.set_match_day_timer_state\(uuid, text\) to authenticated;/i)
+})
+
+test('follow-up migration enforces the authoritative 45-minute second-half floor', async () => {
+  const migration = await readFile(universalUndoTimerMigrationUrl, 'utf8')
+
+  assert.match(migration, /create or replace function public\.enforce_match_day_second_half_floor\(\)/i)
+  assert.match(migration, /new\.status = 'second_half'/i)
+  assert.match(migration, /old\.status = 'half_time' or old\.timer_status = 'half_time'/i)
+  assert.match(migration, /new\.timer_elapsed_seconds := greatest\(coalesce\(new\.timer_elapsed_seconds, 0\), 2700\)/i)
+  assert.match(migration, /before update of status, timer_status, timer_elapsed_seconds on public\.match_days/i)
+  assert.match(migration, /execute function public\.enforce_match_day_second_half_floor\(\)/i)
 })
 
 test('parent and scorer RPCs carry timer state without widening access', async () => {

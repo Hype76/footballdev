@@ -5,6 +5,7 @@ import { createAuditLog } from './audit.js'
 import { getEntryUserId, getEntryUserName } from './core-normalizers.js'
 import { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 import { assertValidMatchDayEventMinute } from '../matchday-event-minute.js'
+import { validateMatchDayEventUndoInput } from '../matchday-event-undo.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
@@ -214,6 +215,11 @@ function normalizeMatchDayEvent(row) {
     voidedAt: row.voided_at ?? row.voidedAt ?? '',
     voidedByName: normalizeText(row.voided_by_name ?? row.voidedByName),
     correctionReason: normalizeText(row.correction_reason ?? row.correctionReason),
+    correctionMetadata: row.correction_metadata && typeof row.correction_metadata === 'object'
+      ? row.correction_metadata
+      : row.correctionMetadata && typeof row.correctionMetadata === 'object'
+        ? row.correctionMetadata
+        : {},
     createdByName: normalizeText(row.created_by_name ?? row.createdByName),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
@@ -490,9 +496,10 @@ function normalizeParentPortalMatchDay(row) {
       updatedAt: assignment.updatedAt,
     })),
     events: match.events.map((event) => {
-      const parentEvent = { ...event }
+        const parentEvent = { ...event }
 
-      delete parentEvent.correctedByName
+        delete parentEvent.correctionMetadata
+        delete parentEvent.correctedByName
       delete parentEvent.createdByName
       delete parentEvent.voidedByName
 
@@ -1385,6 +1392,43 @@ function normalizeGoalCorrectionResult(data) {
   }
 }
 
+function normalizeMatchDayEventVoidResult(data) {
+  const result = data ?? {}
+  const event = result.event ? normalizeMatchDayEvent(result.event) : null
+  const events = Array.isArray(result.events) ? result.events.map(normalizeMatchDayEvent) : []
+
+  return {
+    matchDayId: result.matchDayId ?? result.match_day_id ?? event?.matchDayId ?? '',
+    homeScore: Number(result.homeScore ?? result.home_score ?? event?.homeScore ?? 0),
+    awayScore: Number(result.awayScore ?? result.away_score ?? event?.awayScore ?? 0),
+    status: normalizeText(result.status),
+    event,
+    events,
+  }
+}
+
+function getSafeMatchDayEventVoidError(error) {
+  const message = normalizeText(error?.message).toLowerCase()
+
+  if (message.includes('already voided')) {
+    return new Error('This timeline event is already voided. Refresh Match Day to see the latest history.')
+  }
+
+  if (message.includes('coach or manager access') || message.includes('login is required')) {
+    return new Error('Coach or manager access is required to void this event.')
+  }
+
+  if (message.includes('reason') || message.includes('short note')) {
+    return new Error('Choose a valid reason for undo and complete the required note.')
+  }
+
+  if (message.includes('could not be found') || message.includes('cannot be voided')) {
+    return new Error('This timeline event is unavailable or cannot be voided.')
+  }
+
+  return new Error('This event could not be voided. Refresh Match Day and try again.')
+}
+
 function buildGoalCorrectionPayload({ match, event, parentLinkId = '', goal = {}, reason = '' }) {
   const sourceEvent = event || {}
 
@@ -1443,6 +1487,34 @@ export async function voidStaffMatchDayGoal({ user, match, event, reason = '' })
 
   invalidateMemoryCacheByPrefix('match-day:')
   return normalizeGoalCorrectionResult(data)
+}
+
+export async function voidStaffMatchDayEvent({ user, match, event, reasonCode = '', note = '' }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  const validatedUndo = validateMatchDayEventUndoInput({
+    eventType: event?.eventType ?? event?.event_type,
+    note,
+    reasonCode,
+  })
+
+  const { data, error } = await supabase.rpc('void_match_day_event', {
+    match_day_id_value: match?.id || event?.matchDayId || event?.match_day_id,
+    event_id_value: event?.id,
+    reason_code_value: validatedUndo.reasonCode,
+    note_value: validatedUndo.note,
+  })
+
+  if (error) {
+    console.error(error)
+    throw getSafeMatchDayEventVoidError(error)
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayEventVoidResult(data)
 }
 
 export async function addStaffMatchDayEvent({ user, match, event }) {

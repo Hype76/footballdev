@@ -118,5 +118,6 @@ test('mobile active Game Mode hides admin page sections but keeps Manage and tim
   assert.match(renderSource, /isGameModeActive \? 'px-0 py-0 xl:px-5 xl:py-5'/)
   assert.match(gameModeSource, /onManage/)
   assert.match(gameModeSource, /Manage fixture/)
-  assert.match(gameModeSource, /<MatchTimelinePanel events=\{events\} match=\{match\} isReadOnly \/>/)
+  assert.match(gameModeSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*match=\{match\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)
+  assert.doesNotMatch(gameModeSource, /<MatchTimelinePanel[^>]*isReadOnly/)
 })

@@ -275,6 +275,7 @@ export {
   updateMatchDay,
   updateMatchDayScoreAsScorer,
   voidMatchDayGoalAsScorer,
+  voidStaffMatchDayEvent,
   voidStaffMatchDayGoal,
 } from './domain/match-day.js'
 

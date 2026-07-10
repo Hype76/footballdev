@@ -1,6 +1,7 @@
 export const RUNNING_MATCH_TIMER_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
 export const FROZEN_MATCH_TIMER_STATUSES = new Set(['paused', 'half_time', 'hydration', 'full_time'])
 export const RESUMABLE_MATCH_TIMER_STATUSES = new Set(['paused', 'half_time', 'hydration'])
+export const DEFAULT_MATCH_HALF_SECONDS = 45 * 60
 
 const NON_CLOCK_MATCH_STATUSES = new Set(['scheduled', 'scorer_request', 'postponed', 'cancelled'])
 
@@ -23,17 +24,23 @@ function getTimestampMs(value) {
   return Number.isNaN(timestamp) || timestamp <= 0 ? null : timestamp
 }
 
+function getMatchTimerPeriodFloorSeconds(status) {
+  return normalizeText(status) === 'second_half' ? DEFAULT_MATCH_HALF_SECONDS : 0
+}
+
 export function getMatchTimerState(match = {}, now = Date.now()) {
   const nowMs = Number.isFinite(Number(now)) ? Number(now) : Date.now()
   const status = normalizeText(match.status) || 'scheduled'
   const timerStatus = normalizeText(match.timerStatus ?? match.timer_status)
   const storedElapsedSeconds = normalizeNonNegativeInteger(match.timerElapsedSeconds ?? match.timer_elapsed_seconds)
+  const periodFloorSeconds = getMatchTimerPeriodFloorSeconds(status)
+  const flooredStoredElapsedSeconds = Math.max(storedElapsedSeconds, periodFloorSeconds)
   const timerStartedAtMs = getTimestampMs(match.timerStartedAt ?? match.timer_started_at)
 
   if (timerStatus === 'running') {
     if (!timerStartedAtMs || timerStartedAtMs > nowMs) {
       return {
-        elapsedSeconds: storedElapsedSeconds,
+        elapsedSeconds: flooredStoredElapsedSeconds,
         timerStatus,
         isRunning: true,
         isFrozen: false,
@@ -41,7 +48,7 @@ export function getMatchTimerState(match = {}, now = Date.now()) {
     }
 
     return {
-      elapsedSeconds: storedElapsedSeconds + Math.max(Math.floor((nowMs - timerStartedAtMs) / 1000), 0),
+      elapsedSeconds: flooredStoredElapsedSeconds + Math.max(Math.floor((nowMs - timerStartedAtMs) / 1000), 0),
       timerStatus,
       isRunning: true,
       isFrozen: false,
@@ -50,7 +57,7 @@ export function getMatchTimerState(match = {}, now = Date.now()) {
 
   if (FROZEN_MATCH_TIMER_STATUSES.has(timerStatus)) {
     return {
-      elapsedSeconds: storedElapsedSeconds,
+      elapsedSeconds: flooredStoredElapsedSeconds,
       timerStatus,
       isRunning: false,
       isFrozen: true,
@@ -79,7 +86,7 @@ export function getMatchTimerState(match = {}, now = Date.now()) {
     }
 
     return {
-      elapsedSeconds: Math.max(Math.floor((nowMs - fallbackStartedAtMs) / 1000), 0),
+      elapsedSeconds: periodFloorSeconds + Math.max(Math.floor((nowMs - fallbackStartedAtMs) / 1000), 0),
       timerStatus: 'running',
       isRunning: true,
       isFrozen: false,

@@ -203,7 +203,7 @@ test('match day separates previous games without removing staff controls', () =>
   assert.match(previousSection, /onScoreSave=\{handleScoreSave\}/)
   assert.match(previousSection, /onVolunteerSelection=\{openVolunteerSelectionPrompt\}/)
   assert.match(previousSection, /onCorrectGoal=\{handleCorrectGoal\}/)
-  assert.match(previousSection, /onVoidGoal=\{handleVoidGoal\}/)
+  assert.match(previousSection, /onUndoEvent=\{handleUndoEvent\}/)
   assert.match(previousSection, /onOpenEventModal=\{\(selectedMatch\) => openLiveEntryModal\(selectedMatch, 'event'\)\}/)
   assert.match(previousSection, /onOpenGoalModal=\{\(selectedMatch\) => openLiveEntryModal\(selectedMatch, 'goal'\)\}/)
   assert.doesNotMatch(previousSection, /onAddGoal=\{handleAddGoal\}/)
@@ -412,7 +412,7 @@ test('Game Mode opens existing live state without restarting and matches pause r
   assert.match(gameModeSource, /disabled=\{isBusy \|\| isFullTime\}/)
 })
 
-test('Game Mode hides admin readiness cards and shows a persisted read-only timeline', () => {
+test('Game Mode hides admin readiness cards and shows the staff timeline controls', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
@@ -432,7 +432,8 @@ test('Game Mode hides admin readiness cards and shows a persisted read-only time
   assert.match(cardSource, /\{!isGameMode \? \([\s\S]*<CompactFact label="Availability" value=\{getAvailabilitySummary\(match\)\} \/>[\s\S]*<CompactFact label="Scorer" value=\{getRoleStatus\(match, 'scorer'\)\} \/>[\s\S]*<CompactFact label="Referee" value=\{getRoleStatus\(match, 'referee'\)\} \/>[\s\S]*<CompactFact label="Linesman" value=\{getRoleStatus\(match, 'linesman'\)\} \/>[\s\S]*<CompactFact label="Status" value=\{getMatchStatusLabel\(match\.status\)\} \/>/)
   assert.match(cardSource, /events=\{events\}[\s\S]*match=\{match\}[\s\S]*onBack=\{onGameModeBack\}/)
   assert.match(gameModeSource, /events,/)
-  assert.match(gameModeSource, /<MatchTimelinePanel events=\{events\} match=\{match\} isReadOnly \/>/)
+  assert.match(gameModeSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*match=\{match\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)
+  assert.doesNotMatch(gameModeSource, /<MatchTimelinePanel[^>]*isReadOnly/)
   assert.doesNotMatch(gameModeSource, /getAvailabilitySummary|getRoleStatus|getMatchStatusLabel\(match\.status\)|CompactFact label="Availability"|CompactFact label="Scorer"|CompactFact label="Referee"|CompactFact label="Linesman"|CompactFact label="Status"/)
 })
 
@@ -469,7 +470,8 @@ test('Match Timeline uses persisted events, stable ordering, and the approved em
   assert.match(timelineSource, /getMatchEventBadge\(event\)/)
   assert.match(timelineSource, /event\.eventType === 'goal' && event\.eventStatus !== 'voided'/)
   assert.match(timelineSource, /const isLatestEvent = eventIndex === 0/)
-  assert.match(timelineSource, /Undo last event/)
+  assert.match(timelineSource, /Undo event/)
+  assert.match(timelineSource, /isMatchDayEventUndoSupported\(event\)/)
   assert.match(timelineSource, /isReadOnly \? \(/)
   assert.doesNotMatch(timelineSource, /slice\(0, 8\)/)
 })
@@ -498,7 +500,7 @@ test('post-game Manage detail keeps admin facts and the persisted timeline avail
   assert.match(matchCardSource, /<CompactFact label="Scorer" value=\{getRoleStatus\(match, 'scorer'\)\} \/>/)
   assert.match(matchCardSource, /<CompactFact label="Referee" value=\{getRoleStatus\(match, 'referee'\)\} \/>/)
   assert.match(matchCardSource, /<CompactFact label="Linesman" value=\{getRoleStatus\(match, 'linesman'\)\} \/>/)
-  assert.match(matchCardSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*onCorrectGoal=\{onCorrectGoal\}[\s\S]*onVoidGoal=\{onVoidGoal\}/)
+  assert.match(matchCardSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*onCorrectGoal=\{onCorrectGoal\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)
 })
 
 test('staff goal logging closes the expanded mobile panel after successful save only', () => {

@@ -2,87 +2,156 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
+import {
+  getMatchDayUndoReasonOptions,
+  isMatchDayEventUndoSupported,
+  validateMatchDayEventUndoInput,
+} from '../src/lib/matchday-event-undo.js'
+
 const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
-const confirmModalUrl = new URL('../src/components/ui/ConfirmModal.jsx', import.meta.url)
-const goalCorrectionMigrationUrl = new URL('../supabase/migrations/20260708064812_matchday_goal_correction_rpc.sql', import.meta.url)
+const parentPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
+const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260710050137_matchday_universal_event_undo_second_half_floor.sql', import.meta.url)
 
-test('latest Match Day goal exposes a styled undo confirmation with exact event details', async () => {
-  const source = await readFile(staffPageUrl, 'utf8')
-  const handlerStart = source.indexOf('const handleVoidGoal =')
-  const handlerEnd = source.indexOf('const handleScoreSave =', handlerStart)
-  const handlerSource = source.slice(handlerStart, handlerEnd)
-  const timelineStart = source.indexOf('function MatchTimelinePanel')
-  const timelineEnd = source.indexOf('function MatchDayReadinessPanel', timelineStart)
-  const timelineSource = source.slice(timelineStart, timelineEnd)
+test('universal undo policy supports football events and blocks voided or lifecycle events', () => {
+  for (const eventType of ['goal', 'yellow_card', 'red_card', 'substitution', 'water_break']) {
+    assert.equal(isMatchDayEventUndoSupported({ eventType, eventStatus: 'active' }), true)
+    assert.equal(isMatchDayEventUndoSupported({ eventType, eventStatus: 'corrected' }), true)
+    assert.equal(isMatchDayEventUndoSupported({ eventType, eventStatus: 'voided' }), false)
+    assert.ok(getMatchDayUndoReasonOptions(eventType).length >= 5)
+  }
 
-  assert.match(timelineSource, /visibleTimelineEvents\.map\(\(event, eventIndex\) =>/)
-  assert.match(timelineSource, /const isLatestEvent = eventIndex === 0/)
-  assert.match(timelineSource, /\{isLatestEvent \? 'Correct' : 'Edit'\}/)
-  assert.match(timelineSource, /\{isLatestEvent \? 'Undo last event' : 'Remove'\}/)
-  assert.match(handlerSource, /title: isLatestEvent \? 'Undo last event' : 'Remove goal from score'/)
-  assert.match(handlerSource, /Are you sure you want to undo this event\?/)
-  assert.match(handlerSource, /itemsTitle: isLatestEvent \? 'This will remove' : 'Goal removal'/)
-  assert.match(handlerSource, /`Event: \$\{getMatchEventTypeLabel\(goalEvent, match\)\}`/)
-  assert.match(handlerSource, /`Player: \$\{playerLabel\}`/)
-  assert.match(handlerSource, /`Minute: \$\{minuteLabel\}`/)
-  assert.doesNotMatch(handlerSource, /window\.confirm|confirm\(|alert\(|prompt\(/)
+  for (const eventType of ['status_change', 'score_correction', 'note', 'match_started', 'half_time', 'full_time']) {
+    assert.equal(isMatchDayEventUndoSupported({ eventType, eventStatus: 'active' }), false)
+    assert.deepEqual(getMatchDayUndoReasonOptions(eventType), [])
+  }
 })
 
-test('undo stays goal-only and preserves audited score recalculation without deleting event history', async () => {
-  const [source, migration] = await Promise.all([
-    readFile(staffPageUrl, 'utf8'),
-    readFile(goalCorrectionMigrationUrl, 'utf8'),
-  ])
-  const timelineStart = source.indexOf('function MatchTimelinePanel')
-  const timelineEnd = source.indexOf('function MatchDayReadinessPanel', timelineStart)
-  const timelineSource = source.slice(timelineStart, timelineEnd)
-  const voidRpcStart = migration.indexOf('create or replace function public.void_match_day_goal')
-  const voidRpcEnd = migration.indexOf('revoke all on function public.correct_match_day_goal', voidRpcStart)
-  const voidRpc = migration.slice(voidRpcStart, voidRpcEnd)
-
-  assert.match(timelineSource, /event\.eventType === 'goal' && event\.eventStatus !== 'voided'/)
-  assert.doesNotMatch(timelineSource, /yellow_card['"]\s*\|\||red_card['"]\s*\|\||substitution['"]\s*\|\||water_break['"]\s*\|\|/)
-  assert.match(voidRpc, /if event_row\.event_type <> 'goal' then/)
-  assert.match(voidRpc, /next_home_score := next_home_score - 1/)
-  assert.match(voidRpc, /next_away_score := next_away_score - 1/)
-  assert.match(voidRpc, /if next_home_score < 0 or next_away_score < 0 then/)
-  assert.match(voidRpc, /event_status = 'voided'/)
-  assert.match(voidRpc, /correction_metadata = jsonb_build_object/)
-  assert.match(voidRpc, /insert into public\.match_day_event_log/)
-  assert.doesNotMatch(voidRpc, /delete from public\.match_day_events/)
-})
-
-test('latest-event ordering, substitution structure, minute guard, and mobile Game Mode remain intact', async () => {
-  const source = await readFile(staffPageUrl, 'utf8')
-  const orderingStart = source.indexOf('function getOrderedMatchTimelineEvents')
-  const orderingEnd = source.indexOf('function MatchTimelinePanel', orderingStart)
-  const orderingSource = source.slice(orderingStart, orderingEnd)
-  const substitutionStart = source.indexOf("if (event.eventType === 'substitution')")
-  const substitutionEnd = source.indexOf('const items = [', substitutionStart)
-  const substitutionSource = source.slice(substitutionStart, substitutionEnd)
-  const gameModeStart = source.indexOf('function MatchDayGameModePanel')
-  const gameModeEnd = source.indexOf('function GoalCorrectionModal', gameModeStart)
-  const gameModeSource = source.slice(gameModeStart, gameModeEnd)
-
-  assert.ok(
-    orderingSource.indexOf('getMatchEventSortTime(right) - getMatchEventSortTime(left)')
-      < orderingSource.indexOf('getMatchEventSortMinute(right) - getMatchEventSortMinute(left)'),
+test('mandatory reason policy validates event-specific options and Other note', () => {
+  assert.throws(
+    () => validateMatchDayEventUndoInput({ eventType: 'goal', reasonCode: '' }),
+    /Choose a reason for undo/,
   )
-  assert.match(substitutionSource, /label: 'Player Off'/)
-  assert.match(substitutionSource, /label: 'Player On'/)
-  assert.match(source, /MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE/)
-  assert.match(source, /Minute must be between 0 and 130\./)
-  assert.match(gameModeSource, /<MatchTimelinePanel events=\{events\} match=\{match\} isReadOnly \/>/)
-  assert.match(gameModeSource, /aria-label="Game Mode cockpit"/)
+  assert.throws(
+    () => validateMatchDayEventUndoInput({ eventType: 'goal', reasonCode: 'wrong_card_type' }),
+    /Choose a reason for undo/,
+  )
+  assert.throws(
+    () => validateMatchDayEventUndoInput({ eventType: 'substitution', reasonCode: 'other' }),
+    /Add a short note/,
+  )
+
+  assert.deepEqual(
+    validateMatchDayEventUndoInput({ eventType: 'goal', reasonCode: 'goal_disallowed' }),
+    {
+      eventType: 'goal',
+      note: '',
+      reasonCode: 'goal_disallowed',
+      reasonLabel: 'Goal disallowed',
+    },
+  )
+  assert.equal(
+    validateMatchDayEventUndoInput({ eventType: 'water_break', reasonCode: 'other', note: 'Break logged before it happened' }).note,
+    'Break logged before it happened',
+  )
 })
 
-test('undo confirmation uses the responsive app modal and destructive styling', async () => {
-  const source = await readFile(confirmModalUrl, 'utf8')
+test('staff Manage Fixture and Game Mode expose the same permission-aware Undo event control', async () => {
+  const source = await readFile(staffPageUrl, 'utf8')
+  const timelineSource = source.slice(source.indexOf('function MatchTimelinePanel'))
+  const gameModeSource = source.slice(
+    source.indexOf('function MatchDayGameModePanel'),
+    source.indexOf('function UndoEventModal'),
+  )
 
-  assert.match(source, /role="dialog"/)
-  assert.match(source, /aria-modal="true"/)
-  assert.match(source, /max-h-\[calc\(100dvh-2rem\)\]/)
-  assert.match(source, /overflow-y-auto/)
-  assert.match(source, /flex flex-col gap-3 sm:flex-row sm:justify-end/)
-  assert.match(source, /delete\|remove\|suspend\|revoke\|undo/i)
+  assert.match(timelineSource, /const canUndoEvent = !isReadOnly && isMatchDayEventUndoSupported\(event\)/)
+  assert.match(timelineSource, /onClick=\{\(\) => onUndoEvent\(match, event\)\}/)
+  assert.match(timelineSource, />\s*Undo event\s*</)
+  assert.match(timelineSource, /event\.eventStatus === 'voided'[\s\S]*\? 'Voided'/)
+  assert.match(timelineSource, /const isLatestEvent = eventIndex === 0/)
+  assert.match(timelineSource, /Show all/)
+  assert.match(timelineSource, /Show less/)
+  assert.match(gameModeSource, /onUndoEvent/)
+  assert.match(gameModeSource, /<MatchTimelinePanel[\s\S]*onUndoEvent=\{onUndoEvent\}/)
+  assert.doesNotMatch(gameModeSource, /<MatchTimelinePanel[^>]*isReadOnly/)
+  assert.match(source, /<MatchTimelinePanel[\s\S]*onCorrectGoal=\{onCorrectGoal\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)
+})
+
+test('Undo event modal is mobile-safe and requires a preset reason before voiding', async () => {
+  const source = await readFile(staffPageUrl, 'utf8')
+  const modalSource = source.slice(
+    source.indexOf('function UndoEventModal'),
+    source.indexOf('function GoalCorrectionModal'),
+  )
+
+  assert.match(modalSource, /aria-labelledby="undo-event-title"/)
+  assert.match(modalSource, />Undo event</)
+  assert.match(modalSource, /Event type/)
+  assert.match(modalSource, /Player or team/)
+  assert.match(modalSource, /Minute/)
+  assert.match(modalSource, /Score impact/)
+  assert.match(modalSource, /Reason for undo/)
+  assert.match(modalSource, /getMatchDayUndoReasonOptions\(event\)/)
+  assert.match(modalSource, /required=\{isOtherReason\}/)
+  assert.match(modalSource, /MATCH_DAY_UNDO_NOTE_MAX_LENGTH/)
+  assert.match(modalSource, /disabled=\{isBusy \|\| !canConfirm\}/)
+  assert.match(modalSource, />\s*\{isBusy \? 'Voiding\.\.\.' : 'Void event'\}\s*</)
+  assert.match(modalSource, /100dvh|--fixture-modal-viewport-height/)
+  assert.match(modalSource, /grid gap-2 sm:grid-cols-\[auto_auto\]/)
+  assert.doesNotMatch(modalSource, />\s*(Delete|Remove|Erase|Clear)\s*</i)
+})
+
+test('universal void RPC is staff-only, validates reasons, preserves rows, and blocks repeat voids', async () => {
+  const migration = await readFile(migrationUrl, 'utf8')
+  const rpc = migration.slice(
+    migration.indexOf('create or replace function public.void_match_day_event'),
+    migration.indexOf('revoke all on function public.void_match_day_event'),
+  )
+
+  assert.match(rpc, /security definer[\s\S]*set search_path = ''/i)
+  assert.match(rpc, /auth\.uid\(\)/)
+  assert.match(rpc, /public\.can_manage_match_day\(match_row\.team_id\)/)
+  assert.match(rpc, /match_row\.club_id <> public\.current_user_club_id\(\)/)
+  assert.match(rpc, /id = event_id_value[\s\S]*match_day_id = match_row\.id[\s\S]*club_id = match_row\.club_id/)
+  assert.match(rpc, /event_row\.event_type not in \('goal', 'yellow_card', 'red_card', 'substitution', 'water_break'\)/)
+  assert.match(rpc, /event_row\.event_status = 'voided'/)
+  assert.match(rpc, /normalized_reason_code = 'other' and normalized_note = ''/)
+  assert.match(rpc, /char_length\(normalized_note\) > 240/)
+  assert.match(rpc, /event_status = 'voided'/)
+  assert.match(rpc, /correction_reason = reason_label/)
+  assert.match(rpc, /'undoNote', normalized_note/)
+  assert.match(rpc, /insert into public\.match_day_event_log/)
+  assert.doesNotMatch(rpc, /delete from public\.match_day_events/i)
+  assert.match(migration, /revoke execute on function public\.void_match_day_event\(uuid, uuid, text, text\) from anon;/)
+  assert.match(migration, /grant execute on function public\.void_match_day_event\(uuid, uuid, text, text\) to authenticated;/)
+  assert.match(migration, /Parent views are read-only for event undo\./)
+})
+
+test('goal void recalculates authoritative score and timeline snapshots while non-score void keeps score unchanged', async () => {
+  const migration = await readFile(migrationUrl, 'utf8')
+  const rpc = migration.slice(
+    migration.indexOf('create or replace function public.void_match_day_event'),
+    migration.indexOf('revoke all on function public.void_match_day_event'),
+  )
+
+  assert.match(rpc, /if event_row\.event_type = 'goal' then[\s\S]*next_home_score := 0;[\s\S]*next_away_score := 0;/)
+  assert.match(rpc, /order by created_at asc, id asc[\s\S]*for update/)
+  assert.match(rpc, /timeline_event\.event_type = 'goal' and coalesce\(timeline_event\.event_status, 'active'\) <> 'voided'/)
+  assert.match(rpc, /update public\.match_day_events[\s\S]*home_score = greatest\(next_home_score, 0\)[\s\S]*away_score = greatest\(next_away_score, 0\)/)
+  assert.match(rpc, /update public\.match_days[\s\S]*home_score = greatest\(next_home_score, 0\)[\s\S]*away_score = greatest\(next_away_score, 0\)/)
+  assert.match(rpc, /else[\s\S]*next_home_score := greatest\(coalesce\(match_row\.home_score, 0\), 0\);[\s\S]*next_away_score := greatest\(coalesce\(match_row\.away_score, 0\), 0\);/)
+  assert.match(rpc, /'events', updated_events/)
+})
+
+test('parent timeline stays undo-read-only and hides internal undo metadata', async () => {
+  const [parentSource, domain] = await Promise.all([
+    readFile(parentPageUrl, 'utf8'),
+    readFile(domainUrl, 'utf8'),
+  ])
+
+  assert.match(parentSource, /event\.eventStatus === 'voided'[\s\S]*`Reason: \$\{event\.correctionReason \|\| 'Event voided'\}`/)
+  assert.doesNotMatch(parentSource, /voidMatchDayGoalAsScorer|onVoidGoal|handleVoidGoal|Undo event/)
+  assert.doesNotMatch(parentSource, />\s*(Delete|Remove|Erase|Clear)\s*</i)
+  assert.match(domain, /delete parentEvent\.correctionMetadata/)
+  assert.match(domain, /delete parentEvent\.voidedByName/)
 })

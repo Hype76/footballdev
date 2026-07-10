@@ -26,7 +26,6 @@ import {
   getParentPortalSharedCalendarEvents,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
-  voidMatchDayGoalAsScorer,
 } from '../lib/supabase.js'
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
@@ -111,15 +110,24 @@ function getCurrentMatchMinute(match, now = Date.now()) {
 }
 
 function getParentMatchEventTitle(event) {
-  if (event.eventType === 'goal' && event.eventStatus === 'voided') {
-    return `Goal removed, Score: ${event.homeScore} - ${event.awayScore}`
+  const eventLabels = {
+    goal: 'Goal',
+    yellow_card: 'Yellow card',
+    red_card: 'Red card',
+    substitution: 'Substitution',
+    water_break: 'Water break',
+  }
+  const eventLabel = eventLabels[event.eventType] || 'Match event'
+
+  if (event.eventStatus === 'voided') {
+    return `${eventLabel} voided, Score: ${event.homeScore} - ${event.awayScore}`
   }
 
   if (event.eventType === 'goal' && event.eventStatus === 'corrected') {
     return `Goal corrected, Score: ${event.homeScore} - ${event.awayScore}`
   }
 
-  return `${event.eventType === 'goal' ? 'Goal' : 'Score update'}, Score: ${event.homeScore} - ${event.awayScore}`
+  return `${eventLabel}, Score: ${event.homeScore} - ${event.awayScore}`
 }
 
 function getParentMatchEventDetail(event) {
@@ -129,7 +137,7 @@ function getParentMatchEventDetail(event) {
     event.assistInitials || event.assistName
       ? `Assist: ${event.assistInitials || event.assistName}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}`
       : '',
-    event.eventStatus === 'voided' ? `Correction: ${event.correctionReason || 'Goal removed from score'}` : '',
+    event.eventStatus === 'voided' ? `Reason: ${event.correctionReason || 'Event voided'}` : '',
     event.eventStatus === 'corrected' ? `Correction: ${event.correctionReason || 'Goal details corrected'}` : '',
   ]
 
@@ -247,15 +255,6 @@ function getParentMatchActionModalCopy(action) {
       title: 'Edit goal',
       message: 'Update this goal and keep the score consistent.',
       confirmLabel: 'Save correction',
-      items: [getParentMatchEventTitle(action.goalEvent)],
-    }
-  }
-
-  if (action.type === 'voidGoal') {
-    return {
-      title: 'Remove goal',
-      message: 'Remove this goal from the score while keeping it in the match history.',
-      confirmLabel: 'Remove goal',
       items: [getParentMatchEventTitle(action.goalEvent)],
     }
   }
@@ -424,7 +423,6 @@ export function ParentPortalPage() {
   const [goalForms, setGoalForms] = useState({})
   const [parentMatchAction, setParentMatchAction] = useState(null)
   const [goalCorrectionForm, setGoalCorrectionForm] = useState(EMPTY_GOAL_CORRECTION_FORM)
-  const [goalVoidReason, setGoalVoidReason] = useState('Goal entered in error')
   const [scoreDrafts, setScoreDrafts] = useState({})
   const clockNow = useServerSyncedClock({
     syncIntervalMs: 60000,
@@ -723,7 +721,6 @@ export function ParentPortalPage() {
   const closeParentMatchActionModal = () => {
     setParentMatchAction(null)
     setGoalCorrectionForm(EMPTY_GOAL_CORRECTION_FORM)
-    setGoalVoidReason('Goal entered in error')
   }
 
   const performVolunteer = async (match) => {
@@ -952,34 +949,6 @@ export function ParentPortalPage() {
     }
   }
 
-  const performVoidGoal = async (match, goalEvent) => {
-    if (!selectedLink?.id || !match.isScorer) {
-      return
-    }
-
-    const reason = String(goalVoidReason || '').trim() || 'Goal entered in error'
-
-    setActiveMatchId(match.id)
-    setMatchError('')
-    setMatchErrorTitle(parentMatchDayActionErrorTitle)
-
-    try {
-      await voidMatchDayGoalAsScorer({
-        parentLinkId: selectedLink.id,
-        match,
-        event: goalEvent,
-        reason,
-      })
-      await loadMatches()
-      showToast({ title: 'Goal removed', message: 'The live feed has been updated.' })
-    } catch (error) {
-      console.error(error)
-      setMatchError(getParentMatchDayErrorMessage(error, 'Goal could not be removed. Please refresh or try again.'))
-    } finally {
-      setActiveMatchId('')
-    }
-  }
-
   const handleVolunteer = (match) => {
     openParentMatchActionModal({ type: 'volunteer', match })
   }
@@ -1015,15 +984,6 @@ export function ParentPortalPage() {
     openParentMatchActionModal({ type: 'correctGoal', match, goalEvent })
   }
 
-  const handleVoidGoal = (match, goalEvent) => {
-    if (!selectedLink?.id || !match.isScorer) {
-      return
-    }
-
-    setGoalVoidReason(goalEvent.correctionReason || 'Goal entered in error')
-    openParentMatchActionModal({ type: 'voidGoal', match, goalEvent })
-  }
-
   const handleParentMatchActionConfirm = async () => {
     if (!parentMatchAction) {
       return
@@ -1045,8 +1005,6 @@ export function ParentPortalPage() {
       await performAddGoal(match)
     } else if (type === 'correctGoal') {
       await performCorrectGoal(match, goalEvent)
-    } else if (type === 'voidGoal') {
-      await performVoidGoal(match, goalEvent)
     }
 
     closeParentMatchActionModal()
@@ -1142,7 +1100,6 @@ export function ParentPortalPage() {
               handleScoreSave={handleScoreSave}
               handleStartMatch={handleStartMatch}
               handleVolunteer={handleVolunteer}
-              handleVoidGoal={handleVoidGoal}
               isLoading={isLoadingMatches}
               selectedLink={selectedLink}
               setScoreDrafts={setScoreDrafts}
@@ -1202,12 +1159,10 @@ export function ParentPortalPage() {
       <ParentMatchActionModal
         action={parentMatchAction}
         goalCorrectionForm={goalCorrectionForm}
-        goalVoidReason={goalVoidReason}
         isBusy={Boolean(activeMatchId) || isUpdatingPush}
         onCancel={closeParentMatchActionModal}
         onConfirm={handleParentMatchActionConfirm}
         onGoalCorrectionFormChange={(updates) => setGoalCorrectionForm((current) => ({ ...current, ...updates }))}
-        onGoalVoidReasonChange={setGoalVoidReason}
       />
     </div>
   )
@@ -1216,16 +1171,13 @@ export function ParentPortalPage() {
 function ParentMatchActionModal({
   action,
   goalCorrectionForm,
-  goalVoidReason,
   isBusy,
   onCancel,
   onConfirm,
   onGoalCorrectionFormChange,
-  onGoalVoidReasonChange,
 }) {
   const modalCopy = getParentMatchActionModalCopy(action)
   const isGoalCorrection = action?.type === 'correctGoal'
-  const isGoalRemoval = action?.type === 'voidGoal'
 
   return (
     <ConfirmModal
@@ -1324,17 +1276,6 @@ function ParentMatchActionModal({
         </div>
       ) : null}
 
-      {isGoalRemoval ? (
-        <label className="block">
-          <span className="mb-1 block text-xs font-black text-[#4b5f55]">Removal reason</span>
-          <textarea
-            rows={4}
-            value={goalVoidReason}
-            onChange={(event) => onGoalVoidReasonChange(event.target.value)}
-            className={fieldClass}
-          />
-        </label>
-      ) : null}
     </ConfirmModal>
   )
 }
@@ -2161,7 +2102,6 @@ function ParentMatchCardsPanel({
   handleScoreSave,
   handleStartMatch,
   handleVolunteer,
-  handleVoidGoal,
   isLoading,
   selectedLink,
   setScoreDrafts,
@@ -2211,7 +2151,6 @@ function ParentMatchCardsPanel({
                 onScoreSave={handleScoreSave}
                 onStartMatch={handleStartMatch}
                 onVolunteer={handleVolunteer}
-                onVoidGoal={handleVoidGoal}
                 now={clockNow}
                 players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
@@ -2551,7 +2490,6 @@ function ParentMatchCard({
   onScoreSave,
   onStartMatch,
   onVolunteer,
-  onVoidGoal,
   now,
   players,
   scoreDraft,
@@ -2825,22 +2763,13 @@ function ParentMatchCard({
                   </p>
                 </div>
                 {match.isScorer && event.eventType === 'goal' && event.eventStatus !== 'voided' ? (
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onCorrectGoal(match, event)}
-                      className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onVoidGoal(match, event)}
-                      className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#fecaca] bg-white px-3 py-1 text-xs font-black text-[#991b1b] transition hover:bg-[#fef2f2]"
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onCorrectGoal(match, event)}
+                    className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
+                  >
+                    Edit
+                  </button>
                 ) : null}
               </div>
             </div>
