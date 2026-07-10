@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
@@ -5,9 +6,9 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('../', import.meta.url))
-const migrationUrl = new URL('../supabase/migrations/20260613071942_plan_b_matchday_availability_prereq.sql', import.meta.url)
-const legacyTableMigrationUrl = new URL('../supabase/migrations/20260527093802_match_day_arrival_and_availability.sql', import.meta.url)
-const legacyRpcMigrationUrl = new URL('../supabase/migrations/20260527095014_confirm_match_day_availability_rpc.sql', import.meta.url)
+const migrationUrl = migrationSourceUrl('20260614030401_20260613071942_plan_b_matchday_availability_prereq.sql', 'active')
+const legacyTableMigrationUrl = migrationSourceUrl('20260527093802_match_day_arrival_and_availability.sql', 'archivedNotAppliedProduction')
+const legacyRpcMigrationUrl = migrationSourceUrl('20260527095014_confirm_match_day_availability_rpc.sql', 'archivedNotAppliedProduction')
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 

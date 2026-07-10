@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -8,7 +9,7 @@ const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
 const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
-const parentCalendarMigrationUrl = new URL('../supabase/migrations/20260613120000_parent_calendar_visibility_controls.sql', import.meta.url)
+const parentCalendarMigrationUrl = migrationSourceUrl('20260614030531_20260613120000_parent_calendar_visibility_controls.sql', 'active')
 const calendarPolicyMigrationUrl = new URL('../supabase/migrations/20260622050850_paywall_server_enforcement.sql', import.meta.url)
 
 function getFunctionSection(source, functionName) {

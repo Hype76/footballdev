@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -7,7 +8,7 @@ import {
   isRecoveryPathVisible,
 } from '../src/lib/recovery-phase.js'
 
-const pollVisibilityMigrationUrl = new URL('../supabase/migrations/20260617191000_harden_parent_poll_vote_visibility.sql', import.meta.url)
+const pollVisibilityMigrationUrl = migrationSourceUrl('20260617191000_harden_parent_poll_vote_visibility.sql', 'archivedNotAppliedProduction')
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const parentLinkingPageUrl = new URL('../src/pages/ParentLinkingPage.jsx', import.meta.url)
 const parentPollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url)

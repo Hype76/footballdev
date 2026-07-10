@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
@@ -21,8 +22,12 @@ const contactRequestFunctionSource = readFileSync('netlify/functions/send-contac
 const parentEmailFunctionSource = readFileSync('netlify/functions/send-parent-email.js', 'utf8')
 const parentInviteFunctionSource = readFileSync('netlify/functions/send-parent-portal-invite.js', 'utf8')
 const checkoutFunctionSource = readFileSync('netlify/functions/create-checkout-session.js', 'utf8')
-const migrationSource = readFileSync('supabase/migrations/20260531162038_tester_feedback_reports.sql', 'utf8')
-const uploadEmailMigrationSource = readFileSync('supabase/migrations/20260629085648_v1_feedback_upload_email.sql', 'utf8')
+const migrationSource = [
+  migrationSourceUrl('20260625083617_tester_feedback_reports.sql', 'active'),
+  migrationSourceUrl('20260625083639_harden_tester_feedback_reports_grants.sql', 'active'),
+  migrationSourceUrl('20260625083714_restrict_tester_feedback_reports_authenticated_grants.sql', 'active'),
+].map((url) => readFileSync(url, 'utf8')).join('\n')
+const uploadEmailMigrationSource = readFileSync(migrationSourceUrl('20260629090541_v1_feedback_upload_email.sql', 'active'), 'utf8')
 
 const userId = '11111111-1111-4111-8111-111111111111'
 const clubId = '22222222-2222-4222-8222-222222222222'
@@ -633,7 +638,7 @@ test('server function never trusts privileged client-supplied feedback fields', 
 
 test('feedback recipient setting does not change unrelated transactional email flows', () => {
   assert.match(contactRequestFunctionSource, /CONTACT_REQUEST_RECIPIENT/)
-  assert.match(contactRequestFunctionSource, /info@footballplayer\.online/)
+  assert.match(contactRequestFunctionSource, /support@jelumalabs\.com/)
   assert.doesNotMatch(contactRequestFunctionSource, /FEEDBACK_NOTIFY_TO/)
   assert.doesNotMatch(parentEmailFunctionSource, /FEEDBACK_NOTIFY_TO/)
   assert.doesNotMatch(parentInviteFunctionSource, /FEEDBACK_NOTIFY_TO/)

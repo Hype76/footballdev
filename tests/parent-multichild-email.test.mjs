@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -5,7 +6,7 @@ import { test } from 'node:test'
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentInvitePageUrl = new URL('../src/pages/ParentInvitePage.jsx', import.meta.url)
 const createParentAccountFunctionUrl = new URL('../netlify/functions/create-parent-account.js', import.meta.url)
-const cleanupMigrationUrl = new URL('../supabase/migrations/20260616070626_harden_parent_portal_cleanup.sql', import.meta.url)
+const cleanupMigrationUrl = migrationSourceUrl('20260616072046_20260616070626_harden_parent_portal_cleanup.sql', 'active')
 
 const multichildFixture = {
   parentEmail: 'jason@example.com',

@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -7,8 +8,8 @@ const parentProfileSourceUrl = new URL('../src/lib/domain/core.js', import.meta.
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const scheduledEmailsDomainUrl = new URL('../src/lib/domain/scheduled-emails.js', import.meta.url)
 const manageScheduledEmailsFunctionUrl = new URL('../netlify/functions/manage-scheduled-emails.js', import.meta.url)
-const parentCalendarMigrationUrl = new URL('../supabase/migrations/20260613120000_parent_calendar_visibility_controls.sql', import.meta.url)
-const playerPickerMigrationUrl = new URL('../supabase/migrations/20260617085000_parent_data_safety_match_day_players.sql', import.meta.url)
+const parentCalendarMigrationUrl = migrationSourceUrl('20260614030531_20260613120000_parent_calendar_visibility_controls.sql', 'active')
+const playerPickerMigrationUrl = migrationSourceUrl('20260617085000_parent_data_safety_match_day_players.sql', 'archivedNotAppliedProduction')
 const staffNotesMigrationUrl = new URL('../supabase/migrations/20260501100000_player_activity_and_staff_notes.sql', import.meta.url)
 
 const fixtures = {

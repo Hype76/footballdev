@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -9,7 +10,7 @@ import {
   normalizeTeamLimitOverride,
 } from '../src/lib/plans.js'
 
-const migrationUrl = new URL('../supabase/migrations/20260623170700_add_club_team_limit_overrides.sql', import.meta.url)
+const migrationUrl = migrationSourceUrl('20260623172005_add_club_team_limit_overrides.sql', 'active')
 const manageTeamFunctionUrl = new URL('../netlify/functions/manage-team.js', import.meta.url)
 const updatePlatformClubBillingUrl = new URL('../netlify/functions/update-platform-club-billing.js', import.meta.url)
 const platformAccountManagementUrl = new URL('../src/components/platform/PlatformAccountManagementSection.jsx', import.meta.url)

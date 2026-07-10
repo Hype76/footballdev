@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
@@ -8,9 +9,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 
 const { deletePlatformTeamResult } = await import('../netlify/functions/platform-delete-team.js')
 const deleteTeamFunctionSource = readFileSync('netlify/functions/platform-delete-team.js', 'utf8')
-const deleteTeamMigrationSource = readFileSync('supabase/migrations/20260624105819_platform_delete_team_transaction.sql', 'utf8')
+const deleteTeamMigrationSource = readFileSync(migrationSourceUrl('20260624110232_platform_delete_team_transaction.sql', 'active'), 'utf8')
 const playerNameIndexMigrationSource = readFileSync(
-  'supabase/migrations/20260624111815_allow_team_delete_with_unassigned_duplicate_player_names.sql',
+  migrationSourceUrl('20260624111916_allow_team_delete_with_unassigned_duplicate_player_names.sql', 'active'),
   'utf8',
 )
 

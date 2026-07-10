@@ -1,8 +1,9 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260702071020_resource_library_v1.sql', import.meta.url)
+const migrationUrl = migrationSourceUrl('20260702073335_resource_library_v1.sql', 'active')
 
 function getFunction(source, name) {
   const start = source.indexOf(`create or replace function public.${name}`)

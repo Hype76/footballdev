@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -5,7 +6,7 @@ import { test } from 'node:test'
 import { normalizeMatchDay } from '../src/lib/domain/match-day.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260704084216_match_day_event_log_core.sql', import.meta.url)
-const matchEventTypesMigrationUrl = new URL('../supabase/migrations/20260705073252_matchday_event_types_cards_subs_water.sql', import.meta.url)
+const matchEventTypesMigrationUrl = migrationSourceUrl('20260705074811_matchday_event_types_cards_subs_water.sql', 'active')
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const goalStateUrl = new URL('../src/lib/matchday-goal-state.js', import.meta.url)
 const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)

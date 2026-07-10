@@ -1,13 +1,14 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const resourceDomainUrl = new URL('../src/lib/domain/resource-library.js', import.meta.url)
-const calendarResourceMigrationUrl = new URL('../supabase/migrations/20260702083249_calendar_event_resource_links.sql', import.meta.url)
-const calendarEventTypesMigrationUrl = new URL('../supabase/migrations/20260702100653_calendar_event_training_match_types.sql', import.meta.url)
-const resourceArchiveRemoveMigrationUrl = new URL('../supabase/migrations/20260702091500_resource_library_archive_remove_rpc.sql', import.meta.url)
-const resourceArchiveRpcRepairMigrationUrl = new URL('../supabase/migrations/20260702092500_repair_resource_library_archive_rpc_return.sql', import.meta.url)
+const calendarResourceMigrationUrl = migrationSourceUrl('20260702085846_calendar_event_resource_links.sql', 'active')
+const calendarEventTypesMigrationUrl = migrationSourceUrl('20260702100653_calendar_event_training_match_types.sql', 'archivedNotAppliedProduction')
+const resourceArchiveRemoveMigrationUrl = migrationSourceUrl('20260702090842_resource_library_archive_remove_rpc.sql', 'active')
+const resourceArchiveRpcRepairMigrationUrl = migrationSourceUrl('20260702091258_repair_resource_library_archive_rpc_return.sql', 'active')
 const navigationUrl = new URL('../src/app/navigation.js', import.meta.url)
 const roleQuickLinksUrl = new URL('../src/lib/role-quick-links.js', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)

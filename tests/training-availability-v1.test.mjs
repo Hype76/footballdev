@@ -1,8 +1,13 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260702123330_training_availability_v1.sql', import.meta.url)
+const migrationUrls = [
+  migrationSourceUrl('20260702130247_training_availability_v1.sql', 'active'),
+  migrationSourceUrl('20260702130404_training_availability_updated_at_search_path.sql', 'active'),
+  migrationSourceUrl('20260702131720_training_availability_response_conflict_fix.sql', 'active'),
+]
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/training-availability.js', import.meta.url)
 const processorUrl = new URL('../netlify/functions/process-training-availability-requests.js', import.meta.url)
@@ -12,15 +17,19 @@ const netlifyTomlUrl = new URL('../netlify.toml', import.meta.url)
 const matchDayProcessorUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 const sendGateModuleUrl = new URL('../netlify/functions/lib/_training-availability-send-gate.js', import.meta.url)
 
+async function readTrainingAvailabilityMigrations() {
+  return (await Promise.all(migrationUrls.map((url) => readFile(url, 'utf8')))).join('\n')
+}
+
 function getFunction(source, name) {
-  const start = source.indexOf(`create or replace function public.${name}`)
+  const start = source.lastIndexOf(`create or replace function public.${name}`)
   assert.notEqual(start, -1, `${name} function missing`)
   const next = source.indexOf('\ncreate or replace function public.', start + 1)
   return next === -1 ? source.slice(start) : source.slice(start, next)
 }
 
 test('training availability migration is team scoped with RLS and no direct anon table grants', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readTrainingAvailabilityMigrations()
 
   assert.match(migration, /create table if not exists public\.training_availability_settings/i)
   assert.match(migration, /team_id uuid not null references public\.teams/i)
@@ -42,7 +51,7 @@ test('training availability migration is team scoped with RLS and no direct anon
 })
 
 test('training availability policies require same team training events and same team players', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readTrainingAvailabilityMigrations()
   const eventScope = getFunction(migration, 'training_availability_calendar_event_in_scope')
   const playerScope = getFunction(migration, 'training_availability_player_in_scope')
 
@@ -56,7 +65,7 @@ test('training availability policies require same team training events and same 
 })
 
 test('parent token RPCs are the only anon training availability surface', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readTrainingAvailabilityMigrations()
   const getResponse = getFunction(migration, 'get_training_availability_response')
   const submitResponse = getFunction(migration, 'submit_training_availability_response')
 

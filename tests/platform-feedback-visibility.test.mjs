@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
@@ -27,7 +28,7 @@ const testerFeedbackFunctionSource = readFileSync('netlify/functions/submit-test
 const reportsFunctionSource = readFileSync('netlify/functions/platform-feedback-reports.js', 'utf8')
 const attachmentUrlFunctionSource = readFileSync('netlify/functions/platform-feedback-attachment-url.js', 'utf8')
 const reportUpdateFunctionSource = readFileSync('netlify/functions/platform-feedback-report-update.js', 'utf8')
-const migrationSource = readFileSync('supabase/migrations/20260531162038_tester_feedback_reports.sql', 'utf8')
+const migrationSource = readFileSync(migrationSourceUrl('20260625083617_tester_feedback_reports.sql', 'active'), 'utf8')
 const testerFeedbackPageSource = readFileSync('src/pages/TesterFeedbackPage.jsx', 'utf8')
 
 const reportId = '06d29475-ded1-4b7c-b893-28e3237072e9'

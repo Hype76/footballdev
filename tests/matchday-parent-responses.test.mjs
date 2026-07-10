@@ -1,11 +1,12 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260630121322_matchday_parent_response_roles.sql', import.meta.url)
-const repairMigrationUrl = new URL('../supabase/migrations/20260630125915_repair_matchday_parent_response_rpc.sql', import.meta.url)
-const sharedModelMigrationUrl = new URL('../supabase/migrations/20260630153247_matchday_availability_shared_model.sql', import.meta.url)
-const parentRoleStateMigrationUrl = new URL('../supabase/migrations/20260701082353_matchday_parent_role_selection_state.sql', import.meta.url)
+const migrationUrl = migrationSourceUrl('20260630123924_20260630121322_matchday_parent_response_roles.sql', 'active')
+const repairMigrationUrl = migrationSourceUrl('20260630130248_20260630125915_repair_matchday_parent_response_rpc.sql', 'active')
+const sharedModelMigrationUrl = migrationSourceUrl('20260630155720_20260630153247_matchday_availability_shared_model.sql', 'active')
+const parentRoleStateMigrationUrl = migrationSourceUrl('20260701084026_matchday_parent_role_selection_state.sql', 'active')
 const transportResponseMigrationUrl = new URL('../supabase/migrations/20260704145027_matchday_transport_response_fields.sql', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 const selectVolunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)

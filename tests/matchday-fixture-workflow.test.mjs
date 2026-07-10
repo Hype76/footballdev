@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
@@ -17,7 +18,7 @@ import {
   normalizeMatchDay,
 } from '../src/lib/domain/match-day.js'
 
-const eventRequestsMigrationUrl = new URL('../supabase/migrations/20260630100000_v1_team_season_reports_and_event_requests.sql', import.meta.url)
+const eventRequestsMigrationUrl = migrationSourceUrl('20260630102239_20260630100000_v1_team_season_reports_and_event_requests.sql', 'active')
 
 function createWindowStub() {
   const values = new Map()
@@ -106,7 +107,7 @@ test('match day calendar item edit stays inside the calendar modal', () => {
 
 test('manual review Match Day migration removes missing player team assignment dependency', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616153314_repair_manual_review_eval_matchday.sql', import.meta.url),
+    migrationSourceUrl('20260616153836_repair_manual_review_eval_matchday.sql', 'active'),
     'utf8',
   )
 

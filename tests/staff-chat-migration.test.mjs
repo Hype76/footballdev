@@ -1,8 +1,16 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260702120000_staff_chat_v1.sql', import.meta.url)
+const migrationUrls = [
+  migrationSourceUrl('20260702055000_staff_chat_v1.sql', 'active'),
+  migrationSourceUrl('20260702055047_staff_chat_v1_grant_hardening.sql', 'active'),
+]
+
+async function readStaffChatMigrations() {
+  return (await Promise.all(migrationUrls.map((url) => readFile(url, 'utf8')))).join('\n')
+}
 
 function getFunction(source, name) {
   const start = source.indexOf(`create or replace function public.${name}`)
@@ -12,7 +20,7 @@ function getFunction(source, name) {
 }
 
 test('Staff Chat migration creates the V1 tables and conversation types', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readStaffChatMigrations()
 
   assert.match(migration, /create table if not exists public\.staff_chat_conversations/i)
   assert.match(migration, /create table if not exists public\.staff_chat_members/i)
@@ -23,7 +31,7 @@ test('Staff Chat migration creates the V1 tables and conversation types', async 
 })
 
 test('Staff Chat staff helper fails closed for parents, platform admins, and low-rank users', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readStaffChatMigrations()
   const helper = getFunction(migration, 'is_staff_chat_staff')
 
   assert.match(helper, /u\.club_id = target_club_id/i)
@@ -32,7 +40,7 @@ test('Staff Chat staff helper fails closed for parents, platform admins, and low
 })
 
 test('Staff Chat creation validates same-club members, team access, direct count, and group count', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readStaffChatMigrations()
   const creator = getFunction(migration, 'create_staff_chat_conversation')
 
   assert.match(creator, /public\.current_user_can_use_staff_chat\(current_club_id\)/i)
@@ -44,7 +52,7 @@ test('Staff Chat creation validates same-club members, team access, direct count
 })
 
 test('Staff Chat RLS and grants do not expose anonymous or cross-club access', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readStaffChatMigrations()
 
   assert.match(migration, /alter table public\.staff_chat_conversations enable row level security;/i)
   assert.match(migration, /alter table public\.staff_chat_members enable row level security;/i)

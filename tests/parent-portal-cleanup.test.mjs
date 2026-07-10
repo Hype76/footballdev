@@ -1,8 +1,9 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const cleanupMigrationUrl = new URL('../supabase/migrations/20260616070626_harden_parent_portal_cleanup.sql', import.meta.url)
+const cleanupMigrationUrl = migrationSourceUrl('20260616072046_20260616070626_harden_parent_portal_cleanup.sql', 'active')
 const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
 const matchDayPushUrl = new URL('../netlify/functions/send-match-day-push.js', import.meta.url)
 const parentMobilePushUrl = new URL('../netlify/functions/send-parent-mobile-push.js', import.meta.url)

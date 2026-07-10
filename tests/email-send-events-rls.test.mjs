@@ -1,10 +1,11 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-const migrationUrl = new URL('../supabase/migrations/20260613065704_harden_email_send_events_rls.sql', import.meta.url)
+const migrationUrl = migrationSourceUrl('20260613071232_20260613065704_harden_email_send_events_rls.sql', 'active')
 const emailLogStoreUrl = new URL('../netlify/functions/lib/_email-log-store.js', import.meta.url)
 const supabaseHelperUrl = new URL('../netlify/functions/lib/_supabase.js', import.meta.url)
 const repoRoot = fileURLToPath(new URL('../', import.meta.url))

@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -8,8 +9,8 @@ import {
 } from '../src/lib/matchday-communication-safety.js'
 import { buildMatchDayParentVisibility } from '../src/lib/matchday-parent-visibility.js'
 
-const migrationUrl = new URL('../supabase/migrations/20260613120000_parent_calendar_visibility_controls.sql', import.meta.url)
-const grantHardeningMigrationUrl = new URL('../supabase/migrations/20260614031058_harden_parent_portal_rpc_execute_grants.sql', import.meta.url)
+const migrationUrl = migrationSourceUrl('20260614030531_20260613120000_parent_calendar_visibility_controls.sql', 'active')
+const grantHardeningMigrationUrl = migrationSourceUrl('20260614031148_20260614031058_harden_parent_portal_rpc_execute_grants.sql', 'active')
 const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 
 async function readMigration() {

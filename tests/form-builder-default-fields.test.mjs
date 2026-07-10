@@ -1,3 +1,4 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -163,7 +164,7 @@ test('reordering default fields preserves custom field relative order', () => {
 
 test('migration repairs default fitness fields without rewriting evaluations', async () => {
   const migration = await readFile(
-    new URL('../supabase/migrations/20260618103000_player_form_defaults_fitness_numeric.sql', import.meta.url),
+    migrationSourceUrl('20260618103000_player_form_defaults_fitness_numeric.sql', 'archivedNotAppliedProduction'),
     'utf8',
   )
 

@@ -1,8 +1,9 @@
+import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const hardeningMigrationUrl = new URL('../supabase/migrations/20260703143000_staff_chat_access_matrix_hardening.sql', import.meta.url)
+const hardeningMigrationUrl = migrationSourceUrl('20260703163001_20260703143000_staff_chat_access_matrix_hardening.sql', 'active')
 const domainUrl = new URL('../src/lib/domain/staff-chat.js', import.meta.url)
 const pageUrl = new URL('../src/pages/StaffChatPage.jsx', import.meta.url)
 
