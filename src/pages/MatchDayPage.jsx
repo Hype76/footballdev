@@ -28,6 +28,7 @@ import {
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
+  saveMatchDayFinalReport,
   selectMatchDayVolunteer,
   setMatchDayTimerState,
   updateMatchDay,
@@ -66,6 +67,10 @@ import {
   MATCH_DAY_UNDO_NOTE_MAX_LENGTH,
   validateMatchDayEventUndoInput,
 } from '../lib/matchday-event-undo.js'
+import {
+  buildFinalMatchReportSummary,
+  MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH,
+} from '../lib/matchday-final-report.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -3017,6 +3022,44 @@ export function MatchDayPage() {
     })
   }
 
+  const handleFinalReportSave = async (match, staffNotes) => {
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+    setMatchActionStatus({
+      key: `${match.id}:final-report`,
+      tone: 'loading',
+      message: 'Final match report saving...',
+    })
+
+    try {
+      const finalReport = await saveMatchDayFinalReport({ user, match, staffNotes })
+      setMatches((currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
+        match: {
+          ...match,
+          finalReport,
+        },
+        matchId: match.id,
+      }))
+      setMatchActionStatus({
+        key: `${match.id}:final-report`,
+        tone: 'success',
+        message: 'Final match report saved.',
+      })
+      showToast({ title: 'Final match report saved', message: 'The match summary is attached to this game.' })
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'Final match report could not be saved.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:final-report`,
+        tone: 'error',
+        message,
+      })
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
   const handleScoreSave = (match) => {
     const draft = scoreDrafts[match.id] ?? {
       homeScore: match.homeScore,
@@ -3261,6 +3304,7 @@ export function MatchDayPage() {
                 matchActionStatus={matchActionStatus}
                 now={liveClockNow}
                 onCorrectGoal={handleCorrectGoal}
+                onFinalReportSave={handleFinalReportSave}
                 onGameModeBack={() => setGameModeMatchId('')}
                 onGameModeHydrationToggle={handleGameModeHydrationToggle}
                 onGameModeStart={handleGameModeOpen}
@@ -3403,7 +3447,9 @@ export function MatchDayPage() {
                   isGameMode={false}
                   isExpanded={expandedMatchId === match.id}
                   match={match}
+                  matchActionStatus={matchActionStatus}
                   onCorrectGoal={handleCorrectGoal}
+                  onFinalReportSave={handleFinalReportSave}
                   onGameModeBack={() => setGameModeMatchId('')}
                   onGameModeHydrationToggle={handleGameModeHydrationToggle}
                   onGameModeStart={handleGameModeOpen}
@@ -3647,6 +3693,158 @@ function PitchsideCockpitPanel({
   )
 }
 
+function FinalReportEventList({ emptyLabel, events, match, title }) {
+  return (
+    <section className="border-t border-[#d7e5dc] pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <h6 className="text-sm font-black text-[#101828]">{title}</h6>
+        <span className="text-xs font-black text-[#047857]">{events.length}</span>
+      </div>
+      {events.length > 0 ? (
+        <ul className="mt-2 divide-y divide-[#d7e5dc]">
+          {events.map((event) => {
+            const playerLabel = event.scorerName || event.scorerInitials
+            const playerOnLabel = event.assistName || event.assistInitials
+            const detail = event.eventType === 'substitution'
+              ? [playerLabel ? `${playerLabel} off` : '', playerOnLabel ? `${playerOnLabel} on` : ''].filter(Boolean).join(', ')
+              : playerLabel || event.notes
+
+            return (
+              <li key={event.id} className="py-2 text-sm font-semibold text-[#4b5f55]">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <span className="font-black text-[#101828]">{getMatchEventTypeLabel(event, match)}</span>
+                  {event.minute !== null && event.minute !== undefined ? <span>{event.minute} min</span> : null}
+                </div>
+                {detail ? <p className="mt-1 text-xs leading-5">{detail}</p> : null}
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{emptyLabel}</p>
+      )}
+    </section>
+  )
+}
+
+function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
+  const report = match.finalReport
+  const [staffNotes, setStaffNotes] = useState(report?.staffNotes || '')
+  const summary = buildFinalMatchReportSummary(match)
+  const timelineEvents = getOrderedMatchTimelineEvents(match.events)
+  const yellowCardCount = summary.activeCards.filter((event) => event.eventType === 'yellow_card').length
+  const redCardCount = summary.activeCards.filter((event) => event.eventType === 'red_card').length
+  const hasChanges = staffNotes.trim() !== (report?.staffNotes || '')
+
+  return (
+    <section className="border-t border-[#047857] bg-[#f8fffb] px-4 py-5 sm:px-5" aria-label="Final Match Report">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h5 className="text-lg font-black text-[#101828]">Final Match Report</h5>
+            <span className="inline-flex rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55]">Staff only</span>
+          </div>
+          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getMatchDayDisplayName(match)}</p>
+        </div>
+        <button type="button" onClick={onClose} className={secondaryButtonClass}>Close report</button>
+      </div>
+
+      <dl className="mt-5 grid gap-4 border-y border-[#d7e5dc] py-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DetailItem label="Team" value={match.teamName || 'Our team'} />
+        <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
+        <DetailItem label="Home or away" value={getHomeAwayLabel(match.homeAway)} />
+        <DetailItem label="Match duration" value={`${match.matchDurationMinutes} minutes`} />
+        <DetailItem label="Final score" value={getMatchDayDisplayScore(match)} />
+        <DetailItem label="Match status" value={getMatchStatusLabel(match.status)} />
+        <DetailItem label="Date and time" value={formatMatchDate(match)} />
+        <DetailItem label="Recorded events" value={`${summary.activeEvents.length} active, ${summary.voidedEvents.length} voided`} />
+      </dl>
+
+      <div className="mt-5 grid gap-x-6 gap-y-4 lg:grid-cols-2">
+        <FinalReportEventList emptyLabel="No active goals were recorded." events={summary.activeGoals} match={match} title="Goals summary" />
+        <section className="border-t border-[#d7e5dc] pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <h6 className="text-sm font-black text-[#101828]">Cards summary</h6>
+            <span className="text-xs font-black text-[#047857]">{summary.activeCards.length}</span>
+          </div>
+          <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{yellowCardCount} yellow, {redCardCount} red</p>
+          <FinalReportEventList emptyLabel="No active cards were recorded." events={summary.activeCards} match={match} title="Card events" />
+        </section>
+        <FinalReportEventList emptyLabel="No active substitutions were recorded." events={summary.activeSubstitutions} match={match} title="Substitutions summary" />
+        <FinalReportEventList emptyLabel="No active water breaks were recorded." events={summary.activeWaterBreaks} match={match} title="Water breaks" />
+      </div>
+
+      <section className="mt-5 border-t border-[#d7e5dc] pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h6 className="text-sm font-black text-[#101828]">Final timeline</h6>
+          <span className="text-xs font-black text-[#047857]">{timelineEvents.length} events</span>
+        </div>
+        {timelineEvents.length > 0 ? (
+          <ol className="mt-3 max-h-[32rem] divide-y divide-[#d7e5dc] overflow-y-auto border-y border-[#d7e5dc]">
+            {timelineEvents.map((event) => (
+              <li key={event.id} className="py-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-[#101828]">{getMatchEventTypeLabel(event, match)}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Score after event: {getMatchEventScoreLabel(event)}</p>
+                  </div>
+                  <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>
+                    {event.eventStatus === 'voided' ? 'Voided' : event.minute !== null && event.minute !== undefined ? `${event.minute} min` : 'Recorded'}
+                  </span>
+                </div>
+                {event.eventStatus === 'voided' ? (
+                  <p className="mt-2 text-xs font-semibold leading-5 text-[#475569]">{event.correctionReason || 'Event voided'}</p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No timeline events were recorded for this game.</p>
+        )}
+      </section>
+
+      <section className="mt-5 border-t border-[#d7e5dc] pt-4">
+        <label className="block">
+          <span className={smallLabelClass}>Staff notes</span>
+          <textarea
+            value={staffNotes}
+            onChange={(event) => setStaffNotes(event.target.value)}
+            maxLength={MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH}
+            rows="5"
+            placeholder="Add the match summary"
+            className={`${inputClass} min-h-32 resize-y`}
+          />
+        </label>
+        {!report?.staffNotes && !staffNotes ? (
+          <p className="mt-2 text-sm font-semibold text-[#4b5f55]">No match summary has been saved yet.</p>
+        ) : null}
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-semibold text-[#4b5f55]">{staffNotes.length} / {MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH}</p>
+          <button
+            type="button"
+            onClick={() => onSave(match, staffNotes)}
+            disabled={isBusy || !hasChanges}
+            className={`${primaryButtonClass} w-full sm:w-auto`}
+          >
+            {isBusy ? 'Saving...' : 'Save report'}
+          </button>
+        </div>
+        {status ? (
+          <p role={status.tone === 'error' ? 'alert' : 'status'} className={`mt-3 text-sm font-bold ${status.tone === 'error' ? 'text-red-700' : status.tone === 'loading' ? 'text-[#92400e]' : 'text-[#047857]'}`}>
+            {status.message}
+          </p>
+        ) : null}
+        {report ? (
+          <dl className="mt-4 grid gap-3 border-t border-[#d7e5dc] pt-4 sm:grid-cols-2">
+            <DetailItem label="Created" value={`${formatResponseDateTime(report.createdAt)}${report.createdByName ? ` by ${report.createdByName}` : ''}`} />
+            <DetailItem label="Updated" value={`${formatResponseDateTime(report.updatedAt)}${report.updatedByName ? ` by ${report.updatedByName}` : ''}`} />
+          </dl>
+        ) : null}
+      </section>
+    </section>
+  )
+}
+
 function MatchDayCard({
   activeMatchId,
   activeVolunteerSelectionKey,
@@ -3657,6 +3855,7 @@ function MatchDayCard({
   matchActionStatus,
   now,
   onCorrectGoal,
+  onFinalReportSave,
   onGameModeBack,
   onGameModeHydrationToggle,
   onGameModeStart,
@@ -3672,6 +3871,7 @@ function MatchDayCard({
   scoreDraft,
   volunteerSelectionStatus,
 }) {
+  const [isFinalReportOpen, setIsFinalReportOpen] = useState(false)
   const isBusy = activeMatchId === match.id
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
@@ -3686,9 +3886,13 @@ function MatchDayCard({
   const scoreSummary = getMatchDayDisplayScore(match)
   const locationSummary = getMatchLocationSummary(match)
   const primaryLiveAction = getPrimaryLiveAction(match)
-  const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
+  const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`)
+    && matchActionStatus.key !== `${match.id}:final-report`
+    ? matchActionStatus
+    : null
   const isLiveConsole = isLiveMatchConsoleState(match)
   const matchPeriodLabel = getMatchPeriodLabel(match.status)
+  const isFinalReportAvailable = match.status === 'full_time'
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
   const openManageFromGameMode = () => {
     onGameModeBack()
@@ -3755,6 +3959,16 @@ function MatchDayCard({
             </div>
           </div>
           <div className="grid gap-2">
+            {isFinalReportAvailable ? (
+              <button
+                type="button"
+                onClick={() => setIsFinalReportOpen((isOpen) => !isOpen)}
+                className={`${primaryLiveAction ? secondaryButtonClass : primaryButtonClass} w-full sm:w-auto`}
+                aria-expanded={isFinalReportOpen}
+              >
+                Final Match Report
+              </button>
+            ) : null}
             {!isGameMode && primaryLiveAction ? (
               <button
                 type="button"
@@ -3796,6 +4010,16 @@ function MatchDayCard({
         >
           {controlStatus.message}
         </div>
+      ) : null}
+
+      {isFinalReportAvailable && isFinalReportOpen ? (
+        <FinalMatchReportPanel
+          isBusy={isBusy}
+          match={match}
+          onClose={() => setIsFinalReportOpen(false)}
+          onSave={onFinalReportSave}
+          status={matchActionStatus?.key === `${match.id}:final-report` ? matchActionStatus : null}
+        />
       ) : null}
 
       {isLiveConsole && !isGameMode ? (

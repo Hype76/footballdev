@@ -6,6 +6,7 @@ import { getEntryUserId, getEntryUserName } from './core-normalizers.js'
 import { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 import { assertValidMatchDayEventMinute } from '../matchday-event-minute.js'
 import { validateMatchDayEventUndoInput } from '../matchday-event-undo.js'
+import { isFinalMatchReportAvailable, validateFinalMatchReportNotes } from '../matchday-final-report.js'
 import {
   assertNewMatchHomeAway,
   assertValidMatchDurationMinutes,
@@ -229,6 +230,21 @@ function normalizeMatchDayEvent(row) {
   }
 }
 
+function normalizeMatchDayFinalReport(row) {
+  if (!row || typeof row !== 'object') {
+    return null
+  }
+
+  return {
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    staffNotes: normalizeText(row.staff_notes ?? row.staffNotes),
+    createdByName: normalizeText(row.created_by_name ?? row.createdByName),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedByName: normalizeText(row.updated_by_name ?? row.updatedByName),
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
 function normalizeScorerInterest(row) {
   const player = Array.isArray(row.parent_player_links?.players)
     ? row.parent_player_links.players[0]
@@ -425,6 +441,9 @@ export function normalizeMatchDay(row) {
   const eventLog = Array.isArray(row.match_day_event_log)
     ? row.match_day_event_log.map(normalizeMatchDayEventLogEntry)
     : []
+  const rawFinalReport = Array.isArray(row.match_day_final_reports)
+    ? row.match_day_final_reports[0]
+    : row.match_day_final_reports ?? row.finalReport
 
   return {
     id: row.id ?? '',
@@ -477,6 +496,7 @@ export function normalizeMatchDay(row) {
     availabilityHistory,
     eventLog,
     events,
+    finalReport: normalizeMatchDayFinalReport(rawFinalReport),
   }
 }
 
@@ -487,6 +507,7 @@ function normalizeParentPortalMatchDay(row) {
   delete match.availabilityRequests
   delete match.createdByName
   delete match.eventLog
+  delete match.finalReport
   delete match.playerAvailability
   delete match.scorerAssignments
   delete match.scorerInterests
@@ -593,7 +614,8 @@ function buildMatchSelect() {
     match_day_player_availability_history (*),
     match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
     match_day_event_log (*, players:player_id (player_name)),
-    match_day_events (*)
+    match_day_events (*),
+    match_day_final_reports (*)
   `
 }
 
@@ -1308,6 +1330,29 @@ export async function resetPreviousMatchDayResults({ user, teamId = '' } = {}) {
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
+}
+
+export async function saveMatchDayFinalReport({ user, match, staffNotes = '' } = {}) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  if (!isFinalMatchReportAvailable(match)) {
+    throw new Error('The final match report is available after full time.')
+  }
+
+  const { data, error } = await supabase.rpc('save_match_day_final_report', {
+    match_day_id_value: match.id,
+    staff_notes_value: validateFinalMatchReportNotes(staffNotes),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  return normalizeMatchDayFinalReport(data)
 }
 
 export async function getParentPortalMatchDays({ parentLinkId }) {

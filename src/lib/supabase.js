@@ -267,6 +267,7 @@ export {
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
+  saveMatchDayFinalReport,
   selectMatchDayScorer,
   selectMatchDayVolunteer,
   setMatchDayTimerState,
