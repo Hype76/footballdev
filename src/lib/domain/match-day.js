@@ -6,6 +6,14 @@ import { getEntryUserId, getEntryUserName } from './core-normalizers.js'
 import { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 import { assertValidMatchDayEventMinute } from '../matchday-event-minute.js'
 import { validateMatchDayEventUndoInput } from '../matchday-event-undo.js'
+import {
+  assertNewMatchHomeAway,
+  assertValidMatchDurationMinutes,
+  DEFAULT_MATCH_DURATION_MINUTES,
+  MATCH_DAY_HOME_AWAY_OPTIONS,
+  normalizeLegacyMatchHomeAway,
+  normalizeMatchDurationMinutes,
+} from '../matchday-model.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
@@ -23,11 +31,7 @@ export const MATCH_DAY_STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
-export const MATCH_DAY_HOME_AWAY_OPTIONS = [
-  { value: 'home', label: 'Home' },
-  { value: 'away', label: 'Away' },
-  { value: 'neutral', label: 'Neutral' },
-]
+export { MATCH_DAY_HOME_AWAY_OPTIONS }
 
 export const MATCH_DAY_ARRIVAL_OPTIONS = [
   { value: '15', label: '15 mins before kick off' },
@@ -431,7 +435,8 @@ export function normalizeMatchDay(row) {
     matchDate: row.match_date ?? row.matchDate ?? '',
     kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '',
     arrivalTime: row.arrival_time ?? row.arrivalTime ?? '',
-    homeAway: normalizeText(row.home_away ?? row.homeAway) || 'home',
+    homeAway: normalizeLegacyMatchHomeAway(row.home_away ?? row.homeAway),
+    matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes ?? row.matchDurationMinutes),
     venueName: normalizeText(row.venue_name ?? row.venueName),
     venueAddress: normalizeText(row.venue_address ?? row.venueAddress),
     notes: normalizeText(row.notes),
@@ -577,11 +582,6 @@ function normalizeTimerStatus(value) {
   return MATCH_DAY_TIMER_STATUSES.has(normalizedStatus) ? normalizedStatus : 'not_started'
 }
 
-function normalizeHomeAway(value) {
-  const normalizedHomeAway = normalizeText(value)
-  return MATCH_DAY_HOME_AWAY_OPTIONS.some((option) => option.value === normalizedHomeAway) ? normalizedHomeAway : 'home'
-}
-
 function buildMatchSelect() {
   return `
     *,
@@ -686,6 +686,7 @@ function buildMatchDaySnapshot(row) {
     kickoffTime: row.kickoff_time ?? null,
     arrivalTime: row.arrival_time ?? null,
     homeAway: normalizeText(row.home_away),
+    matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes),
     venueName: normalizeText(row.venue_name),
     venueAddress: normalizeText(row.venue_address),
     notes: normalizeText(row.notes),
@@ -712,6 +713,7 @@ function buildMatchDaySnapshotFromMatch(match) {
     kickoffTime: match.kickoffTime || null,
     arrivalTime: match.arrivalTime || null,
     homeAway: normalizeText(match.homeAway),
+    matchDurationMinutes: normalizeMatchDurationMinutes(match.matchDurationMinutes),
     venueName: normalizeText(match.venueName),
     venueAddress: normalizeText(match.venueAddress),
     notes: normalizeText(match.notes),
@@ -760,7 +762,7 @@ async function getMatchDayEventLogSnapshot({ user, matchId }) {
 
   let query = supabase
     .from('match_days')
-    .select('opponent, match_date, kickoff_time, arrival_time, home_away, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, home_score, away_score')
+    .select('opponent, match_date, kickoff_time, arrival_time, home_away, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, home_score, away_score')
     .eq('id', normalizedMatchId)
     .eq('club_id', user.clubId)
 
@@ -879,6 +881,8 @@ export async function createMatchDay({ user, match }) {
   const requestScorer = shouldRequestScorer(match)
   const requestLinesman = normalizeBoolean(match?.requestLinesman)
   const requestReferee = normalizeBoolean(match?.requestReferee)
+  const homeAway = assertNewMatchHomeAway(match?.homeAway)
+  const matchDurationMinutes = assertValidMatchDurationMinutes(match?.matchDurationMinutes)
 
   if (!opponent) {
     throw new Error('Opponent is required.')
@@ -912,7 +916,8 @@ export async function createMatchDay({ user, match }) {
       match_date: normalizeDateOnly(match?.matchDate) || null,
       kickoff_time: normalizeTime(match?.kickoffTime) || null,
       arrival_time: normalizeTime(match?.arrivalTime) || null,
-      home_away: normalizeHomeAway(match?.homeAway),
+      home_away: homeAway,
+      match_duration_minutes: matchDurationMinutes,
       venue_name: venueName,
       venue_address: venueAddress,
       notes: normalizeText(match?.notes),
@@ -979,7 +984,8 @@ export async function updateMatchDay({ user, matchId, updates }) {
   }
   if (updates.kickoffTime !== undefined) payload.kickoff_time = normalizeTime(updates.kickoffTime) || null
   if (updates.arrivalTime !== undefined) payload.arrival_time = normalizeTime(updates.arrivalTime) || null
-  if (updates.homeAway !== undefined) payload.home_away = normalizeHomeAway(updates.homeAway)
+  if (updates.homeAway !== undefined) payload.home_away = assertNewMatchHomeAway(updates.homeAway)
+  if (updates.matchDurationMinutes !== undefined) payload.match_duration_minutes = assertValidMatchDurationMinutes(updates.matchDurationMinutes)
   if (updates.venueName !== undefined) payload.venue_name = normalizeText(updates.venueName)
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)
   if (updates.notes !== undefined) payload.notes = normalizeText(updates.notes)

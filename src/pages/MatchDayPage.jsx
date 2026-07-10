@@ -59,6 +59,7 @@ import {
   formatMatchTimerClock,
   isMatchTimerPaused,
 } from '../lib/matchday-timer.js'
+import { getMatchDurationValidationError } from '../lib/matchday-model.js'
 import {
   getMatchDayUndoReasonOptions,
   isMatchDayEventUndoSupported,
@@ -73,6 +74,7 @@ const EMPTY_MATCH_FORM = {
   arrivalTime: '',
   arrivalPreset: '30',
   homeAway: 'home',
+  matchDurationMinutes: 90,
   teamId: '',
   venueName: '',
   venueAddress: '',
@@ -618,6 +620,12 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
     return 'Fixture date and time cannot be in the past.'
   }
 
+  const durationValidationMessage = getMatchDurationValidationError(form.matchDurationMinutes)
+
+  if (durationValidationMessage) {
+    return durationValidationMessage
+  }
+
   if (availablePlayerIds.length === 0) {
     return 'Add active squad players to this team before continuing to squad selection.'
   }
@@ -1116,7 +1124,11 @@ function getPrimaryLiveAction(match) {
 }
 
 function getHomeAwayLabel(homeAway) {
-  return MATCH_DAY_HOME_AWAY_OPTIONS.find((option) => option.value === homeAway)?.label || String(homeAway || 'Home')
+  if (homeAway === 'neutral') {
+    return 'Neutral venue'
+  }
+
+  return MATCH_DAY_HOME_AWAY_OPTIONS.find((option) => option.value === homeAway)?.label || 'Home'
 }
 
 function getAvailabilityPlayerKey(row) {
@@ -5404,6 +5416,13 @@ function FixtureSetupModal({
                 <span className={labelClass}>Home or away</span>
                 <select value={form.homeAway} onChange={(event) => updateForm({ homeAway: event.target.value })} className={inputClass}>
                   {MATCH_DAY_HOME_AWAY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Match duration</span>
+                <select value={form.matchDurationMinutes} onChange={(event) => updateForm({ matchDurationMinutes: event.target.value })} className={inputClass}>
+                  {[60, 70, 80, 90].map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}
                 </select>
               </label>
 

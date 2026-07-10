@@ -1,7 +1,9 @@
+import { DEFAULT_MATCH_DURATION_MINUTES, normalizeMatchDurationMinutes } from './matchday-model.js'
+
 export const RUNNING_MATCH_TIMER_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
 export const FROZEN_MATCH_TIMER_STATUSES = new Set(['paused', 'half_time', 'hydration', 'full_time'])
 export const RESUMABLE_MATCH_TIMER_STATUSES = new Set(['paused', 'half_time', 'hydration'])
-export const DEFAULT_MATCH_HALF_SECONDS = 45 * 60
+export const DEFAULT_MATCH_HALF_SECONDS = (DEFAULT_MATCH_DURATION_MINUTES / 2) * 60
 
 const NON_CLOCK_MATCH_STATUSES = new Set(['scheduled', 'scorer_request', 'postponed', 'cancelled'])
 
@@ -24,8 +26,12 @@ function getTimestampMs(value) {
   return Number.isNaN(timestamp) || timestamp <= 0 ? null : timestamp
 }
 
-function getMatchTimerPeriodFloorSeconds(status) {
-  return normalizeText(status) === 'second_half' ? DEFAULT_MATCH_HALF_SECONDS : 0
+export function getMatchHalfSeconds(match = {}) {
+  return (normalizeMatchDurationMinutes(match.matchDurationMinutes ?? match.match_duration_minutes) / 2) * 60
+}
+
+function getMatchTimerPeriodFloorSeconds(status, match) {
+  return normalizeText(status) === 'second_half' ? getMatchHalfSeconds(match) : 0
 }
 
 export function getMatchTimerState(match = {}, now = Date.now()) {
@@ -33,7 +39,7 @@ export function getMatchTimerState(match = {}, now = Date.now()) {
   const status = normalizeText(match.status) || 'scheduled'
   const timerStatus = normalizeText(match.timerStatus ?? match.timer_status)
   const storedElapsedSeconds = normalizeNonNegativeInteger(match.timerElapsedSeconds ?? match.timer_elapsed_seconds)
-  const periodFloorSeconds = getMatchTimerPeriodFloorSeconds(status)
+  const periodFloorSeconds = getMatchTimerPeriodFloorSeconds(status, match)
   const flooredStoredElapsedSeconds = Math.max(storedElapsedSeconds, periodFloorSeconds)
   const timerStartedAtMs = getTimestampMs(match.timerStartedAt ?? match.timer_started_at)
 
