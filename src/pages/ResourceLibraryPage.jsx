@@ -276,7 +276,7 @@ export function ResourceLibraryPage() {
       showToast({
         title: 'Resource assigned',
         message: assignmentDraft.parentVisible && canShareWithParents
-          ? 'Staff and linked parents can now see this resource.'
+          ? 'Shared with linked parents.'
           : 'Staff can now see the assignment in the permitted scope.',
       })
     } catch (error) {
@@ -596,7 +596,7 @@ export function ResourceLibraryPage() {
                   disabled={!canShareWithParents}
                   className="h-5 w-5 accent-[#047857] disabled:opacity-60"
                 />
-                Parent share
+                {assignmentDraft.parentVisible ? 'Shared with parents' : 'Staff only'}
               </label>
               <button type="submit" disabled={isSaving} className={primaryButtonClass}>
                 Save assignment

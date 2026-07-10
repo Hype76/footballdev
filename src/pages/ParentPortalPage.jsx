@@ -2229,7 +2229,6 @@ function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
                 </p>
                 <h4 className="mt-2 text-lg font-black text-[#101828]">{resource.title}</h4>
                 {resource.link?.shareDescription ? <p className="mt-2 text-sm font-semibold leading-6 text-[#101828]">{resource.link.shareDescription}</p> : null}
-                {resource.description ? <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{resource.description}</p> : null}
                 <button
                   type="button"
                   onClick={() => openResource(resource)}

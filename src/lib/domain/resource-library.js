@@ -251,6 +251,7 @@ export function normalizeResourceLibraryItem(row) {
 function normalizeParentPortalResourceItem(row) {
   const item = normalizeResourceLibraryItem(row)
 
+  delete item.description
   delete item.fileSizeBytes
   delete item.mimeType
   delete item.originalFilename
@@ -490,45 +491,17 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], shar
     throw new Error('Team resources can only be assigned inside the active team.')
   }
 
-  const linkedTypes = [...new Set(normalizedTargets.map((target) => target.linkedType))]
-  const linkedIds = [...new Set(normalizedTargets.map((target) => target.linkedId))]
-  const { data: existingLinks, error: existingError } = await supabase
-    .from('resource_library_links')
-    .select('*')
-    .eq('resource_id', normalizedResourceId)
-    .eq('club_id', user.clubId)
-    .eq('team_id', activeTeamId)
-    .in('linked_type', linkedTypes)
-    .in('linked_id', linkedIds)
-    .is('removed_at', null)
-
-  if (existingError) {
-    console.error(existingError)
-    throw existingError
-  }
-
-  const existingLinkKeys = new Set((existingLinks ?? []).map((link) => getResourceLibraryTargetKey(normalizeResourceLibraryLink(link))))
-  const targetsToInsert = normalizedTargets.filter((target) => !existingLinkKeys.has(getResourceLibraryTargetKey(target)))
-  const rows = targetsToInsert.map((target) => ({
-    resource_id: normalizedResourceId,
-    club_id: user.clubId,
-    team_id: activeTeamId,
-    linked_type: target.linkedType,
-    linked_id: target.linkedId,
-    parent_visible: target.linkedType === 'player' && target.parentVisible === true,
-    share_description: normalizedShareDescription || null,
-    assigned_by_profile_id: getEntryUserId(user),
-    ...getEntryIdentity(user, 'assigned_by'),
-  }))
-
-  if (rows.length === 0) {
-    return (existingLinks ?? []).map(normalizeResourceLibraryLink)
-  }
-
-  const { data, error } = await supabase
-    .from('resource_library_links')
-    .insert(rows)
-    .select('*')
+  const { data, error } = await supabase.rpc('assign_resource_library_item_with_parent_notifications', {
+    target_resource_id: normalizedResourceId,
+    target_club_id: user.clubId,
+    target_team_id: activeTeamId,
+    targets_value: normalizedTargets.map((target) => ({
+      linkedType: target.linkedType,
+      linkedId: target.linkedId,
+      parentVisible: target.linkedType === 'player' && target.parentVisible === true,
+    })),
+    share_description_value: normalizedShareDescription,
+  })
 
   if (error) {
     console.error(error)
@@ -544,8 +517,10 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], shar
     entityId: normalizedResourceId,
     metadata: {
       targetCount: normalizedTargets.length,
-      insertedCount: targetsToInsert.length,
-      duplicateCount: normalizedTargets.length - targetsToInsert.length,
+      insertedCount: (data ?? []).filter((link) => link.assignment_action === 'inserted').length,
+      updatedCount: (data ?? []).filter((link) => link.assignment_action === 'updated').length,
+      unchangedCount: (data ?? []).filter((link) => link.assignment_action === 'unchanged').length,
+      notificationCount: (data ?? []).reduce((total, link) => total + Number(link.notifications_queued || 0), 0),
       hasShareDescription: Boolean(normalizedShareDescription),
     },
   })

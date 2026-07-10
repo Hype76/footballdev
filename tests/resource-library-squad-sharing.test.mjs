@@ -21,18 +21,17 @@ test('Resource Library squad sharing migration stores link descriptions and pres
   assert.doesNotMatch(migration, /grant execute on function public\.get_parent_portal_player_resources\(uuid\) to anon/i)
 })
 
-test('Resource Library assignment expands full squad sharing to player links and skips active duplicates', async () => {
+test('Resource Library assignment expands full squad sharing through the idempotent notification RPC', async () => {
   const domain = await readFile(domainUrl, 'utf8')
 
   assert.match(domain, /RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH = 500/)
   assert.match(domain, /shareDescription = ''/)
-  assert.match(domain, /share_description: normalizedShareDescription \|\| null/)
-  assert.match(domain, /\.eq\('resource_id', normalizedResourceId\)/)
-  assert.match(domain, /\.is\('removed_at', null\)/)
-  assert.match(domain, /existingLinkKeys/)
-  assert.match(domain, /targetsToInsert/)
-  assert.match(domain, /duplicateCount: normalizedTargets\.length - targetsToInsert\.length/)
-  assert.match(domain, /parent_visible: target\.linkedType === 'player' && target\.parentVisible === true/)
+  assert.match(domain, /rpc\('assign_resource_library_item_with_parent_notifications'/)
+  assert.match(domain, /targets_value: normalizedTargets\.map/)
+  assert.match(domain, /share_description_value: normalizedShareDescription/)
+  assert.match(domain, /parentVisible: target\.linkedType === 'player' && target\.parentVisible === true/)
+  assert.match(domain, /unchangedCount:/)
+  assert.match(domain, /notificationCount:/)
 })
 
 test('Resource Library manager UI adds a full squad option without removing individual sharing', async () => {
