@@ -53,6 +53,16 @@ export function getMatchDurationValidationError(value) {
   return ''
 }
 
+export function getRequiredMatchDurationValidationError(value) {
+  const durationText = String(value ?? '').trim()
+
+  if (!durationText) {
+    return 'Enter a custom match duration.'
+  }
+
+  return getMatchDurationValidationError(value)
+}
+
 export function normalizeMatchDurationMinutes(value) {
   return getMatchDurationValidationError(value)
     ? DEFAULT_MATCH_DURATION_MINUTES

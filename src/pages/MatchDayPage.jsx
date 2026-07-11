@@ -60,7 +60,7 @@ import {
   formatMatchTimerClock,
   isMatchTimerPaused,
 } from '../lib/matchday-timer.js'
-import { getMatchDurationValidationError } from '../lib/matchday-model.js'
+import { getMatchDurationValidationError, getRequiredMatchDurationValidationError } from '../lib/matchday-model.js'
 import {
   getMatchDayUndoReasonOptions,
   isMatchDayEventUndoSupported,
@@ -79,7 +79,9 @@ const EMPTY_MATCH_FORM = {
   arrivalTime: '',
   arrivalPreset: '30',
   homeAway: 'home',
+  matchDurationPreset: '90',
   matchDurationMinutes: 90,
+  customMatchDurationMinutes: '',
   teamId: '',
   venueName: '',
   venueAddress: '',
@@ -134,6 +136,9 @@ const LIVE_MATCH_CLOCK_INTERVAL_MS = 1000
 const RUNNING_MATCH_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
 const PAUSED_MATCH_STATUSES = new Set(['half_time'])
 const LIVE_CONTROL_STATUSES = ['half_time', 'second_half', 'extra_time', 'penalties', 'full_time']
+const MATCH_DAY_DURATION_PRESETS = [60, 70, 80, 90]
+const MATCH_DAY_CUSTOM_DURATION_VALUE = 'custom'
+const MATCH_DAY_DURATION_PRESET_VALUES = new Set(MATCH_DAY_DURATION_PRESETS.map(String))
 
 const availabilityStatusLabels = {
   pending: 'No response',
@@ -559,6 +564,24 @@ function useFixtureModalViewportStyle() {
   return viewportState
 }
 
+function getMatchDurationPresetValue(value) {
+  const durationText = String(value ?? '').trim()
+  return MATCH_DAY_DURATION_PRESET_VALUES.has(durationText) ? durationText : MATCH_DAY_CUSTOM_DURATION_VALUE
+}
+
+function getMatchDurationCustomValue(value) {
+  const durationText = String(value ?? '').trim()
+  return MATCH_DAY_DURATION_PRESET_VALUES.has(durationText) ? '' : durationText
+}
+
+function getMatchDurationFormFields(value) {
+  return {
+    matchDurationPreset: getMatchDurationPresetValue(value),
+    matchDurationMinutes: value,
+    customMatchDurationMinutes: getMatchDurationCustomValue(value),
+  }
+}
+
 function isFixtureEditableElement(element) {
   if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(element?.tagName)) {
     return false
@@ -625,7 +648,9 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
     return 'Fixture date and time cannot be in the past.'
   }
 
-  const durationValidationMessage = getMatchDurationValidationError(form.matchDurationMinutes)
+  const durationValidationMessage = form.matchDurationPreset === MATCH_DAY_CUSTOM_DURATION_VALUE
+    ? getRequiredMatchDurationValidationError(form.customMatchDurationMinutes ?? form.matchDurationMinutes)
+    : getMatchDurationValidationError(form.matchDurationMinutes)
 
   if (durationValidationMessage) {
     return durationValidationMessage
@@ -1822,6 +1847,9 @@ export function MatchDayPage() {
           ...currentForm,
           ...setupIntent,
           arrivalPreset: setupIntent.arrivalTime ? 'custom' : currentForm.arrivalPreset,
+          ...(setupIntent.matchDurationMinutes !== undefined
+            ? getMatchDurationFormFields(setupIntent.matchDurationMinutes)
+            : {}),
           parentAudience: setupIntent.parentVisible ? setupIntent.parentAudience : 'none',
         }))
       }
@@ -1974,6 +2002,34 @@ export function MatchDayPage() {
     updateForm({
       kickoffTime,
       arrivalTime: form.arrivalPreset === 'custom' ? form.arrivalTime : calculateArrivalTime(kickoffTime, form.arrivalPreset),
+    })
+  }
+
+  const updateMatchDurationPreset = (matchDurationPreset) => {
+    if (matchDurationPreset === MATCH_DAY_CUSTOM_DURATION_VALUE) {
+      const customMatchDurationMinutes = form.customMatchDurationMinutes
+        || getMatchDurationCustomValue(form.matchDurationMinutes)
+
+      updateForm({
+        matchDurationPreset: MATCH_DAY_CUSTOM_DURATION_VALUE,
+        matchDurationMinutes: customMatchDurationMinutes,
+        customMatchDurationMinutes,
+      })
+      return
+    }
+
+    updateForm({
+      matchDurationPreset,
+      matchDurationMinutes: Number(matchDurationPreset),
+      customMatchDurationMinutes: '',
+    })
+  }
+
+  const updateCustomMatchDuration = (customMatchDurationMinutes) => {
+    updateForm({
+      matchDurationPreset: MATCH_DAY_CUSTOM_DURATION_VALUE,
+      matchDurationMinutes: customMatchDurationMinutes,
+      customMatchDurationMinutes,
     })
   }
 
@@ -3191,8 +3247,10 @@ export function MatchDayPage() {
           selectedFixtureTeamName={selectedFixtureTeamName}
           teams={teams}
           updateArrivalFromPreset={updateArrivalFromPreset}
+          updateCustomMatchDuration={updateCustomMatchDuration}
           updateForm={updateForm}
           updateKickoffTime={updateKickoffTime}
+          updateMatchDurationPreset={updateMatchDurationPreset}
           user={user}
           validationMessage={errorMessage}
           onClose={() => setIsFixtureFormOpen(false)}
@@ -5536,8 +5594,10 @@ function FixtureSetupModal({
   selectedFixtureTeamName,
   teams,
   updateArrivalFromPreset,
+  updateCustomMatchDuration,
   updateForm,
   updateKickoffTime,
+  updateMatchDurationPreset,
   user,
   validationMessage,
 }) {
@@ -5643,12 +5703,34 @@ function FixtureSetupModal({
                 </select>
               </label>
 
-              <label className="block">
-                <span className={labelClass}>Match duration</span>
-                <select value={form.matchDurationMinutes} onChange={(event) => updateForm({ matchDurationMinutes: event.target.value })} className={inputClass}>
-                  {[60, 70, 80, 90].map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}
-                </select>
-              </label>
+              <div className="block">
+                <label className="block">
+                  <span className={labelClass}>Match duration</span>
+                  <select value={form.matchDurationPreset} onChange={(event) => updateMatchDurationPreset(event.target.value)} className={inputClass}>
+                    {MATCH_DAY_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}
+                    <option value={MATCH_DAY_CUSTOM_DURATION_VALUE}>Custom duration</option>
+                  </select>
+                </label>
+                {form.matchDurationPreset === MATCH_DAY_CUSTOM_DURATION_VALUE ? (
+                  <label className="mt-2 block">
+                    <span className={labelClass}>Custom minutes</span>
+                    <input
+                      type="number"
+                      min="20"
+                      max="140"
+                      step="2"
+                      inputMode="numeric"
+                      value={form.customMatchDurationMinutes}
+                      onChange={(event) => updateCustomMatchDuration(event.target.value)}
+                      className={inputClass}
+                      aria-describedby="match-duration-custom-help"
+                    />
+                    <span id="match-duration-custom-help" className="mt-1 block text-xs font-semibold text-[#4b5f55]">
+                      Use an even number from 20 to 140.
+                    </span>
+                  </label>
+                ) : null}
+              </div>
 
               <label className="block">
                 <span className={labelClass}>Reuse location</span>
