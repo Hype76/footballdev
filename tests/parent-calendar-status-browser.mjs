@@ -88,6 +88,8 @@ function dateAtOffset(offset, hour = 10) {
 }
 
 function invitationRow({
+  childId = 'player-fixture',
+  eventId,
   id,
   offset,
   responseState,
@@ -104,14 +106,14 @@ function invitationRow({
     source_record_id: id,
     source_type: 'match_day',
     source_event_type: 'match_day',
-    event_id: `event-${id}`,
+    event_id: eventId || `event-${id}`,
     event_type: 'match-day',
     event_title: title,
     event_start: dateAtOffset(offset),
     event_end: dateAtOffset(offset, 12),
     event_location: 'Fixture Ground',
     team_name: 'U12 Fixture Team',
-    child_id: 'player-fixture',
+    child_id: childId,
     child_name: 'Fixture Child',
     parent_link_id: 'parent-link-fixture',
     role_type: roleType,
@@ -124,24 +126,82 @@ function invitationRow({
 }
 
 const invitationRows = [
-  invitationRow({ id: 'accepted', offset: 1, responseState: 'available', title: 'Accepted fixture' }),
-  invitationRow({ id: 'declined', offset: 2, responseState: 'unavailable', title: 'Declined fixture' }),
-  invitationRow({ id: 'pending', offset: 3, responseState: 'awaiting_response', canRespond: true, title: 'Response fixture' }),
-  invitationRow({ id: 'info', offset: 4, responseState: 'not_required', title: 'Information fixture' }),
+  invitationRow({ id: 'accepted-attendance', eventId: 'event-accepted-declined', offset: 1, responseState: 'available', title: 'Accepted player and declined linesman' }),
   invitationRow({
-    id: 'selected',
-    offset: 5,
-    responseState: 'yes',
+    id: 'declined-linesman',
+    eventId: 'event-accepted-declined',
+    offset: 1,
+    responseState: 'no',
     invitationType: 'match_role',
     roleType: 'linesman',
-    selectionState: 'selected',
-    title: 'Confirmed role fixture',
+    title: 'Accepted player and declined linesman',
+  }),
+  invitationRow({ id: 'accepted-pending-attendance', eventId: 'event-accepted-pending', offset: 2, responseState: 'available', title: 'Accepted player and pending scorer' }),
+  invitationRow({
+    id: 'pending-scorer',
+    eventId: 'event-accepted-pending',
+    offset: 2,
+    responseState: 'awaiting_response',
+    canRespond: true,
+    invitationType: 'match_role',
+    roleType: 'scorer',
+    title: 'Accepted player and pending scorer',
+  }),
+  invitationRow({ id: 'declined-attendance', eventId: 'event-declined-accepted', offset: 3, responseState: 'unavailable', title: 'Declined player and accepted referee' }),
+  invitationRow({
+    id: 'accepted-referee',
+    eventId: 'event-declined-accepted',
+    offset: 3,
+    responseState: 'yes',
+    invitationType: 'match_role',
+    roleType: 'referee',
+    title: 'Declined player and accepted referee',
+  }),
+  invitationRow({ id: 'pending-attendance', eventId: 'event-pending-accepted', offset: 4, responseState: 'awaiting_response', canRespond: true, title: 'Pending player and accepted scorer' }),
+  invitationRow({
+    id: 'accepted-scorer',
+    eventId: 'event-pending-accepted',
+    offset: 4,
+    responseState: 'yes',
+    invitationType: 'match_role',
+    roleType: 'scorer',
+    title: 'Pending player and accepted scorer',
+  }),
+  invitationRow({ id: 'info-attendance', eventId: 'event-info-pending', offset: 5, responseState: 'not_required', title: 'Information player and pending roles' }),
+  invitationRow({
+    id: 'pending-info-linesman',
+    eventId: 'event-info-pending',
+    offset: 5,
+    responseState: 'awaiting_response',
+    canRespond: true,
+    invitationType: 'match_role',
+    roleType: 'linesman',
+    title: 'Information player and pending roles',
+  }),
+  invitationRow({
+    id: 'declined-info-referee',
+    eventId: 'event-info-pending',
+    offset: 5,
+    responseState: 'no',
+    invitationType: 'match_role',
+    roleType: 'referee',
+    title: 'Information player and pending roles',
+  }),
+  invitationRow({ id: 'selected-attendance', eventId: 'event-selected-declined', offset: 6, responseState: 'available', selectionState: 'selected', title: 'Selected player and declined scorer' }),
+  invitationRow({
+    id: 'selected-declined-scorer',
+    eventId: 'event-selected-declined',
+    offset: 6,
+    responseState: 'no',
+    invitationType: 'match_role',
+    roleType: 'scorer',
+    title: 'Selected player and declined scorer',
   }),
   invitationRow({ id: 'past', offset: -1, responseState: 'available', title: 'Past accepted fixture' }),
-  invitationRow({ id: 'cancelled', offset: 6, responseState: 'not_required', invitationState: 'cancelled', title: 'Cancelled fixture' }),
+  invitationRow({ id: 'cancelled', offset: 7, responseState: 'not_required', invitationState: 'cancelled', title: 'Cancelled fixture' }),
 ]
 
-const matchRows = invitationRows.map((row) => ({
+const matchRows = [...new Map(invitationRows.map((row) => [row.event_id, {
   id: row.event_id,
   club_id: 'club-fixture',
   team_id: 'team-u12',
@@ -156,7 +216,7 @@ const matchRows = invitationRows.map((row) => ({
   parent_visible: true,
   parent_audience: 'involved_players',
   status: row.invitation_state === 'cancelled' ? 'cancelled' : 'scheduled',
-}))
+}])).values()]
 
 async function preparePage(context) {
   await context.route('**/rest/v1/**', (route) => {
@@ -207,8 +267,9 @@ async function signInAndOpenCalendar(page) {
   await page.getByLabel('Calendar status key').waitFor({ state: 'visible', timeout: 15000 })
 }
 
-function eventButton(page, status) {
-  return page.locator(`button[aria-label*="Status: ${status}"]`).first()
+function eventButton(page, status, title = '') {
+  const titleSelector = title ? `[aria-label*="${title}"]` : ''
+  return page.locator(`button${titleSelector}[aria-label*="Status: ${status}"]`).first()
 }
 
 const server = startDevServer()
@@ -222,34 +283,51 @@ try {
   const desktop = await preparePage(desktopContext)
   await signInAndOpenCalendar(desktop.page)
 
-  const accepted = eventButton(desktop.page, 'Accepted')
-  const declined = eventButton(desktop.page, 'Declined')
-  const pending = eventButton(desktop.page, 'Response needed')
-  const information = eventButton(desktop.page, 'Information')
-  const confirmed = eventButton(desktop.page, 'Confirmed')
-  const past = eventButton(desktop.page, 'Past, Accepted')
+  const acceptedWithDeclinedRole = eventButton(desktop.page, 'Player available', 'Accepted player and declined linesman')
+  const acceptedWithPendingRole = eventButton(desktop.page, 'Player available', 'Accepted player and pending scorer')
+  const declinedWithAcceptedRole = eventButton(desktop.page, 'Player unavailable', 'Declined player and accepted referee')
+  const pendingWithAcceptedRole = eventButton(desktop.page, 'Player response needed', 'Pending player and accepted scorer')
+  const informationWithRoles = eventButton(desktop.page, 'Information only', 'Information player and pending roles')
+  const selectedWithDeclinedRole = eventButton(desktop.page, 'Player selected', 'Selected player and declined scorer')
+  const past = eventButton(desktop.page, 'Past, Player available')
   const cancelled = eventButton(desktop.page, 'Cancelled')
 
-  for (const locator of [accepted, declined, pending, information, confirmed, past, cancelled]) {
+  for (const locator of [acceptedWithDeclinedRole, acceptedWithPendingRole, declinedWithAcceptedRole, pendingWithAcceptedRole, informationWithRoles, selectedWithDeclinedRole, past, cancelled]) {
     await locator.waitFor({ state: 'visible', timeout: 15000 })
   }
 
-  assert.match(await accepted.getAttribute('class'), /bg-\[#f0fdf4\]/)
-  assert.match(await declined.getAttribute('class'), /bg-\[#fef2f2\]/)
-  assert.match(await pending.getAttribute('class'), /bg-\[#fffbeb\]/)
-  assert.match(await information.getAttribute('class'), /bg-\[#eff6ff\]/)
+  assert.match(await acceptedWithDeclinedRole.getAttribute('class'), /bg-\[#f0fdf4\]/)
+  assert.match(await acceptedWithPendingRole.getAttribute('class'), /bg-\[#f0fdf4\]/)
+  assert.match(await declinedWithAcceptedRole.getAttribute('class'), /bg-\[#fef2f2\]/)
+  assert.match(await pendingWithAcceptedRole.getAttribute('class'), /bg-\[#fffbeb\]/)
+  assert.match(await informationWithRoles.getAttribute('class'), /bg-\[#eff6ff\]/)
+  assert.match(await selectedWithDeclinedRole.getAttribute('class'), /bg-\[#f0fdf4\]/)
   assert.match(await past.getAttribute('class'), /bg-\[#f8fafc\]/)
   assert.match(await cancelled.getAttribute('class'), /border-dashed/)
+  assert.match(await acceptedWithDeclinedRole.getAttribute('aria-label'), /Player available.*Linesman declined/)
+  assert.match(await acceptedWithPendingRole.getAttribute('aria-label'), /Player available.*Scorer response needed/)
+  assert.match(await declinedWithAcceptedRole.getAttribute('aria-label'), /Player unavailable.*Referee accepted/)
+  assert.match(await pendingWithAcceptedRole.getAttribute('aria-label'), /Player response needed.*Scorer accepted/)
+  assert.match(await informationWithRoles.getAttribute('aria-label'), /Information only.*Linesman response needed.*Referee declined/)
+  await desktop.page.getByTitle('Volunteer roles: Linesman declined').first().waitFor({ state: 'visible' })
 
-  await past.click()
+  await acceptedWithDeclinedRole.focus()
+  await desktop.page.keyboard.press('Enter')
   const modal = desktop.page.getByRole('dialog')
   await modal.waitFor({ state: 'visible' })
+  await modal.getByText('Child attendance', { exact: true }).waitFor({ state: 'visible' })
+  await modal.getByText('Match Day roles', { exact: true }).waitFor({ state: 'visible' })
   await modal.getByText('Accepted', { exact: true }).waitFor({ state: 'visible' })
+  await modal.getByText('Declined', { exact: true }).waitFor({ state: 'visible' })
   await modal.getByRole('button', { name: 'Close' }).click()
 
   await desktop.page.getByRole('button', { name: 'Agenda' }).click()
-  await eventButton(desktop.page, 'Response needed').waitFor({ state: 'visible' })
+  await eventButton(desktop.page, 'Player response needed').waitFor({ state: 'visible' })
+  await desktop.page.getByText('Linesman response needed, Referee declined', { exact: true }).waitFor({ state: 'visible' })
   assert.equal(await desktop.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await desktop.page.reload({ waitUntil: 'domcontentloaded' })
+  await desktop.page.getByLabel('Calendar status key').waitFor({ state: 'visible', timeout: 15000 })
+  await eventButton(desktop.page, 'Player available', 'Accepted player and declined linesman').waitFor({ state: 'visible' })
   assert.deepEqual(desktop.pageErrors, [])
   assert.deepEqual(desktop.consoleErrors, [])
   await desktopContext.close()
@@ -257,11 +335,12 @@ try {
   const mobileContext = await browser.newContext({ isMobile: true, viewport: { width: 390, height: 844 } })
   const mobile = await preparePage(mobileContext)
   await signInAndOpenCalendar(mobile.page)
-  await eventButton(mobile.page, 'Response needed').waitFor({ state: 'visible', timeout: 15000 })
+  await eventButton(mobile.page, 'Player response needed').waitFor({ state: 'visible', timeout: 15000 })
+  await mobile.page.getByTitle('Volunteer roles: Scorer accepted').first().waitFor({ state: 'visible' })
   assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   await mobile.page.getByRole('button', { name: 'Agenda' }).click()
-  await mobile.page.getByText('Response needed', { exact: true }).first().waitFor({ state: 'visible' })
-  await eventButton(mobile.page, 'Confirmed').click()
+  await mobile.page.getByText('Player response needed', { exact: true }).first().waitFor({ state: 'visible' })
+  await eventButton(mobile.page, 'Player selected').click()
   await mobile.page.getByRole('dialog').waitFor({ state: 'visible' })
   assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   assert.deepEqual(mobile.pageErrors, [])

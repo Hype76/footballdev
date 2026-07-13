@@ -14,6 +14,7 @@ const ROLE_RESPONSE_OPTIONS = [
 const ACTION_REQUIRED_RESPONSES = new Set(['awaiting_response', 'no_response'])
 const ACCEPTED_RESPONSES = new Set(['accepted', 'available', 'yes'])
 const DECLINED_RESPONSES = new Set(['declined', 'unavailable', 'no'])
+const PLAYER_INVITATION_TYPES = new Set(['calendar_attendance', 'training_attendance', 'match_attendance'])
 const CLOSED_INVITATION_STATES = new Set(['cancelled', 'closed', 'expired', 'withdrawn'])
 const CLOSED_EVENT_STATES = new Set(['cancelled', 'postponed', 'full_time', 'concluded', 'closed'])
 const COMPLETED_EVENT_STATES = new Set(['full_time', 'concluded'])
@@ -25,6 +26,30 @@ export const PARENT_CALENDAR_VISUAL_STATES = Object.freeze({
   informational: 'informational',
   past: 'past',
   cancelledOrPostponed: 'cancelled_or_postponed',
+})
+
+export const PARENT_PLAYER_PARTICIPATION_STATES = Object.freeze({
+  accepted: 'accepted',
+  available: 'available',
+  declined: 'declined',
+  unavailable: 'unavailable',
+  responseRequired: 'response_required',
+  noResponseRequired: 'no_response_required',
+  selected: 'selected',
+  confirmed: 'confirmed',
+  closed: 'closed',
+})
+
+export const PARENT_VOLUNTEER_STATES = Object.freeze({
+  noOffer: 'no_offer',
+  responseRequired: 'response_required',
+  accepted: 'accepted',
+  declined: 'declined',
+  selected: 'selected',
+  confirmed: 'confirmed',
+  withdrawn: 'withdrawn',
+  locked: 'locked',
+  closed: 'closed',
 })
 
 function normalizeText(value) {
@@ -213,80 +238,182 @@ function getEventEndTimestamp(event = {}) {
   return startDate.getTime()
 }
 
-function getUnderlyingCalendarState(invitations = []) {
-  const normalizedInvitations = Array.isArray(invitations) ? invitations : []
-  const actionableInvitations = normalizedInvitations.filter((invitation) =>
+function getScopedPlayerInvitations(invitations = [], childId = '') {
+  const normalizedChildId = normalizeText(childId)
+  const playerInvitations = (Array.isArray(invitations) ? invitations : [])
+    .filter((invitation) => PLAYER_INVITATION_TYPES.has(invitation.invitationType))
+
+  if (!normalizedChildId) {
+    return playerInvitations
+  }
+
+  return playerInvitations.filter((invitation) => normalizeText(invitation.childId) === normalizedChildId)
+}
+
+export function getParentPlayerParticipationState(invitations = [], options = {}) {
+  const playerInvitations = getScopedPlayerInvitations(invitations, options.childId)
+  const actionableInvitations = playerInvitations.filter((invitation) =>
     invitation.canRespond === true && ACTION_REQUIRED_RESPONSES.has(invitation.responseState))
 
-  // Future priority: action required, declined, confirmed, accepted, then information.
   if (actionableInvitations.length > 0) {
     return {
+      participationState: PARENT_PLAYER_PARTICIPATION_STATES.responseRequired,
       state: PARENT_CALENDAR_VISUAL_STATES.actionRequired,
-      label: actionableInvitations.length > 1 ? `${actionableInvitations.length} responses needed` : 'Response needed',
+      label: actionableInvitations.length > 1 ? `${actionableInvitations.length} player responses needed` : 'Player response needed',
       actionCount: actionableInvitations.length,
     }
   }
 
-  if (normalizedInvitations.some((invitation) => DECLINED_RESPONSES.has(invitation.responseState))) {
+  if (playerInvitations.some((invitation) => DECLINED_RESPONSES.has(invitation.responseState))) {
     return {
+      participationState: PARENT_PLAYER_PARTICIPATION_STATES.unavailable,
       state: PARENT_CALENDAR_VISUAL_STATES.declined,
-      label: 'Declined',
+      label: 'Player unavailable',
       actionCount: 0,
     }
   }
 
-  if (normalizedInvitations.some((invitation) => invitation.selectionState === 'selected')) {
+  if (playerInvitations.some((invitation) => ['selected', 'confirmed'].includes(invitation.selectionState)
+    || ['selected', 'confirmed'].includes(invitation.responseState))) {
     return {
+      participationState: PARENT_PLAYER_PARTICIPATION_STATES.selected,
       state: PARENT_CALENDAR_VISUAL_STATES.accepted,
-      label: 'Confirmed',
+      label: 'Player selected',
       actionCount: 0,
     }
   }
 
-  if (normalizedInvitations.some((invitation) => ACCEPTED_RESPONSES.has(invitation.responseState))) {
+  if (playerInvitations.some((invitation) => ACCEPTED_RESPONSES.has(invitation.responseState))) {
     return {
+      participationState: PARENT_PLAYER_PARTICIPATION_STATES.available,
       state: PARENT_CALENDAR_VISUAL_STATES.accepted,
-      label: 'Accepted',
+      label: 'Player available',
       actionCount: 0,
     }
   }
 
-  if (normalizedInvitations.some((invitation) => invitation.responseState === 'maybe')) {
+  if (playerInvitations.some((invitation) => invitation.responseState === 'maybe')) {
     return {
+      participationState: PARENT_PLAYER_PARTICIPATION_STATES.noResponseRequired,
       state: PARENT_CALENDAR_VISUAL_STATES.informational,
-      label: 'Maybe',
+      label: 'Player response: Maybe',
       actionCount: 0,
     }
   }
 
-  if (normalizedInvitations.some((invitation) => invitation.selectionState === 'selected_elsewhere')) {
+  if (playerInvitations.some((invitation) => invitation.selectionState === 'selected_elsewhere')) {
     return {
+      participationState: PARENT_PLAYER_PARTICIPATION_STATES.noResponseRequired,
       state: PARENT_CALENDAR_VISUAL_STATES.informational,
-      label: 'Not selected',
+      label: 'Player not selected',
       actionCount: 0,
     }
   }
 
-  if (normalizedInvitations.some((invitation) => CLOSED_INVITATION_STATES.has(invitation.invitationState))) {
+  if (playerInvitations.length > 0 && playerInvitations.every((invitation) => CLOSED_INVITATION_STATES.has(invitation.invitationState))) {
     return {
+      participationState: PARENT_PLAYER_PARTICIPATION_STATES.closed,
       state: PARENT_CALENDAR_VISUAL_STATES.informational,
-      label: 'Closed',
+      label: 'Player availability closed',
       actionCount: 0,
     }
   }
 
   return {
+    participationState: PARENT_PLAYER_PARTICIPATION_STATES.noResponseRequired,
     state: PARENT_CALENDAR_VISUAL_STATES.informational,
-    label: 'Information',
+    label: 'Information only',
     actionCount: 0,
+  }
+}
+
+function getVolunteerRoleLabel(invitation = {}) {
+  const roleLabels = {
+    scorer: 'Scorer',
+    referee: 'Referee',
+    linesman: 'Linesman',
+  }
+
+  return roleLabels[invitation.roleType] || 'Volunteer role'
+}
+
+function getVolunteerDetail(invitation = {}) {
+  const roleLabel = getVolunteerRoleLabel(invitation)
+  const roleName = roleLabel.toLowerCase()
+
+  if (invitation.selectionState === 'selected') {
+    return { key: invitation.invitationId || roleName, roleType: invitation.roleType, state: PARENT_VOLUNTEER_STATES.selected, label: `Selected as ${roleName}` }
+  }
+
+  if (invitation.selectionState === 'selected_elsewhere') {
+    return { key: invitation.invitationId || roleName, roleType: invitation.roleType, state: PARENT_VOLUNTEER_STATES.closed, label: `${roleLabel} not selected` }
+  }
+
+  if (CLOSED_INVITATION_STATES.has(invitation.invitationState)) {
+    const state = invitation.invitationState === 'withdrawn'
+      ? PARENT_VOLUNTEER_STATES.withdrawn
+      : PARENT_VOLUNTEER_STATES.closed
+    const stateLabel = invitation.invitationState === 'cancelled' ? 'cancelled' : invitation.invitationState === 'withdrawn' ? 'withdrawn' : 'closed'
+    return { key: invitation.invitationId || roleName, roleType: invitation.roleType, state, label: `${roleLabel} ${stateLabel}` }
+  }
+
+  if (ACTION_REQUIRED_RESPONSES.has(invitation.responseState)) {
+    const state = invitation.canRespond === true ? PARENT_VOLUNTEER_STATES.responseRequired : PARENT_VOLUNTEER_STATES.locked
+    const label = invitation.canRespond === true ? `${roleLabel} response needed` : `${roleLabel} response locked`
+    return { key: invitation.invitationId || roleName, roleType: invitation.roleType, state, label }
+  }
+
+  if (ACCEPTED_RESPONSES.has(invitation.responseState)) {
+    return { key: invitation.invitationId || roleName, roleType: invitation.roleType, state: PARENT_VOLUNTEER_STATES.accepted, label: `${roleLabel} accepted` }
+  }
+
+  if (DECLINED_RESPONSES.has(invitation.responseState)) {
+    return { key: invitation.invitationId || roleName, roleType: invitation.roleType, state: PARENT_VOLUNTEER_STATES.declined, label: `${roleLabel} declined` }
+  }
+
+  return { key: invitation.invitationId || roleName, roleType: invitation.roleType, state: PARENT_VOLUNTEER_STATES.locked, label: `${roleLabel} response recorded` }
+}
+
+export function getParentVolunteerState(invitations = [], options = {}) {
+  const childId = normalizeText(options.childId)
+  const roleInvitations = (Array.isArray(invitations) ? invitations : [])
+    .filter((invitation) => invitation.invitationType === 'match_role'
+      && (!childId || normalizeText(invitation.childId) === childId))
+  const details = roleInvitations.map(getVolunteerDetail)
+  const statePriority = [
+    PARENT_VOLUNTEER_STATES.responseRequired,
+    PARENT_VOLUNTEER_STATES.selected,
+    PARENT_VOLUNTEER_STATES.confirmed,
+    PARENT_VOLUNTEER_STATES.accepted,
+    PARENT_VOLUNTEER_STATES.declined,
+    PARENT_VOLUNTEER_STATES.withdrawn,
+    PARENT_VOLUNTEER_STATES.locked,
+    PARENT_VOLUNTEER_STATES.closed,
+  ]
+  const state = statePriority.find((candidate) => details.some((detail) => detail.state === candidate))
+    || PARENT_VOLUNTEER_STATES.noOffer
+
+  return {
+    state,
+    details,
+    actionCount: details.filter((detail) => detail.state === PARENT_VOLUNTEER_STATES.responseRequired).length,
   }
 }
 
 export function getParentCalendarVisualState(event = {}, options = {}) {
   const invitations = Array.isArray(event.invitations) ? event.invitations : []
-  const underlyingState = getUnderlyingCalendarState(invitations)
+  const childId = normalizeText(options.childId ?? event.childId ?? event.data?.childId)
+  const playerState = getParentPlayerParticipationState(invitations, { childId })
+  const volunteerState = getParentVolunteerState(invitations, { childId })
+  const supplementaryState = {
+    playerState: playerState.participationState,
+    volunteerState: volunteerState.state,
+    volunteerDetails: volunteerState.details,
+    volunteerActionCount: volunteerState.actionCount,
+  }
   const eventStatus = normalizeText(event.eventStatus ?? event.status).toLowerCase()
-  const invitationCancelled = invitations.length > 0 && invitations.every((invitation) => invitation.invitationState === 'cancelled')
+  const playerInvitations = getScopedPlayerInvitations(invitations, childId)
+  const invitationCancelled = playerInvitations.length > 0 && playerInvitations.every((invitation) => invitation.invitationState === 'cancelled')
   const cancelled = Boolean(event.cancelledAt) || eventStatus === 'cancelled' || invitationCancelled
   const postponed = eventStatus === 'postponed'
   const now = parseTimestamp(options.now) ?? Date.now()
@@ -298,15 +425,16 @@ export function getParentCalendarVisualState(event = {}, options = {}) {
       ? 'Cancelled'
       : postponed
         ? 'Postponed'
-        : underlyingState.label
+        : playerState.label
 
     return {
       state: PARENT_CALENDAR_VISUAL_STATES.past,
-      label: historicalLabel === 'Information' ? 'Past' : `Past, ${historicalLabel}`,
+      label: historicalLabel === 'Information only' ? 'Past' : `Past, ${historicalLabel}`,
       historicalLabel,
       actionCount: 0,
       isPast: true,
       isActionable: false,
+      ...supplementaryState,
     }
   }
 
@@ -319,25 +447,28 @@ export function getParentCalendarVisualState(event = {}, options = {}) {
       actionCount: 0,
       isPast: false,
       isActionable: false,
+      ...supplementaryState,
     }
   }
 
   if (CLOSED_EVENT_STATES.has(eventStatus)) {
     return {
       state: PARENT_CALENDAR_VISUAL_STATES.informational,
-      label: underlyingState.label === 'Information' ? 'Closed' : underlyingState.label,
-      historicalLabel: underlyingState.label,
+      label: playerState.label === 'Information only' ? 'Closed' : playerState.label,
+      historicalLabel: playerState.label,
       actionCount: 0,
       isPast: false,
       isActionable: false,
+      ...supplementaryState,
     }
   }
 
   return {
-    ...underlyingState,
-    historicalLabel: underlyingState.label,
+    ...playerState,
+    historicalLabel: playerState.label,
     isPast: false,
-    isActionable: underlyingState.state === PARENT_CALENDAR_VISUAL_STATES.actionRequired,
+    isActionable: playerState.state === PARENT_CALENDAR_VISUAL_STATES.actionRequired,
+    ...supplementaryState,
   }
 }
 

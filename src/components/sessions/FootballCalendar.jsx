@@ -159,12 +159,11 @@ const calendarVisualToneStyles = {
 }
 
 const calendarStatusLegend = [
-  { state: 'action_required', label: 'Response needed' },
-  { state: 'accepted', label: 'Accepted or confirmed' },
-  { state: 'declined', label: 'Declined or unavailable' },
-  { state: 'informational', label: 'Information' },
-  { state: 'past', label: 'Past' },
-  { state: 'cancelled_or_postponed', label: 'Cancelled or postponed' },
+  { state: 'accepted', label: 'Player available or selected' },
+  { state: 'declined', label: 'Player unavailable' },
+  { state: 'action_required', label: 'Player response needed' },
+  { state: 'informational', label: 'Information only' },
+  { state: 'past', label: 'Past or closed' },
 ]
 
 function getCalendarVisualStyle(event) {
@@ -180,6 +179,14 @@ function getEventStatusLabel(event) {
   return String(event?.calendarVisualState?.label ?? '').trim()
 }
 
+function getEventVolunteerDetails(event) {
+  const details = Array.isArray(event?.calendarVisualState?.volunteerDetails)
+    ? event.calendarVisualState.volunteerDetails
+    : []
+
+  return details.map((detail) => String(detail?.label ?? '').trim()).filter(Boolean)
+}
+
 function getEventAccessibleName(event) {
   return [
     event?.title,
@@ -188,6 +195,7 @@ function getEventAccessibleName(event) {
     event?.time ? `Time: ${event.time}` : '',
     getEventContextLabel(event),
     getEventStatusLabel(event) ? `Status: ${getEventStatusLabel(event)}` : '',
+    ...getEventVolunteerDetails(event),
   ].filter(Boolean).join(', ')
 }
 
@@ -207,6 +215,40 @@ function CalendarEventStatusCue({ compact = false, event }) {
       <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} />
       <span className={compact ? 'hidden truncate sm:inline' : 'truncate'}>{label}</span>
       {compact ? <span className="sr-only sm:hidden">{label}</span> : null}
+    </span>
+  )
+}
+
+function CalendarVolunteerStatusCue({ compact = false, event }) {
+  const details = getEventVolunteerDetails(event)
+
+  if (details.length === 0) {
+    return null
+  }
+
+  const detailLabel = details.join(', ')
+  const compactLabel = details.length === 1 ? details[0] : `${details.length} role updates`
+
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[0.58rem] font-black leading-3 text-[#1d4ed8] sm:px-2 sm:text-[0.65rem]"
+      title={`Volunteer roles: ${detailLabel}`}
+    >
+      <span className="shrink-0">Role</span>
+      <span className={compact ? 'hidden truncate sm:inline' : 'truncate'}>
+        {compact ? compactLabel : detailLabel}
+      </span>
+      {compact ? <span className="sm:hidden">{details.length}</span> : null}
+    </span>
+  )
+}
+
+function CalendarEventCues({ compact = false, event }) {
+  return (
+    <span className="flex max-w-full flex-wrap gap-1 overflow-hidden">
+      <CalendarEventStatusCue compact={compact} event={event} />
+      <CalendarVolunteerStatusCue compact={compact} event={event} />
     </span>
   )
 }
@@ -337,16 +379,21 @@ export function FootballCalendar({
       </div>
 
       {showStatusKey ? (
-        <div aria-label="Calendar status key" className="mt-4 flex flex-wrap gap-2" role="list">
-          {calendarStatusLegend.map((item) => {
-            const style = calendarVisualToneStyles[item.state]
-            return (
-              <span key={item.state} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[0.65rem] font-black ${style.badge}`} role="listitem">
-                <span aria-hidden="true" className={`h-2 w-2 rounded-full ${style.dot}`} />
-                {item.label}
-              </span>
-            )
-          })}
+        <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+          <div aria-label="Calendar status key" className="flex flex-wrap gap-2" role="list">
+            {calendarStatusLegend.map((item) => {
+              const style = calendarVisualToneStyles[item.state]
+              return (
+                <span key={item.state} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[0.65rem] font-black ${style.badge}`} role="listitem">
+                  <span aria-hidden="true" className={`h-2 w-2 rounded-full ${style.dot}`} />
+                  {item.label}
+                </span>
+              )
+            })}
+          </div>
+          <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">
+            Volunteer requests appear as separate role badges and do not change the player availability colour.
+          </p>
         </div>
       ) : null}
 
@@ -416,7 +463,7 @@ export function FootballCalendar({
                           </span>
                         ) : null}
                         <span className="mt-1 block">
-                          <CalendarEventStatusCue compact event={event} />
+                          <CalendarEventCues compact event={event} />
                         </span>
                       </button>
                     ))}
@@ -481,7 +528,7 @@ export function FootballCalendar({
                         {getEventScopeLabel(event) ? <span className="mt-1 block text-xs font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block text-xs font-semibold opacity-80">{event.time}</span> : null}
                         <span className="mt-2 block">
-                          <CalendarEventStatusCue event={event} />
+                          <CalendarEventCues event={event} />
                         </span>
                       </button>
                     ))}
@@ -535,7 +582,7 @@ export function FootballCalendar({
                         {getEventScopeLabel(event) ? <span className="mt-1 block font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block font-semibold opacity-80">{event.time}</span> : null}
                         <span className="mt-2 block">
-                          <CalendarEventStatusCue event={event} />
+                          <CalendarEventCues event={event} />
                         </span>
                       </button>
                     ))}
@@ -574,7 +621,7 @@ export function FootballCalendar({
                             {[event.time ? `Time: ${event.time}` : '', getEventContextLabel(event), event.location, event.teamName ? `Team: ${event.teamName}` : '', getEventScopeLabel(event)].filter(Boolean).join(', ') || 'Details will appear when the club shares them.'}
                           </p>
                           <span className="mt-2 block">
-                            <CalendarEventStatusCue event={event} />
+                            <CalendarEventCues event={event} />
                           </span>
                         </div>
                         <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">Open</span>
@@ -646,7 +693,7 @@ export function FootballCalendar({
                     </span>
                   ) : null}
                   <span className="mt-2 block">
-                    <CalendarEventStatusCue event={event} />
+                    <CalendarEventCues event={event} />
                   </span>
                 </button>
               ))}
