@@ -1,4 +1,8 @@
-import { normalizeMatchDurationMinutes, normalizeNewMatchHomeAway } from './matchday-model.js'
+import {
+  normalizeMatchClockMode,
+  normalizeMatchDurationMinutes,
+  normalizeNewMatchHomeAway,
+} from './matchday-model.js'
 
 export const FIXTURE_SETUP_STORAGE_KEY = 'football-open-fixture-setup'
 export const FIXTURE_SETUP_EVENT = 'football-open-fixture-setup'
@@ -26,6 +30,7 @@ function normalizeBoolean(value) {
 export function normalizeFixtureSetupIntent(intent = {}) {
   return {
     arrivalTime: normalizeText(intent.arrivalTime),
+    clockMode: normalizeMatchClockMode(intent.clockMode),
     homeAway: normalizeNewMatchHomeAway(intent.homeAway),
     kickoffTime: normalizeText(intent.kickoffTime),
     matchDate: normalizeText(intent.matchDate),

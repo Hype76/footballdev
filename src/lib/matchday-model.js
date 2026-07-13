@@ -1,6 +1,13 @@
 export const DEFAULT_MATCH_DURATION_MINUTES = 90
 export const MATCH_DURATION_MINUTES_MIN = 20
 export const MATCH_DURATION_MINUTES_MAX = 140
+export const MATCH_CLOCK_MODE_FIXED = 'fixed'
+export const MATCH_CLOCK_MODE_CONTINUOUS = 'continuous'
+
+export const MATCH_CLOCK_MODE_OPTIONS = [
+  { value: MATCH_CLOCK_MODE_FIXED, label: 'Fixed duration' },
+  { value: MATCH_CLOCK_MODE_CONTINUOUS, label: 'Continuous clock' },
+]
 
 export const MATCH_DAY_HOME_AWAY_OPTIONS = [
   { value: 'home', label: 'Home' },
@@ -9,6 +16,7 @@ export const MATCH_DAY_HOME_AWAY_OPTIONS = [
 
 const LEGACY_MATCH_DAY_HOME_AWAY_VALUES = new Set(['home', 'away', 'neutral'])
 const MATCH_DAY_HOME_AWAY_VALUES = new Set(MATCH_DAY_HOME_AWAY_OPTIONS.map((option) => option.value))
+const MATCH_CLOCK_MODE_VALUES = new Set(MATCH_CLOCK_MODE_OPTIONS.map((option) => option.value))
 
 function normalizeText(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -32,6 +40,25 @@ export function assertNewMatchHomeAway(value) {
   }
 
   return homeAway
+}
+
+export function normalizeMatchClockMode(value) {
+  const clockMode = normalizeText(value)
+  return MATCH_CLOCK_MODE_VALUES.has(clockMode) ? clockMode : MATCH_CLOCK_MODE_FIXED
+}
+
+export function assertValidMatchClockMode(value) {
+  const clockMode = normalizeText(value)
+
+  if (!MATCH_CLOCK_MODE_VALUES.has(clockMode)) {
+    throw new Error('Choose Fixed duration or Continuous clock.')
+  }
+
+  return clockMode
+}
+
+export function isContinuousMatchClock(match = {}) {
+  return normalizeMatchClockMode(match.clockMode ?? match.match_clock_mode) === MATCH_CLOCK_MODE_CONTINUOUS
 }
 
 export function getMatchDurationValidationError(value) {

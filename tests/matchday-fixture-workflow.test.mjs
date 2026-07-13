@@ -186,7 +186,8 @@ test('match day separates previous games without removing staff controls', () =>
   assert.notEqual(groupingEnd, -1)
   const groupingSource = source.slice(groupingStart, groupingEnd)
 
-  assert.match(groupingSource, /\['full_time', 'postponed', 'cancelled'\]\.includes\(match\.status\)/)
+  assert.match(groupingSource, /isMatchDayConcluded\(match\)/)
+  assert.match(groupingSource, /\['postponed', 'cancelled'\]\.includes\(match\.status\)/)
   assert.match(groupingSource, /new Date\(`\$\{match\.matchDate\}T23:59:59`\)\.getTime\(\) < Date\.now\(\)/)
   assert.match(source, /const activeMatches = useMemo\(\(\) => sortMatches\(matches\.filter\(\(match\) => !isPreviousMatch\(match\)\)\)/)
   assert.match(source, /const previousMatches = useMemo\(\(\) => sortMatches\(matches\.filter\(isPreviousMatch\)\)\.reverse\(\)/)
@@ -430,7 +431,7 @@ test('Game Mode hides admin readiness cards and shows the staff timeline control
   const gameModeSource = source.slice(gameModeStart, gameModeEnd)
 
   assert.match(cardSource, /const events = Array\.isArray\(match\.events\) \? match\.events : \[\]/)
-  assert.match(cardSource, /\{!isGameMode \? \([\s\S]*<CompactFact label="Availability" value=\{getAvailabilitySummary\(match\)\} \/>[\s\S]*<CompactFact label="Scorer" value=\{getRoleStatus\(match, 'scorer'\)\} \/>[\s\S]*<CompactFact label="Referee" value=\{getRoleStatus\(match, 'referee'\)\} \/>[\s\S]*<CompactFact label="Linesman" value=\{getRoleStatus\(match, 'linesman'\)\} \/>[\s\S]*<CompactFact label="Status" value=\{getMatchStatusLabel\(match\.status\)\} \/>/)
+  assert.match(cardSource, /\{!isGameMode \? \([\s\S]*<CompactFact label="Availability" value=\{getAvailabilitySummary\(match\)\} \/>[\s\S]*<CompactFact label="Scorer" value=\{getRoleStatus\(match, 'scorer'\)\} \/>[\s\S]*<CompactFact label="Referee" value=\{getRoleStatus\(match, 'referee'\)\} \/>[\s\S]*<CompactFact label="Linesman" value=\{getRoleStatus\(match, 'linesman'\)\} \/>[\s\S]*<CompactFact label="Status" value=\{getMatchLifecycleLabel\(match\)\} \/>/)
   assert.match(cardSource, /events=\{events\}[\s\S]*match=\{match\}[\s\S]*onBack=\{onGameModeBack\}/)
   assert.match(gameModeSource, /events,/)
   assert.match(gameModeSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*match=\{match\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)

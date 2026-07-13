@@ -263,6 +263,7 @@ export {
   getMatchLocations,
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
+  MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_ARRIVAL_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,

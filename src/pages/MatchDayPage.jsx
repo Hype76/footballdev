@@ -24,6 +24,7 @@ import {
   getPlayers,
   getTeams,
   isPastMatchDayDateTime,
+  MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_ARRIVAL_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
@@ -58,9 +59,20 @@ import {
 import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
 import {
   formatMatchTimerClock,
+  getMatchTimerDisplayLabel,
   isMatchTimerPaused,
 } from '../lib/matchday-timer.js'
-import { getMatchDurationValidationError, getRequiredMatchDurationValidationError } from '../lib/matchday-model.js'
+import {
+  getMatchDurationValidationError,
+  getRequiredMatchDurationValidationError,
+  isContinuousMatchClock,
+  MATCH_CLOCK_MODE_FIXED,
+} from '../lib/matchday-model.js'
+import {
+  canResumeMatchDay,
+  isMatchDayAtFullTime,
+  isMatchDayConcluded,
+} from '../lib/matchday-lifecycle.js'
 import {
   getMatchDayUndoReasonOptions,
   isMatchDayEventUndoSupported,
@@ -79,6 +91,7 @@ const EMPTY_MATCH_FORM = {
   arrivalTime: '',
   arrivalPreset: '30',
   homeAway: 'home',
+  clockMode: MATCH_CLOCK_MODE_FIXED,
   matchDurationPreset: '90',
   matchDurationMinutes: 90,
   customMatchDurationMinutes: '',
@@ -648,9 +661,11 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
     return 'Fixture date and time cannot be in the past.'
   }
 
-  const durationValidationMessage = form.matchDurationPreset === MATCH_DAY_CUSTOM_DURATION_VALUE
-    ? getRequiredMatchDurationValidationError(form.customMatchDurationMinutes ?? form.matchDurationMinutes)
-    : getMatchDurationValidationError(form.matchDurationMinutes)
+  const durationValidationMessage = isContinuousMatchClock(form)
+    ? ''
+    : form.matchDurationPreset === MATCH_DAY_CUSTOM_DURATION_VALUE
+      ? getRequiredMatchDurationValidationError(form.customMatchDurationMinutes ?? form.matchDurationMinutes)
+      : getMatchDurationValidationError(form.matchDurationMinutes)
 
   if (durationValidationMessage) {
     return durationValidationMessage
@@ -1127,7 +1142,16 @@ function getMatchStatusLabel(status) {
   return MATCH_DAY_STATUS_OPTIONS.find((option) => option.value === status)?.label || String(status || 'scheduled').replace(/_/g, ' ')
 }
 
-function getMatchPeriodLabel(status) {
+function getMatchLifecycleLabel(match) {
+  return isMatchDayConcluded(match) ? 'Concluded' : getMatchStatusLabel(match.status)
+}
+
+function getMatchPeriodLabel(matchOrStatus) {
+  const match = typeof matchOrStatus === 'object' ? matchOrStatus : { status: matchOrStatus }
+  const status = match.status
+
+  if (isMatchDayConcluded(match)) return 'Concluded'
+  if (isContinuousMatchClock(match) && status !== 'full_time') return 'Continuous'
   if (status === 'live') return 'First half'
   if (status === 'half_time') return 'Half time'
   if (status === 'second_half') return 'Second half'
@@ -1148,6 +1172,10 @@ function getPrimaryLiveAction(match) {
 
   if (PAUSED_MATCH_STATUSES.has(match.status)) {
     return { label: 'Resume Match', status: 'second_half' }
+  }
+
+  if (canResumeMatchDay(match)) {
+    return { label: 'Resume Match', status: 'resume_match' }
   }
 
   return null
@@ -1696,7 +1724,7 @@ function getNeedsAttentionItems(activeMatches) {
 }
 
 function isPreviousMatch(match) {
-  if (['full_time', 'postponed', 'cancelled'].includes(match.status)) {
+  if (isMatchDayConcluded(match) || ['postponed', 'cancelled'].includes(match.status)) {
     return true
   }
 
@@ -2180,6 +2208,14 @@ export function MatchDayPage() {
       return 'full_time'
     }
 
+    if (status === 'resume_match') {
+      return 'resume'
+    }
+
+    if (status === 'conclude') {
+      return 'conclude'
+    }
+
     return ''
   }
 
@@ -2261,7 +2297,7 @@ export function MatchDayPage() {
         successMessage: `${getMatchStatusLabel(status)} saved.`,
         toastMessage: `${getMatchStatusLabel(status)} is now showing.`,
         pushType: timerPushType,
-        closeGameMode: status === 'full_time',
+        closeGameMode: status === 'full_time' || status === 'conclude',
       })
       return
     }
@@ -2304,8 +2340,24 @@ export function MatchDayPage() {
   }
 
   const handleStatusChange = async (match, status) => {
-    if (status === 'live' || status === 'second_half') {
+    if (status === 'live' || status === 'second_half' || status === 'resume_match') {
       await handleGameModeOpen(match)
+      return
+    }
+
+    if (status === 'conclude') {
+      setPendingStatusAction({
+        matchId: match.id,
+        status,
+        title: 'Conclude match',
+        message: 'Permanently finish this Match Day session? The match cannot be resumed after conclusion.',
+        confirmLabel: 'Conclude match permanently',
+        items: [
+          `Fixture: ${getMatchDayDisplayName(match)}`,
+          `Final score: ${getMatchDayDisplayScore(match)}`,
+          `Final elapsed time: ${formatLiveMatchClock(match, liveClockNow)}`,
+        ],
+      })
       return
     }
 
@@ -2318,7 +2370,7 @@ export function MatchDayPage() {
       items: [
         `Fixture: ${getMatchDayDisplayName(match)}`,
         `Current score: ${getMatchDayDisplayScore(match)}`,
-        `Current period: ${getMatchPeriodLabel(match.status)}`,
+        `Current period: ${getMatchPeriodLabel(match)}`,
       ],
     })
   }
@@ -2333,6 +2385,11 @@ export function MatchDayPage() {
 
     if (PAUSED_MATCH_STATUSES.has(match.status)) {
       await saveMatchStatus(match, 'second_half')
+      return
+    }
+
+    if (canResumeMatchDay(match)) {
+      await saveMatchStatus(match, 'resume_match')
     }
   }
 
@@ -2358,11 +2415,11 @@ export function MatchDayPage() {
         matchId: match.id,
         status,
         title: 'Confirm full time',
-        message: 'End this match and freeze the final score for the live result.',
+        message: 'Stop the match clock at Full Time. You can resume the same match or conclude it after post-match work.',
         confirmLabel: 'Confirm full time',
         items: [
           `Fixture: ${getMatchDayDisplayName(match)}`,
-          `Final score: ${getMatchDayDisplayScore(match)}`,
+          `Current score: ${getMatchDayDisplayScore(match)}`,
           `Timer: ${formatLiveMatchClock(match, liveClockNow)}`,
         ],
       })
@@ -2387,7 +2444,7 @@ export function MatchDayPage() {
       return
     }
 
-    if (status === 'live' || status === 'second_half') {
+    if (status === 'live' || status === 'second_half' || status === 'resume_match') {
       setGameModeMatchId(match.id)
     }
 
@@ -2604,7 +2661,7 @@ export function MatchDayPage() {
   }
 
   const openLiveEntryModal = (match, type) => {
-    if (!match || match.status === 'full_time') {
+    if (!match || match.status === 'full_time' || isMatchDayConcluded(match)) {
       return
     }
 
@@ -3645,7 +3702,7 @@ function PitchsideCockpitPanel({
 }) {
   const scoreSummary = getMatchDayDisplayScore(match)
   const liveClockLabel = formatLiveMatchClock(match, now)
-  const matchPeriodLabel = getMatchPeriodLabel(match.status)
+  const matchPeriodLabel = getMatchPeriodLabel(match)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
   const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
   const primaryLiveAction = getPrimaryLiveAction(match)
@@ -3664,7 +3721,7 @@ function PitchsideCockpitPanel({
           </div>
           <div className="grid gap-2">
             <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Timer</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">{getMatchTimerDisplayLabel(match)}</p>
               <p className="mt-1 text-lg font-black text-[#101828]">{liveClockLabel}</p>
             </div>
             <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
@@ -3675,7 +3732,7 @@ function PitchsideCockpitPanel({
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <span className="inline-flex rounded-lg border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#047857]">
-            {getMatchStatusLabel(match.status)}
+            {getMatchLifecycleLabel(match)}
           </span>
           <span className={`inline-flex rounded-lg border px-3 py-1 text-xs font-black ${
             liveRefreshStatus === 'warning'
@@ -3811,9 +3868,9 @@ function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
         <DetailItem label="Team" value={match.teamName || 'Our team'} />
         <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
         <DetailItem label="Home or away" value={getHomeAwayLabel(match.homeAway)} />
-        <DetailItem label="Match duration" value={`${match.matchDurationMinutes} minutes`} />
+        <DetailItem label="Clock" value={isContinuousMatchClock(match) ? 'Continuous clock' : `Fixed, ${match.matchDurationMinutes} minutes`} />
         <DetailItem label="Final score" value={getMatchDayDisplayScore(match)} />
-        <DetailItem label="Match status" value={getMatchStatusLabel(match.status)} />
+        <DetailItem label="Match status" value={getMatchLifecycleLabel(match)} />
         <DetailItem label="Date and time" value={formatMatchDate(match)} />
         <DetailItem label="Recorded events" value={`${summary.activeEvents.length} active, ${summary.voidedEvents.length} voided`} />
       </dl>
@@ -3903,6 +3960,35 @@ function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
   )
 }
 
+function FullTimeLifecyclePanel({ isBusy, match, onConclude, onResume }) {
+  return (
+    <section className="border-t border-[#fedf89] bg-[#fffaeb] px-4 py-4 sm:px-5" aria-label="Full Time actions">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className={eyebrowClass}>Full Time</p>
+          <h5 className="mt-1 text-lg font-black text-[#101828]">The clock is stopped, but Match Day is still open</h5>
+          <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+            Complete any post-match work now. Resume continues this match from {formatLiveMatchClock(match)}, while Conclude Match permanently finishes the Match Day session.
+          </p>
+        </div>
+        <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto">
+          <button type="button" onClick={onResume} disabled={isBusy} className={primaryButtonClass}>
+            {isBusy ? 'Saving...' : 'Resume Match'}
+          </button>
+          <button
+            type="button"
+            onClick={onConclude}
+            disabled={isBusy}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Conclude Match
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function MatchDayCard({
   activeMatchId,
   activeVolunteerSelectionKey,
@@ -3949,8 +4035,10 @@ function MatchDayCard({
     ? matchActionStatus
     : null
   const isLiveConsole = isLiveMatchConsoleState(match)
-  const matchPeriodLabel = getMatchPeriodLabel(match.status)
+  const matchPeriodLabel = getMatchPeriodLabel(match)
   const isFinalReportAvailable = match.status === 'full_time'
+  const isAtFullTime = isMatchDayAtFullTime(match)
+  const isConcluded = isMatchDayConcluded(match)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
   const openManageFromGameMode = () => {
     onGameModeBack()
@@ -3966,7 +4054,7 @@ function MatchDayCard({
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
-              {getMatchStatusLabel(match.status)}
+              {getMatchLifecycleLabel(match)}
             </span>
             {isLiveConsole ? (
               <span className="inline-flex w-fit rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-1 text-xs font-black text-[#92400e]">
@@ -4005,7 +4093,7 @@ function MatchDayCard({
             <p className="text-4xl font-black leading-none text-[#101828] sm:text-5xl">{scoreSummary}</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Timer</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">{getMatchTimerDisplayLabel(match)}</p>
                 <p className="mt-1 text-lg font-black text-[#101828]">
                   {liveClockLabel}
                 </p>
@@ -4070,6 +4158,15 @@ function MatchDayCard({
         </div>
       ) : null}
 
+      {isAtFullTime ? (
+        <FullTimeLifecyclePanel
+          isBusy={isBusy}
+          match={match}
+          onConclude={() => onStatusChange(match, 'conclude')}
+          onResume={() => onGameModeStart(match)}
+        />
+      ) : null}
+
       {isFinalReportAvailable && isFinalReportOpen ? (
         <FinalMatchReportPanel
           isBusy={isBusy}
@@ -4098,7 +4195,7 @@ function MatchDayCard({
           <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
           <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
           <CompactFact label="Linesman" value={getRoleStatus(match, 'linesman')} />
-          <CompactFact label="Status" value={getMatchStatusLabel(match.status)} />
+          <CompactFact label="Status" value={getMatchLifecycleLabel(match)} />
         </div>
       ) : null}
 
@@ -4153,7 +4250,7 @@ function MatchDayCard({
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
                 <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
-                <DetailItem label="Status" value={getMatchStatusLabel(match.status)} />
+                <DetailItem label="Status" value={getMatchLifecycleLabel(match)} />
               </dl>
             </section>
 
@@ -4404,7 +4501,7 @@ function MatchDayCard({
             </button>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          {!isAtFullTime && !isConcluded ? <div className="mt-3 flex flex-wrap gap-2">
             {LIVE_CONTROL_STATUSES.map((statusValue) => {
               const option = MATCH_DAY_STATUS_OPTIONS.find((candidate) => candidate.value === statusValue)
               const controlLabel = match.status === 'half_time' && statusValue === 'second_half' ? 'Resume' : option.label
@@ -4425,7 +4522,7 @@ function MatchDayCard({
                 </button>
               )
             })}
-            </div>
+            </div> : null}
           </section>
 
           <section className={`${panelClass} order-3`}>
@@ -4519,7 +4616,7 @@ function MatchDayGameModePanel({
   const isPaused = isMatchTimerPaused(match)
   const isFullTime = match.status === 'full_time'
   const canMoveToHalfTime = match.status === 'live'
-  const matchPeriodLabel = getMatchPeriodLabel(match.status)
+  const matchPeriodLabel = getMatchPeriodLabel(match)
 
   return (
     <div className="game-mode-cockpit grid gap-3 border-t border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 sm:gap-4 sm:px-5 sm:py-4">
@@ -4541,7 +4638,7 @@ function MatchDayGameModePanel({
             <p className="mt-1 text-lg font-black text-[#101828] sm:text-xl">{scoreSummary}</p>
           </div>
           <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Timer</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">{getMatchTimerDisplayLabel(match)}</p>
             <p className="mt-1 text-lg font-black text-[#101828] sm:text-xl">{liveClockLabel}</p>
           </div>
           <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
@@ -5705,31 +5802,45 @@ function FixtureSetupModal({
 
               <div className="block">
                 <label className="block">
-                  <span className={labelClass}>Match duration</span>
-                  <select value={form.matchDurationPreset} onChange={(event) => updateMatchDurationPreset(event.target.value)} className={inputClass}>
-                    {MATCH_DAY_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}
-                    <option value={MATCH_DAY_CUSTOM_DURATION_VALUE}>Custom duration</option>
+                  <span className={labelClass}>Clock type</span>
+                  <select value={form.clockMode} onChange={(event) => updateForm({ clockMode: event.target.value })} className={inputClass}>
+                    {MATCH_CLOCK_MODE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                 </label>
-                {form.matchDurationPreset === MATCH_DAY_CUSTOM_DURATION_VALUE ? (
-                  <label className="mt-2 block">
-                    <span className={labelClass}>Custom minutes</span>
-                    <input
-                      type="number"
-                      min="20"
-                      max="140"
-                      step="2"
-                      inputMode="numeric"
-                      value={form.customMatchDurationMinutes}
-                      onChange={(event) => updateCustomMatchDuration(event.target.value)}
-                      className={inputClass}
-                      aria-describedby="match-duration-custom-help"
-                    />
-                    <span id="match-duration-custom-help" className="mt-1 block text-xs font-semibold text-[#4b5f55]">
-                      Use an even number from 20 to 140.
-                    </span>
-                  </label>
-                ) : null}
+                {isContinuousMatchClock(form) ? (
+                  <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">
+                    Starts at 0:00 and counts up until you pause it or choose Full Time. There is no automatic match endpoint.
+                  </p>
+                ) : (
+                  <div className="mt-2">
+                    <label className="block">
+                      <span className={labelClass}>Match duration</span>
+                      <select value={form.matchDurationPreset} onChange={(event) => updateMatchDurationPreset(event.target.value)} className={inputClass}>
+                        {MATCH_DAY_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}
+                        <option value={MATCH_DAY_CUSTOM_DURATION_VALUE}>Custom duration</option>
+                      </select>
+                    </label>
+                    {form.matchDurationPreset === MATCH_DAY_CUSTOM_DURATION_VALUE ? (
+                      <label className="mt-2 block">
+                        <span className={labelClass}>Custom minutes</span>
+                        <input
+                          type="number"
+                          min="20"
+                          max="140"
+                          step="2"
+                          inputMode="numeric"
+                          value={form.customMatchDurationMinutes}
+                          onChange={(event) => updateCustomMatchDuration(event.target.value)}
+                          className={inputClass}
+                          aria-describedby="match-duration-custom-help"
+                        />
+                        <span id="match-duration-custom-help" className="mt-1 block text-xs font-semibold text-[#4b5f55]">
+                          Use an even number from 20 to 140.
+                        </span>
+                      </label>
+                    ) : null}
+                  </div>
+                )}
               </div>
 
               <label className="block">

@@ -1,4 +1,8 @@
-import { DEFAULT_MATCH_DURATION_MINUTES, normalizeMatchDurationMinutes } from './matchday-model.js'
+import {
+  DEFAULT_MATCH_DURATION_MINUTES,
+  isContinuousMatchClock,
+  normalizeMatchDurationMinutes,
+} from './matchday-model.js'
 
 export const RUNNING_MATCH_TIMER_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
 export const FROZEN_MATCH_TIMER_STATUSES = new Set(['paused', 'half_time', 'hydration', 'full_time'])
@@ -31,6 +35,10 @@ export function getMatchHalfSeconds(match = {}) {
 }
 
 function getMatchTimerPeriodFloorSeconds(status, match) {
+  if (isContinuousMatchClock(match)) {
+    return 0
+  }
+
   return normalizeText(status) === 'second_half' ? getMatchHalfSeconds(match) : 0
 }
 
@@ -169,6 +177,10 @@ export function formatMatchTimerClock(match = {}, now = Date.now()) {
   const minutes = Math.floor(elapsedSeconds / 60)
   const seconds = String(elapsedSeconds % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
+}
+
+export function getMatchTimerDisplayLabel(match = {}) {
+  return isContinuousMatchClock(match) ? 'Elapsed continuous clock' : 'Match timer'
 }
 
 export function isMatchTimerPaused(match = {}) {
