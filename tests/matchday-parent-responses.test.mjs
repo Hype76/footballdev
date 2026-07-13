@@ -304,7 +304,8 @@ test('staff and parent pages surface availability and volunteer responses', asyn
   assert.match(parentSource, /You have been selected as \$\{roleLabel\} for this fixture\./)
   assert.match(parentSource, /Another volunteer has been selected\./)
   assert.match(parentSource, /The team has not selected anyone yet\./)
-  assert.match(parentSource, /Use the response email link to update availability and requested role replies\./)
+  assert.match(parentSource, /Open this fixture in Calendar or Invites to review and change active responses\./)
+  assert.match(parentSource, /Existing email response links continue to work\./)
 })
 
 test('staff transport risk summary is staff only and availability derived', async () => {

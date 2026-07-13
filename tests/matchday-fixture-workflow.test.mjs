@@ -381,7 +381,7 @@ test('parent portal keeps role selection and involved-child calendar scope separ
   assert.match(roleSource, /key: roleConfig\.key/)
   assert.match(roleSource, /isSelected: true/)
   assert.match(roleSource, /You have been selected as \$\{roleLabel\} for this fixture\./)
-  assert.match(calendarBuilderSource, /matches[\s\S]*\.map\(\(match\) => \(\{[\s\S]*data: match/)
+  assert.match(calendarBuilderSource, /const matchEvents = matches[\s\S]*\.map\(\(match\) => \{[\s\S]*sourceType: 'parent-match-day'[\s\S]*data: match/)
   assert.doesNotMatch(calendarBuilderSource, /all_team_parents|all_club_parents|parent_audience|parentAudience/)
 })
 

@@ -19,11 +19,17 @@ import {
   addMatchDayGoalAsScorer,
   correctMatchDayGoalAsScorer,
   expressMatchDayScorerInterest,
-  getParentPortalEventInvites,
+  getParentInvitationCategory,
+  getParentInvitationResponseOptions,
+  getParentInvitationStatus,
+  getParentInvitationTypeLabel,
+  getParentPortalInvitationState,
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentPortalPlayerResources,
   getParentPortalSharedCalendarEvents,
+  groupParentInvitationsByEvent,
+  respondToParentPortalInvitation,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
 } from '../lib/supabase.js'
@@ -86,14 +92,16 @@ function formatMatchDate(match) {
 }
 
 function formatParentEventDate(invite) {
-  if (!invite.startsAt) {
+  const startsAt = invite.eventStart || invite.startsAt
+
+  if (!startsAt) {
     return 'Date not set'
   }
 
-  const date = new Date(invite.startsAt)
+  const date = new Date(startsAt)
 
   if (Number.isNaN(date.getTime())) {
-    return invite.startsAt
+    return startsAt
   }
 
   return date.toLocaleString([], {
@@ -414,8 +422,8 @@ export function ParentPortalPage() {
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
   const [calendarView, setCalendarView] = useState('month')
-  const [selectedCalendarEvent, setSelectedCalendarEvent] = useState(null)
-  const [eventInvites, setEventInvites] = useState([])
+  const [selectedCalendarEventId, setSelectedCalendarEventId] = useState('')
+  const [parentInvitations, setParentInvitations] = useState([])
   const [matches, setMatches] = useState([])
   const [players, setPlayers] = useState([])
   const [playerResources, setPlayerResources] = useState([])
@@ -443,30 +451,42 @@ export function ParentPortalPage() {
   const [parentThemePreference, setParentThemePreference] = useState(() => normalizeThemeMode(getStoredThemeMode()))
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState('')
+  const [activeInvitationId, setActiveInvitationId] = useState('')
+  const [invitationError, setInvitationError] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
   const activeMatches = useMemo(() => matches.filter((match) => !isPreviousMatch(match)), [matches])
   const previousMatches = useMemo(() => matches.filter(isPreviousMatch), [matches])
+  const invitationEvents = useMemo(() => groupParentInvitationsByEvent(parentInvitations), [parentInvitations])
   const parentCalendarEvents = useMemo(
-    () => buildParentCalendarEvents({ eventInvites, matches, sharedCalendarEvents }),
-    [eventInvites, matches, sharedCalendarEvents],
+    () => buildParentCalendarEvents({
+      childName: selectedLink?.playerName,
+      invitationEvents,
+      matches,
+      sharedCalendarEvents,
+    }),
+    [invitationEvents, matches, selectedLink?.playerName, sharedCalendarEvents],
   )
   const allLinkedParentCalendarEvents = useMemo(
     () => buildAllLinkedParentCalendarEvents({ calendarItemsByLinkId: allLinkedCalendarItems, links }),
     [allLinkedCalendarItems, links],
   )
   const visibleCalendarEvents = calendarScope === 'all' ? allLinkedParentCalendarEvents : parentCalendarEvents
+  const selectedCalendarEvent = visibleCalendarEvents.find((event) => event.id === selectedCalendarEventId)
+    ?? parentCalendarEvents.find((event) => event.id === selectedCalendarEventId)
+    ?? null
   const isCalendarLoading = isLoadingMatches || (calendarScope === 'all' && isLoadingAllLinkedCalendar)
+  const currentInvitationCount = parentInvitations.filter((invitation) => getParentInvitationCategory(invitation) !== 'closed').length
   const parentNavCounts = useMemo(() => ({
     calendar: visibleCalendarEvents.length,
-    invites: eventInvites.length,
+    invites: currentInvitationCount,
     matches: activeMatches.length,
     results: previousMatches.length,
     resources: playerResources.length,
     messages: 0,
     polls: 0,
-  }), [activeMatches.length, eventInvites.length, playerResources.length, previousMatches.length, visibleCalendarEvents.length])
+  }), [activeMatches.length, currentInvitationCount, playerResources.length, previousMatches.length, visibleCalendarEvents.length])
   const squadPlayers = useMemo(
     () =>
       players
@@ -552,13 +572,65 @@ export function ParentPortalPage() {
     setMatches(nextMatches)
   }
 
+  async function refreshInvitationViews() {
+    if (!selectedLink?.id) {
+      return
+    }
+
+    const [nextMatches, nextParentInvitations] = await Promise.all([
+      getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
+      getParentPortalInvitationState({ parentLinkId: selectedLink.id }),
+    ])
+
+    setMatches(nextMatches)
+    setParentInvitations(nextParentInvitations)
+    setAllLinkedCalendarItems((currentItems) => {
+      if (!currentItems[selectedLink.id]) {
+        return currentItems
+      }
+
+      return {
+        ...currentItems,
+        [selectedLink.id]: {
+          ...currentItems[selectedLink.id],
+          matches: nextMatches,
+          invitationEvents: groupParentInvitationsByEvent(nextParentInvitations),
+        },
+      }
+    })
+  }
+
+  const handleParentInvitationResponse = async (invitation, responseState) => {
+    if (!selectedLink?.id || !invitation?.canChangeResponse) {
+      return
+    }
+
+    setActiveInvitationId(invitation.invitationId)
+    setInvitationError('')
+
+    try {
+      await respondToParentPortalInvitation({
+        parentLinkId: selectedLink.id,
+        invitation,
+        responseState,
+      })
+      await refreshInvitationViews()
+      showToast({ title: 'Response updated', message: 'Calendar and Invites now show the latest response.' })
+    } catch (error) {
+      console.error(error)
+      setInvitationError(getParentMatchDayErrorMessage(error, 'This response could not be changed. Refresh the Parent Portal and try again.'))
+    } finally {
+      setActiveInvitationId('')
+    }
+  }
+
   useEffect(() => {
     let isCurrent = true
 
     async function runLoad({ showLoading = false } = {}) {
       if (!selectedLink?.id) {
         setMatches([])
-        setEventInvites([])
+        setParentInvitations([])
         setPlayers([])
         setPlayerResources([])
         setSharedCalendarEvents([])
@@ -569,15 +641,22 @@ export function ParentPortalPage() {
 
       if (showLoading) {
         setIsLoadingMatches(true)
+        setSelectedCalendarEventId('')
+        setInvitationError('')
+        setMatches([])
+        setParentInvitations([])
+        setPlayers([])
+        setPlayerResources([])
+        setSharedCalendarEvents([])
         setMatchError('')
         setMatchErrorTitle(parentMatchDayLoadErrorTitle)
       }
 
       try {
-        const [nextMatches, nextPlayers, nextEventInvites, nextSharedCalendarEvents, nextPlayerResources] = await Promise.all([
+        const [nextMatches, nextPlayers, nextParentInvitations, nextSharedCalendarEvents, nextPlayerResources] = await Promise.all([
           getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
           getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }),
-          getParentPortalEventInvites({ parentLinkId: selectedLink.id }),
+          getParentPortalInvitationState({ parentLinkId: selectedLink.id }),
           getParentPortalSharedCalendarEvents({ parentLinkId: selectedLink.id }),
           getParentPortalPlayerResources({ parentLinkId: selectedLink.id }),
         ])
@@ -585,7 +664,7 @@ export function ParentPortalPage() {
         if (isCurrent) {
           setMatches(nextMatches)
           setPlayers(nextPlayers)
-          setEventInvites(nextEventInvites)
+          setParentInvitations(nextParentInvitations)
           setSharedCalendarEvents(nextSharedCalendarEvents)
           setPlayerResources(nextPlayerResources)
         }
@@ -595,7 +674,7 @@ export function ParentPortalPage() {
         if (isCurrent) {
           if (showLoading) {
             setMatches([])
-            setEventInvites([])
+            setParentInvitations([])
             setPlayers([])
             setPlayerResources([])
             setSharedCalendarEvents([])
@@ -638,18 +717,19 @@ export function ParentPortalPage() {
       try {
         const entries = await Promise.all(
           links.map(async (link) => {
-            const [nextMatches, nextEventInvites, nextSharedCalendarEvents] = await Promise.all([
+            const [nextMatches, nextParentInvitations, nextSharedCalendarEvents] = await Promise.all([
               getParentPortalMatchDays({ parentLinkId: link.id }),
-              getParentPortalEventInvites({ parentLinkId: link.id }),
+              getParentPortalInvitationState({ parentLinkId: link.id }),
               getParentPortalSharedCalendarEvents({ parentLinkId: link.id }),
             ])
 
             return [
               link.id,
               {
-                eventInvites: nextEventInvites,
+                invitationEvents: groupParentInvitationsByEvent(nextParentInvitations),
                 matches: nextMatches,
                 sharedCalendarEvents: nextSharedCalendarEvents,
+                childName: link.playerName,
               },
             ]
           }),
@@ -1039,6 +1119,7 @@ export function ParentPortalPage() {
 
       {signOutError ? <NoticeBanner title="Sign out failed" message={signOutError} /> : null}
       {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
+      {invitationError ? <NoticeBanner title="Response not changed" message={invitationError} /> : null}
 
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
@@ -1055,7 +1136,7 @@ export function ParentPortalPage() {
             <ParentOverviewPanel
               activeMatches={activeMatches}
               calendarEvents={parentCalendarEvents}
-              eventInvites={eventInvites}
+              eventInvites={parentInvitations.filter((invitation) => getParentInvitationCategory(invitation) !== 'closed')}
               isLoading={isLoadingMatches}
               onSelectSection={setActiveSection}
               playerResources={playerResources}
@@ -1073,7 +1154,7 @@ export function ParentPortalPage() {
               isLoading={isCalendarLoading}
               links={links}
               onCursorChange={setCalendarCursor}
-              onOpenEvent={setSelectedCalendarEvent}
+              onOpenEvent={(event) => setSelectedCalendarEventId(event.id)}
               onScopeChange={setCalendarScope}
               onViewChange={setCalendarView}
               selectedLink={selectedLink}
@@ -1082,8 +1163,10 @@ export function ParentPortalPage() {
 
           {activeSection === 'invites' ? (
             <ParentUpcomingEvents
-              eventInvites={eventInvites}
+              calendarEvents={parentCalendarEvents}
+              invitations={parentInvitations}
               isLoading={isLoadingMatches}
+              onOpenEvent={(event) => setSelectedCalendarEventId(event.id)}
               selectedLink={selectedLink}
             />
           ) : null}
@@ -1155,7 +1238,12 @@ export function ParentPortalPage() {
       />
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
-      <ParentCalendarEventModal event={selectedCalendarEvent} onClose={() => setSelectedCalendarEvent(null)} />
+      <ParentCalendarEventModal
+        activeInvitationId={activeInvitationId}
+        event={selectedCalendarEvent}
+        onClose={() => setSelectedCalendarEventId('')}
+        onRespond={handleParentInvitationResponse}
+      />
       <ParentMatchActionModal
         action={parentMatchAction}
         goalCorrectionForm={goalCorrectionForm}
@@ -1597,57 +1685,78 @@ function buildParentMatchDayCalendarUrl(event) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
-function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCalendarEvents = [] }) {
+function buildParentCalendarEvents({ childName = '', invitationEvents = [], matches = [], sharedCalendarEvents = [] }) {
+  const invitationGroupsByEventId = new Map(
+    invitationEvents.map((group) => [String(group.eventId), group]),
+  )
+  const sharedEventIds = new Set(sharedCalendarEvents.map((event) => String(event.id)))
+
   const sharedEvents = sharedCalendarEvents
-    .map((event) => ({
-      id: `shared:${event.id}`,
-      sourceId: event.id,
-      sourceType: 'parent-calendar-event',
-      date: toDateOnly(event.startsAt),
-      time: toTimeOnly(event.startsAt),
-      type: event.eventType === 'general' ? 'club-event' : 'deadline',
-      title: event.title || 'Shared event',
-      description: [event.location, event.notes].filter(Boolean).join(', '),
-      isClubWide: event.isClubWide === true,
-      location: event.location,
-      teamName: event.teamName || '',
-      editable: false,
-      data: event,
-    }))
+    .map((event) => {
+      const invitationGroup = invitationGroupsByEventId.get(String(event.id))
+
+      return {
+        id: `calendar:${event.id}`,
+        sourceId: event.id,
+        sourceType: 'parent-calendar-event',
+        date: toDateOnly(event.startsAt),
+        time: toTimeOnly(event.startsAt),
+        type: event.eventType === 'general' ? 'club-event' : event.eventType,
+        title: event.title || 'Shared event',
+        description: [event.location, event.notes].filter(Boolean).join(', '),
+        isClubWide: event.isClubWide === true,
+        location: event.location,
+        teamName: event.teamName || invitationGroup?.teamName || '',
+        childName: invitationGroup?.childName || childName || 'Linked child',
+        invitations: invitationGroup?.invitations || [],
+        editable: false,
+        data: event,
+      }
+    })
     .filter((event) => event.date)
 
-  const inviteEvents = eventInvites
-    .map((invite) => ({
-      id: `invite:${invite.id}`,
-      sourceId: invite.id,
-      sourceType: 'parent-invite',
-      date: toDateOnly(invite.startsAt),
-      time: toTimeOnly(invite.startsAt),
-      type: invite.sourceType === 'training' ? 'training' : 'club-event',
-      title: invite.title || 'Invited event',
-      description: [invite.arrivalTime ? `Meet ${invite.arrivalTime}` : '', invite.location, invite.notes].filter(Boolean).join(', '),
-      location: invite.location,
-      teamName: invite.teamName || '',
+  const inviteEvents = invitationEvents
+    .filter((group) => group.sourceEventType !== 'match_day')
+    .filter((group) => !sharedEventIds.has(String(group.eventId)))
+    .map((group) => ({
+      id: `invitation-event:${group.eventId}:${group.childId}`,
+      sourceId: group.eventId,
+      sourceType: 'parent-invitation-event',
+      date: toDateOnly(group.eventStart),
+      time: toTimeOnly(group.eventStart),
+      type: group.eventType === 'general' ? 'club-event' : group.eventType,
+      title: group.eventTitle || 'Invited event',
+      description: [group.eventLocation, group.teamName].filter(Boolean).join(', '),
+      location: group.eventLocation,
+      teamName: group.teamName || '',
+      childName: group.childName || childName || 'Linked child',
+      invitations: group.invitations,
       editable: false,
-      data: invite,
+      data: group,
     }))
     .filter((event) => event.date)
 
   const matchEvents = matches
-    .map((match) => ({
-      id: `match:${match.id}`,
-      sourceId: match.id,
-      sourceType: 'parent-match-day',
-      date: match.matchDate || '',
-      time: toTimeOnly(match.kickoffTime),
-      type: 'match-day',
-      title: getMatchDayDisplayName(match),
-      description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
-      location: getMatchCalendarLocation(match),
-      teamName: match.teamName || '',
-      editable: false,
-      data: match,
-    }))
+    .map((match) => {
+      const invitationGroup = invitationGroupsByEventId.get(String(match.id))
+
+      return {
+        id: `match:${match.id}`,
+        sourceId: match.id,
+        sourceType: 'parent-match-day',
+        date: match.matchDate || '',
+        time: toTimeOnly(match.kickoffTime),
+        type: 'match-day',
+        title: getMatchDayDisplayName(match),
+        description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
+        location: getMatchCalendarLocation(match),
+        teamName: match.teamName || invitationGroup?.teamName || '',
+        childName: invitationGroup?.childName || childName || 'Linked child',
+        invitations: invitationGroup?.invitations || [],
+        editable: false,
+        data: match,
+      }
+    })
     .filter((event) => event.date)
 
   const uniqueEvents = new Map()
@@ -2250,12 +2359,80 @@ function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
   )
 }
 
-function ParentCalendarEventModal({ event, onClose }) {
+function formatParentInvitationDeadline(invitation) {
+  if (!invitation?.responseDeadline) {
+    return ''
+  }
+
+  const deadline = new Date(invitation.responseDeadline)
+  if (Number.isNaN(deadline.getTime())) {
+    return ''
+  }
+
+  return deadline.toLocaleString([], {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function ParentInvitationResponseBlock({ activeInvitationId, invitation, onRespond }) {
+  const status = getParentInvitationStatus(invitation)
+  const responseOptions = getParentInvitationResponseOptions(invitation)
+  const deadline = formatParentInvitationDeadline(invitation)
+  const isBusy = activeInvitationId === invitation.invitationId
+
+  return (
+    <article className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-[#101828]">{getParentInvitationTypeLabel(invitation)}</p>
+          <p className="mt-1 text-xs font-semibold text-[#60756a]">Child: {invitation.childName}</p>
+        </div>
+        <span className="w-fit rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
+          {status.label}
+        </span>
+      </div>
+
+      {status.detail ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{status.detail}</p> : null}
+      {deadline ? <p className="mt-2 text-xs font-semibold text-[#60756a]">Response deadline: {deadline}</p> : null}
+
+      {invitation.canChangeResponse && responseOptions.length > 0 ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          {responseOptions.map((option) => {
+            const isCurrent = invitation.responseState === option.value
+              || (option.value === 'yes' && invitation.responseState === 'accepted')
+              || (option.value === 'no' && invitation.responseState === 'declined')
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onRespond(invitation, option.value)}
+                disabled={isBusy || isCurrent}
+                className={isCurrent ? primaryButtonClass : secondaryButtonClass}
+              >
+                {isBusy ? 'Saving...' : option.label}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+    </article>
+  )
+}
+
+function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespond }) {
   if (!event) {
     return null
   }
 
   const data = event.data || {}
+  const invitations = Array.isArray(event.invitations) ? event.invitations : []
+  const attendanceInvitations = invitations.filter((invitation) => invitation.invitationType !== 'match_role')
+  const roleInvitations = invitations.filter((invitation) => invitation.invitationType === 'match_role')
   const isMatch = event.sourceType === 'parent-match-day'
   const calendarUrl = buildParentMatchDayCalendarUrl(event)
   const startLabel = event.time || data.kickoffTime || ''
@@ -2306,6 +2483,9 @@ function ParentCalendarEventModal({ event, onClose }) {
                 Opponent: {data.opponent}
               </p>
             ) : null}
+            <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+              Child: {event.childName || invitations[0]?.childName || 'Linked child'}
+            </p>
             {calendarUrl ? (
               <a
                 href={calendarUrl}
@@ -2317,13 +2497,75 @@ function ParentCalendarEventModal({ event, onClose }) {
               </a>
             ) : null}
           </div>
+
+          <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+            <p className={eyebrowClass}>Child attendance</p>
+            <div className="mt-3 space-y-3">
+              {attendanceInvitations.length > 0 ? attendanceInvitations.map((invitation) => (
+                <ParentInvitationResponseBlock
+                  key={invitation.invitationId}
+                  activeInvitationId={activeInvitationId}
+                  invitation={invitation}
+                  onRespond={onRespond}
+                />
+              )) : (
+                <p className="rounded-lg border border-[#d7e5dc] bg-white p-4 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  No attendance response is required for this event.
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+            <p className={eyebrowClass}>Match Day roles</p>
+            <div className="mt-3 space-y-3">
+              {roleInvitations.length > 0 ? roleInvitations.map((invitation) => (
+                <ParentInvitationResponseBlock
+                  key={invitation.invitationId}
+                  activeInvitationId={activeInvitationId}
+                  invitation={invitation}
+                  onRespond={onRespond}
+                />
+              )) : (
+                <p className="rounded-lg border border-[#d7e5dc] bg-white p-4 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  No Match Day role has been offered for this event.
+                </p>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </div>
   )
 }
 
-function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
+const parentInvitationSections = [
+  { id: 'needs_response', label: 'Needs response' },
+  { id: 'accepted', label: 'Accepted' },
+  { id: 'declined', label: 'Declined' },
+  { id: 'selected', label: 'Confirmed or selected' },
+  { id: 'information', label: 'Information' },
+  { id: 'closed', label: 'Closed or past' },
+]
+
+function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEvent, selectedLink }) {
+  const invitationSections = parentInvitationSections
+    .map((section) => ({
+      ...section,
+      invitations: invitations.filter((invitation) => getParentInvitationCategory(invitation) === section.id),
+    }))
+    .filter((section) => section.invitations.length > 0)
+  const currentCount = invitations.filter((invitation) => getParentInvitationCategory(invitation) !== 'closed').length
+
+  const openInvitationEvent = (invitation) => {
+    const event = calendarEvents.find((calendarEvent) =>
+      calendarEvent.invitations?.some((candidate) => candidate.invitationId === invitation.invitationId))
+
+    if (event) {
+      onOpenEvent(event)
+    }
+  }
+
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -2331,7 +2573,7 @@ function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
           <p className={eyebrowClass}>Upcoming events</p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invites from the club</h3>
         </div>
-        <p className="text-sm font-black text-[#4b5f55]">{eventInvites.length} active</p>
+        <p className="text-sm font-black text-[#4b5f55]">{currentCount} current</p>
       </div>
 
       <div className="mt-4">
@@ -2341,22 +2583,52 @@ function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
           <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
             Loading event invites...
           </p>
-        ) : eventInvites.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {eventInvites.map((invite) => (
-              <article key={invite.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
-                  {invite.sourceType === 'training' ? 'Training' : 'Club event'}
-                </p>
-                <h4 className="mt-2 text-lg font-black text-[#101828]">{invite.title}</h4>
-                <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{formatParentEventDate(invite)}</p>
-                {invite.location ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{invite.location}</p> : null}
-                {invite.notes ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{invite.notes}</p> : null}
-              </article>
+        ) : invitationSections.length > 0 ? (
+          <div className="space-y-5">
+            {invitationSections.map((section) => (
+              <section key={section.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-lg font-black text-[#101828]">{section.label}</h4>
+                  <span className="rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
+                    {section.invitations.length}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {section.invitations.map((invitation) => {
+                    const status = getParentInvitationStatus(invitation)
+                    const hasEvent = calendarEvents.some((calendarEvent) =>
+                      calendarEvent.invitations?.some((candidate) => candidate.invitationId === invitation.invitationId))
+
+                    return (
+                      <article key={invitation.invitationId} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
+                          {getParentInvitationTypeLabel(invitation)}
+                        </p>
+                        <h5 className="mt-2 text-lg font-black text-[#101828]">{invitation.eventTitle}</h5>
+                        <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{formatParentEventDate(invitation)}</p>
+                        <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
+                          {invitation.childName}{invitation.teamName ? `, ${invitation.teamName}` : ''}
+                        </p>
+                        {invitation.eventLocation ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{invitation.eventLocation}</p> : null}
+                        <p className="mt-3 text-sm font-black text-[#101828]">{status.label}</p>
+                        {status.detail ? <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">{status.detail}</p> : null}
+                        <button
+                          type="button"
+                          onClick={() => openInvitationEvent(invitation)}
+                          disabled={!hasEvent}
+                          className={`${secondaryButtonClass} mt-4 w-full sm:w-auto`}
+                        >
+                          View event
+                        </button>
+                      </article>
+                    )
+                  })}
+                </div>
+              </section>
             ))}
           </div>
         ) : (
-          <p className={emptyClass}>No event invites are waiting for this child. If the club invites them to a session or event, it will appear here.</p>
+          <p className={emptyClass}>No invitations are available for this child. New attendance requests and Match Day role offers will appear here.</p>
         )}
       </div>
     </section>
@@ -2558,7 +2830,7 @@ function ParentMatchCard({
             ))}
           </div>
           <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">
-            Use the response email link to update availability and requested role replies.
+            Open this fixture in Calendar or Invites to review and change active responses. Existing email response links continue to work.
           </p>
         </div>
       ) : null}

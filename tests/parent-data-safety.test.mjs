@@ -9,6 +9,7 @@ const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url
 const scheduledEmailsDomainUrl = new URL('../src/lib/domain/scheduled-emails.js', import.meta.url)
 const manageScheduledEmailsFunctionUrl = new URL('../netlify/functions/manage-scheduled-emails.js', import.meta.url)
 const parentCalendarMigrationUrl = migrationSourceUrl('20260614030531_20260613120000_parent_calendar_visibility_controls.sql', 'active')
+const parentInvitationMigrationUrl = migrationSourceUrl('20260713150000_parent_portal_calendar_invite_integrity.sql', 'active')
 const playerPickerMigrationUrl = migrationSourceUrl('20260617085000_parent_data_safety_match_day_players.sql', 'archivedNotAppliedProduction')
 const staffNotesMigrationUrl = new URL('../supabase/migrations/20260501100000_player_activity_and_staff_notes.sql', import.meta.url)
 
@@ -290,7 +291,7 @@ test('parent with no active link has no player data in fixtures and page has an 
   assert.match(source, /No child is linked to this parent account yet/)
   assert.match(source, /Ask your club or team contact to send a parent invite/)
   assert.match(source, /setMatches\(\[\]\)/)
-  assert.match(source, /setEventInvites\(\[\]\)/)
+  assert.match(source, /setParentInvitations\(\[\]\)/)
   assert.match(source, /setPlayers\(\[\]\)/)
   assert.match(source, /setSharedCalendarEvents\(\[\]\)/)
 })
@@ -344,18 +345,22 @@ test('parent portal dashboard only loads current parent data sources', async () 
 
   assert.match(source, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.match(source, /getParentPortalMatchDayPlayers\(\{ parentLinkId: selectedLink\.id \}\)/)
-  assert.match(source, /getParentPortalEventInvites\(\{ parentLinkId: selectedLink\.id \}\)/)
+  assert.match(source, /getParentPortalInvitationState\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.match(source, /getParentPortalSharedCalendarEvents\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.doesNotMatch(source, /getParentPortalMessages|getParentPortalPolls|getParent.*Assessment|getParent.*Feedback/)
   assert.doesNotMatch(source, /player_staff_notes|getStaff|staffNotes|StaffNotes/)
 })
 
-test('parent event invite query is scoped to the active parent link and visible event audience', async () => {
-  const source = await readFile(new URL('../src/lib/domain/calendar-event-invites.js', import.meta.url), 'utf8')
+test('parent event invite read model is scoped to authenticated child ownership and visible event audience', async () => {
+  const source = await readFile(parentInvitationMigrationUrl, 'utf8')
+  const calendarStart = source.indexOf('calendar_items as (')
+  const calendarEnd = source.indexOf('training_items as (', calendarStart)
+  const calendarSection = source.slice(calendarStart, calendarEnd)
 
-  assert.match(source, /\.eq\('parent_link_id', normalizedParentLinkId\)/)
-  assert.match(source, /calendar_events:calendar_event_id \(id, title, event_type, starts_at, ends_at, location, notes, parent_visible, parent_audience\)/)
-  assert.match(source, /calendarEvent\.parent_visible === true && calendarEvent\.parent_audience === 'involved_players'/)
+  assert.match(source, /link\.id = parent_link_id_value[\s\S]*link\.auth_user_id = auth\.uid\(\)[\s\S]*link\.status = 'active'/)
+  assert.match(calendarSection, /invite\.club_id = link\.club_id[\s\S]*invite\.team_id = link\.team_id[\s\S]*invite\.player_id = link\.player_id/)
+  assert.match(calendarSection, /event\.parent_visible is true and event\.parent_audience = 'involved_players'/)
+  assert.doesNotMatch(calendarSection, /invite\.parent_link_id = link\.id/)
 })
 
 test('event invited family notification uses the scheduled email holding queue', async () => {
