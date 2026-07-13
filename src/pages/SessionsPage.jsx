@@ -82,6 +82,12 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
+import {
+  addMinutesToRequiredTime,
+  buildRequiredLocalDateTime,
+  validateFixtureDateTime,
+  validateOrdinaryEventDateTime,
+} from '../lib/calendar-datetime-integrity.js'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#065f46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
@@ -145,19 +151,11 @@ function formatTimeInput(value) {
 }
 
 function buildDateTime(date, time) {
-  const dateValue = formatDateInput(date)
-  const timeValue = formatTimeInput(time) || '09:00'
-
-  return dateValue ? `${dateValue}T${timeValue}:00` : ''
+  return buildRequiredLocalDateTime(formatDateInput(date), formatTimeInput(time))
 }
 
 function addMinutesToTime(time, minutesToAdd) {
-  const timeValue = formatTimeInput(time) || '09:00'
-  const [hours, minutes] = timeValue.split(':').map(Number)
-  const totalMinutes = (hours * 60 + minutes + minutesToAdd + 1440) % 1440
-  const nextHours = Math.floor(totalMinutes / 60)
-  const nextMinutes = totalMinutes % 60
-  return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`
+  return addMinutesToRequiredTime(formatTimeInput(time), minutesToAdd)
 }
 
 function isTimeAfter(leftTime, rightTime) {
@@ -172,12 +170,12 @@ function isTimeAfter(leftTime, rightTime) {
 }
 
 function getDefaultCalendarForm(date = '') {
-  const eventDate = formatDateInput(date) || formatLocalDate(new Date())
+  const eventDate = formatDateInput(date)
 
   return {
     arrivalTime: '',
     date: eventDate,
-    endTime: '10:00',
+    endTime: '',
     eventType: 'training',
     invitedPlayerIds: [],
     inviteTrialPlayers: false,
@@ -186,6 +184,7 @@ function getDefaultCalendarForm(date = '') {
     notes: '',
     notifyInvitedFamilies: false,
     opponent: '',
+    kickoffTimeTbc: false,
     parentAudience: 'involved_players',
     deleteRepeatScope: '',
     repeatUpdateScope: '',
@@ -194,7 +193,7 @@ function getDefaultCalendarForm(date = '') {
     recurrenceFrequency: 'none',
     recurrenceUntil: '',
     ...getDefaultTrainingAvailabilityForm('training'),
-    startTime: '09:00',
+    startTime: '',
     teamId: '',
     title: '',
   }
@@ -503,7 +502,6 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
   const title = getTrimmedFormValue(form.title)
   const opponent = getTrimmedFormValue(form.opponent)
   const date = formatDateInput(form.date)
-  const startTime = formatTimeInput(form.startTime)
   const isMatch = eventType === 'match'
   const isTraining = eventType === 'training'
   const requiresTeam = !canCreateClubCalendarEvent(user) || isMatch || isTraining || Boolean(safeTeamId)
@@ -513,18 +511,20 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
   }
 
   if (!date) {
-    throw new Error('Choose a date.')
+    throw new Error(isMatch ? 'Enter a match date.' : 'Enter an event date.')
   }
 
   if (requiresTeam && !safeTeamId) {
     throw new Error('Choose a team for this event.')
   }
 
-  if (!startTime) {
-    throw new Error(isMatch ? 'Kick-off time is required for a fixture.' : 'Choose a start time.')
-  }
-
   if (isMatch) {
+    validateFixtureDateTime({
+      kickoffTime: form.startTime,
+      kickoffTimeTbc: form.kickoffTimeTbc,
+      matchDate: form.date,
+    })
+
     if (isPastMatchDayDate(date)) {
       throw new Error('Match Day date must be today or in the future.')
     }
@@ -533,12 +533,18 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
       throw new Error('Add an opponent or event title for this fixture.')
     }
 
-    if (form.arrivalTime && isTimeAfter(form.arrivalTime, form.startTime)) {
+    if (!form.kickoffTimeTbc && form.arrivalTime && isTimeAfter(form.arrivalTime, form.startTime)) {
       throw new Error('Arrival time must be before kick-off time.')
     }
 
     return
   }
+
+  validateOrdinaryEventDateTime({
+    date: form.date,
+    endTime: form.endTime,
+    startTime: form.startTime,
+  })
 
   if (sourceType === 'calendar' || (!isTraining && eventType !== 'match')) {
     if (!title) {
@@ -633,17 +639,18 @@ function getFormFromCalendarEvent(event, invites = []) {
   if (sourceType === 'match-day') {
     return {
       ...getDefaultCalendarForm(source.matchDate || event.date),
-      arrivalTime: formatTimeInput(source.arrivalTime),
+      arrivalTime: source.kickoffTimeTbc ? '' : formatTimeInput(source.arrivalTime),
       date: formatDateInput(source.matchDate || event.date),
-      endTime: addMinutesToTime(source.kickoffTime, 120),
+      endTime: source.kickoffTimeTbc ? '' : addMinutesToTime(source.kickoffTime, 120),
       eventType: 'match',
+      kickoffTimeTbc: source.kickoffTimeTbc === true,
       location: source.venueName || '',
       notes: source.notes || '',
       opponent: source.opponent || '',
       requestScorer: source.requestScorer === true,
       requestLinesman: source.requestLinesman === true,
       requestReferee: source.requestReferee === true,
-      startTime: formatTimeInput(source.kickoffTime) || '10:00',
+      startTime: source.kickoffTimeTbc ? '' : formatTimeInput(source.kickoffTime),
       teamId: source.teamId || '',
       title: source.title || (source.opponent ? `Match vs ${source.opponent}` : ''),
       ...inviteFields,
@@ -1029,6 +1036,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   useEffect(() => {
     const requestedAction = String(searchParams.get('action') ?? '').trim()
+    const requestedType = String(searchParams.get('type') ?? '').trim()
 
     if (!['add-event', 'add-session', 'create-session'].includes(requestedAction)) {
       return
@@ -1036,10 +1044,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     const nextSearchParams = new URLSearchParams(searchParams)
     nextSearchParams.delete('action')
+    nextSearchParams.delete('type')
     setSearchParams(nextSearchParams, { replace: true })
 
     if (requestedAction === 'add-event') {
-      handleCalendarDateClick(formatLocalDate(new Date()))
+      handleOpenCalendarCreate('', requestedType)
       return
     }
 
@@ -1531,10 +1540,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     })
   }
 
-  const handleCalendarDateClick = (date) => {
+  const handleOpenCalendarCreate = (date = '', requestedEventType = '') => {
     setErrorMessage('')
     const defaultForm = getDefaultCalendarForm(date)
     const eventType = (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType
+
+    if (requestedEventType === 'match') {
+      openCalendarMatchDayWorkflow({
+        ...defaultForm,
+        eventType: 'match',
+      })
+      return
+    }
+
     setCalendarForm({
       ...defaultForm,
       eventType,
@@ -1544,10 +1562,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setCalendarModal({ mode: 'create', event: null })
   }
 
+  const handleCalendarModalClose = () => {
+    setCalendarModal(null)
+    setCalendarForm(getDefaultCalendarForm())
+    setErrorMessage('')
+  }
+
   const handleOpenSessionCreateModal = () => {
     setErrorMessage('')
     setCalendarForm({
-      ...getDefaultCalendarForm(formatLocalDate(new Date())),
+      ...getDefaultCalendarForm(),
       eventType: 'training',
       teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
     })
@@ -1578,6 +1602,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     openMatchDayFixtureSetup({
       arrivalTime: form.arrivalTime,
       kickoffTime: form.startTime,
+      kickoffTimeTbc: form.kickoffTimeTbc === true,
       matchDate: form.date,
       notes: form.notes,
       opponent: trimmedOpponent || trimmedTitle,
@@ -1605,6 +1630,17 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }
 
     setCalendarForm((current) => {
+      if (name === 'kickoffTimeMode') {
+        const kickoffTimeTbc = value === 'tbc'
+        return {
+          ...current,
+          arrivalTime: kickoffTimeTbc ? '' : current.arrivalTime,
+          endTime: kickoffTimeTbc ? '' : addMinutesToTime(current.startTime, 120),
+          kickoffTimeTbc,
+          startTime: kickoffTimeTbc ? '' : current.startTime,
+        }
+      }
+
       if (name === 'resourceIds') {
         const currentIds = Array.isArray(current.resourceIds) ? current.resourceIds : []
         const nextIds = checked
@@ -1670,7 +1706,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       if (name === 'eventType' && value === 'match') {
         nextForm.recurrenceFrequency = 'none'
         nextForm.recurrenceUntil = ''
-        nextForm.endTime = addMinutesToTime(current.startTime, 120)
+        nextForm.endTime = current.kickoffTimeTbc ? '' : addMinutesToTime(current.startTime, 120)
       }
 
       if (name === 'eventType' && !isCalendarResourceEventType(value)) {
@@ -1824,6 +1860,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         openMatchDayFixtureSetup({
           arrivalTime: calendarForm.arrivalTime,
           kickoffTime: calendarForm.startTime,
+          kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
           matchDate: calendarForm.date,
           notes: calendarForm.notes,
           opponent: trimmedOpponent || trimmedTitle,
@@ -1837,7 +1874,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         return
       }
 
-      const fixtureEndTime = isMatch ? addMinutesToTime(calendarForm.startTime, 120) : calendarForm.endTime
+      const fixtureEndTime = isMatch
+        ? calendarForm.kickoffTimeTbc ? '' : addMinutesToTime(calendarForm.startTime, 120)
+        : calendarForm.endTime
       const recurrenceDates = isMatch
         ? [formatDateInput(calendarForm.date)]
         : buildRecurrenceDates({
@@ -1985,6 +2024,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             arrivalTime: calendarForm.arrivalTime,
             homeAway: 'home',
             kickoffTime: calendarForm.startTime,
+            kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
             matchDate: calendarForm.date,
             notes: calendarForm.notes,
             opponent: trimmedOpponent,
@@ -2030,6 +2070,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
         const seriesDateTimeFields = getCalendarEventSeriesDateTimeFields({ event: activeEvent, form: calendarForm })
         const payload = {
+          date: calendarForm.date,
+          endTime: calendarForm.endTime,
           endsAt: seriesDateTimeFields.endsAt,
           eventType: calendarForm.eventType,
           location: calendarForm.location,
@@ -2037,6 +2079,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
           recurrenceFrequency: calendarForm.recurrenceFrequency,
           recurrenceUntil: calendarForm.recurrenceUntil,
+          startTime: calendarForm.startTime,
           startsAt: seriesDateTimeFields.startsAt,
           teamId: safeTeamId,
           title: trimmedTitle,
@@ -2099,6 +2142,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       }
 
       setCalendarModal(null)
+      setCalendarForm(getDefaultCalendarForm())
+      setErrorMessage('')
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Calendar event could not be saved.')
@@ -2608,7 +2653,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
             <button
               type="button"
-              onClick={() => handleCalendarDateClick(formatLocalDate(new Date()))}
+              onClick={() => handleOpenCalendarCreate()}
               className={primaryButtonClass}
             >
               Add event
@@ -2638,7 +2683,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           isResourcesLoading={isCalendarResourcesLoading}
           isOpen={Boolean(calendarModal)}
           mode={calendarModal?.mode || 'create'}
-          onCancel={() => setCalendarModal(null)}
+          onCancel={handleCalendarModalClose}
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
           onEdit={() => {
@@ -2936,7 +2981,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         isResourcesLoading={isCalendarResourcesLoading}
         isOpen={Boolean(calendarModal)}
         mode={calendarModal?.mode || 'create'}
-        onCancel={() => setCalendarModal(null)}
+        onCancel={handleCalendarModalClose}
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
         onEdit={() => {
@@ -3423,7 +3468,7 @@ function CalendarEventModal({
   const isSessionCreate = mode === 'create' && variant === 'session'
   const title = isSessionCreate ? 'Create session' : mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
   const selectedSummary = isMatchFixture
-    ? [form.date, form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
+    ? [form.date, form.kickoffTimeTbc ? 'Time TBC' : form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
     : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
   const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
@@ -3459,6 +3504,7 @@ function CalendarEventModal({
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="calendar-event-modal-title"
         className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15 sm:max-h-[calc(100vh-2rem)]"
       >
         <button
@@ -3472,7 +3518,7 @@ function CalendarEventModal({
         </button>
         <div className="shrink-0 border-b border-[#d7e5dc] px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
           <p className={eyebrowClass}>Calendar</p>
-          <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
+          <h2 id="calendar-event-modal-title" className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
             {isSessionCreate
               ? 'Create a training or match session with time, location, notes, repeats, and player invites.'
@@ -3504,7 +3550,7 @@ function CalendarEventModal({
                 ) : null}
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Kick-off time</p>
-                  <p className="mt-1 text-sm font-black text-[#101828]">{form.startTime || 'Not set'}</p>
+                  <p className="mt-1 text-sm font-black text-[#101828]">{form.kickoffTimeTbc ? 'Time TBC' : form.startTime || 'Not set'}</p>
                 </div>
                 {form.opponent ? (
                   <div>
@@ -3618,6 +3664,26 @@ function CalendarEventModal({
               </label>
             ) : null}
 
+            {isMatchFixture && event?.sourceType !== 'session' ? (
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Kickoff time</span>
+                <select
+                  name="kickoffTimeMode"
+                  value={form.kickoffTimeTbc ? 'tbc' : 'confirmed'}
+                  onChange={onChange}
+                  disabled={isBusy}
+                  className={fieldClass}
+                  aria-describedby="calendar-kickoff-time-help"
+                >
+                  <option value="confirmed">Confirmed time</option>
+                  <option value="tbc">Time TBC</option>
+                </select>
+                <span id="calendar-kickoff-time-help" className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
+                  Time TBC keeps the match date but stores no kickoff or arrival time.
+                </span>
+              </label>
+            ) : null}
+
             <div className="grid gap-4 md:grid-cols-3">
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Date</span>
@@ -3626,17 +3692,17 @@ function CalendarEventModal({
               {isMatchFixture ? (
                 <label className="block">
                   <span className="mb-2 block text-sm font-black text-[#101828]">Arrival time</span>
-                  <input name="arrivalTime" type="time" value={form.arrivalTime} onChange={onChange} className={fieldClass} />
+                  <input name="arrivalTime" type="time" value={form.arrivalTime} onChange={onChange} disabled={form.kickoffTimeTbc} className={fieldClass} />
                 </label>
               ) : null}
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">{isMatchFixture ? 'Kick-off time' : 'Start time'}</span>
-                <input name="startTime" type="time" value={form.startTime} onChange={onChange} required className={fieldClass} />
+                <input name="startTime" type="time" value={form.startTime} onChange={onChange} required={!isMatchFixture || !form.kickoffTimeTbc} disabled={isMatchFixture && form.kickoffTimeTbc} className={fieldClass} />
               </label>
               {!isMatchFixture ? (
                 <label className="block">
                   <span className="mb-2 block text-sm font-black text-[#101828]">End time</span>
-                  <input name="endTime" type="time" value={form.endTime} onChange={onChange} className={fieldClass} />
+                  <input name="endTime" type="time" value={form.endTime} onChange={onChange} required className={fieldClass} />
                 </label>
               ) : null}
             </div>

@@ -8,6 +8,11 @@ import { assertValidMatchDayEventMinute } from '../matchday-event-minute.js'
 import { validateMatchDayEventUndoInput } from '../matchday-event-undo.js'
 import { isFinalMatchReportAvailable, validateFinalMatchReportNotes } from '../matchday-final-report.js'
 import {
+  normalizeRequiredDate,
+  normalizeRequiredTime,
+  validateFixtureDateTime,
+} from '../calendar-datetime-integrity.js'
+import {
   assertNewMatchHomeAway,
   assertValidMatchClockMode,
   assertValidMatchDurationMinutes,
@@ -73,29 +78,18 @@ const MATCH_DAY_STAFF_EVENT_TYPES = new Set([
 ])
 const MATCH_DAY_TIMER_ACTIONS = new Set(['start', 'pause', 'half_time', 'hydration', 'resume', 'full_time', 'conclude'])
 const MATCH_DAY_TIMER_STATUSES = new Set(['not_started', 'running', 'paused', 'half_time', 'hydration', 'full_time'])
+const MATCH_DAY_FIXTURE_TIMING_EDITABLE_STATUSES = new Set(['scheduled', 'scorer_request', 'postponed'])
 
 function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
 function normalizeTime(value) {
-  const normalizedValue = normalizeText(value)
-  return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : ''
+  return normalizeRequiredTime(value)
 }
 
 function normalizeDateOnly(value) {
-  const normalizedValue = normalizeText(value)
-
-  if (!normalizedValue) {
-    return ''
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
-    return normalizedValue
-  }
-
-  const parsedDate = new Date(normalizedValue)
-  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
+  return normalizeRequiredDate(value)
 }
 
 export function getTodayMatchDayDateValue(now = new Date()) {
@@ -153,12 +147,6 @@ export function isPastMatchDayDateTime(matchDate, kickoffTime, now = new Date())
   currentMinute.setSeconds(0, 0)
 
   return fixtureDateTime.getTime() < currentMinute.getTime()
-}
-
-function assertMatchDayDateIsCurrentOrFuture(matchDate) {
-  if (isPastMatchDayDate(matchDate)) {
-    throw new Error('Match Day date must be today or in the future.')
-  }
 }
 
 function assertMatchDayDateTimeIsCurrentOrFuture(matchDate, kickoffTime) {
@@ -456,6 +444,7 @@ export function normalizeMatchDay(row) {
     opponent: normalizeText(row.opponent),
     matchDate: row.match_date ?? row.matchDate ?? '',
     kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '',
+    kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
     arrivalTime: row.arrival_time ?? row.arrivalTime ?? '',
     homeAway: normalizeLegacyMatchHomeAway(row.home_away ?? row.homeAway),
     clockMode: normalizeMatchClockMode(row.match_clock_mode ?? row.clockMode),
@@ -713,6 +702,7 @@ function buildMatchDaySnapshot(row) {
     opponent: normalizeText(row.opponent),
     matchDate: row.match_date ?? null,
     kickoffTime: row.kickoff_time ?? null,
+    kickoffTimeTbc: row.kickoff_time_tbc === true,
     arrivalTime: row.arrival_time ?? null,
     homeAway: normalizeText(row.home_away),
     clockMode: normalizeMatchClockMode(row.match_clock_mode),
@@ -742,6 +732,7 @@ function buildMatchDaySnapshotFromMatch(match) {
     opponent: normalizeText(match.opponent),
     matchDate: match.matchDate || null,
     kickoffTime: match.kickoffTime || null,
+    kickoffTimeTbc: match.kickoffTimeTbc === true,
     arrivalTime: match.arrivalTime || null,
     homeAway: normalizeText(match.homeAway),
     clockMode: normalizeMatchClockMode(match.clockMode),
@@ -795,7 +786,7 @@ async function getMatchDayEventLogSnapshot({ user, matchId }) {
 
   let query = supabase
     .from('match_days')
-    .select('opponent, match_date, kickoff_time, arrival_time, home_away, match_clock_mode, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
+    .select('opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, match_clock_mode, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
     .eq('id', normalizedMatchId)
     .eq('club_id', user.clubId)
 
@@ -917,12 +908,17 @@ export async function createMatchDay({ user, match }) {
   const homeAway = assertNewMatchHomeAway(match?.homeAway)
   const clockMode = assertValidMatchClockMode(match?.clockMode ?? 'fixed')
   const matchDurationMinutes = assertValidMatchDurationMinutes(match?.matchDurationMinutes)
+  const fixtureDateTime = validateFixtureDateTime({
+    kickoffTime: match?.kickoffTime,
+    kickoffTimeTbc: match?.kickoffTimeTbc,
+    matchDate: match?.matchDate,
+  })
 
   if (!opponent) {
     throw new Error('Opponent is required.')
   }
 
-  assertMatchDayDateTimeIsCurrentOrFuture(match?.matchDate, match?.kickoffTime)
+  assertMatchDayDateTimeIsCurrentOrFuture(fixtureDateTime.matchDate, fixtureDateTime.kickoffTime)
 
   if (parentVisible && parentAudience === 'all_team_parents' && !teamId) {
     throw new Error('Choose a team before sharing this fixture with all team parents.')
@@ -947,9 +943,10 @@ export async function createMatchDay({ user, match }) {
       team_id: teamId,
       location_id: locationId || null,
       opponent,
-      match_date: normalizeDateOnly(match?.matchDate) || null,
-      kickoff_time: normalizeTime(match?.kickoffTime) || null,
-      arrival_time: normalizeTime(match?.arrivalTime) || null,
+      match_date: fixtureDateTime.matchDate,
+      kickoff_time: fixtureDateTime.kickoffTime || null,
+      kickoff_time_tbc: fixtureDateTime.kickoffTimeTbc,
+      arrival_time: fixtureDateTime.kickoffTimeTbc ? null : normalizeTime(match?.arrivalTime) || null,
       home_away: homeAway,
       match_clock_mode: clockMode,
       match_duration_minutes: matchDurationMinutes,
@@ -1011,14 +1008,36 @@ export async function updateMatchDay({ user, matchId, updates }) {
   const payload = {
     updated_at: new Date().toISOString(),
   }
+  const updatesFixtureTiming = updates.matchDate !== undefined
+    || updates.kickoffTime !== undefined
+    || updates.kickoffTimeTbc !== undefined
+  let nextFixtureDateTime = null
+
+  if (updatesFixtureTiming) {
+    if (!MATCH_DAY_FIXTURE_TIMING_EDITABLE_STATUSES.has(normalizeStatus(previousSnapshot?.status))) {
+      throw new Error('Fixture date and kickoff time can only be changed before the match starts.')
+    }
+
+    nextFixtureDateTime = validateFixtureDateTime({
+      matchDate: updates.matchDate !== undefined ? updates.matchDate : previousSnapshot?.matchDate,
+      kickoffTime: updates.kickoffTime !== undefined ? updates.kickoffTime : previousSnapshot?.kickoffTime,
+      kickoffTimeTbc: updates.kickoffTimeTbc !== undefined ? updates.kickoffTimeTbc : previousSnapshot?.kickoffTimeTbc,
+    })
+    assertMatchDayDateTimeIsCurrentOrFuture(nextFixtureDateTime.matchDate, nextFixtureDateTime.kickoffTime)
+    payload.match_date = nextFixtureDateTime.matchDate
+    payload.kickoff_time = nextFixtureDateTime.kickoffTime || null
+    payload.kickoff_time_tbc = nextFixtureDateTime.kickoffTimeTbc
+
+    if (nextFixtureDateTime.kickoffTimeTbc) {
+      payload.arrival_time = null
+    }
+  }
 
   if (updates.opponent !== undefined) payload.opponent = normalizeText(updates.opponent)
-  if (updates.matchDate !== undefined) {
-    assertMatchDayDateIsCurrentOrFuture(updates.matchDate)
-    payload.match_date = normalizeDateOnly(updates.matchDate) || null
+  if (updates.arrivalTime !== undefined) {
+    const isTimeTbc = nextFixtureDateTime?.kickoffTimeTbc ?? (previousSnapshot?.kickoffTimeTbc === true)
+    payload.arrival_time = isTimeTbc ? null : normalizeTime(updates.arrivalTime) || null
   }
-  if (updates.kickoffTime !== undefined) payload.kickoff_time = normalizeTime(updates.kickoffTime) || null
-  if (updates.arrivalTime !== undefined) payload.arrival_time = normalizeTime(updates.arrivalTime) || null
   if (updates.homeAway !== undefined) payload.home_away = assertNewMatchHomeAway(updates.homeAway)
   if (updates.clockMode !== undefined) payload.match_clock_mode = assertValidMatchClockMode(updates.clockMode)
   if (updates.matchDurationMinutes !== undefined) payload.match_duration_minutes = assertValidMatchDurationMinutes(updates.matchDurationMinutes)

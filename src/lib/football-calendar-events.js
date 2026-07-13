@@ -1,5 +1,6 @@
 import { getMatchDayDisplayName } from './matchday-display.js'
 import { getMatchCalendarLocation, getMatchVenueDisplay } from './match-location.js'
+import { getFixtureKickoffLabel } from './calendar-datetime-integrity.js'
 
 function toDateOnly(value) {
   if (value instanceof Date) {
@@ -377,16 +378,18 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
         return null
       }
 
+      const kickoffLabel = getFixtureKickoffLabel(match)
+
       return {
         id: `match:${match.id}`,
         date,
-        time: toTimeOnly(match.kickoffTime),
+        time: kickoffLabel,
         type: 'match-day',
         title: getMatchDayDisplayName(match),
-        description: [match.kickoffTime ? `Kick off ${match.kickoffTime}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
+        description: [kickoffLabel ? `Kick off ${kickoffLabel}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
         location: getMatchCalendarLocation(match),
         href: '/match-day',
-        editable: true,
+        editable: ['scheduled', 'scorer_request', 'postponed'].includes(String(match.status ?? '').trim().toLowerCase()),
         sourceId: match.id,
         sourceType: 'match-day',
         data: match,

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import { isFixtureKickoffTimeTbc } from '../../src/lib/calendar-datetime-integrity.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 const VALID_VOLUNTEER_RESPONSES = new Set(['yes', 'no'])
@@ -130,8 +131,9 @@ function buildFixtureResponseCalendarUrl(response) {
 
   const teamName = normalizeText(response.team_name || 'Team')
   const opponent = normalizeText(response.opponent || 'Opponent')
-  const startTime = normalizeText(response.arrival_time || response.kickoff_time).slice(0, 5)
-  const kickoffTime = normalizeText(response.kickoff_time).slice(0, 5)
+  const kickoffTimeTbc = isFixtureKickoffTimeTbc(response.kickoff_time_tbc)
+  const startTime = kickoffTimeTbc ? '' : normalizeText(response.arrival_time || response.kickoff_time).slice(0, 5)
+  const kickoffTime = kickoffTimeTbc ? '' : normalizeText(response.kickoff_time).slice(0, 5)
   const endTime = kickoffTime
     ? addMinutesToTime(kickoffTime, 120)
     : addMinutesToTime(startTime, 120)
@@ -142,8 +144,8 @@ function buildFixtureResponseCalendarUrl(response) {
     `Player: ${normalizeText(response.player_name || 'Player')}`,
     `Team: ${teamName}`,
     `Opponent: ${opponent}`,
-    `Kick-off: ${formatTime(response.kickoff_time)}`,
-    response.arrival_time ? `Arrival: ${formatTime(response.arrival_time)}` : '',
+    kickoffTimeTbc ? 'Kick-off: Time TBC' : `Kick-off: ${formatTime(response.kickoff_time)}`,
+    !kickoffTimeTbc && response.arrival_time ? `Arrival: ${formatTime(response.arrival_time)}` : '',
     response.venue_name ? `Venue: ${response.venue_name}` : '',
   ].filter(Boolean).join('\n')
   const params = new URLSearchParams({
@@ -201,12 +203,13 @@ function page({ title, message, content = '' }) {
 
 function detailRows(response) {
   const calendarUrl = buildFixtureResponseCalendarUrl(response)
+  const kickoffTimeTbc = isFixtureKickoffTimeTbc(response.kickoff_time_tbc)
   const rows = [
     ['Player', response.player_name || 'Player'],
     ['Fixture', `${response.team_name || 'Team'} v ${response.opponent || 'Opponent'}`],
     ['Date', response.match_date || 'Date not set'],
-    ['Kick off', response.kickoff_time ? String(response.kickoff_time).slice(0, 5) : 'Not set'],
-    ['Arrival', response.arrival_time ? String(response.arrival_time).slice(0, 5) : 'Not set'],
+    ['Kick off', kickoffTimeTbc ? 'Time TBC' : response.kickoff_time ? String(response.kickoff_time).slice(0, 5) : 'Not set'],
+    ['Arrival', kickoffTimeTbc ? 'Available when kickoff is confirmed' : response.arrival_time ? String(response.arrival_time).slice(0, 5) : 'Not set'],
     ['Venue', response.venue_name || 'Not set'],
   ]
 

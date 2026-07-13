@@ -10,6 +10,10 @@ import {
   normalizeDateOnly,
 } from './core-normalizers.js'
 import { getSessionTeamsForUser } from './team-actions.js'
+import {
+  buildRequiredLocalDateTime,
+  validateOrdinaryEventDateTime,
+} from '../calendar-datetime-integrity.js'
 
 const EVENT_TYPES = ['general', 'availability_deadline', 'parent_cutoff', 'training', 'match']
 const RECURRENCE_FREQUENCIES = ['none', 'weekly', 'fortnightly', 'monthly']
@@ -85,8 +89,22 @@ function assertCalendarAccess(user) {
 }
 
 function buildCalendarPayload({ user, event }) {
-  const startsAt = normalizeDateTime(event?.startsAt)
-  const endsAt = normalizeDateTime(event?.endsAt)
+  const hasStructuredDateTime = event?.date !== undefined
+    || event?.startTime !== undefined
+    || event?.endTime !== undefined
+  const structuredDateTime = hasStructuredDateTime
+    ? validateOrdinaryEventDateTime({
+      date: event?.date,
+      endTime: event?.endTime,
+      startTime: event?.startTime,
+    })
+    : null
+  const startsAt = normalizeDateTime(structuredDateTime
+    ? buildRequiredLocalDateTime(structuredDateTime.date, structuredDateTime.startTime)
+    : event?.startsAt)
+  const endsAt = normalizeDateTime(structuredDateTime
+    ? buildRequiredLocalDateTime(structuredDateTime.date, structuredDateTime.endTime)
+    : event?.endsAt)
   const eventTypeValue = normalizeText(event?.eventType)
   const eventType = normalizeEventType(eventTypeValue)
   const recurrenceFrequency = normalizeRecurrenceFrequency(event?.recurrenceFrequency)
@@ -105,11 +123,15 @@ function buildCalendarPayload({ user, event }) {
   }
 
   if (!startsAt) {
-    throw new Error('Choose a date and start time.')
+    throw new Error('Enter an event date and start time.')
   }
 
-  if (endsAt && new Date(endsAt).getTime() < new Date(startsAt).getTime()) {
-    throw new Error('End time must be after the start time.')
+  if (!endsAt) {
+    throw new Error('Enter an end time.')
+  }
+
+  if (new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+    throw new Error('End time must be after start time.')
   }
 
   if (!isClubLevelAllowed && !safeTeamId) {
@@ -137,7 +159,7 @@ function buildCalendarPayload({ user, event }) {
     event_type: eventType,
     title,
     starts_at: startsAt,
-    ends_at: endsAt || null,
+    ends_at: endsAt,
     location: normalizeText(event?.location),
     notes: normalizeText(event?.notes),
     recurrence_frequency: recurrenceFrequency,

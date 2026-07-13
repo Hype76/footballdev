@@ -4,6 +4,7 @@ import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
+import { isFixtureKickoffTimeTbc } from '../../src/lib/calendar-datetime-integrity.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
 function getBearerToken(event) {
@@ -130,11 +131,12 @@ function buildAvailabilityEmail({ appOrigin, match, player, recipient, responseU
   const roleText = requestedRoleLabels.length > 0
     ? `This form also asks if you can help as ${requestedRoleLabels.join(', ')}.`
     : ''
+  const kickoffTimeTbc = isFixtureKickoffTimeTbc(match.kickoff_time_tbc)
   const details = [
     ['Fixture', matchName],
     ['Date', match.match_date || 'Not set'],
-    ['Kick off', formatTime(match.kickoff_time)],
-    ['Arrival', formatTime(match.arrival_time)],
+    ['Kick off', kickoffTimeTbc ? 'Time TBC' : formatTime(match.kickoff_time)],
+    ['Arrival', kickoffTimeTbc ? 'Available when kickoff is confirmed' : formatTime(match.arrival_time)],
     ['Venue', match.venue_name || 'Not set'],
     ['Address', match.venue_address || 'Not set'],
   ]

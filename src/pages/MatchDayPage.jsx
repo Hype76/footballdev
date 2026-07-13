@@ -83,11 +83,16 @@ import {
   buildFinalMatchReportSummary,
   MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH,
 } from '../lib/matchday-final-report.js'
+import {
+  formatFixtureDateTime,
+  validateFixtureDateTime,
+} from '../lib/calendar-datetime-integrity.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
   matchDate: '',
   kickoffTime: '',
+  kickoffTimeTbc: false,
   arrivalTime: '',
   arrivalPreset: '30',
   homeAway: 'home',
@@ -657,6 +662,16 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
     return 'Add an opponent before continuing to squad selection.'
   }
 
+  try {
+    validateFixtureDateTime({
+      kickoffTime: form.kickoffTime,
+      kickoffTimeTbc: form.kickoffTimeTbc,
+      matchDate: form.matchDate,
+    })
+  } catch (error) {
+    return error.message
+  }
+
   if (isPastMatchDayDateTime(form.matchDate, form.kickoffTime)) {
     return 'Fixture date and time cannot be in the past.'
   }
@@ -679,23 +694,7 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
 }
 
 function formatMatchDate(match) {
-  if (!match.matchDate) {
-    return 'Date not set'
-  }
-
-  const date = new Date(`${match.matchDate}T${match.kickoffTime || '00:00'}`)
-
-  if (Number.isNaN(date.getTime())) {
-    return match.matchDate
-  }
-
-  return date.toLocaleString([], {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: match.kickoffTime ? '2-digit' : undefined,
-    minute: match.kickoffTime ? '2-digit' : undefined,
-  })
+  return formatFixtureDateTime(match)
 }
 
 function formatMatchEventTimestamp(value) {
@@ -2018,6 +2017,12 @@ export function MatchDayPage() {
     setErrorMessage('')
   }
 
+  const closeFixtureSetup = () => {
+    setIsFixtureFormOpen(false)
+    setForm(EMPTY_MATCH_FORM)
+    setErrorMessage('')
+  }
+
   const updateArrivalFromPreset = (arrivalPreset, kickoffTime = form.kickoffTime) => {
     const nextArrivalTime = arrivalPreset === 'custom' ? form.arrivalTime : calculateArrivalTime(kickoffTime, arrivalPreset)
     updateForm({
@@ -2029,7 +2034,17 @@ export function MatchDayPage() {
   const updateKickoffTime = (kickoffTime) => {
     updateForm({
       kickoffTime,
+      kickoffTimeTbc: false,
       arrivalTime: form.arrivalPreset === 'custom' ? form.arrivalTime : calculateArrivalTime(kickoffTime, form.arrivalPreset),
+    })
+  }
+
+  const updateKickoffTimeMode = (mode) => {
+    const kickoffTimeTbc = mode === 'tbc'
+    updateForm({
+      arrivalTime: kickoffTimeTbc ? '' : form.arrivalTime,
+      kickoffTime: kickoffTimeTbc ? '' : form.kickoffTime,
+      kickoffTimeTbc,
     })
   }
 
@@ -3307,10 +3322,11 @@ export function MatchDayPage() {
           updateCustomMatchDuration={updateCustomMatchDuration}
           updateForm={updateForm}
           updateKickoffTime={updateKickoffTime}
+          updateKickoffTimeMode={updateKickoffTimeMode}
           updateMatchDurationPreset={updateMatchDurationPreset}
           user={user}
           validationMessage={errorMessage}
-          onClose={() => setIsFixtureFormOpen(false)}
+          onClose={closeFixtureSetup}
         />
       ) : null}
 
@@ -5694,6 +5710,7 @@ function FixtureSetupModal({
   updateCustomMatchDuration,
   updateForm,
   updateKickoffTime,
+  updateKickoffTimeMode,
   updateMatchDurationPreset,
   user,
   validationMessage,
@@ -5766,17 +5783,33 @@ function FixtureSetupModal({
 
               <label className="block">
                 <span className={labelClass}>Date</span>
-                <input type="date" min={todayMatchDayDate} value={form.matchDate} onChange={(event) => updateForm({ matchDate: event.target.value })} className={inputClass} />
+                <input type="date" min={todayMatchDayDate} value={form.matchDate} onChange={(event) => updateForm({ matchDate: event.target.value })} required className={inputClass} />
               </label>
 
               <label className="block">
-                <span className={labelClass}>Kick off</span>
-                <input type="time" value={form.kickoffTime} onChange={(event) => updateKickoffTime(event.target.value)} className={inputClass} />
+                <span className={labelClass}>Kickoff time</span>
+                <select
+                  value={form.kickoffTimeTbc ? 'tbc' : 'confirmed'}
+                  onChange={(event) => updateKickoffTimeMode(event.target.value)}
+                  className={inputClass}
+                  aria-describedby="matchday-kickoff-time-help"
+                >
+                  <option value="confirmed">Confirmed time</option>
+                  <option value="tbc">Time TBC</option>
+                </select>
+                <span id="matchday-kickoff-time-help" className="mt-2 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Time TBC stores the match date without a kickoff or arrival time.
+                </span>
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Confirmed kickoff</span>
+                <input type="time" value={form.kickoffTime} onChange={(event) => updateKickoffTime(event.target.value)} required={!form.kickoffTimeTbc} disabled={form.kickoffTimeTbc} className={inputClass} />
               </label>
 
               <label className="block">
                 <span className={labelClass}>Arrival</span>
-                <select value={form.arrivalPreset} onChange={(event) => updateArrivalFromPreset(event.target.value)} className={inputClass}>
+                <select value={form.arrivalPreset} onChange={(event) => updateArrivalFromPreset(event.target.value)} disabled={form.kickoffTimeTbc} className={inputClass}>
                   {MATCH_DAY_ARRIVAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
@@ -5784,12 +5817,12 @@ function FixtureSetupModal({
               {form.arrivalPreset === 'custom' ? (
                 <label className="block">
                   <span className={labelClass}>Custom arrival time</span>
-                  <input type="time" value={form.arrivalTime} onChange={(event) => updateForm({ arrivalTime: event.target.value })} className={inputClass} />
+                  <input type="time" value={form.arrivalTime} onChange={(event) => updateForm({ arrivalTime: event.target.value })} disabled={form.kickoffTimeTbc} className={inputClass} />
                 </label>
               ) : (
                 <div className="block">
                   <span className={labelClass}>Arrival time</span>
-                  <div className={`${inputClass} flex items-center`}>{form.arrivalTime || 'Set kick off to calculate arrival'}</div>
+                  <div className={`${inputClass} flex items-center`}>{form.kickoffTimeTbc ? 'Available when kickoff is confirmed' : form.arrivalTime || 'Set kickoff to calculate arrival'}</div>
                 </div>
               )}
 

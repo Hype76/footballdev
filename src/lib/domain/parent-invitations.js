@@ -56,10 +56,12 @@ export function normalizeParentInvitation(row = {}) {
     eventKey: `${normalizeText(row.source_event_type ?? row.sourceEventType)}:${eventId}:${childId}`,
     eventType: normalizeText(row.event_type ?? row.eventType) || 'general',
     eventTitle: normalizeText(row.event_title ?? row.eventTitle) || 'Club event',
+    eventDate: normalizeText(row.event_date ?? row.eventDate),
     eventStart: row.event_start ?? row.eventStart ?? '',
     eventEnd: row.event_end ?? row.eventEnd ?? '',
     eventLocation: normalizeText(row.event_location ?? row.eventLocation),
     teamName: normalizeText(row.team_name ?? row.teamName),
+    kickoffTimeTbc: normalizeBoolean(row.kickoff_time_tbc ?? row.kickoffTimeTbc),
     childId,
     childName: normalizeText(row.child_name ?? row.childName) || 'Linked child',
     parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
@@ -362,6 +364,8 @@ export function groupParentInvitationsByEvent(invitations = []) {
       current.invitations.push(invitation)
       current.eventStart = current.eventStart || invitation.eventStart
       current.eventEnd = current.eventEnd || invitation.eventEnd
+      current.eventDate = current.eventDate || invitation.eventDate
+      current.kickoffTimeTbc = current.kickoffTimeTbc || invitation.kickoffTimeTbc
       current.eventLocation = current.eventLocation || invitation.eventLocation
       return
     }
@@ -372,10 +376,12 @@ export function groupParentInvitationsByEvent(invitations = []) {
       sourceEventType: invitation.eventKey.split(':')[0],
       eventType: invitation.eventType,
       eventTitle: invitation.eventTitle,
+      eventDate: invitation.eventDate,
       eventStart: invitation.eventStart,
       eventEnd: invitation.eventEnd,
       eventLocation: invitation.eventLocation,
       teamName: invitation.teamName,
+      kickoffTimeTbc: invitation.kickoffTimeTbc,
       childId: invitation.childId,
       childName: invitation.childName,
       invitations: [invitation],
@@ -389,7 +395,8 @@ export function groupParentInvitationsByEvent(invitations = []) {
         left.invitationType.localeCompare(right.invitationType) || left.roleType.localeCompare(right.roleType)),
     }))
     .sort((left, right) =>
-      String(left.eventStart || '').localeCompare(String(right.eventStart || '')) || left.eventTitle.localeCompare(right.eventTitle))
+      String(left.eventStart || left.eventDate || '').localeCompare(String(right.eventStart || right.eventDate || ''))
+      || left.eventTitle.localeCompare(right.eventTitle))
 }
 
 export async function getParentPortalInvitationState({ parentLinkId } = {}) {

@@ -50,6 +50,12 @@ import {
   parentMatchDayLoadErrorMessage,
   parentMatchDayLoadErrorTitle,
 } from '../lib/parent-matchday-errors.js'
+import {
+  addMinutesToRequiredTime,
+  formatFixtureDateTime,
+  getFixtureKickoffLabel,
+  isFixtureKickoffTimeTbc,
+} from '../lib/calendar-datetime-integrity.js'
 
 const EMPTY_GOAL_FORM = {
   teamSide: 'club',
@@ -77,26 +83,17 @@ const noChildMessage = 'No child is linked to this parent account yet. Ask your 
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'resources', 'settings'])
 
 function formatMatchDate(match) {
-  if (!match.matchDate) {
-    return 'Date not set'
-  }
-
-  const date = new Date(`${match.matchDate}T${match.kickoffTime || '00:00'}`)
-
-  if (Number.isNaN(date.getTime())) {
-    return match.matchDate
-  }
-
-  return date.toLocaleString([], {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: match.kickoffTime ? '2-digit' : undefined,
-    minute: match.kickoffTime ? '2-digit' : undefined,
-  })
+  return formatFixtureDateTime(match)
 }
 
 function formatParentEventDate(invite) {
+  if (invite.kickoffTimeTbc && invite.eventDate) {
+    return formatFixtureDateTime({
+      kickoffTimeTbc: true,
+      matchDate: invite.eventDate,
+    })
+  }
+
   const startsAt = invite.eventStart || invite.startsAt
 
   if (!startsAt) {
@@ -1632,15 +1629,7 @@ function toTimeOnly(value) {
 }
 
 function addMinutesToTime(value, minutesToAdd) {
-  const normalizedValue = toTimeOnly(value)
-  if (!normalizedValue) {
-    return ''
-  }
-
-  const [hours, minutes] = normalizedValue.split(':').map(Number)
-  const totalMinutes = (hours * 60) + minutes + Number(minutesToAdd || 0)
-  const wrappedMinutes = ((totalMinutes % 1440) + 1440) % 1440
-  return `${String(Math.floor(wrappedMinutes / 60)).padStart(2, '0')}:${String(wrappedMinutes % 60).padStart(2, '0')}`
+  return addMinutesToRequiredTime(toTimeOnly(value), minutesToAdd)
 }
 
 function getGoogleCalendarDatePart(value) {
@@ -1664,13 +1653,14 @@ function buildParentMatchDayCalendarUrl(event) {
   }
 
   const data = event.data || {}
+  const kickoffTimeTbc = isFixtureKickoffTimeTbc(data.kickoffTimeTbc)
   const datePart = getGoogleCalendarDatePart(event.date)
   if (!datePart) {
     return ''
   }
 
-  const startTime = toTimeOnly(data.arrivalTime || data.kickoffTime || event.time)
-  const endTime = toTimeOnly(data.kickoffTime)
+  const startTime = kickoffTimeTbc ? '' : toTimeOnly(data.arrivalTime || data.kickoffTime || event.time)
+  const endTime = kickoffTimeTbc ? '' : toTimeOnly(data.kickoffTime)
     ? addMinutesToTime(data.kickoffTime, 120)
     : addMinutesToTime(startTime, 120)
   const dates = startTime
@@ -1679,8 +1669,8 @@ function buildParentMatchDayCalendarUrl(event) {
   const details = [
     `Team: ${event.teamName || data.teamName || 'Team'}`,
     data.opponent ? `Opponent: ${data.opponent}` : '',
-    data.kickoffTime ? `Kick-off: ${toTimeOnly(data.kickoffTime)}` : '',
-    data.arrivalTime ? `Arrival: ${toTimeOnly(data.arrivalTime)}` : '',
+    kickoffTimeTbc ? 'Kick-off: Time TBC' : data.kickoffTime ? `Kick-off: ${toTimeOnly(data.kickoffTime)}` : '',
+    !kickoffTimeTbc && data.arrivalTime ? `Arrival: ${toTimeOnly(data.arrivalTime)}` : '',
     data.venueName ? `Venue: ${data.venueName}` : '',
     'Parent Portal: https://footballplayer.online/parent-portal',
   ].filter(Boolean).join('\n')
@@ -1756,19 +1746,21 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
   const matchEvents = matches
     .map((match) => {
       const invitationGroup = invitationGroupsByEventId.get(String(match.id))
+      const kickoffTimeTbc = isFixtureKickoffTimeTbc(match.kickoffTimeTbc)
+      const kickoffLabel = getFixtureKickoffLabel(match)
 
       return {
         id: `match:${match.id}`,
         sourceId: match.id,
         sourceType: 'parent-match-day',
         date: match.matchDate || '',
-        time: toTimeOnly(match.kickoffTime),
-        startsAt: invitationGroup?.eventStart || (match.matchDate ? `${match.matchDate}T${match.kickoffTime || '00:00'}` : ''),
-        endsAt: invitationGroup?.eventEnd || '',
+        time: kickoffLabel,
+        startsAt: kickoffTimeTbc ? '' : invitationGroup?.eventStart || (match.matchDate && match.kickoffTime ? `${match.matchDate}T${match.kickoffTime}` : ''),
+        endsAt: kickoffTimeTbc ? '' : invitationGroup?.eventEnd || '',
         eventStatus: match.status,
         type: 'match-day',
         title: getMatchDayDisplayName(match),
-        description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
+        description: [!kickoffTimeTbc && match.arrivalTime ? `Meet ${match.arrivalTime}` : '', kickoffLabel ? `Kick-off ${kickoffLabel}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
         location: getMatchCalendarLocation(match),
         teamName: match.teamName || invitationGroup?.teamName || '',
         childName: invitationGroup?.childName || childName || 'Linked child',
@@ -2461,9 +2453,10 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
   const attendanceInvitations = invitations.filter((invitation) => invitation.invitationType !== 'match_role')
   const roleInvitations = invitations.filter((invitation) => invitation.invitationType === 'match_role')
   const isMatch = event.sourceType === 'parent-match-day'
+  const kickoffTimeTbc = isMatch && isFixtureKickoffTimeTbc(data.kickoffTimeTbc)
   const calendarUrl = buildParentMatchDayCalendarUrl(event)
-  const startLabel = event.time || data.kickoffTime || ''
-  const meetLabel = data.arrivalTime ? `Meet time: ${data.arrivalTime}` : ''
+  const startLabel = kickoffTimeTbc ? 'TBC' : event.time || data.kickoffTime || ''
+  const meetLabel = !kickoffTimeTbc && data.arrivalTime ? `Meet time: ${data.arrivalTime}` : ''
   const typeLabel = isMatch
     ? 'Match day'
     : event.type === 'training'

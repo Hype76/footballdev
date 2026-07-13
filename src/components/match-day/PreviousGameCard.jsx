@@ -1,7 +1,12 @@
 import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../lib/matchday-display.js'
 import { getParentResultDateForDisplay } from '../../lib/parent-results-order.js'
+import { formatFixtureDateTime, isFixtureKickoffTimeTbc } from '../../lib/calendar-datetime-integrity.js'
 
 function formatPreviousMatchDate(match) {
+  if (isFixtureKickoffTimeTbc(match.kickoffTimeTbc)) {
+    return formatFixtureDateTime(match)
+  }
+
   const resolvedDate = getParentResultDateForDisplay(match)
 
   if (!resolvedDate) {
