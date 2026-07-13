@@ -24,6 +24,7 @@ export function ParentPortalSectionNav({
   className = '',
   counts = {},
   onSelect,
+  showAccountActions = true,
   user,
   variant = 'desktop',
 }) {
@@ -91,20 +92,30 @@ export function ParentPortalSectionNav({
           })}
         </div>
       </nav>
-      <div className={variant === 'mobile' ? 'mt-1 border-t border-[#d7e5dc] pt-1.5' : 'mt-3 shrink-0 border-t border-[#d7e5dc] pt-3'}>
-        <ParentPortalSignOutAction variant={variant} />
-      </div>
+      {showAccountActions ? (
+        <div className={variant === 'mobile' ? 'mt-1 border-t border-[#d7e5dc] pt-1.5' : 'mt-3 shrink-0 border-t border-[#d7e5dc] pt-3'}>
+          <ParentPortalAccountActions variant={variant} />
+        </div>
+      ) : null}
     </div>
   )
 }
 
-function ParentPortalSignOutAction({ variant = 'desktop' }) {
-  const { selectAccessMode, session, signOut, user } = useAuth()
-  const [isSigningOut, setIsSigningOut] = useState(false)
+export function ParentPortalAccountActions({
+  isSigningOut: externalIsSigningOut = false,
+  onSignOut,
+  variant = 'desktop',
+}) {
+  const { accessModeOptions, isProfileLoading, selectAccessMode, session, signOut, user } = useAuth()
+  const [internalIsSigningOut, setInternalIsSigningOut] = useState(false)
   const [isOpeningTeam, setIsOpeningTeam] = useState(false)
   const [switchError, setSwitchError] = useState('')
-  const accessModeOptions = Array.isArray(user?.accessModeOptions) ? user.accessModeOptions : []
-  const canOpenTeamWorkspace = accessModeOptions.some((option) => option?.id === 'team')
+  const isSigningOut = externalIsSigningOut || internalIsSigningOut
+  const resolvedAccessModeOptions = [
+    ...(Array.isArray(accessModeOptions) ? accessModeOptions : []),
+    ...(Array.isArray(user?.accessModeOptions) ? user.accessModeOptions : []),
+  ]
+  const canOpenTeamWorkspace = resolvedAccessModeOptions.some((option) => option?.id === 'team')
   const buttonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#f2b8b5] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff4f3] disabled:cursor-not-allowed disabled:opacity-60',
     variant === 'mobile' ? 'min-h-9 px-3 py-2 text-xs' : '',
@@ -129,25 +140,36 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
   }
 
   const handleSignOut = async () => {
-    setIsSigningOut(true)
+    if (!onSignOut) {
+      setInternalIsSigningOut(true)
+    }
 
     try {
-      await signOut()
-      rememberParentAccessIntent()
-      window.location.assign(buildMainAppUrl('/sign-in?tab=parent'))
+      if (onSignOut) {
+        await onSignOut()
+      } else {
+        await signOut()
+        rememberParentAccessIntent()
+        window.location.assign(buildMainAppUrl('/sign-in?tab=parent'))
+      }
     } catch (error) {
       console.error(error)
-      setIsSigningOut(false)
+      setInternalIsSigningOut(false)
     }
   }
 
   return (
-    <div className={variant === 'mobile' && canOpenTeamWorkspace ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}>
+    <div className="grid gap-2" aria-label="Parent account actions">
+      {isProfileLoading && !canOpenTeamWorkspace ? (
+        <p aria-live="polite" className="text-center text-xs font-bold text-[#4b5f55]">
+          Checking staff access...
+        </p>
+      ) : null}
       {canOpenTeamWorkspace ? (
         <button
           type="button"
           onClick={handleOpenTeamWorkspace}
-          disabled={isOpeningTeam || isSigningOut}
+          disabled={isOpeningTeam || isSigningOut || isProfileLoading}
           aria-label="Switch to Staff Platform"
           className={switchButtonClass}
         >
@@ -164,7 +186,7 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
         {isSigningOut ? 'Signing out...' : 'Sign out'}
       </button>
       {switchError ? (
-        <p role="alert" className={variant === 'mobile' ? 'col-span-2 text-xs font-bold text-[#b42318]' : 'text-sm font-bold text-[#b42318]'}>
+        <p role="alert" className={variant === 'mobile' ? 'text-xs font-bold text-[#b42318]' : 'text-sm font-bold text-[#b42318]'}>
           {switchError}
         </p>
       ) : null}

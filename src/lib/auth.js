@@ -585,7 +585,11 @@ function RuntimeAuthProvider({ children }) {
         }
 
         setClubOptions(profile.clubOptions ?? [])
-        setAccessModeOptions([])
+        setAccessModeOptions(
+          isParentPortalUser(profileWithDemoPreview)
+            ? buildAccessModeOptions(profileWithDemoPreview.accessModeOptions, hasPlatformAccess)
+            : [],
+        )
         setUser((currentUser) =>
           areUsersEquivalent(currentUser, profileWithDemoPreview) ? currentUser : profileWithDemoPreview,
         )
@@ -811,7 +815,11 @@ function RuntimeAuthProvider({ children }) {
       }
 
       const profileWithTeam = profile?.role === 'parent_portal' ? profile : await applyTeamSelection(profile)
-      setAccessModeOptions([])
+      setAccessModeOptions(
+        nextAccessMode === 'parent'
+          ? buildAccessModeOptions(profileWithTeam?.accessModeOptions, hasPlatformAdminAccess)
+          : [],
+      )
       setClubOptions(profile.clubOptions ?? [])
       setUser(applyDemoRolePreview(profileWithTeam))
       setAccessRouteMismatch(null)

@@ -1,6 +1,7 @@
 import { createElement, useState } from 'react'
 import { isParentPortalHost } from './app-origins.js'
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
+import { canSwitchParentToStaff } from './staff-workspace-access.js'
 
 const FIXTURE_SESSION_KEY = 'auth-access-browser-fixture-email'
 const FIXTURE_ACCESS_MODE_KEY = 'selected-access-mode'
@@ -65,6 +66,12 @@ function makeBaseProfile(email, overrides = {}) {
     parentPortalLinks: [],
     ...overrides,
   }
+}
+
+function getProductionShapedStaffOptions(account) {
+  return canSwitchParentToStaff(account?.staffAccessData)
+    ? [{ id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' }]
+    : []
 }
 
 const fixtureAccounts = {
@@ -174,6 +181,21 @@ const fixtureAccounts = {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: true,
     defaultMode: 'platform_admin',
+    staffAccessData: {
+      profile: {
+        id: 'staff-profile-fixture',
+        status: 'active',
+      },
+      memberships: [
+        {
+          auth_user_id: 'auth-multi.fixture@footballplayer.test',
+          club_id: 'club-fixture',
+          club_status: 'active',
+          role: 'admin',
+          role_rank: 90,
+        },
+      ],
+    },
     platformProfile: makeBaseProfile('multi.fixture@footballplayer.test', {
       name: 'Multi Fixture',
       role: 'super_admin',
@@ -207,9 +229,6 @@ const fixtureAccounts = {
       activeTeamId: '',
       activeTeamName: '',
       parentPortalLinks,
-      accessModeOptions: [
-        { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
-      ],
     }),
   },
   'teamless.fixture@footballplayer.test': {
@@ -258,7 +277,16 @@ function getProfileForMode(account, mode, selectedTeamId = '') {
   }
 
   if (mode === 'parent') {
-    return account.parentProfileUnavailable ? null : account.parentProfile || null
+    if (account.parentProfileUnavailable || !account.parentProfile) {
+      return null
+    }
+
+    return {
+      ...account.parentProfile,
+      accessModeOptions: account.staffAccessData
+        ? getProductionShapedStaffOptions(account)
+        : (account.parentProfile.accessModeOptions ?? []),
+    }
   }
 
   if (mode === 'team' && account.teamProfile) {

@@ -104,6 +104,7 @@ export function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
     String(leftUser.themeButtonStyle ?? '') === String(rightUser.themeButtonStyle ?? '') &&
     String(leftUser.activeTeamId ?? '') === String(rightUser.activeTeamId ?? '') &&
-    String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '')
+    String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '') &&
+    JSON.stringify(leftUser.accessModeOptions ?? []) === JSON.stringify(rightUser.accessModeOptions ?? [])
   )
 }

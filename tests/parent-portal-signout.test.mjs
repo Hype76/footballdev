@@ -16,8 +16,9 @@ test('parent portal renders visible sign out actions in the main header and sett
 
   assert.match(source, /function ParentPortalSignOutButton/)
   assert.match(source, /'Sign out'/)
-  assert.match(childSelectorSection, /<ParentPortalSignOutButton/)
-  assert.match(childSelectorSection, /className="mt-4 w-full"/)
+  assert.match(childSelectorSection, /<ParentPortalAccountActions/)
+  assert.match(childSelectorSection, /isSigningOut=\{isSigningOut\}/)
+  assert.match(childSelectorSection, /onSignOut=\{onSignOut\}/)
   assert.match(settingsSection, /<ParentPortalSignOutButton/)
   assert.match(settingsSection, /className="w-full sm:w-auto"/)
 })

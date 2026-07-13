@@ -22,13 +22,13 @@ test('parent child selector labels include child name and team name', async () =
   assert.match(selectorSection, /\{formatParentChildTeamLabel\(link\)\}/)
 })
 
-test('parent child context removes duplicate other linked children list and keeps sign out', async () => {
+test('parent child context removes duplicate other linked children list and keeps shared account actions', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
   const selectorStart = source.indexOf('function ParentChildSelector')
   const selectorEnd = source.indexOf('function PushNotificationPanel', selectorStart)
   const selectorSection = source.slice(selectorStart, selectorEnd)
 
-  assert.match(selectorSection, /<ParentPortalSignOutButton/)
+  assert.match(selectorSection, /<ParentPortalAccountActions/)
   assert.match(selectorSection, /Team: \{selectedLink\.teamName \|\| 'No team assigned'\}/)
   assert.match(selectorSection, /Club: \{selectedLink\.clubName \|\| 'No club assigned'\}/)
   assert.doesNotMatch(selectorSection, /Other linked children/)

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
-import { ParentPortalSectionNav } from '../components/parent-portal/ParentPortalShell.jsx'
+import {
+  ParentPortalAccountActions,
+  ParentPortalSectionNav,
+} from '../components/parent-portal/ParentPortalShell.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -1128,6 +1131,7 @@ export function ParentPortalPage() {
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
           counts={parentNavCounts}
           onSelect={handleSectionSelect}
+          showAccountActions={false}
           user={user}
           variant="desktop"
         />
@@ -1234,6 +1238,7 @@ export function ParentPortalPage() {
         className="lg:hidden"
         counts={parentNavCounts}
         onSelect={handleSectionSelect}
+        showAccountActions={false}
         user={user}
         variant="mobile"
       />
@@ -2670,11 +2675,12 @@ function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, selecte
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Child being viewed</p>
         <p className="mt-2 text-lg font-black text-[#101828]">No linked child yet</p>
         <p className={`mt-2 ${bodyTextClass}`}>{noChildMessage}</p>
-        <ParentPortalSignOutButton
-          className="mt-4 w-full"
-          isSigningOut={isSigningOut}
-          onSignOut={onSignOut}
-        />
+        <div className="mt-4 border-t border-[#d7e5dc] pt-4">
+          <ParentPortalAccountActions
+            isSigningOut={isSigningOut}
+            onSignOut={onSignOut}
+          />
+        </div>
       </div>
     )
   }
@@ -2702,11 +2708,12 @@ function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, selecte
       <p className={`mt-3 ${bodyTextClass}`}>
         You are only viewing information the club has shared for this child.
       </p>
-      <ParentPortalSignOutButton
-        className="mt-4 w-full"
-        isSigningOut={isSigningOut}
-        onSignOut={onSignOut}
-      />
+      <div className="mt-4 border-t border-[#d7e5dc] pt-4">
+        <ParentPortalAccountActions
+          isSigningOut={isSigningOut}
+          onSignOut={onSignOut}
+        />
+      </div>
     </div>
   )
 }

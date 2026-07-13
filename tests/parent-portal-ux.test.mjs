@@ -171,9 +171,9 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
     readFile(friendsFamilyPageUrl, 'utf8'),
   ])
 
-  assert.match(shellSource, /function ParentPortalSignOutAction/)
-  assert.match(shellSource, /const \{ selectAccessMode, session, signOut, user \} = useAuth\(\)/)
-  assert.match(shellSource, /const canOpenTeamWorkspace = accessModeOptions\.some/)
+  assert.match(shellSource, /function ParentPortalAccountActions/)
+  assert.match(shellSource, /accessModeOptions, isProfileLoading, selectAccessMode, session, signOut, user/)
+  assert.match(shellSource, /const canOpenTeamWorkspace = resolvedAccessModeOptions\.some/)
   assert.match(shellSource, /await selectAccessMode\('team', \{ deferCommit: true \}\)/)
   assert.match(shellSource, /TEAM_WORKSPACE_HOME_PATH/)
   assert.match(shellSource, /switchToMainAppWorkspace\(\{ session, targetPath: TEAM_WORKSPACE_HOME_PATH \}\)/)
@@ -188,6 +188,8 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
   assert.match(shellSource, /mt-1 border-t/)
   assert.match(shellSource, /grid min-h-0 gap-2 overflow-y-auto overscroll-contain/)
   assert.match(shellSource, /fixed inset-x-0 bottom-0 z-\[60\]/)
+  assert.match(source, /<ParentPortalAccountActions/)
+  assert.match(source, /showAccountActions=\{false\}/)
   assert.match(source, /pb-28/)
   assert.match(source, /activeSection === 'settings'/)
   assert.match(messagesSource, /<ParentPortalRouteShell activeSection="messages"/)

@@ -55,6 +55,7 @@ import {
   SYSTEM_ROLE_OPTIONS,
 } from './core-defaults.js'
 import {
+  buildLegacyStaffMembershipFromProfile,
   canSwitchParentToStaff,
   getActiveStaffMemberships,
 } from '../staff-workspace-access.js'
@@ -571,6 +572,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     const parentLinks = isDemoAuthUser ? [] : await getParentPortalMemberships(authUser)
     const hasParentAccess = parentLinks.length > 0
     let loadedMemberships = null
+    let loadedAuthoritativeStaffMemberships = null
     const loadMemberships = async () => {
       if (loadedMemberships === null) {
         loadedMemberships = isDemoAuthUser ? [] : await getUserClubMemberships(authUser)
@@ -578,8 +580,35 @@ export async function fetchUserProfile(authUser, options = {}) {
 
       return loadedMemberships
     }
-    const loadStaffMemberships = async () => {
+    const loadAuthoritativeStaffMemberships = async () => {
+      if (loadedAuthoritativeStaffMemberships !== null) {
+        return loadedAuthoritativeStaffMemberships
+      }
+
       const memberships = await loadMemberships()
+
+      if (getActiveStaffMemberships(memberships).length > 0 || !data?.club_id) {
+        loadedAuthoritativeStaffMemberships = memberships
+        return loadedAuthoritativeStaffMemberships
+      }
+
+      try {
+        const club = await fetchClubDetails(data.club_id)
+        const legacyMembership = buildLegacyStaffMembershipFromProfile({ club, profile: data })
+        loadedAuthoritativeStaffMemberships = legacyMembership
+          ? [...memberships, legacyMembership]
+          : memberships
+      } catch (error) {
+        console.error('Staff workspace eligibility could not be resolved from the legacy profile.', error)
+        loadedAuthoritativeStaffMemberships = memberships
+      }
+
+      return loadedAuthoritativeStaffMemberships
+    }
+    const loadStaffMemberships = async () => {
+      const memberships = requireExistingStaffAccess
+        ? await loadAuthoritativeStaffMemberships()
+        : await loadMemberships()
       return requireExistingStaffAccess ? getActiveStaffMemberships(memberships) : memberships
     }
     const allowSignupClubProfileCompletion = shouldCompleteSignupClubProfile({
@@ -588,7 +617,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     })
 
     if (selectedAccessMode === 'team' && requireExistingStaffAccess) {
-      const memberships = await loadMemberships()
+      const memberships = await loadAuthoritativeStaffMemberships()
 
       if (!canSwitchParentToStaff({ profile: data, memberships })) {
         return {
@@ -604,7 +633,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     if (hasParentAccess && selectedAccessMode === 'parent') {
-      const memberships = await loadMemberships()
+      const memberships = await loadAuthoritativeStaffMemberships()
       const hasPlatformAccess = data?.role === 'super_admin'
       const hasTeamAccess = canSwitchParentToStaff({ profile: data, memberships })
 
