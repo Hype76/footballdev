@@ -41,6 +41,7 @@ import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHA
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import { getMatchCalendarLocation, getMatchVenueDisplay } from '../lib/match-location.js'
+import { sortParentResultsNewestFirst } from '../lib/parent-results-order.js'
 import { getMatchTimerMinute } from '../lib/matchday-timer.js'
 import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
 import {
@@ -461,7 +462,10 @@ export function ParentPortalPage() {
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
   const activeMatches = useMemo(() => matches.filter((match) => !isPreviousMatch(match)), [matches])
-  const previousMatches = useMemo(() => matches.filter(isPreviousMatch), [matches])
+  const previousMatches = useMemo(
+    () => sortParentResultsNewestFirst(matches.filter(isPreviousMatch)),
+    [matches],
+  )
   const invitationEvents = useMemo(() => groupParentInvitationsByEvent(parentInvitations), [parentInvitations])
   const parentCalendarEvents = useMemo(
     () => buildParentCalendarEvents({
@@ -1199,6 +1203,7 @@ export function ParentPortalPage() {
 
           {activeSection === 'results' ? (
             <ParentResultsPanel
+              isLoading={isLoadingMatches}
               previousMatches={previousMatches}
               onOpen={setSelectedPreviousMatch}
             />
@@ -2297,7 +2302,7 @@ function ParentMatchCardsPanel({
   )
 }
 
-function ParentResultsPanel({ onOpen, previousMatches }) {
+function ParentResultsPanel({ isLoading, onOpen, previousMatches }) {
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -2308,7 +2313,9 @@ function ParentResultsPanel({ onOpen, previousMatches }) {
         <p className="text-sm font-black text-[#4b5f55]">{previousMatches.length} complete</p>
       </div>
 
-      {previousMatches.length > 0 ? (
+      {isLoading ? (
+        <p className={`mt-4 ${emptyClass}`}>Loading results...</p>
+      ) : previousMatches.length > 0 ? (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {previousMatches.map((match) => (
             <PreviousGameCard key={match.id} match={match} onOpen={onOpen} />

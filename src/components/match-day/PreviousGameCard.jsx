@@ -1,22 +1,29 @@
 import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../lib/matchday-display.js'
+import { getParentResultDateForDisplay } from '../../lib/parent-results-order.js'
 
 function formatPreviousMatchDate(match) {
-  if (!match.matchDate) {
+  const resolvedDate = getParentResultDateForDisplay(match)
+
+  if (!resolvedDate) {
+    if (match.matchDate) {
+      return match.matchDate
+    }
+
     return 'Date not set'
   }
 
-  const date = new Date(`${match.matchDate}T${match.kickoffTime || '00:00'}`)
+  const date = new Date(resolvedDate.value)
 
   if (Number.isNaN(date.getTime())) {
-    return match.matchDate
+    return match.matchDate || resolvedDate.value
   }
 
   return date.toLocaleString([], {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
-    hour: match.kickoffTime ? '2-digit' : undefined,
-    minute: match.kickoffTime ? '2-digit' : undefined,
+    hour: resolvedDate.hasTime ? '2-digit' : undefined,
+    minute: resolvedDate.hasTime ? '2-digit' : undefined,
   })
 }
 function getGoalEvents(match) {
