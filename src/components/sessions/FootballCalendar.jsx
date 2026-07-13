@@ -111,7 +111,7 @@ function getMonthGrid(cursor) {
   })
 }
 
-function getEventTone(type) {
+function getEventTypeTone(type) {
   const tones = {
     'club-event': 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828]',
     match: 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]',
@@ -123,6 +123,92 @@ function getEventTone(type) {
   }
 
   return tones[type] || tones.training
+}
+
+const calendarVisualToneStyles = {
+  accepted: {
+    surface: 'border-[#86efac] bg-[#f0fdf4] text-[#166534]',
+    badge: 'border-[#86efac] bg-white text-[#166534]',
+    dot: 'bg-[#16a34a]',
+  },
+  declined: {
+    surface: 'border-[#fca5a5] bg-[#fef2f2] text-[#991b1b]',
+    badge: 'border-[#fca5a5] bg-white text-[#991b1b]',
+    dot: 'bg-[#dc2626]',
+  },
+  action_required: {
+    surface: 'border-[#fcd34d] bg-[#fffbeb] text-[#92400e]',
+    badge: 'border-[#fcd34d] bg-white text-[#92400e]',
+    dot: 'bg-[#d97706]',
+  },
+  informational: {
+    surface: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]',
+    badge: 'border-[#bfdbfe] bg-white text-[#1d4ed8]',
+    dot: 'bg-[#2563eb]',
+  },
+  past: {
+    surface: 'border-[#cbd5e1] bg-[#f8fafc] text-[#64748b]',
+    badge: 'border-[#cbd5e1] bg-white text-[#64748b]',
+    dot: 'bg-[#94a3b8]',
+  },
+  cancelled_or_postponed: {
+    surface: 'border-dashed border-[#94a3b8] bg-[#f1f5f9] text-[#475569]',
+    badge: 'border-dashed border-[#94a3b8] bg-white text-[#475569]',
+    dot: 'bg-[#64748b]',
+  },
+}
+
+const calendarStatusLegend = [
+  { state: 'action_required', label: 'Response needed' },
+  { state: 'accepted', label: 'Accepted or confirmed' },
+  { state: 'declined', label: 'Declined or unavailable' },
+  { state: 'informational', label: 'Information' },
+  { state: 'past', label: 'Past' },
+  { state: 'cancelled_or_postponed', label: 'Cancelled or postponed' },
+]
+
+function getCalendarVisualStyle(event) {
+  const state = String(event?.calendarVisualState?.state ?? '').trim()
+  return calendarVisualToneStyles[state] || null
+}
+
+function getEventTone(event) {
+  return getCalendarVisualStyle(event)?.surface || getEventTypeTone(event?.type)
+}
+
+function getEventStatusLabel(event) {
+  return String(event?.calendarVisualState?.label ?? '').trim()
+}
+
+function getEventAccessibleName(event) {
+  return [
+    event?.title,
+    event?.childName ? `Child: ${event.childName}` : '',
+    event?.date,
+    event?.time ? `Time: ${event.time}` : '',
+    getEventContextLabel(event),
+    getEventStatusLabel(event) ? `Status: ${getEventStatusLabel(event)}` : '',
+  ].filter(Boolean).join(', ')
+}
+
+function CalendarEventStatusCue({ compact = false, event }) {
+  const style = getCalendarVisualStyle(event)
+  const label = getEventStatusLabel(event)
+
+  if (!style || !label) {
+    return null
+  }
+
+  return (
+    <span
+      className={`inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[0.58rem] font-black leading-3 sm:px-2 sm:text-[0.65rem] ${style.badge}`}
+      title={`Status: ${label}`}
+    >
+      <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} />
+      <span className={compact ? 'hidden truncate sm:inline' : 'truncate'}>{label}</span>
+      {compact ? <span className="sr-only sm:hidden">{label}</span> : null}
+    </span>
+  )
 }
 
 function getEventScopeLabel(event) {
@@ -185,6 +271,7 @@ export function FootballCalendar({
   const agendaGroups = groupAgendaEvents(events)
   const agendaEvents = agendaGroups.flatMap((group) => group.events)
   const todayKey = getDateKey(new Date())
+  const showStatusKey = events.some((event) => getCalendarVisualStyle(event))
 
   const moveCursor = (offset) => {
     const nextDate = new Date(cursor)
@@ -249,6 +336,20 @@ export function FootballCalendar({
         </div>
       </div>
 
+      {showStatusKey ? (
+        <div aria-label="Calendar status key" className="mt-4 flex flex-wrap gap-2" role="list">
+          {calendarStatusLegend.map((item) => {
+            const style = calendarVisualToneStyles[item.state]
+            return (
+              <span key={item.state} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[0.65rem] font-black ${style.badge}`} role="listitem">
+                <span aria-hidden="true" className={`h-2 w-2 rounded-full ${style.dot}`} />
+                {item.label}
+              </span>
+            )
+          })}
+        </div>
+      ) : null}
+
       {isLoading ? (
         <p className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-bold text-[#4b5f55]">
           Loading calendar activity...
@@ -303,16 +404,20 @@ export function FootballCalendar({
                         key={event.id}
                         type="button"
                         onClick={() => onOpenEvent(event)}
-                        title={event.title}
-                        className={`block w-full truncate rounded-md border px-1 py-0.5 text-left text-[0.62rem] font-black leading-3 sm:px-2 sm:py-1 sm:text-xs sm:leading-4 ${getEventTone(event.type)}`}
+                        aria-label={getEventAccessibleName(event)}
+                        title={getEventAccessibleName(event)}
+                        className={`block w-full overflow-hidden rounded-md border px-1 py-0.5 text-left text-[0.62rem] font-black leading-3 sm:px-2 sm:py-1 sm:text-xs sm:leading-4 ${getEventTone(event)}`}
                       >
-                        <span>{event.title}</span>
+                        <span className="block truncate">{event.title}</span>
                         {getEventScopeLabel(event) ? <span className="ml-1 opacity-80">Club-wide</span> : null}
                         {getEventContextLabel(event) ? (
                           <span className="block truncate text-[0.55rem] font-semibold opacity-80 sm:text-[0.65rem]">
                             {getEventContextLabel(event)}
                           </span>
                         ) : null}
+                        <span className="mt-1 block">
+                          <CalendarEventStatusCue compact event={event} />
+                        </span>
                       </button>
                     ))}
                     {dayEvents.length > 3 ? (
@@ -367,12 +472,17 @@ export function FootballCalendar({
                         key={event.id}
                         type="button"
                         onClick={() => onOpenEvent(event)}
-                        className={`block min-h-11 w-full rounded-md border px-3 py-2 text-left text-sm font-black leading-5 ${getEventTone(event.type)}`}
+                        aria-label={getEventAccessibleName(event)}
+                        title={getEventAccessibleName(event)}
+                        className={`block min-h-11 w-full rounded-md border px-3 py-2 text-left text-sm font-black leading-5 ${getEventTone(event)}`}
                       >
                         <span className="block">{event.title}</span>
                         {getEventContextLabel(event) ? <span className="mt-1 block text-xs font-semibold opacity-80">{getEventContextLabel(event)}</span> : null}
                         {getEventScopeLabel(event) ? <span className="mt-1 block text-xs font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block text-xs font-semibold opacity-80">{event.time}</span> : null}
+                        <span className="mt-2 block">
+                          <CalendarEventStatusCue event={event} />
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -416,12 +526,17 @@ export function FootballCalendar({
                         key={event.id}
                         type="button"
                         onClick={() => onOpenEvent(event)}
-                        className={`block w-full rounded-md border px-3 py-2 text-left text-xs font-black leading-4 ${getEventTone(event.type)}`}
+                        aria-label={getEventAccessibleName(event)}
+                        title={getEventAccessibleName(event)}
+                        className={`block w-full rounded-md border px-3 py-2 text-left text-xs font-black leading-4 ${getEventTone(event)}`}
                       >
                         <span className="block">{event.title}</span>
                         {getEventContextLabel(event) ? <span className="mt-1 block font-semibold opacity-80">{getEventContextLabel(event)}</span> : null}
                         {getEventScopeLabel(event) ? <span className="mt-1 block font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block font-semibold opacity-80">{event.time}</span> : null}
+                        <span className="mt-2 block">
+                          <CalendarEventStatusCue event={event} />
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -445,17 +560,22 @@ export function FootballCalendar({
                       key={event.id}
                       type="button"
                       onClick={() => onOpenEvent(event)}
-                      className="block w-full px-4 py-4 text-left transition hover:bg-[#f7faf8]"
+                      aria-label={getEventAccessibleName(event)}
+                      title={getEventAccessibleName(event)}
+                      className={`block w-full px-4 py-4 text-left transition hover:brightness-[0.98] ${getCalendarVisualStyle(event) ? `border-l-4 ${getCalendarVisualStyle(event).surface}` : 'hover:bg-[#f7faf8]'}`}
                     >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
-                          <span className={`inline-flex w-fit rounded-md border px-2 py-1 text-xs font-black ${getEventTone(event.type)}`}>
+                          <span className={`inline-flex w-fit rounded-md border px-2 py-1 text-xs font-black ${getEventTypeTone(event.type)}`}>
                             {event.type === 'match-day' ? 'Match day' : event.type === 'club-event' ? 'Club event' : event.type}
                           </span>
                           <p className="mt-2 text-base font-black text-[#101828]">{event.title}</p>
                           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
                             {[event.time ? `Time: ${event.time}` : '', getEventContextLabel(event), event.location, event.teamName ? `Team: ${event.teamName}` : '', getEventScopeLabel(event)].filter(Boolean).join(', ') || 'Details will appear when the club shares them.'}
                           </p>
+                          <span className="mt-2 block">
+                            <CalendarEventStatusCue event={event} />
+                          </span>
                         </div>
                         <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">Open</span>
                       </div>
@@ -502,7 +622,9 @@ export function FootballCalendar({
                     setExpandedDay(null)
                     onOpenEvent(event)
                   }}
-                  className={`block w-full rounded-lg border px-4 py-3 text-left text-sm font-black leading-5 ${getEventTone(event.type)}`}
+                  aria-label={getEventAccessibleName(event)}
+                  title={getEventAccessibleName(event)}
+                  className={`block w-full rounded-lg border px-4 py-3 text-left text-sm font-black leading-5 ${getEventTone(event)}`}
                 >
                   <span className="flex flex-wrap items-center gap-2">
                     {event.time ? <span>{event.time}</span> : null}
@@ -523,6 +645,9 @@ export function FootballCalendar({
                       {event.location || event.description}
                     </span>
                   ) : null}
+                  <span className="mt-2 block">
+                    <CalendarEventStatusCue event={event} />
+                  </span>
                 </button>
               ))}
             </div>

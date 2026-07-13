@@ -11,6 +11,22 @@ const ROLE_RESPONSE_OPTIONS = [
   { value: 'no', label: 'Decline offer' },
 ]
 
+const ACTION_REQUIRED_RESPONSES = new Set(['awaiting_response', 'no_response'])
+const ACCEPTED_RESPONSES = new Set(['accepted', 'available', 'yes'])
+const DECLINED_RESPONSES = new Set(['declined', 'unavailable', 'no'])
+const CLOSED_INVITATION_STATES = new Set(['cancelled', 'closed', 'expired', 'withdrawn'])
+const CLOSED_EVENT_STATES = new Set(['cancelled', 'postponed', 'full_time', 'concluded', 'closed'])
+const COMPLETED_EVENT_STATES = new Set(['full_time', 'concluded'])
+
+export const PARENT_CALENDAR_VISUAL_STATES = Object.freeze({
+  accepted: 'accepted',
+  declined: 'declined',
+  actionRequired: 'action_required',
+  informational: 'informational',
+  past: 'past',
+  cancelledOrPostponed: 'cancelled_or_postponed',
+})
+
 function normalizeText(value) {
   return String(value ?? '').trim()
 }
@@ -157,6 +173,170 @@ export function getParentInvitationCategory(invitation = {}) {
   }
 
   return 'information'
+}
+
+function parseTimestamp(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.getTime()
+  }
+
+  const normalizedValue = normalizeText(value)
+  if (!normalizedValue) {
+    return null
+  }
+
+  const parsedDate = new Date(normalizedValue)
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.getTime()
+}
+
+function getEventEndTimestamp(event = {}) {
+  const explicitEnd = parseTimestamp(event.eventEnd ?? event.endsAt ?? event.end)
+  if (explicitEnd !== null) {
+    return explicitEnd
+  }
+
+  const dateOnly = normalizeText(event.eventDate ?? event.date)
+  const dateMatch = dateOnly.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (dateMatch) {
+    return parseTimestamp(`${dateMatch[1]}T23:59:59.999`)
+  }
+
+  const start = parseTimestamp(event.eventStart ?? event.startsAt ?? event.start)
+  if (start === null) {
+    return null
+  }
+
+  const startDate = new Date(start)
+  startDate.setHours(23, 59, 59, 999)
+  return startDate.getTime()
+}
+
+function getUnderlyingCalendarState(invitations = []) {
+  const normalizedInvitations = Array.isArray(invitations) ? invitations : []
+  const actionableInvitations = normalizedInvitations.filter((invitation) =>
+    invitation.canRespond === true && ACTION_REQUIRED_RESPONSES.has(invitation.responseState))
+
+  // Future priority: action required, declined, confirmed, accepted, then information.
+  if (actionableInvitations.length > 0) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.actionRequired,
+      label: actionableInvitations.length > 1 ? `${actionableInvitations.length} responses needed` : 'Response needed',
+      actionCount: actionableInvitations.length,
+    }
+  }
+
+  if (normalizedInvitations.some((invitation) => DECLINED_RESPONSES.has(invitation.responseState))) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.declined,
+      label: 'Declined',
+      actionCount: 0,
+    }
+  }
+
+  if (normalizedInvitations.some((invitation) => invitation.selectionState === 'selected')) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.accepted,
+      label: 'Confirmed',
+      actionCount: 0,
+    }
+  }
+
+  if (normalizedInvitations.some((invitation) => ACCEPTED_RESPONSES.has(invitation.responseState))) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.accepted,
+      label: 'Accepted',
+      actionCount: 0,
+    }
+  }
+
+  if (normalizedInvitations.some((invitation) => invitation.responseState === 'maybe')) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.informational,
+      label: 'Maybe',
+      actionCount: 0,
+    }
+  }
+
+  if (normalizedInvitations.some((invitation) => invitation.selectionState === 'selected_elsewhere')) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.informational,
+      label: 'Not selected',
+      actionCount: 0,
+    }
+  }
+
+  if (normalizedInvitations.some((invitation) => CLOSED_INVITATION_STATES.has(invitation.invitationState))) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.informational,
+      label: 'Closed',
+      actionCount: 0,
+    }
+  }
+
+  return {
+    state: PARENT_CALENDAR_VISUAL_STATES.informational,
+    label: 'Information',
+    actionCount: 0,
+  }
+}
+
+export function getParentCalendarVisualState(event = {}, options = {}) {
+  const invitations = Array.isArray(event.invitations) ? event.invitations : []
+  const underlyingState = getUnderlyingCalendarState(invitations)
+  const eventStatus = normalizeText(event.eventStatus ?? event.status).toLowerCase()
+  const invitationCancelled = invitations.length > 0 && invitations.every((invitation) => invitation.invitationState === 'cancelled')
+  const cancelled = Boolean(event.cancelledAt) || eventStatus === 'cancelled' || invitationCancelled
+  const postponed = eventStatus === 'postponed'
+  const now = parseTimestamp(options.now) ?? Date.now()
+  const eventEnd = getEventEndTimestamp(event)
+  const isPast = COMPLETED_EVENT_STATES.has(eventStatus) || (eventEnd !== null && eventEnd < now)
+
+  if (isPast) {
+    const historicalLabel = cancelled
+      ? 'Cancelled'
+      : postponed
+        ? 'Postponed'
+        : underlyingState.label
+
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.past,
+      label: historicalLabel === 'Information' ? 'Past' : `Past, ${historicalLabel}`,
+      historicalLabel,
+      actionCount: 0,
+      isPast: true,
+      isActionable: false,
+    }
+  }
+
+  if (cancelled || postponed) {
+    const label = postponed ? 'Postponed' : 'Cancelled'
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.cancelledOrPostponed,
+      label,
+      historicalLabel: label,
+      actionCount: 0,
+      isPast: false,
+      isActionable: false,
+    }
+  }
+
+  if (CLOSED_EVENT_STATES.has(eventStatus)) {
+    return {
+      state: PARENT_CALENDAR_VISUAL_STATES.informational,
+      label: underlyingState.label === 'Information' ? 'Closed' : underlyingState.label,
+      historicalLabel: underlyingState.label,
+      actionCount: 0,
+      isPast: false,
+      isActionable: false,
+    }
+  }
+
+  return {
+    ...underlyingState,
+    historicalLabel: underlyingState.label,
+    isPast: false,
+    isActionable: underlyingState.state === PARENT_CALENDAR_VISUAL_STATES.actionRequired,
+  }
 }
 
 export function getParentInvitationResponseOptions(invitation = {}) {

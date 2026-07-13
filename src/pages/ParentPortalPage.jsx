@@ -19,6 +19,7 @@ import {
   addMatchDayGoalAsScorer,
   correctMatchDayGoalAsScorer,
   expressMatchDayScorerInterest,
+  getParentCalendarVisualState,
   getParentInvitationCategory,
   getParentInvitationResponseOptions,
   getParentInvitationStatus,
@@ -1701,6 +1702,10 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
         sourceType: 'parent-calendar-event',
         date: toDateOnly(event.startsAt),
         time: toTimeOnly(event.startsAt),
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        eventStatus: event.cancelledAt ? 'cancelled' : 'scheduled',
+        cancelledAt: event.cancelledAt,
         type: event.eventType === 'general' ? 'club-event' : event.eventType,
         title: event.title || 'Shared event',
         description: [event.location, event.notes].filter(Boolean).join(', '),
@@ -1724,6 +1729,8 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
       sourceType: 'parent-invitation-event',
       date: toDateOnly(group.eventStart),
       time: toTimeOnly(group.eventStart),
+      startsAt: group.eventStart,
+      endsAt: group.eventEnd,
       type: group.eventType === 'general' ? 'club-event' : group.eventType,
       title: group.eventTitle || 'Invited event',
       description: [group.eventLocation, group.teamName].filter(Boolean).join(', '),
@@ -1746,6 +1753,9 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
         sourceType: 'parent-match-day',
         date: match.matchDate || '',
         time: toTimeOnly(match.kickoffTime),
+        startsAt: invitationGroup?.eventStart || (match.matchDate ? `${match.matchDate}T${match.kickoffTime || '00:00'}` : ''),
+        endsAt: invitationGroup?.eventEnd || '',
+        eventStatus: match.status,
         type: 'match-day',
         title: getMatchDayDisplayName(match),
         description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
@@ -1764,11 +1774,16 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
     uniqueEvents.set(event.id, event)
   })
 
-  return Array.from(uniqueEvents.values()).sort((left, right) =>
-    left.date.localeCompare(right.date) ||
-    String(left.time || '').localeCompare(String(right.time || '')) ||
-    left.title.localeCompare(right.title),
-  )
+  return Array.from(uniqueEvents.values())
+    .map((event) => ({
+      ...event,
+      calendarVisualState: getParentCalendarVisualState(event),
+    }))
+    .sort((left, right) =>
+      left.date.localeCompare(right.date) ||
+      String(left.time || '').localeCompare(String(right.time || '')) ||
+      left.title.localeCompare(right.title),
+    )
 }
 
 function getMatchVolunteerRequestLabels(match = {}) {
