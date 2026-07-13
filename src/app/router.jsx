@@ -39,6 +39,7 @@ import {
 } from '../lib/parent-auth-intent.js'
 import { readLoginAccessIntent } from '../lib/login-access-intent.js'
 import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
+import { WorkspaceSessionBridge } from '../lib/workspace-session-bridge.jsx'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -1367,6 +1368,10 @@ function RequirePlatformAdminAccess() {
 }
 
 export const router = createBrowserRouter([
+  {
+    path: '/auth-session-bridge',
+    element: <WorkspaceSessionBridge />,
+  },
   {
     index: true,
     element: <PublicLandingOrWorkspaceHome />,

@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth.js'
 import { buildMainAppUrl } from '../../lib/app-origins.js'
 import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
+import { switchToMainAppWorkspace } from '../../lib/workspace-session-bridge.jsx'
 import { TEAM_WORKSPACE_HOME_PATH } from '../../lib/workspace-routes.js'
 
 const parentPortalSections = [
@@ -98,9 +99,10 @@ export function ParentPortalSectionNav({
 }
 
 function ParentPortalSignOutAction({ variant = 'desktop' }) {
-  const { selectAccessMode, signOut, user } = useAuth()
+  const { selectAccessMode, session, signOut, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isOpeningTeam, setIsOpeningTeam] = useState(false)
+  const [switchError, setSwitchError] = useState('')
   const accessModeOptions = Array.isArray(user?.accessModeOptions) ? user.accessModeOptions : []
   const canOpenTeamWorkspace = accessModeOptions.some((option) => option?.id === 'team')
   const buttonClass = [
@@ -114,12 +116,14 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
 
   const handleOpenTeamWorkspace = async () => {
     setIsOpeningTeam(true)
+    setSwitchError('')
 
     try {
-      await selectAccessMode('team')
-      window.location.assign(buildMainAppUrl(TEAM_WORKSPACE_HOME_PATH))
+      await selectAccessMode('team', { deferCommit: true })
+      await switchToMainAppWorkspace({ session, targetPath: TEAM_WORKSPACE_HOME_PATH })
     } catch (error) {
       console.error(error)
+      setSwitchError(error.message || 'Staff access could not be opened. Try again or ask a club admin to review this account.')
       setIsOpeningTeam(false)
     }
   }
@@ -144,10 +148,10 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
           type="button"
           onClick={handleOpenTeamWorkspace}
           disabled={isOpeningTeam || isSigningOut}
-          aria-label="Open team workspace"
+          aria-label="Switch to Staff Platform"
           className={switchButtonClass}
         >
-          {isOpeningTeam ? 'Opening...' : 'Open team workspace'}
+          {isOpeningTeam ? 'Opening...' : 'Switch to Staff Platform'}
         </button>
       ) : null}
       <button
@@ -159,6 +163,11 @@ function ParentPortalSignOutAction({ variant = 'desktop' }) {
       >
         {isSigningOut ? 'Signing out...' : 'Sign out'}
       </button>
+      {switchError ? (
+        <p role="alert" className={variant === 'mobile' ? 'col-span-2 text-xs font-bold text-[#b42318]' : 'text-sm font-bold text-[#b42318]'}>
+          {switchError}
+        </p>
+      ) : null}
     </div>
   )
 }

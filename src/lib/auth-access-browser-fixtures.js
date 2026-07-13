@@ -378,19 +378,24 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     setAuthError('')
   }
 
-  const selectAccessMode = async (nextMode) => {
+  const selectAccessMode = async (nextMode, options = {}) => {
     const normalizedMode = String(nextMode ?? '').trim()
 
     if (!['platform_admin', 'parent', 'team'].includes(normalizedMode)) {
       throw new Error('Choose parent, team, or platform admin access to continue.')
     }
 
-    window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_KEY, normalizedMode)
-    window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
-    if (normalizedMode !== 'team') {
-      window.sessionStorage.removeItem(FIXTURE_SELECTED_TEAM_KEY)
-      setSelectedTeamId('')
+    if (normalizedMode === 'team' && !getProfileForMode(account, 'team', selectedTeamId)) {
+      throw new Error('Staff access is no longer active. Ask a club admin to review this account.')
     }
+
+    if (options.deferCommit === true) {
+      return getProfileForMode(account, normalizedMode, selectedTeamId)
+    }
+
+    window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_KEY, normalizedMode)
+    window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_EXPLICIT_KEY, 'true')
+    window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
     setMode(normalizedMode)
     setAuthError('')
   }

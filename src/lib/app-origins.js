@@ -25,6 +25,11 @@ export function isParentInviteHost(hostname = globalThis.location?.hostname ?? '
 export function getMainAppOrigin() {
   const currentOrigin = cleanOrigin(globalThis.location?.origin)
   const currentHost = String(globalThis.location?.hostname ?? '').trim().toLowerCase()
+  const configuredOrigin = cleanOrigin(import.meta.env.VITE_APP_URL ?? import.meta.env.VITE_PUBLIC_APP_URL)
+
+  if (isAuthBrowserFixtureMode() && configuredOrigin) {
+    return configuredOrigin
+  }
 
   if (!currentOrigin || currentHost === 'localhost') {
     return PRODUCTION_APP_ORIGIN
@@ -37,8 +42,6 @@ export function getMainAppOrigin() {
   if (currentHost === 'footballplayer.online' || currentHost === LEGACY_PRODUCTION_APP_HOST) {
     return PRODUCTION_APP_ORIGIN
   }
-
-  const configuredOrigin = cleanOrigin(import.meta.env.VITE_APP_URL ?? import.meta.env.VITE_PUBLIC_APP_URL)
 
   if (configuredOrigin) {
     return configuredOrigin

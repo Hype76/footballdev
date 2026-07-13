@@ -55,6 +55,10 @@ import {
   SYSTEM_ROLE_OPTIONS,
 } from './core-defaults.js'
 import {
+  canSwitchParentToStaff,
+  getActiveStaffMemberships,
+} from '../staff-workspace-access.js'
+import {
   getDisplayName,
   getEntryIdentity,
   getEntryUserEmail,
@@ -343,7 +347,9 @@ function buildParentAccessModeOptions({ hasPlatformAccess = false, hasTeamAccess
 
   if (hasPlatformAccess) {
     options.push({ id: 'platform_admin', label: 'Platform Admin', meta: 'Open platform administration tools' })
-  } else if (hasTeamAccess) {
+  }
+
+  if (hasTeamAccess) {
     options.push({ id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' })
   }
 
@@ -534,10 +540,11 @@ export async function selectUserClub(authUser, clubId) {
 }
 
 export async function fetchUserProfile(authUser, options = {}) {
-  const selectedClubId = String(options.selectedClubId ?? '').trim()
+  let selectedClubId = String(options.selectedClubId ?? '').trim()
   const selectedAccessMode = String(options.selectedAccessMode ?? '').trim()
   const loginAccessIntent = String(options.loginAccessIntent ?? '').trim()
-  const cacheKey = `user-profile:${authUser?.id || ''}:${selectedClubId || 'active'}:${selectedAccessMode || 'default'}`
+  const requireExistingStaffAccess = options.requireExistingStaffAccess === true
+  const cacheKey = `user-profile:${authUser?.id || ''}:${selectedClubId || 'active'}:${selectedAccessMode || 'default'}:${requireExistingStaffAccess ? 'existing-staff' : 'standard'}`
   const isDemoAuthUser = isDemoAccountValue(authUser)
 
   if (!authUser?.id) {
@@ -563,15 +570,43 @@ export async function fetchUserProfile(authUser, options = {}) {
     let data = await loadUserRow()
     const parentLinks = isDemoAuthUser ? [] : await getParentPortalMemberships(authUser)
     const hasParentAccess = parentLinks.length > 0
+    let loadedMemberships = null
+    const loadMemberships = async () => {
+      if (loadedMemberships === null) {
+        loadedMemberships = isDemoAuthUser ? [] : await getUserClubMemberships(authUser)
+      }
+
+      return loadedMemberships
+    }
+    const loadStaffMemberships = async () => {
+      const memberships = await loadMemberships()
+      return requireExistingStaffAccess ? getActiveStaffMemberships(memberships) : memberships
+    }
     const allowSignupClubProfileCompletion = shouldCompleteSignupClubProfile({
       selectedAccessMode,
       loginAccessIntent,
     })
 
+    if (selectedAccessMode === 'team' && requireExistingStaffAccess) {
+      const memberships = await loadMemberships()
+
+      if (!canSwitchParentToStaff({ profile: data, memberships })) {
+        return {
+          teamAccessUnavailable: true,
+          intendedAccessMode: 'team',
+        }
+      }
+
+      const activeMemberships = getActiveStaffMemberships(memberships)
+      if (selectedClubId && !activeMemberships.some((membership) => String(membership.clubId) === selectedClubId)) {
+        selectedClubId = ''
+      }
+    }
+
     if (hasParentAccess && selectedAccessMode === 'parent') {
-      const memberships = isDemoAuthUser ? [] : await getUserClubMemberships(authUser)
+      const memberships = await loadMemberships()
       const hasPlatformAccess = data?.role === 'super_admin'
-      const hasTeamAccess = Boolean(data?.club_id || memberships.length > 0 || hasPlatformAccess)
+      const hasTeamAccess = canSwitchParentToStaff({ profile: data, memberships })
 
       return normalizeParentPortalProfile(authUser, parentLinks, {
         accessModeOptions: buildParentAccessModeOptions({ hasPlatformAccess, hasTeamAccess }),
@@ -579,7 +614,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     if (data?.role === 'super_admin') {
-      const memberships = await getUserClubMemberships(authUser)
+      const memberships = await loadStaffMemberships()
 
       if (selectedAccessMode === 'parent' && !hasParentAccess) {
         return {
@@ -623,7 +658,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       }
     }
 
-    if (!isDemoAuthUser && data?.club_id) {
+    if (!isDemoAuthUser && !requireExistingStaffAccess && data?.club_id) {
       await claimInvitedUserProfiles(authUser)
     }
 
@@ -633,7 +668,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       }
 
       if (hasParentAccess) {
-        const memberships = await getUserClubMemberships(authUser)
+        const memberships = await loadStaffMemberships()
 
         if (memberships.length > 0) {
           if (selectedAccessMode === 'team' && loginAccessIntent === 'team') {
@@ -673,7 +708,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       if (data?.requiresClubSelection) {
         return data
       }
-    } else if (!isDemoAuthUser) {
+    } else if (!isDemoAuthUser && !requireExistingStaffAccess) {
       await syncMembershipFromUserRow(data, authUser)
     }
 
@@ -693,7 +728,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     const authEmail = String(authUser.email ?? '').trim().toLowerCase()
     const profileEmail = String(data.email ?? '').trim().toLowerCase()
 
-    if (!isDemoAuthUser && authEmail && authEmail !== profileEmail) {
+    if (!isDemoAuthUser && !requireExistingStaffAccess && authEmail && authEmail !== profileEmail) {
       const { data: syncedData, error: syncError } = await supabase
         .from('users')
         .update({
@@ -710,7 +745,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       }
     }
 
-    const memberships = data.role === 'super_admin' ? [] : await getUserClubMemberships(authUser)
+    const memberships = data.role === 'super_admin' ? [] : await loadStaffMemberships()
     const hasTeamAccess = Boolean(data?.club_id || memberships.length > 0 || data.role === 'super_admin')
 
     if (selectedAccessMode === 'parent' && loginAccessIntent === 'parent' && !hasParentAccess && hasTeamAccess) {

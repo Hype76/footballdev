@@ -71,6 +71,8 @@ function startDevServer() {
     ...process.env,
     BROWSER: 'none',
     VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true',
+    VITE_APP_URL: mainBaseUrl,
+    VITE_PARENT_APP_URL: parentBaseUrl,
     VITE_SUPABASE_URL: 'http://fixture.supabase.test',
     VITE_SUPABASE_ANON_KEY: 'fixture-anon-key',
   }
@@ -496,7 +498,7 @@ try {
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Open team workspace' }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Switch to Staff Platform' }).count(), 0)
     assert.equal(await page.getByText('Fixture Child').count(), 0)
     await assertNoSetupGuideTrigger(page)
     await context.close()
@@ -525,7 +527,7 @@ try {
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Open team workspace' }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Switch to Staff Platform' }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Retry' }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Sign in again' }).count(), 0)
     assert.equal(await page.getByText('Fixture Child').count(), 0)
@@ -540,11 +542,11 @@ try {
     await desktopPage.waitForURL('**/parent-portal', { timeout: 15000 })
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
     assert.ok(await desktopPage.getByRole('button', { name: /Sign out/ }).count() >= 2)
-    assert.equal(await desktopPage.getByRole('button', { name: 'Open team workspace' }).count(), 0)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Switch to Staff Platform' }).count(), 0)
     await desktopPage.goto(`${mainBaseUrl}/parent-portal?section=settings`, { waitUntil: 'domcontentloaded' })
     await assertVisibleText(desktopPage, 'Parent settings')
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
-    assert.equal(await desktopPage.getByRole('button', { name: 'Open team workspace' }).count(), 0)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Switch to Staff Platform' }).count(), 0)
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().click()
     await waitForPathname(desktopPage, '/sign-in')
     assert.equal(new URL(desktopPage.url()).searchParams.get('tab'), 'parent')
@@ -563,6 +565,80 @@ try {
     await assertVisibleText(mobilePage, 'Parent settings')
     await mobilePage.locator('div.fixed').getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
     await mobileContext.close()
+  })
+
+  await runScenario('dual-access parent can switch to staff without a new login', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'parent')
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertSelectedOption(page, 'Access view', 'Team access')
+    await assertVisibleText(page, 'Club-wide view')
+    assert.equal(
+      await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')),
+      'multi.fixture@footballplayer.test',
+    )
+    await context.close()
+  })
+
+  await runScenario('dual-access switch restores the last valid staff team', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'multi.fixture@footballplayer.test')
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await page.getByLabel('Access view').selectOption({ label: 'Team: U12 Fixture Team' })
+    await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
+    await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
+    await assertVisibleText(page, 'Team tools')
+    await context.close()
+  })
+
+  await runScenario('dual-access switch with no saved team opens safe club-wide staff access', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'multi.fixture@footballplayer.test')
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertSelectedOption(page, 'Access view', 'Team access')
+    await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await assertSelectedOption(page, 'Access view', 'Team access')
+    await assertVisibleText(page, 'Club-wide view')
+    await context.close()
+  })
+
+  await runScenario('dual-access switch is visible in the mobile parent shell', async () => {
+    const context = await browser.newContext({
+      isMobile: true,
+      viewport: { width: 390, height: 844 },
+    })
+    const { page } = await preparePage(context)
+    await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'parent')
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await page.locator('div.fixed').getByRole('button', { name: 'Switch to Staff Platform' }).waitFor({ state: 'visible', timeout: 15000 })
+    await context.close()
+  })
+
+  await runScenario('parent host transfers the same session to the staff platform securely', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await parentSignIn(page, 'multi.fixture@footballplayer.test', parentBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.waitForURL(`${mainBaseUrl}/coach`, { timeout: 15000 })
+    await assertVisibleText(page, 'Club-wide view')
+    assert.equal(
+      await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')),
+      'multi.fixture@footballplayer.test',
+    )
+    await context.close()
   })
 
   await runScenario('multi-context user can switch between platform team and parent', async () => {

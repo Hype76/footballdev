@@ -15,6 +15,7 @@ import { isParentPortalHost } from './app-origins.js'
 import { normalizePlanKey, PLAN_KEYS } from './plans.js'
 import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessIntent } from './login-access-intent.js'
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
+import { STAFF_SWITCH_PENDING_STORAGE_KEY } from './workspace-routes.js'
 
 export {
   canAssignRole,
@@ -435,6 +436,7 @@ function RuntimeAuthProvider({ children }) {
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
+      window.sessionStorage.removeItem(STAFF_SWITCH_PENDING_STORAGE_KEY)
       window.sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY)
       setDemoRoleKeyState('')
       finishBootstrap()
@@ -463,6 +465,7 @@ function RuntimeAuthProvider({ children }) {
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
         const storedSelectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
         const selectedAccessModeIsExplicit = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY) === 'true'
+        const requireExistingStaffAccess = window.sessionStorage.getItem(STAFF_SWITCH_PENDING_STORAGE_KEY) === 'true'
         const loginAccessIntent = readLoginAccessIntent()
         const selectedAccessMode = resolveAccessModeForRoute({
           isParentHost: isParentPortalHost(),
@@ -494,7 +497,12 @@ function RuntimeAuthProvider({ children }) {
           selectedClubId,
           selectedAccessMode,
           loginAccessIntent,
+          requireExistingStaffAccess,
         })
+
+        if (requireExistingStaffAccess) {
+          window.sessionStorage.removeItem(STAFF_SWITCH_PENDING_STORAGE_KEY)
+        }
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
           return
@@ -690,6 +698,7 @@ function RuntimeAuthProvider({ children }) {
     } else {
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
+      window.sessionStorage.removeItem(STAFF_SWITCH_PENDING_STORAGE_KEY)
       clearLoginAccessIntent()
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
@@ -741,7 +750,7 @@ function RuntimeAuthProvider({ children }) {
     }
   }
 
-  const selectAccessMode = async (accessMode) => {
+  const selectAccessMode = async (accessMode, options = {}) => {
     if (!authUser) {
       throw new Error('Login again before choosing access.')
     }
@@ -767,14 +776,25 @@ function RuntimeAuthProvider({ children }) {
       }
 
       const { fetchUserProfile } = await loadAuthDataModule()
+      const isParentToStaffSwitch = nextAccessMode === 'team' && isParentPortalUser(userRef.current)
+      const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
+      const profile = await fetchUserProfile(authUser, {
+        selectedClubId,
+        selectedAccessMode: nextAccessMode,
+        requireExistingStaffAccess: isParentToStaffSwitch,
+      })
+
+      if (profile?.teamAccessUnavailable) {
+        throw new Error('Staff access is no longer active. Ask a club admin to review this account.')
+      }
+
+      if (options.deferCommit === true) {
+        return profile
+      }
+
       clearLoginAccessIntent()
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextAccessMode)
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
-      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
-      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
-      const profile = await fetchUserProfile(authUser, {
-        selectedAccessMode: nextAccessMode,
-      })
 
       if (profile?.requiresClubSelection) {
         setClubOptions(profile.clubOptions ?? [])
@@ -783,6 +803,11 @@ function RuntimeAuthProvider({ children }) {
         setAccessRouteMismatch(null)
         setAuthError('')
         return
+      }
+
+      if (nextAccessMode !== 'parent' && !isParentToStaffSwitch) {
+        window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+        window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       }
 
       const profileWithTeam = profile?.role === 'parent_portal' ? profile : await applyTeamSelection(profile)

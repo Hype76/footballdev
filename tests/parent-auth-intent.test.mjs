@@ -190,8 +190,9 @@ test('dual access parent mode carries a safe route back to team access', async (
 
   assert.match(source, /function buildParentAccessModeOptions/)
   assert.match(source, /options\.push\(\{ id: 'team', label: 'Team \/ Coach', meta: 'Open coaching and club tools' \}\)/)
-  assert.match(section, /const memberships = isDemoAuthUser \? \[\] : await getUserClubMemberships\(authUser\)/)
-  assert.match(section, /const hasTeamAccess = Boolean\(data\?\.club_id \|\| memberships\.length > 0 \|\| hasPlatformAccess\)/)
+  assert.match(section, /loadedMemberships = isDemoAuthUser \? \[\] : await getUserClubMemberships\(authUser\)/)
+  assert.match(section, /const hasTeamAccess = canSwitchParentToStaff\(\{ profile: data, memberships \}\)/)
+  assert.match(section, /requireExistingStaffAccess/)
   assert.match(section, /if \(selectedAccessMode === 'parent' && !hasParentAccess && hasTeamAccess\) \{/)
   assert.match(section, /parentAccessUnavailable: true/)
   assert.match(section, /accessModeOptions: buildParentAccessModeOptions\(\{ hasPlatformAccess, hasTeamAccess \}\)/)
