@@ -1,8 +1,8 @@
 import { supabase } from '../supabase-client.js'
 
 const ATTENDANCE_RESPONSE_OPTIONS = [
-  { value: 'available', label: 'Accept' },
-  { value: 'unavailable', label: 'Decline' },
+  { value: 'available', label: 'Available' },
+  { value: 'unavailable', label: 'Unavailable' },
   { value: 'maybe', label: 'Maybe' },
 ]
 
@@ -117,14 +117,14 @@ export function getParentInvitationTypeLabel(invitation = {}) {
   }
 
   if (invitation.invitationType === 'match_attendance') {
-    return 'Match attendance'
+    return 'Match availability'
   }
 
   return 'Event invitation'
 }
 
 export function getParentInvitationStatus(invitation = {}) {
-  if (invitation.selectionState === 'selected') {
+  if (invitation.invitationType === 'match_role' && invitation.selectionState === 'selected') {
     return {
       label: 'Selected by staff',
       detail: invitation.lockReason || 'Staff have confirmed this Match Day role.',
@@ -132,7 +132,7 @@ export function getParentInvitationStatus(invitation = {}) {
     }
   }
 
-  if (invitation.selectionState === 'selected_elsewhere') {
+  if (invitation.invitationType === 'match_role' && invitation.selectionState === 'selected_elsewhere') {
     return {
       label: 'Not selected',
       detail: invitation.lockReason || 'Another volunteer has been selected for this role.',
@@ -149,10 +149,10 @@ export function getParentInvitationStatus(invitation = {}) {
   }
 
   const responseLabels = {
-    accepted: 'Accepted',
-    available: 'Accepted',
-    declined: 'Declined',
-    unavailable: 'Declined',
+    accepted: invitation.invitationType === 'match_attendance' ? 'Available' : 'Accepted',
+    available: 'Available',
+    declined: invitation.invitationType === 'match_attendance' ? 'Unavailable' : 'Declined',
+    unavailable: 'Unavailable',
     maybe: 'Maybe',
     yes: 'Accepted',
     no: 'Declined',
@@ -163,16 +163,53 @@ export function getParentInvitationStatus(invitation = {}) {
   }
 
   const label = responseLabels[invitation.responseState] || 'Awaiting response'
+  const availableDetail = invitation.invitationType === 'match_attendance' && label === 'Available'
+    ? 'Availability submitted. The coaching team will confirm the final squad.'
+    : ''
   return {
     label,
-    detail: invitation.lockReason || (invitation.canChangeResponse ? 'You can change this response while the invitation remains open.' : ''),
-    tone: label === 'Accepted'
+    detail: invitation.lockReason || availableDetail || (invitation.canChangeResponse ? 'You can change this response while the invitation remains open.' : ''),
+    tone: label === 'Available'
       ? 'accepted'
-      : label === 'Declined'
+      : label === 'Unavailable'
         ? 'declined'
         : label === 'Awaiting response'
           ? 'waiting'
           : 'quiet',
+  }
+}
+
+export function getParentSquadDecisionStatus(invitation = {}) {
+  const state = normalizeText(invitation.selectionState).toLowerCase()
+
+  if (state === 'selected') {
+    return {
+      label: 'Selected',
+      detail: 'The coaching team has selected your child for this match squad.',
+      tone: 'selected',
+    }
+  }
+
+  if (state === 'waiting') {
+    return {
+      label: 'Waiting for squad decision',
+      detail: 'Your child is waiting while the coaching team finalises the squad.',
+      tone: 'waiting',
+    }
+  }
+
+  if (['not_selected', 'selected_elsewhere'].includes(state)) {
+    return {
+      label: 'Not selected',
+      detail: 'Your child is not currently selected for this match squad.',
+      tone: 'closed',
+    }
+  }
+
+  return {
+    label: 'Squad not yet decided',
+    detail: 'Availability does not confirm squad selection. The coaching team will confirm the final squad.',
+    tone: 'quiet',
   }
 }
 
@@ -183,15 +220,15 @@ export function getParentInvitationCategory(invitation = {}) {
     return 'needs_response'
   }
 
-  if (invitation.selectionState === 'selected') {
+  if (invitation.invitationType === 'match_role' && invitation.selectionState === 'selected') {
     return 'selected'
   }
 
-  if (status.label === 'Accepted' || status.label === 'Maybe') {
+  if (status.label === 'Available' || status.label === 'Maybe') {
     return 'accepted'
   }
 
-  if (status.label === 'Declined') {
+  if (status.label === 'Unavailable') {
     return 'declined'
   }
 
@@ -273,16 +310,6 @@ export function getParentPlayerParticipationState(invitations = [], options = {}
     }
   }
 
-  if (playerInvitations.some((invitation) => ['selected', 'confirmed'].includes(invitation.selectionState)
-    || ['selected', 'confirmed'].includes(invitation.responseState))) {
-    return {
-      participationState: PARENT_PLAYER_PARTICIPATION_STATES.selected,
-      state: PARENT_CALENDAR_VISUAL_STATES.accepted,
-      label: 'Player selected',
-      actionCount: 0,
-    }
-  }
-
   if (playerInvitations.some((invitation) => ACCEPTED_RESPONSES.has(invitation.responseState))) {
     return {
       participationState: PARENT_PLAYER_PARTICIPATION_STATES.available,
@@ -297,15 +324,6 @@ export function getParentPlayerParticipationState(invitations = [], options = {}
       participationState: PARENT_PLAYER_PARTICIPATION_STATES.noResponseRequired,
       state: PARENT_CALENDAR_VISUAL_STATES.informational,
       label: 'Player response: Maybe',
-      actionCount: 0,
-    }
-  }
-
-  if (playerInvitations.some((invitation) => invitation.selectionState === 'selected_elsewhere')) {
-    return {
-      participationState: PARENT_PLAYER_PARTICIPATION_STATES.noResponseRequired,
-      state: PARENT_CALENDAR_VISUAL_STATES.informational,
-      label: 'Player not selected',
       actionCount: 0,
     }
   }
@@ -405,8 +423,13 @@ export function getParentCalendarVisualState(event = {}, options = {}) {
   const childId = normalizeText(options.childId ?? event.childId ?? event.data?.childId)
   const playerState = getParentPlayerParticipationState(invitations, { childId })
   const volunteerState = getParentVolunteerState(invitations, { childId })
+  const matchAttendanceInvitation = getScopedPlayerInvitations(invitations, childId)
+    .find((invitation) => invitation.invitationType === 'match_attendance')
+  const squadDecision = getParentSquadDecisionStatus(matchAttendanceInvitation || {})
   const supplementaryState = {
     playerState: playerState.participationState,
+    squadDecisionLabel: squadDecision.label,
+    squadDecisionState: normalizeText(matchAttendanceInvitation?.selectionState).toLowerCase() || 'undecided',
     volunteerState: volunteerState.state,
     volunteerDetails: volunteerState.details,
     volunteerActionCount: volunteerState.actionCount,

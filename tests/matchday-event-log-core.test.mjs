@@ -407,16 +407,16 @@ test('staff Match Day page renders a readiness panel from existing fixture data 
   assert.doesNotMatch(readinessSource, /sendMatchDayPushNotification/)
 })
 
-test('staff fixture squad selection logs safe player selected and deselected entries', async () => {
+test('staff fixture recipient selection logs only safe availability invitation entries', async () => {
   const source = await readFile(staffPageUrl, 'utf8')
 
   assert.match(source, /createMatchDayEventLogEntry,/)
-  assert.match(source, /async function logFixtureSquadSelectionEvents/)
-  assert.match(source, /eventType: 'player_selected'/)
-  assert.match(source, /eventType: 'player_deselected'/)
-  assert.match(source, /source: 'staff_fixture_squad_selection'/)
-  assert.match(source, /selectionMode === 'individual'[\s\S]*deselectedPlayers/)
-  assert.match(source, /await logFixtureSquadSelectionEvents\(\{[\s\S]*selectedPlayerIds,[\s\S]*selectionMode,[\s\S]*user,/)
+  assert.match(source, /async function logFixtureAvailabilityRecipientEvents/)
+  assert.match(source, /eventType: 'invite_prepared'/)
+  assert.match(source, /source: 'staff_fixture_availability_recipients'/)
+  assert.match(source, /await logFixtureAvailabilityRecipientEvents\(\{[\s\S]*selectedPlayerIds,[\s\S]*selectionMode,[\s\S]*user,/)
+  assert.doesNotMatch(source, /eventType: 'player_selected'/)
+  assert.doesNotMatch(source, /eventType: 'player_deselected'/)
 })
 
 test('staff squad selection can reselect a player after deselection before saving', async () => {
@@ -478,7 +478,8 @@ test('event log UI renders Batch 2 event types with safe details', async () => {
   assert.match(source, /invite_queued: 'invite queued'/)
   assert.match(source, /linesman_updated: 'linesman'/)
   assert.match(source, /player_availability_changed: 'availability'/)
-  assert.match(source, /Availability: \$\{previousStatus \|\| 'not recorded'\} to \$\{nextStatus \|\| 'not recorded'\}/)
+  assert.match(source, /\$\{statusTransitionLabel\}: \$\{previousStatus \|\| 'not recorded'\} to \$\{nextStatus \|\| 'not recorded'\}/)
+  assert.match(source, /entry\.eventType === 'player_squad_decision_changed'[\s\S]*'Squad decision'/)
   assert.match(source, /Notifications queued: \$\{Number\(entry\.metadata\.notificationQueuedCount\)\}/)
 })
 

@@ -59,10 +59,10 @@ test('future accepted attendance resolves to the accepted semantic state', () =>
   assert.equal(result.state, PARENT_CALENDAR_VISUAL_STATES.accepted)
   assert.equal(result.label, 'Player available')
   assert.equal(result.playerState, PARENT_PLAYER_PARTICIPATION_STATES.available)
-  assert.equal(getParentInvitationStatus(accepted).label, 'Accepted')
+  assert.equal(getParentInvitationStatus(accepted).label, 'Available')
 })
 
-test('future player selection resolves Green while a declined volunteer role stays secondary', () => {
+test('future squad selection remains secondary while a declined volunteer role stays separate', () => {
   const selectedPlayer = invitation({ selection_state: 'selected' })
   const declinedRole = invitation({
     invitation_id: 'role-1',
@@ -72,9 +72,10 @@ test('future player selection resolves Green while a declined volunteer role sta
   })
   const result = resolve([selectedPlayer, declinedRole])
 
-  assert.equal(result.state, PARENT_CALENDAR_VISUAL_STATES.accepted)
-  assert.equal(result.label, 'Player selected')
-  assert.equal(result.playerState, PARENT_PLAYER_PARTICIPATION_STATES.selected)
+  assert.equal(result.state, PARENT_CALENDAR_VISUAL_STATES.informational)
+  assert.equal(result.label, 'Information only')
+  assert.equal(result.playerState, PARENT_PLAYER_PARTICIPATION_STATES.noResponseRequired)
+  assert.equal(result.squadDecisionLabel, 'Selected')
   assert.equal(result.volunteerState, PARENT_VOLUNTEER_STATES.declined)
   assert.deepEqual(result.volunteerDetails.map((detail) => detail.label), ['Linesman declined'])
 })
@@ -252,7 +253,7 @@ test('player and volunteer domain helpers return separate concepts', () => {
   assert.deepEqual(getParentVolunteerState([attendance, referee]).details.map((detail) => detail.label), ['Referee accepted'])
 })
 
-test('future player priority is response required, declined, selected, accepted, then information', () => {
+test('future player priority is response required, declined, availability, then information', () => {
   const pending = invitation({ invitation_id: 'pending', response_state: 'awaiting_response', can_respond: true })
   const declined = invitation({ invitation_id: 'declined', response_state: 'unavailable' })
   const selected = invitation({ invitation_id: 'selected', response_state: 'available', selection_state: 'selected' })
@@ -260,7 +261,7 @@ test('future player priority is response required, declined, selected, accepted,
 
   assert.equal(resolve([accepted, selected, declined, pending]).state, PARENT_CALENDAR_VISUAL_STATES.actionRequired)
   assert.equal(resolve([accepted, selected, declined]).state, PARENT_CALENDAR_VISUAL_STATES.declined)
-  assert.equal(resolve([accepted, selected]).label, 'Player selected')
+  assert.equal(resolve([accepted, selected]).label, 'Player available')
   assert.equal(resolve([accepted]).label, 'Player available')
   assert.equal(resolve([]).state, PARENT_CALENDAR_VISUAL_STATES.informational)
 })

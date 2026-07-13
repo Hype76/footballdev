@@ -31,6 +31,7 @@ import {
   resetPreviousMatchDayResults,
   saveMatchDayFinalReport,
   selectMatchDayVolunteer,
+  setMatchDayPlayerSquadDecision,
   setMatchDayTimerState,
   updateMatchDay,
   voidStaffMatchDayEvent,
@@ -87,6 +88,12 @@ import {
   formatFixtureDateTime,
   validateFixtureDateTime,
 } from '../lib/calendar-datetime-integrity.js'
+import {
+  getMatchDaySquadDecisionLabel,
+  getSquadDecisionChangeBlockReason,
+  MATCH_DAY_SQUAD_DECISION_OPTIONS,
+  normalizeMatchDaySquadDecision,
+} from '../lib/matchday-squad-selection.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -412,10 +419,6 @@ function mergeTransportResponse(match, row) {
 }
 
 function getCurrentAvailabilityRows(match) {
-  if (match.playerAvailability?.length > 0) {
-    return match.playerAvailability.map((row) => mergeTransportResponse(match, row))
-  }
-
   const latestByPlayer = new Map()
 
   for (const request of match.availabilityRequests || []) {
@@ -441,7 +444,31 @@ function getCurrentAvailabilityRows(match) {
     }
   }
 
+  for (const availability of match.playerAvailability || []) {
+    const key = availability.playerId || availability.playerName || availability.id
+    const request = latestByPlayer.get(key)
+
+    latestByPlayer.set(key, {
+      ...request,
+      ...availability,
+      id: availability.id || request?.id,
+      playerId: availability.playerId || request?.playerId,
+      playerName: availability.playerName || request?.playerName,
+    })
+  }
+
   return Array.from(latestByPlayer.values()).map((row) => mergeTransportResponse(match, row))
+}
+
+function getPlayerSquadDecision(match, row) {
+  const playerId = String(row?.playerId || '')
+  const decision = (match?.squadDecisions || []).find((candidate) => String(candidate.playerId || '') === playerId)
+
+  return {
+    status: normalizeMatchDaySquadDecision(decision?.status),
+    decidedAt: decision?.decidedAt || '',
+    decidedByName: decision?.decidedByName || '',
+  }
 }
 
 function getAvailabilityHistoryForPlayer(match, row) {
@@ -1042,6 +1069,7 @@ function getEventLogTypeLabel(entry) {
     player_availability_changed: 'availability',
     player_deselected: 'player deselected',
     player_selected: 'player selected',
+    player_squad_decision_changed: 'squad decision changed',
     red_card: 'red card',
     substitution: 'substitution',
     water_break: 'water break',
@@ -1072,6 +1100,7 @@ const EVENT_LOG_TYPE_FILTERS = {
   player_availability_changed: 'availability',
   player_deselected: 'squad',
   player_selected: 'squad',
+  player_squad_decision_changed: 'squad',
   red_card: 'match',
   scorer_updated: 'match',
   substitution: 'match',
@@ -1104,10 +1133,13 @@ function getEventLogDetail(entry) {
   const previousStatus = entry.previousValue?.status
   const nextStatus = entry.newValue?.status
   const selectionState = entry.eventType === 'player_selected'
-    ? 'Selected for this fixture'
+    ? 'Legacy availability recipient selected'
     : entry.eventType === 'player_deselected'
-      ? 'Deselected from this fixture'
+      ? 'Legacy availability recipient removed'
       : ''
+  const statusTransitionLabel = entry.eventType === 'player_squad_decision_changed'
+    ? 'Squad decision'
+    : 'Availability'
   const inviteState = entry.eventType === 'invite_prepared'
     ? 'Availability invite prepared'
     : entry.eventType === 'invite_queued'
@@ -1120,7 +1152,7 @@ function getEventLogDetail(entry) {
     entry.metadata?.minute !== null && entry.metadata?.minute !== undefined ? `Minute: ${entry.metadata.minute}` : '',
     entry.metadata?.action ? `Action: ${String(entry.metadata.action).replace(/_/g, ' ')}` : '',
     previousStatus || nextStatus
-      ? `Availability: ${previousStatus || 'not recorded'} to ${nextStatus || 'not recorded'}`
+      ? `${statusTransitionLabel}: ${previousStatus || 'not recorded'} to ${nextStatus || 'not recorded'}`
       : '',
     selectionState,
     inviteState,
@@ -1412,8 +1444,7 @@ function getAvailabilityStats(match) {
   }
 }
 
-async function logFixtureSquadSelectionEvents({
-  availablePlayerIds,
+async function logFixtureAvailabilityRecipientEvents({
   match,
   players,
   selectedPlayerIds,
@@ -1421,33 +1452,15 @@ async function logFixtureSquadSelectionEvents({
   user,
 }) {
   const selectedIds = new Set(selectedPlayerIds.map(String))
-  const availableIds = new Set(availablePlayerIds.map(String))
   const selectedPlayers = players.filter((player) => selectedIds.has(String(player.id)))
-  const deselectedPlayers = selectionMode === 'individual'
-    ? players.filter((player) => availableIds.has(String(player.id)) && !selectedIds.has(String(player.id)))
-    : []
-
-  const logEvents = [
-    ...selectedPlayers.map((player) => ({
-      eventLabel: `${player.playerName || 'Player'} selected`,
-      eventType: 'player_selected',
-      newValue: {
-        selected: true,
-      },
-      player,
-    })),
-    ...deselectedPlayers.map((player) => ({
-      eventLabel: `${player.playerName || 'Player'} deselected`,
-      eventType: 'player_deselected',
-      newValue: {
-        selected: false,
-      },
-      previousValue: {
-        selected: true,
-      },
-      player,
-    })),
-  ]
+  const logEvents = selectedPlayers.map((player) => ({
+    eventLabel: `${player.playerName || 'Player'} availability invitation prepared`,
+    eventType: 'invite_prepared',
+    newValue: {
+      availabilityInvitationPrepared: true,
+    },
+    player,
+  }))
 
   for (const logEvent of logEvents) {
     await createMatchDayEventLogEntry({
@@ -1460,7 +1473,7 @@ async function logFixtureSquadSelectionEvents({
       newValue: logEvent.newValue,
       metadata: {
         selectionMode,
-        source: 'staff_fixture_squad_selection',
+        source: 'staff_fixture_availability_recipients',
       },
     })
   }
@@ -1765,6 +1778,7 @@ export function MatchDayPage() {
   const [gameModeMatchId, setGameModeMatchId] = useState('')
   const [volunteerSelectionPrompt, setVolunteerSelectionPrompt] = useState(null)
   const [activeVolunteerSelectionKey, setActiveVolunteerSelectionKey] = useState('')
+  const [activeSquadDecisionKey, setActiveSquadDecisionKey] = useState('')
   const [volunteerSelectionStatus, setVolunteerSelectionStatus] = useState(null)
   const [matchActionStatus, setMatchActionStatus] = useState(null)
   const [liveEntryModal, setLiveEntryModal] = useState(null)
@@ -2112,10 +2126,9 @@ export function MatchDayPage() {
   const handleConfirmCreateMatch = async () => {
     const selectedPlayerIds = squadSelection.selectedPlayerIds
     const selectionMode = squadSelection.mode
-    const availablePlayerIds = fixturePlayers.map((player) => player.id)
 
     if (selectedPlayerIds.length === 0) {
-      setErrorMessage('Select at least one player before creating the fixture.')
+      setErrorMessage('Choose at least one availability invitation recipient before creating the fixture.')
       return
     }
 
@@ -2129,8 +2142,7 @@ export function MatchDayPage() {
       })
 
       setMatches(reconcileCreatedMatch)
-      await logFixtureSquadSelectionEvents({
-        availablePlayerIds,
+      await logFixtureAvailabilityRecipientEvents({
         match: createdMatch,
         players: fixturePlayers,
         selectedPlayerIds,
@@ -2646,6 +2658,67 @@ export function MatchDayPage() {
     } finally {
       setActiveMatchId('')
       setActiveVolunteerSelectionKey('')
+    }
+  }
+
+  const handleSquadDecisionChange = async (match, player, decision) => {
+    const actionKey = `${match.id}:${player.playerId}:${decision}`
+    const decisionLabel = getMatchDaySquadDecisionLabel(decision)
+
+    setActiveMatchId(match.id)
+    setActiveSquadDecisionKey(actionKey)
+    setErrorMessage('')
+    setMatchActionStatus({
+      key: `${match.id}:squad:${player.playerId}`,
+      tone: 'loading',
+      message: `Saving ${player.playerName || 'player'} as ${decisionLabel}...`,
+    })
+
+    try {
+      const savedDecision = await setMatchDayPlayerSquadDecision({
+        matchDayId: match.id,
+        playerId: player.playerId,
+        decision,
+      })
+      const reconcileSavedDecision = (currentMatches) => currentMatches.map((candidate) => {
+        if (String(candidate.id) !== String(match.id)) {
+          return candidate
+        }
+
+        const nextDecisions = (candidate.squadDecisions || [])
+          .filter((existing) => String(existing.playerId) !== String(savedDecision.playerId))
+
+        return {
+          ...candidate,
+          squadDecisions: [...nextDecisions, savedDecision],
+        }
+      })
+
+      setMatches(reconcileSavedDecision)
+      await loadData()
+      setMatches(reconcileSavedDecision)
+      setMatchActionStatus({
+        key: `${match.id}:squad:${player.playerId}`,
+        tone: 'success',
+        message: `${player.playerName || 'Player'} is ${decisionLabel}.`,
+      })
+      showToast({
+        title: 'Squad decision saved',
+        message: `${player.playerName || 'Player'} is ${decisionLabel}. Parent availability was not changed.`,
+      })
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'Squad decision could not be updated.'
+      setErrorMessage(message)
+      setMatchActionStatus({
+        key: `${match.id}:squad:${player.playerId}`,
+        tone: 'error',
+        message,
+      })
+      showToast({ title: 'Squad decision not updated', message, tone: 'error' })
+    } finally {
+      setActiveMatchId('')
+      setActiveSquadDecisionKey('')
     }
   }
 
@@ -3428,6 +3501,7 @@ export function MatchDayPage() {
               <MatchDayCard
                 key={match.id}
                 activeMatchId={activeMatchId}
+                activeSquadDecisionKey={activeSquadDecisionKey}
                 isGameMode={gameModeMatchId === match.id}
                 isExpanded={expandedMatchId === match.id}
                 liveRefreshStatus={liveRefreshStatus}
@@ -3452,6 +3526,7 @@ export function MatchDayPage() {
                   },
                 }))}
                 onScoreSave={handleScoreSave}
+                onSquadDecisionChange={handleSquadDecisionChange}
                 activeVolunteerSelectionKey={activeVolunteerSelectionKey}
                 onVolunteerSelection={openVolunteerSelectionPrompt}
                 onStatusChange={handleStatusChange}
@@ -3575,6 +3650,7 @@ export function MatchDayPage() {
                   <MatchDayCard
                     key={match.id}
                     activeMatchId={activeMatchId}
+                  activeSquadDecisionKey={activeSquadDecisionKey}
                   isGameMode={false}
                   isExpanded={expandedMatchId === match.id}
                   match={match}
@@ -3597,6 +3673,7 @@ export function MatchDayPage() {
                     },
                   }))}
                   onScoreSave={handleScoreSave}
+                  onSquadDecisionChange={handleSquadDecisionChange}
                   activeVolunteerSelectionKey={activeVolunteerSelectionKey}
                   onVolunteerSelection={openVolunteerSelectionPrompt}
                   onStatusChange={handleStatusChange}
@@ -4007,6 +4084,7 @@ function FullTimeLifecyclePanel({ isBusy, match, onConclude, onResume }) {
 
 function MatchDayCard({
   activeMatchId,
+  activeSquadDecisionKey,
   activeVolunteerSelectionKey,
   isGameMode,
   isExpanded,
@@ -4024,6 +4102,7 @@ function MatchDayCard({
   onOpenGoalModal,
   onScoreDraftChange,
   onScoreSave,
+  onSquadDecisionChange,
   onVolunteerSelection,
   onStatusChange,
   onToggle,
@@ -4288,7 +4367,10 @@ function MatchDayCard({
           </div>
 
           <section className={`${panelClass} order-8`}>
-            <h5 className="text-sm font-black text-[#101828]">Availability</h5>
+            <h5 className="text-sm font-black text-[#101828]">Availability and final squad</h5>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+              Availability answers whether a player can play. The squad decision is a separate staff action and never changes the parent response.
+            </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-5">
               <AvailabilityCount label="Available" value={availabilityStats.available} />
               <AvailabilityCount label="No response" value={availabilityStats.pending} />
@@ -4300,6 +4382,7 @@ function MatchDayCard({
               <div className="mt-3 grid gap-2 lg:grid-cols-2">
                 {currentAvailabilityRows.map((row) => {
                   const historyRows = getAvailabilityHistoryForPlayer(match, row)
+                  const squadDecision = getPlayerSquadDecision(match, row)
 
                   return (
                     <div key={row.id || row.playerId || row.playerName} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
@@ -4307,16 +4390,58 @@ function MatchDayCard({
                         <div className="min-w-0">
                           <p className="text-sm font-black text-[#101828]">{row.playerName || 'Player'}</p>
                           <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                            {row.selectedByEmail || row.selectedByName || 'No parent response yet'}
+                            {row.selectedAt ? 'Parent availability response recorded' : 'Awaiting parent response'}
                           </p>
                         </div>
-                        <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
-                          {getAvailabilityStatusLabel(row.status)}
-                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
+                            Availability: {getAvailabilityStatusLabel(row.status)}
+                          </span>
+                          <span className="inline-flex w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
+                            Squad: {getMatchDaySquadDecisionLabel(squadDecision.status)}
+                          </span>
+                        </div>
                       </div>
                       <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
                         {formatResponseDateTime(row.selectedAt)}
                       </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={`Squad decision for ${row.playerName || 'player'}`}>
+                        {MATCH_DAY_SQUAD_DECISION_OPTIONS.map((option) => {
+                          const blockReason = getSquadDecisionChangeBlockReason({
+                            availabilityStatus: row.status,
+                            decision: option.value,
+                            matchStatus: match.status,
+                          })
+                          const actionKey = `${match.id}:${row.playerId}:${option.value}`
+                          const isCurrent = squadDecision.status === option.value
+                          const isDecisionBusy = activeSquadDecisionKey === actionKey
+
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => onSquadDecisionChange(match, row, option.value)}
+                              disabled={Boolean(blockReason) || isCurrent || Boolean(activeSquadDecisionKey)}
+                              title={blockReason || (isCurrent ? `${option.label} is the current squad decision.` : `Set squad decision to ${option.label}.`)}
+                              aria-label={`Set ${row.playerName || 'player'} squad decision to ${option.label}`}
+                              className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                isCurrent
+                                  ? 'border-[#047857] bg-[#047857] text-white'
+                                  : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]'
+                              }`}
+                            >
+                              {isDecisionBusy ? 'Saving...' : option.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {squadDecision.decidedAt ? (
+                        <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
+                          Squad decision updated {formatResponseDateTime(squadDecision.decidedAt)}{squadDecision.decidedByName ? ` by ${squadDecision.decidedByName}` : ''}.
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs font-semibold text-[#4b5f55]">No staff squad decision has been saved yet.</p>
+                      )}
                       {hasTransportResponse(row) ? (
                         <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
                           <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Transport response</p>
@@ -4342,7 +4467,7 @@ function MatchDayCard({
                         <div className="mt-3 space-y-1 border-t border-[#d7e5dc] pt-3">
                           {historyRows.map((history) => (
                             <p key={history.id} className="text-xs font-semibold text-[#4b5f55]">
-                              {getAvailabilityStatusLabel(history.previousStatus)} to {getAvailabilityStatusLabel(history.status)} by {history.selectedByEmail || history.selectedByName || 'Parent'} at {formatResponseDateTime(history.createdAt)}
+                              {getAvailabilityStatusLabel(history.previousStatus)} to {getAvailabilityStatusLabel(history.status)} by Parent at {formatResponseDateTime(history.createdAt)}
                             </p>
                           ))}
                         </div>
@@ -4355,7 +4480,7 @@ function MatchDayCard({
               <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
                 <p className="text-sm font-black text-[#101828]">No availability requests are linked to this fixture yet.</p>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Request selected players to collect availability and parent volunteer replies.
+                  Choose availability invitation recipients when creating the fixture to collect player and volunteer responses.
                 </p>
               </div>
             )}
@@ -6054,23 +6179,23 @@ function FixtureSquadSelectionModal({
         className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[90vh]"
       >
         <div className="hidden shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 sm:block sm:px-6 sm:py-5">
-          <p className={eyebrowClass}>Squad availability</p>
+          <p className={eyebrowClass}>Availability invitations</p>
           <h3 id="fixture-squad-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-            Choose who should be asked.
+            Choose who should receive an availability invitation.
           </h3>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
             Requests go to parent contacts for parent-managed players and directly to player contacts for adult player records. Mobile push can use these same request records later.
           </p>
         </div>
         <div className="shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 sm:hidden">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Squad availability</p>
-          <p className="mt-1 text-sm font-black text-[#101828]">{selectedCount} of {players.length} selected</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Availability invitations</p>
+          <p className="mt-1 text-sm font-black text-[#101828]">{selectedCount} of {players.length} recipients</p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 scroll-pt-4 px-4 py-3 sm:scroll-pb-40 sm:scroll-pt-24 sm:px-6 sm:py-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:hidden">
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Select full squad</button>
+              <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Choose all active players</button>
               <button type="button" onClick={onClearAll} className={secondaryButtonClass}>Clear</button>
             </div>
           </div>
@@ -6085,7 +6210,7 @@ function FixtureSquadSelectionModal({
                   : 'border-[#d7e5dc] bg-white hover:border-[#0f9f6e]'
               }`}
             >
-              <span className="block text-sm font-black text-[#101828]">Full squad</span>
+              <span className="block text-sm font-black text-[#101828]">All active players</span>
               <span className="mt-1 hidden text-sm font-semibold leading-6 text-[#4b5f55] sm:block">Ask every active squad player in {teamName}.</span>
             </button>
             <button
@@ -6098,14 +6223,14 @@ function FixtureSquadSelectionModal({
               }`}
             >
               <span className="block text-sm font-black text-[#101828]">Individual players</span>
-              <span className="mt-1 hidden text-sm font-semibold leading-6 text-[#4b5f55] sm:block">Pick only the players needed for this fixture.</span>
+              <span className="mt-1 hidden text-sm font-semibold leading-6 text-[#4b5f55] sm:block">Choose only the players who should receive an availability invitation.</span>
             </button>
           </div>
 
           <div className="mt-4 hidden flex-wrap items-center justify-between gap-3 sm:flex">
-            <p className="text-sm font-black text-[#101828]">{selectedCount} of {players.length} selected</p>
+            <p className="text-sm font-black text-[#101828]">{selectedCount} of {players.length} recipients</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Select full squad</button>
+              <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Choose all active players</button>
               <button type="button" onClick={onClearAll} className={secondaryButtonClass}>Clear</button>
             </div>
           </div>

@@ -175,7 +175,7 @@ test('confirmation function renders a form and submits availability plus role re
   assert.match(source, /supabase\.rpc\('submit_match_day_availability_response'/)
   assert.match(source, /Keep \$\{statusLabel\(currentStatus\)\}/)
   assert.match(source, /currentAvailabilityAttribution\(response, currentStatus\)/)
-  assert.match(source, /Current answer: \$\{escapeHtml\(sentenceStatusLabel\(currentStatus\)\)\}, chosen by \$\{escapeHtml\(selectedBy\)\} at \$\{escapeHtml\(selectedAt\)\}/)
+  assert.match(source, /Current availability: \$\{escapeHtml\(sentenceStatusLabel\(currentStatus\)\)\}, submitted by \$\{escapeHtml\(selectedBy\)\} at \$\{escapeHtml\(selectedAt\)\}/)
   assert.match(source, /normalizeText\(response\.current_availability_selected_by_name\)[\s\S]*normalizeText\(response\.current_availability_selected_by_email\)/)
   assert.match(source, /formatReadableTimestamp\(response\.current_availability_selected_at\)/)
   assert.match(source, /status_value: VALID_STATUSES\.has\(status\) \? status : null/)

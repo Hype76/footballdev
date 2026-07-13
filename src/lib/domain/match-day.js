@@ -23,6 +23,7 @@ import {
   normalizeMatchClockMode,
   normalizeMatchDurationMinutes,
 } from '../matchday-model.js'
+import { normalizeMatchDaySquadDecision } from '../matchday-squad-selection.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
@@ -57,6 +58,7 @@ const MATCH_DAY_EVENT_LOG_TYPES = new Set([
   'player_selected',
   'player_deselected',
   'player_availability_changed',
+  'player_squad_decision_changed',
   'match_role_assigned',
   'match_role_removed',
   'scorer_updated',
@@ -351,6 +353,22 @@ function normalizePlayerAvailability(row) {
   }
 }
 
+function normalizePlayerSquadDecision(row) {
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    clubId: row.club_id ?? row.clubId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    status: normalizeMatchDaySquadDecision(row.status),
+    decidedBy: row.decided_by ?? row.decidedBy ?? '',
+    decidedByName: normalizeText(row.decided_by_name ?? row.decidedByName),
+    decidedAt: row.decided_at ?? row.decidedAt ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
 function normalizeAvailabilityHistory(row) {
   return {
     id: row.id ?? '',
@@ -426,6 +444,9 @@ export function normalizeMatchDay(row) {
   const playerAvailability = Array.isArray(row.match_day_player_availability)
     ? row.match_day_player_availability.map(normalizePlayerAvailability)
     : []
+  const squadDecisions = Array.isArray(row.match_day_player_squad_decisions)
+    ? row.match_day_player_squad_decisions.map(normalizePlayerSquadDecision)
+    : []
   const availabilityHistory = Array.isArray(row.match_day_player_availability_history)
     ? row.match_day_player_availability_history.map(normalizeAvailabilityHistory)
     : []
@@ -489,6 +510,9 @@ export function normalizeMatchDay(row) {
     roleAssignments,
     availabilityRequests,
     playerAvailability,
+    squadDecisionState: normalizeMatchDaySquadDecision(row.squad_decision_state ?? row.squadDecisionState),
+    squadDecisionUpdatedAt: row.squad_decision_updated_at ?? row.squadDecisionUpdatedAt ?? '',
+    squadDecisions,
     availabilityHistory,
     eventLog,
     events,
@@ -505,6 +529,7 @@ function normalizeParentPortalMatchDay(row) {
   delete match.eventLog
   delete match.finalReport
   delete match.playerAvailability
+  delete match.squadDecisions
   delete match.scorerAssignments
   delete match.scorerInterests
 
@@ -607,6 +632,7 @@ function buildMatchSelect() {
     match_day_scorer_assignments (*),
     match_day_role_assignments (*, parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
     match_day_player_availability (*),
+    match_day_player_squad_decisions (*),
     match_day_player_availability_history (*),
     match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
     match_day_event_log (*, players:player_id (player_name)),
@@ -648,6 +674,8 @@ function getMatchDayEventLogLabel(eventType, fallbackLabel = '') {
       return 'Player deselected'
     case 'player_availability_changed':
       return 'Availability changed'
+    case 'player_squad_decision_changed':
+      return 'Squad decision changed'
     case 'match_role_assigned':
       return 'Volunteer role assigned'
     case 'match_role_removed':
@@ -869,6 +897,35 @@ export async function getMatchDays({ user } = {}) {
   }
 
   return (data ?? []).map(normalizeMatchDay)
+}
+
+export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, decision }) {
+  const normalizedMatchDayId = normalizeText(matchDayId)
+  const normalizedPlayerId = normalizeText(playerId)
+  const normalizedDecision = normalizeMatchDaySquadDecision(decision)
+
+  if (!normalizedMatchDayId || !normalizedPlayerId) {
+    throw new Error('Choose a fixture and player before changing the squad decision.')
+  }
+
+  const { data, error } = await supabase.rpc('set_match_day_player_squad_decision', {
+    match_day_id_value: normalizedMatchDayId,
+    player_id_value: normalizedPlayerId,
+    decision_value: normalizedDecision,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  const row = Array.isArray(data) ? data[0] : data
+  return normalizePlayerSquadDecision(row || {
+    match_day_id: normalizedMatchDayId,
+    player_id: normalizedPlayerId,
+    status: normalizedDecision,
+  })
 }
 
 export async function getMatchLocations({ user } = {}) {

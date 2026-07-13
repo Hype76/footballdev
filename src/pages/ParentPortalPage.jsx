@@ -26,6 +26,7 @@ import {
   getParentInvitationCategory,
   getParentInvitationResponseOptions,
   getParentInvitationStatus,
+  getParentSquadDecisionStatus,
   getParentInvitationTypeLabel,
   getParentPortalInvitationState,
   getParentPortalMatchDays,
@@ -56,6 +57,7 @@ import {
   getFixtureKickoffLabel,
   isFixtureKickoffTimeTbc,
 } from '../lib/calendar-datetime-integrity.js'
+import { getMatchDaySquadDecisionLabel } from '../lib/matchday-squad-selection.js'
 
 const EMPTY_GOAL_FORM = {
   teamSide: 'club',
@@ -620,7 +622,12 @@ export function ParentPortalPage() {
         responseState,
       })
       await refreshInvitationViews()
-      showToast({ title: 'Response updated', message: 'Calendar and Invites now show the latest response.' })
+      showToast({
+        title: invitation.invitationType === 'match_attendance' ? 'Availability submitted' : 'Response updated',
+        message: invitation.invitationType === 'match_attendance' && responseState === 'available'
+          ? 'Your child is marked as available. The coaching team will confirm the final squad.'
+          : 'Calendar and Invites now show the latest response.',
+      })
     } catch (error) {
       console.error(error)
       setInvitationError(getParentMatchDayErrorMessage(error, 'This response could not be changed. Refresh the Parent Portal and try again.'))
@@ -1800,9 +1807,9 @@ function getMatchVolunteerRequestLabels(match = {}) {
 }
 
 const parentAvailabilityStatusLabels = {
-  pending: 'No response',
+  pending: 'Awaiting response',
   available: 'Available',
-  unavailable: 'Not available',
+  unavailable: 'Unavailable',
   maybe: 'Maybe',
   expired: 'Expired',
 }
@@ -1835,7 +1842,7 @@ const parentVolunteerRoleConfigs = [
 ]
 
 function getParentAvailabilityStatusLabel(value) {
-  return parentAvailabilityStatusLabels[String(value || 'pending').toLowerCase()] || 'No response'
+  return parentAvailabilityStatusLabels[String(value || 'pending').toLowerCase()] || 'Awaiting response'
 }
 
 function getParentVolunteerResponseLabel(value) {
@@ -1845,6 +1852,7 @@ function getParentVolunteerResponseLabel(value) {
 function getParentMatchResponseRows(match = {}) {
   const rows = [
     ['Availability', getParentAvailabilityStatusLabel(match.availabilityStatus)],
+    ['Squad decision', getMatchDaySquadDecisionLabel(match.squadDecisionState, { parent: true })],
   ]
 
   if (match.requestScorer !== false) {
@@ -2047,7 +2055,9 @@ function ParentOverviewPanel({
       label: 'Match cards',
       count: activeMatches.length,
       title: nextMatch ? getMatchDayDisplayName(nextMatch) : 'No active match card',
-      detail: nextMatch ? formatMatchDate(nextMatch) : 'Live and upcoming match cards appear only when shared.',
+      detail: nextMatch
+        ? `${formatMatchDate(nextMatch)} | Availability: ${getParentAvailabilityStatusLabel(nextMatch.availabilityStatus)} | Squad: ${getMatchDaySquadDecisionLabel(nextMatch.squadDecisionState, { parent: true })}`
+        : 'Live and upcoming match cards appear only when shared.',
     },
     {
       id: 'results',
@@ -2402,6 +2412,8 @@ function formatParentInvitationDeadline(invitation) {
 
 function ParentInvitationResponseBlock({ activeInvitationId, invitation, onRespond }) {
   const status = getParentInvitationStatus(invitation)
+  const isPlayerAvailability = invitation.invitationType === 'match_attendance'
+  const squadDecision = getParentSquadDecisionStatus(invitation)
   const responseOptions = getParentInvitationResponseOptions(invitation)
   const deadline = formatParentInvitationDeadline(invitation)
   const isBusy = activeInvitationId === invitation.invitationId
@@ -2413,12 +2425,20 @@ function ParentInvitationResponseBlock({ activeInvitationId, invitation, onRespo
           <p className="text-sm font-black text-[#101828]">{getParentInvitationTypeLabel(invitation)}</p>
           <p className="mt-1 text-xs font-semibold text-[#60756a]">Child: {invitation.childName}</p>
         </div>
-        <span className="w-fit rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
-          {status.label}
-        </span>
+        <div className="flex flex-wrap gap-2">
+          <span className="w-fit rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
+            {isPlayerAvailability ? `Availability: ${status.label}` : status.label}
+          </span>
+          {isPlayerAvailability ? (
+            <span className="w-fit rounded-full border border-[#bbf7d0] bg-[#ecfdf5] px-2 py-1 text-xs font-black text-[#047857]">
+              Squad: {squadDecision.label}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {status.detail ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{status.detail}</p> : null}
+      {isPlayerAvailability ? <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{squadDecision.detail}</p> : null}
       {deadline ? <p className="mt-2 text-xs font-semibold text-[#60756a]">Response deadline: {deadline}</p> : null}
 
       {invitation.canChangeResponse && responseOptions.length > 0 ? (
@@ -2522,7 +2542,10 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
           </div>
 
           <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
-            <p className={eyebrowClass}>Child attendance</p>
+            <p className={eyebrowClass}>Player availability</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              An Available response confirms availability only. The coaching team will confirm the final squad separately.
+            </p>
             <div className="mt-3 space-y-3">
               {attendanceInvitations.length > 0 ? attendanceInvitations.map((invitation) => (
                 <ParentInvitationResponseBlock
@@ -2564,9 +2587,9 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
 
 const parentInvitationSections = [
   { id: 'needs_response', label: 'Needs response' },
-  { id: 'accepted', label: 'Accepted' },
-  { id: 'declined', label: 'Declined' },
-  { id: 'selected', label: 'Confirmed or selected' },
+  { id: 'accepted', label: 'Availability submitted' },
+  { id: 'declined', label: 'Unavailable' },
+  { id: 'selected', label: 'Volunteer selected' },
   { id: 'information', label: 'Information' },
   { id: 'closed', label: 'Closed or past' },
 ]
@@ -2619,6 +2642,8 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {section.invitations.map((invitation) => {
                     const status = getParentInvitationStatus(invitation)
+                    const squadDecision = getParentSquadDecisionStatus(invitation)
+                    const isPlayerAvailability = invitation.invitationType === 'match_attendance'
                     const hasEvent = calendarEvents.some((calendarEvent) =>
                       calendarEvent.invitations?.some((candidate) => candidate.invitationId === invitation.invitationId))
 
@@ -2633,7 +2658,12 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
                           {invitation.childName}{invitation.teamName ? `, ${invitation.teamName}` : ''}
                         </p>
                         {invitation.eventLocation ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{invitation.eventLocation}</p> : null}
-                        <p className="mt-3 text-sm font-black text-[#101828]">{status.label}</p>
+                        <p className="mt-3 text-sm font-black text-[#101828]">
+                          {isPlayerAvailability ? `Availability: ${status.label}` : status.label}
+                        </p>
+                        {isPlayerAvailability ? (
+                          <p className="mt-1 text-sm font-black text-[#047857]">Squad: {squadDecision.label}</p>
+                        ) : null}
                         {status.detail ? <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">{status.detail}</p> : null}
                         <button
                           type="button"

@@ -43,7 +43,7 @@ function statusLabel(value) {
   const status = normalizeText(value).toLowerCase()
 
   if (status === 'unavailable') {
-    return 'not available'
+    return 'unavailable'
   }
 
   if (status === 'no_response' || status === 'pending') {
@@ -225,7 +225,7 @@ function currentAvailabilityAttribution(response, currentStatus) {
     || 'the latest responder'
   const selectedAt = formatReadableTimestamp(response.current_availability_selected_at)
 
-  return `<p class="availability-summary">Current answer: ${escapeHtml(sentenceStatusLabel(currentStatus))}, chosen by ${escapeHtml(selectedBy)} at ${escapeHtml(selectedAt)}. If this has changed, you can update it below.</p>`
+  return `<p class="availability-summary">Current availability: ${escapeHtml(sentenceStatusLabel(currentStatus))}, submitted by ${escapeHtml(selectedBy)} at ${escapeHtml(selectedAt)}. If this has changed, you can update it below.</p>`
 }
 
 function availabilityFieldset(response) {
@@ -233,7 +233,7 @@ function availabilityFieldset(response) {
   const hasCurrentStatus = VALID_STATUSES.has(currentStatus)
   const choices = [
     ['available', 'Available'],
-    ['unavailable', 'Not available'],
+    ['unavailable', 'Unavailable'],
     ['maybe', 'Maybe'],
   ]
 
@@ -478,6 +478,16 @@ function invalidTokenPage() {
   }))
 }
 
+function availabilityConfirmationMessage(response) {
+  const playerName = response.player_name || 'The player'
+  const status = normalizeText(response.response_status).toLowerCase()
+  const squadNote = status === 'available'
+    ? ' The coaching team will confirm the final squad separately.'
+    : ''
+
+  return `${playerName} is marked as ${statusLabel(status)}.${squadNote}`
+}
+
 export async function handler(event) {
   try {
     const params = event.httpMethod === 'POST' ? getFormBody(event) : new URLSearchParams(event.queryStringParameters || {})
@@ -518,7 +528,7 @@ export async function handler(event) {
 
         return htmlResponse(200, page({
           title: 'Availability confirmed',
-          message: `${response.player_name || 'The player'} is marked as ${statusLabel(response.response_status)}. You can close this page.`,
+          message: `${availabilityConfirmationMessage(response)} You can close this page.`,
         }))
       }
 
@@ -577,7 +587,7 @@ export async function handler(event) {
     return htmlResponse(200, page({
       title: 'Response saved',
       message: VALID_STATUSES.has(submittedStatus)
-        ? `${response.player_name || 'The player'} is marked as ${statusLabel(response.response_status)}. Thank you for replying.`
+        ? `${availabilityConfirmationMessage(response)} Thank you for replying.`
         : 'Your fixture response has been saved. Thank you for replying.',
     }))
   } catch (error) {

@@ -188,6 +188,8 @@ function getEventVolunteerDetails(event) {
 }
 
 function getEventAccessibleName(event) {
+  const squadDecisionLabel = String(event?.calendarVisualState?.squadDecisionLabel ?? '').trim()
+
   return [
     event?.title,
     event?.childName ? `Child: ${event.childName}` : '',
@@ -195,6 +197,7 @@ function getEventAccessibleName(event) {
     event?.time ? `Time: ${event.time}` : '',
     getEventContextLabel(event),
     getEventStatusLabel(event) ? `Status: ${getEventStatusLabel(event)}` : '',
+    squadDecisionLabel ? `Squad: ${squadDecisionLabel}` : '',
     ...getEventVolunteerDetails(event),
   ].filter(Boolean).join(', ')
 }

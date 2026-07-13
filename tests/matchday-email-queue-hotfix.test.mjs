@@ -79,7 +79,7 @@ test('queued email updates preserve existing html when the UI only edits metadat
 
 test('match day select and deselect stays unlocked after optional refresh trouble', () => {
   const handlerStart = matchDayPageSource.indexOf('const handleVolunteerSelection = async')
-  const handlerEnd = matchDayPageSource.indexOf('const updateGoalForm =', handlerStart)
+  const handlerEnd = matchDayPageSource.indexOf('const handleSquadDecisionChange = async', handlerStart)
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
   const handlerSource = matchDayPageSource.slice(handlerStart, handlerEnd)

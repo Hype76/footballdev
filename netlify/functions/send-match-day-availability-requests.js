@@ -158,6 +158,9 @@ function buildAvailabilityEmail({ appOrigin, match, player, recipient, responseU
         <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
           ${recipient.type === 'player' ? 'Please confirm your availability.' : 'Please confirm availability for this player.'} ${escapeHtml(roleText)}
         </p>
+        <p style="margin:0 0 20px;color:#4b5f55;font-size:14px;line-height:1.6;font-weight:700;">
+          An Available response does not confirm squad selection. The coaching team will confirm the final squad separately.
+        </p>
         <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">${rows}</table>
         ${mapLinksMarkup}
         <div style="display:block;margin:22px 0;">
