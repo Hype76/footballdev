@@ -4,11 +4,15 @@ import { test } from 'node:test'
 
 import { migrationSourceUrl } from './helpers/migration-source.mjs'
 import {
+  getParentInvitationView,
   getParentInvitationCategory,
   getParentInvitationResponseOptions,
   getParentInvitationStatus,
   groupParentInvitationsByEvent,
+  isParentInvitationPending,
   normalizeParentInvitation,
+  PARENT_INVITATION_VIEWS,
+  splitParentInvitationsForViews,
 } from '../src/lib/domain/parent-invitations.js'
 
 const migrationUrl = migrationSourceUrl('20260713150000_parent_portal_calendar_invite_integrity.sql', 'active')
@@ -42,6 +46,7 @@ test('shared invitation normalizer keeps stable event, child, request, and role 
     selection_state: 'not_selected',
     can_respond: true,
     can_change_response: true,
+    is_pending: true,
   })
 
   assert.equal(invitation.invitationId, 'match_role:request-1:referee')
@@ -49,6 +54,39 @@ test('shared invitation normalizer keeps stable event, child, request, and role 
   assert.equal(invitation.eventKey, 'match_day:event-1:child-1')
   assert.equal(invitation.roleType, 'referee')
   assert.equal(invitation.canChangeResponse, true)
+  assert.equal(isParentInvitationPending(invitation), true)
+})
+
+test('server pending state separates actionable, upcoming, and historical invitations', () => {
+  const pending = normalizeParentInvitation({
+    invitation_id: 'pending-1',
+    invitation_type: 'match_role',
+    event_start: '2030-07-20T10:00:00.000Z',
+    event_end: '2030-07-20T12:00:00.000Z',
+    response_state: 'awaiting_response',
+    is_pending: true,
+  })
+  const accepted = normalizeParentInvitation({
+    invitation_id: 'accepted-1',
+    invitation_type: 'match_role',
+    event_start: '2030-07-20T10:00:00.000Z',
+    event_end: '2030-07-20T12:00:00.000Z',
+    response_state: 'accepted',
+    is_pending: false,
+  })
+  const expired = normalizeParentInvitation({
+    invitation_id: 'expired-1',
+    invitation_type: 'match_role',
+    invitation_state: 'expired',
+    event_end: '2030-07-18T12:00:00.000Z',
+    is_pending: false,
+  })
+  const views = splitParentInvitationsForViews([expired, accepted, pending], { now: '2030-07-19T12:00:00.000Z' })
+
+  assert.equal(getParentInvitationView(pending, { now: '2030-07-19T12:00:00.000Z' }), PARENT_INVITATION_VIEWS.pending)
+  assert.deepEqual(views.pending.map((item) => item.invitationId), ['pending-1'])
+  assert.deepEqual(views.upcoming.map((item) => item.invitationId), ['accepted-1'])
+  assert.deepEqual(views.history.map((item) => item.invitationId), ['expired-1'])
 })
 
 test('siblings and multiple role offers stay separate while one child event is grouped', () => {
@@ -196,11 +234,11 @@ test('Parent Calendar modal and Invites use the same invitation state and refres
   assert.match(modal, /Match Day roles/)
   assert.match(modal, /No attendance response is required for this event/)
   assert.match(modal, /No Match Day role has been offered for this event/)
-  assert.match(source, /\{ id: 'needs_response', label: 'Needs response' \}/)
-  assert.match(source, /\{ id: 'accepted', label: 'Availability submitted' \}/)
-  assert.match(source, /\{ id: 'selected', label: 'Volunteer selected' \}/)
-  assert.match(source, /\{ id: 'closed', label: 'Closed or past' \}/)
-  assert.match(invites, /View event/)
+  assert.match(source, /label: 'Pending'/)
+  assert.match(source, /label: 'Responded or Upcoming'/)
+  assert.match(source, /label: 'History'/)
+  assert.match(invites, /Respond now/)
+  assert.match(invites, /Load more history/)
   assert.match(mutation, /respondToParentPortalInvitation/)
   assert.match(mutation, /refreshInvitationViews\(\)/)
   assert.match(source, /setParentInvitations\(nextParentInvitations\)/)
@@ -224,7 +262,7 @@ test('parent invitation domain does not expose contact fields or persist respons
 
   assert.doesNotMatch(normalizer, /recipientEmail|parentEmail|parentContact|selectedByEmail/)
   assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB/)
-  assert.match(source, /supabase\.rpc\('get_parent_portal_invitation_state'/)
+  assert.match(source, /supabase\.rpc\('get_parent_portal_invitation_summary'/)
   assert.match(source, /supabase\.rpc\('respond_parent_portal_match_day_invitation'/)
   assert.match(source, /supabase\.rpc\('respond_parent_portal_training_invitation'/)
 })

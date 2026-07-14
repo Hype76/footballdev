@@ -19,6 +19,12 @@ const CLOSED_INVITATION_STATES = new Set(['cancelled', 'closed', 'expired', 'wit
 const CLOSED_EVENT_STATES = new Set(['cancelled', 'postponed', 'full_time', 'concluded', 'closed'])
 const COMPLETED_EVENT_STATES = new Set(['full_time', 'concluded'])
 
+export const PARENT_INVITATION_VIEWS = Object.freeze({
+  pending: 'pending',
+  upcoming: 'upcoming',
+  history: 'history',
+})
+
 export const PARENT_CALENDAR_VISUAL_STATES = Object.freeze({
   accepted: 'accepted',
   declined: 'declined',
@@ -99,7 +105,53 @@ export function normalizeParentInvitation(row = {}) {
     lockReason: normalizeText(row.lock_reason ?? row.lockReason),
     responseDeadline: row.response_deadline ?? row.responseDeadline ?? '',
     lastRespondedAt: row.last_responded_at ?? row.lastRespondedAt ?? '',
+    isPending: normalizeBoolean(row.is_pending ?? row.isPending),
   }
+}
+
+export function isParentInvitationPending(invitation = {}) {
+  return invitation.isPending === true
+}
+
+export function getParentInvitationView(invitation = {}, options = {}) {
+  if (isParentInvitationPending(invitation)) {
+    return PARENT_INVITATION_VIEWS.pending
+  }
+
+  const now = parseTimestamp(options.now) ?? Date.now()
+  const eventEnd = getEventEndTimestamp(invitation)
+  const isClosed = CLOSED_INVITATION_STATES.has(normalizeText(invitation.invitationState).toLowerCase())
+
+  if (isClosed || (eventEnd !== null && eventEnd < now)) {
+    return PARENT_INVITATION_VIEWS.history
+  }
+
+  return PARENT_INVITATION_VIEWS.upcoming
+}
+
+export function splitParentInvitationsForViews(invitations = [], options = {}) {
+  const views = {
+    [PARENT_INVITATION_VIEWS.pending]: [],
+    [PARENT_INVITATION_VIEWS.upcoming]: [],
+    [PARENT_INVITATION_VIEWS.history]: [],
+  }
+
+  const normalizedInvitations = Array.isArray(invitations) ? invitations : []
+
+  normalizedInvitations.forEach((invitation) => {
+    views[getParentInvitationView(invitation, options)].push(invitation)
+  })
+
+  const ascending = (left, right) =>
+    String(left.eventStart || left.eventDate || '').localeCompare(String(right.eventStart || right.eventDate || ''))
+    || left.eventTitle.localeCompare(right.eventTitle)
+  const descending = (left, right) => -ascending(left, right)
+
+  views[PARENT_INVITATION_VIEWS.pending].sort(ascending)
+  views[PARENT_INVITATION_VIEWS.upcoming].sort(ascending)
+  views[PARENT_INVITATION_VIEWS.history].sort(descending)
+
+  return views
 }
 
 export function getParentInvitationTypeLabel(invitation = {}) {
@@ -560,7 +612,7 @@ export async function getParentPortalInvitationState({ parentLinkId } = {}) {
     return []
   }
 
-  const { data, error } = await supabase.rpc('get_parent_portal_invitation_state', {
+  const { data, error } = await supabase.rpc('get_parent_portal_invitation_summary', {
     parent_link_id_value: normalizedParentLinkId,
   })
 

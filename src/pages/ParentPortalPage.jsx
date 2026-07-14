@@ -23,7 +23,6 @@ import {
   correctMatchDayGoalAsScorer,
   expressMatchDayScorerInterest,
   getParentCalendarVisualState,
-  getParentInvitationCategory,
   getParentInvitationResponseOptions,
   getParentInvitationStatus,
   getParentSquadDecisionStatus,
@@ -34,7 +33,10 @@ import {
   getParentPortalPlayerResources,
   getParentPortalSharedCalendarEvents,
   groupParentInvitationsByEvent,
+  isParentInvitationPending,
+  PARENT_INVITATION_VIEWS,
   respondToParentPortalInvitation,
+  splitParentInvitationsForViews,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
 } from '../lib/supabase.js'
@@ -484,7 +486,11 @@ export function ParentPortalPage() {
     ?? parentCalendarEvents.find((event) => event.id === selectedCalendarEventId)
     ?? null
   const isCalendarLoading = isLoadingMatches || (calendarScope === 'all' && isLoadingAllLinkedCalendar)
-  const currentInvitationCount = parentInvitations.filter((invitation) => getParentInvitationCategory(invitation) !== 'closed').length
+  const pendingParentInvitations = useMemo(
+    () => parentInvitations.filter(isParentInvitationPending),
+    [parentInvitations],
+  )
+  const currentInvitationCount = pendingParentInvitations.length
   const parentNavCounts = useMemo(() => ({
     calendar: visibleCalendarEvents.length,
     invites: currentInvitationCount,
@@ -1149,7 +1155,7 @@ export function ParentPortalPage() {
             <ParentOverviewPanel
               activeMatches={activeMatches}
               calendarEvents={parentCalendarEvents}
-              eventInvites={parentInvitations.filter((invitation) => getParentInvitationCategory(invitation) !== 'closed')}
+              eventInvites={pendingParentInvitations}
               isLoading={isLoadingMatches}
               onSelectSection={setActiveSection}
               playerResources={playerResources}
@@ -1176,6 +1182,7 @@ export function ParentPortalPage() {
 
           {activeSection === 'invites' ? (
             <ParentUpcomingEvents
+              key={selectedLink?.id || 'no-linked-child'}
               calendarEvents={parentCalendarEvents}
               invitations={parentInvitations}
               isLoading={isLoadingMatches}
@@ -2585,23 +2592,22 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
   )
 }
 
-const parentInvitationSections = [
-  { id: 'needs_response', label: 'Needs response' },
-  { id: 'accepted', label: 'Availability submitted' },
-  { id: 'declined', label: 'Unavailable' },
-  { id: 'selected', label: 'Volunteer selected' },
-  { id: 'information', label: 'Information' },
-  { id: 'closed', label: 'Closed or past' },
+const parentInvitationTabs = [
+  { id: PARENT_INVITATION_VIEWS.pending, label: 'Pending' },
+  { id: PARENT_INVITATION_VIEWS.upcoming, label: 'Responded or Upcoming' },
+  { id: PARENT_INVITATION_VIEWS.history, label: 'History' },
 ]
 
+const parentInvitationHistoryPageSize = 8
+
 function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEvent, selectedLink }) {
-  const invitationSections = parentInvitationSections
-    .map((section) => ({
-      ...section,
-      invitations: invitations.filter((invitation) => getParentInvitationCategory(invitation) === section.id),
-    }))
-    .filter((section) => section.invitations.length > 0)
-  const currentCount = invitations.filter((invitation) => getParentInvitationCategory(invitation) !== 'closed').length
+  const [activeTab, setActiveTab] = useState(PARENT_INVITATION_VIEWS.pending)
+  const [visibleHistoryCount, setVisibleHistoryCount] = useState(parentInvitationHistoryPageSize)
+  const invitationViews = useMemo(() => splitParentInvitationsForViews(invitations), [invitations])
+  const activeInvitations = activeTab === PARENT_INVITATION_VIEWS.history
+    ? invitationViews[activeTab].slice(0, visibleHistoryCount)
+    : invitationViews[activeTab]
+  const currentCount = invitationViews[PARENT_INVITATION_VIEWS.pending].length
 
   const openInvitationEvent = (invitation) => {
     const event = calendarEvents.find((calendarEvent) =>
@@ -2616,10 +2622,35 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className={eyebrowClass}>Upcoming events</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invites from the club</h3>
+          <p className={eyebrowClass}>Parent invites</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invites and responses</h3>
         </div>
-        <p className="text-sm font-black text-[#4b5f55]">{currentCount} current</p>
+        <p className="text-sm font-black text-[#4b5f55]">{currentCount} waiting</p>
+      </div>
+
+      <div className="mt-4 flex max-w-full gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Parent invitation views">
+        {parentInvitationTabs.map((tab) => {
+          const isActive = activeTab === tab.id
+          const count = invitationViews[tab.id].length
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => {
+                setActiveTab(tab.id)
+                if (tab.id === PARENT_INVITATION_VIEWS.history) {
+                  setVisibleHistoryCount(parentInvitationHistoryPageSize)
+                }
+              }}
+              className={`${isActive ? primaryButtonClass : secondaryButtonClass} shrink-0`}
+            >
+              {tab.label} ({count})
+            </button>
+          )
+        })}
       </div>
 
       <div className="mt-4">
@@ -2629,18 +2660,9 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
           <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
             Loading event invites...
           </p>
-        ) : invitationSections.length > 0 ? (
-          <div className="space-y-5">
-            {invitationSections.map((section) => (
-              <section key={section.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <h4 className="text-lg font-black text-[#101828]">{section.label}</h4>
-                  <span className="rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
-                    {section.invitations.length}
-                  </span>
-                </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {section.invitations.map((invitation) => {
+        ) : activeInvitations.length > 0 ? (
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
+                  {activeInvitations.map((invitation) => {
                     const status = getParentInvitationStatus(invitation)
                     const squadDecision = getParentSquadDecisionStatus(invitation)
                     const isPlayerAvailability = invitation.invitationType === 'match_attendance'
@@ -2648,40 +2670,52 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
                       calendarEvent.invitations?.some((candidate) => candidate.invitationId === invitation.invitationId))
 
                     return (
-                      <article key={invitation.invitationId} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                      <article key={invitation.invitationId} className="min-w-0 overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                         <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
                           {getParentInvitationTypeLabel(invitation)}
                         </p>
-                        <h5 className="mt-2 text-lg font-black text-[#101828]">{invitation.eventTitle}</h5>
+                        <h5 className="mt-2 break-words text-base font-black text-[#101828]">{invitation.eventTitle}</h5>
                         <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{formatParentEventDate(invitation)}</p>
                         <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
                           {invitation.childName}{invitation.teamName ? `, ${invitation.teamName}` : ''}
                         </p>
-                        {invitation.eventLocation ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{invitation.eventLocation}</p> : null}
+                        {invitation.eventLocation ? <p className="mt-1 break-words text-sm font-semibold text-[#4b5f55]">{invitation.eventLocation}</p> : null}
                         <p className="mt-3 text-sm font-black text-[#101828]">
                           {isPlayerAvailability ? `Availability: ${status.label}` : status.label}
                         </p>
                         {isPlayerAvailability ? (
                           <p className="mt-1 text-sm font-black text-[#047857]">Squad: {squadDecision.label}</p>
                         ) : null}
-                        {status.detail ? <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">{status.detail}</p> : null}
+                        {activeTab === PARENT_INVITATION_VIEWS.pending && status.detail ? <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">{status.detail}</p> : null}
                         <button
                           type="button"
                           onClick={() => openInvitationEvent(invitation)}
                           disabled={!hasEvent}
-                          className={`${secondaryButtonClass} mt-4 w-full sm:w-auto`}
+                          className={`${activeTab === PARENT_INVITATION_VIEWS.pending ? primaryButtonClass : secondaryButtonClass} mt-4 w-full sm:w-auto`}
                         >
-                          View event
+                          {activeTab === PARENT_INVITATION_VIEWS.pending ? 'Respond now' : 'View event'}
                         </button>
                       </article>
                     )
                   })}
-                </div>
-              </section>
-            ))}
+            {activeTab === PARENT_INVITATION_VIEWS.history && visibleHistoryCount < invitationViews[PARENT_INVITATION_VIEWS.history].length ? (
+              <button
+                type="button"
+                onClick={() => setVisibleHistoryCount((count) => count + parentInvitationHistoryPageSize)}
+                className={`${secondaryButtonClass} md:col-span-2 md:justify-self-center`}
+              >
+                Load more history
+              </button>
+            ) : null}
           </div>
         ) : (
-          <p className={emptyClass}>No invitations are available for this child. New attendance requests and Match Day role offers will appear here.</p>
+          <p className={emptyClass}>
+            {activeTab === PARENT_INVITATION_VIEWS.pending
+              ? "You're all caught up. There are no invitations waiting for your response."
+              : activeTab === PARENT_INVITATION_VIEWS.upcoming
+                ? 'No answered or upcoming invitations are available for this child.'
+                : 'No invitation history is available for this child.'}
+          </p>
         )}
       </div>
     </section>

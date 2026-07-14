@@ -59,7 +59,7 @@ export function ParentPortalSectionNav({
                     <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
                   )}
                 </span>
-                {typeof count === 'number' ? (
+                {typeof count === 'number' && count > 0 ? (
                   <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
                     {count}
                   </span>

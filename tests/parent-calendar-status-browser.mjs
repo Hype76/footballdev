@@ -120,6 +120,7 @@ function invitationRow({
     invitation_state: invitationState,
     response_state: responseState,
     selection_state: selectionState,
+    is_pending: canRespond,
     can_respond: canRespond,
     can_change_response: canRespond,
   }
@@ -221,7 +222,7 @@ const matchRows = [...new Map(invitationRows.map((row) => [row.event_id, {
 async function preparePage(context) {
   await context.route('**/rest/v1/**', (route) => {
     const requestUrl = route.request().url()
-    const data = requestUrl.includes('/rpc/get_parent_portal_invitation_state')
+    const data = requestUrl.includes('/rpc/get_parent_portal_invitation_summary')
       ? invitationRows
       : requestUrl.includes('/rpc/get_parent_portal_match_days')
         ? matchRows
@@ -344,6 +345,18 @@ try {
   await mobile.page.getByText('Player response needed', { exact: true }).first().waitFor({ state: 'visible' })
   await eventButton(mobile.page, 'Player available', 'Selected player and declined scorer').click()
   await mobile.page.getByRole('dialog').waitFor({ state: 'visible' })
+  assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await mobile.page.goto(`${baseUrl}/parent-portal?section=invites`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await mobile.page.getByRole('heading', { name: 'Invites and responses' }).waitFor({ state: 'visible', timeout: 15000 })
+  await mobile.page.getByRole('tab', { name: 'Pending (3)' }).waitFor({ state: 'visible' })
+  assert.equal(await mobile.page.getByRole('button', { name: 'Respond now' }).count(), 3)
+  assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await mobile.page.getByRole('tab', { name: /^Responded or Upcoming/ }).click()
+  await mobile.page.getByRole('button', { name: 'View event' }).first().waitFor({ state: 'visible' })
+  assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await mobile.page.getByRole('tab', { name: 'History (2)' }).click()
+  await mobile.page.getByText('Past accepted fixture', { exact: true }).waitFor({ state: 'visible' })
+  await mobile.page.getByText('Cancelled fixture', { exact: true }).waitFor({ state: 'visible' })
   assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   assert.deepEqual(mobile.pageErrors, [])
   assert.deepEqual(mobile.consoleErrors, [])
