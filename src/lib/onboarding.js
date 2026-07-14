@@ -676,7 +676,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
           title: 'Know where messages land',
           rule: 'Club messages and match updates are controlled by staff. Replies may be limited.',
           detail: 'Open messages so parents know where official updates live.',
-          href: '/parent-messages',
+          href: '/parent-chat',
           actionLabel: 'Open messages',
           complete: hasCompletedStep(user, scope, 'messages'),
         }),

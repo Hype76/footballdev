@@ -33,7 +33,7 @@ import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability 
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/feedback-forms', '/parent-linking', '/staff-chat', '/resources', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/feedback-forms', '/parent-linking', '/staff-chat', '/parent-chat-staff', '/resources', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',
@@ -59,7 +59,8 @@ const navIcons = {
   '/user-access': 'staff',
   '/coach': 'home',
   '/parent-portal': 'calendar',
-  '/parent-messages': 'mail',
+  '/parent-chat': 'mail',
+  '/parent-chat-staff': 'mail',
   '/parent-polls': 'availability',
   '/friends-family': 'parents',
   '/platform-admin': 'shield',
@@ -79,7 +80,7 @@ const groupDescriptions = {
 }
 
 const coreNavigationPaths = ['/calendar', '/players', '/assess-player', '/feedback-forms']
-const communicationNavigationPaths = ['/staff-chat', '/parent-linking', '/polls']
+const communicationNavigationPaths = ['/staff-chat', '/parent-chat-staff', '/parent-linking', '/polls']
 const matchOperationsNavigationPaths = ['/match-day', '/resources']
 
 function getSidebarTourId(path) {
@@ -122,7 +123,7 @@ function OperationsStrip({ canUseTeamWorkflow, displayUser, isParentPortal, onCl
   const actions = isParentPortal
     ? [
         { label: 'Calendar', path: '/parent-portal', icon: 'calendar' },
-        { label: 'Messages', path: '/parent-messages', icon: 'mail' },
+        { label: 'Chat', path: '/parent-chat', icon: 'mail' },
         { label: 'Replies', path: '/parent-polls', icon: 'availability' },
       ]
     : canUseTeamWorkflow ? [
@@ -393,7 +394,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (isParentPortal) {
-      return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/parent-polls'
+      return item.path === '/parent-portal' || item.path === '/parent-chat' || item.path === '/parent-polls'
     }
 
     if (item.path === '/calendar') {
@@ -420,7 +421,7 @@ export function Sidebar({ isOpen, onClose }) {
       return canUseTeamWorkflow && canManageParentLinks(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.parentInvitations)
     }
 
-    if (item.path === '/staff-chat') {
+    if (item.path === '/staff-chat' || item.path === '/parent-chat-staff') {
       return canUseStaffChat(displayUser)
     }
 
@@ -491,7 +492,7 @@ export function Sidebar({ isOpen, onClose }) {
     if (isParentPortal) {
       return [
         { label: 'Calendar', path: '/parent-portal', helper: 'Events and match day' },
-        { label: 'Messages', path: '/parent-messages', helper: 'Club notices' },
+        { label: 'Chat', path: '/parent-chat', helper: 'Child, team and match chat' },
         { label: 'Polls', path: '/parent-polls', helper: 'Reply requests' },
       ].filter((item) => isRecoveryPathVisible(item.path, { user: displayUser }))
     }

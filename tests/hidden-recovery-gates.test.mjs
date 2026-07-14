@@ -53,6 +53,7 @@ test('batch 1 to 4 modules are visible while later modules stay hidden', () => {
   assert.equal(isRecoveryPathVisible('/parent-linking', { user }), true)
   assert.equal(isRecoveryPathVisible('/parent-polls', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), true)
   assert.equal(isRecoveryPathVisible('/parent-messages', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), true)
+  assert.equal(isRecoveryPathVisible('/parent-chat', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), true)
   assert.equal(isRecoveryPathVisible('/friends-family', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), true)
   assert.equal(isRecoveryPathVisible('/email-queue', { user }), true)
   assert.equal(isRecoveryPathVisible('/parent-email-templates', { user }), true)
@@ -164,6 +165,7 @@ test('direct routes for hidden modules remain protected', async () => {
   }
 
   assert.equal(isRecoveryPathVisible('/parent-messages', { user: staffUser() }), true)
+  assert.equal(isRecoveryPathVisible('/parent-chat', { user: staffUser() }), true)
   assert.equal(isRecoveryPathVisible('/parent-polls', { user: staffUser() }), true)
   assert.equal(isRecoveryPathVisible('/friends-family', { user: staffUser() }), true)
   assert.equal(isRecoveryPathVisible('/parent-linking', { user: staffUser() }), true)

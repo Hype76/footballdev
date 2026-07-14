@@ -14,6 +14,7 @@ const parentIntentPaths = new Set([
   '/parent/sign-in',
   '/parent-portal',
   '/parent-messages',
+  '/parent-chat',
   '/parent-polls',
   '/parents/sign-in',
   '/friends-family',

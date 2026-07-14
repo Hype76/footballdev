@@ -243,6 +243,18 @@ export {
 } from './domain/staff-chat.js'
 
 export {
+  deleteParentChatMessage,
+  getParentChatMessages,
+  getParentChatRooms,
+  markParentChatRoomRead,
+  normalizeParentChatMessage,
+  normalizeParentChatRoom,
+  PARENT_CHAT_ROOM_TYPES,
+  sendParentChatMessage,
+  subscribeToParentChatRoom,
+} from './domain/parent-chat.js'
+
+export {
   archiveResourceLibraryItem,
   assignResourceLibraryItem,
   createExternalResourceLibraryItem,

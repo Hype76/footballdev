@@ -32,12 +32,14 @@ test('batch 1 to 4 recovery routes are visible while parent role guards stay sep
   }
 
   assert.equal(getRecoveryModuleForPath('/parent-messages'), 'parentMessages')
+  assert.equal(getRecoveryModuleForPath('/parent-chat'), 'parentMessages')
   assert.equal(getRecoveryModuleForPath('/parent-polls'), 'pollsAvailability')
   assert.equal(getRecoveryModuleForPath('/friends-family'), 'familySharing')
   assert.equal(getRecoveryModuleForPath('/email-queue'), 'emailMessages')
   assert.equal(getRecoveryModuleForPath('/parent-email-templates'), 'emailMessages')
   assert.equal(getRecoveryModuleForPath('/end-season-stats'), 'reports')
   assert.equal(isRecoveryPathVisible('/parent-messages', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/parent-chat', { user: parentUser }), true)
   assert.equal(isRecoveryPathVisible('/parent-polls', { user: parentUser }), true)
   assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser }), true)
   assert.equal(isRecoveryPathVisible('/email-queue', { user: parentUser }), true)

@@ -25,6 +25,11 @@ export const primaryNavigation = [
     helper: 'Staff-only messages',
   },
   {
+    label: 'Parent Chat',
+    path: '/parent-chat-staff',
+    helper: 'Parents and guardians',
+  },
+  {
     label: 'Team Resources',
     path: '/resources',
     helper: 'Team file library',

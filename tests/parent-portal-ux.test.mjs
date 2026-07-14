@@ -13,7 +13,8 @@ import {
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentPortalShellUrl = new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url)
-const parentMessagesPageUrl = new URL('../src/pages/ParentMessagesPage.jsx', import.meta.url)
+const parentChatPageUrl = new URL('../src/pages/ParentChatPage.jsx', import.meta.url)
+const parentChatWorkspaceUrl = new URL('../src/components/chat/ParentChatWorkspace.jsx', import.meta.url)
 const parentPollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url)
 const friendsFamilyPageUrl = new URL('../src/pages/FriendsFamilyPage.jsx', import.meta.url)
 const parentInvitePageUrl = new URL('../src/pages/ParentInvitePage.jsx', import.meta.url)
@@ -59,7 +60,7 @@ test('parent dashboard uses section navigation instead of one long page', async 
   assert.match(shellSource, /id: 'matches', label: 'Match cards'/)
   assert.match(shellSource, /id: 'results', label: 'Results'/)
   assert.match(shellSource, /id: 'resources', label: 'Resources'/)
-  assert.match(shellSource, /id: 'messages', label: 'Messages'/)
+  assert.match(shellSource, /id: 'chat', label: 'Chat'/)
   assert.match(shellSource, /id: 'polls', label: 'Polls'/)
   assert.doesNotMatch(shellSource, /id: 'family', label: 'Family'/)
   assert.match(shellSource, /id: 'settings', label: 'Settings'/)
@@ -144,7 +145,7 @@ test('parent dashboard exposes surfaced parent links without feature clutter', a
     readFile(parentPortalShellUrl, 'utf8'),
   ])
 
-  assert.match(shellSource, /label: 'Messages'/)
+  assert.match(shellSource, /label: 'Chat'/)
   assert.match(shellSource, /label: 'Polls'/)
   assert.doesNotMatch(shellSource, /label: 'Family'/)
   assert.match(shellSource, /id: 'settings', label: 'Settings'/)
@@ -166,7 +167,7 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
   const [source, shellSource, messagesSource, pollsSource, familySource] = await Promise.all([
     readFile(parentPortalPageUrl, 'utf8'),
     readFile(parentPortalShellUrl, 'utf8'),
-    readFile(parentMessagesPageUrl, 'utf8'),
+    readFile(parentChatPageUrl, 'utf8'),
     readFile(parentPollsPageUrl, 'utf8'),
     readFile(friendsFamilyPageUrl, 'utf8'),
   ])
@@ -192,7 +193,7 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
   assert.match(source, /showAccountActions=\{false\}/)
   assert.match(source, /pb-28/)
   assert.match(source, /activeSection === 'settings'/)
-  assert.match(messagesSource, /<ParentPortalRouteShell activeSection="messages"/)
+  assert.match(messagesSource, /activeSection="chat"/)
   assert.match(pollsSource, /<ParentPortalRouteShell activeSection="polls"/)
   assert.match(familySource, /<ParentPortalRouteShell activeSection="family"/)
 })
@@ -255,15 +256,15 @@ test('parent scorer actions use app modal fields instead of browser dialogs', as
   assert.doesNotMatch(source, /window\.confirm|window\.prompt|window\.alert|confirmMatchDayAction|promptParentGoalCorrectionInput/)
 })
 
-test('parent portal shell persists navigation on messages polls and family routes', async () => {
+test('parent portal shell persists navigation on Chat, polls and family routes', async () => {
   const [messagesSource, pollsSource, familySource, shellSource] = await Promise.all([
-    readFile(parentMessagesPageUrl, 'utf8'),
+    readFile(parentChatPageUrl, 'utf8'),
     readFile(parentPollsPageUrl, 'utf8'),
     readFile(friendsFamilyPageUrl, 'utf8'),
     readFile(parentPortalShellUrl, 'utf8'),
   ])
 
-  assert.match(messagesSource, /<ParentPortalRouteShell activeSection="messages"/)
+  assert.match(messagesSource, /activeSection="chat"/)
   assert.match(pollsSource, /<ParentPortalRouteShell activeSection="polls"/)
   assert.match(familySource, /<ParentPortalRouteShell activeSection="family"/)
   assert.match(shellSource, /variant="desktop"/)
@@ -275,26 +276,28 @@ test('parent portal shell persists navigation on messages polls and family route
   assert.doesNotMatch(sectionsSource, /coach|admin|staff/i)
 })
 
-test('parent messages use compact unread total stat and keep linked children in settings', async () => {
-  const [messagesSource, settingsSource] = await Promise.all([
-    readFile(parentMessagesPageUrl, 'utf8'),
+test('parent Chat uses scoped unread totals and keeps linked children in settings', async () => {
+  const [chatSource, workspaceSource, settingsSource] = await Promise.all([
+    readFile(parentChatPageUrl, 'utf8'),
+    readFile(parentChatWorkspaceUrl, 'utf8'),
     readFile(parentPortalPageUrl, 'utf8'),
   ])
 
-  assert.match(messagesSource, /label: 'Unread messages'/)
-  assert.match(messagesSource, /value: `\$\{unreadCount\} \/ \$\{messages\.length\}`/)
-  assert.doesNotMatch(messagesSource, /label: 'Linked children'/)
+  assert.match(chatSource, /counts=\{\{ chat: unreadCount, polls: 0 \}\}/)
+  assert.match(workspaceSource, /const totalUnread = rooms\.reduce/)
+  assert.match(workspaceSource, /onUnreadCountChange\?\.\(totalUnread\)/)
+  assert.doesNotMatch(chatSource, /label: 'Linked children'/)
   assert.match(settingsSource, /Linked children/)
 })
 
-test('messages and polls nav badges use scoped page counts', async () => {
+test('Chat and polls nav badges use scoped page counts', async () => {
   const [messagesSource, pollsSource, shellSource] = await Promise.all([
-    readFile(parentMessagesPageUrl, 'utf8'),
+    readFile(parentChatPageUrl, 'utf8'),
     readFile(parentPollsPageUrl, 'utf8'),
     readFile(parentPortalShellUrl, 'utf8'),
   ])
 
-  assert.match(messagesSource, /messages: unreadCount/)
+  assert.match(messagesSource, /chat: unreadCount/)
   assert.match(pollsSource, /polls: unansweredPollCount/)
   assert.match(shellSource, /typeof count === 'number'/)
 })
@@ -383,12 +386,14 @@ test('batch 1 to 4 recovery routes are available while parent dashboard stays fo
     roleRank: 0,
   }
 
+  assert.equal(getRecoveryModuleForPath('/parent-chat'), 'parentMessages')
   assert.equal(getRecoveryModuleForPath('/parent-messages'), 'parentMessages')
   assert.equal(getRecoveryModuleForPath('/parent-polls'), 'pollsAvailability')
   assert.equal(getRecoveryModuleForPath('/friends-family'), 'familySharing')
   assert.equal(getRecoveryModuleForPath('/email-queue'), 'emailMessages')
   assert.equal(getRecoveryModuleForPath('/parent-email-templates'), 'emailMessages')
   assert.equal(getRecoveryModuleForPath('/end-season-stats'), 'reports')
+  assert.equal(isRecoveryPathVisible('/parent-chat', { user: parentUser }), true)
   assert.equal(isRecoveryPathVisible('/parent-messages', { user: parentUser }), true)
   assert.equal(isRecoveryPathVisible('/parent-polls', { user: parentUser }), true)
   assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser }), true)

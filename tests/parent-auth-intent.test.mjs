@@ -27,6 +27,7 @@ test('parent intent paths include login portal and legacy parent entry points', 
   assert.equal(isParentIntentPath('/parents/portal'), true)
   assert.equal(isParentIntentPath('/parent'), false)
   assert.equal(isParentIntentPath('/parent-messages'), true)
+  assert.equal(isParentIntentPath('/parent-chat'), true)
   assert.equal(isParentIntentPath('/parent-polls'), true)
   assert.equal(isParentIntentPath('/friends-family'), true)
   assert.equal(isParentIntentPath('/sign-in'), false)

@@ -99,8 +99,8 @@ test('sidebar keeps match day behind team workflow context and staff permission'
   assert.match(source, /const canUseTeamWorkflow = hasTeamWorkflowContext\(displayUser\)/)
   assert.match(section, /return canUseTeamWorkflow && canManageMatchDay\(displayUser\)/)
   assert.match(source, /if \(isParentPortal\) \{/)
-  assert.match(source, /return item\.path === '\/parent-portal' \|\| item\.path === '\/parent-messages' \|\| item\.path === '\/parent-polls'/)
-  assert.doesNotMatch(source, /return item\.path === '\/parent-portal' \|\| item\.path === '\/parent-messages' \|\| item\.path === '\/parent-polls' \|\| item\.path === '\/friends-family'/)
+  assert.match(source, /return item\.path === '\/parent-portal' \|\| item\.path === '\/parent-chat' \|\| item\.path === '\/parent-polls'/)
+  assert.doesNotMatch(source, /return item\.path === '\/parent-portal' \|\| item\.path === '\/parent-chat' \|\| item\.path === '\/parent-polls' \|\| item\.path === '\/friends-family'/)
 })
 
 test('sidebar development labels keep existing route targets and gates', async () => {

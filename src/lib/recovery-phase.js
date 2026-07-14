@@ -64,7 +64,7 @@ export function getRecoveryModuleForPath(path) {
     return 'parentPortal'
   }
 
-  if (normalizedPath === '/parent-messages') {
+  if (normalizedPath === '/parent-chat' || normalizedPath === '/parent-messages') {
     return 'parentMessages'
   }
 
@@ -80,7 +80,7 @@ export function getRecoveryModuleForPath(path) {
     return 'emailMessages'
   }
 
-  if (normalizedPath === '/staff-chat') {
+  if (normalizedPath === '/staff-chat' || normalizedPath === '/parent-chat-staff') {
     return 'staffChat'
   }
 

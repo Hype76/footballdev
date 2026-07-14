@@ -80,7 +80,8 @@ const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFo
 const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTemplatesPage.jsx'), 'ParentEmailTemplatesPage')
 const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx'), 'ParentInvitePage')
 const ParentLinkingPage = lazyRoute(() => import('../pages/ParentLinkingPage.jsx'), 'ParentLinkingPage')
-const ParentMessagesPage = lazyRoute(() => import('../pages/ParentMessagesPage.jsx'), 'ParentMessagesPage')
+const ParentChatPage = lazyRoute(() => import('../pages/ParentChatPage.jsx'), 'ParentChatPage')
+const ParentChatStaffPage = lazyRoute(() => import('../pages/ParentChatStaffPage.jsx'), 'ParentChatStaffPage')
 const ParentPollsPage = lazyRoute(() => import('../pages/ParentPollsPage.jsx'), 'ParentPollsPage')
 const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
 const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
@@ -1673,15 +1674,19 @@ export const router = createBrowserRouter([
                 },
               },
               {
-                path: 'parent-messages',
+                path: 'parent-chat',
                 element: (
                   <PageSuspense>
-                    <ParentMessagesPage />
+                    <ParentChatPage />
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Messages',
+                  title: 'Chat',
                 },
+              },
+              {
+                path: 'parent-messages',
+                element: <Navigate to="/parent-chat" replace />,
               },
               {
                 path: 'parent-polls',
@@ -1872,6 +1877,17 @@ export const router = createBrowserRouter([
                         ),
                         handle: {
                           title: 'Staff Chat',
+                        },
+                      },
+                      {
+                        path: 'parent-chat-staff',
+                        element: (
+                          <PageSuspense>
+                            <ParentChatStaffPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Parent Chat',
                         },
                       },
                     ],

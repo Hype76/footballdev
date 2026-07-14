@@ -46,6 +46,7 @@ test('batch 1 routes are surfaced without raising all recovery gates', () => {
   assert.equal(getRecoveryModuleForPath('/parent-linking'), 'parentInvites')
   assert.equal(getRecoveryModuleForPath('/friends-family'), 'familySharing')
   assert.equal(getRecoveryModuleForPath('/parent-messages'), 'parentMessages')
+  assert.equal(getRecoveryModuleForPath('/parent-chat'), 'parentMessages')
 
   assert.equal(isRecoveryPathVisible('/parent-polls', { user: parentUser() }), true)
   assert.equal(isRecoveryPathVisible('/polls', { user: staffUser() }), true)

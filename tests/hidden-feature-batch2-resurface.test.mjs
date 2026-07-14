@@ -12,7 +12,8 @@ const cleanupMigrationUrl = migrationSourceUrl('20260616072046_20260616070626_ha
 const messagesMigrationUrl = new URL('../supabase/migrations/20260518153000_parent_portal_message_reads.sql', import.meta.url)
 const revokeFamilyMigrationUrl = new URL('../supabase/migrations/20260516232000_parent_revoke_family_links.sql', import.meta.url)
 const parentPortalDomainUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
-const parentMessagesPageUrl = new URL('../src/pages/ParentMessagesPage.jsx', import.meta.url)
+const parentChatPageUrl = new URL('../src/pages/ParentChatPage.jsx', import.meta.url)
+const parentChatWorkspaceUrl = new URL('../src/components/chat/ParentChatWorkspace.jsx', import.meta.url)
 const friendsFamilyPageUrl = new URL('../src/pages/FriendsFamilyPage.jsx', import.meta.url)
 
 function parentUser(overrides = {}) {
@@ -34,29 +35,35 @@ function staffUser(overrides = {}) {
 }
 
 test('batch 2 parent routes are surfaced without exposing staff email tools', () => {
+  assert.equal(getRecoveryModuleForPath('/parent-chat'), 'parentMessages')
   assert.equal(getRecoveryModuleForPath('/parent-messages'), 'parentMessages')
   assert.equal(getRecoveryModuleForPath('/friends-family'), 'familySharing')
   assert.equal(getRecoveryModuleForPath('/email-queue'), 'emailMessages')
   assert.equal(getRecoveryModuleForPath('/parent-email-templates'), 'emailMessages')
 
+  assert.equal(isRecoveryPathVisible('/parent-chat', { user: parentUser() }), true)
   assert.equal(isRecoveryPathVisible('/parent-messages', { user: parentUser() }), true)
   assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser() }), true)
   assert.equal(isRecoveryPathVisible('/email-queue', { user: staffUser() }), true)
   assert.equal(isRecoveryPathVisible('/parent-email-templates', { user: staffUser({ roleRank: 70 }) }), true)
 })
 
-test('parent inbox remains read-only and tied to the selected child link', async () => {
-  const source = await readFile(parentMessagesPageUrl, 'utf8')
+test('Parent Portal replaces the email inbox with controlled Chat rooms', async () => {
+  const [page, workspace] = await Promise.all([
+    readFile(parentChatPageUrl, 'utf8'),
+    readFile(parentChatWorkspaceUrl, 'utf8'),
+  ])
 
-  assert.match(source, /getParentPortalMessages\(\{ parentLinkId: selectedLink\.id \}\)/)
-  assert.match(source, /markParentPortalMessageRead\(\{\s*parentLinkId: selectedLink\.id,/)
-  assert.match(source, /Mark all as read/)
-  assert.match(source, /Download PDF/)
-  assert.doesNotMatch(source, /compose|reply|send message|send email|create email/i)
-  assert.doesNotMatch(source, /inviteToken|invite_token|auth_user_id|parent_link_id/)
+  assert.match(page, /activeSection="chat"/)
+  assert.match(workspace, /Chat with Staff/)
+  assert.match(workspace, /Team Chat/)
+  assert.match(workspace, /Match Chats/)
+  assert.match(workspace, /sendParentChatMessage/)
+  assert.doesNotMatch(workspace, /getParentPortalMessages|markParentPortalMessageRead|Download PDF|View email|Parent inbox/i)
+  assert.doesNotMatch(workspace, /inviteToken|invite_token|auth_user_id|parent_link_id/)
 })
 
-test('parent message RPCs fail closed to the signed-in active parent link', async () => {
+test('legacy parent email mirror RPCs remain fail closed while approved email systems are preserved', async () => {
   const migration = await readFile(messagesMigrationUrl, 'utf8')
   const cleanupMigration = await readFile(cleanupMigrationUrl, 'utf8')
 
