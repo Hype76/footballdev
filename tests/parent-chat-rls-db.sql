@@ -425,6 +425,24 @@ $$;
 
 reset role;
 
+update public.match_days
+set status = 'full_time'
+where id = '76000000-0000-4000-8000-000000000001';
+
+do $$
+declare
+  room_status text;
+begin
+  select status into room_status
+  from public.parent_chat_rooms
+  where id = current_setting('test.chat.match_one')::uuid;
+
+  if room_status <> 'closed' then
+    raise exception 'Match Day completion trigger expected a closed room, found %.', room_status;
+  end if;
+end;
+$$;
+
 do $$
 declare
   retained_count integer;
