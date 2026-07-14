@@ -243,10 +243,14 @@ export async function saveCalendarEventInvites({
     teamId: normalizedTeamId,
     playerIds: selectedPlayerIds,
   })
+  const existingRowsByPlayerId = new Map(
+    (existingRows ?? []).map((row) => [normalizeText(row.player_id), row]),
+  )
 
   const rows = selectedPlayers.map((player) => {
     const parentLink = parentLinks.get(normalizeText(player.id))
     const contact = getPrimaryContact(player, parentLink)
+    const existingRow = existingRowsByPlayerId.get(normalizeText(player.id))
 
     return {
       club_id: user.clubId,
@@ -261,7 +265,7 @@ export async function saveCalendarEventInvites({
       parent_contact_email: contact.email,
       player_contact_email: '',
       recipient_contacts: contact.contacts,
-      invite_status: 'active',
+      invite_status: existingRow?.responded_at ? existingRow.invite_status : 'active',
       notify_requested: notifyRequested === true,
       cancelled_at: null,
       created_by: getEntryUserId(user),

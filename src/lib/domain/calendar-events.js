@@ -76,6 +76,7 @@ export function normalizeCalendarEvent(row, options = {}) {
     updatedByEmail: normalizeText(row.updated_by_email ?? row.updatedByEmail),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
+    notificationRevision: Number(row.notification_revision ?? row.notificationRevision ?? 1),
     canEdit: options.canEdit ?? true,
     isClubWide,
     isInheritedClubEvent: Boolean(options.isInheritedClubEvent),
@@ -375,6 +376,64 @@ export async function updateCalendarEvent({ user, eventId, event }) {
   })
 
   return normalizeCalendarEvent(data)
+}
+
+export async function notifyCalendarEventParents({
+  user,
+  eventId,
+  eventAction,
+  playerIds = [],
+} = {}) {
+  await blockDemoMutation(user)
+  assertCalendarAccess(user)
+
+  const normalizedEventId = normalizeText(eventId)
+  const normalizedAction = normalizeText(eventAction).toLowerCase()
+  const normalizedPlayerIds = [...new Set(
+    (Array.isArray(playerIds) ? playerIds : [])
+      .map((playerId) => normalizeText(playerId))
+      .filter(Boolean),
+  )]
+
+  if (!normalizedEventId) {
+    throw new Error('Save the Calendar event before notifying parents.')
+  }
+
+  if (!['creation', 'update'].includes(normalizedAction)) {
+    throw new Error('Choose a valid Calendar notification action.')
+  }
+
+  const { data, error } = await supabase.rpc('notify_calendar_event_parents', {
+    calendar_event_id_value: normalizedEventId,
+    event_action_value: normalizedAction,
+    player_ids_value: normalizedPlayerIds,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  clearViewCaches()
+  invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
+
+  return {
+    eventId: normalizeText(data?.eventId),
+    eventRevision: Number(data?.eventRevision ?? 0),
+    notificationType: normalizeText(data?.notificationType),
+    eventActionType: normalizeText(data?.eventActionType),
+    portalState: normalizeText(data?.portalState),
+    portalCreatedCount: Number(data?.portalCreatedCount ?? 0),
+    portalUpdatedCount: Number(data?.portalUpdatedCount ?? 0),
+    portalRecordCount: Number(data?.portalRecordCount ?? 0),
+    responseRequirement: normalizeText(data?.responseRequirement),
+    eligibleRecipientCount: Number(data?.eligibleRecipientCount ?? 0),
+    queuedCount: Number(data?.queuedCount ?? 0),
+    failedCount: Number(data?.failedCount ?? 0),
+    duplicateCount: Number(data?.duplicateCount ?? 0),
+    idempotencyPrefix: normalizeText(data?.idempotencyPrefix),
+    finalState: normalizeText(data?.finalState),
+  }
 }
 
 export async function deleteCalendarEvent({ user, eventId }) {

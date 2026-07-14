@@ -69,6 +69,7 @@ import {
   getAvailableTeamsForUser,
   getSessionStaffNotes,
   getPlayers,
+  notifyCalendarEventParents,
   readViewCache,
   readViewCacheValue,
   saveCalendarEventInvites,
@@ -603,7 +604,7 @@ function getFormInviteFields(event, invites = []) {
     invitedPlayerIds: eventInvites.map((invite) => invite.playerId).filter(Boolean),
     inviteTrialPlayers: false,
     inviteWholeSquad: false,
-    notifyInvitedFamilies: eventInvites.some((invite) => invite.notifyRequested),
+    notifyInvitedFamilies: false,
     parentAudience: eventInvites.length > 0 ? 'involved_players' : 'none',
     shareWithParents: eventInvites.length > 0,
   }
@@ -1842,6 +1843,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const saveTrainingAsSession = isTraining && (calendarModal?.variant === 'session' || sourceType === 'session')
     const trimmedTitle = getTrimmedFormValue(calendarForm.title)
     const trimmedOpponent = getTrimmedFormValue(calendarForm.opponent)
+    let coreSavedEvent = null
+    let coreSavedCalendarItems = null
 
     try {
       if (!canCreateClubCalendarEvent(user) && !safeTeamId) {
@@ -1887,6 +1890,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       let nextCalendarInvites = calendarInvites
       let queuedInviteEmails = 0
       let failedInviteEmails = 0
+      let calendarNotificationResult = null
       const shouldSyncInvites = Boolean(safeTeamId)
       const syncInvites = async ({ calendarEventId = '', assessmentSessionId = '', sourceTitle = '' } = {}) => {
         if (!shouldSyncInvites) {
@@ -1897,6 +1901,20 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const sharedAllTeamParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_team_parents'
         const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
         const notifyRequested = calendarForm.notifyInvitedFamilies && (sharedInvolvedPlayers || sharedAllTeamParents)
+
+        if (calendarEventId && notifyRequested) {
+          calendarNotificationResult = await notifyCalendarEventParents({
+            user,
+            eventId: calendarEventId,
+            eventAction: sourceType === 'calendar' ? 'update' : 'creation',
+            playerIds: notificationPlayers.map((player) => player.id),
+          })
+          queuedInviteEmails += calendarNotificationResult.queuedCount
+          failedInviteEmails += calendarNotificationResult.failedCount
+          nextCalendarInvites = await getCalendarEventInvites({ user })
+          return
+        }
+
         const savedInvites = await saveCalendarEventInvites({
           user,
           calendarEventId,
@@ -1905,7 +1923,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           players: notificationPlayers,
           notifyRequested,
         })
-        if (notifyRequested) {
+        if (notifyRequested && assessmentSessionId) {
           const queueResult = await queueCalendarEventInviteEmails({
             assessmentSessionId,
             calendarEventId,
@@ -2087,6 +2105,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const savedEvent = sourceType === 'calendar'
           ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
           : await createCalendarEvent({ user, event: payload })
+        coreSavedEvent = savedEvent
+        coreSavedCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
         await syncInvites({ calendarEventId: savedEvent.id, sourceTitle: savedEvent.title })
         let savedTrainingAvailabilitySetting = null
 
@@ -2113,7 +2133,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             [savedEvent.id]: attachedResources,
           }))
         }
-        const nextCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
+        const nextCalendarItems = coreSavedCalendarItems
         setCalendarItems(nextCalendarItems)
         setCalendarInvites(nextCalendarInvites)
         if (savedTrainingAvailabilitySetting) {
@@ -2123,17 +2143,38 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           }))
         }
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
-        showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
+        if (!calendarNotificationResult) {
+          showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
+        } else if (calendarNotificationResult.failedCount === 0 && calendarNotificationResult.eligibleRecipientCount > 0) {
+          showToast({
+            title: sourceType === 'calendar' ? 'Event updated and parents notified' : 'Event created and parents notified',
+            message: calendarNotificationResult.queuedCount > 0
+              ? `${calendarNotificationResult.queuedCount} parent email${calendarNotificationResult.queuedCount === 1 ? '' : 's'} added to the holding queue.`
+              : 'The Parent Portal is up to date and email alerts were already queued for this saved revision.',
+          })
+        } else if (calendarNotificationResult.eligibleRecipientCount === 0) {
+          showToast({
+            title: 'Event available in the Parent Portal',
+            message: 'No eligible linked parent email was found. No email notification was queued.',
+            tone: 'error',
+          })
+        } else {
+          showToast({
+            title: 'Parent Portal updated, email queue incomplete',
+            message: 'The event is available in the Parent Portal, but one or more email notifications could not be queued. Open the saved event and try Notify parents again.',
+            tone: 'error',
+          })
+        }
       }
 
-      if (queuedInviteEmails > 0) {
+      if (!calendarNotificationResult && queuedInviteEmails > 0) {
         showToast({
           title: 'Family emails queued',
           message: `${queuedInviteEmails} event invite email${queuedInviteEmails === 1 ? '' : 's'} added to the email queue.`,
         })
       }
 
-      if (failedInviteEmails > 0) {
+      if (!calendarNotificationResult && failedInviteEmails > 0) {
         showToast({
           title: 'Some emails were not queued',
           message: `${failedInviteEmails} event invite email${failedInviteEmails === 1 ? '' : 's'} could not be added to the queue. Parent portal invites were still saved.`,
@@ -2146,6 +2187,21 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       setErrorMessage('')
     } catch (error) {
       console.error(error)
+
+      if (coreSavedEvent) {
+        setCalendarItems(coreSavedCalendarItems)
+        writeCalendarAwareCache({ calendarItems: coreSavedCalendarItems, calendarInvites })
+        setCalendarModal(null)
+        setCalendarForm(getDefaultCalendarForm())
+        setErrorMessage('')
+        showToast({
+          title: 'Event saved, parent notification incomplete',
+          message: 'The event was saved, but it could not be added to the Parent Portal. Parents have not been notified. Open the saved event and try again.',
+          tone: 'error',
+        })
+        return
+      }
+
       setErrorMessage(error.message || 'Calendar event could not be saved.')
       showToast({ title: 'Calendar not saved', message: error.message || 'Calendar event could not be saved.', tone: 'error' })
     } finally {
@@ -3888,7 +3944,7 @@ function CalendarEventModal({
                   <span>
                     Notify team families
                     <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-                      Adds an event invite email to the holding queue for linked parents in this team.
+                      Parents will see the event in their Parent Portal and receive an email notification. Adds an event invite email to the holding queue for linked parents in this team.
                     </span>
                   </span>
                 </label>
@@ -3982,7 +4038,7 @@ function CalendarEventModal({
                       <span>
                         Notify invited families
                         <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-                          Saves the invite and adds a parent email to the holding queue for review before send time.
+                          Parents will see the event in their Parent Portal and receive an email notification. The workflow adds a parent email to the holding queue for review before send time.
                         </span>
                       </span>
                     </label>

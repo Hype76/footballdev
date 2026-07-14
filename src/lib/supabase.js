@@ -153,6 +153,7 @@ export {
   deleteCalendarEvent,
   getCalendarEvents,
   getParentPortalSharedCalendarEvents,
+  notifyCalendarEventParents,
   updateCalendarEvent,
 } from './domain/calendar-events.js'
 

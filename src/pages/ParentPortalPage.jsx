@@ -515,6 +515,30 @@ export function ParentPortalPage() {
     }
   }, [searchParams])
 
+  useEffect(() => {
+    const requestedParentLinkId = String(searchParams.get('parentLinkId') ?? '').trim()
+
+    if (requestedParentLinkId && links.some((link) => link.id === requestedParentLinkId)) {
+      setSelectedLinkId(requestedParentLinkId)
+    }
+  }, [links, searchParams])
+
+  useEffect(() => {
+    const requestedEventId = String(searchParams.get('eventId') ?? '').trim()
+
+    if (!requestedEventId) {
+      return
+    }
+
+    const requestedEvent = parentCalendarEvents.find((event) => String(event.sourceId) === requestedEventId)
+
+    if (requestedEvent) {
+      setActiveSection('calendar')
+      setCalendarScope('selected')
+      setSelectedCalendarEventId(requestedEvent.id)
+    }
+  }, [parentCalendarEvents, searchParams])
+
   const handleSectionSelect = (sectionId) => {
     if (!parentPortalSectionIds.has(sectionId)) {
       return
