@@ -98,6 +98,8 @@ set local request.jwt.claim.sub = '81000000-0000-4000-8000-000000000001';
 select public.notify_calendar_event_parents(
   '86000000-0000-4000-8000-000000000001',
   'creation',
+  null,
+  '87000000-0000-4000-8000-000000000001',
   array[
     '84000000-0000-4000-8000-000000000001'::uuid,
     '84000000-0000-4000-8000-000000000002'::uuid
@@ -132,6 +134,8 @@ set local request.jwt.claim.sub = '81000000-0000-4000-8000-000000000001';
 select public.notify_calendar_event_parents(
   '86000000-0000-4000-8000-000000000002',
   'update',
+  null,
+  '87000000-0000-4000-8000-000000000002',
   array[
     '84000000-0000-4000-8000-000000000001'::uuid,
     '84000000-0000-4000-8000-000000000002'::uuid
@@ -141,6 +145,8 @@ select public.notify_calendar_event_parents(
 select public.notify_calendar_event_parents(
   '86000000-0000-4000-8000-000000000002',
   'update',
+  null,
+  '87000000-0000-4000-8000-000000000002',
   array[
     '84000000-0000-4000-8000-000000000001'::uuid,
     '84000000-0000-4000-8000-000000000002'::uuid
@@ -181,6 +187,8 @@ set local request.jwt.claim.sub = '81000000-0000-4000-8000-000000000001';
 select public.notify_calendar_event_parents(
   '86000000-0000-4000-8000-000000000002',
   'update',
+  null,
+  '87000000-0000-4000-8000-000000000003',
   array[
     '84000000-0000-4000-8000-000000000001'::uuid,
     '84000000-0000-4000-8000-000000000002'::uuid
@@ -219,6 +227,8 @@ begin
     perform public.notify_calendar_event_parents(
       '86000000-0000-4000-8000-000000000002',
       'update',
+      null,
+      '87000000-0000-4000-8000-000000000004',
       array['84000000-0000-4000-8000-000000000003'::uuid]
     );
   exception when others then
@@ -244,6 +254,8 @@ begin
     perform public.notify_calendar_event_parents(
       '86000000-0000-4000-8000-000000000002',
       'update',
+      null,
+      '87000000-0000-4000-8000-000000000005',
       array['84000000-0000-4000-8000-000000000001'::uuid]
     );
   exception when others then
@@ -269,6 +281,8 @@ begin
     perform public.notify_calendar_event_parents(
       '86000000-0000-4000-8000-000000000002',
       'update',
+      null,
+      '87000000-0000-4000-8000-000000000006',
       array['84000000-0000-4000-8000-000000000001'::uuid]
     );
   exception when others then
@@ -307,6 +321,8 @@ set local request.jwt.claim.sub = '81000000-0000-4000-8000-000000000001';
 select public.notify_calendar_event_parents(
   '86000000-0000-4000-8000-000000000002',
   'update',
+  null,
+  '87000000-0000-4000-8000-000000000007',
   array[
     '84000000-0000-4000-8000-000000000001'::uuid,
     '84000000-0000-4000-8000-000000000002'::uuid
@@ -335,6 +351,8 @@ set local request.jwt.claim.sub = '81000000-0000-4000-8000-000000000001';
 select public.notify_calendar_event_parents(
   '86000000-0000-4000-8000-000000000002',
   'update',
+  null,
+  '87000000-0000-4000-8000-000000000008',
   array[
     '84000000-0000-4000-8000-000000000001'::uuid,
     '84000000-0000-4000-8000-000000000002'::uuid
@@ -345,12 +363,12 @@ reset role;
 
 do $$
 begin
-  if (select count(*) from public.calendar_event_notification_events where calendar_event_id = '86000000-0000-4000-8000-000000000002' and status = 'failed') <> 0 then
-    raise exception 'Failed-recipient retry did not recover the existing ledger row.';
+  if (select count(*) from public.calendar_event_notification_events where calendar_event_id = '86000000-0000-4000-8000-000000000002' and status = 'failed') <> 1 then
+    raise exception 'A later command did not preserve the failed command audit row.';
   end if;
 
   if (select count(*) from public.calendar_event_notification_events where calendar_event_id = '86000000-0000-4000-8000-000000000002' and status = 'queued') <> 3 then
-    raise exception 'Retry did not queue only the missing failed revision.';
+    raise exception 'A later explicit command did not queue one new update.';
   end if;
 end;
 $$;

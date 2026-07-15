@@ -114,9 +114,10 @@ test('Calendar create and edit call the authoritative command after saving the e
   assert.ok(saveIndex > 0)
   assert.ok(notifyIndex > 0)
   assert.match(calendarDomain, /supabase\.rpc\('notify_calendar_event_parents'/i)
-  assert.match(calendarDomain, /calendar_event_id_value: normalizedEventId/i)
+  assert.match(calendarDomain, /calendar_event_id_value: normalizedEventSource === 'calendar' \? normalizedEventId : null/i)
+  assert.match(calendarDomain, /notification_request_token_value: normalizedRequestToken/i)
   assert.match(calendarDomain, /player_ids_value: normalizedPlayerIds/i)
-  assert.match(sessionsPage, /eventAction: sourceType === 'calendar' \? 'update' : 'creation'/i)
+  assert.match(sessionsPage, /eventAction: sourceType === 'calendar' \|\| sourceType === 'match-day' \? 'update' : 'creation'/i)
   assert.match(sessionsPage, /nextCalendarInvites = await getCalendarEventInvites\(\{ user \}\)/i)
 })
 

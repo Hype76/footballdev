@@ -78,6 +78,7 @@ export function normalizeCalendarEventInvite(row) {
     clubId: row.club_id ?? '',
     teamId: row.team_id ?? '',
     calendarEventId: row.calendar_event_id ?? '',
+    matchDayId: row.match_day_id ?? '',
     assessmentSessionId: row.assessment_session_id ?? '',
     playerId: row.player_id ?? '',
     parentLinkId: row.parent_link_id ?? '',

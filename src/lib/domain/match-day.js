@@ -479,6 +479,7 @@ export function normalizeMatchDay(row) {
     requestReferee: normalizeBoolean(row.request_referee ?? row.requestReferee),
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
+    notificationRevision: Number(row.notification_revision ?? row.notificationRevision ?? 1),
     status: normalizeText(row.status) || 'scheduled',
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),

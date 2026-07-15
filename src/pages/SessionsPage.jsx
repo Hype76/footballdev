@@ -170,6 +170,23 @@ function isTimeAfter(leftTime, rightTime) {
   return leftValue > rightValue
 }
 
+function createNotificationRequestToken() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+
+  if (typeof globalThis.crypto?.getRandomValues !== 'function') {
+    return ''
+  }
+
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const value = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`
+}
+
 function getDefaultCalendarForm(date = '') {
   const eventDate = formatDateInput(date)
 
@@ -184,6 +201,7 @@ function getDefaultCalendarForm(date = '') {
     location: '',
     notes: '',
     notifyInvitedFamilies: false,
+    notificationRequestToken: '',
     opponent: '',
     kickoffTimeTbc: false,
     parentAudience: 'involved_players',
@@ -593,6 +611,10 @@ function getInvitesForCalendarEvent(event, invites = []) {
       return invite.assessmentSessionId === sourceId
     }
 
+    if (sourceType === 'match-day') {
+      return invite.matchDayId === sourceId
+    }
+
     return false
   })
 }
@@ -638,6 +660,8 @@ function getFormFromCalendarEvent(event, invites = []) {
   }
 
   if (sourceType === 'match-day') {
+    const sourceParentAudience = source.parentAudience || inviteFields.parentAudience || 'none'
+
     return {
       ...getDefaultCalendarForm(source.matchDate || event.date),
       arrivalTime: source.kickoffTimeTbc ? '' : formatTimeInput(source.arrivalTime),
@@ -655,6 +679,8 @@ function getFormFromCalendarEvent(event, invites = []) {
       teamId: source.teamId || '',
       title: source.title || (source.opponent ? `Match vs ${source.opponent}` : ''),
       ...inviteFields,
+      parentAudience: sourceParentAudience,
+      shareWithParents: Boolean(source.parentVisible || inviteFields.shareWithParents),
     }
   }
 
@@ -1671,6 +1697,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         [name]: type === 'checkbox' ? checked : value,
       }
 
+      if (name === 'notifyInvitedFamilies') {
+        nextForm.notificationRequestToken = checked
+          ? current.notificationRequestToken || createNotificationRequestToken()
+          : ''
+      }
+
       if (name === 'shareWithParents') {
         const currentSafeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, current.teamId)
         nextForm.parentAudience = checked
@@ -1845,6 +1877,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const trimmedOpponent = getTrimmedFormValue(calendarForm.opponent)
     let coreSavedEvent = null
     let coreSavedCalendarItems = null
+    let coreSavedMatchDays = null
 
     try {
       if (!canCreateClubCalendarEvent(user) && !safeTeamId) {
@@ -1892,7 +1925,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       let failedInviteEmails = 0
       let calendarNotificationResult = null
       const shouldSyncInvites = Boolean(safeTeamId)
-      const syncInvites = async ({ calendarEventId = '', assessmentSessionId = '', sourceTitle = '' } = {}) => {
+      const syncInvites = async ({ calendarEventId = '', matchDayId = '', assessmentSessionId = '', sourceTitle = '' } = {}) => {
         if (!shouldSyncInvites) {
           return
         }
@@ -1902,12 +1935,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
         const notifyRequested = calendarForm.notifyInvitedFamilies && (sharedInvolvedPlayers || sharedAllTeamParents)
 
-        if (calendarEventId && notifyRequested) {
+        if ((calendarEventId || matchDayId) && notifyRequested) {
           calendarNotificationResult = await notifyCalendarEventParents({
             user,
-            eventId: calendarEventId,
-            eventAction: sourceType === 'calendar' ? 'update' : 'creation',
+            eventId: calendarEventId || matchDayId,
+            eventSource: matchDayId ? 'match-day' : 'calendar',
+            eventAction: sourceType === 'calendar' || sourceType === 'match-day' ? 'update' : 'creation',
             playerIds: notificationPlayers.map((player) => player.id),
+            requestToken: calendarForm.notificationRequestToken,
           })
           queuedInviteEmails += calendarNotificationResult.queuedCount
           failedInviteEmails += calendarNotificationResult.failedCount
@@ -2045,6 +2080,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
             matchDate: calendarForm.date,
             notes: calendarForm.notes,
+            ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
             opponent: trimmedOpponent,
             requestScorer: calendarForm.requestScorer,
             requestLinesman: calendarForm.requestLinesman,
@@ -2056,10 +2092,42 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             venueName: calendarForm.location,
           }
           const savedMatch = await updateMatchDay({ user, matchId: activeEvent.sourceId, updates: payload })
+          coreSavedEvent = savedMatch
           const nextMatchDays = [savedMatch, ...matchDays.filter((match) => match.id !== savedMatch.id)]
+          coreSavedMatchDays = nextMatchDays
           setMatchDays(nextMatchDays)
           writeCalendarAwareCache({ matchDays: nextMatchDays })
-          showToast({ title: 'Fixture updated', message: savedMatch.opponent || 'Calendar updated.' })
+          await syncInvites({ matchDayId: savedMatch.id, sourceTitle: getMatchDayDisplayName(savedMatch) })
+          setCalendarInvites(nextCalendarInvites)
+          writeCalendarAwareCache({ matchDays: nextMatchDays, calendarInvites: nextCalendarInvites })
+          if (!calendarNotificationResult) {
+            showToast({ title: 'Fixture updated', message: savedMatch.opponent || 'Calendar updated.' })
+          } else if (calendarNotificationResult.portalRecordCount === 0) {
+            showToast({
+              title: 'Fixture saved, no parent records created',
+              message: 'No active players are available for this parent audience. No Parent Portal record or email notification was created.',
+              tone: 'error',
+            })
+          } else if (calendarNotificationResult.failedCount === 0 && calendarNotificationResult.eligibleRecipientCount > 0) {
+            showToast({
+              title: 'Fixture updated and parents notified',
+              message: calendarNotificationResult.duplicateCount > 0
+                ? 'This notification request was already completed. No duplicate parent email was added.'
+                : `${calendarNotificationResult.queuedCount} parent email${calendarNotificationResult.queuedCount === 1 ? '' : 's'} added to the holding queue.`,
+            })
+          } else if (calendarNotificationResult.eligibleRecipientCount === 0) {
+            showToast({
+              title: 'Fixture available in the Parent Portal',
+              message: 'No eligible linked parent email was found. No email notification was queued.',
+              tone: 'error',
+            })
+          } else {
+            showToast({
+              title: 'Parent Portal updated, email queue incomplete',
+              message: 'The fixture is available in the Parent Portal, but one or more email notifications could not be queued. Open the saved fixture and try Notify parents again.',
+              tone: 'error',
+            })
+          }
         } else {
           const savedSession = await createAssessmentSession({ user, session: payload })
           await syncInvites({ assessmentSessionId: savedSession.id, sourceTitle: savedSession.title })
@@ -2145,10 +2213,18 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         if (!calendarNotificationResult) {
           showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
+        } else if (calendarNotificationResult.portalRecordCount === 0) {
+          showToast({
+            title: 'Event saved, no parent records created',
+            message: 'No active players are available for this parent audience. No Parent Portal record or email notification was created.',
+            tone: 'error',
+          })
         } else if (calendarNotificationResult.failedCount === 0 && calendarNotificationResult.eligibleRecipientCount > 0) {
           showToast({
             title: sourceType === 'calendar' ? 'Event updated and parents notified' : 'Event created and parents notified',
-            message: calendarNotificationResult.queuedCount > 0
+            message: calendarNotificationResult.duplicateCount > 0
+              ? 'This notification request was already completed. No duplicate parent email was added.'
+              : calendarNotificationResult.queuedCount > 0
               ? `${calendarNotificationResult.queuedCount} parent email${calendarNotificationResult.queuedCount === 1 ? '' : 's'} added to the holding queue.`
               : 'The Parent Portal is up to date and email alerts were already queued for this saved revision.',
           })
@@ -2189,8 +2265,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       console.error(error)
 
       if (coreSavedEvent) {
-        setCalendarItems(coreSavedCalendarItems)
-        writeCalendarAwareCache({ calendarItems: coreSavedCalendarItems, calendarInvites })
+        if (coreSavedMatchDays) {
+          setMatchDays(coreSavedMatchDays)
+          writeCalendarAwareCache({ matchDays: coreSavedMatchDays, calendarInvites })
+        } else {
+          setCalendarItems(coreSavedCalendarItems)
+          writeCalendarAwareCache({ calendarItems: coreSavedCalendarItems, calendarInvites })
+        }
         setCalendarModal(null)
         setCalendarForm(getDefaultCalendarForm())
         setErrorMessage('')

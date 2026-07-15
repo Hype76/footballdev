@@ -381,14 +381,18 @@ export async function updateCalendarEvent({ user, eventId, event }) {
 export async function notifyCalendarEventParents({
   user,
   eventId,
+  eventSource = 'calendar',
   eventAction,
   playerIds = [],
+  requestToken,
 } = {}) {
   await blockDemoMutation(user)
   assertCalendarAccess(user)
 
   const normalizedEventId = normalizeText(eventId)
+  const normalizedEventSource = normalizeText(eventSource).toLowerCase()
   const normalizedAction = normalizeText(eventAction).toLowerCase()
+  const normalizedRequestToken = normalizeText(requestToken)
   const normalizedPlayerIds = [...new Set(
     (Array.isArray(playerIds) ? playerIds : [])
       .map((playerId) => normalizeText(playerId))
@@ -399,13 +403,23 @@ export async function notifyCalendarEventParents({
     throw new Error('Save the Calendar event before notifying parents.')
   }
 
+  if (!['calendar', 'match-day'].includes(normalizedEventSource)) {
+    throw new Error('Choose a supported Calendar event source before notifying parents.')
+  }
+
   if (!['creation', 'update'].includes(normalizedAction)) {
     throw new Error('Choose a valid Calendar notification action.')
   }
 
+  if (!normalizedRequestToken) {
+    throw new Error('Start a new Notify parents request before saving.')
+  }
+
   const { data, error } = await supabase.rpc('notify_calendar_event_parents', {
-    calendar_event_id_value: normalizedEventId,
+    calendar_event_id_value: normalizedEventSource === 'calendar' ? normalizedEventId : null,
     event_action_value: normalizedAction,
+    match_day_id_value: normalizedEventSource === 'match-day' ? normalizedEventId : null,
+    notification_request_token_value: normalizedRequestToken,
     player_ids_value: normalizedPlayerIds,
   })
 
@@ -419,7 +433,9 @@ export async function notifyCalendarEventParents({
 
   return {
     eventId: normalizeText(data?.eventId),
+    eventSource: normalizeText(data?.eventSource),
     eventRevision: Number(data?.eventRevision ?? 0),
+    notificationCommandId: normalizeText(data?.notificationCommandId),
     notificationType: normalizeText(data?.notificationType),
     eventActionType: normalizeText(data?.eventActionType),
     portalState: normalizeText(data?.portalState),
