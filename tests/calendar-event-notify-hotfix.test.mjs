@@ -28,6 +28,11 @@ test('reproduces the released Match Day edit omission before proving the repaire
   assert.ok(matchBranch.indexOf('await updateMatchDay') < matchBranch.indexOf('await syncInvites'))
 })
 
+test('Match Day invite synchronization imports the display helper used after save', () => {
+  assert.match(sessionsPage, /import \{ getMatchDayDisplayName \} from '\.\.\/lib\/matchday-display\.js'/)
+  assert.match(sessionsPage, /await syncInvites\(\{ matchDayId: savedMatch\.id, sourceTitle: getMatchDayDisplayName\(savedMatch\) \}\)/)
+})
+
 test('edit form restores Match Day parent scope and retains one retry token until save', () => {
   assert.match(sessionsPage, /sourceType === 'match-day'[\s\S]*source\.parentAudience[\s\S]*source\.parentVisible/)
   assert.match(sessionsPage, /name === 'notifyInvitedFamilies'[\s\S]*current\.notificationRequestToken \|\| createNotificationRequestToken\(\)/)
