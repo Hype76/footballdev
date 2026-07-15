@@ -236,7 +236,7 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   assert.ok(parentHostParentRedirect > parentHostNonParentRedirect)
   assert.ok(parentIntentPassThrough > parentHostParentRedirect)
 
-  assert.match(publicSection, /if \(isParentIntentPath\(location\.pathname\)\) \{\s*return <Outlet \/>/)
+  assert.match(publicSection, /if \(isParentIntentPath\(location\.pathname\) \|\| isParentInviteSignInIntent\(location\)\) \{\s*return <Outlet \/>/)
   assert.match(publicSection, /return <Navigate to=\{isParentHost\(\) \? '\/parent-portal' : '\/'\} replace \/>/)
   assert.match(parentAccessSection, /parentIntent: true/)
   assert.doesNotMatch(parentAccessSection, /RedirectToWorkspaceHome/)

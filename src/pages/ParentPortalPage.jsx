@@ -459,6 +459,7 @@ export function ParentPortalPage() {
   const [signOutError, setSignOutError] = useState('')
   const [activeInvitationId, setActiveInvitationId] = useState('')
   const [invitationError, setInvitationError] = useState('')
+  const requestedParentLinkId = String(searchParams.get('parentLinkId') ?? '').trim()
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
@@ -516,12 +517,10 @@ export function ParentPortalPage() {
   }, [searchParams])
 
   useEffect(() => {
-    const requestedParentLinkId = String(searchParams.get('parentLinkId') ?? '').trim()
-
     if (requestedParentLinkId && links.some((link) => link.id === requestedParentLinkId)) {
       setSelectedLinkId(requestedParentLinkId)
     }
-  }, [links, searchParams])
+  }, [links, requestedParentLinkId])
 
   useEffect(() => {
     const requestedEventId = String(searchParams.get('eventId') ?? '').trim()
@@ -1159,6 +1158,12 @@ export function ParentPortalPage() {
         </div>
       </section>
 
+      {searchParams.get('linked') === '1' && requestedParentLinkId && selectedLink?.id === requestedParentLinkId ? (
+        <NoticeBanner
+          title="Child linked"
+          message={`${selectedLink.playerName || 'Your child'} is now available in your family portal.`}
+        />
+      ) : null}
       {signOutError ? <NoticeBanner title="Sign out failed" message={signOutError} /> : null}
       {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
       {invitationError ? <NoticeBanner title="Response not changed" message={invitationError} /> : null}

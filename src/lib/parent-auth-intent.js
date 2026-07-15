@@ -31,6 +31,31 @@ export function isParentIntentPath(pathname = '') {
   return parentIntentPaths.has(normalizeParentIntentPath(pathname))
 }
 
+export function getParentInviteToken(search = '') {
+  const params = new URLSearchParams(String(search ?? '').replace(/^\?/, ''))
+  return String(params.get('parentInvite') ?? '').trim()
+}
+
+export function buildParentInviteAcceptancePath(token = '') {
+  const normalizedToken = String(token ?? '').trim()
+  return normalizedToken ? `/parent-invite/${encodeURIComponent(normalizedToken)}?accept=1` : ''
+}
+
+export function buildParentInviteSuccessPath(parentLinkId = '') {
+  const normalizedParentLinkId = String(parentLinkId ?? '').trim()
+  const params = new URLSearchParams({ linked: '1' })
+
+  if (normalizedParentLinkId) {
+    params.set('parentLinkId', normalizedParentLinkId)
+  }
+
+  return `/parent-portal?${params.toString()}`
+}
+
+export function isParentInviteSignInIntent({ pathname = '', search = '' } = {}) {
+  return normalizeParentIntentPath(pathname) === '/sign-in' && Boolean(getParentInviteToken(search))
+}
+
 export function isIntentionalParentAccessContext({
   isParentHost = false,
   loginAccessIntent = '',

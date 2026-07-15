@@ -34,6 +34,7 @@ import { buildMainAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/ap
 import {
   canOpenParentPortal,
   hasActiveParentPortalLink,
+  isParentInviteSignInIntent,
   isParentIntentPath,
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
@@ -1141,7 +1142,7 @@ function PublicOnly() {
   }
 
   if (session?.user) {
-    if (isParentIntentPath(location.pathname)) {
+    if (isParentIntentPath(location.pathname) || isParentInviteSignInIntent(location)) {
       return <Outlet />
     }
 

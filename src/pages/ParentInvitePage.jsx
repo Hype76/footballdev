@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { buildParentAppUrl, isParentInviteHost } from '../lib/app-origins.js'
+import { buildParentAppUrl, getMainAppOrigin, isParentInviteHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
+import {
+  buildParentInviteAcceptancePath,
+  buildParentInviteSuccessPath,
+} from '../lib/parent-auth-intent.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
 import { supabase } from '../lib/supabase-client.js'
 
@@ -11,6 +15,10 @@ const inputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
 const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
+
+function buildCurrentParentFlowUrl(path, isParentHost) {
+  return isParentHost ? buildParentAppUrl(path) : path
+}
 
 function getFriendlySignupError(error) {
   const rawMessage = String(error?.message ?? '').trim()
@@ -58,10 +66,9 @@ export function ParentInvitePage() {
   const { token } = useParams()
   const [searchParams] = useSearchParams()
   const shouldAcceptSignedInSession = searchParams.get('accept') === '1'
-  const { isLoading, selectAccessMode, session, signOut, signUpParentAccount } = useAuth()
+  const { isLoading, selectAccessMode, session, signUpParentAccount } = useAuth()
   const acceptAttemptedRef = useRef(false)
   const directSessionCheckedRef = useRef(false)
-  const signOutAttemptedRef = useRef(false)
   const submitLockRef = useRef(false)
   const [acceptedLink, setAcceptedLink] = useState(null)
   const [directSessionReady, setDirectSessionReady] = useState(false)
@@ -76,15 +83,16 @@ export function ParentInvitePage() {
   const [password, setPassword] = useState('')
   const [isConfirmationState, setIsConfirmationState] = useState(false)
   const isParentHost = isParentInviteHost()
+  const canRenderOnCurrentHost = isParentHost || getMainAppOrigin() === window.location.origin
   const canAcceptSignedInSession = Boolean(session?.user || directSessionReady)
 
   useEffect(() => {
-    if (isParentHost) {
+    if (canRenderOnCurrentHost) {
       return
     }
 
     window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
-  }, [isParentHost])
+  }, [canRenderOnCurrentHost])
 
   useEffect(() => {
     if (!isConfirmationState) {
@@ -102,7 +110,7 @@ export function ParentInvitePage() {
     let isMounted = true
 
     const loadInvite = async () => {
-      if (!isParentHost) {
+      if (!canRenderOnCurrentHost) {
         return
       }
 
@@ -148,63 +156,33 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [isParentHost, token])
+  }, [canRenderOnCurrentHost, token])
 
   useEffect(() => {
-    let isMounted = true
-
-    const clearExistingSession = async () => {
+    const continueExistingSession = () => {
       if (
-        !isParentHost ||
+        !canRenderOnCurrentHost ||
         shouldAcceptSignedInSession ||
         isLoading ||
         !session?.user ||
         isInviteLoading ||
-        !invite ||
-        signOutAttemptedRef.current
+        !invite
       ) {
         return
       }
 
-      const sessionEmail = String(session.user.email ?? '').trim().toLowerCase()
-      const inviteEmail = String(invite.email ?? '').trim().toLowerCase()
-
-      if (sessionEmail && inviteEmail && sessionEmail === inviteEmail) {
-        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`))
-        return
-      }
-
-      signOutAttemptedRef.current = true
-      setIsAccepting(true)
-      setErrorMessage('')
-
-      try {
-        await signOut()
-      } catch (error) {
-        console.error(error)
-        if (isMounted) {
-          setErrorMessage(error.message || 'Could not reset this browser session. Sign out and try this invite again.')
-        }
-      } finally {
-        if (isMounted) {
-          setIsAccepting(false)
-        }
-      }
+      window.location.replace(buildCurrentParentFlowUrl(buildParentInviteAcceptancePath(token), isParentHost))
     }
 
-    void clearExistingSession()
-
-    return () => {
-      isMounted = false
-    }
-  }, [invite, isInviteLoading, isLoading, isParentHost, session?.user, shouldAcceptSignedInSession, signOut, token])
+    continueExistingSession()
+  }, [canRenderOnCurrentHost, invite, isInviteLoading, isLoading, isParentHost, session?.user, shouldAcceptSignedInSession, token])
 
   useEffect(() => {
     let isMounted = true
 
     const resolveSessionForAccept = async () => {
       if (
-        !isParentHost ||
+        !canRenderOnCurrentHost ||
         !shouldAcceptSignedInSession ||
         session?.user ||
         !token ||
@@ -235,7 +213,7 @@ export function ParentInvitePage() {
           return
         }
 
-        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`))
+        window.location.assign(buildCurrentParentFlowUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`, isParentHost))
       } catch (error) {
         console.error(error)
         if (isMounted) {
@@ -249,14 +227,14 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [invite, isInviteLoading, isParentHost, session?.user, shouldAcceptSignedInSession, token])
+  }, [canRenderOnCurrentHost, invite, isInviteLoading, isParentHost, session?.user, shouldAcceptSignedInSession, token])
 
   useEffect(() => {
     let isMounted = true
 
     const acceptInvite = async () => {
       if (
-        !isParentHost ||
+        !canRenderOnCurrentHost ||
         !shouldAcceptSignedInSession ||
         !canAcceptSignedInSession ||
         !token ||
@@ -272,19 +250,17 @@ export function ParentInvitePage() {
       setErrorMessage('')
 
       try {
-        const link = await withTimeout(
-          acceptParentPortalInvite(token),
-          'Family access took too long to open. Refresh the page and try again.',
-        )
-        await withTimeout(
-          session?.user
-            ? selectAccessMode('parent')
-            : Promise.resolve(window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')),
-          'Family workspace took too long to open. Refresh the page and try again.',
-        )
+        const link = await acceptParentPortalInvite(token)
+
+        if (session?.user) {
+          await selectAccessMode('parent')
+        } else {
+          window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
+        }
+
         if (isMounted) {
           setAcceptedLink(link)
-          window.location.assign(buildParentAppUrl('/parent-portal'))
+          window.location.assign(buildCurrentParentFlowUrl(buildParentInviteSuccessPath(link.id), isParentHost))
         }
       } catch (error) {
         console.error(error)
@@ -303,12 +279,12 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [canAcceptSignedInSession, directSessionReady, invite, isInviteLoading, isParentHost, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
+  }, [canAcceptSignedInSession, canRenderOnCurrentHost, directSessionReady, invite, isInviteLoading, isParentHost, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (!isParentHost) {
+    if (!canRenderOnCurrentHost) {
       window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
       return
     }
@@ -333,13 +309,13 @@ export function ParentInvitePage() {
 
       if (result?.existingAccount) {
         setPassword('')
-        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&existing=1`))
+        window.location.assign(buildCurrentParentFlowUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&existing=1`, isParentHost))
       } else if (result?.needsEmailVerification) {
         setPassword('')
         setMessage('')
         setIsConfirmationState(true)
       } else {
-        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&created=1`))
+        window.location.assign(buildCurrentParentFlowUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&created=1`, isParentHost))
       }
     } catch (error) {
       console.error(error)
@@ -449,7 +425,7 @@ export function ParentInvitePage() {
           </button>
 
           <a
-            href={buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}`)}
+            href={buildCurrentParentFlowUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}`, isParentHost)}
             className={secondaryButtonClass}
           >
             Already have an account?
@@ -466,7 +442,7 @@ export function ParentInvitePage() {
             <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Team: {acceptedLink.teamName || 'No team assigned'}, Club: {acceptedLink.clubName || 'No club assigned'}</p>
           </div>
           <a
-            href={buildParentAppUrl('/parent-portal')}
+            href={buildCurrentParentFlowUrl('/parent-portal', isParentHost)}
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]"
           >
             Open family portal

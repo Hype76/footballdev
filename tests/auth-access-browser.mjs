@@ -164,6 +164,69 @@ async function preparePage(context) {
   }
 }
 
+async function prepareParentInvitePage(context) {
+  const prepared = await preparePage(context)
+  let acceptanceCallCount = 0
+
+  await context.route('**/.netlify/functions/get-parent-invite**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        invite: {
+          email: 'parent.fixture@footballplayer.test',
+          playerName: 'Fixture Child',
+          teamName: 'U12 Fixture Team',
+          clubName: 'Fixture United',
+        },
+      }),
+    })
+  })
+  await context.route('**/rest/v1/rpc/accept_parent_player_link', async (route) => {
+    acceptanceCallCount += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ id: 'parent-link-fixture' }]),
+    })
+  })
+  await context.route('**/rest/v1/parent_player_links**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'parent-link-fixture',
+        club_id: 'club-fixture',
+        team_id: 'team-u12',
+        player_id: 'player-fixture',
+        link_type: 'parent',
+        email: 'parent.fixture@footballplayer.test',
+        status: 'active',
+        players: {
+          player_name: 'Fixture Child',
+          section: 'Squad',
+          team: 'U12 Fixture Team',
+        },
+        teams: {
+          name: 'U12 Fixture Team',
+          theme_mode: 'system',
+          theme_accent: 'green',
+          theme_button_style: 'solid',
+        },
+        clubs: {
+          name: 'Fixture United',
+        },
+      }),
+    })
+  })
+
+  return {
+    ...prepared,
+    getAcceptanceCallCount: () => acceptanceCallCount,
+  }
+}
+
 async function signIn(page, email, baseUrl = mainBaseUrl, access = 'club') {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
@@ -486,6 +549,46 @@ try {
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     assert.equal(new URL(page.url()).searchParams.get('parentInvite'), 'fixture-token')
     await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
+    await context.close()
+  })
+
+  await runScenario('signed-out existing parent login accepts the invite once before opening the portal', async () => {
+    const context = await browser.newContext()
+    const { getAcceptanceCallCount, page } = await prepareParentInvitePage(context)
+    await page.goto(`${mainBaseUrl}/sign-in?tab=parent&parentInvite=fixture-parent-invite`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.getByPlaceholder('you@club.com').fill('parent.fixture@footballplayer.test')
+    await page.getByPlaceholder('Enter password').fill(fixturePassword)
+    await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+    await page.waitForURL('**/parent-portal?*', { timeout: 15000 })
+    const finalUrl = new URL(page.url())
+
+    assert.equal(finalUrl.origin, mainBaseUrl)
+    assert.equal(finalUrl.searchParams.get('linked'), '1')
+    assert.equal(finalUrl.searchParams.get('parentLinkId'), 'parent-link-fixture')
+    assert.equal(getAcceptanceCallCount(), 1)
+    await assertVisibleText(page, 'Child linked')
+    await assertVisibleTextContaining(page, 'Fixture Child is now available')
+    await context.close()
+  })
+
+  await runScenario('authenticated parent invite stays higher priority on mobile and accepts once', async () => {
+    const context = await browser.newContext({
+      isMobile: true,
+      viewport: { width: 390, height: 844 },
+    })
+    const { getAcceptanceCallCount, page } = await prepareParentInvitePage(context)
+    await parentSignIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await page.goto(`${mainBaseUrl}/parent-invite/fixture-parent-invite`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.waitForURL('**/parent-portal?*', { timeout: 15000 })
+    const finalUrl = new URL(page.url())
+
+    assert.equal(finalUrl.origin, mainBaseUrl)
+    assert.equal(finalUrl.searchParams.get('linked'), '1')
+    assert.equal(finalUrl.searchParams.get('parentLinkId'), 'parent-link-fixture')
+    assert.equal(getAcceptanceCallCount(), 1)
+    await assertVisibleText(page, 'Child linked')
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await context.close()
   })
 

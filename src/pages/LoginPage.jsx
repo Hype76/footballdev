@@ -6,7 +6,11 @@ import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
-import { rememberParentAccessIntent } from '../lib/parent-auth-intent.js'
+import {
+  buildParentInviteAcceptancePath,
+  getParentInviteToken,
+  rememberParentAccessIntent,
+} from '../lib/parent-auth-intent.js'
 
 const initialFormData = {
   email: '',
@@ -64,9 +68,10 @@ function getRequestedLoginMode(params) {
 export function LoginPage() {
   usePublicThemeScope()
 
-  const { authError, resetPassword, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
+  const { authError, resetPassword, session, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
+  const parentInviteRedirectStartedRef = useRef(false)
   const submitLockRef = useRef(false)
   const [mode, setMode] = useState('login')
   const [formData, setFormData] = useState(initialFormData)
@@ -74,12 +79,12 @@ export function LoginPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState('')
-  const [parentInviteToken, setParentInviteToken] = useState('')
+  const [parentInviteToken, setParentInviteToken] = useState(() => getParentInviteToken(window.location.search))
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const checkoutStatus = params.get('checkout')
-    const nextParentInviteToken = String(params.get('parentInvite') ?? '').trim()
+    const nextParentInviteToken = getParentInviteToken(window.location.search)
     const requestedLoginMode = getRequestedLoginMode(params)
 
     if (requestedLoginMode === 'parent-login') {
@@ -90,6 +95,12 @@ export function LoginPage() {
       setParentInviteToken(nextParentInviteToken)
       setMode('parent-login')
       setLocalMessage('Log in or create a parent account to accept your child link.')
+
+      if (session?.user && !parentInviteRedirectStartedRef.current) {
+        parentInviteRedirectStartedRef.current = true
+        window.location.replace(buildParentInviteAcceptancePath(nextParentInviteToken))
+        return
+      }
     } else if (requestedLoginMode) {
       setMode(requestedLoginMode)
     }
@@ -116,7 +127,7 @@ export function LoginPage() {
         setLocalMessage(`${selectedPlanName} test access selected. Payments are disabled on staging.`)
       }
     }
-  }, [paymentsDisabled])
+  }, [paymentsDisabled, session?.user])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -213,7 +224,8 @@ export function LoginPage() {
         } else if (signupResult?.message) {
           setLocalMessage(signupResult.message)
         } else if (parentInviteToken) {
-          window.location.assign(`/parent-invite/${parentInviteToken}`)
+          parentInviteRedirectStartedRef.current = true
+          window.location.assign(buildParentInviteAcceptancePath(parentInviteToken))
         }
       } else {
         if (isDemoEmail(formData.email)) {
@@ -227,7 +239,10 @@ export function LoginPage() {
         })
 
         if (parentInviteToken) {
-          window.location.assign(`/parent-invite/${parentInviteToken}`)
+          if (!parentInviteRedirectStartedRef.current) {
+            parentInviteRedirectStartedRef.current = true
+            window.location.assign(buildParentInviteAcceptancePath(parentInviteToken))
+          }
         } else if (mode === 'parent-login') {
           window.location.assign('/parent-portal')
         }
