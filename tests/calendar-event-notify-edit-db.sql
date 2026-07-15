@@ -95,15 +95,21 @@ $$;
 set local role authenticated;
 set local request.jwt.claim.sub = '81000000-0000-4000-8000-000000000001';
 
+select public.sync_calendar_event_parent_scope(
+  '86000000-0000-4000-8000-000000000001',
+  null,
+  array[
+    '84000000-0000-4000-8000-000000000001'::uuid,
+    '84000000-0000-4000-8000-000000000002'::uuid
+  ]
+);
+
 select public.notify_calendar_event_parents(
   '86000000-0000-4000-8000-000000000001',
   'creation',
   null,
   '87000000-0000-4000-8000-000000000001',
-  array[
-    '84000000-0000-4000-8000-000000000001'::uuid,
-    '84000000-0000-4000-8000-000000000002'::uuid
-  ]
+  '{}'::uuid[]
 );
 
 reset role;
@@ -131,11 +137,9 @@ where id = '86000000-0000-4000-8000-000000000002';
 set local role authenticated;
 set local request.jwt.claim.sub = '81000000-0000-4000-8000-000000000001';
 
-select public.notify_calendar_event_parents(
+select public.sync_calendar_event_parent_scope(
   '86000000-0000-4000-8000-000000000002',
-  'update',
   null,
-  '87000000-0000-4000-8000-000000000002',
   array[
     '84000000-0000-4000-8000-000000000001'::uuid,
     '84000000-0000-4000-8000-000000000002'::uuid
@@ -147,10 +151,15 @@ select public.notify_calendar_event_parents(
   'update',
   null,
   '87000000-0000-4000-8000-000000000002',
-  array[
-    '84000000-0000-4000-8000-000000000001'::uuid,
-    '84000000-0000-4000-8000-000000000002'::uuid
-  ]
+  '{}'::uuid[]
+);
+
+select public.notify_calendar_event_parents(
+  '86000000-0000-4000-8000-000000000002',
+  'update',
+  null,
+  '87000000-0000-4000-8000-000000000002',
+  '{}'::uuid[]
 );
 
 reset role;
@@ -189,10 +198,7 @@ select public.notify_calendar_event_parents(
   'update',
   null,
   '87000000-0000-4000-8000-000000000003',
-  array[
-    '84000000-0000-4000-8000-000000000001'::uuid,
-    '84000000-0000-4000-8000-000000000002'::uuid
-  ]
+  '{}'::uuid[]
 );
 
 reset role;
@@ -224,11 +230,9 @@ declare
   denied boolean := false;
 begin
   begin
-    perform public.notify_calendar_event_parents(
+    perform public.sync_calendar_event_parent_scope(
       '86000000-0000-4000-8000-000000000002',
-      'update',
       null,
-      '87000000-0000-4000-8000-000000000004',
       array['84000000-0000-4000-8000-000000000003'::uuid]
     );
   exception when others then
@@ -256,7 +260,7 @@ begin
       'update',
       null,
       '87000000-0000-4000-8000-000000000005',
-      array['84000000-0000-4000-8000-000000000001'::uuid]
+      '{}'::uuid[]
     );
   exception when others then
     denied := true;
@@ -283,7 +287,7 @@ begin
       'update',
       null,
       '87000000-0000-4000-8000-000000000006',
-      array['84000000-0000-4000-8000-000000000001'::uuid]
+      '{}'::uuid[]
     );
   exception when others then
     denied := true;
@@ -323,10 +327,7 @@ select public.notify_calendar_event_parents(
   'update',
   null,
   '87000000-0000-4000-8000-000000000007',
-  array[
-    '84000000-0000-4000-8000-000000000001'::uuid,
-    '84000000-0000-4000-8000-000000000002'::uuid
-  ]
+  '{}'::uuid[]
 );
 
 reset role;
@@ -353,10 +354,7 @@ select public.notify_calendar_event_parents(
   'update',
   null,
   '87000000-0000-4000-8000-000000000008',
-  array[
-    '84000000-0000-4000-8000-000000000001'::uuid,
-    '84000000-0000-4000-8000-000000000002'::uuid
-  ]
+  '{}'::uuid[]
 );
 
 reset role;
@@ -440,9 +438,10 @@ begin
 
   if not exists (
     select 1
-    from public.calendar_event_notification_events
-    where calendar_event_id is null
-      and idempotency_key like 'calendar-event:86000000-0000-4000-8000-000000000002:%'
+    from public.audit_logs
+    where action = 'calendar_event_parent_notification_requested'
+      and entity_type = 'calendar_event'
+      and entity_id = '86000000-0000-4000-8000-000000000002'
   ) then
     raise exception 'Deletion removed notification audit history.';
   end if;

@@ -3,13 +3,15 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260715131232_calendar_event_notify_command_hotfix.sql', import.meta.url)
+const authoritativeScopeMigrationUrl = new URL('../supabase/migrations/20260715171154_calendar_event_notify_authoritative_scope.sql', import.meta.url)
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const calendarDomainUrl = new URL('../src/lib/domain/calendar-events.js', import.meta.url)
 const inviteDomainUrl = new URL('../src/lib/domain/calendar-event-invites.js', import.meta.url)
 const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 
-const [migration, sessionsPage, calendarDomain, inviteDomain, matchDayDomain] = await Promise.all([
+const [migration, authoritativeScopeMigration, sessionsPage, calendarDomain, inviteDomain, matchDayDomain] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
+  readFile(authoritativeScopeMigrationUrl, 'utf8'),
   readFile(sessionsPageUrl, 'utf8'),
   readFile(calendarDomainUrl, 'utf8'),
   readFile(inviteDomainUrl, 'utf8'),
@@ -43,7 +45,8 @@ test('client calls the exact five-argument RPC for Calendar or Match Day', () =>
   assert.match(calendarDomain, /calendar_event_id_value: normalizedEventSource === 'calendar' \? normalizedEventId : null/)
   assert.match(calendarDomain, /match_day_id_value: normalizedEventSource === 'match-day' \? normalizedEventId : null/)
   assert.match(calendarDomain, /notification_request_token_value: normalizedRequestToken/)
-  assert.match(calendarDomain, /player_ids_value: normalizedPlayerIds/)
+  assert.match(calendarDomain, /supabase\.rpc\('sync_calendar_event_parent_scope'[\s\S]*player_ids_value: normalizedPlayerIds/)
+  assert.match(calendarDomain, /supabase\.rpc\('notify_calendar_event_parents'[\s\S]*player_ids_value: \[\]/)
   assert.match(calendarDomain, /notificationCommandId/)
 })
 
@@ -119,4 +122,6 @@ test('authority, scope, grants, and hidden ledgers remain fail closed', () => {
   assert.match(migration, /revoke all privileges on table public\.calendar_event_notification_commands from public, anon, authenticated/)
   assert.match(migration, /revoke execute on function public\.notify_calendar_event_parents\(uuid, text, uuid, uuid, uuid\[\]\) from anon/)
   assert.match(migration, /grant execute on function public\.notify_calendar_event_parents\(uuid, text, uuid, uuid, uuid\[\]\) to authenticated, service_role/)
+  assert.match(authoritativeScopeMigration, /Notification recipients are resolved from saved server-side event scope/)
+  assert.match(authoritativeScopeMigration, /revoke all on function public\.notify_calendar_event_parents_authoritative_scope_internal[\s\S]*from public, anon, authenticated/)
 })

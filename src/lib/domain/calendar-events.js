@@ -383,7 +383,6 @@ export async function notifyCalendarEventParents({
   eventId,
   eventSource = 'calendar',
   eventAction,
-  playerIds = [],
   requestToken,
 } = {}) {
   await blockDemoMutation(user)
@@ -393,12 +392,6 @@ export async function notifyCalendarEventParents({
   const normalizedEventSource = normalizeText(eventSource).toLowerCase()
   const normalizedAction = normalizeText(eventAction).toLowerCase()
   const normalizedRequestToken = normalizeText(requestToken)
-  const normalizedPlayerIds = [...new Set(
-    (Array.isArray(playerIds) ? playerIds : [])
-      .map((playerId) => normalizeText(playerId))
-      .filter(Boolean),
-  )]
-
   if (!normalizedEventId) {
     throw new Error('Save the Calendar event before notifying parents.')
   }
@@ -420,7 +413,7 @@ export async function notifyCalendarEventParents({
     event_action_value: normalizedAction,
     match_day_id_value: normalizedEventSource === 'match-day' ? normalizedEventId : null,
     notification_request_token_value: normalizedRequestToken,
-    player_ids_value: normalizedPlayerIds,
+    player_ids_value: [],
   })
 
   if (error) {
@@ -449,6 +442,58 @@ export async function notifyCalendarEventParents({
     duplicateCount: Number(data?.duplicateCount ?? 0),
     idempotencyPrefix: normalizeText(data?.idempotencyPrefix),
     finalState: normalizeText(data?.finalState),
+  }
+}
+
+export async function syncCalendarEventParentScope({
+  user,
+  eventId,
+  eventSource = 'calendar',
+  playerIds = [],
+} = {}) {
+  await blockDemoMutation(user)
+  assertCalendarAccess(user)
+
+  const normalizedEventId = normalizeText(eventId)
+  const normalizedEventSource = normalizeText(eventSource).toLowerCase()
+  const normalizedPlayerIds = [...new Set(
+    (Array.isArray(playerIds) ? playerIds : [])
+      .map((playerId) => normalizeText(playerId))
+      .filter(Boolean),
+  )]
+
+  if (!normalizedEventId) {
+    throw new Error('Save the Calendar event before sharing it with parents.')
+  }
+
+  if (!['calendar', 'match-day'].includes(normalizedEventSource)) {
+    throw new Error('Choose a supported Calendar event source before sharing it with parents.')
+  }
+
+  const { data, error } = await supabase.rpc('sync_calendar_event_parent_scope', {
+    calendar_event_id_value: normalizedEventSource === 'calendar' ? normalizedEventId : null,
+    match_day_id_value: normalizedEventSource === 'match-day' ? normalizedEventId : null,
+    player_ids_value: normalizedPlayerIds,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  clearViewCaches()
+  invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
+
+  return {
+    eventId: normalizeText(data?.eventId),
+    eventSource: normalizeText(data?.eventSource),
+    parentAudience: normalizeText(data?.parentAudience),
+    parentVisible: data?.parentVisible === true,
+    portalState: normalizeText(data?.portalState),
+    portalCreatedCount: Number(data?.portalCreatedCount ?? 0),
+    portalUpdatedCount: Number(data?.portalUpdatedCount ?? 0),
+    portalRecordCount: Number(data?.portalRecordCount ?? 0),
+    responseRequirement: normalizeText(data?.responseRequirement),
   }
 }
 

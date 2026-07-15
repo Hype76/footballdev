@@ -76,6 +76,7 @@ import {
   saveCalendarEventInvites,
   saveTrainingAvailabilitySettings,
   syncCalendarEventResourceLinks,
+  syncCalendarEventParentScope,
   updateCalendarEvent,
   updateAssessmentSession,
   updateMatchDay,
@@ -1936,18 +1937,42 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
         const notifyRequested = calendarForm.notifyInvitedFamilies && (sharedInvolvedPlayers || sharedAllTeamParents)
 
-        if ((calendarEventId || matchDayId) && notifyRequested) {
-          calendarNotificationResult = await notifyCalendarEventParents({
+        if (calendarEventId || matchDayId) {
+          const eventId = calendarEventId || matchDayId
+          const eventSource = matchDayId ? 'match-day' : 'calendar'
+          const parentScopeResult = await syncCalendarEventParentScope({
             user,
-            eventId: calendarEventId || matchDayId,
-            eventSource: matchDayId ? 'match-day' : 'calendar',
-            eventAction: sourceType === 'calendar' || sourceType === 'match-day' ? 'update' : 'creation',
-            playerIds: notificationPlayers.map((player) => player.id),
-            requestToken: calendarForm.notificationRequestToken,
+            eventId,
+            eventSource,
+            playerIds: sharedInvolvedPlayers ? notificationPlayers.map((player) => player.id) : [],
           })
-          queuedInviteEmails += calendarNotificationResult.queuedCount
-          failedInviteEmails += calendarNotificationResult.failedCount
           nextCalendarInvites = await getCalendarEventInvites({ user })
+
+          if (notifyRequested) {
+            try {
+              calendarNotificationResult = await notifyCalendarEventParents({
+                user,
+                eventId,
+                eventSource,
+                eventAction: sourceType === 'calendar' || sourceType === 'match-day' ? 'update' : 'creation',
+                requestToken: calendarForm.notificationRequestToken,
+              })
+              queuedInviteEmails += calendarNotificationResult.queuedCount
+              failedInviteEmails += calendarNotificationResult.failedCount
+              nextCalendarInvites = await getCalendarEventInvites({ user })
+            } catch (notificationError) {
+              console.error(notificationError)
+              calendarNotificationResult = {
+                ...parentScopeResult,
+                eligibleRecipientCount: 0,
+                queuedCount: 0,
+                failedCount: 0,
+                duplicateCount: 0,
+                finalState: 'portal_ready_email_command_failed',
+                notificationError: notificationError?.message || 'Email notification command failed.',
+              }
+            }
+          }
           return
         }
 
@@ -2109,6 +2134,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
               message: 'No active players are available for this parent audience. No Parent Portal record or email notification was created.',
               tone: 'error',
             })
+          } else if (calendarNotificationResult.notificationError) {
+            showToast({
+              title: 'Parent Portal updated, email notification incomplete',
+              message: 'The fixture is available in the Parent Portal, but the email notification could not be started. Open the saved fixture and try Notify parents again.',
+              tone: 'error',
+            })
           } else if (calendarNotificationResult.failedCount === 0 && calendarNotificationResult.eligibleRecipientCount > 0) {
             showToast({
               title: 'Fixture updated and parents notified',
@@ -2218,6 +2249,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           showToast({
             title: 'Event saved, no parent records created',
             message: 'No active players are available for this parent audience. No Parent Portal record or email notification was created.',
+            tone: 'error',
+          })
+        } else if (calendarNotificationResult.notificationError) {
+          showToast({
+            title: 'Parent Portal updated, email notification incomplete',
+            message: 'The event is available in the Parent Portal, but the email notification could not be started. Open the saved event and try Notify parents again.',
             tone: 'error',
           })
         } else if (calendarNotificationResult.failedCount === 0 && calendarNotificationResult.eligibleRecipientCount > 0) {

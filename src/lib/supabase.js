@@ -154,6 +154,7 @@ export {
   getCalendarEvents,
   getParentPortalSharedCalendarEvents,
   notifyCalendarEventParents,
+  syncCalendarEventParentScope,
   updateCalendarEvent,
 } from './domain/calendar-events.js'
 

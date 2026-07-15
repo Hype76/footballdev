@@ -1,5 +1,13 @@
 begin;
 
+insert into auth.users (id, email)
+values
+  ('93000000-0000-4000-8000-000000000001', 'manager@example.test'),
+  ('93000000-0000-4000-8000-000000000002', 'parent@example.test'),
+  ('93000000-0000-4000-8000-000000000003', 'other@example.test'),
+  ('93000000-0000-4000-8000-000000000004', 'coach@example.test'),
+  ('93000000-0000-4000-8000-000000000005', 'suspended@example.test');
+
 insert into public.clubs (id, name, plan_key, plan_status)
 values ('91000000-0000-4000-8000-000000000001', 'Calendar Hotfix Club', 'small_club', 'active');
 
@@ -12,12 +20,16 @@ insert into public.users (id, club_id, email, name, display_name, role, role_ran
 values
   ('93000000-0000-4000-8000-000000000001', '91000000-0000-4000-8000-000000000001', 'manager@example.test', 'Manager', 'Manager', 'head_manager', 70, 'active'),
   ('93000000-0000-4000-8000-000000000002', '91000000-0000-4000-8000-000000000001', 'parent@example.test', 'Parent', 'Parent', 'parent_portal', 0, 'active'),
-  ('93000000-0000-4000-8000-000000000003', '91000000-0000-4000-8000-000000000001', 'other@example.test', 'Other Coach', 'Other Coach', 'coach', 30, 'active');
+  ('93000000-0000-4000-8000-000000000003', '91000000-0000-4000-8000-000000000001', 'other@example.test', 'Other Coach', 'Other Coach', 'coach', 30, 'active'),
+  ('93000000-0000-4000-8000-000000000004', '91000000-0000-4000-8000-000000000001', 'coach@example.test', 'Coach', 'Coach', 'coach', 30, 'active'),
+  ('93000000-0000-4000-8000-000000000005', '91000000-0000-4000-8000-000000000001', 'suspended@example.test', 'Suspended', 'Suspended', 'coach', 30, 'suspended');
 
 insert into public.team_staff (team_id, user_id)
 values
   ('92000000-0000-4000-8000-000000000001', '93000000-0000-4000-8000-000000000001'),
-  ('92000000-0000-4000-8000-000000000002', '93000000-0000-4000-8000-000000000003');
+  ('92000000-0000-4000-8000-000000000002', '93000000-0000-4000-8000-000000000003'),
+  ('92000000-0000-4000-8000-000000000001', '93000000-0000-4000-8000-000000000004'),
+  ('92000000-0000-4000-8000-000000000001', '93000000-0000-4000-8000-000000000005');
 
 insert into public.players (id, club_id, team_id, player_name, section, status)
 values
@@ -73,11 +85,9 @@ $$;
 set local role authenticated;
 set local request.jwt.claim.sub = '93000000-0000-4000-8000-000000000001';
 
-select public.notify_calendar_event_parents(
+select public.sync_calendar_event_parent_scope(
   null,
-  'update',
   '96000000-0000-4000-8000-000000000001',
-  '97000000-0000-4000-8000-000000000001',
   array[
     '94000000-0000-4000-8000-000000000001'::uuid,
     '94000000-0000-4000-8000-000000000002'::uuid
@@ -89,11 +99,43 @@ select public.notify_calendar_event_parents(
   'update',
   '96000000-0000-4000-8000-000000000001',
   '97000000-0000-4000-8000-000000000001',
-  array[
-    '94000000-0000-4000-8000-000000000001'::uuid,
-    '94000000-0000-4000-8000-000000000002'::uuid
-  ]
+  '{}'::uuid[]
 );
+
+select public.notify_calendar_event_parents(
+  null,
+  'update',
+  '96000000-0000-4000-8000-000000000001',
+  '97000000-0000-4000-8000-000000000001',
+  '{}'::uuid[]
+);
+
+reset role;
+
+set local role authenticated;
+set local request.jwt.claim.sub = '93000000-0000-4000-8000-000000000001';
+
+do $$
+declare
+  denied boolean := false;
+begin
+  begin
+    perform public.notify_calendar_event_parents(
+      null,
+      'update',
+      '96000000-0000-4000-8000-000000000001',
+      '97000000-0000-4000-8000-000000000006',
+      array['94000000-0000-4000-8000-000000000001'::uuid]
+    );
+  exception when others then
+    denied := true;
+  end;
+
+  if not denied then
+    raise exception 'Browser-supplied notification scope was not denied.';
+  end if;
+end;
+$$;
 
 reset role;
 
@@ -137,6 +179,84 @@ begin
   end if;
 end;
 $$;
+
+update public.match_days
+set parent_audience = 'all_team_parents',
+    venue_name = 'Latest Authoritative Venue'
+where id = '96000000-0000-4000-8000-000000000001';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '93000000-0000-4000-8000-000000000001';
+
+select public.sync_calendar_event_parent_scope(
+  null,
+  '96000000-0000-4000-8000-000000000001',
+  '{}'::uuid[]
+);
+
+select public.notify_calendar_event_parents(
+  null,
+  'update',
+  '96000000-0000-4000-8000-000000000001',
+  '97000000-0000-4000-8000-000000000007',
+  '{}'::uuid[]
+);
+
+reset role;
+
+do $$
+begin
+  if (select notification_revision from public.match_days where id = '96000000-0000-4000-8000-000000000001') <> 3 then
+    raise exception 'Material Match Day edit did not advance the notification revision.';
+  end if;
+  if (select count(*) from public.calendar_event_notification_commands where match_day_id = '96000000-0000-4000-8000-000000000001') <> 3 then
+    raise exception 'Later genuine revision notification was not auditable.';
+  end if;
+  if (select count(*) from public.calendar_event_invites where match_day_id = '96000000-0000-4000-8000-000000000001' and invite_status = 'active') <> 2 then
+    raise exception 'Team-wide scope was not resolved server-side.';
+  end if;
+end;
+$$;
+
+set local role authenticated;
+set local request.jwt.claim.sub = '93000000-0000-4000-8000-000000000004';
+
+select public.notify_calendar_event_parents(
+  null,
+  'update',
+  '96000000-0000-4000-8000-000000000001',
+  '97000000-0000-4000-8000-000000000008',
+  '{}'::uuid[]
+);
+
+reset role;
+
+set local role authenticated;
+set local request.jwt.claim.sub = '93000000-0000-4000-8000-000000000005';
+
+do $$
+declare
+  denied boolean := false;
+begin
+  begin
+    perform public.notify_calendar_event_parents(
+      null,
+      'update',
+      '96000000-0000-4000-8000-000000000001',
+      '97000000-0000-4000-8000-000000000009',
+      '{}'::uuid[]
+    );
+  exception when others then
+    denied := true;
+  end;
+
+  if not denied then
+    raise exception 'Suspended staff notification was not denied.';
+  end if;
+end;
+$$;
+
+reset role;
 
 set local role authenticated;
 set local request.jwt.claim.sub = '93000000-0000-4000-8000-000000000002';
