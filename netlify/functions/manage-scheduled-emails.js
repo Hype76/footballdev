@@ -5,6 +5,8 @@ import {
 } from './lib/_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
+import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
+import { processCalendarNotificationCommand, sendScheduledEmail } from './process-scheduled-emails.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -20,6 +22,14 @@ function successResponse(payload = {}) {
 
 function failureResponse(statusCode, message) {
   return jsonResponse(statusCode, { success: false, message })
+}
+
+function getSafeErrorDetails(error) {
+  return {
+    code: String(error?.code ?? 'unknown_error').slice(0, 100),
+    message: String(error?.message ?? 'Email queue action failed.').slice(0, 500),
+    statusCode: Number.isFinite(Number(error?.statusCode)) ? Number(error.statusCode) : null,
+  }
 }
 
 function normalizeRecipients(value) {
@@ -326,22 +336,6 @@ async function deleteQueueItem({ body, profile }) {
   return { id: row.id }
 }
 
-function buildPreparedEmail(row, planProfile) {
-  const payload = row.payload || {}
-  const resendPayload = payload.resendPayload || {}
-  const recipients = normalizeRecipients(resendPayload.to || row.to_email)
-
-  return {
-    emailHtml: String(resendPayload.html ?? ''),
-    emailPayload: resendPayload,
-    emailSubject: String(resendPayload.subject ?? row.subject ?? '').trim() || 'Football Player',
-    planProfile,
-    recipients,
-    senderCopyEmails: normalizeRecipients(resendPayload.cc),
-    storedPayload: payload,
-  }
-}
-
 async function createSentCommunicationLog(row) {
   const log = row.payload?.communicationLog
 
@@ -393,6 +387,23 @@ async function sendQueuedParentPush(communicationLog) {
 async function sendNowQueueItem({ body, profile }) {
   const row = await getQueueRow({ id: body.id, profile })
 
+  if (row.payload?.communicationLog?.metadata?.source === 'calendar_event_notification') {
+    const status = await sendScheduledEmail(row, { retryFailed: true })
+
+    if (status === 'failed') {
+      throw new Error('The parent email could not be sent. Please try again.')
+    }
+
+    if (status === 'skipped') {
+      throw Object.assign(new Error('This email is already being processed.'), { statusCode: 409 })
+    }
+
+    return {
+      id: row.id,
+      duplicate: status === 'duplicate',
+    }
+  }
+
   if (row.status === 'sending') {
     throw Object.assign(new Error('This email is already being sent.'), { statusCode: 409 })
   }
@@ -411,7 +422,7 @@ async function sendNowQueueItem({ body, profile }) {
 
   try {
     assertPlanFeature(profile, 'parentEmails')
-    const sendResult = await sendPreparedParentEmail(buildPreparedEmail(lockedRow, profile), {
+    const sendResult = await sendPreparedParentEmail(buildPreparedScheduledEmail(lockedRow, profile), {
       idempotencySeed: `scheduled:${lockedRow.id}`,
     })
 
@@ -478,9 +489,16 @@ export async function handler(event) {
       return successResponse(await sendNowQueueItem({ body, profile }))
     }
 
+    if (action === 'processCalendarNotification') {
+      return successResponse(await processCalendarNotificationCommand({
+        commandId: body.commandId,
+        profile,
+      }))
+    }
+
     return failureResponse(400, 'Unknown email queue action.')
   } catch (error) {
-    console.error(error)
+    console.error('Email queue action failed', getSafeErrorDetails(error))
     return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Email queue action failed.')
   }
 }

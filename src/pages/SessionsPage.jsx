@@ -86,6 +86,14 @@ import {
 } from '../lib/supabase.js'
 import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
 import {
+  applyTrialPlayerSelection,
+  applyWholeSquadSelection,
+  getSelectedInvitePlayers,
+  getWholeSquadScopePlayerIds,
+  getWholeSquadSelectionState,
+} from '../lib/domain/calendar-invite-scope.js'
+import { getCalendarNotificationToast } from '../lib/domain/calendar-notification-status.js'
+import {
   addMinutesToRequiredTime,
   buildRequiredLocalDateTime,
   validateFixtureDateTime,
@@ -729,35 +737,7 @@ function getCalendarInvitePlayers(players, teamId) {
 }
 
 function buildSelectedInvitePlayers(form, invitePlayers) {
-  const selectedIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
-  const selectedPlayers = []
-  const addPlayer = (player) => {
-    if (!player?.id || selectedPlayers.some((selectedPlayer) => selectedPlayer.id === player.id)) {
-      return
-    }
-
-    selectedPlayers.push(player)
-  }
-
-  invitePlayers.forEach((player) => {
-    const section = String(player.section ?? '').trim().toLowerCase()
-
-    if (form.inviteWholeSquad && section === 'squad') {
-      addPlayer(player)
-      return
-    }
-
-    if (form.inviteTrialPlayers && section === 'trial') {
-      addPlayer(player)
-      return
-    }
-
-    if (selectedIds.has(String(player.id))) {
-      addPlayer(player)
-    }
-  })
-
-  return selectedPlayers
+  return getSelectedInvitePlayers(invitePlayers, form.invitedPlayerIds)
 }
 
 function buildCalendarNotificationPlayers(form, invitePlayers, selectedPlayers) {
@@ -1688,9 +1668,54 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           ? [...new Set([...currentIds, value])]
           : currentIds.filter((id) => id !== value)
 
+        const selectionState = getWholeSquadSelectionState({
+          includeTrialPlayers: current.inviteTrialPlayers,
+          invitePlayers: calendarInvitePlayers,
+          selectedPlayerIds: nextIds,
+        })
+
         return {
           ...current,
           invitedPlayerIds: nextIds,
+          inviteWholeSquad: selectionState.checked,
+        }
+      }
+
+      if (name === 'inviteWholeSquad') {
+        return {
+          ...current,
+          invitedPlayerIds: applyWholeSquadSelection({
+            checked,
+            includeTrialPlayers: current.inviteTrialPlayers,
+            invitePlayers: calendarInvitePlayers,
+          }),
+          inviteWholeSquad: checked,
+        }
+      }
+
+      if (name === 'inviteTrialPlayers') {
+        const currentWholeSquadState = getWholeSquadSelectionState({
+          includeTrialPlayers: current.inviteTrialPlayers,
+          invitePlayers: calendarInvitePlayers,
+          selectedPlayerIds: current.invitedPlayerIds,
+        })
+        const nextIds = applyTrialPlayerSelection({
+          checked,
+          invitePlayers: calendarInvitePlayers,
+          selectedPlayerIds: current.invitedPlayerIds,
+          wholeSquadSelected: currentWholeSquadState.checked,
+        })
+        const nextWholeSquadState = getWholeSquadSelectionState({
+          includeTrialPlayers: checked,
+          invitePlayers: calendarInvitePlayers,
+          selectedPlayerIds: nextIds,
+        })
+
+        return {
+          ...current,
+          invitedPlayerIds: nextIds,
+          inviteTrialPlayers: checked,
+          inviteWholeSquad: nextWholeSquadState.checked,
         }
       }
 
@@ -1940,11 +1965,24 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         if (calendarEventId || matchDayId) {
           const eventId = calendarEventId || matchDayId
           const eventSource = matchDayId ? 'match-day' : 'calendar'
+          const wholeSquadSelectionState = getWholeSquadSelectionState({
+            includeTrialPlayers: calendarForm.inviteTrialPlayers,
+            invitePlayers: calendarInvitePlayers,
+            selectedPlayerIds: calendarForm.invitedPlayerIds,
+          })
+          const wholeSquadScopeIds = new Set(getWholeSquadScopePlayerIds(calendarInvitePlayers, {
+            includeTrialPlayers: calendarForm.inviteTrialPlayers,
+          }))
+          const hasOnlyWholeSquadScopePlayers = notificationPlayers.every((player) => wholeSquadScopeIds.has(String(player.id)))
           const parentScopeResult = await syncCalendarEventParentScope({
             user,
             eventId,
             eventSource,
+            includeTrialPlayers: calendarForm.inviteTrialPlayers,
             playerIds: sharedInvolvedPlayers ? notificationPlayers.map((player) => player.id) : [],
+            selectionMode: sharedInvolvedPlayers && wholeSquadSelectionState.checked && hasOnlyWholeSquadScopePlayers
+              ? 'whole_squad'
+              : 'manual',
           })
           nextCalendarInvites = await getCalendarEventInvites({ user })
 
@@ -2128,37 +2166,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           writeCalendarAwareCache({ matchDays: nextMatchDays, calendarInvites: nextCalendarInvites })
           if (!calendarNotificationResult) {
             showToast({ title: 'Fixture updated', message: savedMatch.opponent || 'Calendar updated.' })
-          } else if (calendarNotificationResult.portalRecordCount === 0) {
-            showToast({
-              title: 'Fixture saved, no parent records created',
-              message: 'No active players are available for this parent audience. No Parent Portal record or email notification was created.',
-              tone: 'error',
-            })
-          } else if (calendarNotificationResult.notificationError) {
-            showToast({
-              title: 'Parent Portal updated, email notification incomplete',
-              message: 'The fixture is available in the Parent Portal, but the email notification could not be started. Open the saved fixture and try Notify parents again.',
-              tone: 'error',
-            })
-          } else if (calendarNotificationResult.failedCount === 0 && calendarNotificationResult.eligibleRecipientCount > 0) {
-            showToast({
-              title: 'Fixture updated and parents notified',
-              message: calendarNotificationResult.duplicateCount > 0
-                ? 'This notification request was already completed. No duplicate parent email was added.'
-                : `${calendarNotificationResult.queuedCount} parent email${calendarNotificationResult.queuedCount === 1 ? '' : 's'} added to the holding queue.`,
-            })
-          } else if (calendarNotificationResult.eligibleRecipientCount === 0) {
-            showToast({
-              title: 'Fixture available in the Parent Portal',
-              message: 'No eligible linked parent email was found. No email notification was queued.',
-              tone: 'error',
-            })
           } else {
-            showToast({
-              title: 'Parent Portal updated, email queue incomplete',
-              message: 'The fixture is available in the Parent Portal, but one or more email notifications could not be queued. Open the saved fixture and try Notify parents again.',
-              tone: 'error',
-            })
+            showToast(getCalendarNotificationToast(calendarNotificationResult, {
+              action: 'updated',
+              entity: 'Fixture',
+            }))
           }
         } else {
           const savedSession = await createAssessmentSession({ user, session: payload })
@@ -2245,39 +2257,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         if (!calendarNotificationResult) {
           showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
-        } else if (calendarNotificationResult.portalRecordCount === 0) {
-          showToast({
-            title: 'Event saved, no parent records created',
-            message: 'No active players are available for this parent audience. No Parent Portal record or email notification was created.',
-            tone: 'error',
-          })
-        } else if (calendarNotificationResult.notificationError) {
-          showToast({
-            title: 'Parent Portal updated, email notification incomplete',
-            message: 'The event is available in the Parent Portal, but the email notification could not be started. Open the saved event and try Notify parents again.',
-            tone: 'error',
-          })
-        } else if (calendarNotificationResult.failedCount === 0 && calendarNotificationResult.eligibleRecipientCount > 0) {
-          showToast({
-            title: sourceType === 'calendar' ? 'Event updated and parents notified' : 'Event created and parents notified',
-            message: calendarNotificationResult.duplicateCount > 0
-              ? 'This notification request was already completed. No duplicate parent email was added.'
-              : calendarNotificationResult.queuedCount > 0
-              ? `${calendarNotificationResult.queuedCount} parent email${calendarNotificationResult.queuedCount === 1 ? '' : 's'} added to the holding queue.`
-              : 'The Parent Portal is up to date and email alerts were already queued for this saved revision.',
-          })
-        } else if (calendarNotificationResult.eligibleRecipientCount === 0) {
-          showToast({
-            title: 'Event available in the Parent Portal',
-            message: 'No eligible linked parent email was found. No email notification was queued.',
-            tone: 'error',
-          })
         } else {
-          showToast({
-            title: 'Parent Portal updated, email queue incomplete',
-            message: 'The event is available in the Parent Portal, but one or more email notifications could not be queued. Open the saved event and try Notify parents again.',
-            tone: 'error',
-          })
+          showToast(getCalendarNotificationToast(calendarNotificationResult, {
+            action: sourceType === 'calendar' ? 'updated' : 'created',
+            entity: 'Event',
+          }))
         }
       }
 
@@ -3662,6 +3646,11 @@ function CalendarEventModal({
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
+  const wholeSquadSelectionState = getWholeSquadSelectionState({
+    includeTrialPlayers: form.inviteTrialPlayers,
+    invitePlayers,
+    selectedPlayerIds: form.invitedPlayerIds,
+  })
   const inviteTeamId = canUseClubLevel ? form.teamId : form.teamId || user?.activeTeamId
   const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
   const availabilityOccurrenceDate = getTrainingAvailabilityOccurrenceDate({ event, form })
@@ -4063,7 +4052,7 @@ function CalendarEventModal({
                   <span>
                     Notify team families
                     <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-                      Parents will see the event in their Parent Portal and receive an email notification. Adds an event invite email to the holding queue for linked parents in this team.
+                      Parents will see the event in their Parent Portal and receive an email notification.
                     </span>
                   </span>
                 </label>
@@ -4100,7 +4089,13 @@ function CalendarEventModal({
                         <input
                           type="checkbox"
                           name="inviteWholeSquad"
-                          checked={form.inviteWholeSquad}
+                          checked={wholeSquadSelectionState.checked}
+                          aria-checked={wholeSquadSelectionState.indeterminate ? 'mixed' : wholeSquadSelectionState.checked}
+                          ref={(input) => {
+                            if (input) {
+                              input.indeterminate = wholeSquadSelectionState.indeterminate
+                            }
+                          }}
                           onChange={onChange}
                           disabled={isBusy || squadPlayers.length === 0}
                           className="h-5 w-5 accent-[#047857]"
@@ -4157,7 +4152,7 @@ function CalendarEventModal({
                       <span>
                         Notify invited families
                         <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-                          Parents will see the event in their Parent Portal and receive an email notification. The workflow adds a parent email to the holding queue for review before send time.
+                          Parents will see the event in their Parent Portal and receive an email notification.
                         </span>
                       </span>
                     </label>

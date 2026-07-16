@@ -374,7 +374,8 @@ test('event invited family notification uses the scheduled email holding queue',
   assert.match(sessionsSource, /\.filter\(\(invite\) => String\(invite\.parentContactEmail \?\? ''\)\.trim\(\)\)/)
   assert.match(sessionsSource, /source: 'calendar_event_invite'/)
   assert.match(sessionsSource, /Parent portal invites were still saved\./)
-  assert.match(sessionsSource, /adds a parent email to the holding queue for review before send time/)
+  assert.match(sessionsSource, /Parents will see the event in their Parent Portal and receive an email notification\./)
+  assert.doesNotMatch(sessionsSource, /holding queue/i)
 
   assert.match(scheduledEmailsSource, /action: 'create'/)
   assert.match(manageQueueSource, /async function createQueueItem/)

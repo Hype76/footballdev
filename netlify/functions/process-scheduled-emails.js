@@ -4,6 +4,7 @@ import { supabaseAdmin } from './lib/_supabase.js'
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
+import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -19,23 +20,47 @@ function getMissingEnvVars() {
   )
 }
 
-function normalizeRecipients(value) {
-  if (Array.isArray(value)) {
-    return value.map((email) => String(email ?? '').trim()).filter(Boolean)
-  }
-
-  return String(value ?? '')
-    .split(',')
-    .map((email) => email.trim())
-    .filter(Boolean)
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? '').trim())
 }
 
-async function lockScheduledEmail(row) {
+function getSafeErrorDetails(error) {
+  return {
+    code: String(error?.code ?? 'unknown_error').slice(0, 100),
+    message: String(error?.message ?? 'Scheduled email processing failed.').slice(0, 500),
+    providerStatus: Number.isFinite(Number(error?.providerStatus)) ? Number(error.providerStatus) : null,
+  }
+}
+
+function isCalendarNotificationQueueRow(row) {
+  return row?.payload?.communicationLog?.metadata?.source === 'calendar_event_notification'
+}
+
+async function updateCalendarNotificationEvent(queueId, status, lastError = null) {
+  if (!queueId) {
+    return
+  }
+
+  const { error } = await supabaseAdmin
+    .from('calendar_event_notification_events')
+    .update({
+      status,
+      last_error: lastError,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('email_queue_id', queueId)
+
+  if (error) {
+    console.error('Calendar notification delivery state update failed', error)
+  }
+}
+
+async function lockScheduledEmail(row, { retryFailed = false } = {}) {
   const { data, error } = await supabaseAdmin
     .from('scheduled_email_queue')
     .update({ status: 'sending' })
     .eq('id', row.id)
-    .eq('status', 'scheduled')
+    .in('status', retryFailed ? ['scheduled', 'failed'] : ['scheduled'])
     .select('*')
     .maybeSingle()
 
@@ -45,22 +70,6 @@ async function lockScheduledEmail(row) {
   }
 
   return data
-}
-
-function buildPreparedEmail(row, planProfile) {
-  const payload = row.payload || {}
-  const resendPayload = payload.resendPayload || {}
-  const recipients = normalizeRecipients(resendPayload.to || row.to_email)
-
-  return {
-    emailHtml: String(resendPayload.html ?? ''),
-    emailPayload: resendPayload,
-    emailSubject: String(resendPayload.subject ?? row.subject ?? '').trim() || 'Football Player',
-    planProfile,
-    recipients,
-    senderCopyEmails: normalizeRecipients(resendPayload.cc),
-    storedPayload: payload,
-  }
 }
 
 async function markScheduledEmailFailed(row, error) {
@@ -127,11 +136,15 @@ async function sendScheduledParentPush(communicationLog) {
   }
 }
 
-async function sendScheduledEmail(row) {
-  const lockedRow = await lockScheduledEmail(row)
+export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
+  const lockedRow = await lockScheduledEmail(row, { retryFailed })
 
   if (!lockedRow) {
     return 'skipped'
+  }
+
+  if (isCalendarNotificationQueueRow(lockedRow)) {
+    await updateCalendarNotificationEvent(lockedRow.id, 'processing')
   }
 
   try {
@@ -141,15 +154,23 @@ async function sendScheduledEmail(row) {
       roleRank: 100,
     }
     assertPlanFeature(planProfile, 'parentEmails')
-    const preparedEmail = buildPreparedEmail(lockedRow, planProfile)
+    const preparedEmail = buildPreparedScheduledEmail(lockedRow, planProfile)
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
       idempotencySeed: `scheduled:${lockedRow.id}`,
     })
 
-    await supabaseAdmin
-      .from('scheduled_email_queue')
-      .delete()
-      .eq('id', lockedRow.id)
+    if (isCalendarNotificationQueueRow(lockedRow)) {
+      await supabaseAdmin
+        .from('scheduled_email_queue')
+        .update({ status: 'sent', last_error: null })
+        .eq('id', lockedRow.id)
+      await updateCalendarNotificationEvent(lockedRow.id, 'sent')
+    } else {
+      await supabaseAdmin
+        .from('scheduled_email_queue')
+        .delete()
+        .eq('id', lockedRow.id)
+    }
 
     if (sendResult.duplicate) {
       return 'duplicate'
@@ -160,11 +181,146 @@ async function sendScheduledEmail(row) {
 
     return 'sent'
   } catch (error) {
-    console.error('Scheduled email send failed', error)
+    console.error('Scheduled email send failed', getSafeErrorDetails(error))
     await markEmailLogFailed(error.emailLogRecord, error)
     await markScheduledEmailFailed(lockedRow, error)
+    if (isCalendarNotificationQueueRow(lockedRow)) {
+      await updateCalendarNotificationEvent(lockedRow.id, 'failed', error.message || String(error))
+    }
     return 'failed'
   }
+}
+
+export async function processCalendarNotificationCommand({ commandId, profile } = {}) {
+  const normalizedCommandId = String(commandId ?? '').trim()
+
+  if (!isUuid(normalizedCommandId)) {
+    throw Object.assign(new Error('A valid Calendar notification command is required.'), { statusCode: 400 })
+  }
+
+  const { data: command, error: commandError } = await supabaseAdmin
+    .from('calendar_event_notification_commands')
+    .select('id, club_id, team_id, requested_by, result')
+    .eq('id', normalizedCommandId)
+    .eq('club_id', profile.clubId)
+    .eq('requested_by', profile.id)
+    .maybeSingle()
+
+  if (commandError) {
+    console.error('Calendar notification command lookup failed', commandError)
+    throw new Error('Calendar notification delivery could not be loaded.')
+  }
+
+  if (!command) {
+    throw Object.assign(new Error('Calendar notification command was not found for this account.'), { statusCode: 404 })
+  }
+
+  if (profile.role !== 'admin') {
+    const { data: teamAccess, error: teamAccessError } = await supabaseAdmin
+      .from('team_staff')
+      .select('team_id')
+      .eq('team_id', command.team_id)
+      .eq('user_id', profile.id)
+      .maybeSingle()
+
+    if (teamAccessError || !teamAccess) {
+      throw Object.assign(new Error('You do not have permission to deliver notifications for this team.'), { statusCode: 403 })
+    }
+  }
+
+  const { data: notificationEvents, error: eventsError } = await supabaseAdmin
+    .from('calendar_event_notification_events')
+    .select('id, email_queue_id, status')
+    .eq('notification_command_id', command.id)
+    .eq('club_id', command.club_id)
+    .eq('team_id', command.team_id)
+
+  if (eventsError) {
+    console.error('Calendar notification delivery rows lookup failed', eventsError)
+    throw new Error('Calendar notification delivery rows could not be loaded.')
+  }
+
+  const queueIds = [...new Set((notificationEvents ?? []).map((row) => row.email_queue_id).filter(Boolean))]
+  let queueRows = []
+
+  if (queueIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from('scheduled_email_queue')
+      .select('*')
+      .in('id', queueIds)
+      .eq('club_id', command.club_id)
+      .eq('team_id', command.team_id)
+
+    if (error) {
+      console.error('Calendar notification queue lookup failed', error)
+      throw new Error('Calendar notification queue could not be loaded.')
+    }
+
+    queueRows = data ?? []
+  }
+
+  const queueById = new Map(queueRows.map((row) => [row.id, row]))
+  const summary = {
+    deliveredCount: 0,
+    processingCount: 0,
+    failedCount: 0,
+    skippedCount: 0,
+  }
+
+  for (const notificationEvent of notificationEvents ?? []) {
+    if (notificationEvent.status === 'sent') {
+      summary.deliveredCount += 1
+      summary.skippedCount += 1
+      continue
+    }
+
+    const queueRow = queueById.get(notificationEvent.email_queue_id)
+
+    if (!queueRow || queueRow.status === 'sent') {
+      if (queueRow?.status === 'sent') {
+        await updateCalendarNotificationEvent(queueRow.id, 'sent')
+        summary.deliveredCount += 1
+        summary.skippedCount += 1
+      } else {
+        summary.failedCount += 1
+      }
+      continue
+    }
+
+    const status = await sendScheduledEmail(queueRow, { retryFailed: true })
+
+    if (status === 'sent' || status === 'duplicate') {
+      summary.deliveredCount += 1
+      if (status === 'duplicate') {
+        summary.skippedCount += 1
+      }
+    } else if (status === 'failed') {
+      summary.failedCount += 1
+    } else {
+      summary.processingCount += 1
+    }
+  }
+
+  const finalState = summary.failedCount > 0
+    ? summary.deliveredCount > 0 ? 'portal_ready_email_partial' : 'portal_ready_email_failed'
+    : summary.processingCount > 0 ? 'portal_ready_email_processing' : 'portal_ready_email_delivered'
+  const result = {
+    ...(command.result || {}),
+    ...summary,
+    finalState,
+  }
+
+  const { error: resultError } = await supabaseAdmin
+    .from('calendar_event_notification_commands')
+    .update({ result, completed_at: new Date().toISOString() })
+    .eq('id', command.id)
+    .eq('requested_by', profile.id)
+
+  if (resultError) {
+    console.error('Calendar notification command result update failed', resultError)
+  }
+
+  return summary
 }
 
 export async function processScheduledEmails() {

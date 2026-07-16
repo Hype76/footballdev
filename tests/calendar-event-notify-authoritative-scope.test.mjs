@@ -5,11 +5,15 @@ import test from 'node:test'
 const migrationUrl = new URL('../supabase/migrations/20260715171154_calendar_event_notify_authoritative_scope.sql', import.meta.url)
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const calendarDomainUrl = new URL('../src/lib/domain/calendar-events.js', import.meta.url)
+const deliveryMigrationUrl = new URL('../supabase/migrations/20260716110436_calendar_notify_delivery_hotfix.sql', import.meta.url)
+const notificationStatusUrl = new URL('../src/lib/domain/calendar-notification-status.js', import.meta.url)
 
-const [migration, sessionsPage, calendarDomain] = await Promise.all([
+const [migration, sessionsPage, calendarDomain, deliveryMigration, notificationStatus] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(sessionsPageUrl, 'utf8'),
   readFile(calendarDomainUrl, 'utf8'),
+  readFile(deliveryMigrationUrl, 'utf8'),
+  readFile(notificationStatusUrl, 'utf8'),
 ])
 
 test('saved Portal scope is committed before the notification command', () => {
@@ -38,7 +42,8 @@ test('involved-player scope is validated and saved as informational Portal state
 test('team-wide scope and email recipients are resolved by the server', () => {
   assert.match(migration, /audience_value = 'all_team_parents'[\s\S]*Team-wide parent scope is resolved by the server/)
   assert.match(migration, /from public\.players player[\s\S]*player\.team_id = team_id_value/)
-  assert.match(calendarDomain, /sync_calendar_event_parent_scope'[\s\S]*player_ids_value: normalizedPlayerIds/)
+  assert.match(calendarDomain, /sync_calendar_event_parent_scope_v2'[\s\S]*player_ids_value: normalizedSelectionMode === 'whole_squad' \? \[\] : normalizedPlayerIds/)
+  assert.match(deliveryMigration, /normalized_selection_mode = 'whole_squad'[\s\S]*Whole squad player scope is resolved by the server/)
   assert.match(sessionsPage, /playerIds: sharedInvolvedPlayers \? notificationPlayers\.map\(\(player\) => player\.id\) : \[\]/)
 })
 
@@ -66,10 +71,11 @@ test('same-row updates preserve response evidence and avoid duplicate Portal rec
 })
 
 test('UI distinguishes Portal success from email command and queue failures', () => {
-  assert.match(sessionsPage, /calendarNotificationResult\.notificationError/)
-  assert.match(sessionsPage, /Parent Portal updated, email notification incomplete/)
-  assert.match(sessionsPage, /Parent Portal updated, email queue incomplete/)
-  assert.match(sessionsPage, /Event available in the Parent Portal/)
+  assert.match(sessionsPage, /getCalendarNotificationToast\(calendarNotificationResult/)
+  assert.match(notificationStatus, /parent emails could not be sent\. Please try again/)
+  assert.match(notificationStatus, /parent email[\s\S]*being delivered/)
+  assert.match(notificationStatus, /parent email[\s\S]*sent/)
+  assert.match(notificationStatus, /no eligible parent email addresses were available/)
   assert.match(sessionsPage, /Event saved, parent notification incomplete/)
   assert.match(sessionsPage, /Calendar not saved/)
 })

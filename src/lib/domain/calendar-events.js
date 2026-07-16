@@ -10,6 +10,7 @@ import {
   normalizeDateOnly,
 } from './core-normalizers.js'
 import { getSessionTeamsForUser } from './team-actions.js'
+import { processCalendarNotificationDelivery } from './scheduled-emails.js'
 import {
   buildRequiredLocalDateTime,
   validateOrdinaryEventDateTime,
@@ -421,6 +422,21 @@ export async function notifyCalendarEventParents({
     throw error
   }
 
+  let deliveryResult = null
+  let deliveryError = ''
+
+  if (normalizeText(data?.notificationCommandId) && Number(data?.eligibleRecipientCount ?? 0) > 0) {
+    try {
+      deliveryResult = await processCalendarNotificationDelivery({
+        commandId: data.notificationCommandId,
+        user,
+      })
+    } catch (processingError) {
+      console.error(processingError)
+      deliveryError = processingError?.message || 'Immediate email delivery could not be confirmed.'
+    }
+  }
+
   clearViewCaches()
   invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
 
@@ -438,8 +454,12 @@ export async function notifyCalendarEventParents({
     responseRequirement: normalizeText(data?.responseRequirement),
     eligibleRecipientCount: Number(data?.eligibleRecipientCount ?? 0),
     queuedCount: Number(data?.queuedCount ?? 0),
-    failedCount: Number(data?.failedCount ?? 0),
+    deliveredCount: Number(deliveryResult?.deliveredCount ?? 0),
+    processingCount: Number(deliveryResult?.processingCount ?? (deliveryError ? data?.queuedCount : 0) ?? 0),
+    failedCount: Number(deliveryResult?.failedCount ?? data?.failedCount ?? 0),
+    skippedCount: Number(deliveryResult?.skippedCount ?? 0),
     duplicateCount: Number(data?.duplicateCount ?? 0),
+    deliveryError,
     idempotencyPrefix: normalizeText(data?.idempotencyPrefix),
     finalState: normalizeText(data?.finalState),
   }
@@ -449,7 +469,9 @@ export async function syncCalendarEventParentScope({
   user,
   eventId,
   eventSource = 'calendar',
+  includeTrialPlayers = false,
   playerIds = [],
+  selectionMode = 'manual',
 } = {}) {
   await blockDemoMutation(user)
   assertCalendarAccess(user)
@@ -470,10 +492,18 @@ export async function syncCalendarEventParentScope({
     throw new Error('Choose a supported Calendar event source before sharing it with parents.')
   }
 
-  const { data, error } = await supabase.rpc('sync_calendar_event_parent_scope', {
+  const normalizedSelectionMode = normalizeText(selectionMode).toLowerCase()
+
+  if (!['manual', 'whole_squad'].includes(normalizedSelectionMode)) {
+    throw new Error('Choose a supported Calendar parent selection mode.')
+  }
+
+  const { data, error } = await supabase.rpc('sync_calendar_event_parent_scope_v2', {
     calendar_event_id_value: normalizedEventSource === 'calendar' ? normalizedEventId : null,
+    include_trial_players_value: includeTrialPlayers === true,
     match_day_id_value: normalizedEventSource === 'match-day' ? normalizedEventId : null,
-    player_ids_value: normalizedPlayerIds,
+    player_ids_value: normalizedSelectionMode === 'whole_squad' ? [] : normalizedPlayerIds,
+    selection_mode_value: normalizedSelectionMode,
   })
 
   if (error) {

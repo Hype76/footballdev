@@ -45,7 +45,7 @@ test('client calls the exact five-argument RPC for Calendar or Match Day', () =>
   assert.match(calendarDomain, /calendar_event_id_value: normalizedEventSource === 'calendar' \? normalizedEventId : null/)
   assert.match(calendarDomain, /match_day_id_value: normalizedEventSource === 'match-day' \? normalizedEventId : null/)
   assert.match(calendarDomain, /notification_request_token_value: normalizedRequestToken/)
-  assert.match(calendarDomain, /supabase\.rpc\('sync_calendar_event_parent_scope'[\s\S]*player_ids_value: normalizedPlayerIds/)
+  assert.match(calendarDomain, /supabase\.rpc\('sync_calendar_event_parent_scope_v2'[\s\S]*player_ids_value: normalizedSelectionMode === 'whole_squad' \? \[\] : normalizedPlayerIds/)
   assert.match(calendarDomain, /supabase\.rpc\('notify_calendar_event_parents'[\s\S]*player_ids_value: \[\]/)
   assert.match(calendarDomain, /notificationCommandId/)
 })

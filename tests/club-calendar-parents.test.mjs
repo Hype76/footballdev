@@ -76,7 +76,8 @@ test('team-wide calendar parent sharing can queue linked parent emails', async (
   assert.match(source, /const notificationPlayers = buildCalendarNotificationPlayers\(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers\)/)
   assert.match(source, /notifyRequested,\s*\n\s*\}\)/)
   assert.match(source, /Notify team families/)
-  assert.match(source, /Adds an event invite email to the holding queue for linked parents in this team\./)
+  assert.match(source, /Parents will see the event in their Parent Portal and receive an email notification\./)
+  assert.doesNotMatch(source, /holding queue/i)
 })
 
 test('parent portal can show shared club-wide calendar events once in all-linked mode', async () => {

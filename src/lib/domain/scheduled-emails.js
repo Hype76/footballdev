@@ -43,6 +43,24 @@ async function postScheduledEmailAction(payload) {
   return result
 }
 
+export async function processCalendarNotificationDelivery({
+  commandId,
+  user,
+} = {}) {
+  const normalizedCommandId = String(commandId ?? '').trim()
+
+  if (!normalizedCommandId) {
+    throw new Error('A Calendar notification command is required before delivery can start.')
+  }
+
+  return postScheduledEmailAction({
+    action: 'processCalendarNotification',
+    clubId: user?.clubId,
+    commandId: normalizedCommandId,
+    teamId: user?.activeTeamId,
+  })
+}
+
 export async function processDueScheduledEmails({ force = false } = {}) {
   if (shouldSkipNetlifyFunctionRequest()) {
     return null
