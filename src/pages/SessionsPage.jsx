@@ -93,6 +93,7 @@ import {
   getWholeSquadSelectionState,
 } from '../lib/domain/calendar-invite-scope.js'
 import { getCalendarNotificationToast } from '../lib/domain/calendar-notification-status.js'
+import { buildMatchDayPlayerInviteStatusMap } from '../lib/domain/calendar-actionable-invites.js'
 import {
   addMinutesToRequiredTime,
   buildRequiredLocalDateTime,
@@ -1951,6 +1952,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       let queuedInviteEmails = 0
       let failedInviteEmails = 0
       let calendarNotificationResult = null
+      let refreshedMatchDaysAfterNotification = null
       const shouldSyncInvites = Boolean(safeTeamId)
       const syncInvites = async ({ calendarEventId = '', matchDayId = '', assessmentSessionId = '', sourceTitle = '' } = {}) => {
         if (!shouldSyncInvites) {
@@ -1998,10 +2000,21 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
               queuedInviteEmails += calendarNotificationResult.queuedCount
               failedInviteEmails += calendarNotificationResult.failedCount
               nextCalendarInvites = await getCalendarEventInvites({ user })
+              if (matchDayId && calendarNotificationResult.actionReconciliationState === 'ready') {
+                try {
+                  refreshedMatchDaysAfterNotification = await getMatchDays({ user })
+                  setMatchDays(refreshedMatchDaysAfterNotification)
+                } catch (refreshError) {
+                  console.error(refreshError)
+                }
+              }
             } catch (notificationError) {
               console.error(notificationError)
               calendarNotificationResult = {
                 ...parentScopeResult,
+                actionReconciliationState: matchDayId ? 'failed' : '',
+                eventActionType: matchDayId ? 'match_day_action_required' : 'informational',
+                responseRequirement: matchDayId ? 'response_required' : 'informational',
                 eligibleRecipientCount: 0,
                 queuedCount: 0,
                 failedCount: 0,
@@ -2157,11 +2170,15 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           }
           const savedMatch = await updateMatchDay({ user, matchId: activeEvent.sourceId, updates: payload })
           coreSavedEvent = savedMatch
-          const nextMatchDays = [savedMatch, ...matchDays.filter((match) => match.id !== savedMatch.id)]
+          let nextMatchDays = [savedMatch, ...matchDays.filter((match) => match.id !== savedMatch.id)]
           coreSavedMatchDays = nextMatchDays
           setMatchDays(nextMatchDays)
           writeCalendarAwareCache({ matchDays: nextMatchDays })
           await syncInvites({ matchDayId: savedMatch.id, sourceTitle: getMatchDayDisplayName(savedMatch) })
+          if (refreshedMatchDaysAfterNotification) {
+            nextMatchDays = refreshedMatchDaysAfterNotification
+            coreSavedMatchDays = nextMatchDays
+          }
           setCalendarInvites(nextCalendarInvites)
           writeCalendarAwareCache({ matchDays: nextMatchDays, calendarInvites: nextCalendarInvites })
           if (!calendarNotificationResult) {
@@ -3662,6 +3679,12 @@ function CalendarEventModal({
     ...(hasInviteTeam ? [{ value: 'all_team_parents', label: 'All parents in the team' }] : []),
     ...(canUseClubLevel ? [{ value: 'all_club_parents', label: 'All parents in the club' }] : []),
   ]
+  const actionableInviteStatusByPlayerId = event?.sourceType === 'match-day'
+    ? buildMatchDayPlayerInviteStatusMap({
+        matchDay: event.data,
+        selectedPlayerIds: form.invitedPlayerIds,
+      })
+    : {}
 
   return (
     <div className="fixed inset-0 z-[80] flex items-stretch justify-center overflow-hidden bg-[#101828]/45 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
@@ -4052,7 +4075,9 @@ function CalendarEventModal({
                   <span>
                     Notify team families
                     <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-                      Parents will see the event in their Parent Portal and receive an email notification.
+                      {isMatchFixture
+                        ? 'Creates Match Day availability and configured volunteer actions, then sends a Parent Portal email alert.'
+                        : 'Parents will see the event in their Parent Portal and receive an email notification.'}
                     </span>
                   </span>
                 </label>
@@ -4135,6 +4160,11 @@ function CalendarEventModal({
                             <span className="block text-xs font-bold text-[#4b5f55]">
                               {player.section || 'Player'}{player.parentEmail ? `, family email on file` : ', no family email on file'}
                             </span>
+                            {event?.sourceType === 'match-day' ? (
+                              <span className="mt-1 block text-xs font-black text-[#047857]">
+                                {actionableInviteStatusByPlayerId[String(player.id)] || 'Not invited'}
+                              </span>
+                            ) : null}
                           </span>
                         </label>
                       ))}
@@ -4152,7 +4182,9 @@ function CalendarEventModal({
                       <span>
                         Notify invited families
                         <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-                          Parents will see the event in their Parent Portal and receive an email notification.
+                          {isMatchFixture
+                            ? 'Creates Match Day availability and configured volunteer actions, then sends a Parent Portal email alert.'
+                            : 'Parents will see the event in their Parent Portal and receive an email notification.'}
                         </span>
                       </span>
                     </label>

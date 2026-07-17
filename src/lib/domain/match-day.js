@@ -320,6 +320,7 @@ function normalizeAvailabilityRequest(row) {
     recipientType: normalizeText(row.recipient_type ?? row.recipientType) || 'parent',
     status: normalizeText(row.status) || 'pending',
     respondedAt: row.responded_at ?? row.respondedAt ?? '',
+    expiresAt: row.expires_at ?? row.expiresAt ?? '',
     sentAt: row.sent_at ?? row.sentAt ?? '',
     volunteerScorerResponse: normalizeVolunteerResponse(row.volunteer_scorer_response ?? row.volunteerScorerResponse),
     volunteerLinesmanResponse: normalizeVolunteerResponse(row.volunteer_linesman_response ?? row.volunteerLinesmanResponse),
