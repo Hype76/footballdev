@@ -98,6 +98,21 @@ export function canViewActivityLog(user) {
   return Boolean(user) && (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50)
 }
 
+export function canUseDataTransfer(user) {
+  if (!user || isParentPortalUser(user) || isDemoAccount(user)) {
+    return false
+  }
+
+  if (isSuperAdmin(user)) {
+    return true
+  }
+
+  return Boolean(user.clubId)
+    && ['admin', 'head_manager', 'manager'].includes(String(user.role ?? ''))
+    && Number(user.roleRank ?? 0) >= 50
+    && isPlanAccessActive(user)
+}
+
 export function canManageTeamSettings(user) {
   return isClubAdmin(user) && isPlanAccessActive(user)
 }

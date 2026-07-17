@@ -12,6 +12,7 @@ import {
   canManageParentLinks,
   canManagePolls,
   canUseResourceLibrary,
+  canUseDataTransfer,
   canManageTeamSettings,
   canManageUsers,
   canUseStaffChat,
@@ -63,6 +64,7 @@ const ActivityLogPage = lazyRoute(() => import('../pages/ActivityLogPage.jsx'), 
 const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage.jsx'), 'ArchivedPlayersPage')
 const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'BillingPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
+const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
 const ClubOwnerInvitePage = lazyRoute(() => import('../pages/ClubOwnerInvitePage.jsx'), 'ClubOwnerInvitePage')
 const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'AssessmentsMenuPage')
@@ -1322,6 +1324,23 @@ function RequireActivityLogAccess() {
   return <Outlet />
 }
 
+function RequireDataTransferAccess() {
+  const { element, user } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
+
+  if (element) {
+    return element
+  }
+
+  if (!canUseDataTransfer(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequirePlatformFeedbackAccess() {
   const { element, user } = useWorkspaceRouteGate({
     redirectSuperAdmin: false,
@@ -1634,6 +1653,22 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Activity Log',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireDataTransferAccess />,
+            children: [
+              {
+                path: 'data-transfer',
+                element: (
+                  <PageSuspense>
+                    <DataTransferPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Data Transfer',
                 },
               },
             ],

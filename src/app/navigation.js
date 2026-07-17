@@ -78,6 +78,11 @@ export const primaryNavigation = [
 
 export const clubNavigation = [
   {
+    label: 'Data Transfer',
+    path: '/data-transfer',
+    helper: 'Import and export XLSX',
+  },
+  {
     label: 'Club Profile',
     path: '/club-settings',
     helper: 'Shared club details',

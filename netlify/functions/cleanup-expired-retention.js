@@ -3,6 +3,8 @@ import { STAFF_VOICE_NOTES_BUCKET } from '../../src/lib/domain/core-constants.js
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
 
+const DATA_TRANSFER_PRIVATE_BUCKET = 'data-transfer-private'
+
 export const config = {
   schedule: '@daily',
 }
@@ -166,26 +168,65 @@ async function deleteExpiredArchivedPlayers(nowIso) {
   return expiredPlayerIds.length
 }
 
+async function deleteExpiredDataTransferFiles(nowIso) {
+  const { data: batches, error } = await supabaseAdmin
+    .from('data_transfer_batches')
+    .select('id, state, storage_path')
+    .not('storage_path', 'is', null)
+    .lte('raw_expires_at', nowIso)
+    .limit(500)
+
+  if (error?.code === '42P01') {
+    return 0
+  }
+
+  if (error) {
+    throw error
+  }
+
+  const paths = (batches ?? []).map((batch) => String(batch.storage_path ?? '').trim()).filter(Boolean)
+  if (paths.length > 0) {
+    const { error: storageError } = await supabaseAdmin.storage.from(DATA_TRANSFER_PRIVATE_BUCKET).remove(paths)
+    if (storageError) {
+      throw storageError
+    }
+  }
+
+  for (const batch of batches ?? []) {
+    const nextState = ['uploaded', 'inspecting', 'invalid', 'ready_for_review', 'awaiting_confirmation'].includes(batch.state)
+      ? 'expired'
+      : batch.state
+    const { error: updateError } = await supabaseAdmin
+      .from('data_transfer_batches')
+      .update({ storage_path: null, state: nextState, updated_at: nowIso })
+      .eq('id', batch.id)
+      .eq('storage_path', batch.storage_path)
+
+    if (updateError) {
+      throw updateError
+    }
+  }
+
+  return paths.length
+}
+
 export async function handler() {
   try {
-    if (String(process.env.RETENTION_CLEANUP_ENABLED ?? '').trim().toLowerCase() !== 'true') {
-      return json(200, {
-        success: true,
-        skipped: true,
-        message: 'Retention cleanup is disabled.',
-      })
-    }
-
+    const existingRetentionEnabled = String(process.env.RETENTION_CLEANUP_ENABLED ?? '').trim().toLowerCase() === 'true'
     const nowIso = new Date().toISOString()
-    const [voiceNotesDeleted, archivedPlayersDeleted] = await Promise.all([
-      deleteExpiredVoiceNotes(nowIso),
-      deleteExpiredArchivedPlayers(nowIso),
+    const [voiceNotesDeleted, archivedPlayersDeleted, dataTransferFilesDeleted] = await Promise.all([
+      existingRetentionEnabled ? deleteExpiredVoiceNotes(nowIso) : 0,
+      existingRetentionEnabled ? deleteExpiredArchivedPlayers(nowIso) : 0,
+      deleteExpiredDataTransferFiles(nowIso),
     ])
 
     return json(200, {
       success: true,
+      skipped: !existingRetentionEnabled,
+      existingRetentionEnabled,
       voiceNotesDeleted,
       archivedPlayersDeleted,
+      dataTransferFilesDeleted,
     })
   } catch (error) {
     console.error(error)

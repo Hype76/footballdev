@@ -38,6 +38,7 @@ apps/*store-review-private*
 
 # Local QA evidence
 output/
+outputs/
 apps/*/assets/assets for android/
 apps/*/assets/ios-screenshots/
 scripts/check-real-ui-login.mjs

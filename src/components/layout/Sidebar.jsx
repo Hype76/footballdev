@@ -15,6 +15,7 @@ import {
   canManageTeamSettings,
   canManageUsers,
   canUseResourceLibrary,
+  canUseDataTransfer,
   canUseStaffChat,
   canViewActivityLog,
   canViewBilling,
@@ -42,6 +43,7 @@ const navIcons = {
   '/assess-player': 'note',
   '/billing': 'card',
   '/club-settings': 'shield',
+  '/data-transfer': 'transfer',
   '/email-queue': 'mail',
   '/feedback-forms': 'template',
   '/end-season-stats': 'chart',
@@ -390,7 +392,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (isSuperAdmin(displayUser)) {
-      return item.path === '/activity-log'
+      return item.path === '/activity-log' || item.path === '/data-transfer'
     }
 
     if (isParentPortal) {
@@ -451,6 +453,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/activity-log') {
       return canViewActivityLog(displayUser) && (isSuperAdmin(displayUser) || canUseUiFeature(displayUser, CAPABILITIES.fullOperationalAuditLog))
+    }
+
+    if (item.path === '/data-transfer') {
+      return canUseDataTransfer(displayUser)
     }
 
     if (item.path === '/form-builder') {
@@ -868,6 +874,7 @@ function PlatformNav({ canAccessPlatformFeedback, onClose }) {
   const items = [
     { label: 'Platform Admin', path: '/platform-admin', helper: 'System overview' },
     { label: 'Club Management', path: '/platform-clubs', helper: 'Club records' },
+    { label: 'Data Transfer', path: '/data-transfer', helper: 'Controlled XLSX onboarding' },
     { label: 'Billing Options', path: '/platform-billing-options', helper: 'Plans and coupons' },
     ...(canAccessPlatformFeedback ? [{ label: 'Platform Feedback', path: '/platform-feedback', helper: 'Requests and issues' }] : []),
   ]
@@ -953,6 +960,11 @@ function NavIcon({ name }) {
         <>
           <path {...common} d="M12 3 19 6v5c0 4.5-2.7 7.4-7 10-4.3-2.6-7-5.5-7-10V6l7-3Z" />
           <path {...common} d="M9 12l2 2 4-5" />
+        </>
+      ) : name === 'transfer' ? (
+        <>
+          <path {...common} d="M7 4h10v5H7V4ZM7 15h10v5H7v-5Z" />
+          <path {...common} d="M12 9v6M9 12l3 3 3-3" />
         </>
       ) : name === 'fields' ? (
         <>
