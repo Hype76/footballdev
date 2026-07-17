@@ -1,6 +1,7 @@
 import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../lib/matchday-display.js'
 import { getParentResultDateForDisplay } from '../../lib/parent-results-order.js'
 import { formatFixtureDateTime, isFixtureKickoffTimeTbc } from '../../lib/calendar-datetime-integrity.js'
+import { getMatchDayFixtureTypeLabel } from '../../lib/matchday-fixture-type.js'
 
 function formatPreviousMatchDate(match) {
   if (isFixtureKickoffTimeTbc(match.kickoffTimeTbc)) {
@@ -87,6 +88,7 @@ export function PreviousGameCard({ match, onOpen }) {
       className="block w-full rounded-lg border border-[#d7e5dc] bg-white p-4 text-left shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#0f9f6e] hover:bg-[#f7faf8] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e]"
     >
       <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
+      <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{getMatchDayFixtureTypeLabel(match.fixtureType)}</p>
       <h4 className="mt-2 text-base font-black text-[#101828]">{getMatchDayDisplayName(match)}</h4>
       <p className="mt-2 text-3xl font-black text-[#101828]">
         {getMatchDayDisplayScore(match)}
@@ -120,6 +122,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
+            <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{getMatchDayFixtureTypeLabel(match.fixtureType)}</p>
             <h3 className="mt-2 text-xl font-black text-[#101828]">{getMatchDayDisplayName(match)}</h3>
             <p className="mt-2 text-4xl font-black text-[#101828]">
               {getMatchDayDisplayScore(match)}

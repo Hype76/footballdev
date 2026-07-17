@@ -545,7 +545,7 @@ test('staff status handler reconciles saved status before and after canonical lo
 
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
-  assert.match(handlerSource, /const savedMatch = await setMatchDayTimerState\(\{ user, match, action \}\)/)
+  assert.match(handlerSource, /const savedMatch = await saveTimerAction\(\{ user, match, action \}\)/)
   assert.match(handlerSource, /const savedMatch = await updateMatchDay\(\{ user, matchId: match\.id, updates: \{ status \} \}\)/)
   assert.match(handlerSource, /const reconcileSavedMatch = \(currentMatches\) => reconcileMatchDayUpdateInList/)
   assert.match(handlerSource, /setMatches\(reconcileSavedMatch\)[\s\S]*void sendMatchDayPushNotification/)

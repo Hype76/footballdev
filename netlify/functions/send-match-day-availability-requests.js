@@ -271,6 +271,7 @@ export async function handler(event) {
       .select('*, teams:team_id (name), clubs:club_id (name, logo_url)')
       .eq('id', matchDayId)
       .eq('club_id', profile.club_id)
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (matchError) {

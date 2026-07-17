@@ -98,6 +98,7 @@ async function getMatch(matchDayId) {
     .from('match_days')
     .select('id, club_id, team_id, opponent, teams:team_id (name)')
     .eq('id', matchDayId)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (error || !data) {

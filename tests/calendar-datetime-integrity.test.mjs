@@ -177,6 +177,7 @@ test('fixture workflow carries explicit Time TBC without stale arrival or kickof
   assert.deepEqual(consumeFixtureSetupIntent({ windowRef }), {
     arrivalTime: '',
     clockMode: 'fixed',
+    fixtureType: '',
     homeAway: 'home',
     kickoffTime: '',
     kickoffTimeTbc: true,

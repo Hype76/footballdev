@@ -37,6 +37,10 @@ import {
 } from '../lib/session-page-utils.js'
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
 import { getMatchDayDisplayName } from '../lib/matchday-display.js'
+import {
+  assertValidMatchDayFixtureType,
+  MATCH_DAY_FIXTURE_TYPE_OPTIONS,
+} from '../lib/matchday-fixture-type.js'
 import { openMatchDayFixtureSetup } from '../lib/matchday-workflow.js'
 import { isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 import {
@@ -206,6 +210,7 @@ function getDefaultCalendarForm(date = '') {
     date: eventDate,
     endTime: '',
     eventType: 'training',
+    fixtureType: '',
     invitedPlayerIds: [],
     inviteTrialPlayers: false,
     inviteWholeSquad: false,
@@ -549,6 +554,7 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
   }
 
   if (isMatch) {
+    assertValidMatchDayFixtureType(form.fixtureType)
     validateFixtureDateTime({
       kickoffTime: form.startTime,
       kickoffTimeTbc: form.kickoffTimeTbc,
@@ -679,6 +685,7 @@ function getFormFromCalendarEvent(event, invites = []) {
       date: formatDateInput(source.matchDate || event.date),
       endTime: source.kickoffTimeTbc ? '' : addMinutesToTime(source.kickoffTime, 120),
       eventType: 'match',
+      fixtureType: source.fixtureType || '',
       kickoffTimeTbc: source.kickoffTimeTbc === true,
       location: source.venueName || '',
       notes: source.notes || '',
@@ -1611,6 +1618,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     openMatchDayFixtureSetup({
       arrivalTime: form.arrivalTime,
+      fixtureType: form.fixtureType,
       kickoffTime: form.startTime,
       kickoffTimeTbc: form.kickoffTimeTbc === true,
       matchDate: form.date,
@@ -1923,6 +1931,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       if (isMatch && !sourceType) {
         openMatchDayFixtureSetup({
           arrivalTime: calendarForm.arrivalTime,
+          fixtureType: calendarForm.fixtureType,
           kickoffTime: calendarForm.startTime,
           kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
           matchDate: calendarForm.date,
@@ -2152,6 +2161,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         } else if (sourceType === 'match-day') {
           const payload = {
             arrivalTime: calendarForm.arrivalTime,
+            fixtureType: calendarForm.fixtureType,
             homeAway: 'home',
             kickoffTime: calendarForm.startTime,
             kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
@@ -3848,6 +3858,18 @@ function CalendarEventModal({
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Opponent</span>
                 <input name="opponent" value={form.opponent} onChange={onChange} placeholder="Example: Riverside Juniors" className={fieldClass} />
+              </label>
+            ) : null}
+
+            {isMatchFixture ? (
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Fixture type</span>
+                <select name="fixtureType" value={form.fixtureType} onChange={onChange} disabled={isBusy} required className={fieldClass}>
+                  <option value="">Choose fixture type</option>
+                  {MATCH_DAY_FIXTURE_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </label>
             ) : null}
 

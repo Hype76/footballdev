@@ -3,6 +3,7 @@ import {
   normalizeMatchDurationMinutes,
   normalizeNewMatchHomeAway,
 } from './matchday-model.js'
+import { normalizeMatchDayFixtureType } from './matchday-fixture-type.js'
 
 export const FIXTURE_SETUP_STORAGE_KEY = 'football-open-fixture-setup'
 export const FIXTURE_SETUP_EVENT = 'football-open-fixture-setup'
@@ -33,6 +34,7 @@ export function normalizeFixtureSetupIntent(intent = {}) {
   return {
     arrivalTime: kickoffTimeTbc ? '' : normalizeText(intent.arrivalTime),
     clockMode: normalizeMatchClockMode(intent.clockMode),
+    fixtureType: normalizeMatchDayFixtureType(intent.fixtureType),
     homeAway: normalizeNewMatchHomeAway(intent.homeAway),
     kickoffTime: kickoffTimeTbc ? '' : normalizeText(intent.kickoffTime),
     kickoffTimeTbc,

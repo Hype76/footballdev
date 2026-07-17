@@ -24,6 +24,10 @@ import {
   normalizeMatchDurationMinutes,
 } from '../matchday-model.js'
 import { normalizeMatchDaySquadDecision } from '../matchday-squad-selection.js'
+import {
+  assertValidMatchDayFixtureType,
+  normalizeMatchDayFixtureType,
+} from '../matchday-fixture-type.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
@@ -70,6 +74,7 @@ const MATCH_DAY_EVENT_LOG_TYPES = new Set([
   'red_card',
   'substitution',
   'water_break',
+  'previous_game_deleted',
 ])
 
 const MATCH_DAY_STAFF_EVENT_TYPES = new Set([
@@ -464,6 +469,7 @@ export function normalizeMatchDay(row) {
     teamId: row.team_id ?? row.teamId ?? '',
     teamName: normalizeText(team?.name ?? row.team_name ?? row.teamName),
     opponent: normalizeText(row.opponent),
+    fixtureType: normalizeMatchDayFixtureType(row.fixture_type ?? row.fixtureType),
     matchDate: row.match_date ?? row.matchDate ?? '',
     kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '',
     kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
@@ -496,6 +502,8 @@ export function normalizeMatchDay(row) {
     motmPollExpiryHours: Number(row.motm_poll_expiry_hours ?? row.motmPollExpiryHours ?? 2),
     motmPollId: row.motm_poll_id ?? row.motmPollId ?? '',
     previousHiddenAt: row.previous_hidden_at ?? row.previousHiddenAt ?? '',
+    deletedAt: row.deleted_at ?? row.deletedAt ?? '',
+    deletedBy: row.deleted_by ?? row.deletedBy ?? '',
     availabilityStatus: normalizeText(row.availability_status ?? row.availabilityStatus),
     availabilityRespondedAt: row.availability_responded_at ?? row.availabilityRespondedAt ?? '',
     volunteerScorerResponse: normalizeVolunteerResponse(row.volunteer_scorer_response ?? row.volunteerScorerResponse),
@@ -601,6 +609,7 @@ async function assertMatchDayRecordInActiveTeamScope(user, matchId) {
     .select('id')
     .eq('id', normalizedMatchId)
     .eq('club_id', user.clubId)
+    .is('deleted_at', null)
 
   query = scopeMatchDayQueryToActiveTeam(query, user)
 
@@ -624,6 +633,15 @@ function normalizeStatus(value) {
 function normalizeTimerStatus(value) {
   const normalizedStatus = normalizeText(value)
   return MATCH_DAY_TIMER_STATUSES.has(normalizedStatus) ? normalizedStatus : 'not_started'
+}
+
+function assertMatchDayHasStarted(match) {
+  const timerStatus = normalizeTimerStatus(match?.timerStatus ?? match?.timer_status)
+  const status = normalizeText(match?.status)
+
+  if (timerStatus === 'not_started' && ['scheduled', 'scorer_request'].includes(status)) {
+    throw new Error('Start the match before recording goals or events.')
+  }
 }
 
 function buildMatchSelect() {
@@ -700,6 +718,8 @@ function getMatchDayEventLogLabel(eventType, fallbackLabel = '') {
       return 'Substitution'
     case 'water_break':
       return 'Water break'
+    case 'previous_game_deleted':
+      return 'Previous game deleted'
     case 'match_day_updated':
     default:
       return 'Fixture updated'
@@ -730,6 +750,7 @@ function buildMatchDaySnapshot(row) {
 
   return sanitizeEventLogObject({
     opponent: normalizeText(row.opponent),
+    fixtureType: normalizeMatchDayFixtureType(row.fixture_type ?? row.fixtureType),
     matchDate: row.match_date ?? null,
     kickoffTime: row.kickoff_time ?? null,
     kickoffTimeTbc: row.kickoff_time_tbc === true,
@@ -760,6 +781,7 @@ function buildMatchDaySnapshotFromMatch(match) {
 
   return sanitizeEventLogObject({
     opponent: normalizeText(match.opponent),
+    fixtureType: normalizeMatchDayFixtureType(match.fixtureType),
     matchDate: match.matchDate || null,
     kickoffTime: match.kickoffTime || null,
     kickoffTimeTbc: match.kickoffTimeTbc === true,
@@ -816,9 +838,10 @@ async function getMatchDayEventLogSnapshot({ user, matchId }) {
 
   let query = supabase
     .from('match_days')
-    .select('opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, match_clock_mode, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
+    .select('opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, match_clock_mode, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
     .eq('id', normalizedMatchId)
     .eq('club_id', user.clubId)
+    .is('deleted_at', null)
 
   query = scopeMatchDayQueryToActiveTeam(query, user)
 
@@ -884,6 +907,7 @@ export async function getMatchDays({ user } = {}) {
     .from('match_days')
     .select(buildMatchSelect())
     .eq('club_id', user.clubId)
+    .is('deleted_at', null)
     .order('match_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
@@ -957,6 +981,7 @@ export async function createMatchDay({ user, match }) {
   assertStaffMatchDayAccess(user)
 
   const opponent = normalizeText(match?.opponent)
+  const fixtureType = assertValidMatchDayFixtureType(match?.fixtureType)
   const venueName = normalizeText(match?.venueName)
   const venueAddress = normalizeText(match?.venueAddress)
   const teamId = normalizeTeamIdForMatch(user, match)
@@ -1002,6 +1027,7 @@ export async function createMatchDay({ user, match }) {
       team_id: teamId,
       location_id: locationId || null,
       opponent,
+      fixture_type: fixtureType,
       match_date: fixtureDateTime.matchDate,
       kickoff_time: fixtureDateTime.kickoffTime || null,
       kickoff_time_tbc: fixtureDateTime.kickoffTimeTbc,
@@ -1041,6 +1067,7 @@ export async function createMatchDay({ user, match }) {
     entityId: data.id,
     metadata: {
       opponent,
+      fixtureType,
       teamId,
       venueName,
     },
@@ -1093,6 +1120,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
   }
 
   if (updates.opponent !== undefined) payload.opponent = normalizeText(updates.opponent)
+  if (updates.fixtureType !== undefined) payload.fixture_type = assertValidMatchDayFixtureType(updates.fixtureType)
   if (updates.arrivalTime !== undefined) {
     const isTimeTbc = nextFixtureDateTime?.kickoffTimeTbc ?? (previousSnapshot?.kickoffTimeTbc === true)
     payload.arrival_time = isTimeTbc ? null : normalizeTime(updates.arrivalTime) || null
@@ -1140,6 +1168,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
     .update(payload)
     .eq('id', matchId)
     .eq('club_id', user.clubId)
+    .is('deleted_at', null)
 
   query = scopeMatchDayQueryToActiveTeam(query, user)
 
@@ -1229,6 +1258,35 @@ export async function setMatchDayTimerState({ user, match, matchId, action }) {
   return normalizeMatchDayTimerResult(data, match)
 }
 
+export async function startMatchDay({ user, match, matchId } = {}) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  if (!normalizedMatchId) {
+    throw new Error('Choose a match to start.')
+  }
+
+  if (match?.id) {
+    assertMatchInActiveTeamScope(user, match)
+  }
+
+  await assertMatchDayRecordInActiveTeamScope(user, normalizedMatchId)
+
+  const { data, error } = await supabase.rpc('start_match_day', {
+    match_day_id_value: normalizedMatchId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayTimerResult(data, match)
+}
+
 const MATCH_DAY_VOLUNTEER_ROLES = new Set(['scorer', 'linesman', 'referee'])
 
 export async function selectMatchDayVolunteer({ user, match, volunteer, role = 'scorer', selected = true }) {
@@ -1287,10 +1345,7 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
-
-  if (['scheduled', 'scorer_request'].includes(normalizeText(match.status))) {
-    await setMatchDayTimerState({ user, match, action: 'start' })
-  }
+  assertMatchDayHasStarted(match)
 
   const teamSide = normalizeText(goal?.teamSide) === 'opponent' ? 'opponent' : 'club'
   let nextHomeScore = Number(match.homeScore ?? 0)
@@ -1333,11 +1388,12 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     .update({
       home_score: nextHomeScore,
       away_score: nextAwayScore,
-      status: ['scheduled', 'scorer_request'].includes(match.status) ? 'live' : match.status,
+      status: match.status,
       updated_at: new Date().toISOString(),
     })
     .eq('id', match.id)
     .eq('club_id', user.clubId)
+    .is('deleted_at', null)
 
   matchUpdateQuery = scopeMatchDayQueryToActiveTeam(matchUpdateQuery, user)
 
@@ -1379,7 +1435,7 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     newValue: {
       homeScore: nextHomeScore,
       awayScore: nextAwayScore,
-      status: ['scheduled', 'scorer_request'].includes(match.status) ? 'live' : match.status,
+      status: match.status,
     },
     metadata: {
       goalEventId: data.id,
@@ -1406,6 +1462,7 @@ export async function resetPreviousMatchDayResults({ user, teamId = '' } = {}) {
     .eq('club_id', user.clubId)
     .not('concluded_at', 'is', null)
     .is('previous_hidden_at', null)
+    .is('deleted_at', null)
 
   const normalizedTeamId = normalizeText(teamId) || user.activeTeamId || ''
 
@@ -1425,6 +1482,38 @@ export async function resetPreviousMatchDayResults({ user, teamId = '' } = {}) {
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
+}
+
+export async function deletePreviousMatchDay({ user, match } = {}) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  if (Number(user?.roleRank ?? 0) < 50) {
+    throw new Error('Manager or Team Admin access is required to delete a previous game.')
+  }
+
+  const matchDayId = normalizeText(match?.id)
+  if (!matchDayId) {
+    throw new Error('Choose a previous game to delete.')
+  }
+
+  const { data, error } = await supabase.rpc('delete_previous_match_day', {
+    match_day_id_value: matchDayId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  clearViewCaches()
+
+  return data && typeof data === 'object'
+    ? data
+    : { matchDayId, deleted: true, alreadyDeleted: false }
 }
 
 export async function saveMatchDayFinalReport({ user, match, staffNotes = '' } = {}) {
@@ -1667,6 +1756,7 @@ export async function addStaffMatchDayEvent({ user, match, event }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
+  assertMatchDayHasStarted(match)
 
   const eventType = normalizeText(event?.eventType)
   if (!MATCH_DAY_STAFF_EVENT_TYPES.has(eventType)) {

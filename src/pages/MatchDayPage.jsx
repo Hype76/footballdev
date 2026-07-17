@@ -18,6 +18,7 @@ import {
   correctStaffMatchDayGoal,
   createMatchDay,
   createMatchDayEventLogEntry,
+  deletePreviousMatchDay,
   getTodayMatchDayDateValue,
   getMatchDays,
   getMatchLocations,
@@ -33,6 +34,7 @@ import {
   selectMatchDayVolunteer,
   setMatchDayPlayerSquadDecision,
   setMatchDayTimerState,
+  startMatchDay,
   updateMatchDay,
   voidStaffMatchDayEvent,
   withRequestTimeout,
@@ -94,9 +96,15 @@ import {
   MATCH_DAY_SQUAD_DECISION_OPTIONS,
   normalizeMatchDaySquadDecision,
 } from '../lib/matchday-squad-selection.js'
+import {
+  getMatchDayFixtureTypeLabel,
+  MATCH_DAY_FIXTURE_TYPE_OPTIONS,
+  normalizeMatchDayFixtureType,
+} from '../lib/matchday-fixture-type.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
+  fixtureType: '',
   matchDate: '',
   kickoffTime: '',
   kickoffTimeTbc: false,
@@ -687,6 +695,10 @@ function useFixtureKeyboardFocusState() {
 function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
   if (!String(form.opponent ?? '').trim()) {
     return 'Add an opponent before continuing to squad selection.'
+  }
+
+  if (!normalizeMatchDayFixtureType(form.fixtureType)) {
+    return 'Choose Friendly, League, Cup, or Tournament before continuing.'
   }
 
   try {
@@ -1800,6 +1812,7 @@ export function MatchDayPage() {
     [activeFixtureMode, activeMatches],
   )
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
+  const canDeletePreviousGames = Number(user.roleRank ?? 0) >= 50
   const liveMatches = useMemo(
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
     [activeMatches],
@@ -2270,6 +2283,7 @@ export function MatchDayPage() {
     toastMessage = 'The match clock has been updated.',
     pushType = '',
     closeGameMode = false,
+    saveTimerAction = setMatchDayTimerState,
   } = {}) => {
     setActiveMatchId(match.id)
     setMatchActionStatus({
@@ -2280,7 +2294,7 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      const savedMatch = await setMatchDayTimerState({ user, match, action })
+      const savedMatch = await saveTimerAction({ user, match, action })
       if (pushType) {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
@@ -2367,8 +2381,15 @@ export function MatchDayPage() {
   }
 
   const handleStatusChange = async (match, status) => {
-    if (status === 'live' || status === 'second_half' || status === 'resume_match') {
-      await handleGameModeOpen(match)
+    if (status === 'live') {
+      setGameModeMatchId(match.id)
+      await saveMatchStatus(match, 'live')
+      return
+    }
+
+    if (status === 'second_half' || status === 'resume_match') {
+      setGameModeMatchId(match.id)
+      await saveMatchStatus(match, status)
       return
     }
 
@@ -2402,22 +2423,18 @@ export function MatchDayPage() {
     })
   }
 
-  const handleGameModeOpen = async (match) => {
+  const handleGameModeOpen = (match) => {
     setGameModeMatchId(match.id)
+  }
 
-    if (match.status === 'scheduled' || match.status === 'scorer_request') {
-      await saveMatchStatus(match, 'live')
-      return
-    }
-
-    if (PAUSED_MATCH_STATUSES.has(match.status)) {
-      await saveMatchStatus(match, 'second_half')
-      return
-    }
-
-    if (canResumeMatchDay(match)) {
-      await saveMatchStatus(match, 'resume_match')
-    }
+  const handleStartMatch = async (match) => {
+    setGameModeMatchId(match.id)
+    await persistTimerAction(match, 'start', {
+      loadingMessage: 'Starting match...',
+      successMessage: 'Match started.',
+      toastMessage: 'The first period is now running.',
+      saveTimerAction: startMatchDay,
+    })
   }
 
   const handleGameModeStatusChange = async (match, status) => {
@@ -3223,6 +3240,49 @@ export function MatchDayPage() {
     })
   }
 
+  const handleDeletePrevious = (match) => {
+    setPendingMatchAction({
+      type: 'deletePrevious',
+      matchId: match.id,
+      title: 'Delete previous game',
+      message: 'Remove this fixture from active Match Day and parent views. Match history, reports, availability, notification ledgers, and audit evidence will be retained.',
+      confirmLabel: 'Delete previous game',
+      itemsTitle: 'Fixture to delete',
+      items: [
+        `Opponent: ${match.opponent || 'Not set'}`,
+        `Date: ${formatMatchDate(match)}`,
+        `Team: ${match.teamName || 'Not set'}`,
+        `Fixture type: ${getMatchDayFixtureTypeLabel(match.fixtureType)}`,
+        `Score: ${getMatchDayDisplayScore(match)}`,
+      ],
+    })
+  }
+
+  const performDeletePrevious = async (match) => {
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+
+    try {
+      await deletePreviousMatchDay({ user, match })
+      setMatches((currentMatches) => currentMatches.filter((candidate) => candidate.id !== match.id))
+      setPendingMatchAction(null)
+      try {
+        await loadData()
+        showToast({ title: 'Previous game deleted', message: 'The fixture is hidden and its operational history has been retained.' })
+      } catch (loadError) {
+        console.error(loadError)
+        const message = 'The game was deleted, but Match Day could not be refreshed. Refresh the page before making another change.'
+        setErrorMessage(message)
+        showToast({ title: 'Previous game deleted', message, tone: 'warning' })
+      }
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The previous game could not be deleted.')
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
   const handleFinalReportSave = async (match, staffNotes) => {
     setActiveMatchId(match.id)
     setErrorMessage('')
@@ -3309,6 +3369,10 @@ export function MatchDayPage() {
       return
     }
 
+    if (action.type === 'deletePrevious') {
+      await performDeletePrevious(match)
+    }
+
   }
 
   const liveEntryMatch = liveEntryModal
@@ -3373,6 +3437,7 @@ export function MatchDayPage() {
             matchActionStatus={matchActionStatus}
             now={liveClockNow}
             onGameModeStart={handleGameModeOpen}
+            onStartMatch={handleStartMatch}
             onHydrationToggle={handleGameModeHydrationToggle}
             onStatusChange={handleStatusChange}
             onToggle={() => setExpandedMatchId((currentId) => (currentId === pitchsidePriorityMatch.id ? '' : pitchsidePriorityMatch.id))}
@@ -3513,6 +3578,7 @@ export function MatchDayPage() {
                 onGameModeBack={() => setGameModeMatchId('')}
                 onGameModeHydrationToggle={handleGameModeHydrationToggle}
                 onGameModeStart={handleGameModeOpen}
+                onStartMatch={handleStartMatch}
                 onGameModeStatusChange={handleGameModeStatusChange}
                 onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
                 onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
@@ -3647,8 +3713,8 @@ export function MatchDayPage() {
           {previousMatches.length > 0 ? (
             <div className="space-y-3">
               {previousMatches.map((match) => (
+                <div key={match.id} className="space-y-2">
                   <MatchDayCard
-                    key={match.id}
                     activeMatchId={activeMatchId}
                   activeSquadDecisionKey={activeSquadDecisionKey}
                   isGameMode={false}
@@ -3660,6 +3726,7 @@ export function MatchDayPage() {
                   onGameModeBack={() => setGameModeMatchId('')}
                   onGameModeHydrationToggle={handleGameModeHydrationToggle}
                   onGameModeStart={handleGameModeOpen}
+                  onStartMatch={handleStartMatch}
                   onGameModeStatusChange={handleGameModeStatusChange}
                   onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
                   onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
@@ -3680,8 +3747,21 @@ export function MatchDayPage() {
                   onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
                   onUndoEvent={handleUndoEvent}
                   scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
-                  volunteerSelectionStatus={volunteerSelectionStatus}
-                />
+                    volunteerSelectionStatus={volunteerSelectionStatus}
+                  />
+                  {canDeletePreviousGames ? (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePrevious(match)}
+                        disabled={Boolean(activeMatchId) || isSaving}
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Delete previous game
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               ))}
             </div>
           ) : (
@@ -3790,6 +3870,7 @@ function PitchsideCockpitPanel({
   now,
   onGameModeStart,
   onHydrationToggle,
+  onStartMatch,
   onStatusChange,
   onToggle,
 }) {
@@ -3869,8 +3950,10 @@ function PitchsideCockpitPanel({
             <button
               type="button"
               onClick={() => (
-                primaryLiveAction.status === 'live' || primaryLiveAction.status === 'second_half'
-                  ? onGameModeStart(match)
+                primaryLiveAction.status === 'live'
+                  ? onStartMatch(match)
+                  : primaryLiveAction.status === 'second_half'
+                    ? onStatusChange(match, 'second_half')
                   : onStatusChange(match, primaryLiveAction.status)
               )}
               disabled={isBusy}
@@ -4102,6 +4185,7 @@ function MatchDayCard({
   onOpenGoalModal,
   onScoreDraftChange,
   onScoreSave,
+  onStartMatch,
   onSquadDecisionChange,
   onVolunteerSelection,
   onStatusChange,
@@ -4159,6 +4243,9 @@ function MatchDayCard({
             <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
               {getHomeAwayLabel(match.homeAway)}
             </span>
+            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
+              {getMatchDayFixtureTypeLabel(match.fixtureType)}
+            </span>
             {match.teamName ? (
               <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
                 {match.teamName}
@@ -4214,8 +4301,10 @@ function MatchDayCard({
               <button
                 type="button"
                 onClick={() => (
-                  primaryLiveAction.status === 'live' || primaryLiveAction.status === 'second_half'
-                    ? onGameModeStart(match)
+                  primaryLiveAction.status === 'live'
+                    ? onStartMatch(match)
+                    : primaryLiveAction.status === 'second_half'
+                      ? onStatusChange(match, 'second_half')
                     : onStatusChange(match, primaryLiveAction.status)
                 )}
                 disabled={isBusy}
@@ -4304,6 +4393,7 @@ function MatchDayCard({
           onHydrationToggle={onGameModeHydrationToggle}
           onOpenEventModal={onOpenEventModal}
           onOpenGoalModal={onOpenGoalModal}
+          onStartMatch={onStartMatch}
           onManage={openManageFromGameMode}
           onStatusChange={onGameModeStatusChange}
           onCorrectGoal={onCorrectGoal}
@@ -4342,6 +4432,7 @@ function MatchDayCard({
               <dl className="mt-3 grid gap-3 sm:grid-cols-2">
                 <DetailItem label="Team" value={match.teamName || 'Our team'} />
                 <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
+                <DetailItem label="Fixture type" value={getMatchDayFixtureTypeLabel(match.fixtureType)} />
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
                 <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
@@ -4748,6 +4839,7 @@ function MatchDayGameModePanel({
   onManage,
   onOpenEventModal,
   onOpenGoalModal,
+  onStartMatch,
   onStatusChange,
   onUndoEvent,
   now,
@@ -4756,6 +4848,8 @@ function MatchDayGameModePanel({
   const liveClockLabel = formatLiveMatchClock(match, now)
   const isPaused = isMatchTimerPaused(match)
   const isFullTime = match.status === 'full_time'
+  const isReady = ['scheduled', 'scorer_request'].includes(match.status)
+  const liveControlsDisabled = isBusy || isFullTime || isReady
   const canMoveToHalfTime = match.status === 'live'
   const matchPeriodLabel = getMatchPeriodLabel(match)
 
@@ -4794,15 +4888,27 @@ function MatchDayGameModePanel({
           </div>
         ) : null}
 
+        {isReady ? (
+          <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4">
+            <p className="text-sm font-black text-[#047857]">Ready</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+              Game Mode is open, but the match clock has not started. Start the match when the referee begins play.
+            </p>
+            <button type="button" onClick={() => onStartMatch(match)} disabled={isBusy} className={`${primaryButtonClass} mt-3 w-full sm:w-auto`}>
+              {isBusy ? 'Starting...' : 'Start match'}
+            </button>
+          </div>
+        ) : null}
+
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <button type="button" onClick={() => onOpenGoalModal(match)} disabled={isBusy || isFullTime} className={primaryButtonClass}>Goal</button>
-          <button type="button" onClick={() => onOpenEventModal(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>Event</button>
-          <button type="button" onClick={() => onHydrationToggle(match, 'pause')} disabled={isBusy || isFullTime || isPaused} className={secondaryButtonClass}>Pause</button>
-          <button type="button" onClick={() => onHydrationToggle(match)} disabled={isBusy || isFullTime} className={secondaryButtonClass}>
+          <button type="button" onClick={() => onOpenGoalModal(match)} disabled={liveControlsDisabled} className={primaryButtonClass}>Goal</button>
+          <button type="button" onClick={() => onOpenEventModal(match)} disabled={liveControlsDisabled} className={secondaryButtonClass}>Event</button>
+          <button type="button" onClick={() => onHydrationToggle(match, 'pause')} disabled={liveControlsDisabled || isPaused} className={secondaryButtonClass}>Pause</button>
+          <button type="button" onClick={() => onHydrationToggle(match)} disabled={liveControlsDisabled} className={secondaryButtonClass}>
             {isPaused ? 'Resume' : 'Hydration'}
           </button>
-          <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={isBusy || !canMoveToHalfTime || isFullTime} className={secondaryButtonClass}>HT</button>
-          <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={isBusy || isFullTime} className={secondaryButtonClass}>FT</button>
+          <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={liveControlsDisabled || !canMoveToHalfTime} className={secondaryButtonClass}>HT</button>
+          <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={liveControlsDisabled} className={secondaryButtonClass}>FT</button>
         </div>
       </section>
       <MatchTimelinePanel
@@ -5889,6 +5995,16 @@ function FixtureSetupModal({
               <label className="block">
                 <span className={labelClass}>Opponent</span>
                 <input value={form.opponent} onChange={(event) => updateForm({ opponent: event.target.value })} className={inputClass} required />
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Fixture type</span>
+                <select value={form.fixtureType} onChange={(event) => updateForm({ fixtureType: event.target.value })} className={inputClass} required>
+                  <option value="">Choose fixture type</option>
+                  {MATCH_DAY_FIXTURE_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </label>
 
               {isTeamScopedFixture ? (

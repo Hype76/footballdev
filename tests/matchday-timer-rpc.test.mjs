@@ -238,5 +238,6 @@ test('app wiring uses the timer RPC and removes local Game Mode pause state', as
   assert.match(domain, /supabase\.rpc\('set_match_day_timer_state'/)
   assert.match(domain, /timerStartedAt: row\.timer_started_at/)
   assert.match(domain, /timerElapsedSeconds: normalizeNonNegativeInteger\(row\.timer_elapsed_seconds/)
-  assert.match(domain, /await setMatchDayTimerState\(\{ user, match, action: 'start' \}\)/)
+  assert.doesNotMatch(domain, /await setMatchDayTimerState\(\{ user, match, action: 'start' \}\)/)
+  assert.match(domain, /Start the match before recording goals or events\./)
 })

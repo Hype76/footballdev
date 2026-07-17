@@ -4,20 +4,21 @@ import { test } from 'node:test'
 
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 
-test('Start Match and Resume Match enter Game Mode through the shared live status path', async () => {
+test('Open Game Mode is read only while Start Match and Resume Match use explicit status paths', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
   const statusChangeStart = source.indexOf('const handleStatusChange = async (match, status) => {')
-  const gameModeOpenStart = source.indexOf('const handleGameModeOpen = async (match) => {')
+  const gameModeOpenStart = source.indexOf('const handleGameModeOpen = (match) => {')
   const statusChange = source.slice(statusChangeStart, gameModeOpenStart)
   const gameModeOpen = source.slice(gameModeOpenStart, source.indexOf('const handleGameModeStatusChange', gameModeOpenStart))
 
-  assert.match(statusChange, /status === 'live' \|\| status === 'second_half'/)
-  assert.match(statusChange, /await handleGameModeOpen\(match\)/)
+  assert.match(statusChange, /status === 'live'/)
+  assert.match(statusChange, /await saveMatchStatus\(match, 'live'\)/)
+  assert.match(statusChange, /status === 'second_half' \|\| status === 'resume_match'/)
+  assert.match(statusChange, /await saveMatchStatus\(match, status\)/)
   assert.match(gameModeOpen, /setGameModeMatchId\(match\.id\)/)
-  assert.match(gameModeOpen, /match\.status === 'scheduled' \|\| match\.status === 'scorer_request'/)
-  assert.match(gameModeOpen, /await saveMatchStatus\(match, 'live'\)/)
-  assert.match(gameModeOpen, /PAUSED_MATCH_STATUSES\.has\(match\.status\)/)
-  assert.match(gameModeOpen, /await saveMatchStatus\(match, 'second_half'\)/)
+  assert.doesNotMatch(gameModeOpen, /saveMatchStatus|setMatchDayTimerState|updateMatchDay/)
+  assert.match(source, /Game Mode is open, but the match clock has not started/)
+  assert.match(source, /onClick=\{\(\) => onStartMatch\(match\)\}/)
 })
 
 test('Game Mode owns live goal and event entry through app modals', async () => {

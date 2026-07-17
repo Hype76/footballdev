@@ -104,6 +104,7 @@ async function getMatch(matchDayId) {
     .from('match_days')
     .select('*, teams:team_id (name)')
     .eq('id', matchDayId)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (error || !data) {

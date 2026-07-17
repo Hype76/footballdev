@@ -253,7 +253,8 @@ test('staff live controls keep timer feedback while Pause stays in Game Mode', (
   assert.match(source, /function formatLiveMatchClock\(match, now = Date\.now\(\)\)/)
   assert.match(source, /return formatMatchTimerClock\(match, now\)/)
   assert.match(source, /isMatchTimerPaused\(match\)/)
-  assert.match(source, /setMatchDayTimerState\(\{ user, match, action \}\)/)
+  assert.match(source, /saveTimerAction = setMatchDayTimerState/)
+  assert.match(source, /saveTimerAction\(\{ user, match, action \}\)/)
   assert.match(source, /const LIVE_MATCH_CLOCK_INTERVAL_MS = 1000/)
   assert.match(source, /<LiveMatchQuickActions/)
   assert.match(source, /isLiveConsole && !isGameMode/)
@@ -271,7 +272,8 @@ test('staff live controls keep timer feedback while Pause stays in Game Mode', (
   assert.match(source, /onStatusChange\(match, 'full_time'\)/)
   assert.match(source, /Live sync retrying/)
   assert.match(statusHandlerSource, /setPendingStatusAction/)
-  assert.match(statusHandlerSource, /await handleGameModeOpen\(match\)/)
+  assert.match(statusHandlerSource, /await saveMatchStatus\(match, 'live'\)/)
+  assert.match(statusHandlerSource, /const handleGameModeOpen = \(match\) => \{\s*setGameModeMatchId\(match\.id\)\s*\}/)
   assert.doesNotMatch(statusHandlerSource, /shouldConfirm/)
   assert.doesNotMatch(statusHandlerSource, /updates\.phaseStartedAt = new Date\(\)\.toISOString\(\)/)
   assert.match(statusHandlerSource, /setMatchActionStatus\(\{\s*key: `\$\{match\.id\}:status`/)
@@ -385,12 +387,12 @@ test('parent portal keeps role selection and involved-child calendar scope separ
   assert.doesNotMatch(calendarBuilderSource, /all_team_parents|all_club_parents|parent_audience|parentAudience/)
 })
 
-test('Game Mode opens existing live state without restarting and matches pause resume rules', () => {
+test('Game Mode opens in Ready without restarting and uses explicit start and pause rules', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
   )
-  const openStart = source.indexOf('const handleGameModeOpen = async (match) => {')
+  const openStart = source.indexOf('const handleGameModeOpen = (match) => {')
   const openEnd = source.indexOf('const handleGameModeStatusChange = async', openStart)
   const gameModeStart = source.indexOf('function MatchDayGameModePanel')
   const gameModeEnd = source.indexOf('function MatchTimelinePanel', gameModeStart)
@@ -402,16 +404,18 @@ test('Game Mode opens existing live state without restarting and matches pause r
   const gameModeSource = source.slice(gameModeStart, gameModeEnd)
 
   assert.match(openSource, /setGameModeMatchId\(match\.id\)/)
-  assert.match(openSource, /if \(match\.status === 'scheduled' \|\| match\.status === 'scorer_request'\)/)
-  assert.match(openSource, /await saveMatchStatus\(match, 'live'\)/)
-  assert.doesNotMatch(openSource.replace(/if \(match\.status === 'scheduled' \|\| match\.status === 'scorer_request'\)[\s\S]*/, ''), /saveMatchStatus\(match, 'live'\)/)
+  assert.doesNotMatch(openSource, /saveMatchStatus|setMatchDayTimerState|updateMatchDay/)
   assert.match(source, /onGameModeStart=\{handleGameModeOpen\}/)
   assert.match(gameModeSource, /const isPaused = isMatchTimerPaused\(match\)/)
+  assert.match(gameModeSource, /const isReady = \['scheduled', 'scorer_request'\]\.includes\(match\.status\)/)
+  assert.match(gameModeSource, /Game Mode is open, but the match clock has not started/)
+  assert.match(gameModeSource, /onStartMatch\(match\)/)
+  assert.match(gameModeSource, /const liveControlsDisabled = isBusy \|\| isFullTime \|\| isReady/)
   assert.doesNotMatch(gameModeSource, /gameModePauseState/)
   assert.match(gameModeSource, /\{isPaused \? 'Resume' : 'Hydration'\}/)
   assert.match(gameModeSource, /const canMoveToHalfTime = match\.status === 'live'/)
-  assert.match(gameModeSource, /disabled=\{isBusy \|\| !canMoveToHalfTime \|\| isFullTime\}/)
-  assert.match(gameModeSource, /disabled=\{isBusy \|\| isFullTime\}/)
+  assert.match(gameModeSource, /disabled=\{liveControlsDisabled \|\| !canMoveToHalfTime\}/)
+  assert.match(gameModeSource, /disabled=\{liveControlsDisabled\}/)
 })
 
 test('Game Mode hides admin readiness cards and shows the staff timeline controls', () => {
