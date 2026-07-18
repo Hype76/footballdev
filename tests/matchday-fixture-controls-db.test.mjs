@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migration = readFileSync(
-  new URL('../supabase/migrations/20260717170408_matchday_fixture_controls.sql', import.meta.url),
+  new URL('../supabase/migrations/20260717194345_matchday_fixture_controls.sql', import.meta.url),
   'utf8',
 )
 

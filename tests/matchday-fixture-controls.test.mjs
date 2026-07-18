@@ -11,7 +11,7 @@ import {
 import { normalizeFixtureSetupIntent } from '../src/lib/matchday-workflow.js'
 
 const migration = readFileSync(
-  new URL('../supabase/migrations/20260717170408_matchday_fixture_controls.sql', import.meta.url),
+  new URL('../supabase/migrations/20260717194345_matchday_fixture_controls.sql', import.meta.url),
   'utf8',
 )
 const matchDayDomain = readFileSync(new URL('../src/lib/domain/match-day.js', import.meta.url), 'utf8')

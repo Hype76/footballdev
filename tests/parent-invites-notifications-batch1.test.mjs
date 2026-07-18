@@ -10,7 +10,7 @@ import {
   splitParentInvitationsForViews,
 } from '../src/lib/domain/parent-invitations.js'
 
-const migrationUrl = new URL('../supabase/migrations/20260714120224_parent_invites_notifications_batch1.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260714130128_parent_invites_notifications_batch1.sql', import.meta.url)
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentPortalShellUrl = new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
