@@ -91,9 +91,11 @@ test('edit token rotation preserves responses while removed scope and closed fix
     readFile(responseFunctionUrl, 'utf8'),
   ])
 
+  const editUpdateStart = sendFunction.indexOf('const { error: requestUpdateError }')
+  assert.notEqual(editUpdateStart, -1)
   const editUpdate = sendFunction.slice(
-    sendFunction.indexOf(".from('match_day_availability_requests')\n      .update({"),
-    sendFunction.indexOf('const responseUrl =', sendFunction.indexOf(".from('match_day_availability_requests')\n      .update({")),
+    editUpdateStart,
+    sendFunction.indexOf('const responseUrl =', editUpdateStart),
   )
   assert.match(editUpdate, /token_hash: tokenHash/)
   assert.match(editUpdate, /expires_at: expiry/)
