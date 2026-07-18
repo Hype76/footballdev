@@ -25,6 +25,7 @@ const matchDayDomainSource = readFileSync(new URL('../src/lib/domain/match-day.j
 const parentPortalSource = readFileSync(new URL('../src/pages/ParentPortalPage.jsx', import.meta.url), 'utf8')
 const availabilityConfirmSource = readFileSync(new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url), 'utf8')
 const availabilitySendSource = readFileSync(new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url), 'utf8')
+const actionableInvitationSource = readFileSync(new URL('../netlify/functions/lib/_match-day-actionable-invitation.js', import.meta.url), 'utf8')
 const migrationSource = readFileSync(new URL('../supabase/migrations/20260713171403_match_time_tbc_datetime_integrity.sql', import.meta.url), 'utf8')
 
 function assertErrorMessage(callback, message) {
@@ -277,8 +278,8 @@ test('confirmed-time parent calendar exports retain their exact times', () => {
 test('availability response and invite emails expose Time TBC without fake arrival', () => {
   assert.match(availabilityConfirmSource, /kickoffTimeTbc \? 'Kick-off: Time TBC'/)
   assert.match(availabilityConfirmSource, /kickoffTimeTbc \? 'Available when kickoff is confirmed'/)
-  assert.match(availabilitySendSource, /kickoffTimeTbc \? 'Time TBC'/)
-  assert.match(availabilitySendSource, /kickoffTimeTbc \? 'Available when kickoff is confirmed'/)
+  assert.match(actionableInvitationSource, /kickoffTimeTbc \? 'Time TBC'/)
+  assert.match(actionableInvitationSource, /kickoffTimeTbc \? 'Available when kickoff is confirmed'/)
 })
 
 test('database model defaults existing fixtures to confirmed time without inferred backfill', () => {

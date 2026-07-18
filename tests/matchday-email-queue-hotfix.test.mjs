@@ -18,6 +18,10 @@ const availabilityFunctionSource = readFileSync(
   new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url),
   'utf8',
 )
+const actionableInvitationSource = readFileSync(
+  new URL('../netlify/functions/lib/_match-day-actionable-invitation.js', import.meta.url),
+  'utf8',
+)
 const selectVolunteerFunctionSource = readFileSync(
   new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url),
   'utf8',
@@ -40,9 +44,10 @@ test('visible email queue excludes internal Match Day operational notifications'
 })
 
 test('match day emails include branded logo fallback and venue map links', () => {
-  assert.match(availabilityFunctionSource, /buildEmailLogoMarkup/)
-  assert.match(availabilityFunctionSource, /buildEventMapLinksMarkup/)
-  assert.match(availabilityFunctionSource, /venue_address \|\| match\.venue_name/)
+  assert.match(availabilityFunctionSource, /buildMatchDayActionableInvitationEmail/)
+  assert.match(actionableInvitationSource, /buildEmailLogoMarkup/)
+  assert.match(actionableInvitationSource, /buildEventMapLinksMarkup/)
+  assert.match(actionableInvitationSource, /venue_address \|\| match\.venue_name/)
   assert.match(availabilityFunctionSource, /clubs:club_id \(name, logo_url\)/)
 
   assert.match(selectVolunteerFunctionSource, /buildEmailLogoMarkup/)

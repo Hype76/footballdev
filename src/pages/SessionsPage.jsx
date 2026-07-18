@@ -4095,10 +4095,10 @@ function CalendarEventModal({
                     className="mt-1 h-5 w-5 accent-[#047857]"
                   />
                   <span>
-                    Notify team families
+                    {event ? 'Send updated invitations to team families' : 'Notify team families'}
                     <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
                       {isMatchFixture
-                        ? 'Creates Match Day availability and configured volunteer actions, then sends a Parent Portal email alert.'
+                        ? 'Sends secure availability and configured volunteer response links for this Match Day fixture.'
                         : 'Parents will see the event in their Parent Portal and receive an email notification.'}
                     </span>
                   </span>
@@ -4202,10 +4202,10 @@ function CalendarEventModal({
                         className="mt-1 h-5 w-5 accent-[#047857]"
                       />
                       <span>
-                        Notify invited families
+                        {event ? 'Send updated invitations to parents' : 'Notify invited families'}
                         <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
                           {isMatchFixture
-                            ? 'Creates Match Day availability and configured volunteer actions, then sends a Parent Portal email alert.'
+                            ? 'Sends secure availability and configured volunteer response links for this Match Day fixture.'
                             : 'Parents will see the event in their Parent Portal and receive an email notification.'}
                         </span>
                       </span>

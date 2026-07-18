@@ -10,6 +10,7 @@ const migrationUrl = migrationSourceUrl('20260614030401_20260613071942_plan_b_ma
 const legacyTableMigrationUrl = migrationSourceUrl('20260527093802_match_day_arrival_and_availability.sql', 'archivedNotAppliedProduction')
 const legacyRpcMigrationUrl = migrationSourceUrl('20260527095014_confirm_match_day_availability_rpc.sql', 'archivedNotAppliedProduction')
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
+const actionableInvitationUrl = new URL('../netlify/functions/lib/_match-day-actionable-invitation.js', import.meta.url)
 const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 
 const sourceDirs = ['src', 'apps']
@@ -137,15 +138,20 @@ test('confirmation RPC returns only minimal safe fields', async () => {
 })
 
 test('Netlify send function uses high entropy hashed tokens and the expected table', async () => {
-  const source = await readFile(sendFunctionUrl, 'utf8')
+  const [source, invitationSource] = await Promise.all([
+    readFile(sendFunctionUrl, 'utf8'),
+    readFile(actionableInvitationUrl, 'utf8'),
+  ])
 
-  assert.match(source, /import \{ createHash, randomBytes \} from 'node:crypto'/)
-  assert.match(source, /randomBytes\(32\)\.toString\('hex'\)/)
-  assert.match(source, /createHash\('sha256'\)\.update\(token\)\.digest\('hex'\)/)
+  assert.match(invitationSource, /import \{ createHash, randomBytes \} from 'node:crypto'/)
+  assert.match(invitationSource, /randomBytes\(32\)\.toString\('hex'\)/)
+  assert.match(invitationSource, /createHash\('sha256'\)\.update\(token\)\.digest\('hex'\)/)
+  assert.match(source, /createInvitationToken\(\)/)
   assert.match(source, /\.from\('match_day_availability_requests'\)/)
   assert.match(source, /onConflict: 'match_day_id,player_id,recipient_email,recipient_type,channel'/)
   assert.match(source, /createPublicSupabaseClient\(event, \{\s+global:\s+\{\s+headers:\s+\{\s+Authorization: `Bearer \$\{token\}`/s)
-  assert.doesNotMatch(source, /supabaseAdmin/)
+  assert.match(source, /\.eq\('club_id', profile\.club_id\)/)
+  assert.match(source, /\.eq\('team_id', match\.team_id\)/)
 })
 
 test('Netlify confirmation function validates raw tokens and trusts the stored RPC response', async () => {

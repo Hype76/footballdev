@@ -1,11 +1,16 @@
 import process from 'node:process'
-import { createHash, randomBytes } from 'node:crypto'
 import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
-import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
-import { isFixtureKickoffTimeTbc } from '../../src/lib/calendar-datetime-integrity.js'
-import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
+import {
+  buildMatchDayActionableInvitationEmail,
+  createInvitationToken,
+  findInvitationParentLink,
+  getPlayerInvitationContacts,
+  isValidInvitationEmail,
+  normalizeInvitationEmail,
+  normalizeInvitationText,
+} from './lib/_match-day-actionable-invitation.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -14,28 +19,15 @@ function getBearerToken(event) {
 }
 
 function normalizeText(value) {
-  return String(value ?? '').trim()
+  return normalizeInvitationText(value)
 }
 
 function normalizeEmail(value) {
-  return normalizeText(value).toLowerCase()
-}
-
-function escapeHtml(value) {
-  return normalizeText(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+  return normalizeInvitationEmail(value)
 }
 
 function isValidEmail(value) {
-  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(normalizeText(value))
-}
-
-function hashToken(token) {
-  return createHash('sha256').update(token).digest('hex')
+  return isValidInvitationEmail(value)
 }
 
 function getAppOrigin(event) {
@@ -55,123 +47,8 @@ function createRequestSupabaseClient(event, token) {
   })
 }
 
-function getPlayerContacts(player) {
-  const contacts = Array.isArray(player.parent_contacts) ? player.parent_contacts : []
-  const contactType = normalizeText(player.contact_type || 'parent')
-  const fallbackContact = {
-    name: normalizeText(player.parent_name),
-    email: normalizeEmail(player.parent_email),
-    type: contactType === 'self' ? 'self' : 'parent',
-  }
-  const normalizedContacts = contacts
-    .map((contact) => ({
-      name: normalizeText(contact?.name || contact?.parentName),
-      email: normalizeEmail(contact?.email || contact?.parentEmail),
-      type: normalizeText(contact?.type || contact?.contactType) === 'self' ? 'self' : 'parent',
-    }))
-    .filter((contact) => contact.email)
-
-  const usableContacts = normalizedContacts.length > 0 ? normalizedContacts : [fallbackContact].filter((contact) => contact.email)
-
-  if (contactType === 'self') {
-    return usableContacts
-      .filter((contact) => contact.type === 'self' || usableContacts.length === 1)
-      .map((contact) => ({ ...contact, type: 'player' }))
-  }
-
-  if (contactType === 'both') {
-    return usableContacts.map((contact) => ({
-      ...contact,
-      type: contact.type === 'self' ? 'player' : 'parent',
-    }))
-  }
-
-  return usableContacts
-    .filter((contact) => contact.type !== 'self')
-    .map((contact) => ({ ...contact, type: 'parent' }))
-}
-
-function formatTime(value) {
-  const normalizedValue = normalizeText(value)
-  return normalizedValue ? normalizedValue.slice(0, 5) : 'Not set'
-}
-
-function getRequestedRoleLabels(match = {}) {
-  return [
-    match.request_scorer === true ? 'scorer' : '',
-    match.request_linesman === true ? 'linesman' : '',
-    match.request_referee === true ? 'referee' : '',
-  ].filter(Boolean)
-}
-
 function findParentLinkForContact(parentLinks, player, contact) {
-  if (contact.type !== 'parent') {
-    return null
-  }
-
-  const contactEmail = normalizeEmail(contact.email)
-  return parentLinks.find((link) =>
-    String(link.player_id) === String(player.id) &&
-    normalizeEmail(link.email) === contactEmail,
-  ) || null
-}
-
-function buildAvailabilityEmail({ appOrigin, match, player, recipient, responseUrl }) {
-  const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
-  const matchName = getMatchDayDisplayName({ ...match, teamName })
-  const subject = `${teamName} availability: ${matchName}`
-  const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
-  const logoMarkup = buildEmailLogoMarkup({
-    altText: clubName,
-    clubLogoUrl: normalizeText(match.clubs?.logo_url),
-    origin: appOrigin,
-  })
-  const mapLinksMarkup = buildEventMapLinksMarkup(normalizeText(match.venue_address || match.venue_name))
-  const requestedRoleLabels = getRequestedRoleLabels(match)
-  const roleText = requestedRoleLabels.length > 0
-    ? `This form also asks if you can help as ${requestedRoleLabels.join(', ')}.`
-    : ''
-  const kickoffTimeTbc = isFixtureKickoffTimeTbc(match.kickoff_time_tbc)
-  const details = [
-    ['Fixture', matchName],
-    ['Date', match.match_date || 'Not set'],
-    ['Kick off', kickoffTimeTbc ? 'Time TBC' : formatTime(match.kickoff_time)],
-    ['Arrival', kickoffTimeTbc ? 'Available when kickoff is confirmed' : formatTime(match.arrival_time)],
-    ['Venue', match.venue_name || 'Not set'],
-    ['Address', match.venue_address || 'Not set'],
-  ]
-
-  const rows = details.map(([label, value]) => `
-    <tr>
-      <td style="padding:8px 0;color:#4b5f55;font-weight:700;">${escapeHtml(label)}</td>
-      <td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(value)}</td>
-    </tr>
-  `).join('')
-
-  return {
-    subject,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
-        ${logoMarkup}
-        <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Fixture availability</p>
-        <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Can ${escapeHtml(player.player_name)} play?</h1>
-        <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
-          ${recipient.type === 'player' ? 'Please confirm your availability.' : 'Please confirm availability for this player.'} ${escapeHtml(roleText)}
-        </p>
-        <p style="margin:0 0 20px;color:#4b5f55;font-size:14px;line-height:1.6;font-weight:700;">
-          An Available response does not confirm squad selection. The coaching team will confirm the final squad separately.
-        </p>
-        <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">${rows}</table>
-        ${mapLinksMarkup}
-        <div style="display:block;margin:22px 0;">
-          <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Open response form</a>
-        </div>
-        <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
-          This link is unique to ${escapeHtml(recipient.email)}. Do not forward it.
-        </p>
-      </div>
-    `,
-  }
+  return findInvitationParentLink(parentLinks, player, contact)
 }
 
 async function getAuthenticatedProfile(event, supabase) {
@@ -244,6 +121,374 @@ async function createMatchDayEventLogEntry(adminSupabase, {
   }
 }
 
+function getInvitationExpiry(match) {
+  const matchDate = normalizeText(match?.match_date)
+  const minimumExpiry = Date.now() + 86400000
+  const matchExpiry = /^\d{4}-\d{2}-\d{2}$/.test(matchDate)
+    ? new Date(`${matchDate}T23:59:59.999Z`).getTime() + (2 * 86400000)
+    : 0
+  return new Date(Math.max(minimumExpiry, matchExpiry)).toISOString()
+}
+
+async function prepareCalendarEditInvitations({
+  adminSupabase,
+  appOrigin,
+  matchDayId,
+  notificationRequestToken,
+  profile,
+  supabase,
+}) {
+  const { data: commandResult, error: commandError } = await supabase.rpc('notify_calendar_event_parents', {
+    calendar_event_id_value: null,
+    event_action_value: 'update',
+    match_day_id_value: matchDayId,
+    notification_request_token_value: notificationRequestToken,
+    player_ids_value: [],
+  })
+
+  if (commandError) {
+    throw commandError
+  }
+
+  const commandId = normalizeText(commandResult?.notificationCommandId)
+  if (!commandId || commandResult?.actionReconciliationState !== 'ready') {
+    throw new Error(commandResult?.failureDetail || 'The updated invitation request could not be prepared safely.')
+  }
+
+  try {
+  const [{ data: command, error: commandReadError }, { data: match, error: matchError }, { data: notifications, error: notificationError }] = await Promise.all([
+    adminSupabase
+      .from('calendar_event_notification_commands')
+      .select('id, club_id, team_id, match_day_id, player_ids, event_revision, notification_type, result')
+      .eq('id', commandId)
+      .eq('club_id', profile.club_id)
+      .eq('match_day_id', matchDayId)
+      .maybeSingle(),
+    adminSupabase
+      .from('match_days')
+      .select('*, teams:team_id (name), clubs:club_id (name, logo_url)')
+      .eq('id', matchDayId)
+      .eq('club_id', profile.club_id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+    adminSupabase
+      .from('calendar_event_notification_events')
+      .select('id, email_queue_id, parent_link_id, player_id, recipient_email, status')
+      .eq('notification_command_id', commandId),
+  ])
+
+  if (commandReadError || !command?.id) {
+    throw commandReadError || new Error('The Calendar notification command could not be verified.')
+  }
+  if (matchError || !match?.id || ['cancelled', 'full_time', 'postponed'].includes(normalizeText(match?.status).toLowerCase())) {
+    throw matchError || new Error('This fixture cannot accept updated responses.')
+  }
+  if (notificationError) {
+    throw notificationError
+  }
+
+  const authoritativePlayerIds = [...new Set((command.player_ids ?? []).map(String).filter(Boolean))]
+  const [{ data: players, error: playersError }, { data: parentLinks, error: linksError }, { data: requests, error: requestsError }, { data: assignments, error: assignmentsError }, queueResult] = await Promise.all([
+    adminSupabase
+      .from('players')
+      .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
+      .eq('club_id', profile.club_id)
+      .eq('team_id', match.team_id)
+      .in('id', authoritativePlayerIds),
+    adminSupabase
+      .from('parent_player_links')
+      .select('id, player_id, email, status')
+      .eq('club_id', profile.club_id)
+      .eq('team_id', match.team_id)
+      .in('player_id', authoritativePlayerIds)
+      .eq('status', 'active'),
+    adminSupabase
+      .from('match_day_availability_requests')
+      .select('*')
+      .eq('match_day_id', matchDayId)
+      .eq('club_id', profile.club_id),
+    adminSupabase
+      .from('match_day_role_assignments')
+      .select('role')
+      .eq('match_day_id', matchDayId)
+      .eq('club_id', profile.club_id)
+      .eq('team_id', match.team_id),
+    adminSupabase
+      .from('scheduled_email_queue')
+      .select('*')
+      .eq('club_id', profile.club_id)
+      .eq('team_id', match.team_id)
+      .contains('payload', { communicationLog: { metadata: { notificationCommandId: commandId } } }),
+  ])
+  const { data: queueRows, error: queueError } = queueResult
+
+  if (playersError || linksError || requestsError || assignmentsError || queueError) {
+    throw playersError || linksError || requestsError || assignmentsError || queueError
+  }
+
+  const playerMap = new Map((players ?? []).map((player) => [String(player.id), player]))
+  const queueMap = new Map((queueRows ?? []).map((row) => [String(row.id), row]))
+  const notificationMap = new Map((notifications ?? []).map((row) => [`${row.player_id}:${normalizeEmail(row.recipient_email)}`, row]))
+  const recipientUnits = [...new Map((parentLinks ?? [])
+    .map((parentLink) => {
+      const player = playerMap.get(String(parentLink.player_id))
+      const recipientEmail = normalizeEmail(parentLink.email)
+      return [`${parentLink.player_id}:${recipientEmail}`, { parentLink, player, recipientEmail }]
+    })
+    .filter(([, unit]) => unit.player && isValidEmail(unit.recipientEmail))).values()]
+  const activeScopeKeys = new Set(recipientUnits.map((unit) => `${unit.player.id}:${unit.recipientEmail}`))
+  const filledRoles = new Set((assignments ?? []).map((assignment) => normalizeText(assignment.role).toLowerCase()))
+  const actionableMatch = {
+    ...match,
+    request_scorer: match.request_scorer === true && !filledRoles.has('scorer'),
+    request_linesman: match.request_linesman === true && !filledRoles.has('linesman'),
+    request_referee: match.request_referee === true && !filledRoles.has('referee'),
+  }
+  const preparedQueueIds = []
+  let duplicateCount = Number(commandResult?.duplicateCount ?? 0)
+  let failedCount = 0
+
+  for (const { parentLink, player, recipientEmail } of recipientUnits) {
+    const notification = notificationMap.get(`${player.id}:${recipientEmail}`)
+    const request = (requests ?? []).find((candidate) =>
+      String(candidate.player_id) === String(player.id)
+      && normalizeEmail(candidate.recipient_email) === recipientEmail
+      && candidate.recipient_type === 'parent'
+      && candidate.channel === 'email')
+    let queue = notification?.email_queue_id ? queueMap.get(String(notification.email_queue_id)) : null
+
+    if (!queue && request?.id) {
+      queue = (queueRows ?? []).find((candidate) => candidate.payload?.matchDayAvailability?.requestId === request.id) || null
+    }
+
+    if (!player || !parentLink || !request) {
+      failedCount += 1
+      continue
+    }
+
+    if (queue?.payload?.matchDayActionableInvitation?.prepared === true) {
+      duplicateCount += 1
+      preparedQueueIds.push(queue.id)
+      continue
+    }
+
+    if (queue && queue.status !== 'scheduled') {
+      duplicateCount += 1
+      continue
+    }
+
+    const { token, tokenHash } = createInvitationToken()
+    const expiry = getInvitationExpiry(match)
+    const { error: requestUpdateError } = await adminSupabase
+      .from('match_day_availability_requests')
+      .update({
+        token_hash: tokenHash,
+        expires_at: expiry,
+        parent_link_id: parentLink.id,
+        recipient_email: recipientEmail,
+        recipient_name: request.recipient_name || 'Parent or guardian',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', request.id)
+      .eq('match_day_id', matchDayId)
+      .eq('club_id', profile.club_id)
+
+    if (requestUpdateError) {
+      failedCount += 1
+      continue
+    }
+
+    const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
+    const recipient = { email: recipientEmail, name: request.recipient_name, type: 'parent' }
+    const email = buildMatchDayActionableInvitationEmail({
+      appOrigin,
+      match: actionableMatch,
+      player,
+      recipient,
+      responseUrl,
+      updated: true,
+    })
+    const payload = {
+      ...(queue?.payload || {}),
+      resendPayload: {
+        ...((queue?.payload || {}).resendPayload || {}),
+        from: createFromAddress('Football Player'),
+        to: [recipientEmail],
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      },
+      matchDayAvailability: {
+        matchDayId,
+        requestId: request.id,
+        playerId: player.id,
+        parentLinkId: parentLink.id,
+        purpose: 'availability_request_notification',
+      },
+      matchDayActionableInvitation: {
+        prepared: true,
+        source: 'calendar_edit',
+        notificationCommandId: commandId,
+        eventRevision: command.event_revision,
+      },
+      visibleInEmailQueue: false,
+      displayName: 'Football Player',
+      teamName: normalizeText(match.teams?.name),
+      clubName: normalizeText(match.clubs?.name),
+      playerName: normalizeText(player.player_name),
+      parentName: normalizeText(request.recipient_name),
+      clubId: match.club_id,
+      teamId: match.team_id,
+      actorId: profile.id,
+      actorEmail: normalizeEmail(profile.email),
+      actorRole: profile.role || '',
+      requiredFeature: 'parentEmails',
+    }
+    payload.communicationLog = {
+      ...(payload.communicationLog || {}),
+      clubId: match.club_id,
+      playerId: player.id,
+      userId: profile.id,
+      userName: normalizeText(profile.display_name || profile.name || profile.email),
+      userEmail: normalizeEmail(profile.email),
+      recipientEmail,
+      metadata: {
+        ...(payload.communicationLog?.metadata || {}),
+        type: 'match_day_availability',
+        source: 'calendar_event_notification',
+        matchDayId,
+        matchDayAvailabilityRequestId: request.id,
+        notificationCommandId: commandId,
+        subject: email.subject,
+        body: email.html,
+      },
+    }
+    let queueUpdateError = null
+    if (queue?.id) {
+      const queueUpdate = await adminSupabase
+        .from('scheduled_email_queue')
+        .update({
+          subject: email.subject,
+          scheduled_at: new Date().toISOString(),
+          payload,
+        })
+        .eq('id', queue.id)
+        .eq('club_id', profile.club_id)
+        .eq('status', 'scheduled')
+      queueUpdateError = queueUpdate.error
+    } else {
+      const queueInsert = await adminSupabase
+        .from('scheduled_email_queue')
+        .insert({
+          club_id: match.club_id,
+          team_id: match.team_id,
+          created_by: profile.id,
+          created_by_email: normalizeEmail(profile.email),
+          to_email: recipientEmail,
+          subject: email.subject,
+          status: 'scheduled',
+          scheduled_at: new Date().toISOString(),
+          payload,
+        })
+        .select('id')
+        .single()
+      queueUpdateError = queueInsert.error
+      queue = queueInsert.data ? { id: queueInsert.data.id, payload, status: 'scheduled' } : null
+    }
+
+    if (queueUpdateError) {
+      failedCount += 1
+      continue
+    }
+
+    preparedQueueIds.push(queue.id)
+  }
+
+  const staleRequests = (requests ?? []).filter((request) =>
+    request.parent_link_id
+    && !activeScopeKeys.has(`${request.player_id}:${normalizeEmail(request.recipient_email)}`))
+  for (const staleRequest of staleRequests) {
+    const { tokenHash } = createInvitationToken()
+    await adminSupabase
+      .from('match_day_availability_requests')
+      .update({ token_hash: tokenHash, expires_at: new Date(0).toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', staleRequest.id)
+      .eq('match_day_id', matchDayId)
+      .eq('club_id', profile.club_id)
+  }
+
+  if (failedCount > 0) {
+    throw new Error('One or more updated invitations could not be prepared safely. No email was released.')
+  }
+
+  await createMatchDayEventLogEntry(adminSupabase, {
+    eventType: 'invite_prepared',
+    eventLabel: 'Updated actionable invitations prepared',
+    match,
+    metadata: {
+      notificationCommandId: commandId,
+      preparedQueueCount: preparedQueueIds.length,
+      staleTokenCount: staleRequests.length,
+      source: 'calendar_edit_actionable_invitation',
+    },
+    newValue: { state: failedCount > 0 ? 'partial' : 'ready' },
+    playerId: null,
+    profile,
+  })
+
+  return {
+    ...commandResult,
+    success: failedCount === 0,
+    queuedCount: preparedQueueIds.length,
+    failedCount,
+    duplicateCount,
+    eligibleRecipientCount: recipientUnits.length,
+    finalState: failedCount > 0 ? 'actionable_invitation_partial' : 'actionable_invitation_ready',
+    actionableInvitationPrepared: true,
+    staleTokenCount: staleRequests.length,
+  }
+  } catch (error) {
+    const { data: unsafeQueues } = await adminSupabase
+      .from('scheduled_email_queue')
+      .select('id, payload')
+      .eq('club_id', profile.club_id)
+      .eq('status', 'scheduled')
+      .contains('payload', { communicationLog: { metadata: { notificationCommandId: commandId } } })
+
+    for (const queue of unsafeQueues ?? []) {
+      await adminSupabase
+        .from('scheduled_email_queue')
+        .update({
+          status: 'failed',
+          last_error: 'Actionable invitation preparation failed closed.',
+          payload: {
+            ...(queue.payload || {}),
+            resendPayload: {
+              ...((queue.payload || {}).resendPayload || {}),
+              to: [],
+            },
+            calendarActionableInvitationBlocked: true,
+          },
+        })
+        .eq('id', queue.id)
+        .eq('club_id', profile.club_id)
+        .eq('status', 'scheduled')
+    }
+
+    await adminSupabase
+      .from('calendar_event_notification_events')
+      .update({
+        status: 'failed',
+        last_error: 'Actionable invitation preparation failed closed.',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('notification_command_id', commandId)
+      .eq('club_id', profile.club_id)
+
+    throw error
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed.' })
@@ -257,13 +502,30 @@ export async function handler(event) {
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const playerIds = Array.isArray(body.playerIds) ? body.playerIds.map(normalizeText).filter(Boolean) : []
+    const notificationRequestToken = normalizeText(body.notificationRequestToken)
+    const calendarEditMode = body.source === 'calendar_edit'
 
     if (!matchDayId) {
       throw Object.assign(new Error('Match Day is required.'), { statusCode: 400 })
     }
 
-    if (playerIds.length === 0) {
+    if (!calendarEditMode && playerIds.length === 0) {
       throw Object.assign(new Error('Select at least one player.'), { statusCode: 400 })
+    }
+
+    if (calendarEditMode && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationRequestToken)) {
+      throw Object.assign(new Error('A valid Calendar notification request token is required.'), { statusCode: 400 })
+    }
+
+    if (calendarEditMode) {
+      return json(200, await prepareCalendarEditInvitations({
+        adminSupabase,
+        appOrigin: getAppOrigin(event),
+        matchDayId,
+        notificationRequestToken,
+        profile,
+        supabase,
+      }))
     }
 
     const { data: match, error: matchError } = await supabase
@@ -296,6 +558,7 @@ export async function handler(event) {
     const createdRequests = []
     const queuedEmails = []
     const missingContacts = []
+    let duplicateQueueCount = 0
     const { data: parentLinks, error: parentLinksError } = await adminSupabase
       .from('parent_player_links')
       .select('id, player_id, email, status')
@@ -312,7 +575,7 @@ export async function handler(event) {
         continue
       }
 
-      const contacts = getPlayerContacts(player).filter((contact) => isValidEmail(contact.email))
+      const contacts = getPlayerInvitationContacts(player).filter((contact) => isValidEmail(contact.email))
 
       if (contacts.length === 0) {
         missingContacts.push({ playerId: player.id, playerName: player.player_name })
@@ -321,8 +584,40 @@ export async function handler(event) {
 
       for (const contact of contacts) {
         const parentLink = findParentLinkForContact(parentLinks ?? [], player, contact)
-        const token = randomBytes(32).toString('hex')
-        const tokenHash = hashToken(token)
+        const { data: existingRequest, error: existingRequestError } = await adminSupabase
+          .from('match_day_availability_requests')
+          .select('id')
+          .eq('match_day_id', match.id)
+          .eq('player_id', player.id)
+          .eq('recipient_email', contact.email)
+          .eq('recipient_type', contact.type)
+          .eq('channel', 'email')
+          .maybeSingle()
+
+        if (existingRequestError) {
+          throw existingRequestError
+        }
+
+        if (existingRequest?.id) {
+          const { data: existingQueues, error: existingQueueError } = await adminSupabase
+            .from('scheduled_email_queue')
+            .select('id, status')
+            .eq('club_id', match.club_id)
+            .contains('payload', { matchDayAvailability: { requestId: existingRequest.id } })
+            .in('status', ['scheduled', 'sending', 'sent'])
+            .limit(1)
+
+          if (existingQueueError) {
+            throw existingQueueError
+          }
+
+          if ((existingQueues ?? []).length > 0) {
+            duplicateQueueCount += 1
+            continue
+          }
+        }
+
+        const { token, tokenHash } = createInvitationToken()
         const { data: request, error: requestError } = await supabase
           .from('match_day_availability_requests')
           .upsert({
@@ -374,7 +669,7 @@ export async function handler(event) {
         })
 
         const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
-        const email = buildAvailabilityEmail({ appOrigin, match, player, recipient: contact, responseUrl })
+        const email = buildMatchDayActionableInvitationEmail({ appOrigin, match, player, recipient: contact, responseUrl })
         const payload = {
           visibleInEmailQueue: false,
           resendPayload: {
@@ -382,6 +677,7 @@ export async function handler(event) {
             to: [contact.email],
             subject: email.subject,
             html: email.html,
+            text: email.text,
           },
           displayName: 'Football Player',
           teamName: normalizeText(match.teams?.name || match.team_name),
@@ -464,6 +760,7 @@ export async function handler(event) {
       sentCount: 0,
       missingContactCount: missingContacts.length,
       missingContacts,
+      duplicateCount: duplicateQueueCount,
       emailConfigured: true,
     })
   } catch (error) {

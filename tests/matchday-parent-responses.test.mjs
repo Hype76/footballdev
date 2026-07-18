@@ -9,6 +9,7 @@ const sharedModelMigrationUrl = migrationSourceUrl('20260630155720_2026063015324
 const parentRoleStateMigrationUrl = migrationSourceUrl('20260701084026_matchday_parent_role_selection_state.sql', 'active')
 const transportResponseMigrationUrl = new URL('../supabase/migrations/20260704145027_matchday_transport_response_fields.sql', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
+const actionableInvitationUrl = new URL('../netlify/functions/lib/_match-day-actionable-invitation.js', import.meta.url)
 const selectVolunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)
 const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
@@ -151,19 +152,22 @@ test('transport response RPCs read and store structured token response fields', 
 })
 
 test('send function creates one response form link and stores parent link context', async () => {
-  const source = await readFile(sendFunctionUrl, 'utf8')
+  const [source, invitationSource] = await Promise.all([
+    readFile(sendFunctionUrl, 'utf8'),
+    readFile(actionableInvitationUrl, 'utf8'),
+  ])
 
   assert.match(source, /\.from\('parent_player_links'\)[\s\S]*\.eq\('status', 'active'\)/)
   assert.match(source, /createSupabaseAdminClient\(event\)/)
   assert.match(source, /const \{ data: parentLinks, error: parentLinksError \} = await adminSupabase/)
   assert.match(source, /parent_link_id: parentLink\?\.id \|\| null/)
   assert.match(source, /volunteer_scorer_response: 'no_response'/)
-  assert.match(source, /Open response form/)
+  assert.match(invitationSource, /Open the full response form/)
   assert.match(source, /match-day-availability-confirm\?token=\$\{token\}/)
   assert.match(source, /\.from\('scheduled_email_queue'\)[\s\S]*\.insert\(/)
   assert.match(source, /queuedCount: queuedEmails\.length/)
   assert.match(source, /matchDayAvailabilityRequestId: request\.id/)
-  assert.match(source, /getMatchDayDisplayName/)
+  assert.match(invitationSource, /getMatchDayDisplayName/)
   assert.doesNotMatch(source, /sendEmail\(/)
   assert.doesNotMatch(source, /status=available/)
 })

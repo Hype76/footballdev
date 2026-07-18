@@ -259,6 +259,23 @@ export async function processCalendarNotificationCommand({ commandId, profile } 
     queueRows = data ?? []
   }
 
+  const { data: payloadQueueRows, error: payloadQueueError } = await supabaseAdmin
+    .from('scheduled_email_queue')
+    .select('*')
+    .eq('club_id', command.club_id)
+    .eq('team_id', command.team_id)
+    .contains('payload', { communicationLog: { metadata: { notificationCommandId: command.id } } })
+
+  if (payloadQueueError) {
+    console.error('Calendar notification payload queue rows lookup failed', payloadQueueError)
+    throw new Error('Calendar notification delivery rows could not be loaded.')
+  }
+
+  queueRows = [...new Map([
+    ...queueRows,
+    ...(payloadQueueRows ?? []),
+  ].map((row) => [row.id, row])).values()]
+
   const queueById = new Map(queueRows.map((row) => [row.id, row]))
   const summary = {
     deliveredCount: 0,

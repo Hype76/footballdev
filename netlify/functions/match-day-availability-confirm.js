@@ -258,7 +258,7 @@ function availabilityFieldset(response) {
 function roleFieldset(name, label, currentValue) {
   const normalizedValue = normalizeText(currentValue).toLowerCase()
 
-  return `<fieldset>
+  return `<fieldset id="volunteer-${escapeHtml(normalizeText(label).toLowerCase())}">
     <legend>Can you help as ${escapeHtml(label)}?</legend>
     <label>
       <input type="radio" name="${escapeHtml(name)}" value="yes" ${normalizedValue === 'yes' ? 'checked' : ''}>

@@ -409,13 +409,45 @@ export async function notifyCalendarEventParents({
     throw new Error('Start a new Notify parents request before saving.')
   }
 
-  const { data, error } = await supabase.rpc('notify_calendar_event_parents', {
-    calendar_event_id_value: normalizedEventSource === 'calendar' ? normalizedEventId : null,
-    event_action_value: normalizedAction,
-    match_day_id_value: normalizedEventSource === 'match-day' ? normalizedEventId : null,
-    notification_request_token_value: normalizedRequestToken,
-    player_ids_value: [],
-  })
+  let data = null
+  let error = null
+
+  if (normalizedEventSource === 'match-day') {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    const accessToken = sessionData?.session?.access_token || ''
+
+    if (sessionError || !accessToken) {
+      throw sessionError || new Error('Sign in again before sending updated invitations.')
+    }
+
+    const response = await fetch('/.netlify/functions/send-match-day-availability-requests', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        matchDayId: normalizedEventId,
+        notificationRequestToken: normalizedRequestToken,
+        source: 'calendar_edit',
+      }),
+    })
+    data = await response.json().catch(() => ({}))
+
+    if (!response.ok || data?.success === false) {
+      error = new Error(data?.message || 'Updated actionable invitations could not be prepared.')
+    }
+  } else {
+    const rpcResult = await supabase.rpc('notify_calendar_event_parents', {
+      calendar_event_id_value: normalizedEventId,
+      event_action_value: normalizedAction,
+      match_day_id_value: null,
+      notification_request_token_value: normalizedRequestToken,
+      player_ids_value: [],
+    })
+    data = rpcResult.data
+    error = rpcResult.error
+  }
 
   if (error) {
     console.error(error)
