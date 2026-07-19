@@ -1,3 +1,4 @@
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
 import { normalizePlanKey } from '../../src/lib/plans.js'
@@ -62,15 +63,9 @@ async function getAuthenticatedSuperAdmin(event) {
     throw new Error('Login is required.')
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, role')
-    .eq('id', authData.user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authData.user, {
+    select: 'id, role, role_rank, club_id, status',
+  })
 
   if (profile?.role !== 'super_admin') {
     throw new Error('Only platform admins can manage tester access codes.')

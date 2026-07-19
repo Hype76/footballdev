@@ -1,3 +1,4 @@
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 
 const SUPPORT_REFERENCE = 'FPO-V1-FEEDBACK-UPLOAD-EMAIL-04'
@@ -61,16 +62,9 @@ async function getPlatformAdminProfile(event, supabaseAdmin) {
 
   const authUser = authData.user
   const authEmail = normalizeText(authUser.email, { maxLength: 320 }).toLowerCase()
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, role, role_label, role_rank')
-    .or(`id.eq.${authUser.id},email.eq.${authEmail}`)
-    .limit(1)
-    .maybeSingle()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, role, role_label, role_rank, club_id, status',
+  })
 
   if (!profile?.id || profile.role !== 'super_admin') {
     throw httpError('forbidden', 'Only platform admins can open issue report screenshots.', 403)

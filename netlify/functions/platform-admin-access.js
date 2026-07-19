@@ -128,7 +128,7 @@ async function getPlatformAdmin(authUser) {
     supabaseAdmin
       .from('platform_admins')
       .select('id, email, name, status')
-      .or(`id.eq.${authUser.id},email.eq.${email}`)
+      .eq('id', authUser.id)
       .limit(1),
     supabaseAdmin
       .from('users')
@@ -146,23 +146,12 @@ async function getPlatformAdmin(authUser) {
   }
 
   const access = accessRows?.[0] ?? null
-  const hasAccess = access?.status === 'active' || userProfile?.role === 'super_admin'
+  const hasAccess = access?.status === 'active'
+    && userProfile?.role === 'super_admin'
+    && userProfile?.status === 'active'
 
   if (!hasAccess) {
     return null
-  }
-
-  if (!access?.id) {
-    await supabaseAdmin.from('platform_admins').upsert(
-      {
-        id: authUser.id,
-        email,
-        name: getDisplayName(authUser, userProfile),
-        status: 'active',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' },
-    )
   }
 
   return {
@@ -194,8 +183,6 @@ async function switchToPlatformAdmin(authUser, platformAdmin) {
         role_rank: 100,
         club_id: null,
         club_name: null,
-        status: 'active',
-        suspended_at: null,
       },
       { onConflict: 'id' },
     )

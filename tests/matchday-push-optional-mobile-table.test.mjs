@@ -68,9 +68,20 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
 
       if (table === 'users') {
         return queryResult({
-          data: { id: 'staff-1', email: 'staff@example.com', role: 'coach', role_rank: 30, club_id: 'club-1' },
+          data: { id: 'staff-1', email: 'staff@example.com', role: 'coach', role_rank: 30, club_id: 'club-1', status: 'active' },
           error: null,
         })
+      }
+
+      if (table === 'user_club_memberships') {
+        return queryResult({
+          data: { auth_user_id: 'staff-1', role: 'coach', role_rank: 30, club_id: 'club-1' },
+          error: null,
+        })
+      }
+
+      if (table === 'clubs') {
+        return queryResult({ data: { id: 'club-1', status: 'active' }, error: null })
       }
 
       if (table === 'match_days') {

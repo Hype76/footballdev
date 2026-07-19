@@ -2,6 +2,7 @@ import process from 'node:process'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
@@ -342,16 +343,9 @@ async function getAuthenticatedProfile(event, supabaseAdmin) {
 
   const authUser = authData.user
   const authEmail = normalizeText(authUser.email, { maxLength: 320 }).toLowerCase()
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, username, name, display_name, role, role_label, role_rank, club_id')
-    .or(`id.eq.${authUser.id},email.eq.${authEmail}`)
-    .limit(1)
-    .maybeSingle()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, username, name, display_name, role, role_label, role_rank, club_id, status',
+  })
 
   if (!profile?.id) {
     throw Object.assign(new Error('Signed-in user profile was not found.'), {

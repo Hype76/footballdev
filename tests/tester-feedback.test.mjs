@@ -87,6 +87,7 @@ function createMockSupabase({
     role_label: 'Coach',
     role_rank: 20,
     club_id: clubId,
+    status: 'active',
   },
   team = { id: teamId, club_id: clubId },
   assignment = { id: '55555555-5555-4555-8555-555555555555' },
@@ -139,6 +140,19 @@ function createMockSupabase({
     maybeSingle() {
       if (this.table === 'users') {
         return Promise.resolve({ data: profile, error: null })
+      }
+
+      if (this.table === 'user_club_memberships') {
+        return Promise.resolve({
+          data: profile
+            ? { auth_user_id: profile.id, club_id: profile.club_id, role: profile.role, role_rank: profile.role_rank }
+            : null,
+          error: null,
+        })
+      }
+
+      if (this.table === 'clubs') {
+        return Promise.resolve({ data: profile?.club_id ? { id: profile.club_id, status: 'active' } : null, error: null })
       }
 
       if (this.table === 'teams') {

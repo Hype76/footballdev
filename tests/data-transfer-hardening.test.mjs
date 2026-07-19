@@ -26,15 +26,18 @@ test('migration keeps transfer internals service-role only and RPCs out of authe
 })
 
 test('server flow exposes inspect and preview before the separate confirmation RPC', async () => {
-  const source = await readFile(new URL('../netlify/functions/data-transfer.js', import.meta.url), 'utf8')
+  const [source, authoritySource] = await Promise.all([
+    readFile(new URL('../netlify/functions/data-transfer.js', import.meta.url), 'utf8'),
+    readFile(new URL('../netlify/functions/lib/_authority-profile.js', import.meta.url), 'utf8'),
+  ])
   const inspectIndex = source.indexOf("operation === 'inspect'")
   const confirmIndex = source.indexOf("operation === 'confirm'")
   assert.ok(inspectIndex > 0 && confirmIndex > inspectIndex)
   assert.match(source, /confirmation_sha256/)
   assert.match(source, /ACTOR_BINDING_MISMATCH/)
   assert.match(source, /CROSS_TEAM_SCOPE_DENIED/)
-  assert.match(source, /accessRows\?\.\[0\]\?\.status === 'suspended'/)
-  assert.match(source, /PLATFORM_ACCESS_DENIED/)
+  assert.match(source, /loadActiveAuthorityProfile\(supabaseAdmin, authUser/)
+  assert.match(authoritySource, /\.from\('platform_admins'\)[\s\S]*\.eq\('id', authUserId\)[\s\S]*\.eq\('status', 'active'\)/)
   assert.match(source, /PRIVATE_BUCKET = 'data-transfer-private'/)
   assert.match(source, /batch\.transfer_type !== 'import'/)
   assert.match(source, /operation === 'raw-workbook'/)

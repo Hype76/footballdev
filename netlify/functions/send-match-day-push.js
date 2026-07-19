@@ -1,5 +1,6 @@
 import process from 'node:process'
 import webpush from 'web-push'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../src/lib/matchday-display.js'
@@ -50,52 +51,15 @@ async function getAuthUser(event) {
 
 async function getProfile(authUser) {
   const email = normalizeText(authUser.email).toLowerCase()
-  const { data: userProfile, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, role, role_rank, club_id')
-    .or(`id.eq.${authUser.id},email.eq.${email}`)
-    .maybeSingle()
-
-  if (userError) {
-    throw userError
-  }
-
-  if (userProfile) {
-    return {
-      id: userProfile.id,
-      email,
-      role: normalizeText(userProfile.role),
-      roleRank: Number(userProfile.role_rank ?? 0),
-      clubId: userProfile.club_id,
-    }
-  }
-
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('user_club_memberships')
-    .select('auth_user_id, email, role, role_rank, club_id')
-    .or(`auth_user_id.eq.${authUser.id},email.eq.${email}`)
-    .maybeSingle()
-
-  if (membershipError) {
-    throw membershipError
-  }
-
-  if (!membership) {
-    return {
-      id: authUser.id,
-      email,
-      role: 'parent_portal',
-      roleRank: 0,
-      clubId: '',
-    }
-  }
-
+  const userProfile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, role, role_rank, club_id, status',
+  })
   return {
-    id: membership.auth_user_id,
+    id: userProfile.id,
     email,
-    role: normalizeText(membership.role),
-    roleRank: Number(membership.role_rank ?? 0),
-    clubId: membership.club_id,
+    role: normalizeText(userProfile.role),
+    roleRank: Number(userProfile.role_rank ?? 0),
+    clubId: userProfile.club_id,
   }
 }
 

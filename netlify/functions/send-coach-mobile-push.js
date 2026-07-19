@@ -1,4 +1,5 @@
 import { sendExpoPushMessages } from './lib/_expo-push.js'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
@@ -41,55 +42,15 @@ async function getAuthUser(event) {
 
 async function getProfile(authUser) {
   const email = normalizeText(authUser.email).toLowerCase()
-  const { data: userProfile, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, role, role_rank, club_id')
-    .or(`id.eq.${authUser.id},email.eq.${email}`)
-    .maybeSingle()
-
-  if (userError) {
-    throw userError
-  }
-
-  if (userProfile) {
-    return {
-      clubId: userProfile.club_id,
-      email,
-      id: userProfile.id,
-      role: normalizeText(userProfile.role),
-      roleRank: Number(userProfile.role_rank ?? 0),
-    }
-  }
-
-  const { data: parentLink, error: parentError } = await supabaseAdmin
-    .from('parent_player_links')
-    .select('id, club_id, team_id, status')
-    .eq('auth_user_id', authUser.id)
-    .eq('status', 'active')
-    .maybeSingle()
-
-  if (parentError) {
-    throw parentError
-  }
-
-  if (parentLink) {
-    return {
-      clubId: parentLink.club_id,
-      email,
-      id: authUser.id,
-      parentLinkId: parentLink.id,
-      role: 'parent_portal',
-      roleRank: 0,
-      teamId: parentLink.team_id,
-    }
-  }
-
+  const userProfile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, role, role_rank, club_id, status',
+  })
   return {
-    clubId: '',
+    clubId: userProfile.club_id,
     email,
-    id: authUser.id,
-    role: 'unknown',
-    roleRank: 0,
+    id: userProfile.id,
+    role: normalizeText(userProfile.role),
+    roleRank: Number(userProfile.role_rank ?? 0),
   }
 }
 

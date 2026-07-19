@@ -1,4 +1,5 @@
 import { STAFF_VOICE_NOTES_BUCKET } from '../../src/lib/domain/core-constants.js'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
 
@@ -21,15 +22,9 @@ async function getAuthenticatedUser(event) {
     throw new Error('Login is required.')
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, name, role, role_rank, club_id')
-    .eq('id', authData.user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authData.user, {
+    select: 'id, email, name, role, role_rank, club_id, status',
+  })
 
   if (!profile?.club_id || Number(profile.role_rank ?? 0) < 20) {
     throw new Error('You do not have access to delete voice notes.')

@@ -1,5 +1,6 @@
 import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
@@ -67,7 +68,7 @@ function createRequestSupabaseClient(event, token) {
   })
 }
 
-async function getAuthenticatedProfile(event, supabase) {
+async function getAuthenticatedProfile(event, supabase, adminSupabase) {
   const token = getBearerToken(event)
 
   if (!token) {
@@ -80,15 +81,9 @@ async function getAuthenticatedProfile(event, supabase) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('id, email, name, display_name, role, role_label, role_rank, club_id')
-    .eq('id', authData.user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(adminSupabase, authData.user, {
+    select: 'id, email, name, display_name, role, role_label, role_rank, club_id, status',
+  })
 
   if (!profile?.club_id || profile.role === 'parent_portal' || profile.role === 'super_admin' || Number(profile.role_rank ?? 0) < 20) {
     throw Object.assign(new Error('Coach or manager access is required.'), { statusCode: 403 })
@@ -656,7 +651,7 @@ export async function handler(event) {
     const supabase = createRequestSupabaseClient(event, token)
     const adminSupabase = createSupabaseAdminClient(event)
     const appOrigin = getAppOrigin(event)
-    const profile = await getAuthenticatedProfile(event, supabase)
+    const profile = await getAuthenticatedProfile(event, supabase, adminSupabase)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const requestId = normalizeText(body.requestId)

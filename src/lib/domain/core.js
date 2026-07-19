@@ -24,9 +24,6 @@ import {
   normalizePlayerStaffNoteRow,
 } from './activity-normalizers.js'
 import {
-  normalizeClubInviteRow,
-} from './role-normalizers.js'
-import {
   getSignupClubName,
   normalizeClubMembershipRow,
   normalizeUserProfile,
@@ -55,12 +52,10 @@ import {
   SYSTEM_ROLE_OPTIONS,
 } from './core-defaults.js'
 import {
-  buildLegacyStaffMembershipFromProfile,
   canSwitchParentToStaff,
   getActiveStaffMemberships,
 } from '../staff-workspace-access.js'
 import {
-  getDisplayName,
   getEntryIdentity,
   getEntryUserEmail,
   getEntryUserId,
@@ -132,107 +127,30 @@ export * from './evaluation-actions.js'
 export * from './role-queries.js'
 export * from './club-settings-actions.js'
 
-async function upsertClubMembershipFromInvite(authUser, invite) {
-  const displayName = getDisplayName(authUser)
-  const normalizedEmail = String(authUser?.email ?? invite.email ?? '').trim().toLowerCase()
+async function claimInvitedUserProfiles(authUser) {
+  if (!authUser?.id) {
+    return []
+  }
 
-  const { data, error } = await supabase
-    .from('user_club_memberships')
-    .upsert(
-      {
-        auth_user_id: authUser.id,
-        email: normalizedEmail,
-        username: displayName,
-        name: displayName,
-        role: invite.roleKey,
-        role_label: invite.roleLabel,
-        role_rank: invite.roleRank,
-        club_id: invite.clubId,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'auth_user_id,club_id',
-      },
-    )
-    .select(MEMBERSHIP_CLUB_SELECT)
-    .single()
+  const { data, error } = await supabase.rpc('accept_own_club_user_invites')
 
   if (error) {
     console.error(error)
     throw error
   }
 
-  if (invite.teamId) {
-    const { error: teamStaffError } = await supabase
-      .from('team_staff')
-      .upsert(
-        {
-          team_id: invite.teamId,
-          user_id: authUser.id,
-        },
-        {
-          onConflict: 'team_id,user_id',
-        },
-      )
-
-    if (teamStaffError) {
-      console.error(teamStaffError)
-    }
-  }
-
-  return normalizeClubMembershipRow(data)
-}
-
-async function claimInvitedUserProfiles(authUser) {
-  const normalizedEmail = String(authUser?.email ?? '').trim().toLowerCase()
-
-  if (!normalizedEmail) {
-    return []
-  }
-
-  const { data: inviteRows, error: inviteError } = await supabase
-    .from('club_user_invites')
-    .select('*')
-    .eq('email', normalizedEmail)
-    .is('accepted_at', null)
-    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-
-  if (inviteError) {
-    console.error(inviteError)
-    throw inviteError
-  }
-
-  if (!inviteRows?.length) {
-    return []
-  }
-
-  const memberships = await Promise.all(inviteRows.map((inviteRow) => upsertClubMembershipFromInvite(authUser, normalizeClubInviteRow(inviteRow))))
-  const { error: inviteUpdateError } = await supabase
-    .from('club_user_invites')
-    .update({
-      accepted_at: new Date().toISOString(),
-    })
-    .eq('email', normalizedEmail)
-    .is('accepted_at', null)
-
-  if (inviteUpdateError) {
-    console.error(inviteUpdateError)
-  }
-
-  return memberships
+  return (Array.isArray(data) ? data : []).map(normalizeClubMembershipRow)
 }
 
 async function getUserClubMemberships(authUser) {
-  const normalizedEmail = String(authUser?.email ?? '').trim().toLowerCase()
-
-  if (!authUser?.id && !normalizedEmail) {
+  if (!authUser?.id) {
     return []
   }
 
   const { data, error } = await supabase
     .from('user_club_memberships')
     .select(MEMBERSHIP_CLUB_SELECT)
-    .or(`auth_user_id.eq.${authUser.id},email.eq.${normalizedEmail}`)
+    .eq('auth_user_id', authUser.id)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -357,67 +275,10 @@ function buildParentAccessModeOptions({ hasPlatformAccess = false, hasTeamAccess
   return options
 }
 
-async function syncMembershipFromUserRow(data, authUser) {
-  if (!data?.club_id || data.role === 'super_admin') {
-    return null
-  }
-
-  const { data: membershipRow, error } = await supabase
-    .from('user_club_memberships')
-    .upsert(
-      {
-        auth_user_id: authUser.id,
-        email: String(data.email ?? authUser.email ?? '').trim().toLowerCase(),
-        username: String(data.username ?? '').trim(),
-        name: String(data.name ?? '').trim(),
-        role: data.role,
-        role_label: data.role_label,
-        role_rank: data.role_rank,
-        club_id: data.club_id,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'auth_user_id,club_id',
-      },
-    )
-    .select(MEMBERSHIP_CLUB_SELECT)
-    .single()
-
-  if (error) {
-    console.error(error)
-    return null
-  }
-
-  return normalizeClubMembershipRow(membershipRow)
-}
-
 async function applyActiveMembership(authUser, membership) {
-  const normalizedEmail = String(authUser?.email ?? membership.email ?? '').trim().toLowerCase()
-  const displayName = getDisplayName({
-    ...authUser,
-    email: normalizedEmail,
-    username: membership.username,
-    name: membership.name,
+  const { data, error } = await supabase.rpc('activate_own_club_membership', {
+    target_club_id: membership.clubId,
   })
-
-  const payload = {
-    id: authUser.id,
-    email: normalizedEmail,
-    username: membership.username || displayName,
-    name: membership.name || displayName,
-    role: membership.role,
-    role_label: membership.roleLabel,
-    role_rank: membership.roleRank,
-    club_id: membership.clubId,
-  }
-
-  const { data, error } = await supabase
-    .from('users')
-    .upsert(payload, {
-      onConflict: 'id',
-    })
-    .select(USER_PROFILE_SELECT)
-    .single()
 
   if (error) {
     console.error(error)
@@ -587,22 +448,7 @@ export async function fetchUserProfile(authUser, options = {}) {
 
       const memberships = await loadMemberships()
 
-      if (getActiveStaffMemberships(memberships).length > 0 || !data?.club_id) {
-        loadedAuthoritativeStaffMemberships = memberships
-        return loadedAuthoritativeStaffMemberships
-      }
-
-      try {
-        const club = await fetchClubDetails(data.club_id)
-        const legacyMembership = buildLegacyStaffMembershipFromProfile({ club, profile: data })
-        loadedAuthoritativeStaffMemberships = legacyMembership
-          ? [...memberships, legacyMembership]
-          : memberships
-      } catch (error) {
-        console.error('Staff workspace eligibility could not be resolved from the legacy profile.', error)
-        loadedAuthoritativeStaffMemberships = memberships
-      }
-
+      loadedAuthoritativeStaffMemberships = memberships
       return loadedAuthoritativeStaffMemberships
     }
     const loadStaffMemberships = async () => {
@@ -615,6 +461,16 @@ export async function fetchUserProfile(authUser, options = {}) {
       selectedAccessMode,
       loginAccessIntent,
     })
+
+    if (!isDemoAuthUser && !requireExistingStaffAccess) {
+      const acceptedMemberships = await claimInvitedUserProfiles(authUser)
+
+      if (acceptedMemberships.length > 0) {
+        loadedMemberships = null
+        loadedAuthoritativeStaffMemberships = null
+        data = await loadUserRow()
+      }
+    }
 
     if (selectedAccessMode === 'team' && requireExistingStaffAccess) {
       const memberships = await loadAuthoritativeStaffMemberships()
@@ -687,10 +543,6 @@ export async function fetchUserProfile(authUser, options = {}) {
       }
     }
 
-    if (!isDemoAuthUser && !requireExistingStaffAccess && data?.club_id) {
-      await claimInvitedUserProfiles(authUser)
-    }
-
     if (!data) {
       if (isDemoAuthUser) {
         throw new Error('Demo profile not found.')
@@ -737,8 +589,6 @@ export async function fetchUserProfile(authUser, options = {}) {
       if (data?.requiresClubSelection) {
         return data
       }
-    } else if (!isDemoAuthUser && !requireExistingStaffAccess) {
-      await syncMembershipFromUserRow(data, authUser)
     }
 
     if (!isDemoAuthUser && data?.role !== 'super_admin' && !data?.club_id) {
@@ -758,14 +608,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     const profileEmail = String(data.email ?? '').trim().toLowerCase()
 
     if (!isDemoAuthUser && !requireExistingStaffAccess && authEmail && authEmail !== profileEmail) {
-      const { data: syncedData, error: syncError } = await supabase
-        .from('users')
-        .update({
-          email: authEmail,
-        })
-        .eq('id', authUser.id)
-        .select(USER_PROFILE_SELECT)
-        .single()
+      const { data: syncedData, error: syncError } = await supabase.rpc('sync_own_user_email')
 
       if (syncError) {
         console.error(syncError)
@@ -906,19 +749,13 @@ export async function updateOwnUserSettings({
     ? normalizedReplyToEmail
     : String(currentUser.replyToEmail || currentUser.email || '').trim().toLowerCase()
 
-  const { data, error } = await supabase
-    .from('users')
-    .update({
-      username: normalizedUsername,
-      name: normalizedUsername,
-      display_name: normalizedDisplayName,
-      team_name: safeTeamName,
-      club_name: safeClubName,
-      reply_to_email: safeReplyToEmail,
-    })
-    .eq('id', authUser.id)
-    .select(USER_PROFILE_SELECT)
-    .single()
+  const { data, error } = await supabase.rpc('update_own_user_profile', {
+    profile_username: normalizedUsername,
+    profile_display_name: normalizedDisplayName,
+    profile_team_name: safeTeamName,
+    profile_club_name: safeClubName,
+    profile_reply_to_email: safeReplyToEmail,
+  })
 
   if (error) {
     console.error(error)
@@ -963,14 +800,9 @@ export async function updateOwnThemeSettings({ authUser, mode }) {
 
   const normalizedMode = ['system', 'dark', 'light'].includes(mode) ? mode : 'system'
 
-  const { data, error } = await supabase
-    .from('users')
-    .update({
-      theme_mode: normalizedMode,
-    })
-    .eq('id', authUser.id)
-    .select(USER_PROFILE_SELECT)
-    .single()
+  const { data, error } = await supabase.rpc('update_own_theme_settings', {
+    profile_mode: normalizedMode,
+  })
 
   if (error) {
     console.error(error)
@@ -1029,12 +861,7 @@ export async function requestLoginEmailChange({ authUser, email }) {
   const isConfirmedImmediately = confirmedEmail === normalizedEmail
 
   if (isConfirmedImmediately) {
-    const { error: profileError } = await supabase
-      .from('users')
-      .update({
-        email: normalizedEmail,
-      })
-      .eq('id', authUser.id)
+    const { error: profileError } = await supabase.rpc('sync_own_user_email')
 
     if (profileError) {
       console.error(profileError)

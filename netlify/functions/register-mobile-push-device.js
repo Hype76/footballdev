@@ -1,3 +1,4 @@
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 
 function jsonResponse(statusCode, payload) {
@@ -38,18 +39,9 @@ async function getAuthUser(event) {
 }
 
 async function getStaffProfile(authUser) {
-  const email = normalizeText(authUser.email).toLowerCase()
-  const { data, error } = await supabaseAdmin
-    .from('users')
-    .select('id, club_id, role, role_rank, status')
-    .or(`id.eq.${authUser.id},email.eq.${email}`)
-    .maybeSingle()
-
-  if (error) {
-    throw error
-  }
-
-  return data
+  return loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, club_id, role, role_rank, status',
+  })
 }
 
 async function getParentLink(parentLinkId, authUserId) {
@@ -101,7 +93,7 @@ async function buildDevicePayload({ authUser, body }) {
 
   const profile = await getStaffProfile(authUser)
 
-  if (!profile || profile.status === 'suspended') {
+  if (profile.role === 'parent_portal' || profile.role === 'super_admin' || Number(profile.role_rank ?? 0) < 20) {
     throw Object.assign(new Error('This staff account cannot register mobile notifications.'), { statusCode: 403 })
   }
 

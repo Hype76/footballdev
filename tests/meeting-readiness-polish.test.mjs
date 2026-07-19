@@ -49,7 +49,7 @@ test('quick actions expose Create Poll only to permitted staff', async () => {
   assert.match(source, /import \{ canCreateEvaluation, canManagePolls,/)
   assert.match(source, /const canUsePollQuickAction = canManagePolls\(user\) && isRecoveryPathVisible\('\/polls', \{ user \}\)/)
   assert.match(source, /label: 'Create Poll', href: '\/polls\?action=create-poll', isVisible: canUsePollQuickAction/)
-  assert.match(source, /const visibleActions = actions\.filter\(\(action\) => action\.isVisible !== false\)/)
+  assert.match(source, /const visibleActions = actions\.filter\(\(action\) => action\.isVisible !== false/)
   assert.match(source, /const \[hasActiveOverlay, setHasActiveOverlay\] = useState\(false\)/)
   assert.match(source, /QUICK_ACTION_POSITION_STORAGE_KEY = 'football-player:quick-action-position'/)
   assert.match(source, /onPointerDown=\{handleQuickActionPointerDown\}/)

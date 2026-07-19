@@ -26,14 +26,14 @@ test('verified platform admin access opens platform admin before club selection'
 
 test('team mode must be explicit before it can override platform admin bootstrap', async () => {
   const source = await readFile(authUrl, 'utf8')
-  const selectAccessStart = source.indexOf('const selectAccessMode = async (accessMode) => {')
+  const selectAccessStart = source.indexOf('const selectAccessMode = async (accessMode, options = {}) => {')
   assert.notEqual(selectAccessStart, -1)
   const selectAccessEnd = source.indexOf('const selectTeam = async (teamId) => {', selectAccessStart)
   assert.notEqual(selectAccessEnd, -1)
   const selectAccessSection = source.slice(selectAccessStart, selectAccessEnd)
   const selectClubStart = source.indexOf('const selectClub = async (clubId) => {')
   assert.notEqual(selectClubStart, -1)
-  const selectClubEnd = source.indexOf('const selectAccessMode = async (accessMode) => {', selectClubStart)
+  const selectClubEnd = source.indexOf('const selectAccessMode = async (accessMode, options = {}) => {', selectClubStart)
   assert.notEqual(selectClubEnd, -1)
   const selectClubSection = source.slice(selectClubStart, selectClubEnd)
   const signedOutStart = source.indexOf('const applySignedOutState = () => {')

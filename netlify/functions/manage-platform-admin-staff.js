@@ -28,17 +28,27 @@ async function getAuthenticatedSuperAdmin(event) {
     throw new Error('Login is required.')
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, name, role')
-    .eq('id', authData.user.id)
-    .maybeSingle()
+  const [profileResult, accessResult] = await Promise.all([
+    supabaseAdmin
+      .from('users')
+      .select('id, email, name, role, status')
+      .eq('id', authData.user.id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('platform_admins')
+      .select('id, status')
+      .eq('id', authData.user.id)
+      .eq('status', 'active')
+      .maybeSingle(),
+  ])
+  const { data: profile, error: profileError } = profileResult
+  const { data: platformAccess, error: platformAccessError } = accessResult
 
-  if (profileError) {
-    throw profileError
+  if (profileError || platformAccessError) {
+    throw profileError || platformAccessError
   }
 
-  if (profile?.role !== 'super_admin') {
+  if (profile?.role !== 'super_admin' || profile?.status !== 'active' || !platformAccess?.id) {
     throw new Error('Only platform admins can manage platform admin staff.')
   }
 

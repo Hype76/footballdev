@@ -1,3 +1,4 @@
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -101,16 +102,9 @@ async function getAuthenticatedSuperAdmin(event, supabaseAdmin) {
 
   const authUser = authData.user
   const authEmail = normalizeText(authUser.email).toLowerCase()
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, username, name, role, role_label, role_rank')
-    .or(`id.eq.${authUser.id},email.eq.${authEmail}`)
-    .limit(1)
-    .maybeSingle()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, username, name, role, role_label, role_rank, club_id, status',
+  })
 
   if (!profile?.id || profile.role !== 'super_admin') {
     throw httpError('forbidden', 'Only platform admins can delete teams.', 403)

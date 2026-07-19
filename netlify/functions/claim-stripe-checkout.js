@@ -1,3 +1,4 @@
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
@@ -21,15 +22,9 @@ async function getAuthenticatedProfile(event) {
     throw new Error('Login is required')
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, club_id')
-    .eq('id', authData.user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authData.user, {
+    select: 'id, email, role, role_rank, club_id, status',
+  })
 
   if (!profile?.club_id) {
     throw new Error('Club account is required')

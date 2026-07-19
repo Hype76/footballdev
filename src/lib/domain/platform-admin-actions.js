@@ -240,16 +240,10 @@ export async function updatePlatformUserStatus({ user, targetUserId, status }) {
   }
 
   const nextStatus = status === 'suspended' ? 'suspended' : 'active'
-  const { data, error } = await supabase
-    .from('users')
-    .update({
-      status: nextStatus,
-      suspended_at: nextStatus === 'suspended' ? new Date().toISOString() : null,
-    })
-    .eq('id', normalizedTargetUserId)
-    .neq('role', 'super_admin')
-    .select(USER_PROFILE_SELECT)
-    .single()
+  const { data, error } = await supabase.rpc('set_platform_user_status', {
+    target_user_id: normalizedTargetUserId,
+    target_status: nextStatus,
+  })
 
   if (error) {
     console.error(error)
@@ -260,18 +254,6 @@ export async function updatePlatformUserStatus({ user, targetUserId, status }) {
   invalidateMemoryCacheByPrefix(`club-users:${data.club_id}`)
   invalidateMemoryCacheByPrefix('visible-club-users:')
   clearViewCaches()
-
-  await createAuditLog({
-    user,
-    action: nextStatus === 'suspended' ? 'user_suspended' : 'user_reactivated',
-    entityType: 'user',
-    entityId: normalizedTargetUserId,
-    metadata: {
-      email: data.email,
-      status: nextStatus,
-      clubId: data.club_id,
-    },
-  })
 
   return normalizeUserProfile(data)
 }

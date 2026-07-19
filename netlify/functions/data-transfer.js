@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { Buffer } from 'node:buffer'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import {
   buildErrorWorkbook,
@@ -69,25 +70,11 @@ async function authenticate(event) {
   if (authError || !authData?.user?.id) throw statusError('Login is required.', 401, 'LOGIN_REQUIRED')
   const authUser = authData.user
   const email = text(authUser.email).toLowerCase()
-  const { data: profiles, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, name, username, role, role_label, role_rank, club_id, status')
-    .or(`id.eq.${authUser.id},email.eq.${email}`)
-    .limit(1)
-  if (profileError || !profiles?.[0]) throw statusError('Your account profile could not be loaded.', 403, 'PROFILE_NOT_FOUND')
-  const profile = profiles[0]
-  if (profile.status === 'suspended') throw statusError('This account is suspended.', 403, 'ACCOUNT_SUSPENDED')
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, name, username, role, role_label, role_rank, club_id, status',
+  })
   if (!ALLOWED_ROLES.has(profile.role)) throw statusError('Data Transfer is not available for this role.', 403, 'ROLE_DENIED')
   if (profile.role !== 'super_admin' && Number(profile.role_rank || 0) < 50) throw statusError('Manager access is required.', 403, 'ROLE_DENIED')
-  if (profile.role === 'super_admin') {
-    const { data: accessRows, error: accessError } = await supabaseAdmin
-      .from('platform_admins')
-      .select('id, status')
-      .or(`id.eq.${authUser.id},email.eq.${email}`)
-      .limit(1)
-    if (accessError) throw accessError
-    if (accessRows?.[0]?.status === 'suspended') throw statusError('Platform admin access is required.', 403, 'PLATFORM_ACCESS_DENIED')
-  }
   return {
     id: profile.id,
     email,

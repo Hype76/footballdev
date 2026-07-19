@@ -67,6 +67,8 @@ function createMockSupabase({
     role: 'super_admin',
     role_label: 'Super Admin',
     role_rank: 100,
+    club_id: null,
+    status: 'active',
   },
   clubError = null,
   inviteError = null,
@@ -133,6 +135,10 @@ function createMockSupabase({
     maybeSingle() {
       if (this.table === 'users') {
         return Promise.resolve({ data: profile, error: null })
+      }
+
+      if (this.table === 'platform_admins') {
+        return Promise.resolve({ data: profile?.role === 'super_admin' ? { id: profile.id, status: 'active' } : null, error: null })
       }
 
       return Promise.resolve({ data: null, error: null })

@@ -289,6 +289,7 @@ test('core controls and data rights are not premium commercial entitlements', ()
 
 test('trusted function, RPC, RLS, and storage sources contain fail-closed paywall enforcement', () => {
   const planGate = readSource('netlify/functions/lib/_plan-gate.js')
+  const authorityProfile = readSource('netlify/functions/lib/_authority-profile.js')
   const manageTeam = readSource('netlify/functions/manage-team.js')
   const sendParentEmail = readSource('netlify/functions/send-parent-email.js')
   const renderPdf = readSource('netlify/functions/render-pdf.js')
@@ -301,8 +302,11 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
   const stripeWebhook = readSource('netlify/functions/stripe-webhook.js')
   const checkout = readSource('netlify/functions/create-checkout-session.js')
 
-  assert.match(planGate, /profileAuthUserId && profileAuthUserId !== String\(authUser\.id\)/)
-  assert.match(planGate, /profileEmail !== authEmail/)
+  assert.match(planGate, /normalizedUserId && normalizedUserId !== String\(authUser\.id\)/)
+  assert.match(planGate, /loadActiveAuthorityProfile\(supabaseAdmin, authUser/)
+  assert.match(authorityProfile, /\.eq\('auth_user_id', authUserId\)/)
+  assert.match(authorityProfile, /\.eq\('role', normalizeText\(profile\.role\)\)/)
+  assert.match(authorityProfile, /\.eq\('role_rank', Number\(profile\.role_rank \?\? 0\)\)/)
   assert.match(planGate, /assertPlanFeature\(planProfile, featureName\)/)
 
   assert.doesNotMatch(manageTeam, /planKey === PLAN_KEYS\.largeClub/)

@@ -1,5 +1,6 @@
 import process from 'node:process'
 import Stripe from 'stripe'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
 
@@ -32,17 +33,9 @@ async function getCaller(event) {
     throw new Error('Login required')
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, role, role_rank, club_id')
-    .eq('id', data.user.id)
-    .single()
-
-  if (profileError || !profile) {
-    throw new Error('Account profile not found')
-  }
-
-  return profile
+  return loadActiveAuthorityProfile(supabaseAdmin, data.user, {
+    select: 'id, email, role, role_rank, club_id, status',
+  })
 }
 
 export async function handler(event) {

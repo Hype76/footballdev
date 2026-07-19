@@ -1,4 +1,5 @@
 import { sendExpoPushMessages } from './lib/_expo-push.js'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 
 function jsonResponse(statusCode, payload) {
@@ -46,16 +47,9 @@ async function getAuthUser(event) {
 }
 
 async function getStaffProfile(authUser) {
-  const email = normalizeText(authUser.email).toLowerCase()
-  const { data, error } = await supabaseAdmin
-    .from('users')
-    .select('id, email, role, role_rank, club_id')
-    .or(`id.eq.${authUser.id},email.eq.${email}`)
-    .maybeSingle()
-
-  if (error) {
-    throw error
-  }
+  const data = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, role, role_rank, club_id, status',
+  })
 
   if (!data || normalizeText(data.role) === 'parent_portal' || Number(data.role_rank ?? 0) < 20) {
     throw Object.assign(new Error('Club staff access is required.'), { statusCode: 403 })

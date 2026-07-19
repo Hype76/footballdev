@@ -1,6 +1,7 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createSupabaseAdminClient, isStagingRequest } from './lib/_supabase.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
@@ -216,14 +217,11 @@ async function getPlatformAdminProfile(supabaseAdmin, event) {
 
   const authUser = authData.user
   const authEmail = normalizeEmail(authUser.email)
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, username, name, role, role_label, role_rank')
-    .or(`id.eq.${authUser.id},email.eq.${authEmail}`)
-    .limit(1)
-    .maybeSingle()
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
+    select: 'id, email, username, name, role, role_label, role_rank, club_id, status',
+  })
 
-  if (profileError || profile?.role !== 'super_admin') {
+  if (profile?.role !== 'super_admin') {
     throw Object.assign(new Error('Only platform admins can create clubs.'), { statusCode: 403, code: 'forbidden' })
   }
 

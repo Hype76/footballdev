@@ -806,13 +806,10 @@ export async function saveOnboardingStep({ scope, stepId, user }) {
       throw error
     }
   } else {
-    const { error } = await supabase
-      .from('users')
-      .update({
-        onboarding_completed_steps: nextSteps,
-        onboarding_dismissed_at: null,
-      })
-      .eq('id', user.id)
+    const { error } = await supabase.rpc('update_own_onboarding_state', {
+      onboarding_operation: 'complete_step',
+      onboarding_step_id: stepId,
+    })
 
     if (error) {
       throw error
@@ -837,7 +834,9 @@ export async function dismissOnboarding({ scope, user }) {
       throw error
     }
   } else {
-    const { error } = await supabase.from('users').update(payload).eq('id', user.id)
+    const { error } = await supabase.rpc('update_own_onboarding_state', {
+      onboarding_operation: 'dismiss',
+    })
     if (error) {
       throw error
     }
@@ -862,7 +861,9 @@ export async function reopenOnboarding({ scope, user }) {
       throw error
     }
   } else {
-    const { error } = await supabase.from('users').update(payload).eq('id', user.id)
+    const { error } = await supabase.rpc('update_own_onboarding_state', {
+      onboarding_operation: 'reopen',
+    })
     if (error) {
       throw error
     }
@@ -889,7 +890,9 @@ export async function resetOnboarding({ scope, user }) {
       throw error
     }
   } else {
-    const { error } = await supabase.from('users').update(payload).eq('id', user.id)
+    const { error } = await supabase.rpc('update_own_onboarding_state', {
+      onboarding_operation: 'reset',
+    })
     if (error) {
       throw error
     }

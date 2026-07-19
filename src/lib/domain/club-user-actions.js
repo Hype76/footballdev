@@ -66,16 +66,11 @@ export async function assignClubUserRole({ user, email, role }) {
   const existingUser = existingUsers?.[0]
 
   if (existingUser) {
-    const { data: updatedUserRow, error: updateError } = await supabase
-      .from('users')
-      .update({
-        role: roleKey,
-        role_label: roleLabel,
-        role_rank: roleRank,
-      })
-      .eq('id', existingUser.id)
-      .select(USER_PROFILE_SELECT)
-      .single()
+    const { data: updatedUserRow, error: updateError } = await supabase.rpc('set_club_user_role', {
+      target_user_id: existingUser.id,
+      target_role_key: roleKey,
+      target_team_id: null,
+    })
 
     if (updateError) {
       console.error(updateError)
@@ -232,39 +227,15 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
   const existingUser = existingUsers?.[0]
 
   if (existingUser) {
-    const { data: updatedUserRow, error: updateError } = await supabase
-      .from('users')
-      .update({
-        role: roleKey,
-        role_label: roleLabel,
-        role_rank: roleRank,
-      })
-      .eq('id', existingUser.id)
-      .select(USER_PROFILE_SELECT)
-      .single()
+    const { data: updatedUserRow, error: updateError } = await supabase.rpc('set_club_user_role', {
+      target_user_id: existingUser.id,
+      target_role_key: roleKey,
+      target_team_id: normalizedTeamId,
+    })
 
     if (updateError) {
       console.error(updateError)
       throw updateError
-    }
-
-    if (normalizedTeamId) {
-      const { error: teamStaffError } = await supabase
-        .from('team_staff')
-        .upsert(
-          {
-            team_id: normalizedTeamId,
-            user_id: existingUser.id,
-          },
-          {
-            onConflict: 'team_id,user_id',
-          },
-        )
-
-      if (teamStaffError) {
-        console.error(teamStaffError)
-        throw teamStaffError
-      }
     }
 
     invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
@@ -400,21 +371,10 @@ export async function updateClubUserName({ user, member, name }) {
     throw new Error('Name is required.')
   }
 
-  let query = supabase
-    .from('users')
-    .update({
-      username: normalizedName,
-      name: normalizedName,
-    })
-    .eq('id', targetUserId)
-
-  if (user.role !== 'super_admin') {
-    query = query.eq('club_id', user.clubId)
-  }
-
-  const { data, error } = await query
-    .select(USER_PROFILE_SELECT)
-    .single()
+  const { data, error } = await supabase.rpc('update_club_user_name', {
+    target_user_id: targetUserId,
+    target_name: normalizedName,
+  })
 
   if (error) {
     console.error(error)
@@ -424,18 +384,6 @@ export async function updateClubUserName({ user, member, name }) {
   invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
   invalidateMemoryCacheByPrefix('visible-club-users:')
   clearViewCaches()
-  await createAuditLog({
-    user,
-    action: 'user_name_updated',
-    entityType: 'user',
-    entityId: data.id,
-    metadata: {
-      email: data.email,
-      username: data.username,
-      name: data.name,
-    },
-  })
-
   return normalizeUserProfile(data)
 }
 

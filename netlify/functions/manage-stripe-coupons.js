@@ -1,5 +1,6 @@
 import process from 'node:process'
 import Stripe from 'stripe'
+import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
 
@@ -52,15 +53,9 @@ async function getPlatformAdmin(event) {
     throw new Error('Login is required')
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, role')
-    .eq('id', authData.user.id)
-    .single()
-
-  if (profileError) {
-    throw profileError
-  }
+  const profile = await loadActiveAuthorityProfile(supabaseAdmin, authData.user, {
+    select: 'id, email, role, role_rank, club_id, status',
+  })
 
   if (profile.role !== 'super_admin') {
     throw new Error('Platform admin access is required')
