@@ -119,18 +119,28 @@ test('two real PostgreSQL reset transactions serialize without deadlock or parti
     );
   `)
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 350))
-  const competingReset = await psql(`
-    select public.reset_demo_account_atomic(
-      '10000000-0000-4000-8000-000000000001',
-      '50000000-0000-4000-8000-000000000021'
-    );
-  `, { rejectOnFailure: false })
+  const [secondReset, thirdReset] = await Promise.all([
+    psql(`
+      select public.reset_demo_account_atomic(
+        '10000000-0000-4000-8000-000000000001',
+        '50000000-0000-4000-8000-000000000021'
+      );
+    `, { rejectOnFailure: false }),
+    psql(`
+      select public.reset_demo_account_atomic(
+        '10000000-0000-4000-8000-000000000001',
+        '50000000-0000-4000-8000-000000000022'
+      );
+    `, { rejectOnFailure: false }),
+  ])
   const completedReset = await firstReset
 
   assert.equal(completedReset.exitCode, 0)
-  assert.notEqual(competingReset.exitCode, 0)
-  assert.match(competingReset.stderr, /DEMO_RESET_LOCKED/)
-  assert.doesNotMatch(competingReset.stderr, /deadlock detected/i)
+  for (const competingReset of [secondReset, thirdReset]) {
+    assert.notEqual(competingReset.exitCode, 0)
+    assert.match(competingReset.stderr, /DEMO_RESET_LOCKED/)
+    assert.doesNotMatch(competingReset.stderr, /deadlock detected/i)
+  }
 
   const state = await psql(`
     select jsonb_build_object(
@@ -152,4 +162,71 @@ test('two real PostgreSQL reset transactions serialize without deadlock or parti
     ) ->> 'cached';
   `)
   assert.match(cachedRetry.stdout, /true/)
+
+  await psql(`
+    select set_config('app.demo_reset_skip_communication_sync', 'on', false);
+    delete from public.team_staff
+    where team_id = '30000000-0000-4000-8000-000000000001'
+      and user_id = '10000000-0000-4000-8000-000000000001';
+    delete from public.polls where id = public.demo_reset_uuid('poll:availability');
+
+    create function public.fail_demo_poll_insert()
+    returns trigger language plpgsql as $function$
+    begin
+      if current_setting('test.demo_reset_fail', true) = 'on' then
+        raise exception 'CONTROLLED_DEMO_RESET_FAILURE';
+      end if;
+      return new;
+    end;
+    $function$;
+    create trigger fail_demo_poll_insert before insert on public.polls
+    for each row execute function public.fail_demo_poll_insert();
+  `)
+
+  const partialFingerprint = await psql(`
+    select public.demo_reset_state_fingerprint(
+      '20000000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000001'
+    );
+  `)
+  const partialFingerprintValue = partialFingerprint.stdout.match(/[0-9a-f]{32}/)?.[0]
+  assert.ok(partialFingerprintValue)
+  const failedReset = await psql(`
+    select set_config('test.demo_reset_fail', 'on', false);
+    select public.reset_demo_account_atomic(
+      '10000000-0000-4000-8000-000000000001',
+      '50000000-0000-4000-8000-000000000030'
+    );
+  `, { rejectOnFailure: false })
+
+  assert.notEqual(failedReset.exitCode, 0)
+  assert.match(failedReset.stderr, /CONTROLLED_DEMO_RESET_FAILURE/)
+  assert.doesNotMatch(failedReset.stderr, /deadlock detected/i)
+
+  const rolledBackState = await psql(`
+    select jsonb_build_object(
+      'fingerprint', public.demo_reset_state_fingerprint(
+        '20000000-0000-4000-8000-000000000001',
+        '10000000-0000-4000-8000-000000000001'
+      ),
+      'failed_operations', (
+        select count(*) from public.demo_reset_operations
+        where operation_id = '50000000-0000-4000-8000-000000000030'
+      )
+    );
+  `)
+  assert.match(rolledBackState.stdout, new RegExp(partialFingerprintValue))
+  assert.match(rolledBackState.stdout, /"failed_operations": 0/)
+
+  await psql(`
+    drop trigger fail_demo_poll_insert on public.polls;
+    drop function public.fail_demo_poll_insert();
+  `)
+  const retryAfterFailure = await psql(`
+    select public.reset_demo_account_atomic(
+      '10000000-0000-4000-8000-000000000001',
+      '50000000-0000-4000-8000-000000000030'
+    ) ->> 'success';
+  `)
+  assert.match(retryAfterFailure.stdout, /true/)
 })

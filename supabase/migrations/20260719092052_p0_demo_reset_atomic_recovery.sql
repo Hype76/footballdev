@@ -323,7 +323,7 @@ begin
 end;
 $$;
 
-create or replace function public.reset_demo_account_atomic(
+create or replace function public."reset_demo_account_atomic"(
   p_actor_id uuid,
   p_operation_id uuid
 )
@@ -1698,13 +1698,13 @@ revoke all on function public.demo_reset_state_fingerprint(uuid, uuid) from publ
 revoke all on function public.demo_reset_state_fingerprint(uuid, uuid) from anon;
 revoke all on function public.demo_reset_state_fingerprint(uuid, uuid) from authenticated;
 
-revoke all on function public.reset_demo_account_atomic(uuid, uuid) from public;
-revoke all on function public.reset_demo_account_atomic(uuid, uuid) from anon;
-revoke all on function public.reset_demo_account_atomic(uuid, uuid) from authenticated;
-grant execute on function public.reset_demo_account_atomic(uuid, uuid) to service_role;
+revoke all on function public."reset_demo_account_atomic"(uuid, uuid) from public;
+revoke all on function public."reset_demo_account_atomic"(uuid, uuid) from anon;
+revoke all on function public."reset_demo_account_atomic"(uuid, uuid) from authenticated;
+grant execute on function public."reset_demo_account_atomic"(uuid, uuid) to service_role;
 
 comment on table public.demo_reset_operations is
   'Append-only, privacy-safe audit evidence for the approved public demo reset operation.';
 
-comment on function public.reset_demo_account_atomic(uuid, uuid) is
+comment on function public."reset_demo_account_atomic"(uuid, uuid) is
   'Serialises and atomically reconciles only the approved public demo scope. Service role only.';

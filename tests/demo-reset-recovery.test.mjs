@@ -181,10 +181,10 @@ test('migration and client source enforce serialisation, transaction ownership, 
 
   assert.match(migration, /pg_try_advisory_xact_lock\(hashtextextended\('footballplayer:demo-reset:v1', 0\)\)/)
   assert.match(migration, /language plpgsql\s+security definer\s+set search_path = ''/)
-  assert.match(migration, /revoke all on function public\.reset_demo_account_atomic\(uuid, uuid\) from public/)
-  assert.match(migration, /revoke all on function public\.reset_demo_account_atomic\(uuid, uuid\) from anon/)
-  assert.match(migration, /revoke all on function public\.reset_demo_account_atomic\(uuid, uuid\) from authenticated/)
-  assert.match(migration, /grant execute on function public\.reset_demo_account_atomic\(uuid, uuid\) to service_role/)
+  assert.match(migration, /revoke all on function public\."reset_demo_account_atomic"\(uuid, uuid\) from public/)
+  assert.match(migration, /revoke all on function public\."reset_demo_account_atomic"\(uuid, uuid\) from anon/)
+  assert.match(migration, /revoke all on function public\."reset_demo_account_atomic"\(uuid, uuid\) from authenticated/)
+  assert.match(migration, /grant execute on function public\."reset_demo_account_atomic"\(uuid, uuid\) to service_role/)
   assert.doesNotMatch(migration, /auth\.users\s+(?:set|delete|insert|update)/i)
   assert.doesNotMatch(migration, /insert into public\.(?:scheduled_email_queue|calendar_event_notification_commands|calendar_event_notification_events|match_day_notification_events|communication_logs)/i)
 
