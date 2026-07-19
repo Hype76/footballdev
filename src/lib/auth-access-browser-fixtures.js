@@ -1,5 +1,6 @@
 import { createElement, useState } from 'react'
 import { isParentPortalHost } from './app-origins.js'
+import { DEMO_EMAIL, DEMO_PASSWORD } from './demo.js'
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 import { canSwitchParentToStaff } from './staff-workspace-access.js'
 
@@ -75,6 +76,19 @@ function getProductionShapedStaffOptions(account) {
 }
 
 const fixtureAccounts = {
+  [DEMO_EMAIL]: {
+    password: DEMO_PASSWORD,
+    hasPlatformAdminAccess: false,
+    defaultMode: 'team',
+    teamProfile: makeBaseProfile(DEMO_EMAIL, {
+      name: 'Demo Fixture',
+      role: 'admin',
+      roleLabel: 'Club Admin',
+      roleRank: 80,
+      activeTeamId: '',
+      activeTeamName: '',
+    }),
+  },
   'platform.fixture@footballplayer.test': {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: true,
@@ -404,6 +418,11 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     setMode(nextMode)
     setSelectedTeamId('')
     setAuthError('')
+
+    return {
+      session: makeSession(normalizedEmail),
+      user: makeAuthUser(normalizedEmail),
+    }
   }
 
   const selectAccessMode = async (nextMode, options = {}) => {

@@ -227,6 +227,30 @@ async function prepareParentInvitePage(context) {
   }
 }
 
+async function prepareDemoPage(context, response = { status: 200, body: { success: true } }) {
+  const prepared = await preparePage(context)
+  const resetRequests = []
+
+  await context.route('**/.netlify/functions/reset-demo-account', async (route) => {
+    const request = route.request()
+    resetRequests.push({
+      method: request.method(),
+      headers: request.headers(),
+      body: request.postDataJSON(),
+    })
+    await route.fulfill({
+      status: response.status,
+      contentType: 'application/json',
+      body: JSON.stringify(response.body),
+    })
+  })
+
+  return {
+    ...prepared,
+    getResetRequests: () => resetRequests,
+  }
+}
+
 async function signIn(page, email, baseUrl = mainBaseUrl, access = 'club') {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
@@ -405,6 +429,46 @@ try {
     await assertHeaderContextPanelRemoved(page)
     await assertSidebarWorkspaceControls(page, { accessViewExpected: false })
     await assertSidebarFooterContract(page, { reportIssueExpected: false })
+    await context.close()
+  })
+
+  for (const viewport of [
+    { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
+    { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
+  ]) {
+    await runScenario(`${viewport.name} demo login authenticates before one scoped reset request`, async () => {
+      const context = await browser.newContext(viewport.options)
+      const { getResetRequests, page } = await prepareDemoPage(context)
+      await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+      const demoButton = page.getByRole('button', { name: /^Open demo account$/i })
+      await demoButton.waitFor({ state: 'visible', timeout: 15000 })
+      await demoButton.click()
+      await page.waitForURL('**/coach', { timeout: 15000 })
+      await assertVisibleText(page, 'Club-wide view')
+
+      const resetRequests = getResetRequests()
+      assert.equal(resetRequests.length, 1)
+      assert.equal(resetRequests[0].method, 'POST')
+      assert.match(resetRequests[0].headers.authorization || '', /^Bearer fixture-token-/)
+      assert.deepEqual(Object.keys(resetRequests[0].body).sort(), ['operationId'])
+      assert.match(resetRequests[0].body.operationId, /^[0-9a-f-]{36}$/i)
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+      await context.close()
+    })
+  }
+
+  await runScenario('demo reset failure signs out and keeps the user on sign-in', async () => {
+    const context = await browser.newContext()
+    const { getResetRequests, page } = await prepareDemoPage(context, {
+      status: 409,
+      body: { success: false, code: 'DEMO_RESET_LOCKED', message: 'Demo workspace is being prepared. Try again shortly.' },
+    })
+    await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.getByRole('button', { name: /^Open demo account$/i }).click()
+    await assertVisibleText(page, 'Demo workspace is being prepared. Try again shortly.')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(getResetRequests().length, 1)
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     await context.close()
   })
 

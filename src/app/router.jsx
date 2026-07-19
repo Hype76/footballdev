@@ -40,6 +40,7 @@ import {
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
 import { readLoginAccessIntent } from '../lib/login-access-intent.js'
+import { isDemoResetPending } from '../lib/demo.js'
 import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
 import { WorkspaceSessionBridge } from '../lib/workspace-session-bridge.jsx'
 
@@ -911,6 +912,10 @@ function PublicLandingOrWorkspaceHome() {
     return <LoadingScreen />
   }
 
+  if (isDemoResetPending()) {
+    return <Navigate to="/sign-in" replace />
+  }
+
   if (!session?.user) {
     return isParentHost() ? (
       <ParentSignInRedirect />
@@ -938,6 +943,10 @@ function RequireUser() {
 
   if (isLoading && !session?.user) {
     return <LoadingScreen />
+  }
+
+  if (isDemoResetPending()) {
+    return <Navigate to="/sign-in" replace />
   }
 
   if (!session?.user) {
@@ -1143,7 +1152,7 @@ function PublicOnly() {
     return <LoadingScreen />
   }
 
-  if (session?.user) {
+  if (session?.user && !isDemoResetPending()) {
     if (isParentIntentPath(location.pathname) || isParentInviteSignInIntent(location)) {
       return <Outlet />
     }

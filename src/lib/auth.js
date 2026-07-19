@@ -709,7 +709,7 @@ function RuntimeAuthProvider({ children }) {
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
@@ -724,6 +724,8 @@ function RuntimeAuthProvider({ children }) {
       setAuthError(error.message || 'Login failed.')
       throw error
     }
+
+    return data
   }
 
   const selectClub = async (clubId) => {
