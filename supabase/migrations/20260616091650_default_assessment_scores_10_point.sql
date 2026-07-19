@@ -18,6 +18,11 @@
 --   )) as candidate_score_values
 -- from public.evaluations e;
 
+-- This is the first active-history migration that uses the progression-chart flag.
+-- Establish the archived prerequisite idempotently so a blank rebuild is self-contained.
+alter table public.form_fields
+  add column if not exists include_in_progress_chart boolean not null default false;
+
 alter table public.evaluations
   add column if not exists default_score_scale_version integer not null default 1;
 
