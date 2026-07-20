@@ -8,7 +8,7 @@ export function PlatformFeedbackHero({ isLoading }) {
             Turn tester feedback into a clear product queue.
           </h1>
           <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-            Share one practical football platform improvement, vote on the ideas other clubs need, and use admin responses to see what is planned or complete.
+            Share one practical football platform improvement, vote on ideas from your club, and use admin responses to see what is planned or complete.
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {['One idea per item', 'Votes show demand', 'Admin replies stay visible'].map((rule) => (

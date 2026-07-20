@@ -187,20 +187,16 @@ async function getParentPortalMemberships(authUser) {
   const rows = data ?? []
 
   if (normalizedAuthEmail && rows.some((row) => String(row.email ?? '').trim().toLowerCase() !== normalizedAuthEmail)) {
-    const { data: syncedRows, error: syncError } = await supabase
-      .from('parent_player_links')
-      .update({
-        email: normalizedAuthEmail,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('auth_user_id', authUser.id)
-      .eq('status', 'active')
-      .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email)')
+    const { error: syncError } = await supabase.rpc('update_own_parent_link_email', {
+      new_email: normalizedAuthEmail,
+    })
 
     if (syncError) {
       console.error(syncError)
     } else {
-      rows.splice(0, rows.length, ...(syncedRows ?? []))
+      rows.forEach((row) => {
+        row.email = normalizedAuthEmail
+      })
     }
   }
 

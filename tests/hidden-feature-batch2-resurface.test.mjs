@@ -94,15 +94,9 @@ test('friends and family sharing creates one child scoped pending link and suppo
   assert.match(source, /The link opens the selected child and nothing else\./)
   assert.match(source, /Family members cannot see staff tools, club settings, or another child\./)
 
-  assert.match(domainSource, /\.eq\('parent_link_id', parentLink\.id\)/)
-  assert.match(domainSource, /\.eq\('link_type', 'family'\)/)
-  assert.match(domainSource, /\.eq\('status', 'pending'\)/)
-  assert.match(domainSource, /club_id: parentLink\.clubId/)
-  assert.match(domainSource, /team_id: parentLink\.teamId \|\| null/)
-  assert.match(domainSource, /player_id: parentLink\.playerId/)
-  assert.match(domainSource, /parent_link_id: parentLink\.id/)
-  assert.match(domainSource, /link_type: 'family'/)
-  assert.match(domainSource, /expires_at: new Date\(Date\.now\(\) \+ 24 \* 60 \* 60 \* 1000\)\.toISOString\(\)/)
+  assert.match(domainSource, /supabase\.rpc\('create_own_family_share_link'/)
+  assert.match(domainSource, /target_parent_link_id: parentLink\.id/)
+  assert.doesNotMatch(domainSource, /club_id: parentLink\.clubId/)
 
   assert.match(revokeMigration, /family_link\.link_type = 'family'/i)
   assert.match(revokeMigration, /parent_link\.auth_user_id = auth\.uid\(\)/i)

@@ -121,22 +121,16 @@ export async function updateOwnParentPortalLinksEmail({ authUser, email }) {
     return []
   }
 
-  const { data, error } = await supabase
-    .from('parent_player_links')
-    .update({
-      email: normalizedEmail,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('auth_user_id', authUser.id)
-    .eq('status', 'active')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email)')
+  const { error } = await supabase.rpc('update_own_parent_link_email', {
+    new_email: normalizedEmail,
+  })
 
   if (error) {
     console.error(error)
     throw error
   }
 
-  return (data ?? []).map(normalizeParentLink)
+  return getParentPortalLinks()
 }
 
 export async function prepareParentPortalEmailChange({ email }) {
@@ -518,39 +512,23 @@ export async function createFamilyShareLink({ parentLink }) {
     throw new Error('Choose a child before creating a family link.')
   }
 
-  const nowIso = new Date().toISOString()
-
-  await supabase
-    .from('parent_player_links')
-    .update({
-      status: 'revoked',
-      updated_at: nowIso,
-    })
-    .eq('parent_link_id', parentLink.id)
-    .eq('link_type', 'family')
-    .eq('status', 'pending')
-
-  const { data, error } = await supabase
-    .from('parent_player_links')
-    .insert({
-      club_id: parentLink.clubId,
-      team_id: parentLink.teamId || null,
-      player_id: parentLink.playerId,
-      parent_link_id: parentLink.id,
-      link_type: 'family',
-      status: 'pending',
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    })
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
-    .single()
+  const { data, error } = await supabase.rpc('create_own_family_share_link', {
+    target_parent_link_id: parentLink.id,
+  })
 
   if (error) {
     console.error(error)
     throw error
   }
 
+  const createdLink = Array.isArray(data) ? data[0] : data
+
   return {
-    ...normalizeParentLink(data),
-    inviteUrl: buildInviteUrl(data.invite_token),
+    ...parentLink,
+    ...normalizeParentLink(createdLink),
+    clubName: parentLink.clubName,
+    playerName: parentLink.playerName,
+    teamName: parentLink.teamName,
+    inviteUrl: buildInviteUrl(createdLink?.invite_token),
   }
 }

@@ -38,7 +38,11 @@ function normalizePlatformFeedbackRow(row) {
   const clubRow = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
   const userRow = Array.isArray(row.users) ? row.users[0] : row.users
   const votes = Array.isArray(row.platform_feedback_votes) ? row.platform_feedback_votes : []
-  const commentRows = Array.isArray(row.platform_feedback_comments) ? row.platform_feedback_comments : []
+  const commentRows = Array.isArray(row.platform_feedback_comments)
+    ? row.platform_feedback_comments
+    : Array.isArray(row.comments)
+      ? row.comments
+      : []
   const comments = commentRows.map((comment) => {
     const commentUser = Array.isArray(comment.users) ? comment.users[0] : comment.users
 
@@ -56,7 +60,7 @@ function normalizePlatformFeedbackRow(row) {
   return {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
-    clubName: String(clubRow?.name ?? row.clubName ?? '').trim(),
+    clubName: String(clubRow?.name ?? row.club_name ?? row.clubName ?? '').trim(),
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
     createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? userRow?.email ?? '').trim(),
@@ -80,31 +84,15 @@ export async function getPlatformFeedback(user) {
   }
 
   const cacheKey = user.role === 'super_admin' ? 'platform-feedback:admin' : `platform-feedback:${user.id}:${user.clubId || 'platform'}`
-  const selectFields =
-    user.role === 'super_admin'
-      ? 'id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, created_by_email, message, created_at, users:created_by (email))'
-      : 'id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, created_by_email, message, created_at, users:created_by (email))'
-
   return getCachedResource(cacheKey, async () => {
-    const { data, error } = await supabase
-      .from('platform_feedback')
-      .select(selectFields)
-      .order('created_at', { ascending: false })
+    const { data, error } = await supabase.rpc('list_platform_feedback')
 
     if (error) {
       console.error(error)
       throw error
     }
 
-    return (data ?? []).map((row) => {
-      const votes = Array.isArray(row.platform_feedback_votes) ? row.platform_feedback_votes : []
-
-      return normalizePlatformFeedbackRow({
-        ...row,
-        vote_count: votes.length,
-        has_voted: votes.some((vote) => String(vote.user_id) === String(user.id)),
-      })
-    })
+    return (data ?? []).map(normalizePlatformFeedbackRow)
   })
 }
 
@@ -236,17 +224,12 @@ export async function votePlatformFeedback({ user, feedbackId }) {
     throw new Error('Feedback and user are required.')
   }
 
-  const { error } = await supabase.from('platform_feedback_votes').upsert(
-    {
-      feedback_id: feedbackId,
-      user_id: user.id,
-    },
-    {
-      onConflict: 'feedback_id,user_id',
-    },
-  )
+  const { error } = await supabase.from('platform_feedback_votes').insert({
+    feedback_id: feedbackId,
+    user_id: user.id,
+  })
 
-  if (error) {
+  if (error && error.code !== '23505') {
     console.error(error)
     throw error
   }
