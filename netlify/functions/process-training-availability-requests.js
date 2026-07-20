@@ -5,7 +5,6 @@ import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
-import { rejectDirectScheduledFunctionRequest } from './lib/_processor-auth.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -661,12 +660,6 @@ export async function processTrainingAvailabilityRequests(event = {}) {
 }
 
 export async function handler(event) {
-  const rejectedResponse = rejectDirectScheduledFunctionRequest(event)
-
-  if (rejectedResponse) {
-    return rejectedResponse
-  }
-
   try {
     return jsonResponse(200, await processTrainingAvailabilityRequests(event))
   } catch (error) {

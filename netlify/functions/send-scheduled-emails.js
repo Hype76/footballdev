@@ -1,17 +1,10 @@
 import { processScheduledEmails } from './process-scheduled-emails.js'
-import { rejectDirectScheduledFunctionRequest } from './lib/_processor-auth.js'
 
 export const config = {
   schedule: '* * * * *',
 }
 
-export async function handler(event = {}) {
-  const rejectedResponse = rejectDirectScheduledFunctionRequest(event)
-
-  if (rejectedResponse) {
-    return rejectedResponse
-  }
-
+export async function handler() {
   const result = await processScheduledEmails()
 
   return {

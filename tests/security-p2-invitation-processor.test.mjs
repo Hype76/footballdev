@@ -7,10 +7,7 @@ import {
   digestInvitationValue,
   generateInvitationValue,
 } from '../netlify/functions/lib/_club-owner-invitation.js'
-import {
-  authorizeProcessorRequest,
-  rejectDirectScheduledFunctionRequest,
-} from '../netlify/functions/lib/_processor-auth.js'
+import { authorizeProcessorRequest } from '../netlify/functions/lib/_processor-auth.js'
 
 const migrationPath = new URL('../supabase/migrations/20260720150008_p2_club_owner_invitation_processor_authority.sql', import.meta.url)
 const createAccountPath = new URL('../netlify/functions/create-club-owner-account.js', import.meta.url)
@@ -161,13 +158,6 @@ test('server scheduler boundary requires POST JSON with no caller-controlled sco
   }
 })
 
-test('native Netlify schedules reject direct HTTP while allowing platform events', () => {
-  assert.equal(rejectDirectScheduledFunctionRequest({}), null)
-  const rejected = rejectDirectScheduledFunctionRequest({ httpMethod: 'POST' })
-  assert.equal(rejected.statusCode, 404)
-  assert.deepEqual(parseBody(rejected), { success: false, message: 'Not Found' })
-})
-
 test('all equivalent processor paths have a server boundary before work begins', async () => {
   const [scheduled, retry, wrapper, training, netlifyConfig, scheduledDomain] = await Promise.all([
     readFile(processScheduledPath, 'utf8'),
@@ -185,8 +175,10 @@ test('all equivalent processor paths have a server boundary before work begins',
 
   assert.ok(scheduledHandler.indexOf('authorizeProcessorRequest(event)') < scheduledHandler.indexOf('processScheduledEmails()'))
   assert.ok(retryHandler.indexOf('authorizeProcessorRequest(event)') < retryHandler.indexOf('getMissingEnvVars()'))
-  assert.ok(wrapperHandler.indexOf('rejectDirectScheduledFunctionRequest(event)') < wrapperHandler.indexOf('processScheduledEmails()'))
-  assert.ok(trainingHandler.indexOf('rejectDirectScheduledFunctionRequest(event)') < trainingHandler.indexOf('processTrainingAvailabilityRequests(event)'))
+  assert.ok(wrapperHandler.indexOf('processScheduledEmails()') >= 0)
+  assert.ok(trainingHandler.indexOf('processTrainingAvailabilityRequests(event)') >= 0)
+  assert.doesNotMatch(wrapperHandler, /authorizeProcessorRequest|rejectDirectScheduledFunctionRequest/)
+  assert.doesNotMatch(trainingHandler, /authorizeProcessorRequest|rejectDirectScheduledFunctionRequest/)
   assert.match(scheduled, /\.limit\(25\)/)
   assert.match(netlifyConfig, /\[functions\."send-scheduled-emails"\][\s\S]*schedule = "\* \* \* \* \*"/)
   assert.match(netlifyConfig, /\[functions\."process-training-availability-requests"\][\s\S]*schedule = "\*\/15 \* \* \* \*"/)

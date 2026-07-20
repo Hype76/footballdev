@@ -93,12 +93,3 @@ export function authorizeProcessorRequest(event = {}, {
 
   return { ok: true, body }
 }
-
-export function rejectDirectScheduledFunctionRequest(event = {}) {
-  if (!event.httpMethod) {
-    return null
-  }
-
-  console.warn('Scheduled function HTTP request rejected', { reason: 'platform_schedule_required' })
-  return jsonResponse(404, { success: false, message: 'Not Found' })
-}
