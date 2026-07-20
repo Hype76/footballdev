@@ -1,8 +1,5 @@
 import { supabase } from '../supabase-client.js'
 
-let lastQueueProcessAt = 0
-let queueProcessPromise = null
-
 function shouldSkipNetlifyFunctionRequest() {
   if (typeof window === 'undefined') {
     return false
@@ -59,51 +56,6 @@ export async function processCalendarNotificationDelivery({
     commandId: normalizedCommandId,
     teamId: user?.activeTeamId,
   })
-}
-
-export async function processDueScheduledEmails({ force = false } = {}) {
-  if (shouldSkipNetlifyFunctionRequest()) {
-    return null
-  }
-
-  const now = Date.now()
-
-  if (!force && now - lastQueueProcessAt < 45000) {
-    return null
-  }
-
-  if (queueProcessPromise) {
-    return queueProcessPromise
-  }
-
-  lastQueueProcessAt = now
-  queueProcessPromise = fetch('/.netlify/functions/process-scheduled-emails', {
-    method: 'POST',
-  })
-    .then(async (response) => {
-      const result = await response.json().catch(() => ({}))
-
-      if (response.status === 404) {
-        return null
-      }
-
-      if (!response.ok || result.success === false) {
-        const error = new Error(result.message || 'Scheduled emails could not be processed.')
-        error.status = response.status
-        throw error
-      }
-
-      if ((result.sent || result.duplicate || result.failed) > 0) {
-        window.dispatchEvent(new Event('scheduled-email-queue-changed'))
-      }
-
-      return result
-    })
-    .finally(() => {
-      queueProcessPromise = null
-    })
-
-  return queueProcessPromise
 }
 
 export async function getScheduledEmails({ silentUnavailable = false, user }) {

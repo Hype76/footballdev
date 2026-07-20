@@ -88,7 +88,7 @@ function createMockSupabase({
   }
   const invite = {
     id: '22222222-2222-4222-8222-222222222222',
-    invite_token: '33333333-3333-4333-8333-333333333333',
+    expiresAt: '2026-07-03T09:00:00.000Z',
   }
 
   class Query {
@@ -174,6 +174,11 @@ function createMockSupabase({
       from: (table) => new Query(table),
       rpc: async (name, payload) => {
         calls.push({ action: 'rpc', name, payload })
+
+        if (name === 'create_club_owner_invite_v2') {
+          return inviteError ? { data: null, error: inviteError } : { data: invite, error: null }
+        }
+
         return { data: null, error: roleSeedError }
       },
     },
@@ -437,10 +442,10 @@ test('createPlatformClubResult reports configuration error and keeps invite link
   assert.equal(parsed.body.invite.deliveryPolicy, 'production')
   assert.equal(parsed.body.invite.deliveryReason, 'missing_email_configuration')
   assert.match(parsed.body.invite.deliveryMessage, /production email is not configured/)
-  assert.match(parsed.body.invite.url, /\/club-invite\//)
+  assert.match(parsed.body.invite.url, /\/club-invite#token=/)
   assert.match(parsed.body.warning, /production email is not configured/)
   assert.equal(mock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), true)
-  assert.equal(mock.calls.some((call) => call.table === 'club_owner_invites' && call.action === 'insert'), true)
+  assert.equal(mock.calls.some((call) => call.name === 'create_club_owner_invite_v2'), true)
 })
 
 test('createPlatformClubResult preserves manual invite link when email provider rejects the send', async () => {
@@ -465,7 +470,7 @@ test('createPlatformClubResult preserves manual invite link when email provider 
   assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
   assert.equal(parsed.body.invite.deliveryReason, 'provider_rejected')
-  assert.match(parsed.body.invite.url, /\/club-invite\//)
+  assert.match(parsed.body.invite.url, /\/club-invite#token=/)
   assert.match(parsed.body.warning, /could not be sent/)
 })
 
@@ -491,7 +496,7 @@ test('createPlatformClubResult represents provider timeouts as failed delivery w
   assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
   assert.equal(parsed.body.invite.deliveryReason, 'provider_timeout')
-  assert.match(parsed.body.invite.url, /\/club-invite\//)
+  assert.match(parsed.body.invite.url, /\/club-invite#token=/)
   assert.match(parsed.body.warning, /could not be sent/)
 })
 

@@ -1,23 +1,27 @@
 import { createSupabaseAdminClient } from './lib/_supabase.js'
+import {
+  digestInvitationValue,
+  getBearerToken,
+  normalizeInvitationValue,
+} from './lib/_club-owner-invitation.js'
 
 function jsonResponse(statusCode, payload) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
     body: JSON.stringify(payload),
   }
 }
 
-function failureResponse(statusCode, message) {
-  return jsonResponse(statusCode, { success: false, message })
+function failureResponse(statusCode, message, code = 'invitation_not_permitted') {
+  return jsonResponse(statusCode, { success: false, code, message })
 }
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
-}
-
-function isValidEmail(value) {
-  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(String(value ?? '').trim())
 }
 
 function getDisplayName(email) {
@@ -33,10 +37,7 @@ async function findAuthUserByEmail(supabaseAdmin, email) {
   let page = 1
 
   while (page <= 20) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-      page,
-      perPage: 1000,
-    })
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 })
 
     if (error) {
       throw error
@@ -58,27 +59,47 @@ async function findAuthUserByEmail(supabaseAdmin, email) {
   return null
 }
 
-async function getInvite(supabaseAdmin, token) {
+async function getInvite(supabaseAdmin, tokenDigest) {
   const { data, error } = await supabaseAdmin
     .from('club_owner_invites')
-    .select('id, club_id, invited_email, billing_mode, plan_key, expires_at, accepted_at, status, clubs:club_id (name, plan_status, is_plan_comped)')
-    .eq('invite_token', token)
+    .select('id, club_id, invited_email, billing_mode, plan_key, expires_at, accepted_at, accepted_user_id, revoked_at, replaced_at, status')
+    .eq('token_digest', tokenDigest)
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('This club invite could not be found.'), { statusCode: 404 })
+    throw Object.assign(new Error('Club invite could not be accepted.'), { statusCode: 404 })
   }
 
-  if (data.accepted_at || data.status === 'accepted') {
-    throw Object.assign(new Error('This club invite has already been accepted.'), { statusCode: 409 })
+  return data
+}
+
+function isActiveInvite(invite) {
+  return invite.status === 'pending'
+    && !invite.accepted_at
+    && !invite.revoked_at
+    && !invite.replaced_at
+    && (!invite.expires_at || new Date(invite.expires_at).getTime() > Date.now())
+}
+
+async function proveBearerIdentity(supabaseAdmin, event) {
+  const bearerToken = getBearerToken(event)
+
+  if (!bearerToken) {
+    return null
   }
 
-  if (data.status === 'cancelled') {
-    throw Object.assign(new Error('This club invite has been cancelled.'), { statusCode: 410 })
-  }
+  const { data, error } = await supabaseAdmin.auth.getUser(bearerToken)
+  return error ? null : data?.user || null
+}
 
-  if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-    throw Object.assign(new Error('This club invite has expired. Ask Football Player to send a new invite.'), { statusCode: 410 })
+async function acceptInviteTransaction(supabaseAdmin, tokenDigest, authUserId) {
+  const { data, error } = await supabaseAdmin.rpc('accept_club_owner_invite_v2', {
+    p_token_digest: tokenDigest,
+    p_auth_user_id: authUserId,
+  })
+
+  if (error || !data?.completed) {
+    throw error || new Error('Club owner invitation acceptance failed.')
   }
 
   return data
@@ -86,69 +107,79 @@ async function getInvite(supabaseAdmin, token) {
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
-    return failureResponse(405, 'Method Not Allowed')
+    return failureResponse(405, 'Method Not Allowed', 'method_not_allowed')
   }
 
+  const contentType = String(event.headers?.['content-type'] || event.headers?.['Content-Type'] || '').toLowerCase()
+
+  if (!contentType.startsWith('application/json')) {
+    return failureResponse(415, 'Unsupported Media Type', 'unsupported_media_type')
+  }
+
+  let createdAuthUserId = ''
+  let supabaseAdmin = null
+
   try {
-    const supabaseAdmin = createSupabaseAdminClient(event)
     const body = JSON.parse(event.body || '{}')
-    const token = String(body.token ?? '').trim()
-    const email = normalizeEmail(body.email)
+    const token = normalizeInvitationValue(body.token)
     const password = String(body.password ?? '')
 
     if (!token) {
-      return failureResponse(400, 'Club invite token is required.')
+      return failureResponse(400, 'Club invite could not be accepted.')
     }
 
-    if (!isValidEmail(email)) {
-      return failureResponse(400, 'Enter a valid email address.')
+    supabaseAdmin = createSupabaseAdminClient(event)
+    const tokenDigest = digestInvitationValue(token)
+    const invite = await getInvite(supabaseAdmin, tokenDigest)
+    const invitedEmail = normalizeEmail(invite.invited_email)
+    const provenUser = await proveBearerIdentity(supabaseAdmin, event)
+
+    if (invite.status === 'accepted' && invite.accepted_user_id) {
+      if (!provenUser || provenUser.id !== invite.accepted_user_id || normalizeEmail(provenUser.email) !== invitedEmail) {
+        return failureResponse(409, 'Club invite is no longer available.', 'invitation_not_available')
+      }
+
+      const accepted = await acceptInviteTransaction(supabaseAdmin, tokenDigest, provenUser.id)
+      return jsonResponse(200, {
+        success: true,
+        idempotent: Boolean(accepted.idempotent),
+        email: invitedEmail,
+        billingMode: invite.billing_mode === 'unpaid' ? 'unpaid' : 'paid',
+        redirectPath: invite.billing_mode === 'paid' ? '/billing' : '/club-settings',
+      })
     }
 
-    if (password.length < 8) {
-      return failureResponse(400, 'Create a password with at least 8 characters.')
+    if (!isActiveInvite(invite)) {
+      return failureResponse(410, 'Club invite is no longer available.', 'invitation_not_available')
     }
 
-    const invite = await getInvite(supabaseAdmin, token)
-    const displayName = getDisplayName(email)
+    const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, invitedEmail)
     let ownerUserId = ''
-    const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email)
 
     if (existingAuthUser?.id) {
-      const { data: existingProfile, error: existingProfileError } = await supabaseAdmin
-        .from('users')
-        .select('id, club_id, role')
-        .eq('id', existingAuthUser.id)
-        .maybeSingle()
-
-      if (existingProfileError) {
-        return failureResponse(400, existingProfileError.message)
-      }
-
-      if (existingProfile?.club_id && existingProfile.club_id !== invite.club_id && existingProfile.role !== 'super_admin') {
-        return failureResponse(409, 'This email is already linked to another club workspace.')
-      }
-
-      const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(existingAuthUser.id, {
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          ...(existingAuthUser.user_metadata || {}),
-          username: existingAuthUser.user_metadata?.username || displayName,
-          name: existingAuthUser.user_metadata?.name || displayName,
-          display_name: existingAuthUser.user_metadata?.display_name || displayName,
-          account_type: 'club_admin',
-        },
-      })
-
-      if (updateAuthError) {
-        return failureResponse(400, updateAuthError.message)
+      if (!provenUser
+        || provenUser.id !== existingAuthUser.id
+        || normalizeEmail(provenUser.email) !== invitedEmail) {
+        return failureResponse(
+          409,
+          'Sign in with the invited account to continue.',
+          'existing_account_authentication_required',
+        )
       }
 
       ownerUserId = existingAuthUser.id
     } else {
+      if (provenUser) {
+        return failureResponse(403, 'Club invite could not be accepted.')
+      }
+
+      if (password.length < 8) {
+        return failureResponse(400, 'Create a password with at least 8 characters.', 'invalid_password')
+      }
+
+      const displayName = getDisplayName(invitedEmail)
       const { data: createdAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: invitedEmail,
         password,
         email_confirm: true,
         user_metadata: {
@@ -160,109 +191,50 @@ export async function handler(event) {
       })
 
       if (createAuthError) {
-        if (!isExistingUserError(createAuthError)) {
-          return failureResponse(400, createAuthError.message)
+        if (isExistingUserError(createAuthError)) {
+          return failureResponse(
+            409,
+            'Sign in with the invited account to continue.',
+            'existing_account_authentication_required',
+          )
         }
 
-        const foundAuthUser = await findAuthUserByEmail(supabaseAdmin, email)
-
-        if (!foundAuthUser?.id) {
-          return failureResponse(400, 'This email already exists but could not be linked.')
-        }
-
-        ownerUserId = foundAuthUser.id
-      } else {
-        ownerUserId = createdAuthUser?.user?.id || ''
+        return failureResponse(400, 'Club admin account could not be created.', 'account_creation_failed')
       }
+
+      createdAuthUserId = createdAuthUser?.user?.id || ''
+      ownerUserId = createdAuthUserId
     }
 
     if (!ownerUserId) {
-      return failureResponse(400, 'Could not create club admin auth user.')
+      return failureResponse(400, 'Club admin account could not be created.', 'account_creation_failed')
     }
 
-    const profile = {
-      id: ownerUserId,
-      email,
-      username: displayName,
-      name: displayName,
-      role: 'admin',
-      role_label: 'Club Admin',
-      role_rank: 90,
-      club_id: invite.club_id,
-      force_password_change: false,
-      status: 'active',
-    }
-
-    const { error: profileError } = await supabaseAdmin
-      .from('users')
-      .upsert(profile, { onConflict: 'id' })
-
-    if (profileError) {
-      return failureResponse(400, profileError.message)
-    }
-
-    const { error: membershipError } = await supabaseAdmin
-      .from('user_club_memberships')
-      .upsert(
-        {
-          auth_user_id: ownerUserId,
-          email,
-          username: displayName,
-          name: displayName,
-          role: 'admin',
-          role_label: 'Club Admin',
-          role_rank: 90,
-          club_id: invite.club_id,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'auth_user_id,club_id' },
-      )
-
-    if (membershipError) {
-      return failureResponse(400, membershipError.message)
-    }
-
-    const { error: inviteUpdateError } = await supabaseAdmin
-      .from('club_owner_invites')
-      .update({
-        accepted_at: new Date().toISOString(),
-        accepted_email: email,
-        status: 'accepted',
-      })
-      .eq('id', invite.id)
-
-    if (inviteUpdateError) {
-      return failureResponse(400, inviteUpdateError.message)
-    }
-
-    await supabaseAdmin
-      .from('audit_logs')
-      .insert({
-        club_id: invite.club_id,
-        actor_id: ownerUserId,
-        actor_name: displayName,
-        actor_email: email,
-        actor_role_label: 'Club Admin',
-        actor_role_rank: 90,
-        action: 'club_owner_invite_accepted',
-        entity_type: 'club_owner_invite',
-        entity_id: invite.id,
-        metadata: {
-          invitedEmail: normalizeEmail(invite.invited_email),
-          acceptedEmail: email,
-          billingMode: invite.billing_mode,
-          planKey: invite.plan_key,
-        },
-      })
+    const accepted = await acceptInviteTransaction(supabaseAdmin, tokenDigest, ownerUserId)
+    createdAuthUserId = ''
 
     return jsonResponse(200, {
       success: true,
-      email,
+      idempotent: Boolean(accepted.idempotent),
+      email: invitedEmail,
       billingMode: invite.billing_mode === 'unpaid' ? 'unpaid' : 'paid',
       redirectPath: invite.billing_mode === 'paid' ? '/billing' : '/club-settings',
     })
   } catch (error) {
-    console.error(error)
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Club admin account could not be created.')
+    const isDefinitiveDatabaseRejection = /^[0-9A-Z]{5}$/.test(String(error?.code || ''))
+
+    if (createdAuthUserId && supabaseAdmin && isDefinitiveDatabaseRejection) {
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId)
+
+      if (deleteError) {
+        console.error('Club owner account compensation failed', { code: deleteError.code || 'unknown' })
+      }
+    }
+
+    console.error('Club owner invitation acceptance failed', {
+      code: error?.code || 'unknown',
+      statusCode: error?.statusCode || 500,
+    })
+    return failureResponse(error?.statusCode || 400, 'Club invite could not be accepted.')
   }
 }

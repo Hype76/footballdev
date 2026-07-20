@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { authorizeProcessorRequest } from './lib/_processor-auth.js'
 import { markEmailLogFailed } from './lib/_email-log-store.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
@@ -346,7 +347,7 @@ export async function processScheduledEmails() {
   if (missingEnvVars.length > 0) {
     return {
       statusCode: 500,
-      payload: { success: false, message: `Missing required environment variables: ${missingEnvVars.join(', ')}` },
+      payload: { success: false, message: 'Scheduled email processor is not configured.' },
     }
   }
 
@@ -387,8 +388,10 @@ export async function processScheduledEmails() {
 }
 
 export async function handler(event) {
-  if (event.httpMethod && event.httpMethod !== 'POST') {
-    return jsonResponse(405, { success: false, message: 'Method Not Allowed' })
+  const authorization = authorizeProcessorRequest(event)
+
+  if (!authorization.ok) {
+    return authorization.response
   }
 
   const result = await processScheduledEmails()

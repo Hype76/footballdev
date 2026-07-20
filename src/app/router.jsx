@@ -1419,6 +1419,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/club-invite',
+    element: (
+      <Suspense fallback={null}>
+        <ClubOwnerInvitePage />
+      </Suspense>
+    ),
+  },
+  {
     path: '/club-invite/:token',
     element: (
       <Suspense fallback={null}>

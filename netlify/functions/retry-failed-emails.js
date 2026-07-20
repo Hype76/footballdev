@@ -1,6 +1,7 @@
 import process from 'node:process'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { sendEmail } from './lib/_email-provider.js'
+import { authorizeProcessorRequest } from './lib/_processor-auth.js'
 import {
   getFailedEmailLogs,
   getStoredResendPayload,
@@ -35,14 +36,16 @@ function getMissingEnvVars() {
 }
 
 export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
-    return failureResponse(405, 'Method Not Allowed')
+  const authorization = authorizeProcessorRequest(event)
+
+  if (!authorization.ok) {
+    return authorization.response
   }
 
   const missingEnvVars = getMissingEnvVars()
 
   if (missingEnvVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`)
+    return failureResponse(503, 'Retry processor is not configured.')
   }
 
   const failedEmailLogs = await getFailedEmailLogs()

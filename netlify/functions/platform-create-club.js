@@ -1,6 +1,10 @@
 import process from 'node:process'
-import { randomUUID } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import {
+  buildClubOwnerInviteUrl,
+  digestInvitationValue,
+  generateInvitationValue,
+} from './lib/_club-owner-invitation.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createSupabaseAdminClient, isStagingRequest } from './lib/_supabase.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
@@ -235,8 +239,8 @@ async function getPlatformAdminProfile(supabaseAdmin, event) {
   }
 }
 
-async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteToken, ownerEmail, planKey }) {
-  const inviteUrl = `${baseUrl}/club-invite/${encodeURIComponent(inviteToken)}`
+async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteId, inviteToken, ownerEmail, planKey }) {
+  const inviteUrl = buildClubOwnerInviteUrl(baseUrl, inviteToken)
   const safeClubName = cleanHeaderPart(clubName, 'Football Player')
   const planName = getPlanName(planKey)
   const paymentLine = billingMode === 'paid'
@@ -264,7 +268,7 @@ async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteToke
       emailType: 'club_owner_invite',
       actorEmail: ownerEmail,
       targetEntityType: 'club_owner_invite',
-      targetEntityId: inviteToken,
+      targetEntityId: inviteId,
     },
     publicMessage: 'Club invite email could not be sent. Please try again in a moment.',
   })
@@ -408,7 +412,8 @@ export async function createPlatformClubResult(event, {
     platformAdminRole: platformAdmin.role,
   })
 
-  const inviteToken = randomUUID()
+  const inviteToken = generateInvitationValue()
+  const inviteTokenDigest = digestInvitationValue(inviteToken)
   const now = new Date().toISOString()
   const { data: club, error: clubError } = await supabaseAdmin
     .from('clubs')
@@ -483,18 +488,14 @@ export async function createPlatformClubResult(event, {
     status: 'success',
   })
 
-  const { data: invite, error: inviteError } = await supabaseAdmin
-    .from('club_owner_invites')
-    .insert({
-      club_id: club.id,
-      invited_email: ownerEmail,
-      billing_mode: billingMode,
-      plan_key: planKey,
-      invite_token: inviteToken,
-      created_by: platformAdmin.id,
-    })
-    .select('id, invite_token')
-    .single()
+  const { data: invite, error: inviteError } = await supabaseAdmin.rpc('create_club_owner_invite_v2', {
+    p_club_id: club.id,
+    p_invited_email: ownerEmail,
+    p_billing_mode: billingMode,
+    p_plan_key: planKey,
+    p_token_digest: inviteTokenDigest,
+    p_created_by: platformAdmin.id,
+  })
 
   if (inviteError || !invite?.id) {
     const error = createStepError('owner_invite_insert', inviteError || new Error('Club owner invite could not be created.'), {
@@ -526,7 +527,7 @@ export async function createPlatformClubResult(event, {
   })
 
   const baseUrl = getBaseUrl(event)
-  const inviteUrl = `${baseUrl}/club-invite/${encodeURIComponent(inviteToken)}`
+  const inviteUrl = buildClubOwnerInviteUrl(baseUrl, inviteToken)
   let deliveryStatus = deliveryPolicy.status === 'send' ? 'attempted' : 'skipped'
   let deliveryMessage = deliveryPolicy.message
   let deliveryReason = deliveryPolicy.reason
@@ -555,6 +556,7 @@ export async function createPlatformClubResult(event, {
           baseUrl,
           billingMode,
           clubName: name,
+          inviteId: invite.id,
           inviteToken,
           ownerEmail,
           planKey,
@@ -620,7 +622,6 @@ export async function createPlatformClubResult(event, {
         billingMode,
         planKey,
         inviteId: invite.id,
-        inviteUrl,
         inviteEmailSent: deliveryStatus === 'accepted',
         inviteEmailFailed: deliveryStatus === 'failed' || deliveryStatus === 'configuration_error',
         inviteDeliveryStatus: deliveryStatus,

@@ -5,6 +5,7 @@ import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
+import { rejectDirectScheduledFunctionRequest } from './lib/_processor-auth.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -660,8 +661,10 @@ export async function processTrainingAvailabilityRequests(event = {}) {
 }
 
 export async function handler(event) {
-  if (event.httpMethod && event.httpMethod !== 'POST') {
-    return jsonResponse(405, { success: false, message: 'Method not allowed.' })
+  const rejectedResponse = rejectDirectScheduledFunctionRequest(event)
+
+  if (rejectedResponse) {
+    return rejectedResponse
   }
 
   try {
@@ -672,7 +675,7 @@ export async function handler(event) {
       success: false,
       message: error.publicMessage
         ? getPublicEmailErrorMessage(error, 'Training Availability requests could not be processed.')
-        : error.message || 'Training Availability requests could not be processed.',
+        : 'Training Availability requests could not be processed.',
     })
   }
 }

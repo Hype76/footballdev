@@ -8,10 +8,19 @@ const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function ClubOwnerInvitePage() {
-  const { token } = useParams()
+  const { token: legacyToken } = useParams()
+  const [token] = useState(() => {
+    const hashParameters = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const fragmentToken = hashParameters.get('token') || ''
+
+    if (fragmentToken) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+
+    return fragmentToken || legacyToken || ''
+  })
   const navigate = useNavigate()
   const [invite, setInvite] = useState(null)
-  const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
@@ -29,7 +38,11 @@ export function ClubOwnerInvitePage() {
       setErrorMessage('')
 
       try {
-        const response = await fetch(`/.netlify/functions/get-club-owner-invite?token=${encodeURIComponent(token || '')}`)
+        const response = await fetch('/.netlify/functions/get-club-owner-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        })
         const result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false) {
@@ -38,7 +51,6 @@ export function ClubOwnerInvitePage() {
 
         if (isCurrent) {
           setInvite(result.invite)
-          setEmail(result.invite?.invitedEmail || '')
         }
       } catch (error) {
         console.error(error)
@@ -84,28 +96,48 @@ export function ClubOwnerInvitePage() {
     setIsSaving(true)
 
     try {
-      const response = await fetch('/.netlify/functions/create-club-owner-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          email,
+      async function submitAcceptance(accessToken = '') {
+        const headers = { 'Content-Type': 'application/json' }
+
+        if (accessToken) {
+          headers.Authorization = `Bearer ${accessToken}`
+        }
+
+        const response = await fetch('/.netlify/functions/create-club-owner-account', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ token, password: accessToken ? undefined : password }),
+        })
+
+        return { response, result: await response.json().catch(() => ({})) }
+      }
+
+      let { response, result } = await submitAcceptance()
+
+      if (!response.ok && result.code === 'existing_account_authentication_required') {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: invite.invitedEmail,
           password,
-        }),
-      })
-      const result = await response.json().catch(() => ({}))
+        })
+
+        if (signInError || !signInData.session?.access_token) {
+          throw new Error('Sign in with the invited account password to continue.')
+        }
+
+        ;({ response, result } = await submitAcceptance(signInData.session.access_token))
+      }
 
       if (!response.ok || result.success === false) {
         throw new Error(result.message || 'Club admin account could not be created.')
       }
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: result.email || email,
+        email: result.email || invite.invitedEmail,
         password,
       })
 
       if (signInError) {
-        setSignInEmail(result.email || email)
+        setSignInEmail(result.email || invite.invitedEmail)
         setSuccessMessage('Club admin access created. Sign in to continue setup.')
       } else {
         navigate(result.redirectPath || '/club-settings', { replace: true })
@@ -136,7 +168,7 @@ export function ClubOwnerInvitePage() {
           <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Club setup invite</p>
           <h1 className="text-2xl font-black text-[#101828]">Create club admin access</h1>
           <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Set the login email and password for this club workspace. This creates the first club admin account.
+            Confirm the invited account and create secure club admin access.
           </p>
 
           {isLoading ? (
@@ -168,15 +200,9 @@ export function ClubOwnerInvitePage() {
                 <>
                   <label className="block">
                     <span className="mb-2 block text-sm font-black text-[#101828]">Login email</span>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      required
-                      autoComplete="email"
-                      className={inputClass}
-                      placeholder="club.admin@example.com"
-                    />
+                    <div className={`${inputClass} cursor-not-allowed`} aria-label="Invited login email">
+                      {invite.invitedEmail}
+                    </div>
                   </label>
 
                   <label className="block">
@@ -240,7 +266,7 @@ export function ClubOwnerInvitePage() {
           <aside className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Setup rules</p>
             <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-              <p>Use the email that should own this club workspace.</p>
+              <p>The invitation is locked to the intended account email.</p>
               <p>The account created here becomes the club admin for settings, staff access, teams, and onboarding.</p>
               {isPaidInvite ? (
                 <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
