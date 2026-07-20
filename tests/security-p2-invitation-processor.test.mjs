@@ -7,7 +7,10 @@ import {
   digestInvitationValue,
   generateInvitationValue,
 } from '../netlify/functions/lib/_club-owner-invitation.js'
-import { authorizeProcessorRequest } from '../netlify/functions/lib/_processor-auth.js'
+import {
+  authorizeNativeScheduledRequest,
+  authorizeProcessorRequest,
+} from '../netlify/functions/lib/_processor-auth.js'
 
 const migrationPath = new URL('../supabase/migrations/20260720150008_p2_club_owner_invitation_processor_authority.sql', import.meta.url)
 const createAccountPath = new URL('../netlify/functions/create-club-owner-account.js', import.meta.url)
@@ -158,6 +161,37 @@ test('server scheduler boundary requires POST JSON with no caller-controlled sco
   }
 })
 
+test('native schedules require the protected Netlify event marker and exact payload', async () => {
+  const nextRun = new Date(Date.now() + 60000).toISOString()
+  const scheduledRequest = new Request('https://footballplayer.online/.netlify/functions/send-scheduled-emails', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-netlify-event': 'schedule',
+    },
+    body: JSON.stringify({ next_run: nextRun }),
+  })
+
+  assert.equal((await authorizeNativeScheduledRequest(scheduledRequest)).ok, true)
+
+  const missingMarker = new Request('https://footballplayer.online/.netlify/functions/send-scheduled-emails', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ next_run: nextRun }),
+  })
+  const invalidPayload = new Request('https://footballplayer.online/.netlify/functions/send-scheduled-emails', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-netlify-event': 'schedule',
+    },
+    body: '{}',
+  })
+
+  assert.equal((await authorizeNativeScheduledRequest(missingMarker)).response.status, 404)
+  assert.equal((await authorizeNativeScheduledRequest(invalidPayload)).response.status, 404)
+})
+
 test('all equivalent processor paths have a server boundary before work begins', async () => {
   const [scheduled, retry, wrapper, training, netlifyConfig, scheduledDomain] = await Promise.all([
     readFile(processScheduledPath, 'utf8'),
@@ -175,8 +209,8 @@ test('all equivalent processor paths have a server boundary before work begins',
 
   assert.ok(scheduledHandler.indexOf('authorizeProcessorRequest(event)') < scheduledHandler.indexOf('processScheduledEmails()'))
   assert.ok(retryHandler.indexOf('authorizeProcessorRequest(event)') < retryHandler.indexOf('getMissingEnvVars()'))
-  assert.ok(wrapperHandler.indexOf('processScheduledEmails()') >= 0)
-  assert.ok(trainingHandler.indexOf('processTrainingAvailabilityRequests()') >= 0)
+  assert.ok(wrapperHandler.indexOf('authorizeNativeScheduledRequest(request)') < wrapperHandler.indexOf('processScheduledEmails()'))
+  assert.ok(trainingHandler.indexOf('authorizeNativeScheduledRequest(request)') < trainingHandler.indexOf('processTrainingAvailabilityRequests()'))
   assert.doesNotMatch(wrapperHandler, /authorizeProcessorRequest|rejectDirectScheduledFunctionRequest/)
   assert.doesNotMatch(trainingHandler, /authorizeProcessorRequest|rejectDirectScheduledFunctionRequest/)
   assert.match(wrapper, /export const config = \{[\s\S]*schedule: '\* \* \* \* \*'/)

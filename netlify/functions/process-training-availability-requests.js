@@ -4,6 +4,7 @@ import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
+import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
 
 function normalizeText(value) {
@@ -655,7 +656,13 @@ export const config = {
   schedule: '*/15 * * * *',
 }
 
-export default async function handler() {
+export default async function handler(request) {
+  const authorization = await authorizeNativeScheduledRequest(request)
+
+  if (!authorization.ok) {
+    return authorization.response
+  }
+
   try {
     return Response.json(await processTrainingAvailabilityRequests())
   } catch (error) {

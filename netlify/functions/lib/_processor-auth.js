@@ -93,3 +93,42 @@ export function authorizeProcessorRequest(event = {}, {
 
   return { ok: true, body }
 }
+
+export async function authorizeNativeScheduledRequest(request) {
+  if (!request || request.method !== 'POST') {
+    return {
+      ok: false,
+      response: Response.json({ success: false, message: 'Not Found' }, { status: 404 }),
+    }
+  }
+
+  if (!normalizeText(request.headers?.get?.('x-netlify-event'))) {
+    console.warn('Scheduled function request rejected', { reason: 'platform_schedule_required' })
+    return {
+      ok: false,
+      response: Response.json({ success: false, message: 'Not Found' }, { status: 404 }),
+    }
+  }
+
+  let body
+
+  try {
+    body = await request.json()
+  } catch {
+    body = null
+  }
+
+  const bodyKeys = body && typeof body === 'object' ? Object.keys(body) : []
+  const nextRun = normalizeText(body?.next_run)
+  const nextRunTime = Date.parse(nextRun)
+
+  if (bodyKeys.length !== 1 || bodyKeys[0] !== 'next_run' || !Number.isFinite(nextRunTime)) {
+    console.warn('Scheduled function request rejected', { reason: 'platform_schedule_payload_invalid' })
+    return {
+      ok: false,
+      response: Response.json({ success: false, message: 'Not Found' }, { status: 404 }),
+    }
+  }
+
+  return { ok: true, body }
+}
