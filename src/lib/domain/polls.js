@@ -1,8 +1,6 @@
 import { supabase } from '../supabase-client.js'
 import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
-import { createAuditLog } from './audit.js'
-import { getEntryUserEmail, getEntryUserId, getEntryUserName } from './core-normalizers.js'
 import { sendParentMobilePushNotification } from '../push-notifications.js'
 
 export const POLL_AUDIENCE_OPTIONS = [
@@ -181,36 +179,29 @@ export async function createPoll({ user, poll }) {
   const teamId = String(poll?.teamId ?? '').trim() || null
   const options = normalizeOptions(poll?.options)
   const closesAt = String(poll?.closesAt ?? '').trim() || null
+  const requestId = String(poll?.requestId ?? '').trim() || globalThis.crypto.randomUUID()
 
   if (!title) {
     throw new Error('Poll title is required.')
   }
 
-  const payload = {
-    club_id: user.clubId,
-    team_id: teamId,
-    title,
-    description,
-    audience,
-    poll_type: pollType,
-    options,
-    status: 'open',
-    closes_at: closesAt,
-    allow_multiple: Boolean(poll?.allowMultiple),
-    max_choices: poll?.allowMultiple && Number(poll?.maxChoices ?? 0) > 0 ? Number(poll.maxChoices) : null,
-    allow_own_child_votes: audience === 'parents' ? Boolean(poll?.allowOwnChildVotes ?? true) : true,
-    allow_vote_changes: Boolean(poll?.allowVoteChanges ?? true),
-    hide_votes: Boolean(poll?.hideVotes),
-    allow_comments: Boolean(poll?.allowComments),
-    created_by: getEntryUserId(user),
-    created_by_name: getEntryUserName(user) || getEntryUserEmail(user),
-  }
-
   const { data, error } = await supabase
-    .from('polls')
-    .insert(payload)
-    .select('*, teams:team_id (name), poll_votes (*)')
-    .single()
+    .rpc('create_team_poll', {
+      p_team_id: teamId,
+      p_title: title,
+      p_description: description,
+      p_audience: audience,
+      p_poll_type: pollType,
+      p_options: options,
+      p_closes_at: closesAt,
+      p_allow_multiple: Boolean(poll?.allowMultiple),
+      p_max_choices: poll?.allowMultiple && Number(poll?.maxChoices ?? 0) > 0 ? Number(poll.maxChoices) : null,
+      p_allow_own_child_votes: audience === 'parents' ? Boolean(poll?.allowOwnChildVotes ?? true) : true,
+      p_allow_vote_changes: Boolean(poll?.allowVoteChanges ?? true),
+      p_hide_votes: Boolean(poll?.hideVotes),
+      p_allow_comments: Boolean(poll?.allowComments),
+      p_request_id: requestId,
+    })
 
   if (error) {
     console.error(error)
@@ -225,19 +216,6 @@ export async function createPoll({ user, poll }) {
       type: 'parent_poll',
     })
   }
-  await createAuditLog({
-    user,
-    action: 'poll_created',
-    entityType: 'poll',
-    entityId: data.id,
-    metadata: {
-      audience,
-      pollType,
-      title,
-      teamId,
-    },
-  })
-
   return normalizePoll(data)
 }
 
@@ -246,15 +224,10 @@ export async function updatePollStatus({ user, pollId, status }) {
   assertStaffPollAccess(user)
 
   const { data, error } = await supabase
-    .from('polls')
-    .update({
-      status: normalizeStatus(status),
-      updated_at: new Date().toISOString(),
+    .rpc('set_team_poll_status', {
+      p_poll_id: pollId,
+      p_status: normalizeStatus(status),
     })
-    .eq('id', pollId)
-    .eq('club_id', user.clubId)
-    .select('*, teams:team_id (name), poll_votes (*)')
-    .single()
 
   if (error) {
     console.error(error)
@@ -270,10 +243,9 @@ export async function deletePoll({ user, pollId }) {
   assertStaffPollAccess(user)
 
   const { error } = await supabase
-    .from('polls')
-    .delete()
-    .eq('id', pollId)
-    .eq('club_id', user.clubId)
+    .rpc('delete_team_poll', {
+      p_poll_id: pollId,
+    })
 
   if (error) {
     console.error(error)
@@ -288,108 +260,14 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
   assertStaffPollAccess(user)
 
   const normalizedOptionId = String(optionId ?? '').trim()
-  const normalizedEmail = String(getEntryUserEmail(user) || user.email || user.id || '').trim().toLowerCase()
-
   if (!poll?.id || !normalizedOptionId) {
     throw new Error('Choose an option before voting.')
   }
-
-  if (!normalizedEmail) {
-    throw new Error('Your account email is required before voting.')
-  }
-
-  const { data: existingVote, error: existingError } = await supabase
-    .from('poll_votes')
-    .select('*')
-    .eq('poll_id', poll.id)
-    .eq('voter_email', normalizedEmail)
-    .eq('option_id', normalizedOptionId)
-    .maybeSingle()
-
-  if (existingError) {
-    console.error(existingError)
-    throw existingError
-  }
-
-  if (existingVote?.id) {
-    if (poll.allowVoteChanges === false) {
-      throw new Error('Your vote is locked for this poll.')
-    }
-
-    const { error: deleteError } = await supabase
-      .from('poll_votes')
-      .delete()
-      .eq('id', existingVote.id)
-
-    if (deleteError) {
-      console.error(deleteError)
-      throw deleteError
-    }
-
-    invalidateMemoryCacheByPrefix('polls:')
-    return normalizePollVote(existingVote)
-  }
-
-  if (!poll.allowMultiple) {
-    if (poll.allowVoteChanges === false) {
-      const hasExistingVote = (poll.votes ?? []).some((vote) => String(vote.voterEmail ?? '').trim().toLowerCase() === normalizedEmail)
-
-      if (hasExistingVote) {
-        throw new Error('Your vote is locked for this poll.')
-      }
-    }
-
-    const { error: deleteExistingError } = await supabase
-      .from('poll_votes')
-      .delete()
-      .eq('poll_id', poll.id)
-      .eq('voter_email', normalizedEmail)
-
-    if (deleteExistingError) {
-      console.error(deleteExistingError)
-      throw deleteExistingError
-    }
-  } else {
-    if (poll.allowVoteChanges === false) {
-      const hasExistingVote = (poll.votes ?? []).some((vote) => String(vote.voterEmail ?? '').trim().toLowerCase() === normalizedEmail)
-
-      if (hasExistingVote) {
-        throw new Error('Your vote is locked for this poll.')
-      }
-    }
-
-    if (Number(poll.maxChoices ?? 0) > 0) {
-      const { count, error: countError } = await supabase
-        .from('poll_votes')
-        .select('id', { count: 'exact', head: true })
-        .eq('poll_id', poll.id)
-        .eq('voter_email', normalizedEmail)
-
-      if (countError) {
-        console.error(countError)
-        throw countError
-      }
-
-      if (Number(count ?? 0) >= Number(poll.maxChoices)) {
-        throw new Error(`You can only choose ${poll.maxChoices} option(s) for this poll.`)
-      }
-    }
-  }
-
   const { data, error } = await supabase
-    .from('poll_votes')
-    .insert({
-      poll_id: poll.id,
-      club_id: user.clubId,
-      team_id: poll.teamId || null,
-      auth_user_id: user.id,
-      voter_email: normalizedEmail,
-      voter_name: getEntryUserName(user),
-      option_id: normalizedOptionId,
-      updated_at: new Date().toISOString(),
+    .rpc('submit_staff_poll_vote', {
+      p_poll_id: poll.id,
+      p_option_id: normalizedOptionId,
     })
-    .select('*')
-    .single()
 
   if (error) {
     console.error(error)
@@ -397,7 +275,7 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
   }
 
   invalidateMemoryCacheByPrefix('polls:')
-  return normalizePollVote(data)
+  return data
 }
 
 export async function getParentPortalPolls({ parentLinkId }) {

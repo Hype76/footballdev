@@ -9,14 +9,8 @@ export async function seedDefaultFormFields() {
   }
 }
 
-export async function seedDefaultClubRolesForClub(clubId) {
-  if (!clubId) {
-    return
-  }
-
-  const { error } = await supabase.rpc('seed_default_club_roles', {
-    target_club_id: clubId,
-  })
+export async function seedDefaultClubRolesForClub() {
+  const { error } = await supabase.rpc('seed_default_club_roles')
 
   if (error) {
     console.error(error)

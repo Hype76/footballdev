@@ -1008,11 +1008,11 @@ export async function createMatchDay({ user, match }) {
     throw new Error('Choose a team before sharing this fixture with all team parents.')
   }
 
-  const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location', {
-    club_id_value: user.clubId,
-    name_value: venueName,
-    address_value: venueAddress,
-    notes_value: '',
+  const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
+    p_team_id: teamId,
+    p_name: venueName,
+    p_address: venueAddress,
+    p_notes: '',
   })
 
   if (locationError) {
@@ -1148,11 +1148,11 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.phaseStartedAt !== undefined) payload.phase_started_at = updates.phaseStartedAt || null
 
   if (payload.venue_name) {
-    const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location', {
-      club_id_value: user.clubId,
-      name_value: payload.venue_name,
-      address_value: payload.venue_address ?? '',
-      notes_value: '',
+    const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
+      p_team_id: previousSnapshot?.teamId || user.activeTeamId,
+      p_name: payload.venue_name,
+      p_address: payload.venue_address ?? '',
+      p_notes: '',
     })
 
     if (locationError) {

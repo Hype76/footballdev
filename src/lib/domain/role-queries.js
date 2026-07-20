@@ -16,8 +16,6 @@ import {
   getDefaultClubRoles,
 } from './core-defaults.js'
 import {
-  getEntryIdentity,
-  getEntryUserId,
   normalizeRoleKey,
   normalizeWords,
 } from './core-normalizers.js'
@@ -57,7 +55,7 @@ export async function getClubRoles(user) {
   let roles = await loadRoles()
 
   if (roles.length === 0) {
-    if (isDemoAccountValue(user)) {
+    if (isDemoAccountValue(user) || user.role !== 'admin') {
       return getDefaultClubRoles().map((role) => ({
         id: role.key,
         clubId: user.clubId,
@@ -68,7 +66,7 @@ export async function getClubRoles(user) {
       }))
     }
 
-    await seedDefaultClubRolesForClub(user.clubId)
+    await seedDefaultClubRolesForClub()
     roles = await loadRoles()
   }
 
@@ -87,25 +85,11 @@ export async function createClubRole({ user, label, rank = 10 }) {
   const roleRank = Number(rank)
 
   const { data, error } = await supabase
-    .from('club_roles')
-    .upsert(
-      {
-        club_id: user.clubId,
-        role_key: roleKey,
-        role_label: roleLabel,
-        role_rank: Number.isNaN(roleRank) ? 10 : roleRank,
-        is_system: false,
-        created_by: getEntryUserId(user),
-        ...getEntryIdentity(user),
-        updated_by: getEntryUserId(user),
-        ...getEntryIdentity(user, 'updated_by'),
-      },
-      {
-        onConflict: 'club_id,role_key',
-      },
-    )
-    .select('*')
-    .single()
+    .rpc('create_club_role', {
+      p_role_key: roleKey,
+      p_role_label: roleLabel,
+      p_role_rank: Number.isNaN(roleRank) ? 10 : roleRank,
+    })
 
   if (error) {
     console.error(error)

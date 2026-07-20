@@ -458,8 +458,10 @@ export async function createPlatformClubResult(event, {
     status: 'success',
   })
 
-  const { error: roleSeedError } = await supabaseAdmin.rpc('seed_default_club_roles', {
-    target_club_id: club.id,
+  const { error: roleSeedError } = await supabaseAdmin.rpc('seed_default_club_roles_for_actor', {
+    p_target_club_id: club.id,
+    p_actor_id: platformAdmin.id,
+    p_workflow: 'platform_create_club',
   })
 
   if (roleSeedError) {

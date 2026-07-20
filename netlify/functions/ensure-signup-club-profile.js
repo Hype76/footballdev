@@ -310,9 +310,11 @@ async function getFirstInvite(authUser) {
   return data
 }
 
-async function seedDefaultClubRoles(clubId) {
-  const { error } = await supabaseAdmin.rpc('seed_default_club_roles', {
-    target_club_id: clubId,
+async function seedDefaultClubRoles(clubId, actorId) {
+  const { error } = await supabaseAdmin.rpc('seed_default_club_roles_for_actor', {
+    p_target_club_id: clubId,
+    p_actor_id: actorId,
+    p_workflow: 'signup_workspace',
   })
 
   if (error) {
@@ -605,8 +607,6 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
     await markTesterAccessCodeRedeemed(testerAccessCode)
   }
 
-  await seedDefaultClubRoles(club.id)
-
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('users')
     .upsert(
@@ -657,6 +657,8 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
   if (membershipError) {
     throw membershipError
   }
+
+  await seedDefaultClubRoles(club.id, authUser.id)
 
   return { profile, club }
 }
