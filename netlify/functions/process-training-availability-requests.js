@@ -6,14 +6,6 @@ import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
 
-function jsonResponse(statusCode, payload) {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }
-}
-
 function normalizeText(value) {
   return String(value ?? '').trim()
 }
@@ -659,16 +651,20 @@ export async function processTrainingAvailabilityRequests(event = {}) {
   return { success: true, ...summary }
 }
 
-export async function handler(event) {
+export const config = {
+  schedule: '*/15 * * * *',
+}
+
+export default async function handler() {
   try {
-    return jsonResponse(200, await processTrainingAvailabilityRequests(event))
+    return Response.json(await processTrainingAvailabilityRequests())
   } catch (error) {
     console.error(error)
-    return jsonResponse(error.statusCode || 500, {
+    return Response.json({
       success: false,
       message: error.publicMessage
         ? getPublicEmailErrorMessage(error, 'Training Availability requests could not be processed.')
         : 'Training Availability requests could not be processed.',
-    })
+    }, { status: error.statusCode || 500 })
   }
 }

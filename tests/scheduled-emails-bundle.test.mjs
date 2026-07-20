@@ -23,7 +23,8 @@ test('scheduled email wrapper delegates to the shared processor without changing
 
   assert.match(wrapper, /import \{ processScheduledEmails \} from '\.\/process-scheduled-emails\.js'/)
   assert.match(wrapper, /await processScheduledEmails\(\)/)
-  assert.doesNotMatch(wrapper, /export\s+default/)
+  assert.match(wrapper, /export\s+default\s+async\s+function\s+handler/)
+  assert.match(wrapper, /export const config = \{[\s\S]*schedule: '\* \* \* \* \*'/)
   assert.match(processor, /\.from\('scheduled_email_queue'\)/)
   assert.match(processor, /sendPreparedParentEmail/)
   assert.match(processor, /sendParentMobilePushById/)
