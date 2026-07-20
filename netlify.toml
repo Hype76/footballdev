@@ -28,12 +28,6 @@
 [context.deploy-preview.environment]
   VITE_PAYMENTS_DISABLED = "true"
 
-[functions."send-scheduled-emails"]
-  schedule = "* * * * *"
-
-[functions."process-training-availability-requests"]
-  schedule = "*/15 * * * *"
-
 [[redirects]]
   from = "/supabase/*"
   to = "/404"

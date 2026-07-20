@@ -8,6 +8,7 @@ const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const parentPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const goalStateUrl = new URL('../src/lib/matchday-goal-state.js', import.meta.url)
 const netlifyTomlUrl = new URL('../netlify.toml', import.meta.url)
+const scheduledEmailUrl = new URL('../netlify/functions/send-scheduled-emails.js', import.meta.url)
 const safetyScriptUrl = new URL('../scripts/netlify-deploy-safety-check.mjs', import.meta.url)
 
 test('goal correction migration adds correction metadata without direct event delete policies', async () => {
@@ -129,10 +130,14 @@ test('local goal correction state replaces goal rows and keeps correction histor
 })
 
 test('scheduled email hotfix and production ref safety markers stay present', async () => {
-  const netlifyToml = await readFile(netlifyTomlUrl, 'utf8')
-  const safetyScript = await readFile(safetyScriptUrl, 'utf8')
+  const [netlifyToml, scheduledEmail, safetyScript] = await Promise.all([
+    readFile(netlifyTomlUrl, 'utf8'),
+    readFile(scheduledEmailUrl, 'utf8'),
+    readFile(safetyScriptUrl, 'utf8'),
+  ])
 
-  assert.match(netlifyToml, /\[functions\."send-scheduled-emails"\][\s\S]*schedule = "\* \* \* \* \*"/)
+  assert.match(scheduledEmail, /export const config = \{[\s\S]*schedule: '\* \* \* \* \*'/)
+  assert.doesNotMatch(netlifyToml, /\[functions\."send-scheduled-emails"\]/)
   assert.match(safetyScript, /liveProjectRef = 'hvapkizujvsahvgspser'/)
   assert.match(safetyScript, /legacyStagingProjectRef = 'llpufwzvgxyczxcjwupu'/)
 })

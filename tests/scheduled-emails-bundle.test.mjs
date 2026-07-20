@@ -12,7 +12,7 @@ test('scheduled email functions are built through the bundled Netlify functions 
 
   assert.match(netlifyToml, /\[functions\][\s\S]*directory = "netlify\/functions"/)
   assert.match(netlifyToml, /\[functions\][\s\S]*node_bundler = "esbuild"/)
-  assert.match(netlifyToml, /\[functions\."send-scheduled-emails"\][\s\S]*schedule = "\* \* \* \* \*"/)
+  assert.doesNotMatch(netlifyToml, /\[functions\."send-scheduled-emails"\]/)
 })
 
 test('scheduled email wrapper delegates to the shared processor without changing queue behavior', async () => {
