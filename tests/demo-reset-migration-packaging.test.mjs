@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260719092052_p0_demo_reset_atomic_recovery.sql', import.meta.url)
+const backupContainmentMigrationUrl = new URL('../supabase/migrations/20260720071943_p0_demo_recovery_backup_side_effect_containment.sql', import.meta.url)
 
 function readyState() {
   return { type: 'ready' }
@@ -114,4 +115,28 @@ test('the corrected recovery migration remains split into one command per runner
   assert.doesNotMatch(statements[14], /revoke all on table public\.demo_reset_operations/)
   assert.match(statements[15], /^revoke all on table public\.demo_reset_operations from public$/)
   assert.match(statements[36], /^comment on function public\."reset_demo_account_atomic"\(uuid, uuid\) is/)
+})
+
+test('backup containment migration is forward-only, runner-safe, and preserves the evidence ledger', async () => {
+  const migration = await readFile(backupContainmentMigrationUrl, 'utf8')
+  const statements = splitLikeSupabaseCli2655(migration)
+
+  assert.ok(statements.length > 20)
+  assert.match(migration, /create schema if not exists app_private authorization postgres/)
+  assert.match(migration, /create table app_private\.demo_reset_backup_context/)
+  assert.match(migration, /alter function public\."reset_demo_account_atomic"\(uuid, uuid\)\s+rename to "reset_demo_account_atomic_impl"/)
+  assert.match(migration, /create function public\."reset_demo_account_atomic"\(/)
+  assert.match(migration, /language plpgsql\s+security definer\s+set search_path = ''/)
+  assert.match(migration, /create or replace function public\.capture_record_backup\(\)/)
+  assert.match(migration, /TG_TABLE_NAME in \([\s\S]*'team_staff'[\s\S]*'assessment_session_players'[\s\S]*\)/)
+  assert.match(migration, /pg_catalog\.current_setting\('app\.demo_reset_backup_context_nonce', true\)/)
+  assert.match(migration, /context\.transaction_id = pg_catalog\.txid_current\(\)/)
+  assert.match(migration, /revoke all on function public\."reset_demo_account_atomic_impl"\(uuid, uuid\) from service_role/)
+  assert.match(migration, /grant execute on function public\."reset_demo_account_atomic"\(uuid, uuid\) to service_role/)
+  assert.doesNotMatch(migration, /(?:delete from|update|truncate) public\.record_backups/i)
+  assert.doesNotMatch(migration, /(?:delete from|update|truncate) public\.audit_logs/i)
+  assert.doesNotMatch(migration, /insert into public\.audit_logs/i)
+  assert.doesNotMatch(migration, /auth\.users\s+(?:set|delete|insert|update)/i)
+  assert.equal(statements.some((statement) => /^revoke all on function public\."reset_demo_account_atomic_impl"/.test(statement)), true)
+  assert.equal(statements.some((statement) => /^create or replace function public\.capture_record_backup/.test(statement)), true)
 })
