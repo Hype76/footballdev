@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import { access, readFile } from 'node:fs/promises'
 import test from 'node:test'
+
+import { assertBrowserCompatibleInlineCsp } from '../scripts/csp-inline-integrity.mjs'
 
 import {
   clearOfflineDraftsForUser,
@@ -187,19 +188,9 @@ test('headers, PWA caching, manifest MIME, and demo maintenance surface are hard
   assert.match(processingSection, /^\s*pretty_urls\s*=\s*false\s*$/m)
   assert.doesNotMatch(processingSection, /pretty_urls\s*=\s*true/)
 
-  const inlineScripts = [...indexHtml.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
-  assert.equal(inlineScripts.length, 2)
-  const expectedHashes = inlineScripts
-    .map((script) => `sha256-${createHash('sha256').update(script[1]).digest('base64')}`)
-    .sort()
-  const csp = netlifyConfig.match(/Content-Security-Policy = "([^"]+)"/)?.[1] || ''
-  const scriptSource = csp.match(/(?:^|;\s*)script-src\s+([^;]+)/)?.[1] || ''
-  const configuredHashes = [...scriptSource.matchAll(/'(sha256-[^']+)'/g)]
-    .map((match) => match[1])
-    .sort()
-
-  assert.deepEqual(configuredHashes, expectedHashes)
-  assert.doesNotMatch(scriptSource, /unsafe-inline|unsafe-eval|\*/)
+  const cspResult = assertBrowserCompatibleInlineCsp({ html: indexHtml, netlifyConfig })
+  assert.equal(cspResult.inlineScripts.length, 2)
+  assert.deepEqual(cspResult.configuredHashes, cspResult.browserHashes)
 
   assert.doesNotThrow(() => JSON.parse(manifestText))
   assert.match(netlifyConfig, /Content-Type = "application\/manifest\+json; charset=utf-8"/)

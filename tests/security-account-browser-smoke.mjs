@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
+import {
+  assertBrowserCompatibleInlineCsp,
+  createBrowserCspHash,
+} from '../scripts/csp-inline-integrity.mjs'
+
 const baseUrl = String(process.env.SECURITY_SMOKE_BASE_URL || 'http://127.0.0.1:8888').replace(/\/$/, '')
-const localNetlifyDevInlineHash = 'sha256-gFxI4Ow5y43sJk7XGw6ATe67pBxbTSHUs2uHBtyURyw='
 
 const builtHtml = readFileSync('dist/index.html', 'utf8')
 const netlifyConfig = readFileSync('netlify.toml', 'utf8')
@@ -12,18 +15,7 @@ const processingSection = netlifyConfig.match(/\[build\.processing\.html\]([\s\S
 assert.match(processingSection, /^\s*pretty_urls\s*=\s*false\s*$/m)
 assert.doesNotMatch(processingSection, /pretty_urls\s*=\s*true/)
 
-const builtInlineScripts = [...builtHtml.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
-assert.equal(builtInlineScripts.length, 2, 'The built application must expose exactly two intended inline scripts')
-const builtHashes = builtInlineScripts
-  .map((script) => `sha256-${createHash('sha256').update(script[1]).digest('base64')}`)
-  .sort()
-const csp = netlifyConfig.match(/Content-Security-Policy = "([^"]+)"/)?.[1] || ''
-const scriptSource = csp.match(/(?:^|;\s*)script-src\s+([^;]+)/)?.[1] || ''
-const configuredHashes = [...scriptSource.matchAll(/'(sha256-[^']+)'/g)]
-  .map((match) => match[1])
-  .sort()
-assert.deepEqual(configuredHashes, builtHashes, 'Every configured script hash must match exactly one intended inline script')
-assert.doesNotMatch(scriptSource, /unsafe-inline|unsafe-eval|\*/)
+const cspResult = assertBrowserCompatibleInlineCsp({ html: builtHtml, netlifyConfig })
 
 async function smokeViewport(browser, { height, label, width }) {
   const context = await browser.newContext({ viewport: { height, width } })
@@ -39,10 +31,15 @@ async function smokeViewport(browser, { height, label, width }) {
   const response = await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'networkidle' })
   assert.equal(response?.ok(), true, `${label} sign-in response must be successful`)
   await page.getByRole('button', { name: /log in/i }).first().waitFor()
+  const browserScriptTexts = await page.locator('script:not([src])').evaluateAll(
+    (scripts) => scripts.map((script) => script.textContent || ''),
+  )
+  const browserHashes = browserScriptTexts.map(createBrowserCspHash).sort()
+  assert.deepEqual(browserScriptTexts, cspResult.normalizedScripts)
+  assert.deepEqual(browserHashes, cspResult.configuredHashes)
   assert.equal(await page.locator('body').evaluate((body) => body.scrollWidth <= window.innerWidth + 1), true)
   const policyErrors = consoleErrors
     .filter((message) => /content security policy|refused to/i.test(message))
-    .filter((message) => !(baseUrl.startsWith('http://127.0.0.1:') && message.includes(localNetlifyDevInlineHash)))
   assert.deepEqual(policyErrors, [], policyErrors.join('\n'))
   await context.close()
 
