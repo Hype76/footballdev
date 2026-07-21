@@ -13,8 +13,9 @@ function jsonResponse(statusCode, payload) {
   return {
     statusCode,
     headers: {
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, max-age=0',
+      'Content-Type': 'application/json; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
     },
     body: JSON.stringify(payload),
   }
@@ -126,36 +127,50 @@ async function replaceClubLogo({ body, clubId }) {
   }
 }
 
+export function createManageClubLogoHandler({
+  assertAuthority = assertClubLogoActorAuthority,
+  assertFeature = assertPlanFeature,
+  authenticate = getAuthenticatedPlanProfile,
+  logger = console,
+  replaceLogo = replaceClubLogo,
+} = {}) {
+  return async function manageClubLogo(event) {
+    if (event.httpMethod !== 'POST') {
+      return jsonResponse(405, { success: false, message: 'Method Not Allowed' })
+    }
+
+    try {
+      const body = JSON.parse(event.body || '{}')
+      const clubId = normalizeText(body.clubId)
+
+      if (!clubId) {
+        return jsonResponse(400, { success: false, message: 'Club details are required.' })
+      }
+
+      const profile = await authenticate(event, { clubId })
+      const authority = assertAuthority(profile, clubId)
+
+      if (!authority.isPlatformAdmin) {
+        assertFeature(profile, 'basicLogoBranding')
+      }
+      const result = await replaceLogo({ body, clubId })
+
+      return jsonResponse(200, { success: true, ...result })
+    } catch (error) {
+      logger.error('Club logo operation failed', {
+        message: error?.message,
+        statusCode: error?.statusCode,
+      })
+      return jsonResponse(error.statusCode || 500, {
+        success: false,
+        message: error.message || 'The club logo could not be updated.',
+      })
+    }
+  }
+}
+
+const manageClubLogo = createManageClubLogoHandler()
+
 export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
-    return jsonResponse(405, { success: false, message: 'Method Not Allowed' })
-  }
-
-  try {
-    const body = JSON.parse(event.body || '{}')
-    const clubId = normalizeText(body.clubId)
-
-    if (!clubId) {
-      return jsonResponse(400, { success: false, message: 'Club details are required.' })
-    }
-
-    const profile = await getAuthenticatedPlanProfile(event, { clubId })
-    const authority = assertClubLogoActorAuthority(profile, clubId)
-
-    if (!authority.isPlatformAdmin) {
-      assertPlanFeature(profile, 'basicLogoBranding')
-    }
-    const result = await replaceClubLogo({ body, clubId })
-
-    return jsonResponse(200, { success: true, ...result })
-  } catch (error) {
-    console.error('Club logo operation failed', {
-      message: error?.message,
-      statusCode: error?.statusCode,
-    })
-    return jsonResponse(error.statusCode || 500, {
-      success: false,
-      message: error.message || 'The club logo could not be updated.',
-    })
-  }
+  return manageClubLogo(event)
 }

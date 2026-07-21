@@ -14,6 +14,11 @@ import {
 } from '../netlify/functions/lib/_club-logo-validation.js'
 import { assertClubLogoActorAuthority } from '../netlify/functions/lib/_club-logo-authority.js'
 
+process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
+
+const { createManageClubLogoHandler } = await import('../netlify/functions/manage-club-logo.js')
+
 const migrationUrl = new URL('../supabase/migrations/20260721161858_m2_database_function_and_club_logo_hardening.sql', import.meta.url)
 const browserActionsUrl = new URL('../src/lib/domain/club-settings-actions.js', import.meta.url)
 const handlerUrl = new URL('../netlify/functions/manage-club-logo.js', import.meta.url)
@@ -29,6 +34,43 @@ async function fixture(format = 'png', width = 32, height = 24) {
   })
 
   return pipeline[format]().toBuffer()
+}
+
+function responseHeaders(response) {
+  return Object.fromEntries(
+    Object.entries(response.headers || {}).map(([name, value]) => [name.toLowerCase(), value]),
+  )
+}
+
+function assertSafeJsonResponse(response, expectedStatus) {
+  const headers = responseHeaders(response)
+
+  assert.equal(response.statusCode, expectedStatus)
+  assert.equal(headers['content-type'], 'application/json; charset=utf-8')
+  assert.equal(headers['cache-control'], 'no-store, max-age=0')
+  assert.equal(headers['x-content-type-options'], 'nosniff')
+  assert.equal(headers['access-control-allow-origin'], undefined)
+  assert.equal(Object.keys(headers).length, 3)
+  assert.doesNotThrow(() => JSON.parse(response.body))
+  assert.doesNotMatch(response.body, /stack|node_modules|netlify[\\/]functions|service-role|[A-Z]:\\\\/i)
+}
+
+function request(body = {}) {
+  return {
+    body: JSON.stringify({
+      clubId: '00000000-0000-4000-8000-000000000001',
+      dataBase64: 'fixture',
+      fileName: 'badge.png',
+      mimeType: 'image/png',
+      ...body,
+    }),
+    headers: { authorization: 'Bearer fixture-token' },
+    httpMethod: 'POST',
+  }
+}
+
+function statusError(message, statusCode) {
+  return Object.assign(new Error(message), { statusCode })
 }
 
 test('club logo limits and allowlists are explicit', () => {
@@ -122,14 +164,118 @@ test('browser caller sends bytes to the server boundary and cannot choose the st
   assert.match(browserSource, /\/\.netlify\/functions\/manage-club-logo/)
   assert.doesNotMatch(browserSource, /storage\.from\(CLUB_LOGOS_BUCKET\)\.upload/)
   assert.doesNotMatch(browserSource, /objectPath/)
-  assert.match(handlerSource, /getAuthenticatedPlanProfile\(event, \{ clubId \}\)/)
-  assert.match(handlerSource, /assertClubLogoActorAuthority\(profile, clubId\)/)
+  assert.match(handlerSource, /authenticate = getAuthenticatedPlanProfile/)
+  assert.match(handlerSource, /authenticate\(event, \{ clubId \}\)/)
+  assert.match(handlerSource, /assertAuthority = assertClubLogoActorAuthority/)
+  assert.match(handlerSource, /assertAuthority\(profile, clubId\)/)
   assert.match(handlerSource, /const objectPath = `\$\{clubId\}\/logos\/\$\{contentHash\}\.png`/)
   assert.match(handlerSource, /upsert: true/)
   assert.match(handlerSource, /\.update\(\{ logo_url: logoUrl \}\)/)
   assert.match(handlerSource, /previousObjectPath !== objectPath[\s\S]*\.remove\(\[objectPath\]\)/)
   assert.match(handlerSource, /previousObjectPath && previousObjectPath !== objectPath[\s\S]*\.remove\(\[previousObjectPath\]\)/)
   assert.doesNotMatch(handlerSource, /body\.(?:path|objectPath|storageKey)/)
+})
+
+test('every club logo JSON response uses one case-insensitive safe header boundary', async () => {
+  const handlerSource = await readFile(handlerUrl, 'utf8')
+
+  assert.equal((handlerSource.match(/headers:\s*\{/g) || []).length, 1)
+  assert.equal((handlerSource.match(/return jsonResponse\(/g) || []).length, 4)
+  assert.match(handlerSource, /'Content-Type': 'application\/json; charset=utf-8'/)
+  assert.match(handlerSource, /'Cache-Control': 'no-store, max-age=0'/)
+  assert.match(handlerSource, /'X-Content-Type-Options': 'nosniff'/)
+  assert.doesNotMatch(handlerSource, /Access-Control-Allow-Origin/i)
+
+  const sideEffects = []
+  const logger = { error: (...args) => sideEffects.push(['log', ...args]) }
+  const baseDependencies = {
+    assertAuthority: () => ({ isOwnClubAdmin: true, isPlatformAdmin: false }),
+    assertFeature: () => {},
+    authenticate: async () => ({ role: 'admin' }),
+    logger,
+    replaceLogo: async () => ({
+      contentType: 'image/png',
+      height: 24,
+      logoUrl: 'https://example.test/club-logos/logo.png',
+      oldLogoCleanupDeferred: false,
+      width: 32,
+    }),
+  }
+
+  const wrongMethod = await createManageClubLogoHandler({
+    ...baseDependencies,
+    authenticate: async () => { throw new Error('authentication should not run') },
+    replaceLogo: async () => { throw new Error('storage should not run') },
+  })({ ...request(), httpMethod: 'GET' })
+  assertSafeJsonResponse(wrongMethod, 405)
+  assert.deepEqual(JSON.parse(wrongMethod.body), {
+    success: false,
+    message: 'Method Not Allowed',
+  })
+
+  const missingClub = await createManageClubLogoHandler({
+    ...baseDependencies,
+    authenticate: async () => { throw new Error('authentication should not run') },
+    replaceLogo: async () => { throw new Error('storage should not run') },
+  })(request({ clubId: '' }))
+  assertSafeJsonResponse(missingClub, 400)
+
+  const malformedInput = await createManageClubLogoHandler({
+    ...baseDependencies,
+    authenticate: async () => { throw new Error('authentication should not run') },
+    replaceLogo: async () => { throw new Error('storage should not run') },
+  })({ ...request(), body: '{' })
+  assertSafeJsonResponse(malformedInput, 500)
+
+  const signedOut = await createManageClubLogoHandler({
+    ...baseDependencies,
+    authenticate: async () => { throw statusError('Login is required.', 401) },
+    replaceLogo: async () => { throw new Error('storage should not run') },
+  })(request())
+  assertSafeJsonResponse(signedOut, 401)
+
+  const authorityDenied = await createManageClubLogoHandler({
+    ...baseDependencies,
+    assertAuthority: () => { throw statusError('Only an authorised club admin can change this club logo.', 403) },
+    replaceLogo: async () => { throw new Error('storage should not run') },
+  })(request())
+  assertSafeJsonResponse(authorityDenied, 403)
+
+  const validationFailures = [
+    'Use a PNG, JPG, or WebP logo.',
+    'Logo must be 2MB or smaller.',
+    'The logo could not be decoded as a safe image.',
+  ]
+
+  for (const message of validationFailures) {
+    const response = await createManageClubLogoHandler({
+      ...baseDependencies,
+      replaceLogo: async () => { throw statusError(message, 400) },
+    })(request())
+    assertSafeJsonResponse(response, 400)
+  }
+
+  const success = await createManageClubLogoHandler(baseDependencies)(request())
+  assertSafeJsonResponse(success, 200)
+  assert.deepEqual(JSON.parse(success.body), {
+    success: true,
+    contentType: 'image/png',
+    height: 24,
+    logoUrl: 'https://example.test/club-logos/logo.png',
+    oldLogoCleanupDeferred: false,
+    width: 32,
+  })
+
+  const internalFailure = await createManageClubLogoHandler({
+    ...baseDependencies,
+    replaceLogo: async () => { throw new Error() },
+  })(request())
+  assertSafeJsonResponse(internalFailure, 500)
+  assert.deepEqual(JSON.parse(internalFailure.body), {
+    success: false,
+    message: 'The club logo could not be updated.',
+  })
+  assert.equal(sideEffects.filter(([type]) => type === 'log').length, 7)
 })
 
 test('server authority matrix ignores caller role and rank claims and fails closed', () => {
