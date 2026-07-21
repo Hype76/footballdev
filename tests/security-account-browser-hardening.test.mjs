@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { access, readFile } from 'node:fs/promises'
 import test from 'node:test'
 
@@ -175,11 +176,30 @@ test('recovery redirects fail closed and responses remain generic', async (conte
 })
 
 test('headers, PWA caching, manifest MIME, and demo maintenance surface are hardened', async () => {
-  const [netlifyConfig, manifestText, viteConfig] = await Promise.all([
+  const [indexHtml, netlifyConfig, manifestText, viteConfig] = await Promise.all([
+    readFile(new URL('../index.html', import.meta.url), 'utf8'),
     readFile(new URL('../netlify.toml', import.meta.url), 'utf8'),
     readFile(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'),
     readFile(new URL('../vite.config.js', import.meta.url), 'utf8'),
   ])
+
+  const processingSection = netlifyConfig.match(/\[build\.processing\.html\]([\s\S]*?)(?=\n\[|$)/)?.[1] || ''
+  assert.match(processingSection, /^\s*pretty_urls\s*=\s*false\s*$/m)
+  assert.doesNotMatch(processingSection, /pretty_urls\s*=\s*true/)
+
+  const inlineScripts = [...indexHtml.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
+  assert.equal(inlineScripts.length, 2)
+  const expectedHashes = inlineScripts
+    .map((script) => `sha256-${createHash('sha256').update(script[1]).digest('base64')}`)
+    .sort()
+  const csp = netlifyConfig.match(/Content-Security-Policy = "([^"]+)"/)?.[1] || ''
+  const scriptSource = csp.match(/(?:^|;\s*)script-src\s+([^;]+)/)?.[1] || ''
+  const configuredHashes = [...scriptSource.matchAll(/'(sha256-[^']+)'/g)]
+    .map((match) => match[1])
+    .sort()
+
+  assert.deepEqual(configuredHashes, expectedHashes)
+  assert.doesNotMatch(scriptSource, /unsafe-inline|unsafe-eval|\*/)
 
   assert.doesNotThrow(() => JSON.parse(manifestText))
   assert.match(netlifyConfig, /Content-Type = "application\/manifest\+json; charset=utf-8"/)

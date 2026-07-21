@@ -8,12 +8,22 @@ const localNetlifyDevInlineHash = 'sha256-gFxI4Ow5y43sJk7XGw6ATe67pBxbTSHUs2uHBt
 
 const builtHtml = readFileSync('dist/index.html', 'utf8')
 const netlifyConfig = readFileSync('netlify.toml', 'utf8')
+const processingSection = netlifyConfig.match(/\[build\.processing\.html\]([\s\S]*?)(?=\n\[|$)/)?.[1] || ''
+assert.match(processingSection, /^\s*pretty_urls\s*=\s*false\s*$/m)
+assert.doesNotMatch(processingSection, /pretty_urls\s*=\s*true/)
+
 const builtInlineScripts = [...builtHtml.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
-assert.ok(builtInlineScripts.length > 0, 'The built application must expose its inline scripts for CSP verification')
-for (const script of builtInlineScripts) {
-  const hash = `sha256-${createHash('sha256').update(script[1]).digest('base64')}`
-  assert.ok(netlifyConfig.includes(`'${hash}'`), `The built inline script hash ${hash} must be allowed by CSP`)
-}
+assert.equal(builtInlineScripts.length, 2, 'The built application must expose exactly two intended inline scripts')
+const builtHashes = builtInlineScripts
+  .map((script) => `sha256-${createHash('sha256').update(script[1]).digest('base64')}`)
+  .sort()
+const csp = netlifyConfig.match(/Content-Security-Policy = "([^"]+)"/)?.[1] || ''
+const scriptSource = csp.match(/(?:^|;\s*)script-src\s+([^;]+)/)?.[1] || ''
+const configuredHashes = [...scriptSource.matchAll(/'(sha256-[^']+)'/g)]
+  .map((match) => match[1])
+  .sort()
+assert.deepEqual(configuredHashes, builtHashes, 'Every configured script hash must match exactly one intended inline script')
+assert.doesNotMatch(scriptSource, /unsafe-inline|unsafe-eval|\*/)
 
 async function smokeViewport(browser, { height, label, width }) {
   const context = await browser.newContext({ viewport: { height, width } })

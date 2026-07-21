@@ -6,6 +6,9 @@
   NODE_VERSION = "22.17.0"
   VITE_PAYMENTS_DISABLED = "true"
 
+[build.processing.html]
+  pretty_urls = false
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
