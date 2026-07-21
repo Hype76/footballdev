@@ -59,7 +59,7 @@ test('candidate HTML and CSP contain exactly two browser-compatible inline scrip
     readFile(new URL('../netlify.toml', import.meta.url), 'utf8'),
   ])
 
-  assert.equal(attributes, '/index.html text eol=lf\n')
+  assert.equal(attributes, '/.gitattributes text eol=lf\n/index.html text eol=lf\n')
   assert.doesNotMatch(html, /\r/)
   assert.equal(extractInlineScriptTexts(html).length, 2)
   const result = assertBrowserCompatibleInlineCsp({ html, netlifyConfig })

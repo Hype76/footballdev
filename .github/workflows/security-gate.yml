@@ -1,0 +1,192 @@
+name: Security gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 22.17.0
+  NPM_VERSION: 11.7.0
+
+jobs:
+  supply-chain:
+    name: Supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Set up npm
+        run: npm install --global npm@${NPM_VERSION}
+      - name: Clean install
+        run: npm ci --include=optional
+      - name: Dependency, lifecycle and license gate
+        run: npm run security:supply-chain
+      - name: High-confidence secret scan
+        run: npm run security:secret-scan
+      - name: Generate production SBOM
+        run: npm run security:sbom
+      - name: Upload supply evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: supply-chain-evidence-${{ github.sha }}
+          path: .security-artifacts/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
+
+  migration-safety:
+    name: Migration safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Validate migration history and allowlist
+        run: npm run security:migrations
+
+  security-and-v1:
+    name: Security and V1 regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Set up npm
+        run: npm install --global npm@${NPM_VERSION}
+      - name: Clean install
+        run: npm ci --include=optional
+      - name: M3 monitoring tests
+        run: npm run security:monitoring
+      - name: Existing security controls
+        run: >-
+          node --test
+          tests/authority-containment.test.mjs
+          tests/tenant-isolation.test.mjs
+          tests/security-p2-invitation-processor.test.mjs
+          tests/privileged-functions-authority.test.mjs
+          tests/pdf-renderer-security.test.mjs
+          tests/security-account-browser-hardening.test.mjs
+          tests/security-m2-club-logo-validation.test.mjs
+          tests/netlify-deploy-safety.test.mjs
+      - name: V1 regression firewall
+        run: npm run test:v1-stabilise
+
+  production-build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Set up npm
+        run: npm install --global npm@${NPM_VERSION}
+      - name: Clean install
+        run: npm ci --include=optional
+      - name: Build production artifact
+        run: npm run build:live
+      - name: Verify build environment and artifact identity
+        run: npm run verify:build-env && npm run security:artifact-manifest
+      - name: Upload build evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-build-evidence-${{ github.sha }}
+          path: |
+            dist/
+            .security-artifacts/artifact-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+  functions-build:
+    name: Functions build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Set up npm
+        run: npm install --global npm@${NPM_VERSION}
+      - name: Clean install
+        run: npm ci --include=optional
+      - name: Build all Netlify functions
+        run: npx --no-install netlify functions:build --src netlify/functions --functions .netlify/functions-internal
+      - name: Verify function packaging
+        run: node --test tests/netlify-functions-packaging.test.mjs tests/scheduled-emails-bundle.test.mjs
+
+  scope-ownership:
+    name: Scope ownership
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Validate governance controls
+        run: node --test tests/security-m3-governance.test.mjs
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Set up npm
+        run: npm install --global npm@${NPM_VERSION}
+      - name: Clean install
+        run: npm ci --include=optional
+      - name: Review dependency changes
+        id: github-dependency-review
+        continue-on-error: true
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          deny-licenses: AGPL-3.0, SSPL-1.0, BUSL-1.1
+      - name: Enforce repository fallback when Dependency graph is unavailable
+        if: steps.github-dependency-review.outcome == 'failure'
+        run: npm run security:supply-chain

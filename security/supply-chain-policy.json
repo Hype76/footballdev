@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "approvedRegistryPrefixes": [
+    "https://registry.npmjs.org/"
+  ],
+  "approvedRemoteImports": [
+    "https://esm.sh/@supabase/supabase-js@2.110.8"
+  ],
+  "allowedLifecyclePackages": [
+    "esbuild",
+    "fsevents",
+    "netlify-cli",
+    "sharp",
+    "unix-dgram"
+  ],
+  "prohibitedLicenseMarkers": [
+    "AGPL",
+    "BUSL",
+    "SSPL"
+  ],
+  "licenseMetadataExceptions": [
+    "@netlify/ai",
+    "buffers",
+    "callsite",
+    "fuzzy",
+    "precond"
+  ],
+  "review": {
+    "owner": "Repository owner",
+    "reviewBy": "2026-08-21",
+    "reason": "Review upstream metadata and remaining Low or Moderate development-only advisories monthly. No Critical or High advisory is accepted."
+  }
+}
