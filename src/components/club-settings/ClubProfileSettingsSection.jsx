@@ -55,12 +55,12 @@ export function ClubProfileSettingsSection({
                   <span className={labelClass}>Upload new logo</span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                     onChange={onFileChange}
                     className="block min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-bold text-[#101828] file:mr-4 file:rounded-lg file:border-0 file:bg-[#047857] file:px-3 file:py-2 file:text-sm file:font-black file:text-white"
                   />
                   <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">
-                    PNG, JPG, or SVG. Maximum file size 2MB.
+                    PNG, JPG, or WebP. Maximum 2MB and 2048 by 2048 pixels. Animated images are not supported.
                   </p>
                 </label>
 

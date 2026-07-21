@@ -22,5 +22,6 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.equal(topLevelFunctions.includes('_stripe-billing'), false)
   assert.equal(topLevelFunctions.includes('_email-provider'), false)
   assert.equal(topLevelFunctions.includes('_plan-gate'), false)
-  assert.equal(topLevelFunctions.length, 52)
+  assert.ok(topLevelFunctions.includes('manage-club-logo'))
+  assert.equal(topLevelFunctions.length, 53)
 })

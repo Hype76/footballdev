@@ -1,8 +1,4 @@
-import {
-  CLUB_LOGOS_BUCKET,
-  MAX_LOGO_FILE_SIZE_BYTES,
-  supabase,
-} from '../supabase-client.js'
+import { MAX_LOGO_FILE_SIZE_BYTES, supabase } from '../supabase-client.js'
 import { CAPABILITIES } from '../paywall-access.js'
 import {
   getCachedResource,
@@ -12,7 +8,6 @@ import {
   CLUB_SELECT,
 } from './core-constants.js'
 import {
-  appendLogoCacheBuster,
   getLogoContentType,
   isStoredClubLogoUrl,
 } from './club-logo-utils.js'
@@ -101,7 +96,18 @@ export async function updateClubSettings({ clubId, data, user = null }) {
   return normalizeClubSettingsRow(updatedClub)
 }
 
-async function uploadClubLogoBlob({ clubId, blob }) {
+async function readBlobAsBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let binary = ''
+
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
+  }
+
+  return btoa(binary)
+}
+
+async function uploadClubLogoBlob({ clubId, blob, fileName }) {
   if (!clubId) {
     throw new Error('Club ID is required.')
   }
@@ -110,34 +116,45 @@ async function uploadClubLogoBlob({ clubId, blob }) {
     throw new Error('A logo image is required.')
   }
 
-  if (!String(blob.type ?? '').toLowerCase().startsWith('image/')) {
-    throw new Error('Logo must be an image file.')
+  const mimeType = String(blob.type ?? '').trim().toLowerCase()
+
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+    throw new Error('Use a PNG, JPG, or WebP logo.')
   }
 
   if (blob.size > MAX_LOGO_FILE_SIZE_BYTES) {
     throw new Error('Logo must be 2MB or smaller.')
   }
 
-  const objectPath = `${clubId}/logo.png`
-  const { error: uploadError } = await supabase.storage.from(CLUB_LOGOS_BUCKET).upload(objectPath, blob, {
-    cacheControl: '3600',
-    contentType: blob.type || 'image/png',
-    upsert: true,
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  const accessToken = String(sessionData?.session?.access_token ?? '').trim()
+
+  if (sessionError || !accessToken) {
+    throw new Error('Sign in again before uploading a club logo.')
+  }
+
+  const response = await fetch('/.netlify/functions/manage-club-logo', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clubId,
+      dataBase64: await readBlobAsBase64(blob),
+      fileName,
+      mimeType,
+    }),
   })
+  const payload = await response.json().catch(() => ({}))
+  const publicUrl = String(payload?.logoUrl ?? '').trim()
 
-  if (uploadError) {
-    console.error(uploadError)
-    throw uploadError
+  if (!response.ok || !payload?.success || !publicUrl) {
+    throw new Error(payload?.message || 'The club logo could not be uploaded.')
   }
 
-  const { data } = supabase.storage.from(CLUB_LOGOS_BUCKET).getPublicUrl(objectPath)
-  const publicUrl = String(data?.publicUrl ?? '').trim()
-
-  if (!publicUrl) {
-    throw new Error('Could not generate logo URL.')
-  }
-
-  return appendLogoCacheBuster(publicUrl)
+  const separator = publicUrl.includes('?') ? '&' : '?'
+  return `${publicUrl}${separator}v=${Date.now()}`
 }
 
 export async function uploadClubLogo({ clubId, file, user = null }) {
@@ -161,15 +178,15 @@ export async function uploadClubLogo({ clubId, file, user = null }) {
     throw new Error('A logo file is required.')
   }
 
-  if (!String(file.type ?? '').toLowerCase().startsWith('image/')) {
-    throw new Error('Logo must be an image file.')
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(String(file.type ?? '').toLowerCase())) {
+    throw new Error('Use a PNG, JPG, or WebP logo.')
   }
 
   if (file.size > MAX_LOGO_FILE_SIZE_BYTES) {
     throw new Error('Logo must be 2MB or smaller.')
   }
 
-  return uploadClubLogoBlob({ clubId, blob: file })
+  return uploadClubLogoBlob({ clubId, blob: file, fileName: file.name })
 }
 
 export async function importClubLogoFromUrl({ clubId, logoUrl, user = null }) {
@@ -234,5 +251,6 @@ export async function importClubLogoFromUrl({ clubId, logoUrl, user = null }) {
     blob: new Blob([blob], {
       type: contentType,
     }),
+    fileName: `imported-logo.${contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1]}`,
   })
 }
