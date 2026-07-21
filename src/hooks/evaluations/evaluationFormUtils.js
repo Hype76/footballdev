@@ -279,12 +279,10 @@ export function createInitialFormData(user, defaults = {}) {
   }
 }
 
-export function getDraftStorageKey(user) {
-  if (!user?.id) {
-    return ''
-  }
-
-  return `create-evaluation-draft:${user.id}:${user.clubId || 'platform'}:${user.activeTeamId || user.activeTeamName || 'all'}`
+export function getDraftStorageKey() {
+  // The duplicate session draft contained protected evaluation data and raw scope identifiers.
+  // The versioned local draft store is now the only browser persistence path.
+  return ''
 }
 
 export async function getLatestClubLogoUrl(user) {
@@ -907,6 +905,10 @@ export function createOfflineEvaluationDraft({
     operation: editingEvaluation ? 'update' : 'create',
     evaluationId: editingEvaluation?.id || null,
     clubId: user.clubId,
+    playerId: data?.playerId || '',
+    playerName: data?.playerName || '',
+    teamId: data?.teamId || user?.activeTeamId || '',
+    teamName: data?.team || user?.activeTeamName || '',
     data,
     createdAt: new Date().toISOString(),
     readyToSync,

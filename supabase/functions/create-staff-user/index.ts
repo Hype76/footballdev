@@ -5,6 +5,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function hasStrongPassword(password: string) {
+  return password.length >= 12
+    && /[a-z]/.test(password)
+    && /[A-Z]/.test(password)
+    && /[0-9]/.test(password)
+    && /[^A-Za-z0-9]/.test(password)
+}
+
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -188,7 +196,7 @@ Deno.serve(async (request) => {
     const roleLabel = String(payload.roleLabel ?? '').trim()
     const roleRank = Number(payload.roleRank ?? 0)
 
-    if (!email || password.length < 8 || !clubId || !roleKey || !roleLabel) {
+    if (!email || !hasStrongPassword(password) || !clubId || !roleKey || !roleLabel) {
       return jsonResponse({ error: 'Email, password, club, and role are required.' }, 400)
     }
 

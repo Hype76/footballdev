@@ -3,6 +3,7 @@ import { AccountProfileSection } from '../components/user-settings/AccountProfil
 import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
 import { LoginEmailSection } from '../components/user-settings/LoginEmailSection.jsx'
 import { PasswordSettingsSection } from '../components/user-settings/PasswordSettingsSection.jsx'
+import { PrivilegedMfaSection } from '../components/user-settings/PrivilegedMfaSection.jsx'
 import { SetupChecklistSettingsSection } from '../components/user-settings/SetupChecklistSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
@@ -11,6 +12,7 @@ import { canManageClubSettings, canManageTeamSettings, isClubAdmin, isDemoAccoun
 import {
   getTeams,
   requestLoginEmailChange,
+  requestPasswordReauthentication,
   updateTeamSettings,
   updateOwnThemeSettings,
   updateOwnUserSettings,
@@ -38,6 +40,7 @@ export function UserSettingsPage() {
   const isDemoSettings = isDemoAccount(user)
   const isParentSettings = isParentPortalUser(user)
   const isClubAdminSettings = isClubAdmin(user)
+  const isPlatformAdminSettings = user?.role === 'super_admin'
   const canEditEmailTeamName = Boolean(user?.clubId)
     && !isParentSettings
     && !isClubAdminSettings
@@ -57,6 +60,8 @@ export function UserSettingsPage() {
   const [isSavingEmail, setIsSavingEmail] = useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
+  const [isSendingVerification, setIsSendingVerification] = useState(false)
+  const [reauthenticationNonce, setReauthenticationNonce] = useState('')
   const [isOpeningOnboarding, setIsOpeningOnboarding] = useState(false)
   const [onboardingSnapshot, setOnboardingSnapshot] = useState(null)
   const [isLoadingOnboardingSnapshot, setIsLoadingOnboardingSnapshot] = useState(false)
@@ -246,8 +251,9 @@ export function UserSettingsPage() {
         throw new Error('Passwords do not match.')
       }
 
-      await updateSignedInPassword(passwordData.password)
+      await updateSignedInPassword(passwordData.password, { nonce: reauthenticationNonce })
       setPasswordData(createInitialPasswordState())
+      setReauthenticationNonce('')
       setSuccessMessage('Password updated.')
       showToast({ title: 'Password updated', message: 'Your password has been changed.' })
     } catch (error) {
@@ -278,6 +284,26 @@ export function UserSettingsPage() {
       showToast({ title: 'Reset email failed', message: error.message || 'Could not send password reset email.', tone: 'error' })
     } finally {
       setIsSendingReset(false)
+    }
+  }
+
+  const handleSendPasswordVerification = async () => {
+    if (isDemoSettings) {
+      return
+    }
+
+    setIsSendingVerification(true)
+    setSuccessMessage('')
+    setErrorMessage('')
+
+    try {
+      await requestPasswordReauthentication()
+      setSuccessMessage('Verification code sent. Enter it before updating your password.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Verification code could not be sent.')
+    } finally {
+      setIsSendingVerification(false)
     }
   }
 
@@ -504,6 +530,7 @@ export function UserSettingsPage() {
             isDemoSettings={isDemoSettings}
             isSavingPassword={isSavingPassword}
             isSendingReset={isSendingReset}
+            isSendingVerification={isSendingVerification}
             onPasswordDataChange={(fieldName, value) =>
               setPasswordData((current) => ({
                 ...current,
@@ -511,11 +538,18 @@ export function UserSettingsPage() {
               }))
             }
             onResetPassword={() => void handleResetPassword()}
+            onReauthenticationNonceChange={setReauthenticationNonce}
+            onSendVerification={() => void handleSendPasswordVerification()}
             onShowPasswordChange={setShowPassword}
             onSubmit={handlePasswordSubmit}
             passwordData={passwordData}
+            reauthenticationNonce={reauthenticationNonce}
             showPassword={showPassword}
           />
+
+          {isPlatformAdminSettings || isClubAdminSettings ? (
+            <PrivilegedMfaSection isPlatformAdmin={isPlatformAdminSettings} />
+          ) : null}
         </div>
       </div>
     </div>

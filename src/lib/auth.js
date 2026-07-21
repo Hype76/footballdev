@@ -4,7 +4,6 @@ import { supabase } from './supabase-client.js'
 import {
   areUsersEquivalent,
   claimStripeCheckoutForProfile,
-  getPasswordResetRedirectUrl,
 } from './auth-session-utils.js'
 import {
   isClubAdmin,
@@ -13,6 +12,7 @@ import {
 } from './auth-permissions.js'
 import { isParentPortalHost } from './app-origins.js'
 import { normalizePlanKey, PLAN_KEYS } from './plans.js'
+import { assertPasswordPolicy } from './password-policy.js'
 import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessIntent } from './login-access-intent.js'
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 import { STAFF_SWITCH_PENDING_STORAGE_KEY } from './workspace-routes.js'
@@ -195,6 +195,18 @@ export async function verifyCurrentUserPassword(email, password) {
   }
 
   return true
+}
+
+function createPublicSignInError(error) {
+  if (String(error?.code ?? '').trim() === 'weak_password') {
+    return Object.assign(new Error('This password must be reset before sign-in can continue.'), {
+      code: 'weak_password',
+    })
+  }
+
+  return Object.assign(new Error('Email or password not recognised.'), {
+    code: 'invalid_credentials',
+  })
 }
 
 export function AuthProvider({ children }) {
@@ -715,14 +727,15 @@ function RuntimeAuthProvider({ children }) {
     })
 
     if (error) {
-      console.error(error)
+      console.error({ code: error.code || 'sign_in_failed' })
       clearLoginAccessIntent()
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
-      setAuthError(error.message || 'Login failed.')
-      throw error
+      const publicError = createPublicSignInError(error)
+      setAuthError(publicError.message)
+      throw publicError
     }
 
     return data
@@ -931,6 +944,7 @@ function RuntimeAuthProvider({ children }) {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const normalizedEmail = String(email ?? '').trim()
+    assertPasswordPolicy(password)
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
     const normalizedPlanKey = normalizePlanKey(planKey) || PLAN_KEYS.smallClub
@@ -962,9 +976,10 @@ function RuntimeAuthProvider({ children }) {
       })
 
       if (signInError) {
-        console.error(signInError)
-        setAuthError(signInError.message || 'Login failed.')
-        throw signInError
+        console.error({ code: signInError.code || 'sign_in_failed' })
+        const publicError = createPublicSignInError(signInError)
+        setAuthError(publicError.message)
+        throw publicError
       }
 
       if (!signInData?.session || !signInData?.user) {
@@ -1165,12 +1180,24 @@ function RuntimeAuthProvider({ children }) {
   }
 
   const signOut = async () => {
+    const signingOutUser = userRef.current
     const { error } = await supabase.auth.signOut()
 
     if (error) {
       console.error(error)
       setAuthError(error.message || 'Sign out failed.')
       throw error
+    }
+
+    try {
+      const [{ clearOfflineDraftsForUser }, { clearPrivateEvaluationDraftsForUser }] = await Promise.all([
+        import('./offline-drafts.js'),
+        import('./evaluation-drafts.js'),
+      ])
+      clearOfflineDraftsForUser(signingOutUser)
+      clearPrivateEvaluationDraftsForUser(signingOutUser)
+    } catch (draftCleanupError) {
+      console.error('Protected browser drafts could not be cleared after sign out', draftCleanupError)
     }
   }
 
@@ -1188,7 +1215,6 @@ function RuntimeAuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: normalizedEmail,
-        redirectTo: getPasswordResetRedirectUrl(),
       }),
     })
 

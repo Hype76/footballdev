@@ -2,6 +2,7 @@ import process from 'node:process'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
+import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -202,8 +203,10 @@ export async function handler(event) {
       return failureResponse(400, 'Enter a valid email address.')
     }
 
-    if (password.length < 6) {
-      return failureResponse(400, 'Create a password with at least 6 characters.')
+    try {
+      assertPasswordPolicy(password)
+    } catch (error) {
+      return failureResponse(400, error.message)
     }
 
     if (!inviteToken) {

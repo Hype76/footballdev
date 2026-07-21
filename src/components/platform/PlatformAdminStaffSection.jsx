@@ -1,5 +1,6 @@
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../../lib/password-policy.js'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
@@ -52,12 +53,14 @@ export function PlatformAdminStaffSection({
               value={form.password}
               onChange={(event) => onChange('password', event.target.value)}
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
-              placeholder="At least 8 characters"
+              placeholder="Strong temporary password"
               className={fieldClass}
             />
           </label>
+          <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p>
+
           <button
             type="submit"
             disabled={isSaving}

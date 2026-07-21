@@ -15,6 +15,7 @@ import {
   MEMBERSHIP_CLUB_SELECT,
   USER_PROFILE_SELECT,
 } from './core-constants.js'
+import { assertPasswordPolicy } from '../password-policy.js'
 import {
   PLAYER_CONTACT_TYPES,
 } from './contact-utils.js'
@@ -873,17 +874,24 @@ export async function requestLoginEmailChange({ authUser, email }) {
   }
 }
 
-export async function updateSignedInPassword(password) {
+export async function requestPasswordReauthentication() {
+  const { error } = await supabase.auth.reauthenticate()
+
+  if (error) {
+    console.error(error)
+    throw new Error('A verification code could not be sent. Try again in a moment.')
+  }
+}
+
+export async function updateSignedInPassword(password, { nonce = '' } = {}) {
   await blockDemoMutation()
 
-  const normalizedPassword = String(password ?? '')
-
-  if (normalizedPassword.length < 8) {
-    throw new Error('Password must be at least 8 characters.')
-  }
+  const normalizedPassword = assertPasswordPolicy(password)
+  const normalizedNonce = String(nonce ?? '').trim()
 
   const { error } = await supabase.auth.updateUser({
     password: normalizedPassword,
+    ...(normalizedNonce ? { nonce: normalizedNonce } : {}),
   })
 
   if (error) {

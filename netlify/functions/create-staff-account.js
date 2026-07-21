@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './lib/_supabase.js'
+import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -99,8 +100,10 @@ export async function handler(event) {
       return failureResponse(400, 'Enter a valid email address.')
     }
 
-    if (password.length < 8) {
-      return failureResponse(400, 'Create a password with at least 8 characters.')
+    try {
+      assertPasswordPolicy(password)
+    } catch (error) {
+      return failureResponse(400, error.message)
     }
 
     const invite = await getInvite(token)

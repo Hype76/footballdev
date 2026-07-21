@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react'
 import { getQueuedDrafts, syncDrafts } from '../../lib/offline-drafts.js'
+import { useAuth } from '../../lib/auth.js'
 
-function getPendingDraftCount() {
-  return getQueuedDrafts().length
+function getPendingDraftCount(user) {
+  return getQueuedDrafts({ user }).length
 }
 
 export default function OfflineDraftSync() {
+  const { user } = useAuth()
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [pendingDraftCount, setPendingDraftCount] = useState(getPendingDraftCount)
+  const [pendingDraftCount, setPendingDraftCount] = useState(() => getPendingDraftCount(user))
   const [syncMessage, setSyncMessage] = useState('')
 
   useEffect(() => {
     let isMounted = true
 
     const refreshDraftCount = () => {
-      setPendingDraftCount(getPendingDraftCount())
+      setPendingDraftCount(getPendingDraftCount(user))
     }
 
     const runSync = async () => {
@@ -24,7 +26,7 @@ export default function OfflineDraftSync() {
         return
       }
 
-      const pendingCount = getPendingDraftCount()
+      const pendingCount = getPendingDraftCount(user)
 
       if (pendingCount === 0) {
         setSyncMessage('')
@@ -35,7 +37,7 @@ export default function OfflineDraftSync() {
       setSyncMessage('Back online. Syncing drafts...')
 
       try {
-        const result = await syncDrafts()
+        const result = await syncDrafts({ user })
 
         if (!isMounted) {
           return
@@ -76,7 +78,7 @@ export default function OfflineDraftSync() {
       window.removeEventListener('offline', handleOffline)
       window.removeEventListener('offline-drafts-changed', refreshDraftCount)
     }
-  }, [isSyncing])
+  }, [isSyncing, user])
 
   useEffect(() => {
     if (syncMessage !== 'All drafts synced') {

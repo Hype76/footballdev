@@ -1,4 +1,5 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../../lib/password-policy.js'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
@@ -8,11 +9,15 @@ export function PasswordSettingsSection({
   isDemoSettings,
   isSavingPassword,
   isSendingReset,
+  isSendingVerification,
   onPasswordDataChange,
+  onReauthenticationNonceChange,
   onResetPassword,
+  onSendVerification,
   onShowPasswordChange,
   onSubmit,
   passwordData,
+  reauthenticationNonce,
   showPassword,
 }) {
   return (
@@ -31,7 +36,7 @@ export function PasswordSettingsSection({
               onChange={(event) => onPasswordDataChange('password', event.target.value)}
               disabled={isDemoSettings}
               title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
               className={inputClass}
             />
@@ -45,12 +50,28 @@ export function PasswordSettingsSection({
               onChange={(event) => onPasswordDataChange('confirmPassword', event.target.value)}
               disabled={isDemoSettings}
               title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
               className={inputClass}
             />
           </label>
         </div>
+
+        <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p>
+
+        <label className="block">
+          <span className={labelClass}>Verification code, when requested</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={reauthenticationNonce}
+            onChange={(event) => onReauthenticationNonceChange(event.target.value.replace(/\D/g, '').slice(0, 8))}
+            disabled={isDemoSettings}
+            autoComplete="one-time-code"
+            className={inputClass}
+            placeholder="Enter the emailed code"
+          />
+        </label>
 
         <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
           <input
@@ -80,6 +101,15 @@ export function PasswordSettingsSection({
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSavingPassword ? 'Updating...' : 'Update password'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onSendVerification}
+            disabled={isSendingVerification || isDemoSettings}
+            className={secondaryButtonClass}
+          >
+            {isSendingVerification ? 'Sending...' : 'Send verification code'}
           </button>
 
           <button

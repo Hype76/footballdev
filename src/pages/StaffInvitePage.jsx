@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { assertPasswordPolicy, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
@@ -66,8 +67,10 @@ export function StaffInvitePage() {
       return
     }
 
-    if (password.length < 8) {
-      setErrorMessage('Create a password with at least 8 characters.')
+    try {
+      assertPasswordPolicy(password)
+    } catch (error) {
+      setErrorMessage(error.message)
       return
     }
 
@@ -155,7 +158,7 @@ export function StaffInvitePage() {
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       required
-                      minLength={8}
+                      minLength={PASSWORD_MIN_LENGTH}
                       autoComplete="new-password"
                       className="min-h-11 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none"
                       placeholder="Create a password"
@@ -177,14 +180,16 @@ export function StaffInvitePage() {
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     required
-                    minLength={8}
+                    minLength={PASSWORD_MIN_LENGTH}
                     autoComplete="new-password"
                     className={inputClass}
                     placeholder="Confirm password"
                   />
                 </label>
 
-                <button
+                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p>
+
+                  <button
                   type="submit"
                   disabled={isSaving}
                   className={primaryButtonClass}

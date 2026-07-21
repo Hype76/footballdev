@@ -2256,7 +2256,7 @@ export function CreateEvaluationPage() {
           createdAt: new Date().toISOString(),
           readyToSync: false,
           synced: false,
-        })
+        }, { user })
 
         if (!navigator.onLine) {
           setOfflineStatusMessage('Offline. This development record is being saved locally.')
@@ -2465,7 +2465,7 @@ export function CreateEvaluationPage() {
       }
 
       if (!navigator.onLine) {
-        saveDraft(createOfflineEvaluationDraft({ data: evaluation, editingEvaluation, id: offlineDraftId, user }))
+        saveDraft(createOfflineEvaluationDraft({ data: evaluation, editingEvaluation, id: offlineDraftId, user }), { user })
         setOfflineStatusMessage('Saved offline. This development record will sync when the connection returns.')
         showToast({ title: 'Saved offline', message: 'This development record will sync when you are back online.' })
         setIsSaved(true)
@@ -2484,7 +2484,7 @@ export function CreateEvaluationPage() {
         setOfflineDraftId(createLocalId())
       }
 
-      removeDraft(offlineDraftId)
+      removeDraft(offlineDraftId, { user })
 
       if (previewMode === 'email' && selectedParentEmail) {
         try {
@@ -2701,7 +2701,7 @@ export function CreateEvaluationPage() {
             editingEvaluation,
             id: offlineDraftId,
             user,
-          }))
+          }), { user })
           setOfflineStatusMessage('Saved offline. This development record will sync when the connection returns.')
           showToast({ title: 'Saved offline', message: 'This development record will sync when you are back online.' })
           return

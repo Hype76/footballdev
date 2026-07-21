@@ -4,6 +4,7 @@ import {
   getBearerToken,
   normalizeInvitationValue,
 } from './lib/_club-owner-invitation.js'
+import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -173,8 +174,10 @@ export async function handler(event) {
         return failureResponse(403, 'Club invite could not be accepted.')
       }
 
-      if (password.length < 8) {
-        return failureResponse(400, 'Create a password with at least 8 characters.', 'invalid_password')
+      try {
+        assertPasswordPolicy(password)
+      } catch (error) {
+        return failureResponse(400, error.message, 'invalid_password')
       }
 
       const displayName = getDisplayName(invitedEmail)

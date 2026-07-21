@@ -10,6 +10,7 @@ import {
 } from '../lib/parent-auth-intent.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
 import { supabase } from '../lib/supabase-client.js'
+import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 
 const inputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] read-only:text-[#4b5f55] read-only:focus:border-[#d7e5dc] read-only:focus:ring-0'
 const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
@@ -393,7 +394,7 @@ export function ParentInvitePage() {
                   setMessage('')
                 }}
                 required
-                minLength={6}
+                minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
                 placeholder="Create a password"
                 className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none placeholder:text-[#94a3b8]"
@@ -407,6 +408,8 @@ export function ParentInvitePage() {
               </button>
             </div>
           </label>
+
+          <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p>
 
           {errorMessage ? <NoticeBanner title="Account not created" message={errorMessage} /> : null}
 

@@ -36,10 +36,12 @@ import {
   isParentInvitationPending,
   PARENT_INVITATION_VIEWS,
   respondToParentPortalInvitation,
+  requestPasswordReauthentication,
   splitParentInvitationsForViews,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
 } from '../lib/supabase.js'
+import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
@@ -1442,6 +1444,8 @@ function ParentSettingsPanel({
   const [settingsError, setSettingsError] = useState('')
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
+  const [isSendingVerification, setIsSendingVerification] = useState(false)
+  const [reauthenticationNonce, setReauthenticationNonce] = useState('')
 
   const clearMessages = () => {
     setStatusMessage('')
@@ -1459,8 +1463,9 @@ function ParentSettingsPanel({
         throw new Error('Passwords do not match.')
       }
 
-      await updateSignedInPassword(passwordData.password)
+      await updateSignedInPassword(passwordData.password, { nonce: reauthenticationNonce })
       setPasswordData({ password: '', confirmPassword: '' })
+      setReauthenticationNonce('')
       setStatusMessage('Password updated.')
       showToast({ title: 'Password updated', message: 'Your password has been changed.' })
     } catch (error) {
@@ -1486,6 +1491,21 @@ function ParentSettingsPanel({
       showToast({ title: 'Reset email failed', message: error.message || 'Password reset email could not be sent.', tone: 'error' })
     } finally {
       setIsSendingReset(false)
+    }
+  }
+
+  const handlePasswordVerification = async () => {
+    setIsSendingVerification(true)
+    clearMessages()
+
+    try {
+      await requestPasswordReauthentication()
+      setStatusMessage('Verification code sent. Enter it before updating your password.')
+    } catch (error) {
+      console.error(error)
+      setSettingsError(error.message || 'Verification code could not be sent.')
+    } finally {
+      setIsSendingVerification(false)
     }
   }
 
@@ -1532,7 +1552,7 @@ function ParentSettingsPanel({
                 type="password"
                 value={passwordData.password}
                 onChange={(event) => setPasswordData((current) => ({ ...current, password: event.target.value }))}
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
                 className={fieldClass}
               />
@@ -1543,15 +1563,30 @@ function ParentSettingsPanel({
                 type="password"
                 value={passwordData.confirmPassword}
                 onChange={(event) => setPasswordData((current) => ({ ...current, confirmPassword: event.target.value }))}
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
                 className={fieldClass}
               />
             </label>
           </div>
+          <p className={`mt-3 ${bodyTextClass}`}>{PASSWORD_POLICY_SUMMARY}</p>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-xs font-black text-[#4b5f55]">Verification code, when requested</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={reauthenticationNonce}
+              onChange={(event) => setReauthenticationNonce(event.target.value.replace(/\D/g, '').slice(0, 8))}
+              autoComplete="one-time-code"
+              className={fieldClass}
+            />
+          </label>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <button type="submit" disabled={isSavingPassword || !passwordData.password || !passwordData.confirmPassword} className={primaryButtonClass}>
               {isSavingPassword ? 'Updating...' : 'Update password'}
+            </button>
+            <button type="button" onClick={handlePasswordVerification} disabled={isSendingVerification} className={secondaryButtonClass}>
+              {isSendingVerification ? 'Sending...' : 'Send verification code'}
             </button>
             <button type="button" onClick={handlePasswordReset} disabled={isSendingReset} className={secondaryButtonClass}>
               {isSendingReset ? 'Sending...' : 'Send reset email'}

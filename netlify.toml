@@ -37,6 +37,14 @@
   for = "/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; connect-src 'self' https://hvapkizujvsahvgspser.supabase.co wss://hvapkizujvsahvgspser.supabase.co; font-src 'self' https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: blob: https://hvapkizujvsahvgspser.supabase.co; manifest-src 'self'; media-src 'self' data: blob: https://hvapkizujvsahvgspser.supabase.co; object-src 'none'; script-src 'self' 'sha256-7eBqmAC+d6RtEn4D3VJACbAQjXtu7vTOfIhsy7fA7ko=' 'sha256-1PbVgkefOFj1mEEHfIbryODQFHod33zMhDvCAEWhM4A='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; worker-src 'self' blob:; upgrade-insecure-requests"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Resource-Policy = "same-origin"
+    Permissions-Policy = "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), payment=(), publickey-credentials-get=(self), usb=()"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
 
 [[headers]]
   for = "/assets/*"
@@ -47,13 +55,17 @@
   for = "/sw.js"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Type = "application/javascript; charset=utf-8"
+    Service-Worker-Allowed = "/"
 
 [[headers]]
   for = "/push-sw.js"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Type = "application/javascript; charset=utf-8"
 
 [[headers]]
   for = "/manifest.webmanifest"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Type = "application/manifest+json; charset=utf-8"

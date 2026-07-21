@@ -28,6 +28,7 @@ export {
   fetchUserProfile,
   normalizeUserProfile,
   requestLoginEmailChange,
+  requestPasswordReauthentication,
   selectUserClub,
   updateOwnThemeSettings,
   updateOwnUserSettings,

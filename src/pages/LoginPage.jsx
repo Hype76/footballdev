@@ -5,7 +5,7 @@ import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
-import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail, isDemoResetPending, setDemoResetPending } from '../lib/demo.js'
+import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 import {
   buildParentInviteAcceptancePath,
   getParentInviteToken,
@@ -68,7 +68,7 @@ function getRequestedLoginMode(params) {
 export function LoginPage() {
   usePublicThemeScope()
 
-  const { authError, isLoading, resetPassword, session, signInWithPassword, signOut, signUpParentAccount, signUpWithClub } = useAuth()
+  const { authError, resetPassword, session, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
   const parentInviteRedirectStartedRef = useRef(false)
@@ -130,44 +130,6 @@ export function LoginPage() {
     }
   }, [paymentsDisabled, session?.user])
 
-  useEffect(() => {
-    if (isLoading || !isDemoResetPending() || demoSubmitLockRef.current) {
-      return undefined
-    }
-
-    let isActive = true
-
-    const clearInterruptedDemoSession = async () => {
-      let sessionClosed = !session?.user
-
-      if (session?.user) {
-        try {
-          await signOut()
-          sessionClosed = true
-        } catch {
-          // Keep the route gate closed if the interrupted session cannot be cleared.
-        }
-      }
-
-      if (sessionClosed) {
-        setDemoResetPending(false)
-      }
-
-      if (isActive) {
-        setLocalMessage('')
-        setLocalError(sessionClosed
-          ? 'Demo preparation was interrupted. Open the demo account again.'
-          : 'Demo preparation stopped and the session could not be closed. Refresh and try again.')
-      }
-    }
-
-    void clearInterruptedDemoSession()
-
-    return () => {
-      isActive = false
-    }
-  }, [isLoading, session?.user, signOut])
-
   const handleChange = (event) => {
     const { name, value } = event.target
     setLocalError('')
@@ -184,72 +146,24 @@ export function LoginPage() {
     setLocalMessage('')
   }
 
-  const prepareDemoAccount = async ({ accessToken, operationId }) => {
-    const response = await fetch('/.netlify/functions/reset-demo-account', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ operationId }),
-    })
-    const result = await response.json().catch(() => ({}))
-
-    if (!response.ok || result.success === false) {
-      throw Object.assign(new Error(result.message || 'Demo account could not be opened.'), {
-        code: result.code || 'RESET_FAILED',
-      })
-    }
-  }
-
   const handleDemoLogin = async () => {
     if (demoSubmitLockRef.current) {
       return
     }
 
     demoSubmitLockRef.current = true
-    setDemoResetPending(true)
     setIsSubmitting(true)
     setLocalError('')
-    setLocalMessage('Signing in to the protected demo workspace...')
-
-    let demoSessionStarted = false
+    setLocalMessage('Signing in to the read-only demo workspace...')
 
     try {
-      const authData = await signInWithPassword({
+      await signInWithPassword({
         email: DEMO_EMAIL,
         password: DEMO_PASSWORD,
       })
-      const accessToken = authData?.session?.access_token
-
-      if (!accessToken) {
-        throw new Error('The protected demo session could not be started.')
-      }
-
-      demoSessionStarted = true
-      setLocalMessage('Preparing demo workspace...')
-      await prepareDemoAccount({
-        accessToken,
-        operationId: window.crypto.randomUUID(),
-      })
-      setDemoResetPending(false)
-      setLocalMessage('Demo workspace ready.')
+      setLocalMessage('Demo workspace ready. Public maintenance is not available from the browser.')
       window.location.replace('/')
     } catch (error) {
-      let sessionClosed = !demoSessionStarted
-
-      if (demoSessionStarted) {
-        try {
-          await signOut()
-          sessionClosed = true
-        } catch {
-          // Keep the route gate closed if session cleanup fails.
-        }
-      }
-
-      if (sessionClosed) {
-        setDemoResetPending(false)
-      }
       setLocalError(error.message || 'Demo account could not be opened.')
       setLocalMessage('')
     } finally {

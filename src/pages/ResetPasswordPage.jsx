@@ -2,6 +2,7 @@ import { useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { useAuth } from '../lib/auth.js'
 import { updateSignedInPassword } from '../lib/supabase.js'
+import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 
 function createInitialPasswordState() {
   return {
@@ -72,7 +73,7 @@ export function ResetPasswordPage() {
           Enter a new password for your account. After the update you will be signed out and can log in again.
         </p>
         <div className="mt-5 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-          Use a password that belongs only to this account. Shared staff or parent passwords should not be used.
+          Use a password that belongs only to this account. {PASSWORD_POLICY_SUMMARY}
         </div>
 
         <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
@@ -84,6 +85,7 @@ export function ResetPasswordPage() {
               value={passwordData.password}
               onChange={handleChange}
               required
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
               className={inputClass}
             />
@@ -97,6 +99,7 @@ export function ResetPasswordPage() {
               value={passwordData.confirmPassword}
               onChange={handleChange}
               required
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
               className={inputClass}
             />

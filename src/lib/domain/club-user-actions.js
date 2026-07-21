@@ -17,6 +17,7 @@ import { assertClubFeature, assertStaffLoginLimitForEmail } from './plan-gates.j
 import { getTeams } from './team-actions.js'
 import { buildStaffInviteUrl, sendStaffInvite } from '../email-builder.js'
 import { CAPABILITIES } from '../paywall-access.js'
+import { assertPasswordPolicy } from '../password-policy.js'
 
 function createUuid() {
   if (crypto.randomUUID) {
@@ -135,9 +136,7 @@ export async function createStaffUserWithPassword({ user, email, password, role 
     throw new Error('Email is required.')
   }
 
-  if (normalizedPassword.length < 8) {
-    throw new Error('Password must be at least 8 characters.')
-  }
+  assertPasswordPolicy(normalizedPassword)
 
   const roleKey = normalizeRoleKey(role.roleKey ?? role.key)
   const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)

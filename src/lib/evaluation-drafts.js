@@ -1,4 +1,14 @@
-const PRIVATE_EVALUATION_DRAFTS_KEY = 'footballplayer:private-evaluation-drafts:v1'
+import {
+  canAccessDraftScope,
+  createDraftScope,
+  createOpaqueDraftId,
+  getDraftExpiry,
+  isDraftExpired,
+  isDraftUserActive,
+} from './draft-security.js'
+
+export const PRIVATE_EVALUATION_DRAFTS_KEY = 'footballplayer:protected-private-evaluation-drafts:v2'
+export const LEGACY_PRIVATE_EVALUATION_DRAFTS_KEY = 'footballplayer:private-evaluation-drafts:v1'
 const DRAFT_STATUSES = {
   active: 'active',
   discarded: 'discarded',
@@ -55,19 +65,6 @@ function normalizeDraftContext(context = {}) {
   }
 }
 
-function createDraftId(context) {
-  return [
-    'evaluation-draft',
-    context.createdByUserId || 'unknown-user',
-    context.clubId || 'platform',
-    context.teamId || normalizeLowerText(context.teamName) || 'all',
-    normalizeLowerText(context.playerName) || context.playerId || 'unassigned-player',
-    context.editingEvaluationId || 'new',
-  ]
-    .map((part) => String(part).replace(/[^a-zA-Z0-9_-]+/g, '_'))
-    .join(':')
-}
-
 function parseDrafts(value) {
   if (!value) {
     return []
@@ -82,14 +79,25 @@ function parseDrafts(value) {
   }
 }
 
-function readDrafts(storage) {
+function readDrafts(storage, now = Date.now()) {
   const resolvedStorage = getStorage(storage)
 
   if (!resolvedStorage) {
     return []
   }
 
-  return parseDrafts(resolvedStorage.getItem(PRIVATE_EVALUATION_DRAFTS_KEY))
+  if (resolvedStorage.getItem(LEGACY_PRIVATE_EVALUATION_DRAFTS_KEY) !== null) {
+    resolvedStorage.removeItem(LEGACY_PRIVATE_EVALUATION_DRAFTS_KEY)
+  }
+
+  const drafts = parseDrafts(resolvedStorage.getItem(PRIVATE_EVALUATION_DRAFTS_KEY))
+  const activeDrafts = drafts.filter((draft) => !isDraftExpired(draft, now))
+
+  if (activeDrafts.length !== drafts.length) {
+    writeDrafts(activeDrafts, resolvedStorage)
+  }
+
+  return activeDrafts
 }
 
 function writeDrafts(drafts, storage) {
@@ -103,14 +111,10 @@ function writeDrafts(drafts, storage) {
 }
 
 function isOwnedActiveDraft(draft, user) {
-  const ownerId = normalizeText(user?.id)
-  const clubId = normalizeText(user?.clubId)
-
   return Boolean(
     draft?.id &&
       draft.status === DRAFT_STATUSES.active &&
-      normalizeText(draft.createdByUserId) === ownerId &&
-      (!clubId || normalizeText(draft.clubId) === clubId),
+      canAccessDraftScope({ scope: draft.scope, user }),
   )
 }
 
@@ -273,6 +277,10 @@ export function chooseLatestPrivateEvaluationDraft(candidates = []) {
 }
 
 export function findPrivateEvaluationDraft({ context = {}, storage, user } = {}) {
+  if (!isDraftUserActive(user)) {
+    return null
+  }
+
   const normalizedContext = normalizeDraftContext(context)
   const requestedPlayerName = normalizeLowerText(normalizedContext.playerName)
   const requestedTeamId = normalizeText(normalizedContext.teamId)
@@ -280,6 +288,11 @@ export function findPrivateEvaluationDraft({ context = {}, storage, user } = {})
 
   return readDrafts(storage)
     .filter((draft) => isOwnedActiveDraft(draft, user))
+    .filter((draft) => canAccessDraftScope({
+      requestedContext: normalizedContext,
+      scope: draft.scope,
+      user,
+    }))
     .filter((draft) => {
       if (normalizedContext.formType && normalizeText(draft.formType) !== normalizedContext.formType) {
         return false
@@ -303,7 +316,7 @@ export function findPrivateEvaluationDraft({ context = {}, storage, user } = {})
 }
 
 export function savePrivateEvaluationDraft({ context = {}, existingDraftId = '', payload = {}, storage, user } = {}) {
-  if (!user?.id || !hasPrivateEvaluationDraftContent(payload)) {
+  if (!isDraftUserActive(user) || !hasPrivateEvaluationDraftContent(payload)) {
     return null
   }
 
@@ -313,7 +326,7 @@ export function savePrivateEvaluationDraft({ context = {}, existingDraftId = '',
     createdByUserId: user.id,
   })
   const drafts = readDrafts(storage)
-  const draftId = normalizeText(existingDraftId) || createDraftId(normalizedContext)
+  const draftId = normalizeText(existingDraftId) || createOpaqueDraftId('private-evaluation-draft')
   const now = new Date().toISOString()
   const existingDraft = drafts.find((draft) => draft.id === draftId)
   const nextDraft = {
@@ -323,8 +336,10 @@ export function savePrivateEvaluationDraft({ context = {}, existingDraftId = '',
     context: normalizedContext,
     createdAt: existingDraft?.createdAt || now,
     createdByUserId: user.id,
+    expiresAt: getDraftExpiry(),
     formType: normalizedContext.formType,
     payload,
+    scope: createDraftScope({ context: normalizedContext, user }),
     status: DRAFT_STATUSES.active,
     updatedAt: now,
   }
@@ -532,26 +547,33 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
   return true
 }
 
-export function clearPrivateEvaluationDraft({ draftId = '', status = DRAFT_STATUSES.discarded, storage, user } = {}) {
+export function clearPrivateEvaluationDraft({ draftId = '', storage, user } = {}) {
   const normalizedDraftId = normalizeText(draftId)
 
-  if (!user?.id || !normalizedDraftId) {
+  if (!isDraftUserActive(user) || !normalizedDraftId) {
     return
   }
 
-  const nextDrafts = readDrafts(storage).map((draft) => {
-    if (draft.id !== normalizedDraftId || normalizeText(draft.createdByUserId) !== normalizeText(user.id)) {
-      return draft
-    }
-
-    return {
-      ...draft,
-      status: status === DRAFT_STATUSES.submitted ? DRAFT_STATUSES.submitted : DRAFT_STATUSES.discarded,
-      updatedAt: new Date().toISOString(),
-    }
-  })
+  const nextDrafts = readDrafts(storage).filter((draft) => (
+    draft.id !== normalizedDraftId || !canAccessDraftScope({ scope: draft.scope, user })
+  ))
 
   writeDrafts(nextDrafts, storage)
+}
+
+export function clearPrivateEvaluationDraftsForUser(user, { storage } = {}) {
+  const accountId = normalizeText(user?.id)
+  const resolvedStorage = getStorage(storage)
+
+  if (!resolvedStorage || !accountId) {
+    return
+  }
+
+  writeDrafts(
+    readDrafts(resolvedStorage)
+      .filter((draft) => normalizeText(draft?.scope?.accountId) !== accountId),
+    resolvedStorage,
+  )
 }
 
 export const PRIVATE_EVALUATION_DRAFT_STATUSES = DRAFT_STATUSES

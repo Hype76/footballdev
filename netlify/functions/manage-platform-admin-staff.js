@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
+import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -92,9 +93,7 @@ async function createOrPromotePlatformAdmin(event, adminUser) {
     throw new Error('Enter an email address.')
   }
 
-  if (password.length < 8) {
-    throw new Error('Enter a temporary password with at least 8 characters.')
-  }
+  assertPasswordPolicy(password)
 
   let authUser = await findAuthUserByEmail(email)
   let action = 'platform_admin_created'
