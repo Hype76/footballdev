@@ -8,7 +8,7 @@ import {
   formatDefaultAssessmentScoreForParent,
   getDefaultAssessmentScoreOptions,
 } from '../src/lib/assessment-scoring.js'
-import { buildAssessmentPdfHtml } from '../src/lib/assessment-pdf-html.js'
+import { buildAssessmentPdfDocument, renderPdfDocumentHtml } from '../src/lib/pdf-document.js'
 import { canEditEvaluation } from '../src/lib/auth-permissions.js'
 import { getDefaultFormFields } from '../src/lib/domain/core-defaults.js'
 import { buildEmailHtml } from '../src/lib/email-builder.js'
@@ -54,12 +54,12 @@ test('parent email and PDF scoring guide render 1 to 10 language', () => {
     responses,
     teamName: 'U12',
   })
-  const pdfHtml = buildAssessmentPdfHtml({
+  const pdfHtml = renderPdfDocumentHtml(buildAssessmentPdfDocument({
     clubName: 'Club',
     playerName: 'Player',
     responseItems: responses,
     teamName: 'U12',
-  })
+  }))
 
   for (const html of [emailHtml, pdfHtml]) {
     assert.match(html, /scored out of 10/i)
@@ -112,13 +112,13 @@ test('parent email and PDF place scoring guide after report sections', () => {
     emailSections,
     teamName: 'U12',
   })
-  const pdfHtml = buildAssessmentPdfHtml({
+  const pdfHtml = renderPdfDocumentHtml(buildAssessmentPdfDocument({
     clubName: 'Club',
     playerName: 'Player',
     responseItems: responses,
     emailSections,
     teamName: 'U12',
-  })
+  }))
 
   for (const html of [emailHtml, pdfHtml]) {
     const coachUpdateIndex = html.indexOf('Coach update marker')
@@ -285,7 +285,7 @@ test('PDF progression chart uses clean static chart labels without raw value dum
     ],
   })
   const chartMarkup = buildProgressionChartMarkup(progression.scoreTrend)
-  const pdfHtml = buildAssessmentPdfHtml({
+  const pdfHtml = renderPdfDocumentHtml(buildAssessmentPdfDocument({
     clubName: 'Club',
     playerName: 'Player',
     emailSections: [
@@ -297,7 +297,7 @@ test('PDF progression chart uses clean static chart labels without raw value dum
       },
     ],
     teamName: 'U12',
-  })
+  }))
 
   assert.match(chartMarkup, />12 Jun #1</)
   assert.match(chartMarkup, />12 Jun #2</)

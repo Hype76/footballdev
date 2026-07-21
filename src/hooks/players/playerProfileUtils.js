@@ -12,7 +12,7 @@ import {
   DIRECT_EMAIL_TEMPLATE_SECTION,
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
-import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
+import { buildAssessmentPdfDocument } from '../../lib/pdf-document.js'
 import { buildProgressionEmailSections, getProgressionNumericFieldMap } from '../../lib/player-progression.js'
 
 export const PROFILE_EVALUATION_PAGE_SIZE = 5
@@ -919,17 +919,17 @@ export function buildPlayerProfileParentEmailPayload({
               emailSections: progressionSections,
               subject: emailTemplate.subject,
               emailBody: emailTemplate.body,
-              pdfHtml: buildAssessmentPdfHtml({
+              pdfDocument: buildAssessmentPdfDocument({
                 clubName: user?.emailClubName || user?.clubName,
                 playerName: routePlayerName,
                 teamName: user?.emailTeamName || evaluation.team,
                 section: evaluation.section,
                 session: evaluation.session,
-                logoUrl: user?.clubLogoUrl || null,
                 responseItems: responses,
                 emailSections: progressionSections,
               }),
               evaluationId: evaluation.id,
+              playerId: evaluation.playerId || '',
             },
           }
         }),
@@ -1033,17 +1033,17 @@ export function buildPlayerDirectEmailPayload({
             emailSections: progressionSections,
             subject: emailTemplate.subject,
             emailBody: emailTemplate.body,
-            pdfHtml: buildAssessmentPdfHtml({
+            pdfDocument: buildAssessmentPdfDocument({
               clubName: user?.emailClubName || user?.clubName,
               playerName,
               teamName: user?.emailTeamName || teamName,
               section,
               session,
-              logoUrl: user?.clubLogoUrl || null,
               responseItems,
               emailSections: progressionSections,
             }),
             evaluationId: sourceEvaluation?.id || null,
+            playerId: player?.id || '',
           },
           selectedTemplate,
         }

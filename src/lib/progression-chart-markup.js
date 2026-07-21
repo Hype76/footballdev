@@ -37,11 +37,13 @@ export function getProgressionChartSummary(points = []) {
 
 function getProgressionCoordinates(points, width, height, padding) {
   const maxValue = 10
-  const innerWidth = width - padding * 2
+  const firstPointX = padding + 20
+  const lastPointX = width - padding
+  const innerWidth = lastPointX - firstPointX
   const innerHeight = height - padding * 2
 
   return points.map((point, index) => {
-    const x = points.length === 1 ? width / 2 : padding + (index / (points.length - 1)) * innerWidth
+    const x = points.length === 1 ? width / 2 : firstPointX + (index / (points.length - 1)) * innerWidth
     const value = Math.min(maxValue, Math.max(0, point.value))
     const y = padding + innerHeight - (value / maxValue) * innerHeight
     return { ...point, x, y }
@@ -69,6 +71,7 @@ export function buildProgressionChartMarkup(points = [], { imageSrc = '' } = {})
   const coordinates = getProgressionCoordinates(chartPoints, width, height, padding)
   const linePath = coordinates.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ')
   const gridValues = [0, 5, 10]
+  const axisLabelFontSize = chartPoints.length > 10 ? 9 : chartPoints.length > 7 ? 10 : 11
 
   return `
     <div style="margin: 10px 0 0; border: 1px solid #d7e5dc; border-radius: 12px; background: #ffffff; padding: 12px;">
@@ -87,46 +90,9 @@ export function buildProgressionChartMarkup(points = [], { imageSrc = '' } = {})
         ${coordinates.map((point) => `
           <circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="6" fill="#ccff00" stroke="#047857" stroke-width="2" />
           <text x="${point.x.toFixed(1)}" y="${Math.max(padding - 8, point.y - 12).toFixed(1)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="800" fill="#101828">${escapeHtml(point.value.toFixed(1))}</text>
-          <text x="${point.x.toFixed(1)}" y="${height - 14}" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#4f6552">${escapeHtml(formatAxisLabel(point.label))}</text>
+          <text x="${point.x.toFixed(1)}" y="${height - 14}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${axisLabelFontSize}" font-weight="700" fill="#4f6552">${escapeHtml(formatAxisLabel(point.label))}</text>
         `).join('')}
       </svg>
     </div>
-  `
-}
-
-export function buildProgressionChartImageHtml(points = []) {
-  const chartPoints = normalizeChartPoints(points)
-
-  return `
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          html,
-          body {
-            margin: 0;
-            background: #ffffff;
-          }
-          body {
-            width: 760px;
-            min-height: 240px;
-            font-family: Arial, sans-serif;
-          }
-          .chart {
-            box-sizing: border-box;
-            width: 760px;
-            min-height: 240px;
-            padding: 20px;
-            background: #ffffff;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="chart">
-          ${buildProgressionChartMarkup(chartPoints)}
-        </div>
-      </body>
-    </html>
   `
 }

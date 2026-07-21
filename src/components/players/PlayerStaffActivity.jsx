@@ -8,14 +8,13 @@ import {
   getMessageAssessmentFields,
   getMessageBody,
   getMessageClubLabel,
-  getMessagePdfHtml,
   getMessagePlayerLabel,
   getMessageSubject,
   getMessageTeamLabel,
   getMessageTemplateName,
   messageHasAttachment,
 } from '../../lib/email-message-display.js'
-import { exportPdfHtml } from '../../lib/pdf.js'
+import { exportCommunicationPdf } from '../../lib/pdf.js'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
@@ -182,10 +181,9 @@ export function PlayerStaffActivity({
                     setDownloadingActivityId(log.id)
 
                     try {
-                      await exportPdfHtml({
+                      await exportCommunicationPdf({
                         clubId: log.clubId,
-                        filename: buildActivityPdfFilename(log),
-                        html: getMessagePdfHtml(log),
+                        communicationLogId: log.id,
                       })
                     } catch (error) {
                       console.error(error)
@@ -328,16 +326,6 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
       ) : null}
     </article>
   )
-}
-
-function buildActivityPdfFilename(log) {
-  const playerName = getMessagePlayerLabel(log)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'player-feedback'
-
-  return `${playerName}-sent-email.pdf`
 }
 
 function InfoLine({ label, value }) {

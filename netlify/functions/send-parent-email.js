@@ -1,7 +1,6 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
-import { buildPdfBuffer, buildPngBuffer } from '../../src/lib/pdf-builder.js'
-import { buildProgressionChartImageHtml } from '../../src/lib/progression-chart-markup.js'
+import { buildPdfBuffer, buildProgressionChartPngBuffer } from '../../src/lib/pdf-builder.js'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import {
   createEmailDedupeKey,
@@ -17,6 +16,7 @@ import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
 } from './lib/_plan-gate.js'
+import { authorizeAssessmentPdfDocument } from './lib/_pdf-report.js'
 
 void supabaseAdmin
 
@@ -132,29 +132,24 @@ function withTimeout(promise, timeoutMs, errorMessage) {
   })
 }
 
-async function buildPdfAttachment(pdfHtml) {
-  try {
-    const pdfBuffer = await withTimeout(
-      buildPdfBuffer(pdfHtml),
-      10000,
-      'PDF generation timed out',
-    )
+async function buildPdfAttachment(pdfDocument) {
+  const pdfBuffer = await withTimeout(
+    buildPdfBuffer(pdfDocument),
+    10000,
+    'PDF generation timed out',
+  )
 
-    if (!pdfBuffer?.length) {
-      return []
-    }
-
-    return [
-      {
-        filename: 'player-feedback.pdf',
-        content: pdfBuffer.toString('base64'),
-        contentType: 'application/pdf',
-      },
-    ]
-  } catch (error) {
-    console.error('PDF attachment generation failed', error)
-    return []
+  if (!pdfBuffer?.length) {
+    throw Object.assign(new Error('PDF attachment generation failed.'), { statusCode: 500 })
   }
+
+  return [
+    {
+      filename: 'player-feedback.pdf',
+      content: pdfBuffer.toString('base64'),
+      contentType: 'application/pdf',
+    },
+  ]
 }
 
 function removeAttachments(emailPayload) {
@@ -187,7 +182,7 @@ async function buildProgressionChartAttachments(chartImages = []) {
 
     try {
       const pngBuffer = await withTimeout(
-        buildPngBuffer(buildProgressionChartImageHtml(points), { width: 760, height: 240 }),
+        buildProgressionChartPngBuffer(points),
         10000,
         'Progression chart image generation timed out',
       )
@@ -208,25 +203,6 @@ async function buildProgressionChartAttachments(chartImages = []) {
   }
 
   return attachments
-}
-
-function embedProgressionChartsInPdfHtml(html, chartAttachments = []) {
-  if (!Array.isArray(chartAttachments) || chartAttachments.length === 0) {
-    return html
-  }
-
-  let chartIndex = 0
-
-  return String(html ?? '').replace(/<svg\b[\s\S]*?<\/svg>/g, (svgMarkup) => {
-    const chartAttachment = chartAttachments[chartIndex]
-    chartIndex += 1
-
-    if (!chartAttachment?.content) {
-      return svgMarkup
-    }
-
-    return `<img src="data:image/png;base64,${chartAttachment.content}" alt="Progression score chart out of 10" width="640" style="display: block; width: 100%; max-width: 640px; height: auto;" />`
-  })
 }
 
 function parseScheduledAt(value) {
@@ -263,7 +239,7 @@ export async function prepareParentEmail({ body, requestUser }) {
     clubEmail,
     subject,
     html,
-    pdfHtml,
+    pdfDocument,
     logoUrl,
     playerName,
     parentName,
@@ -322,12 +298,19 @@ export async function prepareParentEmail({ body, requestUser }) {
     assertPlanFeature(planProfile, 'pdfReports')
   }
 
-  const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
   const chartAttachments = await buildProgressionChartAttachments(body.progressionChartImages)
-  const pdfHtmlWithChartImages = shouldAttachPdf
-    ? embedProgressionChartsInPdfHtml(attachmentHtml, chartAttachments)
-    : attachmentHtml
-  const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(pdfHtmlWithChartImages) : []
+  const authorizedPdfDocument = shouldAttachPdf
+    ? await authorizeAssessmentPdfDocument({
+        supabaseAdmin,
+        profile: planProfile,
+        clubId: planProfile.clubId,
+        teamId: body.teamId,
+        evaluationId: body.evaluationId,
+        playerId: body.playerId,
+        document: pdfDocument,
+      })
+    : null
+  const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(authorizedPdfDocument) : []
   const attachments = [...pdfAttachments, ...chartAttachments]
   const emailSubject = String(subject ?? '').trim() || 'Football Player'
   const emailPayload = buildEmailPayload({
@@ -346,6 +329,7 @@ export async function prepareParentEmail({ body, requestUser }) {
     clubName: safeClubName,
     logoUrl: String(logoUrl ?? '').trim(),
     playerName: String(playerName ?? '').trim(),
+    playerId: String(body.playerId ?? '').trim() || null,
     parentName: String(parentName ?? '').trim(),
     clubId: planProfile.clubId,
     teamId: String(body.teamId ?? '').trim() || null,

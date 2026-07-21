@@ -61,7 +61,6 @@ function normalizeParentPortalMessage(row) {
     club: String(metadata.club ?? '').trim(),
     hasAttachment: metadata.hasAttachment === true,
     assessmentFields: Array.isArray(metadata.assessmentFields) ? metadata.assessmentFields : [],
-    pdfHtml: String(metadata.pdfHtml ?? '').trim(),
     readAt: row.read_at ?? '',
     createdAt: row.created_at ?? '',
   }

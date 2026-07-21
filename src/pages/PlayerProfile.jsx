@@ -34,7 +34,7 @@ import {
   reorderEvaluationExportLabels,
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
-import { buildAssessmentPdfHtml } from '../lib/assessment-pdf-html.js'
+import { buildAssessmentPdfDocument } from '../lib/pdf-document.js'
 import {
   isParentPortalInviteEligiblePlayer,
   normalizeParentPortalInviteEmail,
@@ -860,17 +860,17 @@ export function PlayerProfile() {
         emailSections,
         subject: `Test development record copy for ${routePlayerName}`,
         emailBody: `This is a test copy of the saved development record for ${routePlayerName}. It was sent only to your signed-in account.`,
-        pdfHtml: buildAssessmentPdfHtml({
+        pdfDocument: buildAssessmentPdfDocument({
           clubName,
           playerName: routePlayerName,
           teamName,
           section: evaluation.section,
           session: evaluation.session,
-          logoUrl: user.clubLogoUrl || null,
           responseItems: responses,
           emailSections,
         }),
         evaluationId: evaluation.id,
+        playerId: evaluation.playerId || primaryPlayer?.id || '',
         attachPdf: true,
       })
 
@@ -958,6 +958,7 @@ export function PlayerProfile() {
         responses: attachAssessmentFields ? item.payload.responses : [],
         attachPdf,
         teamId: user?.activeTeamId || '',
+        playerId: evaluation.playerId || primaryPlayer?.id || '',
         scheduledAt,
         communicationLog: isScheduledSend
           ? {
@@ -980,7 +981,6 @@ export function PlayerProfile() {
                 emailSections: item.payload?.emailSections || [],
                 scheduledAt,
                 assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
-                pdfHtml: attachPdf ? item.payload?.pdfHtml || '' : '',
               },
             }
           : null,
@@ -1007,7 +1007,6 @@ export function PlayerProfile() {
           emailSections: payloads[0]?.payload?.emailSections || [],
           scheduledAt,
           assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
-          pdfHtml: attachPdf ? payloads[0]?.payload?.pdfHtml || '' : '',
         },
       })
 

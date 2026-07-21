@@ -6,7 +6,7 @@ import {
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
 import { sendParentEmail } from '../../lib/email-builder.js'
-import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
+import { buildAssessmentPdfDocument } from '../../lib/pdf-document.js'
 import {
   formatDefaultAssessmentScoreForParent,
   isAssessmentScoreFieldType,
@@ -869,17 +869,17 @@ export function buildParentEmailJobs({
             emailSections,
             subject: renderedTemplate.subject,
             emailBody: renderedTemplate.body,
-            pdfHtml: buildAssessmentPdfHtml({
+            pdfDocument: buildAssessmentPdfDocument({
               clubName: user?.club_name || user?.emailClubName || user?.clubName,
               playerName: normalizedPlayerName,
               teamName: user?.team_name || user?.emailTeamName || formData.team,
               section: formData.section,
               session: formData.session,
-              logoUrl: user?.clubLogoUrl || null,
               responseItems: selectedResponseItems,
               emailSections,
             }),
             evaluationId: evaluation.id,
+            playerId: evaluation.playerId || '',
             attachPdf,
           }
 

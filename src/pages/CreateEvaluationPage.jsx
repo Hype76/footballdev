@@ -2548,6 +2548,7 @@ export function CreateEvaluationPage() {
             ...emailJob.payload,
             attachPdf: isPdfAttachmentApproved,
             teamId: user?.activeTeamId || '',
+            playerId: savedEvaluation?.playerId || evaluation.playerId || '',
             scheduledAt,
             communicationLog: isScheduledSend
               ? {
@@ -2568,7 +2569,6 @@ export function CreateEvaluationPage() {
                     hasAttachment: isPdfAttachmentApproved,
                     scheduledAt,
                     assessmentFields: selectedResponseItems,
-                    pdfHtml: isPdfAttachmentApproved ? emailJob.payload?.pdfHtml || '' : '',
                   },
                 }
               : null,
@@ -2590,7 +2590,6 @@ export function CreateEvaluationPage() {
               hasAttachment: isPdfAttachmentApproved,
               scheduledAt,
               assessmentFields: selectedResponseItems,
-              pdfHtml: isPdfAttachmentApproved ? emailJobs[0]?.payload?.pdfHtml || '' : '',
             },
           })
           if (!isScheduledSend && communicationLog?.id) {

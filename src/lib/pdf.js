@@ -1,107 +1,14 @@
-import fallbackLogo from '../assets/football-player-logo.png'
-import { buildEmailHtml } from './email-builder.js'
-import { formatUkDate } from './date-format.js'
+import { PDF_REPORT_TYPES } from './pdf-document.js'
 import { supabase } from './supabase-client.js'
 
-const LOGO_TIMEOUT_MS = 2500
+const PDF_DOWNLOAD_TIMEOUT_MS = 15_000
+const PDF_DOWNLOAD_FILENAME = 'football-player-report.pdf'
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
-
-function formatPreviewValue(value) {
-  if (typeof value === 'number') {
-    return value
-  }
-
-  const normalizedValue = String(value ?? '').trim()
-  return normalizedValue || 'Not provided'
-}
-
-function isTextResponseItem(item) {
-  const value = String(item?.value ?? '').trim()
-
-  if (!value) {
-    return false
-  }
-
-  return Number.isNaN(Number(value))
-}
-
-function formatSessionForDisplay(value) {
-  const normalizedValue = String(value ?? '').trim()
-
-  if (!normalizedValue) {
-    return 'Not scheduled'
-  }
-
-  const parsedSourceDate = new Date(normalizedValue)
-  const dateOnlyValue = /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
-    ? normalizedValue
-    : Number.isNaN(parsedSourceDate.getTime())
-      ? ''
-      : parsedSourceDate.toISOString().slice(0, 10)
-
-  if (!dateOnlyValue) {
-    return normalizedValue
-  }
-
-  const parsedDate = new Date(`${dateOnlyValue}T00:00:00`)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return normalizedValue
-  }
-
-  return formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
-}
-
-function waitForPaint() {
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(resolve)
-    })
-  })
-}
-
-function withTimeout(task, timeoutMs) {
-  return Promise.race([
-    task,
-    new Promise((resolve) => {
-      window.setTimeout(() => resolve(null), timeoutMs)
-    }),
-  ])
-}
-
-async function waitForImages(element) {
-  const images = Array.from(element.querySelectorAll('img'))
-
-  await Promise.all(
-    images.map((image) => {
-      if (image.complete) {
-        return Promise.resolve()
-      }
-
-      return withTimeout(
-        new Promise((resolve) => {
-          image.addEventListener('load', resolve, { once: true })
-          image.addEventListener('error', resolve, { once: true })
-        }),
-        LOGO_TIMEOUT_MS,
-      )
-    }),
-  )
-}
-
-function downloadBlob(blob, filename) {
+function downloadBlob(blob) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = filename
+  link.download = PDF_DOWNLOAD_FILENAME
   link.rel = 'noopener'
   document.body.appendChild(link)
   link.click()
@@ -109,290 +16,67 @@ function downloadBlob(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export async function exportPdfHtml({ clubId, filename = 'player-feedback.pdf', html }) {
-  const normalizedHtml = String(html ?? '').trim()
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
 
-  if (!normalizedHtml) {
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
+export async function exportCommunicationPdf({ clubId, communicationLogId }) {
+  const normalizedClubId = String(clubId ?? '').trim()
+  const normalizedLogId = String(communicationLogId ?? '').trim()
+
+  if (!normalizedClubId || !normalizedLogId) {
     throw new Error('This PDF is not available for download.')
   }
 
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token || ''
-
-  const response = await withTimeout(
-    fetch('/.netlify/functions/render-pdf', {
-      method: 'POST',
-      headers: {
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        clubId,
-        filename,
-        html: normalizedHtml,
-      }),
-    }),
-    15000,
-  )
-
-  if (!response?.ok) {
-    let message = 'PDF export failed.'
-
-    try {
-      const errorResult = await response.json()
-      message = errorResult.error || message
-    } catch {
-      message = response?.statusText || message
-    }
-
-    throw new Error(message)
-  }
-
-  const pdfBlob = await response.blob()
-  downloadBlob(pdfBlob, filename)
-}
-
-async function resolvePdfLogoUrl(logoUrl) {
-  const normalizedLogoUrl = String(logoUrl ?? '').trim()
-
-  if (!normalizedLogoUrl) {
-    return fallbackLogo
-  }
+  let response
 
   try {
-    const parsedUrl = new URL(normalizedLogoUrl, window.location.origin)
-
-    if (parsedUrl.origin === window.location.origin || parsedUrl.hostname.endsWith('.supabase.co')) {
-      return parsedUrl.toString()
-    }
-
-    const controller = new AbortController()
-    const timeoutId = window.setTimeout(() => controller.abort(), LOGO_TIMEOUT_MS)
-
-    try {
-      const response = await fetch(parsedUrl.toString(), {
-        mode: 'cors',
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`Logo request failed with status ${response.status}.`)
-      }
-
-      const blob = await response.blob()
-
-      return await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => resolve(String(reader.result || fallbackLogo))
-        reader.onerror = () => reject(new Error('Could not read the uploaded logo.'))
-        reader.readAsDataURL(blob)
-      })
-    } finally {
-      window.clearTimeout(timeoutId)
-    }
-  } catch (error) {
-    console.error('Falling back to default PDF logo.', error)
-    return fallbackLogo
-  }
-}
-
-export function buildEvaluationSummary(evaluation) {
-  const responseEntries = Object.entries(evaluation.formResponses ?? {})
-
-  if (responseEntries.length > 0) {
-    return responseEntries
-      .slice(0, 4)
-      .map(([label, value]) => `${label}: ${value}`)
-      .join(', ')
-  }
-
-  return (
-    evaluation.comments?.overall ||
-    evaluation.comments?.strengths ||
-    evaluation.comments?.improvements ||
-    'No written summary provided.'
-  )
-}
-
-function buildResponseItemsMarkup(responseItems) {
-  const exportableResponseItems = responseItems.filter((item) => isExportableResponseValue(item?.value))
-
-  if (!exportableResponseItems.length) {
-    return '<p style="margin: 14px 0 0; color: #66756c; font-size: 13px;">No responses provided.</p>'
-  }
-
-  return exportableResponseItems
-    .map(
-      (item) => `
-        <div style="break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; background: #ffffff;">
-          <p style="margin: 0; color: #5a6b5b; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
-          <p style="margin: 5px 0 0; color: #334155; font-size: 11px; line-height: 1.35; white-space: pre-wrap;">${escapeHtml(formatPreviewValue(item.value))}</p>
-        </div>
-      `,
-    )
-    .join('')
-}
-
-function isExportableResponseValue(value) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value !== 0
-  }
-
-  const trimmedValue = String(value ?? '').trim()
-  return trimmedValue !== '' && trimmedValue !== '0'
-}
-
-function buildPdfMarkup({ previewProps, mode, logoUrl }) {
-  const showScoring = mode === 'scored'
-  const showEmailTemplate = mode === 'email'
-  const responseItems = mode === 'without-scores'
-    ? (previewProps.responseItems ?? []).filter(isTextResponseItem)
-    : previewProps.responseItems ?? []
-
-  if (showEmailTemplate) {
-    return buildEmailHtml({
-      parentName: previewProps.recipientNames,
-      playerName: previewProps.playerName,
-      teamName: previewProps.team,
-      clubName: previewProps.clubName,
-      planKey: previewProps.planKey,
-      logoUrl: previewProps.logoUrl,
-      summary: previewProps.emailBody,
-      emailBody: previewProps.emailBody,
-      responses: responseItems,
-    })
-  }
-
-  return `
-    <section style="box-sizing: border-box; width: 760px; padding: 22px; background: #ffffff; color: #101828; font-family: Arial, sans-serif;">
-      <div style="display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #e7ece3; padding-bottom: 14px;">
-        <div style="min-width: 0;">
-          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">${showEmailTemplate ? 'Parent Email Template' : 'Development PDF'}</p>
-          <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(previewProps.clubName)}" style="display: block; max-width: 120px; max-height: 56px; margin-top: 10px; object-fit: contain;" />
-          <h1 style="margin: 8px 0 0; color: #101828; font-size: 20px; line-height: 1.15;">${escapeHtml(previewProps.clubName || 'Club Name')}</h1>
-        </div>
-        <div style="align-self: flex-start; border-radius: 12px; background: #eef3ea; color: #4f6552; padding: 9px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(previewProps.section || 'Trial')}</div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
-        <div>
-          <p style="margin: 0; color: #66756c; font-size: 12px; font-weight: 700;">Player</p>
-          <h2 style="margin: 6px 0 0; color: #101828; font-size: 24px; line-height: 1.1;">${escapeHtml(previewProps.playerName || 'Player Name')}</h2>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-          <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #fbfcf9; padding: 9px;">
-            <p style="margin: 0; color: #5a6b5b; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Team</p>
-            <p style="margin: 5px 0 0; color: #334155; font-size: 12px; font-weight: 700;">${escapeHtml(previewProps.team || 'Not provided')}</p>
-          </div>
-          <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #fbfcf9; padding: 9px;">
-            <p style="margin: 0; color: #5a6b5b; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Session</p>
-            <p style="margin: 5px 0 0; color: #334155; font-size: 12px; font-weight: 700;">${escapeHtml(formatSessionForDisplay(previewProps.session))}</p>
-          </div>
-          <div style="grid-column: 1 / -1; border: 1px solid #e7ece3; border-radius: 10px; background: #fbfcf9; padding: 9px;">
-            <p style="margin: 0; color: #5a6b5b; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Section</p>
-            <p style="margin: 5px 0 0; color: #334155; font-size: 12px; font-weight: 700;">${escapeHtml(previewProps.section || 'Trial')}</p>
-          </div>
-          ${
-            previewProps.recipientNames || previewProps.recipientEmails
-              ? `
-                <div style="grid-column: 1 / -1; border: 1px solid #e7ece3; border-radius: 10px; background: #fbfcf9; padding: 9px;">
-                  <p style="margin: 0; color: #5a6b5b; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Recipients</p>
-                  <p style="margin: 5px 0 0; color: #334155; font-size: 12px; font-weight: 700;">${escapeHtml(previewProps.recipientNames || previewProps.recipientEmails)}</p>
-                </div>
-              `
-              : ''
-          }
-        </div>
-      </div>
-
-      ${
-        showScoring
-          ? `
-            <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
-              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Development Responses</p>
-              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px;">
-                ${buildResponseItemsMarkup(responseItems)}
-              </div>
-            </div>
-          `
-          : showEmailTemplate
-            ? `
-            <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 14px;">
-              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Parent Message</p>
-              <p style="margin: 10px 0 0; color: #334155; font-size: 12px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(previewProps.emailBody || 'No parent email template is available for this development record yet.')}</p>
-            </div>
-          `
-            : `
-            <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
-              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Development Responses</p>
-              <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px;">
-                ${buildResponseItemsMarkup(responseItems).replace('No responses provided.', 'No selected text fields were provided.')}
-              </div>
-            </div>
-          `
-      }
-    </section>
-  `
-}
-
-export async function exportEvaluationPdf({ filename, previewProps, mode = 'scored' }) {
-  const safeLogoUrl = await resolvePdfLogoUrl(previewProps?.logoUrl)
-  const container = document.createElement('div')
-  container.style.position = 'fixed'
-  container.style.left = '0'
-  container.style.top = '0'
-  container.style.width = '760px'
-  container.style.opacity = '0.01'
-  container.style.pointerEvents = 'none'
-  container.style.zIndex = '-1'
-  container.innerHTML = buildPdfMarkup({
-    previewProps: previewProps ?? {},
-    mode,
-    logoUrl: safeLogoUrl,
-  })
-
-  document.body.appendChild(container)
-
-  try {
-    await waitForPaint()
-    await waitForImages(container)
-    const { data: sessionData } = await supabase.auth.getSession()
-    const accessToken = sessionData?.session?.access_token || ''
-
-    const response = await withTimeout(
-      fetch('/.netlify/functions/render-pdf', {
+    response = await fetchWithTimeout(
+      '/.netlify/functions/render-pdf',
+      {
         method: 'POST',
         headers: {
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          clubId: previewProps?.clubId,
-          userId: previewProps?.userId,
-          filename,
-          html: container.innerHTML,
+          reportType: PDF_REPORT_TYPES.parentMessage,
+          clubId: normalizedClubId,
+          communicationLogId: normalizedLogId,
         }),
-      }),
-      15000,
+      },
+      PDF_DOWNLOAD_TIMEOUT_MS,
     )
-
-    if (!response?.ok) {
-      let message = 'PDF export failed.'
-
-      try {
-        const errorResult = await response.json()
-        message = errorResult.error || message
-      } catch {
-        message = response?.statusText || message
-      }
-
-      throw new Error(message)
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('PDF generation timed out.')
     }
 
-    const pdfBlob = await response.blob()
-
-    downloadBlob(pdfBlob, filename)
-  } finally {
-    container.remove()
+    throw error
   }
+
+  if (!response.ok) {
+    let message = 'PDF export failed.'
+
+    try {
+      const errorResult = await response.json()
+      message = String(errorResult.error ?? '').trim() || message
+    } catch {
+      message = response.statusText || message
+    }
+
+    throw new Error(message)
+  }
+
+  const pdfBlob = await response.blob()
+  downloadBlob(pdfBlob)
 }
