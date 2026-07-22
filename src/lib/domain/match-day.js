@@ -1597,13 +1597,12 @@ export async function expressMatchDayScorerInterest({ parentLinkId, matchDayId, 
   return data
 }
 
-export async function updateMatchDayScoreAsScorer({ parentLinkId, matchDayId, homeScore, awayScore, status }) {
+export async function updateMatchDayScoreAsScorer({ parentLinkId, matchDayId, homeScore, awayScore }) {
   const { data, error } = await supabase.rpc('update_match_day_score_as_scorer', {
     parent_link_id_value: parentLinkId,
     match_day_id_value: matchDayId,
     home_score_value: Number(homeScore ?? 0),
     away_score_value: Number(awayScore ?? 0),
-    status_value: normalizeText(status) || null,
   })
 
   if (error) {
@@ -1611,7 +1610,36 @@ export async function updateMatchDayScoreAsScorer({ parentLinkId, matchDayId, ho
     throw error
   }
 
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
   return data
+}
+
+export async function setParentScorerMatchDayTimerState({ match, matchId, action }) {
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  const normalizedAction = normalizeText(action)
+
+  if (!normalizedMatchId) {
+    throw new Error('Choose a match day first.')
+  }
+
+  if (!MATCH_DAY_TIMER_ACTIONS.has(normalizedAction)) {
+    throw new Error('Choose a supported match clock action.')
+  }
+
+  const { data, error } = await supabase.rpc('set_match_day_timer_state', {
+    match_day_id_value: normalizedMatchId,
+    action_value: normalizedAction,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayTimerResult(data, match)
 }
 
 function normalizeGoalCorrectionResult(data) {
@@ -1843,6 +1871,8 @@ export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }
     throw error
   }
 
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
   return data
 }
 

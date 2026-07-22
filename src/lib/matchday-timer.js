@@ -171,7 +171,7 @@ export function getMatchTimerMinute(match = {}, now = Date.now()) {
 export function formatMatchTimerClock(match = {}, now = Date.now()) {
   const elapsedSeconds = getMatchTimerElapsedSeconds(match, now)
   if (elapsedSeconds === null) {
-    return 'Ready'
+    return '0:00'
   }
 
   const minutes = Math.floor(elapsedSeconds / 60)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import {
@@ -37,6 +37,7 @@ import {
   PARENT_INVITATION_VIEWS,
   respondToParentPortalInvitation,
   requestPasswordReauthentication,
+  setParentScorerMatchDayTimerState,
   splitParentInvitationsForViews,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
@@ -47,7 +48,8 @@ import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import { getMatchCalendarLocation, getMatchVenueDisplay } from '../lib/match-location.js'
 import { sortParentResultsNewestFirst } from '../lib/parent-results-order.js'
-import { getMatchTimerMinute } from '../lib/matchday-timer.js'
+import { formatMatchTimerClock, getMatchTimerMinute } from '../lib/matchday-timer.js'
+import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../lib/matchday-lifecycle.js'
 import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
 import {
   getParentMatchDayErrorMessage,
@@ -243,16 +245,26 @@ function getParentMatchActionModalCopy(action) {
       items: [
         getMatchDayDisplayName(action.match),
         `Score: ${draft.homeScore || 0} - ${draft.awayScore || 0}`,
-        `Status: ${String(draft.status || action.match?.status || '').replace(/_/g, ' ')}`,
       ],
     }
   }
 
-  if (action.type === 'start') {
+  if (action.type === 'timer') {
+    const actionLabels = {
+      start: 'Start match',
+      pause: 'Pause match',
+      hydration: 'Start hydration break',
+      resume: action.match?.status === 'half_time' ? 'Start second half' : 'Resume match',
+      half_time: 'Set half time',
+      full_time: 'Set full time',
+      conclude: 'Conclude match',
+    }
+    const label = actionLabels[action.timerAction] || 'Update match clock'
+
     return {
-      title: 'Start match',
-      message: 'Start this match and begin the live match clock?',
-      confirmLabel: 'Start match',
+      title: label,
+      message: `${label} through the shared Match Day clock?`,
+      confirmLabel: label,
       items: [getMatchDayDisplayName(action.match)],
     }
   }
@@ -440,11 +452,13 @@ export function ParentPortalPage() {
   const [parentMatchAction, setParentMatchAction] = useState(null)
   const [goalCorrectionForm, setGoalCorrectionForm] = useState(EMPTY_GOAL_CORRECTION_FORM)
   const [scoreDrafts, setScoreDrafts] = useState({})
+  const [scorerGameModeMatchId, setScorerGameModeMatchId] = useState('')
   const clockNow = useServerSyncedClock({
     syncIntervalMs: 60000,
     tickIntervalMs: 1000,
   })
   const [activeMatchId, setActiveMatchId] = useState('')
+  const matchMutationRef = useRef(new Set())
   const [isLoadingMatches, setIsLoadingMatches] = useState(false)
   const [pushState, setPushState] = useState(() => getPushSupportState())
   const [hasPushSubscription, setHasPushSubscription] = useState(false)
@@ -846,6 +860,21 @@ export function ParentPortalPage() {
     setGoalCorrectionForm(EMPTY_GOAL_CORRECTION_FORM)
   }
 
+  const beginMatchMutation = (matchId) => {
+    if (!matchId || matchMutationRef.current.has(matchId)) {
+      return false
+    }
+
+    matchMutationRef.current.add(matchId)
+    setActiveMatchId(matchId)
+    return true
+  }
+
+  const finishMatchMutation = (matchId) => {
+    matchMutationRef.current.delete(matchId)
+    setActiveMatchId((currentMatchId) => currentMatchId === matchId ? '' : currentMatchId)
+  }
+
   const performVolunteer = async (match) => {
     if (!selectedLink?.id) {
       return
@@ -915,11 +944,10 @@ export function ParentPortalPage() {
   }
 
   const performScoreSave = async (match, draft) => {
-    if (!selectedLink?.id) {
+    if (!selectedLink?.id || !beginMatchMutation(match.id)) {
       return
     }
 
-    setActiveMatchId(match.id)
     setMatchError('')
     setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
@@ -929,54 +957,52 @@ export function ParentPortalPage() {
         matchDayId: match.id,
         homeScore: draft.homeScore,
         awayScore: draft.awayScore,
-        status: draft.status,
       })
-      if (draft.status === 'half_time' || draft.status === 'second_half' || draft.status === 'extra_time' || draft.status === 'penalties' || draft.status === 'full_time') {
-        void sendMatchDayPushNotification({
-          matchDayId: match.id,
-          type: draft.status,
-          parentLinkId: selectedLink.id,
-        })
-      }
       await loadMatches()
       showToast({ title: 'Score updated', message: 'The live score has been updated.' })
     } catch (error) {
       console.error(error)
       setMatchError(getParentMatchDayErrorMessage(error, 'Score could not be updated. Please refresh or try again.'))
     } finally {
-      setActiveMatchId('')
+      finishMatchMutation(match.id)
     }
   }
 
-  const performStartMatch = async (match) => {
-    if (!selectedLink?.id) {
+  const performTimerAction = async (match, timerAction) => {
+    if (!selectedLink?.id || !match.isScorer || !beginMatchMutation(match.id)) {
       return
     }
 
-    setActiveMatchId(match.id)
     setMatchError('')
     setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
-      await updateMatchDayScoreAsScorer({
-        parentLinkId: selectedLink.id,
-        matchDayId: match.id,
-        homeScore: match.homeScore,
-        awayScore: match.awayScore,
-        status: 'live',
+      await setParentScorerMatchDayTimerState({
+        match,
+        action: timerAction,
       })
-      void sendMatchDayPushNotification({
-        matchDayId: match.id,
-        type: 'live',
-        parentLinkId: selectedLink.id,
-      })
+
+      const transitionNotificationType = timerAction === 'start'
+        ? 'live'
+        : ['half_time', 'full_time'].includes(timerAction)
+          ? timerAction
+          : ''
+
+      if (transitionNotificationType) {
+        void sendMatchDayPushNotification({
+          matchDayId: match.id,
+          type: transitionNotificationType,
+          parentLinkId: selectedLink.id,
+        })
+      }
+
       await loadMatches()
-      showToast({ title: 'Match started', message: 'The live match clock has started.' })
+      showToast({ title: 'Match clock updated', message: 'The shared Match Day clock has been updated.' })
     } catch (error) {
       console.error(error)
       setMatchError(getParentMatchDayErrorMessage(error, 'Match could not be started. Please refresh or try again.'))
     } finally {
-      setActiveMatchId('')
+      finishMatchMutation(match.id)
     }
   }
 
@@ -1005,11 +1031,10 @@ export function ParentPortalPage() {
   }
 
   const performAddGoal = async (match) => {
-    if (!selectedLink?.id) {
+    if (!selectedLink?.id || !beginMatchMutation(match.id)) {
       return
     }
 
-    setActiveMatchId(match.id)
     setMatchError('')
     setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
@@ -1038,7 +1063,7 @@ export function ParentPortalPage() {
       console.error(error)
       setMatchError(getParentMatchDayErrorMessage(error, 'Goal could not be added. Please refresh or try again.'))
     } finally {
-      setActiveMatchId('')
+      finishMatchMutation(match.id)
     }
   }
 
@@ -1050,7 +1075,9 @@ export function ParentPortalPage() {
     const goal = getValidatedGoalInput(goalCorrectionForm)
     const reason = String(goalCorrectionForm.reason || '').trim() || 'Corrected goal details'
 
-    setActiveMatchId(match.id)
+    if (!beginMatchMutation(match.id)) {
+      return
+    }
     setMatchError('')
     setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
@@ -1068,7 +1095,7 @@ export function ParentPortalPage() {
       console.error(error)
       setMatchError(getParentMatchDayErrorMessage(error, 'Goal could not be corrected. Please refresh or try again.'))
     } finally {
-      setActiveMatchId('')
+      finishMatchMutation(match.id)
     }
   }
 
@@ -1085,12 +1112,12 @@ export function ParentPortalPage() {
   }
 
   const handleScoreSave = (match) => {
-    const draft = scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }
+    const draft = scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }
     openParentMatchActionModal({ type: 'score', match, draft })
   }
 
-  const handleStartMatch = (match) => {
-    openParentMatchActionModal({ type: 'start', match })
+  const handleTimerAction = (match, timerAction) => {
+    openParentMatchActionModal({ type: 'timer', match, timerAction })
   }
 
   const handleAddGoal = (event, match) => {
@@ -1112,7 +1139,7 @@ export function ParentPortalPage() {
       return
     }
 
-    const { draft, goalEvent, match, type } = parentMatchAction
+    const { draft, goalEvent, match, timerAction, type } = parentMatchAction
 
     if (type === 'volunteer') {
       await performVolunteer(match)
@@ -1122,8 +1149,8 @@ export function ParentPortalPage() {
       await performDisableNotifications()
     } else if (type === 'score') {
       await performScoreSave(match, draft)
-    } else if (type === 'start') {
-      await performStartMatch(match)
+    } else if (type === 'timer') {
+      await performTimerAction(match, timerAction)
     } else if (type === 'addGoal') {
       await performAddGoal(match)
     } else if (type === 'correctGoal') {
@@ -1232,12 +1259,14 @@ export function ParentPortalPage() {
               handleCorrectGoal={handleCorrectGoal}
               handlePlayerPick={handlePlayerPick}
               handleScoreSave={handleScoreSave}
-              handleStartMatch={handleStartMatch}
+              handleTimerAction={handleTimerAction}
               handleVolunteer={handleVolunteer}
               isLoading={isLoadingMatches}
               selectedLink={selectedLink}
               setScoreDrafts={setScoreDrafts}
               scoreDrafts={scoreDrafts}
+              scorerGameModeMatchId={scorerGameModeMatchId}
+              setScorerGameModeMatchId={setScorerGameModeMatchId}
               squadPlayers={squadPlayers}
               updateGoalForm={updateGoalForm}
             />
@@ -2310,12 +2339,14 @@ function ParentMatchCardsPanel({
   handleCorrectGoal,
   handlePlayerPick,
   handleScoreSave,
-  handleStartMatch,
+  handleTimerAction,
   handleVolunteer,
   isLoading,
   selectedLink,
   setScoreDrafts,
   scoreDrafts,
+  scorerGameModeMatchId,
+  setScorerGameModeMatchId,
   squadPlayers,
   updateGoalForm,
 }) {
@@ -2353,17 +2384,18 @@ function ParentMatchCardsPanel({
                   [match.id]: {
                     homeScore: match.homeScore,
                     awayScore: match.awayScore,
-                    status: match.status,
                     ...(currentDrafts[match.id] ?? {}),
                     ...updates,
                   },
                 }))}
                 onScoreSave={handleScoreSave}
-                onStartMatch={handleStartMatch}
+                onTimerAction={handleTimerAction}
+                onToggleGameMode={() => setScorerGameModeMatchId((currentMatchId) => currentMatchId === match.id ? '' : match.id)}
                 onVolunteer={handleVolunteer}
                 now={clockNow}
                 players={squadPlayers}
-                scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
+                scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
+                isGameMode={scorerGameModeMatchId === match.id}
                 selectedLink={selectedLink}
               />
             ))}
@@ -2912,11 +2944,13 @@ function ParentMatchCard({
   onPlayerPick,
   onScoreDraftChange,
   onScoreSave,
-  onStartMatch,
+  onTimerAction,
+  onToggleGameMode,
   onVolunteer,
   now,
   players,
   scoreDraft,
+  isGameMode,
   selectedLink,
 }) {
   const isBusy = activeMatchId === match.id
@@ -2928,6 +2962,10 @@ function ParentMatchCard({
   const roleSelectionRows = getParentRoleSelectionRows(match, selectedLink)
   const selectedRoleLabels = roleSelectionRows.filter((row) => row.isSelected).map((row) => row.label)
   const displayParts = getMatchDayDisplayParts(match)
+  const lifecycleState = getMatchDayLifecycleState(match)
+  const timerActions = getParentScorerTimerActions(match)
+  const timerClock = formatMatchTimerClock(match, now)
+  const canRecordLiveEvents = ['playing', 'paused', 'full_time'].includes(lifecycleState)
 
   return (
     <article className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
@@ -3016,33 +3054,65 @@ function ParentMatchCard({
         </div>
       ) : null}
 
-      {!match.isScorer && canVolunteerAsScorer ? (
+      {!match.isScorer ? (
         <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => onVolunteer(match)}
-            disabled={isBusy || match.hasInterest}
-            className={`w-full sm:w-auto ${primaryButtonClass}`}
-          >
-            {match.hasInterest ? 'Interest sent' : 'Volunteer as scorer'}
-          </button>
+          {canVolunteerAsScorer ? (
+            <button
+              type="button"
+              onClick={() => onVolunteer(match)}
+              disabled={isBusy || match.hasInterest}
+              className={`w-full sm:w-auto ${primaryButtonClass}`}
+            >
+              {match.hasInterest ? 'Interest sent' : 'Volunteer as scorer'}
+            </button>
+          ) : (
+            <p className={bodyTextClass}>Match controls are available only to the current selected scorer.</p>
+          )}
         </div>
       ) : (
         <div className="mt-5 space-y-4">
-          {match.status === 'scheduled' || match.status === 'scorer_request' ? (
+          <div className="flex flex-col gap-3 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-[#101828]">Scorer Game Mode</p>
+              <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Opening this view does not start or change the match.</p>
+            </div>
             <button
               type="button"
-              onClick={() => onStartMatch(match)}
-              disabled={isBusy}
-              className={`w-full sm:w-auto ${primaryButtonClass}`}
+              onClick={onToggleGameMode}
+              className={secondaryButtonClass}
             >
-              Start match
+              {isGameMode ? 'Close Game Mode' : 'Open Game Mode'}
             </button>
-          ) : null}
+          </div>
+
+          {isGameMode ? (
+            <div className="space-y-4">
+              <div className={softPanelClass}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Authoritative match clock</p>
+                    <p className="mt-1 text-4xl font-black text-[#101828]">{timerClock}</p>
+                    <p className="mt-1 text-sm font-bold text-[#4b5f55]">{match.status.replace(/_/g, ' ')}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {timerActions.map((timerAction) => (
+                      <button
+                        key={timerAction.action}
+                        type="button"
+                        onClick={() => onTimerAction(match, timerAction.action)}
+                        disabled={isBusy}
+                        className={timerAction.action === 'conclude' ? secondaryButtonClass : primaryButtonClass}
+                      >
+                        {timerAction.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
           <div className={softPanelClass}>
             <h5 className="text-sm font-black text-[#101828]">Update score</h5>
-            <div className="mt-3 grid gap-3 sm:grid-cols-4">
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-[#4b5f55]">Home ({displayParts.firstSide === 'home' ? displayParts.firstTeam : 'home team'})</span>
                 <input
@@ -3062,21 +3132,6 @@ function ParentMatchCard({
                   onChange={(event) => onScoreDraftChange({ awayScore: event.target.value })}
                   className={fieldClass}
                 />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-black text-[#4b5f55]">Status</span>
-                <select
-                  value={scoreDraft.status}
-                  onChange={(event) => onScoreDraftChange({ status: event.target.value })}
-                  className={fieldClass}
-                >
-                  <option value="live">Live</option>
-                  <option value="half_time">Half time</option>
-                  <option value="second_half">Second half</option>
-                  <option value="extra_time">Extra time</option>
-                  <option value="penalties">Penalties</option>
-                  <option value="full_time">Full time</option>
-                </select>
               </label>
               <button
                 type="button"
@@ -3163,13 +3218,19 @@ function ParentMatchCard({
               </label>
               <button
                 type="submit"
-                disabled={isBusy}
+                disabled={isBusy || !canRecordLiveEvents}
                 className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Add goal
               </button>
             </div>
           </form>
+            </div>
+          ) : (
+            <p className={`${softPanelClass} text-sm font-semibold leading-6 text-[#4b5f55]`}>
+              Open Game Mode to use the shared clock, score, and goal controls.
+            </p>
+          )}
         </div>
       )}
 

@@ -310,6 +310,7 @@ export {
   selectMatchDayScorer,
   selectMatchDayVolunteer,
   setMatchDayPlayerSquadDecision,
+  setParentScorerMatchDayTimerState,
   setMatchDayTimerState,
   startMatchDay,
   isPastMatchDayDate,

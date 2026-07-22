@@ -527,7 +527,7 @@ test('staff goal logging closes the expanded mobile panel after successful save 
   assert.doesNotMatch(goalHandlerSource.slice(goalHandlerSource.indexOf('catch (error)')), /setExpandedMatchId/)
 })
 
-test('parent live score polling remains in the parent portal', () => {
+test('parent live score polling and scorer-only Game Mode remain in the parent portal', () => {
   const source = readFileSync(
     new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),
     'utf8',
@@ -544,7 +544,9 @@ test('parent live score polling remains in the parent portal', () => {
   assert.match(loadSource, /60000/)
   assert.doesNotMatch(source, /LiveMatchQuickActions/)
   assert.doesNotMatch(source, /Add event\/card/)
-  assert.doesNotMatch(source, /Open Game Mode/)
+  assert.match(source, /match\.isScorer/)
+  assert.match(source, /Open Game Mode/)
+  assert.match(source, /!match\.isScorer \? \(/)
   assert.doesNotMatch(source, /onGameModeHydrationToggle/)
 })
 
