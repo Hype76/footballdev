@@ -77,6 +77,52 @@ function CompletedTimeline({ events, includeEventNotes, match }) {
   )
 }
 
+function CompletedMatchResult({ match, result }) {
+  return (
+    <section className="mb-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" aria-label="Completed match result">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Normal time</p>
+          <p className="mt-1 text-xl font-black text-[#101828]">{result.regulationScore}</p>
+        </div>
+        {result.extraTimeScore ? (
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">After extra time</p>
+            <p className="mt-1 text-xl font-black text-[#101828]">{result.extraTimeScore}</p>
+          </div>
+        ) : null}
+        {result.shootoutScore ? (
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Penalty shootout</p>
+            <p className="mt-1 text-xl font-black text-[#101828]">{result.shootoutScore}</p>
+          </div>
+        ) : null}
+        {result.shootoutWinner ? (
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Shootout winner</p>
+            <p className="mt-1 text-sm font-black text-[#101828]">{result.shootoutWinner}</p>
+          </div>
+        ) : null}
+      </div>
+      {result.shootoutEvents.length > 0 ? (
+        <ol className="mt-4 divide-y divide-[#d7e5dc] border-y border-[#d7e5dc]">
+          {result.shootoutEvents.map((kick) => (
+            <li key={kick.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm font-semibold text-[#4b5f55]">
+              <span>
+                {kick.teamSide === 'opponent' ? (match.opponent || 'Opponent') : (match.teamName || 'Our team')}
+                {kick.playerName ? `, ${kick.playerName}` : ''}
+              </span>
+              <span className="font-black text-[#101828]">
+                Kick {kick.kickNumber}: {kick.eventStatus === 'voided' ? `voided, ${kick.voidReason || 'corrected'}` : kick.outcome}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </section>
+  )
+}
+
 export function CompletedMatchEventReport({ includeEventNotes = false, match }) {
   const summary = buildFinalMatchReportSummary(match)
   const yellowCardCount = summary.activeCards.filter((event) => event.eventType === 'yellow_card').length
@@ -84,6 +130,7 @@ export function CompletedMatchEventReport({ includeEventNotes = false, match }) 
 
   return (
     <div aria-label="Completed match events">
+      <CompletedMatchResult match={match} result={summary.result} />
       <div className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
         <CompletedEventList emptyLabel="No active goals were recorded." events={summary.activeGoals} includeEventNotes={includeEventNotes} match={match} title="Goals summary" />
         <section className="border-t border-[#d7e5dc] pt-4">

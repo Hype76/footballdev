@@ -4,6 +4,7 @@ import { formatFixtureDateTime, isFixtureKickoffTimeTbc } from '../../lib/calend
 import { getMatchDayFixtureTypeLabel } from '../../lib/matchday-fixture-type.js'
 import {
   buildCompletedMatchEventPresentation,
+  buildCompletedMatchResult,
   buildFinalMatchReportSummary,
   resolveCompletedMatchPlayerName,
 } from '../../lib/matchday-final-report.js'
@@ -86,6 +87,7 @@ const bodyClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 
 export function PreviousGameCard({ match, onOpen }) {
   const goals = getGoalEvents(match)
+  const result = buildCompletedMatchResult(match)
 
   return (
     <button
@@ -99,6 +101,11 @@ export function PreviousGameCard({ match, onOpen }) {
       <p className="mt-2 text-3xl font-black text-[#101828]">
         {getMatchDayDisplayScore(match)}
       </p>
+      {result.shootoutScore ? (
+        <p className="mt-1 text-sm font-black text-[#047857]">Shootout {result.shootoutScore}{result.shootoutWinner ? `, ${result.shootoutWinner} won` : ''}</p>
+      ) : result.extraTimeScore ? (
+        <p className="mt-1 text-sm font-black text-[#047857]">After extra time {result.extraTimeScore}</p>
+      ) : null}
       {goals.length > 0 ? (
         <div className="mt-3 space-y-2">
           {goals.slice(0, 4).map((event) => (
@@ -121,6 +128,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
   }
 
   const goals = getGoalEvents(match)
+  const result = buildCompletedMatchResult(match)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#101828]/55 px-3 py-4 sm:items-center" role="dialog" aria-modal="true" aria-label="Previous game details">
@@ -133,6 +141,11 @@ export function PreviousGameDetailModal({ match, onClose }) {
             <p className="mt-2 text-4xl font-black text-[#101828]">
               {getMatchDayDisplayScore(match)}
             </p>
+            {result.shootoutScore ? (
+              <p className="mt-1 text-sm font-black text-[#047857]">Shootout {result.shootoutScore}{result.shootoutWinner ? `, ${result.shootoutWinner} won` : ''}</p>
+            ) : result.extraTimeScore ? (
+              <p className="mt-1 text-sm font-black text-[#047857]">After extra time {result.extraTimeScore}</p>
+            ) : null}
             <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatPreviousMatchStatus(match)}</p>
           </div>
           <button

@@ -28,6 +28,11 @@ import {
   assertValidMatchDayFixtureType,
   normalizeMatchDayFixtureType,
 } from '../matchday-fixture-type.js'
+import {
+  normalizeExtraTimeHalfMinutes,
+  normalizeExtraTimePeriodCount,
+  normalizeMatchDayConclusionRule,
+} from '../matchday-extended-ops.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
@@ -217,6 +222,7 @@ function normalizeMatchDayEvent(row) {
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     notes: normalizeText(row.notes),
+    isPenaltyGoal: row.is_penalty_goal === true || row.isPenaltyGoal === true,
     eventStatus: normalizeText(row.event_status ?? row.eventStatus) || 'active',
     correctedAt: row.corrected_at ?? row.correctedAt ?? '',
     correctedByName: normalizeText(row.corrected_by_name ?? row.correctedByName),
@@ -234,6 +240,26 @@ function normalizeMatchDayEvent(row) {
       : row.correctionMetadata && typeof row.correctionMetadata === 'object'
         ? row.correctionMetadata
         : {},
+    createdByName: normalizeText(row.created_by_name ?? row.createdByName),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+function normalizeMatchDayShootoutKick(row) {
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    teamSide: normalizeText(row.team_side ?? row.teamSide) === 'opponent' ? 'opponent' : 'club',
+    outcome: normalizeText(row.outcome) === 'missed' ? 'missed' : 'scored',
+    kickNumber: normalizeNonNegativeInteger(row.kick_number ?? row.kickNumber),
+    playerName: normalizeText(row.player_name ?? row.playerName),
+    notes: normalizeText(row.notes),
+    eventStatus: normalizeText(row.event_status ?? row.eventStatus) || 'active',
+    voidedAt: row.voided_at ?? row.voidedAt ?? '',
+    voidedByName: normalizeText(row.voided_by_name ?? row.voidedByName),
+    voidReason: normalizeText(row.void_reason ?? row.voidReason),
+    homeShootoutScore: normalizeNonNegativeInteger(row.home_shootout_score ?? row.homeShootoutScore),
+    awayShootoutScore: normalizeNonNegativeInteger(row.away_shootout_score ?? row.awayShootoutScore),
     createdByName: normalizeText(row.created_by_name ?? row.createdByName),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
@@ -316,6 +342,12 @@ function normalizeNonNegativeInteger(value) {
   }
 
   return normalizedValue
+}
+
+function normalizeOptionalNonNegativeInteger(value) {
+  return value === null || value === undefined || value === ''
+    ? null
+    : normalizeNonNegativeInteger(value)
 }
 
 function normalizeAvailabilityRequest(row) {
@@ -473,6 +505,12 @@ export function normalizeMatchDay(row) {
   const rawFinalReport = Array.isArray(row.match_day_final_reports)
     ? row.match_day_final_reports[0]
     : row.match_day_final_reports ?? row.finalReport
+  const rawShootoutEvents = Array.isArray(row.match_day_shootout_kicks)
+    ? row.match_day_shootout_kicks
+    : row.shootout_events ?? row.shootoutEvents
+  const shootoutEvents = Array.isArray(rawShootoutEvents)
+    ? rawShootoutEvents.map(normalizeMatchDayShootoutKick)
+    : []
 
   return {
     id: row.id ?? '',
@@ -481,6 +519,10 @@ export function normalizeMatchDay(row) {
     teamName: normalizeText(team?.name ?? row.team_name ?? row.teamName),
     opponent: normalizeText(row.opponent),
     fixtureType: normalizeMatchDayFixtureType(row.fixture_type ?? row.fixtureType),
+    conclusionRule: normalizeMatchDayConclusionRule(row.match_conclusion_rule ?? row.conclusionRule),
+    currentMatchPhase: normalizeText(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match',
+    extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(row.extra_time_half_minutes ?? row.extraTimeHalfMinutes),
+    extraTimePeriodCount: normalizeExtraTimePeriodCount(row.extra_time_period_count ?? row.extraTimePeriodCount),
     matchDate: row.match_date ?? row.matchDate ?? '',
     kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '',
     kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
@@ -501,6 +543,13 @@ export function normalizeMatchDay(row) {
     status: normalizeText(row.status) || 'scheduled',
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
+    normalTimeHomeScore: normalizeOptionalNonNegativeInteger(row.normal_time_home_score ?? row.normalTimeHomeScore),
+    normalTimeAwayScore: normalizeOptionalNonNegativeInteger(row.normal_time_away_score ?? row.normalTimeAwayScore),
+    extraTimeHomeScore: normalizeOptionalNonNegativeInteger(row.extra_time_home_score ?? row.extraTimeHomeScore),
+    extraTimeAwayScore: normalizeOptionalNonNegativeInteger(row.extra_time_away_score ?? row.extraTimeAwayScore),
+    homeShootoutScore: normalizeNonNegativeInteger(row.home_shootout_score ?? row.homeShootoutScore),
+    awayShootoutScore: normalizeNonNegativeInteger(row.away_shootout_score ?? row.awayShootoutScore),
+    shootoutWinner: normalizeText(row.shootout_winner ?? row.shootoutWinner),
     phaseStartedAt: row.phase_started_at ?? row.phaseStartedAt ?? '',
     timerStartedAt: row.timer_started_at ?? row.timerStartedAt ?? '',
     timerPausedAt: row.timer_paused_at ?? row.timerPausedAt ?? '',
@@ -537,6 +586,7 @@ export function normalizeMatchDay(row) {
     availabilityHistory,
     eventLog,
     events,
+    shootoutEvents,
     finalReport: normalizeMatchDayFinalReport(rawFinalReport),
   }
 }
@@ -668,6 +718,7 @@ function buildMatchSelect() {
     match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
     match_day_event_log (*, players:player_id (player_name)),
     match_day_events (*),
+    match_day_shootout_kicks (*),
     match_day_final_reports (*)
   `
 }
@@ -1003,6 +1054,9 @@ export async function createMatchDay({ user, match }) {
   const homeAway = assertNewMatchHomeAway(match?.homeAway)
   const clockMode = assertValidMatchClockMode(match?.clockMode ?? 'fixed')
   const matchDurationMinutes = assertValidMatchDurationMinutes(match?.matchDurationMinutes)
+  const conclusionRule = normalizeMatchDayConclusionRule(match?.conclusionRule)
+  const extraTimeHalfMinutes = normalizeExtraTimeHalfMinutes(match?.extraTimeHalfMinutes)
+  const extraTimePeriodCount = normalizeExtraTimePeriodCount(match?.extraTimePeriodCount)
   const fixtureDateTime = validateFixtureDateTime({
     kickoffTime: match?.kickoffTime,
     kickoffTimeTbc: match?.kickoffTimeTbc,
@@ -1046,6 +1100,9 @@ export async function createMatchDay({ user, match }) {
       home_away: homeAway,
       match_clock_mode: clockMode,
       match_duration_minutes: matchDurationMinutes,
+      match_conclusion_rule: conclusionRule,
+      extra_time_half_minutes: extraTimeHalfMinutes,
+      extra_time_period_count: extraTimePeriodCount,
       venue_name: venueName,
       venue_address: venueAddress,
       notes: normalizeText(match?.notes),
@@ -1079,6 +1136,7 @@ export async function createMatchDay({ user, match }) {
     metadata: {
       opponent,
       fixtureType,
+      conclusionRule,
       teamId,
       venueName,
     },
@@ -1139,6 +1197,9 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.homeAway !== undefined) payload.home_away = assertNewMatchHomeAway(updates.homeAway)
   if (updates.clockMode !== undefined) payload.match_clock_mode = assertValidMatchClockMode(updates.clockMode)
   if (updates.matchDurationMinutes !== undefined) payload.match_duration_minutes = assertValidMatchDurationMinutes(updates.matchDurationMinutes)
+  if (updates.conclusionRule !== undefined) payload.match_conclusion_rule = normalizeMatchDayConclusionRule(updates.conclusionRule)
+  if (updates.extraTimeHalfMinutes !== undefined) payload.extra_time_half_minutes = normalizeExtraTimeHalfMinutes(updates.extraTimeHalfMinutes)
+  if (updates.extraTimePeriodCount !== undefined) payload.extra_time_period_count = normalizeExtraTimePeriodCount(updates.extraTimePeriodCount)
   if (updates.venueName !== undefined) payload.venue_name = normalizeText(updates.venueName)
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)
   if (updates.notes !== undefined) payload.notes = normalizeText(updates.notes)
@@ -1229,6 +1290,17 @@ function normalizeMatchDayTimerResult(data, fallbackMatch = {}) {
     fullTimeResumeStatus: result.fullTimeResumeStatus ?? result.full_time_resume_status ?? fallbackMatch.fullTimeResumeStatus ?? '',
     concludedAt: result.concludedAt ?? result.concluded_at ?? fallbackMatch.concludedAt ?? '',
     concludedBy: result.concludedBy ?? result.concluded_by ?? fallbackMatch.concludedBy ?? '',
+    conclusionRule: normalizeMatchDayConclusionRule(result.conclusionRule ?? result.match_conclusion_rule ?? fallbackMatch.conclusionRule),
+    currentMatchPhase: normalizeText(result.currentMatchPhase ?? result.current_match_phase ?? fallbackMatch.currentMatchPhase) || 'pre_match',
+    extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(result.extraTimeHalfMinutes ?? result.extra_time_half_minutes ?? fallbackMatch.extraTimeHalfMinutes),
+    extraTimePeriodCount: normalizeExtraTimePeriodCount(result.extraTimePeriodCount ?? result.extra_time_period_count ?? fallbackMatch.extraTimePeriodCount),
+    normalTimeHomeScore: normalizeOptionalNonNegativeInteger(result.normalTimeHomeScore ?? result.normal_time_home_score ?? fallbackMatch.normalTimeHomeScore),
+    normalTimeAwayScore: normalizeOptionalNonNegativeInteger(result.normalTimeAwayScore ?? result.normal_time_away_score ?? fallbackMatch.normalTimeAwayScore),
+    extraTimeHomeScore: normalizeOptionalNonNegativeInteger(result.extraTimeHomeScore ?? result.extra_time_home_score ?? fallbackMatch.extraTimeHomeScore),
+    extraTimeAwayScore: normalizeOptionalNonNegativeInteger(result.extraTimeAwayScore ?? result.extra_time_away_score ?? fallbackMatch.extraTimeAwayScore),
+    homeShootoutScore: normalizeNonNegativeInteger(result.homeShootoutScore ?? result.home_shootout_score ?? fallbackMatch.homeShootoutScore),
+    awayShootoutScore: normalizeNonNegativeInteger(result.awayShootoutScore ?? result.away_shootout_score ?? fallbackMatch.awayShootoutScore),
+    shootoutWinner: normalizeText(result.shootoutWinner ?? result.shootout_winner ?? fallbackMatch.shootoutWinner),
     updatedAt: result.updatedAt ?? result.updated_at ?? '',
   }
 }
@@ -1296,6 +1368,77 @@ export async function startMatchDay({ user, match, matchId } = {}) {
   invalidateMemoryCacheByPrefix('match-day:')
   invalidateMemoryCacheByPrefix('parent-match-day:')
   return normalizeMatchDayTimerResult(data, match)
+}
+
+export async function setMatchDayExtendedState({ user, match, matchId, action }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  const normalizedAction = normalizeText(action)
+  if (!normalizedMatchId || !normalizedAction) {
+    throw new Error('Choose a match and extended match action first.')
+  }
+  if (match?.id) assertMatchInActiveTeamScope(user, match)
+  await assertMatchDayRecordInActiveTeamScope(user, normalizedMatchId)
+
+  const { data, error } = await supabase.rpc('set_match_day_extended_state', {
+    match_day_id_value: normalizedMatchId,
+    action_value: normalizedAction,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayTimerResult(data, match)
+}
+
+export async function recordMatchDayShootoutKick({ user, match, kick }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  const { data, error } = await supabase.rpc('record_match_day_shootout_kick', {
+    match_day_id_value: match.id,
+    team_side_value: normalizeText(kick?.teamSide) === 'opponent' ? 'opponent' : 'club',
+    outcome_value: normalizeText(kick?.outcome) === 'missed' ? 'missed' : 'scored',
+    player_name_value: normalizeText(kick?.playerName),
+    notes_value: normalizeText(kick?.notes),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayShootoutKick(data)
+}
+
+export async function voidMatchDayShootoutKick({ user, match, kickId, reason = 'Corrected shootout kick' }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+
+  const { data, error } = await supabase.rpc('void_match_day_shootout_kick', {
+    match_day_id_value: match.id,
+    kick_id_value: kickId,
+    reason_value: normalizeText(reason),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return data
 }
 
 const MATCH_DAY_VOLUNTEER_ROLES = new Set(['scorer', 'linesman', 'referee'])
@@ -1390,6 +1533,8 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     home_score: nextHomeScore,
     away_score: nextAwayScore,
     notes: normalizeText(goal?.notes),
+    is_penalty_goal: goal?.isPenaltyGoal === true,
+    match_phase: normalizeText(match.currentMatchPhase) || 'pre_match',
     created_by: getEntryUserId(user),
     created_by_name: getEntryUserName(user),
   }
@@ -1557,16 +1702,37 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     return []
   }
 
-  const { data, error } = await supabase.rpc('get_parent_portal_match_days', {
-    parent_link_id_value: normalizedParentLinkId,
-  })
+  const [{ data, error }, { data: extendedData, error: extendedError }] = await Promise.all([
+    supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: normalizedParentLinkId }),
+    supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: normalizedParentLinkId }),
+  ])
 
   if (error) {
     console.error(error)
     throw error
   }
 
-  return (data ?? []).map(normalizeParentPortalMatchDay)
+  if (extendedError) {
+    console.error(extendedError)
+    throw extendedError
+  }
+
+  const extendedByMatchId = new Map((extendedData ?? []).map((row) => [row.match_day_id ?? row.matchDayId, row]))
+
+  return (data ?? []).map((row) => {
+    const extended = extendedByMatchId.get(row.id) ?? {}
+    const contextByEventId = new Map((extended.event_contexts ?? extended.eventContexts ?? []).map((context) => [context.id, context]))
+    const events = (row.events ?? []).map((event) => ({
+      ...event,
+      ...(contextByEventId.get(event.id) ?? {}),
+    }))
+
+    return normalizeParentPortalMatchDay({
+      ...row,
+      ...extended,
+      events,
+    })
+  })
 }
 
 export async function getParentPortalMatchDayPlayers({ parentLinkId }) {
@@ -1651,6 +1817,70 @@ export async function setParentScorerMatchDayTimerState({ match, matchId, action
   invalidateMemoryCacheByPrefix('match-day:')
   invalidateMemoryCacheByPrefix('parent-match-day:')
   return normalizeMatchDayTimerResult(data, match)
+}
+
+export async function setParentScorerMatchDayExtendedState({ match, matchId, action }) {
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  const normalizedAction = normalizeText(action)
+  if (!normalizedMatchId || !normalizedAction) {
+    throw new Error('Choose a match and extended match action first.')
+  }
+
+  const { data, error } = await supabase.rpc('set_match_day_extended_state', {
+    match_day_id_value: normalizedMatchId,
+    action_value: normalizedAction,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayTimerResult(data, match)
+}
+
+export async function recordParentScorerShootoutKick({ match, matchId, kick }) {
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  if (!normalizedMatchId) throw new Error('Choose a match first.')
+
+  const { data, error } = await supabase.rpc('record_match_day_shootout_kick', {
+    match_day_id_value: normalizedMatchId,
+    team_side_value: normalizeText(kick?.teamSide) === 'opponent' ? 'opponent' : 'club',
+    outcome_value: normalizeText(kick?.outcome) === 'missed' ? 'missed' : 'scored',
+    player_name_value: normalizeText(kick?.playerName),
+    notes_value: normalizeText(kick?.notes),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayShootoutKick(data)
+}
+
+export async function voidParentScorerShootoutKick({ match, matchId, kickId, reason = 'Corrected shootout kick' }) {
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  if (!normalizedMatchId || !kickId) throw new Error('Choose a match and shootout kick first.')
+
+  const { data, error } = await supabase.rpc('void_match_day_shootout_kick', {
+    match_day_id_value: normalizedMatchId,
+    kick_id_value: kickId,
+    reason_value: normalizeText(reason),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return data
 }
 
 function normalizeGoalCorrectionResult(data) {
@@ -1875,6 +2105,7 @@ export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }
     assist_shirt_number_value: normalizeText(goal?.assistShirtNumber),
     minute_value: assertValidMatchDayEventMinute(goal?.minute),
     notes_value: normalizeText(goal?.notes),
+    is_penalty_goal_value: goal?.isPenaltyGoal === true,
   })
 
   if (error) {

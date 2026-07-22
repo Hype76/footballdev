@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { CompletedMatchEventReport } from '../components/match-day/CompletedMatchEventReport.jsx'
+import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
 import {
@@ -31,12 +32,15 @@ import {
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
+  recordMatchDayShootoutKick,
   saveMatchDayFinalReport,
   selectMatchDayVolunteer,
   setMatchDayPlayerSquadDecision,
+  setMatchDayExtendedState,
   setMatchDayTimerState,
   startMatchDay,
   updateMatchDay,
+  voidMatchDayShootoutKick,
   voidStaffMatchDayEvent,
   withRequestTimeout,
 } from '../lib/supabase.js'
@@ -102,6 +106,15 @@ import {
   MATCH_DAY_FIXTURE_TYPE_OPTIONS,
   normalizeMatchDayFixtureType,
 } from '../lib/matchday-fixture-type.js'
+import {
+  canFinishPenaltyShootout,
+  getMatchDayExtendedTimerActions,
+  getMatchDayPhaseLabel,
+  getNormalTimeCompletionAction,
+  MATCH_DAY_CONCLUSION_RULE_OPTIONS,
+  MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS,
+  matchUsesExtraTime,
+} from '../lib/matchday-extended-ops.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -116,6 +129,9 @@ const EMPTY_MATCH_FORM = {
   matchDurationPreset: '90',
   matchDurationMinutes: 90,
   customMatchDurationMinutes: '',
+  conclusionRule: 'normal_time',
+  extraTimePeriodCount: 2,
+  extraTimeHalfMinutes: 15,
   teamId: '',
   venueName: '',
   venueAddress: '',
@@ -139,6 +155,7 @@ const EMPTY_GOAL_FORM = {
   assistName: '',
   assistShirtNumber: '',
   notes: '',
+  isPenaltyGoal: false,
 }
 
 const EMPTY_SQUAD_SELECTION = {
@@ -169,10 +186,17 @@ const LIVE_MATCH_REFRESH_INTERVAL_MS = 15000
 const LIVE_MATCH_CLOCK_INTERVAL_MS = 1000
 const RUNNING_MATCH_STATUSES = new Set(['live', 'second_half', 'extra_time', 'penalties'])
 const PAUSED_MATCH_STATUSES = new Set(['half_time'])
-const LIVE_CONTROL_STATUSES = ['half_time', 'second_half', 'extra_time', 'penalties', 'full_time']
 const MATCH_DAY_DURATION_PRESETS = [60, 70, 80, 90]
 const MATCH_DAY_CUSTOM_DURATION_VALUE = 'custom'
 const MATCH_DAY_DURATION_PRESET_VALUES = new Set(MATCH_DAY_DURATION_PRESETS.map(String))
+const EXTENDED_MATCH_ACTIONS = new Set([
+  'normal_time_complete',
+  'start_extra_time',
+  'extra_time_half_time',
+  'start_extra_time_second_half',
+  'complete_extra_time',
+  'start_penalties',
+])
 
 const availabilityStatusLabels = {
   pending: 'No response',
@@ -726,6 +750,13 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
     return durationValidationMessage
   }
 
+  if (matchUsesExtraTime(form)) {
+    const extraTimeHalfMinutes = Number(form.extraTimeHalfMinutes)
+    if (!Number.isInteger(extraTimeHalfMinutes) || extraTimeHalfMinutes < 5 || extraTimeHalfMinutes > 30) {
+      return 'Extra-time period length must be a whole number from 5 to 30 minutes.'
+    }
+  }
+
   if (availablePlayerIds.length === 0) {
     return 'Add active squad players to this team before continuing to squad selection.'
   }
@@ -766,6 +797,10 @@ function getMatchEventTypeLabel(event, match = {}) {
   if (event.eventType === 'goal') {
     if (event.eventStatus === 'voided') {
       return event.teamSide === 'opponent' ? `${opponentName} goal voided` : 'Our goal voided'
+    }
+
+    if (event.isPenaltyGoal === true) {
+      return event.teamSide === 'opponent' ? `${opponentName} penalty goal` : 'Our penalty goal'
     }
 
     return event.teamSide === 'opponent' ? `${opponentName} goal` : 'Our goal'
@@ -1186,6 +1221,17 @@ function getMatchStatusLabel(status) {
   return MATCH_DAY_STATUS_OPTIONS.find((option) => option.value === status)?.label || String(status || 'scheduled').replace(/_/g, ' ')
 }
 
+function getExtendedMatchActionLabel(action) {
+  return ({
+    normal_time_complete: 'Normal time complete',
+    start_extra_time: 'Start extra time',
+    extra_time_half_time: 'Extra time half time',
+    start_extra_time_second_half: 'Start extra time second half',
+    complete_extra_time: 'Extra time complete',
+    start_penalties: 'Start penalty shootout',
+  })[action] || getMatchStatusLabel(action)
+}
+
 function getMatchLifecycleLabel(match) {
   return isMatchDayConcluded(match) ? 'Concluded' : getMatchStatusLabel(match.status)
 }
@@ -1193,8 +1239,10 @@ function getMatchLifecycleLabel(match) {
 function getMatchPeriodLabel(matchOrStatus) {
   const match = typeof matchOrStatus === 'object' ? matchOrStatus : { status: matchOrStatus }
   const status = match.status
+  const explicitPhaseLabel = getMatchDayPhaseLabel(match)
 
   if (isMatchDayConcluded(match)) return 'Concluded'
+  if (explicitPhaseLabel && explicitPhaseLabel !== 'Pre-match') return explicitPhaseLabel
   if (isContinuousMatchClock(match) && status !== 'full_time') return 'Continuous'
   if (status === 'live') return 'First half'
   if (status === 'half_time') return 'Half time'
@@ -2327,6 +2375,19 @@ export function MatchDayPage() {
   }
 
   const saveMatchStatus = async (match, status) => {
+    if (EXTENDED_MATCH_ACTIONS.has(status)) {
+      const actionLabel = getExtendedMatchActionLabel(status)
+      await persistTimerAction(match, status, {
+        busyKey: 'extended-state',
+        loadingMessage: `${actionLabel} saving...`,
+        successMessage: `${actionLabel} saved.`,
+        toastMessage: `${actionLabel} is now showing.`,
+        pushType: status === 'start_extra_time' ? 'extra_time' : status === 'start_penalties' ? 'penalties' : '',
+        saveTimerAction: setMatchDayExtendedState,
+      })
+      return
+    }
+
     const timerAction = getTimerActionForStatus(match, status)
     if (timerAction) {
       const timerPushType = status === 'second_half' && PAUSED_MATCH_STATUSES.has(match.status)
@@ -2455,13 +2516,16 @@ export function MatchDayPage() {
       return
     }
 
-    if (status === 'full_time') {
+    if (status === 'full_time' || status === 'normal_time_complete') {
+      const completesNormalTimeOnly = status === 'normal_time_complete'
       setPendingStatusAction({
         matchId: match.id,
         status,
-        title: 'Confirm full time',
-        message: 'Stop the match clock at Full Time. You can resume the same match or conclude it after post-match work.',
-        confirmLabel: 'Confirm full time',
+        title: completesNormalTimeOnly ? 'Confirm end of normal time' : 'Confirm full time',
+        message: completesNormalTimeOnly
+          ? 'Stop regulation play and move to the configured extra-time or penalty phase.'
+          : 'Stop the match clock at Full Time. You can resume the same match or conclude it after post-match work.',
+        confirmLabel: completesNormalTimeOnly ? 'End normal time' : 'Confirm full time',
         items: [
           `Fixture: ${getMatchDayDisplayName(match)}`,
           `Current score: ${getMatchDayDisplayScore(match)}`,
@@ -2515,6 +2579,49 @@ export function MatchDayPage() {
       successMessage: action === 'pause' ? 'Pause saved.' : 'Hydration saved.',
       toastMessage: action === 'pause' ? 'The match clock is paused.' : 'The hydration pause has been added.',
     })
+  }
+
+  const handleShootoutKick = async (match, kick) => {
+    setActiveMatchId(match.id)
+    setMatchActionStatus({
+      key: `${match.id}:shootout`,
+      tone: 'loading',
+      message: 'Shootout kick saving...',
+    })
+    setErrorMessage('')
+
+    try {
+      await recordMatchDayShootoutKick({ user, match, kick })
+      await loadData()
+      setMatchActionStatus({
+        key: `${match.id}:shootout`,
+        tone: 'success',
+        message: 'Shootout kick saved.',
+      })
+      showToast({ title: 'Shootout updated', message: 'The shootout score has been updated without changing the regulation score.' })
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'Shootout kick could not be saved.'
+      setErrorMessage(message)
+      setMatchActionStatus({ key: `${match.id}:shootout`, tone: 'error', message })
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
+  const handleVoidShootoutKick = async (match, kickId) => {
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+    try {
+      await voidMatchDayShootoutKick({ user, match, kickId })
+      await loadData()
+      showToast({ title: 'Shootout corrected', message: 'The latest shootout kick was voided and the shootout score was recalculated.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Shootout kick could not be corrected.')
+    } finally {
+      setActiveMatchId('')
+    }
   }
 
   const performScoreSave = async (match) => {
@@ -3581,6 +3688,8 @@ export function MatchDayPage() {
                 onGameModeStart={handleGameModeOpen}
                 onStartMatch={handleStartMatch}
                 onGameModeStatusChange={handleGameModeStatusChange}
+                onShootoutKick={handleShootoutKick}
+                onVoidShootoutKick={handleVoidShootoutKick}
                 onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
                 onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
                 onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
@@ -3729,6 +3838,8 @@ export function MatchDayPage() {
                   onGameModeStart={handleGameModeOpen}
                   onStartMatch={handleStartMatch}
                   onGameModeStatusChange={handleGameModeStatusChange}
+                  onShootoutKick={handleShootoutKick}
+                  onVoidShootoutKick={handleVoidShootoutKick}
                   onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
                   onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
                   onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
@@ -4108,6 +4219,8 @@ function MatchDayCard({
   onGameModeStatusChange,
   onOpenEventModal,
   onOpenGoalModal,
+  onShootoutKick,
+  onVoidShootoutKick,
   onScoreDraftChange,
   onScoreSave,
   onStartMatch,
@@ -4144,6 +4257,19 @@ function MatchDayCard({
   const isAtFullTime = isMatchDayAtFullTime(match)
   const isConcluded = isMatchDayConcluded(match)
   const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
+  const manageStatusActions = (() => {
+    if (match.status === 'live' && match.currentMatchPhase === 'first_half') {
+      return [{ action: 'half_time', label: 'Half time' }]
+    }
+    if (match.status === 'half_time' || match.currentMatchPhase === 'half_time') {
+      return [{ action: 'second_half', label: 'Resume' }]
+    }
+    if (match.currentMatchPhase === 'second_half') {
+      const action = getNormalTimeCompletionAction(match)
+      return [{ action, label: action === 'full_time' ? 'Full time' : 'End normal time' }]
+    }
+    return getMatchDayExtendedTimerActions(match)
+  })()
   const openManageFromGameMode = () => {
     onGameModeBack()
 
@@ -4318,6 +4444,8 @@ function MatchDayCard({
           onHydrationToggle={onGameModeHydrationToggle}
           onOpenEventModal={onOpenEventModal}
           onOpenGoalModal={onOpenGoalModal}
+          onShootoutKick={onShootoutKick}
+          onVoidShootoutKick={onVoidShootoutKick}
           onStartMatch={onStartMatch}
           onManage={openManageFromGameMode}
           onStatusChange={onGameModeStatusChange}
@@ -4358,6 +4486,9 @@ function MatchDayCard({
                 <DetailItem label="Team" value={match.teamName || 'Our team'} />
                 <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
                 <DetailItem label="Fixture type" value={getMatchDayFixtureTypeLabel(match.fixtureType)} />
+                <DetailItem label="Conclusion rule" value={MATCH_DAY_CONCLUSION_RULE_OPTIONS.find((option) => option.value === match.conclusionRule)?.label || 'Finish after normal time'} />
+                {matchUsesExtraTime(match) ? <DetailItem label="Extra time" value={`${match.extraTimePeriodCount} x ${match.extraTimeHalfMinutes} minutes`} /> : null}
+                <DetailItem label="Match phase" value={getMatchDayPhaseLabel(match) || getMatchPeriodLabel(match)} />
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
                 <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
@@ -4651,7 +4782,7 @@ function MatchDayCard({
             <button
               type="button"
               onClick={() => onScoreSave(match)}
-              disabled={isBusy}
+              disabled={isBusy || match.currentMatchPhase === 'penalties'}
               className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Save score
@@ -4659,26 +4790,17 @@ function MatchDayCard({
           </div>
 
           {!isAtFullTime && !isConcluded ? <div className="mt-3 flex flex-wrap gap-2">
-            {LIVE_CONTROL_STATUSES.map((statusValue) => {
-              const option = MATCH_DAY_STATUS_OPTIONS.find((candidate) => candidate.value === statusValue)
-              const controlLabel = match.status === 'half_time' && statusValue === 'second_half' ? 'Resume' : option.label
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => onStatusChange(match, option.value)}
-                  disabled={isBusy || match.status === option.value}
-                  className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                    match.status === option.value
-                      ? 'border-[#047857] bg-[#047857] text-white'
-                      : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
-                  }`}
-                >
-                  {isBusy ? 'Saving...' : controlLabel}
-                </button>
-              )
-            })}
+            {manageStatusActions.map((action) => (
+              <button
+                key={action.action}
+                type="button"
+                onClick={() => onStatusChange(match, action.action)}
+                disabled={isBusy || action.disabled}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? 'Saving...' : action.label}
+              </button>
+            ))}
             </div> : null}
           </section>
 
@@ -4764,6 +4886,8 @@ function MatchDayGameModePanel({
   onManage,
   onOpenEventModal,
   onOpenGoalModal,
+  onShootoutKick,
+  onVoidShootoutKick,
   onStartMatch,
   onStatusChange,
   onUndoEvent,
@@ -4777,6 +4901,13 @@ function MatchDayGameModePanel({
   const liveControlsDisabled = isBusy || isFullTime || isReady
   const canMoveToHalfTime = match.status === 'live'
   const matchPeriodLabel = getMatchPeriodLabel(match)
+  const phase = String(match.currentMatchPhase || '')
+  const isShootout = phase === 'penalties'
+  const isPhaseBreak = ['normal_time_complete', 'extra_time_half_time', 'extra_time_complete'].includes(phase)
+  const normalEventsDisabled = liveControlsDisabled || isShootout || isPhaseBreak
+  const extendedActions = getMatchDayExtendedTimerActions(match)
+  const normalTimeCompletionAction = getNormalTimeCompletionAction(match)
+  const showNormalTimeEnd = phase === 'second_half' || (!phase && match.status === 'second_half')
 
   return (
     <div className="game-mode-cockpit grid gap-3 border-t border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 sm:gap-4 sm:px-5 sm:py-4">
@@ -4813,6 +4944,15 @@ function MatchDayGameModePanel({
           </div>
         ) : null}
 
+        <div className="mt-4">
+          <MatchDayWakeLockControl active={!isFullTime} />
+        </div>
+        {matchUsesExtraTime(match) ? (
+          <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
+            The authoritative clock continues cumulatively through {match.extraTimePeriodCount} extra-time {match.extraTimePeriodCount === 1 ? 'period' : 'periods'} of {match.extraTimeHalfMinutes} minutes.
+          </p>
+        ) : null}
+
         {isReady ? (
           <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4">
             <p className="text-sm font-black text-[#047857]">Ready</p>
@@ -4826,15 +4966,34 @@ function MatchDayGameModePanel({
         ) : null}
 
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <button type="button" onClick={() => onOpenGoalModal(match)} disabled={liveControlsDisabled} className={primaryButtonClass}>Goal</button>
-          <button type="button" onClick={() => onOpenEventModal(match)} disabled={liveControlsDisabled} className={secondaryButtonClass}>Event</button>
-          <button type="button" onClick={() => onHydrationToggle(match, 'pause')} disabled={liveControlsDisabled || isPaused} className={secondaryButtonClass}>Pause</button>
-          <button type="button" onClick={() => onHydrationToggle(match)} disabled={liveControlsDisabled} className={secondaryButtonClass}>
+          <button type="button" onClick={() => onOpenGoalModal(match)} disabled={normalEventsDisabled} className={primaryButtonClass}>Goal</button>
+          <button type="button" onClick={() => onOpenEventModal(match)} disabled={normalEventsDisabled} className={secondaryButtonClass}>Event</button>
+          <button type="button" onClick={() => onHydrationToggle(match, 'pause')} disabled={normalEventsDisabled || isPaused} className={secondaryButtonClass}>Pause</button>
+          <button type="button" onClick={() => onHydrationToggle(match)} disabled={normalEventsDisabled} className={secondaryButtonClass}>
             {isPaused ? 'Resume' : 'Hydration'}
           </button>
           <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={liveControlsDisabled || !canMoveToHalfTime} className={secondaryButtonClass}>HT</button>
-          <button type="button" onClick={() => onStatusChange(match, 'full_time')} disabled={liveControlsDisabled} className={secondaryButtonClass}>FT</button>
+          {showNormalTimeEnd ? (
+            <button type="button" onClick={() => onStatusChange(match, normalTimeCompletionAction)} disabled={liveControlsDisabled} className={secondaryButtonClass}>
+              {normalTimeCompletionAction === 'full_time' ? <span>FT</span> : <span>End normal time</span>}
+            </button>
+          ) : null}
+          {extendedActions.map((action) => (
+            <button
+              key={action.action}
+              type="button"
+              onClick={() => onStatusChange(match, action.action)}
+              disabled={liveControlsDisabled || action.disabled}
+              className={secondaryButtonClass}
+            >
+              {action.label}
+            </button>
+          ))}
         </div>
+
+        {isShootout ? (
+          <ShootoutControls isBusy={isBusy} match={match} onRecordKick={onShootoutKick} onVoidKick={onVoidShootoutKick} />
+        ) : null}
       </section>
       <MatchTimelinePanel
         events={events}
@@ -4843,6 +5002,50 @@ function MatchDayGameModePanel({
         onUndoEvent={onUndoEvent}
       />
     </div>
+  )
+}
+
+function ShootoutControls({ isBusy, match, onRecordKick, onVoidKick }) {
+  const [playerName, setPlayerName] = useState('')
+  const shootoutEvents = Array.isArray(match.shootoutEvents) ? match.shootoutEvents : []
+  const homeShootoutScore = Number(match.homeShootoutScore || 0)
+  const awayShootoutScore = Number(match.awayShootoutScore || 0)
+  const latestActiveKick = shootoutEvents.filter((kick) => kick.eventStatus !== 'voided').at(-1)
+
+  const recordKick = async (teamSide, outcome) => {
+    await onRecordKick(match, { teamSide, outcome, playerName })
+    setPlayerName('')
+  }
+
+  return (
+    <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3" aria-label="Penalty shootout controls">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className={smallLabelClass}>Penalty shootout</p>
+          <p className="text-2xl font-black text-[#101828]">{homeShootoutScore} to {awayShootoutScore}</p>
+          <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Shootout kicks are separate from regulation goals and player statistics.</p>
+        </div>
+        <p className="text-xs font-black text-[#4b5f55]">{shootoutEvents.length} kicks recorded</p>
+      </div>
+      <label className="mt-3 block">
+        <span className={smallLabelClass}>Player name optional</span>
+        <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} className={compactInputClass} />
+      </label>
+      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <button type="button" onClick={() => recordKick('club', 'scored')} disabled={isBusy} className={primaryButtonClass}>Our team scored</button>
+        <button type="button" onClick={() => recordKick('club', 'missed')} disabled={isBusy} className={secondaryButtonClass}>Our team missed</button>
+        <button type="button" onClick={() => recordKick('opponent', 'scored')} disabled={isBusy} className={primaryButtonClass}>Opponent scored</button>
+        <button type="button" onClick={() => recordKick('opponent', 'missed')} disabled={isBusy} className={secondaryButtonClass}>Opponent missed</button>
+      </div>
+      {latestActiveKick ? (
+        <button type="button" onClick={() => onVoidKick(match, latestActiveKick.id)} disabled={isBusy} className={`${secondaryButtonClass} mt-3`}>
+          Undo latest kick
+        </button>
+      ) : null}
+      {!canFinishPenaltyShootout(match) && shootoutEvents.length > 0 ? (
+        <p className="mt-3 text-xs font-bold text-[#92400e]">Complete the required kicks or sudden-death pair before finishing the shootout.</p>
+      ) : null}
+    </section>
   )
 }
 
@@ -5219,6 +5422,15 @@ function LiveMatchEntryModal({
                 <label className="block">
                   <span className={smallLabelClass}>Minute</span>
                   <input type="number" min="0" max="130" value={goalForm.minute} onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })} placeholder="Auto from clock" className={compactInputClass} />
+                </label>
+                <label className="flex min-h-10 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={goalForm.isPenaltyGoal === true}
+                    onChange={(event) => onGoalFormChange(match.id, { isPenaltyGoal: event.target.checked })}
+                    className="h-5 w-5 shrink-0 accent-[#047857]"
+                  />
+                  <span className="text-sm font-black text-[#101828]">Penalty goal</span>
                 </label>
                 <label className="block md:col-span-2">
                   <span className={smallLabelClass}>Note</span>
@@ -5931,6 +6143,41 @@ function FixtureSetupModal({
                   ))}
                 </select>
               </label>
+
+              <label className="block">
+                <span className={labelClass}>How this match can finish</span>
+                <select value={form.conclusionRule} onChange={(event) => updateForm({ conclusionRule: event.target.value })} className={inputClass}>
+                  {MATCH_DAY_CONCLUSION_RULE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+
+              {matchUsesExtraTime(form) ? (
+                <>
+                  <label className="block">
+                    <span className={labelClass}>Extra-time periods</span>
+                    <select value={form.extraTimePeriodCount} onChange={(event) => updateForm({ extraTimePeriodCount: Number(event.target.value) })} className={inputClass}>
+                      {MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className={labelClass}>Extra-time period length</span>
+                    <input
+                      type="number"
+                      min="5"
+                      max="30"
+                      step="1"
+                      value={form.extraTimeHalfMinutes}
+                      onChange={(event) => updateForm({ extraTimeHalfMinutes: event.target.value })}
+                      className={inputClass}
+                    />
+                    <span className="mt-2 block text-xs font-semibold leading-5 text-[#4b5f55]">Length of each extra-time period.</span>
+                  </label>
+                </>
+              ) : null}
 
               {isTeamScopedFixture ? (
                 <div className="block">

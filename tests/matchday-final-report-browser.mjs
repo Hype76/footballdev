@@ -218,7 +218,7 @@ async function run() {
     const report = staff.page.getByRole('region', { name: 'Final Match Report' })
     await report.getByRole('heading', { name: 'Final Match Report' }).waitFor({ state: 'visible' })
     staff.failedRequests.length = 0
-    await report.getByText('1 - 2', { exact: true }).waitFor({ state: 'visible' })
+    await report.getByText('1 - 2', { exact: true }).first().waitFor({ state: 'visible' })
     await report.getByText('Fixed, 70 minutes', { exact: true }).waitFor({ state: 'visible' })
     await report.getByText('Away', { exact: true }).waitFor({ state: 'visible' })
     assert.equal(await report.getByText(/^Voided,/).count(), 2)

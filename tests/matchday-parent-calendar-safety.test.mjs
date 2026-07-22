@@ -104,7 +104,9 @@ test('parent match day client trims unused staff and actor fields after RPC norm
   assert.match(source, /roleAssignments: match\.roleAssignments\.map/)
   assert.match(source, /delete parentEvent\.correctedByName/)
   assert.match(source, /delete parentEvent\.createdByName/)
-  assert.match(source, /return \(data \?\? \[\]\)\.map\(normalizeParentPortalMatchDay\)/)
+  assert.match(source, /const extendedByMatchId = new Map/)
+  assert.match(source, /return \(data \?\? \[\]\)\.map\(\(row\) => \{/)
+  assert.match(source, /return normalizeParentPortalMatchDay\(\{/)
 })
 
 test('parent match day RPC supports each parent audience and fails closed by relationship', async () => {

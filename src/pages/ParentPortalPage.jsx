@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
+import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
 import {
   ParentPortalAccountActions,
   ParentPortalSectionNav,
@@ -37,10 +38,13 @@ import {
   PARENT_INVITATION_VIEWS,
   respondToParentPortalInvitation,
   requestPasswordReauthentication,
+  recordParentScorerShootoutKick,
+  setParentScorerMatchDayExtendedState,
   setParentScorerMatchDayTimerState,
   splitParentInvitationsForViews,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
+  voidParentScorerShootoutKick,
 } from '../lib/supabase.js'
 import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
@@ -64,6 +68,10 @@ import {
   isFixtureKickoffTimeTbc,
 } from '../lib/calendar-datetime-integrity.js'
 import { getMatchDaySquadDecisionLabel } from '../lib/matchday-squad-selection.js'
+import {
+  getMatchDayPhaseLabel,
+  MATCH_DAY_SHOOTOUT_NO_GOAL_OUTCOME,
+} from '../lib/matchday-extended-ops.js'
 
 const EMPTY_GOAL_FORM = {
   teamSide: 'club',
@@ -73,6 +81,7 @@ const EMPTY_GOAL_FORM = {
   assistName: '',
   assistShirtNumber: '',
   notes: '',
+  isPenaltyGoal: false,
 }
 const EMPTY_GOAL_CORRECTION_FORM = {
   ...EMPTY_GOAL_FORM,
@@ -89,6 +98,14 @@ const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'resources', 'settings'])
+const EXTENDED_MATCH_ACTIONS = new Set([
+  'normal_time_complete',
+  'start_extra_time',
+  'extra_time_half_time',
+  'start_extra_time_second_half',
+  'complete_extra_time',
+  'start_penalties',
+])
 
 function formatMatchDate(match) {
   return formatFixtureDateTime(match)
@@ -135,14 +152,16 @@ function getParentMatchEventTitle(event) {
     substitution: 'Substitution',
     water_break: 'Water break',
   }
-  const eventLabel = eventLabels[event.eventType] || 'Match event'
+  const eventLabel = event.eventType === 'goal' && event.isPenaltyGoal === true
+    ? 'Penalty goal'
+    : eventLabels[event.eventType] || 'Match event'
 
   if (event.eventStatus === 'voided') {
     return `${eventLabel} voided, Score: ${event.homeScore} - ${event.awayScore}`
   }
 
   if (event.eventType === 'goal' && event.eventStatus === 'corrected') {
-    return `Goal corrected, Score: ${event.homeScore} - ${event.awayScore}`
+    return `${eventLabel} corrected, Score: ${event.homeScore} - ${event.awayScore}`
   }
 
   return `${eventLabel}, Score: ${event.homeScore} - ${event.awayScore}`
@@ -256,6 +275,12 @@ function getParentMatchActionModalCopy(action) {
       hydration: 'Start hydration break',
       resume: action.match?.status === 'half_time' ? 'Start second half' : 'Resume match',
       half_time: 'Set half time',
+      normal_time_complete: 'End normal time',
+      start_extra_time: 'Start extra time',
+      extra_time_half_time: 'Set extra time half time',
+      start_extra_time_second_half: 'Start extra time second half',
+      complete_extra_time: 'End extra time',
+      start_penalties: 'Start penalty shootout',
       full_time: 'Set full time',
       conclude: 'Conclude match',
     }
@@ -274,6 +299,27 @@ function getParentMatchActionModalCopy(action) {
       title: 'Add goal',
       message: 'Add this goal to the live Match Day feed?',
       confirmLabel: 'Add goal',
+      items: [getMatchDayDisplayName(action.match)],
+    }
+  }
+
+  if (action.type === 'shootoutKick') {
+    const kick = action.kick || {}
+    const sideLabel = kick.teamSide === 'opponent' ? 'Opponent' : 'Our team'
+    const outcomeLabel = kick.outcome === MATCH_DAY_SHOOTOUT_NO_GOAL_OUTCOME ? 'saved or off target' : 'scored'
+    return {
+      title: 'Record shootout kick',
+      message: 'Record this kick in the separate penalty shootout score?',
+      confirmLabel: 'Record kick',
+      items: [getMatchDayDisplayName(action.match), `${sideLabel}: ${outcomeLabel}`],
+    }
+  }
+
+  if (action.type === 'voidShootoutKick') {
+    return {
+      title: 'Undo latest shootout kick',
+      message: 'Void the latest kick and recalculate the separate shootout score?',
+      confirmLabel: 'Undo kick',
       items: [getMatchDayDisplayName(action.match)],
     }
   }
@@ -977,7 +1023,10 @@ export function ParentPortalPage() {
     setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
-      await setParentScorerMatchDayTimerState({
+      const saveTimerAction = EXTENDED_MATCH_ACTIONS.has(timerAction)
+        ? setParentScorerMatchDayExtendedState
+        : setParentScorerMatchDayTimerState
+      await saveTimerAction({
         match,
         action: timerAction,
       })
@@ -1001,6 +1050,42 @@ export function ParentPortalPage() {
     } catch (error) {
       console.error(error)
       setMatchError(getParentMatchDayErrorMessage(error, 'Match could not be started. Please refresh or try again.'))
+    } finally {
+      finishMatchMutation(match.id)
+    }
+  }
+
+  const performShootoutKick = async (match, kick) => {
+    if (!selectedLink?.id || !match.isScorer || !beginMatchMutation(match.id)) {
+      return
+    }
+
+    setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
+
+    try {
+      await recordParentScorerShootoutKick({ match, kick })
+      await loadMatches()
+      showToast({ title: 'Shootout updated', message: 'The shootout score was updated without changing the regulation score.' })
+    } catch (error) {
+      console.error(error)
+      setMatchError(getParentMatchDayErrorMessage(error, 'Shootout kick could not be saved. Please refresh or try again.'))
+    } finally {
+      finishMatchMutation(match.id)
+    }
+  }
+
+  const performVoidShootoutKick = async (match, kickId) => {
+    if (!selectedLink?.id || !match.isScorer || !beginMatchMutation(match.id)) return
+    setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
+    try {
+      await voidParentScorerShootoutKick({ match, kickId })
+      await loadMatches()
+      showToast({ title: 'Shootout corrected', message: 'The latest kick was voided and the shootout score was recalculated.' })
+    } catch (error) {
+      console.error(error)
+      setMatchError(getParentMatchDayErrorMessage(error, 'Shootout kick could not be corrected. Please refresh or try again.'))
     } finally {
       finishMatchMutation(match.id)
     }
@@ -1125,6 +1210,14 @@ export function ParentPortalPage() {
     openParentMatchActionModal({ type: 'addGoal', match })
   }
 
+  const handleShootoutKick = (match, kick) => {
+    openParentMatchActionModal({ type: 'shootoutKick', match, kick })
+  }
+
+  const handleVoidShootoutKick = (match, kickId) => {
+    openParentMatchActionModal({ type: 'voidShootoutKick', match, kickId })
+  }
+
   const handleCorrectGoal = (match, goalEvent) => {
     if (!selectedLink?.id || !match.isScorer) {
       return
@@ -1139,7 +1232,7 @@ export function ParentPortalPage() {
       return
     }
 
-    const { draft, goalEvent, match, timerAction, type } = parentMatchAction
+    const { draft, goalEvent, kick, kickId, match, timerAction, type } = parentMatchAction
 
     if (type === 'volunteer') {
       await performVolunteer(match)
@@ -1153,6 +1246,10 @@ export function ParentPortalPage() {
       await performTimerAction(match, timerAction)
     } else if (type === 'addGoal') {
       await performAddGoal(match)
+    } else if (type === 'shootoutKick') {
+      await performShootoutKick(match, kick)
+    } else if (type === 'voidShootoutKick') {
+      await performVoidShootoutKick(match, kickId)
     } else if (type === 'correctGoal') {
       await performCorrectGoal(match, goalEvent)
     }
@@ -1259,6 +1356,8 @@ export function ParentPortalPage() {
               handleCorrectGoal={handleCorrectGoal}
               handlePlayerPick={handlePlayerPick}
               handleScoreSave={handleScoreSave}
+              handleShootoutKick={handleShootoutKick}
+              handleVoidShootoutKick={handleVoidShootoutKick}
               handleTimerAction={handleTimerAction}
               handleVolunteer={handleVolunteer}
               isLoading={isLoadingMatches}
@@ -2339,6 +2438,8 @@ function ParentMatchCardsPanel({
   handleCorrectGoal,
   handlePlayerPick,
   handleScoreSave,
+  handleShootoutKick,
+  handleVoidShootoutKick,
   handleTimerAction,
   handleVolunteer,
   isLoading,
@@ -2389,6 +2490,8 @@ function ParentMatchCardsPanel({
                   },
                 }))}
                 onScoreSave={handleScoreSave}
+                onShootoutKick={handleShootoutKick}
+                onVoidShootoutKick={handleVoidShootoutKick}
                 onTimerAction={handleTimerAction}
                 onToggleGameMode={() => setScorerGameModeMatchId((currentMatchId) => currentMatchId === match.id ? '' : match.id)}
                 onVolunteer={handleVolunteer}
@@ -2944,6 +3047,8 @@ function ParentMatchCard({
   onPlayerPick,
   onScoreDraftChange,
   onScoreSave,
+  onShootoutKick,
+  onVoidShootoutKick,
   onTimerAction,
   onToggleGameMode,
   onVolunteer,
@@ -2965,7 +3070,10 @@ function ParentMatchCard({
   const lifecycleState = getMatchDayLifecycleState(match)
   const timerActions = getParentScorerTimerActions(match)
   const timerClock = formatMatchTimerClock(match, now)
+  const currentMatchPhase = String(match.currentMatchPhase || '')
+  const isShootout = currentMatchPhase === 'penalties'
   const canRecordLiveEvents = ['playing', 'paused', 'full_time'].includes(lifecycleState)
+    && !['penalties', 'normal_time_complete', 'extra_time_half_time', 'extra_time_complete'].includes(currentMatchPhase)
 
   return (
     <article className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
@@ -3005,6 +3113,9 @@ function ParentMatchCard({
           </p>
           {currentMinute ? (
             <p className="mt-2 text-sm font-bold text-[#4b5f55]">{currentMinute} min</p>
+          ) : null}
+          {match.shootoutEvents?.length > 0 ? (
+            <p className="mt-2 text-sm font-black text-[#047857]">Shootout {match.homeShootoutScore || 0} to {match.awayShootoutScore || 0}</p>
           ) : null}
         </div>
       </div>
@@ -3092,7 +3203,10 @@ function ParentMatchCard({
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Authoritative match clock</p>
                     <p className="mt-1 text-4xl font-black text-[#101828]">{timerClock}</p>
-                    <p className="mt-1 text-sm font-bold text-[#4b5f55]">{match.status.replace(/_/g, ' ')}</p>
+                    <p className="mt-1 text-sm font-bold text-[#4b5f55]">{getMatchDayPhaseLabel(match) || match.status.replace(/_/g, ' ')}</p>
+                    {['extra_time', 'extra_time_then_penalties'].includes(match.conclusionRule) ? (
+                      <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Cumulative clock, {match.extraTimePeriodCount} x {match.extraTimeHalfMinutes} extra-time minutes.</p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {timerActions.map((timerAction) => (
@@ -3100,7 +3214,7 @@ function ParentMatchCard({
                         key={timerAction.action}
                         type="button"
                         onClick={() => onTimerAction(match, timerAction.action)}
-                        disabled={isBusy}
+                        disabled={isBusy || timerAction.disabled}
                         className={timerAction.action === 'conclude' ? secondaryButtonClass : primaryButtonClass}
                       >
                         {timerAction.label}
@@ -3109,6 +3223,12 @@ function ParentMatchCard({
                   </div>
                 </div>
               </div>
+
+              <MatchDayWakeLockControl active={match.status !== 'full_time'} />
+
+              {isShootout ? (
+                <ParentShootoutControls isBusy={isBusy} match={match} onRecordKick={onShootoutKick} onVoidKick={onVoidShootoutKick} />
+              ) : null}
 
           <div className={softPanelClass}>
             <h5 className="text-sm font-black text-[#101828]">Update score</h5>
@@ -3136,7 +3256,7 @@ function ParentMatchCard({
               <button
                 type="button"
                 onClick={() => onScoreSave(match)}
-                disabled={isBusy}
+                disabled={isBusy || isShootout}
                 className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save
@@ -3157,6 +3277,15 @@ function ParentMatchCard({
                   <option value="club">Our team</option>
                   <option value="opponent">Opponent</option>
                 </select>
+              </label>
+              <label className="flex min-h-10 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={goalForm.isPenaltyGoal === true}
+                  onChange={(event) => onGoalFormChange(match.id, { isPenaltyGoal: event.target.checked })}
+                  className="h-5 w-5 shrink-0 accent-[#047857]"
+                />
+                <span className="text-sm font-black text-[#101828]">Penalty goal</span>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-[#047857]">Scorer player</span>
@@ -3262,5 +3391,44 @@ function ParentMatchCard({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function ParentShootoutControls({ isBusy, match, onRecordKick, onVoidKick }) {
+  const [playerName, setPlayerName] = useState('')
+  const shootoutEvents = Array.isArray(match.shootoutEvents) ? match.shootoutEvents : []
+  const latestActiveKick = shootoutEvents.filter((kick) => kick.eventStatus !== 'voided').at(-1)
+
+  const recordKick = (teamSide, outcome) => {
+    onRecordKick(match, { teamSide, outcome, playerName })
+    setPlayerName('')
+  }
+
+  return (
+    <section className={softPanelClass} aria-label="Penalty shootout controls">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Penalty shootout</p>
+          <p className="mt-1 text-2xl font-black text-[#101828]">{match.homeShootoutScore || 0} to {match.awayShootoutScore || 0}</p>
+          <p className="mt-1 text-xs font-semibold text-[#4b5f55]">These kicks do not change the regulation score or player goal totals.</p>
+        </div>
+        <p className="text-xs font-black text-[#4b5f55]">{shootoutEvents.length} kicks recorded</p>
+      </div>
+      <label className="mt-3 block">
+        <span className="mb-1 block text-xs font-black text-[#047857]">Player name optional</span>
+        <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} className={fieldClass} />
+      </label>
+      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <button type="button" onClick={() => recordKick('club', 'scored')} disabled={isBusy} className={primaryButtonClass}>Our team scored</button>
+        <button type="button" onClick={() => recordKick('club', MATCH_DAY_SHOOTOUT_NO_GOAL_OUTCOME)} disabled={isBusy} className={secondaryButtonClass}>Our team saved or off target</button>
+        <button type="button" onClick={() => recordKick('opponent', 'scored')} disabled={isBusy} className={primaryButtonClass}>Opponent scored</button>
+        <button type="button" onClick={() => recordKick('opponent', MATCH_DAY_SHOOTOUT_NO_GOAL_OUTCOME)} disabled={isBusy} className={secondaryButtonClass}>Opponent saved or off target</button>
+      </div>
+      {latestActiveKick ? (
+        <button type="button" onClick={() => onVoidKick(match, latestActiveKick.id)} disabled={isBusy} className={`${secondaryButtonClass} mt-3`}>
+          Undo latest kick
+        </button>
+      ) : null}
+    </section>
   )
 }

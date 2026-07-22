@@ -104,6 +104,13 @@ function createMatchFixture({ isLive = false, isScorer = false } = {}) {
     parent_visible: true,
     parent_audience: 'involved_players',
     status: isLive ? 'live' : 'scheduled',
+    match_conclusion_rule: 'extra_time_then_penalties',
+    current_match_phase: isLive ? 'first_half' : 'pre_match',
+    extra_time_period_count: 2,
+    extra_time_half_minutes: 15,
+    home_shootout_score: 0,
+    away_shootout_score: 0,
+    shootout_winner: null,
     home_score: 0,
     away_score: 0,
     phase_started_at: isLive ? '2026-07-22T10:00:00Z' : null,
@@ -149,11 +156,12 @@ async function prepareContext(browser, viewportOptions, {
   fixtureNullCount = 0,
   isLive = false,
   isScorer = false,
+  matchOverrides = {},
   parentRouteDelayMs = 0,
   platformAdminFails = false,
 } = {}) {
   const context = await browser.newContext(viewportOptions)
-  const fixtureState = { match: createMatchFixture({ isLive, isScorer }) }
+  const fixtureState = { match: { ...createMatchFixture({ isLive, isScorer }), ...matchOverrides } }
   const mutationRequests = []
   const consoleErrors = []
   const pageErrors = []
@@ -327,6 +335,86 @@ async function verifyBackgroundForeground(page, context) {
   await backgroundPage.close()
 }
 
+async function verifyWakeLockControl(page, mutationRequests) {
+  const control = page.getByRole('region', { name: 'Screen awake control' })
+  const checkbox = control.getByRole('checkbox')
+  await checkbox.waitFor({ state: 'visible', timeout: 15000 })
+  assert.equal(await checkbox.isChecked(), false)
+  const mutationCount = mutationRequests.length
+  await checkbox.click()
+  const settledStatus = control.getByText(/Screen awake is (active|not supported|unavailable)/)
+  await settledStatus.waitFor({ state: 'visible', timeout: 15000 })
+  assert.match(await settledStatus.innerText(), /Screen awake is (active|not supported|unavailable)/)
+  assert.equal(mutationRequests.length, mutationCount)
+  await checkbox.click()
+  assert.equal(await checkbox.isChecked(), false)
+  assert.equal(mutationRequests.length, mutationCount)
+}
+
+async function verifyFixtureConclusionRules(page) {
+  await page.getByRole('button', { name: 'Create fixture' }).first().click()
+  const dialog = page.getByRole('dialog', { name: 'Create fixture' })
+  const fixtureType = dialog.getByLabel('Fixture type')
+  const conclusionRule = dialog.getByLabel('How this match can finish')
+  await conclusionRule.waitFor({ state: 'visible', timeout: 15000 })
+
+  for (const fixtureTypeValue of ['friendly', 'league', 'cup', 'tournament']) {
+    await fixtureType.selectOption(fixtureTypeValue)
+    assert.equal(await conclusionRule.isVisible(), true)
+    assert.deepEqual(await conclusionRule.locator('option').evaluateAll((options) => options.map((option) => option.value)), [
+      'normal_time',
+      'extra_time',
+      'extra_time_then_penalties',
+      'straight_to_penalties',
+    ])
+  }
+
+  await conclusionRule.selectOption('extra_time_then_penalties')
+  await dialog.getByLabel('Extra-time periods').waitFor({ state: 'visible' })
+  await dialog.getByLabel('Extra-time period length').waitFor({ state: 'visible' })
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+}
+
+async function verifyExtendedPhaseRestoration(browser, viewport) {
+  const phaseContext = await prepareContext(browser, viewport.options, {
+    isLive: true,
+    isScorer: true,
+    matchOverrides: { status: 'second_half', current_match_phase: 'second_half' },
+  })
+  await signIn(phaseContext.page, { parent: true })
+
+  const openPhase = async (phase, status, actionLabel) => {
+    phaseContext.fixtureState.match = {
+      ...phaseContext.fixtureState.match,
+      current_match_phase: phase,
+      status,
+    }
+    await openParentMatches(phaseContext.page)
+    await phaseContext.page.getByRole('button', { name: 'Open Game Mode' }).click()
+    await phaseContext.page.getByText(actionLabel, { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await phaseContext.page.getByText('Cumulative clock, 2 x 15 extra-time minutes.', { exact: true }).waitFor({ state: 'visible' })
+  }
+
+  await openPhase('second_half', 'second_half', 'End normal time')
+  for (const [phase, status, label] of [
+    ['normal_time_complete', 'half_time', 'Start extra time'],
+    ['extra_time_first_half', 'extra_time', 'Extra time half time'],
+    ['extra_time_half_time', 'half_time', 'Start extra time second half'],
+    ['extra_time_second_half', 'extra_time', 'End extra time'],
+    ['extra_time_complete', 'half_time', 'Start penalty shootout'],
+  ]) {
+    await openPhase(phase, status, label)
+  }
+  await openPhase('penalties', 'penalties', 'Finish shootout')
+  await phaseContext.page.getByText('Penalty shootout', { exact: true }).first().waitFor({ state: 'visible' })
+  await phaseContext.page.getByRole('button', { name: 'Our team scored' }).waitFor({ state: 'visible' })
+  await phaseContext.page.getByRole('region', { name: 'Penalty shootout controls' }).getByText('0 to 0', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(phaseContext.mutationRequests.length, 0)
+  assert.deepEqual(phaseContext.consoleErrors, [])
+  assertNoPageFailures(phaseContext, `${viewport.name} extended phase restoration`)
+  await phaseContext.context.close()
+}
+
 function assertNoPageFailures(session, label) {
   assert.deepEqual(session.pageErrors, [], `${label} must have zero page exceptions`)
   assert.deepEqual(session.resourceFailures, [], `${label} must have zero document, script, or stylesheet failures`)
@@ -345,6 +433,14 @@ try {
   browser = await chromium.launch({ headless: true })
 
   for (const viewport of viewports) {
+    const setup = await prepareContext(browser, viewport.options)
+    await signIn(setup.page)
+    await setup.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await verifyFixtureConclusionRules(setup.page)
+    assert.equal(setup.mutationRequests.length, 0, `${viewport.name} fixture rule inspection must not mutate`)
+    assertNoPageFailures(setup, `${viewport.name} fixture rules`)
+    await setup.context.close()
+
     const staff = await prepareContext(browser, viewport.options)
     await signIn(staff.page)
     await staff.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
@@ -354,6 +450,7 @@ try {
     const staffOpenButton = staff.page.getByRole('button', { name: /Start Game Mode|Open Game Mode/ }).first()
     await staffOpenButton.click()
     await staff.page.getByRole('region', { name: 'Game Mode cockpit' }).waitFor({ state: 'visible', timeout: 15000 })
+    await verifyWakeLockControl(staff.page, staff.mutationRequests)
     assert.equal(staff.mutationRequests.length, 0, `${viewport.name} staff Game Mode open must not mutate`)
     await verifyBackgroundForeground(staff.page, staff.context)
     await staff.page.reload({ waitUntil: 'domcontentloaded' })
@@ -369,6 +466,12 @@ try {
     await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
     await scorer.page.getByText('Authoritative match clock', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     await scorer.page.getByText('0:00', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await verifyWakeLockControl(scorer.page, scorer.mutationRequests)
+    const penaltyGoalToggle = scorer.page.getByText('Penalty goal', { exact: true }).locator('..').getByRole('checkbox')
+    assert.equal(await penaltyGoalToggle.isChecked(), false)
+    await penaltyGoalToggle.check()
+    assert.equal(await penaltyGoalToggle.isChecked(), true)
+    await penaltyGoalToggle.uncheck()
     assert.equal(scorer.mutationRequests.length, 0, `${viewport.name} parent scorer Game Mode open must not mutate`)
 
     await scorer.page.getByRole('button', { name: 'Start match' }).click()
@@ -400,11 +503,14 @@ try {
     await openParentMatches(ordinary.page)
     assert.equal(await ordinary.page.getByRole('button', { name: 'Open Game Mode' }).count(), 0)
     assert.equal(await ordinary.page.getByText('Update score', { exact: true }).count(), 0)
+    assert.equal(await ordinary.page.getByRole('region', { name: 'Screen awake control' }).count(), 0)
     assert.equal(ordinary.mutationRequests.length, 0)
     assert.equal(await ordinary.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.deepEqual(ordinary.consoleErrors, [])
     assertNoPageFailures(ordinary, `${viewport.name} ordinary parent`)
     await ordinary.context.close()
+
+    await verifyExtendedPhaseRestoration(browser, viewport)
 
     process.stdout.write(`PASS ${viewport.name}: staff, accepted scorer, ordinary parent, refresh, background, revocation, no console errors\n`)
   }

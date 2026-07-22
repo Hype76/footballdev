@@ -232,7 +232,7 @@ async function verifyResults(page, baseUrl) {
   await page.getByRole('heading', { name: expectedOrder[0] }).click()
   const dialog = page.getByRole('dialog', { name: 'Previous game details' })
   await dialog.waitFor({ state: 'visible' })
-  await dialog.getByText('4 - 2', { exact: true }).waitFor({ state: 'visible' })
+  await dialog.getByText('4 - 2', { exact: true }).first().waitFor({ state: 'visible' })
   await dialog.getByRole('button', { name: 'Close' }).click()
 
   await page.goto(`${baseUrl}/parent-portal?section=calendar`, { waitUntil: 'domcontentloaded' })

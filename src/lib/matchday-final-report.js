@@ -14,11 +14,13 @@ const MATCH_PHASE_ORDER = new Map([
   ['first_half', 10],
   ['half_time', 20],
   ['second_half', 30],
-  ['full_time', 40],
+  ['normal_time_complete', 40],
   ['extra_time_first_half', 50],
   ['extra_time_half_time', 60],
   ['extra_time_second_half', 70],
+  ['extra_time_complete', 75],
   ['penalties', 80],
+  ['full_time', 90],
 ])
 
 const EVENT_TYPE_LABELS = {
@@ -349,7 +351,46 @@ export function buildCompletedMatchEventPresentation(event = {}, match = {}, { i
     scoreLabel: homeScore !== null && awayScore !== null ? `${homeScore} - ${awayScore}` : 'Score not recorded',
     status: normalizeEventStatus(event),
     team,
-    title: EVENT_TYPE_LABELS[eventType] || 'Match event',
+    title: eventType === 'goal' && (event?.isPenaltyGoal === true || event?.is_penalty_goal === true)
+      ? 'Penalty goal'
+      : EVENT_TYPE_LABELS[eventType] || 'Match event',
+  }
+}
+
+export function buildCompletedMatchResult(match = {}) {
+  const homeScore = Math.max(Number(match.homeScore ?? match.home_score ?? 0), 0)
+  const awayScore = Math.max(Number(match.awayScore ?? match.away_score ?? 0), 0)
+  const conclusionRule = normalizeText(match.matchConclusionRule ?? match.match_conclusion_rule ?? match.conclusionRule) || 'normal_time'
+  const hasExtraTime = ['extra_time', 'extra_time_then_penalties'].includes(conclusionRule)
+  const normalTimeHomeScore = normalizeOptionalNumber(match.normalTimeHomeScore ?? match.normal_time_home_score)
+  const normalTimeAwayScore = normalizeOptionalNumber(match.normalTimeAwayScore ?? match.normal_time_away_score)
+  const extraTimeHomeScore = normalizeOptionalNumber(match.extraTimeHomeScore ?? match.extra_time_home_score)
+  const extraTimeAwayScore = normalizeOptionalNumber(match.extraTimeAwayScore ?? match.extra_time_away_score)
+  const shootoutEvents = Array.isArray(match.shootoutEvents ?? match.shootout_events)
+    ? (match.shootoutEvents ?? match.shootout_events)
+    : []
+  const homeShootoutScore = Math.max(Number(match.homeShootoutScore ?? match.home_shootout_score ?? 0), 0)
+  const awayShootoutScore = Math.max(Number(match.awayShootoutScore ?? match.away_shootout_score ?? 0), 0)
+  const winnerSide = normalizeText(match.shootoutWinner ?? match.shootout_winner)
+  const clubIsAway = normalizeText(match.homeAway ?? match.home_away) === 'away'
+  const shootoutWinner = winnerSide
+    ? ((winnerSide === 'away') === clubIsAway ? getClubTeamName(match) : getOpponentTeamName(match))
+    : ''
+
+  return {
+    regulationScore: `${normalTimeHomeScore ?? homeScore} - ${normalTimeAwayScore ?? awayScore}`,
+    extraTimeScore: hasExtraTime && extraTimeHomeScore !== null && extraTimeAwayScore !== null
+      ? `${extraTimeHomeScore} - ${extraTimeAwayScore}`
+      : '',
+    finalScore: `${homeScore} - ${awayScore}`,
+    homeShootoutScore,
+    awayShootoutScore,
+    shootoutScore: shootoutEvents.length > 0 || winnerSide ? `${homeShootoutScore} - ${awayShootoutScore}` : '',
+    shootoutWinner,
+    shootoutEvents: shootoutEvents.slice().sort((left, right) => {
+      const createdDifference = getEventTimestamp(left) - getEventTimestamp(right)
+      return createdDifference || getStableEventId(left).localeCompare(getStableEventId(right))
+    }),
   }
 }
 
@@ -373,6 +414,7 @@ export function buildFinalMatchReportSummary(match = {}) {
     activeOtherEvents: newestFirst(activeEvents.filter((event) => !COMPLETED_REPORT_SUMMARY_TYPES.has(normalizeEventType(event)))),
     timelineEvents: sortCompletedMatchEvents(events),
     voidedEvents: newestFirst(voidedEvents),
+    result: buildCompletedMatchResult(match),
   }
 }
 

@@ -248,7 +248,8 @@ test('staff live controls keep timer feedback while Pause stays in Game Mode', (
 
   assert.match(source, /const RUNNING_MATCH_STATUSES = new Set\(\['live', 'second_half', 'extra_time', 'penalties'\]\)/)
   assert.match(source, /const PAUSED_MATCH_STATUSES = new Set\(\['half_time'\]\)/)
-  assert.match(source, /const LIVE_CONTROL_STATUSES = \['half_time', 'second_half', 'extra_time', 'penalties', 'full_time'\]/)
+  assert.match(source, /const manageStatusActions = \(\(\) => \{/)
+  assert.match(source, /return getMatchDayExtendedTimerActions\(match\)/)
   assert.match(source, /return \{ label: 'Resume Match', status: 'second_half' \}/)
   assert.match(source, /function formatLiveMatchClock\(match, now = Date\.now\(\)\)/)
   assert.match(source, /return formatMatchTimerClock\(match, now\)/)
@@ -269,7 +270,7 @@ test('staff live controls keep timer feedback while Pause stays in Game Mode', (
   assert.match(source, /const handleGameModeHydrationToggle = async \(match, pauseAction = 'hydration'\) =>/)
   assert.match(source, /const action = pauseAction === 'pause' \? 'pause' : 'hydration'/)
   assert.match(source, /onStatusChange\(match, 'half_time'\)/)
-  assert.match(source, /onStatusChange\(match, 'full_time'\)/)
+  assert.match(source, /onStatusChange\(match, normalTimeCompletionAction\)/)
   assert.match(source, /Live sync retrying/)
   assert.match(statusHandlerSource, /setPendingStatusAction/)
   assert.match(statusHandlerSource, /await saveMatchStatus\(match, 'live'\)/)
