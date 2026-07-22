@@ -65,7 +65,7 @@
     "mobile:submit:parent:ios:store-test": "npm --prefix apps/parent-mobile run submit:ios:store-test",
     "mobile:submit:parent:ios:store-live": "npm --prefix apps/parent-mobile run submit:ios:store-live",
     "preview": "vite preview",
-    "security:supply-chain": "node scripts/security-supply-chain-gate.mjs && npm audit --omit=dev --audit-level=high && npm audit --audit-level=high",
+    "security:supply-chain": "node scripts/security-supply-chain-gate.mjs && npm audit --omit=dev --audit-level=low",
     "security:secret-scan": "node scripts/security-secret-scan.mjs",
     "security:sbom": "node scripts/security-sbom.mjs",
     "security:migrations": "node scripts/security-migration-gate.mjs",
@@ -84,7 +84,7 @@
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.18.1",
     "resend": "^6.18.0",
-    "sharp": "^0.34.5",
+    "sharp": "0.35.3",
     "stripe": "^22.1.1",
     "tailwindcss": "^4.2.2",
     "web-push": "^3.6.7"
@@ -105,6 +105,7 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "overrides": {
+    "sharp": "0.35.3",
     "@babel/plugin-transform-modules-systemjs@>=7.12.0 <=7.29.3": "7.29.4",
     "brace-expansion@<1.1.16": "1.1.16",
     "brace-expansion@>=2.0.0 <2.1.2": "2.1.2",

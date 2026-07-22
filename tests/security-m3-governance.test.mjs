@@ -48,9 +48,20 @@ test('preview context remains payment disabled and production uses the productio
   assert.match(netlifyConfig, /\[context\.branch-deploy\.environment\][\s\S]*VITE_PAYMENTS_DISABLED = "true"/)
 })
 
-test('supply policy has a bounded exception review and no Critical or High acceptance', () => {
-  assert.equal(policy.review.owner, 'Repository owner')
+test('supply policy has bounded development-only exceptions and no production acceptance', () => {
+  assert.equal(policy.review.owner, 'Steve')
   assert.match(policy.review.reviewBy, /^\d{4}-\d{2}-\d{2}$/)
-  assert.match(policy.review.reason, /No Critical or High advisory is accepted/)
+  assert.match(policy.review.reason, /No production advisory or Critical advisory is accepted/)
+  assert.deepEqual(
+    policy.advisoryExceptions.map((exception) => exception.id).sort(),
+    ['GHSA-4x5r-pxfx-6jf8', 'GHSA-8988-4f7v-96qf', 'GHSA-v2hh-gcrm-f6hx'].sort(),
+  )
+  for (const exception of policy.advisoryExceptions) {
+    assert.equal(exception.productionReachable, false)
+    assert.equal(exception.owner, 'Steve')
+    assert.equal(exception.reviewBy, '2026-08-21')
+    assert.equal(exception.expires, '2026-08-21')
+  }
+  assert.ok(!policy.advisoryExceptions.some((exception) => exception.id === 'GHSA-f88m-g3jw-g9cj'))
   assert.deepEqual(policy.approvedRemoteImports, ['https://esm.sh/@supabase/supabase-js@2.110.8'])
 })

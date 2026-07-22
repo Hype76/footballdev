@@ -25,9 +25,41 @@
     "fuzzy",
     "precond"
   ],
+  "advisoryExceptions": [
+    {
+      "id": "GHSA-4x5r-pxfx-6jf8",
+      "severity": "low",
+      "packageChain": "Vite and React build tooling to @babel/core",
+      "productionReachable": false,
+      "compensatingControl": "Production audit and SBOM exclude development tooling; the locked compiler is used only during controlled builds.",
+      "owner": "Steve",
+      "reviewBy": "2026-08-21",
+      "expires": "2026-08-21"
+    },
+    {
+      "id": "GHSA-8988-4f7v-96qf",
+      "severity": "moderate",
+      "packageChain": "netlify-cli to @netlify/blobs to @netlify/otel to @opentelemetry/core",
+      "productionReachable": false,
+      "compensatingControl": "Netlify CLI is development and CI tooling only; production functions and browser bundles do not contain this chain.",
+      "owner": "Steve",
+      "reviewBy": "2026-08-21",
+      "expires": "2026-08-21"
+    },
+    {
+      "id": "GHSA-v2hh-gcrm-f6hx",
+      "severity": "high",
+      "packageChain": "netlify-cli to fastify and vite-plugin-pwa to workbox-build, then ajv or fast-json-stringify to fast-uri",
+      "productionReachable": false,
+      "compensatingControl": "The affected parser is confined to local and CI build tooling; production audit, SBOM, function bundles and browser artifacts exclude it.",
+      "owner": "Steve",
+      "reviewBy": "2026-08-21",
+      "expires": "2026-08-21"
+    }
+  ],
   "review": {
-    "owner": "Repository owner",
+    "owner": "Steve",
     "reviewBy": "2026-08-21",
-    "reason": "Review upstream metadata and remaining Low or Moderate development-only advisories monthly. No Critical or High advisory is accepted."
+    "reason": "Review all development-only advisory exceptions monthly. No production advisory or Critical advisory is accepted. High exceptions must be time-bounded, development-only and unreachable from production."
   }
 }

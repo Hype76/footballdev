@@ -24,7 +24,7 @@ The only runtime remote import is the Supabase Edge Function import `https://esm
 | `react-dom` | 19.2.4 | Browser runtime and application bootstrap |
 | `react-router-dom` | 7.18.1 | Browser routing and protected route behavior |
 | `resend` | 6.18.0 | Server email delivery only |
-| `sharp` | 0.34.5 | Server image validation and processing |
+| `sharp` | 0.35.3 | Server image validation and processing |
 | `stripe` | 22.1.1 | Server billing functions, payments remain gated by context |
 | `tailwindcss` | 4.2.2 | Build-only CSS compiler |
 | `web-push` | 3.6.7 | Server push delivery only |
@@ -33,7 +33,7 @@ Production audit after remediation: 0 Critical, 0 High, 0 Moderate and 0 Low.
 
 ## Development and transitive inventory
 
-Development dependencies cover PGlite database tests, ESLint, Vite, Playwright, Netlify CLI and PWA build tooling. The full installed graph has 0 Critical and 0 High advisories. The remaining audit result is 1 Low and 11 Moderate, all in build or local CLI paths.
+Development dependencies cover PGlite database tests, ESLint, Vite, Playwright, Netlify CLI and PWA build tooling. The full installed graph has 0 Critical, 6 High, 10 Moderate and 1 Low advisories. These are all confined to build or local CLI paths and resolve to three explicit advisory roots.
 
 The resolved graph is emitted to `.security-artifacts/dependency-inventory.json`. It records direct dependencies, all resolved license counts, install lifecycle packages and the remote import inventory. The production CycloneDX SBOM is emitted to `.security-artifacts/sbom.cdx.json`.
 
@@ -45,18 +45,19 @@ On Windows, npm 11 installs `@emnapi/runtime` from Tailwind's optional bundled W
 
 ## Advisory remediation
 
-Compatible current-major upgrades were applied for Supabase, Puppeteer, React Router, Resend, Vite and Netlify CLI. Narrow overrides select patched transitive versions for affected parsing, proxy, archive, WebSocket and build packages. No `--force` operation, unsafe downgrade or major dependency rewrite was used.
+Compatible current-major upgrades were applied for Supabase, Puppeteer, React Router, Resend, Vite and Netlify CLI. Narrow overrides select patched transitive versions for affected parsing, proxy, archive, WebSocket and build packages. Sharp is locked and globally overridden to `0.35.3`, so no older Sharp node remains in either the production or development graph. No `--force` operation, unsafe downgrade or broad dependency rewrite was used.
 
-| Exception | Reachability | Owner | Review date | Required action |
-| --- | --- | --- | --- | --- |
-| Babel Low advisory with no patched 7.x release | Development compiler only, not shipped as runtime code | Repository owner | 2026-08-21 | Upgrade when a compatible patched 7.x version exists or validate the next supported major |
-| Netlify CLI OpenTelemetry Moderate advisories | Local and CI build or deploy tooling only, not bundled into the web or function runtime | Repository owner | 2026-08-21 | Recheck the latest Netlify CLI and remove the exception when upstream resolves the chain |
-| Five packages without standard license metadata | Transitive Netlify or legacy utility metadata only | Repository owner | 2026-08-21 | Recheck upstream metadata and replace a package if licensing cannot be verified |
+| Advisory | Package chain | Production reachability | Compensating control | Owner | Review and expiry |
+| --- | --- | --- | --- | --- | --- |
+| `GHSA-4x5r-pxfx-6jf8` Low | Vite and React build tooling to `@babel/core` | No | Production audit and SBOM exclude development tooling; the compiler runs only during controlled builds | Steve | 2026-08-21 |
+| `GHSA-8988-4f7v-96qf` Moderate | `netlify-cli` to `@netlify/blobs` to `@netlify/otel` to `@opentelemetry/core` | No | Netlify CLI is development and CI tooling only and is excluded from production functions and browser bundles | Steve | 2026-08-21 |
+| `GHSA-v2hh-gcrm-f6hx` High | `netlify-cli` to Fastify and `vite-plugin-pwa` to Workbox, then AJV or `fast-json-stringify` to `fast-uri` | No | The affected parser is confined to local and CI build tooling; production audit, SBOM, function bundles and browser artifacts exclude it | Steve | 2026-08-21 |
+| Five packages without standard license metadata | Transitive Netlify or legacy utility metadata only | No | The lifecycle and licence gate remains mandatory | Steve | 2026-08-21 |
 
-No Critical or High exception is accepted.
+No production or Critical exception is accepted. The one root High exception is development-only, owner-approved, time-bounded and automatically rejected if it becomes production-reachable or remains after the advisory is resolved. `GHSA-f88m-g3jw-g9cj` is resolved throughout the graph and is not an exception.
 
 ## Required gate
 
-The `Supply chain` check performs a clean install, lock and source validation, production and full-graph audits, high-confidence secret scan, lifecycle allowlist, license inventory and production SBOM generation. The pull request-only `Dependency review` check uses GitHub-native review when the Dependency graph is enabled. Until then, a mandatory repository fallback applies the same complete-graph advisory, package-source, lifecycle and licence gates.
+The `Supply chain` check performs a clean install, lock and source validation, a zero-tolerance production audit, a full-graph audit with exact development-only advisory enforcement, high-confidence secret scan, lifecycle allowlist, license inventory and production SBOM generation. The gate fails for an undocumented, expired, stale or production-reachable exception. The pull request-only `Dependency review` check uses GitHub-native review when the Dependency graph is enabled. Until then, a mandatory repository fallback applies the same complete-graph advisory, package-source, lifecycle and licence gates.
 
 The production build also emits an artifact manifest with the package-lock digest and SHA-256 digest for every built web file and Netlify function source file. Evidence is tied to the Git commit SHA by the workflow artifact name.
