@@ -210,23 +210,43 @@ async function deleteExpiredDataTransferFiles(nowIso) {
   return paths.length
 }
 
+async function deleteExpiredSecurityAuditEvents() {
+  const { data, error } = await supabaseAdmin.rpc('prune_expired_security_audit_events', {
+    p_limit: 1000,
+  })
+
+  if (error?.code === 'PGRST202' || error?.code === '42883') {
+    return 0
+  }
+
+  if (error) {
+    throw error
+  }
+
+  return Number(data ?? 0)
+}
+
 export async function handler() {
   try {
     const existingRetentionEnabled = String(process.env.RETENTION_CLEANUP_ENABLED ?? '').trim().toLowerCase() === 'true'
+    const securityAuditRetentionEnabled = String(process.env.SECURITY_AUDIT_RETENTION_ENABLED ?? '').trim().toLowerCase() === 'true'
     const nowIso = new Date().toISOString()
-    const [voiceNotesDeleted, archivedPlayersDeleted, dataTransferFilesDeleted] = await Promise.all([
+    const [voiceNotesDeleted, archivedPlayersDeleted, dataTransferFilesDeleted, securityAuditEventsDeleted] = await Promise.all([
       existingRetentionEnabled ? deleteExpiredVoiceNotes(nowIso) : 0,
       existingRetentionEnabled ? deleteExpiredArchivedPlayers(nowIso) : 0,
       deleteExpiredDataTransferFiles(nowIso),
+      securityAuditRetentionEnabled ? deleteExpiredSecurityAuditEvents() : 0,
     ])
 
     return json(200, {
       success: true,
       skipped: !existingRetentionEnabled,
       existingRetentionEnabled,
+      securityAuditRetentionEnabled,
       voiceNotesDeleted,
       archivedPlayersDeleted,
       dataTransferFilesDeleted,
+      securityAuditEventsDeleted,
     })
   } catch (error) {
     console.error(error)

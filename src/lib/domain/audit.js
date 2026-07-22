@@ -4,14 +4,6 @@ import { CAPABILITIES } from '../paywall-access.js'
 import { isParentPortalUser } from '../auth-permissions.js'
 import { assertClubFeature } from './plan-gates.js'
 
-function getEntryUserName(user) {
-  return String(user?.username ?? user?.name ?? user?.email ?? '').trim()
-}
-
-function getEntryUserEmail(user) {
-  return String(user?.email ?? '').trim().toLowerCase()
-}
-
 function isDemoAccountValue(account) {
   return Boolean(account?.isDemoAccount) || isDemoEmail(account?.email)
 }
@@ -40,6 +32,12 @@ function normalizeAuditLogRow(row) {
     entityType: String(row.entity_type ?? row.entityType ?? '').trim(),
     entityId: row.entity_id ?? row.entityId ?? '',
     metadata: row.metadata ?? {},
+    eventCategory: String(row.event_category ?? row.eventCategory ?? 'operational').trim(),
+    severity: String(row.severity ?? 'info').trim(),
+    outcome: String(row.outcome ?? 'success').trim(),
+    correlationId: row.correlation_id ?? row.correlationId ?? '',
+    source: String(row.source ?? 'application').trim(),
+    retentionUntil: row.retention_until ?? row.retentionUntil ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -83,7 +81,18 @@ async function getVisibleActorIdsForActiveTeam(user) {
   ])
 }
 
-export async function createAuditLog({ user, action, entityType, entityId, metadata = {} }) {
+export async function createAuditLog({
+  user,
+  action,
+  entityType,
+  entityId,
+  metadata = {},
+  correlationId = null,
+  severity = 'info',
+  outcome = 'success',
+  eventCategory = 'operational',
+  source = 'application',
+}) {
   if (isDemoAccountValue(user) || (!user && await isCurrentSessionDemoUser())) {
     return
   }
@@ -109,17 +118,16 @@ export async function createAuditLog({ user, action, entityType, entityId, metad
     normalizedMetadata.teamName = user.activeTeamName
   }
 
-  const { error } = await supabase.from('audit_logs').insert({
-    club_id: user?.clubId || null,
-    actor_id: user?.id || null,
-    actor_name: user ? getEntryUserName(user) : '',
-    actor_email: user ? getEntryUserEmail(user) : '',
-    actor_role_label: user?.roleLabel || user?.role || '',
-    actor_role_rank: Number(user?.roleRank ?? 0),
-    action,
-    entity_type: entityType,
-    entity_id: entityId || null,
-    metadata: normalizedMetadata,
+  const { error } = await supabase.rpc('record_security_audit_event', {
+    p_action: action,
+    p_entity_type: entityType,
+    p_entity_id: entityId || null,
+    p_metadata: normalizedMetadata,
+    p_correlation_id: correlationId || null,
+    p_severity: severity,
+    p_outcome: outcome,
+    p_event_category: eventCategory,
+    p_source: source,
   })
 
   if (error) {

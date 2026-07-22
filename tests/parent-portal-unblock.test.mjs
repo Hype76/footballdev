@@ -91,15 +91,16 @@ test('parent host does not probe platform admin access', async () => {
   assert.ok(parentHostIndex < fetchIndex)
 })
 
-test('parent portal audit logging is skipped before client audit_logs insert', async () => {
+test('parent portal audit logging is skipped before the restricted audit RPC', async () => {
   const source = await readFile(auditUrl, 'utf8')
   const functionStart = source.indexOf('export async function createAuditLog')
   assert.notEqual(functionStart, -1)
-  const insertIndex = source.indexOf(".from('audit_logs').insert", functionStart)
+  const rpcIndex = source.indexOf(".rpc('record_security_audit_event'", functionStart)
   const skipIndex = source.indexOf('if (isParentPortalUser(user))', functionStart)
 
   assert.notEqual(skipIndex, -1)
-  assert.notEqual(insertIndex, -1)
-  assert.ok(skipIndex < insertIndex)
+  assert.notEqual(rpcIndex, -1)
+  assert.ok(skipIndex < rpcIndex)
+  assert.doesNotMatch(source, /\.from\('audit_logs'\)\.insert/)
   assert.doesNotMatch(source, /grant\s+insert\s+on\s+.*audit_logs/i)
 })
