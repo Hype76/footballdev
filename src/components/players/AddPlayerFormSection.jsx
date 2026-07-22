@@ -76,6 +76,43 @@ export function AddPlayerFormSection({
             />
           </label>
 
+          <div className="md:col-span-2 xl:col-span-4">
+            <span className={labelClass}>Player positions</span>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                name="positionDraft"
+                value={playerForm.positionDraft}
+                onChange={onChange}
+                placeholder="Add position, for example Striker"
+                className={fieldClass}
+              />
+              <button
+                type="button"
+                onClick={onAddPosition}
+                className={`${secondaryButtonClass} min-h-12 w-full px-5 py-3 sm:w-auto`}
+              >
+                Add position
+              </button>
+            </div>
+            {playerForm.positions.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {playerForm.positions.map((position) => (
+                  <button
+                    key={position}
+                    type="button"
+                    onClick={() => onRemovePosition(position)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5]"
+                  >
+                    Remove {position}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs font-bold leading-5 text-[#4b5f55]">Add one or more positions for this player.</p>
+            )}
+          </div>
+
           <label className="block">
             <span className={labelClass}>Shirt number</span>
             <input
@@ -121,17 +158,6 @@ export function AddPlayerFormSection({
               ))}
             </select>
           </label>
-
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={isAddingPlayer || !canAddMorePlayers}
-              title={canAddMorePlayers ? undefined : playerLimitMessage}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isAddingPlayer ? 'Adding...' : 'Add player'}
-            </button>
-          </div>
 
           <div className="md:col-span-2 xl:col-span-4">
             <span className={labelClass}>Primary contact type</span>
@@ -221,41 +247,15 @@ export function AddPlayerFormSection({
             )
           })}
 
-          <div className="md:col-span-2 xl:col-span-4">
-            <span className={labelClass}>Player positions</span>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                name="positionDraft"
-                value={playerForm.positionDraft}
-                onChange={onChange}
-                placeholder="Add position, for example Striker"
-                className={fieldClass}
-              />
-              <button
-                type="button"
-                onClick={onAddPosition}
-                className={`${secondaryButtonClass} min-h-12 w-full px-5 py-3 sm:w-auto`}
-              >
-                Add position
-              </button>
-            </div>
-            {playerForm.positions.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {playerForm.positions.map((position) => (
-                  <button
-                    key={position}
-                    type="button"
-                    onClick={() => onRemovePosition(position)}
-                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5]"
-                  >
-                    Remove {position}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-xs font-bold leading-5 text-[#4b5f55]">Add one or more positions for this player.</p>
-            )}
+          <div className="flex items-end md:col-span-2 xl:col-span-4">
+            <button
+              type="submit"
+              disabled={isAddingPlayer || !canAddMorePlayers}
+              title={canAddMorePlayers ? undefined : playerLimitMessage}
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:ml-auto sm:w-auto sm:min-w-48"
+            >
+              {isAddingPlayer ? 'Adding...' : 'Add player'}
+            </button>
           </div>
         </form>
       )}

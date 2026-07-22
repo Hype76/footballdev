@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import net from 'node:net'
 import { chromium } from 'playwright'
 
@@ -10,6 +10,8 @@ const port = Number(process.env.MATCHDAY_FINAL_REPORT_ACCURACY_BROWSER_PORT || 5
 const baseUrl = `http://127.0.0.1:${port}`
 const artifactDir = 'output/playwright/fp-v1-gameday-final-report-accuracy-10'
 const fixtureMatchId = '11111111-1111-4111-8111-111111111111'
+const PRIVATE_EVENT_NOTE = 'Staff tactical note must stay private'
+const PRIVATE_REPORT_NOTE = 'Private staff final report note'
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -306,6 +308,75 @@ async function assertCompletedReport(report, { parent = false } = {}) {
   }
 }
 
+async function assertCompletedReportExports(report, { parent = false } = {}) {
+  const pdfButton = report.getByRole('button', { name: 'Download PDF' })
+  const csvButton = report.getByRole('button', { name: 'Download CSV' })
+  await pdfButton.waitFor({ state: 'visible' })
+  await csvButton.waitFor({ state: 'visible' })
+
+  const [pdfDownload] = await Promise.all([
+    report.page().waitForEvent('download'),
+    pdfButton.click(),
+  ])
+  const pdfPath = await pdfDownload.path()
+  const pdf = (await readFile(pdfPath)).toString('latin1')
+  const searchablePdf = pdf.replace(/\) Tj\s+0 -\d+ Td\s+\(/g, ' ')
+  assert.equal(pdfDownload.suggestedFilename(), '2026-07-08-spain-v-argentina-completed-report.pdf')
+  assert.ok(pdf.startsWith('%PDF-1.4'))
+  assert.match(pdf, /Completed Match Report/)
+  assert.match(pdf, /Spain v Argentina/)
+
+  const [csvDownload] = await Promise.all([
+    report.page().waitForEvent('download'),
+    csvButton.click(),
+  ])
+  const csvPath = await csvDownload.path()
+  const csv = await readFile(csvPath, 'utf8')
+  assert.equal(csvDownload.suggestedFilename(), '2026-07-08-spain-v-argentina-completed-report.csv')
+  assert.equal(csv.charCodeAt(0), 0xfeff)
+  assert.match(csv, /"Fixture","Match date","Match phase"/)
+  assert.match(csv, /Spain v Argentina/)
+  assert.match(csv, /Rodrigo De Paul-O'Connor/)
+
+  if (parent) {
+    assert.doesNotMatch(searchablePdf, new RegExp(PRIVATE_REPORT_NOTE))
+    assert.doesNotMatch(searchablePdf, new RegExp(PRIVATE_EVENT_NOTE))
+    assert.doesNotMatch(csv, new RegExp(PRIVATE_REPORT_NOTE))
+    assert.doesNotMatch(csv, new RegExp(PRIVATE_EVENT_NOTE))
+  } else {
+    assert.match(searchablePdf, new RegExp(PRIVATE_REPORT_NOTE))
+    assert.match(searchablePdf, new RegExp(PRIVATE_EVENT_NOTE))
+    assert.match(csv, new RegExp(PRIVATE_EVENT_NOTE))
+  }
+}
+
+async function assertAddPlayerFormPolish(page) {
+  await page.goto(`${baseUrl}/add-player`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.getByRole('heading', { name: 'Add Player' }).waitFor({ state: 'visible', timeout: 30000 })
+  const form = page.locator('[data-tour-id="add-player-form-section"] form')
+  await form.waitFor({ state: 'visible' })
+
+  const playerName = form.getByLabel('Player name')
+  const positionDraft = form.getByPlaceholder('Add position, for example Striker')
+  const playerNameBox = await playerName.boundingBox()
+  const positionBox = await positionDraft.boundingBox()
+  assert.ok(playerNameBox && positionBox)
+  assert.ok(positionBox.y > playerNameBox.y)
+
+  await playerName.fill('FP TEST Export Polish Player')
+  await positionDraft.fill('Striker')
+  await form.getByRole('button', { name: 'Add position' }).click()
+  await form.getByRole('button', { name: 'Remove Striker' }).waitFor({ state: 'visible' })
+
+  const submitIsLastFormGroup = await form.evaluate((formElement) => {
+    const submit = formElement.querySelector('button[type="submit"]')
+    return Boolean(submit && submit.parentElement === formElement.lastElementChild)
+  })
+  assert.equal(submitIsLastFormGroup, true)
+  assert.equal(await form.getByRole('button', { name: 'Add player' }).isVisible(), true)
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+}
+
 function assertNoPageFailures(session, label) {
   assert.deepEqual(session.pageErrors, [], `${label} page errors`)
   assert.deepEqual(session.criticalResourceFailures, [], `${label} critical resource failures`)
@@ -330,15 +401,19 @@ async function run() {
       await signIn(staff.page)
       const staffReport = await openStaffReport(staff.page)
       await assertCompletedReport(staffReport)
+      await assertCompletedReportExports(staffReport)
       assert.equal(await staff.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-      assertNoPageFailures(staff, `staff ${viewport.name}`)
       await staff.page.screenshot({ path: `${artifactDir}/staff-${viewport.name}.png`, fullPage: true })
+      await assertAddPlayerFormPolish(staff.page)
+      await staff.page.screenshot({ path: `${artifactDir}/add-player-${viewport.name}.png`, fullPage: true })
+      assertNoPageFailures(staff, `staff ${viewport.name}`)
       await staff.context.close()
 
       const scorer = await prepareContext(browser, viewport.size, { isScorer: true })
       await signIn(scorer.page, { parent: true })
       const scorerReport = await openParentReport(scorer.page)
       await assertCompletedReport(scorerReport, { parent: true })
+      await assertCompletedReportExports(scorerReport, { parent: true })
       assert.equal(scorer.saveRequests.length, 0)
       assert.equal(await scorer.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       assertNoPageFailures(scorer, `accepted scorer ${viewport.name}`)
@@ -349,13 +424,14 @@ async function run() {
       await signIn(ordinary.page, { parent: true })
       const ordinaryReport = await openParentReport(ordinary.page)
       await assertCompletedReport(ordinaryReport, { parent: true })
+      await assertCompletedReportExports(ordinaryReport, { parent: true })
       assert.equal(ordinary.saveRequests.length, 0)
       assert.equal(await ordinary.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       assertNoPageFailures(ordinary, `ordinary parent ${viewport.name}`)
       await ordinary.page.screenshot({ path: `${artifactDir}/ordinary-parent-${viewport.name}.png`, fullPage: true })
       await ordinary.context.close()
 
-      process.stdout.write(`PASS ${viewport.name}: staff, accepted scorer, ordinary parent, Spain versus Argentina ordering, privacy, overflow, and page safety\n`)
+      process.stdout.write(`PASS ${viewport.name}: staff, accepted scorer, ordinary parent, PDF and CSV exports, privacy, overflow, and page safety\n`)
     }
   } catch (error) {
     console.error(server.getOutput())

@@ -9,6 +9,7 @@ import {
   resolveCompletedMatchPlayerName,
 } from '../../lib/matchday-final-report.js'
 import { CompletedMatchEventReport } from './CompletedMatchEventReport.jsx'
+import { CompletedMatchReportExportActions } from './CompletedMatchReportExportActions.jsx'
 
 function formatPreviousMatchDate(match) {
   if (isFixtureKickoffTimeTbc(match.kickoffTimeTbc)) {
@@ -172,6 +173,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
 
         <div className="mt-5">
           <CompletedMatchEventReport match={match} />
+          <CompletedMatchReportExportActions audience="parent" match={match} />
         </div>
 
         {match.notes ? (

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { CompletedMatchEventReport } from '../components/match-day/CompletedMatchEventReport.jsx'
+import { CompletedMatchReportExportActions } from '../components/match-day/CompletedMatchReportExportActions.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
@@ -4128,6 +4129,8 @@ function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
 
       <div className="mt-5">
         <CompletedMatchEventReport includeEventNotes match={match} />
+
+        <CompletedMatchReportExportActions audience="staff" match={match} />
       </div>
 
       <section className="mt-5 border-t border-[#d7e5dc] pt-4">
