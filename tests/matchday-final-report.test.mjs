@@ -51,7 +51,7 @@ test('final report summary uses authoritative score and excludes voided events f
   assert.deepEqual(summary.activeCards.map((event) => event.id), ['card-1'])
   assert.equal(summary.activeSubstitutions.length, 0)
   assert.deepEqual(summary.activeWaterBreaks.map((event) => event.id), ['water-1'])
-  assert.deepEqual(summary.voidedEvents.map((event) => event.id), ['goal-void', 'sub-void'])
+  assert.deepEqual(summary.voidedEvents.map((event) => event.id), ['sub-void', 'goal-void'])
 })
 
 test('match normalization attaches one report to the correct game and preserves safe empty state', () => {
@@ -134,9 +134,11 @@ test('staff domain saves through the scoped full-time RPC and strips reports fro
   assert.match(parentSource, /delete match\.finalReport/)
 })
 
-test('completed game and Previous Games UI expose one mobile-safe staff report entry point', async () => {
+test('completed game and Previous Games UI expose shared mobile-safe staff and parent event reports', async () => {
   const page = await readFile(pageUrl, 'utf8')
   const parentPage = await readFile(parentPageUrl, 'utf8')
+  const parentPreviousGame = await readFile(new URL('../src/components/match-day/PreviousGameCard.jsx', import.meta.url), 'utf8')
+  const completedEvents = await readFile(new URL('../src/components/match-day/CompletedMatchEventReport.jsx', import.meta.url), 'utf8')
   const reportStart = page.indexOf('function FinalMatchReportPanel')
   const reportEnd = page.indexOf('function MatchDayCard', reportStart)
   const reportSource = page.slice(reportStart, reportEnd)
@@ -153,11 +155,18 @@ test('completed game and Previous Games UI expose one mobile-safe staff report e
   assert.match(reportSource, /Continuous clock/)
   assert.match(reportSource, /Home or away/)
   assert.match(reportSource, /getMatchDayDisplayScore\(match\)/)
-  assert.match(reportSource, /Final timeline/)
-  assert.match(reportSource, /event\.eventStatus === 'voided' \? 'Voided'/)
+  assert.match(reportSource, /<CompletedMatchEventReport includeEventNotes match=\{match\} \/>/)
+  assert.match(completedEvents, /Goals summary/)
+  assert.match(completedEvents, /Cards summary/)
+  assert.match(completedEvents, /Substitutions summary/)
+  assert.match(completedEvents, /Water breaks/)
+  assert.match(completedEvents, /Full event timeline/)
+  assert.match(completedEvents, /presentation\.team\.name/)
   assert.match(reportSource, /w-full sm:w-auto/)
   assert.match(previousSource, /<MatchDayCard/)
   assert.match(previousSource, /onFinalReportSave=\{handleFinalReportSave\}/)
+  assert.match(parentPreviousGame, /<CompletedMatchEventReport match=\{match\} \/>/)
+  assert.doesNotMatch(parentPreviousGame, /Staff notes|includeEventNotes/)
   assert.doesNotMatch(parentPage, /Final Match Report|Staff notes|match_day_final_reports/)
 })
 

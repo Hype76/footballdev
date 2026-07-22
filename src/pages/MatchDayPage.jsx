@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { CompletedMatchEventReport } from '../components/match-day/CompletedMatchEventReport.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
 import {
@@ -3984,47 +3985,10 @@ function PitchsideCockpitPanel({
   )
 }
 
-function FinalReportEventList({ emptyLabel, events, match, title }) {
-  return (
-    <section className="border-t border-[#d7e5dc] pt-4">
-      <div className="flex items-center justify-between gap-3">
-        <h6 className="text-sm font-black text-[#101828]">{title}</h6>
-        <span className="text-xs font-black text-[#047857]">{events.length}</span>
-      </div>
-      {events.length > 0 ? (
-        <ul className="mt-2 divide-y divide-[#d7e5dc]">
-          {events.map((event) => {
-            const playerLabel = event.scorerName || event.scorerInitials
-            const playerOnLabel = event.assistName || event.assistInitials
-            const detail = event.eventType === 'substitution'
-              ? [playerLabel ? `${playerLabel} off` : '', playerOnLabel ? `${playerOnLabel} on` : ''].filter(Boolean).join(', ')
-              : playerLabel || event.notes
-
-            return (
-              <li key={event.id} className="py-2 text-sm font-semibold text-[#4b5f55]">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <span className="font-black text-[#101828]">{getMatchEventTypeLabel(event, match)}</span>
-                  {event.minute !== null && event.minute !== undefined ? <span>{event.minute} min</span> : null}
-                </div>
-                {detail ? <p className="mt-1 text-xs leading-5">{detail}</p> : null}
-              </li>
-            )
-          })}
-        </ul>
-      ) : (
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{emptyLabel}</p>
-      )}
-    </section>
-  )
-}
-
 function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
   const report = match.finalReport
   const [staffNotes, setStaffNotes] = useState(report?.staffNotes || '')
   const summary = buildFinalMatchReportSummary(match)
-  const timelineEvents = getOrderedMatchTimelineEvents(match.events)
-  const yellowCardCount = summary.activeCards.filter((event) => event.eventType === 'yellow_card').length
-  const redCardCount = summary.activeCards.filter((event) => event.eventType === 'red_card').length
   const hasChanges = staffNotes.trim() !== (report?.staffNotes || '')
 
   return (
@@ -4033,7 +3997,7 @@ function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h5 className="text-lg font-black text-[#101828]">Final Match Report</h5>
-            <span className="inline-flex rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55]">Staff only</span>
+            <span className="inline-flex rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55]">Staff notes included</span>
           </div>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getMatchDayDisplayName(match)}</p>
         </div>
@@ -4051,48 +4015,9 @@ function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
         <DetailItem label="Recorded events" value={`${summary.activeEvents.length} active, ${summary.voidedEvents.length} voided`} />
       </dl>
 
-      <div className="mt-5 grid gap-x-6 gap-y-4 lg:grid-cols-2">
-        <FinalReportEventList emptyLabel="No active goals were recorded." events={summary.activeGoals} match={match} title="Goals summary" />
-        <section className="border-t border-[#d7e5dc] pt-4">
-          <div className="flex items-center justify-between gap-3">
-            <h6 className="text-sm font-black text-[#101828]">Cards summary</h6>
-            <span className="text-xs font-black text-[#047857]">{summary.activeCards.length}</span>
-          </div>
-          <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{yellowCardCount} yellow, {redCardCount} red</p>
-          <FinalReportEventList emptyLabel="No active cards were recorded." events={summary.activeCards} match={match} title="Card events" />
-        </section>
-        <FinalReportEventList emptyLabel="No active substitutions were recorded." events={summary.activeSubstitutions} match={match} title="Substitutions summary" />
-        <FinalReportEventList emptyLabel="No active water breaks were recorded." events={summary.activeWaterBreaks} match={match} title="Water breaks" />
+      <div className="mt-5">
+        <CompletedMatchEventReport includeEventNotes match={match} />
       </div>
-
-      <section className="mt-5 border-t border-[#d7e5dc] pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h6 className="text-sm font-black text-[#101828]">Final timeline</h6>
-          <span className="text-xs font-black text-[#047857]">{timelineEvents.length} events</span>
-        </div>
-        {timelineEvents.length > 0 ? (
-          <ol className="mt-3 max-h-[32rem] divide-y divide-[#d7e5dc] overflow-y-auto border-y border-[#d7e5dc]">
-            {timelineEvents.map((event) => (
-              <li key={event.id} className="py-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-black text-[#101828]">{getMatchEventTypeLabel(event, match)}</p>
-                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Score after event: {getMatchEventScoreLabel(event)}</p>
-                  </div>
-                  <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${getMatchEventToneClass(event)}`}>
-                    {event.eventStatus === 'voided' ? 'Voided' : event.minute !== null && event.minute !== undefined ? `${event.minute} min` : 'Recorded'}
-                  </span>
-                </div>
-                {event.eventStatus === 'voided' ? (
-                  <p className="mt-2 text-xs font-semibold leading-5 text-[#475569]">{event.correctionReason || 'Event voided'}</p>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No timeline events were recorded for this game.</p>
-        )}
-      </section>
 
       <section className="mt-5 border-t border-[#d7e5dc] pt-4">
         <label className="block">

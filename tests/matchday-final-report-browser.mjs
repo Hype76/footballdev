@@ -219,10 +219,13 @@ async function run() {
     await report.getByRole('heading', { name: 'Final Match Report' }).waitFor({ state: 'visible' })
     staff.failedRequests.length = 0
     await report.getByText('1 - 2', { exact: true }).waitFor({ state: 'visible' })
-    await report.getByText('70 minutes', { exact: true }).waitFor({ state: 'visible' })
+    await report.getByText('Fixed, 70 minutes', { exact: true }).waitFor({ state: 'visible' })
     await report.getByText('Away', { exact: true }).waitFor({ state: 'visible' })
-    assert.equal(await report.getByText('Voided', { exact: true }).count(), 2)
-    assert.equal(await report.getByText('Our goal', { exact: true }).count(), 2)
+    assert.equal(await report.getByText(/^Voided,/).count(), 2)
+    await report.getByRole('heading', { name: 'Goals summary' }).waitFor({ state: 'visible' })
+    await report.getByText('U12 Fixture Team', { exact: true }).first().waitFor({ state: 'visible' })
+    await report.getByText('City Juniors', { exact: true }).first().waitFor({ state: 'visible' })
+    await report.getByText('Opponent 6', { exact: true }).first().waitFor({ state: 'visible' })
     await report.getByText('0 yellow, 0 red', { exact: true }).waitFor({ state: 'hidden' }).catch(() => {})
     await report.getByText('1 yellow, 0 red', { exact: true }).waitFor({ state: 'visible' })
 

@@ -197,11 +197,16 @@ export function calculateArrivalTime(kickoffTime, offsetMinutes) {
 }
 
 function normalizeMatchDayEvent(row) {
+  const recordedTeamSide = normalizeText(row.team_side ?? row.teamSide)
+
   return {
     id: row.id ?? '',
     matchDayId: row.match_day_id ?? row.matchDayId ?? '',
     eventType: normalizeText(row.event_type ?? row.eventType) || 'goal',
-    teamSide: normalizeText(row.team_side ?? row.teamSide) || 'club',
+    teamSide: recordedTeamSide || 'club',
+    teamSideRecorded: row.team_side_recorded === false || row.teamSideRecorded === false
+      ? false
+      : Boolean(recordedTeamSide),
     minute: row.minute ?? null,
     scorerName: normalizeText(row.scorer_name ?? row.scorerName),
     scorerInitials: normalizeText(row.scorer_initials ?? row.scorerInitials),
@@ -218,6 +223,12 @@ function normalizeMatchDayEvent(row) {
     voidedAt: row.voided_at ?? row.voidedAt ?? '',
     voidedByName: normalizeText(row.voided_by_name ?? row.voidedByName),
     correctionReason: normalizeText(row.correction_reason ?? row.correctionReason),
+    eventTeamId: row.event_team_id ?? row.eventTeamId ?? '',
+    eventTeamName: normalizeText(row.event_team_name ?? row.eventTeamName ?? row.team_label ?? row.teamLabel),
+    matchPhase: normalizeText(row.match_phase ?? row.matchPhase ?? row.event_phase ?? row.eventPhase ?? row.phase),
+    phaseOrder: row.phase_order ?? row.phaseOrder ?? row.match_phase_order ?? row.matchPhaseOrder ?? null,
+    stoppageMinute: row.stoppage_minute ?? row.stoppageMinute ?? row.stoppage_time ?? row.stoppageTime ?? null,
+    eventSequence: row.event_sequence ?? row.eventSequence ?? row.sequence ?? null,
     correctionMetadata: row.correction_metadata && typeof row.correction_metadata === 'object'
       ? row.correction_metadata
       : row.correctionMetadata && typeof row.correctionMetadata === 'object'

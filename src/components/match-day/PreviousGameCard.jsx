@@ -2,6 +2,12 @@ import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../lib/match
 import { getParentResultDateForDisplay } from '../../lib/parent-results-order.js'
 import { formatFixtureDateTime, isFixtureKickoffTimeTbc } from '../../lib/calendar-datetime-integrity.js'
 import { getMatchDayFixtureTypeLabel } from '../../lib/matchday-fixture-type.js'
+import {
+  buildCompletedMatchEventPresentation,
+  buildFinalMatchReportSummary,
+  resolveCompletedMatchPlayerName,
+} from '../../lib/matchday-final-report.js'
+import { CompletedMatchEventReport } from './CompletedMatchEventReport.jsx'
 
 function formatPreviousMatchDate(match) {
   if (isFixtureKickoffTimeTbc(match.kickoffTimeTbc)) {
@@ -33,9 +39,7 @@ function formatPreviousMatchDate(match) {
   })
 }
 function getGoalEvents(match) {
-  return Array.isArray(match.events)
-    ? match.events.filter((event) => event.eventType === 'goal')
-    : []
+  return buildFinalMatchReportSummary(match).activeGoals
 }
 
 function isPastFixture(match) {
@@ -59,17 +63,19 @@ function formatPreviousMatchStatus(match) {
   return String(match.status ?? 'shared').replace(/_/g, ' ')
 }
 
-function formatGoalLine(event) {
-  const scorer = event.scorerInitials || event.scorerName || 'Player'
-  const assist = event.assistInitials || event.assistName
+function formatGoalLine(event, match) {
+  const presentation = buildCompletedMatchEventPresentation(event, match, { includeNotes: false })
+  const hasAssist = Boolean(event.assistName || event.assistShirtNumber)
+  const assist = hasAssist ? resolveCompletedMatchPlayerName(event, 'secondary') : ''
   const score = Number.isFinite(Number(event.homeScore)) && Number.isFinite(Number(event.awayScore))
     ? `Score: ${event.homeScore} - ${event.awayScore}`
     : ''
 
   return [
-    event.minute !== null && event.minute !== undefined ? `Minute: ${event.minute}` : '',
-    `Goal: ${scorer}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}`,
-    assist ? `Assist: ${assist}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` : '',
+    presentation.team.name,
+    `Minute: ${presentation.minuteLabel}`,
+    `Goal: ${presentation.detail}`,
+    assist ? `Assist: ${assist}` : '',
     score,
   ].filter(Boolean).join(', ')
 }
@@ -96,7 +102,7 @@ export function PreviousGameCard({ match, onOpen }) {
       {goals.length > 0 ? (
         <div className="mt-3 space-y-2">
           {goals.slice(0, 4).map((event) => (
-            <p key={event.id} className="text-xs font-semibold text-[#4b5f55]">{formatGoalLine(event)}</p>
+            <p key={event.id} className="text-xs font-semibold text-[#4b5f55]">{formatGoalLine(event, match)}</p>
           ))}
           {goals.length > 4 ? (
             <p className="text-xs font-black text-[#047857]">View {goals.length - 4} more</p>
@@ -152,24 +158,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-black text-[#101828]">Goal details</h4>
-          {goals.length > 0 ? (
-            <div className="mt-3 space-y-2">
-              {goals.map((event) => (
-                <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
-                  <p className="text-sm font-black text-[#101828]">{formatGoalLine(event)}</p>
-                  {event.notes ? <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{event.notes}</p> : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5">
-              <p className="text-sm font-black text-[#101828]">No goals were recorded for this match.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Score updates can still exist without scorer detail if staff only tracked the final result.
-              </p>
-            </div>
-          )}
+          <CompletedMatchEventReport match={match} />
         </div>
 
         {match.notes ? (
