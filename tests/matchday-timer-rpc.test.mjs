@@ -120,6 +120,23 @@ test('server clock sample keeps live timer display consistent across client cloc
   assert.equal(formatMatchTimerClock(match, getServerSyncedNowMs(clientBSample, clientBClock + 5000)), '0:35')
 })
 
+test('server clock sync keeps null and unavailable samples safe during refresh hydration', () => {
+  const clientNow = Date.parse('2026-07-22T12:00:00Z')
+  const liveMatch = {
+    status: 'live',
+    timerStatus: 'running',
+    timerElapsedSeconds: 0,
+    timerStartedAt: '2026-07-22T11:59:30Z',
+  }
+
+  assert.equal(createServerClockSample(null), null)
+  assert.equal(createServerClockSampleFromDateHeader(null, { sampledAtMs: clientNow }), null)
+  assert.equal(getServerSyncedNowMs(null, clientNow), null)
+  assert.equal(getMatchTimerElapsedSeconds(liveMatch, null), null)
+  assert.equal(getMatchTimerMinute(liveMatch, null), null)
+  assert.equal(formatMatchTimerClock(liveMatch, null), 'Syncing clock...')
+})
+
 test('server clock sync preserves frozen timer state across pause hydration half time and full time', () => {
   const skewedClientClock = Date.parse('2026-07-08T12:01:14Z')
   const serverNow = Date.parse('2026-07-08T12:01:00Z')

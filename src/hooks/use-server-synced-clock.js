@@ -22,6 +22,10 @@ async function readServerClockSample() {
     method: 'HEAD',
   })
 
+  if (!response.ok) {
+    return null
+  }
+
   return createServerClockSampleFromDateHeader(response.headers.get('date'), {
     sampledAtMs: Date.now(),
   })
@@ -32,7 +36,7 @@ export function useServerSyncedClock({
   tickIntervalMs = 1000,
 } = {}) {
   const [clockSample, setClockSample] = useState(null)
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(null)
 
   useEffect(() => {
     let isCurrent = true
@@ -46,7 +50,7 @@ export function useServerSyncedClock({
           setNowMs(getServerSyncedNowMs(nextSample))
         }
       } catch {
-        // Keep the local fallback ticking if the server Date header cannot be sampled.
+        // Keep the last valid sample, or the unavailable state, until a retry succeeds.
       }
     }
 

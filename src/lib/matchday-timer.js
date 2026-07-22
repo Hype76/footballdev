@@ -124,7 +124,8 @@ export function getMatchTimerState(match = {}, now = Date.now()) {
   }
 }
 
-export function createServerClockSample({ serverNowMs, sampledAtMs } = {}) {
+export function createServerClockSample(clockSample = {}) {
+  const { serverNowMs, sampledAtMs } = clockSample ?? {}
   const normalizedServerNowMs = normalizeFiniteTimestamp(serverNowMs)
   const normalizedSampledAtMs = normalizeFiniteTimestamp(sampledAtMs)
 
@@ -148,17 +149,25 @@ export function getServerSyncedNowMs(clockSample = null, now = Date.now()) {
   const sample = createServerClockSample(clockSample)
 
   if (!sample) {
-    return nowMs
+    return null
   }
 
   return Math.floor(sample.serverNowMs + Math.max(nowMs - sample.sampledAtMs, 0))
 }
 
 export function getMatchTimerElapsedSeconds(match = {}, now = Date.now()) {
+  if (now === null) {
+    return null
+  }
+
   return getMatchTimerState(match, now).elapsedSeconds
 }
 
 export function getMatchTimerMinute(match = {}, now = Date.now()) {
+  if (now === null) {
+    return null
+  }
+
   const status = normalizeText(match.status)
   if (NON_CLOCK_MATCH_STATUSES.has(status) || status === 'full_time') {
     return null
@@ -169,6 +178,10 @@ export function getMatchTimerMinute(match = {}, now = Date.now()) {
 }
 
 export function formatMatchTimerClock(match = {}, now = Date.now()) {
+  if (now === null) {
+    return 'Syncing clock...'
+  }
+
   const elapsedSeconds = getMatchTimerElapsedSeconds(match, now)
   if (elapsedSeconds === null) {
     return '0:00'

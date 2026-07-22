@@ -80,7 +80,7 @@ async function stopDevServer(server) {
   await Promise.race([once(server.child, 'exit'), wait(3000)])
 }
 
-function createMatchFixture({ isScorer = false } = {}) {
+function createMatchFixture({ isLive = false, isScorer = false } = {}) {
   return {
     id: 'match-parity-fixture',
     club_id: 'club-fixture',
@@ -103,14 +103,14 @@ function createMatchFixture({ isScorer = false } = {}) {
     request_referee: false,
     parent_visible: true,
     parent_audience: 'involved_players',
-    status: 'scheduled',
+    status: isLive ? 'live' : 'scheduled',
     home_score: 0,
     away_score: 0,
-    phase_started_at: null,
-    timer_started_at: null,
+    phase_started_at: isLive ? '2026-07-22T10:00:00Z' : null,
+    timer_started_at: isLive ? '2026-07-22T10:00:00Z' : null,
     timer_paused_at: null,
     timer_elapsed_seconds: 0,
-    timer_status: 'not_started',
+    timer_status: isLive ? 'running' : 'not_started',
     full_time_resume_status: null,
     concluded_at: null,
     concluded_by: null,
@@ -140,14 +140,70 @@ function createMatchFixture({ isScorer = false } = {}) {
   }
 }
 
-async function prepareContext(browser, viewportOptions, { isScorer = false } = {}) {
+async function prepareContext(browser, viewportOptions, {
+  authRestoreDelayMs = 0,
+  clockDelayMs = 0,
+  clockFailureCount = 0,
+  fixtureDelayMs = 0,
+  fixtureFailureCount = 0,
+  fixtureNullCount = 0,
+  isLive = false,
+  isScorer = false,
+  parentRouteDelayMs = 0,
+  platformAdminFails = false,
+} = {}) {
   const context = await browser.newContext(viewportOptions)
-  const fixtureState = { match: createMatchFixture({ isScorer }) }
+  const fixtureState = { match: createMatchFixture({ isLive, isScorer }) }
   const mutationRequests = []
   const consoleErrors = []
+  const pageErrors = []
+  const resourceFailures = []
+  let remainingClockFailures = clockFailureCount
+  let remainingFixtureFailures = fixtureFailureCount
+  let remainingFixtureNulls = fixtureNullCount
+
+  await context.route('**/src/lib/auth-access-browser-fixtures.js*', async (route) => {
+    if (authRestoreDelayMs > 0) {
+      await wait(authRestoreDelayMs)
+    }
+
+    await route.continue()
+  })
+  await context.route('**/src/pages/ParentPortalPage.jsx*', async (route) => {
+    if (parentRouteDelayMs > 0) {
+      await wait(parentRouteDelayMs)
+    }
+
+    await route.continue()
+  })
 
   await context.route('**/.netlify/functions/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+  })
+  await context.route('**/.netlify/functions/platform-admin-access**', async (route) => {
+    await route.fulfill({
+      status: platformAdminFails ? 503 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify(platformAdminFails ? { error: 'Unavailable' } : { authorized: false }),
+    })
+  })
+  await context.route('**/?match-timer-sync=*', async (route) => {
+    if (clockDelayMs > 0) {
+      await wait(clockDelayMs)
+    }
+
+    if (remainingClockFailures > 0) {
+      remainingClockFailures -= 1
+      await route.fulfill({ status: 503, contentType: 'text/plain', body: '' })
+      return
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/plain',
+      headers: { date: 'Wed, 22 Jul 2026 10:00:30 GMT' },
+      body: '',
+    })
   })
   await context.route('**/auth/v1/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
@@ -164,6 +220,22 @@ async function prepareContext(browser, viewportOptions, { isScorer = false } = {
     })
   })
   await context.route('**/rest/v1/rpc/get_parent_portal_match_days', async (route) => {
+    if (fixtureDelayMs > 0) {
+      await wait(fixtureDelayMs)
+    }
+
+    if (remainingFixtureFailures > 0) {
+      remainingFixtureFailures -= 1
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Unavailable' }) })
+      return
+    }
+
+    if (remainingFixtureNulls > 0) {
+      remainingFixtureNulls -= 1
+      await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' })
+      return
+    }
+
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([fixtureState.match]) })
   })
   await context.route('**/rest/v1/rpc/get_parent_portal_match_day_players', async (route) => {
@@ -214,9 +286,21 @@ async function prepareContext(browser, viewportOptions, { isScorer = false } = {
       consoleErrors.push(message.text())
     }
   })
-  page.on('pageerror', (error) => consoleErrors.push(error.message))
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  page.on('requestfailed', (request) => {
+    const errorText = request.failure()?.errorText || 'failed'
 
-  return { context, consoleErrors, fixtureState, mutationRequests, page }
+    if (errorText !== 'net::ERR_ABORTED' && ['document', 'script', 'stylesheet'].includes(request.resourceType())) {
+      resourceFailures.push(`${request.resourceType()}: ${request.url()} ${errorText}`)
+    }
+  })
+  page.on('response', (response) => {
+    if (response.status() >= 400 && ['document', 'script', 'stylesheet'].includes(response.request().resourceType())) {
+      resourceFailures.push(`${response.request().resourceType()}: ${response.url()} ${response.status()}`)
+    }
+  })
+
+  return { context, consoleErrors, fixtureState, mutationRequests, page, pageErrors, resourceFailures }
 }
 
 async function signIn(page, { parent = false } = {}) {
@@ -241,6 +325,11 @@ async function verifyBackgroundForeground(page, context) {
   await backgroundPage.bringToFront()
   await page.bringToFront()
   await backgroundPage.close()
+}
+
+function assertNoPageFailures(session, label) {
+  assert.deepEqual(session.pageErrors, [], `${label} must have zero page exceptions`)
+  assert.deepEqual(session.resourceFailures, [], `${label} must have zero document, script, or stylesheet failures`)
 }
 
 const viewports = [
@@ -271,6 +360,7 @@ try {
     await staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first().waitFor({ state: 'visible', timeout: 30000 })
     assert.equal(await staff.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.deepEqual(staff.consoleErrors, [])
+    assertNoPageFailures(staff, `${viewport.name} staff`)
     await staff.context.close()
 
     const scorer = await prepareContext(browser, viewport.options, { isScorer: true })
@@ -302,6 +392,7 @@ try {
     assert.equal(await scorer.page.getByText('Update score', { exact: true }).count(), 0)
     assert.equal(await scorer.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.deepEqual(scorer.consoleErrors, [])
+    assertNoPageFailures(scorer, `${viewport.name} accepted scorer`)
     await scorer.context.close()
 
     const ordinary = await prepareContext(browser, viewport.options, { isScorer: false })
@@ -312,10 +403,145 @@ try {
     assert.equal(ordinary.mutationRequests.length, 0)
     assert.equal(await ordinary.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.deepEqual(ordinary.consoleErrors, [])
+    assertNoPageFailures(ordinary, `${viewport.name} ordinary parent`)
     await ordinary.context.close()
 
     process.stdout.write(`PASS ${viewport.name}: staff, accepted scorer, ordinary parent, refresh, background, revocation, no console errors\n`)
   }
+
+  const mobileOptions = { isMobile: true, viewport: { width: 390, height: 844 } }
+  const stress = await prepareContext(browser, mobileOptions, {
+    clockDelayMs: 1400,
+    isLive: true,
+  })
+  await signIn(stress.page, { parent: true })
+  await openParentMatches(stress.page)
+
+  for (let cycle = 1; cycle <= 25; cycle += 1) {
+    await stress.page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+    await stress.page.getByRole('heading', { name: 'Match cards' }).waitFor({ state: 'visible', timeout: 30000 })
+    await wait(1100)
+    assertNoPageFailures(stress, `ordinary parent mobile refresh ${cycle} while clock is pending`)
+    assert.equal(await stress.page.getByRole('button', { name: 'Open Game Mode' }).count(), 0)
+    assert.equal(await stress.page.getByText('Update score', { exact: true }).count(), 0)
+    await stress.page.getByText('1 min', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+    assert.equal(await stress.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  }
+
+  await verifyBackgroundForeground(stress.page, stress.context)
+  assert.equal(stress.mutationRequests.length, 0)
+  assert.deepEqual(stress.consoleErrors, [])
+  assertNoPageFailures(stress, 'ordinary parent mobile 25-refresh stress')
+  await stress.context.close()
+  process.stdout.write('PASS mobile stress: 25 delayed-clock hard refreshes, zero exceptions, zero mutations, no overflow\n')
+
+  for (const scenario of [
+    { label: 'fixture-first', clockDelayMs: 1400, fixtureDelayMs: 50 },
+    { label: 'clock-first', clockDelayMs: 50, fixtureDelayMs: 1400 },
+  ]) {
+    const reordered = await prepareContext(browser, mobileOptions, { ...scenario, isLive: true })
+    await signIn(reordered.page, { parent: true })
+    await openParentMatches(reordered.page)
+    await reordered.page.getByText('1 min', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+    assert.equal(reordered.mutationRequests.length, 0)
+    assert.deepEqual(reordered.consoleErrors, [])
+    assertNoPageFailures(reordered, `ordinary parent ${scenario.label}`)
+    await reordered.context.close()
+  }
+  process.stdout.write('PASS response ordering: fixture-first and clock-first both render the authoritative minute safely\n')
+
+  const clockRetry = await prepareContext(browser, mobileOptions, {
+    clockFailureCount: 2,
+    isLive: true,
+    isScorer: true,
+  })
+  await signIn(clockRetry.page, { parent: true })
+  await openParentMatches(clockRetry.page)
+  await clockRetry.page.getByRole('button', { name: 'Open Game Mode' }).click()
+  await clockRetry.page.getByText('Syncing clock...', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+  assert.equal(clockRetry.mutationRequests.length, 0)
+  await clockRetry.page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await clockRetry.page.getByRole('button', { name: 'Open Game Mode' }).waitFor({ state: 'visible', timeout: 30000 })
+  await clockRetry.page.getByRole('button', { name: 'Open Game Mode' }).click()
+  await clockRetry.page.getByText('0:30', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+  assert.equal(clockRetry.mutationRequests.length, 0)
+  assertNoPageFailures(clockRetry, 'server-clock failure and refresh retry')
+  await clockRetry.context.close()
+  process.stdout.write('PASS server-clock retry: unavailable state is safe and refresh recovers to the authoritative time\n')
+
+  for (const fixtureScenario of [
+    { label: 'failed fixture response', fixtureFailureCount: 2 },
+    { label: 'null fixture response', fixtureNullCount: 2 },
+  ]) {
+    const fixtureRetry = await prepareContext(browser, mobileOptions, fixtureScenario)
+    await signIn(fixtureRetry.page, { parent: true })
+    await openParentMatches(fixtureRetry.page)
+    assert.equal(fixtureRetry.mutationRequests.length, 0)
+    assertNoPageFailures(fixtureRetry, fixtureScenario.label)
+    await fixtureRetry.page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+    await fixtureRetry.page.getByRole('heading', { name: 'Match cards' }).waitFor({ state: 'visible', timeout: 30000 })
+    await fixtureRetry.page.getByText('Parity United', { exact: false }).first().waitFor({ state: 'visible', timeout: 5000 })
+    assert.equal(fixtureRetry.mutationRequests.length, 0)
+    assertNoPageFailures(fixtureRetry, `${fixtureScenario.label} retry`)
+    await fixtureRetry.context.close()
+  }
+  process.stdout.write('PASS fixture retry: failed and null responses remain non-crashing and recover on refresh\n')
+
+  const failClosed = await prepareContext(browser, mobileOptions, { platformAdminFails: true })
+  await signIn(failClosed.page, { parent: true })
+  await openParentMatches(failClosed.page)
+  assert.equal(await failClosed.page.getByRole('button', { name: 'Open Game Mode' }).count(), 0)
+  assert.equal(failClosed.mutationRequests.length, 0)
+  assertNoPageFailures(failClosed, 'fail-closed platform-admin capability request')
+  await failClosed.context.close()
+  process.stdout.write('PASS capability failure: platform-admin request fails closed without a page exception or parent privilege\n')
+
+  const cancelled = await prepareContext(browser, mobileOptions, {
+    clockDelayMs: 1500,
+    fixtureDelayMs: 1500,
+    isLive: true,
+  })
+  await signIn(cancelled.page, { parent: true })
+  await cancelled.page.goto(`${parentBaseUrl}/parent-portal?section=matches`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await cancelled.page.goto(`${parentBaseUrl}/sign-in?tab=parent`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await wait(1700)
+  assert.equal(cancelled.mutationRequests.length, 0)
+  assert.deepEqual(cancelled.pageErrors, [])
+  await cancelled.context.close()
+  process.stdout.write('PASS cancellation: route unmount before delayed clock and fixture completion causes no page exception or mutation\n')
+
+  const restoration = await prepareContext(browser, mobileOptions, {
+    authRestoreDelayMs: 900,
+    clockDelayMs: 1100,
+    fixtureDelayMs: 700,
+    isLive: true,
+    parentRouteDelayMs: 600,
+  })
+  await signIn(restoration.page, { parent: true })
+  await openParentMatches(restoration.page)
+  await restoration.page.getByText('1 min', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+  assert.equal(restoration.mutationRequests.length, 0)
+  assert.deepEqual(restoration.consoleErrors, [])
+  assertNoPageFailures(restoration, 'delayed auth, parent-link, route, fixture, and clock restoration')
+  await restoration.context.close()
+  process.stdout.write('PASS restoration ordering: delayed auth module, parent route, selected link, fixture, and clock recover safely\n')
+
+  const rapid = await prepareContext(browser, mobileOptions, {
+    clockDelayMs: 800,
+    fixtureDelayMs: 800,
+    isLive: true,
+  })
+  await signIn(rapid.page, { parent: true })
+  await openParentMatches(rapid.page)
+  for (let cycle = 0; cycle < 5; cycle += 1) {
+    await rapid.page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  }
+  await rapid.page.getByRole('heading', { name: 'Match cards' }).waitFor({ state: 'visible', timeout: 30000 })
+  await rapid.page.getByText('1 min', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+  assert.equal(rapid.mutationRequests.length, 0)
+  assert.deepEqual(rapid.pageErrors, [])
+  await rapid.context.close()
+  process.stdout.write('PASS rapid refresh: five repeated refreshes during delayed restoration recover without exception or mutation\n')
 } catch (error) {
   process.stderr.write(`${error.stack || error.message}\n`)
   process.stderr.write(server.getOutput())
