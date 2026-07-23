@@ -525,7 +525,7 @@ export function DataTransferPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-black text-[#101828]">5. Map columns and defaults</h2>
-              <p className="mt-1 text-sm font-semibold text-[#66756c]">{sourceInspection.portable ? 'Advanced portable structure verified. Its reference-aware sheets do not need manual mapping.' : `Detected ${sourceInspection.format.toUpperCase()}. Choose one worksheet and confirm how its columns should be used.`}</p>
+              <p className="mt-1 text-sm font-semibold text-[#66756c]">{sourceInspection.portable ? 'Advanced portable structure verified. Footballplayer.online manages its hidden relationship data automatically, so no manual mapping is needed.' : `Detected ${sourceInspection.format.toUpperCase()}. Choose one worksheet and confirm how its columns should be used.`}</p>
             </div>
             <span className="rounded-full bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857] ring-1 ring-[#a7d7c0]">{sourceInspection.portable ? 'Portable' : 'Human-readable'}</span>
           </div>

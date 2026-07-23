@@ -131,6 +131,17 @@ const fixtureAccounts = {
       roleRank: 30,
     }),
   },
+  'manager.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'team',
+    teamProfile: makeBaseProfile('manager.fixture@footballplayer.test', {
+      name: 'Manager Fixture',
+      role: 'manager',
+      roleLabel: 'Manager',
+      roleRank: 50,
+    }),
+  },
   'parent.fixture@footballplayer.test': {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: false,

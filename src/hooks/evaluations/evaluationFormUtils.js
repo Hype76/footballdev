@@ -606,6 +606,9 @@ export function createEvaluationPayload({
     comments,
     formResponses,
     feedbackFormId: feedbackForm?.id || feedbackFormSnapshot?.formId || editingEvaluation?.feedbackFormId || '',
+    feedbackFormTemplateSelectionId: feedbackForm?.isPlatformTemplate
+      ? feedbackForm.selectionId
+      : '',
     feedbackFormName: feedbackForm?.name || feedbackFormSnapshot?.formName || editingEvaluation?.feedbackFormName || '',
     feedbackFormVersion: feedbackForm?.version || feedbackFormSnapshot?.formVersion || editingEvaluation?.feedbackFormVersion || null,
     feedbackFormSnapshot: feedbackFormSnapshot || editingEvaluation?.feedbackFormSnapshot || null,

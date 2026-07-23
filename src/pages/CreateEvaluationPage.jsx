@@ -560,8 +560,8 @@ function FeedbackFormSelectionSection({
               <option value={selectedFeedbackFormId}>Saved form unavailable</option>
             ) : null}
             {feedbackForms.map((form) => (
-              <option key={form.id} value={form.id}>
-                {form.name}
+              <option key={form.selectionId || form.id} value={form.selectionId || form.id}>
+                {form.name}{form.isRecommended ? ' (Recommended)' : ''}{form.isPlatformTemplate ? ' | Starter' : ''}
               </option>
             ))}
           </select>
@@ -1521,7 +1521,8 @@ export function CreateEvaluationPage() {
             return String(editingEvaluation.feedbackFormId)
           }
 
-          return String(current ?? '').trim()
+          const requestedFeedbackForm = String(searchParams.get('feedbackForm') ?? '').trim()
+          return requestedFeedbackForm || String(current ?? '').trim()
         })
       } catch (error) {
         console.error(error)
@@ -1542,7 +1543,7 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [editingEvaluation?.feedbackFormId, isPlatformOwner, user, userScopeKey])
+  }, [editingEvaluation?.feedbackFormId, isPlatformOwner, searchParams, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -1739,7 +1740,7 @@ export function CreateEvaluationPage() {
   }, [dynamicFields, editingEvaluation])
 
   const selectedFeedbackForm = useMemo(
-    () => feedbackForms.find((form) => String(form.id) === String(selectedFeedbackFormId)) || null,
+    () => feedbackForms.find((form) => String(form.selectionId || form.id) === String(selectedFeedbackFormId)) || null,
     [feedbackForms, selectedFeedbackFormId],
   )
   const snapshotFields = editingEvaluation?.feedbackFormSnapshot?.fields

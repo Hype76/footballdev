@@ -89,7 +89,7 @@ function createMatchFixture({ isLive = false, isScorer = false } = {}) {
     teams: { name: 'U12 Fixture Team' },
     opponent: 'Parity United',
     fixture_type: 'league',
-    match_date: '2026-07-22',
+    match_date: '2026-07-23',
     kickoff_time: '18:00:00',
     kickoff_time_tbc: false,
     arrival_time: '17:30:00',

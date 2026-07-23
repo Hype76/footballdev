@@ -19,6 +19,12 @@ const PORTABLE_WORKBOOK_METADATA = {
 }
 const PORTABLE_WORKBOOK_TITLE = 'Footballplayer.online Portable Transfer'
 const PORTABLE_VERSION_LABEL = 'Template Version'
+const SYSTEM_REFERENCE_COLUMN_KEYS = new Set([
+  'guardian_reference',
+  'player_reference',
+  'team_reference',
+  'transfer_reference',
+])
 
 export const SHEET_DEFINITIONS = [
   {
@@ -244,9 +250,10 @@ function styleDataSheet(sheet, definition) {
   sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: definition.columns.length } }
   sheet.properties.defaultRowHeight = 22
 
-  definition.columns.forEach(([label], index) => {
+  definition.columns.forEach(([label, key], index) => {
     const column = sheet.getColumn(index + 1)
     column.width = Math.min(34, Math.max(15, label.length + 4))
+    column.hidden = SYSTEM_REFERENCE_COLUMN_KEYS.has(key)
     column.protection = { locked: false }
     column.alignment = { vertical: 'top', wrapText: true }
   })
@@ -291,7 +298,7 @@ function addInstructions(workbook, mode, scopeLabel) {
   sheet.addRow(['Workbook Mode', mode === 'export' ? 'Platform-generated portable transfer' : 'Blank support-assisted portable structure'])
   sheet.addRow(['Authorized Scope', scopeLabel || 'Select scope in Footballplayer.online before import.'])
   sheet.addRow(['Required order', WORKBOOK_SHEET_ORDER.join(', ')])
-  sheet.addRow(['References', 'Footballplayer.online generates public transfer references to preserve relationships between sheets. They are not database IDs. Do not invent or edit them unless an approved support workflow specifically requires it.'])
+  sheet.addRow(['System relationship data', 'Footballplayer.online manages the hidden relationship data in this workbook automatically. You do not need to enter, copy, invent or edit system references.'])
   sheet.addRow(['Dates', 'Use DD/MM/YYYY or ISO YYYY-MM-DD. Real Excel date cells are also supported.'])
   sheet.addRow(['Positions', 'Separate multiple positions with commas.'])
   sheet.addRow(['Boolean fields', 'Use Yes or No.'])
@@ -354,8 +361,12 @@ export async function buildTransferWorkbook({ data = {}, mode = 'blank', scopeLa
     sheet.addRow(definition.columns.map(([label]) => label))
     writeRows(sheet, definition, data[definition.name] || [])
     styleDataSheet(sheet, definition)
+    if (definition.name === 'Player-Guardian Links') {
+      sheet.state = 'veryHidden'
+    }
   }
   addLists(workbook)
+  workbook.views = [{ activeTab: WORKBOOK_SHEET_ORDER.indexOf('Players'), firstSheet: 0, visibility: 'visible' }]
 
   addListValidation(workbook.getWorksheet('Teams'), 'category', 'Category', 250)
   addListValidation(workbook.getWorksheet('Teams'), 'status', 'Status', 250)

@@ -4227,6 +4227,14 @@ function PitchsideCockpitPanel({
         />
       ) : (
         <div className="grid gap-2 border-t border-[#bbf7d0] bg-white px-4 py-3 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => onGameModeStart(match)}
+            disabled={isBusy || match.status === 'full_time'}
+            className={secondaryButtonClass}
+          >
+            Open Game Mode
+          </button>
           {primaryLiveAction ? (
             <button
               type="button"
@@ -4250,14 +4258,6 @@ function PitchsideCockpitPanel({
             aria-expanded={isExpanded}
           >
             {isExpanded ? 'Close fixture' : 'Manage fixture'}
-          </button>
-          <button
-            type="button"
-            onClick={() => onGameModeStart(match)}
-            disabled={isBusy || match.status === 'full_time'}
-            className={secondaryButtonClass}
-          >
-            Open Game Mode
           </button>
         </div>
       )}
@@ -4658,7 +4658,7 @@ function MatchDayCard({
                 disabled={isBusy || match.status === 'full_time'}
                 className={`${primaryButtonClass} w-full sm:w-auto`}
               >
-                {['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status) ? 'Open Game Mode' : 'Start Game Mode'}
+                Open Game Mode
               </button>
             </div>
           </section>
@@ -5000,7 +5000,7 @@ function MatchDayCard({
                 disabled={isBusy || match.status === 'full_time'}
                 className={`${primaryButtonClass} w-full sm:w-auto`}
               >
-                {isLiveConsole ? 'Open Game Mode' : 'Start Match'}
+                Open Game Mode
               </button>
             </div>
           </section>

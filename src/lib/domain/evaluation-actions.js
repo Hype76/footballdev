@@ -126,9 +126,10 @@ export async function createEvaluation(data) {
   })
 
   let feedbackFormPayload = {}
-  if (data.feedbackFormId) {
+  const feedbackFormSelectionId = data.feedbackFormId || data.feedbackFormTemplateSelectionId
+  if (feedbackFormSelectionId) {
     const selectedForm = await getActiveFeedbackFormForSubmission({
-      formId: data.feedbackFormId,
+      formId: feedbackFormSelectionId,
       user: {
         ...evaluationUser,
         activeTeamId: linkedTeamId || data.teamId,
@@ -141,7 +142,7 @@ export async function createEvaluation(data) {
     })
 
     feedbackFormPayload = {
-      feedbackFormId: selectedForm.id,
+      feedbackFormId: selectedForm.id || null,
       feedbackFormName: selectedForm.name,
       feedbackFormVersion: selectedForm.version,
       feedbackFormSnapshot,

@@ -24,6 +24,7 @@ export const FEEDBACK_FORM_FIELD_TYPES = Object.freeze([
 const ACTIVE_STATUS = 'active'
 const ARCHIVED_STATUS = 'archived'
 const GRAPHABLE_FEEDBACK_FORM_FIELD_TYPES = new Set(['score_1_10'])
+export const STARTER_FEEDBACK_FORM_SELECTION_PREFIX = 'platform-starter:'
 
 function createFieldId() {
   return globalThis.crypto?.randomUUID?.() || `field-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -51,6 +52,17 @@ function normalizeFixedOptions(type, options) {
 
 export function isGraphableFeedbackFormFieldType(type) {
   return GRAPHABLE_FEEDBACK_FORM_FIELD_TYPES.has(String(type ?? '').trim())
+}
+
+export function updateFeedbackFormEditorFields(fields = [], fieldId, nextValues = {}) {
+  return fields.map((field) => (
+    field.id === fieldId
+      ? {
+          ...field,
+          ...nextValues,
+        }
+      : field
+  ))
 }
 
 export function canManageFeedbackForms(user) {
@@ -82,6 +94,69 @@ export function normalizeFeedbackFormField(field = {}, index = 0) {
     orderIndex: Number(field.orderIndex ?? field.order_index ?? index + 1),
     isEnabled: field.isEnabled ?? field.is_enabled ?? true,
     includeInProgressChart: isGraphableFeedbackFormFieldType(type) ? Boolean(includeInProgressChart) : false,
+    parentVisible: Boolean(field.parentVisible ?? field.parent_visible ?? false),
+  }
+}
+
+export function getStarterFeedbackFormSelectionId(templateKey, version) {
+  const normalizedKey = String(templateKey ?? '').trim()
+  const normalizedVersion = Number(version ?? 0)
+  return normalizedKey && normalizedVersion > 0
+    ? `${STARTER_FEEDBACK_FORM_SELECTION_PREFIX}${normalizedKey}:${normalizedVersion}`
+    : ''
+}
+
+export function parseStarterFeedbackFormSelectionId(selectionId) {
+  const normalizedSelectionId = String(selectionId ?? '').trim()
+  if (!normalizedSelectionId.startsWith(STARTER_FEEDBACK_FORM_SELECTION_PREFIX)) {
+    return null
+  }
+
+  const value = normalizedSelectionId.slice(STARTER_FEEDBACK_FORM_SELECTION_PREFIX.length)
+  const separatorIndex = value.lastIndexOf(':')
+  const templateKey = value.slice(0, separatorIndex).trim()
+  const version = Number(value.slice(separatorIndex + 1))
+
+  return templateKey && Number.isInteger(version) && version > 0
+    ? { templateKey, version }
+    : null
+}
+
+export function getExplicitTeamAge(ageGroup) {
+  const match = String(ageGroup ?? '').trim().toUpperCase().match(/^U(\d{1,2})$/)
+  return match ? Number(match[1]) : null
+}
+
+export function isStarterTemplateRecommendedForAge(template, ageGroup) {
+  const age = getExplicitTeamAge(ageGroup)
+  return age !== null
+    && age >= Number(template?.ageMin ?? 0)
+    && age <= Number(template?.ageMax ?? 0)
+}
+
+export function normalizeStarterFeedbackFormRow(row = {}, { ageGroup = '', hidden = false, teamId = '' } = {}) {
+  const templateKey = String(row.template_key ?? row.templateKey ?? '').trim()
+  const version = Number(row.version ?? 1) || 1
+
+  return {
+    id: '',
+    selectionId: getStarterFeedbackFormSelectionId(templateKey, version),
+    templateKey,
+    teamId,
+    name: String(row.name ?? '').trim(),
+    description: String(row.description ?? '').trim(),
+    ageBand: String(row.age_band ?? row.ageBand ?? '').trim(),
+    ageMin: Number(row.age_min ?? row.ageMin ?? 0),
+    ageMax: Number(row.age_max ?? row.ageMax ?? 0),
+    fields: getUsableFeedbackFormFields(row.fields),
+    version,
+    isCurrent: row.is_current ?? row.isCurrent ?? true,
+    isPlatformTemplate: true,
+    isHidden: hidden === true,
+    isRecommended: isStarterTemplateRecommendedForAge({
+      ageMin: row.age_min ?? row.ageMin,
+      ageMax: row.age_max ?? row.ageMax,
+    }, ageGroup),
   }
 }
 
@@ -203,7 +278,66 @@ export async function getActiveFeedbackForms({ user } = {}) {
     return []
   }
 
-  return getFeedbackForms({ includeArchived: false, user })
+  const [teamForms, starterForms] = await Promise.all([
+    getFeedbackForms({ includeArchived: false, user }),
+    getStarterFeedbackForms({ user }),
+  ])
+
+  return [...starterForms, ...teamForms]
+}
+
+export async function getStarterFeedbackForms({ includeHidden = false, user } = {}) {
+  if (!canCompleteFeedbackForms(user)) {
+    return []
+  }
+
+  const teamId = String(user.activeTeamId ?? '').trim()
+  const clubId = String(user.clubId ?? '').trim()
+  if (!teamId || !clubId) return []
+
+  const [
+    { data: templateRows, error: templateError },
+    { data: preferenceRows, error: preferenceError },
+    { data: teamRow, error: teamError },
+  ] = await Promise.all([
+    supabase
+      .from('feedback_form_starter_templates')
+      .select('*')
+      .eq('is_current', true)
+      .order('age_min', { ascending: true })
+      .order('name', { ascending: true }),
+    supabase
+      .from('feedback_form_starter_preferences')
+      .select('template_key, hidden')
+      .eq('club_id', clubId)
+      .eq('team_id', teamId),
+    supabase
+      .from('teams')
+      .select('age_group')
+      .eq('club_id', clubId)
+      .eq('id', teamId)
+      .maybeSingle(),
+  ])
+
+  const error = templateError || preferenceError || teamError
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const hiddenByKey = new Map((preferenceRows ?? []).map((row) => [
+    String(row.template_key ?? '').trim(),
+    row.hidden === true,
+  ]))
+  const ageGroup = String(teamRow?.age_group ?? '').trim()
+
+  return (templateRows ?? [])
+    .map((row) => normalizeStarterFeedbackFormRow(row, {
+      ageGroup,
+      hidden: hiddenByKey.get(String(row.template_key ?? '').trim()) === true,
+      teamId,
+    }))
+    .filter((form) => includeHidden || !form.isHidden)
 }
 
 export async function getActiveFeedbackFormForSubmission({ formId, user } = {}) {
@@ -215,6 +349,18 @@ export async function getActiveFeedbackFormForSubmission({ formId, user } = {}) 
 
   if (!canCompleteFeedbackForms(user)) {
     throw new Error('Team access is required to complete feedback forms.')
+  }
+
+  const starterSelection = parseStarterFeedbackFormSelectionId(normalizedFormId)
+  if (starterSelection) {
+    const starterForms = await getStarterFeedbackForms({ user })
+    const starterForm = starterForms.find((form) => form.selectionId === normalizedFormId)
+
+    if (!starterForm) {
+      throw new Error('The selected starter template is not available for new submissions.')
+    }
+
+    return starterForm
   }
 
   const { data, error } = await supabase
@@ -232,6 +378,76 @@ export async function getActiveFeedbackFormForSubmission({ formId, user } = {}) 
   }
 
   return normalizeFeedbackFormRow(data)
+}
+
+export async function setStarterFeedbackFormHidden({ hidden, templateKey, user } = {}) {
+  await blockDemoMutation(user)
+  await assertFeedbackFormManager(user)
+
+  const normalizedTemplateKey = String(templateKey ?? '').trim()
+  if (!normalizedTemplateKey) {
+    throw new Error('Choose a starter template before changing its visibility.')
+  }
+
+  const updatedAt = new Date().toISOString()
+  const { error } = await supabase
+    .from('feedback_form_starter_preferences')
+    .upsert({
+      club_id: user.clubId,
+      team_id: user.activeTeamId,
+      template_key: normalizedTemplateKey,
+      hidden: hidden === true,
+      updated_by: getEntryUserId(user),
+      updated_at: updatedAt,
+    }, { onConflict: 'team_id,template_key' })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  await createAuditLog({
+    user,
+    action: hidden ? 'starter_feedback_form_hidden' : 'starter_feedback_form_shown',
+    entityType: 'feedback_form_starter_template',
+    entityId: normalizedTemplateKey,
+    metadata: {
+      hidden: hidden === true,
+      templateKey: normalizedTemplateKey,
+    },
+  })
+}
+
+export async function duplicateStarterFeedbackForm({ selectionId, user } = {}) {
+  await blockDemoMutation(user)
+  await assertFeedbackFormManager(user)
+
+  const starterForms = await getStarterFeedbackForms({ includeHidden: true, user })
+  const sourceForm = starterForms.find((form) => form.selectionId === selectionId)
+
+  if (!sourceForm) {
+    throw new Error('The selected starter template is not available to duplicate.')
+  }
+
+  const createdForm = await createFeedbackForm({
+    user,
+    name: `${sourceForm.name} custom`,
+    fields: sourceForm.fields,
+  })
+
+  await createAuditLog({
+    user,
+    action: 'starter_feedback_form_duplicated',
+    entityType: 'feedback_form',
+    entityId: createdForm.id,
+    metadata: {
+      sourceTemplateKey: sourceForm.templateKey,
+      sourceTemplateVersion: sourceForm.version,
+      formName: createdForm.name,
+    },
+  })
+
+  return createdForm
 }
 
 export async function createFeedbackForm({ fields, name, user }) {
@@ -423,7 +639,7 @@ export async function archiveFeedbackForm({ formId, user }) {
 }
 
 export function buildFeedbackFormSnapshot({ form, formResponses = {} } = {}) {
-  if (!form?.id) {
+  if (!form?.id && !form?.templateKey) {
     return null
   }
 
@@ -433,9 +649,11 @@ export function buildFeedbackFormSnapshot({ form, formResponses = {} } = {}) {
   }))
 
   return {
-    formId: form.id,
+    formId: form.id || null,
+    templateKey: form.templateKey || null,
     formName: form.name,
     formVersion: Number(form.version ?? 1) || 1,
+    isPlatformTemplate: form.isPlatformTemplate === true,
     fields,
   }
 }

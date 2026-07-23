@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
@@ -8,10 +8,14 @@ import {
   archiveFeedbackForm,
   createFeedbackForm,
   duplicateFeedbackForm,
+  duplicateStarterFeedbackForm,
   FEEDBACK_FORM_FIELD_TYPES,
   getFeedbackForms,
+  getStarterFeedbackForms,
   isGraphableFeedbackFormFieldType,
   normalizeFeedbackFormField,
+  setStarterFeedbackFormHidden,
+  updateFeedbackFormEditorFields,
   updateFeedbackForm,
   validateFeedbackFormDraft,
 } from '../lib/supabase.js'
@@ -54,6 +58,54 @@ function createEditorState(form = null) {
 
 function getFieldTypeLabel(type) {
   return FEEDBACK_FORM_FIELD_TYPES.find((fieldType) => fieldType.value === type)?.label || type
+}
+
+function StarterTemplateList({
+  isSaving,
+  onDuplicate,
+  onToggleHidden,
+  onUse,
+  templates,
+}) {
+  return (
+    <div className="space-y-3">
+      {templates.map((template) => (
+        <article key={template.selectionId} className={`rounded-lg border p-4 shadow-sm shadow-[#047857]/10 ${template.isHidden ? 'border-[#d7e5dc] bg-[#f7faf8]' : 'border-[#bbf7d0] bg-white'}`}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-lg font-black text-[#101828]">{template.name}</p>
+                <span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-black text-[#047857]">Platform template</span>
+                {template.isRecommended ? (
+                  <span className="rounded-full bg-[#eff8ff] px-2.5 py-1 text-xs font-black text-[#175cd3]">Recommended</span>
+                ) : null}
+                {template.isHidden ? (
+                  <span className="rounded-full bg-[#f2f4f7] px-2.5 py-1 text-xs font-black text-[#475467]">Hidden</span>
+                ) : null}
+              </div>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{template.description}</p>
+              <p className="mt-1 text-xs font-semibold text-[#66756c]">
+                {template.ageBand} | {template.fields.length} fields | Version {template.version}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {!template.isHidden ? (
+                <button type="button" onClick={() => onUse(template)} disabled={isSaving} className={primaryButtonClass}>
+                  Use form
+                </button>
+              ) : null}
+              <button type="button" onClick={() => onDuplicate(template)} disabled={isSaving} className={secondaryButtonClass}>
+                Duplicate and customise
+              </button>
+              <button type="button" onClick={() => onToggleHidden(template)} disabled={isSaving} className={secondaryButtonClass}>
+                {template.isHidden ? 'Show' : 'Hide'}
+              </button>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
 }
 
 function FormList({ forms, isSaving, onArchive, onDuplicate, onEdit }) {
@@ -104,7 +156,10 @@ function FormList({ forms, isSaving, onArchive, onDuplicate, onEdit }) {
 export function FeedbackFormsPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
+  const navigate = useNavigate()
   const [forms, setForms] = useState([])
+  const [starterTemplates, setStarterTemplates] = useState([])
+  const [showHiddenTemplates, setShowHiddenTemplates] = useState(false)
   const [editor, setEditor] = useState(() => createEditorState())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -125,10 +180,14 @@ export function FeedbackFormsPage() {
       setErrorMessage('')
 
       try {
-        const nextForms = await getFeedbackForms({ user })
+        const [nextForms, nextStarterTemplates] = await Promise.all([
+          getFeedbackForms({ user }),
+          getStarterFeedbackForms({ includeHidden: true, user }),
+        ])
 
         if (isMounted) {
           setForms(nextForms)
+          setStarterTemplates(nextStarterTemplates)
         }
       } catch (error) {
         console.error(error)
@@ -155,21 +214,18 @@ export function FeedbackFormsPage() {
   }
 
   const refreshForms = async () => {
-    const nextForms = await getFeedbackForms({ user })
+    const [nextForms, nextStarterTemplates] = await Promise.all([
+      getFeedbackForms({ user }),
+      getStarterFeedbackForms({ includeHidden: true, user }),
+    ])
     setForms(nextForms)
+    setStarterTemplates(nextStarterTemplates)
   }
 
   const updateField = (fieldId, nextValues) => {
     setEditor((current) => ({
       ...current,
-      fields: current.fields.map((field) =>
-        field.id === fieldId
-          ? normalizeFeedbackFormField({
-              ...field,
-              ...nextValues,
-            })
-          : field,
-      ),
+      fields: updateFeedbackFormEditorFields(current.fields, fieldId, nextValues),
     }))
   }
 
@@ -271,6 +327,53 @@ export function FeedbackFormsPage() {
     }
   }
 
+  const handleStarterVisibility = async (template) => {
+    setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await setStarterFeedbackFormHidden({
+        hidden: !template.isHidden,
+        templateKey: template.templateKey,
+        user,
+      })
+      await refreshForms()
+      setSuccessMessage(`${template.name} ${template.isHidden ? 'shown' : 'hidden'} for this team.`)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not update this starter template.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleStarterDuplicate = async (template) => {
+    setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const duplicatedForm = await duplicateStarterFeedbackForm({
+        selectionId: template.selectionId,
+        user,
+      })
+      await refreshForms()
+      setEditor(createEditorState(duplicatedForm))
+      setSuccessMessage(`${duplicatedForm.name} is now a team-owned form and is ready to edit.`)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not duplicate this starter template.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const visibleStarterTemplates = starterTemplates.filter((template) => showHiddenTemplates || !template.isHidden)
+  const recommendedStarterTemplates = visibleStarterTemplates.filter((template) => template.isRecommended)
+  const otherStarterTemplates = visibleStarterTemplates.filter((template) => !template.isRecommended)
+  const hiddenStarterCount = starterTemplates.filter((template) => template.isHidden).length
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -281,6 +384,54 @@ export function FeedbackFormsPage() {
 
       {errorMessage ? <NoticeBanner title="Feedback form action failed" message={errorMessage} /> : null}
       {successMessage ? <NoticeBanner title="Feedback form updated" message={successMessage} tone="info" /> : null}
+
+      <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Starter templates</p>
+            <h2 className="mt-2 text-2xl font-black text-[#101828]">Age-appropriate forms built into Footballplayer.online</h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+              Use a platform template directly, hide it for this team, or duplicate it into an editable team form.
+            </p>
+          </div>
+          {hiddenStarterCount > 0 ? (
+            <button type="button" onClick={() => setShowHiddenTemplates((current) => !current)} className={secondaryButtonClass}>
+              {showHiddenTemplates ? 'Hide hidden templates' : `Show hidden templates (${hiddenStarterCount})`}
+            </button>
+          ) : null}
+        </div>
+        {recommendedStarterTemplates.length > 0 ? (
+          <div>
+            <h3 className="mb-3 text-sm font-black text-[#101828]">Recommended for this team</h3>
+            <StarterTemplateList
+              templates={recommendedStarterTemplates}
+              isSaving={isSaving}
+              onDuplicate={handleStarterDuplicate}
+              onToggleHidden={handleStarterVisibility}
+              onUse={(template) => navigate(`/assess-player/new?feedbackForm=${encodeURIComponent(template.selectionId)}`)}
+            />
+          </div>
+        ) : null}
+        {otherStarterTemplates.length > 0 ? (
+          <div className={recommendedStarterTemplates.length > 0 ? 'mt-6' : ''}>
+            <h3 className="mb-3 text-sm font-black text-[#101828]">
+              {recommendedStarterTemplates.length > 0 ? 'Other starter templates' : 'All starter templates'}
+            </h3>
+            <StarterTemplateList
+              templates={otherStarterTemplates}
+              isSaving={isSaving}
+              onDuplicate={handleStarterDuplicate}
+              onToggleHidden={handleStarterVisibility}
+              onUse={(template) => navigate(`/assess-player/new?feedbackForm=${encodeURIComponent(template.selectionId)}`)}
+            />
+          </div>
+        ) : null}
+        {!isLoading && visibleStarterTemplates.length === 0 ? (
+          <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#4b5f55]">
+            All starter templates are hidden for this team. Show hidden templates to restore one.
+          </p>
+        ) : null}
+      </section>
 
       <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
         <form className="space-y-4" onSubmit={handleSave}>
@@ -378,7 +529,7 @@ export function FeedbackFormsPage() {
                   <label className="mt-3 block">
                     <span className="mb-2 block text-sm font-black text-[#101828]">Dropdown options</span>
                     <input
-                      value={field.options.join(', ')}
+                      value={Array.isArray(field.options) ? field.options.join(', ') : field.options}
                       onChange={(event) => updateField(field.id, { options: event.target.value })}
                       onKeyDown={stopTextInputSpacePropagation}
                       className={fieldClass}
