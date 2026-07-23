@@ -3,7 +3,15 @@ import { supabase } from '../supabase-client.js'
 export const DATA_TRANSFER_MAX_BYTES = 4 * 1024 * 1024
 export const DATA_TRANSFER_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 export const DATA_TRANSFER_TEMPLATE_VERSION = 'FP-V1-ONBOARDING-1'
+export const SIMPLE_DATA_TRANSFER_TEMPLATE_VERSION = 'FP-V1-PLAYER-PARENT-2'
+export const DATA_TRANSFER_ACCEPT = '.csv,.tsv,.xlsx,.ods,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.spreadsheet'
 const DATA_TRANSFER_BROWSER_FIXTURES_ENABLED = import.meta.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES === 'true'
+const SPREADSHEET_FORMATS = {
+  csv: { extension: '.csv', mimeType: 'text/csv' },
+  tsv: { extension: '.tsv', mimeType: 'text/tab-separated-values' },
+  xlsx: { extension: '.xlsx', mimeType: DATA_TRANSFER_MIME },
+  ods: { extension: '.ods', mimeType: 'application/vnd.oasis.opendocument.spreadsheet' },
+}
 
 async function accessToken() {
   if (DATA_TRANSFER_BROWSER_FIXTURES_ENABLED && window.sessionStorage.getItem('auth-access-browser-fixture-email')) {
@@ -56,6 +64,12 @@ export async function downloadDataTransferWorkbook(operation, scope = {}) {
   downloadBlob(blob, 'footballplayer-online-onboarding-v1.xlsx')
 }
 
+export async function downloadSimpleDataTransferTemplate(format, scope = {}) {
+  if (!['csv', 'xlsx', 'ods'].includes(format)) throw new Error('Choose CSV, XLSX, or ODS.')
+  const blob = await dataTransferRequest('simple-template', { ...scope, format })
+  downloadBlob(blob, `footballplayer-online-player-parent-template.${format}`)
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -66,16 +80,32 @@ function fileToBase64(file) {
 }
 
 export async function inspectDataTransferWorkbook(file, scope = {}) {
-  if (!file) throw new Error('Choose an XLSX workbook first.')
-  if (!String(file.name || '').toLowerCase().endsWith('.xlsx')) throw new Error('Choose a file with the .xlsx extension.')
-  if (file.type && file.type !== DATA_TRANSFER_MIME) throw new Error('Only an XLSX workbook is supported.')
-  if (file.size > DATA_TRANSFER_MAX_BYTES) throw new Error('The workbook exceeds the 4 MB upload limit.')
+  validateSpreadsheetFile(file)
   return dataTransferRequest('inspect', {
     ...scope,
     fileName: file.name,
     mimeType: file.type || DATA_TRANSFER_MIME,
     workbookBase64: await fileToBase64(file),
   })
+}
+
+export async function inspectDataTransferSource(file, scope = {}) {
+  validateSpreadsheetFile(file)
+  return dataTransferRequest('source-inspect', {
+    ...scope,
+    fileName: file.name,
+    mimeType: file.type || '',
+    workbookBase64: await fileToBase64(file),
+  })
+}
+
+function validateSpreadsheetFile(file) {
+  if (!file) throw new Error('Choose a CSV, TSV, XLSX, or ODS spreadsheet first.')
+  const extension = String(file.name || '').toLowerCase().match(/(\.[a-z0-9]+)$/)?.[1] || ''
+  if (!Object.values(SPREADSHEET_FORMATS).some((format) => format.extension === extension)) {
+    throw new Error('Choose a file with a .csv, .tsv, .xlsx, or .ods extension.')
+  }
+  if (file.size > DATA_TRANSFER_MAX_BYTES) throw new Error('The spreadsheet exceeds the 4 MB upload limit.')
 }
 
 export async function confirmDataTransfer(payload) {

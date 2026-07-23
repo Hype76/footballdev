@@ -2,16 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   confirmDataTransfer,
+  DATA_TRANSFER_ACCEPT,
   DATA_TRANSFER_MAX_BYTES,
   DATA_TRANSFER_TEMPLATE_VERSION,
   downloadDataTransferErrorReport,
   downloadDataTransferRawWorkbook,
+  downloadSimpleDataTransferTemplate,
   downloadDataTransferWorkbook,
+  inspectDataTransferSource,
   inspectDataTransferWorkbook,
   loadDataTransferDetails,
   loadDataTransferHistory,
   loadDataTransferScope,
   rollbackDataTransfer,
+  SIMPLE_DATA_TRANSFER_TEMPLATE_VERSION,
 } from '../lib/domain/data-transfer.js'
 
 function formatDate(value) {
@@ -42,6 +46,15 @@ function ActionButton({ children, disabled, onClick, tone = 'primary', type = 'b
       ? 'border border-rose-300 bg-white text-rose-800 hover:bg-rose-50'
       : 'border border-[#b8c9c0] bg-white text-[#274437] hover:bg-[#f0f7f3]'
   return <button type={type} disabled={disabled} onClick={onClick} className={`min-h-11 rounded-lg px-4 py-2 text-sm font-black transition ${styles} disabled:cursor-not-allowed disabled:opacity-50`}>{children}</button>
+}
+
+function ChoiceRow({ checked, description = '', disabled = false, id, label, onChange }) {
+  return (
+    <label htmlFor={id} className={`flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-[#cfe0d6] bg-white px-3 py-2 text-sm text-[#274437] ${disabled ? 'cursor-not-allowed opacity-55' : 'hover:border-[#80ad96] hover:bg-[#f7faf8]'}`}>
+      <input id={id} type="checkbox" disabled={disabled} checked={checked} onChange={onChange} className="mt-0.5 h-4 w-4 shrink-0 accent-[#047857]" />
+      <span><span className="font-black">{label}</span>{description ? <span className="mt-0.5 block text-xs font-semibold leading-5 text-[#66756c]">{description}</span> : null}</span>
+    </label>
+  )
 }
 
 function FieldChangeDetails({ row }) {
@@ -86,6 +99,12 @@ export function DataTransferPage() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [file, setFile] = useState(null)
+  const [sourceInspection, setSourceInspection] = useState(null)
+  const [selectedSheetName, setSelectedSheetName] = useState('')
+  const [columnMappings, setColumnMappings] = useState([])
+  const [dateConvention, setDateConvention] = useState('')
+  const [teamMappings, setTeamMappings] = useState([])
+  const [defaultTeamId, setDefaultTeamId] = useState('')
   const [inspection, setInspection] = useState(null)
   const [confirmationPhrase, setConfirmationPhrase] = useState('')
   const [confirmedReview, setConfirmedReview] = useState(false)
@@ -109,6 +128,36 @@ export function DataTransferPage() {
   const importFinished = ['completed', 'completed_with_warnings'].includes(inspection?.batch?.state)
   const hasConfirmedScope = scopeMode === 'club' || (scopeMode === 'teams' && selectedTeamIds.length > 0)
   const filteredPreview = previewFilter === 'all' ? previewRows : previewRows.filter((row) => (row.outcome || row.outcome) === previewFilter)
+  const selectedSourceSheet = sourceInspection?.sheets?.find((sheet) => sheet.name === selectedSheetName) || null
+  const mappedTargetFields = new Set(columnMappings.map((mapping) => mapping.targetField).filter(Boolean))
+  const namesMapped = mappedTargetFields.has('player_full_name') || (mappedTargetFields.has('player_first_name') && mappedTargetFields.has('player_last_name'))
+  const dateDecisionRequired = Boolean(selectedSourceSheet?.ambiguousDateSamples?.length && mappedTargetFields.has('date_of_birth'))
+  const mappingReady = Boolean(sourceInspection?.portable || (selectedSourceSheet && namesMapped && (!dateDecisionRequired || dateConvention)))
+
+  function clearSourceInspection() {
+    setSourceInspection(null)
+    setSelectedSheetName('')
+    setColumnMappings([])
+    setDateConvention('')
+    setTeamMappings([])
+    setDefaultTeamId('')
+    setInspection(null)
+  }
+
+  function applySheetMapping(sheetName, result = sourceInspection) {
+    const sheet = result?.sheets?.find((candidate) => candidate.name === sheetName)
+    setSelectedSheetName(sheetName)
+    setColumnMappings((sheet?.mappings || []).map((mapping) => ({
+      defaultValue: '',
+      sourceColumn: mapping.sourceColumn,
+      targetField: mapping.suggestedField,
+      transformation: mapping.transformation || 'trim',
+    })))
+    setDateConvention('')
+    setDefaultTeamId('')
+    setTeamMappings((sheet?.teamValues || []).map((sourceValue) => ({ sourceValue, teamId: '', create: false })))
+    setInspection(null)
+  }
 
   async function refreshHistory(nextScope = scopePayload) {
     const result = await loadDataTransferHistory(nextScope)
@@ -176,6 +225,40 @@ export function DataTransferPage() {
     }
   }
 
+  async function runSimpleTemplateDownload(format) {
+    setActionBusy(`simple-template:${format}`)
+    setError('')
+    setNotice('')
+    try {
+      await downloadSimpleDataTransferTemplate(format, scopePayload)
+      setNotice(`${format.toUpperCase()} player and parent template downloaded.`)
+      await refreshHistory()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setActionBusy('')
+    }
+  }
+
+  async function inspectSource() {
+    setActionBusy('source-inspect')
+    setError('')
+    setNotice('')
+    clearSourceInspection()
+    try {
+      const result = await inspectDataTransferSource(file, scopePayload)
+      setSourceInspection(result)
+      if (!result.portable) applySheetMapping(result.suggestedSheet, result)
+      setNotice(result.portable
+        ? 'Advanced portable workbook verified. Review options, then prepare the preview.'
+        : 'Spreadsheet parsed safely. Confirm the worksheet and column mapping before preview.')
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setActionBusy('')
+    }
+  }
+
   async function inspectWorkbook() {
     setActionBusy('inspect')
     setError('')
@@ -185,7 +268,16 @@ export function DataTransferPage() {
     setConfirmationPhrase('')
     setConfirmedReview(false)
     try {
-      const result = await inspectDataTransferWorkbook(file, inspectionPayload)
+      const result = await inspectDataTransferWorkbook(file, {
+        ...inspectionPayload,
+        mapping: sourceInspection?.portable ? undefined : {
+          sheetName: selectedSheetName,
+          columns: columnMappings,
+          dateConvention,
+          defaultTeamId,
+          teamMappings,
+        },
+      })
       setInspection(result)
       setNotice(result.errors?.length ? 'Inspection finished with blocking errors. No records were written.' : 'Preview is ready. No records have been written.')
       await refreshHistory()
@@ -248,11 +340,12 @@ export function DataTransferPage() {
       <header className="rounded-xl border border-[#cfe0d6] bg-gradient-to-br from-[#ecfdf5] to-white p-6 shadow-sm">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Club onboarding</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Data Transfer</h1>
-        <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52675c]">Download, validate, preview, and confirm a controlled multi-sheet XLSX import. Uploading never writes club records. Guardians remain uninvited and no communication is sent.</p>
+        <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52675c]">Bring player and parent data from CSV, TSV, Excel, or OpenDocument spreadsheets. Select a worksheet, map familiar columns, review every proposed change, and confirm separately. Uploading and mapping never write club records. Guardians remain uninvited and no communication is sent.</p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-[#274437]">
           <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#cfe0d6]">Template {DATA_TRANSFER_TEMPLATE_VERSION}</span>
+          <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#cfe0d6]">Simple {SIMPLE_DATA_TRANSFER_TEMPLATE_VERSION}</span>
           <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#cfe0d6]">Maximum {Math.round(DATA_TRANSFER_MAX_BYTES / 1024 / 1024)} MB</span>
-          <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#cfe0d6]">XLSX only</span>
+          <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#cfe0d6]">CSV, TSV, XLSX, ODS</span>
         </div>
       </header>
 
@@ -270,7 +363,7 @@ export function DataTransferPage() {
         {platformMode ? (
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="grid gap-1 text-sm font-black text-[#274437]">Club
-              <select value={clubId} onChange={(event) => { setClubId(event.target.value); setScopeMode(''); setSelectedTeamIds([]); setScope(null) }} className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3">
+              <select value={clubId} onChange={(event) => { setClubId(event.target.value); setScopeMode(''); setSelectedTeamIds([]); setScope(null); clearSourceInspection() }} className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3">
                 <option value="">Select a club</option>
                 {clubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
               </select>
@@ -284,22 +377,22 @@ export function DataTransferPage() {
         {scope?.club ? (
           <div className="mt-4 space-y-4 rounded-lg border border-[#cfe0d6] bg-[#f7faf8] p-4">
             <div><p className="font-black text-[#101828]">{scope.club.name}</p><p className="mt-1 text-sm font-semibold text-[#52675c]">{scopeMode === 'club' ? `Entire club scope with ${scope.teams.length} existing team${scope.teams.length === 1 ? '' : 's'}` : scopeMode === 'teams' ? `${selectedTeamIds.length} selected team${selectedTeamIds.length === 1 ? '' : 's'}: ${scope.teams.filter((team) => selectedTeamIds.includes(team.id)).map((team) => team.name).join(', ') || 'None selected'}` : 'Choose entire club or selected teams'}</p></div>
-            {scope.canManageClub ? <fieldset className="rounded-lg border border-[#cfe0d6] bg-white p-3"><legend className="px-1 text-sm font-black text-[#274437]">Choose transfer scope</legend><div className="mt-2 flex flex-wrap gap-4"><label className="flex items-center gap-2 text-sm font-bold text-[#274437]"><input type="radio" name="data-transfer-scope" checked={scopeMode === 'club'} onChange={() => { setScopeMode('club'); setSelectedTeamIds([]); setInspection(null) }} />Entire club</label><label className="flex items-center gap-2 text-sm font-bold text-[#274437]"><input type="radio" name="data-transfer-scope" checked={scopeMode === 'teams'} onChange={() => { setScopeMode('teams'); setAllowTeamCreation(false); setInspection(null) }} />Selected teams</label></div></fieldset> : null}
+            {scope.canManageClub ? <fieldset className="rounded-lg border border-[#cfe0d6] bg-white p-3"><legend className="px-1 text-sm font-black text-[#274437]">Choose transfer scope</legend><div className="mt-2 flex flex-wrap gap-4"><label className="flex items-center gap-2 text-sm font-bold text-[#274437]"><input type="radio" name="data-transfer-scope" checked={scopeMode === 'club'} onChange={() => { setScopeMode('club'); setSelectedTeamIds([]); clearSourceInspection() }} />Entire club</label><label className="flex items-center gap-2 text-sm font-bold text-[#274437]"><input type="radio" name="data-transfer-scope" checked={scopeMode === 'teams'} onChange={() => { setScopeMode('teams'); setAllowTeamCreation(false); clearSourceInspection() }} />Selected teams</label></div></fieldset> : null}
             <fieldset className="rounded-lg border border-[#cfe0d6] bg-white p-3">
               <legend className="px-1 text-sm font-black text-[#274437]">Select import and export teams</legend>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{scope.teams.map((team) => <label key={team.id} className="flex items-center gap-2 text-sm font-bold text-[#274437]"><input type="checkbox" disabled={scopeMode !== 'teams'} checked={selectedTeamIds.includes(team.id)} onChange={(event) => { setSelectedTeamIds((current) => event.target.checked ? [...new Set([...current, team.id])] : current.filter((id) => id !== team.id)); setInspection(null) }} />{team.name}</label>)}</div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{scope.teams.map((team) => <ChoiceRow key={team.id} id={`data-transfer-team-${team.id}`} disabled={scopeMode !== 'teams'} checked={selectedTeamIds.includes(team.id)} label={team.name} onChange={(event) => { setSelectedTeamIds((current) => event.target.checked ? [...new Set([...current, team.id])] : current.filter((id) => id !== team.id)); clearSourceInspection() }} />)}</div>
               {!scope.teams.length ? <p className="mt-2 text-sm font-semibold text-[#66756c]">No teams exist yet. Choose Entire club to prepare a workbook that creates the first teams.</p> : null}
-              <div className="mt-3 flex gap-2"><ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds(scope.teams.map((team) => team.id)); setInspection(null) }}>Select all</ActionButton><ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds([]); setInspection(null) }}>Clear</ActionButton></div>
+              <div className="mt-3 flex gap-2"><ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds(scope.teams.map((team) => team.id)); clearSourceInspection() }}>Select all</ActionButton><ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds([]); clearSourceInspection() }}>Clear</ActionButton></div>
             </fieldset>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-black text-[#274437]">Confirmed season<input value={season} onChange={(event) => { setSeason(event.target.value); setInspection(null) }} placeholder="2026/27" className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3" /></label>
               <label className="grid gap-1 text-sm font-black text-[#274437]">Import mode<select value="additive" disabled className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3"><option value="additive">Additive V1</option></select></label>
             </div>
-            <div className="grid gap-2 text-sm font-bold text-[#274437] md:grid-cols-2">
-              <label className="flex items-start gap-2"><input type="checkbox" disabled={!scope.canManageTeams || scopeMode !== 'club'} checked={allowTeamCreation} onChange={(event) => { setAllowTeamCreation(event.target.checked); setInspection(null) }} className="mt-1" />Allow authorized missing teams to be created in club-wide scope</label>
-              <label className="flex items-start gap-2"><input type="checkbox" checked={fillBlankFields} onChange={(event) => { setFillBlankFields(event.target.checked); setInspection(null) }} className="mt-1" />Fill approved blank platform fields</label>
-              <label className="flex items-start gap-2"><input type="checkbox" checked={updateConflicts} onChange={(event) => { setUpdateConflicts(event.target.checked); setInspection(null) }} className="mt-1" />Use reviewed workbook values for populated field conflicts</label>
-              <label className="flex items-start gap-2"><input type="checkbox" checked={createPossibleDuplicates} onChange={(event) => { setCreatePossibleDuplicates(event.target.checked); setInspection(null) }} className="mt-1" />Create separate records after possible-duplicate review</label>
+            <div className="grid gap-2 md:grid-cols-2">
+              <ChoiceRow id="data-transfer-allow-team-creation" disabled={!scope.canManageTeams || scopeMode !== 'club'} checked={allowTeamCreation} onChange={(event) => { setAllowTeamCreation(event.target.checked); setInspection(null) }} label="Allow team creation" description="Only explicitly mapped missing teams in authorised club-wide scope." />
+              <ChoiceRow id="data-transfer-fill-blanks" checked={fillBlankFields} onChange={(event) => { setFillBlankFields(event.target.checked); setInspection(null) }} label="Fill approved blanks" description="Existing populated fields remain unchanged." />
+              <ChoiceRow id="data-transfer-update-conflicts" checked={updateConflicts} onChange={(event) => { setUpdateConflicts(event.target.checked); setInspection(null) }} label="Use reviewed spreadsheet values" description="Apply only after reviewing populated-field conflicts in the preview." />
+              <ChoiceRow id="data-transfer-create-duplicates" checked={createPossibleDuplicates} onChange={(event) => { setCreatePossibleDuplicates(event.target.checked); setInspection(null) }} label="Create reviewed possible duplicates" description="Create separate records only after duplicate review." />
             </div>
           </div>
         ) : null}
@@ -307,26 +400,135 @@ export function DataTransferPage() {
 
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black text-[#101828]">2. Download workbook</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#66756c]">Start with a polished blank template or an authorized current-data export using public references only.</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <ActionButton disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('blank')}>{actionBusy === 'blank' ? 'Preparing...' : 'Download blank template'}</ActionButton>
-            <ActionButton tone="secondary" disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('export')}>{actionBusy === 'export' ? 'Preparing...' : 'Export current data'}</ActionButton>
+          <h2 className="text-xl font-black text-[#101828]">2. Download a starting template</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#66756c]">The simple player and parent templates contain familiar column names and no platform references or internal IDs.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {['xlsx', 'csv', 'ods'].map((format) => (
+              <ActionButton key={format} disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runSimpleTemplateDownload(format)}>
+                {actionBusy === `simple-template:${format}` ? 'Preparing...' : `Simple ${format.toUpperCase()}`}
+              </ActionButton>
+            ))}
+          </div>
+          <div className="mt-5 border-t border-[#d7e5dc] pt-4">
+            <p className="text-sm font-black text-[#274437]">Advanced portable workbook</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#66756c]">Use public references when preserving relationships for a controlled Footballplayer.online transfer.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <ActionButton tone="secondary" disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('blank')}>{actionBusy === 'blank' ? 'Preparing...' : 'Blank portable workbook'}</ActionButton>
+              <ActionButton tone="secondary" disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('export')}>{actionBusy === 'export' ? 'Preparing...' : 'Current-data portable workbook'}</ActionButton>
+            </div>
           </div>
         </div>
 
         <div className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black text-[#101828]">3. Upload and inspect</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#66756c]">The workbook is checked for structure, unsafe content, scope, duplicates, references, and row-level changes before a preview is created.</p>
-          <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => setFile(event.target.files?.[0] || null)} className="mt-4 block w-full rounded-lg border border-[#b8c9c0] p-3 text-sm font-semibold" />
-          <div className="mt-4"><ActionButton disabled={!scope?.club || !hasConfirmedScope || !file || !season.trim() || Boolean(actionBusy)} onClick={inspectWorkbook}>{actionBusy === 'inspect' ? 'Inspecting...' : 'Inspect workbook'}</ActionButton></div>
+          <h2 className="text-xl font-black text-[#101828]">3. Choose a spreadsheet</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#66756c]">The server validates the real file contents and rejects mismatched, encrypted, macro-enabled, formula-bearing, oversized, or damaged spreadsheets.</p>
+          <input type="file" accept={DATA_TRANSFER_ACCEPT} onChange={(event) => { setFile(event.target.files?.[0] || null); clearSourceInspection() }} className="mt-4 block w-full rounded-lg border border-[#b8c9c0] p-3 text-sm font-semibold" />
+          {file ? <p className="mt-2 text-xs font-bold text-[#52675c]">{file.name}, {Math.max(1, Math.ceil(file.size / 1024))} KB</p> : null}
+          <div className="mt-4"><ActionButton disabled={!scope?.club || !hasConfirmedScope || !file || Boolean(actionBusy)} onClick={inspectSource}>{actionBusy === 'source-inspect' ? 'Reading safely...' : 'Read columns and worksheets'}</ActionButton></div>
         </div>
       </section>
+
+      {sourceInspection ? (
+        <section className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-[#101828]">4. Map columns and defaults</h2>
+              <p className="mt-1 text-sm font-semibold text-[#66756c]">{sourceInspection.portable ? 'Advanced portable structure verified. Its reference-aware sheets do not need manual mapping.' : `Detected ${sourceInspection.format.toUpperCase()}. Choose one worksheet and confirm how its columns should be used.`}</p>
+            </div>
+            <span className="rounded-full bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857] ring-1 ring-[#a7d7c0]">{sourceInspection.portable ? 'Portable' : 'Human-readable'}</span>
+          </div>
+
+          {!sourceInspection.portable ? (
+            <div className="mt-5 space-y-5">
+              <label className="grid max-w-xl gap-1 text-sm font-black text-[#274437]">Worksheet
+                <select value={selectedSheetName} onChange={(event) => applySheetMapping(event.target.value)} className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3">
+                  {sourceInspection.sheets.map((sheet) => <option key={sheet.name} value={sheet.name}>{sheet.name} ({sheet.rowCount} data row{sheet.rowCount === 1 ? '' : 's'})</option>)}
+                </select>
+              </label>
+
+              {selectedSourceSheet ? (
+                <div className="overflow-x-auto rounded-lg border border-[#d7e5dc]">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-[#047857] text-white"><tr><th className="px-3 py-2">Source column</th><th className="px-3 py-2">Sample values</th><th className="px-3 py-2">Footballplayer.online field</th><th className="px-3 py-2">Handling</th><th className="px-3 py-2">Default if blank</th></tr></thead>
+                    <tbody className="divide-y divide-[#d7e5dc]">
+                      {columnMappings.map((mapping, index) => {
+                        const suggestion = selectedSourceSheet.mappings.find((candidate) => candidate.sourceColumn === mapping.sourceColumn)
+                        return (
+                          <tr key={mapping.sourceColumn}>
+                            <td className="px-3 py-3"><p className="font-black text-[#101828]">{mapping.sourceColumn}</p><p className="mt-1 text-xs font-bold text-[#66756c]">{suggestion?.confidence || 'unmapped'} suggestion</p></td>
+                            <td className="max-w-64 px-3 py-3 text-xs font-semibold text-[#52675c]">{suggestion?.samples?.join(' | ') || 'No sample'}</td>
+                            <td className="px-3 py-3">
+                              <select aria-label={`Map ${mapping.sourceColumn}`} value={mapping.targetField} onChange={(event) => setColumnMappings((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, targetField: event.target.value, transformation: sourceInspection.fields.find((field) => field.key === event.target.value)?.transformation || 'trim' } : entry))} className="min-h-10 min-w-56 rounded-lg border border-[#b8c9c0] bg-white px-2">
+                                <option value="">Ignore this column</option>
+                                {sourceInspection.fields.map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-3 py-3">
+                              <select aria-label={`Handle ${mapping.sourceColumn}`} disabled={!mapping.targetField} value={mapping.transformation} onChange={(event) => setColumnMappings((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, transformation: event.target.value } : entry))} className="min-h-10 min-w-40 rounded-lg border border-[#b8c9c0] bg-white px-2 disabled:opacity-50">
+                                <option value="trim">Trim text</option><option value="normalize_email">Normalise email</option><option value="normalize_phone">Normalise phone</option><option value="parse_date">Parse date</option><option value="split_name">Split full name</option><option value="split_positions">Split positions</option><option value="boolean">Yes or No</option>
+                              </select>
+                            </td>
+                            <td className="px-3 py-3"><input aria-label={`Default for ${mapping.sourceColumn}`} disabled={!mapping.targetField} value={mapping.defaultValue} onChange={(event) => setColumnMappings((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, defaultValue: event.target.value } : entry))} className="min-h-10 w-44 rounded-lg border border-[#b8c9c0] px-2 disabled:opacity-50" /></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {dateDecisionRequired ? (
+                <fieldset className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+                  <legend className="px-1 text-sm font-black text-amber-950">Confirm ambiguous date order</legend>
+                  <p className="mt-1 text-sm font-semibold text-amber-900">Samples: {selectedSourceSheet.ambiguousDateSamples.join(', ')}</p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-black text-amber-950 ring-1 ring-amber-300"><input type="radio" name="data-transfer-date-order" checked={dateConvention === 'dmy'} onChange={() => setDateConvention('dmy')} />Day / Month / Year</label>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-black text-amber-950 ring-1 ring-amber-300"><input type="radio" name="data-transfer-date-order" checked={dateConvention === 'mdy'} onChange={() => setDateConvention('mdy')} />Month / Day / Year</label>
+                  </div>
+                </fieldset>
+              ) : null}
+
+              {!mappedTargetFields.has('team_name') ? (
+                <label className="grid max-w-xl gap-1 text-sm font-black text-[#274437]">Default authorised team
+                  <select value={defaultTeamId} onChange={(event) => setDefaultTeamId(event.target.value)} className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3">
+                    <option value="">Use the only selected team, or require a decision</option>
+                    {scope.teams.filter((team) => scopePayload.clubWideScope || scopePayload.teamIds.includes(team.id)).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                  </select>
+                </label>
+              ) : null}
+
+              {mappedTargetFields.has('team_name') && selectedSourceSheet?.teamValues?.length ? (
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                  <h3 className="font-black text-[#101828]">Team mapping</h3>
+                  <p className="mt-1 text-sm font-semibold text-[#66756c]">Exact authorised names are matched automatically. Resolve different names explicitly.</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {teamMappings.map((entry, index) => (
+                      <label key={entry.sourceValue} className="grid gap-1 text-sm font-black text-[#274437]">{entry.sourceValue}
+                        <select value={entry.create ? '__create__' : entry.teamId} onChange={(event) => setTeamMappings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, create: event.target.value === '__create__', teamId: event.target.value === '__create__' ? '' : event.target.value } : item))} className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3">
+                          <option value="">Auto-match exact name</option>
+                          {scope.teams.filter((team) => scopePayload.clubWideScope || scopePayload.teamIds.includes(team.id)).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                          {allowTeamCreation ? <option value="__create__">Create this team at confirmation</option> : null}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {!namesMapped && !sourceInspection.portable ? <p role="alert" className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm font-bold text-amber-950">Map separate player first and last names, or map a full name and keep the confirmed split handling.</p> : null}
+          <div className="mt-5">
+            <ActionButton disabled={!mappingReady || !season.trim() || Boolean(actionBusy)} onClick={inspectWorkbook}>{actionBusy === 'inspect' ? 'Preparing preview...' : 'Prepare read-only preview'}</ActionButton>
+            <p className="mt-2 text-xs font-semibold text-[#66756c]">This stores an audited preview batch and retained raw file. Club players, guardians, teams, and links remain unchanged until the separate final confirmation.</p>
+          </div>
+        </section>
+      ) : null}
 
       {inspection ? (
         <section className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h2 className="text-xl font-black text-[#101828]">4. Review preview</h2><p className="mt-1 text-sm font-semibold text-[#66756c]">Batch {inspection.batch.id}</p></div>
+            <div><h2 className="text-xl font-black text-[#101828]">5. Review preview</h2><p className="mt-1 text-sm font-semibold text-[#66756c]">Batch {inspection.batch.id}, {inspection.batch.format?.toUpperCase()} {inspection.batch.portable ? 'portable' : 'mapped'} import</p></div>
             <StatusPill value={inspection.batch.state} />
           </div>
           {inspection.errors?.length ? (
@@ -339,7 +541,7 @@ export function DataTransferPage() {
           {!inspection.errors?.length && !importFinished ? (
             <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4">
               <p className="font-black text-amber-950">Final confirmation is separate and irreversible without a safe rollback.</p>
-              <label className="mt-3 flex items-start gap-3 text-sm font-bold text-amber-950"><input type="checkbox" checked={confirmedReview} onChange={(event) => setConfirmedReview(event.target.checked)} className="mt-1" />I reviewed the scope and row-level preview. I understand guardian invitations are not sent.</label>
+              <div className="mt-3"><ChoiceRow id="data-transfer-confirm-review" checked={confirmedReview} onChange={(event) => setConfirmedReview(event.target.checked)} label="I reviewed the scope and row-level preview" description="Guardian invitations are not sent." /></div>
               <label className="mt-3 grid max-w-sm gap-1 text-sm font-black text-amber-950">Type IMPORT to confirm
                 <input value={confirmationPhrase} onChange={(event) => setConfirmationPhrase(event.target.value)} className="min-h-11 rounded-lg border border-amber-400 bg-white px-3" />
               </label>
