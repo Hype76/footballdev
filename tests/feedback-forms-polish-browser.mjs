@@ -76,6 +76,7 @@ async function signIn(page) {
 
 const starterTemplates = [
   {
+    id: '11111111-1111-4111-8111-111111111111',
     template_key: 'u11-u12-game-understanding-review',
     version: 1,
     age_band: 'U11-U12',
@@ -96,6 +97,7 @@ const starterTemplates = [
     is_current: true,
   },
   {
+    id: '22222222-2222-4222-8222-222222222222',
     template_key: 'u13-u14-player-development-review',
     version: 1,
     age_band: 'U13-U14',
@@ -124,6 +126,7 @@ async function prepareContext(browser, options) {
   const pageErrors = []
   const failedRequests = []
   const hiddenTemplateKeys = new Set()
+  const auditRequests = []
 
   await context.route('**/.netlify/functions/**', (route) => route.fulfill({
     status: 200,
@@ -140,6 +143,18 @@ async function prepareContext(browser, options) {
     contentType: 'application/json',
     body: '[]',
   }))
+  await context.route('**/rest/v1/rpc/record_security_audit_event', async (route) => {
+    const payload = route.request().postDataJSON() || {}
+    auditRequests.push({
+      action: payload.p_action,
+      entityId: payload.p_entity_id ?? null,
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: 'null',
+    })
+  })
   await context.route('**/rest/v1/feedback_forms?**', async (route) => {
     if (route.request().method() === 'POST') {
       const requestBody = route.request().postDataJSON()
@@ -215,7 +230,7 @@ async function prepareContext(browser, options) {
     }
   })
 
-  return { consoleErrors, context, failedRequests, page, pageErrors }
+  return { auditRequests, consoleErrors, context, failedRequests, page, pageErrors }
 }
 
 const server = startServer()
@@ -273,8 +288,15 @@ try {
     await fixture.page.getByRole('button', { name: 'Show hidden templates (1)' }).click()
     const hiddenCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' })
     await hiddenCard.getByRole('button', { name: 'Show' }).click()
+    await fixture.page.getByText('U11-U12 Game Understanding Review shown for this team.', { exact: true }).waitFor()
     await fixture.page.getByText('Recommended', { exact: true }).waitFor()
     assert.equal(await fixture.page.getByRole('button', { name: 'Show hidden templates (1)' }).count(), 0)
+    const visibilityAudits = fixture.auditRequests.filter((request) => (
+      ['starter_feedback_form_hidden', 'starter_feedback_form_shown'].includes(request.action)
+    ))
+    assert.equal(visibilityAudits.length, 2, JSON.stringify(fixture.auditRequests))
+    assert.ok(visibilityAudits.some((request) => request.entityId === '11111111-1111-4111-8111-111111111111'))
+    assert.equal(visibilityAudits.some((request) => request.entityId === 'u11-u12-game-understanding-review'), false)
 
     assert.equal(await fixture.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     const visibleRecommendedCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' })

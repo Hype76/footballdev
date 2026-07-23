@@ -4419,6 +4419,7 @@ function MatchDayCard({
   const scoreSummary = getMatchDayDisplayScore(match)
   const locationSummary = getMatchLocationSummary(match)
   const primaryLiveAction = getPrimaryLiveAction(match)
+  const canOpenPreMatchGameMode = ['scheduled', 'scorer_request'].includes(match.status)
   const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`)
     && matchActionStatus.key !== `${match.id}:final-report`
     ? matchActionStatus
@@ -4522,6 +4523,16 @@ function MatchDayCard({
             </div>
           </div>
           <div className="grid gap-2">
+            {!isGameMode && canOpenPreMatchGameMode ? (
+              <button
+                type="button"
+                onClick={() => onGameModeStart(match)}
+                disabled={isBusy}
+                className={`${secondaryButtonClass} w-full sm:w-auto`}
+              >
+                Open Game Mode
+              </button>
+            ) : null}
             {isFinalReportAvailable ? (
               <button
                 type="button"

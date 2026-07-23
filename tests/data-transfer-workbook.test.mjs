@@ -12,6 +12,7 @@ import {
   parseTransferWorkbook,
   WORKBOOK_SHEET_ORDER,
 } from '../netlify/functions/lib/_data-transfer-workbook.js'
+import { toWorkbookExportData } from '../netlify/functions/lib/_data-transfer-plan.js'
 import { inspectDataTransferSource } from '../netlify/functions/lib/_data-transfer-source.js'
 
 const sampleData = {
@@ -72,6 +73,41 @@ test('fixed V1 workbook round trips with the exact sheet order and values', asyn
   assert.equal(instructions.getCell('A1').value, 'Footballplayer.online Portable Transfer')
   assert.match(String(instructions.getCell('B6').value), /manages the hidden relationship data/)
   assert.match(String(instructions.getCell('B6').value), /do not need to enter, copy, invent or edit system references/)
+})
+
+test('portable export derives legacy first and last names before self-reimport validation', async () => {
+  const existing = {
+    club: { id: 'club-legacy', name: 'Legacy FC', season: '2026/27' },
+    teams: [{ id: 'team-legacy', name: 'Legacy U13', season: '2026/27', status: 'active' }],
+    players: [{
+      id: 'player-legacy',
+      team_id: 'team-legacy',
+      player_name: 'Alex Legacy',
+      first_name: null,
+      last_name: null,
+      section: 'Squad',
+      positions: [],
+      status: 'active',
+    }],
+    guardians: [],
+    links: [],
+  }
+  const data = toWorkbookExportData(existing, {
+    authorizedTeamIds: ['team-legacy'],
+    canManageAllTeams: false,
+    canManageClub: false,
+  })
+  assert.equal(data.Players[0].first_name, 'Alex')
+  assert.equal(data.Players[0].last_name, 'Legacy')
+
+  const parsed = await parseTransferWorkbook(await buildTransferWorkbook({
+    data,
+    mode: 'export',
+    scopeLabel: 'Legacy FC | Legacy U13',
+  }))
+  assert.deepEqual(parsed.errors, [])
+  assert.equal(parsed.rowsBySheet.Players[0].first_name, 'Alex')
+  assert.equal(parsed.rowsBySheet.Players[0].last_name, 'Legacy')
 })
 
 test('portable detection runs before ordinary header validation and skips ordinary support-sheet rules', async () => {

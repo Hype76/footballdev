@@ -139,7 +139,7 @@ export function normalizeStarterFeedbackFormRow(row = {}, { ageGroup = '', hidde
   const version = Number(row.version ?? 1) || 1
 
   return {
-    id: '',
+    id: String(row.id ?? '').trim(),
     selectionId: getStarterFeedbackFormSelectionId(templateKey, version),
     templateKey,
     teamId,
@@ -380,11 +380,15 @@ export async function getActiveFeedbackFormForSubmission({ formId, user } = {}) 
   return normalizeFeedbackFormRow(data)
 }
 
-export async function setStarterFeedbackFormHidden({ hidden, templateKey, user } = {}) {
+export async function setStarterFeedbackFormHidden({ hidden, templateId, templateKey, user } = {}) {
   await blockDemoMutation(user)
   await assertFeedbackFormManager(user)
 
   const normalizedTemplateKey = String(templateKey ?? '').trim()
+  const templateIdValue = String(templateId ?? '').trim()
+  const normalizedTemplateId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(templateIdValue)
+    ? templateIdValue
+    : ''
   if (!normalizedTemplateKey) {
     throw new Error('Choose a starter template before changing its visibility.')
   }
@@ -410,7 +414,7 @@ export async function setStarterFeedbackFormHidden({ hidden, templateKey, user }
     user,
     action: hidden ? 'starter_feedback_form_hidden' : 'starter_feedback_form_shown',
     entityType: 'feedback_form_starter_template',
-    entityId: normalizedTemplateKey,
+    entityId: normalizedTemplateId || null,
     metadata: {
       hidden: hidden === true,
       templateKey: normalizedTemplateKey,
@@ -649,7 +653,7 @@ export function buildFeedbackFormSnapshot({ form, formResponses = {} } = {}) {
   }))
 
   return {
-    formId: form.id || null,
+    formId: form.isPlatformTemplate === true ? null : form.id || null,
     templateKey: form.templateKey || null,
     formName: form.name,
     formVersion: Number(form.version ?? 1) || 1,

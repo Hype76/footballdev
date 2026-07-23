@@ -335,6 +335,7 @@ export function FeedbackFormsPage() {
     try {
       await setStarterFeedbackFormHidden({
         hidden: !template.isHidden,
+        templateId: template.id,
         templateKey: template.templateKey,
         user,
       })

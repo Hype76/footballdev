@@ -36,6 +36,32 @@ function publicRef(entity, prefix) {
   return normalizeScalar(entity?.transfer_reference) || createPublicTransferReference(prefix, entity?.id)
 }
 
+function portablePlayerNames(player) {
+  let firstName = normalizeScalar(player?.first_name)
+  let lastName = normalizeScalar(player?.last_name)
+  const fullName = normalizeScalar(player?.player_name)
+  const fullNameParts = fullName.split(/\s+/).filter(Boolean)
+
+  if (!firstName && !lastName && fullNameParts.length > 1) {
+    firstName = fullNameParts.slice(0, -1).join(' ')
+    lastName = fullNameParts.at(-1)
+  } else if (!firstName && lastName && fullNameParts.length > 1) {
+    const suffix = ` ${lastName.toLowerCase()}`
+    firstName = fullName.toLowerCase().endsWith(suffix)
+      ? fullName.slice(0, -lastName.length).trim()
+      : fullNameParts.slice(0, -1).join(' ')
+  } else if (firstName && !lastName && fullNameParts.length > 1) {
+    const prefix = `${firstName.toLowerCase()} `
+    lastName = fullName.toLowerCase().startsWith(prefix)
+      ? fullName.slice(firstName.length).trim()
+      : fullNameParts.at(-1)
+  } else if (!firstName && fullNameParts.length === 1) {
+    firstName = fullNameParts[0]
+  }
+
+  return { first_name: firstName, last_name: lastName }
+}
+
 function valuesForSheet(sheetName, source) {
   const definition = SHEET_DEFINITIONS.find((candidate) => candidate.name === sheetName)
   const values = {}
@@ -498,6 +524,7 @@ export function toWorkbookExportData(existing, actorScope) {
     Teams: teams.map((team) => ({ ...team, transfer_reference: publicRef(team, 'TEAM') })),
     Players: players.map((player) => ({
       ...player,
+      ...portablePlayerNames(player),
       transfer_reference: publicRef(player, 'PLAYER'),
       team_reference: publicRef(teamById.get(player.team_id), 'TEAM'),
     })),

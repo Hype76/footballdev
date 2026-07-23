@@ -68,6 +68,7 @@ test('starter selection identity, explicit age recommendations, and historical s
   assert.equal(isStarterTemplateRecommendedForAge({ ageMin: 17, ageMax: 18 }, ''), false)
 
   const starter = normalizeStarterFeedbackFormRow({
+    id: '11111111-1111-4111-8111-111111111111',
     template_key: 'u17-u18-progression-review',
     version: 1,
     age_band: 'U17-U18',
@@ -82,6 +83,7 @@ test('starter selection identity, explicit age recommendations, and historical s
   })
 
   assert.equal(starter.isRecommended, true)
+  assert.equal(starter.id, '11111111-1111-4111-8111-111111111111')
   assert.equal(snapshot.formId, null)
   assert.equal(snapshot.templateKey, 'u17-u18-progression-review')
   assert.equal(snapshot.formVersion, 1)
@@ -140,4 +142,20 @@ test('pre-match Game Mode entry remains read only and keeps a separate deliberat
   assert.match(source, /onClick=\{\(\) => onStartMatch\(match\)\}/)
   assert.match(source, /Open Game Mode/)
   assert.match(source, /Start match/)
+  const cardSource = source.slice(
+    source.indexOf('function MatchDayCard'),
+    source.indexOf('function LiveMatchQuickActions'),
+  )
+  assert.match(cardSource, /canOpenPreMatchGameMode = \['scheduled', 'scorer_request'\]\.includes\(match\.status\)/)
+  assert.match(cardSource, /canOpenPreMatchGameMode[\s\S]*onClick=\{\(\) => onGameModeStart\(match\)\}[\s\S]*Open Game Mode[\s\S]*primaryLiveAction[\s\S]*onStartMatch\(match\)[\s\S]*onClick=\{onToggle\}/)
+})
+
+test('starter visibility audit uses the platform template UUID and keeps the key in metadata', async () => {
+  const [pageSource, domainSource] = await Promise.all([
+    readFile(feedbackPagePath, 'utf8'),
+    readFile(new URL('../src/lib/domain/feedback-forms.js', import.meta.url), 'utf8'),
+  ])
+  assert.match(pageSource, /templateId: template\.id/)
+  assert.match(domainSource, /entityId: normalizedTemplateId \|\| null/)
+  assert.match(domainSource, /templateKey: normalizedTemplateKey/)
 })
