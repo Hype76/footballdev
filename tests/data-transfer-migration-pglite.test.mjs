@@ -4,6 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260717102324_data_transfer_v1.sql', import.meta.url)
+const storageMimeMigrationUrl = new URL('../supabase/migrations/20260723072749_data_transfer_storage_mime_allowlist.sql', import.meta.url)
 
 async function createDatabase() {
   const db = new PGlite()
@@ -55,6 +56,7 @@ async function createDatabase() {
     );
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(storageMimeMigrationUrl, 'utf8'))
   return db
 }
 
@@ -98,6 +100,17 @@ async function seedBatch(db, suffix = 'A') {
 test('forward migration parses and the import RPC is atomic, idempotent, and communication-free', async () => {
   const db = await createDatabase()
   try {
+    const bucket = await db.query("select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'data-transfer-private'")
+    assert.deepEqual(bucket.rows, [{
+      allowed_mime_types: [
+        'text/csv',
+        'text/tab-separated-values',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.oasis.opendocument.spreadsheet',
+      ],
+      file_size_limit: 4194304,
+      public: false,
+    }])
     const seeded = await seedBatch(db, 'A')
     const first = await db.query('select public.execute_data_transfer_import($1, $2) as result', [seeded.batchId, seeded.planHash])
     assert.equal(first.rows[0].result.state, 'completed')
