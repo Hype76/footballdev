@@ -121,12 +121,24 @@ function mapExisting(entities, prefix) {
 }
 
 function mapIncomingPlan(planItems) {
-  return new Map(planItems.map((item) => [normalizeReference(item.values.transfer_reference), item]))
+  const mapped = new Map()
+  for (const item of planItems) {
+    for (const key of [item.planning_handle, item.values.transfer_reference]) {
+      const normalized = normalizeReference(key)
+      if (normalized) mapped.set(normalized, item)
+    }
+  }
+  return mapped
+}
+
+function findExistingById(entities, id) {
+  const normalizedId = normalizeScalar(id)
+  if (!normalizedId) return null
+  return (entities || []).find((entity) => entity.id === normalizedId) || null
 }
 
 export function buildImportPlan({ actorScope, existing, importOptions = {}, rowsBySheet }) {
   const state = { errors: [], warnings: [], rowResults: [] }
-  const plan = { club: null, teams: [], players: [], guardians: [], links: [] }
   const scopeCoversAllTeams = actorScope.isClubWideScope ?? actorScope.canManageAllTeams
   const authorizedTeamIds = new Set(actorScope.authorizedTeamIds || [])
   const options = {
@@ -134,8 +146,21 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
     createPossibleDuplicates: importOptions.createPossibleDuplicates === true,
     fillBlankFields: importOptions.fillBlankFields === true,
     importMode: 'additive',
+    planningMode: importOptions.planningMode === 'ordinary' ? 'ordinary' : 'portable',
     season: normalizeScalar(importOptions.season),
     updateConflicts: importOptions.updateConflicts === true,
+  }
+  const ordinaryMode = options.planningMode === 'ordinary'
+  const plan = {
+    context: {
+      planning_mode: options.planningMode,
+      selected_season: options.season,
+    },
+    club: null,
+    teams: [],
+    players: [],
+    guardians: [],
+    links: [],
   }
 
   const clubRows = rowsBySheet['Club Details'] || []
@@ -144,38 +169,66 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
   } else {
     const row = clubRows[0]
     if (!options.season) addError(state, { code: 'IMPORT_SEASON_REQUIRED', message: 'Confirm the target season before inspection.', row, sheetName: 'Club Details', column: 'Season' })
-    if (row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Club Details', column: 'Season' })
-    const workbookValues = valuesForSheet('Club Details', { ...row, season: row.season || options.season })
     const current = {
       ...existing.club,
-      transfer_reference: publicRef(existing.club, 'CLUB'),
+      transfer_reference: ordinaryMode ? normalizeScalar(existing.club?.transfer_reference) : publicRef(existing.club, 'CLUB'),
     }
-    const review = reviewExistingFields('Club Details', workbookValues, current, options)
-    let action = review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged'
-    let explanation = review.blockedChanges ? 'Club field changes need the matching import decision before they can be confirmed.' : review.approvedChanges ? 'Apply the reviewed club field changes.' : 'No club changes.'
-    if (review.blockedChanges) addError(state, { code: 'FIELD_CONFLICT_REQUIRES_CONFIRMATION', message: explanation, row, sheetName: 'Club Details' })
-    if ((review.blockedChanges || review.approvedChanges) && !actorScope.canManageClub) {
-      action = 'conflict'
-      explanation = 'This role cannot change club details.'
-      addError(state, { code: 'CLUB_CHANGE_NOT_AUTHORIZED', message: explanation, row, sheetName: 'Club Details' })
+    const workbookValues = valuesForSheet('Club Details', ordinaryMode ? current : { ...row, season: row.season || options.season })
+    let action = 'unchanged'
+    let explanation = ordinaryMode ? 'The selected club is an immutable authorised scope anchor for this ordinary import.' : 'No club changes.'
+    let fieldChanges = []
+    let finalValues = valuesForSheet('Club Details', current)
+    if (!ordinaryMode) {
+      if (row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Club Details', column: 'Season' })
+      const review = reviewExistingFields('Club Details', workbookValues, current, options)
+      action = review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged'
+      explanation = review.blockedChanges ? 'Club field changes need the matching import decision before they can be confirmed.' : review.approvedChanges ? 'Apply the reviewed club field changes.' : 'No club changes.'
+      fieldChanges = review.fieldChanges
+      finalValues = review.finalValues
+      if (review.blockedChanges) addError(state, { code: 'FIELD_CONFLICT_REQUIRES_CONFIRMATION', message: explanation, row, sheetName: 'Club Details' })
+      if ((review.blockedChanges || review.approvedChanges) && !actorScope.canManageClub) {
+        action = 'conflict'
+        explanation = 'This role cannot change club details.'
+        addError(state, { code: 'CLUB_CHANGE_NOT_AUTHORIZED', message: explanation, row, sheetName: 'Club Details' })
+      }
     }
-    plan.club = { action, entity_id: existing.club.id, expected_updated_at: existing.club.updated_at || '', source_row: row._sourceRow, values: review.finalValues }
-    state.rowResults.push(rowResult({ action, explanation, fieldChanges: review.fieldChanges, row, sheetName: 'Club Details', sourceValues: workbookValues, values: review.finalValues }))
+    plan.club = { action, entity_id: existing.club.id, expected_updated_at: existing.club.updated_at || '', source_row: row._sourceRow, values: finalValues }
+    state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Club Details', sourceValues: workbookValues, values: finalValues }))
   }
 
-  const existingTeams = mapExisting(existing.teams, 'TEAM')
-  const teamNameMap = new Map((existing.teams || []).map((team) => [normalizeReference(team.name), team]))
+  const existingTeamList = existing.teams || []
+  const existingTeams = mapExisting(existingTeamList, 'TEAM')
+  const teamNameMap = new Map(existingTeamList.map((team) => [normalizeReference(team.name), team]))
   for (const row of rowsBySheet.Teams || []) {
-    if (row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Teams', column: 'Season' })
-    const workbookValues = valuesForSheet('Teams', { ...row, season: row.season || options.season })
-    const current = existingTeams.get(normalizeReference(workbookValues.transfer_reference))
-    const review = current ? reviewExistingFields('Teams', workbookValues, { ...current, transfer_reference: publicRef(current, 'TEAM') }, options) : null
-    const values = review?.finalValues || workbookValues
-    const fieldChanges = review?.fieldChanges || createFieldChanges(values)
-    let action = current ? (review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged') : 'create'
-    let explanation = action === 'create' ? 'Create team.' : action === 'update' ? 'Apply the reviewed team field changes.' : action === 'conflict' ? 'Team field changes need the matching import decision before they can be confirmed.' : 'No team changes.'
+    const sourceValues = valuesForSheet('Teams', { ...row, season: row.season || options.season })
+    const resolvedEntityId = ordinaryMode ? normalizeScalar(row._resolvedEntityId) : ''
+    const resolvedById = findExistingById(existingTeamList, resolvedEntityId)
+    const resolvedIdentityDenied = Boolean(resolvedEntityId) && (
+      !resolvedById
+      || (!scopeCoversAllTeams && !authorizedTeamIds.has(resolvedEntityId))
+    )
+    const current = resolvedIdentityDenied
+      ? null
+      : resolvedById || existingTeams.get(normalizeReference(sourceValues.transfer_reference))
+    const immutableScopeTeam = ordinaryMode && current
+    if (!ordinaryMode && row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Teams', column: 'Season' })
+    const currentWithReference = current ? {
+      ...current,
+      transfer_reference: ordinaryMode ? normalizeScalar(current.transfer_reference) : publicRef(current, 'TEAM'),
+    } : null
+    const currentValues = current ? valuesForSheet('Teams', currentWithReference) : null
+    const review = current && !immutableScopeTeam ? reviewExistingFields('Teams', sourceValues, currentWithReference, options) : null
+    const values = immutableScopeTeam ? currentValues : review?.finalValues || sourceValues
+    const fieldChanges = immutableScopeTeam ? [] : review?.fieldChanges || createFieldChanges(values)
+    let action = current ? (immutableScopeTeam ? 'unchanged' : review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged') : 'create'
+    let explanation = immutableScopeTeam ? 'The selected existing team is an immutable authorised scope anchor for this ordinary import.' : action === 'create' ? 'Create team.' : action === 'update' ? 'Apply the reviewed team field changes.' : action === 'conflict' ? 'Team field changes need the matching import decision before they can be confirmed.' : 'No team changes.'
     if (review?.blockedChanges) addError(state, { code: 'FIELD_CONFLICT_REQUIRES_CONFIRMATION', message: explanation, row, sheetName: 'Teams' })
-    const nameCandidate = !current ? teamNameMap.get(normalizeReference(workbookValues.name)) : null
+    if (resolvedIdentityDenied) {
+      action = 'conflict'
+      explanation = 'The resolved team identity is outside the authorised team scope.'
+      addError(state, { code: 'TEAM_SCOPE_DENIED', message: explanation, row, sheetName: 'Teams' })
+    }
+    const nameCandidate = !current && !resolvedEntityId ? teamNameMap.get(normalizeReference(sourceValues.name)) : null
     if (nameCandidate && !options.createPossibleDuplicates) {
       action = 'possible_duplicate'
       explanation = `A team with this name exists as ${publicRef(nameCandidate, 'TEAM')}. Use that reference to link it, or explicitly allow a separate record.`
@@ -203,13 +256,21 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
       explanation = 'This role can use existing authorized teams but cannot create or change teams.'
       addError(state, { code: 'TEAM_CHANGE_NOT_AUTHORIZED', message: explanation, row, sheetName: 'Teams' })
     }
-    const item = { action, entity_id: current?.id || '', expected_updated_at: current?.updated_at || '', source_row: row._sourceRow, values }
+    const item = {
+      action,
+      entity_id: current?.id || '',
+      expected_updated_at: current?.updated_at || '',
+      planning_handle: normalizeScalar(row._planningHandle) || sourceValues.transfer_reference,
+      source_row: row._sourceRow,
+      values,
+    }
     plan.teams.push(item)
-    state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Teams', sourceValues: workbookValues, values }))
+    state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Teams', sourceValues, values }))
   }
 
   const plannedTeams = mapIncomingPlan(plan.teams)
-  const existingPlayers = mapExisting(existing.players, 'PLAYER')
+  const existingPlayerList = existing.players || []
+  const existingPlayers = mapExisting(existingPlayerList, 'PLAYER')
   const restrictedPlayerReferences = new Set((existing.restrictedPlayerReferences || []).map(normalizeReference))
   const playerIdentityMap = new Map((existing.players || []).map((player) => [
     [normalizeReference(player.first_name || player.player_name), normalizeReference(player.last_name), normalizeScalar(player.date_of_birth)].join('|'),
@@ -217,7 +278,7 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
   ]))
   for (const row of rowsBySheet.Players || []) {
     const workbookValues = valuesForSheet('Players', row)
-    const teamPlan = plannedTeams.get(normalizeReference(workbookValues.team_reference))
+    const teamPlan = plannedTeams.get(normalizeReference(row._teamPlanningHandle || workbookValues.team_reference))
     const teamCurrent = teamPlan?.entity_id ? (existing.teams || []).find((team) => team.id === teamPlan.entity_id) : null
     const teamUnavailable = !teamPlan || ['conflict', 'possible_duplicate'].includes(teamPlan.action)
     if (teamUnavailable) {
@@ -226,9 +287,20 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
     if (teamCurrent && !scopeCoversAllTeams && !authorizedTeamIds.has(teamCurrent.id)) {
       addError(state, { code: 'PLAYER_TEAM_SCOPE_DENIED', message: 'The player belongs to a team outside the authorized scope.', row, sheetName: 'Players', column: 'Team Reference' })
     }
-    const current = existingPlayers.get(normalizeReference(workbookValues.transfer_reference))
+    const resolvedEntityId = ordinaryMode ? normalizeScalar(row._resolvedEntityId) : ''
+    const resolvedById = findExistingById(existingPlayerList, resolvedEntityId)
+    const resolvedIdentityDenied = Boolean(resolvedEntityId) && !resolvedById
+    const current = resolvedIdentityDenied
+      ? null
+      : resolvedById || existingPlayers.get(normalizeReference(workbookValues.transfer_reference))
     const currentTeam = current ? (existing.teams || []).find((team) => team.id === current.team_id) : null
-    const comparableCurrent = current ? { ...current, transfer_reference: publicRef(current, 'PLAYER'), team_reference: currentTeam ? publicRef(currentTeam, 'TEAM') : '' } : null
+    const comparableCurrent = current ? {
+      ...current,
+      transfer_reference: ordinaryMode ? normalizeScalar(current.transfer_reference) : publicRef(current, 'PLAYER'),
+      team_reference: currentTeam
+        ? ordinaryMode ? normalizeScalar(currentTeam.transfer_reference) : publicRef(currentTeam, 'TEAM')
+        : '',
+    } : null
     const review = current ? reviewExistingFields('Players', workbookValues, comparableCurrent, options) : null
     const values = review?.finalValues || workbookValues
     const fieldChanges = review?.fieldChanges || createFieldChanges(values)
@@ -238,6 +310,11 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
     if (teamUnavailable) {
       action = 'conflict'
       explanation = 'The player team is not available in the confirmed plan.'
+    }
+    if (resolvedIdentityDenied) {
+      action = 'conflict'
+      explanation = 'The resolved player identity is outside the authorised team scope.'
+      addError(state, { code: 'PLAYER_SCOPE_DENIED', message: explanation, row, sheetName: 'Players' })
     }
     if (!current && restrictedPlayerReferences.has(normalizeReference(workbookValues.transfer_reference))) {
       action = 'conflict'
@@ -249,7 +326,7 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
       explanation = 'This player is outside the authorized team scope.'
       addError(state, { code: 'PLAYER_SCOPE_DENIED', message: explanation, row, sheetName: 'Players' })
     }
-    if (!current) {
+    if (!current && !resolvedEntityId) {
       const identity = [normalizeReference(workbookValues.first_name), normalizeReference(workbookValues.last_name), normalizeScalar(workbookValues.date_of_birth)].join('|')
       const identityCandidate = playerIdentityMap.get(identity)
       if (identityCandidate && !options.createPossibleDuplicates) {
@@ -260,25 +337,48 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
         explanation = `Create a separate player after explicit duplicate review of ${publicRef(identityCandidate, 'PLAYER')}.`
       }
     }
-    const item = { action, entity_id: current?.id || '', expected_updated_at: current?.updated_at || '', source_row: row._sourceRow, team_entity_id: teamPlan?.entity_id || '', values }
+    const item = {
+      action,
+      entity_id: current?.id || '',
+      expected_updated_at: current?.updated_at || '',
+      planning_handle: normalizeScalar(row._planningHandle) || workbookValues.transfer_reference,
+      source_row: row._sourceRow,
+      team_entity_id: teamPlan?.entity_id || '',
+      values,
+    }
     plan.players.push(item)
     state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Players', sourceValues: workbookValues, values }))
   }
 
-  const existingGuardians = mapExisting(existing.guardians, 'GUARDIAN')
+  const existingGuardianList = existing.guardians || []
+  const existingGuardians = mapExisting(existingGuardianList, 'GUARDIAN')
   const restrictedGuardianReferences = new Set((existing.restrictedGuardianReferences || []).map(normalizeReference))
   const restrictedGuardianEmails = new Set((existing.restrictedGuardianEmails || []).map(normalizeReference))
   const legacyGuardianEmails = new Set((existing.legacyGuardianEmails || []).map(normalizeReference))
-  const guardianEmailMap = new Map((existing.guardians || []).filter((guardian) => guardian.email).map((guardian) => [normalizeReference(guardian.email), guardian]))
+  const guardianEmailMap = new Map(existingGuardianList.filter((guardian) => guardian.email).map((guardian) => [normalizeReference(guardian.email), guardian]))
   for (const row of rowsBySheet.Guardians || []) {
     const workbookValues = valuesForSheet('Guardians', row)
-    const current = existingGuardians.get(normalizeReference(workbookValues.transfer_reference))
-    const review = current ? reviewExistingFields('Guardians', workbookValues, { ...current, transfer_reference: publicRef(current, 'GUARDIAN') }, options) : null
+    const resolvedEntityId = ordinaryMode ? normalizeScalar(row._resolvedEntityId) : ''
+    const resolvedById = findExistingById(existingGuardianList, resolvedEntityId)
+    const resolvedIdentityDenied = Boolean(resolvedEntityId) && !resolvedById
+    const current = resolvedIdentityDenied
+      ? null
+      : resolvedById || existingGuardians.get(normalizeReference(workbookValues.transfer_reference))
+    const currentWithReference = current ? {
+      ...current,
+      transfer_reference: ordinaryMode ? normalizeScalar(current.transfer_reference) : publicRef(current, 'GUARDIAN'),
+    } : null
+    const review = current ? reviewExistingFields('Guardians', workbookValues, currentWithReference, options) : null
     const values = review?.finalValues || workbookValues
     const fieldChanges = review?.fieldChanges || createFieldChanges(values)
     let action = current ? (review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged') : 'create'
     let explanation = action === 'create' ? 'Create guardian contact without an invitation.' : action === 'update' ? 'Apply the reviewed guardian field changes without sending communication.' : action === 'conflict' ? 'Guardian field changes need the matching import decision before they can be confirmed.' : 'No guardian changes.'
     if (review?.blockedChanges) addError(state, { code: 'FIELD_CONFLICT_REQUIRES_CONFIRMATION', message: explanation, row, sheetName: 'Guardians' })
+    if (resolvedIdentityDenied) {
+      action = 'conflict'
+      explanation = 'The resolved guardian identity is outside the authorised team scope.'
+      addError(state, { code: 'GUARDIAN_SCOPE_DENIED', message: explanation, row, sheetName: 'Guardians' })
+    }
     if (!current && restrictedGuardianReferences.has(normalizeReference(workbookValues.transfer_reference))) {
       action = 'conflict'
       explanation = 'This guardian reference is outside the authorized team scope.'
@@ -289,7 +389,7 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
       explanation = 'A guardian with this email exists outside the authorized team scope.'
       addError(state, { code: 'GUARDIAN_SCOPE_DENIED', message: explanation, row, sheetName: 'Guardians', column: 'Email' })
     }
-    const guardianCandidate = !current && workbookValues.email ? guardianEmailMap.get(normalizeReference(workbookValues.email)) : null
+    const guardianCandidate = !current && !resolvedEntityId && workbookValues.email ? guardianEmailMap.get(normalizeReference(workbookValues.email)) : null
     if (guardianCandidate && !options.createPossibleDuplicates) {
       action = 'possible_duplicate'
       explanation = `A guardian with this email exists as ${publicRef(guardianCandidate, 'GUARDIAN')}. Use that reference to link it, or explicitly allow a separate record.`
@@ -302,7 +402,14 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
       explanation = 'An existing parent relationship uses this email and requires review before a guardian record can be created.'
       addError(state, { code: 'POSSIBLE_DUPLICATE_GUARDIAN', message: explanation, row, sheetName: 'Guardians', column: 'Email' })
     }
-    const item = { action, entity_id: current?.id || '', expected_updated_at: current?.updated_at || '', source_row: row._sourceRow, values }
+    const item = {
+      action,
+      entity_id: current?.id || '',
+      expected_updated_at: current?.updated_at || '',
+      planning_handle: normalizeScalar(row._planningHandle) || workbookValues.transfer_reference,
+      source_row: row._sourceRow,
+      values,
+    }
     plan.guardians.push(item)
     state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Guardians', sourceValues: workbookValues, values }))
   }
@@ -313,8 +420,8 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
   const existingLinkEmailKeys = new Set((existing.links || []).filter((link) => link.email).map((link) => `${link.player_id}|${normalizeReference(link.email)}`))
   for (const row of rowsBySheet['Player-Guardian Links'] || []) {
     const values = valuesForSheet('Player-Guardian Links', row)
-    const player = playerPlan.get(normalizeReference(values.player_reference))
-    const guardian = guardianPlan.get(normalizeReference(values.guardian_reference))
+    const player = playerPlan.get(normalizeReference(row._playerPlanningHandle || values.player_reference))
+    const guardian = guardianPlan.get(normalizeReference(row._guardianPlanningHandle || values.guardian_reference))
     let action = 'link'
     let explanation = 'Create an uninvited player and guardian relationship.'
     if (!player || !guardian || ['conflict', 'error', 'possible_duplicate'].includes(player?.action) || ['conflict', 'error', 'possible_duplicate'].includes(guardian?.action)) {
