@@ -1,24 +1,12 @@
 import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 import { Buffer } from 'node:buffer'
-import {
-  DATA_TRANSFER_FORMATS,
-  DATA_TRANSFER_MAX_BYTES as FORMAT_MAX_BYTES,
-} from '../../../src/lib/data-transfer-formats.js'
 
 export const DATA_TRANSFER_TEMPLATE_VERSION = 'FP-V1-ONBOARDING-1'
-export const DATA_TRANSFER_FILENAME = 'footballplayer-online-portable-transfer-v1.xlsx'
-export const DATA_TRANSFER_MIME = DATA_TRANSFER_FORMATS.xlsx.responseMimeType
-export const DATA_TRANSFER_MAX_BYTES = FORMAT_MAX_BYTES
+export const DATA_TRANSFER_FILENAME = 'footballplayer-online-onboarding-v1.xlsx'
+export const DATA_TRANSFER_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+export const DATA_TRANSFER_MAX_BYTES = 4 * 1024 * 1024
 export const DATA_TRANSFER_RAW_RETENTION_DAYS = 7
-
-const PORTABLE_WORKBOOK_METADATA = {
-  creator: 'Football Player',
-  company: 'Jeluma Labs',
-  subject: 'Controlled club onboarding data transfer',
-}
-const PORTABLE_WORKBOOK_TITLE = 'Footballplayer.online Portable Transfer'
-const PORTABLE_VERSION_LABEL = 'Template Version'
 
 export const SHEET_DEFINITIONS = [
   {
@@ -100,124 +88,6 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
-function worksheetHeaders(sheet, limit = 100) {
-  if (!sheet) return []
-  const columnCount = Math.min(Math.max(sheet.actualColumnCount, 1), limit)
-  const headers = []
-  for (let index = 1; index <= columnCount; index += 1) {
-    headers.push(normalizeText(sheet.getCell(1, index).value))
-  }
-  while (headers.length && !headers.at(-1)) headers.pop()
-  return headers
-}
-
-function headersMatch(sheet, expected) {
-  const actual = worksheetHeaders(sheet, expected.length + 1)
-  return actual.length === expected.length
-    && actual.every((header, index) => header === expected[index])
-}
-
-function portableWorkbookMetadataMatches(workbook) {
-  return normalizeText(workbook.creator) === PORTABLE_WORKBOOK_METADATA.creator
-    && normalizeText(workbook.company) === PORTABLE_WORKBOOK_METADATA.company
-    && normalizeText(workbook.subject) === PORTABLE_WORKBOOK_METADATA.subject
-}
-
-async function loadSafeTransferWorkbook(buffer) {
-  const container = await inspectXlsxContainer(buffer)
-  const workbook = new ExcelJS.Workbook()
-  try {
-    await workbook.xlsx.load(buffer, { ignoreNodes: ['dataValidations'] })
-  } catch {
-    throw Object.assign(new Error('The workbook could not be read. Confirm it is an unencrypted XLSX file.'), { code: 'UNREADABLE_WORKBOOK' })
-  }
-  return { container, workbook }
-}
-
-function portableSheetSummary(sheet) {
-  return {
-    name: sheet.name,
-    headers: worksheetHeaders(sheet),
-    mappings: [],
-    rowCount: Math.max(0, sheet.actualRowCount - 1),
-    ambiguousDateSamples: [],
-    teamValues: [],
-    mappingScore: 0,
-  }
-}
-
-export async function inspectTransferWorkbookMode(buffer) {
-  const { container, workbook } = await loadSafeTransferWorkbook(buffer)
-  const instructions = workbook.getWorksheet('Instructions')
-  const lists = workbook.getWorksheet('Lists')
-  const actualOrder = workbook.worksheets.map((sheet) => sheet.name)
-  const expectedSheetCoverage = WORKBOOK_SHEET_ORDER.filter((name) => workbook.getWorksheet(name)).length
-  const dataHeaderMatches = SHEET_DEFINITIONS.filter((definition) => (
-    headersMatch(workbook.getWorksheet(definition.name), definition.columns.map(([label]) => label))
-  )).length
-  const referenceHeaderChecks = [
-    ['Club Details', 1, 'Club Reference'],
-    ['Teams', 1, 'Team Reference'],
-    ['Players', 1, 'Player Reference'],
-    ['Players', 2, 'Team Reference'],
-    ['Guardians', 1, 'Guardian Reference'],
-  ]
-  const referenceHeaderMatches = referenceHeaderChecks.filter(([sheetName, column, label]) => (
-    normalizeText(workbook.getWorksheet(sheetName)?.getCell(1, column).value) === label
-  )).length
-  const relationshipHeaders = ['Player Reference', 'Guardian Reference', 'Relationship']
-  const relationshipStructureMatches = relationshipHeaders.every((label, index) => (
-    normalizeText(workbook.getWorksheet('Player-Guardian Links')?.getCell(1, index + 1).value) === label
-  ))
-  const listHeaders = Object.keys(WORKBOOK_LIST_VALUES)
-  const listsStructureMatches = headersMatch(lists, listHeaders)
-  const metadataMatches = portableWorkbookMetadataMatches(workbook)
-  const titleMatches = normalizeText(instructions?.getCell('A1').value) === PORTABLE_WORKBOOK_TITLE
-  const versionLabelMatches = normalizeText(instructions?.getCell('A2').value) === PORTABLE_VERSION_LABEL
-  const version = normalizeText(instructions?.getCell('B2').value)
-  const versionMatches = version === DATA_TRANSFER_TEMPLATE_VERSION
-  const exactSheetOrder = JSON.stringify(actualOrder) === JSON.stringify(WORKBOOK_SHEET_ORDER)
-  const structuralSignals = [
-    expectedSheetCoverage >= 5,
-    dataHeaderMatches >= 3,
-    referenceHeaderMatches >= 4,
-    relationshipStructureMatches,
-    listsStructureMatches,
-    exactSheetOrder,
-  ].filter(Boolean).length
-  const portable = metadataMatches
-    && titleMatches
-    && versionLabelMatches
-    && expectedSheetCoverage >= 5
-    && structuralSignals >= 3
-
-  return {
-    container,
-    format: 'xlsx',
-    importMode: portable ? 'portable' : 'ordinary',
-    portable,
-    modeDetection: {
-      mode: portable ? 'portable' : 'ordinary',
-      signature: {
-        dataHeaderMatches,
-        exactSheetOrder,
-        expectedSheetCoverage,
-        listsStructureMatches,
-        metadataMatches,
-        referenceHeaderMatches,
-        relationshipStructureMatches,
-        structuralSignals,
-        titleMatches,
-        version,
-        versionLabelMatches,
-        versionMatches,
-      },
-    },
-    sheets: workbook.worksheets.map(portableSheetSummary),
-    suggestedSheet: workbook.getWorksheet('Players') ? 'Players' : '',
-  }
-}
-
 export function safeSpreadsheetText(value) {
   const text = normalizeText(value)
   return /^[=+\-@]/.test(text) ? `'${text}` : text
@@ -286,12 +156,12 @@ function addListValidation(sheet, columnKey, listName, maxRow) {
 function addInstructions(workbook, mode, scopeLabel) {
   const sheet = workbook.addWorksheet('Instructions', { properties: { tabColor: { argb: 'FF047857' } } })
   sheet.columns = [{ width: 28 }, { width: 88 }]
-  sheet.addRow(['Footballplayer.online portable transfer', 'Use this advanced workbook for a Footballplayer.online backup, migration, reimport, or support-assisted transfer. Use the ordinary spreadsheet export when you only need a readable file.'])
+  sheet.addRow(['Football Player Data Transfer', 'Use this workbook to prepare a controlled club onboarding transfer.'])
   sheet.addRow(['Template Version', DATA_TRANSFER_TEMPLATE_VERSION])
-  sheet.addRow(['Workbook Mode', mode === 'export' ? 'Platform-generated portable transfer' : 'Blank support-assisted portable structure'])
-  sheet.addRow(['Authorized Scope', scopeLabel || 'Select scope in Footballplayer.online before import.'])
+  sheet.addRow(['Workbook Mode', mode])
+  sheet.addRow(['Authorized Scope', scopeLabel || 'Select scope in Football Player before import.'])
   sheet.addRow(['Required order', WORKBOOK_SHEET_ORDER.join(', ')])
-  sheet.addRow(['References', 'Footballplayer.online generates public transfer references to preserve relationships between sheets. They are not database IDs. Do not invent or edit them unless an approved support workflow specifically requires it.'])
+  sheet.addRow(['References', 'Use public transfer references only. Do not paste database IDs. References must be unique within their sheet.'])
   sheet.addRow(['Dates', 'Use DD/MM/YYYY or ISO YYYY-MM-DD. Real Excel date cells are also supported.'])
   sheet.addRow(['Positions', 'Separate multiple positions with commas.'])
   sheet.addRow(['Boolean fields', 'Use Yes or No.'])
@@ -300,7 +170,7 @@ function addInstructions(workbook, mode, scopeLabel) {
   sheet.addRow(['Formula safety', 'Do not use formulas, macros, external links, embedded objects, or password protection.'])
   sheet.getRow(1).height = 36
   sheet.mergeCells('A1:B1')
-  sheet.getCell('A1').value = 'Footballplayer.online Portable Transfer'
+  sheet.getCell('A1').value = 'Football Player Club Onboarding Transfer'
   sheet.getCell('A1').font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } }
   sheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF047857' } }
   sheet.getCell('A1').alignment = { vertical: 'middle' }
@@ -341,9 +211,9 @@ function writeRows(sheet, definition, rows) {
 
 export async function buildTransferWorkbook({ data = {}, mode = 'blank', scopeLabel = '' } = {}) {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = PORTABLE_WORKBOOK_METADATA.creator
-  workbook.company = PORTABLE_WORKBOOK_METADATA.company
-  workbook.subject = PORTABLE_WORKBOOK_METADATA.subject
+  workbook.creator = 'Football Player'
+  workbook.company = 'Jeluma Labs'
+  workbook.subject = 'Controlled club onboarding data transfer'
   workbook.created = new Date()
   workbook.modified = new Date()
   workbook.calcProperties.fullCalcOnLoad = false
@@ -445,17 +315,17 @@ function isBlankRow(row, columnCount) {
 }
 
 export async function parseTransferWorkbook(buffer) {
-  const { workbook } = await loadSafeTransferWorkbook(buffer)
+  await inspectXlsxContainer(buffer)
+  const workbook = new ExcelJS.Workbook()
+  try {
+    await workbook.xlsx.load(buffer, { ignoreNodes: ['dataValidations'] })
+  } catch {
+    throw Object.assign(new Error('The workbook could not be read. Confirm it is an unencrypted XLSX file.'), { code: 'UNREADABLE_WORKBOOK' })
+  }
 
   const actualOrder = workbook.worksheets.map((sheet) => sheet.name)
   if (JSON.stringify(actualOrder) !== JSON.stringify(WORKBOOK_SHEET_ORDER)) {
     throw Object.assign(new Error(`The workbook sheets must appear exactly as: ${WORKBOOK_SHEET_ORDER.join(', ')}.`), { code: 'SHEET_STRUCTURE_MISMATCH' })
-  }
-  const instructions = workbook.getWorksheet('Instructions')
-  if (!portableWorkbookMetadataMatches(workbook)
-    || normalizeText(instructions.getCell('A1').value) !== PORTABLE_WORKBOOK_TITLE
-    || normalizeText(instructions.getCell('A2').value) !== PORTABLE_VERSION_LABEL) {
-    throw Object.assign(new Error('The workbook does not contain the required Footballplayer.online portable transfer identity.'), { code: 'PORTABLE_SIGNATURE_MISMATCH' })
   }
   if (normalizeText(workbook.getWorksheet('Instructions').getCell('B2').value) !== DATA_TRANSFER_TEMPLATE_VERSION) {
     throw Object.assign(new Error(`Template version ${DATA_TRANSFER_TEMPLATE_VERSION} is required.`), { code: 'TEMPLATE_VERSION_MISMATCH' })
@@ -463,41 +333,6 @@ export async function parseTransferWorkbook(buffer) {
 
   const errors = []
   const rowsBySheet = {}
-  for (const sheet of workbook.worksheets) {
-    const definition = SHEET_DEFINITIONS.find((candidate) => candidate.name === sheet.name)
-    const expectedColumnCount = sheet.name === 'Instructions'
-      ? 2
-      : sheet.name === 'Lists'
-        ? Object.keys(WORKBOOK_LIST_VALUES).length
-        : definition?.columns.length || 0
-    if (sheet.actualColumnCount > expectedColumnCount) {
-      errors.push({ sheet: sheet.name, row: 1, column: '', code: 'UNEXPECTED_COLUMN', message: 'Unexpected portable workbook columns are not accepted.' })
-    }
-    for (let rowNumber = 1; rowNumber <= sheet.actualRowCount; rowNumber += 1) {
-      const row = sheet.getRow(rowNumber)
-      const columnCount = Math.min(sheet.actualColumnCount, expectedColumnCount)
-      for (let column = 1; column <= columnCount; column += 1) {
-        const cell = row.getCell(column)
-        if (cell.type === ExcelJS.ValueType.Formula || (cell.value && typeof cell.value === 'object' && 'formula' in cell.value)) {
-          errors.push({ sheet: sheet.name, row: rowNumber, column: cell.address, code: 'FORMULA_NOT_ALLOWED', message: 'Formulas are not allowed in portable transfer workbooks.' })
-        }
-        if (cell.value && typeof cell.value === 'object' && 'hyperlink' in cell.value) {
-          errors.push({ sheet: sheet.name, row: rowNumber, column: cell.address, code: 'EXTERNAL_LINK_NOT_ALLOWED', message: 'Hyperlinks are not allowed in portable transfer workbooks.' })
-        }
-      }
-    }
-  }
-  const expectedListHeaders = Object.keys(WORKBOOK_LIST_VALUES)
-  if (!headersMatch(workbook.getWorksheet('Lists'), expectedListHeaders)) {
-    errors.push({ sheet: 'Lists', row: 1, column: '', code: 'LISTS_STRUCTURE_MISMATCH', message: 'The portable list structure was changed.' })
-  }
-  for (const [listName, expectedValues] of Object.entries(WORKBOOK_LIST_VALUES)) {
-    const column = expectedListHeaders.indexOf(listName) + 1
-    const actualValues = expectedValues.map((_, index) => normalizeText(workbook.getWorksheet('Lists').getCell(index + 2, column).value))
-    if (JSON.stringify(actualValues) !== JSON.stringify(expectedValues)) {
-      errors.push({ sheet: 'Lists', row: 2, column: listName, code: 'LISTS_VALUES_MISMATCH', message: `The ${listName} portable list was changed.` })
-    }
-  }
   for (const definition of SHEET_DEFINITIONS) {
     const sheet = workbook.getWorksheet(definition.name)
     const actualHeaders = definition.columns.map((_, index) => normalizeText(sheet.getCell(1, index + 1).value))
