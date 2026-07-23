@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 import { Buffer } from 'node:buffer'
 
 export const DATA_TRANSFER_TEMPLATE_VERSION = 'FP-V1-ONBOARDING-1'
-export const DATA_TRANSFER_FILENAME = 'footballplayer-online-portable-transfer-v1.xlsx'
+export const DATA_TRANSFER_FILENAME = 'footballplayer-online-onboarding-v1.xlsx'
 export const DATA_TRANSFER_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 export const DATA_TRANSFER_MAX_BYTES = 4 * 1024 * 1024
 export const DATA_TRANSFER_RAW_RETENTION_DAYS = 7
@@ -156,12 +156,12 @@ function addListValidation(sheet, columnKey, listName, maxRow) {
 function addInstructions(workbook, mode, scopeLabel) {
   const sheet = workbook.addWorksheet('Instructions', { properties: { tabColor: { argb: 'FF047857' } } })
   sheet.columns = [{ width: 28 }, { width: 88 }]
-  sheet.addRow(['Footballplayer.online portable transfer', 'Use this advanced workbook for a Footballplayer.online backup, migration, reimport, or support-assisted transfer. Use the ordinary spreadsheet export when you only need a readable file.'])
+  sheet.addRow(['Football Player Data Transfer', 'Use this workbook to prepare a controlled club onboarding transfer.'])
   sheet.addRow(['Template Version', DATA_TRANSFER_TEMPLATE_VERSION])
-  sheet.addRow(['Workbook Mode', mode === 'export' ? 'Platform-generated portable transfer' : 'Blank support-assisted portable structure'])
-  sheet.addRow(['Authorized Scope', scopeLabel || 'Select scope in Footballplayer.online before import.'])
+  sheet.addRow(['Workbook Mode', mode])
+  sheet.addRow(['Authorized Scope', scopeLabel || 'Select scope in Football Player before import.'])
   sheet.addRow(['Required order', WORKBOOK_SHEET_ORDER.join(', ')])
-  sheet.addRow(['References', 'Footballplayer.online generates public transfer references to preserve relationships between sheets. They are not database IDs. Do not invent or edit them unless an approved support workflow specifically requires it.'])
+  sheet.addRow(['References', 'Use public transfer references only. Do not paste database IDs. References must be unique within their sheet.'])
   sheet.addRow(['Dates', 'Use DD/MM/YYYY or ISO YYYY-MM-DD. Real Excel date cells are also supported.'])
   sheet.addRow(['Positions', 'Separate multiple positions with commas.'])
   sheet.addRow(['Boolean fields', 'Use Yes or No.'])
@@ -170,7 +170,7 @@ function addInstructions(workbook, mode, scopeLabel) {
   sheet.addRow(['Formula safety', 'Do not use formulas, macros, external links, embedded objects, or password protection.'])
   sheet.getRow(1).height = 36
   sheet.mergeCells('A1:B1')
-  sheet.getCell('A1').value = 'Footballplayer.online Portable Transfer'
+  sheet.getCell('A1').value = 'Football Player Club Onboarding Transfer'
   sheet.getCell('A1').font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } }
   sheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF047857' } }
   sheet.getCell('A1').alignment = { vertical: 'middle' }
