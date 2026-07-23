@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -23,6 +23,7 @@ import {
   createMatchDayEventLogEntry,
   deletePreviousMatchDay,
   getTodayMatchDayDateValue,
+  getMatchDay,
   getMatchDays,
   getMatchLocations,
   getPlayers,
@@ -1817,6 +1818,42 @@ function sortMatches(matches) {
   })
 }
 
+const MATCH_DAY_DETAIL_FIELDS = [
+  'availabilityHistory',
+  'availabilityRequests',
+  'eventLog',
+  'events',
+  'finalReport',
+  'playerAvailability',
+  'roleAssignments',
+  'scorerAssignments',
+  'scorerInterests',
+  'shootoutEvents',
+  'squadDecisions',
+]
+
+function mergeMatchDaySummaries(currentMatches = [], nextSummaries = []) {
+  const currentMatchesById = new Map(currentMatches.map((match) => [String(match.id), match]))
+
+  return nextSummaries.map((summary) => {
+    const currentMatch = currentMatchesById.get(String(summary.id))
+
+    if (!currentMatch?.isHydrated) {
+      return summary
+    }
+
+    const preservedDetails = Object.fromEntries(
+      MATCH_DAY_DETAIL_FIELDS.map((field) => [field, currentMatch[field]]),
+    )
+
+    return {
+      ...summary,
+      ...preservedDetails,
+      isHydrated: true,
+    }
+  })
+}
+
 export function MatchDayPage() {
   const { session, user } = useAuth()
   const { showToast } = useToast()
@@ -1829,6 +1866,7 @@ export function MatchDayPage() {
   const [matchEventForms, setMatchEventForms] = useState({})
   const [scoreDrafts, setScoreDrafts] = useState({})
   const [isLoading, setIsLoading] = useState(true)
+  const [isFixtureDataLoading, setIsFixtureDataLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -1851,6 +1889,8 @@ export function MatchDayPage() {
   const [undoEventModal, setUndoEventModal] = useState(null)
   const [undoEventError, setUndoEventError] = useState('')
   const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
+  const [selectedLocationId, setSelectedLocationId] = useState('')
+  const liveRefreshStateRef = useRef({ inFlight: false, scopeKey: '' })
   const liveClockNow = useServerSyncedClock({
     syncIntervalMs: LIVE_MATCH_REFRESH_INTERVAL_MS,
     tickIntervalMs: LIVE_MATCH_CLOCK_INTERVAL_MS,
@@ -1984,7 +2024,7 @@ export function MatchDayPage() {
       withRequestTimeout(() => getMatchLocations({ user }), 'Locations could not be loaded.'),
     ])
 
-    setMatches(nextMatches)
+    setMatches((currentMatches) => mergeMatchDaySummaries(currentMatches, nextMatches))
     setTeams(nextTeams)
     setPlayers(nextPlayers)
     setLocations(nextLocations)
@@ -2001,29 +2041,70 @@ export function MatchDayPage() {
 
       setErrorMessage('')
 
+      const [matchesResult, teamsResult, playersResult, locationsResult] = await Promise.allSettled([
+        withRequestTimeout(() => getMatchDays({ user }), 'Match Day could not be loaded.'),
+        withRequestTimeout(() => getTeams(user), 'Teams could not be loaded.'),
+        withRequestTimeout(() => getPlayers({ user }), 'Players could not be loaded.'),
+        withRequestTimeout(() => getMatchLocations({ user }), 'Locations could not be loaded.'),
+      ])
+
+      if (!isMounted) {
+        return
+      }
+
+      if (teamsResult.status === 'fulfilled') {
+        setTeams(teamsResult.value)
+      } else {
+        console.error(teamsResult.reason)
+      }
+
+      if (playersResult.status === 'fulfilled') {
+        setPlayers(playersResult.value)
+      } else {
+        console.error(playersResult.reason)
+      }
+
+      if (locationsResult.status === 'fulfilled') {
+        setLocations(locationsResult.value)
+      } else {
+        console.error(locationsResult.reason)
+      }
+
+      setIsFixtureDataLoading(false)
+
+      if (matchesResult.status === 'rejected') {
+        console.error(matchesResult.reason)
+        setErrorMessage(matchesResult.reason?.message || 'Match Day could not be loaded.')
+        setIsLoading(false)
+        return
+      }
+
+      const nextMatches = matchesResult.value
+      setMatches(nextMatches)
+      setIsLoading(false)
+
+      const priorityMatch = sortMatches(nextMatches.filter((match) => !isPreviousMatch(match)))[0]
+
+      if (!priorityMatch) {
+        return
+      }
+
       try {
-        const [nextMatches, nextTeams, nextPlayers, nextLocations] = await Promise.all([
-          withRequestTimeout(() => getMatchDays({ user }), 'Match Day could not be loaded.'),
-          withRequestTimeout(() => getTeams(user), 'Teams could not be loaded.'),
-          withRequestTimeout(() => getPlayers({ user }), 'Players could not be loaded.'),
-          withRequestTimeout(() => getMatchLocations({ user }), 'Locations could not be loaded.'),
-        ])
+        const hydratedMatch = await withRequestTimeout(
+          () => getMatchDay({ user, matchDayId: priorityMatch.id }),
+          'Match Day detail could not be loaded.',
+        )
 
         if (isMounted) {
-          setMatches(nextMatches)
-          setTeams(nextTeams)
-          setPlayers(nextPlayers)
-          setLocations(nextLocations)
+          setMatches((currentMatches) => currentMatches.map((match) => (
+            match.id === hydratedMatch.id ? hydratedMatch : match
+          )))
         }
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setErrorMessage(error.message || 'Match Day could not be loaded.')
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
+          setLiveRefreshStatus('warning')
         }
       }
     }
@@ -2037,11 +2118,22 @@ export function MatchDayPage() {
 
   useEffect(() => {
     let isCurrent = true
+    const scopeKey = `${user.clubId || ''}:${user.activeTeamId || ''}`
+
+    if (isLoading || !canManageMatchDay(user)) {
+      return undefined
+    }
 
     async function refreshLiveMatches() {
-      if (!canManageMatchDay(user)) {
+      const refreshState = liveRefreshStateRef.current
+
+      if (refreshState.scopeKey !== scopeKey) {
+        liveRefreshStateRef.current = { inFlight: false, scopeKey }
+      } else if (refreshState.inFlight) {
         return
       }
+
+      liveRefreshStateRef.current.inFlight = true
 
       try {
         const nextMatches = await withRequestTimeout(
@@ -2050,7 +2142,7 @@ export function MatchDayPage() {
         )
 
         if (isCurrent) {
-          setMatches(nextMatches)
+          setMatches((currentMatches) => mergeMatchDaySummaries(currentMatches, nextMatches))
           setLiveRefreshStatus('ok')
         }
       } catch (error) {
@@ -2058,6 +2150,10 @@ export function MatchDayPage() {
 
         if (isCurrent) {
           setLiveRefreshStatus('warning')
+        }
+      } finally {
+        if (liveRefreshStateRef.current.scopeKey === scopeKey) {
+          liveRefreshStateRef.current.inFlight = false
         }
       }
     }
@@ -2070,10 +2166,50 @@ export function MatchDayPage() {
       isCurrent = false
       window.clearInterval(intervalId)
     }
-  }, [user])
+  }, [isLoading, user])
 
   if (!canManageMatchDay(user)) {
     return <Navigate to="/" replace />
+  }
+
+  const hydrateMatchDay = async (match) => {
+    if (match?.isHydrated) {
+      return match
+    }
+
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+
+    try {
+      const hydratedMatch = await withRequestTimeout(
+        () => getMatchDay({ user, matchDayId: match.id }),
+        'Match Day detail could not be loaded.',
+      )
+
+      setMatches((currentMatches) => currentMatches.map((candidate) => (
+        candidate.id === hydratedMatch.id ? hydratedMatch : candidate
+      )))
+      return hydratedMatch
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Match Day detail could not be loaded.')
+      return null
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
+  const handleMatchToggle = async (match) => {
+    if (expandedMatchId === match.id) {
+      setExpandedMatchId('')
+      return
+    }
+
+    const hydratedMatch = await hydrateMatchDay(match)
+
+    if (hydratedMatch) {
+      setExpandedMatchId(match.id)
+    }
   }
 
   const updateForm = (updates) => {
@@ -2097,6 +2233,7 @@ export function MatchDayPage() {
   const closeFixtureSetup = () => {
     setIsFixtureFormOpen(false)
     setForm(EMPTY_MATCH_FORM)
+    setSelectedLocationId('')
     setErrorMessage('')
   }
 
@@ -2154,9 +2291,20 @@ export function MatchDayPage() {
   }
 
   const applyLocation = (locationId) => {
+    setSelectedLocationId(locationId)
+
+    if (!locationId) {
+      updateForm({
+        venueName: '',
+        venueAddress: '',
+      })
+      return
+    }
+
     const location = locations.find((candidate) => String(candidate.id) === String(locationId))
 
     if (!location) {
+      setSelectedLocationId('')
       return
     }
 
@@ -2164,6 +2312,11 @@ export function MatchDayPage() {
       venueName: location.name,
       venueAddress: location.address,
     })
+  }
+
+  const updateManualLocation = (updates) => {
+    setSelectedLocationId('')
+    updateForm(updates)
   }
 
   const handleCreateMatch = async (event) => {
@@ -2255,6 +2408,7 @@ export function MatchDayPage() {
         })
       }
       setForm(EMPTY_MATCH_FORM)
+      setSelectedLocationId('')
       setIsFixtureFormOpen(false)
       setSquadSelection(EMPTY_SQUAD_SELECTION)
       try {
@@ -2486,13 +2640,23 @@ export function MatchDayPage() {
     })
   }
 
-  const handleGameModeOpen = (match) => {
-    setGameModeMatchId(match.id)
+  const handleGameModeOpen = async (match) => {
+    const hydratedMatch = await hydrateMatchDay(match)
+
+    if (hydratedMatch) {
+      setGameModeMatchId(match.id)
+    }
   }
 
   const handleStartMatch = async (match) => {
+    const hydratedMatch = await hydrateMatchDay(match)
+
+    if (!hydratedMatch) {
+      return
+    }
+
     setGameModeMatchId(match.id)
-    await persistTimerAction(match, 'start', {
+    await persistTimerAction(hydratedMatch, 'start', {
       loadingMessage: 'Starting match...',
       successMessage: 'Match started.',
       toastMessage: 'The first period is now running.',
@@ -3549,7 +3713,7 @@ export function MatchDayPage() {
             onStartMatch={handleStartMatch}
             onHydrationToggle={handleGameModeHydrationToggle}
             onStatusChange={handleStatusChange}
-            onToggle={() => setExpandedMatchId((currentId) => (currentId === pitchsidePriorityMatch.id ? '' : pitchsidePriorityMatch.id))}
+            onToggle={() => void handleMatchToggle(pitchsidePriorityMatch)}
           />
         </div>
       ) : null}
@@ -3559,10 +3723,11 @@ export function MatchDayPage() {
           applyLocation={applyLocation}
           form={form}
           handleCreateMatch={handleCreateMatch}
-          isFixtureDataLoading={isLoading}
+          isFixtureDataLoading={isFixtureDataLoading}
           isSaving={isSaving}
           isTeamScopedFixture={isTeamScopedFixture}
           locations={locations}
+          selectedLocationId={selectedLocationId}
           selectedFixtureTeamName={selectedFixtureTeamName}
           teams={teams}
           updateArrivalFromPreset={updateArrivalFromPreset}
@@ -3571,6 +3736,7 @@ export function MatchDayPage() {
           updateKickoffTime={updateKickoffTime}
           updateKickoffTimeMode={updateKickoffTimeMode}
           updateMatchDurationPreset={updateMatchDurationPreset}
+          updateManualLocation={updateManualLocation}
           user={user}
           validationMessage={errorMessage}
           onClose={closeFixtureSetup}
@@ -3687,6 +3853,7 @@ export function MatchDayPage() {
                 onGameModeBack={() => setGameModeMatchId('')}
                 onGameModeHydrationToggle={handleGameModeHydrationToggle}
                 onGameModeStart={handleGameModeOpen}
+                onHydrate={hydrateMatchDay}
                 onStartMatch={handleStartMatch}
                 onGameModeStatusChange={handleGameModeStatusChange}
                 onShootoutKick={handleShootoutKick}
@@ -3707,7 +3874,7 @@ export function MatchDayPage() {
                 activeVolunteerSelectionKey={activeVolunteerSelectionKey}
                 onVolunteerSelection={openVolunteerSelectionPrompt}
                 onStatusChange={handleStatusChange}
-                onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
+                onToggle={() => void handleMatchToggle(match)}
                 onUndoEvent={handleUndoEvent}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                 volunteerSelectionStatus={volunteerSelectionStatus}
@@ -3837,6 +4004,7 @@ export function MatchDayPage() {
                   onGameModeBack={() => setGameModeMatchId('')}
                   onGameModeHydrationToggle={handleGameModeHydrationToggle}
                   onGameModeStart={handleGameModeOpen}
+                  onHydrate={hydrateMatchDay}
                   onStartMatch={handleStartMatch}
                   onGameModeStatusChange={handleGameModeStatusChange}
                   onShootoutKick={handleShootoutKick}
@@ -3857,7 +4025,7 @@ export function MatchDayPage() {
                   activeVolunteerSelectionKey={activeVolunteerSelectionKey}
                   onVolunteerSelection={openVolunteerSelectionPrompt}
                   onStatusChange={handleStatusChange}
-                  onToggle={() => setExpandedMatchId((currentId) => (currentId === match.id ? '' : match.id))}
+                  onToggle={() => void handleMatchToggle(match)}
                   onUndoEvent={handleUndoEvent}
                   scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                     volunteerSelectionStatus={volunteerSelectionStatus}
@@ -4220,6 +4388,7 @@ function MatchDayCard({
   onGameModeHydrationToggle,
   onGameModeStart,
   onGameModeStatusChange,
+  onHydrate,
   onOpenEventModal,
   onOpenGoalModal,
   onShootoutKick,
@@ -4278,6 +4447,18 @@ function MatchDayCard({
 
     if (!isExpanded) {
       onToggle()
+    }
+  }
+  const handleFinalReportToggle = async () => {
+    if (isFinalReportOpen) {
+      setIsFinalReportOpen(false)
+      return
+    }
+
+    const hydratedMatch = await onHydrate(match)
+
+    if (hydratedMatch) {
+      setIsFinalReportOpen(true)
     }
   }
 
@@ -4344,7 +4525,7 @@ function MatchDayCard({
             {isFinalReportAvailable ? (
               <button
                 type="button"
-                onClick={() => setIsFinalReportOpen((isOpen) => !isOpen)}
+                onClick={() => void handleFinalReportToggle()}
                 className={`${primaryLiveAction ? secondaryButtonClass : primaryButtonClass} w-full sm:w-auto`}
                 aria-expanded={isFinalReportOpen}
               >
@@ -6075,6 +6256,7 @@ function FixtureSetupModal({
   isTeamScopedFixture,
   locations,
   onClose,
+  selectedLocationId,
   selectedFixtureTeamName,
   teams,
   updateArrivalFromPreset,
@@ -6082,6 +6264,7 @@ function FixtureSetupModal({
   updateForm,
   updateKickoffTime,
   updateKickoffTimeMode,
+  updateManualLocation,
   updateMatchDurationPreset,
   user,
   validationMessage,
@@ -6294,20 +6477,20 @@ function FixtureSetupModal({
 
               <label className="block">
                 <span className={labelClass}>Reuse location</span>
-                <select value="" onChange={(event) => applyLocation(event.target.value)} className={inputClass}>
-                  <option value="">Choose saved location</option>
-                  {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+                <select value={selectedLocationId} onChange={(event) => applyLocation(event.target.value)} className={inputClass}>
+                  <option value="">{locations.length > 0 ? 'Choose saved location' : 'No saved locations yet'}</option>
+                  {locations.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}
                 </select>
               </label>
 
               <label className="block">
                 <span className={labelClass}>Venue</span>
-                <input value={form.venueName} onChange={(event) => updateForm({ venueName: event.target.value })} className={inputClass} />
+                <input value={form.venueName} onChange={(event) => updateManualLocation({ venueName: event.target.value })} className={inputClass} />
               </label>
 
               <label className="block">
                 <span className={labelClass}>Address</span>
-                <input value={form.venueAddress} onChange={(event) => updateForm({ venueAddress: event.target.value })} className={inputClass} />
+                <input value={form.venueAddress} onChange={(event) => updateManualLocation({ venueAddress: event.target.value })} className={inputClass} />
               </label>
             </div>
 

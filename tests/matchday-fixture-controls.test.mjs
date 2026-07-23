@@ -51,12 +51,13 @@ test('new fixtures persist classification while legacy null values remain readab
 })
 
 test('opening Game Mode is read only until Start match is pressed', () => {
-  const openStart = matchDayPage.indexOf('const handleGameModeOpen = (match) => {')
+  const openStart = matchDayPage.indexOf('const handleGameModeOpen = async (match) => {')
   const openEnd = matchDayPage.indexOf('const handleGameModeStatusChange', openStart)
   assert.notEqual(openStart, -1)
   assert.notEqual(openEnd, -1)
   const openHandler = matchDayPage.slice(openStart, openEnd)
 
+  assert.match(openHandler, /await hydrateMatchDay\(match\)/)
   assert.match(openHandler, /setGameModeMatchId\(match\.id\)/)
   assert.doesNotMatch(openHandler, /saveMatchStatus|setMatchDayTimerState|updateMatchDay/)
   assert.match(matchDayPage, /Game Mode is open, but the match clock has not started/)

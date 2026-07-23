@@ -588,6 +588,7 @@ export function normalizeMatchDay(row) {
     events,
     shootoutEvents,
     finalReport: normalizeMatchDayFinalReport(rawFinalReport),
+    isHydrated: row.isHydrated === true || hasMatchDayDetails(row),
   }
 }
 
@@ -721,6 +722,79 @@ function buildMatchSelect() {
     match_day_shootout_kicks (*),
     match_day_final_reports (*)
   `
+}
+
+function buildMatchDayListSelect() {
+  return `
+    id,
+    club_id,
+    team_id,
+    opponent,
+    fixture_type,
+    match_conclusion_rule,
+    current_match_phase,
+    extra_time_half_minutes,
+    extra_time_period_count,
+    match_date,
+    kickoff_time,
+    kickoff_time_tbc,
+    arrival_time,
+    home_away,
+    match_clock_mode,
+    match_duration_minutes,
+    venue_name,
+    venue_address,
+    notes,
+    scorer_request_message,
+    request_scorer,
+    request_linesman,
+    request_referee,
+    parent_visible,
+    parent_audience,
+    notification_revision,
+    status,
+    home_score,
+    away_score,
+    normal_time_home_score,
+    normal_time_away_score,
+    extra_time_home_score,
+    extra_time_away_score,
+    home_shootout_score,
+    away_shootout_score,
+    shootout_winner,
+    phase_started_at,
+    timer_started_at,
+    timer_paused_at,
+    timer_elapsed_seconds,
+    timer_status,
+    full_time_resume_status,
+    concluded_at,
+    concluded_by,
+    enable_motm_poll,
+    motm_poll_expiry_hours,
+    motm_poll_id,
+    previous_hidden_at,
+    created_by_name,
+    created_at,
+    updated_at,
+    teams:team_id (name)
+  `
+}
+
+function hasMatchDayDetails(row) {
+  return [
+    'match_day_scorer_interest',
+    'match_day_scorer_assignments',
+    'match_day_role_assignments',
+    'match_day_player_availability',
+    'match_day_player_squad_decisions',
+    'match_day_player_availability_history',
+    'match_day_availability_requests',
+    'match_day_event_log',
+    'match_day_events',
+    'match_day_shootout_kicks',
+    'match_day_final_reports',
+  ].some((key) => Object.prototype.hasOwnProperty.call(row ?? {}, key))
 }
 
 function normalizeTeamIdForMatch(user, match) {
@@ -967,7 +1041,7 @@ export async function getMatchDays({ user } = {}) {
 
   let query = supabase
     .from('match_days')
-    .select(buildMatchSelect())
+    .select(buildMatchDayListSelect())
     .eq('club_id', user.clubId)
     .is('deleted_at', null)
     .order('match_date', { ascending: false, nullsFirst: false })
@@ -985,6 +1059,38 @@ export async function getMatchDays({ user } = {}) {
   }
 
   return (data ?? []).map(normalizeMatchDay)
+}
+
+export async function getMatchDay({ user, matchDayId } = {}) {
+  assertStaffMatchDayAccess(user)
+
+  const normalizedMatchDayId = normalizeText(matchDayId)
+
+  if (!normalizedMatchDayId) {
+    throw new Error('Choose a match day first.')
+  }
+
+  let query = supabase
+    .from('match_days')
+    .select(buildMatchSelect())
+    .eq('id', normalizedMatchDayId)
+    .eq('club_id', user.clubId)
+    .is('deleted_at', null)
+
+  query = scopeMatchDayQueryToActiveTeam(query, user)
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  if (!data?.id) {
+    throw new Error('This match day is not linked to your active team.')
+  }
+
+  return normalizeMatchDay(data)
 }
 
 export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, decision }) {
@@ -1019,23 +1125,80 @@ export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, dec
 export async function getMatchLocations({ user } = {}) {
   assertStaffMatchDayAccess(user)
 
-  const { data, error } = await supabase
-    .from('match_locations')
-    .select('*')
+  let usageQuery = supabase
+    .from('match_days')
+    .select('location_id, venue_name, venue_address')
     .eq('club_id', user.clubId)
-    .order('name', { ascending: true })
+    .is('deleted_at', null)
 
-  if (error) {
-    console.error(error)
-    throw error
+  usageQuery = scopeMatchDayQueryToActiveTeam(usageQuery, user)
+
+  const { data: usageRows, error: usageError } = await usageQuery
+
+  if (usageError) {
+    console.error(usageError)
+    throw usageError
   }
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    name: normalizeText(row.name),
-    address: normalizeText(row.address),
-    notes: normalizeText(row.notes),
+  const locationIds = [...new Set(
+    (usageRows ?? []).map((row) => normalizeText(row.location_id)).filter(Boolean),
+  )]
+  let savedRows = []
+
+  if (locationIds.length > 0) {
+    const { data, error } = await supabase
+      .from('match_locations')
+      .select('id, name, address, notes')
+      .eq('club_id', user.clubId)
+      .in('id', locationIds)
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    savedRows = data ?? []
+  }
+
+  const usedRows = (usageRows ?? []).map((row) => ({
+    id: normalizeText(row.location_id)
+      || `used:${normalizeText(row.venue_name).toLocaleLowerCase()}:${normalizeText(row.venue_address).toLocaleLowerCase()}`,
+    name: row.venue_name,
+    address: row.venue_address,
+    notes: '',
   }))
+
+  return normalizeMatchLocations([...savedRows, ...usedRows])
+}
+
+export function normalizeMatchLocations(rows = []) {
+  const locationsByIdentity = new Map()
+
+  for (const row of rows ?? []) {
+    const name = normalizeText(row.name)
+    const address = normalizeText(row.address)
+
+    if (!name || !address) {
+      continue
+    }
+
+    const identity = `${name.toLocaleLowerCase()}|${address.toLocaleLowerCase()}`
+
+    if (!locationsByIdentity.has(identity)) {
+      locationsByIdentity.set(identity, {
+        id: row.id,
+        name,
+        address,
+        label: `${name} · ${address}`,
+        notes: normalizeText(row.notes),
+      })
+    }
+  }
+
+  return [...locationsByIdentity.values()].sort((left, right) => (
+    left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })
+  ))
 }
 
 export async function createMatchDay({ user, match }) {

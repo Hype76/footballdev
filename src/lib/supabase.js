@@ -297,6 +297,7 @@ export {
   deletePreviousMatchDay,
   expressMatchDayScorerInterest,
   getTodayMatchDayDateValue,
+  getMatchDay,
   getMatchDays,
   getMatchLocations,
   getParentPortalMatchDays,

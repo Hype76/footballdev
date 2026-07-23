@@ -7,7 +7,7 @@ const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url
 test('Open Game Mode is read only while Start Match and Resume Match use explicit status paths', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
   const statusChangeStart = source.indexOf('const handleStatusChange = async (match, status) => {')
-  const gameModeOpenStart = source.indexOf('const handleGameModeOpen = (match) => {')
+  const gameModeOpenStart = source.indexOf('const handleGameModeOpen = async (match) => {')
   const statusChange = source.slice(statusChangeStart, gameModeOpenStart)
   const gameModeOpen = source.slice(gameModeOpenStart, source.indexOf('const handleGameModeStatusChange', gameModeOpenStart))
 
@@ -15,6 +15,7 @@ test('Open Game Mode is read only while Start Match and Resume Match use explici
   assert.match(statusChange, /await saveMatchStatus\(match, 'live'\)/)
   assert.match(statusChange, /status === 'second_half' \|\| status === 'resume_match'/)
   assert.match(statusChange, /await saveMatchStatus\(match, status\)/)
+  assert.match(gameModeOpen, /await hydrateMatchDay\(match\)/)
   assert.match(gameModeOpen, /setGameModeMatchId\(match\.id\)/)
   assert.doesNotMatch(gameModeOpen, /saveMatchStatus|setMatchDayTimerState|updateMatchDay/)
   assert.match(source, /Game Mode is open, but the match clock has not started/)
