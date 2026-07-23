@@ -126,6 +126,7 @@ function mapIncomingPlan(planItems) {
 
 export function buildImportPlan({ actorScope, existing, importOptions = {}, rowsBySheet }) {
   const state = { errors: [], warnings: [], rowResults: [] }
+  const plan = { club: null, teams: [], players: [], guardians: [], links: [] }
   const scopeCoversAllTeams = actorScope.isClubWideScope ?? actorScope.canManageAllTeams
   const authorizedTeamIds = new Set(actorScope.authorizedTeamIds || [])
   const options = {
@@ -133,21 +134,8 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
     createPossibleDuplicates: importOptions.createPossibleDuplicates === true,
     fillBlankFields: importOptions.fillBlankFields === true,
     importMode: 'additive',
-    planningMode: importOptions.planningMode === 'ordinary' ? 'ordinary' : 'portable',
     season: normalizeScalar(importOptions.season),
     updateConflicts: importOptions.updateConflicts === true,
-  }
-  const ordinaryMode = options.planningMode === 'ordinary'
-  const plan = {
-    context: {
-      planning_mode: options.planningMode,
-      selected_season: options.season,
-    },
-    club: null,
-    teams: [],
-    players: [],
-    guardians: [],
-    links: [],
   }
 
   const clubRows = rowsBySheet['Club Details'] || []
@@ -156,48 +144,38 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
   } else {
     const row = clubRows[0]
     if (!options.season) addError(state, { code: 'IMPORT_SEASON_REQUIRED', message: 'Confirm the target season before inspection.', row, sheetName: 'Club Details', column: 'Season' })
+    if (row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Club Details', column: 'Season' })
+    const workbookValues = valuesForSheet('Club Details', { ...row, season: row.season || options.season })
     const current = {
       ...existing.club,
       transfer_reference: publicRef(existing.club, 'CLUB'),
     }
-    const workbookValues = valuesForSheet('Club Details', ordinaryMode ? current : { ...row, season: row.season || options.season })
-    let action = 'unchanged'
-    let explanation = ordinaryMode ? 'The selected club is an immutable authorised scope anchor for this ordinary import.' : 'No club changes.'
-    let fieldChanges = []
-    let finalValues = valuesForSheet('Club Details', current)
-    if (!ordinaryMode) {
-      if (row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Club Details', column: 'Season' })
-      const review = reviewExistingFields('Club Details', workbookValues, current, options)
-      action = review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged'
-      explanation = review.blockedChanges ? 'Club field changes need the matching import decision before they can be confirmed.' : review.approvedChanges ? 'Apply the reviewed club field changes.' : 'No club changes.'
-      fieldChanges = review.fieldChanges
-      finalValues = review.finalValues
-      if (review.blockedChanges) addError(state, { code: 'FIELD_CONFLICT_REQUIRES_CONFIRMATION', message: explanation, row, sheetName: 'Club Details' })
-      if ((review.blockedChanges || review.approvedChanges) && !actorScope.canManageClub) {
-        action = 'conflict'
-        explanation = 'This role cannot change club details.'
-        addError(state, { code: 'CLUB_CHANGE_NOT_AUTHORIZED', message: explanation, row, sheetName: 'Club Details' })
-      }
+    const review = reviewExistingFields('Club Details', workbookValues, current, options)
+    let action = review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged'
+    let explanation = review.blockedChanges ? 'Club field changes need the matching import decision before they can be confirmed.' : review.approvedChanges ? 'Apply the reviewed club field changes.' : 'No club changes.'
+    if (review.blockedChanges) addError(state, { code: 'FIELD_CONFLICT_REQUIRES_CONFIRMATION', message: explanation, row, sheetName: 'Club Details' })
+    if ((review.blockedChanges || review.approvedChanges) && !actorScope.canManageClub) {
+      action = 'conflict'
+      explanation = 'This role cannot change club details.'
+      addError(state, { code: 'CLUB_CHANGE_NOT_AUTHORIZED', message: explanation, row, sheetName: 'Club Details' })
     }
-    plan.club = { action, entity_id: existing.club.id, expected_updated_at: existing.club.updated_at || '', source_row: row._sourceRow, values: finalValues }
-    state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Club Details', sourceValues: workbookValues, values: finalValues }))
+    plan.club = { action, entity_id: existing.club.id, expected_updated_at: existing.club.updated_at || '', source_row: row._sourceRow, values: review.finalValues }
+    state.rowResults.push(rowResult({ action, explanation, fieldChanges: review.fieldChanges, row, sheetName: 'Club Details', sourceValues: workbookValues, values: review.finalValues }))
   }
 
   const existingTeams = mapExisting(existing.teams, 'TEAM')
   const teamNameMap = new Map((existing.teams || []).map((team) => [normalizeReference(team.name), team]))
   for (const row of rowsBySheet.Teams || []) {
-    const sourceValues = valuesForSheet('Teams', { ...row, season: row.season || options.season })
-    const current = existingTeams.get(normalizeReference(sourceValues.transfer_reference))
-    const immutableScopeTeam = ordinaryMode && current
-    if (!ordinaryMode && row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Teams', column: 'Season' })
-    const currentValues = current ? valuesForSheet('Teams', { ...current, transfer_reference: publicRef(current, 'TEAM') }) : null
-    const review = current && !immutableScopeTeam ? reviewExistingFields('Teams', sourceValues, { ...current, transfer_reference: publicRef(current, 'TEAM') }, options) : null
-    const values = immutableScopeTeam ? currentValues : review?.finalValues || sourceValues
-    const fieldChanges = immutableScopeTeam ? [] : review?.fieldChanges || createFieldChanges(values)
-    let action = current ? (immutableScopeTeam ? 'unchanged' : review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged') : 'create'
-    let explanation = immutableScopeTeam ? 'The selected existing team is an immutable authorised scope anchor for this ordinary import.' : action === 'create' ? 'Create team.' : action === 'update' ? 'Apply the reviewed team field changes.' : action === 'conflict' ? 'Team field changes need the matching import decision before they can be confirmed.' : 'No team changes.'
+    if (row.season && options.season && normalizeScalar(row.season) !== options.season) addError(state, { code: 'IMPORT_SEASON_MISMATCH', message: `The workbook season ${normalizeScalar(row.season)} does not match the confirmed season ${options.season}.`, row, sheetName: 'Teams', column: 'Season' })
+    const workbookValues = valuesForSheet('Teams', { ...row, season: row.season || options.season })
+    const current = existingTeams.get(normalizeReference(workbookValues.transfer_reference))
+    const review = current ? reviewExistingFields('Teams', workbookValues, { ...current, transfer_reference: publicRef(current, 'TEAM') }, options) : null
+    const values = review?.finalValues || workbookValues
+    const fieldChanges = review?.fieldChanges || createFieldChanges(values)
+    let action = current ? (review.blockedChanges ? 'conflict' : review.approvedChanges ? 'update' : 'unchanged') : 'create'
+    let explanation = action === 'create' ? 'Create team.' : action === 'update' ? 'Apply the reviewed team field changes.' : action === 'conflict' ? 'Team field changes need the matching import decision before they can be confirmed.' : 'No team changes.'
     if (review?.blockedChanges) addError(state, { code: 'FIELD_CONFLICT_REQUIRES_CONFIRMATION', message: explanation, row, sheetName: 'Teams' })
-    const nameCandidate = !current ? teamNameMap.get(normalizeReference(sourceValues.name)) : null
+    const nameCandidate = !current ? teamNameMap.get(normalizeReference(workbookValues.name)) : null
     if (nameCandidate && !options.createPossibleDuplicates) {
       action = 'possible_duplicate'
       explanation = `A team with this name exists as ${publicRef(nameCandidate, 'TEAM')}. Use that reference to link it, or explicitly allow a separate record.`
@@ -227,7 +205,7 @@ export function buildImportPlan({ actorScope, existing, importOptions = {}, rows
     }
     const item = { action, entity_id: current?.id || '', expected_updated_at: current?.updated_at || '', source_row: row._sourceRow, values }
     plan.teams.push(item)
-    state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Teams', sourceValues, values }))
+    state.rowResults.push(rowResult({ action, explanation, fieldChanges, row, sheetName: 'Teams', sourceValues: workbookValues, values }))
   }
 
   const plannedTeams = mapIncomingPlan(plan.teams)
