@@ -7,10 +7,12 @@ import {
   buildTransferWorkbook,
   DATA_TRANSFER_FILENAME,
   DATA_TRANSFER_TEMPLATE_VERSION,
+  inspectTransferWorkbookMode,
   inspectXlsxContainer,
   parseTransferWorkbook,
   WORKBOOK_SHEET_ORDER,
 } from '../netlify/functions/lib/_data-transfer-workbook.js'
+import { inspectDataTransferSource } from '../netlify/functions/lib/_data-transfer-source.js'
 
 const sampleData = {
   'Club Details': [{ transfer_reference: 'CLUB-QA', name: 'Jeluma QA FC', primary_contact_email: 'support@jelumalabs.com', season: '2026/27' }],
@@ -20,10 +22,29 @@ const sampleData = {
   'Player-Guardian Links': [{ player_reference: 'PLAYER-1', guardian_reference: 'GUARDIAN-1', relationship: 'Parent', primary_contact: true, receives_communications: false, emergency_contact: true }],
 }
 
+async function editPortableWorkbook(edit) {
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(await buildTransferWorkbook({ data: sampleData, mode: 'export', scopeLabel: 'Jeluma QA FC' }))
+  await edit(workbook)
+  return Buffer.from(await workbook.xlsx.writeBuffer())
+}
+
 test('fixed V1 workbook round trips with the exact sheet order and values', async () => {
   const buffer = await buildTransferWorkbook({ data: sampleData, mode: 'export', scopeLabel: 'Jeluma QA FC' })
+  const detected = await inspectDataTransferSource(buffer, {
+    fileName: DATA_TRANSFER_FILENAME,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
   const parsed = await parseTransferWorkbook(buffer)
-  assert.equal(DATA_TRANSFER_FILENAME, 'footballplayer-online-onboarding-v1.xlsx')
+  assert.equal(DATA_TRANSFER_FILENAME, 'footballplayer-online-portable-transfer-v1.xlsx')
+  assert.equal(detected.importMode, 'portable')
+  assert.equal(detected.portable, true)
+  assert.equal(detected.modeDetection.signature.metadataMatches, true)
+  assert.equal(detected.modeDetection.signature.exactSheetOrder, true)
+  assert.equal(detected.modeDetection.signature.dataHeaderMatches, 5)
+  assert.equal(detected.modeDetection.signature.referenceHeaderMatches, 5)
+  assert.equal(detected.modeDetection.signature.relationshipStructureMatches, true)
+  assert.equal(detected.modeDetection.signature.listsStructureMatches, true)
   assert.equal(parsed.templateVersion, DATA_TRANSFER_TEMPLATE_VERSION)
   assert.deepEqual(parsed.errors, [])
   assert.equal(parsed.rowsBySheet.Players[0].team_reference, 'TEAM-U12')
@@ -40,6 +61,97 @@ test('fixed V1 workbook round trips with the exact sheet order and values', asyn
   assert.equal(workbook.getWorksheet('Players').getCell('A5001').protection.locked, false)
   assert.equal(workbook.getWorksheet('Players').getCell('G5001').dataValidation.type, 'list')
   assert.equal(workbook.getWorksheet('Player-Guardian Links').getCell('C10001').dataValidation.type, 'list')
+  const instructions = workbook.getWorksheet('Instructions')
+  assert.equal(instructions.getCell('A1').value, 'Footballplayer.online Portable Transfer')
+  assert.match(String(instructions.getCell('B6').value), /Footballplayer\.online generates public transfer references/)
+  assert.match(String(instructions.getCell('B6').value), /Do not invent or edit them/)
+})
+
+test('portable detection runs before ordinary header validation and skips ordinary support-sheet rules', async () => {
+  const buffer = await buildTransferWorkbook({ data: sampleData, mode: 'export' })
+  const source = await inspectDataTransferSource(buffer, {
+    fileName: DATA_TRANSFER_FILENAME,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  assert.equal(source.importMode, 'portable')
+  assert.equal(source.portable, true)
+  assert.ok(source.sheets.some((sheet) => sheet.name === 'Instructions'))
+  assert.ok(source.sheets.some((sheet) => sheet.name === 'Lists'))
+  assert.equal(source.sheets.find((sheet) => sheet.name === 'Instructions').mappings.length, 0)
+  assert.equal(source.sheets.find((sheet) => sheet.name === 'Lists').mappings.length, 0)
+})
+
+test('sheet names alone cannot trigger portable routing', async () => {
+  const workbook = new ExcelJS.Workbook()
+  for (const name of WORKBOOK_SHEET_ORDER) {
+    workbook.addWorksheet(name).addRow(['Fake heading'])
+  }
+  const detected = await inspectTransferWorkbookMode(Buffer.from(await workbook.xlsx.writeBuffer()))
+  assert.equal(detected.importMode, 'ordinary')
+  assert.equal(detected.portable, false)
+  assert.equal(detected.modeDetection.signature.expectedSheetCoverage, WORKBOOK_SHEET_ORDER.length)
+  assert.equal(detected.modeDetection.signature.metadataMatches, false)
+  assert.equal(detected.modeDetection.signature.titleMatches, false)
+})
+
+test('partial portable structures route to the portable validator and fail with a sheet error', async () => {
+  const buffer = await editPortableWorkbook((workbook) => {
+    workbook.removeWorksheet(workbook.getWorksheet('Lists').id)
+  })
+  const detected = await inspectTransferWorkbookMode(buffer)
+  assert.equal(detected.importMode, 'portable')
+  assert.equal(detected.modeDetection.signature.expectedSheetCoverage, WORKBOOK_SHEET_ORDER.length - 1)
+  await assert.rejects(() => parseTransferWorkbook(buffer), (error) => error.code === 'SHEET_STRUCTURE_MISMATCH')
+})
+
+test('unsupported portable versions route correctly and fail with a version error', async () => {
+  const buffer = await editPortableWorkbook((workbook) => {
+    workbook.getWorksheet('Instructions').getCell('B2').value = 'FP-V1-ONBOARDING-999'
+  })
+  const detected = await inspectTransferWorkbookMode(buffer)
+  assert.equal(detected.importMode, 'portable')
+  assert.equal(detected.modeDetection.signature.versionMatches, false)
+  await assert.rejects(() => parseTransferWorkbook(buffer), (error) => error.code === 'TEMPLATE_VERSION_MISMATCH')
+})
+
+test('forged and duplicate portable headers fail closed after portable routing', async () => {
+  for (const [cell, value] of [['C1', 'Forged First Name'], ['B1', 'Player Reference']]) {
+    const buffer = await editPortableWorkbook((workbook) => {
+      workbook.getWorksheet('Players').getCell(cell).value = value
+    })
+    const detected = await inspectTransferWorkbookMode(buffer)
+    assert.equal(detected.importMode, 'portable')
+    const parsed = await parseTransferWorkbook(buffer)
+    assert.ok(parsed.errors.some((error) => error.code === 'HEADER_MISMATCH'))
+  }
+})
+
+test('forged references and cross-scope link references fail closed in portable validation', async () => {
+  const forgedReference = await editPortableWorkbook((workbook) => {
+    workbook.getWorksheet('Players').getCell('B2').value = 'TEAM-FORGED'
+  })
+  assert.equal((await inspectTransferWorkbookMode(forgedReference)).importMode, 'portable')
+  const forgedParsed = await parseTransferWorkbook(forgedReference)
+  assert.ok(forgedParsed.errors.some((error) => error.code === 'UNKNOWN_TEAM_REFERENCE'))
+
+  const crossScopeLink = await editPortableWorkbook((workbook) => {
+    workbook.getWorksheet('Player-Guardian Links').getCell('B2').value = 'GUARDIAN-OTHER-CLUB'
+  })
+  assert.equal((await inspectTransferWorkbookMode(crossScopeLink)).importMode, 'portable')
+  const linkParsed = await parseTransferWorkbook(crossScopeLink)
+  assert.ok(linkParsed.errors.some((error) => error.code === 'UNKNOWN_GUARDIAN_REFERENCE'))
+})
+
+test('portable Instructions and Lists use portable safety rules without ordinary header validation', async () => {
+  const buffer = await editPortableWorkbook((workbook) => {
+    workbook.getWorksheet('Instructions').getCell('B3').value = { formula: '1+1', result: 2 }
+    workbook.getWorksheet('Lists').getCell('B1').value = 'Category'
+  })
+  assert.equal((await inspectTransferWorkbookMode(buffer)).importMode, 'portable')
+  const parsed = await parseTransferWorkbook(buffer)
+  assert.ok(parsed.errors.some((error) => error.sheet === 'Instructions' && error.code === 'FORMULA_NOT_ALLOWED'))
+  assert.ok(parsed.errors.some((error) => error.sheet === 'Lists' && error.code === 'LISTS_STRUCTURE_MISMATCH'))
+  assert.ok(!parsed.errors.some((error) => error.code === 'DUPLICATE_HEADER'))
 })
 
 test('documented UK, ISO, Excel-cell, and serial dates parse without guessing', async () => {
