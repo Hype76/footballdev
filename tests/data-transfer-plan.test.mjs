@@ -139,6 +139,151 @@ test('populated updates, blank fills, and team creation require explicit import 
   assert.equal(approved.plan.teams.at(-1).action, 'create')
 })
 
+test('ordinary imports treat authorised null-season club and team records as immutable scope anchors', () => {
+  const { existing, rowsBySheet } = fixture()
+  existing.club.season = null
+  existing.club.transfer_reference = null
+  existing.teams[0].season = null
+  existing.teams[0].transfer_reference = null
+  rowsBySheet['Club Details'][0]._resolvedEntityId = 'club-1'
+  rowsBySheet['Club Details'][0].transfer_reference = ''
+  rowsBySheet['Club Details'][0].season = '2026/27'
+  rowsBySheet.Teams[0]._planningHandle = 'PLAN-TEAM-AUTHORISED'
+  rowsBySheet.Teams[0]._resolvedEntityId = 'team-1'
+  rowsBySheet.Teams[0].transfer_reference = ''
+  rowsBySheet.Teams[0].season = '2026/27'
+  rowsBySheet.Players[0]._teamPlanningHandle = 'PLAN-TEAM-AUTHORISED'
+  rowsBySheet.Players[0].team_reference = ''
+  const result = buildImportPlan({
+    actorScope: {
+      authorizedTeamIds: ['team-1'],
+      canManageAllTeams: false,
+      canManageClub: false,
+      canManageTeams: false,
+      isClubWideScope: false,
+    },
+    existing,
+    importOptions: {
+      ...approvedImportOptions,
+      planningMode: 'ordinary',
+    },
+    rowsBySheet,
+  })
+
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.plan.context.planning_mode, 'ordinary')
+  assert.equal(result.plan.context.selected_season, '2026/27')
+  assert.equal(result.plan.club.action, 'unchanged')
+  assert.equal(result.plan.club.values.season, '')
+  assert.equal(result.plan.teams[0].action, 'unchanged')
+  assert.equal(result.plan.teams[0].entity_id, 'team-1')
+  assert.equal(result.plan.teams[0].planning_handle, 'PLAN-TEAM-AUTHORISED')
+  assert.equal(result.plan.teams[0].values.transfer_reference, '')
+  assert.equal(result.plan.teams[0].values.season, '')
+  assert.equal(result.plan.players[0].team_entity_id, 'team-1')
+  assert.equal(result.counts.update, 0)
+  assert.equal(result.counts.conflict, 0)
+  assert.ok(!result.errors.some((error) => [
+    'POSSIBLE_DUPLICATE_TEAM',
+    'TEAM_CHANGE_NOT_AUTHORIZED',
+    'PLAYER_TEAM_UNAVAILABLE',
+    'LINK_REFERENCE_UNAVAILABLE',
+  ].includes(error.code)))
+})
+
+test('portable manager imports use the confirmed season as context without changing null-season anchors', () => {
+  const { existing, rowsBySheet } = fixture()
+  existing.club.season = null
+  existing.teams[0].season = null
+  rowsBySheet['Club Details'][0].season = ''
+  rowsBySheet.Teams[0].season = ''
+
+  const result = buildImportPlan({
+    actorScope: {
+      authorizedTeamIds: ['team-1'],
+      canManageAllTeams: false,
+      canManageClub: false,
+      canManageTeams: false,
+      isClubWideScope: false,
+    },
+    existing,
+    importOptions: {
+      ...approvedImportOptions,
+      planningMode: 'portable',
+    },
+    rowsBySheet,
+  })
+
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.plan.context.selected_season, '2026/27')
+  assert.equal(result.plan.club.action, 'unchanged')
+  assert.equal(result.plan.club.values.season, '')
+  assert.equal(result.plan.teams[0].action, 'unchanged')
+  assert.equal(result.plan.teams[0].values.season, '')
+  assert.equal(result.counts.update, 0)
+  assert.ok(!result.errors.some((error) => [
+    'CLUB_CHANGE_NOT_AUTHORIZED',
+    'TEAM_CHANGE_NOT_AUTHORIZED',
+    'IMPORT_SEASON_REQUIRED',
+  ].includes(error.code)))
+})
+
+test('portable workbook season changes to existing anchors fail closed even when field updates are approved', () => {
+  const { existing, rowsBySheet } = fixture()
+  existing.club.season = null
+  existing.teams[0].season = null
+  rowsBySheet['Club Details'][0].season = '2026/27'
+  rowsBySheet.Teams[0].season = '2026/27'
+
+  const result = buildImportPlan({
+    actorScope: {
+      authorizedTeamIds: ['team-1'],
+      canManageAllTeams: true,
+      canManageClub: true,
+      canManageTeams: true,
+      isClubWideScope: false,
+    },
+    existing,
+    importOptions: {
+      ...approvedImportOptions,
+      planningMode: 'portable',
+    },
+    rowsBySheet,
+  })
+  assert.ok(result.errors.some((error) => error.code === 'CLUB_ANCHOR_SEASON_IMMUTABLE'))
+  assert.ok(result.errors.some((error) => error.code === 'TEAM_ANCHOR_SEASON_IMMUTABLE'))
+  assert.equal(result.plan.club.action, 'conflict')
+  assert.equal(result.plan.club.values.season, '')
+  assert.equal(result.plan.teams[0].action, 'conflict')
+  assert.equal(result.plan.teams[0].values.season, '')
+  assert.equal(result.counts.update, 0)
+})
+
+test('portable team reference conflicts remain protected from ordinary identity rules', () => {
+  const { existing, rowsBySheet } = fixture()
+  rowsBySheet.Teams[0].name = 'Conflicting Portable Team'
+  const result = buildImportPlan({
+    actorScope: {
+      authorizedTeamIds: ['team-1'],
+      canManageAllTeams: true,
+      canManageClub: true,
+      canManageTeams: true,
+      isClubWideScope: false,
+    },
+    existing,
+    importOptions: {
+      planningMode: 'portable',
+      season: '2026/27',
+    },
+    rowsBySheet,
+  })
+
+  assert.ok(result.errors.some((error) => error.code === 'FIELD_CONFLICT_REQUIRES_CONFIRMATION'))
+  assert.equal(result.plan.teams[0].entity_id, 'team-1')
+  assert.equal(result.plan.teams[0].action, 'conflict')
+  assert.equal(result.plan.teams[0].values.transfer_reference, 'TEAM-1')
+})
+
 test('possible duplicate creation remains blocked until explicitly reviewed', () => {
   const { existing, rowsBySheet } = fixture()
   rowsBySheet.Teams.push({ _sourceRow: 3, transfer_reference: 'TEAM-SEPARATE', name: 'U14', season: '2026/27', status: 'active' })
