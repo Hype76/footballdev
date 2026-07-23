@@ -9,7 +9,7 @@ import { buildTransferWorkbook, DATA_TRANSFER_MIME } from '../netlify/functions/
 const port = 4700 + Math.floor(Math.random() * 300)
 const baseUrl = `http://127.0.0.1:${port}`
 const password = 'FixturePass123!'
-const screenshotDirectory = 'outputs/fp-v1-data-transfer-import-rework-03a'
+const screenshotDirectory = 'outputs/fp-v1-data-transfer-export-rework-03b'
 await mkdir(screenshotDirectory, { recursive: true })
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)) }
@@ -60,10 +60,12 @@ async function prepareContext(browser, workbookBuffer, options = {}) {
   const context = await browser.newContext({ acceptDownloads: true, ...options })
   let confirmCalls = 0
   let blankCalls = 0
+  let ordinaryExportCalls = 0
   let sourceInspectCalls = 0
   let rawCalls = 0
   let inspectedTeamIds = []
   let lastInspectBody = null
+  let lastOrdinaryExportBody = null
   await context.route('**/.netlify/functions/**', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }))
   await context.route('**/.netlify/functions/data-transfer', async (route) => {
     const body = route.request().postDataJSON()
@@ -72,16 +74,23 @@ async function prepareContext(browser, workbookBuffer, options = {}) {
       await route.fulfill({ status: 200, contentType: DATA_TRANSFER_MIME, body: workbookBuffer })
       return
     }
+    if (body.operation === 'ordinary-export') {
+      ordinaryExportCalls += 1
+      lastOrdinaryExportBody = body
+      await route.fulfill({ status: 200, contentType: body.format === 'csv' ? 'text/csv;charset=utf-8' : DATA_TRANSFER_MIME, body: body.format === 'csv' ? Buffer.from('\uFEFFPlayer First Name\r\nAlex\r\n', 'utf8') : workbookBuffer })
+      return
+    }
     if (body.operation === 'scope') {
       if (!body.clubId) {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, role: 'super_admin', requiresClubSelection: true, clubs: [{ id: 'club-fixture', name: 'Fixture United', status: 'active' }], teams: [] }) })
         return
       }
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, role: 'admin', club: { id: 'club-fixture', name: 'Fixture United' }, teams: [{ id: 'team-u12', name: 'U12 Fixture Team' }], authorizedTeamIds: ['team-u12'], canManageClub: true, canManageTeams: true }) })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, role: 'admin', club: { id: 'club-fixture', name: 'Fixture United', season: '2026/27' }, teams: [{ id: 'team-u12', name: 'U12 Fixture Team', season: '2026/27' }], authorizedTeamIds: ['team-u12'], canManageClub: true, canManageTeams: true }) })
       return
     }
     if (body.operation === 'history') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, history: [{ id: 'batch-history', actor_name: 'Fixture Admin', actor_role: 'admin', scope_label: 'Club-wide', transfer_type: 'import', state: 'completed', template_version: 'FP-V1-ONBOARDING-1', workbook_name: 'fixture-upload.xlsx', counts: { create: 3, link: 1, unchanged: 1 }, warnings: [], error_summary: [], created_at: '2026-07-17T09:00:00.000Z', raw_expires_at: '2099-07-24T09:00:00.000Z', raw_available: true }] }) })
+      const exportHistory = ordinaryExportCalls ? [{ id: 'batch-export', actor_name: 'Fixture Admin', actor_role: 'admin', scope_label: 'Selected teams', transfer_type: 'export', state: 'completed', template_version: 'FP-V1-READABLE-EXPORT-1', workbook_name: lastOrdinaryExportBody.dataset === 'players_and_guardians' ? `footballplayer-online-players-and-parents.${lastOrdinaryExportBody.format}` : `footballplayer-online-players.${lastOrdinaryExportBody.format}`, counts: { exported: 1 }, warnings: [], error_summary: [], created_at: '2026-07-23T07:00:00.000Z', raw_available: false }] : []
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, history: [...exportHistory, { id: 'batch-history', actor_name: 'Fixture Admin', actor_role: 'admin', scope_label: 'Club-wide', transfer_type: 'import', state: 'completed', template_version: 'FP-V1-ONBOARDING-1', workbook_name: 'fixture-upload.xlsx', counts: { create: 3, link: 1, unchanged: 1 }, warnings: [], error_summary: [], created_at: '2026-07-17T09:00:00.000Z', raw_expires_at: '2099-07-24T09:00:00.000Z', raw_available: true }] }) })
       return
     }
     if (body.operation === 'raw-workbook') {
@@ -141,7 +150,7 @@ async function prepareContext(browser, workbookBuffer, options = {}) {
   })
   await context.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
   await context.route('**/auth/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  return { context, blankCalls: () => blankCalls, confirmCalls: () => confirmCalls, inspectedTeamIds: () => inspectedTeamIds, lastInspectBody: () => lastInspectBody, rawCalls: () => rawCalls, sourceInspectCalls: () => sourceInspectCalls }
+  return { context, blankCalls: () => blankCalls, confirmCalls: () => confirmCalls, inspectedTeamIds: () => inspectedTeamIds, lastInspectBody: () => lastInspectBody, lastOrdinaryExportBody: () => lastOrdinaryExportBody, ordinaryExportCalls: () => ordinaryExportCalls, rawCalls: () => rawCalls, sourceInspectCalls: () => sourceInspectCalls }
 }
 
 const workbookBuffer = await buildTransferWorkbook({
@@ -182,11 +191,36 @@ try {
     await rawDownload
     assert.equal(fixture.rawCalls(), 1)
 
-    await page.getByRole('button', { name: 'Blank portable workbook' }).click()
-    await page.getByText('Blank onboarding template downloaded.').waitFor()
+    await page.getByRole('button', { name: 'Download support-assisted blank structure' }).click()
+    await page.getByText('Support-assisted portable structure downloaded.').waitFor()
     assert.equal(fixture.blankCalls(), 1)
 
-    await page.locator('input[type=file]').setInputFiles({ name: 'footballplayer-online-onboarding-v1.xlsx', mimeType: DATA_TRANSFER_MIME, buffer: workbookBuffer })
+    const ordinaryDownload = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download CSV' }).click()
+    const ordinaryFile = await ordinaryDownload
+    assert.equal(ordinaryFile.suggestedFilename(), 'footballplayer-online-players.csv')
+    await page.getByText('Players CSV export downloaded.').waitFor()
+    assert.equal(fixture.ordinaryExportCalls(), 1)
+    assert.equal(fixture.lastOrdinaryExportBody().dataset, 'players')
+    assert.equal(fixture.lastOrdinaryExportBody().format, 'csv')
+    assert.equal(fixture.lastOrdinaryExportBody().recordStatus, 'active')
+    assert.equal(fixture.lastOrdinaryExportBody().season, 'all')
+    await page.getByText('footballplayer-online-players.csv').waitFor()
+    await page.getByText('Exported 1').waitFor()
+
+    await page.getByLabel('Players and parent contacts').check()
+    await page.getByLabel('Excel').check()
+    await page.getByLabel('Record status').selectOption('all')
+    await page.locator('#data-transfer-export-season').selectOption('2026/27')
+    const parentExportDownload = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download XLSX' }).click()
+    const parentExportFile = await parentExportDownload
+    assert.equal(parentExportFile.suggestedFilename(), 'footballplayer-online-players-and-parents.xlsx')
+    assert.equal(fixture.lastOrdinaryExportBody().dataset, 'players_and_guardians')
+    assert.equal(fixture.lastOrdinaryExportBody().recordStatus, 'all')
+    assert.equal(fixture.lastOrdinaryExportBody().season, '2026/27')
+
+    await page.locator('input[type=file]').setInputFiles({ name: 'footballplayer-online-portable-transfer-v1.xlsx', mimeType: DATA_TRANSFER_MIME, buffer: workbookBuffer })
     await page.getByRole('button', { name: 'Read columns and worksheets' }).click()
     await page.getByText('Advanced portable structure verified.').waitFor()
     assert.equal(fixture.sourceInspectCalls(), 1)
@@ -217,7 +251,7 @@ try {
     const csv = Buffer.from('\uFEFFPlayer First Name,Player Last Name,Date of Birth,Team\r\nAlex,Example,01/02/2014,U12 Fixture Team\r\n', 'utf8')
     await page.locator('input[type=file]').setInputFiles({ name: 'players.csv', mimeType: 'text/csv', buffer: csv })
     await page.getByRole('button', { name: 'Read columns and worksheets' }).click()
-    await page.getByRole('heading', { name: '4. Map columns and defaults' }).waitFor()
+    await page.getByRole('heading', { name: '5. Map columns and defaults' }).waitFor()
     assert.equal(await page.getByLabel('Map Player First Name').inputValue(), 'player_first_name')
     assert.equal(await page.getByLabel('Map Player Last Name').inputValue(), 'player_last_name')
     await page.getByLabel('Day / Month / Year').check()

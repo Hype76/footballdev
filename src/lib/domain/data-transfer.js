@@ -12,6 +12,11 @@ const SPREADSHEET_FORMATS = {
   xlsx: { extension: '.xlsx', mimeType: DATA_TRANSFER_MIME },
   ods: { extension: '.ods', mimeType: 'application/vnd.oasis.opendocument.spreadsheet' },
 }
+const ORDINARY_EXPORT_FILENAMES = {
+  players: 'footballplayer-online-players',
+  players_and_guardians: 'footballplayer-online-players-and-parents',
+  teams: 'footballplayer-online-teams',
+}
 
 async function accessToken() {
   if (DATA_TRANSFER_BROWSER_FIXTURES_ENABLED && window.sessionStorage.getItem('auth-access-browser-fixture-email')) {
@@ -61,13 +66,21 @@ export async function loadDataTransferScope(scope = {}) {
 
 export async function downloadDataTransferWorkbook(operation, scope = {}) {
   const blob = await dataTransferRequest(operation, scope)
-  downloadBlob(blob, 'footballplayer-online-onboarding-v1.xlsx')
+  downloadBlob(blob, 'footballplayer-online-portable-transfer-v1.xlsx')
 }
 
 export async function downloadSimpleDataTransferTemplate(format, scope = {}) {
   if (!['csv', 'xlsx', 'ods'].includes(format)) throw new Error('Choose CSV, XLSX, or ODS.')
   const blob = await dataTransferRequest('simple-template', { ...scope, format })
   downloadBlob(blob, `footballplayer-online-player-parent-template.${format}`)
+}
+
+export async function downloadOrdinaryDataTransferExport({ dataset, format, recordStatus, season }, scope = {}) {
+  if (!Object.hasOwn(ORDINARY_EXPORT_FILENAMES, dataset)) throw new Error('Choose Players, Players and parent contacts, or Teams.')
+  if (!['csv', 'xlsx', 'ods'].includes(format)) throw new Error('Choose CSV, Excel, or OpenDocument.')
+  if (!['active', 'inactive', 'all'].includes(recordStatus)) throw new Error('Choose active, inactive, or all records.')
+  const blob = await dataTransferRequest('ordinary-export', { ...scope, dataset, format, recordStatus, season: season || 'all' })
+  downloadBlob(blob, `${ORDINARY_EXPORT_FILENAMES[dataset]}.${format}`)
 }
 
 function fileToBase64(file) {
@@ -127,8 +140,8 @@ export async function downloadDataTransferErrorReport(batchId, scope = {}) {
 
 export async function downloadDataTransferRawWorkbook(batchId, filename, scope = {}) {
   const blob = await dataTransferRequest('raw-workbook', { ...scope, batchId })
-  const safeFilename = String(filename || 'footballplayer-online-onboarding-v1.xlsx').replace(/[^a-z0-9._ -]/gi, '-').slice(0, 180)
-  downloadBlob(blob, safeFilename || 'footballplayer-online-onboarding-v1.xlsx')
+  const safeFilename = String(filename || 'footballplayer-online-portable-transfer-v1.xlsx').replace(/[^a-z0-9._ -]/gi, '-').slice(0, 180)
+  downloadBlob(blob, safeFilename || 'footballplayer-online-portable-transfer-v1.xlsx')
 }
 
 export async function rollbackDataTransfer(batchId, scope = {}) {

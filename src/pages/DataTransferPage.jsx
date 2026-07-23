@@ -7,6 +7,7 @@ import {
   DATA_TRANSFER_TEMPLATE_VERSION,
   downloadDataTransferErrorReport,
   downloadDataTransferRawWorkbook,
+  downloadOrdinaryDataTransferExport,
   downloadSimpleDataTransferTemplate,
   downloadDataTransferWorkbook,
   inspectDataTransferSource,
@@ -26,6 +27,7 @@ function formatDate(value) {
 
 function formatCounts(counts = {}) {
   const values = [
+    ['Exported', counts.exported],
     ['Create', counts.create], ['Update', counts.update], ['Link', counts.link], ['Unchanged', counts.unchanged],
     ['Possible duplicate', counts.possible_duplicate], ['Conflict', counts.conflict], ['Error', counts.error],
   ].filter(([, value]) => Number(value || 0) > 0)
@@ -52,6 +54,15 @@ function ChoiceRow({ checked, description = '', disabled = false, id, label, onC
   return (
     <label htmlFor={id} className={`flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-[#cfe0d6] bg-white px-3 py-2 text-sm text-[#274437] ${disabled ? 'cursor-not-allowed opacity-55' : 'hover:border-[#80ad96] hover:bg-[#f7faf8]'}`}>
       <input id={id} type="checkbox" disabled={disabled} checked={checked} onChange={onChange} className="mt-0.5 h-4 w-4 shrink-0 accent-[#047857]" />
+      <span><span className="font-black">{label}</span>{description ? <span className="mt-0.5 block text-xs font-semibold leading-5 text-[#66756c]">{description}</span> : null}</span>
+    </label>
+  )
+}
+
+function SelectionRow({ checked, description = '', disabled = false, id, label, name, onChange, value }) {
+  return (
+    <label htmlFor={id} className={`flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border bg-white px-3 py-2 text-sm text-[#274437] ${checked ? 'border-[#047857] ring-1 ring-[#80ad96]' : 'border-[#cfe0d6]'} ${disabled ? 'cursor-not-allowed opacity-55' : 'hover:border-[#80ad96] hover:bg-[#f7faf8]'}`}>
+      <input id={id} type="radio" name={name} value={value} disabled={disabled} checked={checked} onChange={onChange} className="mt-0.5 h-4 w-4 shrink-0 accent-[#047857]" />
       <span><span className="font-black">{label}</span>{description ? <span className="mt-0.5 block text-xs font-semibold leading-5 text-[#66756c]">{description}</span> : null}</span>
     </label>
   )
@@ -92,6 +103,10 @@ export function DataTransferPage() {
   const [createPossibleDuplicates, setCreatePossibleDuplicates] = useState(false)
   const [fillBlankFields, setFillBlankFields] = useState(false)
   const [season, setSeason] = useState('')
+  const [exportDataset, setExportDataset] = useState('players')
+  const [exportFormat, setExportFormat] = useState('csv')
+  const [exportRecordStatus, setExportRecordStatus] = useState('active')
+  const [exportSeason, setExportSeason] = useState('all')
   const [updateConflicts, setUpdateConflicts] = useState(false)
   const [scope, setScope] = useState(null)
   const [scopeBusy, setScopeBusy] = useState(false)
@@ -133,6 +148,10 @@ export function DataTransferPage() {
   const namesMapped = mappedTargetFields.has('player_full_name') || (mappedTargetFields.has('player_first_name') && mappedTargetFields.has('player_last_name'))
   const dateDecisionRequired = Boolean(selectedSourceSheet?.ambiguousDateSamples?.length && mappedTargetFields.has('date_of_birth'))
   const mappingReady = Boolean(sourceInspection?.portable || (selectedSourceSheet && namesMapped && (!dateDecisionRequired || dateConvention)))
+  const exportSeasonOptions = useMemo(() => [...new Set([
+    scope?.club?.season,
+    ...(scope?.teams || []).map((team) => team.season),
+  ].filter(Boolean))].sort(), [scope])
 
   function clearSourceInspection() {
     setSourceInspection(null)
@@ -175,6 +194,7 @@ export function DataTransferPage() {
         setScopeMode(result.canManageClub ? '' : 'teams')
         setSelectedTeamIds([])
         setAllowTeamCreation(false)
+        setExportSeason('all')
         await refreshHistory(payload)
       }
     } catch (requestError) {
@@ -197,6 +217,7 @@ export function DataTransferPage() {
           setScope(result)
           setScopeMode(result.canManageClub ? '' : 'teams')
           setSelectedTeamIds([])
+          setExportSeason('all')
           const historyResult = await loadDataTransferHistory({ clubId: result.club.id })
           if (active) setHistory(historyResult.history || [])
         }
@@ -216,7 +237,7 @@ export function DataTransferPage() {
     setNotice('')
     try {
       await downloadDataTransferWorkbook(operation, scopePayload)
-      setNotice(operation === 'blank' ? 'Blank onboarding template downloaded.' : 'Authorized current-data workbook downloaded.')
+      setNotice(operation === 'blank' ? 'Support-assisted portable structure downloaded.' : 'Authorized portable transfer downloaded.')
       await refreshHistory()
     } catch (requestError) {
       setError(requestError.message)
@@ -232,6 +253,27 @@ export function DataTransferPage() {
     try {
       await downloadSimpleDataTransferTemplate(format, scopePayload)
       setNotice(`${format.toUpperCase()} player and parent template downloaded.`)
+      await refreshHistory()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setActionBusy('')
+    }
+  }
+
+  async function runOrdinaryExport() {
+    setActionBusy('ordinary-export')
+    setError('')
+    setNotice('')
+    try {
+      await downloadOrdinaryDataTransferExport({
+        dataset: exportDataset,
+        format: exportFormat,
+        recordStatus: exportRecordStatus,
+        season: exportSeason,
+      }, scopePayload)
+      const datasetLabel = exportDataset === 'players_and_guardians' ? 'Players and parent contacts' : exportDataset === 'teams' ? 'Teams' : 'Players'
+      setNotice(`${datasetLabel} ${exportFormat.toUpperCase()} export downloaded.`)
       await refreshHistory()
     } catch (requestError) {
       setError(requestError.message)
@@ -398,9 +440,67 @@ export function DataTransferPage() {
         ) : null}
       </section>
 
+      <section className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
+        <div>
+          <h2 className="text-xl font-black text-[#101828]">2. Export authorised data</h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#66756c]">Choose a readable spreadsheet for everyday use or a separate portable transfer for Footballplayer.online backup, migration, and reimport.</p>
+        </div>
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-xl border border-[#b9dfca] bg-[#f7fcf9] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Ordinary spreadsheet export</p>
+            <h3 className="mt-2 text-lg font-black text-[#101828]">Export spreadsheet</h3>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#52675c]">Create a human-readable file for Google Sheets, Excel, CSV, or OpenDocument. Ordinary exports never include platform references or internal IDs.</p>
+            <fieldset className="mt-4">
+              <legend className="text-sm font-black text-[#274437]">Dataset</legend>
+              <div className="mt-2 grid gap-2">
+                <SelectionRow id="data-transfer-export-players" name="data-transfer-export-dataset" value="players" checked={exportDataset === 'players'} onChange={(event) => setExportDataset(event.target.value)} label="Players" description="Player registration fields without parent contact details." />
+                <SelectionRow id="data-transfer-export-players-guardians" name="data-transfer-export-dataset" value="players_and_guardians" checked={exportDataset === 'players_and_guardians'} onChange={(event) => setExportDataset(event.target.value)} label="Players and parent contacts" description="Authorised player rows with linked parent or guardian contacts, including any additional contacts in a readable field." />
+                <SelectionRow id="data-transfer-export-teams" name="data-transfer-export-dataset" value="teams" checked={exportDataset === 'teams'} onChange={(event) => setExportDataset(event.target.value)} label="Teams" description="Human-readable team and season information." />
+              </div>
+            </fieldset>
+            <fieldset className="mt-4">
+              <legend className="text-sm font-black text-[#274437]">File format</legend>
+              <div className="mt-2 grid gap-2">
+                <SelectionRow id="data-transfer-export-csv" name="data-transfer-export-format" value="csv" checked={exportFormat === 'csv'} onChange={(event) => setExportFormat(event.target.value)} label="CSV" description="Works with Google Sheets and most club systems." />
+                <SelectionRow id="data-transfer-export-xlsx" name="data-transfer-export-format" value="xlsx" checked={exportFormat === 'xlsx'} onChange={(event) => setExportFormat(event.target.value)} label="Excel" description="Formatted Microsoft Excel workbook." />
+                <SelectionRow id="data-transfer-export-ods" name="data-transfer-export-format" value="ods" checked={exportFormat === 'ods'} onChange={(event) => setExportFormat(event.target.value)} label="OpenDocument" description="For LibreOffice and compatible applications." />
+              </div>
+            </fieldset>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm font-black text-[#274437]">Record status
+                <select id="data-transfer-export-status" value={exportRecordStatus} onChange={(event) => setExportRecordStatus(event.target.value)} className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3">
+                  <option value="active">Active records</option>
+                  <option value="inactive">Inactive records</option>
+                  <option value="all">Active and inactive</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm font-black text-[#274437]">Season
+                <select id="data-transfer-export-season" value={exportSeason} onChange={(event) => setExportSeason(event.target.value)} className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3">
+                  <option value="all">All authorised seasons</option>
+                  {exportSeasonOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-4">
+              <ActionButton disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={runOrdinaryExport}>{actionBusy === 'ordinary-export' ? 'Preparing export...' : `Download ${exportFormat.toUpperCase()}`}</ActionButton>
+            </div>
+          </div>
+          <div className="rounded-xl border border-[#d7e5dc] bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52675c]">Advanced option</p>
+            <h3 className="mt-2 text-lg font-black text-[#101828]">Portable Footballplayer.online transfer</h3>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#66756c]">Create a structured multi-sheet package for backup, migration, support, or reimport. Footballplayer.online generates the public references that preserve relationships. They are not database IDs and users are not expected to invent them.</p>
+            <div className="mt-4 grid gap-2">
+              <ActionButton tone="secondary" disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('export')}>{actionBusy === 'export' ? 'Preparing...' : 'Download current portable transfer'}</ActionButton>
+              <ActionButton tone="secondary" disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('blank')}>{actionBusy === 'blank' ? 'Preparing...' : 'Download support-assisted blank structure'}</ActionButton>
+            </div>
+            <p className="mt-3 rounded-lg bg-[#f7faf8] p-3 text-xs font-semibold leading-5 text-[#52675c]">Do not edit generated references unless an approved support workflow specifically requires it. Use an ordinary export when you only need a readable spreadsheet.</p>
+          </div>
+        </div>
+      </section>
+
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black text-[#101828]">2. Download a starting template</h2>
+          <h2 className="text-xl font-black text-[#101828]">3. Download a simple import template</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#66756c]">The simple player and parent templates contain familiar column names and no platform references or internal IDs.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {['xlsx', 'csv', 'ods'].map((format) => (
@@ -409,18 +509,10 @@ export function DataTransferPage() {
               </ActionButton>
             ))}
           </div>
-          <div className="mt-5 border-t border-[#d7e5dc] pt-4">
-            <p className="text-sm font-black text-[#274437]">Advanced portable workbook</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#66756c]">Use public references when preserving relationships for a controlled Footballplayer.online transfer.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <ActionButton tone="secondary" disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('blank')}>{actionBusy === 'blank' ? 'Preparing...' : 'Blank portable workbook'}</ActionButton>
-              <ActionButton tone="secondary" disabled={!scope?.club || !hasConfirmedScope || Boolean(actionBusy)} onClick={() => runDownload('export')}>{actionBusy === 'export' ? 'Preparing...' : 'Current-data portable workbook'}</ActionButton>
-            </div>
-          </div>
         </div>
 
         <div className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black text-[#101828]">3. Choose a spreadsheet</h2>
+          <h2 className="text-xl font-black text-[#101828]">4. Choose a spreadsheet</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#66756c]">The server validates the real file contents and rejects mismatched, encrypted, macro-enabled, formula-bearing, oversized, or damaged spreadsheets.</p>
           <input type="file" accept={DATA_TRANSFER_ACCEPT} onChange={(event) => { setFile(event.target.files?.[0] || null); clearSourceInspection() }} className="mt-4 block w-full rounded-lg border border-[#b8c9c0] p-3 text-sm font-semibold" />
           {file ? <p className="mt-2 text-xs font-bold text-[#52675c]">{file.name}, {Math.max(1, Math.ceil(file.size / 1024))} KB</p> : null}
@@ -432,7 +524,7 @@ export function DataTransferPage() {
         <section className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black text-[#101828]">4. Map columns and defaults</h2>
+              <h2 className="text-xl font-black text-[#101828]">5. Map columns and defaults</h2>
               <p className="mt-1 text-sm font-semibold text-[#66756c]">{sourceInspection.portable ? 'Advanced portable structure verified. Its reference-aware sheets do not need manual mapping.' : `Detected ${sourceInspection.format.toUpperCase()}. Choose one worksheet and confirm how its columns should be used.`}</p>
             </div>
             <span className="rounded-full bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857] ring-1 ring-[#a7d7c0]">{sourceInspection.portable ? 'Portable' : 'Human-readable'}</span>
@@ -528,7 +620,7 @@ export function DataTransferPage() {
       {inspection ? (
         <section className="rounded-xl border border-[#d7e5dc] bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h2 className="text-xl font-black text-[#101828]">5. Review preview</h2><p className="mt-1 text-sm font-semibold text-[#66756c]">Batch {inspection.batch.id}, {inspection.batch.format?.toUpperCase()} {inspection.batch.portable ? 'portable' : 'mapped'} import</p></div>
+            <div><h2 className="text-xl font-black text-[#101828]">6. Review preview</h2><p className="mt-1 text-sm font-semibold text-[#66756c]">Batch {inspection.batch.id}, {inspection.batch.format?.toUpperCase()} {inspection.batch.portable ? 'portable' : 'mapped'} import</p></div>
             <StatusPill value={inspection.batch.state} />
           </div>
           {inspection.errors?.length ? (

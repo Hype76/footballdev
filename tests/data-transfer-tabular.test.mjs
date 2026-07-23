@@ -50,6 +50,57 @@ function mappingFromInspection(source, sheetName = source.suggestedSheet) {
   }
 }
 
+function simpleTemplateValues() {
+  const values = {
+    'Player First Name': 'Alex',
+    'Player Last Name': 'Roundtrip',
+    'Preferred Name': 'Lex',
+    'Date of Birth': '2014-01-20',
+    Team: 'Jeluma QA U12',
+    Gender: 'Prefer not to say',
+    Section: 'Squad',
+    'Shirt Number': '007',
+    Positions: 'Defender, Midfielder',
+    'Parent or Guardian 1 First Name': 'Pat',
+    'Parent or Guardian 1 Last Name': 'Roundtrip',
+    'Parent or Guardian 1 Email': 'roundtrip-parent@example.test',
+    'Parent or Guardian 1 Phone': '07123 000001',
+    'Parent or Guardian 1 Relationship': 'Parent',
+    'Parent or Guardian 1 Primary Contact': 'Yes',
+    'Parent or Guardian 1 Receives Communications': 'No',
+    'Parent or Guardian 1 Emergency Contact': 'Yes',
+  }
+  return SIMPLE_TEMPLATE_COLUMNS.map((heading) => values[heading] || '')
+}
+
+function escapeXml(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+}
+
+async function fillSimpleTemplate(format) {
+  const template = await buildSimpleTransferTemplate(format, { scopeLabel: 'Jeluma QA FC' })
+  const values = simpleTemplateValues()
+  if (format === 'csv') {
+    const quote = (value) => /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
+    const lines = template.buffer.toString('utf8').split(/\r?\n/)
+    lines[1] = values.map(quote).join(',')
+    return { ...template, buffer: Buffer.from(lines.join('\r\n'), 'utf8') }
+  }
+  if (format === 'xlsx') {
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(template.buffer)
+    const row = workbook.getWorksheet(SIMPLE_TRANSFER_SHEET_NAME).getRow(2)
+    values.forEach((value, index) => { row.getCell(index + 1).value = value })
+    return { ...template, buffer: Buffer.from(await workbook.xlsx.writeBuffer()) }
+  }
+  const zip = await JSZip.loadAsync(template.buffer)
+  const content = await zip.file('content.xml').async('string')
+  const replacement = `<table:table-row>${values.map((value) => `<table:table-cell office:value-type="string"><text:p>${escapeXml(value)}</text:p></table:table-cell>`).join('')}</table:table-row>`
+  const tablePattern = new RegExp(`(<table:table table:name="${SIMPLE_TRANSFER_SHEET_NAME}">[\\s\\S]*?<table:table-row>[\\s\\S]*?</table:table-row>)<table:table-row>[\\s\\S]*?</table:table-row>(</table:table>)`)
+  zip.file('content.xml', content.replace(tablePattern, `$1${replacement}$2`))
+  return { ...template, buffer: Buffer.from(await zip.generateAsync({ type: 'nodebuffer' })) }
+}
+
 test('simple CSV, XLSX, and ODS templates contain familiar columns and no platform references', async () => {
   for (const format of ['csv', 'xlsx', 'ods']) {
     const template = await buildSimpleTransferTemplate(format, { scopeLabel: 'Jeluma QA FC' })
@@ -62,6 +113,27 @@ test('simple CSV, XLSX, and ODS templates contain familiar columns and no platfo
     assert.equal(inspected.format, format)
   }
   assert.equal(SIMPLE_TRANSFER_TEMPLATE_VERSION, 'FP-V1-PLAYER-PARENT-2')
+})
+
+test('filled simple CSV, XLSX, and ODS templates round trip through mapping without references or duplicate rows', async () => {
+  for (const format of ['csv', 'xlsx', 'ods']) {
+    const template = await fillSimpleTemplate(format)
+    const inspected = await inspectSpreadsheetSource(template.buffer, { fileName: template.filename, mimeType: template.mimeType })
+    const result = await mapSpreadsheetToTransferRows(template.buffer, {
+      existing,
+      fileName: template.filename,
+      importOptions: { season: '2026/27' },
+      mapping: mappingFromInspection(inspected),
+      mimeType: template.mimeType,
+      scope,
+    })
+    assert.deepEqual(result.errors, [], `${format}: ${JSON.stringify(result.errors)}`)
+    assert.equal(result.rowsBySheet.Players.length, 1)
+    assert.equal(result.rowsBySheet.Guardians.length, 1)
+    assert.equal(result.rowsBySheet['Player-Guardian Links'].length, 1)
+    assert.match(result.rowsBySheet.Players[0].transfer_reference, /^PLAYER-/)
+    assert.equal(result.rowsBySheet.Guardians[0].email, 'roundtrip-parent@example.test')
+  }
 })
 
 test('CSV and TSV parsing preserves quoted newlines, leading zeros, semicolons, and UTF-8 BOM data', async () => {

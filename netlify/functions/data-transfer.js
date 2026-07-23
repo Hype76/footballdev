@@ -16,6 +16,10 @@ import {
 } from './lib/_data-transfer-workbook.js'
 import { buildImportPlan, toWorkbookExportData } from './lib/_data-transfer-plan.js'
 import {
+  buildOrdinaryDataExport,
+  ORDINARY_EXPORT_VERSION,
+} from './lib/_data-transfer-export.js'
+import {
   buildSimpleTransferTemplate,
   inspectSpreadsheetSource,
   mapSpreadsheetToTransferRows,
@@ -122,8 +126,8 @@ async function resolveScope(actor, body, { requireClub = true, requireSelection 
   if (!clubId) throw statusError('Your account is not linked to a club.', 403, 'CLUB_SCOPE_REQUIRED')
 
   const [{ data: club, error: clubError }, { data: allTeams, error: teamsError }] = await Promise.all([
-    supabaseAdmin.from('clubs').select('id, name, status').eq('id', clubId).maybeSingle(),
-    supabaseAdmin.from('teams').select('id, club_id, name, status').eq('club_id', clubId).order('name'),
+    supabaseAdmin.from('clubs').select('id, name, season, status').eq('id', clubId).maybeSingle(),
+    supabaseAdmin.from('teams').select('id, club_id, name, season, status').eq('club_id', clubId).order('name'),
   ])
   if (clubError || !club) throw statusError('The selected club could not be loaded.', 404, 'CLUB_NOT_FOUND')
   if (teamsError) throw teamsError
@@ -156,9 +160,10 @@ async function resolveScope(actor, body, { requireClub = true, requireSelection 
     actorRole: actor.role,
     clubId,
     clubName: text(club.name),
+    clubSeason: text(club.season),
     auditReason,
     authorizedTeamIds: authorizedTeams.map((team) => team.id),
-    teams: authorizedTeams.map((team) => ({ id: team.id, name: text(team.name), status: text(team.status || 'active') })),
+    teams: authorizedTeams.map((team) => ({ id: team.id, name: text(team.name), season: text(team.season), status: text(team.status || 'active') })),
     canManageClub: canManageAllTeams,
     canManageTeams: canManageAllTeams,
     canManageAllTeams,
@@ -231,6 +236,8 @@ async function recordDownload({
   scope,
   templateVersion = DATA_TRANSFER_TEMPLATE_VERSION,
   transferType,
+  counts = {},
+  metadata = {},
 }) {
   const batchId = randomUUID()
   const now = new Date()
@@ -249,7 +256,7 @@ async function recordDownload({
     workbook_sha256: sha256(buffer),
     workbook_size_bytes: buffer.length,
     raw_expires_at: expiresAt,
-    counts: {},
+    counts,
     completed_at: now.toISOString(),
   })
   if (error) throw error
@@ -258,7 +265,7 @@ async function recordDownload({
     actor,
     batchId,
     scope,
-    metadata: { filename, mimeType, templateVersion, workbookSha256: sha256(buffer), sizeBytes: buffer.length },
+    metadata: { filename, mimeType, templateVersion, workbookSha256: sha256(buffer), sizeBytes: buffer.length, ...metadata },
   })
   return batchId
 }
@@ -268,7 +275,7 @@ async function handleScope(actor, body) {
     return response(200, { success: true, role: actor.role, requiresClubSelection: true, clubs: await listPlatformClubs(), teams: [] })
   }
   const scope = await resolveScope(actor, body)
-  return response(200, { success: true, role: actor.role, requiresAuditReason: actor.role === 'super_admin', club: { id: scope.clubId, name: scope.clubName }, teams: scope.teams, authorizedTeamIds: scope.authorizedTeamIds, canManageClub: scope.canManageClub, canManageTeams: scope.canManageTeams, isClubWideScope: scope.isClubWideScope })
+  return response(200, { success: true, role: actor.role, requiresAuditReason: actor.role === 'super_admin', club: { id: scope.clubId, name: scope.clubName, season: text(scope.clubSeason) }, teams: scope.teams, authorizedTeamIds: scope.authorizedTeamIds, canManageClub: scope.canManageClub, canManageTeams: scope.canManageTeams, isClubWideScope: scope.isClubWideScope })
 }
 
 async function handleDownload(actor, body, transferType) {
@@ -277,8 +284,53 @@ async function handleDownload(actor, body, transferType) {
   const data = existing ? toWorkbookExportData(existing, scope) : {}
   const scopeLabel = `${scope.clubName}${scope.isClubWideScope ? ' | Club-wide' : ` | ${scope.teams.map((team) => team.name).join(', ')}`}`
   const buffer = await buildTransferWorkbook({ data, mode: transferType, scopeLabel })
-  await recordDownload({ actor, buffer, scope, transferType: transferType === 'blank' ? 'blank_template' : 'export' })
+  await recordDownload({
+    actor,
+    buffer,
+    scope,
+    transferType: transferType === 'blank' ? 'blank_template' : 'export',
+    metadata: { exportKind: transferType === 'blank' ? 'portable_blank' : 'portable_transfer' },
+  })
   return fileResponse(buffer, DATA_TRANSFER_FILENAME)
+}
+
+async function handleOrdinaryExport(actor, body) {
+  const scope = await resolveScope(actor, body, { requireSelection: true })
+  const existing = await loadExisting(scope)
+  let result
+  try {
+    result = await buildOrdinaryDataExport({
+      dataset: text(body.dataset),
+      existing,
+      format: text(body.format).toLowerCase(),
+      includeGuardianContacts: ALLOWED_ROLES.has(actor.role),
+      recordStatus: text(body.recordStatus).toLowerCase() || 'active',
+      scope,
+      season: text(body.season) || 'all',
+    })
+  } catch (error) {
+    const statusCode = error.code === 'GUARDIAN_EXPORT_DENIED' ? 403 : 400
+    throw statusError(error.message, statusCode, error.code || 'ORDINARY_EXPORT_FAILED')
+  }
+  await recordDownload({
+    actor,
+    buffer: result.buffer,
+    counts: { exported: result.rowCount },
+    filename: result.filename,
+    metadata: {
+      dataset: result.dataset,
+      exportKind: 'ordinary_spreadsheet',
+      format: result.format,
+      recordStatus: text(body.recordStatus).toLowerCase() || 'active',
+      rowCount: result.rowCount,
+      season: text(body.season) || 'all',
+    },
+    mimeType: result.mimeType,
+    scope,
+    templateVersion: ORDINARY_EXPORT_VERSION,
+    transferType: 'export',
+  })
+  return fileResponse(result.buffer, result.filename, result.mimeType)
 }
 
 async function handleSimpleTemplate(actor, body) {
@@ -639,6 +691,7 @@ export async function handler(event) {
     if (operation === 'source-inspect') return handleSourceInspect(actor, body)
     if (operation === 'blank') return handleDownload(actor, body, 'blank')
     if (operation === 'export') return handleDownload(actor, body, 'export')
+    if (operation === 'ordinary-export') return handleOrdinaryExport(actor, body)
     if (operation === 'inspect') return handleInspect(actor, body)
     if (operation === 'confirm') return handleConfirm(actor, body)
     if (operation === 'history') return handleHistory(actor, body)
