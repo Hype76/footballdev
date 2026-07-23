@@ -15,10 +15,6 @@ import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import { getMatchLocationSummary } from '../lib/match-location.js'
 import {
-  EMAIL_TEMPLATE_AUDIENCES,
-  resolveMatchDayVolunteerRequestMessages,
-} from '../lib/email-templates.js'
-import {
   addStaffMatchDayEvent,
   addStaffMatchDayGoal,
   calculateArrivalTime,
@@ -30,7 +26,6 @@ import {
   getMatchDay,
   getMatchDays,
   getMatchLocations,
-  getParentEmailTemplates,
   getPlayers,
   getTeams,
   isPastMatchDayDateTime,
@@ -1866,9 +1861,6 @@ export function MatchDayPage() {
   const [teams, setTeams] = useState([])
   const [players, setPlayers] = useState([])
   const [locations, setLocations] = useState([])
-  const [volunteerRequestMessages, setVolunteerRequestMessages] = useState(
-    () => resolveMatchDayVolunteerRequestMessages(),
-  )
   const [form, setForm] = useState(EMPTY_MATCH_FORM)
   const [goalForms, setGoalForms] = useState({})
   const [matchEventForms, setMatchEventForms] = useState({})
@@ -2025,26 +2017,17 @@ export function MatchDayPage() {
   }, [])
 
   async function loadData() {
-    const [nextMatches, nextTeams, nextPlayers, nextLocations, savedVolunteerTemplates] = await Promise.all([
+    const [nextMatches, nextTeams, nextPlayers, nextLocations] = await Promise.all([
       withRequestTimeout(() => getMatchDays({ user }), 'Match Day could not be loaded.'),
       withRequestTimeout(() => getTeams(user), 'Teams could not be loaded.'),
       withRequestTimeout(() => getPlayers({ user }), 'Players could not be loaded.'),
       withRequestTimeout(() => getMatchLocations({ user }), 'Locations could not be loaded.'),
-      getParentEmailTemplates({
-        user,
-        includeDisabled: true,
-        audience: EMAIL_TEMPLATE_AUDIENCES.parent,
-      }).catch((error) => {
-        console.warn('Match Day volunteer templates could not be loaded. Safe defaults will be used.', error)
-        return []
-      }),
     ])
 
     setMatches((currentMatches) => mergeMatchDaySummaries(currentMatches, nextMatches))
     setTeams(nextTeams)
     setPlayers(nextPlayers)
     setLocations(nextLocations)
-    setVolunteerRequestMessages(resolveMatchDayVolunteerRequestMessages(savedVolunteerTemplates))
   }
 
   useEffect(() => {
@@ -2369,13 +2352,7 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      const createdMatch = await createMatchDay({
-        user,
-        match: {
-          ...form,
-          scorerRequestMessage: form.requestScorer ? volunteerRequestMessages.scorer : '',
-        },
-      })
+      const createdMatch = await createMatchDay({ user, match: form })
       const reconcileCreatedMatch = (currentMatches) => reconcileCreatedMatchDayInList(currentMatches, {
         match: createdMatch,
       })
@@ -3762,7 +3739,6 @@ export function MatchDayPage() {
           updateManualLocation={updateManualLocation}
           user={user}
           validationMessage={errorMessage}
-          volunteerRequestMessages={volunteerRequestMessages}
           onClose={closeFixtureSetup}
         />
       ) : null}
@@ -6303,7 +6279,6 @@ function FixtureSetupModal({
   updateMatchDurationPreset,
   user,
   validationMessage,
-  volunteerRequestMessages,
 }) {
   const todayMatchDayDate = getTodayMatchDayDateValue()
   const { viewportStyle, isKeyboardOpen } = useFixtureModalViewportStyle()
@@ -6530,62 +6505,44 @@ function FixtureSetupModal({
               </label>
             </div>
 
+            <label className="block">
+              <span className={labelClass}>Scorer request message</span>
+              <textarea value={form.scorerRequestMessage} onChange={(event) => updateForm({ scorerRequestMessage: event.target.value })} className={`${inputClass} min-h-24`} />
+            </label>
+
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
               <p className="text-sm font-black text-[#101828]">Parent volunteer requests</p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
-                  <label className="flex min-h-6 items-center gap-3 text-sm font-black text-[#101828]">
-                    <input
-                      id="matchday-request-scorer"
-                      type="checkbox"
-                      checked={form.requestScorer === true}
-                      onChange={(event) => updateForm({ requestScorer: event.target.checked })}
-                      className="h-5 w-5 accent-[#047857]"
-                    />
-                    Request scorer
-                  </label>
-                  {form.requestScorer === true ? (
-                    <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]" data-volunteer-request-message="scorer">
-                      {volunteerRequestMessages.scorer}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
-                  <label className="flex min-h-6 items-center gap-3 text-sm font-black text-[#101828]">
-                    <input
-                      id="matchday-request-linesman"
-                      type="checkbox"
-                      checked={form.requestLinesman === true}
-                      onChange={(event) => updateForm({ requestLinesman: event.target.checked })}
-                      className="h-5 w-5 accent-[#047857]"
-                    />
-                    Request linesman
-                  </label>
-                  {form.requestLinesman === true ? (
-                    <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]" data-volunteer-request-message="linesman">
-                      {volunteerRequestMessages.linesman}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
-                  <label className="flex min-h-6 items-center gap-3 text-sm font-black text-[#101828]">
-                    <input
-                      id="matchday-request-referee"
-                      type="checkbox"
-                      checked={form.requestReferee === true}
-                      onChange={(event) => updateForm({ requestReferee: event.target.checked })}
-                      className="h-5 w-5 accent-[#047857]"
-                    />
-                    Request referee
-                  </label>
-                  {form.requestReferee === true ? (
-                    <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]" data-volunteer-request-message="referee">
-                      {volunteerRequestMessages.referee}
-                    </p>
-                  ) : null}
-                </div>
+                <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                  <input
+                    id="matchday-request-scorer"
+                    type="checkbox"
+                    checked={form.requestScorer === true}
+                    onChange={(event) => updateForm({ requestScorer: event.target.checked })}
+                    className="h-5 w-5 accent-[#047857]"
+                  />
+                  Request scorer
+                </label>
+                <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                  <input
+                    id="matchday-request-linesman"
+                    type="checkbox"
+                    checked={form.requestLinesman === true}
+                    onChange={(event) => updateForm({ requestLinesman: event.target.checked })}
+                    className="h-5 w-5 accent-[#047857]"
+                  />
+                  Request linesman
+                </label>
+                <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                  <input
+                    id="matchday-request-referee"
+                    type="checkbox"
+                    checked={form.requestReferee === true}
+                    onChange={(event) => updateForm({ requestReferee: event.target.checked })}
+                    className="h-5 w-5 accent-[#047857]"
+                  />
+                  Request referee
+                </label>
               </div>
             </div>
 

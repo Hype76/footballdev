@@ -31,21 +31,6 @@ function isValidEmail(value) {
   return isValidInvitationEmail(value)
 }
 
-async function getVolunteerRequestTemplates(adminSupabase, match) {
-  const { data, error } = await adminSupabase
-    .from('parent_email_templates')
-    .select('template_key, audience, label, body, is_enabled, section_availability')
-    .eq('club_id', match.club_id)
-    .eq('team_id', match.team_id)
-    .eq('audience', 'parent')
-
-  if (error) {
-    throw error
-  }
-
-  return data ?? []
-}
-
 function getAppOrigin(event) {
   const host = event.headers['x-forwarded-host'] || event.headers.host || 'footballplayer.online'
   const protocol = event.headers['x-forwarded-proto'] || 'https'
@@ -236,7 +221,6 @@ async function prepareCalendarEditInvitations({
     throw playersError || linksError || requestsError || assignmentsError || queueError
   }
 
-  const volunteerTemplates = await getVolunteerRequestTemplates(adminSupabase, match)
   const playerMap = new Map((players ?? []).map((player) => [String(player.id), player]))
   const queueMap = new Map((queueRows ?? []).map((row) => [String(row.id), row]))
   const notificationMap = new Map((notifications ?? []).map((row) => [`${row.player_id}:${normalizeEmail(row.recipient_email)}`, row]))
@@ -318,7 +302,6 @@ async function prepareCalendarEditInvitations({
       recipient,
       responseUrl,
       updated: true,
-      volunteerTemplates,
     })
     const payload = {
       ...(queue?.payload || {}),
@@ -556,7 +539,6 @@ export async function handler(event) {
       throw Object.assign(new Error('Fixture was not found.'), { statusCode: 404 })
     }
 
-    const volunteerTemplates = await getVolunteerRequestTemplates(adminSupabase, match)
     const { data: players, error: playersError } = await supabase
       .from('players')
       .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
@@ -682,14 +664,7 @@ export async function handler(event) {
         })
 
         const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
-        const email = buildMatchDayActionableInvitationEmail({
-          appOrigin,
-          match,
-          player,
-          recipient: contact,
-          responseUrl,
-          volunteerTemplates,
-        })
+        const email = buildMatchDayActionableInvitationEmail({ appOrigin, match, player, recipient: contact, responseUrl })
         const payload = {
           visibleInEmailQueue: false,
           resendPayload: {
