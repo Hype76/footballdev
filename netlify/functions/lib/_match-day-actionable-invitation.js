@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../../src/lib/email-branding.js'
 import { isFixtureKickoffTimeTbc } from '../../../src/lib/calendar-datetime-integrity.js'
+import { resolveMatchDayVolunteerRequestMessages } from '../../../src/lib/email-templates.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 export function normalizeInvitationText(value) {
@@ -38,11 +39,13 @@ function formatTime(value) {
   return normalizedValue ? normalizedValue.slice(0, 5) : 'Not set'
 }
 
-export function getRequestedMatchDayRoles(match = {}) {
+export function getRequestedMatchDayRoles(match = {}, volunteerTemplates = []) {
+  const messages = resolveMatchDayVolunteerRequestMessages(volunteerTemplates)
+
   return [
-    match.request_scorer === true ? { key: 'scorer', label: 'Scorer' } : null,
-    match.request_linesman === true ? { key: 'linesman', label: 'Linesman' } : null,
-    match.request_referee === true ? { key: 'referee', label: 'Referee' } : null,
+    match.request_scorer === true ? { key: 'scorer', label: 'Scorer', message: messages.scorer } : null,
+    match.request_linesman === true ? { key: 'linesman', label: 'Linesman', message: messages.linesman } : null,
+    match.request_referee === true ? { key: 'referee', label: 'Referee', message: messages.referee } : null,
   ].filter(Boolean)
 }
 
@@ -102,6 +105,7 @@ export function buildMatchDayActionableInvitationEmail({
   recipient,
   responseUrl,
   updated = false,
+  volunteerTemplates = [],
 }) {
   const teamName = normalizeInvitationText(match.teams?.name || match.team_name || 'the team')
   const matchName = getMatchDayDisplayName({ ...match, teamName })
@@ -113,7 +117,7 @@ export function buildMatchDayActionableInvitationEmail({
     origin: appOrigin,
   })
   const mapLinksMarkup = buildEventMapLinksMarkup(normalizeInvitationText(match.venue_address || match.venue_name))
-  const requestedRoles = getRequestedMatchDayRoles(match)
+  const requestedRoles = getRequestedMatchDayRoles(match, volunteerTemplates)
   const kickoffTimeTbc = isFixtureKickoffTimeTbc(match.kickoff_time_tbc)
   const details = [
     ['Fixture', matchName],
@@ -144,7 +148,12 @@ export function buildMatchDayActionableInvitationEmail({
   `).join('')
   const volunteerHtml = roleLinks.length > 0 ? `
     <p style="margin:20px 0 10px;color:#101828;font-size:14px;font-weight:900;">Volunteer for Match Day</p>
-    ${roleLinks.map((role) => `<a href="${escapeHtml(role.url)}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 14px;border:2px solid #047857;color:#047857;text-decoration:none;border-radius:8px;font-weight:900;">Volunteer as ${escapeHtml(role.label)}</a>`).join('')}
+    ${roleLinks.map((role) => `
+      <div style="margin:0 0 14px;">
+        <p style="margin:0 0 8px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:700;">${escapeHtml(role.message)}</p>
+        <a href="${escapeHtml(role.url)}" style="display:inline-block;padding:10px 14px;border:2px solid #047857;color:#047857;text-decoration:none;border-radius:8px;font-weight:900;">Volunteer as ${escapeHtml(role.label)}</a>
+      </div>
+    `).join('')}
   ` : ''
   const updateNotice = updated
     ? 'The fixture details have been updated. Your existing response is preserved, and you can review or change it using these secure links.'
@@ -159,7 +168,7 @@ export function buildMatchDayActionableInvitationEmail({
     `Maybe: ${actionUrl('maybe')}`,
     `Unavailable: ${actionUrl('unavailable')}`,
     `Review response: ${responseUrl}`,
-    ...roleLinks.map((role) => `Volunteer as ${role.label}: ${role.url}`),
+    ...roleLinks.flatMap((role) => [role.message, `Volunteer as ${role.label}: ${role.url}`]),
     '',
     `This link is unique to ${normalizeInvitationEmail(recipient.email)}. Do not forward it.`,
   ].join('\n')
