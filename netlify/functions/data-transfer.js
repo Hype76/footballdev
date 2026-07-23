@@ -12,22 +12,8 @@ import {
   DATA_TRANSFER_TEMPLATE_VERSION,
   createPublicTransferReference,
   parseTransferWorkbook,
-  WORKBOOK_SHEET_ORDER,
 } from './lib/_data-transfer-workbook.js'
 import { buildImportPlan, toWorkbookExportData } from './lib/_data-transfer-plan.js'
-import {
-  buildOrdinaryDataExport,
-  ORDINARY_EXPORT_VERSION,
-} from './lib/_data-transfer-export.js'
-import {
-  buildSimpleTransferTemplate,
-  inspectSpreadsheetSource,
-  mapSpreadsheetToTransferRows,
-  SIMPLE_IMPORT_FIELDS,
-  SIMPLE_TRANSFER_TEMPLATE_VERSION,
-  TABULAR_FORMATS,
-} from './lib/_data-transfer-tabular.js'
-import { uploadDataTransferRawFile } from './lib/_data-transfer-storage.js'
 
 const PRIVATE_BUCKET = 'data-transfer-private'
 const ALLOWED_ROLES = new Set(['super_admin', 'admin', 'head_manager', 'manager'])
@@ -36,25 +22,19 @@ function response(statusCode, payload) {
   return { statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(payload) }
 }
 
-function fileResponse(buffer, filename, mimeType = DATA_TRANSFER_MIME) {
+function workbookResponse(buffer, filename) {
   const safeFilename = String(filename || DATA_TRANSFER_FILENAME).replace(/[\r\n"\\/]/g, '-').replace(/[^a-z0-9._ -]/gi, '-').slice(0, 180) || DATA_TRANSFER_FILENAME
   return {
     statusCode: 200,
     isBase64Encoded: true,
     headers: {
-      'Content-Type': mimeType,
+      'Content-Type': DATA_TRANSFER_MIME,
       'Content-Disposition': `attachment; filename="${safeFilename}"`,
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
     },
     body: buffer.toString('base64'),
   }
-}
-
-function mimeTypeForFilename(filename) {
-  const extension = String(filename || '').toLowerCase().match(/(\.[a-z0-9]+)$/)?.[1]
-  const format = Object.values(TABULAR_FORMATS).find((candidate) => candidate.extension === extension)
-  return format?.responseMimeType || DATA_TRANSFER_MIME
 }
 
 function text(value) {
@@ -71,47 +51,8 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex')
 }
 
-export function statusError(message, statusCode = 400, code = 'DATA_TRANSFER_ERROR') {
-  return Object.assign(new Error(message), { statusCode, code, expose: true })
-}
-
-const PAYLOAD_TOO_LARGE_CODES = new Set([
-  'COLUMN_LIMIT_EXCEEDED',
-  'ROW_LIMIT_EXCEEDED',
-  'WORKBOOK_TOO_LARGE',
-  'ZIP_ENTRY_LIMIT',
-  'ZIP_EXPANSION_LIMIT',
-])
-
-const UNSUPPORTED_OR_UNSAFE_FILE_CODES = new Set([
-  'EXTERNAL_LINK_NOT_ALLOWED',
-  'FILE_TYPE_MISMATCH',
-  'FORMULA_NOT_ALLOWED',
-  'INVALID_ODS_MIME',
-  'INVALID_ODS_PACKAGE',
-  'INVALID_UTF8',
-  'INVALID_WORKBOOK_PACKAGE',
-  'INVALID_XLSX_PACKAGE',
-  'INVALID_XLSX_SIGNATURE',
-  'INVALID_ZIP_SIGNATURE',
-  'MACRO_WORKBOOK',
-  'MIME_TYPE_MISMATCH',
-  'UNREADABLE_ODS',
-  'UNREADABLE_WORKBOOK',
-  'UNREADABLE_XLSX',
-  'UNSAFE_ODS_CONTENT',
-  'UNSAFE_TEXT_CONTENT',
-  'UNSAFE_XLSX_CONTENT',
-  'UNSUPPORTED_FILE_EXTENSION',
-  'UNSUPPORTED_STORAGE_FORMAT',
-  'UNSUPPORTED_STORAGE_MIME',
-  'UNSUPPORTED_ZIP_SPREADSHEET',
-])
-
-function spreadsheetErrorStatus(error, fallback = 422) {
-  if (PAYLOAD_TOO_LARGE_CODES.has(error?.code)) return 413
-  if (UNSUPPORTED_OR_UNSAFE_FILE_CODES.has(error?.code)) return 415
-  return fallback
+function statusError(message, statusCode = 400, code = 'DATA_TRANSFER_ERROR') {
+  return Object.assign(new Error(message), { statusCode, code })
 }
 
 function parseBody(event) {
@@ -166,8 +107,8 @@ async function resolveScope(actor, body, { requireClub = true, requireSelection 
   if (!clubId) throw statusError('Your account is not linked to a club.', 403, 'CLUB_SCOPE_REQUIRED')
 
   const [{ data: club, error: clubError }, { data: allTeams, error: teamsError }] = await Promise.all([
-    supabaseAdmin.from('clubs').select('id, name, season, status').eq('id', clubId).maybeSingle(),
-    supabaseAdmin.from('teams').select('id, club_id, name, season, status').eq('club_id', clubId).order('name'),
+    supabaseAdmin.from('clubs').select('id, name, status').eq('id', clubId).maybeSingle(),
+    supabaseAdmin.from('teams').select('id, club_id, name, status').eq('club_id', clubId).order('name'),
   ])
   if (clubError || !club) throw statusError('The selected club could not be loaded.', 404, 'CLUB_NOT_FOUND')
   if (teamsError) throw teamsError
@@ -200,10 +141,9 @@ async function resolveScope(actor, body, { requireClub = true, requireSelection 
     actorRole: actor.role,
     clubId,
     clubName: text(club.name),
-    clubSeason: text(club.season),
     auditReason,
     authorizedTeamIds: authorizedTeams.map((team) => team.id),
-    teams: authorizedTeams.map((team) => ({ id: team.id, name: text(team.name), season: text(team.season), status: text(team.status || 'active') })),
+    teams: authorizedTeams.map((team) => ({ id: team.id, name: text(team.name), status: text(team.status || 'active') })),
     canManageClub: canManageAllTeams,
     canManageTeams: canManageAllTeams,
     canManageAllTeams,
@@ -268,17 +208,7 @@ async function insertAudit({ action, actor, batchId = null, metadata = {}, scope
   if (error) throw error
 }
 
-async function recordDownload({
-  actor,
-  buffer,
-  filename = DATA_TRANSFER_FILENAME,
-  mimeType = DATA_TRANSFER_MIME,
-  scope,
-  templateVersion = DATA_TRANSFER_TEMPLATE_VERSION,
-  transferType,
-  counts = {},
-  metadata = {},
-}) {
+async function recordDownload({ actor, buffer, scope, transferType }) {
   const batchId = randomUUID()
   const now = new Date()
   const expiresAt = new Date(now.getTime() + DATA_TRANSFER_RAW_RETENTION_DAYS * 86400000).toISOString()
@@ -291,22 +221,16 @@ async function recordDownload({
     audit_reason: scope.auditReason || null,
     transfer_type: transferType,
     state: 'completed',
-    template_version: templateVersion,
-    workbook_name: filename,
+    template_version: DATA_TRANSFER_TEMPLATE_VERSION,
+    workbook_name: DATA_TRANSFER_FILENAME,
     workbook_sha256: sha256(buffer),
     workbook_size_bytes: buffer.length,
     raw_expires_at: expiresAt,
-    counts,
+    counts: {},
     completed_at: now.toISOString(),
   })
   if (error) throw error
-  await insertAudit({
-    action: `data_transfer_${transferType}_downloaded`,
-    actor,
-    batchId,
-    scope,
-    metadata: { filename, mimeType, templateVersion, workbookSha256: sha256(buffer), sizeBytes: buffer.length, ...metadata },
-  })
+  await insertAudit({ action: `data_transfer_${transferType}_downloaded`, actor, batchId, scope, metadata: { workbookSha256: sha256(buffer), sizeBytes: buffer.length } })
   return batchId
 }
 
@@ -315,7 +239,7 @@ async function handleScope(actor, body) {
     return response(200, { success: true, role: actor.role, requiresClubSelection: true, clubs: await listPlatformClubs(), teams: [] })
   }
   const scope = await resolveScope(actor, body)
-  return response(200, { success: true, role: actor.role, requiresAuditReason: actor.role === 'super_admin', club: { id: scope.clubId, name: scope.clubName, season: text(scope.clubSeason) }, teams: scope.teams, authorizedTeamIds: scope.authorizedTeamIds, canManageClub: scope.canManageClub, canManageTeams: scope.canManageTeams, isClubWideScope: scope.isClubWideScope })
+  return response(200, { success: true, role: actor.role, requiresAuditReason: actor.role === 'super_admin', club: { id: scope.clubId, name: scope.clubName }, teams: scope.teams, authorizedTeamIds: scope.authorizedTeamIds, canManageClub: scope.canManageClub, canManageTeams: scope.canManageTeams, isClubWideScope: scope.isClubWideScope })
 }
 
 async function handleDownload(actor, body, transferType) {
@@ -324,112 +248,8 @@ async function handleDownload(actor, body, transferType) {
   const data = existing ? toWorkbookExportData(existing, scope) : {}
   const scopeLabel = `${scope.clubName}${scope.isClubWideScope ? ' | Club-wide' : ` | ${scope.teams.map((team) => team.name).join(', ')}`}`
   const buffer = await buildTransferWorkbook({ data, mode: transferType, scopeLabel })
-  await recordDownload({
-    actor,
-    buffer,
-    scope,
-    transferType: transferType === 'blank' ? 'blank_template' : 'export',
-    metadata: { exportKind: transferType === 'blank' ? 'portable_blank' : 'portable_transfer' },
-  })
-  return fileResponse(buffer, DATA_TRANSFER_FILENAME)
-}
-
-async function handleOrdinaryExport(actor, body) {
-  const scope = await resolveScope(actor, body, { requireSelection: true })
-  const existing = await loadExisting(scope)
-  let result
-  try {
-    result = await buildOrdinaryDataExport({
-      dataset: text(body.dataset),
-      existing,
-      format: text(body.format).toLowerCase(),
-      includeGuardianContacts: ALLOWED_ROLES.has(actor.role),
-      recordStatus: text(body.recordStatus).toLowerCase() || 'active',
-      scope,
-      season: text(body.season) || 'all',
-    })
-  } catch (error) {
-    const statusCode = error.code === 'GUARDIAN_EXPORT_DENIED' ? 403 : 400
-    throw statusError(error.message, statusCode, error.code || 'ORDINARY_EXPORT_FAILED')
-  }
-  await recordDownload({
-    actor,
-    buffer: result.buffer,
-    counts: { exported: result.rowCount },
-    filename: result.filename,
-    metadata: {
-      dataset: result.dataset,
-      exportKind: 'ordinary_spreadsheet',
-      format: result.format,
-      recordStatus: text(body.recordStatus).toLowerCase() || 'active',
-      rowCount: result.rowCount,
-      season: text(body.season) || 'all',
-    },
-    mimeType: result.mimeType,
-    scope,
-    templateVersion: ORDINARY_EXPORT_VERSION,
-    transferType: 'export',
-  })
-  return fileResponse(result.buffer, result.filename, result.mimeType)
-}
-
-async function handleSimpleTemplate(actor, body) {
-  const scope = await resolveScope(actor, body, { requireSelection: true })
-  const format = text(body.format).toLowerCase()
-  const scopeLabel = `${scope.clubName}${scope.isClubWideScope ? ' | Club-wide' : ` | ${scope.teams.map((team) => team.name).join(', ')}`}`
-  const result = await buildSimpleTransferTemplate(format, { scopeLabel })
-  await recordDownload({
-    actor,
-    buffer: result.buffer,
-    filename: result.filename,
-    mimeType: result.mimeType,
-    scope,
-    templateVersion: SIMPLE_TRANSFER_TEMPLATE_VERSION,
-    transferType: 'blank_template',
-  })
-  return fileResponse(result.buffer, result.filename, result.mimeType)
-}
-
-function readUploadedBuffer(body) {
-  const base64 = text(body.workbookBase64)
-  if (!base64) throw statusError('Choose a CSV, TSV, XLSX, or ODS spreadsheet.', 400, 'WORKBOOK_REQUIRED')
-  const buffer = Buffer.from(base64, 'base64')
-  if (!buffer.length) throw statusError('Choose a non-empty spreadsheet file.', 400, 'EMPTY_SPREADSHEET')
-  if (buffer.length > DATA_TRANSFER_MAX_BYTES) throw statusError('The spreadsheet exceeds the 4 MB upload limit.', 413, 'WORKBOOK_TOO_LARGE')
-  return buffer
-}
-
-function isPortableWorkbook(source) {
-  return source.format === 'xlsx'
-    && JSON.stringify(source.sheets.map((sheet) => sheet.name)) === JSON.stringify(WORKBOOK_SHEET_ORDER)
-}
-
-async function handleSourceInspect(actor, body) {
-  const scope = await resolveScope(actor, body, { requireSelection: true })
-  const buffer = readUploadedBuffer(body)
-  const fileName = text(body.fileName)
-  const mimeType = text(body.mimeType)
-  let source
-  try {
-    source = await inspectSpreadsheetSource(buffer, { fileName, mimeType })
-  } catch (error) {
-    throw statusError(error.message, spreadsheetErrorStatus(error), error.code || 'WORKBOOK_REJECTED')
-  }
-  const portable = isPortableWorkbook(source)
-  return response(200, {
-    success: true,
-    format: source.format,
-    fields: SIMPLE_IMPORT_FIELDS.map((field) => ({
-      key: field.key,
-      label: field.label,
-      transformation: field.transformation || 'trim',
-    })),
-    portable,
-    sheets: source.sheets,
-    suggestedSheet: source.suggestedSheet,
-    teams: scope.teams,
-    workbookSha256: sha256(buffer),
-  })
+  await recordDownload({ actor, buffer, scope, transferType: transferType === 'blank' ? 'blank_template' : 'export' })
+  return workbookResponse(buffer, DATA_TRANSFER_FILENAME)
 }
 
 async function handleInspect(actor, body) {
@@ -443,50 +263,20 @@ async function handleInspect(actor, body) {
     updateConflicts: body.updateConflicts === true,
   }
   if (importOptions.importMode !== 'additive') throw statusError('Only the additive V1 import mode is supported.', 400, 'IMPORT_MODE_UNSUPPORTED')
-  const buffer = readUploadedBuffer(body)
-  const fileName = text(body.fileName)
-  const mimeType = text(body.mimeType)
-  let source
-  try {
-    source = await inspectSpreadsheetSource(buffer, { fileName, mimeType })
-  } catch (error) {
-    throw statusError(error.message, spreadsheetErrorStatus(error), error.code || 'WORKBOOK_REJECTED')
-  }
-  const portable = isPortableWorkbook(source)
-  importOptions.planningMode = portable ? 'portable' : 'ordinary'
+  if (text(body.mimeType) && text(body.mimeType) !== DATA_TRANSFER_MIME) throw statusError('Only XLSX workbooks are supported.', 415, 'UNSUPPORTED_MEDIA_TYPE')
+  const base64 = text(body.workbookBase64)
+  if (!base64) throw statusError('Choose an XLSX workbook to inspect.', 400, 'WORKBOOK_REQUIRED')
+  const buffer = Buffer.from(base64, 'base64')
+  if (buffer.length > DATA_TRANSFER_MAX_BYTES) throw statusError('The workbook exceeds the 4 MB upload limit.', 413, 'WORKBOOK_TOO_LARGE')
   const workbookSha256 = sha256(buffer)
   const batchId = randomUUID()
-  const storagePath = `${scope.clubId}/${batchId}${TABULAR_FORMATS[source.format].extension}`
+  const storagePath = `${scope.clubId}/${batchId}.xlsx`
   const expiresAt = new Date(Date.now() + DATA_TRANSFER_RAW_RETENTION_DAYS * 86400000).toISOString()
   let parsed
   try {
-    if (portable) {
-      parsed = await parseTransferWorkbook(buffer)
-      parsed.sourceMetadata = {
-        format: source.format,
-        planningMode: 'portable',
-        portable: true,
-        selectedSeason: importOptions.season,
-        sheetName: null,
-      }
-    } else {
-      const existing = await loadExisting(scope)
-      parsed = await mapSpreadsheetToTransferRows(buffer, {
-        existing,
-        fileName,
-        importOptions,
-        mapping: body.mapping || {},
-        mimeType,
-        scope,
-      })
-    }
+    parsed = await parseTransferWorkbook(buffer)
   } catch (error) {
-    parsed = {
-      templateVersion: portable ? DATA_TRANSFER_TEMPLATE_VERSION : SIMPLE_TRANSFER_TEMPLATE_VERSION,
-      rowsBySheet: {},
-      errors: [{ sheet: '', row: 0, column: '', code: error.code || 'WORKBOOK_REJECTED', message: error.message }],
-      sourceMetadata: { format: source.format, portable },
-    }
+    parsed = { templateVersion: DATA_TRANSFER_TEMPLATE_VERSION, rowsBySheet: {}, errors: [{ sheet: '', row: 0, column: '', code: error.code || 'WORKBOOK_REJECTED', message: error.message }] }
   }
   let planResult = { plan: null, planSha256: '', counts: { total: 0, error: parsed.errors.length }, errors: [], warnings: [], rowResults: [] }
   if (Object.keys(parsed.rowsBySheet).length) {
@@ -497,16 +287,7 @@ async function handleInspect(actor, body) {
   const state = errors.length ? 'invalid' : 'ready_for_review'
   const confirmationToken = errors.length ? '' : randomUUID()
   const confirmationSha256 = confirmationToken ? sha256(confirmationToken) : null
-  const {
-    contentType: storageMimeType,
-    error: uploadError,
-  } = await uploadDataTransferRawFile({
-    bucketName: PRIVATE_BUCKET,
-    buffer,
-    format: source.format,
-    path: storagePath,
-    storage: supabaseAdmin.storage,
-  })
+  const { error: uploadError } = await supabaseAdmin.storage.from(PRIVATE_BUCKET).upload(storagePath, buffer, { contentType: DATA_TRANSFER_MIME, upsert: false })
   if (uploadError) throw uploadError
   const { error: batchError } = await supabaseAdmin.from('data_transfer_batches').insert({
     id: batchId,
@@ -518,20 +299,12 @@ async function handleInspect(actor, body) {
     transfer_type: 'import',
     state,
     template_version: parsed.templateVersion || DATA_TRANSFER_TEMPLATE_VERSION,
-    workbook_name: fileName || `data-transfer-import${TABULAR_FORMATS[source.format].extension}`,
+    workbook_name: text(body.fileName) || DATA_TRANSFER_FILENAME,
     workbook_sha256: workbookSha256,
     workbook_size_bytes: buffer.length,
     storage_path: storagePath,
     raw_expires_at: expiresAt,
-    options: {
-      ...importOptions,
-      source: {
-        ...parsed.sourceMetadata,
-        detectedMimeType: mimeType || null,
-        storageMimeType,
-      },
-      teamIds: scope.authorizedTeamIds,
-    },
+    options: { ...importOptions, teamIds: scope.authorizedTeamIds },
     plan: planResult.plan,
     plan_sha256: planResult.planSha256 || null,
     confirmation_sha256: confirmationSha256,
@@ -547,38 +320,10 @@ async function handleInspect(actor, body) {
     const { error: rowsError } = await supabaseAdmin.from('data_transfer_row_results').insert(planResult.rowResults.map((row) => ({ ...row, batch_id: batchId })))
     if (rowsError) throw rowsError
   }
-  await insertAudit({
-    action: errors.length ? 'data_transfer_inspection_invalid' : 'data_transfer_preview_ready',
-    actor,
-    batchId,
-    scope,
-    metadata: {
-      workbookSha256,
-      counts: planResult.counts,
-      errorCount: errors.length,
-      format: source.format,
-      planningMode: importOptions.planningMode,
-      portable,
-      selectedSeason: importOptions.season,
-      source: {
-        ...parsed.sourceMetadata,
-        detectedMimeType: mimeType || null,
-        storageMimeType,
-      },
-    },
-  })
+  await insertAudit({ action: errors.length ? 'data_transfer_inspection_invalid' : 'data_transfer_preview_ready', actor, batchId, scope, metadata: { workbookSha256, counts: planResult.counts, errorCount: errors.length } })
   return response(200, {
     success: true,
-    batch: {
-      id: batchId,
-      state,
-      workbookSha256,
-      templateVersion: parsed.templateVersion,
-      expiresAt,
-      counts: planResult.counts,
-      format: source.format,
-      portable,
-    },
+    batch: { id: batchId, state, workbookSha256, templateVersion: parsed.templateVersion, expiresAt, counts: planResult.counts },
     confirmationToken,
     errors,
     warnings: planResult.warnings,
@@ -712,7 +457,7 @@ async function handleErrorReport(actor, body) {
   ]
   const buffer = await buildErrorWorkbook(reportEntries)
   await insertAudit({ action: 'data_transfer_error_report_downloaded', actor, batchId: batch.id, scope, metadata: { errorCount: batch.error_summary?.length || 0, warningCount: batch.warnings?.length || 0 } })
-  return fileResponse(buffer, `footballplayer-online-import-errors-${batch.id}.xlsx`, DATA_TRANSFER_MIME)
+  return workbookResponse(buffer, `footballplayer-online-import-errors-${batch.id}.xlsx`)
 }
 
 async function handleRawWorkbook(actor, body) {
@@ -725,7 +470,7 @@ async function handleRawWorkbook(actor, body) {
   const buffer = Buffer.from(await data.arrayBuffer())
   if (sha256(buffer) !== batch.workbook_sha256) throw statusError('The retained raw workbook failed its integrity check.', 409, 'RAW_WORKBOOK_INTEGRITY_FAILED')
   await insertAudit({ action: 'data_transfer_raw_workbook_downloaded', actor, batchId: batch.id, scope, metadata: { workbookSha256: batch.workbook_sha256, rawExpiresAt: batch.raw_expires_at } })
-  return fileResponse(buffer, batch.workbook_name || DATA_TRANSFER_FILENAME, mimeTypeForFilename(batch.workbook_name))
+  return workbookResponse(buffer, batch.workbook_name || DATA_TRANSFER_FILENAME)
 }
 
 async function handleRollback(actor, body) {
@@ -738,61 +483,26 @@ async function handleRollback(actor, body) {
   return response(200, { success: true, result: data })
 }
 
-const DEFAULT_OPERATION_HANDLERS = Object.freeze({
-  blank: (actor, body) => handleDownload(actor, body, 'blank'),
-  confirm: handleConfirm,
-  details: handleDetails,
-  'error-report': handleErrorReport,
-  export: (actor, body) => handleDownload(actor, body, 'export'),
-  history: handleHistory,
-  inspect: handleInspect,
-  'ordinary-export': handleOrdinaryExport,
-  'raw-workbook': handleRawWorkbook,
-  rollback: handleRollback,
-  scope: handleScope,
-  'simple-template': handleSimpleTemplate,
-  'source-inspect': handleSourceInspect,
-})
-
-export function createDataTransferHandler({
-  authenticateRequest = authenticate,
-  logger = console,
-  operationHandlers = DEFAULT_OPERATION_HANDLERS,
-} = {}) {
-  return async function dataTransferHandler(event) {
-    if (event.httpMethod !== 'POST') {
-      return response(405, { ok: false, success: false, code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed.' })
-    }
-    let operation = 'unknown'
-    try {
-      const body = parseBody(event)
-      operation = text(body.operation)
-      const actor = await authenticateRequest(event)
-      const operationHandler = operationHandlers[operation]
-      if (typeof operationHandler !== 'function') {
-        throw statusError('Unknown Data Transfer operation.', 400, 'UNKNOWN_OPERATION')
-      }
-      return await operationHandler(actor, body)
-    } catch (error) {
-      const expected = error?.expose === true
-        && Number.isInteger(error.statusCode)
-        && error.statusCode >= 400
-        && error.statusCode < 500
-      const statusCode = expected ? error.statusCode : 500
-      const code = expected ? error.code || 'DATA_TRANSFER_ERROR' : 'DATA_TRANSFER_FAILED'
-      logger.error('Data Transfer request failed', { operation, code, statusCode })
-      return response(statusCode, {
-        ok: false,
-        success: false,
-        code,
-        message: expected ? error.message : 'Data Transfer could not complete the request.',
-      })
-    }
-  }
-}
-
-const dataTransferHandler = createDataTransferHandler()
-
 export async function handler(event) {
-  return await dataTransferHandler(event)
+  if (event.httpMethod !== 'POST') return response(405, { success: false, code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed.' })
+  let operation = 'unknown'
+  try {
+    const body = parseBody(event)
+    operation = text(body.operation)
+    const actor = await authenticate(event)
+    if (operation === 'scope') return handleScope(actor, body)
+    if (operation === 'blank') return handleDownload(actor, body, 'blank')
+    if (operation === 'export') return handleDownload(actor, body, 'export')
+    if (operation === 'inspect') return handleInspect(actor, body)
+    if (operation === 'confirm') return handleConfirm(actor, body)
+    if (operation === 'history') return handleHistory(actor, body)
+    if (operation === 'details') return handleDetails(actor, body)
+    if (operation === 'error-report') return handleErrorReport(actor, body)
+    if (operation === 'raw-workbook') return handleRawWorkbook(actor, body)
+    if (operation === 'rollback') return handleRollback(actor, body)
+    throw statusError('Unknown Data Transfer operation.', 400, 'UNKNOWN_OPERATION')
+  } catch (error) {
+    console.error('Data Transfer request failed', { operation, code: error.code || 'UNEXPECTED_ERROR', statusCode: error.statusCode || 500 })
+    return response(error.statusCode || 500, { success: false, code: error.code || 'DATA_TRANSFER_FAILED', message: error.message || 'Data Transfer could not complete the request.' })
+  }
 }

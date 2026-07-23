@@ -23,7 +23,7 @@ const sampleData = {
 test('fixed V1 workbook round trips with the exact sheet order and values', async () => {
   const buffer = await buildTransferWorkbook({ data: sampleData, mode: 'export', scopeLabel: 'Jeluma QA FC' })
   const parsed = await parseTransferWorkbook(buffer)
-  assert.equal(DATA_TRANSFER_FILENAME, 'footballplayer-online-portable-transfer-v1.xlsx')
+  assert.equal(DATA_TRANSFER_FILENAME, 'footballplayer-online-onboarding-v1.xlsx')
   assert.equal(parsed.templateVersion, DATA_TRANSFER_TEMPLATE_VERSION)
   assert.deepEqual(parsed.errors, [])
   assert.equal(parsed.rowsBySheet.Players[0].team_reference, 'TEAM-U12')
@@ -40,10 +40,6 @@ test('fixed V1 workbook round trips with the exact sheet order and values', asyn
   assert.equal(workbook.getWorksheet('Players').getCell('A5001').protection.locked, false)
   assert.equal(workbook.getWorksheet('Players').getCell('G5001').dataValidation.type, 'list')
   assert.equal(workbook.getWorksheet('Player-Guardian Links').getCell('C10001').dataValidation.type, 'list')
-  const instructions = workbook.getWorksheet('Instructions')
-  assert.equal(instructions.getCell('A1').value, 'Footballplayer.online Portable Transfer')
-  assert.match(String(instructions.getCell('B6').value), /Footballplayer\.online generates public transfer references/)
-  assert.match(String(instructions.getCell('B6').value), /Do not invent or edit them/)
 })
 
 test('documented UK, ISO, Excel-cell, and serial dates parse without guessing', async () => {

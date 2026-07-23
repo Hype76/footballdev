@@ -1,21 +1,9 @@
 import { supabase } from '../supabase-client.js'
-import {
-  DATA_TRANSFER_ACCEPT as FORMAT_ACCEPT,
-  DATA_TRANSFER_FORMATS,
-  DATA_TRANSFER_MAX_BYTES as FORMAT_MAX_BYTES,
-} from '../data-transfer-formats.js'
 
-export const DATA_TRANSFER_MAX_BYTES = FORMAT_MAX_BYTES
-export const DATA_TRANSFER_MIME = DATA_TRANSFER_FORMATS.xlsx.responseMimeType
+export const DATA_TRANSFER_MAX_BYTES = 4 * 1024 * 1024
+export const DATA_TRANSFER_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 export const DATA_TRANSFER_TEMPLATE_VERSION = 'FP-V1-ONBOARDING-1'
-export const SIMPLE_DATA_TRANSFER_TEMPLATE_VERSION = 'FP-V1-PLAYER-PARENT-2'
-export const DATA_TRANSFER_ACCEPT = FORMAT_ACCEPT
 const DATA_TRANSFER_BROWSER_FIXTURES_ENABLED = import.meta.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES === 'true'
-const ORDINARY_EXPORT_FILENAMES = {
-  players: 'footballplayer-online-players',
-  players_and_guardians: 'footballplayer-online-players-and-parents',
-  teams: 'footballplayer-online-teams',
-}
 
 async function accessToken() {
   if (DATA_TRANSFER_BROWSER_FIXTURES_ENABLED && window.sessionStorage.getItem('auth-access-browser-fixture-email')) {
@@ -65,21 +53,7 @@ export async function loadDataTransferScope(scope = {}) {
 
 export async function downloadDataTransferWorkbook(operation, scope = {}) {
   const blob = await dataTransferRequest(operation, scope)
-  downloadBlob(blob, 'footballplayer-online-portable-transfer-v1.xlsx')
-}
-
-export async function downloadSimpleDataTransferTemplate(format, scope = {}) {
-  if (!['csv', 'xlsx', 'ods'].includes(format)) throw new Error('Choose CSV, XLSX, or ODS.')
-  const blob = await dataTransferRequest('simple-template', { ...scope, format })
-  downloadBlob(blob, `footballplayer-online-player-parent-template.${format}`)
-}
-
-export async function downloadOrdinaryDataTransferExport({ dataset, format, recordStatus, season }, scope = {}) {
-  if (!Object.hasOwn(ORDINARY_EXPORT_FILENAMES, dataset)) throw new Error('Choose Players, Players and parent contacts, or Teams.')
-  if (!['csv', 'xlsx', 'ods'].includes(format)) throw new Error('Choose CSV, Excel, or OpenDocument.')
-  if (!['active', 'inactive', 'all'].includes(recordStatus)) throw new Error('Choose active, inactive, or all records.')
-  const blob = await dataTransferRequest('ordinary-export', { ...scope, dataset, format, recordStatus, season: season || 'all' })
-  downloadBlob(blob, `${ORDINARY_EXPORT_FILENAMES[dataset]}.${format}`)
+  downloadBlob(blob, 'footballplayer-online-onboarding-v1.xlsx')
 }
 
 function fileToBase64(file) {
@@ -92,32 +66,16 @@ function fileToBase64(file) {
 }
 
 export async function inspectDataTransferWorkbook(file, scope = {}) {
-  validateSpreadsheetFile(file)
+  if (!file) throw new Error('Choose an XLSX workbook first.')
+  if (!String(file.name || '').toLowerCase().endsWith('.xlsx')) throw new Error('Choose a file with the .xlsx extension.')
+  if (file.type && file.type !== DATA_TRANSFER_MIME) throw new Error('Only an XLSX workbook is supported.')
+  if (file.size > DATA_TRANSFER_MAX_BYTES) throw new Error('The workbook exceeds the 4 MB upload limit.')
   return dataTransferRequest('inspect', {
     ...scope,
     fileName: file.name,
     mimeType: file.type || DATA_TRANSFER_MIME,
     workbookBase64: await fileToBase64(file),
   })
-}
-
-export async function inspectDataTransferSource(file, scope = {}) {
-  validateSpreadsheetFile(file)
-  return dataTransferRequest('source-inspect', {
-    ...scope,
-    fileName: file.name,
-    mimeType: file.type || '',
-    workbookBase64: await fileToBase64(file),
-  })
-}
-
-function validateSpreadsheetFile(file) {
-  if (!file) throw new Error('Choose a CSV, TSV, XLSX, or ODS spreadsheet first.')
-  const extension = String(file.name || '').toLowerCase().match(/(\.[a-z0-9]+)$/)?.[1] || ''
-  if (!Object.values(DATA_TRANSFER_FORMATS).some((format) => format.extension === extension)) {
-    throw new Error('Choose a file with a .csv, .tsv, .xlsx, or .ods extension.')
-  }
-  if (file.size > DATA_TRANSFER_MAX_BYTES) throw new Error('The spreadsheet exceeds the 4 MB upload limit.')
 }
 
 export async function confirmDataTransfer(payload) {
@@ -139,8 +97,8 @@ export async function downloadDataTransferErrorReport(batchId, scope = {}) {
 
 export async function downloadDataTransferRawWorkbook(batchId, filename, scope = {}) {
   const blob = await dataTransferRequest('raw-workbook', { ...scope, batchId })
-  const safeFilename = String(filename || 'footballplayer-online-portable-transfer-v1.xlsx').replace(/[^a-z0-9._ -]/gi, '-').slice(0, 180)
-  downloadBlob(blob, safeFilename || 'footballplayer-online-portable-transfer-v1.xlsx')
+  const safeFilename = String(filename || 'footballplayer-online-onboarding-v1.xlsx').replace(/[^a-z0-9._ -]/gi, '-').slice(0, 180)
+  downloadBlob(blob, safeFilename || 'footballplayer-online-onboarding-v1.xlsx')
 }
 
 export async function rollbackDataTransfer(batchId, scope = {}) {
