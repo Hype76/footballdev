@@ -874,7 +874,7 @@ function PlatformNav({ canAccessPlatformFeedback, onClose }) {
   const items = [
     { label: 'Platform Admin', path: '/platform-admin', helper: 'System overview' },
     { label: 'Club Management', path: '/platform-clubs', helper: 'Club records' },
-    { label: 'Data Transfer', path: '/data-transfer', helper: 'Import and export club spreadsheets' },
+    { label: 'Data Transfer', path: '/data-transfer', helper: 'Controlled XLSX onboarding' },
     { label: 'Billing Options', path: '/platform-billing-options', helper: 'Plans and coupons' },
     ...(canAccessPlatformFeedback ? [{ label: 'Platform Feedback', path: '/platform-feedback', helper: 'Requests and issues' }] : []),
   ]
