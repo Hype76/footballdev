@@ -139,6 +139,85 @@ test('populated updates, blank fills, and team creation require explicit import 
   assert.equal(approved.plan.teams.at(-1).action, 'create')
 })
 
+test('ordinary imports treat authorised null-season club and team records as immutable scope anchors', () => {
+  const { existing, rowsBySheet } = fixture()
+  existing.club.season = null
+  existing.teams[0].season = null
+  rowsBySheet['Club Details'][0].season = '2026/27'
+  rowsBySheet.Teams[0].season = '2026/27'
+  const result = buildImportPlan({
+    actorScope: {
+      authorizedTeamIds: ['team-1'],
+      canManageAllTeams: false,
+      canManageClub: false,
+      canManageTeams: false,
+      isClubWideScope: false,
+    },
+    existing,
+    importOptions: {
+      ...approvedImportOptions,
+      planningMode: 'ordinary',
+    },
+    rowsBySheet,
+  })
+
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.plan.context.planning_mode, 'ordinary')
+  assert.equal(result.plan.context.selected_season, '2026/27')
+  assert.equal(result.plan.club.action, 'unchanged')
+  assert.equal(result.plan.club.values.season, '')
+  assert.equal(result.plan.teams[0].action, 'unchanged')
+  assert.equal(result.plan.teams[0].values.season, '')
+  assert.equal(result.counts.update, 0)
+  assert.equal(result.counts.conflict, 0)
+})
+
+test('portable transfers retain structural season conflict and update semantics', () => {
+  const { existing, rowsBySheet } = fixture()
+  existing.club.season = null
+  existing.teams[0].season = null
+  rowsBySheet['Club Details'][0].season = '2026/27'
+  rowsBySheet.Teams[0].season = '2026/27'
+
+  const blocked = buildImportPlan({
+    actorScope: {
+      authorizedTeamIds: ['team-1'],
+      canManageAllTeams: true,
+      canManageClub: true,
+      canManageTeams: true,
+      isClubWideScope: false,
+    },
+    existing,
+    importOptions: {
+      planningMode: 'portable',
+      season: '2026/27',
+    },
+    rowsBySheet,
+  })
+  assert.ok(blocked.errors.some((error) => error.code === 'FIELD_CONFLICT_REQUIRES_CONFIRMATION'))
+  assert.equal(blocked.plan.club.action, 'conflict')
+  assert.equal(blocked.plan.teams[0].action, 'conflict')
+
+  const approved = buildImportPlan({
+    actorScope: {
+      authorizedTeamIds: ['team-1'],
+      canManageAllTeams: true,
+      canManageClub: true,
+      canManageTeams: true,
+      isClubWideScope: false,
+    },
+    existing,
+    importOptions: {
+      ...approvedImportOptions,
+      planningMode: 'portable',
+    },
+    rowsBySheet,
+  })
+  assert.deepEqual(approved.errors, [])
+  assert.equal(approved.plan.club.action, 'update')
+  assert.equal(approved.plan.teams[0].action, 'update')
+})
+
 test('possible duplicate creation remains blocked until explicitly reviewed', () => {
   const { existing, rowsBySheet } = fixture()
   rowsBySheet.Teams.push({ _sourceRow: 3, transfer_reference: 'TEAM-SEPARATE', name: 'U14', season: '2026/27', status: 'active' })

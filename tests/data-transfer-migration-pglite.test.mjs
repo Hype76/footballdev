@@ -4,6 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260717102324_data_transfer_v1.sql', import.meta.url)
+const storageMimeMigrationUrl = new URL('../supabase/migrations/20260723082806_data_transfer_storage_mime_allowlist_null_season_recovery_05.sql', import.meta.url)
 
 async function createDatabase() {
   const db = new PGlite()
@@ -55,6 +56,7 @@ async function createDatabase() {
     );
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(storageMimeMigrationUrl, 'utf8'))
   return db
 }
 
@@ -95,9 +97,165 @@ async function seedBatch(db, suffix = 'A') {
   return { actorId, batchId: inserted.rows[0].id, clubId, planHash }
 }
 
+async function seedNullSeasonOrdinaryBatch(db, format) {
+  const key = format.toUpperCase()
+  const seeded = await db.query(`
+    with club as (
+      insert into public.clubs(name, transfer_reference, season)
+      values ($1, $2, null)
+      returning id, updated_at
+    ), team as (
+      insert into public.teams(club_id, name, transfer_reference, season, status)
+      select club.id, $3, $4, null, 'active'
+      from club
+      returning id, club_id, updated_at
+    ), auth_user as (
+      insert into auth.users default values
+      returning id
+    ), app_user as (
+      insert into public.users(id, email, name, role, role_label, role_rank, club_id)
+      select auth_user.id, $5, 'FP TEST Staff', 'admin', 'Club Admin', 90, club.id
+      from auth_user, club
+      returning id, club_id
+    )
+    select app_user.id as actor_id, club.id as club_id, club.updated_at as club_updated_at,
+      team.id as team_id, team.updated_at as team_updated_at
+    from app_user, club, team
+  `, [
+    `FP TEST Null Season ${key}`,
+    `CLUB-NULL-${key}`,
+    `FP TEST U99 ${key}`,
+    `TEAM-NULL-${key}`,
+    `fp-test-${format}@example.invalid`,
+  ])
+  const {
+    actor_id: actorId,
+    club_id: clubId,
+    club_updated_at: clubUpdatedAt,
+    team_id: teamId,
+    team_updated_at: teamUpdatedAt,
+  } = seeded.rows[0]
+  const playerReference = `PLAYER-NULL-${key}`
+  const guardianReference = `GUARDIAN-NULL-${key}`
+  const plan = {
+    context: {
+      planning_mode: 'ordinary',
+      selected_season: '2026/27',
+    },
+    club: {
+      action: 'unchanged',
+      entity_id: clubId,
+      expected_updated_at: clubUpdatedAt,
+      values: {
+        transfer_reference: `CLUB-NULL-${key}`,
+        name: `FP TEST Null Season ${key}`,
+        season: '',
+      },
+    },
+    teams: [{
+      action: 'unchanged',
+      entity_id: teamId,
+      expected_updated_at: teamUpdatedAt,
+      values: {
+        transfer_reference: `TEAM-NULL-${key}`,
+        name: `FP TEST U99 ${key}`,
+        season: '',
+        status: 'active',
+      },
+    }],
+    players: [{
+      action: 'create',
+      entity_id: '',
+      team_entity_id: teamId,
+      values: {
+        transfer_reference: playerReference,
+        team_reference: `TEAM-NULL-${key}`,
+        first_name: 'Alex',
+        last_name: `Null Season ${key}`,
+        preferred_name: '',
+        date_of_birth: '2014-01-20',
+        gender: '',
+        section: 'Squad',
+        shirt_number: '',
+        positions: ['Midfielder'],
+        status: 'active',
+      },
+    }],
+    guardians: [{
+      action: 'create',
+      entity_id: '',
+      values: {
+        transfer_reference: guardianReference,
+        first_name: 'Pat',
+        last_name: `Null Season ${key}`,
+        email: `fp-test-null-${format}@example.invalid`,
+        phone: '',
+        status: 'active',
+      },
+    }],
+    links: [{
+      action: 'link',
+      entity_id: '',
+      guardian_entity_id: '',
+      player_entity_id: '',
+      values: {
+        player_reference: playerReference,
+        guardian_reference: guardianReference,
+        relationship: 'Parent',
+        primary_contact: true,
+        receives_communications: false,
+        emergency_contact: true,
+      },
+    }],
+  }
+  const planHash = `null-season-plan-${format}`
+  const inserted = await db.query(`
+    insert into public.data_transfer_batches(
+      actor_id, actor_role, club_id, authorized_team_ids, transfer_type, state, template_version,
+      workbook_name, workbook_sha256, workbook_size_bytes, raw_expires_at, options, plan, plan_sha256
+    ) values (
+      $1, 'admin', $2, array[$3]::uuid[], 'import', 'awaiting_confirmation', 'FP-V1-SIMPLE-1',
+      $4, $5, 1024, timezone('utc', now()) + interval '7 days',
+      $6::jsonb, $7::jsonb, $8
+    )
+    returning id
+  `, [
+    actorId,
+    clubId,
+    teamId,
+    `null-season.${format}`,
+    `null-season-workbook-${format}`,
+    JSON.stringify({
+      planningMode: 'ordinary',
+      season: '2026/27',
+      source: { format },
+      teamIds: [teamId],
+    }),
+    JSON.stringify(plan),
+    planHash,
+  ])
+  return {
+    batchId: inserted.rows[0].id,
+    clubId,
+    planHash,
+    teamId,
+  }
+}
+
 test('forward migration parses and the import RPC is atomic, idempotent, and communication-free', async () => {
   const db = await createDatabase()
   try {
+    const bucket = await db.query("select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'data-transfer-private'")
+    assert.deepEqual(bucket.rows, [{
+      allowed_mime_types: [
+        'text/csv',
+        'text/tab-separated-values',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.oasis.opendocument.spreadsheet',
+      ],
+      file_size_limit: 4194304,
+      public: false,
+    }])
     const seeded = await seedBatch(db, 'A')
     const first = await db.query('select public.execute_data_transfer_import($1, $2) as result', [seeded.batchId, seeded.planHash])
     assert.equal(first.rows[0].result.state, 'completed')
@@ -110,6 +268,87 @@ test('forward migration parses and the import RPC is atomic, idempotent, and com
     assert.equal(rollback.rows[0].result.state, 'rolled_back')
     const remaining = await db.query('select (select count(*) from public.teams) as teams, (select count(*) from public.players) as players, (select count(*) from public.guardians) as guardians, (select count(*) from public.parent_player_links) as links')
     assert.deepEqual(remaining.rows[0], { teams: 0, players: 0, guardians: 0, links: 0 })
+  } finally {
+    await db.close()
+  }
+})
+
+test('CSV, TSV, XLSX, and ODS null-season ordinary plans confirm and roll back without changing scope anchors', async () => {
+  const db = await createDatabase()
+  try {
+    for (const format of ['csv', 'tsv', 'xlsx', 'ods']) {
+      const seeded = await seedNullSeasonOrdinaryBatch(db, format)
+      const before = await db.query(`
+        select c.season as club_season, t.season as team_season
+        from public.clubs c
+        join public.teams t on t.club_id = c.id
+        where c.id = $1 and t.id = $2
+      `, [seeded.clubId, seeded.teamId])
+      assert.deepEqual(before.rows, [{ club_season: null, team_season: null }])
+
+      const confirmed = await db.query(
+        'select public.execute_data_transfer_import($1, $2) as result',
+        [seeded.batchId, seeded.planHash],
+      )
+      assert.equal(confirmed.rows[0].result.state, 'completed')
+      assert.deepEqual(confirmed.rows[0].result.counts, {
+        clubs: 0,
+        guardians: 1,
+        links: 1,
+        players: 1,
+        teams: 0,
+      })
+
+      const created = await db.query(`
+        select
+          (select count(*) from public.players where club_id = $1 and team_id = $2) as players,
+          (select count(*) from public.guardians where club_id = $1) as guardians,
+          (select count(*) from public.parent_player_links where club_id = $1 and team_id = $2) as links
+      `, [seeded.clubId, seeded.teamId])
+      assert.deepEqual(created.rows[0], { players: 1, guardians: 1, links: 1 })
+
+      const scopeAfterConfirm = await db.query(`
+        select c.season as club_season, t.season as team_season
+        from public.clubs c
+        join public.teams t on t.club_id = c.id
+        where c.id = $1 and t.id = $2
+      `, [seeded.clubId, seeded.teamId])
+      assert.deepEqual(scopeAfterConfirm.rows, [{ club_season: null, team_season: null }])
+
+      const batchContext = await db.query(`
+        select options ->> 'season' as selected_season,
+          plan #>> '{context,selected_season}' as plan_selected_season,
+          options #>> '{source,format}' as source_format
+        from public.data_transfer_batches
+        where id = $1
+      `, [seeded.batchId])
+      assert.deepEqual(batchContext.rows, [{
+        plan_selected_season: '2026/27',
+        selected_season: '2026/27',
+        source_format: format,
+      }])
+
+      const rollback = await db.query(
+        'select public.rollback_data_transfer_import($1) as result',
+        [seeded.batchId],
+      )
+      assert.equal(rollback.rows[0].result.state, 'rolled_back')
+      const remaining = await db.query(`
+        select
+          (select count(*) from public.players where club_id = $1) as players,
+          (select count(*) from public.guardians where club_id = $1) as guardians,
+          (select count(*) from public.parent_player_links where club_id = $1) as links,
+          (select count(*) from public.teams where club_id = $1 and id = $2 and season is null) as retained_null_team,
+          (select count(*) from public.clubs where id = $1 and season is null) as retained_null_club
+      `, [seeded.clubId, seeded.teamId])
+      assert.deepEqual(remaining.rows[0], {
+        guardians: 0,
+        links: 0,
+        players: 0,
+        retained_null_club: 1,
+        retained_null_team: 1,
+      })
+    }
   } finally {
     await db.close()
   }
