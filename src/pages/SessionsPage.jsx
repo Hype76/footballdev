@@ -2172,7 +2172,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             requestScorer: calendarForm.requestScorer,
             requestLinesman: calendarForm.requestLinesman,
             requestReferee: calendarForm.requestReferee,
-            scorerRequestMessage: '',
             status: calendarForm.requestScorer ? 'scorer_request' : 'scheduled',
             teamId: safeTeamId,
             venueAddress: '',

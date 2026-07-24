@@ -1318,6 +1318,19 @@ export async function createMatchDay({ user, match }) {
   return normalizeMatchDay(data)
 }
 
+export function applyScorerRequestMessageUpdate(payload, updates) {
+  if (!Object.prototype.hasOwnProperty.call(updates ?? {}, 'scorerRequestMessage')) {
+    return payload
+  }
+
+  if (updates.scorerRequestMessage === undefined) {
+    return payload
+  }
+
+  payload.scorer_request_message = normalizeText(updates.scorerRequestMessage)
+  return payload
+}
+
 export async function updateMatchDay({ user, matchId, updates }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
@@ -1366,7 +1379,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.venueName !== undefined) payload.venue_name = normalizeText(updates.venueName)
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)
   if (updates.notes !== undefined) payload.notes = normalizeText(updates.notes)
-  if (updates.scorerRequestMessage !== undefined) payload.scorer_request_message = normalizeText(updates.scorerRequestMessage)
+  applyScorerRequestMessageUpdate(payload, updates)
   if (updates.requestScorer !== undefined) payload.request_scorer = normalizeBoolean(updates.requestScorer)
   if (updates.requestLinesman !== undefined) payload.request_linesman = normalizeBoolean(updates.requestLinesman)
   if (updates.requestReferee !== undefined) payload.request_referee = normalizeBoolean(updates.requestReferee)

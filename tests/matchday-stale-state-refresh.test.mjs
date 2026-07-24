@@ -528,7 +528,7 @@ test('staff fixture creation handler reconciles locally around canonical load wi
 
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
-  assert.match(handlerSource, /const createdMatch = await createMatchDay\(\{ user, match: form \}\)/)
+  assert.match(handlerSource, /const createdMatch = await createMatchDay\(\{[\s\S]*user,[\s\S]*match: \{[\s\S]*\.\.\.form,[\s\S]*scorerRequestMessage: form\.requestScorer \? volunteerRequestMessages\.scorer : '',[\s\S]*\},[\s\S]*\}\)/)
   assert.match(handlerSource, /const reconcileCreatedMatch = \(currentMatches\) => reconcileCreatedMatchDayInList/)
   assert.match(handlerSource, /setMatches\(reconcileCreatedMatch\)[\s\S]*logFixtureAvailabilityRecipientEvents/)
   assert.match(handlerSource, /logFixtureAvailabilityRecipientEvents[\s\S]*send-match-day-availability-requests/)

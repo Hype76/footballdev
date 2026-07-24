@@ -83,7 +83,41 @@ export const EMAIL_TEMPLATE_AUDIENCES = {
 }
 
 export const DIRECT_EMAIL_TEMPLATE_SECTION = 'Direct Email'
-export const EMAIL_TEMPLATE_SECTIONS = ['Trial', 'Squad', DIRECT_EMAIL_TEMPLATE_SECTION]
+export const MATCH_DAY_VOLUNTEER_TEMPLATE_SECTION = 'Match Day'
+export const EMAIL_TEMPLATE_SECTIONS = ['Trial', 'Squad', DIRECT_EMAIL_TEMPLATE_SECTION, MATCH_DAY_VOLUNTEER_TEMPLATE_SECTION]
+
+export const MATCH_DAY_VOLUNTEER_TEMPLATE_KEYS = Object.freeze({
+  scorer: 'match-day-volunteer-scorer',
+  linesman: 'match-day-volunteer-linesman',
+  referee: 'match-day-volunteer-referee',
+})
+
+export const DEFAULT_MATCH_DAY_VOLUNTEER_REQUEST_TEMPLATES = Object.freeze([
+  {
+    role: 'scorer',
+    key: MATCH_DAY_VOLUNTEER_TEMPLATE_KEYS.scorer,
+    label: 'Match Day scorer request',
+    subject: 'Match Day scorer request',
+    body: 'Can anyone help as live scorer for this match?',
+    sectionAvailability: [MATCH_DAY_VOLUNTEER_TEMPLATE_SECTION],
+  },
+  {
+    role: 'linesman',
+    key: MATCH_DAY_VOLUNTEER_TEMPLATE_KEYS.linesman,
+    label: 'Match Day linesman request',
+    subject: 'Match Day linesman request',
+    body: 'Can anyone help as linesman for this match?',
+    sectionAvailability: [MATCH_DAY_VOLUNTEER_TEMPLATE_SECTION],
+  },
+  {
+    role: 'referee',
+    key: MATCH_DAY_VOLUNTEER_TEMPLATE_KEYS.referee,
+    label: 'Match Day referee request',
+    subject: 'Match Day referee request',
+    body: 'Can anyone help as referee for this match?',
+    sectionAvailability: [MATCH_DAY_VOLUNTEER_TEMPLATE_SECTION],
+  },
+])
 
 export const EMAIL_TEMPLATE_FIELDS = [
   { key: 'recipientName', label: 'Recipient name' },
@@ -188,6 +222,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
       '{teamName}',
     ].join('\n'),
   },
+  ...DEFAULT_MATCH_DAY_VOLUNTEER_REQUEST_TEMPLATES,
 ]
 
 export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
@@ -305,6 +340,57 @@ export function getDefaultEmailTemplates(audience = EMAIL_TEMPLATE_AUDIENCES.par
   return normalizeEmailTemplateAudience(audience) === EMAIL_TEMPLATE_AUDIENCES.player
     ? getDefaultPlayerEmailTemplates()
     : getDefaultParentEmailTemplates()
+}
+
+function normalizeVolunteerTemplateIdentity(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function getVolunteerTemplateAliases(role) {
+  return new Set([
+    MATCH_DAY_VOLUNTEER_TEMPLATE_KEYS[role],
+    `${role}-request`,
+    `${role}-volunteer-request`,
+    `volunteer-${role}`,
+    `match-day-${role}-request`,
+  ])
+}
+
+function findSavedVolunteerTemplate(savedTemplates, templateConfig) {
+  const aliases = getVolunteerTemplateAliases(templateConfig.role)
+
+  return (Array.isArray(savedTemplates) ? savedTemplates : []).find((template) => {
+    const audience = normalizeEmailTemplateAudience(template?.audience)
+    const isEnabled = (template?.is_enabled ?? template?.isEnabled) !== false
+    const body = normalizeText(template?.body)
+    const key = normalizeVolunteerTemplateIdentity(template?.template_key ?? template?.key)
+    const label = normalizeVolunteerTemplateIdentity(template?.label)
+    const sectionAvailability = template?.section_availability ?? template?.sectionAvailability
+    const isAvailableForMatchDay = !Array.isArray(sectionAvailability)
+      || sectionAvailability.includes(MATCH_DAY_VOLUNTEER_TEMPLATE_SECTION)
+
+    return audience === EMAIL_TEMPLATE_AUDIENCES.parent
+      && isEnabled
+      && isAvailableForMatchDay
+      && Boolean(body)
+      && (aliases.has(key) || aliases.has(label))
+  })
+}
+
+export function resolveMatchDayVolunteerRequestMessages(savedTemplates = []) {
+  return Object.fromEntries(
+    DEFAULT_MATCH_DAY_VOLUNTEER_REQUEST_TEMPLATES.map((templateConfig) => {
+      const savedTemplate = findSavedVolunteerTemplate(savedTemplates, templateConfig)
+      return [
+        templateConfig.role,
+        normalizeText(savedTemplate?.body, templateConfig.body),
+      ]
+    }),
+  )
 }
 
 export function mergeEmailTemplatesWithDefaults(savedTemplates = [], audience = 'all') {
