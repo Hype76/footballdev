@@ -582,6 +582,11 @@ export function normalizeMatchDay(row) {
     playerAvailability,
     squadDecisionState: normalizeMatchDaySquadDecision(row.squad_decision_state ?? row.squadDecisionState),
     squadDecisionUpdatedAt: row.squad_decision_updated_at ?? row.squadDecisionUpdatedAt ?? '',
+    confirmedTeam: Array.isArray(row.selected_player_names ?? row.selectedPlayerNames ?? row.confirmedTeam)
+      ? (row.selected_player_names ?? row.selectedPlayerNames ?? row.confirmedTeam)
+        .map((name) => normalizeText(name))
+        .filter(Boolean)
+      : [],
     squadDecisions,
     availabilityHistory,
     eventLog,
@@ -1878,9 +1883,14 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     return []
   }
 
-  const [{ data, error }, { data: extendedData, error: extendedError }] = await Promise.all([
+  const [
+    { data, error },
+    { data: extendedData, error: extendedError },
+    { data: confirmedTeamData, error: confirmedTeamError },
+  ] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: normalizedParentLinkId }),
+    supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: normalizedParentLinkId }),
   ])
 
   if (error) {
@@ -1893,7 +1903,18 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     throw extendedError
   }
 
+  if (confirmedTeamError) {
+    console.error(confirmedTeamError)
+    throw confirmedTeamError
+  }
+
   const extendedByMatchId = new Map((extendedData ?? []).map((row) => [row.match_day_id ?? row.matchDayId, row]))
+  const confirmedTeamByMatchId = new Map(
+    (confirmedTeamData ?? []).map((row) => [
+      row.match_day_id ?? row.matchDayId,
+      row.selected_player_names ?? row.selectedPlayerNames ?? [],
+    ]),
+  )
 
   return (data ?? []).map((row) => {
     const extended = extendedByMatchId.get(row.id) ?? {}
@@ -1906,6 +1927,7 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     return normalizeParentPortalMatchDay({
       ...row,
       ...extended,
+      selected_player_names: confirmedTeamByMatchId.get(row.id) ?? [],
       events,
     })
   })

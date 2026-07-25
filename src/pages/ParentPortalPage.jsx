@@ -3120,6 +3120,24 @@ function ParentMatchCard({
         </div>
       </div>
 
+      <section className={`${softPanelClass} mt-4`} aria-labelledby={`confirmed-team-${match.id}`}>
+        <h5 id={`confirmed-team-${match.id}`} className="text-sm font-black text-[#101828]">Confirmed Team</h5>
+        {match.confirmedTeam?.length > 0 ? (
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {match.confirmedTeam.map((playerName, index) => (
+              <li
+                key={`${playerName}-${index}`}
+                className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828]"
+              >
+                {playerName}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">Team not confirmed yet.</p>
+        )}
+      </section>
+
       {responseRows.length > 0 ? (
         <div className={`${softPanelClass} mt-4`}>
           <h5 className="text-sm font-black text-[#101828]">Your fixture response</h5>

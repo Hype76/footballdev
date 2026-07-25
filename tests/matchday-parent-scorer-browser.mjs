@@ -8,6 +8,7 @@ const fixturePassword = 'FixturePass123!'
 const port = Number(process.env.MATCHDAY_SCORER_BROWSER_PORT || 4800 + Math.floor(Math.random() * 300))
 const mainBaseUrl = `http://127.0.0.1:${port}`
 const parentBaseUrl = mainBaseUrl
+const parentConfirmedTeamOnly = process.env.PARENT_CONFIRMED_TEAM_BROWSER_ONLY === 'true'
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -89,7 +90,7 @@ function createMatchFixture({ isLive = false, isScorer = false } = {}) {
     teams: { name: 'U12 Fixture Team' },
     opponent: 'Parity United',
     fixture_type: 'league',
-    match_date: '2026-07-23',
+    match_date: '2030-07-23',
     kickoff_time: '18:00:00',
     kickoff_time_tbc: false,
     arrival_time: '17:30:00',
@@ -151,6 +152,7 @@ async function prepareContext(browser, viewportOptions, {
   authRestoreDelayMs = 0,
   clockDelayMs = 0,
   clockFailureCount = 0,
+  confirmedNames = ['Alex Fixture', 'Ben Fixture', 'Charlie Fixture'],
   fixtureDelayMs = 0,
   fixtureFailureCount = 0,
   fixtureNullCount = 0,
@@ -161,7 +163,10 @@ async function prepareContext(browser, viewportOptions, {
   platformAdminFails = false,
 } = {}) {
   const context = await browser.newContext(viewportOptions)
-  const fixtureState = { match: { ...createMatchFixture({ isLive, isScorer }), ...matchOverrides } }
+  const fixtureState = {
+    confirmedNames: [...confirmedNames],
+    match: { ...createMatchFixture({ isLive, isScorer }), ...matchOverrides },
+  }
   const mutationRequests = []
   const consoleErrors = []
   const pageErrors = []
@@ -251,6 +256,16 @@ async function prepareContext(browser, viewportOptions, {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([{ id: 'player-fixture', player_name: 'Fixture Child', shirt_number: '9', status: 'active' }]),
+    })
+  })
+  await context.route('**/rest/v1/rpc/get_parent_portal_confirmed_teams', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        match_day_id: fixtureState.match.id,
+        selected_player_names: fixtureState.confirmedNames,
+      }]),
     })
   })
   await context.route('**/rest/v1/rpc/set_match_day_timer_state', async (route) => {
@@ -433,74 +448,82 @@ try {
   browser = await chromium.launch({ headless: true })
 
   for (const viewport of viewports) {
-    const setup = await prepareContext(browser, viewport.options)
-    await signIn(setup.page)
-    await setup.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await verifyFixtureConclusionRules(setup.page)
-    assert.equal(setup.mutationRequests.length, 0, `${viewport.name} fixture rule inspection must not mutate`)
-    assertNoPageFailures(setup, `${viewport.name} fixture rules`)
-    await setup.context.close()
+    if (!parentConfirmedTeamOnly) {
+      const setup = await prepareContext(browser, viewport.options)
+      await signIn(setup.page)
+      await setup.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+      await verifyFixtureConclusionRules(setup.page)
+      assert.equal(setup.mutationRequests.length, 0, `${viewport.name} fixture rule inspection must not mutate`)
+      assertNoPageFailures(setup, `${viewport.name} fixture rules`)
+      await setup.context.close()
 
-    const staff = await prepareContext(browser, viewport.options)
-    await signIn(staff.page)
-    await staff.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-    const staffManageButton = staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first()
-    await staffManageButton.waitFor({ state: 'visible', timeout: 30000 })
-    await staffManageButton.click()
-    const staffOpenButton = staff.page.getByRole('button', { name: /Start Game Mode|Open Game Mode/ }).first()
-    await staffOpenButton.click()
-    await staff.page.getByRole('region', { name: 'Game Mode cockpit' }).waitFor({ state: 'visible', timeout: 15000 })
-    await verifyWakeLockControl(staff.page, staff.mutationRequests)
-    assert.equal(staff.mutationRequests.length, 0, `${viewport.name} staff Game Mode open must not mutate`)
-    await verifyBackgroundForeground(staff.page, staff.context)
-    await staff.page.reload({ waitUntil: 'domcontentloaded' })
-    await staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first().waitFor({ state: 'visible', timeout: 30000 })
-    assert.equal(await staff.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-    assert.deepEqual(staff.consoleErrors, [])
-    assertNoPageFailures(staff, `${viewport.name} staff`)
-    await staff.context.close()
+      const staff = await prepareContext(browser, viewport.options)
+      await signIn(staff.page)
+      await staff.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+      const staffManageButton = staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first()
+      await staffManageButton.waitFor({ state: 'visible', timeout: 30000 })
+      await staffManageButton.click()
+      const staffOpenButton = staff.page.getByRole('button', { name: /Start Game Mode|Open Game Mode/ }).first()
+      await staffOpenButton.click()
+      await staff.page.getByRole('region', { name: 'Game Mode cockpit' }).waitFor({ state: 'visible', timeout: 15000 })
+      await verifyWakeLockControl(staff.page, staff.mutationRequests)
+      assert.equal(staff.mutationRequests.length, 0, `${viewport.name} staff Game Mode open must not mutate`)
+      await verifyBackgroundForeground(staff.page, staff.context)
+      await staff.page.reload({ waitUntil: 'domcontentloaded' })
+      await staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first().waitFor({ state: 'visible', timeout: 30000 })
+      assert.equal(await staff.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+      assert.deepEqual(staff.consoleErrors, [])
+      assertNoPageFailures(staff, `${viewport.name} staff`)
+      await staff.context.close()
 
-    const scorer = await prepareContext(browser, viewport.options, { isScorer: true })
-    await signIn(scorer.page, { parent: true })
-    await openParentMatches(scorer.page)
-    await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
-    await scorer.page.getByText('Authoritative match clock', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
-    await scorer.page.getByText('0:00', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
-    await verifyWakeLockControl(scorer.page, scorer.mutationRequests)
-    const penaltyGoalToggle = scorer.page.getByText('Penalty goal', { exact: true }).locator('..').getByRole('checkbox')
-    assert.equal(await penaltyGoalToggle.isChecked(), false)
-    await penaltyGoalToggle.check()
-    assert.equal(await penaltyGoalToggle.isChecked(), true)
-    await penaltyGoalToggle.uncheck()
-    assert.equal(scorer.mutationRequests.length, 0, `${viewport.name} parent scorer Game Mode open must not mutate`)
+      const scorer = await prepareContext(browser, viewport.options, { isScorer: true })
+      await signIn(scorer.page, { parent: true })
+      await openParentMatches(scorer.page)
+      await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
+      await scorer.page.getByText('Authoritative match clock', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+      await scorer.page.getByText('0:00', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+      await verifyWakeLockControl(scorer.page, scorer.mutationRequests)
+      const penaltyGoalToggle = scorer.page.getByText('Penalty goal', { exact: true }).locator('..').getByRole('checkbox')
+      assert.equal(await penaltyGoalToggle.isChecked(), false)
+      await penaltyGoalToggle.check()
+      assert.equal(await penaltyGoalToggle.isChecked(), true)
+      await penaltyGoalToggle.uncheck()
+      assert.equal(scorer.mutationRequests.length, 0, `${viewport.name} parent scorer Game Mode open must not mutate`)
 
-    await scorer.page.getByRole('button', { name: 'Start match' }).click()
-    await scorer.page.getByRole('dialog').getByRole('button', { name: 'Start match' }).click()
-    await scorer.page.getByRole('button', { name: 'Pause' }).waitFor({ state: 'visible', timeout: 15000 })
-    assert.deepEqual(scorer.mutationRequests, [{
-      rpc: 'set_match_day_timer_state',
-      payload: { match_day_id_value: 'match-parity-fixture', action_value: 'start' },
-    }])
+      await scorer.page.getByRole('button', { name: 'Start match' }).click()
+      await scorer.page.getByRole('dialog').getByRole('button', { name: 'Start match' }).click()
+      await scorer.page.getByRole('button', { name: 'Pause' }).waitFor({ state: 'visible', timeout: 15000 })
+      assert.deepEqual(scorer.mutationRequests, [{
+        rpc: 'set_match_day_timer_state',
+        payload: { match_day_id_value: 'match-parity-fixture', action_value: 'start' },
+      }])
 
-    await verifyBackgroundForeground(scorer.page, scorer.context)
-    await scorer.page.reload({ waitUntil: 'domcontentloaded' })
-    await scorer.page.getByRole('button', { name: 'Open Game Mode' }).waitFor({ state: 'visible', timeout: 30000 })
-    await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
-    await scorer.page.getByRole('button', { name: 'Pause' }).waitFor({ state: 'visible', timeout: 15000 })
+      await verifyBackgroundForeground(scorer.page, scorer.context)
+      await scorer.page.reload({ waitUntil: 'domcontentloaded' })
+      await scorer.page.getByRole('button', { name: 'Open Game Mode' }).waitFor({ state: 'visible', timeout: 30000 })
+      await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
+      await scorer.page.getByRole('button', { name: 'Pause' }).waitFor({ state: 'visible', timeout: 15000 })
 
-    scorer.fixtureState.match = { ...scorer.fixtureState.match, is_scorer: false, role_assignments: [] }
-    await scorer.page.reload({ waitUntil: 'domcontentloaded' })
-    await scorer.page.getByRole('heading', { name: 'Match cards' }).waitFor({ state: 'visible', timeout: 30000 })
-    assert.equal(await scorer.page.getByRole('button', { name: 'Open Game Mode' }).count(), 0)
-    assert.equal(await scorer.page.getByText('Update score', { exact: true }).count(), 0)
-    assert.equal(await scorer.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-    assert.deepEqual(scorer.consoleErrors, [])
-    assertNoPageFailures(scorer, `${viewport.name} accepted scorer`)
-    await scorer.context.close()
+      scorer.fixtureState.match = { ...scorer.fixtureState.match, is_scorer: false, role_assignments: [] }
+      await scorer.page.reload({ waitUntil: 'domcontentloaded' })
+      await scorer.page.getByRole('heading', { name: 'Match cards' }).waitFor({ state: 'visible', timeout: 30000 })
+      assert.equal(await scorer.page.getByRole('button', { name: 'Open Game Mode' }).count(), 0)
+      assert.equal(await scorer.page.getByText('Update score', { exact: true }).count(), 0)
+      assert.equal(await scorer.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+      assert.deepEqual(scorer.consoleErrors, [])
+      assertNoPageFailures(scorer, `${viewport.name} accepted scorer`)
+      await scorer.context.close()
+    }
 
-    const ordinary = await prepareContext(browser, viewport.options, { isScorer: false })
+    const ordinary = await prepareContext(browser, viewport.options, {
+      isScorer: false,
+    })
     await signIn(ordinary.page, { parent: true })
     await openParentMatches(ordinary.page)
+    await ordinary.page.getByRole('heading', { name: 'Confirmed Team' }).waitFor({ state: 'visible' })
+    for (const playerName of ordinary.fixtureState.confirmedNames) {
+      await ordinary.page.getByText(playerName, { exact: true }).waitFor({ state: 'visible' })
+    }
     assert.equal(await ordinary.page.getByRole('button', { name: 'Open Game Mode' }).count(), 0)
     assert.equal(await ordinary.page.getByText('Update score', { exact: true }).count(), 0)
     assert.equal(await ordinary.page.getByRole('region', { name: 'Screen awake control' }).count(), 0)
@@ -508,14 +531,39 @@ try {
     assert.equal(await ordinary.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.deepEqual(ordinary.consoleErrors, [])
     assertNoPageFailures(ordinary, `${viewport.name} ordinary parent`)
+
+    ordinary.fixtureState.confirmedNames = ['Alex Fixture', 'Charlie Fixture']
+    await ordinary.page.reload({ waitUntil: 'domcontentloaded' })
+    await ordinary.page.getByText('Charlie Fixture', { exact: true }).waitFor({ state: 'visible' })
+    assert.equal(await ordinary.page.getByText('Ben Fixture', { exact: true }).count(), 0)
+    assertNoPageFailures(ordinary, `${viewport.name} confirmed team refresh`)
     await ordinary.context.close()
 
-    await verifyExtendedPhaseRestoration(browser, viewport)
+    const emptyTeam = await prepareContext(browser, viewport.options, {
+      confirmedNames: [],
+    })
+    await signIn(emptyTeam.page, { parent: true })
+    await openParentMatches(emptyTeam.page)
+    await emptyTeam.page.getByText('Team not confirmed yet.', { exact: true }).waitFor({ state: 'visible' })
+    assert.equal(await emptyTeam.page.locator('section[aria-labelledby^="confirmed-team-"] li').count(), 0)
+    assert.equal(await emptyTeam.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    assert.deepEqual(emptyTeam.consoleErrors, [])
+    assertNoPageFailures(emptyTeam, `${viewport.name} confirmed team empty state`)
+    await emptyTeam.context.close()
 
-    process.stdout.write(`PASS ${viewport.name}: staff, accepted scorer, ordinary parent, refresh, background, revocation, no console errors\n`)
+    if (!parentConfirmedTeamOnly) {
+      await verifyExtendedPhaseRestoration(browser, viewport)
+    }
+
+    process.stdout.write(
+      parentConfirmedTeamOnly
+        ? `PASS ${viewport.name}: Confirmed Team populated, refreshed, empty, responsive, and error-free\n`
+        : `PASS ${viewport.name}: staff, accepted scorer, ordinary parent, refresh, background, revocation, no console errors\n`,
+    )
   }
 
-  const mobileOptions = { isMobile: true, viewport: { width: 390, height: 844 } }
+  if (!parentConfirmedTeamOnly) {
+    const mobileOptions = { isMobile: true, viewport: { width: 390, height: 844 } }
   const stress = await prepareContext(browser, mobileOptions, {
     clockDelayMs: 1400,
     isLive: true,
@@ -647,7 +695,8 @@ try {
   assert.equal(rapid.mutationRequests.length, 0)
   assert.deepEqual(rapid.pageErrors, [])
   await rapid.context.close()
-  process.stdout.write('PASS rapid refresh: five repeated refreshes during delayed restoration recover without exception or mutation\n')
+    process.stdout.write('PASS rapid refresh: five repeated refreshes during delayed restoration recover without exception or mutation\n')
+  }
 } catch (error) {
   process.stderr.write(`${error.stack || error.message}\n`)
   process.stderr.write(server.getOutput())
