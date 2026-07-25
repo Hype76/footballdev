@@ -27,17 +27,9 @@ import {
 } from './lib/_data-transfer-tabular.js'
 import { inspectDataTransferSource } from './lib/_data-transfer-source.js'
 import { uploadDataTransferRawFile } from './lib/_data-transfer-storage.js'
-import {
-  applyDataTransferExportFieldPolicy,
-  assertDataTransferExportRequestAllowed,
-  buildDataTransferDenialAuditMetadata,
-  getDataTransferEntitlementDecision,
-  getDataTransferFieldPolicy,
-  resolveDataTransferTeamSelection,
-  safeDataTransferRequestId,
-} from './lib/_data-transfer-access.js'
 
 const PRIVATE_BUCKET = 'data-transfer-private'
+const ALLOWED_ROLES = new Set(['super_admin', 'admin', 'head_manager', 'manager'])
 
 function response(statusCode, payload) {
   return { statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(payload) }
@@ -139,6 +131,8 @@ async function authenticate(event) {
   const profile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
     select: 'id, email, name, username, role, role_label, role_rank, club_id, status',
   })
+  if (!ALLOWED_ROLES.has(profile.role)) throw statusError('Data Transfer is not available for this role.', 403, 'ROLE_DENIED')
+  if (profile.role !== 'super_admin' && Number(profile.role_rank || 0) < 50) throw statusError('Manager access is required.', 403, 'ROLE_DENIED')
   return {
     id: profile.id,
     email,
@@ -147,29 +141,6 @@ async function authenticate(event) {
     roleRank: Number(profile.role_rank || 0),
     clubId: text(profile.club_id),
   }
-}
-
-async function assertDataTransferEntitlement(actor) {
-  const preliminary = getDataTransferEntitlementDecision({ actor, club: null })
-  if (
-    preliminary.allowed
-    || preliminary.code === 'ROLE_NOT_ALLOWED'
-    || preliminary.accessReason === 'demo_not_allowed'
-    || !actor.clubId
-  ) {
-    if (!preliminary.allowed) throw statusError(preliminary.message, 403, preliminary.code)
-    return preliminary
-  }
-
-  const { data: club, error } = await supabaseAdmin
-    .from('clubs')
-    .select('id, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at')
-    .eq('id', actor.clubId)
-    .maybeSingle()
-  if (error) throw error
-  const decision = getDataTransferEntitlementDecision({ actor, club })
-  if (!decision.allowed) throw statusError(decision.message, 403, decision.code)
-  return decision
 }
 
 async function listPlatformClubs() {
@@ -188,7 +159,7 @@ async function resolveScope(actor, body, { requireClub = true, requireSelection 
     if (requireClub && !clubId) throw statusError('Select a club before using Data Transfer.', 400, 'CLUB_SCOPE_REQUIRED')
     if (requireClub && auditReason.length < 10) throw statusError('Enter a clear support or audit reason of at least 10 characters.', 400, 'AUDIT_REASON_REQUIRED')
   } else if (requestedClubId && requestedClubId !== actor.clubId) {
-    throw statusError('The selected club is outside your account scope.', 403, 'CLUB_SCOPE_DENIED')
+    throw statusError('The selected club is outside your account scope.', 403, 'CROSS_CLUB_SCOPE_DENIED')
   }
   if (!requireClub && !clubId) return null
   if (!clubId) throw statusError('Your account is not linked to a club.', 403, 'CLUB_SCOPE_REQUIRED')
@@ -201,24 +172,27 @@ async function resolveScope(actor, body, { requireClub = true, requireSelection 
   if (teamsError) throw teamsError
   if (text(club.status || 'active') === 'suspended') throw statusError('This club workspace is suspended.', 403, 'CLUB_SUSPENDED')
 
-  let assignedTeamIds = []
-  if (actor.role !== 'super_admin' && actor.role !== 'admin') {
+  let authorizedTeams = allTeams || []
+  const canManageAllTeams = actor.role === 'super_admin' || actor.role === 'admin'
+  if (!canManageAllTeams) {
     const { data: assignments, error } = await supabaseAdmin.from('team_staff').select('team_id').eq('user_id', actor.id)
     if (error) throw error
-    assignedTeamIds = (assignments || []).map((row) => row.team_id)
+    const assignedIds = new Set((assignments || []).map((row) => row.team_id))
+    authorizedTeams = authorizedTeams.filter((team) => assignedIds.has(team.id))
+    if (!authorizedTeams.length) throw statusError('No authorized team assignment is available for Data Transfer.', 403, 'TEAM_SCOPE_REQUIRED')
   }
-  const {
-    authorizedTeams,
-    canManageAllTeams,
-    isClubWideScope,
-    requiresSingleTeamSelection,
-  } = resolveDataTransferTeamSelection({
-    actor,
-    allTeams: allTeams || [],
-    assignedTeamIds,
-    body,
-    requireSelection,
-  })
+  const requestedTeamIds = Array.isArray(body.teamIds) ? [...new Set(body.teamIds.map(text).filter(Boolean))] : []
+  const requestedClubWideScope = body.clubWideScope === true
+  if (requestedClubWideScope && !canManageAllTeams) throw statusError('Club-wide scope is not available for this role.', 403, 'CLUB_WIDE_SCOPE_DENIED')
+  if (requestedClubWideScope && requestedTeamIds.length) throw statusError('Choose either club-wide scope or selected teams.', 400, 'SCOPE_SELECTION_CONFLICT')
+  if (requireSelection && !requestedClubWideScope && !requestedTeamIds.length) throw statusError('Confirm club-wide scope or select at least one authorized team.', 400, 'TEAM_SCOPE_REQUIRED')
+  if (requestedTeamIds.length) {
+    const allowedIds = new Set(authorizedTeams.map((team) => team.id))
+    if (requestedTeamIds.some((id) => !allowedIds.has(id))) throw statusError('One or more selected teams are outside your authorized scope.', 403, 'CROSS_TEAM_SCOPE_DENIED')
+    authorizedTeams = authorizedTeams.filter((team) => requestedTeamIds.includes(team.id))
+  }
+  if (!canManageAllTeams && !authorizedTeams.length) throw statusError('Select at least one authorized team.', 400, 'TEAM_SCOPE_REQUIRED')
+  const isClubWideScope = canManageAllTeams && (requestedClubWideScope || (!requireSelection && !requestedTeamIds.length))
 
   return {
     actorId: actor.id,
@@ -233,7 +207,6 @@ async function resolveScope(actor, body, { requireClub = true, requireSelection 
     canManageTeams: canManageAllTeams,
     canManageAllTeams,
     isClubWideScope,
-    requiresSingleTeamSelection,
   }
 }
 
@@ -294,72 +267,6 @@ async function insertAudit({ action, actor, batchId = null, metadata = {}, scope
   if (error) throw error
 }
 
-async function resolveDeniedAuthorizedScope(actor, body) {
-  const requested = buildDataTransferDenialAuditMetadata({ actor, body })
-  const actorClub = buildDataTransferDenialAuditMetadata({
-    actor,
-    resolvedAuthorizedClubId: actor.clubId,
-  }).resolvedAuthorizedClubId
-  const resolvedAuthorizedClubId = actor.role === 'super_admin'
-    ? requested.requestedClubId
-    : actorClub
-  if (!resolvedAuthorizedClubId) {
-    return { resolvedAuthorizedClubId: null, resolvedAuthorizedTeamIds: [] }
-  }
-
-  if (actor.role === 'super_admin') {
-    const { data: club, error: clubError } = await supabaseAdmin
-      .from('clubs')
-      .select('id')
-      .eq('id', resolvedAuthorizedClubId)
-      .maybeSingle()
-    if (clubError) throw clubError
-    if (!club) return { resolvedAuthorizedClubId: null, resolvedAuthorizedTeamIds: [] }
-  }
-
-  const { data: teams, error: teamsError } = await supabaseAdmin
-    .from('teams')
-    .select('id')
-    .eq('club_id', resolvedAuthorizedClubId)
-  if (teamsError) throw teamsError
-  const clubTeamIds = (teams || []).map((team) => team.id)
-  if (actor.role === 'super_admin' || actor.role === 'admin') {
-    return { resolvedAuthorizedClubId, resolvedAuthorizedTeamIds: clubTeamIds }
-  }
-
-  const { data: assignments, error: assignmentsError } = await supabaseAdmin
-    .from('team_staff')
-    .select('team_id')
-    .eq('user_id', actor.id)
-  if (assignmentsError) throw assignmentsError
-  const clubTeamIdSet = new Set(clubTeamIds)
-  return {
-    resolvedAuthorizedClubId,
-    resolvedAuthorizedTeamIds: (assignments || [])
-      .map((assignment) => assignment.team_id)
-      .filter((teamId) => clubTeamIdSet.has(teamId)),
-  }
-}
-
-async function recordDeniedRequest({ actor, body, denialCode, operation, requestId }) {
-  const resolvedScope = await resolveDeniedAuthorizedScope(actor, body)
-  const metadata = buildDataTransferDenialAuditMetadata({
-    actor,
-    body,
-    denialCode,
-    operation,
-    requestId,
-    ...resolvedScope,
-  })
-  const { error } = await supabaseAdmin.from('data_transfer_audit_entries').insert({
-    actor_id: actor.id,
-    club_id: resolvedScope.resolvedAuthorizedClubId,
-    action: 'data_transfer_request_denied',
-    metadata,
-  })
-  if (error) throw error
-}
-
 async function recordDownload({
   actor,
   buffer,
@@ -407,32 +314,12 @@ async function handleScope(actor, body) {
     return response(200, { success: true, role: actor.role, requiresClubSelection: true, clubs: await listPlatformClubs(), teams: [] })
   }
   const scope = await resolveScope(actor, body)
-  const fieldPolicy = getDataTransferFieldPolicy(actor)
-  return response(200, {
-    success: true,
-    role: actor.role,
-    requiresAuditReason: actor.role === 'super_admin',
-    requiresSingleTeamSelection: scope.requiresSingleTeamSelection,
-    club: { id: scope.clubId, name: scope.clubName, season: text(scope.clubSeason) },
-    teams: scope.teams,
-    authorizedTeamIds: scope.authorizedTeamIds,
-    canManageClub: scope.canManageClub,
-    canManageTeams: scope.canManageTeams,
-    canExportGuardianContacts: fieldPolicy.guardianContactFields,
-    canExportGuardianPostalFields: fieldPolicy.guardianPostalFields,
-    isClubWideScope: scope.isClubWideScope,
-  })
+  return response(200, { success: true, role: actor.role, requiresAuditReason: actor.role === 'super_admin', club: { id: scope.clubId, name: scope.clubName, season: text(scope.clubSeason) }, teams: scope.teams, authorizedTeamIds: scope.authorizedTeamIds, canManageClub: scope.canManageClub, canManageTeams: scope.canManageTeams, isClubWideScope: scope.isClubWideScope })
 }
 
 async function handleDownload(actor, body, transferType) {
   const scope = await resolveScope(actor, body, { requireSelection: true })
-  const fieldPolicy = getDataTransferFieldPolicy(actor)
-  if (transferType === 'export') {
-    assertDataTransferExportRequestAllowed({ body, fieldPolicy })
-  }
-  const existing = transferType === 'export'
-    ? applyDataTransferExportFieldPolicy(await loadExisting(scope), fieldPolicy)
-    : null
+  const existing = transferType === 'export' ? await loadExisting(scope) : null
   const data = existing ? toWorkbookExportData(existing, scope) : {}
   const scopeLabel = `${scope.clubName}${scope.isClubWideScope ? ' | Club-wide' : ` | ${scope.teams.map((team) => team.name).join(', ')}`}`
   const buffer = await buildTransferWorkbook({ data, mode: transferType, scopeLabel })
@@ -441,30 +328,21 @@ async function handleDownload(actor, body, transferType) {
     buffer,
     scope,
     transferType: transferType === 'blank' ? 'blank_template' : 'export',
-    metadata: {
-      exportKind: transferType === 'blank' ? 'portable_blank' : 'portable_transfer',
-      fieldPolicy: fieldPolicy.key,
-    },
+    metadata: { exportKind: transferType === 'blank' ? 'portable_blank' : 'portable_transfer' },
   })
   return fileResponse(buffer, DATA_TRANSFER_FILENAME)
 }
 
 async function handleOrdinaryExport(actor, body) {
   const scope = await resolveScope(actor, body, { requireSelection: true })
-  const fieldPolicy = getDataTransferFieldPolicy(actor)
-  assertDataTransferExportRequestAllowed({
-    body,
-    fieldPolicy,
-    ordinaryDataset: text(body.dataset),
-  })
-  const existing = applyDataTransferExportFieldPolicy(await loadExisting(scope), fieldPolicy)
+  const existing = await loadExisting(scope)
   let result
   try {
     result = await buildOrdinaryDataExport({
       dataset: text(body.dataset),
       existing,
       format: text(body.format).toLowerCase(),
-      fieldPolicy,
+      includeGuardianContacts: ALLOWED_ROLES.has(actor.role),
       recordStatus: text(body.recordStatus).toLowerCase() || 'active',
       scope,
       season: text(body.season) || 'all',
@@ -481,7 +359,6 @@ async function handleOrdinaryExport(actor, body) {
     metadata: {
       dataset: result.dataset,
       exportKind: 'ordinary_spreadsheet',
-      fieldPolicy: fieldPolicy.key,
       format: result.format,
       recordStatus: text(body.recordStatus).toLowerCase() || 'active',
       rowCount: result.rowCount,
@@ -702,7 +579,6 @@ async function handleInspect(actor, body) {
     batch: {
       id: batchId,
       state,
-      planSha256: planResult.planSha256,
       workbookSha256,
       templateVersion: parsed.templateVersion,
       expiresAt,
@@ -742,7 +618,6 @@ async function handleConfirm(actor, body) {
   const { batch, scope } = await loadBatchForActor(actor, batchId)
   if (batch.actor_id !== actor.id) throw statusError('The transfer plan is bound to the account that created it.', 403, 'ACTOR_BINDING_MISMATCH')
   if (batch.confirmation_sha256 !== sha256(token)) throw statusError('The confirmation token is invalid.', 403, 'CONFIRMATION_INVALID')
-  if (text(body.planSha256) !== text(batch.plan_sha256)) throw statusError('The confirmed transfer plan has changed.', 409, 'CONFIRMATION_PLAN_HASH_MISMATCH')
   if (!['ready_for_review', 'awaiting_confirmation', 'completed', 'completed_with_warnings'].includes(batch.state)) throw statusError('This transfer is not ready for confirmation.', 409, 'BATCH_STATE_INVALID')
   if (batch.state === 'ready_for_review') {
     const { data: claimed, error } = await supabaseAdmin.from('data_transfer_batches').update({ state: 'awaiting_confirmation', confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', batch.id).eq('state', 'ready_for_review').select('id').maybeSingle()
@@ -889,9 +764,7 @@ const DEFAULT_OPERATION_HANDLERS = Object.freeze({
 })
 
 export function createDataTransferHandler({
-  auditDeniedRequest = recordDeniedRequest,
   authenticateRequest = authenticate,
-  authorizeRequest = assertDataTransferEntitlement,
   logger = console,
   operationHandlers = DEFAULT_OPERATION_HANDLERS,
 } = {}) {
@@ -900,21 +773,14 @@ export function createDataTransferHandler({
       return response(405, { ok: false, success: false, code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed.' })
     }
     let operation = 'unknown'
-    let actor = null
-    let body = {}
-    const requestId = safeDataTransferRequestId(
-      event.headers?.['x-request-id'] || event.headers?.['x-correlation-id'],
-      randomUUID(),
-    )
     try {
-      actor = await authenticateRequest(event)
-      body = parseBody(event)
+      const body = parseBody(event)
       operation = text(body.operation)
+      const actor = await authenticateRequest(event)
       const operationHandler = operationHandlers[operation]
       if (typeof operationHandler !== 'function') {
         throw statusError('Unknown Data Transfer operation.', 400, 'UNKNOWN_OPERATION')
       }
-      await authorizeRequest(actor, body, operation)
       return await operationHandler(actor, body)
     } catch (error) {
       const expected = error?.expose === true
@@ -924,25 +790,6 @@ export function createDataTransferHandler({
       const statusCode = expected ? error.statusCode : 500
       const code = expected ? error.code || 'DATA_TRANSFER_ERROR' : 'DATA_TRANSFER_FAILED'
       logger.error('Data Transfer request failed', { operation, code, statusCode })
-      if (actor && expected) {
-        try {
-          await auditDeniedRequest({
-            actor,
-            body,
-            denialCode: code,
-            operation,
-            requestId,
-          })
-        } catch {
-          logger.error('Data Transfer denial audit failed', { operation, denialCode: code })
-          return response(500, {
-            ok: false,
-            success: false,
-            code: 'DENIAL_AUDIT_FAILED',
-            message: 'Data Transfer denied the request, but its security audit could not be recorded.',
-          })
-        }
-      }
       return response(statusCode, {
         ok: false,
         success: false,

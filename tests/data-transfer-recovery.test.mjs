@@ -365,9 +365,7 @@ test('known operation failures return every required structured status and never
   ]))
   const logs = []
   const handler = createDataTransferHandler({
-    auditDeniedRequest: async () => {},
     authenticateRequest: async () => ({ id: 'fixture-user' }),
-    authorizeRequest: async () => {},
     logger: { error: (...args) => logs.push(args) },
     operationHandlers,
   })
@@ -390,9 +388,7 @@ test('known operation failures return every required structured status and never
 
 test('asynchronous 403 and 415 rejections are awaited and converted before Netlify can emit 502', async () => {
   const handler = createDataTransferHandler({
-    auditDeniedRequest: async () => {},
     authenticateRequest: async () => ({ id: 'fixture-user' }),
-    authorizeRequest: async () => {},
     logger: { error() {} },
     operationHandlers: {
       denied: async () => Promise.reject(statusError('Denied.', 403, 'CROSS_CLUB_SCOPE_DENIED')),
@@ -411,7 +407,6 @@ test('unexpected failures stay safe 500 responses and do not expose internal det
   const logs = []
   const handler = createDataTransferHandler({
     authenticateRequest: async () => ({ id: 'fixture-user' }),
-    authorizeRequest: async () => {},
     logger: { error: (...args) => logs.push(args) },
     operationHandlers: {
       explode: async () => {

@@ -1,5 +1,4 @@
 import { isDemoUser } from './demo.js'
-import { CAPABILITIES, canUseFeature } from './paywall-access.js'
 import { isPlanAccessActive } from './plans.js'
 
 function normalizeName(value) {
@@ -108,12 +107,10 @@ export function canUseDataTransfer(user) {
     return true
   }
 
-  const role = String(user.role ?? '')
-  const minimumRoleRank = role === 'coach' ? 20 : 50
   return Boolean(user.clubId)
-    && ['admin', 'head_manager', 'manager', 'coach'].includes(role)
-    && Number(user.roleRank ?? 0) >= minimumRoleRank
-    && canUseFeature(user, CAPABILITIES.bulkInvitesImports)
+    && ['admin', 'head_manager', 'manager'].includes(String(user.role ?? ''))
+    && Number(user.roleRank ?? 0) >= 50
+    && isPlanAccessActive(user)
 }
 
 export function canManageTeamSettings(user) {

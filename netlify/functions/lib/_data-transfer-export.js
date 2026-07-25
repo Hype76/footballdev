@@ -190,7 +190,6 @@ function guardianFields(guardian, link, number) {
 
 export function buildOrdinaryExportRows(existing, {
   dataset,
-  fieldPolicy = null,
   includeGuardianContacts = false,
   recordStatus = 'active',
   scope = {},
@@ -200,10 +199,7 @@ export function buildOrdinaryExportRows(existing, {
   if (!definition) throw exportError('Choose Players, Players and parent contacts, or Teams.', 'EXPORT_DATASET_UNSUPPORTED')
   if (!['active', 'inactive', 'all'].includes(recordStatus)) throw exportError('Choose active, inactive, or all records.', 'EXPORT_STATUS_UNSUPPORTED')
   const normalizedSeason = normalizeText(season) || 'all'
-  const guardianContactsAllowed = fieldPolicy
-    ? fieldPolicy.guardianContactFields === true
-    : includeGuardianContacts
-  if (dataset === 'players_and_guardians' && !guardianContactsAllowed) {
+  if (dataset === 'players_and_guardians' && !includeGuardianContacts) {
     throw exportError('Your role cannot export parent or guardian contact fields.', 'GUARDIAN_EXPORT_DENIED')
   }
 
@@ -373,7 +369,6 @@ ${columnStyles}
 export async function buildOrdinaryDataExport({
   dataset,
   existing,
-  fieldPolicy = null,
   format,
   includeGuardianContacts = false,
   recordStatus = 'active',
@@ -384,14 +379,7 @@ export async function buildOrdinaryDataExport({
   const formatDefinition = ORDINARY_EXPORT_FORMATS[format]
   if (!definition) throw exportError('Choose Players, Players and parent contacts, or Teams.', 'EXPORT_DATASET_UNSUPPORTED')
   if (!formatDefinition) throw exportError('Choose CSV, Excel, or OpenDocument.', 'EXPORT_FORMAT_UNSUPPORTED')
-  const rows = buildOrdinaryExportRows(existing, {
-    dataset,
-    fieldPolicy,
-    includeGuardianContacts,
-    recordStatus,
-    scope,
-    season,
-  })
+  const rows = buildOrdinaryExportRows(existing, { dataset, includeGuardianContacts, recordStatus, scope, season })
   const buffer = format === 'csv'
     ? buildCsv(definition, rows)
     : format === 'xlsx'

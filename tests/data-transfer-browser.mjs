@@ -57,8 +57,7 @@ async function signIn(page, email) {
 }
 
 async function prepareContext(browser, workbookBuffer, options = {}) {
-  const { fixtureRole = 'admin', ...contextOptions } = options
-  const context = await browser.newContext({ acceptDownloads: true, ...contextOptions })
+  const context = await browser.newContext({ acceptDownloads: true, ...options })
   let confirmCalls = 0
   let blankCalls = 0
   let ordinaryExportCalls = 0
@@ -86,27 +85,7 @@ async function prepareContext(browser, workbookBuffer, options = {}) {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, role: 'super_admin', requiresClubSelection: true, clubs: [{ id: 'club-fixture', name: 'Fixture United', status: 'active' }], teams: [] }) })
         return
       }
-      const coachTeams = [
-        { id: 'team-u12', name: 'U12 Fixture Team', season: '2026/27' },
-        { id: 'team-u14', name: 'U14 Fixture Team', season: '2026/27' },
-      ]
-      const teams = fixtureRole === 'coach' ? coachTeams : coachTeams.slice(0, 1)
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          role: fixtureRole,
-          club: { id: 'club-fixture', name: 'Fixture United', season: '2026/27' },
-          teams,
-          authorizedTeamIds: teams.map((team) => team.id),
-          canManageClub: fixtureRole === 'admin',
-          canManageTeams: fixtureRole === 'admin',
-          requiresSingleTeamSelection: fixtureRole === 'coach',
-          canExportGuardianContacts: fixtureRole !== 'coach',
-          canExportGuardianPostalFields: fixtureRole === 'admin',
-        }),
-      })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, role: 'admin', club: { id: 'club-fixture', name: 'Fixture United', season: '2026/27' }, teams: [{ id: 'team-u12', name: 'U12 Fixture Team', season: '2026/27' }], authorizedTeamIds: ['team-u12'], canManageClub: true, canManageTeams: true }) })
       return
     }
     if (body.operation === 'history') {
@@ -287,20 +266,16 @@ try {
   }
 
   {
-    const fixture = await prepareContext(browser, workbookBuffer, { fixtureRole: 'coach' })
+    const fixture = await prepareContext(browser, workbookBuffer)
     const page = await fixture.context.newPage()
     await signIn(page, 'coach.fixture@footballplayer.test')
     await page.goto(`${baseUrl}/data-transfer`, { waitUntil: 'domcontentloaded' })
-    await page.getByRole('heading', { name: 'Data Transfer' }).waitFor()
-    await page.getByLabel('U12 Fixture Team', { exact: true }).check()
-    assert.equal(await page.getByLabel('U12 Fixture Team', { exact: true }).isChecked(), true)
-    await page.getByLabel('U14 Fixture Team', { exact: true }).check()
-    assert.equal(await page.getByLabel('U12 Fixture Team', { exact: true }).isChecked(), false)
-    assert.equal(await page.getByLabel('U14 Fixture Team', { exact: true }).isChecked(), true)
-    assert.equal(await page.getByRole('button', { name: 'Select all' }).count(), 0)
-    assert.equal(await page.getByLabel('Players and parent contacts').isDisabled(), true)
+    await page.waitForFunction(() => window.location.pathname !== '/data-transfer')
+    const deniedHeading = page.getByRole('heading', { name: 'Data Transfer' })
+    if (await deniedHeading.count()) await deniedHeading.waitFor({ state: 'detached' })
+    assert.equal(await deniedHeading.count(), 0)
     await fixture.context.close()
-    console.log('ok coach route allows exactly one explicitly selected assigned team and blocks guardian contacts')
+    console.log('ok coach route access fails closed')
   }
 
   {
