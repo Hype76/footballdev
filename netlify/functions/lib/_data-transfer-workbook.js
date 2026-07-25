@@ -25,6 +25,15 @@ const SYSTEM_REFERENCE_COLUMN_KEYS = new Set([
   'team_reference',
   'transfer_reference',
 ])
+const GUARDIAN_CONTACT_COLUMN_KEYS = new Set(['email', 'phone'])
+const GUARDIAN_POSTAL_COLUMN_KEYS = new Set([
+  'address_line_1',
+  'address_line_2',
+  'town_city',
+  'county',
+  'postcode',
+  'country',
+])
 
 export const SHEET_DEFINITIONS = [
   {
@@ -123,6 +132,60 @@ function headersMatch(sheet, expected) {
     && actual.every((header, index) => header === expected[index])
 }
 
+function portableSheetDefinitions(fieldPolicy = null) {
+  if (!fieldPolicy) return SHEET_DEFINITIONS
+  return SHEET_DEFINITIONS.map((definition) => {
+    if (definition.name !== 'Guardians') return definition
+    return {
+      ...definition,
+      columns: definition.columns.filter(([, key]) => (
+        (fieldPolicy.guardianContactFields === true || !GUARDIAN_CONTACT_COLUMN_KEYS.has(key))
+        && (fieldPolicy.guardianPostalFields === true || !GUARDIAN_POSTAL_COLUMN_KEYS.has(key))
+      )),
+    }
+  })
+}
+
+function resolvePortableSheetDefinition(sheet, definition) {
+  if (!sheet) {
+    return {
+      definition,
+      unexpectedHeaders: [],
+      valid: false,
+    }
+  }
+  const actualHeaders = worksheetHeaders(sheet, definition.columns.length + 1)
+  const canonicalIndexByLabel = new Map(definition.columns.map(([label], index) => [label, index]))
+  const selectedIndexes = actualHeaders.map((header) => canonicalIndexByLabel.get(header))
+  const ordered = selectedIndexes.every((index, position) => (
+    Number.isInteger(index) && (position === 0 || index > selectedIndexes[position - 1])
+  ))
+  const requiredHeaders = definition.columns.filter(([, , required]) => required).map(([label]) => label)
+  const hasRequiredHeaders = requiredHeaders.every((label) => actualHeaders.includes(label))
+  const unexpectedHeaders = actualHeaders.filter((header) => !canonicalIndexByLabel.has(header))
+  const hasTrailingContent = sheet.actualColumnCount > actualHeaders.length
+  const valid = actualHeaders.length > 0
+    && ordered
+    && hasRequiredHeaders
+    && unexpectedHeaders.length === 0
+    && !hasTrailingContent
+
+  return {
+    definition: valid
+      ? {
+          ...definition,
+          columns: selectedIndexes.map((index) => definition.columns[index]),
+        }
+      : definition,
+    unexpectedHeaders,
+    valid,
+  }
+}
+
+function portableHeadersMatch(sheet, definition) {
+  return resolvePortableSheetDefinition(sheet, definition).valid
+}
+
 function portableWorkbookMetadataMatches(workbook) {
   return normalizeText(workbook.creator) === PORTABLE_WORKBOOK_METADATA.creator
     && normalizeText(workbook.company) === PORTABLE_WORKBOOK_METADATA.company
@@ -159,7 +222,7 @@ export async function inspectTransferWorkbookMode(buffer) {
   const actualOrder = workbook.worksheets.map((sheet) => sheet.name)
   const expectedSheetCoverage = WORKBOOK_SHEET_ORDER.filter((name) => workbook.getWorksheet(name)).length
   const dataHeaderMatches = SHEET_DEFINITIONS.filter((definition) => (
-    headersMatch(workbook.getWorksheet(definition.name), definition.columns.map(([label]) => label))
+    portableHeadersMatch(workbook.getWorksheet(definition.name), definition)
   )).length
   const referenceHeaderChecks = [
     ['Club Details', 1, 'Club Reference'],
@@ -272,8 +335,7 @@ function styleDataSheet(sheet, definition) {
   })
 }
 
-function addListValidation(sheet, columnKey, listName, maxRow) {
-  const definition = SHEET_DEFINITIONS.find((candidate) => candidate.name === sheet.name)
+function addListValidation(sheet, definition, columnKey, listName, maxRow) {
   const columnIndex = definition?.columns.findIndex(([, key]) => key === columnKey) ?? -1
   if (columnIndex < 0) return
   const listIndex = Object.keys(WORKBOOK_LIST_VALUES).indexOf(listName) + 1
@@ -346,7 +408,12 @@ function writeRows(sheet, definition, rows) {
   }
 }
 
-export async function buildTransferWorkbook({ data = {}, mode = 'blank', scopeLabel = '' } = {}) {
+export async function buildTransferWorkbook({
+  data = {},
+  fieldPolicy = null,
+  mode = 'blank',
+  scopeLabel = '',
+} = {}) {
   const workbook = new ExcelJS.Workbook()
   workbook.creator = PORTABLE_WORKBOOK_METADATA.creator
   workbook.company = PORTABLE_WORKBOOK_METADATA.company
@@ -356,7 +423,9 @@ export async function buildTransferWorkbook({ data = {}, mode = 'blank', scopeLa
   workbook.calcProperties.fullCalcOnLoad = false
 
   addInstructions(workbook, mode, scopeLabel)
-  for (const definition of SHEET_DEFINITIONS) {
+  const sheetDefinitions = portableSheetDefinitions(fieldPolicy)
+  const definitionByName = new Map(sheetDefinitions.map((definition) => [definition.name, definition]))
+  for (const definition of sheetDefinitions) {
     const sheet = workbook.addWorksheet(definition.name)
     sheet.addRow(definition.columns.map(([label]) => label))
     writeRows(sheet, definition, data[definition.name] || [])
@@ -368,15 +437,15 @@ export async function buildTransferWorkbook({ data = {}, mode = 'blank', scopeLa
   addLists(workbook)
   workbook.views = [{ activeTab: WORKBOOK_SHEET_ORDER.indexOf('Players'), firstSheet: 0, visibility: 'visible' }]
 
-  addListValidation(workbook.getWorksheet('Teams'), 'category', 'Category', 250)
-  addListValidation(workbook.getWorksheet('Teams'), 'status', 'Status', 250)
-  addListValidation(workbook.getWorksheet('Players'), 'gender', 'Gender', 5000)
-  addListValidation(workbook.getWorksheet('Players'), 'section', 'Section', 5000)
-  addListValidation(workbook.getWorksheet('Players'), 'status', 'Status', 5000)
-  addListValidation(workbook.getWorksheet('Guardians'), 'status', 'Status', 7500)
-  addListValidation(workbook.getWorksheet('Player-Guardian Links'), 'relationship', 'Relationship', 10000)
+  addListValidation(workbook.getWorksheet('Teams'), definitionByName.get('Teams'), 'category', 'Category', 250)
+  addListValidation(workbook.getWorksheet('Teams'), definitionByName.get('Teams'), 'status', 'Status', 250)
+  addListValidation(workbook.getWorksheet('Players'), definitionByName.get('Players'), 'gender', 'Gender', 5000)
+  addListValidation(workbook.getWorksheet('Players'), definitionByName.get('Players'), 'section', 'Section', 5000)
+  addListValidation(workbook.getWorksheet('Players'), definitionByName.get('Players'), 'status', 'Status', 5000)
+  addListValidation(workbook.getWorksheet('Guardians'), definitionByName.get('Guardians'), 'status', 'Status', 7500)
+  addListValidation(workbook.getWorksheet('Player-Guardian Links'), definitionByName.get('Player-Guardian Links'), 'relationship', 'Relationship', 10000)
   for (const key of ['primary_contact', 'receives_communications', 'emergency_contact']) {
-    addListValidation(workbook.getWorksheet('Player-Guardian Links'), key, 'YesNo', 10000)
+    addListValidation(workbook.getWorksheet('Player-Guardian Links'), definitionByName.get('Player-Guardian Links'), key, 'YesNo', 10000)
   }
 
   return Buffer.from(await workbook.xlsx.writeBuffer())
@@ -511,30 +580,25 @@ export async function parseTransferWorkbook(buffer) {
   }
   for (const definition of SHEET_DEFINITIONS) {
     const sheet = workbook.getWorksheet(definition.name)
-    const actualHeaders = definition.columns.map((_, index) => normalizeText(sheet.getCell(1, index + 1).value))
-    const expectedHeaders = definition.columns.map(([label]) => label)
-    const unexpectedHeaders = []
-    for (let index = definition.columns.length + 1; index <= sheet.actualColumnCount; index += 1) {
-      const header = normalizeText(sheet.getCell(1, index).value)
-      if (header) unexpectedHeaders.push(header)
-    }
-    if (JSON.stringify(actualHeaders) !== JSON.stringify(expectedHeaders) || unexpectedHeaders.length) {
+    const resolution = resolvePortableSheetDefinition(sheet, definition)
+    if (!resolution.valid) {
       errors.push({ sheet: definition.name, row: 1, column: '', code: 'HEADER_MISMATCH', message: 'Column headers or order were changed.' })
-      if (unexpectedHeaders.length) errors.push({ sheet: definition.name, row: 1, column: unexpectedHeaders.join(', '), code: 'UNEXPECTED_COLUMN', message: 'Unexpected columns are not accepted, including authentication, role, billing, and permission fields.' })
+      if (resolution.unexpectedHeaders.length) errors.push({ sheet: definition.name, row: 1, column: resolution.unexpectedHeaders.join(', '), code: 'UNEXPECTED_COLUMN', message: 'Unexpected columns are not accepted, including authentication, role, billing, and permission fields.' })
       rowsBySheet[definition.name] = []
       continue
     }
+    const activeDefinition = resolution.definition
 
     const parsedRows = []
     for (let rowNumber = 2; rowNumber <= sheet.actualRowCount; rowNumber += 1) {
       const row = sheet.getRow(rowNumber)
-      if (isBlankRow(row, definition.columns.length)) continue
+      if (isBlankRow(row, activeDefinition.columns.length)) continue
       if (parsedRows.length >= definition.limit) {
         errors.push({ sheet: definition.name, row: rowNumber, column: '', code: 'ROW_LIMIT_EXCEEDED', message: `This sheet supports at most ${definition.limit} data rows.` })
         continue
       }
       const parsed = { _sourceRow: rowNumber }
-      definition.columns.forEach(([label, key, required], index) => {
+      activeDefinition.columns.forEach(([label, key, required], index) => {
         const cell = row.getCell(index + 1)
         const location = { sheet: definition.name, row: rowNumber, column: label }
         if (cell.type === ExcelJS.ValueType.Formula || (cell.value && typeof cell.value === 'object' && 'formula' in cell.value)) {

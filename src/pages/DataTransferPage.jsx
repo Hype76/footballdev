@@ -193,6 +193,7 @@ export function DataTransferPage() {
         setScope(result)
         setScopeMode(result.canManageClub ? '' : 'teams')
         setSelectedTeamIds([])
+        if (result.canExportGuardianContacts === false) setExportDataset('players')
         setAllowTeamCreation(false)
         setExportSeason('all')
         await refreshHistory(payload)
@@ -217,6 +218,7 @@ export function DataTransferPage() {
           setScope(result)
           setScopeMode(result.canManageClub ? '' : 'teams')
           setSelectedTeamIds([])
+          if (result.canExportGuardianContacts === false) setExportDataset('players')
           setExportSeason('all')
           const historyResult = await loadDataTransferHistory({ clubId: result.club.id })
           if (active) setHistory(historyResult.history || [])
@@ -334,7 +336,12 @@ export function DataTransferPage() {
     setActionBusy('confirm')
     setError('')
     try {
-      const result = await confirmDataTransfer({ ...scopePayload, batchId: inspection.batch.id, confirmationToken: inspection.confirmationToken })
+      const result = await confirmDataTransfer({
+        ...scopePayload,
+        batchId: inspection.batch.id,
+        confirmationToken: inspection.confirmationToken,
+        planSha256: inspection.batch.planSha256,
+      })
       setNotice(result.result?.idempotent ? 'This confirmed plan had already completed. No duplicate records were created.' : 'The confirmed import completed.')
       setInspection((current) => ({ ...current, batch: { ...current.batch, state: result.result?.state || 'completed' } }))
       await refreshHistory()
@@ -422,9 +429,11 @@ export function DataTransferPage() {
             {scope.canManageClub ? <fieldset className="rounded-lg border border-[#cfe0d6] bg-white p-3"><legend className="px-1 text-sm font-black text-[#274437]">Choose transfer scope</legend><div className="mt-2 flex flex-wrap gap-4"><label className="flex items-center gap-2 text-sm font-bold text-[#274437]"><input type="radio" name="data-transfer-scope" checked={scopeMode === 'club'} onChange={() => { setScopeMode('club'); setSelectedTeamIds([]); clearSourceInspection() }} />Entire club</label><label className="flex items-center gap-2 text-sm font-bold text-[#274437]"><input type="radio" name="data-transfer-scope" checked={scopeMode === 'teams'} onChange={() => { setScopeMode('teams'); setAllowTeamCreation(false); clearSourceInspection() }} />Selected teams</label></div></fieldset> : null}
             <fieldset className="rounded-lg border border-[#cfe0d6] bg-white p-3">
               <legend className="px-1 text-sm font-black text-[#274437]">Select import and export teams</legend>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{scope.teams.map((team) => <ChoiceRow key={team.id} id={`data-transfer-team-${team.id}`} disabled={scopeMode !== 'teams'} checked={selectedTeamIds.includes(team.id)} label={team.name} onChange={(event) => { setSelectedTeamIds((current) => event.target.checked ? [...new Set([...current, team.id])] : current.filter((id) => id !== team.id)); clearSourceInspection() }} />)}</div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{scope.teams.map((team) => scope.requiresSingleTeamSelection
+                ? <SelectionRow key={team.id} id={`data-transfer-team-${team.id}`} name="data-transfer-team" value={team.id} disabled={scopeMode !== 'teams'} checked={selectedTeamIds.includes(team.id)} label={team.name} onChange={() => { setSelectedTeamIds([team.id]); clearSourceInspection() }} />
+                : <ChoiceRow key={team.id} id={`data-transfer-team-${team.id}`} disabled={scopeMode !== 'teams'} checked={selectedTeamIds.includes(team.id)} label={team.name} onChange={(event) => { setSelectedTeamIds((current) => event.target.checked ? [...new Set([...current, team.id])] : current.filter((id) => id !== team.id)); clearSourceInspection() }} />)}</div>
               {!scope.teams.length ? <p className="mt-2 text-sm font-semibold text-[#66756c]">No teams exist yet. Choose Entire club to prepare a workbook that creates the first teams.</p> : null}
-              <div className="mt-3 flex gap-2"><ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds(scope.teams.map((team) => team.id)); clearSourceInspection() }}>Select all</ActionButton><ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds([]); clearSourceInspection() }}>Clear</ActionButton></div>
+              <div className="mt-3 flex gap-2">{scope.requiresSingleTeamSelection ? null : <ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds(scope.teams.map((team) => team.id)); clearSourceInspection() }}>Select all</ActionButton>}<ActionButton tone="secondary" disabled={scopeMode !== 'teams'} onClick={() => { setSelectedTeamIds([]); clearSourceInspection() }}>Clear</ActionButton></div>
             </fieldset>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-black text-[#274437]">Confirmed season<input value={season} onChange={(event) => { setSeason(event.target.value); setInspection(null) }} placeholder="2026/27" className="min-h-11 rounded-lg border border-[#b8c9c0] bg-white px-3" /></label>
@@ -454,7 +463,7 @@ export function DataTransferPage() {
               <legend className="text-sm font-black text-[#274437]">Dataset</legend>
               <div className="mt-2 grid gap-2">
                 <SelectionRow id="data-transfer-export-players" name="data-transfer-export-dataset" value="players" checked={exportDataset === 'players'} onChange={(event) => setExportDataset(event.target.value)} label="Players" description="Player registration fields without parent contact details." />
-                <SelectionRow id="data-transfer-export-players-guardians" name="data-transfer-export-dataset" value="players_and_guardians" checked={exportDataset === 'players_and_guardians'} onChange={(event) => setExportDataset(event.target.value)} label="Players and parent contacts" description="Authorised player rows with linked parent or guardian contacts, including any additional contacts in a readable field." />
+                <SelectionRow id="data-transfer-export-players-guardians" name="data-transfer-export-dataset" value="players_and_guardians" disabled={scope?.canExportGuardianContacts === false} checked={exportDataset === 'players_and_guardians'} onChange={(event) => setExportDataset(event.target.value)} label="Players and parent contacts" description={scope?.canExportGuardianContacts === false ? 'Guardian contact fields are not available for this role.' : 'Authorised player rows with linked parent or guardian contacts, including any additional contacts in a readable field.'} />
                 <SelectionRow id="data-transfer-export-teams" name="data-transfer-export-dataset" value="teams" checked={exportDataset === 'teams'} onChange={(event) => setExportDataset(event.target.value)} label="Teams" description="Human-readable team and season information." />
               </div>
             </fieldset>
