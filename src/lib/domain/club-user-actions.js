@@ -30,6 +30,35 @@ function createUuid() {
   const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
+
+async function savePendingClubUserInvite(payload) {
+  const { data: existingInvite, error: existingInviteError } = await supabase
+    .from('club_user_invites')
+    .select('id')
+    .eq('club_id', payload.club_id)
+    .eq('email', payload.email)
+    .eq('status', 'pending')
+    .is('accepted_at', null)
+    .is('cancelled_at', null)
+    .is('replaced_at', null)
+    .maybeSingle()
+
+  if (existingInviteError) {
+    throw existingInviteError
+  }
+
+  const writeQuery = existingInvite?.id
+    ? supabase.from('club_user_invites').update(payload).eq('id', existingInvite.id)
+    : supabase.from('club_user_invites').insert(payload)
+  const { data, error } = await writeQuery.select('*').single()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
 export async function assignClubUserRole({ user, email, role }) {
   await blockDemoMutation(user)
 
@@ -87,31 +116,18 @@ export async function assignClubUserRole({ user, email, role }) {
     }
   }
 
-  const { data: inviteRow, error: inviteError } = await supabase
-    .from('club_user_invites')
-    .upsert(
-      {
-        club_id: user.clubId,
-        email: normalizedEmail,
-        role_key: roleKey,
-        role_label: roleLabel,
-        role_rank: roleRank,
-        created_by: user.id,
-        ...getEntryIdentity(user),
-        updated_by: getEntryUserId(user),
-        ...getEntryIdentity(user, 'updated_by'),
-      },
-      {
-        onConflict: 'club_id,email',
-      },
-    )
-    .select('*')
-    .single()
-
-  if (inviteError) {
-    console.error(inviteError)
-    throw inviteError
-  }
+  const inviteRow = await savePendingClubUserInvite({
+    club_id: user.clubId,
+    email: normalizedEmail,
+    role_key: roleKey,
+    role_label: roleLabel,
+    role_rank: roleRank,
+    status: 'pending',
+    created_by: user.id,
+    ...getEntryIdentity(user),
+    updated_by: getEntryUserId(user),
+    ...getEntryIdentity(user, 'updated_by'),
+  })
 
   invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
   invalidateMemoryCacheByPrefix('visible-club-users:')
@@ -250,36 +266,23 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
 
   const inviteToken = createUuid()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-  const { data: inviteRow, error: inviteError } = await supabase
-    .from('club_user_invites')
-    .upsert(
-      {
-        club_id: user.clubId,
-        email: normalizedEmail,
-        role_key: roleKey,
-        role_label: roleLabel,
-        role_rank: roleRank,
-        team_id: normalizedTeamId,
-        invite_token: inviteToken,
-        expires_at: expiresAt,
-        accepted_at: null,
-        invite_sent_at: null,
-        created_by: user.id,
-        ...getEntryIdentity(user),
-        updated_by: getEntryUserId(user),
-        ...getEntryIdentity(user, 'updated_by'),
-      },
-      {
-        onConflict: 'club_id,email',
-      },
-    )
-    .select('*')
-    .single()
-
-  if (inviteError) {
-    console.error(inviteError)
-    throw inviteError
-  }
+  const inviteRow = await savePendingClubUserInvite({
+    club_id: user.clubId,
+    email: normalizedEmail,
+    role_key: roleKey,
+    role_label: roleLabel,
+    role_rank: roleRank,
+    team_id: normalizedTeamId,
+    invite_token: inviteToken,
+    expires_at: expiresAt,
+    accepted_at: null,
+    invite_sent_at: null,
+    status: 'pending',
+    created_by: user.id,
+    ...getEntryIdentity(user),
+    updated_by: getEntryUserId(user),
+    ...getEntryIdentity(user, 'updated_by'),
+  })
 
   const invite = normalizeClubInviteRow(inviteRow)
   const teams = normalizedTeamId ? await getTeams(user).catch(() => []) : []

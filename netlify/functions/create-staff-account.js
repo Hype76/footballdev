@@ -62,7 +62,7 @@ async function findAuthUserByEmail(email) {
 async function getInvite(token) {
   const { data, error } = await supabaseAdmin
     .from('club_user_invites')
-    .select('id, club_id, email, role_key, role_label, role_rank, team_id, expires_at, accepted_at, invite_token')
+    .select('id, club_id, email, role_key, role_label, role_rank, team_id, expires_at, accepted_at, invite_token, status, cancelled_at, replaced_at')
     .eq('invite_token', token)
     .maybeSingle()
 
@@ -72,6 +72,10 @@ async function getInvite(token) {
 
   if (data.accepted_at) {
     throw Object.assign(new Error('This staff invite has already been accepted.'), { statusCode: 409 })
+  }
+
+  if ((data.status && data.status !== 'pending') || data.cancelled_at || data.replaced_at) {
+    throw Object.assign(new Error('This staff invite is no longer active.'), { statusCode: 410 })
   }
 
   if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
@@ -215,14 +219,34 @@ export async function handler(event) {
       return failureResponse(400, membershipError.message)
     }
 
-    if (invite.team_id) {
+    const { data: inviteTeamRows, error: inviteTeamsError } = await supabaseAdmin
+      .from('club_user_invite_teams')
+      .select('team_id, teams!inner(club_id, status)')
+      .eq('invite_id', invite.id)
+      .eq('teams.club_id', invite.club_id)
+      .eq('teams.status', 'active')
+
+    if (inviteTeamsError && inviteTeamsError.code !== '42P01') {
+      return failureResponse(400, 'Staff team assignments could not be verified.')
+    }
+
+    const inviteTeamIds = [
+      ...(inviteTeamRows || []).map((row) => row.team_id),
+      ...(invite.team_id ? [invite.team_id] : []),
+    ].filter((teamId, index, values) => teamId && values.indexOf(teamId) === index)
+
+    if (invite.role_key === 'head_manager' && inviteTeamIds.length === 0) {
+      return failureResponse(400, 'This Team Admin invitation has no active team assignment.')
+    }
+
+    if (inviteTeamIds.length > 0) {
       const { error: teamStaffError } = await supabaseAdmin
         .from('team_staff')
         .upsert(
-          {
-            team_id: invite.team_id,
+          inviteTeamIds.map((teamId) => ({
+            team_id: teamId,
             user_id: staffUserId,
-          },
+          })),
           {
             onConflict: 'team_id,user_id',
           },
@@ -237,8 +261,10 @@ export async function handler(event) {
       .from('club_user_invites')
       .update({
         accepted_at: new Date().toISOString(),
+        status: 'accepted',
       })
       .eq('id', invite.id)
+      .eq('status', 'pending')
 
     if (inviteUpdateError) {
       return failureResponse(400, inviteUpdateError.message)

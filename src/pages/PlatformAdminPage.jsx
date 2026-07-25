@@ -1014,6 +1014,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       {showClubManagement ? (
         <PlatformAccountManagementSection
+          accessToken={session?.access_token || ''}
           clubPage={clubPage}
           isLoading={isLoading}
           onAccountAction={handleAccountAction}

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { mkdir } from 'node:fs/promises'
 import net from 'node:net'
 import { chromium } from 'playwright'
 
@@ -180,11 +181,12 @@ function fixtureProfile() {
   }
 }
 
-async function prepareContext(browser, { createClubResponses = [], deleteResponses = [] } = {}) {
-  const context = await browser.newContext()
+async function prepareContext(browser, { createClubResponses = [], deleteResponses = [], viewport = null } = {}) {
+  const context = await browser.newContext(viewport ? { viewport } : {})
   const requests = {
     createClub: [],
     deleteTeam: [],
+    platformAccess: [],
     auth: [],
     functions: [],
   }
@@ -280,9 +282,66 @@ async function prepareContext(browser, { createClubResponses = [], deleteRespons
     await fulfillJson(route, nextResponse.status, nextResponse.body)
   }
 
+  const handlePlatformClubAccessRoute = async (route) => {
+    const request = route.request()
+    const currentTeams = teamDeleted ? disposableTeams.slice(1) : disposableTeams
+    requests.platformAccess.push({ method: request.method(), url: request.url(), body: request.postData() })
+    await fulfillJson(route, 200, {
+      success: true,
+      access: {
+        club: { id: disposableClub.id, name: disposableClub.name },
+        owner: {
+          id: '66666666-6666-4666-8666-666666666666',
+          displayName: 'Fixture Owner',
+          maskedEmail: 'ow***@example.test',
+          role: 'admin',
+          roleLabel: 'Club Admin',
+          status: 'active',
+          assignedTeams: [],
+        },
+        clubAdmins: [],
+        teamAdmins: [{
+          id: '77777777-7777-4777-8777-777777777777',
+          displayName: 'Fixture Team Admin',
+          maskedEmail: 'te***@example.test',
+          role: 'head_manager',
+          roleLabel: 'Team Admin',
+          status: 'active',
+          assignedTeams: currentTeams.slice(0, 1).map((team) => ({ id: team.id, name: team.name })),
+        }],
+        pendingInvitations: [{
+          id: '88888888-8888-4888-8888-888888888888',
+          source: 'owner',
+          maskedEmail: 'pe***@example.test',
+          role: 'admin',
+          roleLabel: 'Club Admin',
+          status: 'pending',
+          deliveryStatus: 'unsent',
+          sentAt: null,
+          expiresAt: '2026-08-08T15:19:08.000Z',
+          assignedTeams: [],
+        }],
+        invitationHistory: [],
+        removedAccess: [{
+          id: '99999999-9999-4999-8999-999999999999',
+          targetUserId: '77777777-7777-4777-8777-777777777777',
+          assignmentType: 'team_admin',
+          role: 'head_manager',
+          roleLabel: 'Team Admin',
+          teamId: disposableTeams[1].id,
+          teamName: disposableTeams[1].name,
+          status: 'removed',
+          removedAt: '2026-07-25T16:00:00.000Z',
+        }],
+        teams: currentTeams.map((team) => ({ id: team.id, name: team.name, status: 'active' })),
+      },
+    })
+  }
+
   await context.route('**/.netlify/functions/platform-admin-access**', handlePlatformAdminAccessRoute)
   await context.route('**/.netlify/functions/platform-create-club**', handlePlatformCreateClubRoute)
   await context.route('**/.netlify/functions/platform-delete-team**', handlePlatformDeleteTeamRoute)
+  await context.route('**/.netlify/functions/platform-club-access**', handlePlatformClubAccessRoute)
 
   await context.route('**/.netlify/functions/**', async (route) => {
     const url = route.request().url()
@@ -299,6 +358,11 @@ async function prepareContext(browser, { createClubResponses = [], deleteRespons
 
     if (url.includes('/.netlify/functions/platform-delete-team')) {
       await handlePlatformDeleteTeamRoute(route)
+      return
+    }
+
+    if (url.includes('/.netlify/functions/platform-club-access')) {
+      await handlePlatformClubAccessRoute(route)
       return
     }
 
@@ -499,8 +563,8 @@ try {
     assert.match(requests.deleteTeam[0].headers.authorization || '', /^Bearer fixture-token-/)
     await dialog(page).waitFor({ state: 'detached', timeout: 15000 })
     await page.getByText('Team deleted.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
-    await page.getByText('U12 Tigers Fixture', { exact: true }).waitFor({ state: 'detached', timeout: 15000 })
-    await page.getByText('U13 Lions Fixture', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.locator('span').filter({ hasText: 'U12 Tigers Fixture' }).first().waitFor({ state: 'detached', timeout: 15000 })
+    await page.locator('span').filter({ hasText: 'U13 Lions Fixture' }).first().waitFor({ state: 'visible', timeout: 15000 })
 
     await context.close()
   })
@@ -655,6 +719,38 @@ try {
     await dialog(page).getByText('Network failure. Check your connection and try again.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     await dialog(page).getByText('U12 Tigers Fixture', { exact: true }).waitFor({ state: 'visible' })
 
+    await context.close()
+  })
+
+  await runScenario('existing-club access management renders on desktop without exposing secrets', async () => {
+    const { context, page, requests } = await prepareContext(browser, { viewport: { width: 1440, height: 1000 } })
+    await openPlatformClubs(page)
+    await page.getByText('Club access', { exact: true }).waitFor({ state: 'visible' })
+
+    for (const label of ['Owner', 'Club Admins', 'Team Administrators', 'Pending invitations', 'Removed access']) {
+      await page.getByText(label, { exact: true }).last().waitFor({ state: 'visible' })
+    }
+
+    await page.getByRole('button', { name: 'Invite Club Admin' }).waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: 'Assign Team Admin' }).waitFor({ state: 'visible' })
+    assert.equal(await page.getByText(/token_digest|auth_user_id|fixture-owner-token/i).count(), 0)
+    assert.ok(requests.platformAccess.some((request) => request.method === 'GET'))
+    await mkdir('output/playwright', { recursive: true })
+    await page.screenshot({ path: 'output/playwright/platform-club-access-desktop.png', fullPage: true })
+    await context.close()
+  })
+
+  await runScenario('existing-club access management remains usable on mobile', async () => {
+    const { context, page } = await prepareContext(browser, { viewport: { width: 390, height: 844 } })
+    await openPlatformClubs(page)
+    await page.getByText('Club access', { exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: 'Replace invitation' }).waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: 'Cancel invitation' }).waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: 'Restore access' }).waitFor({ state: 'visible' })
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    assert.ok(overflow <= 1, `Unexpected mobile horizontal overflow: ${overflow}px`)
+    await mkdir('output/playwright', { recursive: true })
+    await page.screenshot({ path: 'output/playwright/platform-club-access-mobile.png', fullPage: true })
     await context.close()
   })
 } catch (error) {
