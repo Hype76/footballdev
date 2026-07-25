@@ -105,6 +105,33 @@ function publicError(code) {
   return messages[code] || 'The access change could not be completed safely.'
 }
 
+const KNOWN_CLIENT_ERROR_STATUS = Object.freeze({
+  '22023': 400,
+  '22P02': 400,
+  '23502': 409,
+  '23503': 409,
+  '23505': 409,
+  '23514': 409,
+  '40001': 409,
+  '42501': 403,
+})
+
+function getErrorStatusCode(error) {
+  const explicitStatusCode = Number(error?.statusCode || 0)
+  if (explicitStatusCode >= 400 && explicitStatusCode <= 599) return explicitStatusCode
+
+  return KNOWN_CLIENT_ERROR_STATUS[normalizeText(error?.code).toUpperCase()] || 500
+}
+
+function getSafeErrorMessage(error, statusCode) {
+  if (statusCode >= 500) return 'Club access could not be updated safely.'
+  if (error?.statusCode) {
+    return normalizeText(error?.message) || 'The access change could not be completed safely.'
+  }
+
+  return publicError(normalizeText(error?.code))
+}
+
 async function getPlatformAdmin(event) {
   const token = getBearerToken(event)
 
@@ -655,28 +682,28 @@ export async function handler(event) {
     const action = normalizeText(body.action)
 
     if (action === 'invite') {
-      return handleInviteAction({ actor, body, event, replace: false })
+      return await handleInviteAction({ actor, body, event, replace: false })
     }
 
     if (action === 'replace_invitation') {
-      return handleInviteAction({ actor, body, event, replace: true })
+      return await handleInviteAction({ actor, body, event, replace: true })
     }
 
     if (action === 'cancel_invitation') {
-      return handleCancel({ actor, body })
+      return await handleCancel({ actor, body })
     }
 
     if (action === 'remove' || action === 'restore') {
-      return handleAssignmentChange({ actor, body: { ...body, action } })
+      return await handleAssignmentChange({ actor, body: { ...body, action } })
     }
 
     if (action === 'transfer_owner') {
-      return handleOwnershipTransferAttempt({ actor, body })
+      return await handleOwnershipTransferAttempt({ actor, body })
     }
 
     return json(400, { success: false, message: 'Choose a supported access action.' })
   } catch (error) {
-    const statusCode = Number(error?.statusCode || 0) || (error?.code === '42501' ? 403 : 500)
+    const statusCode = getErrorStatusCode(error)
     console.error('platform_club_access_failed', {
       code: error?.code || 'unknown',
       statusCode,
@@ -684,7 +711,7 @@ export async function handler(event) {
     return json(statusCode, {
       success: false,
       code: normalizeText(error?.code),
-      message: statusCode >= 500 ? 'Club access could not be updated safely.' : error.message,
+      message: getSafeErrorMessage(error, statusCode),
     })
   }
 }

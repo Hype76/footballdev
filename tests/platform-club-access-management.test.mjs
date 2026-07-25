@@ -3,12 +3,14 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const migrationPath = new URL('../supabase/migrations/20260725174533_platform_club_access_management.sql', import.meta.url)
+const repairPath = new URL('../supabase/repairs/FP-V1-PLATFORM-CLUB-ACCESS-AUDIT-RECOVERY-25.sql', import.meta.url)
 const functionPath = new URL('../netlify/functions/platform-club-access.js', import.meta.url)
 const componentPath = new URL('../src/components/platform/ClubAccessManagement.jsx', import.meta.url)
 const staffAcceptancePath = new URL('../netlify/functions/create-staff-account.js', import.meta.url)
 
-const [migration, handler, component, staffAcceptance] = await Promise.all([
+const [migration, repair, handler, component, staffAcceptance] = await Promise.all([
   readFile(migrationPath, 'utf8'),
+  readFile(repairPath, 'utf8'),
   readFile(functionPath, 'utf8'),
   readFile(componentPath, 'utf8'),
   readFile(staffAcceptancePath, 'utf8'),
@@ -108,11 +110,42 @@ test('final administrator removal is blocked and ownership transfer is deliberat
 
 test('audit writes are part of mutation transactions and contain safe structured context', () => {
   assert.match(migration, /event_category,[\s\S]*severity,[\s\S]*outcome,[\s\S]*correlation_id/)
+  assert.match(migration, /'feature', 'platform_club_access'/)
+  assert.match(migration, /'operation', p_action/)
+  assert.match(migration, /'netlify_function'/)
+  assert.doesNotMatch(migration, /source[\s\S]{0,800}'platform_club_access'\s*\)/)
   assert.match(migration, /recipient.*regexp_replace/)
   assert.match(migration, /previousState/)
   assert.match(migration, /newState/)
   assert.doesNotMatch(migration, /p_token_(?:digest|value).*jsonb_build_object/)
   assert.doesNotMatch(migration, /password/)
+})
+
+test('reviewed production repair replaces only the audit helper contract and keeps the source constraint untouched', () => {
+  assert.match(repair, /create or replace function public\.platform_access_audit_v1/)
+  assert.match(repair, /'feature', 'platform_club_access'/)
+  assert.match(repair, /'operation', p_action/)
+  assert.match(repair, /'netlify_function'/)
+  assert.match(repair, /revoke all on function public\.platform_access_audit_v1/)
+  assert.match(repair, /grant execute on function public\.platform_access_audit_v1[\s\S]*to service_role/)
+  assert.doesNotMatch(repair, /alter table public\.audit_logs/)
+  assert.doesNotMatch(repair, /audit_logs_source_check/)
+})
+
+test('mutation errors are caught and known database failures return structured 4xx responses', () => {
+  for (const action of [
+    'handleInviteAction',
+    'handleCancel',
+    'handleAssignmentChange',
+    'handleOwnershipTransferAttempt',
+  ]) {
+    assert.match(handler, new RegExp(`return await ${action}`))
+  }
+
+  assert.match(handler, /'23514': 409/)
+  assert.match(handler, /'42501': 403/)
+  assert.match(handler, /getErrorStatusCode\(error\)/)
+  assert.match(handler, /getSafeErrorMessage\(error, statusCode\)/)
 })
 
 test('no email is sent on reads, existing-user assignment, cancellation, remove, or restore', () => {

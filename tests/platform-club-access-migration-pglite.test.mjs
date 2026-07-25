@@ -106,7 +106,8 @@ async function createDatabase() {
       severity text not null default 'info',
       outcome text not null default 'success',
       correlation_id uuid not null default gen_random_uuid(),
-      source text not null default 'application',
+      source text not null default 'application'
+        check (source in ('application', 'database', 'netlify_function', 'scheduled_monitor')),
       created_at timestamptz not null default timezone('utc', now())
     );
 
@@ -226,6 +227,22 @@ test('migration compiles and owner reissue atomically supersedes one invitation'
     where club_id = '${ID.clubA}' and invited_email = 'new.admin@example.test'
   `)
   assert.deepEqual(state.rows[0], { pending_count: 1, replaced_count: 1, linked_count: 1 })
+
+  const audits = await db.query(`
+    select action, source, metadata->>'feature' as feature, metadata->>'operation' as operation
+    from public.audit_logs
+    where correlation_id in (
+      '50000000-0000-4000-8000-000000000001',
+      '50000000-0000-4000-8000-000000000002'
+    )
+    order by created_at
+  `)
+  assert.equal(audits.rows.length, 2)
+  for (const audit of audits.rows) {
+    assert.equal(audit.source, 'netlify_function')
+    assert.equal(audit.feature, 'platform_club_access')
+    assert.equal(audit.operation, audit.action)
+  }
   await db.close()
 })
 
@@ -461,13 +478,71 @@ test('Club Admin removal and restoration keep Auth and attribution rows intact',
   await db.close()
 })
 
+test('accepted invitations cannot be replaced and pending invitations can be cancelled once', async () => {
+  const db = await createDatabase()
+  const created = await db.query(`
+    select public.platform_create_access_invite_v1(
+      '${ID.actor}', '${ID.clubA}', 'accepted@example.test', 'admin', '{}',
+      repeat('4', 64), '', null, timezone('utc', now()) + interval '14 days',
+      '50000000-0000-4000-8000-000000000018'
+    ) as result
+  `)
+  const acceptedInviteId = created.rows[0].result.inviteId
+  await db.exec(`
+    update public.club_owner_invites
+    set status = 'accepted', accepted_at = timezone('utc', now())
+    where id = '${acceptedInviteId}'
+  `)
+
+  const replacement = await db.query(`
+    select public.platform_create_access_invite_v1(
+      '${ID.actor}', '${ID.clubA}', 'accepted@example.test', 'admin', '{}',
+      repeat('5', 64), '', '${acceptedInviteId}', timezone('utc', now()) + interval '14 days',
+      '50000000-0000-4000-8000-000000000019'
+    ) as result
+  `)
+  assert.deepEqual(replacement.rows[0].result, { allowed: false, code: 'source_not_replaceable' })
+
+  const cancellable = await db.query(`
+    select public.platform_create_access_invite_v1(
+      '${ID.actor}', '${ID.clubA}', 'cancel@example.test', 'admin', '{}',
+      repeat('6', 64), '', null, timezone('utc', now()) + interval '14 days',
+      '50000000-0000-4000-8000-000000000020'
+    ) as result
+  `)
+  const cancellableInviteId = cancellable.rows[0].result.inviteId
+  const cancelled = await db.query(`
+    select public.platform_cancel_access_invite_v1(
+      '${ID.actor}', '${cancellableInviteId}', 'admin',
+      '50000000-0000-4000-8000-000000000021'
+    ) as result
+  `)
+  assert.equal(cancelled.rows[0].result.allowed, true)
+
+  const duplicateCancel = await db.query(`
+    select public.platform_cancel_access_invite_v1(
+      '${ID.actor}', '${cancellableInviteId}', 'admin',
+      '50000000-0000-4000-8000-000000000022'
+    ) as result
+  `)
+  assert.deepEqual(duplicateCancel.rows[0].result, { allowed: false, code: 'invitation_not_cancellable' })
+
+  const state = await db.query(`
+    select status, delivery_status
+    from public.club_owner_invites
+    where id = '${cancellableInviteId}'
+  `)
+  assert.deepEqual(state.rows[0], { status: 'cancelled', delivery_status: 'cancelled' })
+  await db.close()
+})
+
 test('audit failure rolls back the invitation mutation', async () => {
   const db = await createDatabase()
   await db.exec(`
     create function public.fail_platform_access_audit()
     returns trigger language plpgsql as $$
     begin
-      if new.source = 'platform_club_access' then
+      if new.metadata->>'feature' = 'platform_club_access' then
         raise exception 'synthetic_audit_failure';
       end if;
       return new;

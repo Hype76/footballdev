@@ -220,12 +220,15 @@ begin
     p_action,
     p_entity_type,
     p_entity_id,
-    coalesce(p_metadata, '{}'::jsonb),
+    jsonb_build_object(
+      'feature', 'platform_club_access',
+      'operation', p_action
+    ) || coalesce(p_metadata, '{}'::jsonb),
     'security',
     case when p_outcome = 'success' then 'info' else 'warning' end,
     p_outcome,
     p_correlation_id,
-    'platform_club_access'
+    'netlify_function'
   )
   returning id into inserted_id;
 
