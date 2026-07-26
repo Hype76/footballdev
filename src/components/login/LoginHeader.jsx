@@ -271,6 +271,16 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
+      <aside
+        role="status"
+        aria-label="Parent login service update"
+        className="border-y border-amber-300/70 bg-amber-300 px-4 py-3 text-[#3f2d00] shadow-sm shadow-black/15 sm:px-6 lg:px-8"
+      >
+        <p className="mx-auto max-w-7xl text-center text-sm font-black leading-6 sm:text-base">
+          Parent login is currently being worked on and may not work until 8:00am on Monday 27 July.
+        </p>
+      </aside>
+
       <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-white/10 bg-[#06110a]/92 p-1.5 shadow-lg shadow-black/25 backdrop-blur sm:mx-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
           {navItems.map(([href, label]) => {
