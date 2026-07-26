@@ -19,10 +19,21 @@ export function sanitizeAssessmentEmailSections(emailSections = []) {
   }
 
   return emailSections
-    .map((section) => ({
-      ...section,
-      title: sanitizeAssessmentOutputText(section?.title),
-      body: sanitizeAssessmentOutputText(section?.body),
-    }))
+    .map((section) => {
+      const sanitizedSection = {
+        ...section,
+        title: sanitizeAssessmentOutputText(section?.title),
+        body: sanitizeAssessmentOutputText(section?.body),
+      }
+
+      if (Array.isArray(section?.chartPoints)) {
+        sanitizedSection.chartPoints = section.chartPoints.map((point) => ({
+          label: sanitizeAssessmentOutputText(point?.label),
+          value: point?.value,
+        }))
+      }
+
+      return sanitizedSection
+    })
     .filter((section) => String(section.body ?? '').trim())
 }

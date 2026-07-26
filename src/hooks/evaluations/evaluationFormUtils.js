@@ -797,6 +797,7 @@ export function writeSessionAssessmentProgress({ assessmentSessionId, playerName
 }
 
 export function buildParentEmailJobs({
+  allowServerRecipientResolution = false,
   attachPdf = false,
   contactAudiences,
   emailSections = [],
@@ -815,8 +816,17 @@ export function buildParentEmailJobs({
     .flatMap((audience) => {
       const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? playerContactTypes.self : playerContactTypes.parent
       const contacts = selectedParentContacts.filter((contact) => contact.type === contactType)
+      const recipientContacts = contacts.length > 0
+        ? contacts
+        : allowServerRecipientResolution && contactType === playerContactTypes.parent
+          ? [{
+              email: '',
+              name: formData.parentName || 'Parent or guardian',
+              type: playerContactTypes.parent,
+            }]
+          : []
 
-      if (contacts.length === 0) {
+      if (recipientContacts.length === 0) {
         return []
       }
 
@@ -831,8 +841,15 @@ export function buildParentEmailJobs({
         throw new Error(`Create a ${audience} email template before sending an email.`)
       }
 
-      return contacts.flatMap((contact) =>
-        getContactEmailAddresses(contact).map((recipientEmail) => {
+      return recipientContacts.flatMap((contact) => {
+        const contactEmails = getContactEmailAddresses(contact)
+        const recipientEmails = contactEmails.length > 0
+          ? contactEmails
+          : allowServerRecipientResolution
+            ? ['']
+            : []
+
+        return recipientEmails.map((recipientEmail) => {
           const recipientName = getContactRecipientName(
             contact,
             contactType === playerContactTypes.self ? formData.playerName : formData.parentName,
@@ -882,6 +899,7 @@ export function buildParentEmailJobs({
             evaluationId: evaluation.id,
             playerId: evaluation.playerId || '',
             attachPdf,
+            outputContext: contactType === playerContactTypes.parent ? 'development_record' : '',
           }
 
           return {
@@ -890,8 +908,8 @@ export function buildParentEmailJobs({
             payload,
             job: () => sendParentEmail(payload),
           }
-        }),
-      )
+        })
+      })
     })
     .filter(Boolean)
 }

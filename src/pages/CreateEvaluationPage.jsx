@@ -88,7 +88,6 @@ import {
   getFormFields,
   getParentEmailTemplates,
   getPlayers,
-  formatParentContactEmails,
   normalizeParentContacts,
   normalizePlayerContactType,
   clearViewCaches,
@@ -1541,7 +1540,6 @@ export function CreateEvaluationPage() {
     const selectedContacts = parentContacts.filter((_, index) => selectedParentContactIndexes.includes(index))
     return selectedContacts.length > 0 ? selectedContacts : parentContacts.slice(0, 1)
   }, [parentContacts, selectedParentContactIndexes])
-  const selectedParentEmail = formatParentContactEmails(selectedParentContacts, formData.parentEmail)
   const isDemoAccount = isDemoUser(user)
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then development records can be assigned correctly.'
@@ -1588,6 +1586,13 @@ export function CreateEvaluationPage() {
       return {
         title: 'Development Record saved, but optional output did not complete',
         message: `${playerName} Development Record was saved, but the parent email could not be scheduled. ${emailErrorMessage || 'Check the scheduled send details before trying again.'}`,
+      }
+    }
+
+    if (outcome === 'no_recipient') {
+      return {
+        title: 'Development Record saved',
+        message: `${playerName} Development Record saved, but no linked parent email was available.`,
       }
     }
 
@@ -2132,7 +2137,7 @@ export function CreateEvaluationPage() {
         setEvaluationClientId(createLocalId())
       }
 
-      if (previewMode === 'email' && selectedParentEmail) {
+      if (previewMode === 'email') {
         try {
           if (!canUseParentEmail) {
             throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
@@ -2169,6 +2174,7 @@ export function CreateEvaluationPage() {
           })
 
           const emailJobs = buildParentEmailJobs({
+            allowServerRecipientResolution: true,
             attachPdf: isPdfAttachmentApproved,
             contactAudiences,
             emailSections: assessmentEmailSections,
@@ -2190,7 +2196,7 @@ export function CreateEvaluationPage() {
             throw new Error(`Add a ${contactNoun} email before sending.`)
           }
 
-          await Promise.all(emailJobs.map((emailJob) => sendParentEmail({
+          const emailResults = await Promise.all(emailJobs.map((emailJob) => sendParentEmail({
             ...emailJob.payload,
             attachPdf: isPdfAttachmentApproved,
             teamId: user?.activeTeamId || '',
@@ -2219,36 +2225,57 @@ export function CreateEvaluationPage() {
                 }
               : null,
           })))
-          const communicationLog = await createCommunicationLog({
-            user,
-            playerId: savedEvaluation?.playerId || evaluation.playerId,
-            evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
-            channel: 'email',
-            action: isScheduledSend ? 'parent_email_scheduled' : 'parent_email_sent',
-            recipientEmail: emailJobs.map((emailJob) => emailJob.recipientEmail).join(','),
-            metadata: {
-              subject: emailJobs[0]?.payload?.subject || '',
-              body: emailJobs[0]?.payload?.emailBody || '',
-              templateName: emailJobs.map((emailJob) => emailJob.templateName).join(', '),
-              team: emailJobs[0]?.payload?.team || '',
-              club: emailJobs[0]?.payload?.club || '',
-              playerName: normalizedPlayerName,
-              hasAttachment: isPdfAttachmentApproved,
-              scheduledAt,
-              assessmentFields: selectedResponseItems,
-            },
-          })
-          if (!isScheduledSend && communicationLog?.id) {
-            await sendParentMobilePushNotification({
-              id: communicationLog.id,
-              type: 'parent_message',
-            })
+          const completedEmailJobs = emailJobs
+            .map((emailJob, index) => ({
+              emailJob,
+              result: emailResults[index] || {},
+            }))
+            .filter(({ result }) => result.outcome !== 'no_recipient')
+          const newlyCompletedEmailJobs = completedEmailJobs.filter(({ result }) => result.duplicate !== true)
+
+          if (completedEmailJobs.length === 0) {
+            completionOutcome = 'no_recipient'
+          } else {
+            let communicationLog = null
+
+            if (newlyCompletedEmailJobs.length > 0) {
+              communicationLog = await createCommunicationLog({
+                user,
+                playerId: savedEvaluation?.playerId || evaluation.playerId,
+                evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+                channel: 'email',
+                action: isScheduledSend ? 'parent_email_scheduled' : 'parent_email_sent',
+                recipientEmail: newlyCompletedEmailJobs
+                  .map(({ emailJob, result }) => result.recipientEmail || emailJob.recipientEmail)
+                  .filter(Boolean)
+                  .join(','),
+                metadata: {
+                  subject: newlyCompletedEmailJobs[0]?.emailJob?.payload?.subject || '',
+                  body: newlyCompletedEmailJobs[0]?.emailJob?.payload?.emailBody || '',
+                  templateName: newlyCompletedEmailJobs.map(({ emailJob }) => emailJob.templateName).join(', '),
+                  team: newlyCompletedEmailJobs[0]?.emailJob?.payload?.team || '',
+                  club: newlyCompletedEmailJobs[0]?.emailJob?.payload?.club || '',
+                  playerName: normalizedPlayerName,
+                  hasAttachment: isPdfAttachmentApproved,
+                  scheduledAt,
+                  assessmentFields: selectedResponseItems,
+                },
+              })
+            }
+
+            if (!isScheduledSend && communicationLog?.id) {
+              await sendParentMobilePushNotification({
+                id: communicationLog.id,
+                type: 'parent_message',
+              })
+            }
+
+            completionOutcome = isScheduledSend ? 'scheduled' : 'sent'
           }
-          completionOutcome = isScheduledSend ? 'scheduled' : 'sent'
         } catch (emailError) {
           console.error('Email failed', emailError)
           completionOutcome = emailSendMode === 'scheduled' ? 'schedule_failed' : 'send_failed'
-          completionEmailErrorMessage = emailError.message || ''
+          completionEmailErrorMessage = 'Please try again later.'
         }
       }
 

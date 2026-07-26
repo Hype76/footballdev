@@ -12,6 +12,7 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  external_node_modules = ["@sparticuz/chromium"]
 
 [context.production]
   command = "npm run build:live && npm run verify:build-env"

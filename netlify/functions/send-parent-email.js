@@ -1,6 +1,8 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
+import { buildEmailHtml as buildParentEmailHtml } from '../../src/lib/email-builder.js'
 import { buildPdfBuffer, buildProgressionChartPngBuffer } from '../../src/lib/pdf-builder.js'
+import { buildAssessmentPdfDocument } from '../../src/lib/pdf-document.js'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import {
   createEmailDedupeKey,
@@ -16,6 +18,11 @@ import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
 } from './lib/_plan-gate.js'
+import {
+  getParentVisibleDevelopmentEmailSections,
+  getParentVisibleDevelopmentResponses,
+  loadDevelopmentParentEmailContext,
+} from './lib/_development-parent-email-output.js'
 import { authorizeAssessmentPdfDocument } from './lib/_pdf-report.js'
 
 void supabaseAdmin
@@ -87,7 +94,7 @@ function getSenderCopyEmails(senderEmail, recipients) {
   return [senderCopyEmail]
 }
 
-function buildEmailHtml(html) {
+function normalizeEmailHtml(html) {
   return String(html ?? '').trim() || '<p>No content</p>'
 }
 
@@ -205,6 +212,35 @@ async function buildProgressionChartAttachments(chartImages = []) {
   return attachments
 }
 
+function buildDevelopmentChartImages(emailSections = [], outputKey = '') {
+  const contentSeed = String(outputKey ?? '').trim().slice(0, 24) || 'development-record'
+
+  return emailSections
+    .filter((section) => Array.isArray(section?.chartPoints) && section.chartPoints.length >= 2)
+    .map((section, index) => ({
+      contentId: `${contentSeed}-${index}@footballplayer.online`,
+      filename: `player-progression-chart-${index + 1}.png`,
+      points: section.chartPoints,
+    }))
+}
+
+function addDevelopmentChartContentIds(emailSections = [], chartImages = []) {
+  let chartIndex = 0
+
+  return emailSections.map((section) => {
+    if (!Array.isArray(section?.chartPoints) || section.chartPoints.length < 2) {
+      return section
+    }
+
+    const nextSection = {
+      ...section,
+      chartContentId: chartImages[chartIndex]?.contentId || '',
+    }
+    chartIndex += 1
+    return nextSection
+  })
+}
+
 function parseScheduledAt(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -238,7 +274,7 @@ export async function prepareParentEmail({ body, requestUser }) {
     clubContactEmail,
     clubEmail,
     subject,
-    html,
+    html: clientHtml,
     pdfDocument,
     logoUrl,
     playerName,
@@ -262,7 +298,25 @@ export async function prepareParentEmail({ body, requestUser }) {
     throw Object.assign(new Error('Email sending is disabled for the demo account'), { statusCode: 403 })
   }
 
-  const recipients = normaliseRecipients(parentEmail)
+  const isDevelopmentOutput = String(body.outputContext ?? '').trim() === 'development_record'
+  const developmentContext = isDevelopmentOutput
+    ? await loadDevelopmentParentEmailContext(supabaseAdmin, {
+        evaluationId: body.evaluationId,
+        profile: planProfile,
+      })
+    : null
+
+  if (developmentContext?.outcome === 'no_recipient') {
+    return {
+      noRecipient: true,
+      code: developmentContext.code,
+      evaluationId: developmentContext.evaluation?.id || String(body.evaluationId ?? '').trim(),
+    }
+  }
+
+  const recipients = developmentContext
+    ? [developmentContext.recipient.email]
+    : normaliseRecipients(parentEmail)
 
   if (recipients.length === 0) {
     throw Object.assign(new Error('Parent email is required'), { statusCode: 400 })
@@ -280,14 +334,51 @@ export async function prepareParentEmail({ body, requestUser }) {
     throw Object.assign(new Error('Reply-to email must be a valid email address'), { statusCode: 400 })
   }
 
+  const authoritativeClubName = developmentContext?.club?.name
+  const authoritativeTeamName = developmentContext?.team?.name
+  const authoritativeReplyTo = developmentContext?.club?.contact_email
+  const authoritativeLogoUrl = developmentContext?.club?.logo_url
+  const authoritativePlayerName = developmentContext?.evaluation?.player_name || developmentContext?.player?.player_name
+  const authoritativeParentName = developmentContext?.recipient?.name
   const senderReplyTo = isValidEmail(normalizedSenderEmail) ? normalizedSenderEmail : ''
   const safeDisplayName = cleanHeaderPart(displayName, 'Coach')
-  const safeTeamName = cleanHeaderPart(teamName, 'Team')
-  const safeClubName = cleanHeaderPart(clubName, 'Club')
+  const safeTeamName = cleanHeaderPart(authoritativeTeamName || teamName, 'Team')
+  const safeClubName = cleanHeaderPart(authoritativeClubName || clubName, 'Club')
   const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
-  const safeReplyTo = cleanHeaderPart(senderReplyTo || replyToEmail || clubContactEmail || clubEmail, '')
+  const safeReplyTo = cleanHeaderPart(senderReplyTo || authoritativeReplyTo || replyToEmail || clubContactEmail || clubEmail, '')
   const senderCopyEmails = getSenderCopyEmails(senderEmail, recipients)
-  const emailHtml = buildEmailHtml(html)
+  const authoritativeResponses = developmentContext
+    ? getParentVisibleDevelopmentResponses(developmentContext.evaluation, body.responses)
+    : body.responses
+  const authoritativeEmailSections = developmentContext
+    ? getParentVisibleDevelopmentEmailSections({
+        evaluation: developmentContext.evaluation,
+        evaluations: developmentContext.evaluations,
+        requestedSections: body.emailSections,
+      })
+    : body.emailSections
+  const developmentChartImages = developmentContext
+    ? buildDevelopmentChartImages(authoritativeEmailSections, developmentContext.outputKey)
+    : []
+  const emailSectionsWithChartContent = developmentChartImages.length > 0
+    ? addDevelopmentChartContentIds(authoritativeEmailSections, developmentChartImages)
+    : authoritativeEmailSections
+  const emailHtml = developmentContext
+    ? buildParentEmailHtml({
+        parentName: authoritativeParentName,
+        playerName: authoritativePlayerName,
+        teamName: safeTeamName,
+        clubName: safeClubName,
+        section: developmentContext.evaluation.section,
+        session: developmentContext.evaluation.session,
+        responses: authoritativeResponses,
+        emailSections: emailSectionsWithChartContent,
+        emailBody: body.emailBody,
+        clubLogoUrl: authoritativeLogoUrl,
+        origin: 'https://footballplayer.online',
+        useChartContentIds: developmentChartImages.length > 0,
+      })
+    : normalizeEmailHtml(clientHtml)
 
   if (emailHtml.length > 200000) {
     throw Object.assign(new Error('Email content is too large'), { statusCode: 400 })
@@ -298,16 +389,29 @@ export async function prepareParentEmail({ body, requestUser }) {
     assertPlanFeature(planProfile, 'pdfReports')
   }
 
-  const chartAttachments = await buildProgressionChartAttachments(body.progressionChartImages)
+  const chartAttachments = await buildProgressionChartAttachments(
+    developmentContext ? developmentChartImages : body.progressionChartImages,
+  )
+  const authoritativePdfDocument = developmentContext
+    ? buildAssessmentPdfDocument({
+        clubName: safeClubName,
+        playerName: authoritativePlayerName,
+        teamName: safeTeamName,
+        section: developmentContext.evaluation.section,
+        session: developmentContext.evaluation.session,
+        responseItems: authoritativeResponses,
+        emailSections: authoritativeEmailSections,
+      })
+    : pdfDocument
   const authorizedPdfDocument = shouldAttachPdf
     ? await authorizeAssessmentPdfDocument({
         supabaseAdmin,
         profile: planProfile,
         clubId: planProfile.clubId,
-        teamId: body.teamId,
-        evaluationId: body.evaluationId,
-        playerId: body.playerId,
-        document: pdfDocument,
+        teamId: developmentContext?.team?.id || body.teamId,
+        evaluationId: developmentContext?.evaluation?.id || body.evaluationId,
+        playerId: developmentContext?.player?.id || body.playerId,
+        document: authoritativePdfDocument,
       })
     : null
   const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(authorizedPdfDocument) : []
@@ -327,16 +431,18 @@ export async function prepareParentEmail({ body, requestUser }) {
     displayName: safeDisplayName,
     teamName: safeTeamName,
     clubName: safeClubName,
-    logoUrl: String(logoUrl ?? '').trim(),
-    playerName: String(playerName ?? '').trim(),
-    playerId: String(body.playerId ?? '').trim() || null,
-    parentName: String(parentName ?? '').trim(),
+    logoUrl: String(authoritativeLogoUrl || logoUrl || '').trim(),
+    playerName: String(authoritativePlayerName || playerName || '').trim(),
+    playerId: String(developmentContext?.player?.id || body.playerId || '').trim() || null,
+    evaluationId: String(developmentContext?.evaluation?.id || body.evaluationId || '').trim() || null,
+    parentName: String(authoritativeParentName || parentName || '').trim(),
     clubId: planProfile.clubId,
-    teamId: String(body.teamId ?? '').trim() || null,
+    teamId: String(developmentContext?.team?.id || body.teamId || '').trim() || null,
     actorId: String(requestUser.id ?? '').trim(),
     actorEmail: requestUser.email,
     actorRole: planProfile.role,
     requiredFeature: 'parentEmails',
+    outputKey: developmentContext?.outputKey || '',
     communicationLog: body.communicationLog && typeof body.communicationLog === 'object' ? body.communicationLog : null,
   }
 
@@ -353,9 +459,34 @@ export async function prepareParentEmail({ body, requestUser }) {
 }
 
 async function createScheduledEmail({ preparedEmail, scheduledAt }) {
+  const outputKey = String(preparedEmail.storedPayload.outputKey ?? '').trim()
+  const deterministicQueueId = outputKey
+    ? String(preparedEmail.storedPayload.evaluationId ?? '').trim()
+    : ''
+
+  if (deterministicQueueId) {
+    const { data: existingRow, error: existingError } = await supabaseAdmin
+      .from('scheduled_email_queue')
+      .select('id, scheduled_at')
+      .eq('id', deterministicQueueId)
+      .maybeSingle()
+
+    if (existingError) {
+      throw new Error('Email queue availability could not be checked.')
+    }
+
+    if (existingRow?.id) {
+      return {
+        ...existingRow,
+        duplicate: true,
+      }
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('scheduled_email_queue')
     .insert({
+      ...(deterministicQueueId ? { id: deterministicQueueId } : {}),
       club_id: preparedEmail.planProfile.clubId,
       team_id: preparedEmail.storedPayload.teamId,
       created_by: preparedEmail.storedPayload.actorId || null,
@@ -368,6 +499,21 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
     })
     .select('id, scheduled_at')
     .single()
+
+  if (error?.code === '23505' && deterministicQueueId) {
+    const { data: duplicateRow, error: duplicateError } = await supabaseAdmin
+      .from('scheduled_email_queue')
+      .select('id, scheduled_at')
+      .eq('id', deterministicQueueId)
+      .maybeSingle()
+
+    if (!duplicateError && duplicateRow?.id) {
+      return {
+        ...duplicateRow,
+        duplicate: true,
+      }
+    }
+  }
 
   if (error) {
     console.error(error)
@@ -401,7 +547,7 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
     payload: preparedEmail.emailPayload,
     recipients: preparedEmail.recipients,
   })
-  const finalIdempotencyKey = createEmailIdempotencyKey({
+  const finalIdempotencyKey = preparedEmail.storedPayload.outputKey || createEmailIdempotencyKey({
     payload: preparedEmail.emailPayload,
     idempotencySeed: idempotencySeed || `parent-email:${randomUUID()}`,
   })
@@ -515,6 +661,15 @@ export async function handler(event) {
     }
 
     const preparedEmail = await prepareParentEmail({ body, requestUser })
+
+    if (preparedEmail.noRecipient) {
+      return successResponse({
+        outcome: 'no_recipient',
+        code: preparedEmail.code,
+        evaluationId: preparedEmail.evaluationId,
+      })
+    }
+
     recipients = preparedEmail.recipients
     emailSubject = preparedEmail.emailSubject
 
@@ -522,13 +677,14 @@ export async function handler(event) {
       const scheduledRecord = await createScheduledEmail({ preparedEmail, scheduledAt })
       return successResponse({
         scheduled: true,
+        duplicate: Boolean(scheduledRecord.duplicate),
         queueId: scheduledRecord.id,
         scheduledAt: scheduledRecord.scheduled_at,
       })
     }
 
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
-      idempotencySeed: `${body.evaluationId || 'parent-email'}:${randomUUID()}`,
+      idempotencySeed: preparedEmail.storedPayload.outputKey || `${body.evaluationId || 'parent-email'}:${randomUUID()}`,
     })
     emailLogRecord = sendResult.emailLogRecord
 
@@ -536,7 +692,10 @@ export async function handler(event) {
       return successResponse({ duplicate: true })
     }
 
-    return successResponse(sendResult)
+    return successResponse({
+      ...sendResult,
+      recipientEmail: preparedEmail.recipients.join(', '),
+    })
   } catch (error) {
     console.error(error)
     emailLogRecord = error.emailLogRecord || emailLogRecord
@@ -549,6 +708,7 @@ export async function handler(event) {
         to: recipients,
         subject: emailSubject,
         error: error.message,
+        errorCode: error.code || 'DEVELOPMENT_PARENT_EMAIL_SEND_FAILED',
       },
     })
 
