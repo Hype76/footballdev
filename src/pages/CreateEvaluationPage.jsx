@@ -37,22 +37,14 @@ import {
 import { removeDraft, saveDraft } from '../lib/offline-drafts.js'
 import {
   buildPrivateEvaluationDraftContext,
-  canRecoverPrivateEvaluationDraft,
-  canAutosavePrivateEvaluationDraft,
   chooseLatestPrivateEvaluationDraft,
   clearPrivateEvaluationDraft,
   closeServerEvaluationDraft,
-  createPrivateEvaluationDraftRequestCoordinator,
   createPrivateEvaluationDraftPayload,
   findPrivateEvaluationDraft,
   findServerEvaluationDraft,
-  getPrivateEvaluationDraftPayloadFingerprint,
-  getPrivateEvaluationDraftRecoveryDelay,
-  getPrivateEvaluationDraftRequestIdentity,
-  getPrivateEvaluationDraftSaveVersion,
+  getEvaluationDraftContextKey,
   hasPrivateEvaluationDraftContent,
-  isPrivateEvaluationDraftOffline,
-  PRIVATE_EVALUATION_DRAFT_LIFECYCLE,
   PRIVATE_EVALUATION_DRAFT_STATUSES,
   savePrivateEvaluationDraft,
   saveServerEvaluationDraft,
@@ -75,7 +67,6 @@ import {
   getAverageScore,
   getContactCopy,
   getCurrentMonthEvaluationCount,
-  getDevelopmentRecordCompletionCopy,
   getDevelopmentRecordSaveFailureMessage,
   getMatchedPlayerFieldUpdate,
   getNextExportLabels,
@@ -165,69 +156,43 @@ function getPrivateDraftBannerCopy(status, draftInfo) {
   const savedAt = formatPrivateDraftSavedAt(draftInfo?.lastSavedAt || draftInfo?.restoredAt)
   const lastSavedMessage = savedAt ? ` Last saved: ${savedAt}.` : ''
 
-  if (
-    status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising ||
-    status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.loadingExistingDraft
-  ) {
+  if (status === 'restored') {
     return {
-      title: 'Loading draft...',
-      message: 'Saved Development values are being loaded before draft saving is enabled.',
+      title: `Private ${source} draft restored`,
+      message: `Continue editing this unfinished development record, or discard it.${lastSavedMessage}`,
     }
   }
 
-  if (status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated) {
-    return {
-      title: draftInfo?.id ? `Private ${source} draft loaded` : 'Draft ready',
-      message: draftInfo?.id
-        ? `Continue editing this unfinished Development Record, or discard it.${lastSavedMessage}`
-        : 'Draft saving will start after you make a change.',
-    }
-  }
-
-  if (status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.dirty) {
+  if (status === 'unsaved') {
     return {
       title: 'Unsaved changes',
-      message: 'The newest Development changes are waiting to be saved.',
+      message: 'Changes are being prepared for private draft saving.',
     }
   }
 
-  if (status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saving) {
+  if (status === 'saving') {
     return {
-      title: 'Saving draft...',
-      message: 'This unfinished Development Record is being saved privately.',
+      title: 'Saving private draft',
+      message: 'This unfinished record is being saved privately.',
     }
   }
 
-  if (status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.retrying) {
+  if (status === 'saved_local') {
     return {
-      title: 'Retrying...',
-      message: 'The newest private draft revision is being retried safely.',
+      title: 'Private browser draft saved',
+      message: `The database draft is not available yet, so this record is saved in this browser only.${lastSavedMessage}`,
     }
   }
 
-  if (status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline) {
+  if (status === 'error') {
     return {
-      title: 'Working offline',
-      message: `The newest draft is held in this browser and will retry when the connection returns.${lastSavedMessage}`,
-    }
-  }
-
-  if (status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed) {
-    return {
-      title: 'Draft could not be saved',
-      message: 'The server did not confirm the latest draft revision. Your entered values remain on this page and a browser copy is kept where possible.',
-    }
-  }
-
-  if (status === PRIVATE_EVALUATION_DRAFT_LIFECYCLE.submitting) {
-    return {
-      title: 'Saving Development Record...',
-      message: 'Draft autosave is paused while the final Development Record is saved.',
+      title: 'Private draft save failed',
+      message: 'The latest database draft change could not be saved. A browser copy is kept where possible, but check the form before leaving this page.',
     }
   }
 
   return {
-    title: 'Draft saved',
+    title: `Private ${source} draft saved`,
     message: `This unfinished record is available only to this signed-in staff profile.${lastSavedMessage}`,
   }
 }
@@ -625,23 +590,12 @@ export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
   const formRef = useRef(null)
-  const submitLockRef = useRef(false)
   const hasInitializedRef = useRef(false)
-  const privateDraftHydrationReadyRef = useRef(false)
-  const privateDraftHydrationCycleRef = useRef(0)
-  const privateDraftHydrationExpectedFingerprintRef = useRef(null)
-  const privateDraftHydrationBaselineFingerprintRef = useRef('')
-  const privateDraftHydrationFinalStatusRef = useRef(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated)
-  const privateDraftHydrationNeedsServerSyncRef = useRef(false)
-  const privateDraftLifecycleRef = useRef(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising)
-  const privateDraftRequestCoordinatorRef = useRef(createPrivateEvaluationDraftRequestCoordinator())
-  const privateDraftRecoveryInFlightRef = useRef(false)
-  const privateDraftRetryAttemptRef = useRef(0)
-  const privateDraftRetryTimerRef = useRef(null)
   const privateDraftSaveTimerRef = useRef(null)
   const privateDraftInfoRef = useRef(null)
   const privateDraftQueueRef = useRef(Promise.resolve())
   const privateDraftSaveVersionRef = useRef(0)
+  const privateDraftSaveEpochRef = useRef(0)
   const latestPrivateDraftSaveRef = useRef(null)
   const isPrivateDraftClosingRef = useRef(false)
   const shouldWarnPrivateDraftRef = useRef(false)
@@ -676,10 +630,10 @@ export function CreateEvaluationPage() {
   })
   const [feedbackForms, setFeedbackForms] = useState([])
   const [selectedFeedbackFormId, setSelectedFeedbackFormId] = useState('')
-  const [isLoadingFeedbackForms, setIsLoadingFeedbackForms] = useState(() => !isPlatformOwner)
+  const [isLoadingFeedbackForms, setIsLoadingFeedbackForms] = useState(false)
   const [availableTeams, setAvailableTeams] = useState(() => (Array.isArray(cachedTeams) ? cachedTeams : []))
   const [savedPlayers, setSavedPlayers] = useState([])
-  const [isLoadingPlayers, setIsLoadingPlayers] = useState(() => !isPlatformOwner)
+  const [isLoadingPlayers, setIsLoadingPlayers] = useState(false)
   const [assessmentPlayerSearch, setAssessmentPlayerSearch] = useState('')
   const [previousEvaluations, setPreviousEvaluations] = useState([])
   const [editingEvaluation, setEditingEvaluation] = useState(null)
@@ -722,20 +676,9 @@ export function CreateEvaluationPage() {
   const [completionNavigationUrl, setCompletionNavigationUrl] = useState('')
   const [archiveAfterNoPlace, setArchiveAfterNoPlace] = useState(false)
   const [privateDraftInfo, setPrivateDraftInfo] = useState(null)
-  const [privateDraftStatus, setPrivateDraftStatus] = useState(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising)
-  const [privateDraftHydrationCommit, setPrivateDraftHydrationCommit] = useState(0)
+  const [privateDraftStatus, setPrivateDraftStatus] = useState('idle')
 
   const draftStorageKey = getDraftStorageKey(user)
-  const setPrivateDraftLifecycle = useCallback((nextStatus) => {
-    privateDraftLifecycleRef.current = nextStatus
-    setPrivateDraftStatus(nextStatus)
-  }, [])
-  const clearPrivateDraftRetryTimer = useCallback(() => {
-    if (privateDraftRetryTimerRef.current) {
-      window.clearTimeout(privateDraftRetryTimerRef.current)
-      privateDraftRetryTimerRef.current = null
-    }
-  }, [])
   const buildCurrentPrivateDraftContext = useCallback((currentFormData = formData) => {
     const playerName = normalizePlayerName(currentFormData.playerName)
     const matchingPlayer = findSavedPlayerForEvaluation(
@@ -745,34 +688,22 @@ export function CreateEvaluationPage() {
       user?.activeTeamId,
     )
 
-    const selectedDraftForm = feedbackForms.find(
-      (form) => String(form.selectionId || form.id) === String(selectedFeedbackFormId),
-    )
-
     return buildPrivateEvaluationDraftContext({
       editingEvaluationId,
-      formId: selectedFeedbackFormId,
-      formVersion: selectedDraftForm?.version,
       formData: {
         ...currentFormData,
         playerId: matchingPlayer?.id || currentFormData.playerId || '',
       },
       user,
     })
-  }, [editingEvaluationId, feedbackForms, formData, savedPlayers, selectedFeedbackFormId, user])
+  }, [editingEvaluationId, formData, savedPlayers, user])
 
   useEffect(() => {
     privateDraftInfoRef.current = privateDraftInfo
   }, [privateDraftInfo])
 
   useEffect(() => {
-    shouldWarnPrivateDraftRef.current = [
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.dirty,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saving,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.retrying,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline,
-    ].includes(privateDraftStatus) &&
+    shouldWarnPrivateDraftRef.current = ['unsaved', 'saving', 'error', 'saved_local'].includes(privateDraftStatus) &&
       Boolean(latestPrivateDraftSaveRef.current?.payload && hasPrivateEvaluationDraftContent(latestPrivateDraftSaveRef.current.payload))
   }, [privateDraftStatus])
 
@@ -828,21 +759,6 @@ export function CreateEvaluationPage() {
     const restoredSession = normalizeSessionValue(restoredFormData.session)
     const rememberedSession = normalizeSessionValue(payload.lastUsedSession)
     const nextSessionValue = restoredSession || rememberedSession || formData.session
-    const restoredContext = buildPrivateEvaluationDraftContext({
-      editingEvaluationId,
-      formData: restoredFormData,
-      formId: payload.selectedFeedbackFormId,
-      user,
-    })
-    const requestIdentity = getPrivateEvaluationDraftRequestIdentity({
-      context: restoredContext,
-      payload,
-    })
-    const coordinatorState = privateDraftRequestCoordinatorRef.current.beginContext(
-      requestIdentity,
-      getPrivateEvaluationDraftSaveVersion(draft),
-    )
-    privateDraftSaveVersionRef.current = coordinatorState.revision
 
     setFormData(createInitialFormData(user, {
       ...restoredFormData,
@@ -876,10 +792,8 @@ export function CreateEvaluationPage() {
     if (draft?.id) {
       const nextInfo = {
         id: draft.id,
-        contextKey: draft.contextKey || '',
         lastSavedAt: draft.lastSavedAt || draft.updatedAt || '',
         localDraftId: source === 'server' ? privateDraftInfoRef.current?.localDraftId || '' : draft.id,
-        requestIdentity,
         restoredAt: draft.lastSavedAt || draft.updatedAt || '',
         source,
       }
@@ -888,11 +802,11 @@ export function CreateEvaluationPage() {
       setPrivateDraftInfo(nextInfo)
     }
 
-    privateDraftHydrationExpectedFingerprintRef.current = getPrivateEvaluationDraftPayloadFingerprint(payload)
+    setPrivateDraftStatus('restored')
     return true
-  }, [editingEvaluationId, formData.session, user])
+  }, [formData.session, user])
 
-  const savePrivateDraftLocalCopy = useCallback(({ context, payload, request }) => {
+  const savePrivateDraftLocalCopy = useCallback(({ context, payload, version }) => {
     if (!payload || !hasPrivateEvaluationDraftContent(payload)) {
       return null
     }
@@ -908,27 +822,23 @@ export function CreateEvaluationPage() {
     const currentInfo = privateDraftInfoRef.current
     const savedDraft = savePrivateEvaluationDraft({
       context,
-      existingDraftId: currentInfo?.requestIdentity === request.contextIdentity && currentInfo?.source === 'local'
+      existingDraftId: currentInfo?.source === 'local'
         ? currentInfo.id
-        : currentInfo?.requestIdentity === request.contextIdentity
-          ? currentInfo?.localDraftId || ''
-          : '',
+        : currentInfo?.localDraftId || '',
       payload,
       user,
     })
 
     if (savedDraft?.id) {
-      const nextInfo = currentInfo?.source === 'server' && currentInfo?.requestIdentity === request.contextIdentity
+      const nextInfo = currentInfo?.source === 'server'
         ? {
             ...currentInfo,
             lastSavedAt: currentInfo.lastSavedAt || savedDraft.updatedAt,
             localDraftId: savedDraft.id,
-            requestIdentity: request.contextIdentity,
           }
         : {
             id: savedDraft.id,
             lastSavedAt: savedDraft.updatedAt,
-            requestIdentity: request.contextIdentity,
             restoredAt: currentInfo?.restoredAt || '',
             source: 'local',
           }
@@ -939,9 +849,8 @@ export function CreateEvaluationPage() {
         context,
         localDraft: savedDraft,
         payload,
-        request,
-        saveEpoch: request.epoch,
-        version: request.revision,
+        saveEpoch: privateDraftSaveEpochRef.current,
+        version,
       }
       return savedDraft
     }
@@ -950,129 +859,95 @@ export function CreateEvaluationPage() {
       context,
       localDraft: null,
       payload,
-      request,
-      saveEpoch: request.epoch,
-      version: request.revision,
+      saveEpoch: privateDraftSaveEpochRef.current,
+      version,
     }
     return null
   }, [draftStorageKey, user])
 
-  const saveServerDraftWithRetry = useCallback(async ({ context, localDraft, payload, request }) => {
-    const isCurrentRequest = () => (
-      !isPrivateDraftClosingRef.current &&
-      privateDraftRequestCoordinatorRef.current.isCurrent(request)
-    )
-
-    if (!isCurrentRequest()) {
+  const saveServerDraftWithRetry = useCallback(async ({ context, localDraft, payload, saveEpoch, version }) => {
+    if (isPrivateDraftClosingRef.current || saveEpoch !== privateDraftSaveEpochRef.current) {
       return localDraft?.id ? { localSaved: true, serverSaved: false } : { localSaved: false, serverSaved: false }
     }
 
     if (isDemoUser(user)) {
-      setPrivateDraftLifecycle(
-        localDraft?.id
-          ? PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline
-          : PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-      )
+      setPrivateDraftStatus(localDraft?.id ? 'saved_local' : 'error')
       return localDraft?.id ? { localSaved: true, serverSaved: false } : { localSaved: false, serverSaved: false }
     }
 
-    if (isPrivateEvaluationDraftOffline()) {
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline)
-      return {
-        localSaved: Boolean(localDraft?.id),
-        offline: true,
-        serverSaved: false,
+    let lastError = null
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        if (
+          isPrivateDraftClosingRef.current ||
+          saveEpoch !== privateDraftSaveEpochRef.current ||
+          version < (latestPrivateDraftSaveRef.current?.version || 0)
+        ) {
+          return { localSaved: Boolean(localDraft?.id), serverSaved: false, stale: true }
+        }
+
+        const currentInfo = privateDraftInfoRef.current
+        const serverDraft = await saveServerEvaluationDraft({
+          context,
+          existingDraftId: currentInfo?.source === 'server' ? currentInfo.id : '',
+          payload,
+          user,
+        })
+
+        if (
+          isPrivateDraftClosingRef.current ||
+          saveEpoch !== privateDraftSaveEpochRef.current ||
+          version < (latestPrivateDraftSaveRef.current?.version || 0)
+        ) {
+          return { localSaved: Boolean(localDraft?.id), serverSaved: Boolean(serverDraft?.id), stale: true }
+        }
+
+        if (serverDraft?.id) {
+          const nextInfo = {
+            id: serverDraft.id,
+            lastSavedAt: serverDraft.lastSavedAt,
+            localDraftId: localDraft?.id || currentInfo?.localDraftId || '',
+            restoredAt: currentInfo?.restoredAt || '',
+            source: 'server',
+          }
+
+          privateDraftInfoRef.current = nextInfo
+          setPrivateDraftInfo(nextInfo)
+          setPrivateDraftStatus('saved')
+          return { localSaved: Boolean(localDraft?.id), serverSaved: true }
+        }
+
+        break
+      } catch (error) {
+        lastError = error
+
+        if (attempt < 3) {
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, attempt === 1 ? 300 : 900)
+          })
+        }
       }
     }
 
-    try {
-      if (!isCurrentRequest()) {
-        return { localSaved: Boolean(localDraft?.id), serverSaved: false, stale: true }
+    if (localDraft?.id) {
+      if (lastError) {
+        console.error(lastError)
+        setPrivateDraftStatus('error')
+        return { localSaved: true, serverSaved: false, error: lastError }
       }
 
-      const currentInfo = privateDraftInfoRef.current
-      const serverDraft = await saveServerEvaluationDraft({
-        context,
-        existingDraftContextKey: currentInfo?.requestIdentity === request.contextIdentity
-          ? currentInfo.contextKey || ''
-          : '',
-        existingDraftId: currentInfo?.requestIdentity === request.contextIdentity && currentInfo?.source === 'server'
-          ? currentInfo.id
-          : '',
-        payload,
-        user,
-      })
-
-      if (!isCurrentRequest()) {
-        return { localSaved: Boolean(localDraft?.id), serverSaved: Boolean(serverDraft?.id), stale: true }
-      }
-
-      if (!serverDraft?.id) {
-        setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed)
-        return {
-          localSaved: Boolean(localDraft?.id),
-          serverSaved: false,
-        }
-      }
-
-      const serverFingerprint = getPrivateEvaluationDraftPayloadFingerprint(serverDraft.payload)
-      const requestFingerprint = request.fingerprint || getPrivateEvaluationDraftPayloadFingerprint(payload)
-
-      if (
-        serverDraft.staleWrite &&
-        serverFingerprint !== requestFingerprint
-      ) {
-        setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed)
-        return {
-          conflict: true,
-          localSaved: Boolean(localDraft?.id),
-          serverSaved: false,
-        }
-      }
-
-      privateDraftRequestCoordinatorRef.current.hydrateRevision(serverDraft.clientSaveVersion)
-      privateDraftSaveVersionRef.current = Math.max(
-        privateDraftSaveVersionRef.current,
-        serverDraft.clientSaveVersion,
-      )
-      const nextInfo = {
-        id: serverDraft.id,
-        contextKey: serverDraft.contextKey || '',
-        lastSavedAt: serverDraft.lastSavedAt,
-        localDraftId: localDraft?.id || currentInfo?.localDraftId || '',
-        requestIdentity: request.contextIdentity,
-        restoredAt: currentInfo?.restoredAt || '',
-        source: 'server',
-      }
-
-      privateDraftInfoRef.current = nextInfo
-      setPrivateDraftInfo(nextInfo)
-      privateDraftHydrationBaselineFingerprintRef.current = requestFingerprint
-      latestPrivateDraftSaveRef.current = null
-      privateDraftRetryAttemptRef.current = 0
-      clearPrivateDraftRetryTimer()
-      setOfflineStatusMessage('')
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saved)
-      return { localSaved: Boolean(localDraft?.id), serverSaved: true }
-    } catch (error) {
-      if (isPrivateEvaluationDraftOffline()) {
-        setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline)
-        return {
-          error,
-          localSaved: Boolean(localDraft?.id),
-          offline: true,
-          serverSaved: false,
-        }
-      }
-
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed)
-      return {
-        error,
-        localSaved: Boolean(localDraft?.id),
-        serverSaved: false,
-      }
+      setPrivateDraftStatus('saved_local')
+      return { localSaved: true, serverSaved: false, error: lastError }
     }
-  }, [clearPrivateDraftRetryTimer, setPrivateDraftLifecycle, user])
+
+    if (lastError) {
+      console.error(lastError)
+    }
+
+    setPrivateDraftStatus('error')
+    return { localSaved: false, serverSaved: false, error: lastError }
+  }, [user])
 
   const enqueueServerDraftSave = useCallback((request) => {
     const task = privateDraftQueueRef.current
@@ -1083,120 +958,44 @@ export function CreateEvaluationPage() {
     return task
   }, [saveServerDraftWithRetry])
 
-  const stagePrivateDraftSave = useCallback(({ explicit = false, reason = 'manual' } = {}) => {
-    const payloadWithoutRevision = buildCurrentPrivateDraftPayload(privateDraftSaveVersionRef.current)
-
-    if (!hasPrivateEvaluationDraftContent(payloadWithoutRevision)) {
-      return null
-    }
-
-    const context = buildCurrentPrivateDraftContext(payloadWithoutRevision.formData || formData)
-    const contextIdentity = getPrivateEvaluationDraftRequestIdentity({
-      context,
-      payload: payloadWithoutRevision,
-    })
-    const fingerprint = getPrivateEvaluationDraftPayloadFingerprint(payloadWithoutRevision)
-    const pendingSave = latestPrivateDraftSaveRef.current
-
-    if (
-      pendingSave?.request?.contextIdentity === contextIdentity &&
-      pendingSave?.request?.fingerprint === fingerprint &&
-      privateDraftRequestCoordinatorRef.current.isCurrent(pendingSave.request)
-    ) {
-      return pendingSave
-    }
-
-    if (
-      fingerprint === privateDraftHydrationBaselineFingerprintRef.current &&
-      !pendingSave &&
-      !explicit
-    ) {
-      return null
-    }
-
-    clearPrivateDraftRetryTimer()
-    privateDraftRetryAttemptRef.current = 0
-    const requestState = privateDraftRequestCoordinatorRef.current.nextRequest(contextIdentity)
-    const request = {
-      ...requestState,
-      fingerprint,
-    }
-    privateDraftSaveVersionRef.current = request.revision
-    const payload = buildCurrentPrivateDraftPayload(request.revision)
-    const localDraft = savePrivateDraftLocalCopy({
-      context,
-      payload,
-      request,
-    })
-    const stagedSave = {
-      context,
-      localDraft,
-      payload,
-      reason,
-      request,
-      saveEpoch: request.epoch,
-      version: request.revision,
-    }
-
-    latestPrivateDraftSaveRef.current = stagedSave
-    return stagedSave
-  }, [
-    buildCurrentPrivateDraftContext,
-    buildCurrentPrivateDraftPayload,
-    clearPrivateDraftRetryTimer,
-    formData,
-    savePrivateDraftLocalCopy,
-  ])
-
-  const flushPrivateDraftSave = useCallback(async ({ explicit = false, reason = 'manual' } = {}) => {
+  const flushPrivateDraftSave = useCallback(async ({ reason = 'manual' } = {}) => {
     if (privateDraftSaveTimerRef.current) {
       window.clearTimeout(privateDraftSaveTimerRef.current)
       privateDraftSaveTimerRef.current = null
     }
 
-    if (
-      !hasInitializedRef.current ||
-      !privateDraftHydrationReadyRef.current ||
-      isPlatformOwner ||
-      editingEvaluationId ||
-      isPrivateDraftClosingRef.current ||
-      [
-        PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising,
-        PRIVATE_EVALUATION_DRAFT_LIFECYCLE.loadingExistingDraft,
-        PRIVATE_EVALUATION_DRAFT_LIFECYCLE.submitting,
-        PRIVATE_EVALUATION_DRAFT_LIFECYCLE.discarding,
-      ].includes(privateDraftLifecycleRef.current)
-    ) {
+    if (!hasInitializedRef.current || !draftStorageKey || isPlatformOwner || editingEvaluationId) {
       return { skipped: true }
     }
 
-    const currentSave = stagePrivateDraftSave({ explicit, reason })
+    const currentSave = latestPrivateDraftSaveRef.current
+    const version = currentSave?.version || privateDraftSaveVersionRef.current + 1
+    const payload = currentSave?.payload || buildCurrentPrivateDraftPayload(version)
 
-    if (!currentSave?.request || !privateDraftRequestCoordinatorRef.current.isCurrent(currentSave.request)) {
+    if (!hasPrivateEvaluationDraftContent(payload)) {
       return { skipped: true }
     }
 
-    if (isPrivateEvaluationDraftOffline()) {
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline)
-      return {
-        localSaved: Boolean(currentSave.localDraft?.id),
-        offline: true,
-        serverSaved: false,
-      }
+    const context = currentSave?.context || buildCurrentPrivateDraftContext(payload.formData || formData)
+    const localDraft = currentSave?.localDraft || savePrivateDraftLocalCopy({ context, payload, version })
+    const saveEpoch = currentSave?.saveEpoch ?? privateDraftSaveEpochRef.current
+
+    if (saveEpoch !== privateDraftSaveEpochRef.current || isPrivateDraftClosingRef.current) {
+      return { skipped: true }
     }
 
-    setPrivateDraftLifecycle(
-      ['online-retry', 'backoff-retry', 'manual-retry'].includes(reason)
-        ? PRIVATE_EVALUATION_DRAFT_LIFECYCLE.retrying
-        : PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saving,
-    )
-    return enqueueServerDraftSave(currentSave)
+    latestPrivateDraftSaveRef.current = { context, localDraft, payload, reason, saveEpoch, version }
+    setPrivateDraftStatus('saving')
+    return enqueueServerDraftSave({ context, localDraft, payload, reason, saveEpoch, version })
   }, [
+    buildCurrentPrivateDraftContext,
+    buildCurrentPrivateDraftPayload,
+    draftStorageKey,
     editingEvaluationId,
     enqueueServerDraftSave,
+    formData,
     isPlatformOwner,
-    setPrivateDraftLifecycle,
-    stagePrivateDraftSave,
+    savePrivateDraftLocalCopy,
   ])
 
   useEffect(() => {
@@ -1204,34 +1003,11 @@ export function CreateEvaluationPage() {
       return
     }
 
-    privateDraftHydrationCycleRef.current += 1
-    privateDraftHydrationReadyRef.current = false
-    privateDraftHydrationExpectedFingerprintRef.current = null
-    privateDraftHydrationBaselineFingerprintRef.current = ''
-    privateDraftHydrationFinalStatusRef.current = PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated
-    privateDraftHydrationNeedsServerSyncRef.current = false
-    privateDraftRequestCoordinatorRef.current.invalidate()
-    latestPrivateDraftSaveRef.current = null
-    serverDraftRestoreKeyRef.current = ''
-    hasInitializedRef.current = false
-    privateDraftRecoveryInFlightRef.current = false
-    privateDraftRetryAttemptRef.current = 0
-    clearPrivateDraftRetryTimer()
-
-    if (privateDraftSaveTimerRef.current) {
-      window.clearTimeout(privateDraftSaveTimerRef.current)
-      privateDraftSaveTimerRef.current = null
-    }
-
-    setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising)
-
     const requestedPlayerName = String(searchParams.get('player') ?? '').trim()
     const requestedTeam = String(searchParams.get('team') ?? '').trim()
     const requestedSession = normalizeSessionValue(searchParams.get('session'))
     const requestedSection = String(searchParams.get('section') ?? '').trim()
-    const requestedFeedbackForm = String(searchParams.get('feedbackForm') ?? '').trim()
     const privateDraftContext = buildPrivateEvaluationDraftContext({
-      formId: requestedFeedbackForm,
       formData: {
         playerName: requestedPlayerName,
         section: requestedSection,
@@ -1283,9 +1059,6 @@ export function CreateEvaluationPage() {
         : [0],
     )
     setInviteDate(normalizeSessionValue(latestPayload?.inviteDate))
-    setSelectedFeedbackFormId(
-      String(latestPayload?.selectedFeedbackFormId ?? requestedFeedbackForm).trim(),
-    )
     setResponseValues(
       latestPayload?.responseValues && typeof latestPayload.responseValues === 'object' ? latestPayload.responseValues : {},
     )
@@ -1300,41 +1073,15 @@ export function CreateEvaluationPage() {
       : null
     setSelectedExportLabels(restoredPrivateDraftExportLabelsRef.current)
     setArchiveAfterNoPlace(Boolean(latestPayload?.archiveAfterNoPlace))
-    const initialRequestIdentity = getPrivateEvaluationDraftRequestIdentity({
-      context: {
-        ...privateDraftContext,
-        formId: String(latestPayload?.selectedFeedbackFormId ?? requestedFeedbackForm).trim(),
-      },
-      payload: latestPayload || {},
-    })
-    const coordinatorState = privateDraftRequestCoordinatorRef.current.beginContext(
-      initialRequestIdentity,
-      getPrivateEvaluationDraftSaveVersion(latestDraft || latestPayload || {}),
-    )
-    privateDraftSaveVersionRef.current = coordinatorState.revision
-    const initialDraftInfo = latestDraft?.id ? {
+    setPrivateDraftInfo(latestDraft?.id ? {
       id: latestDraft.id,
-      contextKey: latestDraft.contextKey || '',
       lastSavedAt: latestDraft.lastSavedAt || latestDraft.updatedAt || '',
-      requestIdentity: initialRequestIdentity,
       restoredAt: latestDraft.lastSavedAt || latestDraft.updatedAt || '',
       source: 'local',
-    } : null
-    privateDraftInfoRef.current = initialDraftInfo
-    setPrivateDraftInfo(initialDraftInfo)
-    setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.loadingExistingDraft)
+    } : null)
+    setPrivateDraftStatus(latestDraft ? 'restored' : 'idle')
     hasInitializedRef.current = true
-  }, [
-    clearPrivateDraftRetryTimer,
-    draftStorageKey,
-    editingEvaluationId,
-    searchParams,
-    searchParamsKey,
-    setPrivateDraftLifecycle,
-    shouldChooseAssessmentPlayer,
-    user,
-    userScopeKey,
-  ])
+  }, [draftStorageKey, editingEvaluationId, searchParams, searchParamsKey, shouldChooseAssessmentPlayer, user, userScopeKey])
 
   useEffect(() => {
     if (
@@ -1342,36 +1089,20 @@ export function CreateEvaluationPage() {
       !user ||
       isPlatformOwner ||
       isDemoUser(user) ||
-      isLoadingTeams ||
-      isLoadingPlayers ||
-      isLoadingFields ||
-      isLoadingFeedbackForms
+      editingEvaluationId ||
+      shouldChooseAssessmentPlayer
     ) {
       return undefined
     }
 
-    const hydrationCycle = privateDraftHydrationCycleRef.current
-    const currentPayload = buildCurrentPrivateDraftPayload(privateDraftSaveVersionRef.current)
     const draftContext = buildCurrentPrivateDraftContext(formData)
     const hasDraftContext = Boolean(draftContext.playerName || draftContext.playerId)
-    const requestIdentity = getPrivateEvaluationDraftRequestIdentity({
-      context: draftContext,
-      payload: currentPayload,
-    })
 
-    if (editingEvaluationId || shouldChooseAssessmentPlayer || !hasDraftContext) {
-      privateDraftHydrationExpectedFingerprintRef.current =
-        getPrivateEvaluationDraftPayloadFingerprint(currentPayload)
-      privateDraftHydrationFinalStatusRef.current = PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated
-      privateDraftRequestCoordinatorRef.current.beginContext(
-        requestIdentity,
-        privateDraftSaveVersionRef.current,
-      )
-      setPrivateDraftHydrationCommit((current) => current + 1)
+    if (!hasDraftContext) {
       return undefined
     }
 
-    const restoreKey = `${hydrationCycle}:${requestIdentity}`
+    const restoreKey = `${draftContext.clubId}:${draftContext.createdByUserId}:${getEvaluationDraftContextKey(draftContext)}`
 
     if (serverDraftRestoreKeyRef.current === restoreKey) {
       return undefined
@@ -1395,46 +1126,13 @@ export function CreateEvaluationPage() {
           localDraft ? { ...localDraft, source: 'local' } : null,
         ])
 
-        if (!isMounted || hydrationCycle !== privateDraftHydrationCycleRef.current) {
+        if (!isMounted || !latestDraft?.payload || !hasPrivateEvaluationDraftContent(latestDraft.payload)) {
           return
         }
 
-        if (latestDraft?.payload && hasPrivateEvaluationDraftContent(latestDraft.payload)) {
-          restorePrivateDraftPayload(latestDraft, latestDraft.source || 'server')
-          privateDraftHydrationNeedsServerSyncRef.current =
-            latestDraft.source === 'local' &&
-            (
-              !serverDraft ||
-              getPrivateEvaluationDraftSaveVersion(latestDraft) >
-                getPrivateEvaluationDraftSaveVersion(serverDraft)
-            )
-        } else {
-          privateDraftHydrationExpectedFingerprintRef.current =
-            getPrivateEvaluationDraftPayloadFingerprint(currentPayload)
-          privateDraftRequestCoordinatorRef.current.beginContext(
-            requestIdentity,
-            privateDraftSaveVersionRef.current,
-          )
-        }
-
-        privateDraftHydrationFinalStatusRef.current = PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated
-        setPrivateDraftHydrationCommit((current) => current + 1)
+        restorePrivateDraftPayload(latestDraft, latestDraft.source || 'server')
       } catch (error) {
         console.error(error)
-
-        if (!isMounted || hydrationCycle !== privateDraftHydrationCycleRef.current) {
-          return
-        }
-
-        privateDraftHydrationExpectedFingerprintRef.current =
-          getPrivateEvaluationDraftPayloadFingerprint(currentPayload)
-        privateDraftHydrationNeedsServerSyncRef.current =
-          privateDraftInfoRef.current?.source === 'local'
-        privateDraftHydrationFinalStatusRef.current =
-          typeof navigator !== 'undefined' && navigator.onLine === false
-            ? PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline
-            : PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed
-        setPrivateDraftHydrationCommit((current) => current + 1)
       }
     }
 
@@ -1445,66 +1143,12 @@ export function CreateEvaluationPage() {
     }
   }, [
     buildCurrentPrivateDraftContext,
-    buildCurrentPrivateDraftPayload,
     editingEvaluationId,
     formData,
-    isLoadingFeedbackForms,
-    isLoadingFields,
-    isLoadingPlayers,
-    isLoadingTeams,
     isPlatformOwner,
     restorePrivateDraftPayload,
     shouldChooseAssessmentPlayer,
     user,
-  ])
-
-  useEffect(() => {
-    if (
-      !hasInitializedRef.current ||
-      privateDraftHydrationExpectedFingerprintRef.current === null ||
-      isLoadingTeams ||
-      isLoadingPlayers ||
-      isLoadingFields ||
-      isLoadingFeedbackForms
-    ) {
-      return
-    }
-
-    const payload = buildCurrentPrivateDraftPayload(privateDraftSaveVersionRef.current)
-    const context = buildCurrentPrivateDraftContext(payload.formData || formData)
-    const requestIdentity = getPrivateEvaluationDraftRequestIdentity({ context, payload })
-    const coordinatorState = privateDraftRequestCoordinatorRef.current.beginContext(
-      requestIdentity,
-      privateDraftSaveVersionRef.current,
-    )
-
-    privateDraftSaveVersionRef.current = coordinatorState.revision
-    privateDraftHydrationBaselineFingerprintRef.current =
-      getPrivateEvaluationDraftPayloadFingerprint(payload)
-    privateDraftHydrationExpectedFingerprintRef.current = null
-    privateDraftHydrationReadyRef.current = true
-    setPrivateDraftLifecycle(privateDraftHydrationFinalStatusRef.current)
-
-    if (privateDraftHydrationNeedsServerSyncRef.current) {
-      privateDraftHydrationNeedsServerSyncRef.current = false
-      window.setTimeout(() => {
-        void flushPrivateDraftSave({
-          explicit: true,
-          reason: 'hydration-retry',
-        })
-      }, 0)
-    }
-  }, [
-    buildCurrentPrivateDraftContext,
-    buildCurrentPrivateDraftPayload,
-    formData,
-    isLoadingFeedbackForms,
-    isLoadingFields,
-    isLoadingPlayers,
-    isLoadingTeams,
-    privateDraftHydrationCommit,
-    flushPrivateDraftSave,
-    setPrivateDraftLifecycle,
   ])
 
   useEffect(() => {
@@ -1518,7 +1162,6 @@ export function CreateEvaluationPage() {
         return
       }
 
-      setIsLoadingTeams(true)
       setTeamsLoadErrorMessage('')
 
       try {
@@ -1976,69 +1619,53 @@ export function CreateEvaluationPage() {
   }, [isPrintingBlankView])
 
   useEffect(() => {
-    if (
-      !hasInitializedRef.current ||
-      isPlatformOwner ||
-      editingEvaluationId ||
-      isPrivateDraftClosingRef.current
-    ) {
+    if (!hasInitializedRef.current || !draftStorageKey || isPlatformOwner || editingEvaluationId) {
       return
     }
+
+    if (isPrivateDraftClosingRef.current) {
+      return
+    }
+
+    const version = privateDraftSaveVersionRef.current + 1
+    privateDraftSaveVersionRef.current = version
+    const draftPayload = buildCurrentPrivateDraftPayload(version)
 
     if (privateDraftSaveTimerRef.current) {
       window.clearTimeout(privateDraftSaveTimerRef.current)
-      privateDraftSaveTimerRef.current = null
     }
-
-    const draftPayload = buildCurrentPrivateDraftPayload(privateDraftSaveVersionRef.current)
 
     if (!hasPrivateEvaluationDraftContent(draftPayload)) {
+      setPrivateDraftStatus('idle')
       return
     }
 
-    const fingerprint = getPrivateEvaluationDraftPayloadFingerprint(draftPayload)
+    const draftContext = buildCurrentPrivateDraftContext(formData)
+    const savedDraft = savePrivateDraftLocalCopy({
+      context: draftContext,
+      payload: draftPayload,
+      version,
+    })
 
-    if (!canAutosavePrivateEvaluationDraft({
-      baselineFingerprint: privateDraftHydrationBaselineFingerprintRef.current,
-      dependenciesResolved:
-        Boolean(user) &&
-        !isLoadingTeams &&
-        !isLoadingPlayers &&
-        !isLoadingFields &&
-        !isLoadingFeedbackForms,
-      fingerprint,
-      hasContent: hasPrivateEvaluationDraftContent(draftPayload),
-      hydrationReady: privateDraftHydrationReadyRef.current,
-      lifecycle: privateDraftLifecycleRef.current,
-    })) {
-      return
-    }
-
-    const stagedSave = stagePrivateDraftSave({ reason: 'change' })
-
-    if (!stagedSave?.request) {
-      return
-    }
-
-    if (isPrivateEvaluationDraftOffline()) {
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline)
-      return
-    }
-
-    setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.dirty)
+    setPrivateDraftStatus('unsaved')
     privateDraftSaveTimerRef.current = window.setTimeout(() => {
       void flushPrivateDraftSave({ reason: 'debounce' })
     }, 800)
 
+    if (!savedDraft?.id) {
+      setPrivateDraftStatus('error')
+    }
+
     return () => {
       if (privateDraftSaveTimerRef.current) {
         window.clearTimeout(privateDraftSaveTimerRef.current)
-        privateDraftSaveTimerRef.current = null
       }
     }
   }, [
     archiveAfterNoPlace,
+    buildCurrentPrivateDraftContext,
     buildCurrentPrivateDraftPayload,
+    draftStorageKey,
     editingEvaluationId,
     emailSendMode,
     emailTemplateKey,
@@ -2047,109 +1674,15 @@ export function CreateEvaluationPage() {
     includeAttendanceSummary,
     inviteDate,
     isPdfAttachmentApproved,
-    isLoadingFeedbackForms,
-    isLoadingFields,
-    isLoadingPlayers,
-    isLoadingTeams,
     isPlatformOwner,
     lastUsedSession,
     offlineDraftId,
     previewMode,
     responseValues,
+    savePrivateDraftLocalCopy,
     scheduledEmailDateTime,
-    selectedFeedbackFormId,
     selectedExportLabels,
     selectedParentContactIndexes,
-    setPrivateDraftLifecycle,
-    stagePrivateDraftSave,
-    user,
-  ])
-
-  useEffect(() => {
-    const handleOnline = () => {
-      if (!canRecoverPrivateEvaluationDraft({
-        hasPendingRevision: Boolean(latestPrivateDraftSaveRef.current),
-        lifecycle: privateDraftLifecycleRef.current,
-        online: !isPrivateEvaluationDraftOffline(),
-        recoveryInFlight: privateDraftRecoveryInFlightRef.current,
-      })) {
-        return
-      }
-
-      clearPrivateDraftRetryTimer()
-      privateDraftRecoveryInFlightRef.current = true
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.retrying)
-      void flushPrivateDraftSave({
-        explicit: true,
-        reason: 'online-retry',
-      }).finally(() => {
-        privateDraftRecoveryInFlightRef.current = false
-      })
-    }
-
-    const handleOffline = () => {
-      if (!latestPrivateDraftSaveRef.current) {
-        return
-      }
-
-      clearPrivateDraftRetryTimer()
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline)
-    }
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [
-    clearPrivateDraftRetryTimer,
-    flushPrivateDraftSave,
-    setPrivateDraftLifecycle,
-  ])
-
-  useEffect(() => {
-    if (
-      privateDraftStatus !== PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed ||
-      !latestPrivateDraftSaveRef.current ||
-      isPrivateEvaluationDraftOffline()
-    ) {
-      return undefined
-    }
-
-    clearPrivateDraftRetryTimer()
-    const attempt = privateDraftRetryAttemptRef.current + 1
-    privateDraftRetryAttemptRef.current = attempt
-    const retryDelay = getPrivateEvaluationDraftRecoveryDelay({ attempt })
-
-    privateDraftRetryTimerRef.current = window.setTimeout(() => {
-      privateDraftRetryTimerRef.current = null
-
-      if (!canRecoverPrivateEvaluationDraft({
-        hasPendingRevision: Boolean(latestPrivateDraftSaveRef.current),
-        lifecycle: privateDraftLifecycleRef.current,
-        online: !isPrivateEvaluationDraftOffline(),
-        recoveryInFlight: privateDraftRecoveryInFlightRef.current,
-      })) {
-        return
-      }
-
-      privateDraftRecoveryInFlightRef.current = true
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.retrying)
-      void flushPrivateDraftSave({
-        explicit: true,
-        reason: 'backoff-retry',
-      }).finally(() => {
-        privateDraftRecoveryInFlightRef.current = false
-      })
-    }, retryDelay)
-
-    return clearPrivateDraftRetryTimer
-  }, [
-    clearPrivateDraftRetryTimer,
-    flushPrivateDraftSave,
-    privateDraftStatus,
-    setPrivateDraftLifecycle,
   ])
 
   useEffect(() => {
@@ -2166,11 +1699,6 @@ export function CreateEvaluationPage() {
 
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [])
-
-  useEffect(() => () => {
-    clearPrivateDraftRetryTimer()
-    privateDraftRecoveryInFlightRef.current = false
-  }, [clearPrivateDraftRetryTimer])
 
   useEffect(() => {
     const handleInternalDraftNavigation = (event) => {
@@ -2242,15 +1770,7 @@ export function CreateEvaluationPage() {
   }, [dynamicFields, hasHistoricalFeedbackFormSnapshot, isDefaultFeedbackFormSelected, selectedFeedbackForm, selectedFeedbackFormId, snapshotFields])
 
   useEffect(() => {
-    if (
-      editingEvaluation ||
-      !privateDraftHydrationReadyRef.current ||
-      (
-        selectedFeedbackFormId &&
-        !isDefaultFeedbackFormSelected &&
-        !selectedFeedbackForm
-      )
-    ) {
+    if (editingEvaluation) {
       return
     }
 
@@ -2258,14 +1778,7 @@ export function CreateEvaluationPage() {
       const emptyValues = createEmptyResponseValues(activeFields)
       return Object.fromEntries(Object.keys(emptyValues).map((key) => [key, current[key] ?? '']))
     })
-  }, [
-    activeFields,
-    editingEvaluation,
-    isDefaultFeedbackFormSelected,
-    privateDraftStatus,
-    selectedFeedbackForm,
-    selectedFeedbackFormId,
-  ])
+  }, [activeFields, editingEvaluation])
 
   const enabledFields = useMemo(() => activeFields.filter((field) => field.isEnabled !== false), [activeFields])
   const formResponses = useMemo(() => buildFormResponses(enabledFields, responseValues), [enabledFields, responseValues])
@@ -2381,6 +1894,41 @@ export function CreateEvaluationPage() {
       : 'Save Reminder and Send Email'
     : 'Save Reminder'
 
+  const getCompletionModalForOutcome = ({ emailErrorMessage = '', outcome, playerName }) => {
+    if (outcome === 'sent') {
+      return {
+        title: 'Development record saved and email sent',
+        message: `${playerName} development record has been saved and the parent email has been sent.`,
+      }
+    }
+
+    if (outcome === 'scheduled') {
+      return {
+        title: 'Development record saved and email scheduled',
+        message: `${playerName} development record has been saved and the parent email has been scheduled.`,
+      }
+    }
+
+    if (outcome === 'send_failed') {
+      return {
+        title: 'Development record saved',
+        message: `${playerName} development record has been saved, but the parent email could not be sent. ${emailErrorMessage || 'Check the email details before sending again.'}`,
+      }
+    }
+
+    if (outcome === 'schedule_failed') {
+      return {
+        title: 'Development record saved',
+        message: `${playerName} development record has been saved, but the parent email could not be scheduled. ${emailErrorMessage || 'Check the scheduled send details before trying again.'}`,
+      }
+    }
+
+    return {
+      title: editingEvaluation ? 'Development record updated' : 'Development record saved',
+      message: `${playerName} development record has been saved.`,
+    }
+  }
+
   const handleCompletionContinue = () => {
     const nextUrl = completionNavigationUrl
     setCompletionModal(null)
@@ -2392,7 +1940,7 @@ export function CreateEvaluationPage() {
   }
 
   const handleResumePrivateDraft = async () => {
-    setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.loadingExistingDraft)
+    setPrivateDraftStatus('saving')
 
     try {
       const draftContext = buildCurrentPrivateDraftContext(formData)
@@ -2418,13 +1966,10 @@ export function CreateEvaluationPage() {
           message: 'No active private draft was found for this record context.',
           tone: 'error',
         })
-        setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated)
+        setPrivateDraftStatus(privateDraftInfo?.id ? 'saved_local' : 'idle')
         return
       }
 
-      privateDraftHydrationBaselineFingerprintRef.current =
-        getPrivateEvaluationDraftPayloadFingerprint(draft.payload || draft)
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated)
       showToast({ title: 'Private draft opened', message: 'The saved draft values have been restored.' })
     } catch (error) {
       console.error(error)
@@ -2433,11 +1978,7 @@ export function CreateEvaluationPage() {
         message: error.message || 'The private draft could not be opened.',
         tone: 'error',
       })
-      setPrivateDraftLifecycle(
-        isNetworkError(error)
-          ? PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline
-          : PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-      )
+      setPrivateDraftStatus('error')
     }
   }
 
@@ -2446,10 +1987,7 @@ export function CreateEvaluationPage() {
     const latestSave = latestPrivateDraftSaveRef.current
 
     isPrivateDraftClosingRef.current = true
-    privateDraftRecoveryInFlightRef.current = false
-    privateDraftRetryAttemptRef.current = 0
-    clearPrivateDraftRetryTimer()
-    privateDraftRequestCoordinatorRef.current.invalidate()
+    privateDraftSaveEpochRef.current += 1
     shouldWarnPrivateDraftRef.current = false
 
     if (privateDraftSaveTimerRef.current) {
@@ -2462,85 +2000,55 @@ export function CreateEvaluationPage() {
     return { draftInfo, latestSave }
   }
 
-  const closeServerDraftForSnapshot = async (closeSnapshot, status) => {
-    if (isDemoUser(user)) {
-      return false
-    }
-
-    const currentInfo = privateDraftInfoRef.current
-    const serverDraftId =
-      (currentInfo?.source === 'server' && currentInfo.id) ||
-      (closeSnapshot.draftInfo?.source === 'server' && closeSnapshot.draftInfo.id) ||
-      ''
-    const lookupContext =
-      closeSnapshot.latestSave?.context ||
-      latestPrivateDraftSaveRef.current?.context ||
-      null
-    const serverDraft = serverDraftId
-      ? { id: serverDraftId }
-      : lookupContext
-        ? await findServerEvaluationDraft({
-            context: lookupContext,
-            user,
-          })
-        : null
-
-    if (!serverDraft?.id) {
-      return false
-    }
-
-    const didCloseServerDraft = await closeServerEvaluationDraft({
-      draftId: serverDraft.id,
-      status,
-      user,
-    })
-
-    if (didCloseServerDraft) {
-      return true
-    }
-
-    const remainingDraft = lookupContext
-      ? await findServerEvaluationDraft({
-          context: lookupContext,
-          user,
-        })
-      : null
-
-    if (remainingDraft?.id === serverDraft.id) {
-      const closeError = new Error('The private Development draft was not closed.')
-      closeError.code = 'DRAFT_CLOSE_ZERO_ROWS'
-      throw closeError
-    }
-
-    return false
-  }
-
-  const clearLocalDraftsForSnapshot = (closeSnapshot, status) => {
-    const localDraftIds = new Set([
-      closeSnapshot.latestSave?.localDraft?.id,
-      closeSnapshot.draftInfo?.source === 'local' ? closeSnapshot.draftInfo.id : '',
-      closeSnapshot.draftInfo?.localDraftId,
-      privateDraftInfoRef.current?.source === 'local' ? privateDraftInfoRef.current.id : '',
-      privateDraftInfoRef.current?.localDraftId,
-    ].filter(Boolean))
-
-    localDraftIds.forEach((draftId) => {
-      clearPrivateEvaluationDraft({
-        draftId,
-        status,
-        user,
-      })
-    })
-  }
-
   const handleDiscardPrivateDraft = async () => {
     const closeSnapshot = beginPrivateDraftClose()
-    setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.discarding)
+    setPrivateDraftStatus('saving')
 
     try {
       await privateDraftQueueRef.current.catch(() => {})
-      await closeServerDraftForSnapshot(closeSnapshot, PRIVATE_EVALUATION_DRAFT_STATUSES.discarded)
-      clearLocalDraftsForSnapshot(closeSnapshot, PRIVATE_EVALUATION_DRAFT_STATUSES.discarded)
+
+      if (closeSnapshot.draftInfo?.id) {
+        if (closeSnapshot.draftInfo.source === 'server') {
+          try {
+            const didCloseServerDraft = await closeServerEvaluationDraft({
+              draftId: closeSnapshot.draftInfo.id,
+              status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
+              user,
+            })
+
+            if (!didCloseServerDraft) {
+              console.info('Private draft discard skipped because the server draft was already closed or unavailable.')
+            }
+          } catch (error) {
+            console.error(error)
+            showToast({
+              title: 'Private draft not discarded',
+              message: error.message || 'The database draft could not be closed. Try again before leaving this page.',
+              tone: 'error',
+            })
+            setPrivateDraftStatus('error')
+            return
+          }
+        }
+
+        clearPrivateEvaluationDraft({
+          draftId: closeSnapshot.draftInfo.source === 'server'
+            ? closeSnapshot.draftInfo.localDraftId || ''
+            : closeSnapshot.draftInfo.id,
+          status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
+          user,
+        })
+      }
+
+      const localDraftId = closeSnapshot.latestSave?.localDraft?.id || closeSnapshot.draftInfo?.localDraftId || ''
+
+      if (localDraftId) {
+        clearPrivateEvaluationDraft({
+          draftId: localDraftId,
+          status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
+          user,
+        })
+      }
 
       if (draftStorageKey) {
         sessionStorage.removeItem(draftStorageKey)
@@ -2562,22 +2070,8 @@ export function CreateEvaluationPage() {
       }))
       setResponseValues(createEmptyResponseValues(dynamicFields))
       setPrivateDraftInfo(null)
-      privateDraftHydrationBaselineFingerprintRef.current = ''
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.discarded)
-      showToast({ title: 'Private draft discarded', message: 'The private Development draft has been cleared.' })
-    } catch (error) {
-      console.error(error)
-      latestPrivateDraftSaveRef.current = closeSnapshot.latestSave
-      showToast({
-        title: 'Private draft not discarded',
-        message: error.message || 'The private Development draft could not be closed. Try again before leaving this page.',
-        tone: 'error',
-      })
-      setPrivateDraftLifecycle(
-        isNetworkError(error)
-          ? PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline
-          : PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-      )
+      setPrivateDraftStatus('discarded')
+      showToast({ title: 'Private draft discarded', message: 'This browser draft has been cleared.' })
     } finally {
       isPrivateDraftClosingRef.current = false
     }
@@ -2593,25 +2087,51 @@ export function CreateEvaluationPage() {
         sessionStorage.removeItem(draftStorageKey)
       }
 
-      await closeServerDraftForSnapshot(closeSnapshot, PRIVATE_EVALUATION_DRAFT_STATUSES.submitted)
-      clearLocalDraftsForSnapshot(closeSnapshot, PRIVATE_EVALUATION_DRAFT_STATUSES.submitted)
+      if (closeSnapshot.draftInfo?.id) {
+        if (closeSnapshot.draftInfo.source === 'server') {
+          try {
+            const didCloseServerDraft = await closeServerEvaluationDraft({
+              draftId: closeSnapshot.draftInfo.id,
+              status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
+              user,
+            })
+
+            if (!didCloseServerDraft) {
+              console.info('Private draft submit close skipped because the server draft was already closed or unavailable.')
+            }
+          } catch (error) {
+            console.error(error)
+            showToast({
+              title: 'Private draft not closed',
+              message: error.message || 'The development record was saved, but the private draft could not be closed.',
+              tone: 'error',
+            })
+          }
+        }
+
+        clearPrivateEvaluationDraft({
+          draftId: closeSnapshot.draftInfo.source === 'server'
+            ? closeSnapshot.draftInfo.localDraftId || ''
+            : closeSnapshot.draftInfo.id,
+          status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
+          user,
+        })
+      }
+
+      const localDraftId = closeSnapshot.latestSave?.localDraft?.id || closeSnapshot.draftInfo?.localDraftId || ''
+
+      if (localDraftId) {
+        clearPrivateEvaluationDraft({
+          draftId: localDraftId,
+          status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
+          user,
+        })
+      }
 
       latestPrivateDraftSaveRef.current = null
       privateDraftInfoRef.current = null
       setPrivateDraftInfo(null)
-      privateDraftHydrationBaselineFingerprintRef.current = ''
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.submitted)
-      return true
-    } catch (error) {
-      console.error(error)
-      latestPrivateDraftSaveRef.current = closeSnapshot.latestSave
-      showToast({
-        title: 'Private draft not closed',
-        message: error.message || 'The Development Record was saved, but the private draft could not be closed.',
-        tone: 'error',
-      })
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed)
-      return false
+      setPrivateDraftStatus('idle')
     } finally {
       isPrivateDraftClosingRef.current = false
     }
@@ -2904,10 +2424,6 @@ export function CreateEvaluationPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (submitLockRef.current) {
-      return
-    }
-
     if (!user?.clubId && !isPlatformOwner) {
       console.error('Development record submit failed: missing club ID for current user.')
       setActionErrorMessage('Your account is missing a club assignment.')
@@ -2930,15 +2446,13 @@ export function CreateEvaluationPage() {
       return
     }
 
-    submitLockRef.current = true
+    await flushPrivateDraftSave({ reason: 'submit' })
+    setIsSubmitting(true)
     setActionErrorMessage('')
     let completionOutcome = 'saved'
     let completionEmailErrorMessage = ''
 
     try {
-      await flushPrivateDraftSave({ reason: 'submit' })
-      setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.submitting)
-      setIsSubmitting(true)
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
       const evaluation = buildEvaluationPayload(offlineDraftId)
 
@@ -2956,7 +2470,6 @@ export function CreateEvaluationPage() {
         setOfflineStatusMessage('Saved offline. This development record will sync when the connection returns.')
         showToast({ title: 'Saved offline', message: 'This development record will sync when you are back online.' })
         setIsSaved(true)
-        setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline)
         return
       }
 
@@ -3163,9 +2676,8 @@ export function CreateEvaluationPage() {
       setLastUsedSession(postAssessmentNavigation.nextSessionValue)
       setIsSaved(true)
       setOfflineStatusMessage('')
-      setCompletionModal(getDevelopmentRecordCompletionCopy({
-        editing: Boolean(editingEvaluation),
-        optionalOutputErrorMessage: completionEmailErrorMessage,
+      setCompletionModal(getCompletionModalForOutcome({
+        emailErrorMessage: completionEmailErrorMessage,
         outcome: completionOutcome,
         playerName: normalizedPlayerName,
       }))
@@ -3193,7 +2705,6 @@ export function CreateEvaluationPage() {
           }), { user })
           setOfflineStatusMessage('Saved offline. This development record will sync when the connection returns.')
           showToast({ title: 'Saved offline', message: 'This development record will sync when you are back online.' })
-          setPrivateDraftLifecycle(PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline)
           return
         } catch (draftError) {
           console.error('Offline draft queue failed', draftError)
@@ -3201,13 +2712,7 @@ export function CreateEvaluationPage() {
       }
 
       setActionErrorMessage(getDevelopmentRecordSaveFailureMessage(error))
-      setPrivateDraftLifecycle(
-        privateDraftInfoRef.current?.id
-          ? PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saved
-          : PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated,
-      )
     } finally {
-      submitLockRef.current = false
       setIsSendingParentEmail(false)
       setIsSubmitting(false)
     }
@@ -3284,45 +2789,7 @@ export function CreateEvaluationPage() {
   }
 
   const privateDraftBanner = getPrivateDraftBannerCopy(privateDraftStatus, privateDraftInfo)
-  const canResumePrivateDraft = [
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saved,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline,
-  ].includes(privateDraftStatus) && Boolean(privateDraftInfo?.id)
-  const canRetryPrivateDraft = [
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline,
-  ].includes(privateDraftStatus) && Boolean(latestPrivateDraftSaveRef.current)
-  const canDiscardPrivateDraft = [
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.dirty,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saving,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saved,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline,
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.retrying,
-  ].includes(privateDraftStatus) && Boolean(
-    privateDraftInfo?.id || latestPrivateDraftSaveRef.current?.payload,
-  )
-  const privateDraftBannerClassName = [
-    PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-  ].includes(privateDraftStatus)
-    ? 'border-[#fda29b] bg-[#fef3f2] text-[#912018] shadow-[#b42318]/10'
-    : [
-        PRIVATE_EVALUATION_DRAFT_LIFECYCLE.dirty,
-        PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline,
-        PRIVATE_EVALUATION_DRAFT_LIFECYCLE.retrying,
-      ].includes(privateDraftStatus)
-      ? 'border-[#fedf89] bg-[#fffaeb] text-[#93370d] shadow-[#dc6803]/10'
-      : [
-          PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising,
-          PRIVATE_EVALUATION_DRAFT_LIFECYCLE.loadingExistingDraft,
-          PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saving,
-          PRIVATE_EVALUATION_DRAFT_LIFECYCLE.submitting,
-        ].includes(privateDraftStatus)
-        ? 'border-[#b2ddff] bg-[#eff8ff] text-[#175cd3] shadow-[#1570ef]/10'
-        : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#065f46] shadow-[#047857]/10'
+  const canResumePrivateDraft = ['restored', 'saved', 'saved_local'].includes(privateDraftStatus) && Boolean(privateDraftInfo?.id)
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -3416,7 +2883,7 @@ export function CreateEvaluationPage() {
 
       <ConfirmModal
         isOpen={Boolean(completionModal) && !nextAssessmentReminderTarget}
-        title={completionModal?.title || 'Development Record saved'}
+        title={completionModal?.title || 'Development record saved'}
         message={completionModal?.message || ''}
         confirmLabel="Continue"
         hideCancel
@@ -3434,7 +2901,7 @@ export function CreateEvaluationPage() {
 
         {isSaved ? (
           <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] shadow-sm shadow-[#047857]/10">
-            Development Record saved
+            Development record saved
           </div>
         ) : null}
 
@@ -3446,14 +2913,11 @@ export function CreateEvaluationPage() {
         ) : null}
 
         {offlineStatusMessage ? (
-          <NoticeBanner title="Working offline" message={offlineStatusMessage} tone="info" />
+          <NoticeBanner title="Offline draft saved" message={offlineStatusMessage} tone="info" />
         ) : null}
 
-        {![
-          PRIVATE_EVALUATION_DRAFT_LIFECYCLE.submitted,
-          PRIVATE_EVALUATION_DRAFT_LIFECYCLE.discarded,
-        ].includes(privateDraftStatus) ? (
-          <div className={`rounded-lg border px-4 py-3 text-sm font-bold shadow-sm ${privateDraftBannerClassName}`}>
+        {privateDraftStatus !== 'idle' && privateDraftStatus !== 'discarded' ? (
+          <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46] shadow-sm shadow-[#047857]/10">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-black">
@@ -3473,24 +2937,13 @@ export function CreateEvaluationPage() {
                     Resume draft
                   </button>
                 ) : null}
-                {canRetryPrivateDraft ? (
-                  <button
-                    type="button"
-                    onClick={() => void flushPrivateDraftSave({ reason: 'manual-retry' })}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46]"
-                  >
-                    Retry save
-                  </button>
-                ) : null}
-                {canDiscardPrivateDraft ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleDiscardPrivateDraft()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#86efac] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:border-[#047857] hover:bg-[#f7faf8]"
-                  >
-                    Discard draft
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleDiscardPrivateDraft()}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#86efac] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:border-[#047857] hover:bg-[#f7faf8]"
+                >
+                  Discard draft
+                </button>
               </div>
             </div>
           </div>
