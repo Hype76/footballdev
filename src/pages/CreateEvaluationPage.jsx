@@ -590,6 +590,7 @@ export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
   const formRef = useRef(null)
+  const submitLockRef = useRef(false)
   const hasInitializedRef = useRef(false)
   const privateDraftSaveTimerRef = useRef(null)
   const privateDraftInfoRef = useRef(null)
@@ -964,7 +965,7 @@ export function CreateEvaluationPage() {
       privateDraftSaveTimerRef.current = null
     }
 
-    if (!hasInitializedRef.current || !draftStorageKey || isPlatformOwner || editingEvaluationId) {
+    if (!hasInitializedRef.current || isPlatformOwner || editingEvaluationId) {
       return { skipped: true }
     }
 
@@ -990,7 +991,6 @@ export function CreateEvaluationPage() {
   }, [
     buildCurrentPrivateDraftContext,
     buildCurrentPrivateDraftPayload,
-    draftStorageKey,
     editingEvaluationId,
     enqueueServerDraftSave,
     formData,
@@ -1619,7 +1619,7 @@ export function CreateEvaluationPage() {
   }, [isPrintingBlankView])
 
   useEffect(() => {
-    if (!hasInitializedRef.current || !draftStorageKey || isPlatformOwner || editingEvaluationId) {
+    if (!hasInitializedRef.current || isPlatformOwner || editingEvaluationId) {
       return
     }
 
@@ -1665,7 +1665,6 @@ export function CreateEvaluationPage() {
     archiveAfterNoPlace,
     buildCurrentPrivateDraftContext,
     buildCurrentPrivateDraftPayload,
-    draftStorageKey,
     editingEvaluationId,
     emailSendMode,
     emailTemplateKey,
@@ -2424,6 +2423,10 @@ export function CreateEvaluationPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
 
+    if (submitLockRef.current) {
+      return
+    }
+
     if (!user?.clubId && !isPlatformOwner) {
       console.error('Development record submit failed: missing club ID for current user.')
       setActionErrorMessage('Your account is missing a club assignment.')
@@ -2446,13 +2449,14 @@ export function CreateEvaluationPage() {
       return
     }
 
-    await flushPrivateDraftSave({ reason: 'submit' })
+    submitLockRef.current = true
     setIsSubmitting(true)
     setActionErrorMessage('')
     let completionOutcome = 'saved'
     let completionEmailErrorMessage = ''
 
     try {
+      await flushPrivateDraftSave({ reason: 'submit' })
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
       const evaluation = buildEvaluationPayload(offlineDraftId)
 
@@ -2715,6 +2719,7 @@ export function CreateEvaluationPage() {
     } finally {
       setIsSendingParentEmail(false)
       setIsSubmitting(false)
+      submitLockRef.current = false
     }
   }
 
@@ -2789,6 +2794,13 @@ export function CreateEvaluationPage() {
   }
 
   const privateDraftBanner = getPrivateDraftBannerCopy(privateDraftStatus, privateDraftInfo)
+  const privateDraftBannerClassName = privateDraftStatus === 'error'
+    ? 'rounded-lg border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm font-bold text-[#991b1b] shadow-sm shadow-[#dc2626]/10'
+    : privateDraftStatus === 'saved_local'
+      ? 'rounded-lg border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm font-bold text-[#92400e] shadow-sm shadow-[#d97706]/10'
+      : ['unsaved', 'saving'].includes(privateDraftStatus)
+        ? 'rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-bold text-[#1e40af] shadow-sm shadow-[#2563eb]/10'
+        : 'rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46] shadow-sm shadow-[#047857]/10'
   const canResumePrivateDraft = ['restored', 'saved', 'saved_local'].includes(privateDraftStatus) && Boolean(privateDraftInfo?.id)
 
   return (
@@ -2917,7 +2929,7 @@ export function CreateEvaluationPage() {
         ) : null}
 
         {privateDraftStatus !== 'idle' && privateDraftStatus !== 'discarded' ? (
-          <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46] shadow-sm shadow-[#047857]/10">
+          <div className={privateDraftBannerClassName}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-black">

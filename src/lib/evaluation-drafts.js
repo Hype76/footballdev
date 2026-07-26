@@ -520,7 +520,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
       status: closingStatus,
       [closedAtColumn]: now,
       updated_at: now,
-    })
+    }, { count: 'exact' })
     .eq('id', normalizedDraftId)
     .eq('created_by_user_id', user.id)
     .eq('status', SERVER_DRAFT_STATUS)
@@ -533,7 +533,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     ? closeQuery.eq('player_id', activeDraft.player_id)
     : closeQuery.is('player_id', null)
 
-  const { error } = await closeQuery
+  const { count, error } = await closeQuery
 
   if (error) {
     if (isMissingServerDraftTableError(error)) {
@@ -544,7 +544,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     throw error
   }
 
-  return true
+  return count === 1
 }
 
 export function clearPrivateEvaluationDraft({ draftId = '', storage, user } = {}) {
