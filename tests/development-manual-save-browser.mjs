@@ -336,7 +336,27 @@ async function handleDraftRequest(route) {
 
 async function preparePage(context) {
   await context.route('**/.netlify/functions/**', async (route) => {
-    requests.optionalOutputs.push(route.request().postDataJSON())
+    const payload = route.request().postDataJSON()
+
+    if (payload?.action === 'resolve_development_recipients') {
+      await fulfillJson(route, 200, {
+        success: true,
+        recipients: [{
+          linkId: '66666666-6666-4666-8666-666666666666',
+          name: 'Synthetic Parent',
+          email: 'synthetic-parent@example.test',
+          contactSource: 'auth_user',
+          communicationsPreferenceExplicit: false,
+          type: 'parent',
+          primary: true,
+          eligible: true,
+          unavailableReason: '',
+        }],
+      })
+      return
+    }
+
+    requests.optionalOutputs.push(payload)
 
     if (failOptionalOutput) {
       optionalOutputAttempts += 1
@@ -424,10 +444,12 @@ async function preparePage(context) {
         club_id: 'club-fixture',
         team_id: 'team-u12',
         player_id: 'player-second',
+        guardian_id: null,
+        auth_user_id: '77777777-7777-4777-8777-777777777777',
         email: 'synthetic-parent@example.test',
         relationship: 'Parent',
         primary_contact: true,
-        receives_communications: true,
+        receives_communications: false,
         status: 'active',
         created_at: '2026-07-26T12:02:00.000Z',
       }],

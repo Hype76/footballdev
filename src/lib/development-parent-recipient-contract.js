@@ -22,13 +22,27 @@ function getContactNameByEmail(parentContacts, email) {
   return normalizeText(contact?.name ?? contact?.parentName)
 }
 
+function getLinkCommunicationPreference(link) {
+  const rawPreference = link?.receives_communications ?? link?.receivesCommunications
+  const guardianId = normalizeText(link?.guardian_id ?? link?.guardianId)
+  const preferenceIsExplicit =
+    (link?.communications_preference_explicit ?? link?.communicationsPreferenceExplicit) === true ||
+    (Boolean(guardianId) && (rawPreference === true || rawPreference === false))
+
+  return {
+    allowed: !(preferenceIsExplicit && rawPreference === false),
+    explicit: preferenceIsExplicit,
+  }
+}
+
 function getUnavailableReason({
   linkId,
   clubMatches,
   teamMatches,
   playerMatches,
   status,
-  receivesCommunications,
+  communicationsAllowed,
+  contactSourceEligible,
   email,
 }) {
   if (!linkId) {
@@ -43,8 +57,12 @@ function getUnavailableReason({
     return 'inactive_link'
   }
 
-  if (receivesCommunications !== true) {
+  if (!communicationsAllowed) {
     return 'communications_disabled'
+  }
+
+  if (!contactSourceEligible) {
+    return 'contact_source_unavailable'
   }
 
   if (!isValidDevelopmentParentRecipientEmail(email)) {
@@ -68,11 +86,16 @@ export function normalizeDevelopmentParentRecipientCandidate(
   const linkTeamId = normalizeText(link?.team_id ?? link?.teamId)
   const linkPlayerId = normalizeText(link?.player_id ?? link?.playerId)
   const status = normalizeText(link?.status)
-  const receivesCommunications =
-    (link?.receives_communications ?? link?.receivesCommunications) === true
-  const email = normalizeDevelopmentParentRecipientEmail(link?.email)
+  const communicationPreference = getLinkCommunicationPreference(link)
+  const email = normalizeDevelopmentParentRecipientEmail(
+    link?.resolved_email ?? link?.resolvedEmail ?? link?.email,
+  )
+  const resolvedName = normalizeText(link?.resolved_name ?? link?.resolvedName)
+  const contactSource = normalizeText(link?.contact_source ?? link?.contactSource) || 'link'
+  const contactSourceEligible =
+    (link?.contact_source_eligible ?? link?.contactSourceEligible) !== false
   const clubMatches = linkClubId === normalizeText(clubId)
-  const teamMatches = linkTeamId === normalizeText(teamId)
+  const teamMatches = !linkTeamId || linkTeamId === normalizeText(teamId)
   const playerMatches = linkPlayerId === normalizeText(playerId)
   const unavailableReason = getUnavailableReason({
     linkId,
@@ -80,17 +103,21 @@ export function normalizeDevelopmentParentRecipientCandidate(
     teamMatches,
     playerMatches,
     status,
-    receivesCommunications,
+    communicationsAllowed: communicationPreference.allowed,
+    contactSourceEligible,
     email,
   })
 
   return {
     linkId,
     name:
+      resolvedName ||
       getContactNameByEmail(parentContacts, email) ||
       normalizeText(link?.relationship) ||
       'Parent or guardian',
     email,
+    contactSource,
+    communicationsPreferenceExplicit: communicationPreference.explicit,
     type: 'parent',
     primary: (link?.primary_contact ?? link?.primaryContact) === true,
     eligible: !unavailableReason,

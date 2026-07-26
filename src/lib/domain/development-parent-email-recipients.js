@@ -1,6 +1,3 @@
-import {
-  getDevelopmentParentRecipientCandidates,
-} from '../development-parent-recipient-contract.js'
 import { supabase } from '../supabase-client.js'
 
 function normalizeText(value) {
@@ -20,25 +17,26 @@ export async function getDevelopmentParentEmailRecipientCandidates({
     return []
   }
 
-  const { data, error } = await supabase
-    .from('parent_player_links')
-    .select(
-      'id, club_id, team_id, player_id, email, relationship, primary_contact, receives_communications, status',
-    )
-    .eq('club_id', clubId)
-    .eq('team_id', resolvedTeamId)
-    .eq('player_id', playerId)
-    .order('created_at', { ascending: true })
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+  const response = await fetch('/.netlify/functions/send-parent-email', {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'resolve_development_recipients',
+      clubId,
+      playerId,
+      teamId: resolvedTeamId,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
 
-  if (error) {
-    throw error
+  if (!response.ok) {
+    throw new Error(result.message || 'Development parent recipients could not be loaded.')
   }
 
-  return getDevelopmentParentRecipientCandidates({
-    links: data ?? [],
-    clubId,
-    teamId: resolvedTeamId,
-    playerId,
-    parentContacts: player?.parentContacts,
-  })
+  return Array.isArray(result.recipients) ? result.recipients : []
 }

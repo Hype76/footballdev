@@ -22,6 +22,7 @@ import {
   getParentVisibleDevelopmentEmailSections,
   getParentVisibleDevelopmentResponses,
   loadDevelopmentParentEmailContext,
+  loadDevelopmentParentRecipientCandidates,
 } from './lib/_development-parent-email-output.js'
 import { authorizeAssessmentPdfDocument } from './lib/_pdf-report.js'
 
@@ -645,18 +646,34 @@ export async function handler(event) {
   let emailLogRecord = null
 
   try {
-    const missingEnvVars = getMissingEnvVars()
-
-    if (missingEnvVars.length > 0) {
-      throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`)
-    }
-
     const body = JSON.parse(event.body || '{}')
     const requestUser = await getAuthenticatedPlanProfile(event, {
       clubId: body.clubId,
       teamId: body.teamId,
       playerId: body.playerId || body.evaluationId,
     })
+
+    if (String(body.action ?? '').trim() === 'resolve_development_recipients') {
+      const resolvedRecipients = await loadDevelopmentParentRecipientCandidates(
+        supabaseAdmin,
+        {
+          profile: requestUser,
+          playerId: body.playerId,
+          teamId: body.teamId,
+        },
+      )
+
+      return successResponse({
+        recipients: resolvedRecipients,
+      })
+    }
+
+    const missingEnvVars = getMissingEnvVars()
+
+    if (missingEnvVars.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`)
+    }
+
     const scheduledAt = parseScheduledAt(body.scheduledAt)
 
     if (scheduledAt && !isFutureScheduledDate(scheduledAt)) {

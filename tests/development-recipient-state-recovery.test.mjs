@@ -163,7 +163,12 @@ test('inactive links fail', () => {
 
 test('communication-disabled links fail', () => {
   const result = resolveSelectedDevelopmentParentRecipients({
-    links: [link({ receives_communications: false })],
+    links: [
+      link({
+        guardian_id: '99999999-9999-4999-8999-999999999999',
+        receives_communications: false,
+      }),
+    ],
     ...scope(),
     selectedParentLinkIds: [firstLinkId],
   })

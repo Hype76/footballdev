@@ -6,9 +6,13 @@ import {
 } from '../../../src/lib/player-progression.js'
 import {
   isValidDevelopmentParentRecipientEmail,
+  getDevelopmentParentRecipientCandidates,
   normalizeDevelopmentParentRecipientEmail,
   resolveSelectedDevelopmentParentRecipients,
 } from '../../../src/lib/development-parent-recipient-contract.js'
+import {
+  applyDevelopmentParentContactResolution,
+} from '../../../src/lib/development-parent-contact-resolution.js'
 
 const CLUB_WIDE_ROLE_RANK = 50
 const DEFAULT_PARENT_VISIBLE_LABELS = new Set([
@@ -230,6 +234,162 @@ async function assertDevelopmentOutputScope(supabaseAdmin, profile, evaluation) 
   }
 }
 
+function uniqueIds(values = []) {
+  return [
+    ...new Set(
+      values
+        .map(normalizeText)
+        .filter(Boolean),
+    ),
+  ]
+}
+
+async function loadDevelopmentParentContactSources(supabaseAdmin, links = []) {
+  const guardianIds = uniqueIds(links.map((link) => link.guardian_id))
+  const authUserIds = uniqueIds(links.map((link) => link.auth_user_id))
+  const [guardianResult, profileResult, authResults] = await Promise.all([
+    guardianIds.length > 0
+      ? supabaseAdmin
+          .from('guardians')
+          .select('id, club_id, first_name, last_name, email, status')
+          .in('id', guardianIds)
+      : Promise.resolve({ data: [], error: null }),
+    authUserIds.length > 0
+      ? supabaseAdmin
+          .from('users')
+          .select('id, club_id, email, name, display_name, role, status')
+          .in('id', authUserIds)
+      : Promise.resolve({ data: [], error: null }),
+    Promise.all(
+      authUserIds.map(async (authUserId) => {
+        const { data, error } = await supabaseAdmin.auth.admin.getUserById(authUserId)
+        return {
+          authUserId,
+          error,
+          user: data?.user ?? null,
+        }
+      }),
+    ),
+  ])
+
+  if (guardianResult.error || profileResult.error) {
+    throw guardianResult.error || profileResult.error
+  }
+
+  const guardiansById = new Map((guardianResult.data ?? []).map((row) => [normalizeText(row.id), row]))
+  const profilesById = new Map((profileResult.data ?? []).map((row) => [normalizeText(row.id), row]))
+  const authUsersById = new Map()
+
+  authResults.forEach(({ authUserId, error, user }) => {
+    if (error && !profilesById.has(authUserId)) {
+      throw error
+    }
+
+    if (user) {
+      authUsersById.set(authUserId, user)
+    }
+  })
+
+  return links.map((link) =>
+    applyDevelopmentParentContactResolution({
+      link,
+      guardian: guardiansById.get(normalizeText(link.guardian_id)),
+      parentProfile: profilesById.get(normalizeText(link.auth_user_id)),
+      authUser: authUsersById.get(normalizeText(link.auth_user_id)),
+    }))
+}
+
+async function loadDevelopmentParentLinks(
+  supabaseAdmin,
+  {
+    clubId,
+    teamId,
+    playerId,
+  } = {},
+) {
+  let linkQuery = supabaseAdmin
+    .from('parent_player_links')
+    .select('id, club_id, team_id, player_id, guardian_id, auth_user_id, email, relationship, primary_contact, receives_communications, status, accepted_at, created_at')
+    .eq('club_id', clubId)
+    .eq('player_id', playerId)
+
+  if (normalizeText(teamId)) {
+    linkQuery = linkQuery.or(`team_id.eq.${normalizeText(teamId)},team_id.is.null`)
+  } else {
+    linkQuery = linkQuery.is('team_id', null)
+  }
+
+  const { data, error } = await linkQuery.order('created_at', { ascending: true })
+
+  if (error) {
+    throw error
+  }
+
+  return loadDevelopmentParentContactSources(supabaseAdmin, data ?? [])
+}
+
+export async function loadDevelopmentParentRecipientCandidates(
+  supabaseAdmin,
+  {
+    profile,
+    playerId,
+    teamId,
+  } = {},
+) {
+  const normalizedPlayerId = normalizeText(playerId)
+  const profileClubId = normalizeText(profile?.clubId)
+
+  if (
+    !normalizedPlayerId ||
+    !profileClubId ||
+    normalizeText(profile?.role) === 'super_admin'
+  ) {
+    throw outputError(
+      'Development parent recipients are not available.',
+      403,
+      'DEVELOPMENT_PARENT_RECIPIENTS_SCOPE_DENIED',
+    )
+  }
+
+  const player = await loadOne(
+    supabaseAdmin
+      .from('players')
+      .select('id, club_id, team_id, parent_contacts')
+      .eq('id', normalizedPlayerId)
+      .eq('club_id', profileClubId)
+      .maybeSingle(),
+    'DEVELOPMENT_PARENT_EMAIL_PLAYER_NOT_FOUND',
+  )
+  const resolvedTeamId = normalizeText(player.team_id)
+
+  if (normalizeText(teamId) && normalizeText(teamId) !== resolvedTeamId) {
+    throw outputError(
+      'Development parent recipients are not available.',
+      403,
+      'DEVELOPMENT_PARENT_RECIPIENTS_TEAM_DENIED',
+    )
+  }
+
+  await assertDevelopmentOutputScope(supabaseAdmin, profile, {
+    club_id: player.club_id,
+    team_id: resolvedTeamId,
+  })
+
+  const links = await loadDevelopmentParentLinks(supabaseAdmin, {
+    clubId: player.club_id,
+    teamId: resolvedTeamId,
+    playerId: player.id,
+  })
+
+  return getDevelopmentParentRecipientCandidates({
+    links,
+    clubId: player.club_id,
+    teamId: resolvedTeamId,
+    playerId: player.id,
+    parentContacts: player.parent_contacts,
+  }).filter((candidate) => candidate.eligible)
+}
+
 export async function loadDevelopmentParentEmailContext(
   supabaseAdmin,
   {
@@ -264,16 +424,11 @@ export async function loadDevelopmentParentEmailContext(
       .maybeSingle(),
     'DEVELOPMENT_PARENT_EMAIL_PLAYER_NOT_FOUND',
   )
-  const { data: links, error: linksError } = await supabaseAdmin
-    .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, relationship, primary_contact, receives_communications, status')
-    .eq('club_id', evaluation.club_id)
-    .eq('team_id', evaluation.team_id || player.team_id)
-    .eq('player_id', player.id)
-
-  if (linksError) {
-    throw linksError
-  }
+  const links = await loadDevelopmentParentLinks(supabaseAdmin, {
+    clubId: evaluation.club_id,
+    teamId: evaluation.team_id || player.team_id,
+    playerId: player.id,
+  })
 
   let evaluationHistoryQuery = supabaseAdmin
     .from('evaluations')
