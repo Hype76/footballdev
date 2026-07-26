@@ -9,63 +9,6 @@ import {
 
 export const PRIVATE_EVALUATION_DRAFTS_KEY = 'footballplayer:protected-private-evaluation-drafts:v2'
 export const LEGACY_PRIVATE_EVALUATION_DRAFTS_KEY = 'footballplayer:private-evaluation-drafts:v1'
-export const PRIVATE_EVALUATION_DRAFT_LIFECYCLE = Object.freeze({
-  initialising: 'initialising',
-  loadingExistingDraft: 'loading_existing_draft',
-  hydrated: 'hydrated',
-  dirty: 'dirty',
-  saving: 'saving',
-  saved: 'saved',
-  saveFailed: 'save_failed',
-  offline: 'offline',
-  retrying: 'retrying',
-  submitting: 'submitting',
-  submitted: 'submitted',
-  discarding: 'discarding',
-  discarded: 'discarded',
-})
-
-export function isPrivateEvaluationDraftOffline(navigatorObject) {
-  const resolvedNavigator = navigatorObject ??
-    (typeof navigator !== 'undefined' ? navigator : null)
-
-  return resolvedNavigator?.onLine === false
-}
-
-export function canRecoverPrivateEvaluationDraft({
-  hasPendingRevision = false,
-  lifecycle = PRIVATE_EVALUATION_DRAFT_LIFECYCLE.hydrated,
-  online = true,
-  recoveryInFlight = false,
-} = {}) {
-  return Boolean(
-    online &&
-    hasPendingRevision &&
-    !recoveryInFlight &&
-    [
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.offline,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.saveFailed,
-    ].includes(lifecycle),
-  )
-}
-
-export function getPrivateEvaluationDraftRecoveryDelay({
-  attempt = 1,
-  baseDelayMs = 30_000,
-  maxDelayMs = 120_000,
-} = {}) {
-  const normalizedAttempt = Math.max(1, Number(attempt) || 1)
-  const normalizedBaseDelay = Math.max(1_000, Number(baseDelayMs) || 30_000)
-  const normalizedMaxDelay = Math.max(
-    normalizedBaseDelay,
-    Number(maxDelayMs) || 120_000,
-  )
-
-  return Math.min(
-    normalizedMaxDelay,
-    normalizedBaseDelay * (2 ** (normalizedAttempt - 1)),
-  )
-}
 const DRAFT_STATUSES = {
   active: 'active',
   discarded: 'discarded',
@@ -112,8 +55,6 @@ function normalizeDraftContext(context = {}) {
     clubId: normalizeText(context.clubId),
     createdByUserId: normalizeText(context.createdByUserId),
     editingEvaluationId: normalizeText(context.editingEvaluationId),
-    formId: normalizeText(context.formId),
-    formVersion: Math.max(0, Number(context.formVersion) || 0),
     formType: normalizeText(context.formType) || 'development_record',
     playerId: normalizeText(context.playerId),
     playerName: normalizeText(context.playerName),
@@ -203,22 +144,6 @@ export function getEvaluationDraftContextKey(context = {}) {
   const normalizedContext = normalizeDraftContext(context)
 
   return [
-    'v2',
-    normalizedContext.formType,
-    normalizedContext.teamId || normalizeLowerText(normalizedContext.teamName) || 'all',
-    normalizedContext.playerId || normalizeLowerText(normalizedContext.playerName) || 'unassigned-player',
-    normalizedContext.formId || 'unselected-form',
-    normalizedContext.formVersion || 'version',
-    normalizedContext.editingEvaluationId || 'new',
-  ]
-    .map((part) => String(part).replace(/[^a-zA-Z0-9_-]+/g, '_'))
-    .join(':')
-}
-
-export function getLegacyEvaluationDraftContextKey(context = {}) {
-  const normalizedContext = normalizeDraftContext(context)
-
-  return [
     normalizedContext.formType,
     normalizedContext.teamId || normalizeLowerText(normalizedContext.teamName) || 'all',
     normalizeLowerText(normalizedContext.playerName) || normalizedContext.playerId || 'unassigned-player',
@@ -228,455 +153,6 @@ export function getLegacyEvaluationDraftContextKey(context = {}) {
   ]
     .map((part) => String(part).replace(/[^a-zA-Z0-9_-]+/g, '_'))
     .join(':')
-}
-
-export function getEvaluationDraftContextKeys(context = {}) {
-  return [...new Set([
-    getEvaluationDraftContextKey(context),
-    getLegacyEvaluationDraftContextKey(context),
-  ])]
-}
-
-function sortDraftFingerprintValue(value) {
-  if (Array.isArray(value)) {
-    return value.map(sortDraftFingerprintValue)
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value)
-        .filter(([key]) => !['draftContext', 'draftMeta'].includes(key))
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, sortDraftFingerprintValue(item)]),
-    )
-  }
-
-  return value
-}
-
-export function getPrivateEvaluationDraftPayloadFingerprint(payload = {}) {
-  return JSON.stringify(sortDraftFingerprintValue(payload))
-}
-
-export function getPrivateEvaluationDraftCanonicalSaveIdentity({
-  context = {},
-  contextIdentity = '',
-  epoch = 0,
-  fingerprint = '',
-  payload = {},
-  revision = 0,
-} = {}) {
-  const resolvedContextIdentity = normalizeText(contextIdentity) ||
-    getPrivateEvaluationDraftRequestIdentity({ context, payload })
-  const resolvedFingerprint = normalizeText(fingerprint) ||
-    getPrivateEvaluationDraftPayloadFingerprint(payload)
-
-  if (!resolvedContextIdentity || !resolvedFingerprint) {
-    return ''
-  }
-
-  return JSON.stringify([
-    resolvedContextIdentity,
-    Math.max(0, Number(epoch) || 0),
-    Math.max(0, Number(revision) || 0),
-    resolvedFingerprint,
-  ])
-}
-
-export function canStagePrivateEvaluationDraftSave({
-  activeIdentity = '',
-  confirmedIdentity = '',
-  contextChanging = false,
-  currentIdentity = '',
-  discarded = false,
-  hydratedIdentity = '',
-  hydrationReady = false,
-  pendingIdentity = '',
-  requiredContextReady = false,
-  submitted = false,
-  userEdited = false,
-} = {}) {
-  const normalizedCurrentIdentity = normalizeText(currentIdentity)
-
-  return Boolean(
-    normalizedCurrentIdentity &&
-    hydrationReady &&
-    requiredContextReady &&
-    userEdited &&
-    !contextChanging &&
-    !submitted &&
-    !discarded &&
-    normalizedCurrentIdentity !== normalizeText(hydratedIdentity) &&
-    normalizedCurrentIdentity !== normalizeText(confirmedIdentity) &&
-    normalizedCurrentIdentity !== normalizeText(activeIdentity) &&
-    normalizedCurrentIdentity !== normalizeText(pendingIdentity),
-  )
-}
-
-export function canAutosavePrivateEvaluationDraft({
-  baselineFingerprint = '',
-  dependenciesResolved = false,
-  explicit = false,
-  fingerprint = '',
-  hasContent = false,
-  hydrationReady = false,
-  lifecycle = PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising,
-  requiredContextReady = true,
-  userEdited = false,
-} = {}) {
-  if (
-    !dependenciesResolved ||
-    !hydrationReady ||
-    !hasContent ||
-    !requiredContextReady ||
-    [
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.initialising,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.loadingExistingDraft,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.submitting,
-      PRIVATE_EVALUATION_DRAFT_LIFECYCLE.discarding,
-    ].includes(lifecycle)
-  ) {
-    return false
-  }
-
-  return explicit || (userEdited && fingerprint !== baselineFingerprint)
-}
-
-export function getPrivateEvaluationDraftRequestIdentity({ context = {}, payload = {} } = {}) {
-  const normalizedContext = normalizeDraftContext({
-    ...context,
-    formId: context.formId || payload.selectedFeedbackFormId,
-  })
-
-  return [
-    normalizedContext.clubId || 'club',
-    normalizedContext.createdByUserId || 'actor',
-    normalizedContext.teamId || normalizeLowerText(normalizedContext.teamName) || 'team',
-    normalizedContext.playerId || normalizeLowerText(normalizedContext.playerName) || 'player',
-    normalizedContext.formId || 'unselected-form',
-    normalizedContext.formVersion || 'version',
-    normalizedContext.editingEvaluationId || 'new',
-  ]
-    .map((part) => String(part).replace(/[^a-zA-Z0-9_-]+/g, '_'))
-    .join(':')
-}
-
-export function createPrivateEvaluationDraftRequestCoordinator({ initialRevision = 0 } = {}) {
-  let contextIdentity = ''
-  let epoch = 0
-  let revision = Math.max(0, Number(initialRevision) || 0)
-
-  const snapshot = () => ({ contextIdentity, epoch, revision })
-  const nextGenuineEdit = (nextContextIdentity = contextIdentity, minimumRevision = 0) => {
-    const normalizedIdentity = normalizeText(nextContextIdentity) || contextIdentity
-
-    if (normalizedIdentity !== contextIdentity) {
-      contextIdentity = normalizedIdentity
-      epoch += 1
-    }
-
-    revision = Math.max(revision, Number(minimumRevision) || 0) + 1
-    return snapshot()
-  }
-
-  return {
-    beginContext(nextContextIdentity, hydratedRevision = 0) {
-      const normalizedIdentity = normalizeText(nextContextIdentity)
-      const contextChanged = normalizedIdentity !== contextIdentity
-
-      if (contextChanged) {
-        contextIdentity = normalizedIdentity
-        epoch += 1
-        revision = Math.max(0, Number(hydratedRevision) || 0)
-      } else {
-        revision = Math.max(revision, Number(hydratedRevision) || 0)
-      }
-
-      return {
-        ...snapshot(),
-        contextChanged,
-      }
-    },
-    hydrateRevision(hydratedRevision = 0) {
-      revision = Math.max(revision, Number(hydratedRevision) || 0)
-      return snapshot()
-    },
-    invalidate() {
-      epoch += 1
-      return snapshot()
-    },
-    isCurrent(request = {}) {
-      return normalizeText(request.contextIdentity) === contextIdentity &&
-        Number(request.epoch) === epoch &&
-        Number(request.revision) === revision
-    },
-    nextGenuineEdit,
-    nextRequest: nextGenuineEdit,
-    snapshot,
-  }
-}
-
-function getPrivateEvaluationDraftSingleFlightIdentity(save = {}) {
-  const request = save?.request || {}
-
-  return normalizeText(request.identity) ||
-    getPrivateEvaluationDraftCanonicalSaveIdentity(request)
-}
-
-export function isSamePrivateEvaluationDraftSave(leftSave, rightSave) {
-  return Boolean(
-    leftSave?.request &&
-    rightSave?.request &&
-    getPrivateEvaluationDraftSingleFlightIdentity(leftSave) ===
-      getPrivateEvaluationDraftSingleFlightIdentity(rightSave)
-  )
-}
-
-export function createPrivateEvaluationDraftSingleFlight() {
-  let active = null
-  let confirmedIdentity = ''
-  let generation = 0
-  let pending = null
-  const idleWaiters = new Set()
-
-  const settleIdleWaiters = () => {
-    if (active || pending) {
-      return
-    }
-
-    idleWaiters.forEach((resolve) => resolve())
-    idleWaiters.clear()
-  }
-
-  const createEntry = (save, execute) => {
-    let rejectPromise
-    let resolvePromise
-    const promise = new Promise((resolve, reject) => {
-      rejectPromise = reject
-      resolvePromise = resolve
-    })
-
-    return {
-      execute,
-      generation,
-      promise,
-      reject: rejectPromise,
-      resolve: resolvePromise,
-      save,
-    }
-  }
-
-  const start = (entry) => {
-    if (entry.generation !== generation) {
-      entry.resolve({ cancelled: true, serverSaved: false })
-      settleIdleWaiters()
-      return
-    }
-
-    active = entry
-    Promise.resolve()
-      .then(() => entry.execute(entry.save))
-      .then(entry.resolve, entry.reject)
-      .finally(() => {
-        if (active === entry) {
-          active = null
-        }
-
-        const next = pending
-        pending = null
-
-        if (next) {
-          start(next)
-        } else {
-          settleIdleWaiters()
-        }
-      })
-  }
-
-  return {
-    enqueue(save, execute) {
-      if (!save?.request || typeof execute !== 'function') {
-        return Promise.resolve({ skipped: true })
-      }
-
-      if (
-        confirmedIdentity &&
-        getPrivateEvaluationDraftSingleFlightIdentity(save) === confirmedIdentity
-      ) {
-        return Promise.resolve({
-          confirmed: true,
-          serverSaved: true,
-          skipped: true,
-        })
-      }
-
-      if (isSamePrivateEvaluationDraftSave(active?.save, save)) {
-        return active.promise
-      }
-
-      if (isSamePrivateEvaluationDraftSave(pending?.save, save)) {
-        return pending.promise
-      }
-
-      const entry = createEntry(save, execute)
-
-      if (active) {
-        if (pending) {
-          pending.resolve({
-            coalesced: true,
-            serverSaved: false,
-            superseded: true,
-          })
-        }
-
-        pending = entry
-      } else {
-        start(entry)
-      }
-
-      return entry.promise
-    },
-    confirm(saveOrIdentity) {
-      const nextConfirmedIdentity = typeof saveOrIdentity === 'string'
-        ? normalizeText(saveOrIdentity)
-        : getPrivateEvaluationDraftSingleFlightIdentity(saveOrIdentity)
-
-      if (!nextConfirmedIdentity) {
-        return
-      }
-
-      confirmedIdentity = nextConfirmedIdentity
-
-      if (
-        pending &&
-        getPrivateEvaluationDraftSingleFlightIdentity(pending.save) === confirmedIdentity
-      ) {
-        pending.resolve({
-          confirmed: true,
-          serverSaved: true,
-          skipped: true,
-        })
-        pending = null
-      }
-    },
-    invalidate({ preserveConfirmed = false } = {}) {
-      generation += 1
-
-      if (!preserveConfirmed) {
-        confirmedIdentity = ''
-      }
-
-      if (pending) {
-        pending.resolve({
-          cancelled: true,
-          serverSaved: false,
-          superseded: true,
-        })
-        pending = null
-      }
-
-      settleIdleWaiters()
-    },
-    snapshot() {
-      return {
-        active: active?.save || null,
-        confirmedIdentity,
-        pending: pending?.save || null,
-      }
-    },
-    waitForIdle() {
-      if (!active && !pending) {
-        return Promise.resolve()
-      }
-
-      return new Promise((resolve) => {
-        idleWaiters.add(resolve)
-      })
-    },
-  }
-}
-
-export function getPrivateEvaluationDraftSaveResponseDisposition({
-  activeFingerprint = '',
-  request = {},
-  requestIsCurrent = false,
-  serverDraft = null,
-} = {}) {
-  const requestFingerprint = normalizeText(request.fingerprint)
-
-  if (
-    !requestIsCurrent ||
-    !requestFingerprint ||
-    requestFingerprint !== normalizeText(activeFingerprint)
-  ) {
-    return {
-      outcome: 'ignored',
-      ownsVisibleStatus: false,
-      retryable: false,
-    }
-  }
-
-  if (!serverDraft?.id) {
-    return {
-      outcome: 'failed',
-      ownsVisibleStatus: true,
-      retryable: true,
-    }
-  }
-
-  const serverFingerprint = getPrivateEvaluationDraftPayloadFingerprint(serverDraft.payload)
-  const requestRevision = Math.max(0, Number(request.revision) || 0)
-  const serverRevision = Math.max(0, Number(serverDraft.clientSaveVersion) || 0)
-  const responseMatchesActiveRevision =
-    serverFingerprint === requestFingerprint &&
-    serverRevision >= requestRevision
-
-  if (!responseMatchesActiveRevision) {
-    return {
-      outcome: 'failed',
-      ownsVisibleStatus: true,
-      retryable: true,
-    }
-  }
-
-  return {
-    outcome: serverDraft.staleWrite ? 'reconciled' : 'saved',
-    ownsVisibleStatus: true,
-    retryable: false,
-  }
-}
-
-export function choosePrivateEvaluationDraftServerAcknowledgement({
-  currentAcknowledgement = null,
-  request = {},
-  serverDraft = null,
-} = {}) {
-  const contextIdentity = normalizeText(request.contextIdentity)
-  const epoch = Math.max(0, Number(request.epoch) || 0)
-
-  if (!contextIdentity || !serverDraft?.id) {
-    return currentAcknowledgement
-  }
-
-  const nextAcknowledgement = {
-    contextIdentity,
-    draftId: serverDraft.id,
-    epoch,
-    fingerprint: getPrivateEvaluationDraftPayloadFingerprint(serverDraft.payload),
-    identity: normalizeText(request.identity) ||
-      getPrivateEvaluationDraftCanonicalSaveIdentity(request),
-    revision: Math.max(0, Number(serverDraft.clientSaveVersion) || 0),
-  }
-
-  if (
-    currentAcknowledgement?.contextIdentity === contextIdentity &&
-    Number(currentAcknowledgement.epoch) === epoch &&
-    Number(currentAcknowledgement.revision) > nextAcknowledgement.revision
-  ) {
-    return currentAcknowledgement
-  }
-
-  return nextAcknowledgement
 }
 
 function normalizeServerDraftRow(row) {
@@ -692,15 +168,6 @@ function normalizeServerDraftRow(row) {
     createdByUserId: normalizeText(row.created_by_user_id ?? row.createdByUserId),
     formType: normalizeText(row.report_type ?? row.reportType) || 'development_record',
     contextKey: normalizeText(row.context_key ?? row.contextKey),
-    clientSaveVersion: Math.max(
-      0,
-      Number(
-        row.client_save_version ??
-        row.clientSaveVersion ??
-        row.draft_data?.draftMeta?.clientSaveVersion ??
-        0,
-      ) || 0,
-    ),
     payload: row.draft_data && typeof row.draft_data === 'object' ? row.draft_data : {},
     status: normalizeText(row.status) || SERVER_DRAFT_STATUS,
     lastSavedAt: row.last_saved_at ?? row.lastSavedAt ?? '',
@@ -709,19 +176,11 @@ function normalizeServerDraftRow(row) {
   }
 }
 
-export function buildPrivateEvaluationDraftContext({
-  editingEvaluationId = '',
-  formData = {},
-  formId = '',
-  formVersion = 0,
-  user,
-} = {}) {
+export function buildPrivateEvaluationDraftContext({ editingEvaluationId = '', formData = {}, user } = {}) {
   return normalizeDraftContext({
     clubId: user?.clubId,
     createdByUserId: user?.id,
     editingEvaluationId,
-    formId,
-    formVersion,
     formType: 'development_record',
     playerId: formData.playerId,
     playerName: formData.playerName,
@@ -835,14 +294,6 @@ export function findPrivateEvaluationDraft({ context = {}, storage, user } = {})
       user,
     }))
     .filter((draft) => {
-      if (
-        normalizedContext.formId &&
-        normalizeText(draft.context?.formId) &&
-        normalizeText(draft.context.formId) !== normalizedContext.formId
-      ) {
-        return false
-      }
-
       if (normalizedContext.formType && normalizeText(draft.formType) !== normalizedContext.formType) {
         return false
       }
@@ -905,14 +356,6 @@ function createServerDraftRow({ context = {}, payload = {}, user } = {}) {
     createdByUserId: user?.id,
   })
   const now = new Date().toISOString()
-  const clientSaveVersion = Math.max(1, getPrivateEvaluationDraftSaveVersion(payload))
-  const versionedPayload = {
-    ...payload,
-    draftMeta: {
-      ...(payload.draftMeta && typeof payload.draftMeta === 'object' ? payload.draftMeta : {}),
-      clientSaveVersion,
-    },
-  }
 
   return {
     club_id: normalizedContext.clubId,
@@ -921,9 +364,8 @@ function createServerDraftRow({ context = {}, payload = {}, user } = {}) {
     created_by_user_id: user?.id,
     report_type: normalizedContext.formType,
     context_key: getEvaluationDraftContextKey(normalizedContext),
-    client_save_version: clientSaveVersion,
     draft_data: {
-      ...versionedPayload,
+      ...payload,
       draftContext: normalizedContext,
     },
     status: SERVER_DRAFT_STATUS,
@@ -943,71 +385,16 @@ export async function findServerEvaluationDraft({ context = {}, supabaseClient, 
     createdByUserId: user.id,
   })
   const supabase = await getSupabaseClient(supabaseClient)
-  const findDraft = async ({ latestCanonicalPlayer = false } = {}) => {
-    let query = supabase
-      .from('evaluation_drafts')
-      .select('*')
-      .eq('club_id', normalizedContext.clubId)
-      .eq('created_by_user_id', user.id)
-      .eq('report_type', normalizedContext.formType)
-
-    if (latestCanonicalPlayer) {
-      query = query.eq('player_id', normalizedContext.playerId)
-
-      if (normalizedContext.teamId) {
-        query = query.eq('team_id', normalizedContext.teamId)
-      }
-    } else {
-      query = query.in('context_key', getEvaluationDraftContextKeys(normalizedContext))
-    }
-
-    return query
-      .eq('status', SERVER_DRAFT_STATUS)
-      .order('last_saved_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-  }
-
-  let { data, error } = await findDraft()
-
-  if (
-    !error &&
-    !data?.id &&
-    !normalizedContext.formId &&
-    normalizedContext.playerId
-  ) {
-    const fallbackResult = await findDraft({ latestCanonicalPlayer: true })
-    data = fallbackResult.data
-    error = fallbackResult.error
-  }
-
-  if (error) {
-    if (isMissingServerDraftTableError(error)) {
-      return null
-    }
-
-    console.error(error)
-    throw error
-  }
-
-  return normalizeServerDraftRow(data)
-}
-
-async function findServerEvaluationDraftById({ draftId = '', supabaseClient, user } = {}) {
-  const normalizedDraftId = normalizeText(draftId)
-
-  if (!user?.id || !normalizedDraftId) {
-    return null
-  }
-
-  const supabase = await getSupabaseClient(supabaseClient)
   const { data, error } = await supabase
     .from('evaluation_drafts')
     .select('*')
-    .eq('id', normalizedDraftId)
-    .eq('club_id', user.clubId)
+    .eq('club_id', normalizedContext.clubId)
     .eq('created_by_user_id', user.id)
+    .eq('report_type', normalizedContext.formType)
+    .eq('context_key', getEvaluationDraftContextKey(normalizedContext))
     .eq('status', SERVER_DRAFT_STATUS)
+    .order('last_saved_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (error) {
@@ -1022,14 +409,7 @@ async function findServerEvaluationDraftById({ draftId = '', supabaseClient, use
   return normalizeServerDraftRow(data)
 }
 
-export async function saveServerEvaluationDraft({
-  context = {},
-  existingDraftContextKey = '',
-  existingDraftId = '',
-  payload = {},
-  supabaseClient,
-  user,
-} = {}) {
+export async function saveServerEvaluationDraft({ context = {}, existingDraftId = '', payload = {}, supabaseClient, user } = {}) {
   if (!user?.id || !user?.clubId || !hasPrivateEvaluationDraftContent(payload)) {
     return null
   }
@@ -1038,24 +418,18 @@ export async function saveServerEvaluationDraft({
 
   const supabase = await getSupabaseClient(supabaseClient)
   const rowPayload = createServerDraftRow({ context, payload, user })
-  const requestRevision = rowPayload.client_save_version
   const normalizedDraftId = normalizeText(existingDraftId)
   const existingDraft = normalizedDraftId
-    ? { contextKey: normalizeText(existingDraftContextKey), id: normalizedDraftId }
+    ? { id: normalizedDraftId }
     : await findServerEvaluationDraft({ context, supabaseClient: supabase, user })
 
   if (existingDraft?.id) {
-    const updatePayload = {
-      ...rowPayload,
-      context_key: existingDraft.contextKey || rowPayload.context_key,
-    }
-    const { count, data, error } = await supabase
+    const { data, error } = await supabase
       .from('evaluation_drafts')
-      .update(updatePayload, { count: 'exact' })
+      .update(rowPayload)
       .eq('id', existingDraft.id)
       .eq('created_by_user_id', user.id)
       .eq('status', SERVER_DRAFT_STATUS)
-      .lt('client_save_version', requestRevision)
       .select('*')
       .maybeSingle()
 
@@ -1068,26 +442,7 @@ export async function saveServerEvaluationDraft({
       throw error
     }
 
-    if (data?.id) {
-      return normalizeServerDraftRow(data)
-    }
-
-    const currentDraft = await findServerEvaluationDraftById({
-      draftId: existingDraft.id,
-      supabaseClient: supabase,
-      user,
-    })
-
-    if (currentDraft?.id && currentDraft.clientSaveVersion >= requestRevision) {
-      return {
-        ...currentDraft,
-        staleWrite: true,
-      }
-    }
-
-    const persistenceError = new Error('The Development draft write did not persist.')
-    persistenceError.code = count === 0 ? 'DRAFT_WRITE_ZERO_ROWS' : 'DRAFT_WRITE_NOT_PERSISTED'
-    throw persistenceError
+    return normalizeServerDraftRow(data)
   }
 
   const { data, error } = await supabase
@@ -1110,7 +465,6 @@ export async function saveServerEvaluationDraft({
       if (duplicateDraft?.id) {
         return saveServerEvaluationDraft({
           context,
-          existingDraftContextKey: duplicateDraft.contextKey,
           existingDraftId: duplicateDraft.id,
           payload,
           supabaseClient: supabase,
@@ -1166,7 +520,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
       status: closingStatus,
       [closedAtColumn]: now,
       updated_at: now,
-    }, { count: 'exact' })
+    })
     .eq('id', normalizedDraftId)
     .eq('created_by_user_id', user.id)
     .eq('status', SERVER_DRAFT_STATUS)
@@ -1179,7 +533,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     ? closeQuery.eq('player_id', activeDraft.player_id)
     : closeQuery.is('player_id', null)
 
-  const { count, error } = await closeQuery
+  const { error } = await closeQuery
 
   if (error) {
     if (isMissingServerDraftTableError(error)) {
@@ -1190,7 +544,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     throw error
   }
 
-  return count === 1
+  return true
 }
 
 export function clearPrivateEvaluationDraft({ draftId = '', storage, user } = {}) {
