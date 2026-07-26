@@ -3,6 +3,10 @@ import { randomUUID } from 'node:crypto'
 import { buildEmailHtml as buildParentEmailHtml } from '../../src/lib/email-builder.js'
 import { buildPdfBuffer, buildProgressionChartPngBuffer } from '../../src/lib/pdf-builder.js'
 import { buildAssessmentPdfDocument } from '../../src/lib/pdf-document.js'
+import {
+  normalizeDevelopmentEmailBody,
+  resolveDevelopmentEmailOutputPolicy,
+} from '../../src/lib/development-email-output-policy.js'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import {
   createEmailDedupeKey,
@@ -281,8 +285,8 @@ export async function prepareParentEmail({ body, requestUser }) {
     playerName,
     parentName,
     senderEmail,
-    attachPdf,
   } = body
+  const outputPolicy = resolveDevelopmentEmailOutputPolicy(body)
 
   const normalizedSenderEmail = normaliseEmail(senderEmail)
   const bodyUserId = String(body.userId ?? '').trim()
@@ -299,13 +303,12 @@ export async function prepareParentEmail({ body, requestUser }) {
     throw Object.assign(new Error('Email sending is disabled for the demo account'), { statusCode: 403 })
   }
 
-  const isDevelopmentOutput = String(body.outputContext ?? '').trim() === 'development_record'
-  const developmentContext = isDevelopmentOutput
-      ? await loadDevelopmentParentEmailContext(supabaseAdmin, {
-          evaluationId: body.evaluationId,
-          profile: planProfile,
-          selectedParentLinkIds: body.selectedParentLinkIds,
-        })
+  const developmentContext = outputPolicy.requiresDevelopmentParentResolution
+    ? await loadDevelopmentParentEmailContext(supabaseAdmin, {
+        evaluationId: body.evaluationId,
+        profile: planProfile,
+        selectedParentLinkIds: body.selectedParentLinkIds,
+      })
     : null
 
   if (developmentContext?.outcome === 'no_recipient') {
@@ -359,24 +362,24 @@ export async function prepareParentEmail({ body, requestUser }) {
         requestedSections: body.emailSections,
       })
     : body.emailSections
-  const developmentChartImages = developmentContext
+  const developmentChartImages = outputPolicy.shouldBuildChartAttachments && developmentContext
     ? buildDevelopmentChartImages(authoritativeEmailSections, developmentContext.outputKey)
     : []
   const emailSectionsWithChartContent = developmentChartImages.length > 0
     ? addDevelopmentChartContentIds(authoritativeEmailSections, developmentChartImages)
     : authoritativeEmailSections
-  const emailHtml = developmentContext
+  const emailHtml = outputPolicy.isDevelopmentEmailOnly
     ? buildParentEmailHtml({
-        parentName: authoritativeParentName,
-        playerName: authoritativePlayerName,
+        parentName: authoritativeParentName || parentName,
+        playerName: authoritativePlayerName || playerName,
         teamName: safeTeamName,
         clubName: safeClubName,
-        section: developmentContext.evaluation.section,
-        session: developmentContext.evaluation.session,
+        section: developmentContext?.evaluation?.section || body.section,
+        session: developmentContext?.evaluation?.session || body.session,
         responses: authoritativeResponses,
-        emailSections: emailSectionsWithChartContent,
-        emailBody: body.emailBody,
-        clubLogoUrl: authoritativeLogoUrl,
+        emailSections: developmentContext ? emailSectionsWithChartContent : authoritativeEmailSections,
+        emailBody: normalizeDevelopmentEmailBody(body.emailBody),
+        clubLogoUrl: authoritativeLogoUrl || logoUrl,
         origin: 'https://footballplayer.online',
         useChartContentIds: developmentChartImages.length > 0,
       })
@@ -386,25 +389,29 @@ export async function prepareParentEmail({ body, requestUser }) {
     throw Object.assign(new Error('Email content is too large'), { statusCode: 400 })
   }
 
-  const shouldAttachPdf = attachPdf === true
+  const shouldAttachPdf = outputPolicy.shouldAttachPdf
   if (shouldAttachPdf) {
     assertPlanFeature(planProfile, 'pdfReports')
   }
 
-  const chartAttachments = await buildProgressionChartAttachments(
-    developmentContext ? developmentChartImages : body.progressionChartImages,
-  )
-  const authoritativePdfDocument = developmentContext
-    ? buildAssessmentPdfDocument({
-        clubName: safeClubName,
-        playerName: authoritativePlayerName,
-        teamName: safeTeamName,
-        section: developmentContext.evaluation.section,
-        session: developmentContext.evaluation.session,
-        responseItems: authoritativeResponses,
-        emailSections: authoritativeEmailSections,
-      })
-    : pdfDocument
+  const chartAttachments = outputPolicy.shouldBuildChartAttachments
+    ? await buildProgressionChartAttachments(
+        developmentContext ? developmentChartImages : body.progressionChartImages,
+      )
+    : []
+  const authoritativePdfDocument = shouldAttachPdf
+    ? developmentContext
+      ? buildAssessmentPdfDocument({
+          clubName: safeClubName,
+          playerName: authoritativePlayerName,
+          teamName: safeTeamName,
+          section: developmentContext.evaluation.section,
+          session: developmentContext.evaluation.session,
+          responseItems: authoritativeResponses,
+          emailSections: authoritativeEmailSections,
+        })
+      : pdfDocument
+    : null
   const authorizedPdfDocument = shouldAttachPdf
     ? await authorizeAssessmentPdfDocument({
         supabaseAdmin,

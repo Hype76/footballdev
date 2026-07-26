@@ -325,7 +325,6 @@ test('private draft payload includes assessment, output, and delivery settings',
     },
     includeAttendanceSummary: false,
     inviteDate: '2026-06-27',
-    isPdfAttachmentApproved: true,
     lastUsedSession: '2026-06-20',
     offlineDraftId: 'offline-1',
     previewMode: 'email',
@@ -342,7 +341,7 @@ test('private draft payload includes assessment, output, and delivery settings',
   })
 
   assert.equal(payload.responseValues.technical, '8')
-  assert.equal(payload.isPdfAttachmentApproved, true)
+  assert.equal(Object.prototype.hasOwnProperty.call(payload, 'isPdfAttachmentApproved'), false)
   assert.equal(payload.includeAttendanceSummary, false)
   assert.equal(payload.emailSendMode, 'scheduled')
   assert.equal(payload.scheduledEmailDateTime, '2026-06-20T18:30')

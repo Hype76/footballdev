@@ -25,7 +25,6 @@ export function SubmitExportSection({
   isLoadingEmailTemplates,
   isLoadingDraft,
   isNoPlaceOfferedTemplate,
-  isPdfAttachmentApproved,
   isSaved,
   isSendingParentEmail,
   isSavingDraft,
@@ -37,7 +36,6 @@ export function SubmitExportSection({
   onEmailSendModeChange,
   onGoToPlayer,
   onInviteDateChange,
-  onPdfAttachmentApprovedChange,
   onScheduledEmailDateTimeChange,
   onEmailAfterSaveChange,
   onIncludeAttendanceSummaryChange,
@@ -72,7 +70,7 @@ export function SubmitExportSection({
     <SectionCard
       storageKey="development-record-submit-v2"
       title="Submit and export"
-      description="Save the record first. Parent email and PDF output are optional and should only include useful development detail."
+      description="Save the record first. Parent email output is optional and should only include useful development detail."
     >
       <div className="mb-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] shadow-sm shadow-[#047857]/10">
         Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
@@ -87,7 +85,7 @@ export function SubmitExportSection({
             className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
           />
           <span className="min-w-0">
-            <span className="block text-sm font-black text-[#101828]">Email parents after saving</span>
+            <span className="block text-sm font-black text-[#101828]">Email selected parents</span>
             <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
               Leave this off to save the coach record only.
             </span>
@@ -141,21 +139,7 @@ export function SubmitExportSection({
             </label>
           ) : null}
 
-          <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
-            <label className={`${choiceCardClass} h-full`}>
-              <input
-                type="checkbox"
-                checked={Boolean(isPdfAttachmentApproved)}
-                onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
-              />
-              <span>
-                <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
-                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Include the selected development details as a PDF attachment.
-                </span>
-              </span>
-            </label>
+          <div className="md:col-span-2">
             <label className={`${choiceCardClass} h-full`}>
               <input
                 type="checkbox"
@@ -166,7 +150,7 @@ export function SubmitExportSection({
               <span>
                 <span className="block text-sm font-black text-[#101828]">Include attendance summary</span>
                 <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Add saved training and match involvement to the email and PDF.
+                  Add saved training and match involvement to the email.
                 </span>
               </span>
             </label>
@@ -223,13 +207,13 @@ export function SubmitExportSection({
         </div>
       ) : null}
 
-      {isEmailEnabled || isPdfAttachmentApproved ? (
+      {isEmailEnabled ? (
         <div className="mb-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-sm font-black text-[#101828]">Football details to include</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Choose what goes into the {contactNoun} email and PDF. This choice is saved in this browser for this player.
+                Choose what goes into the {contactNoun} email. This choice is saved in this browser for this player.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

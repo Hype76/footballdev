@@ -6,7 +6,10 @@ import {
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
 import { sendParentEmail } from '../../lib/email-builder.js'
-import { buildAssessmentPdfDocument } from '../../lib/pdf-document.js'
+import {
+  DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
+  DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
+} from '../../lib/development-email-output-policy.js'
 import {
   formatDefaultAssessmentScoreForParent,
   isAssessmentScoreFieldType,
@@ -798,7 +801,6 @@ export function writeSessionAssessmentProgress({ assessmentSessionId, playerName
 
 export function buildParentEmailJobs({
   allowServerRecipientResolution = false,
-  attachPdf = false,
   contactAudiences,
   emailSections = [],
   emailTemplates,
@@ -891,19 +893,11 @@ export function buildParentEmailJobs({
             emailSections,
             subject: renderedTemplate.subject,
             emailBody: renderedTemplate.body,
-            pdfDocument: buildAssessmentPdfDocument({
-              clubName: user?.club_name || user?.emailClubName || user?.clubName,
-              playerName: normalizedPlayerName,
-              teamName: user?.team_name || user?.emailTeamName || formData.team,
-              section: formData.section,
-              session: formData.session,
-              responseItems: selectedResponseItems,
-              emailSections,
-            }),
             evaluationId: evaluation.id,
             playerId: evaluation.playerId || '',
-            attachPdf,
-            outputContext: contactType === playerContactTypes.parent ? 'development_record' : '',
+            outputContext: contactType === playerContactTypes.parent
+              ? DEVELOPMENT_PARENT_OUTPUT_CONTEXT
+              : DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
             selectedParentLinkIds: usesServerRecipientResolution && contact?.linkId
               ? [contact.linkId]
               : [],

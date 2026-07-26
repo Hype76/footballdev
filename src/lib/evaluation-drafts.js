@@ -6,6 +6,7 @@ import {
   isDraftExpired,
   isDraftUserActive,
 } from './draft-security.js'
+import { normalizeDevelopmentPreviewMode } from './development-email-output-policy.js'
 
 export const PRIVATE_EVALUATION_DRAFTS_KEY = 'footballplayer:protected-private-evaluation-drafts:v2'
 export const LEGACY_PRIVATE_EVALUATION_DRAFTS_KEY = 'footballplayer:private-evaluation-drafts:v1'
@@ -244,7 +245,6 @@ export function hasPrivateEvaluationDraftContent(payload = {}) {
     hasEnteredValue(payload.inviteDate) ||
     hasEnteredValue(payload.selectedExportLabels) ||
     hasEnteredValue(payload.scheduledEmailDateTime) ||
-    payload.isPdfAttachmentApproved === true ||
     payload.includeAttendanceSummary === false ||
     payload.emailSendMode === 'scheduled' ||
     payload.archiveAfterNoPlace === true
@@ -257,7 +257,6 @@ export function createPrivateEvaluationDraftPayload({
   formData = {},
   includeAttendanceSummary = true,
   inviteDate = '',
-  isPdfAttachmentApproved = false,
   lastUsedSession = '',
   offlineDraftId = '',
   previewMode = 'scored',
@@ -274,12 +273,11 @@ export function createPrivateEvaluationDraftPayload({
     responseValues,
     selectedFeedbackFormId: normalizeText(selectedFeedbackFormId),
     lastUsedSession,
-    previewMode,
+    previewMode: normalizeDevelopmentPreviewMode(previewMode),
     emailTemplateKey,
     selectedParentContactIndexes,
     inviteDate,
     offlineDraftId,
-    isPdfAttachmentApproved,
     includeAttendanceSummary,
     emailSendMode,
     scheduledEmailDateTime,

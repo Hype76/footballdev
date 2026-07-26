@@ -12,6 +12,11 @@ import {
   DIRECT_EMAIL_TEMPLATE_SECTION,
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
+import {
+  DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
+  DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
+  DIRECT_PARENT_EMAIL_OUTPUT_CONTEXT,
+} from '../../lib/development-email-output-policy.js'
 import { buildAssessmentPdfDocument } from '../../lib/pdf-document.js'
 import { buildProgressionEmailSections, getProgressionNumericFieldMap } from '../../lib/player-progression.js'
 
@@ -919,17 +924,14 @@ export function buildPlayerProfileParentEmailPayload({
               emailSections: progressionSections,
               subject: emailTemplate.subject,
               emailBody: emailTemplate.body,
-              pdfDocument: buildAssessmentPdfDocument({
-                clubName: user?.emailClubName || user?.clubName,
-                playerName: routePlayerName,
-                teamName: user?.emailTeamName || evaluation.team,
-                section: evaluation.section,
-                session: evaluation.session,
-                responseItems: responses,
-                emailSections: progressionSections,
-              }),
               evaluationId: evaluation.id,
               playerId: evaluation.playerId || '',
+              outputContext: contactType === PLAYER_CONTACT_TYPES.parent
+                ? DEVELOPMENT_PARENT_OUTPUT_CONTEXT
+                : DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
+              selectedParentLinkIds: contactType === PLAYER_CONTACT_TYPES.parent && contact?.linkId
+                ? [contact.linkId]
+                : [],
             },
           }
         }),
@@ -1044,6 +1046,7 @@ export function buildPlayerDirectEmailPayload({
             }),
             evaluationId: sourceEvaluation?.id || null,
             playerId: player?.id || '',
+            outputContext: DIRECT_PARENT_EMAIL_OUTPUT_CONTEXT,
           },
           selectedTemplate,
         }

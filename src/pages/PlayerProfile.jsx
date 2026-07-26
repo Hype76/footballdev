@@ -34,7 +34,7 @@ import {
   reorderEvaluationExportLabels,
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
-import { buildAssessmentPdfDocument } from '../lib/pdf-document.js'
+import { DEVELOPMENT_INTERNAL_TEST_OUTPUT_CONTEXT } from '../lib/development-email-output-policy.js'
 import {
   isParentPortalInviteEligiblePlayer,
   normalizeParentPortalInviteEmail,
@@ -860,18 +860,9 @@ export function PlayerProfile() {
         emailSections,
         subject: `Test development record copy for ${routePlayerName}`,
         emailBody: `This is a test copy of the saved development record for ${routePlayerName}. It was sent only to your signed-in account.`,
-        pdfDocument: buildAssessmentPdfDocument({
-          clubName,
-          playerName: routePlayerName,
-          teamName,
-          section: evaluation.section,
-          session: evaluation.session,
-          responseItems: responses,
-          emailSections,
-        }),
         evaluationId: evaluation.id,
         playerId: evaluation.playerId || primaryPlayer?.id || '',
-        attachPdf: true,
+        outputContext: DEVELOPMENT_INTERNAL_TEST_OUTPUT_CONTEXT,
       })
 
       showToast({ title: 'Test email sent', message: `Sent to ${user.email}.` })
@@ -943,7 +934,7 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      const attachPdf = isPdfAttachmentApproved
+      const attachPdf = Boolean(evaluation.isDirectEmail && isPdfAttachmentApproved)
       const attachAssessmentFields = isAssessmentFieldsApproved && emailConfirmTarget.responses.length > 0
       const isScheduledSend = emailSendMode === 'scheduled'
 

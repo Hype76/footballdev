@@ -48,6 +48,7 @@ import {
   PRIVATE_EVALUATION_DRAFT_STATUSES,
   saveServerEvaluationDraft,
 } from '../lib/evaluation-drafts.js'
+import { normalizeDevelopmentPreviewMode } from '../lib/development-email-output-policy.js'
 import {
   buildComments,
   buildFormResponses,
@@ -425,7 +426,6 @@ function DevelopmentRecordCommandPanel({
   enabledFieldCount,
   formData,
   isEmailEnabled,
-  isPdfAttachmentApproved,
   previousEvaluationCount,
   selectedContactCount,
   selectedResponseCount,
@@ -436,7 +436,6 @@ function DevelopmentRecordCommandPanel({
   const hasPlayer = Boolean(selectedPlayerName)
   const hasTeam = Boolean(selectedTeam)
   const hasFields = enabledFieldCount > 0
-  const hasShareChoice = isEmailEnabled || isPdfAttachmentApproved
   const nextAction = !hasTeam
     ? 'Pick the team first.'
     : !hasPlayer
@@ -489,7 +488,7 @@ function DevelopmentRecordCommandPanel({
           Previous records: <span className="font-black text-[#101828]">{previousEvaluationCount}</span>
         </p>
         <p>
-          Output: <span className="font-black text-[#101828]">{hasShareChoice ? `${isEmailEnabled ? 'Email' : ''}${isEmailEnabled && isPdfAttachmentApproved ? ' and ' : ''}${isPdfAttachmentApproved ? 'PDF' : ''}` : 'Internal only'}</span>
+          Output: <span className="font-black text-[#101828]">{isEmailEnabled ? 'Email selected parents' : 'Internal only'}</span>
         </p>
         <p className="md:col-span-3">
           Recipients: <span className="font-black text-[#101828]">{selectedContactCount} selected {contactNounPlural}</span>
@@ -637,7 +636,6 @@ export function CreateEvaluationPage() {
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
-  const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
   const [includeAttendanceSummary, setIncludeAttendanceSummary] = useState(true)
   const [emailSendMode, setEmailSendMode] = useState('now')
   const [scheduledEmailDateTime, setScheduledEmailDateTime] = useState('')
@@ -713,7 +711,6 @@ export function CreateEvaluationPage() {
       formData,
       includeAttendanceSummary,
       inviteDate,
-      isPdfAttachmentApproved,
       lastUsedSession,
       previewMode,
       responseValues,
@@ -730,7 +727,6 @@ export function CreateEvaluationPage() {
     formData,
     includeAttendanceSummary,
     inviteDate,
-    isPdfAttachmentApproved,
     lastUsedSession,
     previewMode,
     responseValues,
@@ -760,9 +756,7 @@ export function CreateEvaluationPage() {
       coachName: user.name || '',
       session: nextSessionValue,
     }))
-    setPreviewMode(['scored', 'email'].includes(String(payload.previewMode))
-      ? String(payload.previewMode)
-      : 'scored')
+    setPreviewMode(normalizeDevelopmentPreviewMode(payload.previewMode))
     setEmailTemplateKey(String(payload.emailTemplateKey ?? ''))
     setSelectedParentContactIndexes(
       Array.isArray(payload.selectedParentContactIndexes) && payload.selectedParentContactIndexes.length > 0
@@ -773,7 +767,6 @@ export function CreateEvaluationPage() {
     setResponseValues(payload.responseValues && typeof payload.responseValues === 'object' ? payload.responseValues : {})
     setSelectedFeedbackFormId(String(payload.selectedFeedbackFormId ?? '').trim())
     setLastUsedSession(nextSessionValue)
-    setIsPdfAttachmentApproved(Boolean(payload.isPdfAttachmentApproved))
     setIncludeAttendanceSummary(payload.includeAttendanceSummary !== false)
     setEmailSendMode(payload.emailSendMode === 'scheduled' ? 'scheduled' : 'now')
     setScheduledEmailDateTime(String(payload.scheduledEmailDateTime ?? ''))
@@ -2376,7 +2369,6 @@ export function CreateEvaluationPage() {
 
           const emailJobs = buildParentEmailJobs({
             allowServerRecipientResolution: true,
-            attachPdf: isPdfAttachmentApproved,
             contactAudiences,
             emailSections: assessmentEmailSections,
             emailTemplates,
@@ -2399,7 +2391,6 @@ export function CreateEvaluationPage() {
 
           const emailResults = await Promise.all(emailJobs.map((emailJob) => sendParentEmail({
             ...emailJob.payload,
-            attachPdf: isPdfAttachmentApproved,
             teamId: savedEvaluation?.teamId || evaluation.teamId || developmentRecipientTeamId,
             playerId: savedEvaluation?.playerId || evaluation.playerId || '',
             scheduledAt,
@@ -2419,7 +2410,7 @@ export function CreateEvaluationPage() {
                     team: emailJob.payload?.team || '',
                     club: emailJob.payload?.club || '',
                     playerName: normalizedPlayerName,
-                    hasAttachment: isPdfAttachmentApproved,
+                    hasAttachment: false,
                     scheduledAt,
                     assessmentFields: selectedResponseItems,
                   },
@@ -2461,7 +2452,7 @@ export function CreateEvaluationPage() {
                   team: newlyCompletedEmailJobs[0]?.emailJob?.payload?.team || '',
                   club: newlyCompletedEmailJobs[0]?.emailJob?.payload?.club || '',
                   playerName: normalizedPlayerName,
-                  hasAttachment: isPdfAttachmentApproved,
+                  hasAttachment: false,
                   scheduledAt,
                   assessmentFields: selectedResponseItems,
                 },
@@ -2607,7 +2598,6 @@ export function CreateEvaluationPage() {
     markDraftUnsaved()
 
     if (!shouldEmail) {
-      setIsPdfAttachmentApproved(false)
       setEmailSendMode('now')
       setScheduledEmailDateTime('')
     }
@@ -2853,7 +2843,6 @@ export function CreateEvaluationPage() {
           enabledFieldCount={enabledFields.length}
           formData={formData}
           isEmailEnabled={previewMode === 'email'}
-          isPdfAttachmentApproved={isPdfAttachmentApproved}
           previousEvaluationCount={previousEvaluations.length}
           selectedContactCount={selectedParentContacts.length}
           selectedResponseCount={selectedResponseItems.length}
@@ -2935,7 +2924,6 @@ export function CreateEvaluationPage() {
                 isLoadingEmailTemplates={isLoadingEmailTemplates}
                 isLoadingDraft={isLoadingDraft}
                 isNoPlaceOfferedTemplate={isNoPlaceOfferedTemplate}
-                isPdfAttachmentApproved={isPdfAttachmentApproved}
                 isSaved={isSaved}
                 isSendingParentEmail={isSendingParentEmail}
                 isSavingDraft={isSavingDraft}
@@ -2962,10 +2950,6 @@ export function CreateEvaluationPage() {
                 onGoToPlayer={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
                 onInviteDateChange={(value) => {
                   setInviteDate(value)
-                  markDraftUnsaved()
-                }}
-                onPdfAttachmentApprovedChange={(value) => {
-                  setIsPdfAttachmentApproved(value)
                   markDraftUnsaved()
                 }}
                 onSaveDraft={() => void handleSaveDraft()}

@@ -48,7 +48,7 @@ export function PlayerProfileModals({
   scheduledEmailDateTime,
 }) {
   const navigate = useNavigate()
-  const canAttachPdf = Boolean(emailConfirmTarget)
+  const canAttachPdf = Boolean(emailConfirmTarget?.evaluation?.isDirectEmail)
   const fieldCount = emailConfirmTarget?.responses?.length || 0
   const emailSectionNames = (emailConfirmTarget?.emailSections || [])
     .map((section) => section.title)
@@ -145,7 +145,9 @@ export function PlayerProfileModals({
           `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Football Player Report'}`,
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
-          `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,
+          ...(canAttachPdf
+            ? [`Attachment: ${isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`]
+            : ['Output: Email selected parents']),
           `Development fields: ${canAttachAssessmentFields && isAssessmentFieldsApproved ? `${fieldCount} attached` : 'Not attached'}`,
           `Extra sections: ${emailSectionNames || 'None selected'}`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${formatUkDateWords(emailConfirmTarget.inviteDate, emailConfirmTarget.inviteDate)}` : 'Invite date: Not included',
@@ -224,9 +226,9 @@ export function PlayerProfileModals({
               className={checkboxClass}
             />
             <span>
-              <span className={titleClass}>Attach development PDF</span>
+              <span className={titleClass}>Attach PDF</span>
               <span className={bodyClass}>
-                Include the selected development details as a PDF attachment.
+                Include the selected email details as a PDF attachment.
               </span>
             </span>
           </label>
