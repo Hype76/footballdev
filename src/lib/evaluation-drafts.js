@@ -55,7 +55,6 @@ function normalizeDraftContext(context = {}) {
     clubId: normalizeText(context.clubId),
     createdByUserId: normalizeText(context.createdByUserId),
     editingEvaluationId: normalizeText(context.editingEvaluationId),
-    formId: normalizeText(context.formId),
     formType: normalizeText(context.formType) || 'development_record',
     playerId: normalizeText(context.playerId),
     playerName: normalizeText(context.playerName),
@@ -148,7 +147,9 @@ export function getEvaluationDraftContextKey(context = {}) {
     normalizedContext.formType,
     normalizedContext.teamId || normalizeLowerText(normalizedContext.teamName) || 'all',
     normalizeLowerText(normalizedContext.playerName) || normalizedContext.playerId || 'unassigned-player',
-    normalizedContext.formId || 'unselected-form',
+    normalizedContext.section || 'section',
+    normalizedContext.session || 'session',
+    normalizedContext.editingEvaluationId || 'new',
   ]
     .map((part) => String(part).replace(/[^a-zA-Z0-9_-]+/g, '_'))
     .join(':')
@@ -175,57 +176,11 @@ function normalizeServerDraftRow(row) {
   }
 }
 
-function serverDraftMatchesContext(draft, requestedContext) {
-  const savedContext = normalizeDraftContext({
-    ...(draft?.payload?.draftContext || {}),
-    formId:
-      draft?.payload?.draftContext?.formId ||
-      draft?.payload?.selectedFeedbackFormId ||
-      '',
-  })
-  const requestedPlayerName = normalizeLowerText(requestedContext.playerName)
-  const savedPlayerName = normalizeLowerText(
-    savedContext.playerName || draft?.payload?.formData?.playerName,
-  )
-  const requestedTeamName = normalizeLowerText(requestedContext.teamName)
-  const savedTeamName = normalizeLowerText(
-    savedContext.teamName || draft?.payload?.formData?.team,
-  )
-
-  if (requestedContext.formId && savedContext.formId !== requestedContext.formId) {
-    return false
-  }
-
-  if (requestedContext.teamId && draft.teamId && draft.teamId !== requestedContext.teamId) {
-    return false
-  }
-
-  if (!requestedContext.teamId && requestedTeamName && savedTeamName && savedTeamName !== requestedTeamName) {
-    return false
-  }
-
-  if (requestedContext.playerId && draft.playerId && draft.playerId !== requestedContext.playerId) {
-    return false
-  }
-
-  if (requestedPlayerName && savedPlayerName && savedPlayerName !== requestedPlayerName) {
-    return false
-  }
-
-  return true
-}
-
-export function buildPrivateEvaluationDraftContext({
-  editingEvaluationId = '',
-  formData = {},
-  selectedFeedbackFormId = '',
-  user,
-} = {}) {
+export function buildPrivateEvaluationDraftContext({ editingEvaluationId = '', formData = {}, user } = {}) {
   return normalizeDraftContext({
     clubId: user?.clubId,
     createdByUserId: user?.id,
     editingEvaluationId,
-    formId: selectedFeedbackFormId,
     formType: 'development_record',
     playerId: formData.playerId,
     playerName: formData.playerName,
@@ -451,46 +406,10 @@ export async function findServerEvaluationDraft({ context = {}, supabaseClient, 
     throw error
   }
 
-  const exactDraft = normalizeServerDraftRow(data)
-
-  if (exactDraft) {
-    return exactDraft
-  }
-
-  const { data: legacyRows, error: legacyError } = await supabase
-    .from('evaluation_drafts')
-    .select('*')
-    .eq('club_id', normalizedContext.clubId)
-    .eq('created_by_user_id', user.id)
-    .eq('report_type', normalizedContext.formType)
-    .eq('status', SERVER_DRAFT_STATUS)
-    .order('last_saved_at', { ascending: false })
-    .limit(25)
-
-  if (legacyError) {
-    if (isMissingServerDraftTableError(legacyError)) {
-      return null
-    }
-
-    console.error(legacyError)
-    throw legacyError
-  }
-
-  const candidates = (Array.isArray(legacyRows) ? legacyRows : [legacyRows])
-    .map(normalizeServerDraftRow)
-    .filter(Boolean)
-
-  return candidates.find((draft) => serverDraftMatchesContext(draft, normalizedContext)) || null
+  return normalizeServerDraftRow(data)
 }
 
-export async function saveServerEvaluationDraft({
-  context = {},
-  existingDraftId = '',
-  payload = {},
-  skipExistingLookup = false,
-  supabaseClient,
-  user,
-} = {}) {
+export async function saveServerEvaluationDraft({ context = {}, existingDraftId = '', payload = {}, supabaseClient, user } = {}) {
   if (!user?.id || !user?.clubId || !hasPrivateEvaluationDraftContent(payload)) {
     return null
   }
@@ -502,9 +421,7 @@ export async function saveServerEvaluationDraft({
   const normalizedDraftId = normalizeText(existingDraftId)
   const existingDraft = normalizedDraftId
     ? { id: normalizedDraftId }
-    : skipExistingLookup
-      ? null
-      : await findServerEvaluationDraft({ context, supabaseClient: supabase, user })
+    : await findServerEvaluationDraft({ context, supabaseClient: supabase, user })
 
   if (existingDraft?.id) {
     const { data, error } = await supabase

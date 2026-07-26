@@ -15,7 +15,6 @@ export function SubmitExportSection({
   archiveAfterNoPlace,
   averageScore,
   canArchiveAfterNoPlace,
-  canSaveDraft,
   canSubmitEvaluation,
   contactNoun,
   hasSavedExportSelection,
@@ -23,12 +22,10 @@ export function SubmitExportSection({
   inviteDate,
   isDemoAccount,
   isLoadingEmailTemplates,
-  isLoadingDraft,
   isNoPlaceOfferedTemplate,
   isPdfAttachmentApproved,
   isSaved,
   isSendingParentEmail,
-  isSavingDraft,
   isSubmitting,
   lastSavedPlayerName,
   onArchiveAfterNoPlaceChange,
@@ -43,7 +40,6 @@ export function SubmitExportSection({
   onIncludeAttendanceSummaryChange,
   onPrintBlankForm,
   onReorderExportField,
-  onSaveDraft,
   onSelectAllExportFields,
   onToggleExportField,
   previewMode,
@@ -56,7 +52,11 @@ export function SubmitExportSection({
   shouldShowInviteDate,
 }) {
   const isEmailEnabled = previewMode === 'email'
-  const submitActionLabel = 'Submit Development Record'
+  const submitActionLabel = isEmailEnabled
+    ? emailSendMode === 'scheduled'
+      ? 'Save and Schedule Email'
+      : 'Save and Send Email'
+    : 'Save development record'
   const submittingLabel = isEmailEnabled
     ? emailSendMode === 'scheduled'
       ? 'Saving and scheduling...'
@@ -271,19 +271,9 @@ export function SubmitExportSection({
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        {canSaveDraft ? (
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            disabled={isLoadingDraft || isSavingDraft || isSubmitting}
-            className={secondaryButtonClass}
-          >
-            {isSavingDraft ? 'Saving Draft...' : 'Save Draft'}
-          </button>
-        ) : null}
         <button
           type="submit"
-          disabled={isSubmitting || isSavingDraft || !canSubmitEvaluation}
+          disabled={isSubmitting || !canSubmitEvaluation}
           title={submitDisabledReason}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
