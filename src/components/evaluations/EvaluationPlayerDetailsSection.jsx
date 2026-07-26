@@ -19,9 +19,13 @@ export function EvaluationPlayerDetailsSection({
   onFieldChange,
   onToggleParentContact,
   parentContacts,
+  parentRecipientLoadError = '',
+  parentRecipientsLoading = false,
   readableSession,
   savedPlayers,
+  selectedParentLinkIds = [],
   selectedParentContactIndexes,
+  useLinkedParentRecipients = false,
   user,
 }) {
   const selectedSection = String(formData.section ?? '').trim()
@@ -116,21 +120,33 @@ export function EvaluationPlayerDetailsSection({
             <div className="grid gap-3 md:grid-cols-2">
               {parentContacts.map((contact, index) => (
                 <label
-                  key={`${contact.email || contact.name}-${index}`}
+                  key={contact.linkId || `${contact.email || contact.name}-${index}`}
                   className={contactCardClass}
                 >
                   <input
                     type="checkbox"
-                    checked={selectedParentContactIndexes.includes(index)}
+                    checked={contact.linkId
+                      ? selectedParentLinkIds.includes(contact.linkId)
+                      : selectedParentContactIndexes.includes(contact.legacyIndex ?? index)}
                     onChange={() => onToggleParentContact(index)}
                     className="h-4 w-4 accent-[#047857]"
                   />
                   <span className="min-w-0">
-                    <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}</span>
+                    <span className="block font-semibold">
+                      {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}
+                      {contact.eligible === false ? ' (Unavailable)' : ''}
+                    </span>
                     <span className="block break-words text-xs font-semibold text-[#4b5f55]">{contact.email || 'No email entered'}</span>
                   </span>
                 </label>
               ))}
+            </div>
+          ) : useLinkedParentRecipients ? (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#4b5f55]">
+              {parentRecipientsLoading
+                ? 'Checking eligible linked parent recipients.'
+                : parentRecipientLoadError ||
+                  'No eligible linked parent email is currently available.'}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">

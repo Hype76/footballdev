@@ -129,6 +129,8 @@ const requests = {
   draftPatches: [],
   draftPosts: [],
   evaluationPosts: [],
+  evaluationPatches: [],
+  optionalOutputs: [],
 }
 let delayNextDraftWrite = false
 let refreshMetadataRaceActive = false
@@ -334,6 +336,8 @@ async function handleDraftRequest(route) {
 
 async function preparePage(context) {
   await context.route('**/.netlify/functions/**', async (route) => {
+    requests.optionalOutputs.push(route.request().postDataJSON())
+
     if (failOptionalOutput) {
       optionalOutputAttempts += 1
       await fulfillJson(route, 503, { error: 'Synthetic optional output failure' })
@@ -378,6 +382,22 @@ async function preparePage(context) {
       return
     }
 
+    if (tableName === 'evaluations' && request.method() === 'PATCH') {
+      const payload = request.postDataJSON()
+      const id = getEqFilter(request.url(), 'id')
+      const row = evaluations.find((evaluation) => !id || evaluation.id === id)
+      requests.evaluationPatches.push({ body: payload, url: request.url() })
+
+      if (row) {
+        Object.assign(row, payload)
+      }
+
+      await fulfillJson(route, 200, wantsSingleObject(request) ? row || null : row ? [row] : [], {
+        'content-range': row ? '0-0/1' : '*/0',
+      })
+      return
+    }
+
     if (request.method() === 'POST') {
       const payload = request.postDataJSON()
       const row = { id: crypto.randomUUID(), ...payload }
@@ -399,7 +419,18 @@ async function preparePage(context) {
       feedback_form_starter_templates: [],
       feedback_forms: customForms,
       form_fields: defaultFields,
-      parent_player_links: [],
+      parent_player_links: [{
+        id: '66666666-6666-4666-8666-666666666666',
+        club_id: 'club-fixture',
+        team_id: 'team-u12',
+        player_id: 'player-second',
+        email: 'synthetic-parent@example.test',
+        relationship: 'Parent',
+        primary_contact: true,
+        receives_communications: true,
+        status: 'active',
+        created_at: '2026-07-26T12:02:00.000Z',
+      }],
       players: request.url().includes('status=eq.archived') ? [] : players,
       scheduled_emails: [],
       teams,
@@ -654,10 +685,12 @@ try {
   await scoreSelect(page, 'Custom B Score').waitFor({ state: 'visible' })
   await page.getByLabel('Report date').fill('2026-07-28')
   await scoreSelect(page, 'Custom B Score').selectOption('8')
-  await page.locator('input[name="parentName"]').fill('Synthetic Parent')
-  await page.locator('input[name="parentEmail"]').fill('synthetic-parent@example.test')
+  const linkedRecipient = page.getByText('synthetic-parent@example.test', { exact: true })
+  await linkedRecipient.waitFor({ state: 'visible', timeout: 15000 })
   await page.getByLabel('Email parents after saving').check()
   const evaluationsBeforeOptionalFailure = requests.evaluationPosts.length
+  const evaluationPatchesBeforeOptionalFailure = requests.evaluationPatches.length
+  const draftsBeforeOptionalFailure = requests.draftPosts.length + requests.draftPatches.length
   failOptionalOutput = true
   await page.getByRole('button', { name: 'Submit Development Record' }).click()
   await page.getByRole('heading', { name: 'Default template' }).waitFor({ timeout: 15000 })
@@ -673,7 +706,51 @@ try {
     'Optional output failure must preserve the saved evaluation.',
   )
   assert.equal(optionalOutputAttempts, 1)
+  assert.deepEqual(
+    requests.optionalOutputs.at(-1)?.selectedParentLinkIds,
+    ['66666666-6666-4666-8666-666666666666'],
+    'The failed send must use the selected linked recipient ID.',
+  )
+  assert.equal(await linkedRecipient.isVisible(), true, 'The linked recipient must remain visible after failure.')
+  assert.equal(
+    await linkedRecipient.locator('xpath=ancestor::label').locator('input[type="checkbox"]').isChecked(),
+    true,
+    'The linked recipient must remain selected after failure.',
+  )
   failOptionalOutput = false
+  await page.getByRole('button', { name: 'Continue' }).click()
+
+  await page.getByRole('button', { name: 'Submit Development Record' }).click()
+  await page.getByRole('heading', { name: 'Set next development reminder' }).waitFor({ timeout: 20000 })
+  await page.getByRole('button', { name: 'Not now, send email' }).click()
+  await page.getByRole('heading', {
+    name: 'Development record saved and email sent',
+  }).waitFor({ timeout: 15000 })
+
+  assert.equal(
+    requests.evaluationPosts.length,
+    evaluationsBeforeOptionalFailure + 1,
+    'Retry must not create another evaluation.',
+  )
+  assert.equal(
+    requests.evaluationPatches.length,
+    evaluationPatchesBeforeOptionalFailure,
+    'Unchanged retry must not update the saved evaluation.',
+  )
+  assert.equal(
+    requests.draftPosts.length + requests.draftPatches.length,
+    draftsBeforeOptionalFailure,
+    'Failure and retry must not create or update a draft.',
+  )
+  assert.equal(requests.optionalOutputs.length, 2, 'Failure plus retry must create exactly two output attempts.')
+  assert.deepEqual(
+    requests.optionalOutputs.map((payload) => payload.selectedParentLinkIds),
+    [
+      ['66666666-6666-4666-8666-666666666666'],
+      ['66666666-6666-4666-8666-666666666666'],
+    ],
+    'Retry must preserve the same selected linked recipient ID.',
+  )
 
   const seriousConsoleErrors = consoleErrors.filter(
     (message) => !/favicon|404|Synthetic optional output failure|status of 503|Email failed/.test(message),

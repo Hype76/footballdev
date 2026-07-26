@@ -300,10 +300,11 @@ export async function prepareParentEmail({ body, requestUser }) {
 
   const isDevelopmentOutput = String(body.outputContext ?? '').trim() === 'development_record'
   const developmentContext = isDevelopmentOutput
-    ? await loadDevelopmentParentEmailContext(supabaseAdmin, {
-        evaluationId: body.evaluationId,
-        profile: planProfile,
-      })
+      ? await loadDevelopmentParentEmailContext(supabaseAdmin, {
+          evaluationId: body.evaluationId,
+          profile: planProfile,
+          selectedParentLinkIds: body.selectedParentLinkIds,
+        })
     : null
 
   if (developmentContext?.outcome === 'no_recipient') {
@@ -443,6 +444,8 @@ export async function prepareParentEmail({ body, requestUser }) {
     actorRole: planProfile.role,
     requiredFeature: 'parentEmails',
     outputKey: developmentContext?.outputKey || '',
+    outputQueueId: developmentContext?.outputQueueId || '',
+    recipientLinkId: developmentContext?.recipient?.linkId || '',
     communicationLog: body.communicationLog && typeof body.communicationLog === 'object' ? body.communicationLog : null,
   }
 
@@ -461,7 +464,7 @@ export async function prepareParentEmail({ body, requestUser }) {
 async function createScheduledEmail({ preparedEmail, scheduledAt }) {
   const outputKey = String(preparedEmail.storedPayload.outputKey ?? '').trim()
   const deterministicQueueId = outputKey
-    ? String(preparedEmail.storedPayload.evaluationId ?? '').trim()
+    ? String(preparedEmail.storedPayload.outputQueueId ?? '').trim()
     : ''
 
   if (deterministicQueueId) {
@@ -680,6 +683,7 @@ export async function handler(event) {
         duplicate: Boolean(scheduledRecord.duplicate),
         queueId: scheduledRecord.id,
         scheduledAt: scheduledRecord.scheduled_at,
+        recipientLinkId: preparedEmail.storedPayload.recipientLinkId,
       })
     }
 
@@ -689,12 +693,16 @@ export async function handler(event) {
     emailLogRecord = sendResult.emailLogRecord
 
     if (sendResult.duplicate) {
-      return successResponse({ duplicate: true })
+      return successResponse({
+        duplicate: true,
+        recipientLinkId: preparedEmail.storedPayload.recipientLinkId,
+      })
     }
 
     return successResponse({
       ...sendResult,
       recipientEmail: preparedEmail.recipients.join(', '),
+      recipientLinkId: preparedEmail.storedPayload.recipientLinkId,
     })
   } catch (error) {
     console.error(error)

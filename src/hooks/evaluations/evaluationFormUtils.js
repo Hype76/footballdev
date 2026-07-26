@@ -843,7 +843,11 @@ export function buildParentEmailJobs({
 
       return recipientContacts.flatMap((contact) => {
         const contactEmails = getContactEmailAddresses(contact)
-        const recipientEmails = contactEmails.length > 0
+        const usesServerRecipientResolution =
+          allowServerRecipientResolution && contactType === playerContactTypes.parent
+        const recipientEmails = usesServerRecipientResolution
+          ? ['']
+          : contactEmails.length > 0
           ? contactEmails
           : allowServerRecipientResolution
             ? ['']
@@ -869,7 +873,7 @@ export function buildParentEmailJobs({
           const payload = {
             clubId: user?.clubId,
             userId: user?.id,
-            parentEmail: recipientEmail,
+            parentEmail: usesServerRecipientResolution ? '' : recipientEmail,
             parentName: recipientName,
             senderEmail: user?.email,
             displayName: user?.displayName || user?.display_name || user?.username || user?.name,
@@ -900,10 +904,14 @@ export function buildParentEmailJobs({
             playerId: evaluation.playerId || '',
             attachPdf,
             outputContext: contactType === playerContactTypes.parent ? 'development_record' : '',
+            selectedParentLinkIds: usesServerRecipientResolution && contact?.linkId
+              ? [contact.linkId]
+              : [],
           }
 
           return {
-            recipientEmail,
+            recipientEmail: usesServerRecipientResolution ? contact?.email || '' : recipientEmail,
+            recipientLinkId: contact?.linkId || '',
             templateName: template.label,
             payload,
             job: () => sendParentEmail(payload),
@@ -912,6 +920,27 @@ export function buildParentEmailJobs({
       })
     })
     .filter(Boolean)
+}
+
+function stableEvaluationValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(stableEvaluationValue)
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => !['id', 'createdAt', 'created_at', 'updatedAt', 'updated_at'].includes(key))
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, stableEvaluationValue(item)]),
+    )
+  }
+
+  return value
+}
+
+export function createEvaluationPersistenceFingerprint(evaluation) {
+  return JSON.stringify(stableEvaluationValue(evaluation))
 }
 
 export function createOfflineEvaluationDraft({

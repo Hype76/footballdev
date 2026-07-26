@@ -21,6 +21,9 @@ import {
 } from '../lib/email-templates.js'
 import { isDemoUser } from '../lib/demo.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import {
+  getDevelopmentParentEmailRecipientCandidates,
+} from '../lib/domain/development-parent-email-recipients.js'
 import { buildPlayerProgressionData, buildProgressionEmailSections } from '../lib/player-progression.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
@@ -51,6 +54,7 @@ import {
   buildParentEmailJobs,
   buildPreviousFieldValueMap,
   buildScores,
+  createEvaluationPersistenceFingerprint,
   createEvaluationPayload,
   createLocalId,
   createEmptyResponseValues,
@@ -577,6 +581,10 @@ export function CreateEvaluationPage() {
   const manualDraftSavePromiseRef = useRef(null)
   const privateDraftInfoRef = useRef(null)
   const submissionPromiseRef = useRef(null)
+  const persistedEvaluationForRetryRef = useRef(null)
+  const evaluationContentRevisionRef = useRef(0)
+  const developmentRecipientContextKeyRef = useRef('')
+  const selectedDevelopmentParentLinkIdsRef = useRef([])
   const hasUnsavedChangesRef = useRef(false)
   const pendingContextChangeRef = useRef(null)
   const restoredPrivateDraftExportLabelsRef = useRef(null)
@@ -643,6 +651,10 @@ export function CreateEvaluationPage() {
   const [emailTemplates, setEmailTemplates] = useState([])
   const [isLoadingEmailTemplates, setIsLoadingEmailTemplates] = useState(false)
   const [selectedParentContactIndexes, setSelectedParentContactIndexes] = useState([0])
+  const [developmentParentRecipients, setDevelopmentParentRecipients] = useState([])
+  const [selectedDevelopmentParentLinkIds, setSelectedDevelopmentParentLinkIds] = useState([])
+  const [isLoadingDevelopmentParentRecipients, setIsLoadingDevelopmentParentRecipients] = useState(false)
+  const [developmentParentRecipientLoadError, setDevelopmentParentRecipientLoadError] = useState('')
   const [inviteDate, setInviteDate] = useState('')
   const [selectedExportLabels, setSelectedExportLabels] = useState(null)
   const [actionErrorMessage, setActionErrorMessage] = useState('')
@@ -688,6 +700,10 @@ export function CreateEvaluationPage() {
   useEffect(() => {
     hasUnsavedChangesRef.current = hasUnsavedChanges
   }, [hasUnsavedChanges])
+
+  useEffect(() => {
+    selectedDevelopmentParentLinkIdsRef.current = selectedDevelopmentParentLinkIds
+  }, [selectedDevelopmentParentLinkIds])
 
   const buildCurrentPrivateDraftPayload = useCallback((saveVersion = 0) => (
     createPrivateEvaluationDraftPayload({
@@ -1149,6 +1165,11 @@ export function CreateEvaluationPage() {
         }
 
         setEditingEvaluation(targetEvaluation)
+        persistedEvaluationForRetryRef.current = {
+          contentRevision: evaluationContentRevisionRef.current,
+          evaluation: targetEvaluation,
+          fingerprint: '',
+        }
         setFormData((current) =>
           createInitialFormData(user, {
             ...current,
@@ -1519,6 +1540,103 @@ export function CreateEvaluationPage() {
     () => findSavedPlayerForEvaluation(savedPlayers, normalizedCurrentPlayerName, formData.team, user?.activeTeamId),
     [formData.team, normalizedCurrentPlayerName, savedPlayers, user?.activeTeamId],
   )
+  const useLinkedParentRecipients = normalizedContactType !== PLAYER_CONTACT_TYPES.self
+  const developmentRecipientTeamId = String(
+    archiveCandidatePlayer?.teamId ||
+    availableTeams.find((team) => team.name === formData.team)?.id ||
+    '',
+  ).trim()
+  const developmentRecipientContextKey = [
+    user?.clubId,
+    developmentRecipientTeamId,
+    archiveCandidatePlayer?.id,
+  ].map((value) => String(value ?? '').trim()).join(':')
+  const loadDevelopmentParentRecipients = useCallback(async ({ preserveSelected = false } = {}) => {
+    if (
+      !useLinkedParentRecipients ||
+      !user?.clubId ||
+      !developmentRecipientTeamId ||
+      !archiveCandidatePlayer?.id
+    ) {
+      developmentRecipientContextKeyRef.current = ''
+      setDevelopmentParentRecipients([])
+      setSelectedDevelopmentParentLinkIds([])
+      setDevelopmentParentRecipientLoadError('')
+      return []
+    }
+
+    setIsLoadingDevelopmentParentRecipients(true)
+    setDevelopmentParentRecipientLoadError('')
+
+    try {
+      const candidates = await getDevelopmentParentEmailRecipientCandidates({
+        user,
+        player: archiveCandidatePlayer,
+        teamId: developmentRecipientTeamId,
+      })
+      const eligibleCandidates = candidates.filter((candidate) => candidate.eligible)
+      const eligibleIds = new Set(eligibleCandidates.map((candidate) => candidate.linkId))
+      const selectedIds = selectedDevelopmentParentLinkIdsRef.current
+      const isNewContext =
+        developmentRecipientContextKeyRef.current !== developmentRecipientContextKey
+
+      developmentRecipientContextKeyRef.current = developmentRecipientContextKey
+
+      if (preserveSelected) {
+        setDevelopmentParentRecipients((current) => {
+          const candidatesById = new Map(
+            candidates.map((candidate) => [candidate.linkId, candidate]),
+          )
+          const preservedSelected = current
+            .filter((recipient) => selectedIds.includes(recipient.linkId))
+            .map((recipient) => {
+              const latest = candidatesById.get(recipient.linkId)
+              return latest?.eligible
+                ? latest
+                : {
+                    ...recipient,
+                    ...latest,
+                    eligible: false,
+                    unavailableReason:
+                      latest?.unavailableReason || 'no_longer_available',
+                  }
+            })
+          const merged = [...eligibleCandidates, ...preservedSelected]
+          return merged.filter(
+            (recipient, index) =>
+              merged.findIndex((candidate) => candidate.linkId === recipient.linkId) === index,
+          )
+        })
+      } else {
+        setDevelopmentParentRecipients(eligibleCandidates)
+        setSelectedDevelopmentParentLinkIds((current) =>
+          isNewContext
+            ? eligibleCandidates.map((candidate) => candidate.linkId)
+            : current.filter((linkId) => eligibleIds.has(linkId)),
+        )
+      }
+
+      return candidates
+    } catch (error) {
+      console.error('Development parent recipients could not be loaded', error)
+      setDevelopmentParentRecipientLoadError(
+        'Linked parent recipients could not be refreshed. Current selections are retained.',
+      )
+      return null
+    } finally {
+      setIsLoadingDevelopmentParentRecipients(false)
+    }
+  }, [
+    archiveCandidatePlayer,
+    developmentRecipientContextKey,
+    developmentRecipientTeamId,
+    useLinkedParentRecipients,
+    user,
+  ])
+
+  useEffect(() => {
+    void loadDevelopmentParentRecipients()
+  }, [loadDevelopmentParentRecipients])
   const canArchiveAfterNoPlace = isNoPlaceOfferedTemplate &&
     canDeletePlayer(user) &&
     Boolean(archiveCandidatePlayer?.id || editingEvaluation?.playerId)
@@ -1536,10 +1654,44 @@ export function CreateEvaluationPage() {
     () => normalizeParentContacts(formData.parentContacts, { contactType: normalizedContactType }),
     [formData.parentContacts, normalizedContactType],
   )
+  const savedSelfContacts = useMemo(
+    () => savedParentContacts
+      .map((contact, legacyIndex) => ({ ...contact, legacyIndex }))
+      .filter((contact) => contact.type === PLAYER_CONTACT_TYPES.self),
+    [savedParentContacts],
+  )
+  const displayedParentContacts = useMemo(
+    () => useLinkedParentRecipients
+      ? [
+          ...developmentParentRecipients,
+          ...(normalizedContactType === PLAYER_CONTACT_TYPES.both ? savedSelfContacts : []),
+        ]
+      : savedParentContacts,
+    [
+      developmentParentRecipients,
+      normalizedContactType,
+      savedParentContacts,
+      savedSelfContacts,
+      useLinkedParentRecipients,
+    ],
+  )
   const selectedParentContacts = useMemo(() => {
+    if (useLinkedParentRecipients) {
+      return displayedParentContacts.filter((contact) =>
+        contact.linkId
+          ? selectedDevelopmentParentLinkIds.includes(contact.linkId)
+          : selectedParentContactIndexes.includes(contact.legacyIndex))
+    }
+
     const selectedContacts = parentContacts.filter((_, index) => selectedParentContactIndexes.includes(index))
     return selectedContacts.length > 0 ? selectedContacts : parentContacts.slice(0, 1)
-  }, [parentContacts, selectedParentContactIndexes])
+  }, [
+    displayedParentContacts,
+    parentContacts,
+    selectedDevelopmentParentLinkIds,
+    selectedParentContactIndexes,
+    useLinkedParentRecipients,
+  ])
   const isDemoAccount = isDemoUser(user)
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then development records can be assigned correctly.'
@@ -1560,7 +1712,7 @@ export function CreateEvaluationPage() {
       : 'Save Reminder and Send Email'
     : 'Save Reminder'
 
-  const getCompletionModalForOutcome = ({ emailErrorMessage = '', outcome, playerName }) => {
+  const getCompletionModalForOutcome = ({ outcome, playerName }) => {
     if (outcome === 'sent') {
       return {
         title: 'Development record saved and email sent',
@@ -1578,21 +1730,21 @@ export function CreateEvaluationPage() {
     if (outcome === 'send_failed') {
       return {
         title: 'Development Record saved, but optional output did not complete',
-        message: `${playerName} Development Record was saved, but the parent email could not be sent. ${emailErrorMessage || 'Check the email details before sending again.'}`,
+        message: 'Development Record saved, but the parent email could not be sent. Please try again later.',
       }
     }
 
     if (outcome === 'schedule_failed') {
       return {
         title: 'Development Record saved, but optional output did not complete',
-        message: `${playerName} Development Record was saved, but the parent email could not be scheduled. ${emailErrorMessage || 'Check the scheduled send details before trying again.'}`,
+        message: 'Development Record saved, but the parent email could not be sent. Please try again later.',
       }
     }
 
     if (outcome === 'no_recipient') {
       return {
         title: 'Development Record saved',
-        message: `${playerName} Development Record saved, but no linked parent email was available.`,
+        message: 'Development Record saved, but no eligible linked parent email is currently available.',
       }
     }
 
@@ -1894,6 +2046,8 @@ export function CreateEvaluationPage() {
   }
 
   const resetDraftForNewContext = () => {
+    persistedEvaluationForRetryRef.current = null
+    evaluationContentRevisionRef.current += 1
     serverDraftRestoreCompleteKeyRef.current = ''
     serverDraftRestoreKeyRef.current = ''
     setIsLoadingDraft(false)
@@ -1939,6 +2093,7 @@ export function CreateEvaluationPage() {
         session: nextSessionValue,
       }))
       setLastUsedSession(nextSessionValue)
+      evaluationContentRevisionRef.current += 1
       markDraftUnsaved()
       return
     }
@@ -2009,6 +2164,7 @@ export function CreateEvaluationPage() {
       ...current,
       [name]: value,
     }))
+    evaluationContentRevisionRef.current += 1
     markDraftUnsaved()
   }
 
@@ -2023,6 +2179,7 @@ export function CreateEvaluationPage() {
       ...current,
       [fieldId]: value,
     }))
+    evaluationContentRevisionRef.current += 1
     markDraftUnsaved()
   }
 
@@ -2038,6 +2195,31 @@ export function CreateEvaluationPage() {
   }
 
   const handleToggleParentContact = (index) => {
+    if (useLinkedParentRecipients) {
+      const linkId = displayedParentContacts[index]?.linkId
+
+      if (!linkId) {
+        const legacyIndex = displayedParentContacts[index]?.legacyIndex
+
+        if (Number.isInteger(legacyIndex)) {
+          setSelectedParentContactIndexes((current) =>
+            getNextSelectedContactIndexes(current, legacyIndex),
+          )
+          markDraftUnsaved()
+        }
+
+        return
+      }
+
+      setSelectedDevelopmentParentLinkIds((current) =>
+        current.includes(linkId)
+          ? current.filter((item) => item !== linkId)
+          : [...current, linkId],
+      )
+      markDraftUnsaved()
+      return
+    }
+
     setSelectedParentContactIndexes((current) => getNextSelectedContactIndexes(current, index))
     markDraftUnsaved()
   }
@@ -2110,13 +2292,24 @@ export function CreateEvaluationPage() {
     setIsSubmitting(true)
     setActionErrorMessage('')
     let completionOutcome = 'saved'
-    let completionEmailErrorMessage = ''
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
       const evaluation = buildEvaluationPayload(evaluationClientId)
+      const evaluationFingerprint = createEvaluationPersistenceFingerprint(evaluation)
+      const priorPersistedEvaluation = persistedEvaluationForRetryRef.current
+      const existingEvaluationId = String(
+        editingEvaluation?.id || priorPersistedEvaluation?.evaluation?.id || '',
+      ).trim()
+      const canReusePersistedEvaluation =
+        Boolean(priorPersistedEvaluation?.evaluation?.id) &&
+        priorPersistedEvaluation.contentRevision === evaluationContentRevisionRef.current &&
+        (
+          !priorPersistedEvaluation.fingerprint ||
+          priorPersistedEvaluation.fingerprint === evaluationFingerprint
+        )
 
-      if (!editingEvaluation?.id && user?.clubId) {
+      if (!existingEvaluationId && user?.clubId) {
         const allEvaluations = await getEvaluations({ user })
         const monthlyEvaluationCount = getCurrentMonthEvaluationCount(allEvaluations)
 
@@ -2125,9 +2318,17 @@ export function CreateEvaluationPage() {
         }
       }
 
-      const savedEvaluation = editingEvaluation
-        ? await updateEvaluation(editingEvaluation.id, evaluation, user?.clubId)
-        : await createEvaluation(evaluation)
+      const savedEvaluation = canReusePersistedEvaluation
+        ? priorPersistedEvaluation.evaluation
+        : existingEvaluationId
+          ? await updateEvaluation(existingEvaluationId, evaluation, user?.clubId)
+          : await createEvaluation(evaluation)
+
+      persistedEvaluationForRetryRef.current = {
+        contentRevision: evaluationContentRevisionRef.current,
+        evaluation: savedEvaluation,
+        fingerprint: evaluationFingerprint,
+      }
 
       clearViewCaches()
 
@@ -2199,7 +2400,7 @@ export function CreateEvaluationPage() {
           const emailResults = await Promise.all(emailJobs.map((emailJob) => sendParentEmail({
             ...emailJob.payload,
             attachPdf: isPdfAttachmentApproved,
-            teamId: user?.activeTeamId || '',
+            teamId: savedEvaluation?.teamId || evaluation.teamId || developmentRecipientTeamId,
             playerId: savedEvaluation?.playerId || evaluation.playerId || '',
             scheduledAt,
             communicationLog: isScheduledSend
@@ -2231,11 +2432,15 @@ export function CreateEvaluationPage() {
               result: emailResults[index] || {},
             }))
             .filter(({ result }) => result.outcome !== 'no_recipient')
+          const unavailableEmailJobs = emailJobs
+            .map((emailJob, index) => ({
+              emailJob,
+              result: emailResults[index] || {},
+            }))
+            .filter(({ result }) => result.outcome === 'no_recipient')
           const newlyCompletedEmailJobs = completedEmailJobs.filter(({ result }) => result.duplicate !== true)
 
-          if (completedEmailJobs.length === 0) {
-            completionOutcome = 'no_recipient'
-          } else {
+          if (completedEmailJobs.length > 0) {
             let communicationLog = null
 
             if (newlyCompletedEmailJobs.length > 0) {
@@ -2270,12 +2475,21 @@ export function CreateEvaluationPage() {
               })
             }
 
-            completionOutcome = isScheduledSend ? 'scheduled' : 'sent'
+            completionOutcome = unavailableEmailJobs.length > 0
+              ? isScheduledSend ? 'schedule_failed' : 'send_failed'
+              : isScheduledSend ? 'scheduled' : 'sent'
+          } else if (unavailableEmailJobs.length > 0) {
+            const refreshedRecipients = await loadDevelopmentParentRecipients({
+              preserveSelected: true,
+            })
+            completionOutcome = Array.isArray(refreshedRecipients) &&
+              refreshedRecipients.some((recipient) => recipient.eligible)
+              ? isScheduledSend ? 'schedule_failed' : 'send_failed'
+              : 'no_recipient'
           }
         } catch (emailError) {
           console.error('Email failed', emailError)
           completionOutcome = emailSendMode === 'scheduled' ? 'schedule_failed' : 'send_failed'
-          completionEmailErrorMessage = 'Please try again later.'
         }
       }
 
@@ -2333,8 +2547,13 @@ export function CreateEvaluationPage() {
       setCompletionNavigationUrl(postAssessmentNavigation.url || '')
 
       setLastSavedPlayerName(normalizedPlayerName)
-      setSelectedParentContactIndexes([0])
-      if (!editingEvaluation && !postAssessmentNavigation.url) {
+      const shouldPreserveSavedRecordForRetry = [
+        'no_recipient',
+        'schedule_failed',
+        'send_failed',
+      ].includes(completionOutcome)
+
+      if (!shouldPreserveSavedRecordForRetry && !editingEvaluation && !postAssessmentNavigation.url) {
         setFormData(
           createPostAssessmentFormData({
             currentSection: formData.section,
@@ -2348,10 +2567,12 @@ export function CreateEvaluationPage() {
       setLastUsedSession(postAssessmentNavigation.nextSessionValue)
       setIsSaved(true)
       setCompletionModal(getCompletionModalForOutcome({
-        emailErrorMessage: completionEmailErrorMessage,
         outcome: completionOutcome,
         playerName: normalizedPlayerName,
       }))
+      if (!shouldPreserveSavedRecordForRetry) {
+        persistedEvaluationForRetryRef.current = null
+      }
       setArchiveAfterNoPlace(false)
       if (!isNoPlaceOfferedTemplate) {
         setNextAssessmentReminderTarget({
@@ -2656,10 +2877,14 @@ export function CreateEvaluationPage() {
                 formData={formData}
                 onFieldChange={handleFieldChange}
                 onToggleParentContact={handleToggleParentContact}
-                parentContacts={savedParentContacts}
+                parentContacts={displayedParentContacts}
+                parentRecipientLoadError={developmentParentRecipientLoadError}
+                parentRecipientsLoading={isLoadingDevelopmentParentRecipients}
                 readableSession={readableSession}
                 savedPlayers={savedPlayers}
+                selectedParentLinkIds={selectedDevelopmentParentLinkIds}
                 selectedParentContactIndexes={selectedParentContactIndexes}
+                useLinkedParentRecipients={useLinkedParentRecipients}
                 user={user}
               />
 

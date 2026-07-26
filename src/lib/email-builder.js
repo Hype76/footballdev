@@ -360,6 +360,7 @@ export async function sendParentEmail(data) {
       playerId: data.playerId,
       teamId: data.teamId,
       outputContext: data.outputContext,
+      selectedParentLinkIds: data.selectedParentLinkIds,
       responses: data.responses,
       emailSections,
       emailBody: data.emailBody,

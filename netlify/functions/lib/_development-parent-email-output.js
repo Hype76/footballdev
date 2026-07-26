@@ -4,6 +4,11 @@ import {
   buildPlayerProgressionData,
   buildProgressionEmailSections,
 } from '../../../src/lib/player-progression.js'
+import {
+  isValidDevelopmentParentRecipientEmail,
+  normalizeDevelopmentParentRecipientEmail,
+  resolveSelectedDevelopmentParentRecipients,
+} from '../../../src/lib/development-parent-recipient-contract.js'
 
 const CLUB_WIDE_ROLE_RANK = 50
 const DEFAULT_PARENT_VISIBLE_LABELS = new Set([
@@ -22,45 +27,22 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
-export function normalizeDevelopmentRecipientEmail(value) {
-  return normalizeText(value).toLowerCase()
-}
-
-export function isValidDevelopmentRecipientEmail(value) {
-  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(normalizeDevelopmentRecipientEmail(value))
-}
+export const normalizeDevelopmentRecipientEmail = normalizeDevelopmentParentRecipientEmail
+export const isValidDevelopmentRecipientEmail = isValidDevelopmentParentRecipientEmail
 
 function outputError(message, statusCode, code) {
   return Object.assign(new Error(message), { statusCode, code })
 }
 
-function getGuardianName(guardian, link) {
-  const name = [guardian?.first_name, guardian?.last_name]
-    .map(normalizeText)
-    .filter(Boolean)
-    .join(' ')
-
-  return name || normalizeText(link?.relationship) || 'Parent or guardian'
-}
-
-function getGuardianById(guardians) {
-  return new Map(
-    (Array.isArray(guardians) ? guardians : [])
-      .filter((guardian) => guardian?.id)
-      .map((guardian) => [normalizeText(guardian.id), guardian]),
-  )
-}
-
-export function resolveDevelopmentRecipientFromRows({
+export function resolveDevelopmentRecipientsFromRows({
   evaluation,
   player,
   links = [],
-  guardians = [],
+  selectedParentLinkIds = [],
 } = {}) {
   const evaluationClubId = normalizeText(evaluation?.club_id)
   const evaluationTeamId = normalizeText(evaluation?.team_id || player?.team_id)
   const evaluationPlayerId = normalizeText(evaluation?.player_id || player?.id)
-  const guardianById = getGuardianById(guardians)
 
   if (
     !evaluation?.id ||
@@ -73,54 +55,26 @@ export function resolveDevelopmentRecipientFromRows({
     return {
       outcome: 'no_recipient',
       code: 'DEVELOPMENT_PARENT_EMAIL_PLAYER_SCOPE_MISSING',
-      recipient: null,
+      recipients: [],
+      unavailableLinkIds: [],
     }
   }
 
-  const recipients = (Array.isArray(links) ? links : [])
-    .filter((link) =>
-      normalizeText(link?.club_id) === evaluationClubId &&
-      normalizeText(link?.player_id) === evaluationPlayerId &&
-      (!evaluationTeamId || normalizeText(link?.team_id) === evaluationTeamId) &&
-      normalizeText(link?.status) === 'active' &&
-      link?.receives_communications !== false)
-    .map((link) => {
-      const guardian = guardianById.get(normalizeText(link.guardian_id))
-      const guardianIsUsable = !guardian || (
-        normalizeText(guardian.club_id) === evaluationClubId &&
-        normalizeText(guardian.status) === 'active'
-      )
-      const email = normalizeDevelopmentRecipientEmail(
-        guardianIsUsable ? guardian?.email || link?.email : '',
-      )
+  return resolveSelectedDevelopmentParentRecipients({
+    links,
+    clubId: evaluationClubId,
+    teamId: evaluationTeamId,
+    playerId: evaluationPlayerId,
+    parentContacts: player?.parent_contacts,
+    selectedParentLinkIds,
+  })
+}
 
-      if (!guardianIsUsable || !isValidDevelopmentRecipientEmail(email)) {
-        return null
-      }
-
-      return {
-        email,
-        name: getGuardianName(guardian, link),
-        primary: link?.primary_contact === true,
-      }
-    })
-    .filter(Boolean)
-    .sort((left, right) => Number(right.primary) - Number(left.primary) || left.email.localeCompare(right.email))
-
-  const recipient = recipients[0]
-
-  if (!recipient) {
-    return {
-      outcome: 'no_recipient',
-      code: 'DEVELOPMENT_PARENT_EMAIL_NO_LINKED_RECIPIENT',
-      recipient: null,
-    }
-  }
-
+export function resolveDevelopmentRecipientFromRows(args = {}) {
+  const result = resolveDevelopmentRecipientsFromRows(args)
   return {
-    outcome: 'ready',
-    code: 'DEVELOPMENT_PARENT_EMAIL_RECIPIENT_RESOLVED',
-    recipient,
+    ...result,
+    recipient: result.recipients?.[0] ?? null,
   }
 }
 
@@ -212,10 +166,18 @@ export function getParentVisibleDevelopmentEmailSections({
     }))
 }
 
-function createDevelopmentOutputKey(evaluationId, recipientEmail) {
+export function createDevelopmentOutputKey(evaluationId, recipientLinkId) {
   return createHash('sha256')
-    .update(`development-parent-email:${normalizeText(evaluationId)}:${normalizeDevelopmentRecipientEmail(recipientEmail)}`)
+    .update(`development-parent-email:${normalizeText(evaluationId)}:${normalizeText(recipientLinkId)}`)
     .digest('hex')
+}
+
+export function createDevelopmentOutputQueueId(outputKey) {
+  const source = normalizeText(outputKey).padEnd(32, '0').slice(0, 32).split('')
+  source[12] = '5'
+  source[16] = ((Number.parseInt(source[16], 16) || 0) & 0x3 | 0x8).toString(16)
+  const hex = source.join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
 async function loadOne(query, notFoundCode) {
@@ -273,6 +235,7 @@ export async function loadDevelopmentParentEmailContext(
   {
     evaluationId,
     profile,
+    selectedParentLinkIds = [],
   } = {},
 ) {
   const normalizedEvaluationId = normalizeText(evaluationId)
@@ -295,7 +258,7 @@ export async function loadDevelopmentParentEmailContext(
   const player = await loadOne(
     supabaseAdmin
       .from('players')
-      .select('id, club_id, team_id, player_name, team')
+      .select('id, club_id, team_id, player_name, team, parent_contacts')
       .eq('id', evaluation.player_id)
       .eq('club_id', evaluation.club_id)
       .maybeSingle(),
@@ -303,7 +266,9 @@ export async function loadDevelopmentParentEmailContext(
   )
   const { data: links, error: linksError } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, guardian_id, email, relationship, primary_contact, receives_communications, status')
+    .select('id, club_id, team_id, player_id, email, relationship, primary_contact, receives_communications, status')
+    .eq('club_id', evaluation.club_id)
+    .eq('team_id', evaluation.team_id || player.team_id)
     .eq('player_id', player.id)
 
   if (linksError) {
@@ -328,29 +293,11 @@ export async function loadDevelopmentParentEmailContext(
     throw evaluationsError
   }
 
-  const guardianIds = Array.from(new Set(
-    (links ?? []).map((link) => normalizeText(link.guardian_id)).filter(Boolean),
-  ))
-  let guardians = []
-
-  if (guardianIds.length > 0) {
-    const { data, error } = await supabaseAdmin
-      .from('guardians')
-      .select('id, club_id, first_name, last_name, email, status')
-      .in('id', guardianIds)
-
-    if (error) {
-      throw error
-    }
-
-    guardians = data ?? []
-  }
-
-  const recipientResolution = resolveDevelopmentRecipientFromRows({
+  const recipientResolution = resolveDevelopmentRecipientsFromRows({
     evaluation,
     player,
     links,
-    guardians,
+    selectedParentLinkIds,
   })
 
   if (recipientResolution.outcome === 'no_recipient') {
@@ -360,6 +307,17 @@ export async function loadDevelopmentParentEmailContext(
       player,
     }
   }
+
+  if (recipientResolution.recipients.length !== 1) {
+    throw outputError(
+      'Send one selected parent recipient per request.',
+      400,
+      'DEVELOPMENT_PARENT_EMAIL_ONE_RECIPIENT_PER_REQUEST',
+    )
+  }
+
+  const recipient = recipientResolution.recipients[0]
+  const outputKey = createDevelopmentOutputKey(evaluation.id, recipient.linkId)
 
   const [{ data: club, error: clubError }, { data: team, error: teamError }] = await Promise.all([
     supabaseAdmin
@@ -390,6 +348,8 @@ export async function loadDevelopmentParentEmailContext(
     club,
     team,
     evaluations: evaluations ?? [evaluation],
-    outputKey: createDevelopmentOutputKey(evaluation.id, recipientResolution.recipient.email),
+    recipient,
+    outputKey,
+    outputQueueId: createDevelopmentOutputQueueId(outputKey),
   }
 }

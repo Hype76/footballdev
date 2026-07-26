@@ -42,6 +42,12 @@ function player(overrides = {}) {
     id: playerId,
     club_id: clubId,
     team_id: teamId,
+    parent_contacts: [
+      {
+        name: 'FP TEST Parent',
+        email: 'fp.test.parent@example.test',
+      },
+    ],
     ...overrides,
   }
 }
@@ -53,7 +59,7 @@ function link(overrides = {}) {
     team_id: teamId,
     player_id: playerId,
     guardian_id: guardianId,
-    email: '',
+    email: 'fp.test.parent@example.test',
     relationship: 'Parent',
     primary_contact: true,
     receives_communications: true,
@@ -83,7 +89,7 @@ test('valid linked parent email succeeds through server-authoritative resolution
     evaluation: evaluation(),
     player: player(),
     links: [link()],
-    guardians: [guardian()],
+    selectedParentLinkIds: [link().id],
     requestedEmail: 'browser-controlled@example.test',
   })
   const functionSource = await source('../netlify/functions/send-parent-email.js')
@@ -101,11 +107,11 @@ test('no linked parent produces a truthful no-recipient result', () => {
     evaluation: evaluation(),
     player: player(),
     links: [],
-    guardians: [],
+    selectedParentLinkIds: [link().id],
   })
 
   assert.equal(result.outcome, 'no_recipient')
-  assert.equal(result.code, 'DEVELOPMENT_PARENT_EMAIL_NO_LINKED_RECIPIENT')
+  assert.equal(result.code, 'DEVELOPMENT_PARENT_EMAIL_SELECTED_LINK_UNAVAILABLE')
 })
 
 test('linked parent with no email produces a truthful no-recipient result', () => {
@@ -113,7 +119,7 @@ test('linked parent with no email produces a truthful no-recipient result', () =
     evaluation: evaluation(),
     player: player(),
     links: [link({ email: '' })],
-    guardians: [guardian({ email: '' })],
+    selectedParentLinkIds: [link().id],
   })
 
   assert.equal(result.outcome, 'no_recipient')
@@ -123,8 +129,8 @@ test('invalid linked parent email is handled without selecting a recipient', () 
   const result = resolveDevelopmentRecipientFromRows({
     evaluation: evaluation(),
     player: player(),
-    links: [link()],
-    guardians: [guardian({ email: 'not-an-email' })],
+    links: [link({ email: 'not-an-email' })],
+    selectedParentLinkIds: [link().id],
     requestedEmail: 'not-an-email',
   })
 
@@ -137,7 +143,7 @@ test('cross-club parent cannot be selected', () => {
     evaluation: evaluation(),
     player: player(),
     links: [link({ club_id: otherClubId })],
-    guardians: [guardian({ club_id: otherClubId })],
+    selectedParentLinkIds: [link().id],
     requestedEmail: 'fp.test.parent@example.test',
   })
 
@@ -204,21 +210,21 @@ test('safe email sections are reconstructed from saved evaluation history', () =
 
 test('provider failure preserves the evaluation and maps to an optional-output result', async () => {
   const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
-  const createIndex = pageSource.indexOf('const savedEvaluation = editingEvaluation')
+  const createIndex = pageSource.indexOf('const savedEvaluation = canReusePersistedEvaluation')
   const sendIndex = pageSource.indexOf('const emailResults = await Promise.all')
   const optionalCatchIndex = pageSource.indexOf("completionOutcome = emailSendMode === 'scheduled' ? 'schedule_failed' : 'send_failed'")
 
   assert.ok(createIndex >= 0)
   assert.ok(sendIndex > createIndex)
   assert.ok(optionalCatchIndex > sendIndex)
-  assert.match(pageSource, /Development Record was saved, but the parent email could not be sent\. \$\{emailErrorMessage/)
+  assert.match(pageSource, /Development Record saved, but the parent email could not be sent\. Please try again later\./)
 })
 
 test('queue failure preserves the evaluation and keeps scheduling optional', async () => {
   const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
   const functionSource = await source('../netlify/functions/send-parent-email.js')
 
-  assert.ok(pageSource.indexOf('const savedEvaluation = editingEvaluation') < pageSource.indexOf('scheduledAt'))
+  assert.ok(pageSource.indexOf('const savedEvaluation = canReusePersistedEvaluation') < pageSource.indexOf('scheduledAt'))
   assert.match(pageSource, /completionOutcome = emailSendMode === 'scheduled' \? 'schedule_failed' : 'send_failed'/)
   assert.match(functionSource, /Email could not be added to the queue\./)
 })
@@ -236,7 +242,7 @@ test('retry does not duplicate the evaluation', async () => {
   const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
 
   assert.doesNotMatch(retrySource, /evaluations/)
-  assert.match(pageSource, /const savedEvaluation = editingEvaluation[\s\S]*const emailResults = await Promise\.all/)
+  assert.match(pageSource, /const savedEvaluation = canReusePersistedEvaluation[\s\S]*const emailResults = await Promise\.all/)
 })
 
 test('retry and repeated scheduling do not duplicate queue rows', async () => {
