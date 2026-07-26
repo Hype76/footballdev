@@ -652,6 +652,46 @@ export function getDevelopmentRecordSaveFailureMessage(error) {
   return 'This development record could not be saved right now. Check the player details and try again.'
 }
 
+export function getDevelopmentRecordCompletionCopy({
+  editing = false,
+  optionalOutputErrorMessage = '',
+  outcome = 'saved',
+  playerName = 'Player',
+} = {}) {
+  if (outcome === 'sent') {
+    return {
+      title: 'Development Record saved and email sent',
+      message: `${playerName} Development Record has been saved and the parent email has been sent.`,
+    }
+  }
+
+  if (outcome === 'scheduled') {
+    return {
+      title: 'Development Record saved and email scheduled',
+      message: `${playerName} Development Record has been saved and the parent email has been scheduled.`,
+    }
+  }
+
+  if (outcome === 'send_failed') {
+    return {
+      title: 'Development Record saved, but optional output did not complete',
+      message: `${playerName} Development Record has been saved, but the parent email could not be sent. ${optionalOutputErrorMessage || 'Check the email details before sending again.'}`,
+    }
+  }
+
+  if (outcome === 'schedule_failed') {
+    return {
+      title: 'Development Record saved, but optional output did not complete',
+      message: `${playerName} Development Record has been saved, but the parent email could not be scheduled. ${optionalOutputErrorMessage || 'Check the scheduled send details before trying again.'}`,
+    }
+  }
+
+  return {
+    title: editing ? 'Development Record updated' : 'Development Record saved',
+    message: `${playerName} Development Record has been saved.`,
+  }
+}
+
 export function getContactCopy(normalizedContactType) {
   if (normalizedContactType === 'self') {
     return {
