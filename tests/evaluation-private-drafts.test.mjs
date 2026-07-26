@@ -278,6 +278,42 @@ test('server draft context key stays stable when player id becomes available', (
   assert.equal(getEvaluationDraftContextKey(contextWithId), getEvaluationDraftContextKey(contextWithoutId))
 })
 
+test('server draft context key changes by selected form but not report date', () => {
+  const firstForm = buildPrivateEvaluationDraftContext({
+    formData: {
+      playerId: 'player-1',
+      playerName: 'Sam Trialist',
+      session: '2026-07-26',
+      team: 'U12',
+    },
+    selectedFeedbackFormId: 'form-a',
+    user: staffUser,
+  })
+  const sameFormNewDate = buildPrivateEvaluationDraftContext({
+    formData: {
+      playerId: 'player-1',
+      playerName: 'Sam Trialist',
+      session: '2026-07-27',
+      team: 'U12',
+    },
+    selectedFeedbackFormId: 'form-a',
+    user: staffUser,
+  })
+  const secondForm = buildPrivateEvaluationDraftContext({
+    formData: {
+      playerId: 'player-1',
+      playerName: 'Sam Trialist',
+      session: '2026-07-26',
+      team: 'U12',
+    },
+    selectedFeedbackFormId: 'form-b',
+    user: staffUser,
+  })
+
+  assert.equal(getEvaluationDraftContextKey(firstForm), getEvaluationDraftContextKey(sameFormNewDate))
+  assert.notEqual(getEvaluationDraftContextKey(firstForm), getEvaluationDraftContextKey(secondForm))
+})
+
 test('private draft payload includes assessment, output, and delivery settings', () => {
   const payload = createPrivateEvaluationDraftPayload({
     archiveAfterNoPlace: true,
@@ -411,6 +447,39 @@ test('server draft save writes only creator-owned private draft rows', async () 
   assert.equal(insertCall.payload.status, 'draft')
   assert.equal(insertCall.payload.context_key, getEvaluationDraftContextKey(context))
   assert.equal(insertCall.payload.draft_data.formData.playerName, 'Sam Trialist')
+})
+
+test('explicit first Save Draft sends one insert without a reconciliation lookup', async () => {
+  const context = buildPrivateEvaluationDraftContext({
+    formData: {
+      playerId: 'player-1',
+      playerName: 'Sam Trialist',
+      session: '2026-07-26',
+      team: 'U12',
+    },
+    selectedFeedbackFormId: 'form-a',
+    user: staffUser,
+  })
+  const supabaseClient = createSupabaseDraftMock()
+
+  await saveServerEvaluationDraft({
+    context,
+    payload: createPrivateEvaluationDraftPayload({
+      formData: {
+        playerId: 'player-1',
+        playerName: 'Sam Trialist',
+        session: '2026-07-26',
+        team: 'U12',
+      },
+      responseValues: { technical: '6' },
+      selectedFeedbackFormId: 'form-a',
+    }),
+    skipExistingLookup: true,
+    supabaseClient,
+    user: staffUser,
+  })
+
+  assert.deepEqual(supabaseClient.calls.map((call) => call.action), ['insert'])
 })
 
 test('server draft save updates an existing creator draft instead of inserting another row', async () => {
@@ -635,77 +704,74 @@ test('draft lifecycle select policy allows creator close status transition only'
   assert.doesNotMatch(migration, /or true/i)
 })
 
-test('draft database failure UI does not claim the server draft was saved', () => {
+test('manual draft database failure preserves values and does not claim success', () => {
   const source = readFileSync(
     new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
     'utf8',
   )
 
-  assert.match(source, /title: 'Private draft save failed'/)
-  assert.match(source, /setPrivateDraftStatus\('saved_local'\)/)
+  assert.match(source, /title: 'Draft could not be saved'/)
+  assert.match(source, /Your entered values are still on this page/)
   assert.match(source, /setPrivateDraftStatus\('error'\)/)
-  assert.match(source, /if \(localDraft\?\.id\) \{[\s\S]+setPrivateDraftStatus\('saved_local'\)/)
+  assert.doesNotMatch(source, /setPrivateDraftStatus\('saved_local'\)/)
 })
 
-test('private draft autosave queues latest server save and retries failures', () => {
+test('private draft save is explicit and single flight', () => {
   const source = readFileSync(
     new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
     'utf8',
   )
 
-  assert.match(source, /privateDraftQueueRef/)
-  assert.match(source, /latestPrivateDraftSaveRef/)
-  assert.match(source, /version < \(latestPrivateDraftSaveRef\.current\?\.version \|\| 0\)/)
-  assert.match(source, /for \(let attempt = 1; attempt <= 3; attempt \+= 1\)/)
+  assert.match(source, /const manualDraftSavePromiseRef = useRef\(null\)/)
+  assert.match(source, /const handleSaveDraft = async/)
+  assert.match(source, /if \(manualDraftSavePromiseRef\.current\)/)
+  assert.match(source, /await saveServerEvaluationDraft\(/)
+  assert.doesNotMatch(source, /privateDraftQueueRef|privateDraftSaveTimerRef|latestPrivateDraftSaveRef/)
 })
 
-test('private draft submit and discard paths flush or close the active draft safely', () => {
+test('private draft submit and discard close the active server draft without staging a save', () => {
   const source = readFileSync(
     new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
     'utf8',
   )
 
-  assert.match(source, /await flushPrivateDraftSave\(\{ reason: 'submit' \}\)/)
   assert.match(source, /const closeActivePrivateDraftAfterSubmit = async/)
-  assert.match(source, /await privateDraftQueueRef\.current\.catch\(\(\) => \{\}\)/)
   assert.match(source, /status: PRIVATE_EVALUATION_DRAFT_STATUSES\.discarded/)
   assert.match(source, /status: PRIVATE_EVALUATION_DRAFT_STATUSES\.submitted/)
   assert.match(source, /window\.addEventListener\('beforeunload', handleBeforeUnload\)/)
-  assert.match(source, /document\.addEventListener\('click', handleInternalDraftNavigation, true\)/)
+  assert.match(source, /useBlocker\(hasUnsavedChanges\)/)
+  assert.doesNotMatch(source, /flushPrivateDraftSave/)
 })
 
-test('private draft close cancels pending autosaves and uses a stable close snapshot', () => {
+test('private draft close uses the currently confirmed server draft only', () => {
   const source = readFileSync(
     new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
     'utf8',
   )
 
-  assert.match(source, /const privateDraftSaveEpochRef = useRef\(0\)/)
-  assert.match(source, /const beginPrivateDraftClose = \(\) => \{/)
-  assert.match(source, /privateDraftSaveEpochRef\.current \+= 1/)
-  assert.match(source, /latestPrivateDraftSaveRef\.current = null/)
-  assert.match(source, /saveEpoch !== privateDraftSaveEpochRef\.current/)
-  assert.match(source, /const closeSnapshot = beginPrivateDraftClose\(\)/)
-  assert.match(source, /closeSnapshot\.draftInfo\.source === 'server'/)
-  assert.match(source, /if \(!didCloseServerDraft\) \{/)
-  assert.doesNotMatch(source, /latestPrivateDraftSaveRef\.current\?\.localDraft\?\.id \|\| privateDraftInfo\?\.localDraftId/)
+  assert.match(source, /const activeDraft = privateDraftInfoRef\.current/)
+  assert.match(source, /draftId: activeDraft\.id/)
+  assert.match(source, /if \(!didCloseServerDraft\)/)
+  assert.doesNotMatch(source, /privateDraftSaveEpochRef|latestPrivateDraftSaveRef|beginPrivateDraftClose/)
 })
 
-test('private draft banner exposes resume and discard actions', () => {
+test('private draft UI exposes explicit save and server discard actions', () => {
   const source = readFileSync(
     new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
     'utf8',
   )
+  const submitSource = readFileSync(
+    new URL('../src/components/evaluations/SubmitExportSection.jsx', import.meta.url),
+    'utf8',
+  )
 
-  assert.match(source, /handleResumePrivateDraft/)
-  assert.match(source, /Resume draft/)
-  assert.match(source, /Discard draft/)
-  assert.match(source, /chooseLatestPrivateEvaluationDraft\(/)
+  assert.match(submitSource, /'Save Draft'/)
+  assert.match(source, /Discard Draft/)
   assert.match(source, /findServerEvaluationDraft\([\s\S]+context: draftContext[\s\S]+user/)
-  assert.match(source, /findPrivateEvaluationDraft\([\s\S]+context: draftContext[\s\S]+user/)
+  assert.doesNotMatch(source, /handleResumePrivateDraft|Resume draft|findPrivateEvaluationDraft/)
 })
 
-test('private draft resume restores saved payload values', () => {
+test('server draft restoration restores saved payload values', () => {
   const source = readFileSync(
     new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
     'utf8',
