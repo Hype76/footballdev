@@ -8,6 +8,10 @@ const migrationUrl = new URL(
   '../supabase/migrations/20260726052528_development_save_persistence_recovery_27.sql',
   import.meta.url,
 )
+const revisionMigrationUrl = new URL(
+  '../supabase/migrations/20260726071421_development_draft_refresh_race_recovery_28.sql',
+  import.meta.url,
+)
 
 const IDS = Object.freeze({
   admin: '10000000-0000-4000-8000-000000000001',
@@ -210,6 +214,7 @@ async function createDatabase() {
   `)
 
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(revisionMigrationUrl, 'utf8'))
   return db
 }
 
@@ -293,6 +298,48 @@ test('Manager, Team Admin, Coach and Club Admin retain authorized Development wr
       assert.equal(evaluation.rows.length, 1)
       assert.equal(draft.rows.length, 1)
     }
+  } finally {
+    await asOwner(db)
+    await db.close()
+  }
+})
+
+test('server draft revision rejects a stale blank write after a newer populated write', async () => {
+  const db = await createDatabase()
+
+  try {
+    await setActor(db, IDS.coach)
+    const inserted = await insertDraft(db, IDS.coach)
+    const draftId = inserted.rows[0].id
+    const newest = await db.query(
+      `update public.evaluation_drafts
+       set client_save_version = 2,
+           draft_data = '{"answer":"newest populated answer"}'
+       where id = $1
+         and client_save_version < 2
+       returning id`,
+      [draftId],
+    )
+    const stale = await db.query(
+      `update public.evaluation_drafts
+       set client_save_version = 1,
+           draft_data = '{"answer":""}'
+       where id = $1
+         and client_save_version < 1
+       returning id`,
+      [draftId],
+    )
+    const stored = await db.query(
+      `select client_save_version, draft_data
+       from public.evaluation_drafts
+       where id = $1`,
+      [draftId],
+    )
+
+    assert.equal(newest.rows.length, 1)
+    assert.equal(stale.rows.length, 0)
+    assert.equal(Number(stored.rows[0].client_save_version), 2)
+    assert.equal(stored.rows[0].draft_data.answer, 'newest populated answer')
   } finally {
     await asOwner(db)
     await db.close()
