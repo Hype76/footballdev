@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import {
+  PLATFORM_BANNER_AUDIENCES,
   PLATFORM_BANNER_COLOR_PRESETS,
   PLATFORM_BANNER_MESSAGE_MAX_LENGTH,
+  PUBLIC_SITE_BANNER_KEY,
+  getDefaultPlatformBanner,
   getPlatformBannerTextColor,
 } from '../../lib/platform-banner-config.js'
 
@@ -10,13 +14,18 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlatformBannerManagementSection({
-  banner,
+  banners,
   errorMessage,
   isLoading,
-  isSaving,
+  savingBannerKey,
   onChange,
   onSubmit,
 }) {
+  const [activeBannerKey, setActiveBannerKey] = useState(PUBLIC_SITE_BANNER_KEY)
+  const audience = PLATFORM_BANNER_AUDIENCES.find((item) => item.bannerKey === activeBannerKey)
+    ?? PLATFORM_BANNER_AUDIENCES[0]
+  const banner = banners?.[audience.bannerKey] ?? getDefaultPlatformBanner(audience.bannerKey)
+  const isSaving = savingBannerKey === audience.bannerKey
   const messageLength = String(banner.message ?? '').length
   const textColor = getPlatformBannerTextColor(banner.backgroundColor)
 
@@ -24,23 +33,61 @@ export function PlatformBannerManagementSection({
     <div className="xl:col-span-2">
       <SectionCard
         title="Banner controls"
-        description="Control the announcement shown across the public website and parent login."
+        description="Create separate announcements for public visitors, logged-in users, and parents."
         storageKey="platform-banner-controls"
       >
-        <form className="grid gap-5" onSubmit={onSubmit}>
+        <div className="mb-5 grid gap-3 md:grid-cols-3" aria-label="Banner audiences">
+          {PLATFORM_BANNER_AUDIENCES.map((item) => {
+            const itemBanner = banners?.[item.bannerKey] ?? item.defaultBanner
+            const isActive = item.bannerKey === audience.bannerKey
+
+            return (
+              <button
+                key={item.bannerKey}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => setActiveBannerKey(item.bannerKey)}
+                className={[
+                  'rounded-lg border px-4 py-4 text-left transition',
+                  isActive
+                    ? 'border-[#047857] bg-[#ecfdf5] shadow-sm shadow-[#047857]/10'
+                    : 'border-[#d7e5dc] bg-white hover:border-[#047857] hover:bg-[#f7faf8]',
+                ].join(' ')}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-black text-[#101828]">{item.label}</span>
+                  <span className={[
+                    'rounded-full px-2.5 py-1 text-xs font-black',
+                    itemBanner.enabled
+                      ? 'bg-[#047857] text-white'
+                      : 'border border-[#d7e5dc] bg-white text-[#4b5f55]',
+                  ].join(' ')}>
+                    {itemBanner.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </span>
+                <span className="mt-2 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                  {item.description}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <form className="grid gap-5" onSubmit={(event) => onSubmit(event, audience.bannerKey)}>
           <div className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-black text-[#101828]">Public site banner</p>
+              <p className="text-sm font-black text-[#101828]">{audience.label} banner</p>
               <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-                {banner.enabled ? 'The banner is currently enabled.' : 'The banner is currently disabled.'}
+                {banner.enabled ? 'This banner is currently enabled.' : 'This banner is currently disabled.'}
               </p>
             </div>
             <button
               type="button"
               role="switch"
+              aria-label={`Enable ${audience.label} banner`}
               aria-checked={banner.enabled}
               disabled={isLoading || isSaving}
-              onClick={() => onChange('enabled', !banner.enabled)}
+              onClick={() => onChange(audience.bannerKey, 'enabled', !banner.enabled)}
               className={[
                 'inline-flex min-h-11 min-w-32 items-center justify-center rounded-lg border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60',
                 banner.enabled
@@ -56,7 +103,7 @@ export function PlatformBannerManagementSection({
             <span className={labelClass}>Banner text</span>
             <textarea
               value={banner.message}
-              onChange={(event) => onChange('message', event.target.value)}
+              onChange={(event) => onChange(audience.bannerKey, 'message', event.target.value)}
               maxLength={PLATFORM_BANNER_MESSAGE_MAX_LENGTH}
               rows={4}
               required
@@ -75,9 +122,9 @@ export function PlatformBannerManagementSection({
                 <input
                   type="color"
                   value={banner.backgroundColor}
-                  onChange={(event) => onChange('backgroundColor', event.target.value.toUpperCase())}
+                  onChange={(event) => onChange(audience.bannerKey, 'backgroundColor', event.target.value.toUpperCase())}
                   disabled={isLoading || isSaving}
-                  aria-label="Banner background colour"
+                  aria-label={`${audience.label} banner background colour`}
                   className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed"
                 />
                 <span className="text-sm font-black text-[#101828]">{banner.backgroundColor}</span>
@@ -88,7 +135,7 @@ export function PlatformBannerManagementSection({
                     key={preset.value}
                     type="button"
                     disabled={isLoading || isSaving}
-                    onClick={() => onChange('backgroundColor', preset.value)}
+                    onClick={() => onChange(audience.bannerKey, 'backgroundColor', preset.value)}
                     aria-pressed={banner.backgroundColor === preset.value}
                     className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:border-[#047857] disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -117,7 +164,7 @@ export function PlatformBannerManagementSection({
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-center text-sm font-semibold text-[#4b5f55]">
-                The banner is disabled and will not appear on public pages.
+                This banner is disabled and will not appear for {audience.label.toLowerCase()}.
               </div>
             )}
           </div>
@@ -130,7 +177,7 @@ export function PlatformBannerManagementSection({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
-              Saved changes appear when a public page is refreshed.
+              Each audience is saved independently and appears after refresh.
             </p>
             <button
               type="submit"
@@ -138,7 +185,7 @@ export function PlatformBannerManagementSection({
               title={isSaving ? 'Please wait while the banner is being saved.' : undefined}
               className={primaryButtonClass}
             >
-              {isSaving ? 'Saving...' : 'Save banner'}
+              {isSaving ? 'Saving...' : `Save ${audience.label} banner`}
             </button>
           </div>
         </form>

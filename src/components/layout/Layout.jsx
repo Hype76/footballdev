@@ -29,6 +29,11 @@ import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
+import { PlatformBannerNotice } from '../platform/PlatformBannerNotice.jsx'
+import {
+  LOGGED_IN_USERS_BANNER_KEY,
+  PARENT_PORTAL_BANNER_KEY,
+} from '../../lib/platform-banner-config.js'
 
 const QUICK_ACTION_POSITION_STORAGE_KEY = 'football-player:quick-action-position'
 const QUICK_ACTION_EDGE_GAP = 16
@@ -270,6 +275,12 @@ export function Layout() {
     return (
       <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
         <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />
+        {isParentPortalUser(user) ? (
+          <PlatformBannerNotice
+            ariaLabel="Parent portal announcement"
+            bannerKey={PARENT_PORTAL_BANNER_KEY}
+          />
+        ) : null}
         <main className="min-h-screen px-4 py-5 sm:px-6 md:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-[108rem]">
             <Outlet />
@@ -290,6 +301,13 @@ export function Layout() {
             title={activeTitle}
             onMenuClick={() => setIsSidebarOpen(true)}
           />
+
+          {user?.id ? (
+            <PlatformBannerNotice
+              ariaLabel="Logged-in user announcement"
+              bannerKey={LOGGED_IN_USERS_BANNER_KEY}
+            />
+          ) : null}
 
           <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
             <div className="mx-auto w-full max-w-[108rem]">

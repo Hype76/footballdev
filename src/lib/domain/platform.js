@@ -15,7 +15,9 @@ export {
   uploadClubLogo,
 } from './club-settings-actions.js'
 export {
+  getPlatformBannerByKey,
   getPlatformBanner,
+  getPlatformBanners,
   getPublicPlatformBanner,
   updatePlatformBanner,
 } from './platform-banners.js'

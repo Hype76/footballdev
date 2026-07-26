@@ -19,12 +19,9 @@ test('shared public header loads and renders the platform managed banner', async
     readFile(bannerConfigUrl, 'utf8'),
   ])
 
-  assert.match(source, /role="status"/)
-  assert.match(source, /aria-label="Platform announcement"/)
-  assert.match(source, /getPublicPlatformBanner/)
-  assert.match(source, /platformBanner\?\.enabled/)
-  assert.match(source, /backgroundColor: platformBanner\.backgroundColor/)
-  assert.match(source, /\{platformBanner\.message\}/)
+  assert.match(source, /PlatformBannerNotice/)
+  assert.match(source, /ariaLabel="Platform announcement"/)
+  assert.match(source, /bannerKey=\{PUBLIC_SITE_BANNER_KEY\}/)
   assert.match(
     bannerConfigSource,
     /Parent login is currently being worked on and may not work until 8:00am on Monday 27 July\./,

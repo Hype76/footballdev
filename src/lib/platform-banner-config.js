@@ -1,4 +1,6 @@
 export const PUBLIC_SITE_BANNER_KEY = 'public_site'
+export const LOGGED_IN_USERS_BANNER_KEY = 'logged_in_users'
+export const PARENT_PORTAL_BANNER_KEY = 'parent_portal'
 export const PLATFORM_BANNER_MESSAGE_MAX_LENGTH = 280
 export const PLATFORM_BANNER_COLOR_PATTERN = /^#[0-9A-F]{6}$/
 
@@ -9,6 +11,53 @@ export const DEFAULT_PUBLIC_SITE_BANNER = Object.freeze({
   backgroundColor: '#FCD34D',
   updatedAt: '',
 })
+
+export const DEFAULT_LOGGED_IN_USERS_BANNER = Object.freeze({
+  bannerKey: LOGGED_IN_USERS_BANNER_KEY,
+  enabled: false,
+  message: 'Important update for club and team users.',
+  backgroundColor: '#93C5FD',
+  updatedAt: '',
+})
+
+export const DEFAULT_PARENT_PORTAL_BANNER = Object.freeze({
+  bannerKey: PARENT_PORTAL_BANNER_KEY,
+  enabled: false,
+  message: 'Important update for parents and families.',
+  backgroundColor: '#86EFAC',
+  updatedAt: '',
+})
+
+export const PLATFORM_BANNER_AUDIENCES = Object.freeze([
+  {
+    bannerKey: PUBLIC_SITE_BANNER_KEY,
+    label: 'Landing pages',
+    description: 'Shown on public pages and the sign-in page.',
+    defaultBanner: DEFAULT_PUBLIC_SITE_BANNER,
+  },
+  {
+    bannerKey: LOGGED_IN_USERS_BANNER_KEY,
+    label: 'Logged-in users',
+    description: 'Shown inside the staff and Platform Admin application.',
+    defaultBanner: DEFAULT_LOGGED_IN_USERS_BANNER,
+  },
+  {
+    bannerKey: PARENT_PORTAL_BANNER_KEY,
+    label: 'Parent portal',
+    description: 'Shown only to signed-in parents in the parent portal.',
+    defaultBanner: DEFAULT_PARENT_PORTAL_BANNER,
+  },
+])
+
+export const PLATFORM_BANNER_KEYS = Object.freeze(
+  PLATFORM_BANNER_AUDIENCES.map((audience) => audience.bannerKey),
+)
+
+export const DEFAULT_PLATFORM_BANNERS = Object.freeze(
+  Object.fromEntries(
+    PLATFORM_BANNER_AUDIENCES.map((audience) => [audience.bannerKey, audience.defaultBanner]),
+  ),
+)
 
 export const PLATFORM_BANNER_COLOR_PRESETS = Object.freeze([
   { label: 'Amber', value: '#FCD34D' },
@@ -23,16 +72,22 @@ export function normalizePlatformBannerColor(value, fallback = DEFAULT_PUBLIC_SI
   return PLATFORM_BANNER_COLOR_PATTERN.test(normalizedValue) ? normalizedValue : fallback
 }
 
-export function normalizePlatformBanner(row, fallback = DEFAULT_PUBLIC_SITE_BANNER) {
+export function getDefaultPlatformBanner(bannerKey) {
+  return DEFAULT_PLATFORM_BANNERS[bannerKey] ?? DEFAULT_PUBLIC_SITE_BANNER
+}
+
+export function normalizePlatformBanner(row, fallback) {
+  const requestedBannerKey = String(row?.banner_key ?? row?.bannerKey ?? fallback?.bannerKey ?? '').trim()
+  const resolvedFallback = fallback ?? getDefaultPlatformBanner(requestedBannerKey)
   const normalizedMessage = String(row?.message ?? '').trim()
 
   return {
-    bannerKey: String(row?.banner_key ?? row?.bannerKey ?? fallback.bannerKey).trim() || fallback.bannerKey,
-    enabled: typeof row?.enabled === 'boolean' ? row.enabled : fallback.enabled,
-    message: normalizedMessage || fallback.message,
+    bannerKey: requestedBannerKey || resolvedFallback.bannerKey,
+    enabled: typeof row?.enabled === 'boolean' ? row.enabled : resolvedFallback.enabled,
+    message: normalizedMessage || resolvedFallback.message,
     backgroundColor: normalizePlatformBannerColor(
       row?.background_color ?? row?.backgroundColor,
-      fallback.backgroundColor,
+      resolvedFallback.backgroundColor,
     ),
     updatedAt: String(row?.updated_at ?? row?.updatedAt ?? '').trim(),
   }

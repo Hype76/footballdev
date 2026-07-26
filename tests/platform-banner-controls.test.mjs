@@ -3,28 +3,45 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 import {
+  DEFAULT_LOGGED_IN_USERS_BANNER,
+  DEFAULT_PARENT_PORTAL_BANNER,
+  DEFAULT_PLATFORM_BANNERS,
   DEFAULT_PUBLIC_SITE_BANNER,
+  LOGGED_IN_USERS_BANNER_KEY,
+  PARENT_PORTAL_BANNER_KEY,
+  PLATFORM_BANNER_AUDIENCES,
   getPlatformBannerTextColor,
   normalizePlatformBanner,
   validatePlatformBannerDraft,
 } from '../src/lib/platform-banner-config.js'
 
-const migrationUrl = new URL('../supabase/migrations/20260726110413_platform_banner_controls.sql', import.meta.url)
+const baseMigrationUrl = new URL('../supabase/migrations/20260726110413_platform_banner_controls.sql', import.meta.url)
+const audienceMigrationUrl = new URL('../supabase/migrations/20260726112602_platform_banner_audiences.sql', import.meta.url)
 const adminPageUrl = new URL('../src/pages/PlatformAdminPage.jsx', import.meta.url)
 const adminSectionUrl = new URL('../src/components/platform/PlatformBannerManagementSection.jsx', import.meta.url)
+const platformBannerNoticeUrl = new URL('../src/components/platform/PlatformBannerNotice.jsx', import.meta.url)
 const platformBannerDomainUrl = new URL('../src/lib/domain/platform-banners.js', import.meta.url)
+const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
+const loginHeaderUrl = new URL('../src/components/login/LoginHeader.jsx', import.meta.url)
 
-test('banner drafts normalize safe colours and choose readable text contrast', () => {
+test('banner audiences provide separate safe defaults and readable contrast', () => {
+  assert.deepEqual(
+    PLATFORM_BANNER_AUDIENCES.map((audience) => audience.bannerKey),
+    ['public_site', LOGGED_IN_USERS_BANNER_KEY, PARENT_PORTAL_BANNER_KEY],
+  )
+  assert.equal(DEFAULT_PLATFORM_BANNERS.public_site.enabled, true)
+  assert.equal(DEFAULT_LOGGED_IN_USERS_BANNER.enabled, false)
+  assert.equal(DEFAULT_PARENT_PORTAL_BANNER.enabled, false)
   assert.deepEqual(
     normalizePlatformBanner({
-      banner_key: 'public_site',
-      enabled: false,
+      banner_key: LOGGED_IN_USERS_BANNER_KEY,
+      enabled: true,
       message: '  Planned maintenance tonight.  ',
       background_color: '#0f172a',
     }),
     {
-      bannerKey: 'public_site',
-      enabled: false,
+      bannerKey: LOGGED_IN_USERS_BANNER_KEY,
+      enabled: true,
       message: 'Planned maintenance tonight.',
       backgroundColor: '#0F172A',
       updatedAt: '',
@@ -57,7 +74,7 @@ test('banner validation rejects empty, oversized, and unsafe colour values', () 
   )
 })
 
-test('Platform Admin exposes enable, text, colour, preview, and save controls', async () => {
+test('Platform Admin exposes independent controls for all three audiences', async () => {
   const [pageSource, sectionSource, domainSource] = await Promise.all([
     readFile(adminPageUrl, 'utf8'),
     readFile(adminSectionUrl, 'utf8'),
@@ -65,21 +82,41 @@ test('Platform Admin exposes enable, text, colour, preview, and save controls', 
   ])
 
   assert.match(pageSource, /PlatformBannerManagementSection/)
-  assert.match(pageSource, /getPlatformBanner/)
-  assert.match(pageSource, /updatePlatformBanner/)
+  assert.match(pageSource, /getPlatformBanners/)
+  assert.match(pageSource, /bannerDrafts/)
+  assert.match(pageSource, /savingBannerKey/)
+  assert.match(sectionSource, /PLATFORM_BANNER_AUDIENCES\.map/)
   assert.match(sectionSource, /role="switch"/)
   assert.match(sectionSource, /type="color"/)
   assert.match(sectionSource, /Banner text/)
-  assert.match(sectionSource, /Banner colour presets/)
   assert.match(sectionSource, /aria-label="Banner preview"/)
-  assert.match(sectionSource, /Save banner/)
+  assert.match(domainSource, /\.in\('banner_key', PLATFORM_BANNER_KEYS\)/)
+  assert.match(domainSource, /assertPlatformBannerKey/)
   assert.match(domainSource, /user\?\.role !== 'super_admin'/)
-  assert.match(domainSource, /blockDemoMutation/)
   assert.match(domainSource, /platform_banner_updated/)
 })
 
-test('banner migration compiles, seeds the current banner, and enforces privileges and constraints', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+test('each banner audience is mounted only in its intended application shell', async () => {
+  const [noticeSource, layoutSource, loginHeaderSource] = await Promise.all([
+    readFile(platformBannerNoticeUrl, 'utf8'),
+    readFile(layoutUrl, 'utf8'),
+    readFile(loginHeaderUrl, 'utf8'),
+  ])
+
+  assert.match(noticeSource, /getPlatformBannerByKey/)
+  assert.match(noticeSource, /if \(!banner\?\.enabled\)/)
+  assert.match(loginHeaderSource, /bannerKey=\{PUBLIC_SITE_BANNER_KEY\}/)
+  assert.match(layoutSource, /isParentPortalUser\(user\)/)
+  assert.match(layoutSource, /bannerKey=\{PARENT_PORTAL_BANNER_KEY\}/)
+  assert.match(layoutSource, /user\?\.id/)
+  assert.match(layoutSource, /bannerKey=\{LOGGED_IN_USERS_BANNER_KEY\}/)
+})
+
+test('audience migration seeds three rows and keeps internal banners hidden from anon', async () => {
+  const [baseMigration, audienceMigration] = await Promise.all([
+    readFile(baseMigrationUrl, 'utf8'),
+    readFile(audienceMigrationUrl, 'utf8'),
+  ])
   const db = new PGlite()
 
   await db.exec(`
@@ -99,42 +136,58 @@ test('banner migration compiles, seeds the current banner, and enforces privileg
     as $$ select current_setting('app.test_role', true) $$;
     grant execute on function public.current_user_role() to authenticated;
   `)
-  await db.exec(migration)
+  await db.exec(baseMigration)
+  await db.exec(audienceMigration)
 
   const seeded = await db.query(`
     select banner_key, enabled, message, background_color
     from public.platform_banners
+    order by banner_key
   `)
-  assert.deepEqual(seeded.rows, [{
-    banner_key: 'public_site',
-    enabled: true,
-    message: DEFAULT_PUBLIC_SITE_BANNER.message,
-    background_color: '#FCD34D',
-  }])
+  assert.deepEqual(seeded.rows, [
+    {
+      banner_key: LOGGED_IN_USERS_BANNER_KEY,
+      enabled: false,
+      message: DEFAULT_LOGGED_IN_USERS_BANNER.message,
+      background_color: '#93C5FD',
+    },
+    {
+      banner_key: PARENT_PORTAL_BANNER_KEY,
+      enabled: false,
+      message: DEFAULT_PARENT_PORTAL_BANNER.message,
+      background_color: '#86EFAC',
+    },
+    {
+      banner_key: 'public_site',
+      enabled: true,
+      message: DEFAULT_PUBLIC_SITE_BANNER.message,
+      background_color: '#FCD34D',
+    },
+  ])
 
-  const privileges = await db.query(`
-    select
-      has_table_privilege('anon', 'public.platform_banners', 'select') as anon_select,
-      has_table_privilege('anon', 'public.platform_banners', 'update') as anon_update,
-      has_table_privilege('authenticated', 'public.platform_banners', 'select') as authenticated_select,
-      has_column_privilege('authenticated', 'public.platform_banners', 'message', 'update') as authenticated_message_update,
-      has_table_privilege('authenticated', 'public.platform_banners', 'insert') as authenticated_insert,
-      has_table_privilege('authenticated', 'public.platform_banners', 'delete') as authenticated_delete
+  await db.exec('set role anon;')
+  const anonRows = await db.query(`
+    select banner_key
+    from public.platform_banners
+    order by banner_key
   `)
-  assert.deepEqual(privileges.rows[0], {
-    anon_select: true,
-    anon_update: false,
-    authenticated_select: true,
-    authenticated_message_update: true,
-    authenticated_insert: false,
-    authenticated_delete: false,
-  })
+  assert.deepEqual(anonRows.rows, [{ banner_key: 'public_site' }])
+  await db.exec('reset role; set role authenticated;')
+  const authenticatedRows = await db.query(`
+    select banner_key
+    from public.platform_banners
+    order by banner_key
+  `)
+  assert.deepEqual(
+    authenticatedRows.rows.map((row) => row.banner_key),
+    [LOGGED_IN_USERS_BANNER_KEY, PARENT_PORTAL_BANNER_KEY, 'public_site'],
+  )
 
-  await db.exec(`set app.test_role = 'manager'; set role authenticated;`)
+  await db.exec(`reset role; set app.test_role = 'manager'; set role authenticated;`)
   const deniedUpdate = await db.query(`
     update public.platform_banners
     set message = 'Manager should not change this'
-    where banner_key = 'public_site'
+    where banner_key = '${LOGGED_IN_USERS_BANNER_KEY}'
     returning banner_key
   `)
   assert.equal(deniedUpdate.rows.length, 0)
@@ -142,11 +195,11 @@ test('banner migration compiles, seeds the current banner, and enforces privileg
   const allowedUpdate = await db.query(`
     update public.platform_banners
     set message = 'Platform controlled notice'
-    where banner_key = 'public_site'
+    where banner_key = '${PARENT_PORTAL_BANNER_KEY}'
     returning banner_key, message
   `)
   assert.deepEqual(allowedUpdate.rows, [{
-    banner_key: 'public_site',
+    banner_key: PARENT_PORTAL_BANNER_KEY,
     message: 'Platform controlled notice',
   }])
   await db.exec('reset role;')

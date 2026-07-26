@@ -2,19 +2,29 @@ import { supabase } from '../supabase-client.js'
 import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
 import {
-  DEFAULT_PUBLIC_SITE_BANNER,
+  DEFAULT_PLATFORM_BANNERS,
+  PLATFORM_BANNER_KEYS,
   PUBLIC_SITE_BANNER_KEY,
+  getDefaultPlatformBanner,
   normalizePlatformBanner,
   validatePlatformBannerDraft,
 } from '../platform-banner-config.js'
 
 const PLATFORM_BANNER_SELECT = 'banner_key, enabled, message, background_color, updated_at'
 
-export async function getPublicPlatformBanner() {
+function assertPlatformBannerKey(bannerKey) {
+  if (!PLATFORM_BANNER_KEYS.includes(bannerKey)) {
+    throw new Error('Choose a valid banner audience.')
+  }
+}
+
+export async function getPlatformBannerByKey(bannerKey) {
+  assertPlatformBannerKey(bannerKey)
+
   const { data, error } = await supabase
     .from('platform_banners')
     .select(PLATFORM_BANNER_SELECT)
-    .eq('banner_key', PUBLIC_SITE_BANNER_KEY)
+    .eq('banner_key', bannerKey)
     .maybeSingle()
 
   if (error) {
@@ -22,24 +32,53 @@ export async function getPublicPlatformBanner() {
     throw error
   }
 
-  return normalizePlatformBanner(data, DEFAULT_PUBLIC_SITE_BANNER)
+  return normalizePlatformBanner(data, getDefaultPlatformBanner(bannerKey))
 }
 
-export async function getPlatformBanner({ user }) {
+export async function getPublicPlatformBanner() {
+  return getPlatformBannerByKey(PUBLIC_SITE_BANNER_KEY)
+}
+
+export async function getPlatformBanners({ user }) {
   if (user?.role !== 'super_admin') {
-    throw new Error('Only platform admins can manage public banners.')
+    throw new Error('Only platform admins can manage platform banners.')
   }
 
-  return getPublicPlatformBanner()
+  const { data, error } = await supabase
+    .from('platform_banners')
+    .select(PLATFORM_BANNER_SELECT)
+    .in('banner_key', PLATFORM_BANNER_KEYS)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (Array.isArray(data) ? data : []).reduce(
+    (banners, row) => ({
+      ...banners,
+      [row.banner_key]: normalizePlatformBanner(row, getDefaultPlatformBanner(row.banner_key)),
+    }),
+    { ...DEFAULT_PLATFORM_BANNERS },
+  )
 }
 
-export async function updatePlatformBanner({ user, draft }) {
+export async function getPlatformBanner({ user, bannerKey = PUBLIC_SITE_BANNER_KEY }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can manage platform banners.')
+  }
+
+  return getPlatformBannerByKey(bannerKey)
+}
+
+export async function updatePlatformBanner({ user, bannerKey = draft?.bannerKey, draft }) {
   await blockDemoMutation(user)
 
   if (user?.role !== 'super_admin') {
-    throw new Error('Only platform admins can manage public banners.')
+    throw new Error('Only platform admins can manage platform banners.')
   }
 
+  assertPlatformBannerKey(bannerKey)
   const validatedDraft = validatePlatformBannerDraft(draft)
   const { data, error } = await supabase
     .from('platform_banners')
@@ -48,7 +87,7 @@ export async function updatePlatformBanner({ user, draft }) {
       message: validatedDraft.message,
       background_color: validatedDraft.backgroundColor,
     })
-    .eq('banner_key', PUBLIC_SITE_BANNER_KEY)
+    .eq('banner_key', bannerKey)
     .select(PLATFORM_BANNER_SELECT)
     .single()
 
@@ -57,7 +96,7 @@ export async function updatePlatformBanner({ user, draft }) {
     throw error
   }
 
-  const banner = normalizePlatformBanner(data, DEFAULT_PUBLIC_SITE_BANNER)
+  const banner = normalizePlatformBanner(data, getDefaultPlatformBanner(bannerKey))
 
   await createAuditLog({
     user,

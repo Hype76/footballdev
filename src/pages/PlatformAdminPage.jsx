@@ -14,7 +14,10 @@ import { useToast } from '../components/ui/toast-context.js'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { logPlatformStatsDiagnostic, normalizePlatformStatsPayload } from '../lib/domain/platform-normalizers.js'
 import { PLAN_KEYS } from '../lib/plans.js'
-import { DEFAULT_PUBLIC_SITE_BANNER } from '../lib/platform-banner-config.js'
+import {
+  DEFAULT_PLATFORM_BANNERS,
+  PLATFORM_BANNER_AUDIENCES,
+} from '../lib/platform-banner-config.js'
 import {
   formatPlatformDate,
   getClubManagementStats,
@@ -31,7 +34,7 @@ import {
   getPlatformFeedback,
   getPlatformFeedbackAttachmentUrl,
   getPlatformFeedbackReports,
-  getPlatformBanner,
+  getPlatformBanners,
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
@@ -162,7 +165,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [isSavingClub, setIsSavingClub] = useState(false)
   const [isSavingPlatformAdmin, setIsSavingPlatformAdmin] = useState(false)
   const [isBannerLoading, setIsBannerLoading] = useState(true)
-  const [isBannerSaving, setIsBannerSaving] = useState(false)
+  const [savingBannerKey, setSavingBannerKey] = useState('')
   const [deletingPlatformAdminId, setDeletingPlatformAdminId] = useState('')
   const [updatingClubId, setUpdatingClubId] = useState('')
   const [updatingTeamId, setUpdatingTeamId] = useState('')
@@ -174,7 +177,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [bannerErrorMessage, setBannerErrorMessage] = useState('')
-  const [bannerDraft, setBannerDraft] = useState(DEFAULT_PUBLIC_SITE_BANNER)
+  const [bannerDrafts, setBannerDrafts] = useState(DEFAULT_PLATFORM_BANNERS)
   const [createdClubInvite, setCreatedClubInvite] = useState(null)
   const [newClubForm, setNewClubForm] = useState({
     name: '',
@@ -305,13 +308,13 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       setBannerErrorMessage('')
 
       try {
-        const nextBanner = await withRequestTimeout(
-          () => getPlatformBanner({ user }),
+        const nextBanners = await withRequestTimeout(
+          () => getPlatformBanners({ user }),
           'Could not load banner controls.',
         )
 
         if (isMounted) {
-          setBannerDraft(nextBanner)
+          setBannerDrafts(nextBanners)
         }
       } catch (error) {
         console.error(error)
@@ -566,37 +569,50 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setCreatedClubInvite(null)
   }
 
-  const handleBannerChange = (fieldName, value) => {
-    setBannerDraft((current) => ({
+  const handleBannerChange = (bannerKey, fieldName, value) => {
+    setBannerDrafts((current) => ({
       ...current,
-      [fieldName]: value,
+      [bannerKey]: {
+        ...current[bannerKey],
+        [fieldName]: value,
+      },
     }))
     setBannerErrorMessage('')
     setSuccessMessage('')
   }
 
-  const handleSaveBanner = async (event) => {
+  const handleSaveBanner = async (event, bannerKey) => {
     event.preventDefault()
-    setIsBannerSaving(true)
+    setSavingBannerKey(bannerKey)
     setBannerErrorMessage('')
     setSuccessMessage('')
 
     try {
       const nextBanner = await updatePlatformBanner({
         user,
-        draft: bannerDraft,
+        bannerKey,
+        draft: bannerDrafts[bannerKey],
       })
-      setBannerDraft(nextBanner)
-      setSuccessMessage(nextBanner.enabled ? 'Public banner enabled and saved.' : 'Public banner disabled and saved.')
+      const audience = PLATFORM_BANNER_AUDIENCES.find((item) => item.bannerKey === bannerKey)
+      const audienceLabel = audience?.label ?? 'Platform'
+      setBannerDrafts((current) => ({
+        ...current,
+        [bannerKey]: nextBanner,
+      }))
+      setSuccessMessage(nextBanner.enabled
+        ? `${audienceLabel} banner enabled and saved.`
+        : `${audienceLabel} banner disabled and saved.`)
       showToast({
         title: 'Banner saved',
-        message: nextBanner.enabled ? 'The public banner is enabled.' : 'The public banner is disabled.',
+        message: nextBanner.enabled
+          ? `The ${audienceLabel.toLowerCase()} banner is enabled.`
+          : `The ${audienceLabel.toLowerCase()} banner is disabled.`,
       })
     } catch (error) {
       console.error(error)
       setBannerErrorMessage(error.message || 'Banner settings could not be saved.')
     } finally {
-      setIsBannerSaving(false)
+      setSavingBannerKey('')
     }
   }
 
@@ -1018,10 +1034,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <PlatformBannerManagementSection
-              banner={bannerDraft}
+              banners={bannerDrafts}
               errorMessage={bannerErrorMessage}
               isLoading={isBannerLoading}
-              isSaving={isBannerSaving}
+              savingBannerKey={savingBannerKey}
               onChange={handleBannerChange}
               onSubmit={handleSaveBanner}
             />
