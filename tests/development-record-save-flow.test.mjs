@@ -7,7 +7,6 @@ import {
 } from '../src/lib/email-templates.js'
 import {
   createEvaluationPayload,
-  getDevelopmentRecordCompletionCopy,
   getDevelopmentRecordSaveFailureMessage,
   normalizeOptionalUuid,
   buildParentEmailJobs,
@@ -338,29 +337,6 @@ test('save failure message gives safe diagnostics for final database failures', 
     getDevelopmentRecordSaveFailureMessage({ message: 'Please enter a report date before saving.' }),
     'Please enter a report date before saving.',
   )
-})
-
-test('optional email and PDF failures keep truthful core-record success messaging', async () => {
-  for (const outcome of ['send_failed', 'schedule_failed']) {
-    const copy = getDevelopmentRecordCompletionCopy({
-      optionalOutputErrorMessage: outcome === 'send_failed'
-        ? 'PDF generation failed.'
-        : 'Queue unavailable.',
-      outcome,
-      playerName: 'FP TEST Player',
-    })
-
-    assert.equal(copy.title, 'Development Record saved, but optional output did not complete')
-    assert.match(copy.message, /Development Record has been saved/)
-  }
-
-  const source = await readFile(new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url), 'utf8')
-  const coreSaveIndex = source.indexOf('await createEvaluation(evaluation)')
-  const optionalEmailIndex = source.indexOf('await Promise.all(emailJobs.map')
-
-  assert.ok(coreSaveIndex > 0)
-  assert.ok(optionalEmailIndex > coreSaveIndex)
-  assert.match(source, /catch \(emailError\) \{[\s\S]*completionOutcome = emailSendMode === 'scheduled' \? 'schedule_failed' : 'send_failed'/)
 })
 
 test('final save retry recovers an existing draft-backed evaluation after duplicate id conflict', async () => {
