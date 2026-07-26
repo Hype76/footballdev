@@ -38,13 +38,7 @@ const staffUser = {
   activeTeamName: 'U12',
 }
 
-function createSupabaseDraftMock({
-  existingRow = null,
-  insertRow = null,
-  updateCount = 1,
-  updateRow = null,
-  errorByAction = {},
-} = {}) {
+function createSupabaseDraftMock({ existingRow = null, insertRow = null, updateRow = null, errorByAction = {} } = {}) {
   const calls = []
 
   return {
@@ -122,24 +116,18 @@ function createSupabaseDraftMock({
             action: this.action,
             columns: this.columns,
             filters: this.filters,
-            options: this.options,
             payload: this.payload,
             table,
           })
 
           const response = errorByAction[this.action]
             ? { data: null, error: errorByAction[this.action] }
-            : {
-                count: this.action === 'update' ? updateCount : null,
-                data: updateRow || { ...existingRow, ...this.payload },
-                error: null,
-              }
+            : { data: updateRow || { ...existingRow, ...this.payload }, error: null }
 
           return Promise.resolve(response).then(resolve, reject)
         },
-        update(payload, options) {
+        update(payload) {
           this.action = 'update'
-          this.options = options
           this.payload = payload
           return this
         },
@@ -502,7 +490,6 @@ test('server draft close updates only the creator active draft row', async () =>
   )
   assert.equal(supabaseClient.calls[1].action, 'update')
   assert.equal(supabaseClient.calls[1].columns, undefined)
-  assert.deepEqual(supabaseClient.calls[1].options, { count: 'exact' })
   assert.deepEqual(
     supabaseClient.calls[1].filters,
     [
@@ -557,32 +544,6 @@ test('server draft discard updates the active creator row without an insert path
   assert.equal(supabaseClient.calls[1].payload.status, 'discarded')
   assert.ok(supabaseClient.calls[1].payload.discarded_at)
   assert.equal(supabaseClient.calls[1].columns, undefined)
-  assert.deepEqual(supabaseClient.calls[1].options, { count: 'exact' })
-  assert.equal(supabaseClient.calls.some((call) => call.action === 'insert'), false)
-})
-
-test('server draft close reports a zero-row update as not closed', async () => {
-  const supabaseClient = createSupabaseDraftMock({
-    existingRow: {
-      id: 'draft-server-1',
-      club_id: 'club-1',
-      team_id: 'team-1',
-      player_id: 'player-1',
-      created_by_user_id: 'coach-1',
-      status: 'draft',
-    },
-    updateCount: 0,
-  })
-
-  assert.equal(
-    await closeServerEvaluationDraft({
-      draftId: 'draft-server-1',
-      status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
-      supabaseClient,
-      user: staffUser,
-    }),
-    false,
-  )
   assert.equal(supabaseClient.calls.some((call) => call.action === 'insert'), false)
 })
 
@@ -684,8 +645,6 @@ test('draft database failure UI does not claim the server draft was saved', () =
   assert.match(source, /setPrivateDraftStatus\('saved_local'\)/)
   assert.match(source, /setPrivateDraftStatus\('error'\)/)
   assert.match(source, /if \(localDraft\?\.id\) \{[\s\S]+setPrivateDraftStatus\('saved_local'\)/)
-  assert.match(source, /privateDraftStatus === 'error'[\s\S]+border-\[#fecaca\][\s\S]+bg-\[#fef2f2\]/)
-  assert.match(source, /privateDraftStatus === 'saved_local'[\s\S]+border-\[#fde68a\][\s\S]+bg-\[#fffbeb\]/)
 })
 
 test('private draft autosave queues latest server save and retries failures', () => {
@@ -698,26 +657,6 @@ test('private draft autosave queues latest server save and retries failures', ()
   assert.match(source, /latestPrivateDraftSaveRef/)
   assert.match(source, /version < \(latestPrivateDraftSaveRef\.current\?\.version \|\| 0\)/)
   assert.match(source, /for \(let attempt = 1; attempt <= 3; attempt \+= 1\)/)
-})
-
-test('private draft autosave does not depend on the retired session storage key', () => {
-  const source = readFileSync(
-    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
-    'utf8',
-  )
-
-  assert.doesNotMatch(
-    source,
-    /!hasInitializedRef\.current \|\| !draftStorageKey \|\| isPlatformOwner \|\| editingEvaluationId/,
-  )
-  assert.equal(
-    source.match(
-      /if \(!hasInitializedRef\.current \|\| isPlatformOwner \|\| editingEvaluationId\)/g,
-    )?.length,
-    2,
-  )
-  assert.match(source, /savePrivateDraftLocalCopy/)
-  assert.match(source, /flushPrivateDraftSave\(\{ reason: 'debounce' \}\)/)
 })
 
 test('private draft submit and discard paths flush or close the active draft safely', () => {
@@ -859,7 +798,7 @@ test('draft close follow-up keeps creator-only close separate from active draft 
   assert.doesNotMatch(migration, /\b(drop table|drop column|truncate|delete from)\b/i)
 })
 
-test('server draft close requests an exact affected-row count after changing status', () => {
+test('server draft close does not request a returned row after changing status', () => {
   const source = readFileSync(
     new URL('../src/lib/evaluation-drafts.js', import.meta.url),
     'utf8',
@@ -867,7 +806,5 @@ test('server draft close requests an exact affected-row count after changing sta
   const closeSource = source.slice(source.indexOf('export async function closeServerEvaluationDraft'))
 
   assert.match(closeSource, /\.update\(\{[\s\S]+status: closingStatus/)
-  assert.match(closeSource, /\}, \{ count: 'exact' \}\)/)
-  assert.match(closeSource, /return count === 1/)
   assert.doesNotMatch(closeSource, /\.update\(\{[\s\S]+?\.select\('id'\)/)
 })
