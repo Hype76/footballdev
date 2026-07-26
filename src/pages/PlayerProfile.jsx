@@ -54,6 +54,7 @@ import {
   buildPlayerProfileCachePayload,
   buildPlayerDirectEmailPayload,
   buildPlayerProfileParentEmailPayload,
+  attachActiveParentLinkIdsToContacts,
   buildReassignedEvaluationPayload,
   buildRatingTrend,
   calculateMergedAverage,
@@ -636,12 +637,16 @@ export function PlayerProfile() {
   }
   const getSelectedEmailTemplateKey = (evaluation) => getSelectedEmailTemplate(evaluation)?.key || ''
   const getSelectedInviteDate = (evaluation) => selectedInviteDates[evaluation.id] || ''
-  const getEvaluationParentContacts = (evaluation) =>
-    normalizeParentContacts(evaluation.parentContacts?.length ? evaluation.parentContacts : profileParentContacts, {
+  const getEvaluationParentContacts = (evaluation) => {
+    const contacts = normalizeParentContacts(evaluation.parentContacts?.length ? evaluation.parentContacts : profileParentContacts, {
       parentName: evaluation.parentName || profileParentName,
       parentEmail: evaluation.parentEmail || profileParentEmail,
       contactType: getEvaluationContactType(evaluation),
     })
+    const parentLinks = parentPortalLinksByPlayerId[evaluation.playerId || primaryPlayer?.id] || []
+
+    return attachActiveParentLinkIdsToContacts(contacts, parentLinks)
+  }
   const getSelectedEvaluationParentContacts = (evaluation) => {
     const contacts = getEvaluationParentContacts(evaluation)
     const selectedIndexes = selectedParentContacts[evaluation.id] ?? contacts.map((_, index) => index)

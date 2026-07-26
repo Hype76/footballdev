@@ -27,6 +27,26 @@ export const PLAYER_PROFILE_SOURCES = Object.freeze({
   trial: 'trial',
 })
 
+export function attachActiveParentLinkIdsToContacts(contacts = [], parentLinks = []) {
+  const activeLinkIdByEmail = new Map(
+    (Array.isArray(parentLinks) ? parentLinks : [])
+      .filter((link) => String(link?.status ?? '').trim().toLowerCase() === 'active')
+      .map((link) => [
+        String(link?.email ?? '').trim().toLowerCase(),
+        String(link?.id ?? '').trim(),
+      ])
+      .filter(([email, linkId]) => email && linkId),
+  )
+
+  return (Array.isArray(contacts) ? contacts : []).map((contact) => {
+    const existingLinkId = String(contact?.linkId ?? '').trim()
+    const email = String(contact?.email ?? '').trim().toLowerCase()
+    const linkId = existingLinkId || activeLinkIdByEmail.get(email) || ''
+
+    return linkId ? { ...contact, linkId } : contact
+  })
+}
+
 export function isNumericScore(value) {
   if (value === null || value === undefined || value === '') {
     return false

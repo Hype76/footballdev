@@ -13,6 +13,7 @@ import { createPrivateEvaluationDraftPayload } from '../src/lib/evaluation-draft
 import { EMAIL_TEMPLATE_AUDIENCES } from '../src/lib/email-templates.js'
 import { PLAYER_CONTACT_TYPES } from '../src/lib/supabase.js'
 import { buildParentEmailJobs } from '../src/hooks/evaluations/evaluationFormUtils.js'
+import { attachActiveParentLinkIdsToContacts } from '../src/hooks/players/playerProfileUtils.js'
 
 async function source(path) {
   return readFile(new URL(path, import.meta.url), 'utf8')
@@ -169,6 +170,30 @@ test('saved Development resend is server-authoritative and direct email PDF supp
   assert.match(directBuilder, /pdfDocument: buildAssessmentPdfDocument/)
   assert.match(directBuilder, /outputContext: DIRECT_PARENT_EMAIL_OUTPUT_CONTEXT/)
   assert.match(modalSource, />Attach PDF</)
+})
+
+test('saved Development resend joins current active parent-link IDs before building the payload', () => {
+  const contacts = attachActiveParentLinkIdsToContacts(
+    [
+      { email: 'approved.internal@example.test', name: 'Approved Internal', type: PLAYER_CONTACT_TYPES.parent },
+      { email: 'pending@example.test', name: 'Pending Contact', type: PLAYER_CONTACT_TYPES.parent },
+    ],
+    [
+      {
+        id: '77777777-7777-4777-8777-777777777777',
+        email: 'APPROVED.INTERNAL@example.test',
+        status: 'active',
+      },
+      {
+        id: '88888888-8888-4888-8888-888888888888',
+        email: 'pending@example.test',
+        status: 'pending',
+      },
+    ],
+  )
+
+  assert.equal(contacts[0].linkId, '77777777-7777-4777-8777-777777777777')
+  assert.equal(Object.prototype.hasOwnProperty.call(contacts[1], 'linkId'), false)
 })
 
 test('Match Day PDF export and generic server PDF implementation remain present', async () => {
