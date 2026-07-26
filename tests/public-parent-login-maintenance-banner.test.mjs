@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const loginHeaderUrl = new URL('../src/components/login/LoginHeader.jsx', import.meta.url)
+const bannerConfigUrl = new URL('../src/lib/platform-banner-config.js', import.meta.url)
 const publicPageUrls = [
   new URL('../src/pages/LoginPage.jsx', import.meta.url),
   new URL('../src/pages/PublicLandingPage.jsx', import.meta.url),
@@ -12,13 +13,20 @@ const publicPageUrls = [
   new URL('../src/pages/PublicParentPortalLoginPage.jsx', import.meta.url),
 ]
 
-test('shared public header shows the temporary parent login maintenance notice', async () => {
-  const source = await readFile(loginHeaderUrl, 'utf8')
+test('shared public header loads and renders the platform managed banner', async () => {
+  const [source, bannerConfigSource] = await Promise.all([
+    readFile(loginHeaderUrl, 'utf8'),
+    readFile(bannerConfigUrl, 'utf8'),
+  ])
 
   assert.match(source, /role="status"/)
-  assert.match(source, /aria-label="Parent login service update"/)
+  assert.match(source, /aria-label="Platform announcement"/)
+  assert.match(source, /getPublicPlatformBanner/)
+  assert.match(source, /platformBanner\?\.enabled/)
+  assert.match(source, /backgroundColor: platformBanner\.backgroundColor/)
+  assert.match(source, /\{platformBanner\.message\}/)
   assert.match(
-    source,
+    bannerConfigSource,
     /Parent login is currently being worked on and may not work until 8:00am on Monday 27 July\./,
   )
 })

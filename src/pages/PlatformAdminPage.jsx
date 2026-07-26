@@ -5,6 +5,7 @@ import { PlatformAdminStaffSection } from '../components/platform/PlatformAdminS
 import { ManageClubsSection } from '../components/platform/ManageClubsSection.jsx'
 import { PlatformAccountManagementSection } from '../components/platform/PlatformAccountManagementSection.jsx'
 import { PlatformFeedbackSection } from '../components/platform/PlatformFeedbackSection.jsx'
+import { PlatformBannerManagementSection } from '../components/platform/PlatformBannerManagementSection.jsx'
 import { PlatformHeroSection, PlatformStatGrid } from '../components/platform/PlatformHeroSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
@@ -13,6 +14,7 @@ import { useToast } from '../components/ui/toast-context.js'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { logPlatformStatsDiagnostic, normalizePlatformStatsPayload } from '../lib/domain/platform-normalizers.js'
 import { PLAN_KEYS } from '../lib/plans.js'
+import { DEFAULT_PUBLIC_SITE_BANNER } from '../lib/platform-banner-config.js'
 import {
   formatPlatformDate,
   getClubManagementStats,
@@ -29,10 +31,12 @@ import {
   getPlatformFeedback,
   getPlatformFeedbackAttachmentUrl,
   getPlatformFeedbackReports,
+  getPlatformBanner,
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
   updatePlatformFeedbackReportStatus,
+  updatePlatformBanner,
   updatePlatformClubStatus,
   updatePlatformUserStatus,
   withRequestTimeout,
@@ -157,6 +161,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
   const [isSavingPlatformAdmin, setIsSavingPlatformAdmin] = useState(false)
+  const [isBannerLoading, setIsBannerLoading] = useState(true)
+  const [isBannerSaving, setIsBannerSaving] = useState(false)
   const [deletingPlatformAdminId, setDeletingPlatformAdminId] = useState('')
   const [updatingClubId, setUpdatingClubId] = useState('')
   const [updatingTeamId, setUpdatingTeamId] = useState('')
@@ -167,6 +173,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [bannerErrorMessage, setBannerErrorMessage] = useState('')
+  const [bannerDraft, setBannerDraft] = useState(DEFAULT_PUBLIC_SITE_BANNER)
   const [createdClubInvite, setCreatedClubInvite] = useState(null)
   const [newClubForm, setNewClubForm] = useState({
     name: '',
@@ -284,6 +292,46 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       isMounted = false
     }
   }, [refreshKey, session?.access_token, user])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadBanner = async () => {
+      if (!isSuperAdmin(user)) {
+        setIsBannerLoading(false)
+        return
+      }
+
+      setBannerErrorMessage('')
+
+      try {
+        const nextBanner = await withRequestTimeout(
+          () => getPlatformBanner({ user }),
+          'Could not load banner controls.',
+        )
+
+        if (isMounted) {
+          setBannerDraft(nextBanner)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setBannerErrorMessage('Banner controls could not be loaded. Refresh the page and try again.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsBannerLoading(false)
+        }
+      }
+    }
+
+    void loadBanner()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user])
 
   const visibleClubs = useMemo(() => {
     const clubs = stats?.clubs ?? []
@@ -516,6 +564,40 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setConfirmErrorMessage('')
     setSuccessMessage('')
     setCreatedClubInvite(null)
+  }
+
+  const handleBannerChange = (fieldName, value) => {
+    setBannerDraft((current) => ({
+      ...current,
+      [fieldName]: value,
+    }))
+    setBannerErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const handleSaveBanner = async (event) => {
+    event.preventDefault()
+    setIsBannerSaving(true)
+    setBannerErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const nextBanner = await updatePlatformBanner({
+        user,
+        draft: bannerDraft,
+      })
+      setBannerDraft(nextBanner)
+      setSuccessMessage(nextBanner.enabled ? 'Public banner enabled and saved.' : 'Public banner disabled and saved.')
+      showToast({
+        title: 'Banner saved',
+        message: nextBanner.enabled ? 'The public banner is enabled.' : 'The public banner is disabled.',
+      })
+    } catch (error) {
+      console.error(error)
+      setBannerErrorMessage(error.message || 'Banner settings could not be saved.')
+    } finally {
+      setIsBannerSaving(false)
+    }
   }
 
   const handleCreatePlatformAdmin = async (event) => {
@@ -935,6 +1017,15 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           <PlatformStatGrid items={dashboardStats} />
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <PlatformBannerManagementSection
+              banner={bannerDraft}
+              errorMessage={bannerErrorMessage}
+              isLoading={isBannerLoading}
+              isSaving={isBannerSaving}
+              onChange={handleBannerChange}
+              onSubmit={handleSaveBanner}
+            />
+
             <PlatformAdminStaffSection
               currentUserId={user?.id}
               deletingAdminId={deletingPlatformAdminId}

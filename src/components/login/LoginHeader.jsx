@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
+import { getPublicPlatformBanner } from '../../lib/supabase.js'
+import {
+  DEFAULT_PUBLIC_SITE_BANNER,
+  getPlatformBannerTextColor,
+} from '../../lib/platform-banner-config.js'
 
 const navItems = [
   ['/', 'Home'],
@@ -143,6 +148,7 @@ export function LoginHeader({ logo }) {
   const [contactMessage, setContactMessage] = useState('')
   const [isContactModalOpen, setIsContactModalOpen] = useState(false)
   const [isContactSubmitting, setIsContactSubmitting] = useState(false)
+  const [platformBanner, setPlatformBanner] = useState(null)
 
   const openContactModal = () => {
     setContactErrorMessage('')
@@ -169,6 +175,32 @@ export function LoginHeader({ logo }) {
 
     return () => {
       window.removeEventListener('football-player:open-contact', handleOpenContactModal)
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadPlatformBanner = async () => {
+      try {
+        const nextBanner = await getPublicPlatformBanner()
+
+        if (isMounted) {
+          setPlatformBanner(nextBanner)
+        }
+      } catch (error) {
+        console.error('Public banner could not be loaded', error)
+
+        if (isMounted) {
+          setPlatformBanner(DEFAULT_PUBLIC_SITE_BANNER)
+        }
+      }
+    }
+
+    void loadPlatformBanner()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
@@ -271,15 +303,21 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <aside
-        role="status"
-        aria-label="Parent login service update"
-        className="border-y border-amber-300/70 bg-amber-300 px-4 py-3 text-[#3f2d00] shadow-sm shadow-black/15 sm:px-6 lg:px-8"
-      >
-        <p className="mx-auto max-w-7xl text-center text-sm font-black leading-6 sm:text-base">
-          Parent login is currently being worked on and may not work until 8:00am on Monday 27 July.
-        </p>
-      </aside>
+      {platformBanner?.enabled ? (
+        <aside
+          role="status"
+          aria-label="Platform announcement"
+          className="border-y border-black/10 px-4 py-3 shadow-sm shadow-black/15 sm:px-6 lg:px-8"
+          style={{
+            backgroundColor: platformBanner.backgroundColor,
+            color: getPlatformBannerTextColor(platformBanner.backgroundColor),
+          }}
+        >
+          <p className="mx-auto max-w-7xl text-center text-sm font-black leading-6 sm:text-base">
+            {platformBanner.message}
+          </p>
+        </aside>
+      ) : null}
 
       <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-white/10 bg-[#06110a]/92 p-1.5 shadow-lg shadow-black/25 backdrop-blur sm:mx-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
