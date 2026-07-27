@@ -4,6 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
+const shortRpcMigrationUrl = new URL('../supabase/migrations/20260727125718_shorten_resource_parent_sharing_rpc.sql', import.meta.url)
 
 const ids = {
   actor: '10000000-0000-4000-8000-000000000001',
@@ -237,6 +238,7 @@ async function createDatabase() {
     $$;
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(shortRpcMigrationUrl, 'utf8'))
   await db.query(`
     insert into public.players(id, club_id, team_id, player_name)
     values
@@ -310,7 +312,7 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
       { linkedType: 'player', linkedId: ids.otherPlayer, parentVisible: true },
     ])
     const first = await db.query(`
-      select public.sync_resource_library_player_assignments_with_parent_notifications($1, $2, $3, $4::jsonb, $5) as result
+      select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, $5) as result
     `, [ids.resource, ids.club, ids.team, sharedTargets, 'Shared'])
 
     assert.equal(first.rows[0].result.selectedPlayerCount, 2)
@@ -327,7 +329,7 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
       { linkedType: 'player', linkedId: ids.player, parentVisible: false },
     ])
     const second = await db.query(`
-      select public.sync_resource_library_player_assignments_with_parent_notifications($1, $2, $3, $4::jsonb, '') as result
+      select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, '') as result
     `, [ids.resource, ids.club, ids.team, staffOnlyOneTarget])
 
     assert.equal(second.rows[0].result.selectedPlayerCount, 1)
@@ -341,7 +343,7 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
     assert.deepEqual(active.rows, [{ linked_id: ids.player, parent_visible: false }])
 
     const cleared = await db.query(`
-      select public.sync_resource_library_player_assignments_with_parent_notifications($1, $2, $3, '[]'::jsonb, '') as result
+      select public.sync_resource_library_player_assignments($1, $2, $3, '[]'::jsonb, '') as result
     `, [ids.resource, ids.club, ids.team])
     assert.equal(cleared.rows[0].result.removedCount, 1)
 
@@ -364,7 +366,7 @@ test('Player assignment sync rejects unauthorised managers and cross-team Player
     await setClaims(db, ids.actor, false)
     await assert.rejects(
       db.query(`
-        select public.sync_resource_library_player_assignments_with_parent_notifications($1, $2, $3, $4::jsonb, '')
+        select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, '')
       `, [ids.resource, ids.club, ids.team, target]),
       /manager access required/i,
     )
@@ -373,7 +375,7 @@ test('Player assignment sync rejects unauthorised managers and cross-team Player
     await db.query('update public.players set team_id = $1 where id = $2', [ids.otherTeam, ids.player])
     await assert.rejects(
       db.query(`
-        select public.sync_resource_library_player_assignments_with_parent_notifications($1, $2, $3, $4::jsonb, '')
+        select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, '')
       `, [ids.resource, ids.club, ids.team, target]),
       /outside the permitted team scope/i,
     )

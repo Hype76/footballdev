@@ -502,7 +502,7 @@ export async function assignResourceLibraryItem({
   }
 
   const assignmentRpc = replacePlayerAssignments
-    ? 'sync_resource_library_player_assignments_with_parent_notifications'
+    ? 'sync_resource_library_player_assignments'
     : 'assign_resource_library_item_with_parent_notifications'
   const { data, error } = await supabase.rpc(assignmentRpc, {
     target_resource_id: normalizedResourceId,

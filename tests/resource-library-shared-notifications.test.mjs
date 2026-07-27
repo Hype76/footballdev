@@ -17,7 +17,7 @@ test('shared resource assignment uses one trusted RPC for allocation, transition
     domain.indexOf('export async function removeResourceLibraryLink'),
   )
 
-  assert.match(domain, /sync_resource_library_player_assignments_with_parent_notifications/)
+  assert.match(domain, /sync_resource_library_player_assignments/)
   assert.match(domain, /assign_resource_library_item_with_parent_notifications/)
   assert.match(domain, /supabase\.rpc\(assignmentRpc/)
   assert.doesNotMatch(assignmentSource, /\.from\('resource_library_links'\)/)

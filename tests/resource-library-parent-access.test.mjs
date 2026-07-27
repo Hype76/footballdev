@@ -5,6 +5,7 @@ import { validateParentResourceAccess } from '../netlify/functions/parent-resour
 
 const functionUrl = new URL('../netlify/functions/parent-resource-access.js', import.meta.url)
 const migrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
+const shortRpcMigrationUrl = new URL('../supabase/migrations/20260727125718_shorten_resource_parent_sharing_rpc.sql', import.meta.url)
 const parentPortalUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 
 const ids = {
@@ -139,7 +140,10 @@ test('Parent listing and access code keep raw resource locations out of Parent p
 })
 
 test('synchronised player assignments use one canonical parent_visible state and soft-remove omitted players', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const [migration, shortRpcMigration] = await Promise.all([
+    readFile(migrationUrl, 'utf8'),
+    readFile(shortRpcMigrationUrl, 'utf8'),
+  ])
 
   assert.match(migration, /sync_resource_library_player_assignments_with_parent_notifications/i)
   assert.match(migration, /jsonb_typeof\(target_value -> 'parentVisible'\) <> 'boolean'/i)
@@ -148,4 +152,6 @@ test('synchronised player assignments use one canonical parent_visible state and
   assert.match(migration, /and not \(link\.linked_id = any\(selected_player_ids\)\)/i)
   assert.match(migration, /set removed_at = timezone\('utc', now\(\)\)/i)
   assert.doesNotMatch(migration, /delete from public\.resource_library_links/i)
+  assert.match(shortRpcMigration, /sync_resource_library_player_assignments\(/i)
+  assert.match(shortRpcMigration, /drop function if exists public\.sync_resource_library_player_assignments_with_parent_notificati/i)
 })

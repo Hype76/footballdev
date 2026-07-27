@@ -36,7 +36,7 @@ test('Team Resources client writes external links through RPC and stores parent 
   assert.match(domain, /export async function createExternalResourceLibraryItem/)
   assert.match(domain, /rpc\('create_external_resource_library_item'/)
   assert.match(domain, /resource_library_external_links\(external_url\)/)
-  assert.match(domain, /sync_resource_library_player_assignments_with_parent_notifications/)
+  assert.match(domain, /sync_resource_library_player_assignments/)
   assert.match(domain, /assign_resource_library_item_with_parent_notifications/)
   assert.match(domain, /supabase\.rpc\(assignmentRpc/)
   assert.match(domain, /parentVisible: target\.linkedType === 'player' && target\.parentVisible === true/)
