@@ -131,6 +131,17 @@ const fixtureAccounts = {
       roleRank: 30,
     }),
   },
+  'assistant.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'team',
+    teamProfile: makeBaseProfile('assistant.fixture@footballplayer.test', {
+      name: 'Assistant Fixture',
+      role: 'assistant_coach',
+      roleLabel: 'Assistant Coach',
+      roleRank: 20,
+    }),
+  },
   'manager.fixture@footballplayer.test': {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: false,
@@ -140,6 +151,17 @@ const fixtureAccounts = {
       role: 'manager',
       roleLabel: 'Manager',
       roleRank: 50,
+    }),
+  },
+  'team-admin.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'team',
+    teamProfile: makeBaseProfile('team-admin.fixture@footballplayer.test', {
+      name: 'Team Admin Fixture',
+      role: 'head_manager',
+      roleLabel: 'Team Admin',
+      roleRank: 70,
     }),
   },
   'parent.fixture@footballplayer.test': {

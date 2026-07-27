@@ -66,10 +66,10 @@ async function stopServer(server) {
   await Promise.race([once(server.child, 'exit'), wait(3000)])
 }
 
-async function signIn(page) {
+async function signIn(page, email = 'manager.fixture@footballplayer.test', access = 'club') {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: 'Club' }).click()
-  await page.getByPlaceholder('you@club.com').fill('manager.fixture@footballplayer.test')
+  await page.getByRole('button', { name: access === 'parent' ? 'Parent' : 'Club' }).click()
+  await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill('FixturePass123!')
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
 }
@@ -127,6 +127,12 @@ async function prepareContext(browser, options) {
   const failedRequests = []
   const hiddenTemplateKeys = new Set()
   const auditRequests = []
+  let nextCustomFormId = 1
+  const corsHeaders = {
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'authorization, apikey, content-type, prefer, x-client-info',
+    'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
+  }
 
   await context.route('**/.netlify/functions/**', (route) => route.fulfill({
     status: 200,
@@ -136,55 +142,87 @@ async function prepareContext(browser, options) {
   await context.route('**/auth/v1/**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
+    headers: corsHeaders,
     body: '{}',
   }))
   await context.route('**/rest/v1/**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
+    headers: corsHeaders,
     body: '[]',
   }))
   await context.route('**/rest/v1/rpc/record_security_audit_event', async (route) => {
     const payload = route.request().postDataJSON() || {}
-    auditRequests.push({
-      action: payload.p_action,
-      entityId: payload.p_entity_id ?? null,
-    })
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: 'null',
-    })
-  })
-  await context.route('**/rest/v1/feedback_forms?**', async (route) => {
     if (route.request().method() === 'POST') {
-      const requestBody = route.request().postDataJSON()
-      const payload = Array.isArray(requestBody) ? requestBody[0] : requestBody
-      const createdForm = {
-        ...payload,
-        id: '44444444-4444-4444-8444-444444444444',
-        created_at: '2026-07-23T15:00:00.000Z',
-        updated_at: '2026-07-23T15:00:00.000Z',
-      }
-      customForms.splice(0, customForms.length, createdForm)
-      await route.fulfill({
-        status: 201,
-        contentType: 'application/json',
-        headers: { 'content-range': '0-0/1' },
-        body: JSON.stringify([createdForm]),
+      auditRequests.push({
+        action: payload.p_action,
+        entityId: payload.p_entity_id ?? null,
       })
-      return
     }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      headers: { 'content-range': customForms.length ? '0-0/1' : '0-0/0' },
-      body: JSON.stringify(customForms),
+      headers: corsHeaders,
+      body: 'null',
+    })
+  })
+  await context.route('**/rest/v1/feedback_forms?**', async (route) => {
+    const request = route.request()
+    const requestUrl = new URL(request.url())
+    const formId = String(requestUrl.searchParams.get('id') ?? '').replace(/^eq\./, '')
+    const wantsSingleObject = String(request.headers().accept ?? '').includes('application/vnd.pgrst.object+json')
+
+    if (request.method() === 'POST') {
+      const requestBody = route.request().postDataJSON()
+      const payload = Array.isArray(requestBody) ? requestBody[0] : requestBody
+      const createdForm = {
+        ...payload,
+        id: `44444444-4444-4444-8444-${String(nextCustomFormId).padStart(12, '0')}`,
+        created_at: '2026-07-23T15:00:00.000Z',
+        updated_at: '2026-07-23T15:00:00.000Z',
+      }
+      nextCustomFormId += 1
+      customForms.push(createdForm)
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        headers: { ...corsHeaders, 'content-range': `${customForms.length - 1}-${customForms.length - 1}/${customForms.length}` },
+        body: JSON.stringify(wantsSingleObject ? createdForm : [createdForm]),
+      })
+      return
+    }
+
+    if (request.method() === 'PATCH') {
+      const payload = request.postDataJSON() || {}
+      const targets = formId
+        ? customForms.filter((form) => form.id === formId)
+        : customForms
+      for (const form of targets) {
+        Object.assign(form, payload)
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { ...corsHeaders, 'content-range': targets.length ? `0-${targets.length - 1}/${targets.length}` : '0-0/0' },
+        body: JSON.stringify(wantsSingleObject ? targets[0] ?? null : targets),
+      })
+      return
+    }
+
+    const visibleForms = formId
+      ? customForms.filter((form) => form.id === formId)
+      : customForms
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { ...corsHeaders, 'content-range': visibleForms.length ? `0-${visibleForms.length - 1}/${visibleForms.length}` : '0-0/0' },
+      body: JSON.stringify(wantsSingleObject ? visibleForms[0] ?? null : visibleForms),
     })
   })
   await context.route('**/rest/v1/feedback_form_starter_templates?**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    headers: { 'content-range': `0-${starterTemplates.length - 1}/${starterTemplates.length}` },
+    headers: { ...corsHeaders, 'content-range': `0-${starterTemplates.length - 1}/${starterTemplates.length}` },
     body: JSON.stringify(starterTemplates),
   }))
   await context.route('**/rest/v1/feedback_form_starter_preferences?**', async (route) => {
@@ -193,7 +231,7 @@ async function prepareContext(browser, options) {
       const payload = Array.isArray(requestBody) ? requestBody[0] : requestBody
       if (payload.hidden) hiddenTemplateKeys.add(payload.template_key)
       else hiddenTemplateKeys.delete(payload.template_key)
-      await route.fulfill({ status: 201, contentType: 'application/json', body: '' })
+      await route.fulfill({ status: 201, contentType: 'application/json', headers: corsHeaders, body: '' })
       return
     }
     const rows = [...hiddenTemplateKeys].map((templateKey) => ({
@@ -203,14 +241,14 @@ async function prepareContext(browser, options) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      headers: { 'content-range': rows.length ? `0-${rows.length - 1}/${rows.length}` : '0-0/0' },
+      headers: { ...corsHeaders, 'content-range': rows.length ? `0-${rows.length - 1}/${rows.length}` : '0-0/0' },
       body: JSON.stringify(rows),
     })
   })
   await context.route('**/rest/v1/teams?**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    headers: { 'content-range': '0-0/1' },
+    headers: { ...corsHeaders, 'content-range': '0-0/1' },
     body: JSON.stringify([{
       id: 'team-u12',
       club_id: 'club-fixture',
@@ -230,7 +268,19 @@ async function prepareContext(browser, options) {
     }
   })
 
-  return { auditRequests, consoleErrors, context, failedRequests, page, pageErrors }
+  return { auditRequests, consoleErrors, context, customForms, failedRequests, page, pageErrors }
+}
+
+async function openMobileNavigation(page, isMobile) {
+  if (!isMobile) return
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('button', { name: 'Close navigation' }).waitFor({ state: 'visible' })
+}
+
+async function assertCleanBrowserSignals(fixture) {
+  assert.deepEqual(fixture.consoleErrors, [])
+  assert.deepEqual(fixture.pageErrors, [])
+  assert.deepEqual(fixture.failedRequests, [])
 }
 
 const server = startServer()
@@ -244,6 +294,47 @@ try {
     { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
     { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
   ]) {
+    for (const allowedRole of [
+      { email: 'team-admin.fixture@footballplayer.test', label: 'Team Admin' },
+      { email: 'manager.fixture@footballplayer.test', label: 'Manager' },
+    ]) {
+      const fixture = await prepareContext(browser, viewport.options)
+      await signIn(fixture.page, allowedRole.email)
+      await fixture.page.waitForURL('**/coach')
+      await openMobileNavigation(fixture.page, viewport.options.isMobile)
+      await fixture.page.getByRole('link', { name: /Development Forms/ }).waitFor({ state: 'visible' })
+      await fixture.page.goto(`${baseUrl}/feedback-forms`, { waitUntil: 'domcontentloaded' })
+      await fixture.page.getByRole('heading', { name: 'Create reusable team feedback forms.' }).waitFor()
+      assert.equal(fixture.consoleErrors.some((message) => message.includes('same key')), false)
+      await fixture.context.close()
+      process.stdout.write(`PASS ${viewport.name}: ${allowedRole.label} navigation and direct route allowed\n`)
+    }
+
+    for (const deniedRole of [
+      { email: 'coach.fixture@footballplayer.test', label: 'Coach' },
+      { email: 'assistant.fixture@footballplayer.test', label: 'Assistant Coach' },
+    ]) {
+      const fixture = await prepareContext(browser, viewport.options)
+      await signIn(fixture.page, deniedRole.email)
+      await fixture.page.waitForURL('**/coach')
+      await openMobileNavigation(fixture.page, viewport.options.isMobile)
+      assert.equal(await fixture.page.getByRole('link', { name: /Development Forms/ }).count(), 0)
+      await fixture.page.goto(`${baseUrl}/feedback-forms`, { waitUntil: 'domcontentloaded' })
+      await fixture.page.getByRole('heading', { name: 'Feedback forms are managed by Managers and Team Admins.' }).waitFor()
+      await fixture.context.close()
+      process.stdout.write(`PASS ${viewport.name}: ${deniedRole.label} navigation hidden and direct route denied\n`)
+    }
+
+    const parentFixture = await prepareContext(browser, viewport.options)
+    await signIn(parentFixture.page, 'parent.fixture@footballplayer.test', 'parent')
+    await parentFixture.page.waitForURL('**/parent-portal')
+    assert.equal(await parentFixture.page.getByRole('link', { name: /Development Forms/ }).count(), 0)
+    await parentFixture.page.goto(`${baseUrl}/feedback-forms`, { waitUntil: 'domcontentloaded' })
+    await parentFixture.page.waitForURL('**/parent-portal')
+    assert.equal(await parentFixture.page.getByRole('heading', { name: 'Create reusable team feedback forms.' }).count(), 0)
+    await parentFixture.context.close()
+    process.stdout.write(`PASS ${viewport.name}: Parent navigation hidden and direct route denied\n`)
+
     const fixture = await prepareContext(browser, viewport.options)
     await signIn(fixture.page)
     await fixture.page.goto(`${baseUrl}/feedback-forms`, { waitUntil: 'domcontentloaded' })
@@ -276,10 +367,46 @@ try {
     await addFieldButton.press('Space')
     assert.equal(await fixture.page.getByLabel('Field label').count(), 2)
 
+    await fixture.page.getByRole('button', { name: 'Create form' }).click()
+    const createSuccess = fixture.page.getByText('Match day feedback saved.', { exact: true })
+    const createFailure = fixture.page.getByText('Feedback form action failed', { exact: true })
+    await createSuccess.or(createFailure).waitFor()
+    if (await createFailure.count()) {
+      throw new Error(await createFailure.locator('..').innerText())
+    }
+    assert.equal(fixture.customForms.length, 1)
+    assert.equal(fixture.customForms[0].club_id, 'club-fixture')
+    assert.equal(fixture.customForms[0].team_id, 'team-u12')
+
+    const createdFormCard = fixture.page.locator('article').filter({ hasText: 'Match day  feedback' })
+    await createdFormCard.getByRole('button', { name: 'Edit' }).click()
+    await formName.fill('Manager lifecycle form')
+    await fixture.page.getByRole('button', { name: 'Save changes' }).click()
+    await fixture.page.getByText('Manager lifecycle form saved.', { exact: true }).waitFor()
+    assert.equal(fixture.customForms[0].name, 'Manager lifecycle form')
+    assert.equal(fixture.customForms[0].version, 2)
+
+    const updatedFormCard = fixture.page.locator('article').filter({ hasText: 'Manager lifecycle form' })
+    await updatedFormCard.getByRole('button', { name: 'Duplicate' }).click()
+    await fixture.page.getByText('Manager lifecycle form copy duplicated.', { exact: true }).waitFor()
+    assert.equal(fixture.customForms.length, 2)
+    assert.equal(fixture.customForms[1].duplicated_from_id, fixture.customForms[0].id)
+    await fixture.page.getByRole('button', { name: 'Clear editor' }).click()
+
+    const originalFormCard = fixture.page.locator('article').filter({
+      has: fixture.page.getByText('Manager lifecycle form', { exact: true }),
+    }).filter({
+      has: fixture.page.getByRole('button', { name: 'Archive' }),
+    })
+    await originalFormCard.getByRole('button', { name: 'Archive' }).click()
+    await fixture.page.getByText('Manager lifecycle form archived. Historical responses stay readable.', { exact: true }).waitFor()
+    assert.equal(fixture.customForms[0].status, 'archived')
+    await fixture.page.getByRole('heading', { name: '1 archived' }).waitFor()
+
     const recommendedCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' })
     await recommendedCard.getByRole('button', { name: 'Duplicate and customise' }).click()
     await fixture.page.getByText('U11-U12 Game Understanding Review custom', { exact: true }).first().waitFor()
-    assert.equal(await fixture.page.getByRole('button', { name: 'Edit' }).count(), 1)
+    assert.ok(await fixture.page.getByRole('button', { name: 'Edit' }).count() >= 2)
 
     const refreshedRecommendedCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' })
     await refreshedRecommendedCard.getByRole('button', { name: 'Hide' }).click()
@@ -297,17 +424,24 @@ try {
     assert.equal(visibilityAudits.length, 2, JSON.stringify(fixture.auditRequests))
     assert.ok(visibilityAudits.some((request) => request.entityId === '11111111-1111-4111-8111-111111111111'))
     assert.equal(visibilityAudits.some((request) => request.entityId === 'u11-u12-game-understanding-review'), false)
+    for (const action of [
+      'feedback_form_created',
+      'feedback_form_edited',
+      'feedback_form_duplicated',
+      'feedback_form_archived',
+      'starter_feedback_form_duplicated',
+    ]) {
+      assert.ok(fixture.auditRequests.some((request) => request.action === action), `${action} audit missing`)
+    }
 
     assert.equal(await fixture.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     const visibleRecommendedCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' })
     await visibleRecommendedCard.getByRole('button', { name: 'Use form' }).click()
     await fixture.page.waitForURL(/\/assess-player\/new\?feedbackForm=platform-starter%3Au11-u12-game-understanding-review%3A1/)
     assert.equal(await fixture.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-    assert.deepEqual(fixture.consoleErrors, [])
-    assert.deepEqual(fixture.pageErrors, [])
-    assert.deepEqual(fixture.failedRequests, [])
+    await assertCleanBrowserSignals(fixture)
     await fixture.context.close()
-    process.stdout.write(`PASS ${viewport.name}: spaces, focus, no submit, starter recommendation, Hide and Show, direct use, duplicate and customise, keyboard and no overflow\n`)
+    process.stdout.write(`PASS ${viewport.name}: Manager create, edit, duplicate, archive, starter actions, keyboard and no overflow\n`)
   }
 } catch (error) {
   process.stderr.write(`${error.stack || error.message}\n${server.output()}\n`)

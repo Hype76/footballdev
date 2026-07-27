@@ -292,7 +292,7 @@ function ClubAdminHomeView({
         <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3">
           {adminActions.map((action) => (
             <Link
-              key={action.path}
+              key={`${action.path}:${action.label}`}
               to={action.path}
               className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
             >
@@ -664,7 +664,7 @@ export function CoachHomePage() {
         {!isCoachMode ? <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4">
           {secondaryActions.map((action) => (
             <Link
-              key={action.path}
+              key={`${action.path}:${action.label}`}
               to={action.path}
               className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
             >

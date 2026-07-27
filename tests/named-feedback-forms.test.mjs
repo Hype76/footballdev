@@ -4,11 +4,16 @@ import { test } from 'node:test'
 
 import { canManageFeedbackForms as canManageFeedbackFormsFromAuth } from '../src/lib/auth-permissions.js'
 import {
+  archiveFeedbackForm,
   buildFeedbackFormSnapshot,
   canCompleteFeedbackForms,
   canManageFeedbackForms,
+  createFeedbackForm,
+  duplicateFeedbackForm,
   getUsableFeedbackFormFields,
   normalizeFeedbackFormField,
+  setStarterFeedbackFormHidden,
+  updateFeedbackForm,
   validateFeedbackFormDraft,
 } from '../src/lib/domain/feedback-forms.js'
 import { normalizeEvaluationRow } from '../src/lib/domain/evaluation-normalizers.js'
@@ -38,11 +43,38 @@ function user(overrides = {}) {
 
 test('only Manager and Team Admin style staff can manage named feedback forms', () => {
   assert.equal(canManageFeedbackForms(user({ role: 'manager', roleRank: 50 })), true)
+  assert.equal(canManageFeedbackForms(user({ role: 'head_manager', roleRank: 70 })), true)
   assert.equal(canManageFeedbackFormsFromAuth(user({ role: 'head_manager', roleRank: 70 })), true)
   assert.equal(canManageFeedbackForms(user({ role: 'coach', roleRank: 30 })), false)
   assert.equal(canManageFeedbackForms(user({ role: 'assistant_coach', roleRank: 20 })), false)
   assert.equal(canManageFeedbackFormsFromAuth(user({ role: 'admin', roleRank: 90 })), false)
   assert.equal(canManageFeedbackForms(user({ role: 'parent_portal', roleRank: 0 })), false)
+  assert.equal(canManageFeedbackForms(user({ activeTeamId: '' })), false)
+  assert.equal(canManageFeedbackForms(user({ clubId: '' })), false)
+  assert.equal(canManageFeedbackForms(user({ isPlanComped: false, planStatus: 'expired' })), false)
+})
+
+test('management actions deny Coach, Assistant Coach, and Parent before any data request', async () => {
+  const deniedUsers = [
+    user({ email: 'coach@example.com', role: 'coach', roleRank: 30 }),
+    user({ email: 'assistant@example.com', role: 'assistant_coach', roleRank: 20 }),
+    user({ email: 'parent@example.com', role: 'parent_portal', roleRank: 0 }),
+  ]
+  const fields = [{ id: 'overall', label: 'Overall', type: 'textarea' }]
+
+  for (const deniedUser of deniedUsers) {
+    const expectedDenial = /Only a Manager or Team Admin can manage feedback forms/
+    await assert.rejects(createFeedbackForm({ fields, name: 'Denied form', user: deniedUser }), expectedDenial)
+    await assert.rejects(updateFeedbackForm({ fields, formId: feedbackFormId, name: 'Denied form', user: deniedUser }), expectedDenial)
+    await assert.rejects(duplicateFeedbackForm({ formId: feedbackFormId, user: deniedUser }), expectedDenial)
+    await assert.rejects(archiveFeedbackForm({ formId: feedbackFormId, user: deniedUser }), expectedDenial)
+    await assert.rejects(setStarterFeedbackFormHidden({
+      hidden: true,
+      templateId: '55555555-5555-4555-8555-555555555555',
+      templateKey: 'fixture-template',
+      user: deniedUser,
+    }), expectedDenial)
+  }
 })
 
 test('feedback form draft validation rejects blank names and unusable fields', () => {
