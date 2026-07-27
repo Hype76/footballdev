@@ -183,6 +183,25 @@ const fixtureAccounts = {
       { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
     ],
   },
+  'lookup-failed-dual.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'parent',
+    parentProfileUnavailable: true,
+    parentAccessReason: 'lookup_failed',
+    teamProfile: makeBaseProfile('lookup-failed-dual.fixture@footballplayer.test', {
+      name: 'Lookup Failed Dual Fixture',
+      role: 'admin',
+      roleLabel: 'Club Admin',
+      roleRank: 80,
+      activeTeamId: '',
+      activeTeamName: '',
+      parentPortalLinks: [],
+    }),
+    fallbackAccessModeOptions: [
+      { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
+    ],
+  },
   'stale-label-dual.fixture@footballplayer.test': {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: false,
@@ -341,9 +360,31 @@ function getProfileForMode(account, mode, selectedTeamId = '') {
   return account.parentProfile || null
 }
 
-function getAccessRouteMismatch(account, mode) {
+function getAccessRouteMismatch(account, mode, loginAccessIntent = '') {
   if (!account) {
     return null
+  }
+
+  if (mode === 'parent' && account.parentProfileUnavailable) {
+    if (account.parentAccessReason === 'lookup_failed' || !loginAccessIntent) {
+      return {
+        parentAccessUnavailable: true,
+        parentAccessReason: account.parentAccessReason || 'no_active_parent_link',
+      }
+    }
+
+    if (account.teamProfile || account.platformProfile) {
+      return {
+        loginIntentMismatch: true,
+        intendedAccessMode: 'parent',
+        availableAccessMode: 'team',
+      }
+    }
+
+    return {
+      parentAccessUnavailable: true,
+      parentAccessReason: account.parentAccessReason || 'no_active_parent_link',
+    }
   }
 
   if (mode === 'parent' && !account.parentProfile && !account.parentProfileUnavailable && (account.teamProfile || account.platformProfile)) {
@@ -391,7 +432,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     : ''
   const activeMode = restoredMode || mode || account?.defaultMode || ''
   const user = account ? getProfileForMode(account, activeMode, selectedTeamId) : null
-  const accessRouteMismatch = user ? null : getAccessRouteMismatch(account, activeMode)
+  const accessRouteMismatch = user ? null : getAccessRouteMismatch(account, activeMode, loginAccessIntent)
   const session = account ? makeSession(email) : null
   const authUser = session?.user || null
   const hasPlatformAdminAccess = Boolean(account?.hasPlatformAdminAccess)
@@ -454,6 +495,12 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_KEY, normalizedMode)
     window.sessionStorage.setItem(FIXTURE_ACCESS_MODE_EXPLICIT_KEY, 'true')
     window.sessionStorage.removeItem(FIXTURE_LOGIN_INTENT_KEY)
+
+    if (options.redirectTo) {
+      window.location.assign(options.redirectTo)
+      return
+    }
+
     setMode(normalizedMode)
     setAuthError('')
   }

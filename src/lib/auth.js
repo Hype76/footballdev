@@ -568,7 +568,7 @@ function RuntimeAuthProvider({ children }) {
           setClubOptions([])
           setUser(null)
           setHasPlatformAdminAccess(hasPlatformAccess)
-          setAccessRouteMismatch(null)
+          setAccessRouteMismatch(profile)
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -796,7 +796,8 @@ function RuntimeAuthProvider({ children }) {
       }
 
       const { fetchUserProfile } = await loadAuthDataModule()
-      const isParentToStaffSwitch = nextAccessMode === 'team' && isParentPortalUser(userRef.current)
+      const isParentToStaffSwitch = nextAccessMode === 'team'
+        && (isParentPortalUser(userRef.current) || accessRouteMismatch?.parentAccessUnavailable)
       const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
       const profile = await fetchUserProfile(authUser, {
         selectedClubId,
@@ -831,6 +832,12 @@ function RuntimeAuthProvider({ children }) {
       }
 
       const profileWithTeam = profile?.role === 'parent_portal' ? profile : await applyTeamSelection(profile)
+
+      if (options.redirectTo) {
+        window.location.assign(options.redirectTo)
+        return profileWithTeam
+      }
+
       setAccessModeOptions(
         nextAccessMode === 'parent'
           ? buildAccessModeOptions(profileWithTeam?.accessModeOptions, hasPlatformAdminAccess)

@@ -169,7 +169,10 @@ async function getUserClubMemberships(authUser) {
 
 async function getParentPortalMemberships(authUser) {
   if (!authUser?.id) {
-    return []
+    return {
+      links: [],
+      lookupFailed: false,
+    }
   }
 
   const { data, error } = await supabase
@@ -181,7 +184,11 @@ async function getParentPortalMemberships(authUser) {
 
   if (error) {
     console.error(error)
-    return []
+    return {
+      links: [],
+      lookupFailed: true,
+      error,
+    }
   }
 
   const normalizedAuthEmail = String(authUser.email ?? '').trim().toLowerCase()
@@ -201,7 +208,7 @@ async function getParentPortalMemberships(authUser) {
     }
   }
 
-  return rows.map((row) => {
+  const links = rows.map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players
     const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
     const club = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
@@ -223,6 +230,11 @@ async function getParentPortalMemberships(authUser) {
       linkType: String(row.link_type ?? 'parent').trim(),
     }
   })
+
+  return {
+    links,
+    lookupFailed: false,
+  }
 }
 
 function normalizeParentPortalProfile(authUser, parentLinks, options = {}) {
@@ -427,7 +439,11 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     let data = await loadUserRow()
-    const parentLinks = isDemoAuthUser ? [] : await getParentPortalMemberships(authUser)
+    const parentMemberships = isDemoAuthUser
+      ? { links: [], lookupFailed: false }
+      : await getParentPortalMemberships(authUser)
+    const parentLinks = parentMemberships.links
+    const parentLinkLookupFailed = Boolean(parentMemberships.lookupFailed)
     const hasParentAccess = parentLinks.length > 0
     let loadedMemberships = null
     let loadedAuthoritativeStaffMemberships = null
@@ -501,6 +517,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       if (selectedAccessMode === 'parent' && !hasParentAccess) {
         return {
           parentAccessUnavailable: true,
+          parentAccessReason: parentLinkLookupFailed ? 'lookup_failed' : 'no_active_parent_link',
           accessModeOptions: buildParentAccessModeOptions({ hasPlatformAccess: true }),
         }
       }
@@ -615,9 +632,17 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     const memberships = data.role === 'super_admin' ? [] : await loadStaffMemberships()
-    const hasTeamAccess = Boolean(data?.club_id || memberships.length > 0 || data.role === 'super_admin')
+    const hasTeamAccess = selectedAccessMode === 'parent'
+      ? canSwitchParentToStaff({ profile: data, memberships })
+      : Boolean(data?.club_id || memberships.length > 0 || data.role === 'super_admin')
 
-    if (selectedAccessMode === 'parent' && loginAccessIntent === 'parent' && !hasParentAccess && hasTeamAccess) {
+    if (
+      selectedAccessMode === 'parent'
+      && loginAccessIntent === 'parent'
+      && !parentLinkLookupFailed
+      && !hasParentAccess
+      && hasTeamAccess
+    ) {
       return {
         loginIntentMismatch: true,
         intendedAccessMode: 'parent',
@@ -628,6 +653,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     if (selectedAccessMode === 'parent' && !hasParentAccess && hasTeamAccess) {
       return {
         parentAccessUnavailable: true,
+        parentAccessReason: parentLinkLookupFailed ? 'lookup_failed' : 'no_active_parent_link',
         accessModeOptions: buildParentAccessModeOptions({ hasTeamAccess: true }),
       }
     }

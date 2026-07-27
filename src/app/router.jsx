@@ -232,6 +232,77 @@ function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null,
   )
 }
 
+function RecoverableParentAccessState({ accessModeOptions = [], reason = 'no_active_parent_link' }) {
+  const { selectAccessMode } = useAuth()
+  const [isOpening, setIsOpening] = useState(false)
+  const [selectionError, setSelectionError] = useState('')
+  const recoveryOptions = accessModeOptions.filter((option) => ['team', 'platform_admin'].includes(option?.id))
+  const isLookupFailure = reason === 'lookup_failed'
+  const message = selectionError || (
+    isLookupFailure
+      ? 'Football Player could not confirm Parent access just now. Your signed-in staff access remains available.'
+      : 'This signed-in account does not currently have an active Parent link. Choose an available staff workspace to continue.'
+  )
+
+  const handleAccessModeSelect = async (accessMode) => {
+    setIsOpening(true)
+    setSelectionError('')
+
+    try {
+      await selectAccessMode(accessMode, {
+        redirectTo: buildMainAppUrl(accessMode === 'platform_admin' ? '/platform-admin' : '/coach'),
+      })
+    } catch (error) {
+      console.error(error)
+      setSelectionError(error.message || 'Could not open this workspace.')
+      setIsOpening(false)
+    }
+  }
+
+  return (
+    <RouteGateState
+      eyebrow="Workspace access"
+      title={isLookupFailure ? 'Parent access could not be confirmed' : 'Choose an available workspace'}
+      message={message}
+      rules={[
+        {
+          title: 'Your session is still active',
+          body: 'This check does not change club, team, parent, player, or invitation records.',
+        },
+        {
+          title: isLookupFailure ? 'Retry before changing access' : 'Parent and staff access are separate',
+          body: isLookupFailure
+            ? 'A temporary Parent-link lookup problem is not treated as proof that the link is missing.'
+            : 'A confirmed staff workspace can remain available even when this account has no active Parent link.',
+        },
+      ]}
+      actions={(
+        <>
+          {recoveryOptions.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => handleAccessModeSelect(option.id)}
+              className={primaryActionClassName}
+              disabled={isOpening}
+            >
+              {isOpening ? 'Opening...' : `Open ${option.label}`}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className={recoveryOptions.length > 0 ? secondaryActionClassName : primaryActionClassName}
+            disabled={isOpening}
+          >
+            Retry
+          </button>
+        </>
+      )}
+    />
+  )
+}
+
 function ParentAccessSignInRedirect() {
   const { signOut } = useAuth()
   const redirectStartedRef = useRef(false)
@@ -668,7 +739,7 @@ function useWorkspaceRouteGate({
   showPlanAccessState = false,
   parentIntent = false,
 } = {}) {
-  const { accessRouteMismatch, isLoading, isProfileLoading, session, user } = useAuth()
+  const { accessModeOptions, accessRouteMismatch, isLoading, isProfileLoading, session, user } = useAuth()
   const loginIntent = readLoginAccessIntent()
 
   if (isLoading && !session?.user) {
@@ -701,6 +772,21 @@ function useWorkspaceRouteGate({
     if (accessRouteMismatch?.teamAccessUnavailable) {
       return {
         element: <TeamAccessUnavailableState />,
+        user: null,
+      }
+    }
+
+    if (
+      accessRouteMismatch?.parentAccessUnavailable
+      && (accessRouteMismatch.parentAccessReason === 'lookup_failed' || accessModeOptions.length > 0)
+    ) {
+      return {
+        element: (
+          <RecoverableParentAccessState
+            accessModeOptions={accessModeOptions}
+            reason={accessRouteMismatch.parentAccessReason}
+          />
+        ),
         user: null,
       }
     }
