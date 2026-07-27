@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260720091524_p1_tenant_parent_player_staff_feedback_isolation.sql', import.meta.url)
 const parentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727044834_restore_parent_link_authority.sql', import.meta.url)
-const staleProfileParentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727051500_restore_parent_link_authority_for_stale_profiles.sql', import.meta.url)
+const staleProfileParentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727052122_restore_parent_link_authority_for_stale_profiles.sql', import.meta.url)
 
 const ID = Object.freeze({
   clubA: '10000000-0000-4000-8000-000000000001',
