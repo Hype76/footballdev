@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migrationUrl = new URL('../supabase/migrations/20260727170000_parent_portal_navigation_view_state.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260727172754_parent_portal_navigation_view_state.sql', import.meta.url)
 
 const ids = {
   club: '20000000-0000-4000-8000-000000000001',

@@ -16,7 +16,7 @@ const pollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url
 const chatPageUrl = new URL('../src/pages/ParentChatPage.jsx', import.meta.url)
 const chatWorkspaceUrl = new URL('../src/components/chat/ParentChatWorkspace.jsx', import.meta.url)
 const hookUrl = new URL('../src/hooks/use-parent-portal-navigation-state.js', import.meta.url)
-const migrationUrl = new URL('../supabase/migrations/20260727170000_parent_portal_navigation_view_state.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260727172754_parent_portal_navigation_view_state.sql', import.meta.url)
 
 test('activity registry inventories only current dynamic Parent navigation categories', () => {
   assert.deepEqual(PARENT_PORTAL_ACTIVITY_CATEGORY_KEYS, [
