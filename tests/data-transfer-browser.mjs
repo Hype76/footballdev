@@ -9,10 +9,138 @@ import { buildTransferWorkbook, DATA_TRANSFER_MIME } from '../netlify/functions/
 const port = 4700 + Math.floor(Math.random() * 300)
 const baseUrl = `http://127.0.0.1:${port}`
 const password = 'FixturePass123!'
-const screenshotDirectory = 'outputs/fp-v1-data-transfer-export-rework-03b'
+const screenshotDirectory = 'outputs/fp-v1-data-transfer-themes-release-04d'
 await mkdir(screenshotDirectory, { recursive: true })
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)) }
+
+async function applyTheme(page, { accent, mode }) {
+  await page.evaluate(({ nextAccent, nextMode }) => {
+    window.localStorage.setItem('app-theme-mode', nextMode)
+    window.localStorage.setItem('app-theme-accent', nextAccent)
+    window.localStorage.setItem('app-theme-button-style', 'solid')
+    window.dispatchEvent(new CustomEvent('app-theme-changed', {
+      detail: {
+        accent: nextAccent,
+        buttonStyle: 'solid',
+        mode: nextMode,
+      },
+    }))
+  }, { nextAccent: accent, nextMode: mode })
+  await page.waitForFunction(({ nextAccent, nextMode }) => (
+    document.body.classList.contains(`theme-${nextMode}`)
+    && document.body.classList.contains(`accent-${nextAccent}`)
+  ), { nextAccent: accent, nextMode: mode })
+}
+
+async function auditTheme(page, { accent, label, mode }) {
+  const audit = await page.evaluate(() => {
+    function parseRgb(value) {
+      const channels = String(value || '').match(/[\d.]+/g)?.slice(0, 3).map(Number)
+      return channels?.length === 3 ? channels : null
+    }
+
+    function luminance(rgb) {
+      const channels = rgb.map((value) => {
+        const normalized = value / 255
+        return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+      })
+      return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2])
+    }
+
+    function contrastRatio(foreground, background) {
+      const foregroundRgb = parseRgb(foreground)
+      const backgroundRgb = parseRgb(background)
+      if (!foregroundRgb || !backgroundRgb) return 0
+      const foregroundLuminance = luminance(foregroundRgb)
+      const backgroundLuminance = luminance(backgroundRgb)
+      return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+    }
+
+    function colorsFor(selector, backgroundSelector = selector) {
+      const element = document.querySelector(selector)
+      const backgroundElement = document.querySelector(backgroundSelector)
+      if (!element || !backgroundElement) return null
+      const foreground = getComputedStyle(element).color
+      const background = getComputedStyle(backgroundElement).backgroundColor
+      return { background, foreground, ratio: contrastRatio(foreground, background) }
+    }
+
+    function inheritedBackground(element) {
+      let current = element
+      while (current) {
+        const background = getComputedStyle(current).backgroundColor
+        if (background && background !== 'transparent' && background !== 'rgba(0, 0, 0, 0)') return background
+        current = current.parentElement
+      }
+      return getComputedStyle(document.body).backgroundColor
+    }
+
+    const root = getComputedStyle(document.documentElement)
+    const section = document.querySelector('[data-testid="data-transfer-page"] section')
+    const control = document.querySelector('[data-testid="data-transfer-page"] select')
+    const primaryButton = document.querySelector('[data-testid="data-transfer-page"] button:not([disabled])')
+    const status = document.querySelector('[data-testid="data-transfer-page"] span.inline-flex.rounded-full, [data-testid="data-transfer-page"] [role="status"]')
+    const tableHeading = document.querySelector('[data-testid="data-transfer-page"] thead th')
+
+    return {
+      accent: document.documentElement.dataset.themeAccent,
+      bodyBackground: getComputedStyle(document.body).backgroundColor,
+      buttonBackground: primaryButton ? getComputedStyle(primaryButton).backgroundColor : null,
+      buttonText: primaryButton ? getComputedStyle(primaryButton).color : null,
+      controlBackground: control ? getComputedStyle(control).backgroundColor : null,
+      controlText: control ? getComputedStyle(control).color : null,
+      documentOverflows: document.documentElement.scrollWidth > window.innerWidth,
+      panelBackground: section ? getComputedStyle(section).backgroundColor : null,
+      samples: {
+        button: primaryButton ? {
+          background: getComputedStyle(primaryButton).backgroundColor,
+          foreground: getComputedStyle(primaryButton).color,
+          ratio: contrastRatio(getComputedStyle(primaryButton).color, getComputedStyle(primaryButton).backgroundColor),
+        } : null,
+        control: control ? {
+          background: getComputedStyle(control).backgroundColor,
+          foreground: getComputedStyle(control).color,
+          ratio: contrastRatio(getComputedStyle(control).color, getComputedStyle(control).backgroundColor),
+        } : null,
+        heading: colorsFor('[data-testid="data-transfer-page"] section h2', '[data-testid="data-transfer-page"] section'),
+        status: status ? {
+          background: getComputedStyle(status).backgroundColor,
+          foreground: getComputedStyle(status).color,
+          ratio: contrastRatio(getComputedStyle(status).color, getComputedStyle(status).backgroundColor),
+        } : null,
+        tableHeading: tableHeading ? {
+          background: inheritedBackground(tableHeading),
+          foreground: getComputedStyle(tableHeading).color,
+          ratio: contrastRatio(getComputedStyle(tableHeading).color, inheritedBackground(tableHeading)),
+        } : null,
+      },
+      tokens: {
+        accent: root.getPropertyValue('--accent').trim(),
+        appBackground: root.getPropertyValue('--app-bg').trim(),
+        buttonPrimary: root.getPropertyValue('--button-primary').trim(),
+        panelAlt: root.getPropertyValue('--panel-alt').trim(),
+        panelBackground: root.getPropertyValue('--panel-bg').trim(),
+      },
+    }
+  })
+
+  assert.equal(audit.accent, accent)
+  assert.equal(audit.documentOverflows, false)
+  assert.notEqual(audit.bodyBackground, audit.panelBackground)
+  assert.notEqual(audit.controlBackground, audit.controlText)
+  assert.notEqual(audit.buttonBackground, audit.buttonText)
+  for (const [sampleName, sample] of Object.entries(audit.samples)) {
+    assert.ok(sample, `${label} ${sampleName} sample is present`)
+    assert.ok(sample.ratio >= 4.5, `${label} ${sampleName} contrast ${sample.ratio.toFixed(2)} is at least 4.5`)
+  }
+  assert.ok(audit.tokens.accent)
+  assert.ok(audit.tokens.appBackground)
+  assert.ok(audit.tokens.buttonPrimary)
+  assert.ok(audit.tokens.panelAlt)
+  assert.ok(audit.tokens.panelBackground)
+  return audit
+}
 
 async function waitForPort(timeoutMs = 30000) {
   const startedAt = Date.now()
@@ -194,7 +322,11 @@ try {
     const fixture = await prepareContext(browser, workbookBuffer)
     const page = await fixture.context.newPage()
     const pageErrors = []
+    const consoleErrors = []
     page.on('pageerror', (pageError) => pageErrors.push(pageError.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text())
+    })
     await signIn(page, 'club.fixture@footballplayer.test')
     await page.goto(`${baseUrl}/data-transfer`, { waitUntil: 'domcontentloaded' })
     await page.getByRole('heading', { name: 'Data Transfer' }).waitFor()
@@ -253,16 +385,33 @@ try {
     await page.getByLabel('Type IMPORT to confirm').fill('IMPORT')
     await page.getByRole('button', { name: 'Confirm and import' }).click()
     await page.getByText('The confirmed import completed.').waitFor()
-    await page.screenshot({ path: `${screenshotDirectory}/data-transfer-desktop.png`, fullPage: true })
+    const desktopThemeMatrix = [
+      { accent: 'green', label: 'light-default', mode: 'light' },
+      { accent: 'green', label: 'dark-default', mode: 'dark' },
+      { accent: 'purple', label: 'light-custom', mode: 'light' },
+      { accent: 'purple', label: 'dark-custom', mode: 'dark' },
+    ]
+    for (const theme of desktopThemeMatrix) {
+      await applyTheme(page, theme)
+      await auditTheme(page, theme)
+      await page.screenshot({ path: `${screenshotDirectory}/data-transfer-desktop-${theme.label}.png`, fullPage: true })
+    }
     assert.equal(fixture.confirmCalls(), 1)
     assert.deepEqual(pageErrors, [])
+    assert.deepEqual(consoleErrors, [])
     await fixture.context.close()
-    console.log('ok club admin download, inspect, preview, and separate confirmation flow')
+    console.log('ok club admin flow and desktop light, dark, default-accent, and custom-accent matrix')
   }
 
   {
     const fixture = await prepareContext(browser, workbookBuffer)
     const page = await fixture.context.newPage()
+    const pageErrors = []
+    const consoleErrors = []
+    page.on('pageerror', (pageError) => pageErrors.push(pageError.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text())
+    })
     await signIn(page, 'club.fixture@footballplayer.test')
     await page.goto(`${baseUrl}/data-transfer`, { waitUntil: 'domcontentloaded' })
     await page.getByRole('heading', { name: 'Data Transfer' }).waitFor()
@@ -276,14 +425,19 @@ try {
     assert.equal(await page.getByLabel('Map Player First Name').inputValue(), 'player_first_name')
     assert.equal(await page.getByLabel('Map Player Last Name').inputValue(), 'player_last_name')
     await page.getByLabel('Day / Month / Year').check()
-    await page.screenshot({ path: `${screenshotDirectory}/data-transfer-csv-mapping-desktop.png`, fullPage: true })
+    const mappingTheme = { accent: 'purple', label: 'dark-custom-mapping', mode: 'dark' }
+    await applyTheme(page, mappingTheme)
+    await auditTheme(page, mappingTheme)
+    await page.screenshot({ path: `${screenshotDirectory}/data-transfer-desktop-${mappingTheme.label}.png`, fullPage: true })
     await page.getByRole('button', { name: 'Prepare read-only preview' }).click()
     await page.getByText('Preview is ready. No records have been written.').waitFor()
     assert.equal(fixture.lastInspectBody().mapping.sheetName, 'CSV Data')
     assert.equal(fixture.lastInspectBody().mapping.dateConvention, 'dmy')
     assert.ok(fixture.lastInspectBody().mapping.columns.some((entry) => entry.targetField === 'date_of_birth' && entry.transformation === 'parse_date'))
+    assert.deepEqual(pageErrors, [])
+    assert.deepEqual(consoleErrors, [])
     await fixture.context.close()
-    console.log('ok ordinary CSV worksheet mapping and explicit ambiguous-date confirmation flow')
+    console.log('ok ordinary CSV mapping and dark custom-accent warning state')
   }
 
   {
@@ -325,15 +479,31 @@ try {
   for (const [label, viewport] of [['tablet', { width: 820, height: 1180 }], ['mobile', { width: 390, height: 844 }]]) {
     const fixture = await prepareContext(browser, workbookBuffer, { viewport })
     const page = await fixture.context.newPage()
+    const pageErrors = []
+    const consoleErrors = []
+    page.on('pageerror', (pageError) => pageErrors.push(pageError.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text())
+    })
     await signIn(page, 'club.fixture@footballplayer.test')
     await page.goto(`${baseUrl}/data-transfer`, { waitUntil: 'domcontentloaded' })
     await page.getByRole('heading', { name: 'Data Transfer' }).waitFor()
     await page.getByRole('button', { name: 'Simple XLSX' }).waitFor()
-    const documentOverflows = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
-    assert.equal(documentOverflows, false)
-    await page.screenshot({ path: `${screenshotDirectory}/data-transfer-${label}.png`, fullPage: true })
+    const responsiveThemeMatrix = [
+      { accent: 'green', label: `${label}-light-default`, mode: 'light' },
+      { accent: 'green', label: `${label}-dark-default`, mode: 'dark' },
+      { accent: 'purple', label: `${label}-light-custom`, mode: 'light' },
+      { accent: 'purple', label: `${label}-dark-custom`, mode: 'dark' },
+    ]
+    for (const theme of responsiveThemeMatrix) {
+      await applyTheme(page, theme)
+      await auditTheme(page, theme)
+      await page.screenshot({ path: `${screenshotDirectory}/data-transfer-${theme.label}.png`, fullPage: true })
+    }
+    assert.deepEqual(pageErrors, [])
+    assert.deepEqual(consoleErrors, [])
     await fixture.context.close()
-    console.log(`ok ${label} Data Transfer layout remains within the viewport`)
+    console.log(`ok ${label} light, dark, default-accent, and custom-accent matrix`)
   }
 } catch (error) {
   console.error(server.output())
