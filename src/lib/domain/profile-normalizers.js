@@ -10,6 +10,15 @@ import {
   normalizeWords,
 } from './core-normalizers.js'
 import { normalizePlanKey } from '../plans.js'
+import { normalizeLegacyThemeButtonStyle, normalizeThemeButtonStyle } from '../theme.js'
+
+function normalizeHydratedClubButtonStyle(clubValue, legacyValue) {
+  const normalizedClubValue = String(clubValue ?? '').trim()
+
+  return normalizedClubValue
+    ? normalizeThemeButtonStyle(normalizedClubValue)
+    : normalizeLegacyThemeButtonStyle(legacyValue)
+}
 
 export function getSignupClubName(authUser) {
   const metadataClubName = String(
@@ -50,6 +59,10 @@ export function normalizeClubMembershipRow(row) {
     clubContactEmail: String(clubRow?.contact_email ?? row.clubContactEmail ?? '').trim(),
     clubContactPhone: String(clubRow?.contact_phone ?? row.clubContactPhone ?? '').trim(),
     themeAccent: String(clubRow?.theme_accent ?? row.themeAccent ?? '').trim(),
+    themeButtonStyle: normalizeHydratedClubButtonStyle(
+      clubRow?.theme_button_style,
+      row.themeButtonStyle,
+    ),
     clubStatus: String(clubRow?.status ?? row.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: clubRow?.suspended_at ?? row.clubSuspendedAt ?? '',
     planKey: normalizePlanKey(clubRow?.plan_key ?? row.planKey, { mapMissingToFree: true }),
@@ -131,7 +144,10 @@ export function normalizeUserProfile(profile) {
     workspaceOnboardingResetAt: getClubValue(profile.clubs, 'onboarding_reset_at') ?? profile.workspaceOnboardingResetAt ?? '',
     themeMode: String(profile.theme_mode ?? profile.themeMode ?? '').trim(),
     themeAccent: String(getClubValue(profile.clubs, 'theme_accent') ?? profile.themeAccent ?? profile.theme_accent ?? '').trim(),
-    themeButtonStyle: String(profile.theme_button_style ?? profile.themeButtonStyle ?? '').trim(),
+    themeButtonStyle: normalizeHydratedClubButtonStyle(
+      getClubValue(profile.clubs, 'theme_button_style'),
+      profile.theme_button_style ?? profile.themeButtonStyle,
+    ),
     activeTeamId: String(profile.activeTeamId ?? '').trim(),
     activeTeamName: String(profile.activeTeamName ?? '').trim(),
     clubOptions: Array.isArray(profile.clubOptions) ? profile.clubOptions : [],

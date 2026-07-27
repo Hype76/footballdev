@@ -1,9 +1,12 @@
 import { useEffect } from 'react'
 import {
   THEME_CHANGED_EVENT,
+  applyThemeColorVariables,
   getStoredThemeAccent,
   getStoredThemeButtonStyle,
   getStoredThemeMode,
+  getSystemTheme,
+  isCustomThemeAccent,
   normalizeThemeAccent,
   normalizeThemeButtonStyle,
   normalizeThemeMode,
@@ -13,9 +16,10 @@ function applyPublicTheme() {
   const mode = normalizeThemeMode(getStoredThemeMode())
   const accent = normalizeThemeAccent(getStoredThemeAccent())
   const buttonStyle = normalizeThemeButtonStyle(getStoredThemeButtonStyle())
-  const resolvedMode = mode === 'light' ? 'light' : 'dark'
+  const resolvedMode = mode === 'system' ? getSystemTheme() : mode
   const root = document.documentElement
   const body = document.body
+  const accentClassName = isCustomThemeAccent(accent) ? 'accent-custom' : `accent-${accent}`
 
   root.classList.remove(
     'theme-light',
@@ -25,6 +29,7 @@ function applyPublicTheme() {
     'accent-green',
     'accent-red',
     'accent-purple',
+    'accent-custom',
     'button-style-solid',
     'button-style-gradient',
   )
@@ -36,15 +41,18 @@ function applyPublicTheme() {
     'accent-green',
     'accent-red',
     'accent-purple',
+    'accent-custom',
     'button-style-solid',
     'button-style-gradient',
   )
   root.classList.add(resolvedMode === 'dark' ? 'theme-dark' : 'theme-light')
-  root.classList.add(`accent-${accent}`)
+  root.classList.add(accentClassName)
   root.classList.add(`button-style-${buttonStyle}`)
   body.classList.add(resolvedMode === 'dark' ? 'theme-dark' : 'theme-light')
-  body.classList.add(`accent-${accent}`)
+  body.classList.add(accentClassName)
   body.classList.add(`button-style-${buttonStyle}`)
+  applyThemeColorVariables(root, accent, resolvedMode)
+  applyThemeColorVariables(body, accent, resolvedMode)
   root.dataset.themeAccent = accent
   root.dataset.buttonStyle = buttonStyle
   body.dataset.themeAccent = accent
@@ -54,12 +62,15 @@ function applyPublicTheme() {
 export function usePublicThemeScope() {
   useEffect(() => {
     const handleChange = () => applyPublicTheme()
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
     applyPublicTheme()
     window.addEventListener(THEME_CHANGED_EVENT, handleChange)
+    mediaQuery.addEventListener('change', handleChange)
 
     return () => {
       window.removeEventListener(THEME_CHANGED_EVENT, handleChange)
+      mediaQuery.removeEventListener('change', handleChange)
     }
   }, [])
 }

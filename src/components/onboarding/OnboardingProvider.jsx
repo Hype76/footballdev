@@ -18,7 +18,7 @@ import {
   getVisibleClubUsers,
   importClubLogoFromUrl,
   replaceTeamStaffAssignments,
-  updateClubAccentColour,
+  updateClubDisplaySettings,
   updateClubSettings,
   updateTeamSettings,
   uploadClubLogo,
@@ -35,7 +35,15 @@ import {
   resetOnboarding,
   saveOnboardingStep,
 } from '../../lib/onboarding.js'
-import { themeAccentOptions, themeButtonStyleOptions, themeModeOptions } from '../../lib/theme.js'
+import {
+  CUSTOM_THEME_ACCENT_OPTION,
+  DEFAULT_CUSTOM_THEME_ACCENT,
+  getThemeAccentOption,
+  isCustomThemeAccent,
+  themeAccentOptions,
+  themeButtonStyleOptions,
+  themeModeOptions,
+} from '../../lib/theme.js'
 
 const eyebrowClass = 'text-[11px] font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
@@ -492,7 +500,7 @@ function OnboardingActionModal({
         setThemeForm({
           mode: currentThemeTeam?.themeMode || user.themeMode || 'light',
           accent: clubSettings?.themeAccent || user.themeAccent || 'green',
-          buttonStyle: currentThemeTeam?.themeButtonStyle || user.themeButtonStyle || 'solid',
+          buttonStyle: clubSettings?.themeButtonStyle || user.themeButtonStyle || 'solid',
         })
 
         const fallbackTeamId = user.activeTeamId || nextTeams[0]?.id || ''
@@ -571,9 +579,10 @@ function OnboardingActionModal({
         })
 
         if (actionType === 'branding-theme') {
-          updatedClub = await updateClubAccentColour({
+          updatedClub = await updateClubDisplaySettings({
             clubId: user.clubId,
             themeAccent: themeForm.accent,
+            themeButtonStyle: themeForm.buttonStyle,
             user,
           })
 
@@ -584,7 +593,6 @@ function OnboardingActionModal({
                   teamId: team.id,
                   data: {
                     themeMode: themeForm.mode,
-                    themeButtonStyle: themeForm.buttonStyle,
                   },
                   user,
                 }),
@@ -601,7 +609,7 @@ function OnboardingActionModal({
           clubContactPhone: updatedClub.contactPhone,
           themeMode: themeForm.mode,
           themeAccent: updatedClub.themeAccent,
-          themeButtonStyle: themeForm.buttonStyle,
+          themeButtonStyle: updatedClub.themeButtonStyle,
         })
         setSelectedLogoFile(null)
       } else if (actionType === 'manage-teams') {
@@ -947,7 +955,18 @@ function OnboardingActionModal({
                   </label>
                   <label className="block">
                     <span className={modalLabelClass}>Accent colour</span>
-                    <select value={themeForm.accent} onChange={(event) => setThemeForm((current) => ({ ...current, accent: event.target.value }))} className={modalInputClass}>
+                    <select
+                      value={getThemeAccentOption(themeForm.accent)}
+                      onChange={(event) => setThemeForm((current) => ({
+                        ...current,
+                        accent: event.target.value === CUSTOM_THEME_ACCENT_OPTION
+                          ? isCustomThemeAccent(current.accent)
+                            ? current.accent
+                            : DEFAULT_CUSTOM_THEME_ACCENT
+                          : event.target.value,
+                      }))}
+                      className={modalInputClass}
+                    >
                       {themeAccentOptions.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
@@ -961,6 +980,34 @@ function OnboardingActionModal({
                       ))}
                     </select>
                   </label>
+                  {isCustomThemeAccent(themeForm.accent) ? (
+                    <div className="grid gap-3 sm:col-span-3 sm:grid-cols-[auto_1fr]">
+                      <label className="block">
+                        <span className={modalLabelClass}>Custom accent colour picker</span>
+                        <input
+                          type="color"
+                          value={themeForm.accent}
+                          onChange={(event) => setThemeForm((current) => ({ ...current, accent: event.target.value }))}
+                          className="h-12 w-20 cursor-pointer rounded-lg border border-[#d7e5dc] bg-white p-1"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className={modalLabelClass}>Custom accent hexadecimal value</span>
+                        <input
+                          value={themeForm.accent}
+                          onChange={(event) => setThemeForm((current) => ({
+                            ...current,
+                            accent: event.target.value.trim().toLowerCase(),
+                          }))}
+                          pattern="#[0-9a-f]{6}"
+                          maxLength={7}
+                          autoComplete="off"
+                          spellCheck="false"
+                          className={modalInputClass}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </>

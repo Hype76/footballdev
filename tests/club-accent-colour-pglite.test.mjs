@@ -4,7 +4,8 @@ import { test } from 'node:test'
 
 import { PGlite } from '@electric-sql/pglite'
 
-const migrationUrl = new URL('../supabase/migrations/20260727073332_club_accent_colour_authority.sql', import.meta.url)
+const accentMigrationUrl = new URL('../supabase/migrations/20260727073332_club_accent_colour_authority.sql', import.meta.url)
+const displayMigrationUrl = new URL('../supabase/migrations/20260727120000_club_display_controls.sql', import.meta.url)
 
 const IDS = Object.freeze({
   clubA: '10000000-0000-4000-8000-000000000001',
@@ -55,7 +56,8 @@ async function createDatabase() {
       id uuid primary key default gen_random_uuid(),
       club_id uuid not null references public.clubs(id),
       name text not null,
-      theme_accent text
+      theme_accent text,
+      theme_button_style text
     );
 
     create table public.users (
@@ -137,11 +139,11 @@ async function createDatabase() {
       ('${IDS.clubNoFeature}', 'Club No Feature', false),
       ('${IDS.clubEmpty}', 'Club Empty', true);
 
-    insert into public.teams(club_id, name, theme_accent) values
-      ('${IDS.clubA}', 'A One', 'blue'),
-      ('${IDS.clubA}', 'A Two', 'blue'),
-      ('${IDS.clubA}', 'A Three', 'red'),
-      ('${IDS.clubB}', 'B One', 'purple');
+    insert into public.teams(club_id, name, theme_accent, theme_button_style) values
+      ('${IDS.clubA}', 'A One', 'blue', 'gradient'),
+      ('${IDS.clubA}', 'A Two', 'blue', 'gradient'),
+      ('${IDS.clubA}', 'A Three', 'red', 'solid'),
+      ('${IDS.clubB}', 'B One', 'purple', 'gradient');
 
     insert into public.users(id, club_id, role, role_rank) values
       ('${IDS.manager}', '${IDS.clubA}', 'manager', 50),
@@ -176,7 +178,8 @@ async function createDatabase() {
     );
   `)
 
-  await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(accentMigrationUrl, 'utf8'))
+  await db.exec(await readFile(displayMigrationUrl, 'utf8'))
   return db
 }
 
@@ -191,20 +194,20 @@ async function asOwner(db) {
   await db.exec('reset role')
 }
 
-test('migration backfills a deterministic club accent and protects the field by role, club, plan, and value', async () => {
+test('migration backfills deterministic club display values and protects both fields', async () => {
   const db = await createDatabase()
 
   try {
     const backfilled = await db.query(`
-      select id, theme_accent
+      select id, theme_accent, theme_button_style
       from public.clubs
       order by id
     `)
     assert.deepEqual(backfilled.rows, [
-      { id: IDS.clubA, theme_accent: 'blue' },
-      { id: IDS.clubB, theme_accent: 'purple' },
-      { id: IDS.clubNoFeature, theme_accent: 'green' },
-      { id: IDS.clubEmpty, theme_accent: 'green' },
+      { id: IDS.clubA, theme_accent: 'blue', theme_button_style: 'solid' },
+      { id: IDS.clubB, theme_accent: 'purple', theme_button_style: 'solid' },
+      { id: IDS.clubNoFeature, theme_accent: 'green', theme_button_style: 'solid' },
+      { id: IDS.clubEmpty, theme_accent: 'green', theme_button_style: 'solid' },
     ])
 
     await setActor(db, IDS.manager)
@@ -213,20 +216,52 @@ test('migration backfills a deterministic club accent and protects the field by 
       db.exec(`update public.clubs set theme_accent = 'red' where id = '${IDS.clubA}'`),
       /Only the Club Admin can change the club accent colour/i,
     )
+    await assert.rejects(
+      db.exec(`update public.clubs set theme_button_style = 'gradient' where id = '${IDS.clubA}'`),
+      /Only the Club Admin can change the club button style/i,
+    )
 
     await setActor(db, IDS.teamAdmin)
     await assert.rejects(
       db.exec(`update public.clubs set theme_accent = 'red' where id = '${IDS.clubA}'`),
       /Only the Club Admin can change the club accent colour/i,
     )
+    await assert.rejects(
+      db.exec(`update public.clubs set theme_button_style = 'gradient' where id = '${IDS.clubA}'`),
+      /Only the Club Admin can change the club button style/i,
+    )
 
     await setActor(db, IDS.clubAdmin)
-    await db.exec(`update public.clubs set theme_accent = 'red' where id = '${IDS.clubA}'`)
-    const saved = await db.query(`select theme_accent from public.clubs where id = '${IDS.clubA}'`)
-    assert.equal(saved.rows[0].theme_accent, 'red')
+    await db.exec(`
+      update public.clubs
+      set theme_accent = '#2b6cb0',
+          theme_button_style = 'gradient'
+      where id = '${IDS.clubA}'
+    `)
+    const saved = await db.query(`
+      select theme_accent, theme_button_style
+      from public.clubs
+      where id = '${IDS.clubA}'
+    `)
+    assert.deepEqual(saved.rows[0], {
+      theme_accent: '#2b6cb0',
+      theme_button_style: 'gradient',
+    })
     await assert.rejects(
       db.exec(`update public.clubs set theme_accent = 'orange' where id = '${IDS.clubA}'`),
       /clubs_theme_accent_check/i,
+    )
+    await assert.rejects(
+      db.exec(`update public.clubs set theme_accent = '#2B6CB0' where id = '${IDS.clubA}'`),
+      /clubs_theme_accent_check/i,
+    )
+    await assert.rejects(
+      db.exec(`update public.clubs set theme_accent = '#2b6cb080' where id = '${IDS.clubA}'`),
+      /clubs_theme_accent_check/i,
+    )
+    await assert.rejects(
+      db.exec(`update public.clubs set theme_button_style = 'outline' where id = '${IDS.clubA}'`),
+      /clubs_theme_button_style_check/i,
     )
     const crossClub = await db.query(
       `update public.clubs set theme_accent = 'yellow' where id = '${IDS.clubB}' returning id`,
@@ -236,6 +271,10 @@ test('migration backfills a deterministic club accent and protects the field by 
     await setActor(db, IDS.noFeatureAdmin)
     await assert.rejects(
       db.exec(`update public.clubs set theme_accent = 'yellow' where id = '${IDS.clubNoFeature}'`),
+      /Custom colours and club branding are not included in this plan/i,
+    )
+    await assert.rejects(
+      db.exec(`update public.clubs set theme_button_style = 'gradient' where id = '${IDS.clubNoFeature}'`),
       /Custom colours and club branding are not included in this plan/i,
     )
   } finally {

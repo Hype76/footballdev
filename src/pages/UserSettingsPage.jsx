@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AccountProfileSection } from '../components/user-settings/AccountProfileSection.jsx'
 import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
 import { LoginEmailSection } from '../components/user-settings/LoginEmailSection.jsx'
@@ -10,11 +10,9 @@ import { useToast } from '../components/ui/toast-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
 import { canManageClubSettings, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
-  getTeams,
   requestLoginEmailChange,
   requestPasswordReauthentication,
-  updateClubAccentColour,
-  updateTeamSettings,
+  updateClubDisplaySettings,
   updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
@@ -23,9 +21,15 @@ import { CAPABILITIES } from '../lib/paywall-access.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import { canEditClubIdentity } from '../lib/plans.js'
 import {
+  CUSTOM_THEME_ACCENT_OPTION,
+  DEFAULT_CUSTOM_THEME_ACCENT,
+  getThemeAccentOption,
   getStoredThemeAccent,
   getStoredThemeButtonStyle,
   getStoredThemeMode,
+  isCustomThemeAccent,
+  normalizeThemeAccent,
+  normalizeThemeButtonStyle,
   saveThemePreferences,
 } from '../lib/theme.js'
 import {
@@ -68,8 +72,18 @@ export function UserSettingsPage() {
   const [isLoadingOnboardingSnapshot, setIsLoadingOnboardingSnapshot] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
-  const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
+  const [savedThemeAccent, setSavedThemeAccent] = useState(getStoredThemeAccent)
+  const [savedThemeButtonStyle, setSavedThemeButtonStyle] = useState(getStoredThemeButtonStyle)
+  const [themeAccentChoice, setThemeAccentChoice] = useState(() => getThemeAccentOption(getStoredThemeAccent()))
+  const [customThemeAccent, setCustomThemeAccent] = useState(() => {
+    const storedAccent = getStoredThemeAccent()
+    return isCustomThemeAccent(storedAccent) ? storedAccent : DEFAULT_CUSTOM_THEME_ACCENT
+  })
   const [themeButtonStyle, setThemeButtonStyle] = useState(getStoredThemeButtonStyle)
+  const [isSavingBranding, setIsSavingBranding] = useState(false)
+  const [brandingSaveState, setBrandingSaveState] = useState('idle')
+  const [brandingSaveMessage, setBrandingSaveMessage] = useState('')
+  const brandingScopeRef = useRef(`${user?.id || ''}:${user?.clubId || ''}`)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const currentLoginEmail = String(user?.email || authUser?.email || '').trim().toLowerCase()
@@ -101,10 +115,23 @@ export function UserSettingsPage() {
       return
     }
 
+    const nextAccent = normalizeThemeAccent(user.themeAccent || getStoredThemeAccent(), 'green')
+    const nextButtonStyle = normalizeThemeButtonStyle(user.themeButtonStyle || getStoredThemeButtonStyle())
+    const nextBrandingScope = `${user.id}:${user.clubId || ''}`
+
     setThemeMode(user.themeMode || getStoredThemeMode())
-    setThemeAccent(user.themeAccent || getStoredThemeAccent())
-    setThemeButtonStyle(user.themeButtonStyle || getStoredThemeButtonStyle())
-  }, [user?.id, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
+    setSavedThemeAccent(nextAccent)
+    setSavedThemeButtonStyle(nextButtonStyle)
+    setThemeAccentChoice(getThemeAccentOption(nextAccent))
+    setCustomThemeAccent(isCustomThemeAccent(nextAccent) ? nextAccent : DEFAULT_CUSTOM_THEME_ACCENT)
+    setThemeButtonStyle(nextButtonStyle)
+
+    if (brandingScopeRef.current !== nextBrandingScope) {
+      brandingScopeRef.current = nextBrandingScope
+      setBrandingSaveState('idle')
+      setBrandingSaveMessage('')
+    }
+  }, [user?.clubId, user?.id, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
 
   useEffect(() => {
     if (!successMessage) {
@@ -331,94 +358,36 @@ export function UserSettingsPage() {
     }
   }
 
-  const persistBrandingPreferences = async (nextPreferences) => {
-    if (isDemoSettings || !canEditClubBranding) {
-      return
-    }
-
-    try {
-      const teamIds = (await getTeams(user)).map((team) => team.id).filter(Boolean)
-
-      if (teamIds.length === 0) {
-        throw new Error('Create a team before editing club branding.')
-      }
-
-      const updatedTeams = await Promise.all(teamIds.map((teamId) =>
-        updateTeamSettings({
-          teamId,
-          user,
-          data: {
-            themeButtonStyle: nextPreferences.buttonStyle,
-          },
-        }),
-      ))
-      const updatedTeam = updatedTeams[0]
-      updateCurrentUserDetails({
-        themeButtonStyle: updatedTeam.themeButtonStyle,
-      })
-    } catch (error) {
-      console.error(error)
-      showToast({
-        title: 'Club branding not saved',
-        message: 'The club branding could not be updated right now.',
-        tone: 'error',
-      })
-    }
-  }
-
   const handleThemeModeChange = (nextThemeMode) => {
     const nextPreferences = saveThemePreferences({
       mode: nextThemeMode,
-      accent: themeAccent,
-      buttonStyle: themeButtonStyle,
+      accent: savedThemeAccent,
+      buttonStyle: savedThemeButtonStyle,
     })
     setThemeMode(nextPreferences.mode)
-    setThemeAccent(nextPreferences.accent)
-    setThemeButtonStyle(nextPreferences.buttonStyle)
     showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
     void persistUserThemePreference(nextPreferences.mode)
   }
 
-  const handleThemeAccentChange = async (nextThemeAccent) => {
+  const handleThemeAccentChange = (nextThemeAccent) => {
     if (!canEditClubBranding) {
       showToast({ title: 'Branding not changed', message: brandingUnavailableMessage, tone: 'error' })
       return
     }
 
-    const previousAccent = themeAccent
-    const nextPreferences = saveThemePreferences({
-      mode: themeMode,
-      accent: nextThemeAccent,
-      buttonStyle: themeButtonStyle,
-    })
-    setThemeMode(nextPreferences.mode)
-    setThemeAccent(nextPreferences.accent)
-    setThemeButtonStyle(nextPreferences.buttonStyle)
+    setThemeAccentChoice(nextThemeAccent)
+    setBrandingSaveState('idle')
+    setBrandingSaveMessage('')
+  }
 
-    try {
-      const updatedClub = await updateClubAccentColour({
-        clubId: user.clubId,
-        themeAccent: nextPreferences.accent,
-        user,
-      })
-      updateCurrentUserDetails({
-        themeAccent: updatedClub.themeAccent,
-      })
-      showToast({ title: 'Club branding updated', message: 'The club accent colour has been saved.' })
-    } catch (error) {
-      console.error(error)
-      const restoredPreferences = saveThemePreferences({
-        mode: themeMode,
-        accent: previousAccent,
-        buttonStyle: themeButtonStyle,
-      })
-      setThemeAccent(restoredPreferences.accent)
-      showToast({
-        title: 'Club branding not saved',
-        message: error.message || 'The club accent colour could not be updated right now.',
-        tone: 'error',
-      })
+  const handleCustomThemeAccentChange = (nextCustomThemeAccent) => {
+    if (!canEditClubBranding) {
+      return
     }
+
+    setCustomThemeAccent(String(nextCustomThemeAccent ?? '').trim().toLowerCase())
+    setBrandingSaveState('idle')
+    setBrandingSaveMessage('')
   }
 
   const handleThemeButtonStyleChange = (nextThemeButtonStyle) => {
@@ -427,16 +396,65 @@ export function UserSettingsPage() {
       return
     }
 
-    const nextPreferences = saveThemePreferences({
-      mode: themeMode,
-      accent: themeAccent,
-      buttonStyle: nextThemeButtonStyle,
-    })
-    setThemeMode(nextPreferences.mode)
-    setThemeAccent(nextPreferences.accent)
-    setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Club branding updated', message: 'The club button style has been saved.' })
-    void persistBrandingPreferences(nextPreferences)
+    setThemeButtonStyle(normalizeThemeButtonStyle(nextThemeButtonStyle))
+    setBrandingSaveState('idle')
+    setBrandingSaveMessage('')
+  }
+
+  const handleSaveClubDisplay = async () => {
+    if (isDemoSettings || !canEditClubBranding) {
+      return
+    }
+
+    setIsSavingBranding(true)
+    setBrandingSaveState('idle')
+    setBrandingSaveMessage('')
+
+    try {
+      const nextAccent = themeAccentChoice === CUSTOM_THEME_ACCENT_OPTION
+        ? customThemeAccent
+        : themeAccentChoice
+      const updatedClub = await updateClubDisplaySettings({
+        clubId: user.clubId,
+        themeAccent: nextAccent,
+        themeButtonStyle,
+        user,
+      })
+      const nextPreferences = saveThemePreferences({
+        mode: themeMode,
+        accent: updatedClub.themeAccent,
+        buttonStyle: updatedClub.themeButtonStyle,
+      })
+
+      updateCurrentUserDetails({
+        themeAccent: updatedClub.themeAccent,
+        themeButtonStyle: updatedClub.themeButtonStyle,
+      })
+      setSavedThemeAccent(nextPreferences.accent)
+      setSavedThemeButtonStyle(nextPreferences.buttonStyle)
+      setThemeAccentChoice(getThemeAccentOption(nextPreferences.accent))
+      setCustomThemeAccent(
+        isCustomThemeAccent(nextPreferences.accent)
+          ? nextPreferences.accent
+          : DEFAULT_CUSTOM_THEME_ACCENT,
+      )
+      setThemeButtonStyle(nextPreferences.buttonStyle)
+      setBrandingSaveState('saved')
+      setBrandingSaveMessage('Club display settings saved.')
+      showToast({ title: 'Club display saved', message: 'The club accent and button style are now active.' })
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'The club display settings could not be updated right now.'
+      setBrandingSaveState('error')
+      setBrandingSaveMessage(message)
+      showToast({
+        title: 'Club display not saved',
+        message,
+        tone: 'error',
+      })
+    } finally {
+      setIsSavingBranding(false)
+    }
   }
 
   const getOnboardingScope = () => (canManageClubSettings(user) || canManageTeamSettings(user) ? 'workspace' : 'user')
@@ -457,6 +475,13 @@ export function UserSettingsPage() {
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
   const canEditClubBranding = isClubAdminSettings && canUseUiFeature(user, CAPABILITIES.customColoursBranding)
+  const draftThemeAccent = themeAccentChoice === CUSTOM_THEME_ACCENT_OPTION
+    ? customThemeAccent
+    : themeAccentChoice
+  const isBrandingDraftValid = themeAccentChoice !== CUSTOM_THEME_ACCENT_OPTION
+    || isCustomThemeAccent(customThemeAccent)
+  const hasUnsavedBranding = draftThemeAccent !== savedThemeAccent
+    || themeButtonStyle !== savedThemeButtonStyle
   const brandingUnavailableMessage = !isClubAdminSettings
     ? 'Club branding is set by a Club Admin. You can still choose your own display mode.'
     : !canUseUiFeature(user, CAPABILITIES.customColoursBranding)
@@ -514,11 +539,19 @@ export function UserSettingsPage() {
             <DisplaySettingsSection
               canEditBranding={canEditClubBranding}
               brandingUnavailableMessage={brandingUnavailableMessage}
+              brandingSaveMessage={brandingSaveMessage}
+              brandingSaveState={brandingSaveState}
+              customThemeAccent={customThemeAccent}
+              hasUnsavedBranding={hasUnsavedBranding}
+              isBrandingDraftValid={isBrandingDraftValid}
+              isSavingBranding={isSavingBranding}
+              onCustomThemeAccentChange={handleCustomThemeAccentChange}
+              onSaveBranding={handleSaveClubDisplay}
               onThemeAccentChange={handleThemeAccentChange}
               onThemeButtonStyleChange={handleThemeButtonStyleChange}
               onThemeModeChange={handleThemeModeChange}
               showBrandingControls={isClubAdminSettings}
-              themeAccent={themeAccent}
+              themeAccent={themeAccentChoice}
               themeButtonStyle={themeButtonStyle}
               themeMode={themeMode}
             />

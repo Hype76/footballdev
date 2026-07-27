@@ -185,22 +185,34 @@ async function preparePage(context) {
   }
 }
 
-async function prepareClubAccentPage(context) {
+async function prepareClubDisplayPage(context, { failPatch = false } = {}) {
   const prepared = await preparePage(context)
   const requests = []
   let themeAccent = 'green'
+  let themeButtonStyle = 'solid'
 
   await context.route('**/rest/v1/clubs**', async (route) => {
     const request = route.request()
 
     if (request.method() === 'PATCH') {
       const payload = request.postDataJSON()
-      themeAccent = String(payload?.theme_accent ?? themeAccent)
       requests.push({
         method: request.method(),
         payload,
         url: request.url(),
       })
+
+      if (failPatch) {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Fixture display save failed.' }),
+        })
+        return
+      }
+
+      themeAccent = String(payload?.theme_accent ?? themeAccent)
+      themeButtonStyle = String(payload?.theme_button_style ?? themeButtonStyle)
     }
 
     await route.fulfill({
@@ -214,6 +226,7 @@ async function prepareClubAccentPage(context) {
         contact_phone: '',
         require_approval: true,
         theme_accent: themeAccent,
+        theme_button_style: themeButtonStyle,
         status: 'active',
         suspended_at: null,
         plan_key: 'small_club',
@@ -239,8 +252,9 @@ async function prepareClubAccentPage(context) {
 
   return {
     ...prepared,
-    getAccentRequests: () => requests,
+    getDisplayRequests: () => requests,
     getThemeAccent: () => themeAccent,
+    getThemeButtonStyle: () => themeButtonStyle,
   }
 }
 
@@ -453,7 +467,7 @@ async function openMobileNavigation(page) {
 }
 
 async function assertSelectedOption(page, label, expectedText) {
-  const value = await page.getByLabel(label).evaluate((select) => {
+  const value = await page.getByRole('combobox', { name: label, exact: true }).evaluate((select) => {
     const option = select.options[select.selectedIndex]
     return option ? option.textContent.trim() : ''
   })
@@ -605,8 +619,16 @@ async function auditParentTheme(page, { accent, label, mode, scopeTestId }) {
           '[class~="bg-[#ecfdf5]"]:not([class~="bg-white"]):not([class~="bg-[#f7faf8]"]), [class~="bg-[#bbf7d0]"]:not([class~="bg-white"]):not([class~="bg-[#f7faf8]"])',
           'backgroundColor',
         ),
-        accentButton: mappedColor(scope, '[class~="bg-[#047857]"]', 'backgroundColor'),
-        accentButtonText: mappedColor(scope, '[class~="bg-[#047857]"]', 'color'),
+        accentButton: mappedColor(
+          scope,
+          'button:not(:disabled)[class~="bg-[#047857]"], [class~="bg-[#047857]"]:not(button)',
+          'backgroundColor',
+        ),
+        accentButtonText: mappedColor(
+          scope,
+          'button:not(:disabled)[class~="bg-[#047857]"], [class~="bg-[#047857]"]:not(button)',
+          'color',
+        ),
         accentText: mappedColor(scope, '[class~="text-[#047857]"]', 'color'),
         mutedText: mappedColor(scope, '[class~="text-[#4b5f55]"]', 'color'),
         panelAlt: mappedColor(
@@ -760,38 +782,85 @@ try {
     { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
     { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
   ]) {
-    await runScenario(`${viewport.name} club accent saves, reloads, survives sign-in, and does not leak`, async () => {
+    await runScenario(`${viewport.name} club display previews, saves, reloads, survives sign-in, and does not leak`, async () => {
       const context = await browser.newContext(viewport.options)
-      const { getAccentRequests, getThemeAccent, page } = await prepareClubAccentPage(context)
+      const {
+        getDisplayRequests,
+        getThemeAccent,
+        getThemeButtonStyle,
+        page,
+      } = await prepareClubDisplayPage(context)
       await signIn(page, 'club.fixture@footballplayer.test')
       await page.waitForURL('**/coach', { timeout: 15000 })
       await page.goto(`${mainBaseUrl}/user-settings`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-      await page.getByLabel('Accent colour').waitFor({ state: 'visible', timeout: 15000 })
-      await page.getByLabel('Accent colour').selectOption('purple')
-      await assertVisibleText(page, 'The club accent colour has been saved.')
+      await closeOnboardingDialog(page)
+      await page.getByRole('combobox', { name: 'Accent colour', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+      assert.equal(await page.getByRole('option', { name: 'Legacy solid' }).count(), 0)
+      assert.equal(await page.getByRole('option', { name: 'Solid colour' }).count(), 0)
+      await page.getByRole('combobox', { name: 'Accent colour', exact: true }).selectOption('custom')
+      await page.getByLabel('Custom accent hexadecimal value').fill('#abc')
+      assert.equal(await page.getByRole('button', { name: 'Save club display' }).isDisabled(), true)
+      assert.equal(getDisplayRequests().length, 0)
+      await page.getByLabel('Custom accent hexadecimal value').fill('#2b6cb0')
+      await page.getByLabel('Button style').selectOption('gradient')
+      await assertVisibleText(page, 'Preview only until saved.')
 
-      assert.equal(getThemeAccent(), 'purple')
-      assert.equal(getAccentRequests().length, 1)
-      assert.deepEqual(getAccentRequests()[0].payload, { theme_accent: 'purple' })
-      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+      assert.equal(getDisplayRequests().length, 0)
+      assert.equal(
+        await page.locator('.club-display-preview').evaluate((element) =>
+          element.style.getPropertyValue('--button-primary').trim()),
+        '#2b6cb0',
+      )
+      assert.notEqual(
+        await page.locator('.club-display-preview-primary').first().evaluate((element) =>
+          getComputedStyle(element).backgroundImage),
+        'none',
+      )
+
+      await closeOnboardingDialog(page)
+      await page.getByRole('button', { name: 'Save club display' }).click()
+      await assertVisibleText(page, 'Club display settings saved.')
+
+      assert.equal(getThemeAccent(), '#2b6cb0')
+      assert.equal(getThemeButtonStyle(), 'gradient')
+      assert.equal(getDisplayRequests().length, 1)
+      assert.deepEqual(getDisplayRequests()[0].payload, {
+        theme_accent: '#2b6cb0',
+        theme_button_style: 'gradient',
+      })
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-custom')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.buttonStyle), 'gradient')
       assert.equal(
         await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--button-primary').trim()),
-        '#7c3aed',
+        '#2b6cb0',
       )
 
       await page.getByLabel('Theme').selectOption('dark')
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-dark')), true)
       await page.getByLabel('Theme').selectOption('light')
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-light')), true)
+      await page.getByLabel('Theme').selectOption('system')
+      await page.emulateMedia({ colorScheme: 'dark' })
+      await page.waitForFunction(() => document.documentElement.classList.contains('theme-dark'), null, {
+        timeout: 15000,
+      })
+      await page.emulateMedia({ colorScheme: 'light' })
+      await page.waitForFunction(() => document.documentElement.classList.contains('theme-light'), null, {
+        timeout: 15000,
+      })
 
       await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
-      await page.getByLabel('Accent colour').waitFor({ state: 'visible', timeout: 15000 })
-      await assertSelectedOption(page, 'Accent colour', 'Purple')
-      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+      await page.getByRole('combobox', { name: 'Accent colour', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+      await assertSelectedOption(page, 'Accent colour', 'Custom')
+      await assertSelectedOption(page, 'Button style', 'Gradient')
+      assert.equal(await page.getByLabel('Custom accent hexadecimal value').inputValue(), '#2b6cb0')
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-custom')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.buttonStyle), 'gradient')
 
       await page.getByLabel('Access view').selectOption({ label: 'Team: U12 Fixture Team' })
       await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
-      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-custom')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.buttonStyle), 'gradient')
 
       await closeOnboardingDialog(page)
       if (viewport.name === 'mobile') {
@@ -801,7 +870,10 @@ try {
       await waitForPathname(page, '/sign-in')
       await signIn(page, 'club.fixture@footballplayer.test')
       await page.waitForURL('**/coach', { timeout: 15000 })
-      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+      await page.waitForFunction(() => document.documentElement.classList.contains('accent-custom'), null, {
+        timeout: 15000,
+      })
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.buttonStyle), 'gradient')
 
       await closeOnboardingDialog(page)
       if (viewport.name === 'mobile') {
@@ -809,16 +881,44 @@ try {
       }
       await page.locator('aside').getByRole('button', { name: 'Sign out' }).click()
       await waitForPathname(page, '/sign-in')
-      await signIn(page, 'manager.fixture@footballplayer.test')
+      await signIn(page, 'other-club.fixture@footballplayer.test')
       await page.waitForURL('**/coach', { timeout: 15000 })
-      await page.waitForFunction(() => document.documentElement.classList.contains('accent-green'), null, {
+      await page.waitForFunction(() => document.documentElement.classList.contains('accent-blue'), null, {
         timeout: 15000,
       })
-      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-green')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-blue')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.buttonStyle), 'solid')
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       await context.close()
     })
   }
+
+  await runScenario('failed club display save stays preview-only and preserves the active club display', async () => {
+    const context = await browser.newContext()
+    const { getDisplayRequests, page } = await prepareClubDisplayPage(context, { failPatch: true })
+    await signIn(page, 'club.fixture@footballplayer.test')
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await page.goto(`${mainBaseUrl}/user-settings`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await closeOnboardingDialog(page)
+    await page.getByRole('combobox', { name: 'Accent colour', exact: true }).selectOption('red')
+    await page.getByLabel('Button style').selectOption('gradient')
+    await closeOnboardingDialog(page)
+    await page.getByRole('button', { name: 'Save club display' }).click()
+    await assertVisibleText(page, 'Fixture display save failed.')
+
+    assert.equal(getDisplayRequests().length, 1)
+    assert.equal(await page.getByText('Club display settings saved.', { exact: true }).count(), 0)
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-green')), true)
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.buttonStyle), 'solid')
+    assert.deepEqual(
+      await page.evaluate(() => ({
+        accent: window.localStorage.getItem('app-theme-accent'),
+        buttonStyle: window.localStorage.getItem('app-theme-button-style'),
+      })),
+      { accent: 'green', buttonStyle: 'solid' },
+    )
+    await context.close()
+  })
 
   await runScenario('coach login opens team view', async () => {
     const context = await browser.newContext()

@@ -350,6 +350,7 @@ export {
   getPublicPlatformBanner,
   getPlatformStats,
   updateClubAccentColour,
+  updateClubDisplaySettings,
   updateClubSettings,
   getClubSettings,
   importClubLogoFromUrl,

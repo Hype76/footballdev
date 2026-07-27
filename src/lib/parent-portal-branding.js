@@ -1,19 +1,17 @@
+import {
+  normalizeThemeAccent,
+  normalizeThemeButtonStyle,
+  normalizeThemeMode,
+} from './theme.js'
+
 export const DEFAULT_PARENT_PORTAL_BRANDING = {
   mode: 'system',
   accent: 'yellow',
   buttonStyle: 'solid',
 }
 
-const THEME_MODES = ['system', 'dark', 'light']
-const THEME_ACCENTS = ['yellow', 'blue', 'green', 'red', 'purple']
-const THEME_BUTTON_STYLES = ['solid', 'gradient']
-
-function normalizeOption(value, options, fallback) {
-  return options.includes(value) ? value : fallback
-}
-
-function hasLegacyThemeValue(link) {
-  return Boolean(link?.themeMode || link?.themeButtonStyle)
+function hasLegacyThemeMode(link) {
+  return Boolean(link?.themeMode)
 }
 
 function sameClub(left, right) {
@@ -23,22 +21,17 @@ function sameClub(left, right) {
 export function resolveParentPortalBranding({ selectedLink, links = [] } = {}) {
   const parentLinks = Array.isArray(links) ? links : []
   const selectedClubLinks = parentLinks.filter((link) => sameClub(link, selectedLink))
-  const clubAccent = normalizeOption(
+  const clubAccent = normalizeThemeAccent(
     selectedLink?.themeAccent,
-    THEME_ACCENTS,
     DEFAULT_PARENT_PORTAL_BRANDING.accent,
   )
-  const legacyBrandingSource = selectedClubLinks.find(hasLegacyThemeValue)
-    || (hasLegacyThemeValue(selectedLink) ? selectedLink : null)
+  const legacyModeSource = selectedClubLinks.find(hasLegacyThemeMode)
+    || (hasLegacyThemeMode(selectedLink) ? selectedLink : null)
 
   return {
-    mode: normalizeOption(legacyBrandingSource?.themeMode, THEME_MODES, DEFAULT_PARENT_PORTAL_BRANDING.mode),
+    mode: normalizeThemeMode(legacyModeSource?.themeMode),
     accent: clubAccent,
-    buttonStyle: normalizeOption(
-      legacyBrandingSource?.themeButtonStyle,
-      THEME_BUTTON_STYLES,
-      DEFAULT_PARENT_PORTAL_BRANDING.buttonStyle,
-    ),
+    buttonStyle: normalizeThemeButtonStyle(selectedLink?.themeButtonStyle),
     sourceClubId: selectedLink?.clubId || '',
     sourceLinkId: selectedLink?.id || '',
   }

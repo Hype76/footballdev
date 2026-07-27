@@ -37,6 +37,7 @@ import {
   canEditClubIdentity,
   PLAN_KEYS,
 } from '../plans.js'
+import { normalizeLegacyThemeButtonStyle } from '../theme.js'
 import {
   assertPlayerLimitForUpsert,
   findExistingPlayer,
@@ -177,7 +178,7 @@ async function getParentPortalMemberships(authUser) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email, theme_accent)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email, theme_accent, theme_button_style)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
@@ -223,7 +224,10 @@ async function getParentPortalMemberships(authUser) {
       teamName: String(team?.name ?? player?.team ?? '').trim(),
       themeMode: String(team?.theme_mode ?? '').trim(),
       themeAccent: String(club?.theme_accent ?? team?.theme_accent ?? '').trim(),
-      themeButtonStyle: String(team?.theme_button_style ?? '').trim(),
+      themeButtonStyle: String(
+        club?.theme_button_style
+        ?? normalizeLegacyThemeButtonStyle(team?.theme_button_style),
+      ).trim(),
       playerId: row.player_id,
       playerName: String(player?.player_name ?? '').trim(),
       playerSection: String(player?.section ?? '').trim(),

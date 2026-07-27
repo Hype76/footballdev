@@ -11,12 +11,16 @@ import { getRecorderOptions } from '../../lib/session-page-utils.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
   THEME_BUTTON_STYLE_STORAGE_KEY,
+  THEME_BUTTON_STYLE_VERSION,
+  THEME_BUTTON_STYLE_VERSION_STORAGE_KEY,
   THEME_CHANGED_EVENT,
   THEME_MODE_STORAGE_KEY,
   getStoredThemeAccent,
   getStoredThemeButtonStyle,
   getStoredThemeMode,
   getSystemTheme,
+  applyThemeColorVariables,
+  isCustomThemeAccent,
   normalizeThemeAccent,
   normalizeThemeButtonStyle,
   normalizeThemeMode,
@@ -128,6 +132,7 @@ export function Layout() {
       'accent-green',
       'accent-red',
       'accent-purple',
+      'accent-custom',
       'button-style-solid',
       'button-style-gradient',
     )
@@ -139,20 +144,30 @@ export function Layout() {
       'accent-green',
       'accent-red',
       'accent-purple',
+      'accent-custom',
       'button-style-solid',
       'button-style-gradient',
     )
+    const accentClassName = isCustomThemeAccent(themeAccent)
+      ? 'accent-custom'
+      : `accent-${themeAccent}`
+
     document.documentElement.classList.add(effectiveTheme === 'dark' ? 'theme-dark' : 'theme-light')
-    document.documentElement.classList.add(`accent-${themeAccent}`)
+    document.documentElement.classList.add(accentClassName)
     document.documentElement.classList.add(`button-style-${themeButtonStyle}`)
     document.body.classList.add(effectiveTheme === 'dark' ? 'theme-dark' : 'theme-light')
-    document.body.classList.add(`accent-${themeAccent}`)
+    document.body.classList.add(accentClassName)
     document.body.classList.add(`button-style-${themeButtonStyle}`)
+    applyThemeColorVariables(document.documentElement, themeAccent, effectiveTheme)
+    applyThemeColorVariables(document.body, themeAccent, effectiveTheme)
     document.documentElement.dataset.themeAccent = themeAccent
     document.documentElement.dataset.buttonStyle = themeButtonStyle
+    document.body.dataset.themeAccent = themeAccent
+    document.body.dataset.buttonStyle = themeButtonStyle
     window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode)
     window.localStorage.setItem(THEME_ACCENT_STORAGE_KEY, themeAccent)
     window.localStorage.setItem(THEME_BUTTON_STYLE_STORAGE_KEY, themeButtonStyle)
+    window.localStorage.setItem(THEME_BUTTON_STYLE_VERSION_STORAGE_KEY, THEME_BUTTON_STYLE_VERSION)
   }, [effectiveTheme, themeAccent, themeButtonStyle, themeMode])
 
   useEffect(() => {
@@ -273,7 +288,7 @@ export function Layout() {
 
   if (shouldBypassMainShell) {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+      <div className="app-theme-scope min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
         <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />
         {isParentPortalUser(user) ? (
           <PlatformBannerNotice
@@ -291,7 +306,7 @@ export function Layout() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+    <div className="app-theme-scope min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
       <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

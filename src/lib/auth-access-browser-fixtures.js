@@ -82,6 +82,7 @@ function makeBaseProfile(email, overrides = {}) {
     activeTeamName: 'U12 Fixture Team',
     parentPortalLinks: [],
     themeAccent: 'green',
+    themeButtonStyle: 'solid',
     ...overrides,
   }
 }
@@ -154,6 +155,24 @@ const fixtureAccounts = {
       roleRank: 80,
       activeTeamId: '',
       activeTeamName: '',
+    }),
+  },
+  'other-club.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'team',
+    teamProfile: makeBaseProfile('other-club.fixture@footballplayer.test', {
+      name: 'Other Club Fixture',
+      role: 'admin',
+      roleLabel: 'Club Admin',
+      roleRank: 80,
+      clubId: 'club-other-fixture',
+      clubName: 'Other Fixture FC',
+      team: 'Other Fixture FC',
+      activeTeamId: '',
+      activeTeamName: '',
+      themeAccent: 'blue',
+      themeButtonStyle: 'solid',
     }),
   },
   'coach.fixture@footballplayer.test': {
@@ -414,7 +433,6 @@ function getProfileForMode(account, mode, selectedTeamId = '') {
           ...account.teamProfile,
           activeTeamId: selectedTeam.id,
           activeTeamName: selectedTeam.name,
-          themeButtonStyle: selectedTeam.themeButtonStyle || account.teamProfile.themeButtonStyle || '',
         }
       : account.teamProfile
   }
