@@ -4,6 +4,7 @@ import { test } from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260720091524_p1_tenant_parent_player_staff_feedback_isolation.sql', import.meta.url)
 const parentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727044834_restore_parent_link_authority.sql', import.meta.url)
+const staleProfileParentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727051500_restore_parent_link_authority_for_stale_profiles.sql', import.meta.url)
 const feedbackUrl = new URL('../src/lib/domain/feedback.js', import.meta.url)
 const parentPortalUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 const coreUrl = new URL('../src/lib/domain/core.js', import.meta.url)
@@ -33,7 +34,7 @@ test('P1 migration defines focused current-state authority helpers with controll
   assert.doesNotMatch(migration, /request\.jwt\.claims|raw_user_meta_data|user_metadata/i)
 })
 
-test('Parent authority correction keeps active-link ownership independent from staff profile rows', async () => {
+test('Parent-only authority correction restores active-link ownership without a staff profile row', async () => {
   const migration = await readFile(parentAuthorityMigrationUrl, 'utf8')
   const helpers = [
     'current_user_can_access_parent_player',
@@ -51,6 +52,27 @@ test('Parent authority correction keeps active-link ownership independent from s
   assert.match(migration, /link\.status = 'active'|parent_link\.status = 'active'/i)
   assert.match(migration, /coalesce\(player\.status, 'active'\) <> 'archived'/i)
   assert.match(migration, /create policy clubs_select_exact_authority[\s\S]*current_user_can_access_parent_club\(id\)/i)
+  assert.doesNotMatch(migration, /\b(?:insert into|update|delete from)\s+public\./i)
+})
+
+test('stale staff profiles do not cancel active Parent-link authority', async () => {
+  const migration = await readFile(staleProfileParentAuthorityMigrationUrl, 'utf8')
+  const helpers = [
+    'current_user_can_access_parent_player',
+    'current_user_can_access_parent_team',
+    'current_user_can_access_parent_link',
+    'current_user_can_access_parent_club',
+  ]
+
+  for (const helper of helpers) {
+    assert.match(migration, new RegExp(`create or replace function public\\.${helper}\\(`, 'i'))
+    assert.match(migration, new RegExp(`not exists \\([\\s\\S]*from public\\.users actor[\\s\\S]*actor\\.status = 'suspended'`, 'i'))
+    assert.match(migration, new RegExp(`link\\.auth_user_id = \\(select auth\\.uid\\(\\)\\)|parent_link\\.auth_user_id = \\(select auth\\.uid\\(\\)\\)`, 'i'))
+  }
+
+  assert.doesNotMatch(migration, /current_user_has_active_authority\(\)/i)
+  assert.match(migration, /link\.status = 'active'|parent_link\.status = 'active'/i)
+  assert.match(migration, /coalesce\(player\.status, 'active'\) <> 'archived'/i)
   assert.doesNotMatch(migration, /\b(?:insert into|update|delete from)\s+public\./i)
 })
 
