@@ -589,8 +589,9 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
 
   let response
   let sentPayload = preparedEmail.emailPayload
+  const isResourceNotification = preparedEmail.storedPayload?.resourceNotification?.type === 'resource_shared'
   const context = {
-    emailType: 'parent_feedback',
+    emailType: isResourceNotification ? 'resource_shared' : 'parent_feedback',
     userRole: preparedEmail.storedPayload.actorRole || '',
     actorId: preparedEmail.storedPayload.actorId,
     actorEmail: preparedEmail.storedPayload.actorEmail,

@@ -17,8 +17,11 @@ const ids = {
   player: '40000000-0000-4000-8000-000000000001',
   otherPlayer: '40000000-0000-4000-8000-000000000002',
   resource: '50000000-0000-4000-8000-000000000001',
+  staffOnlyResource: '50000000-0000-4000-8000-000000000002',
   parentLink: '60000000-0000-4000-8000-000000000001',
   otherParentLink: '60000000-0000-4000-8000-000000000002',
+  multiChildParentLink: '60000000-0000-4000-8000-000000000003',
+  sameChildSecondParentLink: '60000000-0000-4000-8000-000000000004',
 }
 
 async function setClaims(db, userId, manager = false) {
@@ -191,15 +194,38 @@ async function createDatabase() {
     insert into public.parent_player_links(id, club_id, team_id, player_id, auth_user_id, email, status)
     values
       ($1, $3, $4, $5, $6, 'fp-test-parent-one@example.invalid', 'active'),
-      ($2, $3, $4, $7, $8, 'fp-test-parent-two@example.invalid', 'active')
-  `, [ids.parentLink, ids.otherParentLink, ids.club, ids.team, ids.player, ids.parent, ids.otherPlayer, ids.otherParent])
+      ($2, $3, $4, $7, $8, 'fp-test-parent-two@example.invalid', 'active'),
+      ($9, $3, $4, $7, $6, 'fp-test-parent-one@example.invalid', 'active'),
+      ($10, $3, $4, $5, $8, 'fp-test-parent-two@example.invalid', 'active')
+  `, [
+    ids.parentLink,
+    ids.otherParentLink,
+    ids.club,
+    ids.team,
+    ids.player,
+    ids.parent,
+    ids.otherPlayer,
+    ids.otherParent,
+    ids.multiChildParentLink,
+    ids.sameChildSecondParentLink,
+  ])
   await db.query(`
     insert into public.resource_library_items(
       id, club_id, team_id, title, storage_path, original_filename, mime_type,
       file_size_bytes, uploaded_by_profile_id
     )
-    values ($1, $2, $3, 'FP TEST Resource', $4, 'resource.pdf', 'application/pdf', 100, $5)
-  `, [ids.resource, ids.club, ids.team, `${ids.club}/${ids.team}/${ids.resource}/resource.pdf`, ids.actor])
+    values
+      ($1, $3, $4, 'FP TEST Resource', $5, 'resource.pdf', 'application/pdf', 100, $6),
+      ($2, $3, $4, 'FP TEST Staff Resource', $7, 'staff-resource.pdf', 'application/pdf', 100, $6)
+  `, [
+    ids.resource,
+    ids.staffOnlyResource,
+    ids.club,
+    ids.team,
+    `${ids.club}/${ids.team}/${ids.resource}/resource.pdf`,
+    ids.actor,
+    `${ids.club}/${ids.team}/${ids.staffOnlyResource}/staff-resource.pdf`,
+  ])
 
   return db
 }
@@ -260,8 +286,8 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
     assert.equal(first.rows[0].result.selectedPlayerCount, 2)
     assert.equal(first.rows[0].result.removedCount, 0)
     assert.equal(first.rows[0].result.assignments.length, 2)
-    assert.equal(first.rows[0].result.assignments[0].notifications_queued, 1)
-    assert.equal(first.rows[0].result.assignments[1].notifications_queued, 1)
+    assert.equal(first.rows[0].result.assignments[0].notifications_queued, 2)
+    assert.equal(first.rows[0].result.assignments[1].notifications_queued, 2)
 
     const sharedCount = await db.query(`
       select count(*)::integer as count
@@ -275,7 +301,7 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
         (select count(*)::integer from public.resource_library_parent_notifications) as notification_count,
         (select count(*)::integer from public.scheduled_email_queue) as queue_count
     `)
-    assert.deepEqual(queued.rows, [{ notification_count: 2, queue_count: 2 }])
+    assert.deepEqual(queued.rows, [{ notification_count: 4, queue_count: 4 }])
 
     const staffOnlyOneTarget = JSON.stringify([
       { linkedType: 'player', linkedId: ids.player, parentVisible: false },
@@ -305,6 +331,54 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
       where resource_id = $1 and removed_at is null
     `, [ids.resource])
     assert.equal(remaining.rows[0].count, 0)
+  } finally {
+    await db.close()
+  }
+})
+
+test('staff-only to shared notifies once per Parent while re-save, description edit, and unshare stay quiet', async () => {
+  const db = await createDatabase()
+
+  try {
+    await setClaims(db, ids.actor, true)
+    const staffOnlyTarget = JSON.stringify([
+      { linkedType: 'player', linkedId: ids.player, parentVisible: false },
+    ])
+    const sharedTarget = JSON.stringify([
+      { linkedType: 'player', linkedId: ids.player, parentVisible: true },
+    ])
+
+    const staffOnly = await db.query(`
+      select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, '') as result
+    `, [ids.staffOnlyResource, ids.club, ids.team, staffOnlyTarget])
+    assert.equal(staffOnly.rows[0].result.assignments[0].notifications_queued, 0)
+
+    const shared = await db.query(`
+      select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, 'First Parent description') as result
+    `, [ids.staffOnlyResource, ids.club, ids.team, sharedTarget])
+    assert.equal(shared.rows[0].result.assignments[0].notifications_queued, 2)
+
+    const unchanged = await db.query(`
+      select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, 'First Parent description') as result
+    `, [ids.staffOnlyResource, ids.club, ids.team, sharedTarget])
+    assert.equal(unchanged.rows[0].result.assignments[0].notifications_queued, 0)
+
+    const descriptionEdited = await db.query(`
+      select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, 'Updated Parent description') as result
+    `, [ids.staffOnlyResource, ids.club, ids.team, sharedTarget])
+    assert.equal(descriptionEdited.rows[0].result.assignments[0].notifications_queued, 0)
+
+    const unshared = await db.query(`
+      select public.sync_resource_library_player_assignments($1, $2, $3, $4::jsonb, '') as result
+    `, [ids.staffOnlyResource, ids.club, ids.team, staffOnlyTarget])
+    assert.equal(unshared.rows[0].result.assignments[0].notifications_queued, 0)
+
+    const counts = await db.query(`
+      select
+        (select count(*)::integer from public.resource_library_parent_notifications) as notification_count,
+        (select count(*)::integer from public.scheduled_email_queue) as queue_count
+    `)
+    assert.deepEqual(counts.rows, [{ notification_count: 2, queue_count: 2 }])
   } finally {
     await db.close()
   }

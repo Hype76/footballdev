@@ -6,6 +6,7 @@ import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
+import { prepareScheduledResourceNotificationRow } from './lib/_resource-notification-email.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -89,6 +90,25 @@ async function markScheduledEmailFailed(row, error) {
   }
 }
 
+async function discardSkippedScheduledEmail(row, reason) {
+  const { error } = await supabaseAdmin
+    .from('scheduled_email_queue')
+    .delete()
+    .eq('id', row.id)
+
+  if (error) {
+    throw Object.assign(new Error('Skipped resource notification could not be removed safely.'), {
+      code: 'resource_notification_cleanup_failed',
+      cause: error,
+    })
+  }
+
+  console.info('resource_notification_skipped', JSON.stringify({
+    queueId: row.id,
+    reason,
+  }))
+}
+
 async function createSentCommunicationLog(row) {
   const log = row.payload?.communicationLog
 
@@ -155,7 +175,28 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       roleRank: 100,
     }
     assertPlanFeature(planProfile, 'parentEmails')
-    const preparedEmail = buildPreparedScheduledEmail(lockedRow, planProfile)
+    const resourceNotificationPreparation = await prepareScheduledResourceNotificationRow(
+      lockedRow,
+      {
+        supabaseClient: supabaseAdmin,
+      },
+    )
+
+    if (resourceNotificationPreparation.skipped) {
+      await discardSkippedScheduledEmail(
+        lockedRow,
+        resourceNotificationPreparation.skipReason,
+      )
+      return 'skipped'
+    }
+
+    const preparedEmail = buildPreparedScheduledEmail(
+      resourceNotificationPreparation.row,
+      planProfile,
+      {
+        fromDisplayName: resourceNotificationPreparation.email?.fromDisplayName,
+      },
+    )
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
       idempotencySeed: `scheduled:${lockedRow.id}`,
     })

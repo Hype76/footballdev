@@ -11,7 +11,13 @@ export function normalizeQueuedEmailRecipients(value) {
     .filter(Boolean)
 }
 
-function getQueuedEmailFromName(payload = {}) {
+function getQueuedEmailFromName(payload = {}, trustedFromDisplayName = '') {
+  const explicitFromDisplayName = String(trustedFromDisplayName ?? '').trim()
+
+  if (explicitFromDisplayName) {
+    return explicitFromDisplayName
+  }
+
   const displayName = String(payload.displayName ?? '').trim() || 'Football Player'
   const teamName = String(payload.teamName ?? '').trim()
   const clubName = String(payload.clubName ?? '').trim()
@@ -19,13 +25,16 @@ function getQueuedEmailFromName(payload = {}) {
   return scopeName ? `${displayName} (${scopeName})` : displayName
 }
 
-export function buildPreparedScheduledEmail(row, planProfile) {
+export function buildPreparedScheduledEmail(row, planProfile, {
+  fromDisplayName = '',
+} = {}) {
   const payload = row?.payload || {}
   const resendPayload = payload.resendPayload || {}
   const recipients = normalizeQueuedEmailRecipients(resendPayload.to || row?.to_email)
   const emailPayload = {
     ...resendPayload,
-    from: String(resendPayload.from ?? '').trim() || createFromAddress(getQueuedEmailFromName(payload)),
+    from: String(resendPayload.from ?? '').trim()
+      || createFromAddress(getQueuedEmailFromName(payload, fromDisplayName)),
     to: recipients,
   }
 

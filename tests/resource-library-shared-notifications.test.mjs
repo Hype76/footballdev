@@ -5,12 +5,16 @@ import { test } from 'node:test'
 const domainUrl = new URL('../src/lib/domain/resource-library.js', import.meta.url)
 const resourcePageUrl = new URL('../src/pages/ResourceLibraryPage.jsx', import.meta.url)
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
-const migrationUrl = new URL('../supabase/migrations/20260710180206_resource_library_shared_parent_notifications.sql', import.meta.url)
+const notificationSchemaMigrationUrl = new URL('../supabase/migrations/20260710180206_resource_library_shared_parent_notifications.sql', import.meta.url)
+const assignmentMigrationUrl = new URL('../supabase/migrations/20260727150148_fix_resource_library_notification_returning_ids.sql', import.meta.url)
+const parentResourceMigrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
+const processorUrl = new URL('../netlify/functions/process-scheduled-emails.js', import.meta.url)
+const resourceEmailUrl = new URL('../src/lib/resource-notification-email.js', import.meta.url)
 
 test('shared resource assignment uses one trusted RPC for allocation, transition, and notification', async () => {
   const [domain, migration] = await Promise.all([
     readFile(domainUrl, 'utf8'),
-    readFile(migrationUrl, 'utf8'),
+    readFile(assignmentMigrationUrl, 'utf8'),
   ])
   const assignmentSource = domain.slice(
     domain.indexOf('export async function assignResourceLibraryItem'),
@@ -29,7 +33,7 @@ test('shared resource assignment uses one trusted RPC for allocation, transition
 })
 
 test('only new shared player allocations and internal-to-shared transitions queue parent email', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readFile(assignmentMigrationUrl, 'utf8')
 
   assert.match(migration, /requested_parent_visible := target_type_value = 'player'/i)
   assert.match(migration, /and requested_parent_visible[\s\S]*and not previous_parent_visible then/i)
@@ -41,7 +45,7 @@ test('only new shared player allocations and internal-to-shared transitions queu
 })
 
 test('parent recipients are active authenticated child links in the exact club and team scope', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const migration = await readFile(assignmentMigrationUrl, 'utf8')
 
   assert.match(migration, /parent_link\.club_id = target_club_id/i)
   assert.match(migration, /parent_link\.player_id = target_id_value/i)
@@ -53,21 +57,25 @@ test('parent recipients are active authenticated child links in the exact club a
 })
 
 test('notification ledger and active resource link make retries and repeat saves idempotent', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const [schemaMigration, assignmentMigration] = await Promise.all([
+    readFile(notificationSchemaMigrationUrl, 'utf8'),
+    readFile(assignmentMigrationUrl, 'utf8'),
+  ])
 
-  assert.match(migration, /create table if not exists public\.resource_library_parent_notifications/i)
-  assert.match(migration, /resource_library_parent_notifications_link_recipient_key/i)
-  assert.match(migration, /\(link_id, lower\(recipient_email\)\)/i)
-  assert.match(migration, /on conflict do nothing[\s\S]*returning id into notification_id_value/i)
-  assert.match(migration, /when previous_parent_visible = requested_parent_visible[\s\S]*then 'unchanged'/i)
-  assert.match(migration, /resource_library_links_active_target_key|link\.removed_at is null/i)
+  assert.match(schemaMigration, /create table if not exists public\.resource_library_parent_notifications/i)
+  assert.match(schemaMigration, /resource_library_parent_notifications_link_recipient_key/i)
+  assert.match(schemaMigration, /\(link_id, lower\(recipient_email\)\)/i)
+  assert.match(assignmentMigration, /on conflict do nothing[\s\S]*returning inserted_notification\.id into notification_id_value/i)
+  assert.match(assignmentMigration, /when previous_parent_visible = requested_parent_visible[\s\S]*then 'unchanged'/i)
+  assert.match(assignmentMigration, /resource_library_links_active_target_key|link\.removed_at is null/i)
 })
 
 test('parent portal RPC is child scoped and returns no staff-only metadata', async () => {
-  const [domain, migration, parentPortalPage] = await Promise.all([
+  const [domain, migration, parentPortalPage, schemaMigration] = await Promise.all([
     readFile(domainUrl, 'utf8'),
-    readFile(migrationUrl, 'utf8'),
+    readFile(parentResourceMigrationUrl, 'utf8'),
     readFile(parentPortalPageUrl, 'utf8'),
+    readFile(notificationSchemaMigrationUrl, 'utf8'),
   ])
 
   assert.match(domain, /delete item\.description/)
@@ -79,10 +87,10 @@ test('parent portal RPC is child scoped and returns no staff-only metadata', asy
   assert.match(migration, /''::text as description/i)
   assert.match(migration, /''::text as storage_path/i)
   assert.match(migration, /null::uuid as uploaded_by_profile_id/i)
-  assert.match(migration, /null::timestamptz as assigned_at/i)
-  assert.match(migration, /drop policy if exists resource_library_items_select_parent_visible/i)
-  assert.match(migration, /drop policy if exists resource_library_links_select_parent_visible/i)
-  assert.match(migration, /using \(public\.current_user_can_view_resource_library\(club_id, team_id\)\)/i)
+  assert.match(migration, /link\.assigned_at/i)
+  assert.match(schemaMigration, /drop policy if exists resource_library_items_select_parent_visible/i)
+  assert.match(schemaMigration, /drop policy if exists resource_library_links_select_parent_visible/i)
+  assert.match(schemaMigration, /using \(public\.current_user_can_view_resource_library\(club_id, team_id\)\)/i)
   assert.doesNotMatch(parentPortalPage, /resource\.description/)
 })
 
@@ -97,13 +105,16 @@ test('staff UI keeps a stable accessible Parent sharing label', async () => {
   assert.match(page, /Staff can now see the assignment in the permitted scope\./)
 })
 
-test('resource notification email contains only safe child and resource context', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+test('resource notification queue is re-authorized and rendered at send time', async () => {
+  const [assignmentMigration, processor, resourceEmail] = await Promise.all([
+    readFile(assignmentMigrationUrl, 'utf8'),
+    readFile(processorUrl, 'utf8'),
+    readFile(resourceEmailUrl, 'utf8'),
+  ])
 
-  assert.match(migration, /New resource shared for/)
-  assert.match(migration, /A new resource has been shared for/)
-  assert.match(migration, /https:\/\/parent\.footballplayer\.online\//)
-  assert.doesNotMatch(migration, /resource_row\.description/)
-  assert.doesNotMatch(migration, /share_description.*email_html_value/i)
-  assert.doesNotMatch(migration, /storage_path.*email_html_value/i)
+  assert.match(assignmentMigration, /'resourceNotification', jsonb_build_object\([\s\S]*'type', 'resource_shared'/i)
+  assert.match(processor, /prepareScheduledResourceNotificationRow/)
+  assert.match(resourceEmail, /RESOURCE_NOTIFICATION_PARENT_PORTAL_URL/)
+  assert.match(resourceEmail, /resourceDescription/)
+  assert.doesNotMatch(resourceEmail, /storage_path|uploaded_by_profile_id/)
 })
