@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migrationUrl = new URL('../supabase/migrations/20260727115129_team_resource_parent_sharing_integrity.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
 
 const ids = {
   actor: '10000000-0000-4000-8000-000000000001',

@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import { validateParentResourceAccess } from '../netlify/functions/parent-resource-access.js'
 
 const functionUrl = new URL('../netlify/functions/parent-resource-access.js', import.meta.url)
-const migrationUrl = new URL('../supabase/migrations/20260727115129_team_resource_parent_sharing_integrity.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
 const parentPortalUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 
 const ids = {
