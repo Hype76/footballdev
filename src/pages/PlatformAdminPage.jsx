@@ -7,6 +7,7 @@ import { PlatformAccountManagementSection } from '../components/platform/Platfor
 import { PlatformFeedbackSection } from '../components/platform/PlatformFeedbackSection.jsx'
 import { PlatformBannerManagementSection } from '../components/platform/PlatformBannerManagementSection.jsx'
 import { PlatformHeroSection, PlatformStatGrid } from '../components/platform/PlatformHeroSection.jsx'
+import { PlatformAnalyticsSection } from '../components/platform/PlatformAnalyticsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
@@ -35,6 +36,7 @@ import {
   getPlatformFeedbackAttachmentUrl,
   getPlatformFeedbackReports,
   getPlatformBanners,
+  getPlatformAnalytics,
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
@@ -50,6 +52,17 @@ const cacheKey = 'platform-admin-dashboard'
 const feedbackCacheKey = 'platform-admin-feedback'
 const PLATFORM_FEEDBACK_PAGE_SIZE = 6
 const CLUB_PAGE_SIZE = 6
+const DEFAULT_ANALYTICS_FILTERS = Object.freeze({
+  preset: '30_days',
+  startDate: '',
+  endDate: '',
+  role: 'all',
+  platform: 'all',
+  clubId: 'all',
+  plan: 'all',
+  route: 'all',
+  includeExcluded: false,
+})
 
 function getPlatformActionErrorMessage(error, fallbackMessage) {
   const code = String(error?.code || error?.status || error?.statusCode || '').trim()
@@ -141,6 +154,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const showDashboard = section === 'dashboard'
   const showClubManagement = section === 'clubs'
   const [stats, setStats] = useState(() => readCachedPlatformStats())
+  const [analyticsReport, setAnalyticsReport] = useState(null)
+  const [analyticsFilters, setAnalyticsFilters] = useState(DEFAULT_ANALYTICS_FILTERS)
+  const [analyticsErrorMessage, setAnalyticsErrorMessage] = useState('')
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false)
   const [feedbackItems, setFeedbackItems] = useState(() => {
     const cachedItems = readViewCacheValue(feedbackCacheKey, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
@@ -192,6 +209,55 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     email: '',
     password: '',
   })
+
+  const loadAnalytics = async ({ refresh = false } = {}) => {
+    if (!isSuperAdmin(user) || !session?.access_token) return
+
+    setIsAnalyticsLoading(true)
+    setAnalyticsErrorMessage('')
+
+    try {
+      const report = await getPlatformAnalytics({
+        accessToken: session.access_token,
+        filters: analyticsFilters,
+        refresh,
+      })
+      setAnalyticsReport(report)
+    } catch (error) {
+      console.error({ code: error?.code || 'platform_analytics_load_failed' })
+      setAnalyticsErrorMessage('Aggregate analytics could not be loaded. Existing platform controls remain available.')
+    } finally {
+      setIsAnalyticsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let isMounted = true
+
+    const load = async () => {
+      if (!isSuperAdmin(user) || !session?.access_token) return
+      setIsAnalyticsLoading(true)
+      setAnalyticsErrorMessage('')
+
+      try {
+        const report = await getPlatformAnalytics({
+          accessToken: session.access_token,
+          filters: analyticsFilters,
+        })
+        if (isMounted) setAnalyticsReport(report)
+      } catch (error) {
+        console.error({ code: error?.code || 'platform_analytics_load_failed' })
+        if (isMounted) setAnalyticsErrorMessage('Aggregate analytics could not be loaded. Existing platform controls remain available.')
+      } finally {
+        if (isMounted) setIsAnalyticsLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      isMounted = false
+    }
+  }, [analyticsFilters, session?.access_token, user])
 
   useEffect(() => {
     let isMounted = true
@@ -1031,6 +1097,15 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           />
 
           <PlatformStatGrid items={dashboardStats} />
+
+          <PlatformAnalyticsSection
+            errorMessage={analyticsErrorMessage}
+            filters={analyticsFilters}
+            isLoading={isAnalyticsLoading}
+            onFiltersChange={setAnalyticsFilters}
+            onRefresh={() => void loadAnalytics({ refresh: true })}
+            report={analyticsReport}
+          />
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <PlatformBannerManagementSection

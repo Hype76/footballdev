@@ -16,6 +16,7 @@ import { assertPasswordPolicy } from './password-policy.js'
 import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessIntent } from './login-access-intent.js'
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 import { STAFF_SWITCH_PENDING_STORAGE_KEY } from './workspace-routes.js'
+import { recordSuccessfulLoginAnalytics } from './domain/platform-analytics.js'
 
 export {
   canAssignRole,
@@ -735,6 +736,7 @@ function RuntimeAuthProvider({ children }) {
       throw publicError
     }
 
+    void recordSuccessfulLoginAnalytics(data)
     return data
   }
 
@@ -992,6 +994,7 @@ function RuntimeAuthProvider({ children }) {
         throw sessionError
       }
 
+      void recordSuccessfulLoginAnalytics(signInData)
       const { createClubAndManagerProfile } = await loadAuthDataModule()
       const profile = await createClubAndManagerProfile({
         authUser: signInData.user,
@@ -1066,6 +1069,7 @@ function RuntimeAuthProvider({ children }) {
             throw new Error('Login session was not created.')
           }
 
+          void recordSuccessfulLoginAnalytics(signInData)
           const { createClubAndManagerProfile } = await loadAuthDataModule()
           const profile = await createClubAndManagerProfile({
             authUser: signInData.user,

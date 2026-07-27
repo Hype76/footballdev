@@ -3,6 +3,7 @@ import { NoticeBanner } from '../ui/NoticeBanner.jsx'
 import { buildParentAppUrl } from '../../lib/app-origins.js'
 import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
 import { supabase } from '../../lib/supabase-client.js'
+import { recordSuccessfulLoginAnalytics } from '../../lib/domain/platform-analytics.js'
 
 function getFriendlyLoginError(error) {
   const rawMessage = String(error?.message ?? '').trim()
@@ -53,6 +54,7 @@ export function ParentPortalLoginBox() {
         throw new Error('Parent login session was not created. Try again.')
       }
 
+      void recordSuccessfulLoginAnalytics(data)
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
 
       const hashParams = new URLSearchParams({

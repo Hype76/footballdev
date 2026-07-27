@@ -6,6 +6,7 @@ import net from 'node:net'
 import { chromium } from 'playwright'
 
 const fixturePassword = 'FixturePass123!'
+const platformAnalyticsOnly = process.env.AUTH_BROWSER_PLATFORM_ANALYTICS_ONLY === 'true'
 const port = Number(process.env.AUTH_BROWSER_PORT || 4300 + Math.floor(Math.random() * 500))
 const mainBaseUrl = `http://127.0.0.1:${port}`
 const parentBaseUrl = `http://parent.footballplayer.online:${port}`
@@ -190,6 +191,128 @@ async function preparePage(context, {
       status: 404,
       contentType: 'application/json',
       body: JSON.stringify({ success: false, message: 'Fixture function stub.' }),
+    })
+  })
+  await context.route('**/.netlify/functions/platform-analytics**', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, accepted: true }),
+      })
+      return
+    }
+
+    const hours = Array.from({ length: 24 }, (_, hour) => hour)
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const emptyHourDayGrid = () => hours.map(() => days.map(() => 0))
+    const activeGrid = emptyHourDayGrid()
+    activeGrid[9][1] = 4
+    const report = {
+      generatedAt: '2026-07-27T12:00:00.000Z',
+      timezone: 'Europe/London',
+      filters: {
+        preset: '30_days',
+        startDate: '2026-06-28',
+        endDate: '2026-07-27',
+      },
+      exclusionsActive: true,
+      dataState: 'available',
+      definitions: {
+        activeUser: 'A distinct authenticated user with at least one approved meaningful action.',
+        successfulLogin: 'A completed authentication event, reported separately from meaningful activity.',
+      },
+      overview: {
+        activeUsersToday: 4,
+        activeUsers7Days: 8,
+        activeUsers30Days: 12,
+        selectedActiveUsers: { current: 12, previous: 10, changePercent: 20, comparisonAvailable: true },
+        successfulLoginsToday: 6,
+        selectedSuccessfulLogins: { current: 24, previous: 20, changePercent: 20, comparisonAvailable: true },
+        newUsers: 3,
+        returningUsers: 9,
+        activeParents: 4,
+        activeStaff: 8,
+        activeClubs: 2,
+        pageViews: { current: 42, previous: 40, changePercent: 5, comparisonAvailable: true },
+      },
+      roleActivity: [
+        { role: 'coach', activeUsers: 8, meaningfulActions: 30 },
+        { role: 'parent_portal', activeUsers: 4, meaningfulActions: 12 },
+      ],
+      topPages: [
+        {
+          route: '/players',
+          pageViews: 30,
+          uniqueUsers: 10,
+          percentage: 71.4,
+          comparison: { current: 30, previous: 25, changePercent: 20, comparisonAvailable: true },
+        },
+        {
+          route: '/calendar',
+          pageViews: 12,
+          uniqueUsers: 6,
+          percentage: 28.6,
+          comparison: { current: 12, previous: 15, changePercent: -20, comparisonAvailable: true },
+        },
+      ],
+      pageHeatmap: {
+        hours,
+        days,
+        rows: [
+          { route: '/players', byHour: hours.map((hour) => hour === 9 ? 30 : 0), byDay: days.map((_, day) => day === 1 ? 30 : 0) },
+          { route: '/calendar', byHour: hours.map((hour) => hour === 10 ? 12 : 0), byDay: days.map((_, day) => day === 2 ? 12 : 0) },
+        ],
+      },
+      overallHeatmap: {
+        hours,
+        days,
+        metrics: {
+          activeUsers: activeGrid,
+          meaningfulActions: activeGrid,
+          successfulLogins: activeGrid,
+          pageViews: activeGrid,
+          parentActivity: activeGrid,
+          staffActivity: activeGrid,
+        },
+      },
+      maintenanceWindow: {
+        available: true,
+        day: 'Tuesday',
+        startHour: 1,
+        endHour: 3,
+        averageActiveUsers: 0.5,
+        maximumActiveUsers: 1,
+        averageMeaningfulActions: 0.8,
+        weeksAnalyzed: 8,
+        confidence: 'High',
+        message: 'This is a conservative low-usage recommendation, not a guarantee of zero users.',
+      },
+      parentAdoption: {
+        stages: [
+          { key: 'registered', label: 'Registered parent accounts', count: 10, available: true },
+          { key: 'invited', label: 'Invitations sent', count: null, available: false },
+          { key: 'activated', label: 'First meaningful parent action recorded', count: 6, available: true },
+        ],
+      },
+      clubActivity: {
+        active: 2,
+        engaged: 1,
+        oneAdministrator: 1,
+        neverActivated: 0,
+      },
+      options: {
+        roles: ['coach', 'parent_portal'],
+        platforms: ['web', 'parent_app'],
+        clubs: [{ id: 'fixture-club', name: 'Fixture Club', plan: 'small_club' }],
+        plans: ['small_club'],
+        routes: ['/players', '/calendar'],
+      },
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, report }),
     })
   })
   await context.route('**/rest/v1/**', async (route) => {
@@ -1020,6 +1143,13 @@ try {
     await page.waitForURL('**/platform-admin', { timeout: 15000 })
     await assertVisibleText(page, 'Platform control')
     await assertVisibleText(page, 'Platform tools')
+    await assertVisibleText(page, 'Platform analytics')
+    await assertVisibleText(page, 'Top pages')
+    await assertVisibleText(page, 'Top-page heatmaps')
+    await assertVisibleText(page, 'Overall platform heatmap')
+    await assertVisibleText(page, 'Quiet-window guidance')
+    assert.equal(await page.getByRole('table').count() >= 3, true)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await assertSelectedOption(page, 'Access view', 'Platform admin')
     await assertHeaderContextPanelRemoved(page)
     await assertSidebarWorkspaceControls(page)
@@ -1027,6 +1157,19 @@ try {
     await context.close()
   })
 
+  await runScenario('mobile platform analytics stays usable without page overflow', async () => {
+    const context = await browser.newContext({ isMobile: true, viewport: { width: 390, height: 844 } })
+    const { page } = await preparePage(context)
+    await signIn(page, 'platform.fixture@footballplayer.test')
+    await page.waitForURL('**/platform-admin', { timeout: 15000 })
+    await assertVisibleText(page, 'Platform analytics')
+    await assertVisibleText(page, 'Top-page heatmaps')
+    await assertVisibleText(page, 'Overall platform heatmap')
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    await context.close()
+  })
+
+  if (!platformAnalyticsOnly) {
   await runScenario('club admin login opens club-wide view', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
@@ -2043,12 +2186,15 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'platform.fixture@footballplayer.test')
     await page.waitForURL('**/platform-admin', { timeout: 15000 })
+    await assertVisibleText(page, 'Platform analytics')
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await assertHeaderContextPanelRemoved(page)
     await openMobileNavigation(page)
     await assertSidebarWorkspaceControls(page)
     await assertSidebarFooterContract(page)
     await context.close()
   })
+  }
 } catch (error) {
   console.error(server.getOutput())
   throw error

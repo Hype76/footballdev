@@ -376,5 +376,11 @@ export {
 } from './domain/audit.js'
 
 export {
+  getPlatformAnalytics,
+  recordAnalyticsEvent,
+  recordSuccessfulLoginAnalytics,
+} from './domain/platform-analytics.js'
+
+export {
   getEndSeasonStats,
 } from './domain/season-stats.js'

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { supabase } from '../lib/supabase-client.js'
+import { recordSuccessfulLoginAnalytics } from '../lib/domain/platform-analytics.js'
 import { assertPasswordPolicy, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
@@ -127,6 +128,7 @@ export function ClubOwnerInvitePage() {
           throw new Error('Sign in with the invited account password to continue.')
         }
 
+        void recordSuccessfulLoginAnalytics(signInData)
         ;({ response, result } = await submitAcceptance(signInData.session.access_token))
       }
 
@@ -134,7 +136,7 @@ export function ClubOwnerInvitePage() {
         throw new Error(result.message || 'Club admin account could not be created.')
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: result.email || invite.invitedEmail,
         password,
       })
@@ -143,6 +145,7 @@ export function ClubOwnerInvitePage() {
         setSignInEmail(result.email || invite.invitedEmail)
         setSuccessMessage('Club admin access created. Sign in to continue setup.')
       } else {
+        void recordSuccessfulLoginAnalytics(signInData)
         navigate(result.redirectPath || '/club-settings', { replace: true })
       }
 
