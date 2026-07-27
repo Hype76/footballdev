@@ -32,6 +32,7 @@ import {
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentPortalPlayerResources,
+  getParentPortalResourceAccessUrl,
   getParentPortalSharedCalendarEvents,
   groupParentInvitationsByEvent,
   isParentInvitationPending,
@@ -2545,11 +2546,40 @@ function ParentResultsPanel({ isLoading, onOpen, previousMatches }) {
 }
 
 function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
-  const openResource = (resource) => {
-    const url = String(resource.externalUrl || '').trim()
+  const [openingResourceId, setOpeningResourceId] = useState('')
+  const [resourceAccessError, setResourceAccessError] = useState('')
 
-    if (url) {
-      window.open(url, '_blank', 'noopener,noreferrer')
+  const openResource = async (resource) => {
+    if (!selectedLink?.id || !resource?.id) {
+      return
+    }
+
+    const pendingWindow = window.open('', '_blank')
+
+    if (pendingWindow) {
+      pendingWindow.opener = null
+    }
+
+    setOpeningResourceId(resource.id)
+    setResourceAccessError('')
+
+    try {
+      const accessUrl = await getParentPortalResourceAccessUrl({
+        parentLinkId: selectedLink.id,
+        resourceId: resource.id,
+      })
+
+      if (pendingWindow) {
+        pendingWindow.location.replace(accessUrl)
+      } else {
+        window.location.assign(accessUrl)
+      }
+    } catch (error) {
+      pendingWindow?.close()
+      console.error(error)
+      setResourceAccessError(error.message || 'This resource could not be opened.')
+    } finally {
+      setOpeningResourceId('')
     }
   }
 
@@ -2562,6 +2592,12 @@ function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
         </div>
         <p className="text-sm font-black text-[#4b5f55]">{resources.length} shared</p>
       </div>
+
+      {resourceAccessError ? (
+        <div className="mt-4">
+          <NoticeBanner tone="error" title="Resource not opened" message={resourceAccessError} />
+        </div>
+      ) : null}
 
       <div className="mt-4">
         {!selectedLink ? (
@@ -2581,11 +2617,15 @@ function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
                 {resource.link?.shareDescription ? <p className="mt-2 text-sm font-semibold leading-6 text-[#101828]">{resource.link.shareDescription}</p> : null}
                 <button
                   type="button"
-                  onClick={() => openResource(resource)}
-                  disabled={!resource.externalUrl}
+                  onClick={() => void openResource(resource)}
+                  disabled={openingResourceId === resource.id}
                   className={`${secondaryButtonClass} mt-4 w-full sm:w-auto`}
                 >
-                  Open resource
+                  {openingResourceId === resource.id
+                    ? 'Preparing...'
+                    : resource.resourceType === 'external_link'
+                      ? 'Open resource'
+                      : 'Download resource'}
                 </button>
               </article>
             ))}

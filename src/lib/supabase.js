@@ -279,6 +279,7 @@ export {
   getAssignedResourcesForPlayer,
   getCalendarEventResources,
   getParentPortalPlayerResources,
+  getParentPortalResourceAccessUrl,
   getResourceLibraryDownloadUrl,
   getResourceLibraryItems,
   getResourceLibraryPlayers,

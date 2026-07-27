@@ -26,7 +26,9 @@ test('Resource Library assignment expands full squad sharing through the idempot
 
   assert.match(domain, /RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH = 500/)
   assert.match(domain, /shareDescription = ''/)
-  assert.match(domain, /rpc\('assign_resource_library_item_with_parent_notifications'/)
+  assert.match(domain, /sync_resource_library_player_assignments_with_parent_notifications/)
+  assert.match(domain, /assign_resource_library_item_with_parent_notifications/)
+  assert.match(domain, /supabase\.rpc\(assignmentRpc/)
   assert.match(domain, /targets_value: normalizedTargets\.map/)
   assert.match(domain, /share_description_value: normalizedShareDescription/)
   assert.match(domain, /parentVisible: target\.linkedType === 'player' && target\.parentVisible === true/)

@@ -460,7 +460,13 @@ export async function createExternalResourceLibraryItem({ category = 'general', 
   return normalizeResourceLibraryItem(resource ?? {})
 }
 
-export async function assignResourceLibraryItem({ resourceId, targets = [], shareDescription = '', user } = {}) {
+export async function assignResourceLibraryItem({
+  replacePlayerAssignments = false,
+  resourceId,
+  shareDescription = '',
+  targets = [],
+  user,
+} = {}) {
   await blockDemoMutation(user)
   assertResourceLibraryManageAccess(user)
 
@@ -481,7 +487,7 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], shar
     throw new Error('Choose a resource before assigning it.')
   }
 
-  if (normalizedTargets.length === 0) {
+  if (normalizedTargets.length === 0 && !replacePlayerAssignments) {
     throw new Error('Choose at least one player or team for this resource.')
   }
 
@@ -491,7 +497,14 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], shar
     throw new Error('Team resources can only be assigned inside the active team.')
   }
 
-  const { data, error } = await supabase.rpc('assign_resource_library_item_with_parent_notifications', {
+  if (replacePlayerAssignments && normalizedTargets.some((target) => target.linkedType !== 'player')) {
+    throw new Error('Only player assignments can be replaced from this workflow.')
+  }
+
+  const assignmentRpc = replacePlayerAssignments
+    ? 'sync_resource_library_player_assignments_with_parent_notifications'
+    : 'assign_resource_library_item_with_parent_notifications'
+  const { data, error } = await supabase.rpc(assignmentRpc, {
     target_resource_id: normalizedResourceId,
     target_club_id: user.clubId,
     target_team_id: activeTeamId,
@@ -508,6 +521,11 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], shar
     throw error
   }
 
+  const assignmentRows = replacePlayerAssignments
+    ? Array.isArray(data?.assignments) ? data.assignments : []
+    : data ?? []
+  const removedCount = replacePlayerAssignments ? Number(data?.removedCount || 0) : 0
+
   invalidateMemoryCacheByPrefix(`resource-library:${user.clubId}:`)
   clearViewCaches()
   await createAuditLog({
@@ -517,15 +535,19 @@ export async function assignResourceLibraryItem({ resourceId, targets = [], shar
     entityId: normalizedResourceId,
     metadata: {
       targetCount: normalizedTargets.length,
-      insertedCount: (data ?? []).filter((link) => link.assignment_action === 'inserted').length,
-      updatedCount: (data ?? []).filter((link) => link.assignment_action === 'updated').length,
-      unchangedCount: (data ?? []).filter((link) => link.assignment_action === 'unchanged').length,
-      notificationCount: (data ?? []).reduce((total, link) => total + Number(link.notifications_queued || 0), 0),
+      insertedCount: assignmentRows.filter((link) => link.assignment_action === 'inserted').length,
+      updatedCount: assignmentRows.filter((link) => link.assignment_action === 'updated').length,
+      unchangedCount: assignmentRows.filter((link) => link.assignment_action === 'unchanged').length,
+      removedCount,
+      notificationCount: assignmentRows.reduce((total, link) => total + Number(link.notifications_queued || 0), 0),
       hasShareDescription: Boolean(normalizedShareDescription),
     },
   })
 
-  return (data ?? []).map(normalizeResourceLibraryLink)
+  return {
+    assignments: assignmentRows.map(normalizeResourceLibraryLink),
+    removedCount,
+  }
 }
 
 export async function removeResourceLibraryLink({ linkId, user } = {}) {
@@ -670,6 +692,47 @@ export async function getParentPortalPlayerResources({ parentLinkId } = {}) {
       }],
     }))
     .filter((item) => !item.archivedAt)
+}
+
+export async function getParentPortalResourceAccessUrl({ parentLinkId, resourceId } = {}) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+  const normalizedResourceId = normalizeText(resourceId)
+
+  if (!normalizedParentLinkId || !normalizedResourceId) {
+    throw new Error('Choose a shared resource before opening it.')
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  if (sessionError || !accessToken) {
+    throw new Error('Sign in again before opening this resource.')
+  }
+
+  const response = await fetch('/api/parent-resources/access', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      parentLinkId: normalizedParentLinkId,
+      resourceId: normalizedResourceId,
+    }),
+  })
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(payload.message || 'This resource is not available for the selected child.')
+  }
+
+  const accessUrl = normalizeExternalResourceUrl(payload.accessUrl)
+
+  if (!accessUrl) {
+    throw new Error('Resource access could not be prepared.')
+  }
+
+  return accessUrl
 }
 
 export async function getCalendarEventResources({ eventId, teamId = '', user } = {}) {

@@ -44,6 +44,42 @@ function createAssignmentDraft() {
   }
 }
 
+function createAssignmentDraftForResource(resource, activeTeamId) {
+  if (!resource?.id) {
+    return createAssignmentDraft()
+  }
+
+  const playerLinks = resource.links.filter((link) => link.linkedType === 'player')
+  const teamLink = resource.links.find((link) => link.linkedType === 'team' && String(link.linkedId) === String(activeTeamId))
+
+  if (playerLinks.length > 0) {
+    const shareDescriptions = [...new Set(playerLinks.map((link) => link.shareDescription || ''))]
+
+    return {
+      parentVisible: playerLinks.every((link) => link.parentVisible === true),
+      resourceId: resource.id,
+      linkedType: 'player',
+      linkedId: playerLinks[0].linkedId,
+      linkedPlayerIds: playerLinks.map((link) => link.linkedId),
+      shareDescription: shareDescriptions.length === 1 ? shareDescriptions[0] : '',
+    }
+  }
+
+  if (teamLink) {
+    return {
+      ...createAssignmentDraft(),
+      resourceId: resource.id,
+      linkedType: 'team',
+      linkedId: activeTeamId,
+    }
+  }
+
+  return {
+    ...createAssignmentDraft(),
+    resourceId: resource.id,
+  }
+}
+
 function stopTextInputSpacePropagation(event) {
   if (event.key === ' ') {
     event.stopPropagation()
@@ -60,7 +96,7 @@ function getResourceMeta(resource) {
   return `${scope} | ${getCategoryLabel(resource.category)} | ${size}`
 }
 
-function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownload, resources }) {
+function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownload, onEditAssignment, resources }) {
   if (resources.length === 0) {
     return (
       <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-6 text-sm font-semibold leading-6 text-[#4b5f55] shadow-sm shadow-[#047857]/10">
@@ -90,9 +126,14 @@ function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownloa
                 {downloadingId === resource.id ? 'Preparing...' : resource.resourceType === 'external_link' ? 'Open' : 'Download'}
               </button>
               {canManage ? (
-                <button type="button" onClick={() => onArchive(resource)} disabled={isSaving} className={dangerButtonClass}>
-                  Archive
-                </button>
+                <>
+                  <button type="button" onClick={() => onEditAssignment(resource)} disabled={isSaving} className={secondaryButtonClass}>
+                    Edit player assignments
+                  </button>
+                  <button type="button" onClick={() => onArchive(resource)} disabled={isSaving} className={dangerButtonClass}>
+                    Archive
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
@@ -137,6 +178,16 @@ export function ResourceLibraryPage() {
     return selectedPlayerIds.filter((playerId) => filteredPlayerIdSet.has(playerId))
   }, [filteredPlayerIdSet, selectedPlayerIds])
   const selectedPlayerIdSet = useMemo(() => new Set(selectedActivePlayerIds), [selectedActivePlayerIds])
+  const selectedResource = useMemo(
+    () => resources.find((resource) => String(resource.id) === String(assignmentDraft.resourceId)) || null,
+    [assignmentDraft.resourceId, resources],
+  )
+  const selectedResourcePlayerLinks = useMemo(
+    () => selectedResource?.links.filter((link) => link.linkedType === 'player') ?? [],
+    [selectedResource],
+  )
+  const hasMixedParentVisibility = selectedResourcePlayerLinks.some((link) => link.parentVisible === true)
+    && selectedResourcePlayerLinks.some((link) => link.parentVisible !== true)
 
   useEffect(() => {
     let isMounted = true
@@ -186,6 +237,16 @@ export function ResourceLibraryPage() {
   const refreshResources = async () => {
     const nextResources = await getResourceLibraryItems({ user, ...filters, teamId: activeTeamId })
     setResources(nextResources)
+  }
+
+  const openAssignmentEditor = (resource) => {
+    setAssignmentDraft(createAssignmentDraftForResource(resource, activeTeamId))
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    window.requestAnimationFrame(() => {
+      document.getElementById('resource-assignment')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   const handleUpload = async (event) => {
@@ -268,16 +329,23 @@ export function ResourceLibraryPage() {
         resourceId: assignmentDraft.resourceId,
         targets,
         shareDescription: assignmentDraft.shareDescription,
+        replacePlayerAssignments: isSquadAssignment || isPlayerAssignment,
       })
 
       setAssignmentDraft(createAssignmentDraft())
       await refreshResources()
-      setSuccessMessage(isSquadAssignment || isPlayerAssignment ? `Resource assignment saved for ${targets.length} player${targets.length === 1 ? '' : 's'}.` : 'Resource assignment saved.')
+      setSuccessMessage(isSquadAssignment || isPlayerAssignment
+        ? targets.length > 0
+          ? `Resource assignment saved for ${targets.length} player${targets.length === 1 ? '' : 's'}.`
+          : 'Player assignments removed.'
+        : 'Resource assignment saved.')
       showToast({
         title: 'Resource assigned',
-        message: assignmentDraft.parentVisible && canShareWithParents
-          ? 'Shared with linked parents.'
-          : 'Staff can now see the assignment in the permitted scope.',
+        message: targets.length === 0
+          ? 'The resource no longer has player assignments.'
+          : assignmentDraft.parentVisible && canShareWithParents
+            ? 'Shared with linked parents.'
+            : 'Staff can now see the assignment in the permitted scope.',
       })
     } catch (error) {
       console.error(error)
@@ -499,14 +567,17 @@ export function ResourceLibraryPage() {
       ) : null}
 
       {canManage ? (
-        <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
+        <section id="resource-assignment" className="scroll-mt-6 rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
           <form className="space-y-3" onSubmit={handleAssign}>
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)_14rem_auto] lg:items-end">
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Resource</span>
                 <select
                   value={assignmentDraft.resourceId}
-                  onChange={(event) => setAssignmentDraft((current) => ({ ...current, resourceId: event.target.value }))}
+                  onChange={(event) => {
+                    const resource = resources.find((item) => String(item.id) === String(event.target.value))
+                    setAssignmentDraft(createAssignmentDraftForResource(resource, activeTeamId))
+                  }}
                   className={fieldClass}
                 >
                   <option value="">Choose resource</option>
@@ -588,20 +659,31 @@ export function ResourceLibraryPage() {
                   </select>
                 </label>
               )}
-              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] focus-within:border-[#047857] focus-within:ring-2 focus-within:ring-[#d1fae5]">
                 <input
                   type="checkbox"
                   checked={assignmentDraft.parentVisible}
                   onChange={(event) => setAssignmentDraft((current) => ({ ...current, parentVisible: event.target.checked }))}
                   disabled={!canShareWithParents}
-                  className="h-5 w-5 accent-[#047857] disabled:opacity-60"
+                  aria-describedby="resource-parent-sharing-help"
+                  className="h-5 w-5 accent-[#047857] outline-none focus-visible:ring-2 focus-visible:ring-[#047857] focus-visible:ring-offset-2 disabled:opacity-60"
                 />
-                {assignmentDraft.parentVisible ? 'Shared with parents' : 'Staff only'}
+                Shared with parents
               </label>
               <button type="submit" disabled={isSaving} className={primaryButtonClass}>
                 Save assignment
               </button>
             </div>
+            <p id="resource-parent-sharing-help" className="text-sm font-semibold leading-6 text-[#4b5f55]">
+              {canShareWithParents
+                ? 'Turn on to make this resource visible to authorised parents for the selected players.'
+                : 'Team assignments remain available to staff only.'}
+            </p>
+            {hasMixedParentVisibility ? (
+              <p className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold text-[#92400e]">
+                Existing player assignments have mixed Parent sharing states. Saving applies this checkbox state to every selected player.
+              </p>
+            ) : null}
             <label className="block">
               <span className="mb-2 flex items-center justify-between gap-3 text-sm font-black text-[#101828]">
                 <span>Description</span>
@@ -639,6 +721,7 @@ export function ResourceLibraryPage() {
           isSaving={isSaving}
           onArchive={(resource) => void handleArchive(resource)}
           onDownload={(resource) => void handleDownload(resource)}
+          onEditAssignment={openAssignmentEditor}
           resources={resources}
         />
       </section>

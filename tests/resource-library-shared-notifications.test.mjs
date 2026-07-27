@@ -17,7 +17,9 @@ test('shared resource assignment uses one trusted RPC for allocation, transition
     domain.indexOf('export async function removeResourceLibraryLink'),
   )
 
-  assert.match(domain, /rpc\('assign_resource_library_item_with_parent_notifications'/)
+  assert.match(domain, /sync_resource_library_player_assignments_with_parent_notifications/)
+  assert.match(domain, /assign_resource_library_item_with_parent_notifications/)
+  assert.match(domain, /supabase\.rpc\(assignmentRpc/)
   assert.doesNotMatch(assignmentSource, /\.from\('resource_library_links'\)/)
   assert.match(migration, /security definer[\s\S]*current_user_can_manage_resource_library\(target_club_id, target_team_id\)/i)
   assert.match(migration, /resource_library_link_target_allowed\([\s\S]*target_type_value[\s\S]*target_id_value/i)
@@ -84,10 +86,13 @@ test('parent portal RPC is child scoped and returns no staff-only metadata', asy
   assert.doesNotMatch(parentPortalPage, /resource\.description/)
 })
 
-test('staff UI distinguishes internal-only and parent-shared allocation modes', async () => {
+test('staff UI keeps a stable accessible Parent sharing label', async () => {
   const page = await readFile(resourcePageUrl, 'utf8')
 
-  assert.match(page, /assignmentDraft\.parentVisible \? 'Shared with parents' : 'Staff only'/)
+  assert.match(page, /aria-describedby="resource-parent-sharing-help"/)
+  assert.match(page, /focus-visible:ring-2/)
+  assert.match(page, />\s*Shared with parents\s*<\/label>/)
+  assert.doesNotMatch(page, /assignmentDraft\.parentVisible \? 'Shared with parents' : 'Staff only'/)
   assert.match(page, /Shared with linked parents\./)
   assert.match(page, /Staff can now see the assignment in the permitted scope\./)
 })
