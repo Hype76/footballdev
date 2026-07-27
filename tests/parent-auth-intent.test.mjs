@@ -139,6 +139,23 @@ test('recoverable parent access states preserve the authenticated session', asyn
   assert.doesNotMatch(source, /Test and live workspaces keep accounts separate/)
 })
 
+test('retired access mismatch screen is removed in favour of safe sign-in redirects', async () => {
+  const source = await readFile(routerUrl, 'utf8')
+  const retiredParentHeading = ['This sign-in', 'is for parent access'].join(' ')
+  const retiredClubAction = ['Use Club', 'login'].join(' ')
+  const retiredAlternateAction = ['Sign in with', 'another account'].join(' ')
+  const retiredComponent = ['LoginIntent', 'MismatchState'].join('')
+
+  assert.equal(source.includes(retiredParentHeading), false)
+  assert.equal(source.includes(retiredClubAction), false)
+  assert.equal(source.includes(retiredAlternateAction), false)
+  assert.equal(source.includes(retiredComponent), false)
+  assert.match(source, /function TeamAccessSignInRedirect\(\)/)
+  assert.match(source, /function LoginIntentSignInRedirect\(\{ intent \}\)/)
+  assert.match(source, /intent === 'team' \? <TeamAccessSignInRedirect \/> : <ParentAccessSignInRedirect \/>/)
+  assert.match(source, /accessRouteMismatch\?\.loginIntentMismatch[\s\S]*<LoginIntentSignInRedirect/)
+})
+
 test('production auth success copy avoids staging workspace wording', async () => {
   const source = await readFile(authSourceUrl, 'utf8')
 

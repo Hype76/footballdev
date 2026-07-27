@@ -489,7 +489,7 @@ try {
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
     await assertVisibleText(page, 'Family portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
-    assert.equal(await page.getByText('This sign-in is for club staff', { exact: true }).count(), 0)
+    assert.equal(await page.getByText(/sign-in is for club staff/i).count(), 0)
     await assertNoSetupGuideTrigger(page)
     await context.close()
   })
@@ -508,23 +508,25 @@ try {
     await context.close()
   })
 
-  await runScenario('parent-only account using club login sees club-specific guidance', async () => {
+  await runScenario('parent-only account using club login returns safely to club sign-in', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await signIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl, 'club')
-    await assertVisibleText(page, 'This sign-in is for club staff')
-    await assertVisibleText(page, "This sign-in is for club staff. Use Parent login to view your child's updates.")
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), null)
+    await page.getByRole('button', { name: 'Club' }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
     await context.close()
   })
 
-  await runScenario('staff-only account using parent login sees parent-specific guidance', async () => {
+  await runScenario('staff-only account using parent login returns safely to parent sign-in', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'coach.fixture@footballplayer.test', mainBaseUrl)
-    await assertVisibleText(page, 'This sign-in is for parent access')
-    await assertVisibleText(page, 'This sign-in is for parent access. Use Club login to manage your team workspace.')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
+    await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Team workspace unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
@@ -684,7 +686,7 @@ try {
     await parentSignIn(page, 'lookup-failed-dual.fixture@footballplayer.test', mainBaseUrl)
     await assertVisibleText(page, 'Parent access could not be confirmed')
     await assertVisibleText(page, 'A temporary Parent-link lookup problem is not treated as proof that the link is missing.')
-    assert.equal(await page.getByText('This sign-in is for parent access', { exact: true }).count(), 0)
+    assert.equal(await page.getByText(/sign-in is for parent access/i).count(), 0)
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     await page.getByRole('button', { name: 'Open Team / Coach' }).click()
     await page.waitForURL('**/coach', { timeout: 15000 })
@@ -692,11 +694,13 @@ try {
     await context.close()
   })
 
-  await runScenario('confirmed no-link parent intent stays strict for a staff account', async () => {
+  await runScenario('confirmed no-link parent intent stays strict and returns to Parent sign-in', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'fallback-dual.fixture@footballplayer.test', mainBaseUrl)
-    await assertVisibleText(page, 'This sign-in is for parent access')
+    await waitForPathname(page, '/sign-in')
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
+    await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Choose an available workspace', { exact: true }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Open Team / Coach' }).count(), 0)
     await context.close()

@@ -313,7 +313,6 @@ function ParentAccessSignInRedirect() {
     }
 
     redirectStartedRef.current = true
-    let isMounted = true
 
     const redirectToParentSignIn = async () => {
       try {
@@ -322,89 +321,47 @@ function ParentAccessSignInRedirect() {
         console.error(error)
       }
 
-      if (!isMounted) {
-        return
-      }
-
       window.sessionStorage.clear()
       rememberParentAccessIntent()
       window.location.assign(getParentLoginTarget())
     }
 
     void redirectToParentSignIn()
-
-    return () => {
-      isMounted = false
-    }
   }, [signOut])
 
   return <LoadingScreen />
 }
 
-function LoginIntentMismatchState({ intent }) {
+function TeamAccessSignInRedirect() {
   const { signOut } = useAuth()
-  const isParentIntent = intent === 'parent'
-  const title = isParentIntent ? 'This sign-in is for parent access' : 'This sign-in is for club staff'
-  const message = isParentIntent
-    ? 'This sign-in is for parent access. Use Club login to manage your team workspace.'
-    : "This sign-in is for club staff. Use Parent login to view your child's updates."
-  const primaryLabel = isParentIntent ? 'Use Club login' : 'Use Parent login'
-  const primaryTarget = isParentIntent ? '/sign-in' : getParentLoginTarget()
-  const secondaryTarget = isParentIntent ? getParentLoginTarget() : '/sign-in'
+  const redirectStartedRef = useRef(false)
 
-  const handlePrimaryAction = async () => {
-    try {
-      await signOut()
-    } finally {
-      window.location.assign(primaryTarget)
+  useEffect(() => {
+    if (redirectStartedRef.current) {
+      return undefined
     }
-  }
 
-  const handleSecondaryAction = async () => {
-    try {
-      await signOut()
-    } finally {
-      window.location.assign(secondaryTarget)
+    redirectStartedRef.current = true
+
+    const redirectToTeamSignIn = async () => {
+      try {
+        await signOut()
+      } catch (error) {
+        console.error(error)
+      }
+
+      window.sessionStorage.clear()
+      window.location.assign('/sign-in')
     }
-  }
 
-  return (
-    <RouteGateState
-      eyebrow={isParentIntent ? 'Parent login' : 'Club login'}
-      title={title}
-      message={message}
-      rules={[
-        {
-          title: 'Route-specific sign-in',
-          body: isParentIntent
-            ? 'Parent login opens accounts with an active parent-child link.'
-            : 'Club login opens club admins, team admins, coaches, and staff.',
-        },
-        {
-          title: 'Your account is still safe',
-          body: 'Sign out and use the matching login path for the access you need.',
-        },
-      ]}
-      actions={(
-        <>
-          <button
-            type="button"
-            onClick={handlePrimaryAction}
-            className={primaryActionClassName}
-          >
-            {primaryLabel}
-          </button>
-          <button
-            type="button"
-            onClick={handleSecondaryAction}
-            className={secondaryActionClassName}
-          >
-            Sign in with another account
-          </button>
-        </>
-      )}
-    />
-  )
+    void redirectToTeamSignIn()
+  }, [signOut])
+
+  return <LoadingScreen />
+}
+
+function LoginIntentSignInRedirect({ intent }) {
+  return intent === 'team' ? <TeamAccessSignInRedirect /> : <ParentAccessSignInRedirect />
 }
 
 function TeamAccessUnavailableState() {
@@ -764,7 +721,7 @@ function useWorkspaceRouteGate({
   if (!user) {
     if (accessRouteMismatch?.loginIntentMismatch) {
       return {
-        element: <LoginIntentMismatchState intent={accessRouteMismatch.intendedAccessMode || loginIntent} />,
+        element: <LoginIntentSignInRedirect intent={accessRouteMismatch.intendedAccessMode || loginIntent} />,
         user: null,
       }
     }
@@ -800,7 +757,7 @@ function useWorkspaceRouteGate({
   if (parentIntent) {
     if (!isParentPortalUser(user)) {
       if (loginIntent === 'parent') {
-        return { element: <LoginIntentMismatchState intent="parent" />, user }
+        return { element: <ParentAccessSignInRedirect />, user }
       }
 
       return { element: <ParentAccessSignInRedirect />, user }
@@ -831,7 +788,7 @@ function useWorkspaceRouteGate({
 
   if (isParentPortalUser(user)) {
     if (loginIntent === 'team') {
-      return { element: <LoginIntentMismatchState intent="team" />, user }
+      return { element: <TeamAccessSignInRedirect />, user }
     }
 
     return { element: <RedirectToWorkspaceHome user={user} />, user }
@@ -949,7 +906,7 @@ function WorkspaceHome() {
 
   if (!user) {
     if (accessRouteMismatch?.loginIntentMismatch) {
-      return <LoginIntentMismatchState intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
+      return <LoginIntentSignInRedirect intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
     }
 
     if (accessRouteMismatch?.teamAccessUnavailable) {

@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260720091524_p1_tenant_parent_player_staff_feedback_isolation.sql', import.meta.url)
+const parentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727053304_restore_parent_link_authority.sql', import.meta.url)
 
 const ID = Object.freeze({
   clubA: '10000000-0000-4000-8000-000000000001',
@@ -13,6 +14,7 @@ const ID = Object.freeze({
   teamA2: '20000000-0000-4000-8000-000000000002',
   teamB1: '20000000-0000-4000-8000-000000000003',
   parent: '30000000-0000-4000-8000-000000000001',
+  parentOnly: '30000000-0000-4000-8000-000000000009',
   assistant: '30000000-0000-4000-8000-000000000002',
   coach: '30000000-0000-4000-8000-000000000003',
   manager: '30000000-0000-4000-8000-000000000004',
@@ -265,6 +267,7 @@ async function createDatabase() {
   `)
 
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(parentAuthorityMigrationUrl, 'utf8'))
 
   await db.exec(`
     insert into public.clubs(id, name, logo_url, website, town_city, country, contact_email, contact_phone) values
@@ -307,7 +310,9 @@ async function createDatabase() {
     insert into public.parent_player_links(club_id, team_id, player_id, auth_user_id, email, status) values
       ('${ID.clubA}', '${ID.teamA1}', '${ID.linked}', '${ID.parent}', 'parent@test.invalid', 'active'),
       ('${ID.clubA}', '${ID.teamA1}', '${ID.sibling}', '${ID.parent}', 'parent@test.invalid', 'active'),
-      ('${ID.clubA}', '${ID.teamA1}', '${ID.inactiveLink}', '${ID.parent}', 'parent@test.invalid', 'revoked');
+      ('${ID.clubA}', '${ID.teamA1}', '${ID.inactiveLink}', '${ID.parent}', 'parent@test.invalid', 'revoked'),
+      ('${ID.clubA}', '${ID.teamA2}', '${ID.sameClub}', '${ID.parentOnly}', 'parent-only@test.invalid', 'active'),
+      ('${ID.clubB}', '${ID.teamB1}', '${ID.crossClub}', '${ID.parentOnly}', 'parent-only@test.invalid', 'revoked');
 
     insert into public.player_staff_notes(club_id, player_id, user_id, note) values
       ('${ID.clubA}', '${ID.linked}', '${ID.coach}', 'A1 note'),
@@ -387,6 +392,27 @@ test('parents see only active linked children and use narrow relationship action
     await setActor(db, ID.parent)
     assert.equal((await db.query('select count(*)::int count from public.players')).rows[0].count, 0)
     await assert.rejects(db.query("select public.update_own_parent_link_email('blocked@test.invalid')"), /not[_ ]permitted/i)
+  } finally {
+    await asOwner(db)
+    await db.close()
+  }
+})
+
+test('Parent-only auth accounts use direct active links without receiving staff authority', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, ID.parentOnly)
+    assert.equal((await db.query('select public.current_user_role() role')).rows[0].role, null)
+    assert.deepEqual(await visibleIds(db, 'clubs'), [ID.clubA])
+    assert.deepEqual(await visibleIds(db, 'teams'), [ID.teamA2])
+    assert.deepEqual(await visibleIds(db, 'players'), [ID.sameClub])
+
+    const links = await db.query('select player_id, status from public.parent_player_links order by player_id')
+    assert.deepEqual(links.rows, [{ player_id: ID.sameClub, status: 'active' }])
+
+    await db.exec(`update public.players set player_name = 'Blocked' where id = '${ID.sameClub}'`)
+    await asOwner(db)
+    assert.equal((await db.query(`select player_name from public.players where id = '${ID.sameClub}'`)).rows[0].player_name, 'Unrelated Same Club')
   } finally {
     await asOwner(db)
     await db.close()
