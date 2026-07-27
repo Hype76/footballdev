@@ -10,7 +10,7 @@ function normalizeEmail(value) {
   return normalizeText(value).toLowerCase()
 }
 
-function isResourceNotificationQueueRow(row) {
+export function isResourceNotificationQueueRow(row) {
   return row?.payload?.resourceNotification?.type === 'resource_shared'
 }
 

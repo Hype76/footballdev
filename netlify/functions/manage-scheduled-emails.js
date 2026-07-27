@@ -7,6 +7,7 @@ import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
 import { processCalendarNotificationCommand, sendScheduledEmail } from './process-scheduled-emails.js'
+import { isResourceNotificationQueueRow } from './lib/_resource-notification-email.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -98,6 +99,10 @@ function isVisibleHoldingQueuePayload(payload) {
   }
 
   if (String(payload.actorEmail ?? '').trim().toLowerCase() === 'match-day-system') {
+    return false
+  }
+
+  if (payload.resourceNotification?.type === 'resource_shared') {
     return false
   }
 
@@ -387,11 +392,14 @@ async function sendQueuedParentPush(communicationLog) {
 async function sendNowQueueItem({ body, profile }) {
   const row = await getQueueRow({ id: body.id, profile })
 
-  if (row.payload?.communicationLog?.metadata?.source === 'calendar_event_notification') {
+  if (
+    row.payload?.communicationLog?.metadata?.source === 'calendar_event_notification'
+    || isResourceNotificationQueueRow(row)
+  ) {
     const status = await sendScheduledEmail(row, { retryFailed: true })
 
     if (status === 'failed') {
-      throw new Error('The parent email could not be sent. Please try again.')
+      throw new Error('The queued email could not be sent. Please try again.')
     }
 
     if (status === 'skipped') {

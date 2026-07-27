@@ -8,6 +8,7 @@ const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.
 const notificationSchemaMigrationUrl = new URL('../supabase/migrations/20260710180206_resource_library_shared_parent_notifications.sql', import.meta.url)
 const assignmentMigrationUrl = new URL('../supabase/migrations/20260727150148_fix_resource_library_notification_returning_ids.sql', import.meta.url)
 const parentResourceMigrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
+const manageScheduledEmailsUrl = new URL('../netlify/functions/manage-scheduled-emails.js', import.meta.url)
 const processorUrl = new URL('../netlify/functions/process-scheduled-emails.js', import.meta.url)
 const resourceEmailUrl = new URL('../src/lib/resource-notification-email.js', import.meta.url)
 
@@ -105,14 +106,17 @@ test('staff UI keeps a stable accessible Parent sharing label', async () => {
   assert.match(page, /Staff can now see the assignment in the permitted scope\./)
 })
 
-test('resource notification queue is re-authorized and rendered at send time', async () => {
-  const [assignmentMigration, processor, resourceEmail] = await Promise.all([
+test('resource notification queue is re-authorized and rendered through every send path', async () => {
+  const [assignmentMigration, manageScheduledEmails, processor, resourceEmail] = await Promise.all([
     readFile(assignmentMigrationUrl, 'utf8'),
+    readFile(manageScheduledEmailsUrl, 'utf8'),
     readFile(processorUrl, 'utf8'),
     readFile(resourceEmailUrl, 'utf8'),
   ])
 
   assert.match(assignmentMigration, /'resourceNotification', jsonb_build_object\([\s\S]*'type', 'resource_shared'/i)
+  assert.match(manageScheduledEmails, /isResourceNotificationQueueRow\(row\)[\s\S]*sendScheduledEmail\(row, \{ retryFailed: true \}\)/)
+  assert.match(manageScheduledEmails, /payload\.resourceNotification\?\.type === 'resource_shared'[\s\S]*return false/)
   assert.match(processor, /prepareScheduledResourceNotificationRow/)
   assert.match(resourceEmail, /RESOURCE_NOTIFICATION_PARENT_PORTAL_URL/)
   assert.match(resourceEmail, /resourceDescription/)
