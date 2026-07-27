@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const accentMigrationUrl = new URL('../supabase/migrations/20260727073332_club_accent_colour_authority.sql', import.meta.url)
-const displayMigrationUrl = new URL('../supabase/migrations/20260727120000_club_display_controls.sql', import.meta.url)
+const displayMigrationUrl = new URL('../supabase/migrations/20260727111343_club_display_controls.sql', import.meta.url)
 
 const IDS = Object.freeze({
   clubA: '10000000-0000-4000-8000-000000000001',
