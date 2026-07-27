@@ -19,6 +19,10 @@ import {
   updateFeedbackForm,
   validateFeedbackFormDraft,
 } from '../lib/supabase.js'
+import {
+  getStableMetricKey,
+  isEliteStarterTemplate,
+} from '../lib/elite-development.js'
 
 const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
@@ -87,15 +91,37 @@ function StarterTemplateList({
               <p className="mt-1 text-xs font-semibold text-[#66756c]">
                 {template.ageBand} | {template.fields.length} fields | Version {template.version}
               </p>
+              {template.isInstalled ? (
+                <p className="mt-2 text-sm font-black text-[#047857]">
+                  Added to this team as {template.installedFormName}.
+                </p>
+              ) : null}
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm font-black text-[#047857]">Preview fields</summary>
+                <ul className="mt-2 grid gap-1 text-sm font-semibold text-[#4b5f55] sm:grid-cols-2">
+                  {template.fields.map((field) => (
+                    <li key={field.id}>{field.label}</li>
+                  ))}
+                </ul>
+              </details>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {!template.isHidden ? (
+              {!template.isHidden && !isEliteStarterTemplate(template) ? (
                 <button type="button" onClick={() => onUse(template)} disabled={isSaving} className={primaryButtonClass}>
                   Use form
                 </button>
               ) : null}
-              <button type="button" onClick={() => onDuplicate(template)} disabled={isSaving} className={secondaryButtonClass}>
-                Duplicate and customise
+              <button
+                type="button"
+                onClick={() => onDuplicate(template)}
+                disabled={isSaving || template.isInstalled}
+                className={isEliteStarterTemplate(template) ? primaryButtonClass : secondaryButtonClass}
+              >
+                {template.isInstalled
+                  ? 'Already added'
+                  : isEliteStarterTemplate(template)
+                    ? 'Add to team'
+                    : 'Duplicate and customise'}
               </button>
               <button type="button" onClick={() => onToggleHidden(template)} disabled={isSaving} className={secondaryButtonClass}>
                 {template.isHidden ? 'Show' : 'Hide'}
@@ -371,8 +397,10 @@ export function FeedbackFormsPage() {
   }
 
   const visibleStarterTemplates = starterTemplates.filter((template) => showHiddenTemplates || !template.isHidden)
-  const recommendedStarterTemplates = visibleStarterTemplates.filter((template) => template.isRecommended)
-  const otherStarterTemplates = visibleStarterTemplates.filter((template) => !template.isRecommended)
+  const eliteStarterTemplates = visibleStarterTemplates.filter(isEliteStarterTemplate)
+  const ageStarterTemplates = visibleStarterTemplates.filter((template) => !isEliteStarterTemplate(template))
+  const recommendedStarterTemplates = ageStarterTemplates.filter((template) => template.isRecommended)
+  const otherStarterTemplates = ageStarterTemplates.filter((template) => !template.isRecommended)
   const hiddenStarterCount = starterTemplates.filter((template) => template.isHidden).length
 
   return (
@@ -390,9 +418,9 @@ export function FeedbackFormsPage() {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Starter templates</p>
-            <h2 className="mt-2 text-2xl font-black text-[#101828]">Age-appropriate forms built into Footballplayer.online</h2>
+            <h2 className="mt-2 text-2xl font-black text-[#101828]">Start from a Footballplayer.online template</h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-              Use a platform template directly, hide it for this team, or duplicate it into an editable team form.
+              Add an elite player development form to this team, or use an age-appropriate platform form.
             </p>
           </div>
           {hiddenStarterCount > 0 ? (
@@ -401,8 +429,23 @@ export function FeedbackFormsPage() {
             </button>
           ) : null}
         </div>
-        {recommendedStarterTemplates.length > 0 ? (
+        {eliteStarterTemplates.length > 0 ? (
           <div>
+            <h3 className="mb-1 text-lg font-black text-[#101828]">Elite Player Development</h3>
+            <p className="mb-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+              Preview a specialist or complete review, then add one editable copy to this team.
+            </p>
+            <StarterTemplateList
+              templates={eliteStarterTemplates}
+              isSaving={isSaving}
+              onDuplicate={handleStarterDuplicate}
+              onToggleHidden={handleStarterVisibility}
+              onUse={(template) => navigate(`/assess-player/new?feedbackForm=${encodeURIComponent(template.selectionId)}`)}
+            />
+          </div>
+        ) : null}
+        {recommendedStarterTemplates.length > 0 ? (
+          <div className={eliteStarterTemplates.length > 0 ? 'mt-6' : ''}>
             <h3 className="mb-3 text-sm font-black text-[#101828]">Recommended for this team</h3>
             <StarterTemplateList
               templates={recommendedStarterTemplates}
@@ -414,7 +457,7 @@ export function FeedbackFormsPage() {
           </div>
         ) : null}
         {otherStarterTemplates.length > 0 ? (
-          <div className={recommendedStarterTemplates.length > 0 ? 'mt-6' : ''}>
+          <div className={recommendedStarterTemplates.length > 0 || eliteStarterTemplates.length > 0 ? 'mt-6' : ''}>
             <h3 className="mb-3 text-sm font-black text-[#101828]">
               {recommendedStarterTemplates.length > 0 ? 'Other starter templates' : 'All starter templates'}
             </h3>
@@ -469,7 +512,7 @@ export function FeedbackFormsPage() {
           <div className="space-y-3">
             {editor.fields.map((field, index) => (
               <div key={field.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_8rem_8rem_auto] lg:items-end">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_8rem_8rem_9rem_auto] lg:items-end">
                   <label className="block">
                     <span className="mb-2 block text-sm font-black text-[#101828]">Field label</span>
                     <input
@@ -509,11 +552,23 @@ export function FeedbackFormsPage() {
                         type="checkbox"
                         checked={Boolean(field.includeInProgressChart)}
                         onChange={(event) => updateField(field.id, { includeInProgressChart: event.target.checked })}
+                        disabled={Boolean(getStableMetricKey(field)) && !getStableMetricKey(field).startsWith('custom.')}
                         className="h-4 w-4 accent-[#047857]"
                       />
-                      Graph
+                      {Boolean(getStableMetricKey(field)) && !getStableMetricKey(field).startsWith('custom.')
+                        ? 'Graph required'
+                        : 'Graph'}
                     </label>
                   ) : null}
+                  <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828]">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(field.parentVisible)}
+                      onChange={(event) => updateField(field.id, { parentVisible: event.target.checked })}
+                      className="h-4 w-4 accent-[#047857]"
+                    />
+                    Parent visible
+                  </label>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => moveField(field.id, -1)} disabled={index === 0} className={secondaryButtonClass}>
                       Up

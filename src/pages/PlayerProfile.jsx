@@ -8,6 +8,7 @@ import { PlayerOverview } from '../components/players/PlayerOverview.jsx'
 import { PlayerProfileActions } from '../components/players/PlayerProfileActions.jsx'
 import { PlayerProfileModals } from '../components/players/PlayerProfileModals.jsx'
 import { PlayerProgressionCharts } from '../components/players/PlayerProgressionCharts.jsx'
+import { EliteDevelopmentCharts } from '../components/players/EliteDevelopmentCharts.jsx'
 import { PlayerStaffActivity } from '../components/players/PlayerStaffActivity.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -46,6 +47,7 @@ import {
   buildPlayerProgressionData,
   getEmailSectionState,
 } from '../lib/player-progression.js'
+import { buildEliteDevelopmentData } from '../lib/elite-development.js'
 import {
   buildFieldMovement,
   buildMergeDetailFields,
@@ -435,6 +437,10 @@ export function PlayerProfile() {
   const progressionData = useMemo(
     () => buildPlayerProgressionData({ evaluations, staffNotes, fields: dynamicFields }),
     [dynamicFields, evaluations, staffNotes],
+  )
+  const eliteDevelopmentData = useMemo(
+    () => buildEliteDevelopmentData(evaluations),
+    [evaluations],
   )
   const ratingTrendMax = ratingTrend.some((evaluation) => Number(evaluation.averageScore) > 5) ? 10 : 5
   const overallAverage =
@@ -1799,6 +1805,8 @@ export function PlayerProfile() {
         playerName={routePlayerName}
         progressionData={progressionData}
       />
+
+      <EliteDevelopmentCharts data={eliteDevelopmentData} />
 
       <PlayerDetailsSection
         directEmailSendingId={emailSendingId}

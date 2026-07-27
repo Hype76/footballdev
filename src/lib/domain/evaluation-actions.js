@@ -37,6 +37,7 @@ import {
 import {
   blockDemoMutation,
 } from './demo-guards.js'
+import { validateEliteFeedbackFormResponses } from '../elite-development.js'
 
 function isDuplicateEvaluationIdConflict(error) {
   const code = String(error?.code ?? '').trim()
@@ -140,6 +141,7 @@ export async function createEvaluation(data) {
       form: selectedForm,
       formResponses: data.formResponses,
     })
+    validateEliteFeedbackFormResponses(selectedForm, data.formResponses)
 
     feedbackFormPayload = {
       feedbackFormId: selectedForm.id || null,

@@ -12,6 +12,7 @@ import {
 } from '../../lib/development-email-output-policy.js'
 import {
   formatDefaultAssessmentScoreForParent,
+  getAssessmentScoreMax,
   isAssessmentScoreFieldType,
   isDefaultAssessmentScoreLabel,
   isDefaultAssessmentScoreValue,
@@ -322,7 +323,8 @@ export function isScoreFieldType(fieldType) {
 export function normalizeResponseValue(field, value) {
   if (isScoreFieldType(field.type)) {
     const numericValue = Number(value)
-    return Number.isNaN(numericValue) ? '' : numericValue
+    const maxScore = getAssessmentScoreMax(field.type)
+    return Number.isInteger(numericValue) && numericValue >= 1 && numericValue <= maxScore ? numericValue : ''
   }
 
   if (field.type === 'number') {

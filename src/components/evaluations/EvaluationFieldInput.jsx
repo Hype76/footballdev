@@ -6,6 +6,11 @@ import {
   isAssessmentScoreFieldType,
 } from '../../lib/assessment-scoring.js'
 import { HintPopover } from '../ui/HintPopover.jsx'
+import {
+  ELITE_RATING_CONTEXT,
+  ELITE_RATING_GUIDANCE,
+  getStableMetricKey,
+} from '../../lib/elite-development.js'
 
 function isScoreFieldType(fieldType) {
   return isAssessmentScoreFieldType(fieldType)
@@ -76,6 +81,7 @@ function getScoreGuideItems(fieldType) {
 }
 
 function ScoreInfo({ field }) {
+  const isEliteMetric = Boolean(getStableMetricKey(field)) && !getStableMetricKey(field).startsWith('custom.')
   const guideItems = getScoreGuideItems(field.type)
   const maxScore = getAssessmentScoreMax(field.type)
 
@@ -85,15 +91,25 @@ function ScoreInfo({ field }) {
       title="Scoring guide"
     >
       <p className="text-sm font-semibold leading-6 text-[var(--text-muted)] dark:text-[#d7e5dc]">
-        Use this guide when scoring {field.label}. Scores run from 1 to {maxScore}.
+        {isEliteMetric
+          ? `${ELITE_RATING_CONTEXT} Scores run from 1 to ${maxScore}.`
+          : `Use this guide when scoring ${field.label}. Scores run from 1 to ${maxScore}.`}
       </p>
       <div className="mt-3 grid gap-2">
-        {guideItems.map((help) => (
-          <div key={`${help.score}-${help.label}`} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 shadow-sm shadow-[#101828]/5 dark:border-[#315244] dark:bg-[#172033] dark:shadow-black/10">
-            <p className="font-black text-[var(--text-primary)] dark:text-white">
-              {help.score}. {help.label}
-            </p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-[var(--text-muted)] dark:text-[#d7e5dc]">{help.description}</p>
+        {(isEliteMetric ? ELITE_RATING_GUIDANCE : guideItems).map((help) => (
+          <div key={isEliteMetric ? help.range : `${help.score}-${help.label}`} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 shadow-sm shadow-[#101828]/5 dark:border-[#315244] dark:bg-[#172033] dark:shadow-black/10">
+            {isEliteMetric ? (
+              <p className="text-sm font-semibold leading-5 text-[var(--text-muted)] dark:text-[#d7e5dc]">
+                <span className="font-black text-[var(--text-primary)] dark:text-white">{help.range}:</span> {help.description}
+              </p>
+            ) : (
+              <>
+                <p className="font-black text-[var(--text-primary)] dark:text-white">
+                  {help.score}. {help.label}
+                </p>
+                <p className="mt-1 text-sm font-semibold leading-5 text-[var(--text-muted)] dark:text-[#d7e5dc]">{help.description}</p>
+              </>
+            )}
           </div>
         ))}
       </div>

@@ -11,6 +11,13 @@ import {
   normalizeFieldType,
 } from './core-normalizers.js'
 import { assertClubFeature } from './plan-gates.js'
+import {
+  getCustomMetricKey,
+  getStableCategoryKey,
+  getStableCategoryLabel,
+  getStableMetricKey,
+  isEliteStarterTemplate,
+} from '../elite-development.js'
 
 export const FEEDBACK_FORM_FIELD_TYPES = Object.freeze([
   { value: 'score_1_10', label: 'Rating 1-10' },
@@ -60,6 +67,14 @@ export function updateFeedbackFormEditorFields(fields = [], fieldId, nextValues 
       ? {
           ...field,
           ...nextValues,
+          ...(nextValues.type && !isGraphableFeedbackFormFieldType(nextValues.type)
+            ? {
+                metricKey: '',
+                categoryKey: '',
+                categoryLabel: '',
+                includeInProgressChart: false,
+              }
+            : {}),
         }
       : field
   ))
@@ -84,17 +99,32 @@ export function normalizeFeedbackFormField(field = {}, index = 0) {
   const type = normalizeFieldType(field.type)
   const label = String(field.label ?? '').trim()
   const includeInProgressChart = field.includeInProgressChart ?? field.include_in_progress_chart
+  const id = String(field.id ?? '').trim() || createFieldId()
+  const isGraphable = isGraphableFeedbackFormFieldType(type)
+  const includeInProgressChartValue = isGraphable ? Boolean(includeInProgressChart) : false
+  const metricKey = includeInProgressChartValue
+    ? getStableMetricKey(field) || getCustomMetricKey(id)
+    : ''
+  const categoryKey = includeInProgressChartValue
+    ? getStableCategoryKey(field) || 'custom'
+    : ''
+  const categoryLabel = includeInProgressChartValue
+    ? getStableCategoryLabel(field) || 'Custom'
+    : ''
 
   return {
-    id: String(field.id ?? '').trim() || createFieldId(),
+    id,
     label,
     type,
     options: normalizeFixedOptions(type, field.options),
     required: Boolean(field.required),
     orderIndex: Number(field.orderIndex ?? field.order_index ?? index + 1),
     isEnabled: field.isEnabled ?? field.is_enabled ?? true,
-    includeInProgressChart: isGraphableFeedbackFormFieldType(type) ? Boolean(includeInProgressChart) : false,
+    includeInProgressChart: includeInProgressChartValue,
     parentVisible: Boolean(field.parentVisible ?? field.parent_visible ?? false),
+    metricKey,
+    categoryKey,
+    categoryLabel,
   }
 }
 
@@ -134,7 +164,16 @@ export function isStarterTemplateRecommendedForAge(template, ageGroup) {
     && age <= Number(template?.ageMax ?? 0)
 }
 
-export function normalizeStarterFeedbackFormRow(row = {}, { ageGroup = '', hidden = false, teamId = '' } = {}) {
+export function normalizeStarterFeedbackFormRow(
+  row = {},
+  {
+    ageGroup = '',
+    hidden = false,
+    installedFormId = '',
+    installedFormName = '',
+    teamId = '',
+  } = {},
+) {
   const templateKey = String(row.template_key ?? row.templateKey ?? '').trim()
   const version = Number(row.version ?? 1) || 1
 
@@ -152,6 +191,9 @@ export function normalizeStarterFeedbackFormRow(row = {}, { ageGroup = '', hidde
     version,
     isCurrent: row.is_current ?? row.isCurrent ?? true,
     isPlatformTemplate: true,
+    installedFormId: String(installedFormId ?? '').trim(),
+    installedFormName: String(installedFormName ?? '').trim(),
+    isInstalled: Boolean(installedFormId),
     isHidden: hidden === true,
     isRecommended: isStarterTemplateRecommendedForAge({
       ageMin: row.age_min ?? row.ageMin,
@@ -206,6 +248,8 @@ export function normalizeFeedbackFormRow(row = {}) {
     status,
     isArchived: status === ARCHIVED_STATUS,
     version: Number(row.version ?? 1) || 1,
+    starterTemplateKey: String(row.starter_template_key ?? row.starterTemplateKey ?? '').trim(),
+    starterTemplateVersion: row.starter_template_version ?? row.starterTemplateVersion ?? null,
     duplicatedFromId: row.duplicated_from_id ?? row.duplicatedFromId ?? '',
     archivedAt: row.archived_at ?? row.archivedAt ?? '',
     createdBy: row.created_by ?? row.createdBy ?? '',
@@ -299,6 +343,7 @@ export async function getStarterFeedbackForms({ includeHidden = false, user } = 
     { data: templateRows, error: templateError },
     { data: preferenceRows, error: preferenceError },
     { data: teamRow, error: teamError },
+    { data: installedRows, error: installedError },
   ] = await Promise.all([
     supabase
       .from('feedback_form_starter_templates')
@@ -317,9 +362,16 @@ export async function getStarterFeedbackForms({ includeHidden = false, user } = 
       .eq('club_id', clubId)
       .eq('id', teamId)
       .maybeSingle(),
+    supabase
+      .from('feedback_forms')
+      .select('id, name, starter_template_key, starter_template_version')
+      .eq('club_id', clubId)
+      .eq('team_id', teamId)
+      .eq('status', ACTIVE_STATUS)
+      .not('starter_template_key', 'is', null),
   ])
 
-  const error = templateError || preferenceError || teamError
+  const error = templateError || preferenceError || teamError || installedError
   if (error) {
     console.error(error)
     throw error
@@ -330,12 +382,20 @@ export async function getStarterFeedbackForms({ includeHidden = false, user } = 
     row.hidden === true,
   ]))
   const ageGroup = String(teamRow?.age_group ?? '').trim()
+  const installedByKey = new Map((installedRows ?? []).map((row) => [
+    String(row.starter_template_key ?? '').trim(),
+    {
+      installedFormId: String(row.id ?? '').trim(),
+      installedFormName: String(row.name ?? '').trim(),
+    },
+  ]))
 
   return (templateRows ?? [])
     .map((row) => normalizeStarterFeedbackFormRow(row, {
       ageGroup,
       hidden: hiddenByKey.get(String(row.template_key ?? '').trim()) === true,
       teamId,
+      ...installedByKey.get(String(row.template_key ?? '').trim()),
     }))
     .filter((form) => includeHidden || !form.isHidden)
 }
@@ -433,15 +493,23 @@ export async function duplicateStarterFeedbackForm({ selectionId, user } = {}) {
     throw new Error('The selected starter template is not available to duplicate.')
   }
 
+  const isEliteTemplate = isEliteStarterTemplate(sourceForm)
+
+  if (isEliteTemplate && sourceForm.isInstalled) {
+    throw new Error(`${sourceForm.name} is already installed for this team as ${sourceForm.installedFormName}.`)
+  }
+
   const createdForm = await createFeedbackForm({
     user,
-    name: `${sourceForm.name} custom`,
+    name: isEliteTemplate ? sourceForm.name : `${sourceForm.name} custom`,
     fields: sourceForm.fields,
+    starterTemplateKey: isEliteTemplate ? sourceForm.templateKey : '',
+    starterTemplateVersion: isEliteTemplate ? sourceForm.version : null,
   })
 
   await createAuditLog({
     user,
-    action: 'starter_feedback_form_duplicated',
+    action: isEliteTemplate ? 'starter_feedback_form_installed' : 'starter_feedback_form_duplicated',
     entityType: 'feedback_form',
     entityId: createdForm.id,
     metadata: {
@@ -454,7 +522,13 @@ export async function duplicateStarterFeedbackForm({ selectionId, user } = {}) {
   return createdForm
 }
 
-export async function createFeedbackForm({ fields, name, user }) {
+export async function createFeedbackForm({
+  fields,
+  name,
+  starterTemplateKey = '',
+  starterTemplateVersion = null,
+  user,
+}) {
   await blockDemoMutation(user)
   await assertFeedbackFormManager(user)
 
@@ -463,6 +537,8 @@ export async function createFeedbackForm({ fields, name, user }) {
     created_by: getEntryUserId(user),
     created_by_name: getEntryUserName(user),
     created_by_email: getEntryUserEmail(user),
+    starter_template_key: String(starterTemplateKey ?? '').trim() || null,
+    starter_template_version: Number(starterTemplateVersion) > 0 ? Number(starterTemplateVersion) : null,
   })
 
   const { data, error } = await supabase.from('feedback_forms').insert(payload).select('*').single()
@@ -654,7 +730,7 @@ export function buildFeedbackFormSnapshot({ form, formResponses = {} } = {}) {
 
   return {
     formId: form.isPlatformTemplate === true ? null : form.id || null,
-    templateKey: form.templateKey || null,
+    templateKey: form.templateKey || form.starterTemplateKey || null,
     formName: form.name,
     formVersion: Number(form.version ?? 1) || 1,
     isPlatformTemplate: form.isPlatformTemplate === true,

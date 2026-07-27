@@ -59,14 +59,20 @@ export function normalizeFeedbackFormSnapshot(snapshot) {
         required: Boolean(field.required),
         orderIndex: Number(field.orderIndex ?? field.order_index ?? index + 1),
         includeInProgressChart: Boolean(field.includeInProgressChart ?? field.include_in_progress_chart),
+        parentVisible: Boolean(field.parentVisible ?? field.parent_visible),
+        metricKey: String(field.metricKey ?? field.metric_key ?? '').trim(),
+        categoryKey: String(field.categoryKey ?? field.category_key ?? '').trim(),
+        categoryLabel: String(field.categoryLabel ?? field.category_label ?? '').trim(),
         value: field.value ?? '',
       })).filter((field) => field.label)
     : []
 
   return {
     formId: snapshot.formId ?? snapshot.form_id ?? '',
+    templateKey: String(snapshot.templateKey ?? snapshot.template_key ?? '').trim(),
     formName: String(snapshot.formName ?? snapshot.form_name ?? '').trim(),
     formVersion: Number(snapshot.formVersion ?? snapshot.form_version ?? 1) || 1,
+    isPlatformTemplate: Boolean(snapshot.isPlatformTemplate ?? snapshot.is_platform_template),
     fields,
   }
 }
