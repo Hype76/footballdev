@@ -163,7 +163,12 @@ export function FriendsFamilyPage() {
   }
 
   return (
-    <ParentPortalRouteShell activeSection="family" newStateByCategory={newStateByCategory} user={user}>
+    <ParentPortalRouteShell
+      activeSection="family"
+      newStateByCategory={newStateByCategory}
+      selectedParentLinkId={selectedLink?.id}
+      user={user}
+    >
       <div className="space-y-5 sm:space-y-6">
       <FamilyAccessHero
         accessRules={accessRules}

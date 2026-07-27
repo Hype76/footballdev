@@ -47,10 +47,10 @@ export const PARENT_PORTAL_ACTIVITY_REGISTRY = Object.freeze([
   Object.freeze({
     key: 'chat',
     route: '/parent-chat',
-    scope: PARENT_PORTAL_ACTIVITY_SCOPES.parentGlobal,
+    scope: PARENT_PORTAL_ACTIVITY_SCOPES.child,
     source: 'Messages from other participants in authorised Parent Chat rooms',
-    eligibility: 'Active Parent Chat membership derived from current Parent authority',
-    markViewedAfter: 'The authorised Parent Chat room list loads successfully',
+    eligibility: 'Active Parent link and direct, team or selected match Chat relevance for the selected child',
+    markViewedAfter: 'An authorised Chat room relevant to the selected child loads successfully',
   }),
   Object.freeze({
     key: 'polls',

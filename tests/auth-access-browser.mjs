@@ -140,10 +140,14 @@ async function stopDevServer(server) {
   }
 }
 
-async function preparePage(context, { activityStore = new Map() } = {}) {
+async function preparePage(context, {
+  activityStore = new Map(),
+  multiRoleChat = false,
+} = {}) {
   let platformProbeCount = 0
   let failActivityMark = false
   const activityRequests = []
+  const chatRequests = []
   const activityCategories = ['calendar', 'invites', 'matches', 'results', 'resources', 'chat', 'polls']
 
   function getActivityState(parentLinkId) {
@@ -163,9 +167,9 @@ async function preparePage(context, { activityStore = new Map() } = {}) {
       const isNew = Boolean(state.get(categoryKey))
       return {
         category_key: categoryKey,
-        scope_type: categoryKey === 'chat' ? 'parent_global' : 'child',
-        parent_link_id: categoryKey === 'chat' ? null : parentLinkId,
-        player_id: categoryKey === 'chat' ? null : `player-for-${parentLinkId}`,
+        scope_type: 'child',
+        parent_link_id: parentLinkId,
+        player_id: `player-for-${parentLinkId}`,
         latest_activity_at: '2026-07-27T16:30:00.000Z',
         last_viewed_at: isNew ? '2026-07-27T16:00:00.000Z' : '2026-07-27T16:30:00.000Z',
         is_new: isNew,
@@ -228,6 +232,195 @@ async function preparePage(context, { activityStore = new Map() } = {}) {
       body: JSON.stringify([savedRow]),
     })
   })
+  await context.route('**/rest/v1/rpc/get_parent_portal_chat_context', async (route) => {
+    const payload = route.request().postDataJSON()
+    const parentLinkId = String(payload?.parent_link_id_value ?? '')
+    chatRequests.push({ operation: 'context', parentLinkId })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        parent_link_id: parentLinkId,
+        player_id: `player-for-${parentLinkId}`,
+        child_filter_available: multiRoleChat,
+      }]),
+    })
+  })
+  await context.route('**/rest/v1/rpc/get_parent_portal_chat_rooms', async (route) => {
+    const payload = route.request().postDataJSON()
+    const parentLinkId = String(payload?.parent_link_id_value ?? '')
+    const childOnly = Boolean(payload?.child_only_value)
+    const selectedSecondChild = parentLinkId === 'parent-link-fixture-second'
+    const selectedChildName = selectedSecondChild ? 'Second Fixture Child' : 'Fixture Child'
+    const allRooms = [
+      {
+        id: 'chat-direct-first',
+        room_type: 'parent_staff',
+        status: 'active',
+        title: 'Chat with Staff',
+        club_id: 'club-fixture',
+        club_name: 'Fixture United',
+        team_id: 'team-u12',
+        team_name: 'U12 Fixture Team',
+        player_id: 'player-fixture',
+        player_name: 'Fixture Child',
+        match_day_id: null,
+        opponent: '',
+        match_date: null,
+        kickoff_time: null,
+        kickoff_time_tbc: false,
+        meet_time: null,
+        venue_name: '',
+        fixture_status: '',
+        child_names: ['Fixture Child'],
+        latest_message: 'First child preview',
+        latest_message_at: '2026-07-27T17:00:00.000Z',
+        unread_count: 1,
+        can_post: true,
+      },
+      {
+        id: 'chat-direct-second',
+        room_type: 'parent_staff',
+        status: 'active',
+        title: 'Chat with Staff',
+        club_id: 'club-fixture',
+        club_name: 'Fixture United',
+        team_id: 'team-u12',
+        team_name: 'U12 Fixture Team',
+        player_id: 'player-fixture-second',
+        player_name: 'Second Fixture Child',
+        match_day_id: null,
+        opponent: '',
+        match_date: null,
+        kickoff_time: null,
+        kickoff_time_tbc: false,
+        meet_time: null,
+        venue_name: '',
+        fixture_status: '',
+        child_names: ['Second Fixture Child'],
+        latest_message: 'Second child preview',
+        latest_message_at: '2026-07-27T16:55:00.000Z',
+        unread_count: 2,
+        can_post: true,
+      },
+      {
+        id: 'chat-team',
+        room_type: 'team',
+        status: 'active',
+        title: 'U12 Fixture Team Chat',
+        club_id: 'club-fixture',
+        club_name: 'Fixture United',
+        team_id: 'team-u12',
+        team_name: 'U12 Fixture Team',
+        player_id: null,
+        player_name: '',
+        match_day_id: null,
+        opponent: '',
+        match_date: null,
+        kickoff_time: null,
+        kickoff_time_tbc: false,
+        meet_time: null,
+        venue_name: '',
+        fixture_status: '',
+        child_names: childOnly
+          ? [selectedChildName]
+          : ['Fixture Child', 'Second Fixture Child'],
+        latest_message: 'Team preview',
+        latest_message_at: '2026-07-27T16:50:00.000Z',
+        unread_count: 0,
+        can_post: true,
+      },
+    ]
+    const rooms = childOnly
+      ? allRooms.filter((room) => (
+          room.room_type === 'team'
+          || room.player_id === (selectedSecondChild ? 'player-fixture-second' : 'player-fixture')
+        ))
+      : allRooms
+    chatRequests.push({
+      childOnly,
+      operation: 'rooms',
+      parentLinkId,
+      returnedRoomIds: rooms.map((room) => room.id),
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(rooms),
+    })
+  })
+  await context.route('**/rest/v1/rpc/get_parent_portal_chat_messages', async (route) => {
+    const payload = route.request().postDataJSON()
+    const roomId = String(payload?.target_room_id ?? '')
+    chatRequests.push({
+      childOnly: Boolean(payload?.child_only_value),
+      operation: 'messages',
+      parentLinkId: String(payload?.parent_link_id_value ?? ''),
+      roomId,
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        id: `message-${roomId}`,
+        room_id: roomId,
+        sender_id: 'fixture-staff',
+        sender_kind: 'staff',
+        sender_name: 'Fixture Coach',
+        sender_role: 'Coach',
+        body: `Safe fixture message for ${roomId}`,
+        deleted_at: null,
+        created_at: '2026-07-27T17:00:00.000Z',
+        updated_at: '2026-07-27T17:00:00.000Z',
+        can_delete: false,
+      }]),
+    })
+  })
+  await context.route('**/rest/v1/rpc/mark_parent_portal_chat_room_read', async (route) => {
+    const payload = route.request().postDataJSON()
+    chatRequests.push({
+      childOnly: Boolean(payload?.child_only_value),
+      operation: 'read',
+      parentLinkId: String(payload?.parent_link_id_value ?? ''),
+      roomId: String(payload?.target_room_id ?? ''),
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify('2026-07-27T17:00:00.000Z'),
+    })
+  })
+  await context.route('**/rest/v1/rpc/mark_parent_portal_chat_viewed', async (route) => {
+    const payload = route.request().postDataJSON()
+    const parentLinkId = String(payload?.parent_link_id_value ?? '')
+    chatRequests.push({
+      operation: 'viewed',
+      parentLinkId,
+      roomId: String(payload?.target_room_id ?? ''),
+    })
+    getActivityState(parentLinkId).set('chat', false)
+    const savedRow = buildActivityRows(parentLinkId).find((row) => row.category_key === 'chat')
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([savedRow]),
+    })
+  })
+  await context.route('**/rest/v1/rpc/send_parent_portal_chat_message', async (route) => {
+    const payload = route.request().postDataJSON()
+    chatRequests.push({
+      body: String(payload?.body_value ?? ''),
+      childOnly: Boolean(payload?.child_only_value),
+      operation: 'send',
+      parentLinkId: String(payload?.parent_link_id_value ?? ''),
+      roomId: String(payload?.target_room_id ?? ''),
+    })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify('80000000-0000-4000-8000-000000000001'),
+    })
+  })
   await context.route('**/auth/v1/**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -245,6 +438,7 @@ async function preparePage(context, { activityStore = new Map() } = {}) {
   return {
     page,
     getActivityRequests: () => activityRequests,
+    getChatRequests: () => chatRequests,
     getPlatformProbeCount: () => platformProbeCount,
     setActivityNew: (parentLinkId, categoryKey, isNew) => {
       getActivityState(parentLinkId).set(categoryKey, Boolean(isNew))
@@ -1072,7 +1266,7 @@ try {
     assert.ok(beforeClearBox)
 
     await resourceNewLink.click()
-    await page.waitForURL('**/parent-portal?section=resources', { timeout: 15000 })
+    await page.waitForURL('**/parent-portal?section=resources*', { timeout: 15000 })
     await page.waitForFunction(() => (
       document.querySelectorAll('a[aria-label="Resources, New activity"]:not([hidden])').length === 0
     ))
@@ -1089,7 +1283,7 @@ try {
     )))
 
     await page.locator('a[aria-label="Overview"]:visible').first().click()
-    await page.waitForURL('**/parent-portal?section=overview', { timeout: 15000 })
+    await page.waitForURL('**/parent-portal?section=overview*', { timeout: 15000 })
     setActivityNew('parent-link-fixture', 'resources', true)
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.locator('a[aria-label="Resources, New activity"]:visible').first()
@@ -1105,6 +1299,117 @@ try {
       .waitFor({ state: 'visible', timeout: 15000 })
 
     await context.close()
+  })
+
+  await runScenario('multi-role Parent Chat filters rooms by selected child and clears only loaded child New', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const {
+      getChatRequests,
+      page,
+      setActivityNew,
+    } = await preparePage(context, { multiRoleChat: true })
+    setActivityNew('parent-link-fixture', 'chat', true)
+    setActivityNew('parent-link-fixture-second', 'chat', true)
+
+    await parentSignIn(page, 'parent-multiple.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await page.goto(`${mainBaseUrl}/parent-chat?parentLinkId=parent-link-fixture`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    })
+
+    const childOnlySwitch = page.getByRole('switch', { name: 'Your child only' })
+    await childOnlySwitch.waitFor({ state: 'visible', timeout: 15000 })
+    assert.equal(await childOnlySwitch.getAttribute('aria-checked'), 'false')
+    await page.getByText('First child preview', { exact: true }).waitFor({ state: 'visible' })
+    await page.getByText('Second child preview', { exact: true }).waitFor({ state: 'visible' })
+
+    await childOnlySwitch.click()
+    await page.getByText('First child preview', { exact: true }).waitFor({ state: 'visible' })
+    await page.getByText('Second child preview', { exact: true }).waitFor({ state: 'detached' })
+    assert.equal(
+      getChatRequests().filter((request) => request.operation === 'viewed').length,
+      0,
+    )
+
+    await page.getByRole('button').filter({ hasText: 'First child preview' }).click()
+    await page.getByText('Safe fixture message for chat-direct-first', { exact: true })
+      .waitFor({ state: 'visible' })
+    await page.waitForFunction(() => document.querySelector('textarea') !== null)
+    await page.waitForTimeout(100)
+    assert.ok(getChatRequests().some((request) => (
+      request.operation === 'viewed'
+      && request.parentLinkId === 'parent-link-fixture'
+      && request.roomId === 'chat-direct-first'
+    )))
+    assert.equal(
+      getChatRequests().some((request) => (
+        request.operation === 'viewed'
+        && request.parentLinkId === 'parent-link-fixture-second'
+      )),
+      false,
+    )
+
+    await page.locator('#parent-chat-child').selectOption('parent-link-fixture-second')
+    await page.getByText('Second child preview', { exact: true }).waitFor({ state: 'visible' })
+    await page.getByText('First child preview', { exact: true }).waitFor({ state: 'detached' })
+    assert.equal(
+      getChatRequests().some((request) => (
+        request.operation === 'viewed'
+        && request.parentLinkId === 'parent-link-fixture-second'
+      )),
+      false,
+    )
+
+    await page.getByRole('button').filter({ hasText: 'Second child preview' }).click()
+    await page.getByText('Safe fixture message for chat-direct-second', { exact: true })
+      .waitFor({ state: 'visible' })
+    await page.getByLabel('Message').fill('Safe browser fixture message')
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('textarea')?.value === '')
+    assert.equal(
+      getChatRequests().filter((request) => request.operation === 'send').length,
+      1,
+    )
+    assert.ok(getChatRequests().some((request) => (
+      request.operation === 'send'
+      && request.childOnly
+      && request.parentLinkId === 'parent-link-fixture-second'
+      && request.roomId === 'chat-direct-second'
+    )))
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await childOnlySwitch.waitFor({ state: 'visible' })
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      true,
+    )
+    await context.close()
+  })
+
+  await runScenario('Parent-only and staff Parent Chat surfaces never show the child filter switch', async () => {
+    const parentContext = await browser.newContext()
+    const { page: parentPage } = await preparePage(parentContext)
+    await parentSignIn(parentPage, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await parentPage.goto(`${mainBaseUrl}/parent-chat`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    })
+    await parentPage.getByRole('heading', { name: 'Chat', exact: true }).waitFor({ state: 'visible' })
+    assert.equal(await parentPage.getByRole('switch', { name: 'Your child only' }).count(), 0)
+    await parentContext.close()
+
+    const staffContext = await browser.newContext()
+    const { page: staffPage } = await preparePage(staffContext)
+    await signIn(staffPage, 'multi.fixture@footballplayer.test', mainBaseUrl, 'club')
+    await staffPage.goto(`${mainBaseUrl}/parent-chat-staff`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    })
+    await staffPage.getByRole('heading', { name: 'Parent Chat', exact: true })
+      .waitFor({ state: 'visible' })
+    assert.equal(await staffPage.getByRole('switch', { name: 'Your child only' }).count(), 0)
+    await staffContext.close()
   })
 
   await runScenario('Parent New indicator remains when viewed-state persistence fails', async () => {
@@ -1123,7 +1428,7 @@ try {
       && response.status() === 500
     ))
     await page.locator('a[aria-label="Resources, New activity"]:visible').first().click()
-    await page.waitForURL('**/parent-portal?section=resources', { timeout: 15000 })
+    await page.waitForURL('**/parent-portal?section=resources*', { timeout: 15000 })
     await failedMarkResponse
     await page.waitForFunction(() => (
       document.querySelector('a[aria-label="Resources, New activity"]') !== null
@@ -1152,7 +1457,7 @@ try {
       .waitFor({ state: 'visible', timeout: 15000 })
 
     await firstPage.locator('a[aria-label="Resources, New activity"]:visible').first().click()
-    await firstPage.waitForURL('**/parent-portal?section=resources', { timeout: 15000 })
+    await firstPage.waitForURL('**/parent-portal?section=resources*', { timeout: 15000 })
     await firstPage.waitForFunction(() => (
       document.querySelectorAll('a[aria-label="Resources, New activity"]:not([hidden])').length === 0
     ))

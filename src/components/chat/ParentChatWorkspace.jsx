@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   deleteParentChatMessage,
   getParentChatMessages,
@@ -97,9 +97,16 @@ function getRoomEmptyCopy(room) {
 }
 
 export function ParentChatWorkspace({
-  onBeforeCategoryLoad,
-  onCategoryLoadSuccess,
+  childFilterAvailable = false,
+  childOnly = false,
+  links = [],
+  onBeforeRoomLoad,
+  onChildOnlyChange,
+  onRoomLoadSuccess,
+  onSelectedParentLinkChange,
   onUnreadCountChange,
+  parentLinkId,
+  selectedParentLink,
   user,
   variant = 'parent',
 }) {
@@ -113,27 +120,35 @@ export function ParentChatWorkspace({
   const [activeDeleteId, setActiveDeleteId] = useState('')
   const [error, setError] = useState('')
   const [realtimeStatus, setRealtimeStatus] = useState('')
+  const roomRequestIdRef = useRef(0)
+  const messageRequestIdRef = useRef(0)
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null
   const totalUnread = rooms.reduce((total, room) => total + room.unreadCount, 0)
   const groupedRooms = useMemo(() => groupOrder.map((group) => ({
     ...group,
     rooms: rooms.filter((room) => room.type === group.key),
   })), [rooms])
+  const chatScope = useMemo(() => ({
+    childOnly,
+    parentLinkId,
+    variant,
+  }), [childOnly, parentLinkId, variant])
 
   const loadRooms = useCallback(async ({ keepError = false } = {}) => {
+    const requestId = roomRequestIdRef.current + 1
+    roomRequestIdRef.current = requestId
+    setIsLoadingRooms(true)
+
     if (!keepError) {
       setError('')
     }
 
-    let activitySnapshot = {}
     try {
-      activitySnapshot = await onBeforeCategoryLoad?.() ?? {}
-    } catch {
-      activitySnapshot = {}
-    }
+      const nextRooms = await getParentChatRooms(chatScope)
+      if (requestId !== roomRequestIdRef.current) {
+        return []
+      }
 
-    try {
-      const nextRooms = await getParentChatRooms()
       setRooms(nextRooms)
       setSelectedRoomId((currentRoomId) => {
         if (nextRooms.some((room) => room.id === currentRoomId)) {
@@ -141,18 +156,21 @@ export function ParentChatWorkspace({
         }
         return ''
       })
-      onCategoryLoadSuccess?.(activitySnapshot)
       return nextRooms
     } catch (loadError) {
       console.error(loadError)
-      setRooms([])
-      setSelectedRoomId('')
-      setError(loadError.message || 'Chat rooms could not be loaded.')
+      if (requestId === roomRequestIdRef.current) {
+        setRooms([])
+        setSelectedRoomId('')
+        setError(loadError.message || 'Chat rooms could not be loaded.')
+      }
       return []
     } finally {
-      setIsLoadingRooms(false)
+      if (requestId === roomRequestIdRef.current) {
+        setIsLoadingRooms(false)
+      }
     }
-  }, [onBeforeCategoryLoad, onCategoryLoadSuccess])
+  }, [chatScope])
 
   const loadMessages = useCallback(async (roomId, { keepError = false } = {}) => {
     if (!roomId) {
@@ -160,31 +178,68 @@ export function ParentChatWorkspace({
       return
     }
 
+    const requestId = messageRequestIdRef.current + 1
+    messageRequestIdRef.current = requestId
     setIsLoadingMessages(true)
     if (!keepError) {
       setError('')
     }
 
+    let activitySnapshot = {}
     try {
-      const nextMessages = await getParentChatMessages({ roomId })
+      activitySnapshot = await onBeforeRoomLoad?.() ?? {}
+    } catch {
+      activitySnapshot = {}
+    }
+
+    try {
+      const nextMessages = await getParentChatMessages({
+        ...chatScope,
+        roomId,
+      })
+      if (requestId !== messageRequestIdRef.current) {
+        return
+      }
+
       setMessages(nextMessages)
-      await markParentChatRoomRead({ roomId })
+      await markParentChatRoomRead({
+        ...chatScope,
+        roomId,
+      })
+      if (requestId !== messageRequestIdRef.current) {
+        return
+      }
+
       setRooms((currentRooms) => currentRooms.map((room) => (
         room.id === roomId ? { ...room, unreadCount: 0 } : room
       )))
+      onRoomLoadSuccess?.({
+        activitySnapshot,
+        roomId,
+      })
     } catch (loadError) {
       console.error(loadError)
-      setMessages([])
-      setError(loadError.message || 'This Chat room is no longer available.')
-      await loadRooms({ keepError: true })
+      if (requestId === messageRequestIdRef.current) {
+        setMessages([])
+        setError(loadError.message || 'This Chat room is no longer available.')
+        await loadRooms({ keepError: true })
+      }
     } finally {
-      setIsLoadingMessages(false)
+      if (requestId === messageRequestIdRef.current) {
+        setIsLoadingMessages(false)
+      }
     }
-  }, [loadRooms])
+  }, [chatScope, loadRooms, onBeforeRoomLoad, onRoomLoadSuccess])
 
   useEffect(() => {
+    roomRequestIdRef.current += 1
+    messageRequestIdRef.current += 1
+    setRooms([])
+    setSelectedRoomId('')
+    setMessages([])
+    setDraft('')
     void loadRooms()
-  }, [loadRooms])
+  }, [chatScope, loadRooms])
 
   useEffect(() => {
     if (!selectedRoomId) {
@@ -225,6 +280,7 @@ export function ParentChatWorkspace({
 
     try {
       await sendParentChatMessage({
+        ...chatScope,
         body: draft,
         roomId: selectedRoom.id,
         user,
@@ -249,7 +305,11 @@ export function ParentChatWorkspace({
     setError('')
 
     try {
-      await deleteParentChatMessage({ messageId: message.id, user })
+      await deleteParentChatMessage({
+        ...chatScope,
+        messageId: message.id,
+        user,
+      })
       await loadMessages(selectedRoomId, { keepError: true })
       await loadRooms({ keepError: true })
     } catch (deleteError) {
@@ -274,6 +334,57 @@ export function ParentChatWorkspace({
             ? 'Use the controlled child, team and selected squad rooms available for your current staff assignment.'
             : 'Keep child, team and selected match conversations inside footballplayer.online.'}
         </p>
+        {variant === 'parent' && (links.length > 1 || childFilterAvailable) ? (
+          <div className="mt-5 grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 sm:grid-cols-2 sm:items-end">
+            {links.length > 1 ? (
+              <div>
+                <label
+                  htmlFor="parent-chat-child"
+                  className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]"
+                >
+                  Child
+                </label>
+                <select
+                  id="parent-chat-child"
+                  value={selectedParentLink?.id || ''}
+                  onChange={(event) => onSelectedParentLinkChange?.(event.target.value)}
+                  className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]"
+                >
+                  {links.map((link) => (
+                    <option key={link.id} value={link.id}>
+                      {link.playerName}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {childFilterAvailable ? (
+              <div className={links.length > 1 ? '' : 'sm:col-span-2'}>
+                <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
+                  Parent Portal view
+                </p>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={childOnly}
+                  onClick={() => onChildOnlyChange?.(!childOnly)}
+                  className="flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-left text-sm font-black text-[#101828] transition hover:border-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bbf7d0]"
+                >
+                  <span>Your child only</span>
+                  <span
+                    aria-hidden="true"
+                    className={`relative h-7 w-12 shrink-0 rounded-full transition ${childOnly ? 'bg-[#047857]' : 'bg-[#98a2b3]'}`}
+                  >
+                    <span
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${childOnly ? 'left-6' : 'left-1'}`}
+                    />
+                  </span>
+                  <span className="sr-only">{childOnly ? 'Enabled' : 'Disabled'}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {error ? (

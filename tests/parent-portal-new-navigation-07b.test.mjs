@@ -32,11 +32,10 @@ test('activity registry inventories only current dynamic Parent navigation categ
   assert.equal(PARENT_PORTAL_ACTIVITY_REGISTRY.some((category) => category.key === 'overview'), false)
   assert.equal(
     PARENT_PORTAL_ACTIVITY_REGISTRY.find((category) => category.key === 'chat')?.scope,
-    PARENT_PORTAL_ACTIVITY_SCOPES.parentGlobal,
+    PARENT_PORTAL_ACTIVITY_SCOPES.child,
   )
   assert.equal(
     PARENT_PORTAL_ACTIVITY_REGISTRY
-      .filter((category) => category.key !== 'chat')
       .every((category) => category.scope === PARENT_PORTAL_ACTIVITY_SCOPES.child),
     true,
   )
@@ -99,10 +98,11 @@ test('category pages capture authority state before loading and clear only after
   assert.match(portalPage, /successfulCategoryLoad\.linkId !== selectedLink\.id/)
   assert.match(pollsPage, /activitySnapshot = await captureActivityState\(\)[\s\S]*getParentPortalPolls/)
   assert.match(pollsPage, /successfulPollLoad\.linkId !== selectedLink\.id/)
-  assert.match(chatWorkspace, /activitySnapshot = await onBeforeCategoryLoad/)
-  assert.match(chatWorkspace, /getParentChatRooms\(\)[\s\S]*onCategoryLoadSuccess/)
-  assert.match(chatPage, /categoryKey: 'chat'/)
-  assert.match(chatPage, /onBeforeCategoryLoad=\{captureActivityState\}/)
+  assert.match(chatWorkspace, /activitySnapshot = await onBeforeRoomLoad/)
+  assert.match(chatWorkspace, /getParentChatMessages\([\s\S]*onRoomLoadSuccess/)
+  assert.match(chatPage, /observedChatState = activitySnapshot\?\.chat/)
+  assert.match(chatPage, /onBeforeRoomLoad=\{captureActivityState\}/)
+  assert.match(chatPage, /markParentPortalChatViewed/)
 })
 
 test('synchronisation hook uses server state, periodic refresh and conservative write handling', async () => {

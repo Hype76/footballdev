@@ -61,8 +61,64 @@ export function normalizeParentChatMessage(row) {
   }
 }
 
-export async function getParentChatRooms() {
-  const { data, error } = await supabase.rpc('get_parent_chat_rooms')
+function normalizeParentPortalChatScope({
+  childOnly = false,
+  parentLinkId,
+  variant = 'staff',
+} = {}) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+  const isParentPortal = variant === 'parent'
+
+  if (isParentPortal && !normalizedParentLinkId) {
+    throw new Error('Choose a linked child before opening Parent Chat.')
+  }
+
+  return {
+    childOnly: isParentPortal && Boolean(childOnly),
+    isParentPortal,
+    parentLinkId: normalizedParentLinkId,
+  }
+}
+
+export async function getParentPortalChatContext({ parentLinkId } = {}) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+  if (!normalizedParentLinkId) {
+    throw new Error('Choose a linked child before opening Parent Chat.')
+  }
+
+  const { data, error } = await supabase.rpc('get_parent_portal_chat_context', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) {
+    throw new Error('Parent Chat context could not be confirmed.')
+  }
+
+  return {
+    childFilterAvailable: Boolean(row.child_filter_available ?? row.childFilterAvailable),
+    parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+  }
+}
+
+export async function getParentChatRooms(scope = {}) {
+  const normalizedScope = normalizeParentPortalChatScope(scope)
+  const rpcName = normalizedScope.isParentPortal
+    ? 'get_parent_portal_chat_rooms'
+    : 'get_parent_chat_rooms'
+  const rpcArgs = normalizedScope.isParentPortal
+    ? {
+        child_only_value: normalizedScope.childOnly,
+        parent_link_id_value: normalizedScope.parentLinkId,
+      }
+    : undefined
+  const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
     console.error(error)
@@ -72,15 +128,24 @@ export async function getParentChatRooms() {
   return (data ?? []).map(normalizeParentChatRoom)
 }
 
-export async function getParentChatMessages({ roomId } = {}) {
+export async function getParentChatMessages({ roomId, ...scope } = {}) {
   const normalizedRoomId = normalizeText(roomId)
   if (!normalizedRoomId) {
     return []
   }
 
-  const { data, error } = await supabase.rpc('get_parent_chat_messages', {
-    target_room_id: normalizedRoomId,
-  })
+  const normalizedScope = normalizeParentPortalChatScope(scope)
+  const rpcName = normalizedScope.isParentPortal
+    ? 'get_parent_portal_chat_messages'
+    : 'get_parent_chat_messages'
+  const rpcArgs = normalizedScope.isParentPortal
+    ? {
+        child_only_value: normalizedScope.childOnly,
+        parent_link_id_value: normalizedScope.parentLinkId,
+        target_room_id: normalizedRoomId,
+      }
+    : { target_room_id: normalizedRoomId }
+  const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
     console.error(error)
@@ -90,7 +155,7 @@ export async function getParentChatMessages({ roomId } = {}) {
   return (data ?? []).map(normalizeParentChatMessage)
 }
 
-export async function sendParentChatMessage({ body, roomId, user } = {}) {
+export async function sendParentChatMessage({ body, roomId, user, ...scope } = {}) {
   await blockDemoMutation(user)
 
   const normalizedRoomId = normalizeText(roomId)
@@ -108,10 +173,21 @@ export async function sendParentChatMessage({ body, roomId, user } = {}) {
     throw new Error('Chat messages must be 2000 characters or fewer.')
   }
 
-  const { data, error } = await supabase.rpc('send_parent_chat_message', {
-    target_room_id: normalizedRoomId,
+  const normalizedScope = normalizeParentPortalChatScope(scope)
+  const rpcName = normalizedScope.isParentPortal
+    ? 'send_parent_portal_chat_message'
+    : 'send_parent_chat_message'
+  const rpcArgs = {
     body_value: normalizedBody,
-  })
+    target_room_id: normalizedRoomId,
+    ...(normalizedScope.isParentPortal
+      ? {
+          child_only_value: normalizedScope.childOnly,
+          parent_link_id_value: normalizedScope.parentLinkId,
+        }
+      : {}),
+  }
+  const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
     console.error(error)
@@ -121,15 +197,26 @@ export async function sendParentChatMessage({ body, roomId, user } = {}) {
   return data ?? ''
 }
 
-export async function markParentChatRoomRead({ roomId } = {}) {
+export async function markParentChatRoomRead({ roomId, ...scope } = {}) {
   const normalizedRoomId = normalizeText(roomId)
   if (!normalizedRoomId) {
     return ''
   }
 
-  const { data, error } = await supabase.rpc('mark_parent_chat_room_read', {
+  const normalizedScope = normalizeParentPortalChatScope(scope)
+  const rpcName = normalizedScope.isParentPortal
+    ? 'mark_parent_portal_chat_room_read'
+    : 'mark_parent_chat_room_read'
+  const rpcArgs = {
     target_room_id: normalizedRoomId,
-  })
+    ...(normalizedScope.isParentPortal
+      ? {
+          child_only_value: normalizedScope.childOnly,
+          parent_link_id_value: normalizedScope.parentLinkId,
+        }
+      : {}),
+  }
+  const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
     console.error(error)
@@ -139,7 +226,7 @@ export async function markParentChatRoomRead({ roomId } = {}) {
   return data ?? ''
 }
 
-export async function deleteParentChatMessage({ messageId, user } = {}) {
+export async function deleteParentChatMessage({ messageId, user, ...scope } = {}) {
   await blockDemoMutation(user)
 
   const normalizedMessageId = normalizeText(messageId)
@@ -147,9 +234,20 @@ export async function deleteParentChatMessage({ messageId, user } = {}) {
     return
   }
 
-  const { error } = await supabase.rpc('delete_parent_chat_message', {
+  const normalizedScope = normalizeParentPortalChatScope(scope)
+  const rpcName = normalizedScope.isParentPortal
+    ? 'delete_parent_portal_chat_message'
+    : 'delete_parent_chat_message'
+  const rpcArgs = {
     target_message_id: normalizedMessageId,
-  })
+    ...(normalizedScope.isParentPortal
+      ? {
+          child_only_value: normalizedScope.childOnly,
+          parent_link_id_value: normalizedScope.parentLinkId,
+        }
+      : {}),
+  }
+  const { error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
     console.error(error)

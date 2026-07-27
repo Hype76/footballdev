@@ -10,13 +10,13 @@ test('parent Chat browser calls submit only room and message identifiers to serv
   const sendEnd = source.indexOf('export async function markParentChatRoomRead', sendStart)
   const sendSource = source.slice(sendStart, sendEnd)
 
-  assert.match(source, /supabase\.rpc\('get_parent_chat_rooms'\)/)
-  assert.match(source, /supabase\.rpc\('get_parent_chat_messages'/)
-  assert.match(source, /supabase\.rpc\('send_parent_chat_message'/)
+  assert.match(source, /'get_parent_chat_rooms'/)
+  assert.match(source, /'get_parent_chat_messages'/)
+  assert.match(source, /'send_parent_chat_message'/)
   assert.match(source, /target_room_id: normalizedRoomId/)
   assert.match(source, /body_value: normalizedBody/)
-  assert.match(source, /supabase\.rpc\('mark_parent_chat_room_read'/)
-  assert.match(source, /supabase\.rpc\('delete_parent_chat_message'/)
+  assert.match(source, /'mark_parent_chat_room_read'/)
+  assert.match(source, /'delete_parent_chat_message'/)
   assert.doesNotMatch(sendSource, /memberIds|participantIds|childId|teamId|fixtureId|senderRole/)
 })
 

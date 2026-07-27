@@ -24,6 +24,7 @@ export function ParentPortalSectionNav({
   className = '',
   newStateByCategory = {},
   onSelect,
+  selectedParentLinkId,
   showAccountActions = true,
   user,
   variant = 'desktop',
@@ -51,6 +52,11 @@ export function ParentPortalSectionNav({
           {visibleSections.map((section) => {
             const isActive = activeSection === section.id
             const isNew = Boolean(newStateByCategory[section.id])
+            const sectionUrl = new URL(section.to, window.location.origin)
+            if (selectedParentLinkId) {
+              sectionUrl.searchParams.set('parentLinkId', selectedParentLinkId)
+            }
+            const sectionTo = `${sectionUrl.pathname}${sectionUrl.search}`
             const content = (
               <>
                 <span className="min-w-0">
@@ -79,13 +85,13 @@ export function ParentPortalSectionNav({
             return (
               <Link
                 key={section.id}
-                to={section.to}
+                to={sectionTo}
                 onClick={(event) => {
                   if (!onSelect) {
                     return
                   }
 
-                  const nextUrl = new URL(section.to, window.location.origin)
+                  const nextUrl = new URL(sectionTo, window.location.origin)
                   if (nextUrl.pathname === window.location.pathname) {
                     event.preventDefault()
                     onSelect(section.id)
@@ -208,6 +214,7 @@ export function ParentPortalRouteShell({
   activeSection,
   children,
   newStateByCategory,
+  selectedParentLinkId,
   user,
 }) {
   return (
@@ -220,6 +227,7 @@ export function ParentPortalRouteShell({
           activeSection={activeSection}
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
           newStateByCategory={newStateByCategory}
+          selectedParentLinkId={selectedParentLinkId}
           user={user}
           variant="desktop"
         />
@@ -231,6 +239,7 @@ export function ParentPortalRouteShell({
         activeSection={activeSection}
         className="lg:hidden"
         newStateByCategory={newStateByCategory}
+        selectedParentLinkId={selectedParentLinkId}
         user={user}
         variant="mobile"
       />

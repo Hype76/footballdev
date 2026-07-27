@@ -263,6 +263,7 @@ export {
   deleteParentChatMessage,
   getParentChatMessages,
   getParentChatRooms,
+  getParentPortalChatContext,
   markParentChatRoomRead,
   normalizeParentChatMessage,
   normalizeParentChatRoom,
@@ -273,6 +274,7 @@ export {
 
 export {
   getParentPortalActivityState,
+  markParentPortalChatViewed,
   markParentPortalCategoryViewed,
 } from './domain/parent-portal-activity.js'
 

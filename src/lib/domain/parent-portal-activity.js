@@ -66,3 +66,39 @@ export async function markParentPortalCategoryViewed({
 
   return row
 }
+
+export async function markParentPortalChatViewed({
+  observedActivityAt,
+  parentLinkId,
+  roomId,
+} = {}) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+  const normalizedObservedActivityAt = normalizeText(observedActivityAt)
+  const normalizedRoomId = normalizeText(roomId)
+
+  if (!normalizedParentLinkId || !normalizedRoomId) {
+    throw new Error('Open a Chat room for the selected child before clearing New.')
+  }
+
+  if (!normalizedObservedActivityAt) {
+    throw new Error('The Chat room must load successfully before New can clear.')
+  }
+
+  const { data, error } = await supabase.rpc('mark_parent_portal_chat_viewed', {
+    observed_activity_at_value: normalizedObservedActivityAt,
+    parent_link_id_value: normalizedParentLinkId,
+    target_room_id: normalizedRoomId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const row = normalizeParentPortalActivityState(Array.isArray(data) ? data[0] : data)
+  if (!row) {
+    throw new Error('Parent Chat viewed state could not be confirmed.')
+  }
+
+  return row
+}

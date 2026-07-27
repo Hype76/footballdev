@@ -202,7 +202,12 @@ export function ParentPollsPage() {
   }
 
   return (
-    <ParentPortalRouteShell activeSection="polls" newStateByCategory={newStateByCategory} user={user}>
+    <ParentPortalRouteShell
+      activeSection="polls"
+      newStateByCategory={newStateByCategory}
+      selectedParentLinkId={selectedLink?.id}
+      user={user}
+    >
       <div className="space-y-5 sm:space-y-6">
       <ParentPollsHero
         answeredPollCount={answeredPollCount}

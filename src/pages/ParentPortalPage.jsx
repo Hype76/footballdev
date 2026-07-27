@@ -1350,6 +1350,7 @@ export function ParentPortalPage() {
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
           newStateByCategory={parentNavNewState}
           onSelect={handleSectionSelect}
+          selectedParentLinkId={selectedLink?.id}
           showAccountActions={false}
           user={user}
           variant="desktop"
@@ -1463,6 +1464,7 @@ export function ParentPortalPage() {
         className="lg:hidden"
         newStateByCategory={parentNavNewState}
         onSelect={handleSectionSelect}
+        selectedParentLinkId={selectedLink?.id}
         showAccountActions={false}
         user={user}
         variant="mobile"

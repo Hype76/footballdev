@@ -663,6 +663,10 @@ body .parent-portal-theme-scope [class~='bg-[#d7e5dc]'] {
   background-color: var(--border-color) !important;
 }
 
+body .parent-portal-theme-scope [class~='bg-[#98a2b3]'] {
+  background-color: var(--text-muted) !important;
+}
+
 body .parent-portal-theme-scope [class~='bg-[#ecfdf5]'],
 body .parent-portal-theme-scope [class~='bg-[#bbf7d0]'] {
   background-color: var(--accent-soft) !important;
@@ -759,6 +763,10 @@ body .parent-portal-theme-scope [class~='text-[#b54708]'] {
 .parent-portal-theme-scope [class~='focus:ring-[#bbf7d0]']:focus,
 .parent-portal-theme-scope [class~='focus:ring-[#d1fae5]']:focus,
 .parent-portal-theme-scope [class~='focus-within:ring-[#d1fae5]']:focus-within {
+  --tw-ring-color: var(--accent-soft) !important;
+}
+
+.parent-portal-theme-scope [class~='focus-visible:ring-[#bbf7d0]']:focus-visible {
   --tw-ring-color: var(--accent-soft) !important;
 }
 

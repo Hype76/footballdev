@@ -194,8 +194,8 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
   assert.match(source, /pb-28/)
   assert.match(source, /activeSection === 'settings'/)
   assert.match(messagesSource, /activeSection="chat"/)
-  assert.match(pollsSource, /<ParentPortalRouteShell activeSection="polls"/)
-  assert.match(familySource, /<ParentPortalRouteShell activeSection="family"/)
+  assert.match(pollsSource, /<ParentPortalRouteShell[\s\S]*activeSection="polls"/)
+  assert.match(familySource, /<ParentPortalRouteShell[\s\S]*activeSection="family"/)
 })
 
 test('parent settings expose safe profile, notification, and theme controls', async () => {
@@ -265,8 +265,8 @@ test('parent portal shell persists navigation on Chat, polls and family routes',
   ])
 
   assert.match(messagesSource, /activeSection="chat"/)
-  assert.match(pollsSource, /<ParentPortalRouteShell activeSection="polls"/)
-  assert.match(familySource, /<ParentPortalRouteShell activeSection="family"/)
+  assert.match(pollsSource, /<ParentPortalRouteShell[\s\S]*activeSection="polls"/)
+  assert.match(familySource, /<ParentPortalRouteShell[\s\S]*activeSection="family"/)
   assert.match(shellSource, /variant="desktop"/)
   assert.match(shellSource, /variant="mobile"/)
   assert.match(shellSource, /const parentPortalSections = \[/)
@@ -284,9 +284,9 @@ test('parent Chat keeps room unread detail while navigation uses synchronised Ne
   ])
 
   assert.match(chatSource, /newStateByCategory=\{newStateByCategory\}/)
-  assert.match(chatSource, /categoryKey: 'chat'/)
-  assert.match(chatSource, /onBeforeCategoryLoad=\{captureActivityState\}/)
-  assert.match(chatSource, /onCategoryLoadSuccess=\{handleCategoryLoadSuccess\}/)
+  assert.match(chatSource, /observedChatState = activitySnapshot\?\.chat/)
+  assert.match(chatSource, /onBeforeRoomLoad=\{captureActivityState\}/)
+  assert.match(chatSource, /onRoomLoadSuccess=\{handleRoomLoadSuccess\}/)
   assert.match(workspaceSource, /const totalUnread = rooms\.reduce/)
   assert.match(workspaceSource, /onUnreadCountChange\?\.\(totalUnread\)/)
   assert.doesNotMatch(chatSource, /label: 'Linked children'/)
@@ -301,7 +301,7 @@ test('Chat and polls nav badges use server-synchronised New state without numeri
   ])
 
   assert.match(messagesSource, /useParentPortalNavigationState/)
-  assert.match(messagesSource, /categoryKey: 'chat'/)
+  assert.match(messagesSource, /observedChatState = activitySnapshot\?\.chat/)
   assert.match(pollsSource, /useParentPortalNavigationState/)
   assert.match(pollsSource, /categoryKey: 'polls'/)
   assert.match(shellSource, /Boolean\(newStateByCategory\[section\.id\]\)/)
