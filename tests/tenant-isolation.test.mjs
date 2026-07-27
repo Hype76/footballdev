@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260720091524_p1_tenant_parent_player_staff_feedback_isolation.sql', import.meta.url)
-const parentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727053304_restore_parent_link_authority.sql', import.meta.url)
+const parentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727044834_restore_parent_link_authority.sql', import.meta.url)
 const feedbackUrl = new URL('../src/lib/domain/feedback.js', import.meta.url)
 const parentPortalUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 const coreUrl = new URL('../src/lib/domain/core.js', import.meta.url)
