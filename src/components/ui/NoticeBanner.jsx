@@ -1,8 +1,8 @@
 export function NoticeBanner({ title, message, tone = 'error' }) {
   const toneClassName =
     tone === 'error'
-      ? 'border-rose-200 bg-rose-50 text-rose-900'
-      : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#101828]'
+      ? 'border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-text)]'
+      : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text-primary)]'
 
   return (
     <div className={`rounded-lg border px-4 py-4 shadow-sm ${toneClassName}`}>

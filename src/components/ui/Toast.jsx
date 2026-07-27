@@ -48,8 +48,8 @@ export function ToastProvider({ children }) {
 function ToastMessage({ toast, onDismiss }) {
   const toneClassName =
     toast.tone === 'error'
-      ? 'border-red-200 bg-red-50 text-red-800 shadow-red-950/10'
-      : 'border-[#d7e5dc] bg-white text-[#101828] shadow-[#047857]/10'
+      ? 'border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-text)] shadow-black/10'
+      : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-black/10'
 
   return (
     <div className={`rounded-lg border px-4 py-3 shadow-lg ${toneClassName}`}>

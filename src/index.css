@@ -407,6 +407,182 @@ body.theme-dark [class*='hover:border-[#0f9f6e]']:hover {
   border-color: var(--accent) !important;
 }
 
+.parent-portal-theme-scope {
+  --parent-warning-bg: #2c2413;
+  --parent-warning-border: #7a5c18;
+  --parent-warning-text: #fde68a;
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+}
+
+.theme-light .parent-portal-theme-scope {
+  --parent-warning-bg: #fffaeb;
+  --parent-warning-border: #fedf89;
+  --parent-warning-text: #92400e;
+}
+
+.parent-portal-theme-scope option {
+  background-color: var(--panel-bg);
+  color: var(--text-primary);
+}
+
+body .parent-portal-theme-scope [class~='bg-white'],
+body .parent-portal-theme-scope [class~='bg-white/95'] {
+  background-color: var(--panel-bg) !important;
+}
+
+body .parent-portal-theme-scope [class~='bg-[#f7faf8]'] {
+  background-color: var(--panel-alt) !important;
+}
+
+body .parent-portal-theme-scope [class~='bg-[#d7e5dc]'] {
+  background-color: var(--border-color) !important;
+}
+
+body .parent-portal-theme-scope [class~='bg-[#ecfdf5]'],
+body .parent-portal-theme-scope [class~='bg-[#bbf7d0]'] {
+  background-color: var(--accent-soft) !important;
+}
+
+body .parent-portal-theme-scope [class~='bg-[#047857]'] {
+  background-color: var(--button-primary) !important;
+  color: var(--button-primary-text) !important;
+}
+
+body .parent-portal-theme-scope [class~='bg-[#fff1f3]'],
+body .parent-portal-theme-scope [class~='bg-[#fff4f3]'] {
+  background-color: var(--danger-soft) !important;
+}
+
+body .parent-portal-theme-scope [class~='bg-[#fffaeb]'] {
+  background-color: var(--parent-warning-bg) !important;
+}
+
+body .parent-portal-theme-scope [class~='border-[#d7e5dc]'],
+body .parent-portal-theme-scope [class~='border-[#b8cbc0]'] {
+  border-color: var(--border-color) !important;
+}
+
+body .parent-portal-theme-scope [class~='border-[#047857]'],
+body .parent-portal-theme-scope [class~='border-[#0f9f6e]'],
+body .parent-portal-theme-scope [class~='border-[#bbf7d0]'] {
+  border-color: var(--accent) !important;
+}
+
+body .parent-portal-theme-scope [class~='border-[#f2b8b5]'],
+body .parent-portal-theme-scope [class~='border-[#fecdca]'] {
+  border-color: var(--danger-border) !important;
+}
+
+body .parent-portal-theme-scope [class~='border-[#fedf89]'] {
+  border-color: var(--parent-warning-border) !important;
+}
+
+body .parent-portal-theme-scope [class~='text-[#101828]'],
+body .parent-portal-theme-scope [class~='text-[#334155]'] {
+  color: var(--text-primary) !important;
+}
+
+body .parent-portal-theme-scope [class~='text-[#285143]'],
+body .parent-portal-theme-scope [class~='text-[#4b5f55]'],
+body .parent-portal-theme-scope [class~='text-[#60756a]'],
+body .parent-portal-theme-scope [class~='text-[#667085]'] {
+  color: var(--text-muted) !important;
+}
+
+body .parent-portal-theme-scope [class~='text-[#047857]'],
+body .parent-portal-theme-scope [class~='text-[#065f46]'] {
+  color: var(--text-secondary) !important;
+}
+
+body .parent-portal-theme-scope [class~='text-white'] {
+  color: var(--button-primary-text) !important;
+}
+
+body .parent-portal-theme-scope [class~='text-[#9b1c17]'],
+body .parent-portal-theme-scope [class~='text-[#b42318]'] {
+  color: var(--danger-text) !important;
+}
+
+body .parent-portal-theme-scope [class~='text-[#92400e]'],
+body .parent-portal-theme-scope [class~='text-[#b54708]'] {
+  color: var(--parent-warning-text) !important;
+}
+
+.parent-portal-theme-scope [class~='placeholder:text-[#94a3b8]']::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.parent-portal-theme-scope [class~='read-only:text-[#4b5f55]']:read-only {
+  color: var(--text-muted) !important;
+}
+
+.parent-portal-theme-scope [class~='accent-[#047857]'] {
+  accent-color: var(--accent) !important;
+}
+
+.parent-portal-theme-scope [class~='focus:border-[#047857]']:focus,
+.parent-portal-theme-scope [class~='focus:border-[#0f9f6e]']:focus,
+.parent-portal-theme-scope [class~='focus-within:border-[#047857]']:focus-within,
+.parent-portal-theme-scope [class~='focus-within:border-[#0f9f6e]']:focus-within {
+  border-color: var(--accent) !important;
+}
+
+.parent-portal-theme-scope [class~='read-only:focus:border-[#d7e5dc]']:read-only:focus {
+  border-color: var(--border-color) !important;
+}
+
+.parent-portal-theme-scope [class~='focus:ring-[#bbf7d0]']:focus,
+.parent-portal-theme-scope [class~='focus:ring-[#d1fae5]']:focus,
+.parent-portal-theme-scope [class~='focus-within:ring-[#d1fae5]']:focus-within {
+  --tw-ring-color: var(--accent-soft) !important;
+}
+
+.parent-portal-theme-scope [class~='focus:bg-white']:focus,
+.parent-portal-theme-scope [class~='focus-within:bg-white']:focus-within {
+  background-color: var(--panel-bg) !important;
+}
+
+.parent-portal-theme-scope [class~='hover:border-[#047857]']:hover,
+.parent-portal-theme-scope [class~='hover:border-[#0f9f6e]']:hover {
+  border-color: var(--accent) !important;
+}
+
+.parent-portal-theme-scope [class~='hover:bg-[#036c4a]']:hover,
+.parent-portal-theme-scope [class~='hover:bg-[#065f46]']:hover {
+  background-color: color-mix(in srgb, var(--button-primary) 88%, black) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.parent-portal-theme-scope [class~='hover:bg-[#ecfdf5]']:hover {
+  background-color: var(--accent-soft) !important;
+}
+
+.parent-portal-theme-scope [class~='hover:bg-[#f7faf8]']:hover {
+  background-color: var(--panel-alt) !important;
+}
+
+.parent-portal-theme-scope [class~='hover:bg-white']:hover {
+  background-color: var(--panel-bg) !important;
+}
+
+.parent-portal-theme-scope [class~='hover:bg-[#ffe7e5]']:hover,
+.parent-portal-theme-scope [class~='hover:bg-[#fff4f3]']:hover {
+  background-color: var(--danger-soft) !important;
+}
+
+body .parent-portal-theme-scope [class~='shadow-[#047857]/10'] {
+  --tw-shadow-color: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+body .parent-portal-theme-scope [class~='shadow-[#047857]/15'] {
+  --tw-shadow-color: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+}
+
+body .parent-portal-theme-scope [class~='shadow-[#047857]/20'] {
+  --tw-shadow-color: color-mix(in srgb, var(--accent) 20%, transparent) !important;
+}
+
 .matchday-control-panel {
   border-color: #d7e5dc;
   background: #ffffff;

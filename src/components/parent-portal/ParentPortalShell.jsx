@@ -201,7 +201,10 @@ export function ParentPortalRouteShell({
   user,
 }) {
   return (
-    <div className="space-y-4 pb-28 sm:space-y-5 lg:pb-0">
+    <div
+      className="parent-portal-theme-scope space-y-4 pb-28 sm:space-y-5 lg:pb-0"
+      data-testid="parent-portal-route-shell"
+    >
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
           activeSection={activeSection}

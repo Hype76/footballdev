@@ -55,7 +55,10 @@ async function withTimeout(promise, message, timeoutMs = 15000) {
 
 function ParentShell({ children }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7faf8] px-4 py-8 text-[#101828]">
+    <main
+      className="parent-portal-theme-scope flex min-h-screen items-center justify-center bg-[#f7faf8] px-4 py-8 text-[#101828]"
+      data-testid="parent-invite-shell"
+    >
       <div className="w-full max-w-xl rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
         {children}
       </div>

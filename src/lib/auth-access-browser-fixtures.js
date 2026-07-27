@@ -40,6 +40,20 @@ const parentPortalLinks = [
   },
 ]
 
+const multipleParentPortalLinks = [
+  ...parentPortalLinks,
+  {
+    id: 'parent-link-fixture-second',
+    playerId: 'player-fixture-second',
+    playerName: 'Second Fixture Child',
+    clubId: 'club-fixture',
+    clubName: 'Fixture United',
+    teamId: 'team-u12',
+    teamName: 'U12 Fixture Team',
+    status: 'active',
+  },
+]
+
 function makeAuthUser(email) {
   return {
     id: `auth-${email}`,
@@ -201,6 +215,23 @@ const fixtureAccounts = {
       activeTeamId: '',
       activeTeamName: '',
       parentPortalLinks,
+    }),
+  },
+  'parent-multiple.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'parent',
+    parentProfile: makeBaseProfile('parent-multiple.fixture@footballplayer.test', {
+      name: 'Multiple Child Parent Fixture',
+      role: 'parent_portal',
+      roleLabel: 'Parent',
+      roleRank: 0,
+      clubId: '',
+      clubName: 'Fixture Family',
+      team: 'Fixture Family',
+      activeTeamId: '',
+      activeTeamName: '',
+      parentPortalLinks: multipleParentPortalLinks,
     }),
   },
   'parent-unlinked.fixture@footballplayer.test': {

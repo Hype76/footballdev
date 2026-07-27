@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { mkdir } from 'node:fs/promises'
 import net from 'node:net'
 import { chromium } from 'playwright'
 
@@ -8,6 +9,26 @@ const fixturePassword = 'FixturePass123!'
 const port = Number(process.env.AUTH_BROWSER_PORT || 4300 + Math.floor(Math.random() * 500))
 const mainBaseUrl = `http://127.0.0.1:${port}`
 const parentBaseUrl = `http://parent.footballplayer.online:${port}`
+const parentThemeScreenshotDirectory = 'outputs/fp-v1-parent-portal-themes-release-04e'
+await mkdir(parentThemeScreenshotDirectory, { recursive: true })
+const parentThemeMatrix = [
+  { accent: 'green', label: 'light-default', mode: 'light' },
+  { accent: 'green', label: 'dark-default', mode: 'dark' },
+  { accent: 'purple', label: 'light-custom', mode: 'light' },
+  { accent: 'purple', label: 'dark-custom', mode: 'dark' },
+]
+const parentThemeRoutes = [
+  { label: 'overview', path: '/parent-portal?section=overview', scopeTestId: 'parent-portal-page' },
+  { label: 'calendar', path: '/parent-portal?section=calendar', scopeTestId: 'parent-portal-page' },
+  { label: 'invites', path: '/parent-portal?section=invites', scopeTestId: 'parent-portal-page' },
+  { label: 'matches', path: '/parent-portal?section=matches', scopeTestId: 'parent-portal-page' },
+  { label: 'results', path: '/parent-portal?section=results', scopeTestId: 'parent-portal-page' },
+  { label: 'resources', path: '/parent-portal?section=resources', scopeTestId: 'parent-portal-page' },
+  { label: 'settings', path: '/parent-portal?section=settings', scopeTestId: 'parent-portal-page' },
+  { label: 'chat', path: '/parent-chat', scopeTestId: 'parent-portal-route-shell' },
+  { label: 'polls', path: '/parent-polls', scopeTestId: 'parent-portal-route-shell' },
+  { label: 'friends-family', path: '/friends-family', scopeTestId: 'parent-portal-route-shell' },
+]
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -286,6 +307,26 @@ async function prepareParentInvitePage(context) {
   }
 }
 
+async function prepareParentInviteStatePage(context, {
+  invite = null,
+  message = '',
+  status = 200,
+} = {}) {
+  const prepared = await preparePage(context)
+
+  await context.route('**/.netlify/functions/get-parent-invite**', async (route) => {
+    await route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify(invite
+        ? { success: true, invite }
+        : { success: false, message }),
+    })
+  })
+
+  return prepared
+}
+
 async function prepareDemoPage(context, response = { status: 200, body: { success: true } }) {
   const prepared = await preparePage(context)
   const resetRequests = []
@@ -431,6 +472,241 @@ async function seedSelectedAccessMode(page, mode) {
   await page.evaluate((nextMode) => {
     window.sessionStorage.setItem('selected-access-mode', nextMode)
   }, mode)
+}
+
+async function applyTheme(page, { accent, mode }) {
+  await page.evaluate(({ nextAccent, nextMode }) => {
+    const modeClasses = ['theme-light', 'theme-dark']
+    const accentClasses = ['accent-yellow', 'accent-blue', 'accent-green', 'accent-red', 'accent-purple']
+    const buttonClasses = ['button-style-solid', 'button-style-gradient']
+    const elements = [document.documentElement, document.body]
+
+    window.localStorage.setItem('app-theme-mode', nextMode)
+    window.localStorage.setItem('app-theme-accent', nextAccent)
+    window.localStorage.setItem('app-theme-button-style', 'solid')
+    for (const element of elements) {
+      element.classList.remove(...modeClasses, ...accentClasses, ...buttonClasses)
+      element.classList.add(`theme-${nextMode}`, `accent-${nextAccent}`, 'button-style-solid')
+    }
+    document.documentElement.dataset.themeAccent = nextAccent
+    document.documentElement.dataset.buttonStyle = 'solid'
+    window.dispatchEvent(new CustomEvent('app-theme-changed', {
+      detail: {
+        accent: nextAccent,
+        buttonStyle: 'solid',
+        mode: nextMode,
+      },
+    }))
+  }, { nextAccent: accent, nextMode: mode })
+  await page.waitForFunction(({ nextAccent, nextMode }) => (
+    document.documentElement.classList.contains(`theme-${nextMode}`)
+    && document.documentElement.classList.contains(`accent-${nextAccent}`)
+    && document.body.classList.contains(`theme-${nextMode}`)
+    && document.body.classList.contains(`accent-${nextAccent}`)
+    && document.documentElement.dataset.themeAccent === nextAccent
+  ), { nextAccent: accent, nextMode: mode })
+  await page.waitForTimeout(350)
+  await page.waitForFunction(({ nextAccent, nextMode }) => (
+    document.documentElement.classList.contains(`theme-${nextMode}`)
+    && document.documentElement.classList.contains(`accent-${nextAccent}`)
+    && document.documentElement.dataset.themeAccent === nextAccent
+  ), { nextAccent: accent, nextMode: mode })
+}
+
+async function auditParentTheme(page, { accent, label, mode, scopeTestId }) {
+  const audit = await page.evaluate(({ expectedScopeTestId }) => {
+    function parseRgb(value) {
+      const channels = String(value || '').match(/[\d.]+/g)?.slice(0, 3).map(Number)
+      return channels?.length === 3 ? channels : null
+    }
+
+    function luminance(rgb) {
+      const channels = rgb.map((value) => {
+        const normalized = value / 255
+        return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+      })
+      return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2])
+    }
+
+    function contrastRatio(foreground, background) {
+      const foregroundRgb = parseRgb(foreground)
+      const backgroundRgb = parseRgb(background)
+      if (!foregroundRgb || !backgroundRgb) return 0
+      const foregroundLuminance = luminance(foregroundRgb)
+      const backgroundLuminance = luminance(backgroundRgb)
+      return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
+        / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+    }
+
+    function inheritedBackground(element) {
+      let current = element
+      while (current) {
+        const background = getComputedStyle(current).backgroundColor
+        if (background && background !== 'transparent' && background !== 'rgba(0, 0, 0, 0)') {
+          return background
+        }
+        current = current.parentElement
+      }
+      return getComputedStyle(document.body).backgroundColor
+    }
+
+    function resolveColor(value) {
+      const probe = document.createElement('span')
+      probe.style.color = value
+      probe.style.position = 'fixed'
+      probe.style.visibility = 'hidden'
+      document.body.append(probe)
+      const resolved = getComputedStyle(probe).color
+      probe.remove()
+      return resolved
+    }
+
+    function sample(selector) {
+      const element = document.querySelector(selector)
+      if (!element) return null
+      const style = getComputedStyle(element)
+      const background = inheritedBackground(element)
+      return {
+        background,
+        foreground: style.color,
+        ratio: contrastRatio(style.color, background),
+      }
+    }
+
+    function mappedColor(scope, selector, property) {
+      const element = scope.querySelector(selector)
+      return element ? getComputedStyle(element)[property] : null
+    }
+
+    const scope = document.querySelector(`[data-testid="${expectedScopeTestId}"]`)
+    const root = getComputedStyle(document.documentElement)
+    if (!scope) {
+      return { scopePresent: false }
+    }
+
+    const tokens = {
+      accent: resolveColor(root.getPropertyValue('--accent').trim()),
+      accentSoft: resolveColor(root.getPropertyValue('--accent-soft').trim()),
+      buttonPrimary: resolveColor(root.getPropertyValue('--button-primary').trim()),
+      buttonPrimaryText: resolveColor(root.getPropertyValue('--button-primary-text').trim()),
+      panelAlt: resolveColor(root.getPropertyValue('--panel-alt').trim()),
+      panelBackground: resolveColor(root.getPropertyValue('--panel-bg').trim()),
+      textMuted: resolveColor(root.getPropertyValue('--text-muted').trim()),
+      textPrimary: resolveColor(root.getPropertyValue('--text-primary').trim()),
+      textSecondary: resolveColor(root.getPropertyValue('--text-secondary').trim()),
+    }
+
+    return {
+      accent: document.documentElement.dataset.themeAccent,
+      documentOverflows: document.documentElement.scrollWidth > window.innerWidth,
+      mapped: {
+        accentBackground: mappedColor(
+          scope,
+          '[class~="bg-[#ecfdf5]"]:not([class~="bg-white"]):not([class~="bg-[#f7faf8]"]), [class~="bg-[#bbf7d0]"]:not([class~="bg-white"]):not([class~="bg-[#f7faf8]"])',
+          'backgroundColor',
+        ),
+        accentButton: mappedColor(scope, '[class~="bg-[#047857]"]', 'backgroundColor'),
+        accentButtonText: mappedColor(scope, '[class~="bg-[#047857]"]', 'color'),
+        accentText: mappedColor(scope, '[class~="text-[#047857]"]', 'color'),
+        mutedText: mappedColor(scope, '[class~="text-[#4b5f55]"]', 'color'),
+        panelAlt: mappedColor(
+          scope,
+          '[class~="bg-[#f7faf8]"]:not([class~="bg-white"]):not([class~="bg-[#ecfdf5]"])',
+          'backgroundColor',
+        ),
+        panelBackground: mappedColor(
+          scope,
+          '[class~="bg-white"]:not([class~="bg-[#f7faf8]"]):not([class~="bg-[#ecfdf5]"])',
+          'backgroundColor',
+        ),
+        primaryText: mappedColor(scope, '[class~="text-[#101828]"]', 'color'),
+      },
+      samples: {
+        accent: sample(`[data-testid="${expectedScopeTestId}"] [class~="text-[#047857]"]`),
+        button: sample(`[data-testid="${expectedScopeTestId}"] [class~="bg-[#047857]"]`),
+        heading: sample(`[data-testid="${expectedScopeTestId}"] h1, [data-testid="${expectedScopeTestId}"] h2`),
+        muted: sample(`[data-testid="${expectedScopeTestId}"] [class~="text-[#4b5f55]"]`),
+      },
+      scopePresent: true,
+      tokens,
+    }
+  }, { expectedScopeTestId: scopeTestId })
+
+  assert.equal(audit.scopePresent, true, `${label} has the Parent theme scope`)
+  assert.equal(audit.accent, accent, `${label} applies ${accent}`)
+  assert.equal(audit.documentOverflows, false, `${label} stays within the viewport`)
+
+  const mappingPairs = [
+    ['accentBackground', 'accentSoft'],
+    ['accentButton', 'buttonPrimary'],
+    ['accentButtonText', 'buttonPrimaryText'],
+    ['accentText', 'textSecondary'],
+    ['mutedText', 'textMuted'],
+    ['panelAlt', 'panelAlt'],
+    ['panelBackground', 'panelBackground'],
+    ['primaryText', 'textPrimary'],
+  ]
+  for (const [mappedName, tokenName] of mappingPairs) {
+    if (audit.mapped[mappedName]) {
+      assert.equal(audit.mapped[mappedName], audit.tokens[tokenName], `${label} maps ${mappedName}`)
+    }
+  }
+
+  for (const [sampleName, sample] of Object.entries(audit.samples)) {
+    if (sample) {
+      assert.ok(sample.ratio >= 4.5, `${label} ${sampleName} contrast ${sample.ratio.toFixed(2)} is at least 4.5`)
+    }
+  }
+
+  return audit
+}
+
+async function auditStandaloneTheme(page, { label }) {
+  const audit = await page.evaluate(() => {
+    function parseRgb(value) {
+      const channels = String(value || '').match(/[\d.]+/g)?.slice(0, 3).map(Number)
+      return channels?.length === 3 ? channels : null
+    }
+
+    function luminance(rgb) {
+      const channels = rgb.map((value) => {
+        const normalized = value / 255
+        return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+      })
+      return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2])
+    }
+
+    function contrastRatio(foreground, background) {
+      const foregroundRgb = parseRgb(foreground)
+      const backgroundRgb = parseRgb(background)
+      if (!foregroundRgb || !backgroundRgb) return 0
+      const foregroundLuminance = luminance(foregroundRgb)
+      const backgroundLuminance = luminance(backgroundRgb)
+      return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
+        / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+    }
+
+    const heading = document.querySelector('main h1, main h2')
+    const panel = heading?.closest('section, div')
+    const button = document.querySelector('main button:not([disabled])')
+    return {
+      buttonRatio: button
+        ? contrastRatio(getComputedStyle(button).color, getComputedStyle(button).backgroundColor)
+        : null,
+      documentOverflows: document.documentElement.scrollWidth > window.innerWidth,
+      headingRatio: heading && panel
+        ? contrastRatio(getComputedStyle(heading).color, getComputedStyle(panel).backgroundColor)
+        : null,
+    }
+  })
+
+  assert.equal(audit.documentOverflows, false, `${label} stays within the viewport`)
+  if (audit.headingRatio) {
+    assert.ok(audit.headingRatio >= 4.5, `${label} heading contrast is at least 4.5`)
+  }
+  if (audit.buttonRatio) {
+    assert.ok(audit.buttonRatio >= 4.5, `${label} button contrast is at least 4.5`)
+  }
 }
 
 async function runScenario(name, callback) {
@@ -607,6 +883,159 @@ try {
     await assertNoSetupGuideTrigger(page)
     await context.close()
   })
+
+  for (const viewport of [
+    {
+      evidenceTheme: 'dark-custom',
+      name: 'desktop',
+      options: { viewport: { width: 1440, height: 900 } },
+    },
+    {
+      evidenceTheme: 'light-custom',
+      name: 'tablet',
+      options: { viewport: { width: 820, height: 1180 } },
+    },
+    {
+      evidenceTheme: 'dark-default',
+      name: 'mobile',
+      options: { isMobile: true, viewport: { width: 390, height: 844 } },
+    },
+  ]) {
+    await runScenario(`${viewport.name} Parent route and theme audit matrix`, async () => {
+      const context = await browser.newContext(viewport.options)
+      const { page } = await preparePage(context)
+      const consoleErrors = []
+      page.on('console', (message) => {
+        if (message.type() === 'error') consoleErrors.push(message.text())
+      })
+
+      await parentSignIn(page, 'parent-multiple.fixture@footballplayer.test', mainBaseUrl)
+      await page.waitForURL('**/parent-portal', { timeout: 15000 })
+      await assertVisibleTextContaining(page, 'Fixture Child')
+      await page.getByRole('option', { name: /Second Fixture Child/ }).waitFor({ state: 'attached', timeout: 15000 })
+      assert.equal(await page.getByRole('option', { name: /Second Fixture Child/ }).count(), 1)
+
+      for (const route of parentThemeRoutes) {
+        await page.goto(`${mainBaseUrl}${route.path}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+        await page.getByTestId(route.scopeTestId).waitFor({ state: 'visible', timeout: 15000 })
+        await page.waitForTimeout(150)
+
+        for (const theme of parentThemeMatrix) {
+          await applyTheme(page, theme)
+          await auditParentTheme(page, {
+            ...theme,
+            label: `${viewport.name} ${route.label} ${theme.label}`,
+            scopeTestId: route.scopeTestId,
+          })
+
+          const shouldCapture = theme.label === viewport.evidenceTheme
+            || (route.label === 'overview' && ['light-default', 'dark-custom'].includes(theme.label))
+          if (shouldCapture) {
+            await page.screenshot({
+              path: `${parentThemeScreenshotDirectory}/parent-${viewport.name}-${route.label}-${theme.label}.png`,
+              fullPage: true,
+            })
+          }
+        }
+      }
+
+      assert.deepEqual(consoleErrors, [])
+      await context.close()
+    })
+  }
+
+  for (const viewport of [
+    { evidenceTheme: 'dark-custom', name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
+    { evidenceTheme: 'light-custom', name: 'tablet', options: { viewport: { width: 820, height: 1180 } } },
+    { evidenceTheme: 'dark-default', name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
+  ]) {
+    for (const inviteState of [
+      {
+        invite: {
+          email: 'parent.fixture@footballplayer.test',
+          playerName: 'Fixture Child',
+          teamName: 'U12 Fixture Team',
+          clubName: 'Fixture United',
+        },
+        label: 'valid',
+        message: '',
+        status: 200,
+        visibleText: 'Create your family portal login',
+      },
+      {
+        invite: null,
+        label: 'expired',
+        message: 'This parent invite has expired. Please ask the club to send a new invite.',
+        status: 410,
+        visibleText: 'This parent invite has expired.',
+      },
+      {
+        invite: null,
+        label: 'invalid',
+        message: 'This access link is not available. Please ask the club to send a new invite.',
+        status: 404,
+        visibleText: 'This access link is not available.',
+      },
+    ]) {
+      await runScenario(`${viewport.name} ${inviteState.label} Parent invite theme matrix`, async () => {
+        const context = await browser.newContext(viewport.options)
+        const { page } = await prepareParentInviteStatePage(context, inviteState)
+        await page.goto(`${mainBaseUrl}/parent-invite/theme-audit-token`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000,
+        })
+        await page.getByTestId('parent-invite-shell').waitFor({ state: 'visible', timeout: 15000 })
+        await assertVisibleTextContaining(page, inviteState.visibleText)
+
+        for (const theme of parentThemeMatrix) {
+          await applyTheme(page, theme)
+          await auditParentTheme(page, {
+            ...theme,
+            label: `${viewport.name} ${inviteState.label} invite ${theme.label}`,
+            scopeTestId: 'parent-invite-shell',
+          })
+          if (theme.label === viewport.evidenceTheme) {
+            await page.screenshot({
+              path: `${parentThemeScreenshotDirectory}/parent-invite-${viewport.name}-${inviteState.label}-${theme.label}.png`,
+              fullPage: true,
+            })
+          }
+        }
+
+        await context.close()
+      })
+    }
+  }
+
+  for (const viewport of [
+    { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
+    { name: 'tablet', options: { viewport: { width: 820, height: 1180 } } },
+    { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
+  ]) {
+    await runScenario(`${viewport.name} Parent sign-in continuation remains readable in every theme`, async () => {
+      const context = await browser.newContext(viewport.options)
+      const { page } = await preparePage(context)
+      await page.goto(`${mainBaseUrl}/sign-in?tab=parent&parentInvite=theme-audit-token`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000,
+      })
+      await page.getByRole('heading', { name: 'Sign in to parent access' }).waitFor({ state: 'visible', timeout: 15000 })
+      assert.equal(new URL(page.url()).searchParams.get('parentInvite'), 'theme-audit-token')
+
+      for (const theme of parentThemeMatrix) {
+        await applyTheme(page, theme)
+        await auditStandaloneTheme(page, { label: `${viewport.name} Parent sign-in ${theme.label}` })
+        if (['light-default', 'dark-custom'].includes(theme.label)) {
+          await page.screenshot({
+            path: `${parentThemeScreenshotDirectory}/parent-sign-in-${viewport.name}-${theme.label}.png`,
+            fullPage: true,
+          })
+        }
+      }
+
+      await context.close()
+    })
+  }
 
   await runScenario('main parent tab resolves dual-access user to parent portal only', async () => {
     const context = await browser.newContext()
