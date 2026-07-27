@@ -16,8 +16,12 @@ import {
   getAuthenticatedPlanProfile,
   getAuthenticatedRequestUser,
 } from './lib/_plan-gate.js'
+import {
+  buildAuthoritativeParentInviteEmail,
+} from '../../src/lib/parent-invite-email.js'
 
 const DEMO_EMAIL = 'demo@playerfeedback.online'
+const PARENT_APP_ORIGIN = 'https://parent.footballplayer.online'
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
@@ -60,6 +64,21 @@ function isValidEmail(value) {
 
 function normaliseEmail(value) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function getParentAppOrigin() {
+  const configuredOrigin = String(process.env.VITE_PARENT_APP_URL ?? '').trim().replace(/\/$/, '')
+
+  if (!configuredOrigin) {
+    return PARENT_APP_ORIGIN
+  }
+
+  try {
+    const parsedUrl = new URL(configuredOrigin)
+    return parsedUrl.protocol === 'https:' ? parsedUrl.origin : PARENT_APP_ORIGIN
+  } catch {
+    return PARENT_APP_ORIGIN
+  }
 }
 
 function getSenderCopyEmails(senderEmail, recipient) {
@@ -105,7 +124,7 @@ async function getInviteLink(linkId) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, status, link_type, players:player_id (player_name, section), teams:team_id (name), clubs:club_id (name, contact_email)')
+    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
     .eq('id', normalizedLinkId)
     .maybeSingle()
 
@@ -122,6 +141,35 @@ async function getInviteLink(linkId) {
   }
 
   return data
+}
+
+async function hasExistingParentPortalAccess(inviteLink) {
+  if (inviteLink.auth_user_id) {
+    return true
+  }
+
+  const email = normaliseEmail(inviteLink.email)
+
+  if (!email) {
+    return false
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('parent_player_links')
+    .select('id')
+    .eq('club_id', inviteLink.club_id)
+    .eq('status', 'active')
+    .eq('link_type', 'parent')
+    .eq('email', email)
+    .not('auth_user_id', 'is', null)
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return Boolean(data)
 }
 
 async function assertCanSendInvite({ event, inviteLink }) {
@@ -189,12 +237,8 @@ export async function handler(event) {
     const planProfile = await assertCanSendInvite({ event, inviteLink })
 
     const {
-      displayName,
-      html,
-      parentEmail,
       copySender = false,
       senderEmail,
-      subject,
     } = body
 
     const normalizedSenderEmail = normaliseEmail(senderEmail)
@@ -207,7 +251,7 @@ export async function handler(event) {
       return failureResponse(403, 'Family portal invites are disabled for the demo account.')
     }
 
-    recipient = normaliseEmail(parentEmail || inviteLink.email)
+    recipient = normaliseEmail(inviteLink.email)
 
     if (!recipient) {
       return failureResponse(400, 'Parent email is required.')
@@ -217,24 +261,22 @@ export async function handler(event) {
       return failureResponse(400, 'Parent email must be a valid email address.')
     }
 
-    const inviteEmail = normaliseEmail(inviteLink.email)
-    if (inviteEmail && inviteEmail !== recipient) {
-      return failureResponse(403, 'This invite can only be sent to the linked parent email.')
-    }
-
-    const teamName = cleanHeaderPart(body.teamName || inviteLink.teams?.name, 'Team')
-    const clubName = cleanHeaderPart(body.clubName || inviteLink.clubs?.name, 'Club')
-    const safeDisplayName = cleanHeaderPart(displayName || planProfile.name, 'Coach')
+    const existingParentPortalUser = await hasExistingParentPortalAccess(inviteLink)
+    const authoritativeEmail = await buildAuthoritativeParentInviteEmail({
+      existingParentPortalUser,
+      inviteLink,
+      parentOrigin: getParentAppOrigin(),
+    })
+    const teamName = authoritativeEmail.teamName
+    const clubName = authoritativeEmail.clubName
+    const safeDisplayName = cleanHeaderPart(planProfile.name || requestUser.email, 'Coach')
     const fromName = `${safeDisplayName} (${teamName} - ${clubName})`
-    const safeReplyTo = cleanHeaderPart(normalizedSenderEmail || planProfile.email || inviteLink.clubs?.contact_email, '')
+    const club = Array.isArray(inviteLink.clubs) ? inviteLink.clubs[0] : inviteLink.clubs
+    const safeReplyTo = cleanHeaderPart(normalizedSenderEmail || planProfile.email || club?.contact_email, '')
     const senderCopyEmails = copySender === true ? getSenderCopyEmails(senderEmail, recipient) : []
-    const emailHtml = String(html ?? '').trim()
+    const emailHtml = authoritativeEmail.html
 
-    if (emailHtml.length > 200000) {
-      return failureResponse(400, 'Email content is too large.')
-    }
-
-    emailSubject = String(subject ?? '').trim() || 'Family portal invite'
+    emailSubject = authoritativeEmail.subject
     const emailPayload = buildEmailPayload({
       fromName,
       recipient,
@@ -260,7 +302,8 @@ export async function handler(event) {
         displayName: safeDisplayName,
         teamName,
         clubName,
-        playerName: String(body.playerName ?? inviteLink.players?.player_name ?? '').trim(),
+        playerName: authoritativeEmail.playerName,
+        logoSource: authoritativeEmail.logoSource,
         clubId: inviteLink.club_id,
         actorId: planProfile.id,
         actorEmail: requestUser.email,
@@ -326,6 +369,7 @@ export async function handler(event) {
     return successResponse({
       id: response?.data?.id || response?.id || '',
       htmlSize: emailHtml.length,
+      logoSource: authoritativeEmail.logoSource,
     })
   } catch (error) {
     console.error(error)

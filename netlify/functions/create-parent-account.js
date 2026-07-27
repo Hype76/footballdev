@@ -1,7 +1,10 @@
 import process from 'node:process'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
-import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
+import {
+  buildEmailLogoMarkup,
+  resolveReachableEmailLogo,
+} from '../../src/lib/email-branding.js'
 import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 
 function jsonResponse(statusCode, payload) {
@@ -73,12 +76,18 @@ function getBaseUrl(event) {
   return `${forwardedProto}://${forwardedHost}`.replace(/\/$/, '')
 }
 
-function buildConfirmationEmailHtml({ actionLink, invite, email }) {
+export function buildConfirmationEmailHtml({
+  actionLink,
+  email,
+  invite,
+  resolvedLogo,
+}) {
   const childName = invite.playerName || 'your child'
   const teamCopy = [invite.teamName, invite.clubName].filter(Boolean).join(' | ') || 'Football Player'
   const logoMarkup = buildEmailLogoMarkup({
-    altText: invite.clubName || 'Football Player',
-    clubLogoUrl: invite.clubLogoUrl,
+    altText: `${invite.clubName || 'Football Player'} logo`,
+    clubLogoUrl: resolvedLogo?.source === 'club' ? resolvedLogo.url : '',
+    fallbackLogoUrl: resolvedLogo?.source === 'football-player' ? resolvedLogo.url : '',
     origin: actionLink,
   })
 
@@ -271,11 +280,21 @@ export async function handler(event) {
     }
 
     try {
+      const resolvedLogo = await resolveReachableEmailLogo({
+        clubLogoUrl: invite.clubLogoUrl,
+        origin: baseUrl,
+      })
+
       await sendEmail({
         from: createFromAddress('Football Player'),
         to: [email],
         subject: 'Confirm your family portal account',
-        html: buildConfirmationEmailHtml({ actionLink, invite, email }),
+        html: buildConfirmationEmailHtml({
+          actionLink,
+          email,
+          invite,
+          resolvedLogo,
+        }),
       }, {
         context: {
           emailType: 'parent_account_confirmation',

@@ -12,6 +12,7 @@ const sources = {
   matchDay: new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
   navigation: new URL('../src/app/navigation.js', import.meta.url),
   parentDomain: new URL('../src/lib/domain/parent-portal.js', import.meta.url),
+  parentInviteEmail: new URL('../src/lib/parent-invite-email.js', import.meta.url),
   parentInviteFunction: new URL('../netlify/functions/send-parent-portal-invite.js', import.meta.url),
   parentLogin: new URL('../src/pages/ParentLoginPage.jsx', import.meta.url),
   parentPortal: new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),
@@ -67,10 +68,11 @@ test('Development Forms remains visible and Development Fields direct route stay
 })
 
 test('parent invite flow avoids duplicate staff email and supports existing parent sign-in', async () => {
-  const [sendFunction, emailBuilder, parentDomain, parentLogin] = await Promise.all([
+  const [sendFunction, emailBuilder, parentDomain, parentInviteEmail, parentLogin] = await Promise.all([
     readSource('parentInviteFunction'),
     readSource('emailBuilder'),
     readSource('parentDomain'),
+    readSource('parentInviteEmail'),
     readSource('parentLogin'),
   ])
 
@@ -80,8 +82,8 @@ test('parent invite flow avoids duplicate staff email and supports existing pare
   assert.match(parentDomain, /\.eq\('status', 'active'\)[\s\S]*\.in\('email', emails\)/)
   assert.match(parentDomain, /existingParentPortalUser: existingActiveParentEmails\.has/)
   assert.match(emailBuilder, /existingParentPortalUser = false/)
-  assert.match(emailBuilder, /Sign in to parent portal/)
-  assert.match(emailBuilder, /\/parent-login\?parentInvite=/)
+  assert.match(parentInviteEmail, /Sign in to parent portal/)
+  assert.match(parentInviteEmail, /\/parent-login\?parentInvite=/)
   assert.match(parentLogin, /window\.location\.assign\(buildParentAppUrl\(`\/parent-invite\/\$\{parentInviteToken\}\?accept=1`\)\)/)
 })
 
