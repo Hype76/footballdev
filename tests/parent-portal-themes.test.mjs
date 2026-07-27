@@ -35,7 +35,7 @@ const routeAndStateInventory = [
   ['Parent scorer', 'score, timer, goal, correction, shootout, permission denied'],
   ['Parent volunteer', 'available, selected, unavailable, permission denied'],
   ['Results', 'previous games, no results, download, print'],
-  ['Resources', 'shared links, empty'],
+  ['Resources', 'shared files, shared links, preparing, open, download, denied, error, empty'],
   ['Settings and profile', 'profile, notifications, forms, sign out'],
   ['Parent chat', 'rooms, messages, unread, empty, loading, error'],
   ['Parent polls', 'open, answered, unanswered, empty, loading, error'],
@@ -204,6 +204,7 @@ test('theme correction preserves Parent authentication, authority, and data oper
     'getParentPortalMatchDays',
     'getParentPortalMatchDayPlayers',
     'getParentPortalPlayerResources',
+    'getParentPortalResourceAccessUrl',
     'getParentPortalSharedCalendarEvents',
     'respondToParentPortalInvitation',
     'expressMatchDayScorerInterest',
@@ -222,4 +223,16 @@ test('theme correction preserves Parent authentication, authority, and data oper
   assert.match(parentInvitePage, /\bacceptParentPortalInvite\b/)
   assert.match(router, /if \(!canOpenParentPortal\(user\)\)/)
   assert.match(router, /return <ParentAccessSignInRedirect \/>/)
+})
+
+test('Parent resource open and download stay server-authorised inside the shared theme', () => {
+  assert.match(parentPortalPage, /\bgetParentPortalResourceAccessUrl\b/)
+  assert.match(parentPortalPage, /parentLinkId:\s*selectedLink\.id/)
+  assert.match(parentPortalPage, /resourceId:\s*resource\.id/)
+  assert.match(
+    parentPortalPage,
+    /resource\.resourceType === 'external_link'[\s\S]*'Open resource'[\s\S]*'Download resource'/,
+  )
+  assert.match(parentPortalPage, /className=\{`\$\{secondaryButtonClass\} mt-4 w-full sm:w-auto`\}/)
+  assert.match(parentPortalPage, /title="Resource not opened"/)
 })
