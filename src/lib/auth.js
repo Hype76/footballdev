@@ -272,7 +272,6 @@ function RuntimeAuthProvider({ children }) {
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
         themeMode: profile.themeMode || '',
-        themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
         themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
     }
@@ -296,7 +295,6 @@ function RuntimeAuthProvider({ children }) {
         activeTeamId: onlyTeam.id,
         activeTeamName: onlyTeam.name,
         themeMode: profile.themeMode || '',
-        themeAccent: onlyTeam.themeAccent || profile.themeAccent || '',
         themeButtonStyle: onlyTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
     }
@@ -319,7 +317,6 @@ function RuntimeAuthProvider({ children }) {
       activeTeamId: selectedTeam.id,
       activeTeamName: selectedTeam.name,
       themeMode: profile.themeMode || '',
-      themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
       themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
     }
   }
@@ -899,7 +896,6 @@ function RuntimeAuthProvider({ children }) {
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
         themeMode: current.themeMode || '',
-        themeAccent: selectedTeam.themeAccent || current.themeAccent || '',
         themeButtonStyle: selectedTeam.themeButtonStyle || current.themeButtonStyle || '',
       }
     })
@@ -1248,6 +1244,7 @@ function RuntimeAuthProvider({ children }) {
         clubLogoUrl: String(clubDetails.logoUrl ?? current.clubLogoUrl ?? '').trim(),
         clubContactEmail: String(clubDetails.contactEmail ?? current.clubContactEmail ?? '').trim(),
         clubContactPhone: String(clubDetails.contactPhone ?? current.clubContactPhone ?? '').trim(),
+        themeAccent: String(clubDetails.themeAccent ?? current.themeAccent ?? '').trim(),
         planKey: normalizePlanKey(clubDetails.planKey ?? current.planKey, { mapMissingToFree: true }),
         planStatus: String(clubDetails.planStatus ?? current.planStatus ?? 'active').trim(),
         isPlanComped: Boolean(clubDetails.isPlanComped ?? current.isPlanComped ?? false),

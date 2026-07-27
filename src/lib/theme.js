@@ -18,6 +18,7 @@ export const themeAccentOptions = [
   { value: 'blue', label: 'Blue' },
   { value: 'green', label: 'Green' },
   { value: 'red', label: 'Red' },
+  { value: 'purple', label: 'Purple' },
 ]
 
 export const themeButtonStyleOptions = [
@@ -50,6 +51,16 @@ export function normalizeThemeMode(value) {
 
 export function normalizeThemeAccent(value) {
   return THEME_ACCENTS.includes(value) ? value : 'yellow'
+}
+
+export function normalizeClubAccentColour(value) {
+  const normalizedValue = String(value ?? '').trim().toLowerCase()
+
+  if (!THEME_ACCENTS.includes(normalizedValue)) {
+    throw new Error('Choose a valid club accent colour.')
+  }
+
+  return normalizedValue
 }
 
 export function normalizeThemeButtonStyle(value) {

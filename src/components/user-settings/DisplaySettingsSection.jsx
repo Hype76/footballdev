@@ -2,7 +2,7 @@ import { themeAccentOptions, themeButtonStyleOptions, themeModeOptions } from '.
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const selectClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
+const selectClass = 'min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--panel-bg)] focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function DisplaySettingsSection({
   canEditBranding,
@@ -76,16 +76,16 @@ export function DisplaySettingsSection({
         ) : null}
       </div>
       {showBrandingControls ? (
-        <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Preview</p>
+        <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 shadow-sm shadow-[#101828]/10">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">Preview</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <span
               aria-hidden="true"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-black text-[var(--button-primary-text)] shadow-sm shadow-[#101828]/10 transition"
             >
               Primary action
             </span>
-            <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
+            <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-black text-[var(--text-primary)] shadow-sm shadow-[#101828]/10">
               Accent state
             </span>
           </div>

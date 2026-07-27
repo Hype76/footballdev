@@ -18,6 +18,7 @@ import {
   getVisibleClubUsers,
   importClubLogoFromUrl,
   replaceTeamStaffAssignments,
+  updateClubAccentColour,
   updateClubSettings,
   updateTeamSettings,
   uploadClubLogo,
@@ -490,7 +491,7 @@ function OnboardingActionModal({
         setTeamAssignments(nextAssignments)
         setThemeForm({
           mode: currentThemeTeam?.themeMode || user.themeMode || 'light',
-          accent: currentThemeTeam?.themeAccent || user.themeAccent || 'green',
+          accent: clubSettings?.themeAccent || user.themeAccent || 'green',
           buttonStyle: currentThemeTeam?.themeButtonStyle || user.themeButtonStyle || 'solid',
         })
 
@@ -560,7 +561,7 @@ function OnboardingActionModal({
           })
         }
 
-        const updatedClub = await updateClubSettings({
+        let updatedClub = await updateClubSettings({
           clubId: user.clubId,
           data: {
             ...clubForm,
@@ -569,20 +570,27 @@ function OnboardingActionModal({
           user,
         })
 
-        if (actionType === 'branding-theme' && teams.length > 0) {
-          await Promise.all(
-            teams.map((team) =>
-              updateTeamSettings({
-                teamId: team.id,
-                data: {
-                  themeMode: themeForm.mode,
-                  themeAccent: themeForm.accent,
-                  themeButtonStyle: themeForm.buttonStyle,
-                },
-                user,
-              }),
-            ),
-          )
+        if (actionType === 'branding-theme') {
+          updatedClub = await updateClubAccentColour({
+            clubId: user.clubId,
+            themeAccent: themeForm.accent,
+            user,
+          })
+
+          if (teams.length > 0) {
+            await Promise.all(
+              teams.map((team) =>
+                updateTeamSettings({
+                  teamId: team.id,
+                  data: {
+                    themeMode: themeForm.mode,
+                    themeButtonStyle: themeForm.buttonStyle,
+                  },
+                  user,
+                }),
+              ),
+            )
+          }
         }
 
         updateCurrentUserDetails({
@@ -592,7 +600,7 @@ function OnboardingActionModal({
           clubContactEmail: updatedClub.contactEmail,
           clubContactPhone: updatedClub.contactPhone,
           themeMode: themeForm.mode,
-          themeAccent: themeForm.accent,
+          themeAccent: updatedClub.themeAccent,
           themeButtonStyle: themeForm.buttonStyle,
         })
         setSelectedLogoFile(null)

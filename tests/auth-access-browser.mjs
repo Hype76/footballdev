@@ -164,6 +164,65 @@ async function preparePage(context) {
   }
 }
 
+async function prepareClubAccentPage(context) {
+  const prepared = await preparePage(context)
+  const requests = []
+  let themeAccent = 'green'
+
+  await context.route('**/rest/v1/clubs**', async (route) => {
+    const request = route.request()
+
+    if (request.method() === 'PATCH') {
+      const payload = request.postDataJSON()
+      themeAccent = String(payload?.theme_accent ?? themeAccent)
+      requests.push({
+        method: request.method(),
+        payload,
+        url: request.url(),
+      })
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'club-fixture',
+        name: 'Fixture United',
+        logo_url: '',
+        contact_email: 'club.fixture@footballplayer.test',
+        contact_phone: '',
+        require_approval: true,
+        theme_accent: themeAccent,
+        status: 'active',
+        suspended_at: null,
+        plan_key: 'small_club',
+        plan_status: 'active',
+        is_plan_comped: true,
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
+        stripe_price_id: null,
+        current_period_end: null,
+        plan_updated_at: null,
+        tester_access_code_id: null,
+        tester_access_code: null,
+        tester_access_email: null,
+        tester_access_redeemed_at: null,
+        tester_access_expires_at: null,
+        onboarding_enabled: true,
+        onboarding_completed_steps: [],
+        onboarding_dismissed_at: null,
+        onboarding_reset_at: null,
+      }),
+    })
+  })
+
+  return {
+    ...prepared,
+    getAccentRequests: () => requests,
+    getThemeAccent: () => themeAccent,
+  }
+}
+
 async function prepareParentInvitePage(context) {
   const prepared = await preparePage(context)
   let acceptanceCallCount = 0
@@ -337,14 +396,17 @@ async function assertNoSetupGuideTrigger(page) {
   assert.equal(await page.getByText('Open setup guide', { exact: true }).count(), 0)
 }
 
-async function openMobileNavigation(page) {
+async function closeOnboardingDialog(page) {
   const onboardingDialog = page.getByRole('dialog', { name: /Club setup|Setup/i })
 
   if (await onboardingDialog.count() > 0) {
     await onboardingDialog.getByRole('button', { name: 'Close' }).click()
     await onboardingDialog.waitFor({ state: 'detached', timeout: 15000 })
   }
+}
 
+async function openMobileNavigation(page) {
+  await closeOnboardingDialog(page)
   await page.getByRole('button', { name: 'Open navigation' }).click()
   await page.getByRole('button', { name: 'Close navigation' }).waitFor({ state: 'visible', timeout: 15000 })
 }
@@ -417,6 +479,70 @@ try {
     await assertSidebarFooterContract(page)
     await context.close()
   })
+
+  for (const viewport of [
+    { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
+    { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
+  ]) {
+    await runScenario(`${viewport.name} club accent saves, reloads, survives sign-in, and does not leak`, async () => {
+      const context = await browser.newContext(viewport.options)
+      const { getAccentRequests, getThemeAccent, page } = await prepareClubAccentPage(context)
+      await signIn(page, 'club.fixture@footballplayer.test')
+      await page.waitForURL('**/coach', { timeout: 15000 })
+      await page.goto(`${mainBaseUrl}/user-settings`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+      await page.getByLabel('Accent colour').waitFor({ state: 'visible', timeout: 15000 })
+      await page.getByLabel('Accent colour').selectOption('purple')
+      await assertVisibleText(page, 'The club accent colour has been saved.')
+
+      assert.equal(getThemeAccent(), 'purple')
+      assert.equal(getAccentRequests().length, 1)
+      assert.deepEqual(getAccentRequests()[0].payload, { theme_accent: 'purple' })
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+      assert.equal(
+        await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--button-primary').trim()),
+        '#7c3aed',
+      )
+
+      await page.getByLabel('Theme').selectOption('dark')
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-dark')), true)
+      await page.getByLabel('Theme').selectOption('light')
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-light')), true)
+
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+      await page.getByLabel('Accent colour').waitFor({ state: 'visible', timeout: 15000 })
+      await assertSelectedOption(page, 'Accent colour', 'Purple')
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+
+      await page.getByLabel('Access view').selectOption({ label: 'Team: U12 Fixture Team' })
+      await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+
+      await closeOnboardingDialog(page)
+      if (viewport.name === 'mobile') {
+        await openMobileNavigation(page)
+      }
+      await page.locator('aside').getByRole('button', { name: 'Sign out' }).click()
+      await waitForPathname(page, '/sign-in')
+      await signIn(page, 'club.fixture@footballplayer.test')
+      await page.waitForURL('**/coach', { timeout: 15000 })
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-purple')), true)
+
+      await closeOnboardingDialog(page)
+      if (viewport.name === 'mobile') {
+        await openMobileNavigation(page)
+      }
+      await page.locator('aside').getByRole('button', { name: 'Sign out' }).click()
+      await waitForPathname(page, '/sign-in')
+      await signIn(page, 'manager.fixture@footballplayer.test')
+      await page.waitForURL('**/coach', { timeout: 15000 })
+      await page.waitForFunction(() => document.documentElement.classList.contains('accent-green'), null, {
+        timeout: 15000,
+      })
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-green')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+      await context.close()
+    })
+  }
 
   await runScenario('coach login opens team view', async () => {
     const context = await browser.newContext()

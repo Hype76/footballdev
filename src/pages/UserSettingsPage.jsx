@@ -13,6 +13,7 @@ import {
   getTeams,
   requestLoginEmailChange,
   requestPasswordReauthentication,
+  updateClubAccentColour,
   updateTeamSettings,
   updateOwnThemeSettings,
   updateOwnUserSettings,
@@ -336,9 +337,7 @@ export function UserSettingsPage() {
     }
 
     try {
-      const teamIds = user.activeTeamId
-        ? [user.activeTeamId]
-        : (await getTeams(user)).map((team) => team.id).filter(Boolean)
+      const teamIds = (await getTeams(user)).map((team) => team.id).filter(Boolean)
 
       if (teamIds.length === 0) {
         throw new Error('Create a team before editing club branding.')
@@ -349,14 +348,12 @@ export function UserSettingsPage() {
           teamId,
           user,
           data: {
-            themeAccent: nextPreferences.accent,
             themeButtonStyle: nextPreferences.buttonStyle,
           },
         }),
       ))
       const updatedTeam = updatedTeams[0]
       updateCurrentUserDetails({
-        themeAccent: updatedTeam.themeAccent,
         themeButtonStyle: updatedTeam.themeButtonStyle,
       })
     } catch (error) {
@@ -382,12 +379,13 @@ export function UserSettingsPage() {
     void persistUserThemePreference(nextPreferences.mode)
   }
 
-  const handleThemeAccentChange = (nextThemeAccent) => {
+  const handleThemeAccentChange = async (nextThemeAccent) => {
     if (!canEditClubBranding) {
       showToast({ title: 'Branding not changed', message: brandingUnavailableMessage, tone: 'error' })
       return
     }
 
+    const previousAccent = themeAccent
     const nextPreferences = saveThemePreferences({
       mode: themeMode,
       accent: nextThemeAccent,
@@ -396,8 +394,31 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Club branding updated', message: 'The club accent colour has been saved.' })
-    void persistBrandingPreferences(nextPreferences)
+
+    try {
+      const updatedClub = await updateClubAccentColour({
+        clubId: user.clubId,
+        themeAccent: nextPreferences.accent,
+        user,
+      })
+      updateCurrentUserDetails({
+        themeAccent: updatedClub.themeAccent,
+      })
+      showToast({ title: 'Club branding updated', message: 'The club accent colour has been saved.' })
+    } catch (error) {
+      console.error(error)
+      const restoredPreferences = saveThemePreferences({
+        mode: themeMode,
+        accent: previousAccent,
+        buttonStyle: themeButtonStyle,
+      })
+      setThemeAccent(restoredPreferences.accent)
+      showToast({
+        title: 'Club branding not saved',
+        message: error.message || 'The club accent colour could not be updated right now.',
+        tone: 'error',
+      })
+    }
   }
 
   const handleThemeButtonStyleChange = (nextThemeButtonStyle) => {

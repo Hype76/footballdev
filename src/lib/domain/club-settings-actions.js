@@ -19,6 +19,7 @@ import { fetchClubDetails } from './club-data.js'
 import {
   blockDemoMutation,
 } from './demo-guards.js'
+import { normalizeClubAccentColour } from '../theme.js'
 
 export async function getClubSettings(clubId) {
   if (!clubId) {
@@ -91,6 +92,47 @@ export async function updateClubSettings({ clubId, data, user = null }) {
 
   invalidateMemoryCacheByPrefix(`club-settings:${clubId}`)
   invalidateMemoryCacheByPrefix(`club:${clubId}`)
+  invalidateMemoryCacheByPrefix('user-profile:')
+
+  return normalizeClubSettingsRow(updatedClub)
+}
+
+export async function updateClubAccentColour({ clubId, themeAccent, user = null }) {
+  await blockDemoMutation(user)
+
+  const normalizedClubId = String(clubId ?? '').trim()
+  const normalizedThemeAccent = normalizeClubAccentColour(themeAccent)
+
+  if (!normalizedClubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  if (user?.role !== 'admin' || String(user?.clubId ?? '').trim() !== normalizedClubId) {
+    throw new Error('Only the Club Admin can change the club accent colour.')
+  }
+
+  await assertClubFeature({
+    user,
+    clubId: normalizedClubId,
+    featureName: CAPABILITIES.customColoursBranding,
+  })
+
+  const { data: updatedClub, error } = await supabase
+    .from('clubs')
+    .update({
+      theme_accent: normalizedThemeAccent,
+    })
+    .eq('id', normalizedClubId)
+    .select(CLUB_SELECT)
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`club-settings:${normalizedClubId}`)
+  invalidateMemoryCacheByPrefix(`club:${normalizedClubId}`)
   invalidateMemoryCacheByPrefix('user-profile:')
 
   return normalizeClubSettingsRow(updatedClub)

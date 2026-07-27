@@ -9,6 +9,7 @@ const FIXTURE_ACCESS_MODE_KEY = 'selected-access-mode'
 const FIXTURE_ACCESS_MODE_EXPLICIT_KEY = 'selected-access-mode-explicit'
 const FIXTURE_SELECTED_TEAM_KEY = 'selected-team-id'
 const FIXTURE_LOGIN_INTENT_KEY = 'login-access-intent'
+const FIXTURE_PROFILE_PATCH_PREFIX = 'auth-access-browser-fixture-profile-patch:'
 
 const teamOptions = [
   {
@@ -59,13 +60,34 @@ function makeBaseProfile(email, overrides = {}) {
     team: 'Fixture United',
     planKey: 'small_club',
     planStatus: 'active',
+    isPlanComped: true,
     role: 'coach',
     roleLabel: 'Coach',
     roleRank: 30,
     activeTeamId: 'team-u12',
     activeTeamName: 'U12 Fixture Team',
     parentPortalLinks: [],
+    themeAccent: 'green',
     ...overrides,
+  }
+}
+
+function getFixtureProfilePatchKey(email) {
+  return `${FIXTURE_PROFILE_PATCH_PREFIX}${String(email ?? '').trim().toLowerCase()}`
+}
+
+function readFixtureProfilePatch(email) {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(getFixtureProfilePatchKey(normalizedEmail)) || '{}')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
   }
 }
 
@@ -361,7 +383,6 @@ function getProfileForMode(account, mode, selectedTeamId = '') {
           ...account.teamProfile,
           activeTeamId: selectedTeam.id,
           activeTeamName: selectedTeam.name,
-          themeAccent: selectedTeam.themeAccent || account.teamProfile.themeAccent || '',
           themeButtonStyle: selectedTeam.themeButtonStyle || account.teamProfile.themeButtonStyle || '',
         }
       : account.teamProfile
@@ -439,6 +460,9 @@ export function FixtureAuthProvider({ AuthContext, children }) {
   const [email, setEmail] = useState(() => window.sessionStorage.getItem(FIXTURE_SESSION_KEY) || '')
   const [mode, setMode] = useState(() => window.sessionStorage.getItem(FIXTURE_ACCESS_MODE_KEY) || '')
   const [selectedTeamId, setSelectedTeamId] = useState(() => window.sessionStorage.getItem(FIXTURE_SELECTED_TEAM_KEY) || '')
+  const [profilePatch, setProfilePatch] = useState(() => readFixtureProfilePatch(
+    window.sessionStorage.getItem(FIXTURE_SESSION_KEY) || '',
+  ))
   const [isLoading] = useState(false)
   const [authError, setAuthError] = useState('')
 
@@ -453,7 +477,8 @@ export function FixtureAuthProvider({ AuthContext, children }) {
       })
     : ''
   const activeMode = restoredMode || mode || account?.defaultMode || ''
-  const user = account ? getProfileForMode(account, activeMode, selectedTeamId) : null
+  const baseUser = account ? getProfileForMode(account, activeMode, selectedTeamId) : null
+  const user = baseUser ? { ...baseUser, ...profilePatch } : null
   const accessRouteMismatch = user ? null : getAccessRouteMismatch(account, activeMode, loginAccessIntent)
   const session = account ? makeSession(email) : null
   const authUser = session?.user || null
@@ -491,6 +516,7 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     setEmail(normalizedEmail)
     setMode(nextMode)
     setSelectedTeamId('')
+    setProfilePatch(readFixtureProfilePatch(normalizedEmail))
     setAuthError('')
 
     return {
@@ -561,7 +587,21 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     setEmail('')
     setMode('')
     setSelectedTeamId('')
+    setProfilePatch({})
     setAuthError('')
+  }
+
+  const updateCurrentUserDetails = (profile) => {
+    const nextPatch = profile && typeof profile === 'object' ? profile : {}
+
+    setProfilePatch((current) => {
+      const merged = {
+        ...current,
+        ...nextPatch,
+      }
+      window.localStorage.setItem(getFixtureProfilePatchKey(email), JSON.stringify(merged))
+      return merged
+    })
   }
 
   const value = {
@@ -590,8 +630,8 @@ export function FixtureAuthProvider({ AuthContext, children }) {
     refreshTeamSelection: async () => {},
     resetPassword: async () => {},
     signOut,
-    updateCurrentClubDetails: () => {},
-    updateCurrentUserDetails: () => {},
+    updateCurrentClubDetails: updateCurrentUserDetails,
+    updateCurrentUserDetails,
     demoRoleKey: '',
     setDemoRolePreview: () => {},
   }

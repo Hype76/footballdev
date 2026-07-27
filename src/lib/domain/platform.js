@@ -11,6 +11,7 @@ export {
 export {
   getClubSettings,
   importClubLogoFromUrl,
+  updateClubAccentColour,
   updateClubSettings,
   uploadClubLogo,
 } from './club-settings-actions.js'

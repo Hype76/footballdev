@@ -12,8 +12,8 @@ function normalizeOption(value, options, fallback) {
   return options.includes(value) ? value : fallback
 }
 
-function hasThemeValue(link) {
-  return Boolean(link?.themeMode || link?.themeAccent || link?.themeButtonStyle)
+function hasLegacyThemeValue(link) {
+  return Boolean(link?.themeMode || link?.themeButtonStyle)
 }
 
 function sameClub(left, right) {
@@ -23,18 +23,23 @@ function sameClub(left, right) {
 export function resolveParentPortalBranding({ selectedLink, links = [] } = {}) {
   const parentLinks = Array.isArray(links) ? links : []
   const selectedClubLinks = parentLinks.filter((link) => sameClub(link, selectedLink))
-  // Clubs do not expose theme fields yet, so use the first themed link in the selected club group.
-  const clubBrandingSource = selectedClubLinks.find(hasThemeValue) || (hasThemeValue(selectedLink) ? selectedLink : null)
+  const clubAccent = normalizeOption(
+    selectedLink?.themeAccent,
+    THEME_ACCENTS,
+    DEFAULT_PARENT_PORTAL_BRANDING.accent,
+  )
+  const legacyBrandingSource = selectedClubLinks.find(hasLegacyThemeValue)
+    || (hasLegacyThemeValue(selectedLink) ? selectedLink : null)
 
   return {
-    mode: normalizeOption(clubBrandingSource?.themeMode, THEME_MODES, DEFAULT_PARENT_PORTAL_BRANDING.mode),
-    accent: normalizeOption(clubBrandingSource?.themeAccent, THEME_ACCENTS, DEFAULT_PARENT_PORTAL_BRANDING.accent),
+    mode: normalizeOption(legacyBrandingSource?.themeMode, THEME_MODES, DEFAULT_PARENT_PORTAL_BRANDING.mode),
+    accent: clubAccent,
     buttonStyle: normalizeOption(
-      clubBrandingSource?.themeButtonStyle,
+      legacyBrandingSource?.themeButtonStyle,
       THEME_BUTTON_STYLES,
       DEFAULT_PARENT_PORTAL_BRANDING.buttonStyle,
     ),
     sourceClubId: selectedLink?.clubId || '',
-    sourceLinkId: clubBrandingSource?.id || '',
+    sourceLinkId: selectedLink?.id || '',
   }
 }

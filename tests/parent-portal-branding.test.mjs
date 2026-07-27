@@ -20,7 +20,7 @@ const clubASecondTeam = {
   clubId: 'club-a',
   teamId: 'club-a-team-2',
   themeMode: 'light',
-  themeAccent: 'red',
+  themeAccent: 'blue',
   themeButtonStyle: 'solid',
 }
 
@@ -53,7 +53,7 @@ test('parent with two children in the same club keeps consistent branding across
 
   assert.equal(resolveParentPortalBranding({ selectedLink: clubAFirstTeam, links }).accent, 'blue')
   assert.equal(resolveParentPortalBranding({ selectedLink: clubASecondTeam, links }).accent, 'blue')
-  assert.equal(resolveParentPortalBranding({ selectedLink: clubASecondTeam, links }).sourceLinkId, 'link-club-a-team-1')
+  assert.equal(resolveParentPortalBranding({ selectedLink: clubASecondTeam, links }).sourceLinkId, 'link-club-a-team-2')
 })
 
 test('parent with children in different clubs changes branding when selected child changes', () => {

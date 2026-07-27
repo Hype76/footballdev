@@ -349,6 +349,7 @@ export {
   getPlatformBanners,
   getPublicPlatformBanner,
   getPlatformStats,
+  updateClubAccentColour,
   updateClubSettings,
   getClubSettings,
   importClubLogoFromUrl,
