@@ -27,6 +27,7 @@ import {
   getParentVisibleDevelopmentResponses,
   loadDevelopmentParentEmailContext,
   loadDevelopmentParentRecipientCandidates,
+  reauthorizePreparedDevelopmentParentEmail,
 } from './lib/_development-parent-email-output.js'
 import { authorizeAssessmentPdfDocument } from './lib/_pdf-report.js'
 
@@ -470,9 +471,13 @@ export async function prepareParentEmail({ body, requestUser }) {
 }
 
 async function createScheduledEmail({ preparedEmail, scheduledAt }) {
-  const outputKey = String(preparedEmail.storedPayload.outputKey ?? '').trim()
+  const authorizedPreparedEmail = await reauthorizePreparedDevelopmentParentEmail(
+    supabaseAdmin,
+    preparedEmail,
+  )
+  const outputKey = String(authorizedPreparedEmail.storedPayload.outputKey ?? '').trim()
   const deterministicQueueId = outputKey
-    ? String(preparedEmail.storedPayload.outputQueueId ?? '').trim()
+    ? String(authorizedPreparedEmail.storedPayload.outputQueueId ?? '').trim()
     : ''
 
   if (deterministicQueueId) {
@@ -498,15 +503,15 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
     .from('scheduled_email_queue')
     .insert({
       ...(deterministicQueueId ? { id: deterministicQueueId } : {}),
-      club_id: preparedEmail.planProfile.clubId,
-      team_id: preparedEmail.storedPayload.teamId,
-      created_by: preparedEmail.storedPayload.actorId || null,
-      created_by_email: preparedEmail.storedPayload.actorEmail,
-      to_email: preparedEmail.recipients.join(', '),
-      subject: preparedEmail.emailSubject,
+      club_id: authorizedPreparedEmail.planProfile.clubId,
+      team_id: authorizedPreparedEmail.storedPayload.teamId,
+      created_by: authorizedPreparedEmail.storedPayload.actorId || null,
+      created_by_email: authorizedPreparedEmail.storedPayload.actorEmail,
+      to_email: authorizedPreparedEmail.recipients.join(', '),
+      subject: authorizedPreparedEmail.emailSubject,
       status: 'scheduled',
       scheduled_at: scheduledAt.toISOString(),
-      payload: preparedEmail.storedPayload,
+      payload: authorizedPreparedEmail.storedPayload,
     })
     .select('id, scheduled_at')
     .single()
@@ -537,14 +542,14 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
     entityType: 'email',
     entityId: data.id,
     metadata: {
-      to: preparedEmail.recipients,
-      subject: preparedEmail.emailSubject,
-      clubId: preparedEmail.planProfile.clubId,
-      teamId: preparedEmail.storedPayload.teamId,
-      actorId: preparedEmail.storedPayload.actorId,
-      actorEmail: preparedEmail.storedPayload.actorEmail,
+      to: authorizedPreparedEmail.recipients,
+      subject: authorizedPreparedEmail.emailSubject,
+      clubId: authorizedPreparedEmail.planProfile.clubId,
+      teamId: authorizedPreparedEmail.storedPayload.teamId,
+      actorId: authorizedPreparedEmail.storedPayload.actorId,
+      actorEmail: authorizedPreparedEmail.storedPayload.actorEmail,
       scheduledAt: data.scheduled_at,
-      hasAttachment: Boolean(preparedEmail.emailPayload.attachments?.length),
+      hasAttachment: Boolean(authorizedPreparedEmail.emailPayload.attachments?.length),
     },
   })
 
@@ -552,6 +557,7 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
 }
 
 export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed = '' } = {}) {
+  preparedEmail = await reauthorizePreparedDevelopmentParentEmail(supabaseAdmin, preparedEmail)
   let emailLogRecord = null
   const dedupeKey = createEmailDedupeKey(preparedEmail.emailPayload)
   const recipientDedupeKeys = createEmailRecipientDedupeKeys({

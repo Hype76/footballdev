@@ -9,6 +9,7 @@ import {
 import {
   createDevelopmentOutputKey,
   createDevelopmentOutputQueueId,
+  reauthorizePreparedDevelopmentParentEmail,
   resolveDevelopmentRecipientsFromRows,
 } from '../netlify/functions/lib/_development-parent-email-output.js'
 
@@ -64,6 +65,37 @@ function player(overrides = {}) {
     club_id: clubId,
     team_id: teamId,
     parent_contacts: scope().parentContacts,
+    ...overrides,
+  }
+}
+
+function preparedDevelopmentEmail(overrides = {}) {
+  const outputKey = createDevelopmentOutputKey(evaluationId, firstLinkId)
+
+  return {
+    emailPayload: {
+      to: ['stale.parent@example.test'],
+      cc: ['staff.copy@example.test'],
+      subject: 'FP TEST Development update',
+    },
+    planProfile: {
+      clubId,
+      role: 'system',
+      roleRank: 100,
+    },
+    recipients: ['stale.parent@example.test'],
+    storedPayload: {
+      actorId: '88888888-8888-4888-8888-888888888888',
+      clubId,
+      evaluationId,
+      outputKey,
+      recipientLinkId: firstLinkId,
+      resendPayload: {
+        to: ['stale.parent@example.test'],
+        cc: ['staff.copy@example.test'],
+        subject: 'FP TEST Development update',
+      },
+    },
     ...overrides,
   }
 }
@@ -186,17 +218,116 @@ test('valid links with valid emails succeed', () => {
   assert.equal(result.recipients[0].email, 'first.parent@example.test')
 })
 
-test('failed send retains available recipients', async () => {
+test('one active and one removed portal recipient returns only the configured contact', () => {
+  const result = getDevelopmentParentRecipientCandidates({
+    links: [
+      link(),
+      link({
+        id: secondLinkId,
+        email: 'second.parent@example.test',
+        primary_contact: false,
+      }),
+    ],
+    ...scope({
+      parentContacts: [
+        { name: 'FP TEST One', email: 'first.parent@example.test' },
+      ],
+    }),
+  }).filter((candidate) => candidate.eligible)
+
+  assert.deepEqual(result.map((candidate) => candidate.linkId), [firstLinkId])
+  assert.doesNotMatch(JSON.stringify(result), /second\.parent@example\.test/)
+})
+
+test('all removed portal recipients produce no Development recipient', () => {
+  const result = resolveSelectedDevelopmentParentRecipients({
+    links: [link()],
+    ...scope({ parentContacts: [] }),
+    selectedParentLinkIds: [firstLinkId],
+  })
+
+  assert.equal(result.outcome, 'no_recipient')
+  assert.deepEqual(result.recipients, [])
+})
+
+test('re-adding a portal contact restores Development eligibility on the stable link', () => {
+  const removed = getDevelopmentParentRecipientCandidates({
+    links: [link()],
+    ...scope({ parentContacts: [] }),
+  })
+  const readded = getDevelopmentParentRecipientCandidates({
+    links: [link()],
+    ...scope({
+      parentContacts: [
+        { name: 'FP TEST Re-added', email: 'first.parent@example.test' },
+      ],
+    }),
+  })
+
+  assert.equal(removed[0].eligible, false)
+  assert.equal(readded[0].eligible, true)
+  assert.equal(readded[0].linkId, firstLinkId)
+})
+
+test('additional guardian contact uses its explicit Development communication preference', () => {
+  const guardianLinkId = '99999999-9999-4999-8999-999999999999'
+  const result = getDevelopmentParentRecipientCandidates({
+    links: [
+      link(),
+      link({
+        id: guardianLinkId,
+        guardian_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        email: 'guardian.parent@example.test',
+        primary_contact: false,
+        receives_communications: true,
+      }),
+    ],
+    ...scope({
+      parentContacts: [
+        { name: 'FP TEST One', email: 'first.parent@example.test' },
+      ],
+    }),
+  }).filter((candidate) => candidate.eligible)
+
+  assert.deepEqual(result.map((candidate) => candidate.linkId), [
+    firstLinkId,
+    guardianLinkId,
+  ])
+})
+
+test('duplicate eligible recipient records resolve to one safe email candidate', () => {
+  const result = getDevelopmentParentRecipientCandidates({
+    links: [
+      link(),
+      link({
+        id: secondLinkId,
+        primary_contact: false,
+      }),
+    ],
+    ...scope({
+      parentContacts: [
+        { name: 'FP TEST One', email: 'first.parent@example.test' },
+      ],
+    }),
+  }).filter((candidate) => candidate.eligible)
+
+  assert.equal(result.length, 1)
+  assert.equal(result[0].linkId, firstLinkId)
+})
+
+test('failed send refresh prunes recipients that are no longer eligible', async () => {
   const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
 
   assert.match(pageSource, /loadDevelopmentParentRecipients\(\{\s*preserveSelected: true/)
-  assert.match(pageSource, /const preservedSelected = current/)
+  assert.match(pageSource, /setDevelopmentParentRecipients\(eligibleCandidates\)/)
+  assert.match(pageSource, /current\.filter\(\(linkId\) => eligibleIds\.has\(linkId\)\)/)
+  assert.doesNotMatch(pageSource, /preservedSelected|no_longer_available/)
 })
 
 test('failed send retains selected recipients', async () => {
   const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
 
-  assert.match(pageSource, /selectedDevelopmentParentLinkIdsRef\.current/)
+  assert.match(pageSource, /selectedDevelopmentParentLinkIds\.includes\(contact\.linkId\)/)
   assert.doesNotMatch(
     pageSource.slice(
       pageSource.indexOf('const handleSubmit = async'),
@@ -237,6 +368,94 @@ test('retry does not duplicate queue or provider actions', async () => {
   assert.match(createDevelopmentOutputQueueId(firstKey), /^[0-9a-f-]{36}$/)
   assert.match(functionSource, /storedPayload\.outputQueueId/)
   assert.match(functionSource, /const finalIdempotencyKey = preparedEmail\.storedPayload\.outputKey/)
+})
+
+test('delivery reauthorizes a stored Development recipient and replaces a stale address', async () => {
+  let requestedContext = null
+  const outputKey = createDevelopmentOutputKey(evaluationId, firstLinkId)
+  const result = await reauthorizePreparedDevelopmentParentEmail(
+    null,
+    preparedDevelopmentEmail(),
+    {
+      loadContext: async (_supabaseAdmin, context) => {
+        requestedContext = context
+        return {
+          outcome: 'ready',
+          outputKey,
+          recipient: {
+            linkId: firstLinkId,
+            name: 'FP TEST Current Parent',
+            email: 'current.parent@example.test',
+          },
+        }
+      },
+    },
+  )
+
+  assert.deepEqual(requestedContext.selectedParentLinkIds, [firstLinkId])
+  assert.equal(requestedContext.profile.id, '88888888-8888-4888-8888-888888888888')
+  assert.deepEqual(result.recipients, ['current.parent@example.test'])
+  assert.deepEqual(result.emailPayload.to, ['current.parent@example.test'])
+  assert.deepEqual(result.emailPayload.cc, ['staff.copy@example.test'])
+  assert.deepEqual(result.storedPayload.resendPayload.to, ['current.parent@example.test'])
+  assert.doesNotMatch(JSON.stringify(result), /stale\.parent@example\.test/)
+})
+
+test('delivery fails closed when a stored Development recipient has been removed', async () => {
+  await assert.rejects(
+    reauthorizePreparedDevelopmentParentEmail(
+      null,
+      preparedDevelopmentEmail(),
+      {
+        loadContext: async () => ({
+          outcome: 'no_recipient',
+          code: 'DEVELOPMENT_PARENT_EMAIL_SELECTED_LINK_UNAVAILABLE',
+          recipients: [],
+        }),
+      },
+    ),
+    (error) => {
+      assert.equal(error.statusCode, 409)
+      assert.equal(error.code, 'DEVELOPMENT_PARENT_EMAIL_RECIPIENT_NO_LONGER_ELIGIBLE')
+      return true
+    },
+  )
+})
+
+test('non-Development parent and staff email payloads remain unchanged', async () => {
+  const preparedEmail = preparedDevelopmentEmail({
+    storedPayload: {
+      actorId: '88888888-8888-4888-8888-888888888888',
+      clubId,
+      outputKey: '',
+      resendPayload: {
+        to: ['ordinary.parent@example.test'],
+      },
+    },
+  })
+
+  assert.equal(
+    await reauthorizePreparedDevelopmentParentEmail(null, preparedEmail),
+    preparedEmail,
+  )
+})
+
+test('queue, immediate delivery and failed-email retry all reauthorize Development recipients', async () => {
+  const functionSource = await source('../netlify/functions/send-parent-email.js')
+  const retrySource = await source('../netlify/functions/retry-failed-emails.js')
+
+  assert.match(
+    functionSource,
+    /async function createScheduledEmail[\s\S]*reauthorizePreparedDevelopmentParentEmail\([\s\S]*scheduled_email_queue/,
+  )
+  assert.match(
+    functionSource,
+    /export async function sendPreparedParentEmail[\s\S]*reauthorizePreparedDevelopmentParentEmail\([\s\S]*createPendingEmailLog/,
+  )
+  assert.match(
+    retrySource,
+    /reauthorizePreparedDevelopmentParentEmail\([\s\S]*const resendPayload = authorizedPreparedEmail\.emailPayload[\s\S]*sendEmail\(resendPayload/,
+  )
 })
 
 test('no-recipient result is shown only when the refreshed authoritative query has zero eligible links', async () => {

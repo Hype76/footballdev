@@ -293,12 +293,13 @@ test('previously saved record resend uses stable link IDs without creating anoth
   assert.match(formUtilsSource, /parentEmail: usesServerRecipientResolution \? '' : recipientEmail/)
 })
 
-test('failed output preserves recipients and retry retains duplicate protection', async () => {
+test('failed output refresh preserves only currently eligible recipients and retains duplicate protection', async () => {
   const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
   const functionSource = await source('../netlify/functions/send-parent-email.js')
 
   assert.match(pageSource, /loadDevelopmentParentRecipients\(\{\s*preserveSelected: true/)
-  assert.match(pageSource, /selectedDevelopmentParentLinkIdsRef\.current/)
+  assert.match(pageSource, /current\.filter\(\(linkId\) => eligibleIds\.has\(linkId\)\)/)
+  assert.doesNotMatch(pageSource, /preservedSelected|no_longer_available/)
   assert.match(functionSource, /storedPayload\.outputKey/)
   assert.match(functionSource, /const finalIdempotencyKey = preparedEmail\.storedPayload\.outputKey/)
 })

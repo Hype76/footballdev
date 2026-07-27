@@ -583,7 +583,6 @@ export function CreateEvaluationPage() {
   const persistedEvaluationForRetryRef = useRef(null)
   const evaluationContentRevisionRef = useRef(0)
   const developmentRecipientContextKeyRef = useRef('')
-  const selectedDevelopmentParentLinkIdsRef = useRef([])
   const hasUnsavedChangesRef = useRef(false)
   const pendingContextChangeRef = useRef(null)
   const restoredPrivateDraftExportLabelsRef = useRef(null)
@@ -698,10 +697,6 @@ export function CreateEvaluationPage() {
   useEffect(() => {
     hasUnsavedChangesRef.current = hasUnsavedChanges
   }, [hasUnsavedChanges])
-
-  useEffect(() => {
-    selectedDevelopmentParentLinkIdsRef.current = selectedDevelopmentParentLinkIds
-  }, [selectedDevelopmentParentLinkIds])
 
   const buildCurrentPrivateDraftPayload = useCallback((saveVersion = 0) => (
     createPrivateEvaluationDraftPayload({
@@ -1569,45 +1564,16 @@ export function CreateEvaluationPage() {
       })
       const eligibleCandidates = candidates.filter((candidate) => candidate.eligible)
       const eligibleIds = new Set(eligibleCandidates.map((candidate) => candidate.linkId))
-      const selectedIds = selectedDevelopmentParentLinkIdsRef.current
       const isNewContext =
         developmentRecipientContextKeyRef.current !== developmentRecipientContextKey
 
       developmentRecipientContextKeyRef.current = developmentRecipientContextKey
-
-      if (preserveSelected) {
-        setDevelopmentParentRecipients((current) => {
-          const candidatesById = new Map(
-            candidates.map((candidate) => [candidate.linkId, candidate]),
-          )
-          const preservedSelected = current
-            .filter((recipient) => selectedIds.includes(recipient.linkId))
-            .map((recipient) => {
-              const latest = candidatesById.get(recipient.linkId)
-              return latest?.eligible
-                ? latest
-                : {
-                    ...recipient,
-                    ...latest,
-                    eligible: false,
-                    unavailableReason:
-                      latest?.unavailableReason || 'no_longer_available',
-                  }
-            })
-          const merged = [...eligibleCandidates, ...preservedSelected]
-          return merged.filter(
-            (recipient, index) =>
-              merged.findIndex((candidate) => candidate.linkId === recipient.linkId) === index,
-          )
-        })
-      } else {
-        setDevelopmentParentRecipients(eligibleCandidates)
-        setSelectedDevelopmentParentLinkIds((current) =>
-          isNewContext
-            ? eligibleCandidates.map((candidate) => candidate.linkId)
-            : current.filter((linkId) => eligibleIds.has(linkId)),
-        )
-      }
+      setDevelopmentParentRecipients(eligibleCandidates)
+      setSelectedDevelopmentParentLinkIds((current) =>
+        isNewContext && !preserveSelected
+          ? eligibleCandidates.map((candidate) => candidate.linkId)
+          : current.filter((linkId) => eligibleIds.has(linkId)),
+      )
 
       return candidates
     } catch (error) {

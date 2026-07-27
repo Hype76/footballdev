@@ -12,14 +12,19 @@ export function isValidDevelopmentParentRecipientEmail(value) {
   )
 }
 
-function getContactNameByEmail(parentContacts, email) {
-  const normalizedEmail = normalizeDevelopmentParentRecipientEmail(email)
-  const contact = (Array.isArray(parentContacts) ? parentContacts : []).find(
-    (item) =>
-      normalizeDevelopmentParentRecipientEmail(item?.email ?? item?.parentEmail) === normalizedEmail,
+function getConfiguredContact(parentContacts, emails = []) {
+  const normalizedEmails = new Set(
+    emails
+      .map(normalizeDevelopmentParentRecipientEmail)
+      .filter(Boolean),
   )
 
-  return normalizeText(contact?.name ?? contact?.parentName)
+  return (Array.isArray(parentContacts) ? parentContacts : []).find(
+    (item) =>
+      normalizedEmails.has(
+        normalizeDevelopmentParentRecipientEmail(item?.email ?? item?.parentEmail),
+      ),
+  ) ?? null
 }
 
 function getLinkCommunicationPreference(link) {
@@ -90,6 +95,10 @@ export function normalizeDevelopmentParentRecipientCandidate(
   const email = normalizeDevelopmentParentRecipientEmail(
     link?.resolved_email ?? link?.resolvedEmail ?? link?.email,
   )
+  const configuredContact = getConfiguredContact(parentContacts, [
+    email,
+    link?.email,
+  ])
   const resolvedName = normalizeText(link?.resolved_name ?? link?.resolvedName)
   const contactSource = normalizeText(link?.contact_source ?? link?.contactSource) || 'link'
   const contactSourceEligible =
@@ -97,13 +106,17 @@ export function normalizeDevelopmentParentRecipientCandidate(
   const clubMatches = linkClubId === normalizeText(clubId)
   const teamMatches = !linkTeamId || linkTeamId === normalizeText(teamId)
   const playerMatches = linkPlayerId === normalizeText(playerId)
+  const developmentRecipientConfigured = communicationPreference.explicit
+    ? communicationPreference.allowed
+    : Boolean(configuredContact)
   const unavailableReason = getUnavailableReason({
     linkId,
     clubMatches,
     teamMatches,
     playerMatches,
     status,
-    communicationsAllowed: communicationPreference.allowed,
+    communicationsAllowed:
+      communicationPreference.allowed && developmentRecipientConfigured,
     contactSourceEligible,
     email,
   })
@@ -112,7 +125,7 @@ export function normalizeDevelopmentParentRecipientCandidate(
     linkId,
     name:
       resolvedName ||
-      getContactNameByEmail(parentContacts, email) ||
+      normalizeText(configuredContact?.name ?? configuredContact?.parentName) ||
       normalizeText(link?.relationship) ||
       'Parent or guardian',
     email,
@@ -132,7 +145,7 @@ export function getDevelopmentParentRecipientCandidates({
   playerId,
   parentContacts = [],
 } = {}) {
-  return (Array.isArray(links) ? links : [])
+  const candidates = (Array.isArray(links) ? links : [])
     .map((link) =>
       normalizeDevelopmentParentRecipientCandidate(link, {
         clubId,
@@ -149,6 +162,21 @@ export function getDevelopmentParentRecipientCandidates({
         left.email.localeCompare(right.email) ||
         left.linkId.localeCompare(right.linkId),
     )
+
+  const seenEligibleEmails = new Set()
+
+  return candidates.filter((candidate) => {
+    if (!candidate.eligible || !candidate.email) {
+      return true
+    }
+
+    if (seenEligibleEmails.has(candidate.email)) {
+      return false
+    }
+
+    seenEligibleEmails.add(candidate.email)
+    return true
+  })
 }
 
 export function resolveSelectedDevelopmentParentRecipients({

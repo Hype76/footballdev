@@ -34,6 +34,9 @@ export function EvaluationPlayerDetailsSection({
     .filter((player) => !selectedSection || player.section === selectedSection)
     .filter((player) => !selectedTeam || player.team === selectedTeam)
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
+  const visibleParentContacts = parentContacts
+    .map((contact, parentContactIndex) => ({ contact, parentContactIndex }))
+    .filter(({ contact }) => !useLinkedParentRecipients || contact.eligible !== false)
 
   return (
     <SectionCard
@@ -115,26 +118,27 @@ export function EvaluationPlayerDetailsSection({
         </label>
 
         <div className="min-w-0 md:col-span-2">
-          <span className={labelClass}>{contactLabel} email recipients</span>
-          {parentContacts.length > 0 ? (
+          <span className={labelClass}>
+            {useLinkedParentRecipients ? 'Development email recipients' : `${contactLabel} email recipients`}
+          </span>
+          {visibleParentContacts.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-2">
-              {parentContacts.map((contact, index) => (
+              {visibleParentContacts.map(({ contact, parentContactIndex }) => (
                 <label
-                  key={contact.linkId || `${contact.email || contact.name}-${index}`}
+                  key={contact.linkId || `${contact.email || contact.name}-${parentContactIndex}`}
                   className={contactCardClass}
                 >
                   <input
                     type="checkbox"
                     checked={contact.linkId
                       ? selectedParentLinkIds.includes(contact.linkId)
-                      : selectedParentContactIndexes.includes(contact.legacyIndex ?? index)}
-                    onChange={() => onToggleParentContact(index)}
+                      : selectedParentContactIndexes.includes(contact.legacyIndex ?? parentContactIndex)}
+                    onChange={() => onToggleParentContact(parentContactIndex)}
                     className="h-4 w-4 accent-[#047857]"
                   />
                   <span className="min-w-0">
                     <span className="block font-semibold">
                       {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}
-                      {contact.eligible === false ? ' (Unavailable)' : ''}
                     </span>
                     <span className="block break-words text-xs font-semibold text-[#4b5f55]">{contact.email || 'No email entered'}</span>
                   </span>
@@ -177,7 +181,9 @@ export function EvaluationPlayerDetailsSection({
             </div>
           )}
           <p className={helperClass}>
-            Selected {contactNounPlural} are used only when this record is sent with a {contactNoun} email template.
+            {useLinkedParentRecipients
+              ? 'Only selected eligible contacts will receive this Development email.'
+              : `Selected ${contactNounPlural} are used only when this record is sent with a ${contactNoun} email template.`}
           </p>
         </div>
 

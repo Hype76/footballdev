@@ -233,6 +233,7 @@ test('retry sends the optional output only', async () => {
   const retrySource = await source('../netlify/functions/retry-failed-emails.js')
 
   assert.match(retrySource, /getFailedEmailLogs/)
+  assert.match(retrySource, /reauthorizePreparedDevelopmentParentEmail/)
   assert.match(retrySource, /sendEmail\(resendPayload/)
   assert.doesNotMatch(retrySource, /\.from\('evaluations'\)|createEvaluation|updateEvaluation/)
 })

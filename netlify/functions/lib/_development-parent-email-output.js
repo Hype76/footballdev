@@ -508,3 +508,80 @@ export async function loadDevelopmentParentEmailContext(
     outputQueueId: createDevelopmentOutputQueueId(outputKey),
   }
 }
+
+export async function reauthorizePreparedDevelopmentParentEmail(
+  supabaseAdmin,
+  preparedEmail,
+  {
+    loadContext = loadDevelopmentParentEmailContext,
+  } = {},
+) {
+  const storedPayload = preparedEmail?.storedPayload && typeof preparedEmail.storedPayload === 'object'
+    ? preparedEmail.storedPayload
+    : {}
+  const outputKey = normalizeText(storedPayload.outputKey)
+
+  if (!outputKey) {
+    return preparedEmail
+  }
+
+  const evaluationId = normalizeText(storedPayload.evaluationId)
+  const recipientLinkId = normalizeText(storedPayload.recipientLinkId)
+  const actorId = normalizeText(storedPayload.actorId)
+  const planProfile = preparedEmail?.planProfile && typeof preparedEmail.planProfile === 'object'
+    ? preparedEmail.planProfile
+    : {}
+
+  if (!evaluationId || !recipientLinkId || !actorId) {
+    throw outputError(
+      'This Development email recipient is no longer available.',
+      409,
+      'DEVELOPMENT_PARENT_EMAIL_STORED_RECIPIENT_INVALID',
+    )
+  }
+
+  const context = await loadContext(supabaseAdmin, {
+    evaluationId,
+    profile: {
+      ...planProfile,
+      id: normalizeText(planProfile.id) || actorId,
+      clubId: normalizeText(planProfile.clubId) || normalizeText(storedPayload.clubId),
+    },
+    selectedParentLinkIds: [recipientLinkId],
+  })
+  const currentRecipient = context?.outcome === 'ready' ? context.recipient : null
+  const expectedOutputKey = createDevelopmentOutputKey(evaluationId, recipientLinkId)
+
+  if (
+    !currentRecipient ||
+    normalizeText(currentRecipient.linkId) !== recipientLinkId ||
+    normalizeText(context.outputKey) !== expectedOutputKey ||
+    outputKey !== expectedOutputKey
+  ) {
+    throw outputError(
+      'This Development email recipient is no longer available.',
+      409,
+      'DEVELOPMENT_PARENT_EMAIL_RECIPIENT_NO_LONGER_ELIGIBLE',
+    )
+  }
+
+  const recipients = [normalizeText(currentRecipient.email)]
+  const emailPayload = {
+    ...(preparedEmail.emailPayload || {}),
+    to: recipients,
+  }
+
+  return {
+    ...preparedEmail,
+    emailPayload,
+    recipients,
+    storedPayload: {
+      ...storedPayload,
+      parentName: normalizeText(currentRecipient.name),
+      resendPayload: {
+        ...(storedPayload.resendPayload || emailPayload),
+        to: recipients,
+      },
+    },
+  }
+}

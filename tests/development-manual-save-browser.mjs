@@ -709,7 +709,7 @@ try {
   await scoreSelect(page, 'Custom B Score').selectOption('8')
   const linkedRecipient = page.getByText('synthetic-parent@example.test', { exact: true })
   await linkedRecipient.waitFor({ state: 'visible', timeout: 15000 })
-  await page.getByLabel('Email parents after saving').check()
+  await page.getByLabel('Email selected parents').check()
   const evaluationsBeforeOptionalFailure = requests.evaluationPosts.length
   const evaluationPatchesBeforeOptionalFailure = requests.evaluationPatches.length
   const draftsBeforeOptionalFailure = requests.draftPosts.length + requests.draftPatches.length

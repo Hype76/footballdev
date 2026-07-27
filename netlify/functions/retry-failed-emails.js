@@ -14,6 +14,7 @@ import {
   assertPlanFeature,
   getClubPlanProfile,
 } from './lib/_plan-gate.js'
+import { reauthorizePreparedDevelopmentParentEmail } from './lib/_development-parent-email-output.js'
 
 void supabaseAdmin
 
@@ -74,9 +75,10 @@ export async function handler(event) {
     try {
       const requiredFeature = String(lockedEmailLog.payload?.requiredFeature ?? '').trim()
       const clubId = String(lockedEmailLog.payload?.clubId ?? '').trim()
+      let planProfile = null
 
       if (requiredFeature && clubId) {
-        const planProfile = {
+        planProfile = {
           ...await getClubPlanProfile(clubId),
           role: 'system',
           roleRank: 100,
@@ -84,7 +86,17 @@ export async function handler(event) {
         assertPlanFeature(planProfile, requiredFeature)
       }
 
-      const resendPayload = getStoredResendPayload(lockedEmailLog)
+      const storedResendPayload = getStoredResendPayload(lockedEmailLog)
+      const authorizedPreparedEmail = await reauthorizePreparedDevelopmentParentEmail(
+        supabaseAdmin,
+        {
+          emailPayload: storedResendPayload,
+          planProfile,
+          recipients: storedResendPayload.to,
+          storedPayload: lockedEmailLog.payload,
+        },
+      )
+      const resendPayload = authorizedPreparedEmail.emailPayload
       const response = await sendEmail(resendPayload, {
         context: {
           emailType: String(lockedEmailLog.payload?.requiredFeature || 'retry_failed_email'),
