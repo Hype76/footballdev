@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migrationUrl = new URL('../supabase/migrations/20260727210000_parent_chat_child_filter.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260727182658_parent_chat_child_filter.sql', import.meta.url)
 const legacyMigrationUrl = new URL('../supabase/migrations/20260714120000_parent_portal_chat_v1.sql', import.meta.url)
 
 const ids = {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260727210000_parent_chat_child_filter.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260727182658_parent_chat_child_filter.sql', import.meta.url)
 const legacyMigrationUrl = new URL('../supabase/migrations/20260714120000_parent_portal_chat_v1.sql', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/parent-chat.js', import.meta.url)
 const activityDomainUrl = new URL('../src/lib/domain/parent-portal-activity.js', import.meta.url)
