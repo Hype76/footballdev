@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ParentPortalRouteShell } from '../components/parent-portal/ParentPortalShell.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
+import { useParentPortalNavigationState } from '../hooks/use-parent-portal-navigation-state.js'
 import { useAuth } from '../lib/auth.js'
 import { getParentPortalPolls, submitParentPortalPollVote } from '../lib/supabase.js'
 
@@ -52,12 +53,19 @@ export function ParentPollsPage() {
       ?? links[0],
     [links, selectedLinkId, user?.selectedParentLinkId],
   )
+  const {
+    captureActivityState,
+    markCategoryViewed,
+    newStateByCategory,
+  } = useParentPortalNavigationState({
+    parentLinkId: selectedLink?.id,
+  })
+  const [successfulPollLoad, setSuccessfulPollLoad] = useState({
+    activitySnapshot: {},
+    linkId: '',
+    revision: 0,
+  })
   const answeredPollCount = polls.filter((poll) => getSelectedOptionIds(poll).length > 0).length
-  const unansweredPollCount = Math.max(polls.length - answeredPollCount, 0)
-  const parentNavCounts = {
-    messages: 0,
-    polls: unansweredPollCount,
-  }
   const pollSummary = [
     {
       label: 'Linked children',
@@ -82,8 +90,20 @@ export function ParentPollsPage() {
       return
     }
 
+    let activitySnapshot = {}
+    try {
+      activitySnapshot = await captureActivityState()
+    } catch {
+      activitySnapshot = {}
+    }
+
     const nextPolls = await getParentPortalPolls({ parentLinkId: selectedLink.id })
     setPolls(nextPolls)
+    setSuccessfulPollLoad((currentLoad) => ({
+      activitySnapshot,
+      linkId: selectedLink.id,
+      revision: currentLoad.revision + 1,
+    }))
   }
 
   useEffect(() => {
@@ -92,6 +112,11 @@ export function ParentPollsPage() {
     async function runLoad() {
       if (!selectedLink?.id) {
         setPolls([])
+        setSuccessfulPollLoad({
+          activitySnapshot: {},
+          linkId: '',
+          revision: 0,
+        })
         return
       }
 
@@ -99,10 +124,22 @@ export function ParentPollsPage() {
       setErrorMessage('')
 
       try {
+        let activitySnapshot = {}
+        try {
+          activitySnapshot = await captureActivityState()
+        } catch {
+          activitySnapshot = {}
+        }
+
         const nextPolls = await getParentPortalPolls({ parentLinkId: selectedLink.id })
 
         if (isCurrent) {
           setPolls(nextPolls)
+          setSuccessfulPollLoad((currentLoad) => ({
+            activitySnapshot,
+            linkId: selectedLink.id,
+            revision: currentLoad.revision + 1,
+          }))
         }
       } catch (error) {
         console.error(error)
@@ -123,7 +160,22 @@ export function ParentPollsPage() {
     return () => {
       isCurrent = false
     }
-  }, [selectedLink?.id])
+  }, [captureActivityState, selectedLink?.id])
+
+  useEffect(() => {
+    if (
+      !selectedLink?.id
+      || successfulPollLoad.linkId !== selectedLink.id
+      || !successfulPollLoad.activitySnapshot?.polls
+    ) {
+      return
+    }
+
+    void markCategoryViewed({
+      categoryKey: 'polls',
+      snapshot: successfulPollLoad.activitySnapshot,
+    }).catch(() => {})
+  }, [markCategoryViewed, selectedLink?.id, successfulPollLoad])
 
   const handleVote = async (poll, optionId) => {
     if (!selectedLink?.id) {
@@ -150,7 +202,7 @@ export function ParentPollsPage() {
   }
 
   return (
-    <ParentPortalRouteShell activeSection="polls" counts={parentNavCounts} user={user}>
+    <ParentPortalRouteShell activeSection="polls" newStateByCategory={newStateByCategory} user={user}>
       <div className="space-y-5 sm:space-y-6">
       <ParentPollsHero
         answeredPollCount={answeredPollCount}

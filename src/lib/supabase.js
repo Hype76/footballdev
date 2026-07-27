@@ -272,6 +272,11 @@ export {
 } from './domain/parent-chat.js'
 
 export {
+  getParentPortalActivityState,
+  markParentPortalCategoryViewed,
+} from './domain/parent-portal-activity.js'
+
+export {
   archiveResourceLibraryItem,
   assignResourceLibraryItem,
   createExternalResourceLibraryItem,

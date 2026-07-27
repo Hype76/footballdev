@@ -3,6 +3,7 @@ import { ParentPortalRouteShell } from '../components/parent-portal/ParentPortal
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
+import { useParentPortalNavigationState } from '../hooks/use-parent-portal-navigation-state.js'
 import { useAuth } from '../lib/auth.js'
 import {
   createFamilyShareLink,
@@ -30,6 +31,9 @@ export function FriendsFamilyPage() {
   const [isLoadingFamilyLinks, setIsLoadingFamilyLinks] = useState(false)
   const [revokeLinkId, setRevokeLinkId] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId) ?? links[0]
+  const { newStateByCategory } = useParentPortalNavigationState({
+    parentLinkId: selectedLink?.id,
+  })
   const selectedChildLabel = selectedLink
     ? selectedLink.playerName
     : 'No child selected'
@@ -159,7 +163,7 @@ export function FriendsFamilyPage() {
   }
 
   return (
-    <ParentPortalRouteShell activeSection="family" counts={{ messages: 0, polls: 0 }} user={user}>
+    <ParentPortalRouteShell activeSection="family" newStateByCategory={newStateByCategory} user={user}>
       <div className="space-y-5 sm:space-y-6">
       <FamilyAccessHero
         accessRules={accessRules}

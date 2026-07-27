@@ -81,12 +81,15 @@ test('pending summary stays parent scoped, expiry aware, and duplicate safe', ()
   assert.match(migration, /grant execute on function public\.get_parent_portal_invitation_summary\(uuid\) to authenticated, service_role/i)
 })
 
-test('desktop, overview, and mobile badges share pending rows and hide zero', () => {
+test('desktop and mobile navigation use synchronised New while invite actions stay pending', () => {
   assert.match(parentPortalPage, /parentInvitations\.filter\(isParentInvitationPending\)/)
   assert.match(parentPortalPage, /eventInvites=\{pendingParentInvitations\}/)
-  assert.match(parentPortalPage, /invites: currentInvitationCount/)
+  assert.match(parentPortalPage, /newStateByCategory=\{parentNavNewState\}/)
+  assert.match(parentPortalPage, /categoryKey: activeSection/)
   assert.match(parentPortalPage, /variant="mobile"/)
-  assert.match(parentPortalShell, /typeof count === 'number' && count > 0/)
+  assert.match(parentPortalShell, /Boolean\(newStateByCategory\[section\.id\]\)/)
+  assert.match(parentPortalShell, />\s*New\s*</)
+  assert.doesNotMatch(parentPortalShell, /typeof count === 'number'|\{count\}/)
 })
 
 test('invites page defaults to Pending and bounds history rendering', () => {

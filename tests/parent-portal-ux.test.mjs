@@ -276,30 +276,37 @@ test('parent portal shell persists navigation on Chat, polls and family routes',
   assert.doesNotMatch(sectionsSource, /coach|admin|staff/i)
 })
 
-test('parent Chat uses scoped unread totals and keeps linked children in settings', async () => {
+test('parent Chat keeps room unread detail while navigation uses synchronised New state', async () => {
   const [chatSource, workspaceSource, settingsSource] = await Promise.all([
     readFile(parentChatPageUrl, 'utf8'),
     readFile(parentChatWorkspaceUrl, 'utf8'),
     readFile(parentPortalPageUrl, 'utf8'),
   ])
 
-  assert.match(chatSource, /counts=\{\{ chat: unreadCount, polls: 0 \}\}/)
+  assert.match(chatSource, /newStateByCategory=\{newStateByCategory\}/)
+  assert.match(chatSource, /categoryKey: 'chat'/)
+  assert.match(chatSource, /onBeforeCategoryLoad=\{captureActivityState\}/)
+  assert.match(chatSource, /onCategoryLoadSuccess=\{handleCategoryLoadSuccess\}/)
   assert.match(workspaceSource, /const totalUnread = rooms\.reduce/)
   assert.match(workspaceSource, /onUnreadCountChange\?\.\(totalUnread\)/)
   assert.doesNotMatch(chatSource, /label: 'Linked children'/)
   assert.match(settingsSource, /Linked children/)
 })
 
-test('Chat and polls nav badges use scoped page counts', async () => {
+test('Chat and polls nav badges use server-synchronised New state without numeric counts', async () => {
   const [messagesSource, pollsSource, shellSource] = await Promise.all([
     readFile(parentChatPageUrl, 'utf8'),
     readFile(parentPollsPageUrl, 'utf8'),
     readFile(parentPortalShellUrl, 'utf8'),
   ])
 
-  assert.match(messagesSource, /chat: unreadCount/)
-  assert.match(pollsSource, /polls: unansweredPollCount/)
-  assert.match(shellSource, /typeof count === 'number'/)
+  assert.match(messagesSource, /useParentPortalNavigationState/)
+  assert.match(messagesSource, /categoryKey: 'chat'/)
+  assert.match(pollsSource, /useParentPortalNavigationState/)
+  assert.match(pollsSource, /categoryKey: 'polls'/)
+  assert.match(shellSource, /Boolean\(newStateByCategory\[section\.id\]\)/)
+  assert.match(shellSource, />\s*New\s*</)
+  assert.doesNotMatch(shellSource, /typeof count === 'number'|\{count\}/)
 })
 
 test('friends and family invite wording and success flow are neutral', async () => {

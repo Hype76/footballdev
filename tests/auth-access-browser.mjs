@@ -140,8 +140,38 @@ async function stopDevServer(server) {
   }
 }
 
-async function preparePage(context) {
+async function preparePage(context, { activityStore = new Map() } = {}) {
   let platformProbeCount = 0
+  let failActivityMark = false
+  const activityRequests = []
+  const activityCategories = ['calendar', 'invites', 'matches', 'results', 'resources', 'chat', 'polls']
+
+  function getActivityState(parentLinkId) {
+    if (!activityStore.has(parentLinkId)) {
+      activityStore.set(parentLinkId, new Map(
+        activityCategories.map((categoryKey) => [categoryKey, categoryKey === 'resources']),
+      ))
+    }
+
+    return activityStore.get(parentLinkId)
+  }
+
+  function buildActivityRows(parentLinkId) {
+    const state = getActivityState(parentLinkId)
+
+    return activityCategories.map((categoryKey) => {
+      const isNew = Boolean(state.get(categoryKey))
+      return {
+        category_key: categoryKey,
+        scope_type: categoryKey === 'chat' ? 'parent_global' : 'child',
+        parent_link_id: categoryKey === 'chat' ? null : parentLinkId,
+        player_id: categoryKey === 'chat' ? null : `player-for-${parentLinkId}`,
+        latest_activity_at: '2026-07-27T16:30:00.000Z',
+        last_viewed_at: isNew ? '2026-07-27T16:00:00.000Z' : '2026-07-27T16:30:00.000Z',
+        is_new: isNew,
+      }
+    })
+  }
 
   await context.route('**/.netlify/functions/platform-admin-access**', async (route) => {
     platformProbeCount += 1
@@ -165,6 +195,39 @@ async function preparePage(context) {
       body: '[]',
     })
   })
+  await context.route('**/rest/v1/rpc/get_parent_portal_activity_state', async (route) => {
+    const payload = route.request().postDataJSON()
+    const parentLinkId = String(payload?.parent_link_id_value ?? '')
+    activityRequests.push({ operation: 'get', parentLinkId })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(buildActivityRows(parentLinkId)),
+    })
+  })
+  await context.route('**/rest/v1/rpc/mark_parent_portal_category_viewed', async (route) => {
+    const payload = route.request().postDataJSON()
+    const parentLinkId = String(payload?.parent_link_id_value ?? '')
+    const categoryKey = String(payload?.category_key_value ?? '')
+    activityRequests.push({ categoryKey, operation: 'mark', parentLinkId })
+
+    if (failActivityMark) {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Fixture viewed-state write failed.' }),
+      })
+      return
+    }
+
+    getActivityState(parentLinkId).set(categoryKey, false)
+    const savedRow = buildActivityRows(parentLinkId).find((row) => row.category_key === categoryKey)
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([savedRow]),
+    })
+  })
   await context.route('**/auth/v1/**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -181,7 +244,14 @@ async function preparePage(context) {
 
   return {
     page,
+    getActivityRequests: () => activityRequests,
     getPlatformProbeCount: () => platformProbeCount,
+    setActivityNew: (parentLinkId, categoryKey, isNew) => {
+      getActivityState(parentLinkId).set(categoryKey, Boolean(isNew))
+    },
+    setActivityMarkFailure: (value) => {
+      failActivityMark = Boolean(value)
+    },
   }
 }
 
@@ -984,6 +1054,118 @@ try {
     await context.close()
   })
 
+  await runScenario('Parent New indicator clears after success, preserves layout, and isolates children', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const {
+      getActivityRequests,
+      page,
+      setActivityNew,
+    } = await preparePage(context)
+    setActivityNew('parent-link-fixture-second', 'resources', false)
+
+    await parentSignIn(page, 'parent-multiple.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+
+    const resourceNewLink = page.locator('a[aria-label="Resources, New activity"]:visible').first()
+    await resourceNewLink.waitFor({ state: 'visible', timeout: 15000 })
+    const beforeClearBox = await resourceNewLink.boundingBox()
+    assert.ok(beforeClearBox)
+
+    await resourceNewLink.click()
+    await page.waitForURL('**/parent-portal?section=resources', { timeout: 15000 })
+    await page.waitForFunction(() => (
+      document.querySelectorAll('a[aria-label="Resources, New activity"]:not([hidden])').length === 0
+    ))
+
+    const clearedResourceLink = page.locator('a[aria-label="Resources"]:visible').first()
+    const afterClearBox = await clearedResourceLink.boundingBox()
+    assert.ok(afterClearBox)
+    assert.ok(Math.abs(beforeClearBox.width - afterClearBox.width) < 0.5)
+    assert.ok(Math.abs(beforeClearBox.height - afterClearBox.height) < 0.5)
+    assert.ok(getActivityRequests().some((request) => (
+      request.operation === 'mark'
+      && request.categoryKey === 'resources'
+      && request.parentLinkId === 'parent-link-fixture'
+    )))
+
+    await page.locator('a[aria-label="Overview"]:visible').first().click()
+    await page.waitForURL('**/parent-portal?section=overview', { timeout: 15000 })
+    setActivityNew('parent-link-fixture', 'resources', true)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.locator('a[aria-label="Resources, New activity"]:visible').first()
+      .waitFor({ state: 'visible', timeout: 15000 })
+
+    await page.locator('#parent-portal-child').selectOption('parent-link-fixture-second')
+    await page.waitForFunction(() => (
+      document.querySelectorAll('a[aria-label="Resources, New activity"]:not([hidden])').length === 0
+    ))
+
+    await page.locator('#parent-portal-child').selectOption('parent-link-fixture')
+    await page.locator('a[aria-label="Resources, New activity"]:visible').first()
+      .waitFor({ state: 'visible', timeout: 15000 })
+
+    await context.close()
+  })
+
+  await runScenario('Parent New indicator remains when viewed-state persistence fails', async () => {
+    const context = await browser.newContext({ viewport: { width: 820, height: 1180 } })
+    const {
+      getActivityRequests,
+      page,
+      setActivityMarkFailure,
+    } = await preparePage(context)
+    setActivityMarkFailure(true)
+
+    await parentSignIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    const failedMarkResponse = page.waitForResponse((response) => (
+      response.url().includes('/rest/v1/rpc/mark_parent_portal_category_viewed')
+      && response.status() === 500
+    ))
+    await page.locator('a[aria-label="Resources, New activity"]:visible').first().click()
+    await page.waitForURL('**/parent-portal?section=resources', { timeout: 15000 })
+    await failedMarkResponse
+    await page.waitForFunction(() => (
+      document.querySelector('a[aria-label="Resources, New activity"]') !== null
+    ))
+
+    assert.ok(getActivityRequests().some((request) => (
+      request.operation === 'mark' && request.categoryKey === 'resources'
+    )))
+    await page.locator('a[aria-label="Resources, New activity"]:visible').first()
+      .waitFor({ state: 'visible', timeout: 15000 })
+    await context.close()
+  })
+
+  await runScenario('Parent New clear is shared across simultaneous browser sessions', async () => {
+    const sharedActivityStore = new Map()
+    const firstContext = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const secondContext = await browser.newContext({ isMobile: true, viewport: { width: 390, height: 844 } })
+    const { page: firstPage } = await preparePage(firstContext, { activityStore: sharedActivityStore })
+    const { page: secondPage } = await preparePage(secondContext, { activityStore: sharedActivityStore })
+
+    await parentSignIn(firstPage, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await parentSignIn(secondPage, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await firstPage.locator('a[aria-label="Resources, New activity"]:visible').first()
+      .waitFor({ state: 'visible', timeout: 15000 })
+    await secondPage.locator('a[aria-label="Resources, New activity"]:visible').first()
+      .waitFor({ state: 'visible', timeout: 15000 })
+
+    await firstPage.locator('a[aria-label="Resources, New activity"]:visible').first().click()
+    await firstPage.waitForURL('**/parent-portal?section=resources', { timeout: 15000 })
+    await firstPage.waitForFunction(() => (
+      document.querySelectorAll('a[aria-label="Resources, New activity"]:not([hidden])').length === 0
+    ))
+
+    await secondPage.reload({ waitUntil: 'domcontentloaded' })
+    await secondPage.waitForFunction(() => (
+      document.querySelectorAll('a[aria-label="Resources, New activity"]:not([hidden])').length === 0
+    ))
+
+    await firstContext.close()
+    await secondContext.close()
+  })
+
   for (const viewport of [
     {
       evidenceTheme: 'dark-custom',
@@ -1027,6 +1209,19 @@ try {
             label: `${viewport.name} ${route.label} ${theme.label}`,
             scopeTestId: route.scopeTestId,
           })
+
+          if (route.label === 'overview') {
+            const newIndicator = page.locator('[aria-label="Resources has new activity"]:visible').first()
+            await newIndicator.waitFor({ state: 'visible', timeout: 15000 })
+            assert.equal((await newIndicator.textContent())?.trim(), 'New')
+            assert.equal(
+              await page.locator('nav[aria-label="Parent portal sections"]:visible')
+                .locator('span')
+                .filter({ hasText: /^\d+$/ })
+                .count(),
+              0,
+            )
+          }
 
           const shouldCapture = theme.label === viewport.evidenceTheme
             || (route.label === 'overview' && ['light-default', 'dark-custom'].includes(theme.label))

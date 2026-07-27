@@ -22,7 +22,7 @@ const parentPortalSections = [
 export function ParentPortalSectionNav({
   activeSection,
   className = '',
-  counts = {},
+  newStateByCategory = {},
   onSelect,
   showAccountActions = true,
   user,
@@ -31,7 +31,7 @@ export function ParentPortalSectionNav({
   const visibleSections = parentPortalSections.filter((section) =>
     !section.recoveryPath || isRecoveryPathVisible(section.recoveryPath, { user }))
   const itemClass = (isActive) => [
-    'flex items-center justify-between gap-3 rounded-lg border px-3 text-left transition',
+    'relative flex items-center justify-between gap-3 rounded-lg border px-3 text-left transition',
     variant === 'mobile' ? 'min-h-11 w-[5.75rem] shrink-0 justify-center py-2 text-center' : 'min-h-12 w-full py-2',
     isActive
       ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
@@ -50,7 +50,7 @@ export function ParentPortalSectionNav({
         <div className={listClass}>
           {visibleSections.map((section) => {
             const isActive = activeSection === section.id
-            const count = counts[section.id]
+            const isNew = Boolean(newStateByCategory[section.id])
             const content = (
               <>
                 <span className="min-w-0">
@@ -59,11 +59,20 @@ export function ParentPortalSectionNav({
                     <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
                   )}
                 </span>
-                {typeof count === 'number' && count > 0 ? (
-                  <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
-                    {count}
-                  </span>
-                ) : null}
+                <span
+                  className={variant === 'mobile'
+                    ? 'pointer-events-none absolute right-1 top-1 flex min-w-8 justify-end'
+                    : 'pointer-events-none flex min-w-12 shrink-0 justify-end'}
+                >
+                  {isNew ? (
+                    <span
+                      aria-label={`${section.label} has new activity`}
+                      className="rounded-full border border-[#047857] bg-[#ecfdf5] px-2 py-0.5 text-[0.6875rem] font-black uppercase tracking-wide text-[#047857]"
+                    >
+                      New
+                    </span>
+                  ) : null}
+                </span>
               </>
             )
 
@@ -85,6 +94,7 @@ export function ParentPortalSectionNav({
                 }}
                 className={itemClass(isActive)}
                 aria-current={isActive ? 'page' : undefined}
+                aria-label={isNew ? `${section.label}, New activity` : section.label}
               >
                 {content}
               </Link>
@@ -197,7 +207,7 @@ export function ParentPortalAccountActions({
 export function ParentPortalRouteShell({
   activeSection,
   children,
-  counts,
+  newStateByCategory,
   user,
 }) {
   return (
@@ -209,7 +219,7 @@ export function ParentPortalRouteShell({
         <ParentPortalSectionNav
           activeSection={activeSection}
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
-          counts={counts}
+          newStateByCategory={newStateByCategory}
           user={user}
           variant="desktop"
         />
@@ -220,7 +230,7 @@ export function ParentPortalRouteShell({
       <ParentPortalSectionNav
         activeSection={activeSection}
         className="lg:hidden"
-        counts={counts}
+        newStateByCategory={newStateByCategory}
         user={user}
         variant="mobile"
       />

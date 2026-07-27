@@ -56,6 +56,7 @@ import { sortParentResultsNewestFirst } from '../lib/parent-results-order.js'
 import { formatMatchTimerClock, getMatchTimerMinute } from '../lib/matchday-timer.js'
 import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../lib/matchday-lifecycle.js'
 import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
+import { useParentPortalNavigationState } from '../hooks/use-parent-portal-navigation-state.js'
 import {
   getParentMatchDayErrorMessage,
   parentMatchDayActionErrorTitle,
@@ -526,6 +527,18 @@ export function ParentPortalPage() {
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
+  const {
+    captureActivityState,
+    markCategoryViewed,
+    newStateByCategory: parentNavNewState,
+  } = useParentPortalNavigationState({
+    parentLinkId: selectedLink?.id,
+  })
+  const [successfulCategoryLoad, setSuccessfulCategoryLoad] = useState({
+    activitySnapshot: {},
+    linkId: '',
+    revision: 0,
+  })
   const activeMatches = useMemo(() => matches.filter((match) => !isPreviousMatch(match)), [matches])
   const previousMatches = useMemo(
     () => sortParentResultsNewestFirst(matches.filter(isPreviousMatch)),
@@ -554,16 +567,6 @@ export function ParentPortalPage() {
     () => parentInvitations.filter(isParentInvitationPending),
     [parentInvitations],
   )
-  const currentInvitationCount = pendingParentInvitations.length
-  const parentNavCounts = useMemo(() => ({
-    calendar: visibleCalendarEvents.length,
-    invites: currentInvitationCount,
-    matches: activeMatches.length,
-    results: previousMatches.length,
-    resources: playerResources.length,
-    messages: 0,
-    polls: 0,
-  }), [activeMatches.length, currentInvitationCount, playerResources.length, previousMatches.length, visibleCalendarEvents.length])
   const squadPlayers = useMemo(
     () =>
       players
@@ -740,6 +743,11 @@ export function ParentPortalPage() {
         setSharedCalendarEvents([])
         setMatchError('')
         setMatchErrorTitle(parentMatchDayLoadErrorTitle)
+        setSuccessfulCategoryLoad({
+          activitySnapshot: {},
+          linkId: '',
+          revision: 0,
+        })
         return
       }
 
@@ -754,9 +762,22 @@ export function ParentPortalPage() {
         setSharedCalendarEvents([])
         setMatchError('')
         setMatchErrorTitle(parentMatchDayLoadErrorTitle)
+        setSuccessfulCategoryLoad((currentLoad) => ({
+          activitySnapshot: {},
+          linkId: '',
+          revision: currentLoad.revision,
+        }))
       }
 
       try {
+        let activitySnapshot = {}
+
+        try {
+          activitySnapshot = await captureActivityState()
+        } catch {
+          activitySnapshot = {}
+        }
+
         const [nextMatches, nextPlayers, nextParentInvitations, nextSharedCalendarEvents, nextPlayerResources] = await Promise.all([
           getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
           getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }),
@@ -771,6 +792,11 @@ export function ParentPortalPage() {
           setParentInvitations(nextParentInvitations)
           setSharedCalendarEvents(nextSharedCalendarEvents)
           setPlayerResources(nextPlayerResources)
+          setSuccessfulCategoryLoad((currentLoad) => ({
+            activitySnapshot,
+            linkId: selectedLink.id,
+            revision: currentLoad.revision + 1,
+          }))
         }
       } catch (error) {
         console.error(error)
@@ -802,7 +828,27 @@ export function ParentPortalPage() {
       isCurrent = false
       window.clearInterval(intervalId)
     }
-  }, [selectedLink?.id])
+  }, [captureActivityState, selectedLink?.id])
+
+  useEffect(() => {
+    if (
+      !selectedLink?.id
+      || successfulCategoryLoad.linkId !== selectedLink.id
+      || !successfulCategoryLoad.activitySnapshot?.[activeSection]
+    ) {
+      return
+    }
+
+    void markCategoryViewed({
+      categoryKey: activeSection,
+      snapshot: successfulCategoryLoad.activitySnapshot,
+    }).catch(() => {})
+  }, [
+    activeSection,
+    markCategoryViewed,
+    selectedLink?.id,
+    successfulCategoryLoad,
+  ])
 
   useEffect(() => {
     let isCurrent = true
@@ -1302,7 +1348,7 @@ export function ParentPortalPage() {
         <ParentPortalSectionNav
           activeSection={activeSection}
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
-          counts={parentNavCounts}
+          newStateByCategory={parentNavNewState}
           onSelect={handleSectionSelect}
           showAccountActions={false}
           user={user}
@@ -1415,7 +1461,7 @@ export function ParentPortalPage() {
       <ParentPortalSectionNav
         activeSection={activeSection}
         className="lg:hidden"
-        counts={parentNavCounts}
+        newStateByCategory={parentNavNewState}
         onSelect={handleSectionSelect}
         showAccountActions={false}
         user={user}

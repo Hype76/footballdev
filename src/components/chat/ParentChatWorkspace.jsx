@@ -96,7 +96,13 @@ function getRoomEmptyCopy(room) {
   return 'No messages yet. This room is available only to the selected squad families and authorised team staff.'
 }
 
-export function ParentChatWorkspace({ onUnreadCountChange, user, variant = 'parent' }) {
+export function ParentChatWorkspace({
+  onBeforeCategoryLoad,
+  onCategoryLoadSuccess,
+  onUnreadCountChange,
+  user,
+  variant = 'parent',
+}) {
   const [rooms, setRooms] = useState([])
   const [selectedRoomId, setSelectedRoomId] = useState('')
   const [messages, setMessages] = useState([])
@@ -119,6 +125,13 @@ export function ParentChatWorkspace({ onUnreadCountChange, user, variant = 'pare
       setError('')
     }
 
+    let activitySnapshot = {}
+    try {
+      activitySnapshot = await onBeforeCategoryLoad?.() ?? {}
+    } catch {
+      activitySnapshot = {}
+    }
+
     try {
       const nextRooms = await getParentChatRooms()
       setRooms(nextRooms)
@@ -128,6 +141,7 @@ export function ParentChatWorkspace({ onUnreadCountChange, user, variant = 'pare
         }
         return ''
       })
+      onCategoryLoadSuccess?.(activitySnapshot)
       return nextRooms
     } catch (loadError) {
       console.error(loadError)
@@ -138,7 +152,7 @@ export function ParentChatWorkspace({ onUnreadCountChange, user, variant = 'pare
     } finally {
       setIsLoadingRooms(false)
     }
-  }, [])
+  }, [onBeforeCategoryLoad, onCategoryLoadSuccess])
 
   const loadMessages = useCallback(async (roomId, { keepError = false } = {}) => {
     if (!roomId) {
