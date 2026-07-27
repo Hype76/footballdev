@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
 const shortRpcMigrationUrl = new URL('../supabase/migrations/20260727125718_shorten_resource_parent_sharing_rpc.sql', import.meta.url)
-const sharedSaveFixMigrationUrl = new URL('../supabase/migrations/20260727143919_fix_resource_library_notification_returning_ids.sql', import.meta.url)
+const sharedSaveFixMigrationUrl = new URL('../supabase/migrations/20260727150148_fix_resource_library_notification_returning_ids.sql', import.meta.url)
 
 const ids = {
   actor: '10000000-0000-4000-8000-000000000001',
