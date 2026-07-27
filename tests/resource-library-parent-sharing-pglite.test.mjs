@@ -5,6 +5,7 @@ import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
 const shortRpcMigrationUrl = new URL('../supabase/migrations/20260727125718_shorten_resource_parent_sharing_rpc.sql', import.meta.url)
+const sharedSaveFixMigrationUrl = new URL('../supabase/migrations/20260727143919_fix_resource_library_notification_returning_ids.sql', import.meta.url)
 
 const ids = {
   actor: '10000000-0000-4000-8000-000000000001',
@@ -65,6 +66,7 @@ async function createDatabase() {
       team_id uuid,
       player_id uuid not null,
       auth_user_id uuid,
+      email text,
       status text not null default 'pending',
       created_at timestamptz not null default timezone('utc', now())
     );
@@ -118,6 +120,33 @@ async function createDatabase() {
       external_url text not null
     );
 
+    create table public.resource_library_parent_notifications (
+      id uuid primary key default gen_random_uuid(),
+      link_id uuid not null,
+      resource_id uuid not null,
+      club_id uuid not null,
+      team_id uuid not null,
+      player_id uuid not null,
+      parent_link_id uuid not null,
+      recipient_email text not null,
+      email_queue_id uuid,
+      created_at timestamptz not null default timezone('utc', now()),
+      unique (link_id, parent_link_id)
+    );
+
+    create table public.scheduled_email_queue (
+      id uuid primary key default gen_random_uuid(),
+      club_id uuid not null,
+      team_id uuid,
+      created_by uuid,
+      created_by_email text not null default '',
+      to_email text not null,
+      subject text not null,
+      status text not null,
+      scheduled_at timestamptz not null,
+      payload jsonb not null
+    );
+
     create function public.current_user_can_manage_resource_library(target_club_id uuid, target_team_id uuid)
     returns boolean
     language sql
@@ -148,95 +177,8 @@ async function createDatabase() {
         )
     $$;
 
-    create function public.assign_resource_library_item_with_parent_notifications(
-      target_resource_id uuid,
-      target_club_id uuid,
-      target_team_id uuid,
-      targets_value jsonb,
-      share_description_value text default ''
-    )
-    returns table (
-      id uuid,
-      resource_id uuid,
-      club_id uuid,
-      team_id uuid,
-      linked_type text,
-      linked_id uuid,
-      assigned_by_profile_id uuid,
-      assigned_by_name text,
-      assigned_by_email text,
-      assigned_at timestamptz,
-      parent_visible boolean,
-      share_description text,
-      removed_at timestamptz,
-      removed_by_profile_id uuid,
-      removed_by_name text,
-      removed_by_email text,
-      assignment_action text,
-      notifications_queued integer
-    )
-    language plpgsql
-    security definer
-    set search_path = public
-    as $$
-    declare
-      target_value jsonb;
-      link_row public.resource_library_links%rowtype;
-      action_value text;
-    begin
-      for target_value in select value from jsonb_array_elements(targets_value)
-      loop
-        link_row := null;
-
-        select link.*
-        into link_row
-        from public.resource_library_links link
-        where link.resource_id = target_resource_id
-          and link.club_id = target_club_id
-          and link.team_id = target_team_id
-          and link.linked_type = 'player'
-          and link.linked_id = (target_value ->> 'linkedId')::uuid
-          and link.removed_at is null;
-
-        if link_row.id is null then
-          action_value := 'inserted';
-          insert into public.resource_library_links (
-            resource_id, club_id, team_id, linked_type, linked_id,
-            assigned_by_profile_id, assigned_by_email, parent_visible, share_description
-          )
-          values (
-            target_resource_id, target_club_id, target_team_id, 'player',
-            (target_value ->> 'linkedId')::uuid, auth.uid(), auth.jwt() ->> 'email',
-            (target_value ->> 'parentVisible')::boolean,
-            case when (target_value ->> 'parentVisible')::boolean then nullif(share_description_value, '') else null end
-          )
-          returning * into link_row;
-        else
-          action_value := case
-            when link_row.parent_visible = (target_value ->> 'parentVisible')::boolean then 'unchanged'
-            else 'updated'
-          end;
-          update public.resource_library_links link
-          set parent_visible = (target_value ->> 'parentVisible')::boolean,
-              share_description = case
-                when (target_value ->> 'parentVisible')::boolean then nullif(share_description_value, '')
-                else null
-              end
-          where link.id = link_row.id
-          returning link.* into link_row;
-        end if;
-
-        return query select
-          link_row.id, link_row.resource_id, link_row.club_id, link_row.team_id,
-          link_row.linked_type, link_row.linked_id, link_row.assigned_by_profile_id,
-          link_row.assigned_by_name, link_row.assigned_by_email, link_row.assigned_at,
-          link_row.parent_visible, link_row.share_description, link_row.removed_at,
-          link_row.removed_by_profile_id, link_row.removed_by_name, link_row.removed_by_email,
-          action_value, 0;
-      end loop;
-    end;
-    $$;
   `)
+  await db.exec(await readFile(sharedSaveFixMigrationUrl, 'utf8'))
   await db.exec(await readFile(migrationUrl, 'utf8'))
   await db.exec(await readFile(shortRpcMigrationUrl, 'utf8'))
   await db.query(`
@@ -246,10 +188,10 @@ async function createDatabase() {
       ($2, $3, $4, 'FP TEST Player Two')
   `, [ids.player, ids.otherPlayer, ids.club, ids.team])
   await db.query(`
-    insert into public.parent_player_links(id, club_id, team_id, player_id, auth_user_id, status)
+    insert into public.parent_player_links(id, club_id, team_id, player_id, auth_user_id, email, status)
     values
-      ($1, $3, $4, $5, $6, 'active'),
-      ($2, $3, $4, $7, $8, 'active')
+      ($1, $3, $4, $5, $6, 'fp-test-parent-one@example.invalid', 'active'),
+      ($2, $3, $4, $7, $8, 'fp-test-parent-two@example.invalid', 'active')
   `, [ids.parentLink, ids.otherParentLink, ids.club, ids.team, ids.player, ids.parent, ids.otherPlayer, ids.otherParent])
   await db.query(`
     insert into public.resource_library_items(
@@ -317,6 +259,9 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
 
     assert.equal(first.rows[0].result.selectedPlayerCount, 2)
     assert.equal(first.rows[0].result.removedCount, 0)
+    assert.equal(first.rows[0].result.assignments.length, 2)
+    assert.equal(first.rows[0].result.assignments[0].notifications_queued, 1)
+    assert.equal(first.rows[0].result.assignments[1].notifications_queued, 1)
 
     const sharedCount = await db.query(`
       select count(*)::integer as count
@@ -324,6 +269,13 @@ test('Player assignment sync handles share, unshare, add, remove, clear, and dup
       where resource_id = $1 and removed_at is null and parent_visible
     `, [ids.resource])
     assert.equal(sharedCount.rows[0].count, 2)
+
+    const queued = await db.query(`
+      select
+        (select count(*)::integer from public.resource_library_parent_notifications) as notification_count,
+        (select count(*)::integer from public.scheduled_email_queue) as queue_count
+    `)
+    assert.deepEqual(queued.rows, [{ notification_count: 2, queue_count: 2 }])
 
     const staffOnlyOneTarget = JSON.stringify([
       { linkedType: 'player', linkedId: ids.player, parentVisible: false },
