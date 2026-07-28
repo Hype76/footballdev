@@ -236,7 +236,7 @@ export function PlatformFeedbackPage() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="platform-admin-theme space-y-5 sm:space-y-6">
       {successMessage ? (
         <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] shadow-sm shadow-[#047857]/10">
           {successMessage}

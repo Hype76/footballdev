@@ -181,8 +181,11 @@ function fixtureProfile() {
   }
 }
 
-async function prepareContext(browser, { createClubResponses = [], deleteResponses = [], viewport = null } = {}) {
-  const context = await browser.newContext(viewport ? { viewport } : {})
+async function prepareContext(
+  browser,
+  { createClubResponses = [], deleteResponses = [], viewport = null, ...contextOptions } = {},
+) {
+  const context = await browser.newContext(viewport ? { ...contextOptions, viewport } : contextOptions)
   const requests = {
     createClub: [],
     deleteTeam: [],
@@ -490,6 +493,12 @@ async function openPlatformClubs(page) {
   await page.locator('span').filter({ hasText: 'U12 Tigers Fixture' }).first().waitFor({ state: 'visible', timeout: 15000 })
 }
 
+async function openPlatformRoute(page, path, title) {
+  await signIn(page)
+  await page.goto(`${baseUrl}${path}`, { waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: title, exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
+}
+
 async function submitCreateClubInvite(page, { clubName = 'Created Browser Club FC', ownerEmail = 'owner@example.test' } = {}) {
   await page.getByLabel('Club name').fill(clubName)
   await page.getByLabel('Owner invite email').fill(ownerEmail)
@@ -751,6 +760,157 @@ try {
     assert.ok(overflow <= 1, `Unexpected mobile horizontal overflow: ${overflow}px`)
     await mkdir('output/playwright', { recursive: true })
     await page.screenshot({ path: 'output/playwright/platform-club-access-mobile.png', fullPage: true })
+    await context.close()
+  })
+
+  await runScenario('Platform Admin overview is concise and every retained card has a focused destination', async () => {
+    const { context, page } = await prepareContext(browser, { viewport: { width: 1440, height: 1000 } })
+    await openPlatformRoute(page, '/platform-admin', 'Platform dashboard')
+
+    const expectedCardLabels = [
+      'Clubs: View clubs',
+      'Teams: View teams',
+      'Active players: View player records',
+      'Staff accounts: View platform staff',
+      'Parent accounts: View parent adoption',
+      'Development records: View development analytics',
+      'Recent admin activity: View activity context',
+      'Open platform issues: View platform feedback',
+    ]
+
+    for (const label of expectedCardLabels) {
+      await page.getByRole('link', { name: label, exact: true }).waitFor({ state: 'visible' })
+    }
+
+    assert.equal(await page.getByRole('heading', { name: 'Platform analytics', exact: true }).count(), 0)
+    assert.equal(await page.getByRole('heading', { name: 'Banner controls', exact: true }).count(), 0)
+    assert.equal(await page.getByRole('heading', { name: 'Platform admin staff', exact: true }).count(), 0)
+    assert.equal(await page.getByText('Shared exports', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Audit events', { exact: true }).count(), 0)
+
+    const staffCard = page.getByRole('link', { name: 'Staff accounts: View platform staff', exact: true })
+    await staffCard.focus()
+    await Promise.all([
+      page.waitForURL('**/platform-staff'),
+      page.keyboard.press('Enter'),
+    ])
+    await page.getByRole('heading', { name: 'Platform Staff', exact: true }).first().waitFor({ state: 'visible' })
+    await context.close()
+  })
+
+  await runScenario('Platform Admin overview cards provide mobile tap navigation', async () => {
+    const { context, page } = await prepareContext(browser, {
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 390, height: 844 },
+    })
+    await openPlatformRoute(page, '/platform-admin', 'Platform dashboard')
+    await Promise.all([
+      page.waitForURL('**/platform-feedback'),
+      page.getByRole('link', { name: 'Open platform issues: View platform feedback', exact: true }).tap(),
+    ])
+    await page.getByRole('heading', { name: 'Platform Feedback', exact: true }).first().waitFor({ state: 'visible' })
+    await context.close()
+  })
+
+  await runScenario('focused Platform Admin routes preserve their authoritative controls', async () => {
+    const { context, page } = await prepareContext(browser, { viewport: { width: 1440, height: 1000 } })
+    await openPlatformRoute(page, '/platform-analytics', 'Platform Analytics')
+    await page.getByRole('heading', { name: 'Platform analytics', exact: true }).waitFor({ state: 'visible' })
+
+    await page.goto(`${baseUrl}/platform-banners`, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('heading', { name: 'Platform Banners', exact: true }).first().waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Banner controls', exact: true }).waitFor({ state: 'visible' })
+    for (const audience of ['Landing pages', 'Logged-in users', 'Parent Portal']) {
+      await page.getByRole('button', { name: new RegExp(audience, 'i') }).first().waitFor({ state: 'visible' })
+    }
+
+    await page.goto(`${baseUrl}/platform-staff`, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('heading', { name: 'Platform Staff', exact: true }).first().waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Staff access context', exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Platform admin staff', exact: true }).waitFor({ state: 'visible' })
+
+    await page.goto(`${baseUrl}/platform-data-hygiene`, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('heading', { name: 'Data Hygiene', exact: true }).first().waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Data hygiene', exact: true }).waitFor({ state: 'visible' })
+    assert.equal(await page.getByRole('button', { name: /delete|clean up|purge/i }).count(), 0)
+    await context.close()
+  })
+
+  await runScenario('Platform Admin overview and issue reporting use theme tokens on desktop and mobile', async () => {
+    for (const fixture of [
+      { mode: 'theme-light', width: 1440, height: 1000 },
+      { mode: 'theme-dark', width: 1440, height: 1000 },
+      { mode: 'theme-light', width: 390, height: 844 },
+      { mode: 'theme-dark', width: 390, height: 844 },
+    ]) {
+      const { context, page } = await prepareContext(browser, { viewport: { width: fixture.width, height: fixture.height } })
+      await openPlatformRoute(page, '/platform-admin', 'Platform dashboard')
+      await page.addStyleTag({
+        content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+      })
+      await page.evaluate((mode) => {
+        document.documentElement.classList.remove('theme-light', 'theme-dark')
+        document.body.classList.remove('theme-light', 'theme-dark')
+        document.documentElement.classList.add(mode)
+        document.body.classList.add(mode)
+      }, fixture.mode)
+      await page.waitForTimeout(50)
+
+      const card = page.getByRole('link', { name: 'Clubs: View clubs', exact: true })
+      const themeState = await card.evaluate((element) => {
+        const styles = getComputedStyle(element)
+        const reference = document.createElement('div')
+        reference.style.backgroundColor = 'var(--panel-bg)'
+        reference.style.color = 'var(--text-primary)'
+        document.body.append(reference)
+        const referenceStyles = getComputedStyle(reference)
+        const expectedBackground = referenceStyles.backgroundColor
+        const expectedColor = referenceStyles.color
+        reference.remove()
+        return {
+          background: styles.backgroundColor,
+          expectedBackground,
+          color: styles.color,
+          expectedColor,
+          overflow: document.documentElement.scrollWidth - window.innerWidth,
+          cardPanelVariable: styles.getPropertyValue('--panel-bg').trim(),
+          className: element.className,
+          bodyClassName: document.body.className,
+          htmlClassName: document.documentElement.className,
+        }
+      })
+      assert.equal(themeState.background, themeState.expectedBackground, JSON.stringify(themeState))
+      assert.equal(themeState.color, themeState.expectedColor, JSON.stringify(themeState))
+      assert.ok(themeState.overflow <= 1, `Unexpected ${fixture.mode} overflow at ${fixture.width}px: ${themeState.overflow}px`)
+      await context.close()
+    }
+
+    const { context, page } = await prepareContext(browser, { viewport: { width: 1440, height: 1000 } })
+    await openPlatformRoute(page, '/platform-feedback', 'Platform Feedback')
+    await page.addStyleTag({
+      content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+    })
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('theme-dark')
+      document.documentElement.classList.add('theme-light')
+      document.body.classList.remove('theme-dark')
+      document.body.classList.add('theme-light')
+    })
+    await page.waitForTimeout(50)
+    const reportSection = page.getByRole('heading', { name: 'Production Report Issue submissions', exact: true }).locator('xpath=ancestor::section')
+    const reportTheme = await reportSection.evaluate((element) => {
+      const reference = document.createElement('div')
+      reference.style.backgroundColor = 'var(--panel-bg)'
+      document.body.append(reference)
+      const expected = getComputedStyle(reference).backgroundColor
+      reference.remove()
+      return {
+        background: getComputedStyle(element).backgroundColor,
+        expected,
+      }
+    })
+    assert.equal(reportTheme.background, reportTheme.expected)
     await context.close()
   })
 } catch (error) {

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function PlatformPlanMixSection({ planBreakdown, platformTotals }) {
@@ -9,14 +10,14 @@ export function PlatformPlanMixSection({ planBreakdown, platformTotals }) {
       <div className="space-y-3">
         {Object.entries(planBreakdown).length > 0 ? (
           Object.entries(planBreakdown).map(([planName, count]) => (
-            <div key={planName} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
+            <div key={planName} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 shadow-sm shadow-black/10">
               <div className="flex items-center justify-between gap-4">
-                <p className="text-sm font-black text-[#101828]">{planName}</p>
-                <p className="text-lg font-black text-[#047857]">{count}</p>
+                <p className="text-sm font-black text-[var(--text-primary)]">{planName}</p>
+                <p className="text-lg font-black text-[var(--accent)]">{count}</p>
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-lg bg-[#e0f3e8]">
+              <div className="mt-3 h-2 overflow-hidden rounded-lg bg-[var(--accent-soft)]">
                 <div
-                  className="h-full rounded-lg bg-[#047857] transition-all duration-700"
+                  className="h-full rounded-lg bg-[var(--accent)] transition-all duration-700"
                   style={{
                     width: `${Math.max(8, Math.round((count / Math.max(1, platformTotals.clubs ?? 1)) * 100))}%`,
                   }}
@@ -25,7 +26,7 @@ export function PlatformPlanMixSection({ planBreakdown, platformTotals }) {
             </div>
           ))
         ) : (
-          <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
+          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm font-semibold text-[var(--text-muted)] shadow-sm shadow-black/10">
             No plan data is available yet.
           </p>
         )}
@@ -41,16 +42,97 @@ export function PlatformDataHygieneSection({ platformTotals }) {
       description="Separated live records from archived and internal platform records."
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Active players</p>
-          <p className="mt-2 text-3xl font-black text-[#101828]">{platformTotals.players ?? 0}</p>
-          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{platformTotals.archivedPlayers ?? 0} archived records excluded</p>
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 shadow-sm shadow-black/10">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">Active players</p>
+          <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{platformTotals.players ?? 0}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{platformTotals.archivedPlayers ?? 0} archived records excluded</p>
         </div>
-        <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Share rows</p>
-          <p className="mt-2 text-3xl font-black text-[#101828]">{platformTotals.communications ?? 0}</p>
-          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{platformTotals.communicationRows ?? 0} total communication rows</p>
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 shadow-sm shadow-black/10">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">Recent admin activity</p>
+          <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{platformTotals.recentAdminActions ?? 0}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">Actions recorded in the last 7 days</p>
         </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+export function PlatformOperationalSummarySection({
+  openIssueCount = 0,
+  platformTotals = {},
+}) {
+  const roleBreakdown = Array.isArray(platformTotals.staffRoleBreakdown)
+    ? platformTotals.staffRoleBreakdown
+    : []
+
+  return (
+    <SectionCard
+      title="Operational summary"
+      description="Recent activity, account context, and unresolved platform work."
+      storageKey="platform-operational-summary"
+    >
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Recent admin actions</p>
+          <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{platformTotals.recentAdminActions ?? 0}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">Recorded in the last 7 days.</p>
+          <Link className="mt-3 inline-flex min-h-11 items-center font-black text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" to="/platform-data-hygiene#recent-activity">
+            View data hygiene
+          </Link>
+        </div>
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Open platform issues</p>
+          <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{openIssueCount}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">Product and production reports needing review.</p>
+          <Link className="mt-3 inline-flex min-h-11 items-center font-black text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" to="/platform-feedback">
+            View platform feedback
+          </Link>
+        </div>
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Staff role mix</p>
+          <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">
+            {platformTotals.staffAccounts ?? 0} staff accounts, excluding {platformTotals.parentAccounts ?? 0} parent accounts.
+          </p>
+          <ul className="mt-3 space-y-1 text-sm font-bold text-[var(--text-primary)]">
+            {roleBreakdown.slice(0, 4).map((role) => (
+              <li key={role.label} className="flex justify-between gap-3">
+                <span>{role.label}</span>
+                <span>{role.count}</span>
+              </li>
+            ))}
+          </ul>
+          <Link className="mt-3 inline-flex min-h-11 items-center font-black text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" to="/platform-staff">
+            View platform staff
+          </Link>
+        </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+export function PlatformStaffRoleSummarySection({ platformTotals = {} }) {
+  const roleBreakdown = Array.isArray(platformTotals.staffRoleBreakdown)
+    ? platformTotals.staffRoleBreakdown
+    : []
+
+  return (
+    <SectionCard
+      title="Staff access context"
+      description="Staff account totals and role labels. Parent accounts remain separate."
+      storageKey="platform-staff-role-context"
+    >
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {roleBreakdown.map((role) => (
+          <div key={role.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <p className="text-sm font-black text-[var(--text-primary)]">{role.label}</p>
+            <p className="mt-2 text-3xl font-black text-[var(--accent)]">{role.count}</p>
+          </div>
+        ))}
+        {!roleBreakdown.length ? (
+          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm font-semibold text-[var(--text-muted)]">
+            No staff role data is available.
+          </p>
+        ) : null}
       </div>
     </SectionCard>
   )

@@ -1648,6 +1648,50 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: 'platform-analytics',
+                element: (
+                  <PageSuspense>
+                    <PlatformAdminPage section="analytics" />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Platform Analytics',
+                },
+              },
+              {
+                path: 'platform-banners',
+                element: (
+                  <PageSuspense>
+                    <PlatformAdminPage section="banners" />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Platform Banners',
+                },
+              },
+              {
+                path: 'platform-staff',
+                element: (
+                  <PageSuspense>
+                    <PlatformAdminPage section="staff" />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Platform Staff',
+                },
+              },
+              {
+                path: 'platform-data-hygiene',
+                element: (
+                  <PageSuspense>
+                    <PlatformAdminPage section="hygiene" />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Data Hygiene',
+                },
+              },
+              {
                 path: 'platform-billing-options',
                 element: (
                   <PageSuspense>

@@ -1,4 +1,4 @@
-export function BillingHeroAndStats({ billingStats, isLoading }) {
+export function BillingHeroAndStats({ billingStats, hasStripeDataError = false, isLoading }) {
   return (
     <>
       <section className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-6 shadow-sm shadow-[#047857]/10 sm:p-8">
@@ -16,11 +16,17 @@ export function BillingHeroAndStats({ billingStats, isLoading }) {
             <div className="flex items-center gap-3">
               <span className="h-3 w-3 rounded-lg bg-[#047857]" />
               <p className="text-sm font-black text-[#101828]">
-                {isLoading ? 'Refreshing billing data' : 'Billing data loaded'}
+                {isLoading
+                  ? 'Refreshing billing data'
+                  : hasStripeDataError
+                    ? 'Platform access data loaded'
+                    : 'Billing data loaded'}
               </p>
             </div>
             <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Stripe coupons and tester access codes are managed from this page.
+              {hasStripeDataError
+                ? 'Stripe coupon data is unavailable. Platform Admin access remains available.'
+                : 'Stripe coupons and tester access codes are managed from this page.'}
             </p>
           </div>
         </div>

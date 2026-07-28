@@ -463,12 +463,25 @@ export async function getPlatformStats(user) {
     const archivedPlayers = players.filter(isArchivedPlayer)
     const sharedExports = communicationLogs.filter(isSharedExport)
     const platformAdmins = users.filter((member) => member.role === 'super_admin')
+    const parentAccounts = users.filter((member) => String(member.role ?? '').trim().toLowerCase() === 'parent')
+    const staffAccounts = users.filter((member) => String(member.role ?? '').trim().toLowerCase() !== 'parent')
     const clubUsers = users.filter((member) => member.club_id)
+    const staffRoleBreakdown = staffAccounts.reduce((items, member) => {
+      const normalizedRole = String(member.role ?? '').trim().toLowerCase()
+      const roleLabel = normalizedRole === 'super_admin'
+        ? 'Platform Admins'
+        : String(member.role_label ?? '').trim()
+          || (member.club_id ? 'Unclassified staff' : 'Unlinked staff')
+      items[roleLabel] = (items[roleLabel] ?? 0) + 1
+      return items
+    }, {})
 
     const nextStats = {
       totals: {
         clubs: clubs.length,
         users: users.length,
+        staffAccounts: staffAccounts.length,
+        parentAccounts: parentAccounts.length,
         clubUsers: clubUsers.length,
         platformAdmins: platformAdmins.length,
         teams: teams.length,
@@ -479,8 +492,12 @@ export async function getPlatformStats(user) {
         communications: sharedExports.length,
         communicationRows: communicationLogs.length,
         auditEvents: auditLogs.length,
+        recentAdminActions: auditLogs.filter(isRecent).length,
         recentEvaluations: evaluations.filter(isRecent).length,
         recentCommunications: sharedExports.filter(isRecent).length,
+        staffRoleBreakdown: Object.entries(staffRoleBreakdown)
+          .map(([label, count]) => ({ label, count }))
+          .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
       },
       platformAdmins: platformAdmins.map((member) => ({
         id: member.id,

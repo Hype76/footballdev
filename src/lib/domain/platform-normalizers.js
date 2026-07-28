@@ -122,6 +122,8 @@ export function normalizePlatformStatsPayload(stats) {
     totals: {
       clubs: normalizeNumber(sourceTotals.clubs),
       users: normalizeNumber(sourceTotals.users),
+      staffAccounts: normalizeNumber(sourceTotals.staffAccounts),
+      parentAccounts: normalizeNumber(sourceTotals.parentAccounts),
       clubUsers: normalizeNumber(sourceTotals.clubUsers),
       platformAdmins: normalizeNumber(sourceTotals.platformAdmins),
       teams: normalizeNumber(sourceTotals.teams),
@@ -132,8 +134,15 @@ export function normalizePlatformStatsPayload(stats) {
       communications: normalizeNumber(sourceTotals.communications),
       communicationRows: normalizeNumber(sourceTotals.communicationRows),
       auditEvents: normalizeNumber(sourceTotals.auditEvents),
+      recentAdminActions: normalizeNumber(sourceTotals.recentAdminActions),
       recentEvaluations: normalizeNumber(sourceTotals.recentEvaluations),
       recentCommunications: normalizeNumber(sourceTotals.recentCommunications),
+      staffRoleBreakdown: normalizeArray(sourceTotals.staffRoleBreakdown)
+        .filter((role) => String(role.label ?? '').trim())
+        .map((role) => ({
+          label: String(role.label ?? '').trim(),
+          count: normalizeNumber(role.count),
+        })),
     },
     platformAdmins,
     clubs,

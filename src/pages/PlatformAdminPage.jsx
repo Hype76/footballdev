@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
-import { PlatformDataHygieneSection, PlatformPlanMixSection } from '../components/platform/PlatformDashboardCards.jsx'
+import {
+  PlatformDataHygieneSection,
+  PlatformOperationalSummarySection,
+  PlatformPlanMixSection,
+  PlatformStaffRoleSummarySection,
+} from '../components/platform/PlatformDashboardCards.jsx'
 import { PlatformAdminStaffSection } from '../components/platform/PlatformAdminStaffSection.jsx'
 import { ManageClubsSection } from '../components/platform/ManageClubsSection.jsx'
 import { PlatformAccountManagementSection } from '../components/platform/PlatformAccountManagementSection.jsx'
@@ -145,6 +150,22 @@ const PAGE_META = {
     title: 'Club and team management',
     description: 'Manage clubs, teams, adult user access, and platform controlled plan overrides.',
   },
+  analytics: {
+    title: 'Platform Analytics',
+    description: 'Review privacy-safe usage, adoption, page, role, club, day, and time reporting.',
+  },
+  banners: {
+    title: 'Platform Banners',
+    description: 'Manage separate announcements for landing pages, logged-in users, and the Parent Portal.',
+  },
+  staff: {
+    title: 'Platform Staff',
+    description: 'Review staff role context and manage trusted Platform Admin accounts.',
+  },
+  hygiene: {
+    title: 'Data Hygiene',
+    description: 'Review active, archived, communication, and recent admin record quality without destructive cleanup.',
+  },
 }
 
 export function PlatformAdminPage({ section = 'dashboard' }) {
@@ -153,6 +174,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const pageMeta = PAGE_META[section] || PAGE_META.dashboard
   const showDashboard = section === 'dashboard'
   const showClubManagement = section === 'clubs'
+  const showAnalytics = section === 'analytics'
+  const showBanners = section === 'banners'
+  const showPlatformStaff = section === 'staff'
+  const showDataHygiene = section === 'hygiene'
+  const showLegacyFeedback = section === 'feedback-legacy'
   const [stats, setStats] = useState(() => readCachedPlatformStats())
   const [analyticsReport, setAnalyticsReport] = useState(null)
   const [analyticsFilters, setAnalyticsFilters] = useState(DEFAULT_ANALYTICS_FILTERS)
@@ -1046,10 +1072,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
   const platformTotals = stats?.totals ?? {}
   const planBreakdown = getPlanBreakdown(stats?.clubs ?? [])
-  const dashboardStats = getPlatformDashboardStats(stats)
+  const feedbackStats = getFeedbackStats(feedbackItems, feedbackReports)
+  const openIssueCount = feedbackStats.find((item) => item.label === 'Open items')?.value ?? 0
+  const dashboardStats = getPlatformDashboardStats(stats, { openIssueCount })
   const platformAdmins = stats?.platformAdmins ?? []
   const clubManagementStats = getClubManagementStats(stats)
-  const feedbackStats = getFeedbackStats(feedbackItems, feedbackReports)
 
   if (!isSuperAdmin(user)) {
     return (
@@ -1064,7 +1091,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="platform-admin-theme space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Platform"
         title={pageMeta.title}
@@ -1098,41 +1125,56 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
           <PlatformStatGrid items={dashboardStats} />
 
-          <PlatformAnalyticsSection
-            errorMessage={analyticsErrorMessage}
-            filters={analyticsFilters}
-            isLoading={isAnalyticsLoading}
-            onFiltersChange={setAnalyticsFilters}
-            onRefresh={() => void loadAnalytics({ refresh: true })}
-            report={analyticsReport}
-          />
-
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-            <PlatformBannerManagementSection
-              banners={bannerDrafts}
-              errorMessage={bannerErrorMessage}
-              isLoading={isBannerLoading}
-              savingBannerKey={savingBannerKey}
-              onChange={handleBannerChange}
-              onSubmit={handleSaveBanner}
-            />
-
-            <PlatformAdminStaffSection
-              currentUserId={user?.id}
-              deletingAdminId={deletingPlatformAdminId}
-              form={platformAdminForm}
-              isSaving={isSavingPlatformAdmin}
-              onChange={handlePlatformAdminChange}
-              onDelete={handleDeletePlatformAdmin}
-              onSubmit={handleCreatePlatformAdmin}
-              platformAdmins={platformAdmins}
-            />
-
             <PlatformPlanMixSection planBreakdown={planBreakdown} platformTotals={platformTotals} />
-
-            <PlatformDataHygieneSection platformTotals={platformTotals} />
+            <PlatformOperationalSummarySection
+              openIssueCount={openIssueCount}
+              platformTotals={platformTotals}
+            />
           </div>
         </div>
+      ) : null}
+
+      {showAnalytics ? (
+        <PlatformAnalyticsSection
+          errorMessage={analyticsErrorMessage}
+          filters={analyticsFilters}
+          isLoading={isAnalyticsLoading}
+          onFiltersChange={setAnalyticsFilters}
+          onRefresh={() => void loadAnalytics({ refresh: true })}
+          report={analyticsReport}
+        />
+      ) : null}
+
+      {showBanners ? (
+        <PlatformBannerManagementSection
+          banners={bannerDrafts}
+          errorMessage={bannerErrorMessage}
+          isLoading={isBannerLoading}
+          savingBannerKey={savingBannerKey}
+          onChange={handleBannerChange}
+          onSubmit={handleSaveBanner}
+        />
+      ) : null}
+
+      {showPlatformStaff ? (
+        <div className="space-y-5">
+          <PlatformStaffRoleSummarySection platformTotals={platformTotals} />
+          <PlatformAdminStaffSection
+            currentUserId={user?.id}
+            deletingAdminId={deletingPlatformAdminId}
+            form={platformAdminForm}
+            isSaving={isSavingPlatformAdmin}
+            onChange={handlePlatformAdminChange}
+            onDelete={handleDeletePlatformAdmin}
+            onSubmit={handleCreatePlatformAdmin}
+            platformAdmins={platformAdmins}
+          />
+        </div>
+      ) : null}
+
+      {showDataHygiene ? (
+        <PlatformDataHygieneSection platformTotals={platformTotals} />
       ) : null}
 
       {showClubManagement ? (
@@ -1159,7 +1201,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         />
       ) : null}
 
-      {showDashboard ? (
+      {showLegacyFeedback ? (
         <div className="space-y-5">
           <PlatformHeroSection
             eyebrow="Feedback command centre"
@@ -1173,7 +1215,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         </div>
       ) : null}
 
-      {showDashboard ? (
+      {showLegacyFeedback ? (
         <PlatformFeedbackSection
           drafts={feedbackDrafts}
           feedbackItems={feedbackItems}

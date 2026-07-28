@@ -370,7 +370,7 @@ export function PlatformBillingOptionsPage() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="platform-admin-theme space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Billing"
         title="Billing options"
@@ -379,7 +379,7 @@ export function PlatformBillingOptionsPage() {
 
       {errorMessage ? (
         <NoticeBanner
-          title="Billing action not completed"
+          title="Stripe coupon data unavailable"
           message={errorMessage}
         />
       ) : null}
@@ -388,7 +388,11 @@ export function PlatformBillingOptionsPage() {
         <BillingSuccessBanner message={successMessage} />
       ) : null}
 
-      <BillingHeroAndStats billingStats={billingStats} isLoading={isLoading} />
+      <BillingHeroAndStats
+        billingStats={billingStats}
+        isLoading={isLoading}
+        hasStripeDataError={Boolean(errorMessage)}
+      />
 
       <CreateCouponSection
         couponForm={couponForm}

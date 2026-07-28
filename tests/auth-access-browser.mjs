@@ -1143,7 +1143,20 @@ try {
     await page.waitForURL('**/platform-admin', { timeout: 15000 })
     await assertVisibleText(page, 'Platform control')
     await assertVisibleText(page, 'Platform tools')
-    await assertVisibleText(page, 'Platform analytics')
+    assert.equal(await page.locator('a[href="/platform-analytics"]').count() > 0, true)
+    await assertVisibleText(page, 'Operational summary')
+    await page.goto(`${mainBaseUrl}/platform-analytics`)
+    await page.waitForURL('**/platform-analytics', { timeout: 15000 })
+    await page.getByRole('heading', { name: 'Platform Analytics', exact: true }).waitFor({ state: 'visible' })
+    for (const title of [
+      'Page and role activity',
+      'Top-page heatmaps',
+      'Overall platform heatmap',
+      'Adoption and maintenance context',
+    ]) {
+      const section = page.getByRole('heading', { name: title, exact: true }).locator('xpath=ancestor::section[1]')
+      await section.getByRole('button', { name: 'Expand', exact: true }).click()
+    }
     await assertVisibleText(page, 'Top pages')
     await assertVisibleText(page, 'Top-page heatmaps')
     await assertVisibleText(page, 'Overall platform heatmap')
@@ -1162,7 +1175,9 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'platform.fixture@footballplayer.test')
     await page.waitForURL('**/platform-admin', { timeout: 15000 })
-    await assertVisibleText(page, 'Platform analytics')
+    await page.goto(`${mainBaseUrl}/platform-analytics`)
+    await page.waitForURL('**/platform-analytics', { timeout: 15000 })
+    await page.getByRole('heading', { name: 'Platform Analytics', exact: true }).waitFor({ state: 'visible' })
     await assertVisibleText(page, 'Top-page heatmaps')
     await assertVisibleText(page, 'Overall platform heatmap')
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
@@ -2186,7 +2201,7 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'platform.fixture@footballplayer.test')
     await page.waitForURL('**/platform-admin', { timeout: 15000 })
-    await assertVisibleText(page, 'Platform analytics')
+    await assertVisibleText(page, 'Operational summary')
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await assertHeaderContextPanelRemoved(page)
     await openMobileNavigation(page)

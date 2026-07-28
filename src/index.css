@@ -631,6 +631,124 @@ body .app-theme-scope [class*='shadow-[#065f46]'] {
   --tw-shadow-color: color-mix(in srgb, var(--accent) 18%, transparent) !important;
 }
 
+.platform-admin-theme {
+  color: var(--text-primary);
+}
+
+.platform-admin-theme .platform-overview-card {
+  border-color: var(--border-color) !important;
+  background-color: var(--panel-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.platform-admin-theme .platform-overview-card:hover {
+  border-color: var(--accent) !important;
+  background-color: var(--panel-alt) !important;
+}
+
+.platform-admin-theme [class~='bg-[var(--panel-bg)]'] {
+  background-color: var(--panel-bg) !important;
+}
+
+.platform-admin-theme [class~='bg-[var(--panel-alt)]'] {
+  background-color: var(--panel-alt) !important;
+}
+
+.platform-admin-theme [class~='bg-[var(--accent-soft)]'] {
+  background-color: var(--accent-soft) !important;
+}
+
+.platform-admin-theme [class~='border-[var(--border-color)]'] {
+  border-color: var(--border-color) !important;
+}
+
+.platform-admin-theme [class~='text-[var(--text-primary)]'] {
+  color: var(--text-primary) !important;
+}
+
+.platform-admin-theme [class~='text-[var(--text-muted)]'] {
+  color: var(--text-muted) !important;
+}
+
+.platform-admin-theme [class~='text-[var(--accent)]'] {
+  color: var(--accent) !important;
+}
+
+.platform-admin-theme [class*='bg-white'],
+.platform-admin-theme [class*='bg-[#0f1f18]'],
+.platform-admin-theme [class*='bg-[#0b1712]'] {
+  background-color: var(--panel-bg) !important;
+}
+
+.platform-admin-theme [class*='bg-slate-50'],
+.platform-admin-theme [class*='bg-slate-100'],
+.platform-admin-theme [class*='bg-[#f7faf8]'],
+.platform-admin-theme [class*='bg-[#102019]'],
+.platform-admin-theme [class*='bg-[#07130e]'],
+.platform-admin-theme [class*='bg-[#12251d]'] {
+  background-color: var(--panel-alt) !important;
+}
+
+.platform-admin-theme [class*='bg-slate-950'] {
+  background-color: var(--button-primary) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.platform-admin-theme [class*='bg-teal-700'],
+.platform-admin-theme [class*='bg-[#047857]'] {
+  background-color: var(--accent) !important;
+}
+
+.platform-admin-theme [class*='border-slate-'],
+.platform-admin-theme [class*='border-[#d7e5dc]'],
+.platform-admin-theme [class*='border-[#345b48]'],
+.platform-admin-theme [class*='border-[#29483b]'],
+.platform-admin-theme [class*='border-[#4f7c66]'] {
+  border-color: var(--border-color) !important;
+}
+
+.platform-admin-theme [class*='text-slate-950'],
+.platform-admin-theme [class*='text-slate-900'],
+.platform-admin-theme [class*='text-slate-800'],
+.platform-admin-theme [class*='text-slate-700'],
+.platform-admin-theme [class*='text-[#101828]'],
+.platform-admin-theme [class*='text-[#f4fff8]'],
+.platform-admin-theme [class*='text-[#e7fff1]'] {
+  color: var(--text-primary) !important;
+}
+
+.platform-admin-theme [class*='text-slate-600'],
+.platform-admin-theme [class*='text-slate-500'],
+.platform-admin-theme [class*='text-[#4b5f55]'],
+.platform-admin-theme [class*='text-[#d8fbe5]'],
+.platform-admin-theme [class*='text-[#c7f7d8]'],
+.platform-admin-theme [class*='text-[#b9dcc8]'] {
+  color: var(--text-muted) !important;
+}
+
+.platform-admin-theme [class*='text-teal-700'],
+.platform-admin-theme [class*='text-[#047857]'],
+.platform-admin-theme [class*='text-[#64a8ff]'] {
+  color: var(--accent) !important;
+}
+
+.platform-admin-theme [class*='bg-[#0b2d5b]'] {
+  background-color: var(--accent-soft) !important;
+}
+
+.platform-admin-theme [class*='border-[#1d4ed8]'] {
+  border-color: var(--accent) !important;
+}
+
+.platform-admin-theme [class*='focus:border-[#047857]']:focus,
+.platform-admin-theme [class*='hover:border-[#047857]']:hover {
+  border-color: var(--accent) !important;
+}
+
+.platform-admin-theme [class*='focus:ring-[#bbf7d0]']:focus {
+  --tw-ring-color: var(--focus-ring) !important;
+}
+
 .parent-portal-theme-scope {
   --parent-warning-bg: #2c2413;
   --parent-warning-border: #7a5c18;

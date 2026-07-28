@@ -23,7 +23,7 @@ function readStoredOpenState(storageKey, defaultOpen) {
   }
 
   try {
-    const storedValue = window.localStorage.getItem(storageKey)
+    const storedValue = window.sessionStorage.getItem(storageKey)
     if (storedValue === 'open') {
       return true
     }
@@ -43,7 +43,7 @@ function writeStoredOpenState(storageKey, isOpen) {
   }
 
   try {
-    window.localStorage.setItem(storageKey, isOpen ? 'open' : 'closed')
+    window.sessionStorage.setItem(storageKey, isOpen ? 'open' : 'closed')
   } catch (error) {
     console.error('Section card state could not be saved', error)
   }
@@ -73,12 +73,12 @@ export function SectionCard({
   return (
     <section
       data-tour-id={tourId}
-      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/5"
+      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10"
     >
-      <div className="flex flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <div className="flex flex-col gap-4 border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div className="min-w-0">
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">{title}</h3>
-          {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">{description}</p> : null}
+          <h3 className="text-2xl font-black tracking-tight text-[var(--text-primary)]">{title}</h3>
+          {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[var(--text-muted)]">{description}</p> : null}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           {actions ? <div className="w-full sm:w-auto">{actions}</div> : null}
@@ -87,7 +87,7 @@ export function SectionCard({
             onClick={handleToggle}
             aria-controls={contentId}
             aria-expanded={isOpen}
-            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#4b5f55] shadow-sm shadow-[#047857]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-black text-[var(--text-muted)] shadow-sm transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {isOpen ? 'Collapse' : 'Expand'}
           </button>

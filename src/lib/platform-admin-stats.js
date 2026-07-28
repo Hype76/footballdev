@@ -23,7 +23,7 @@ export function getPlanBreakdown(clubs = []) {
   }, {})
 }
 
-export function getPlatformDashboardStats(stats) {
+export function getPlatformDashboardStats(stats, { openIssueCount = 0 } = {}) {
   const platformTotals = stats?.totals ?? {}
   const planBreakdown = getPlanBreakdown(stats?.clubs ?? [])
 
@@ -33,48 +33,64 @@ export function getPlatformDashboardStats(stats) {
       value: platformTotals.clubs ?? 0,
       caption: 'Live club workspaces',
       detail: `${Object.keys(planBreakdown).length} plan types active`,
-    },
-    {
-      label: 'Adult users',
-      value: platformTotals.users ?? 0,
-      caption: 'Signed in staff accounts',
-      detail: `${platformTotals.clubUsers ?? 0} linked to clubs`,
+      path: '/platform-clubs',
+      actionLabel: 'View clubs',
     },
     {
       label: 'Teams',
       value: platformTotals.teams ?? 0,
       caption: 'Operational team spaces',
       detail: 'Across all clubs',
+      path: '/platform-clubs',
+      actionLabel: 'View teams',
     },
     {
       label: 'Active players',
       value: platformTotals.players ?? 0,
       caption: 'Visible player records',
       detail: `${platformTotals.archivedPlayers ?? 0} archived`,
+      path: '/platform-data-hygiene',
+      actionLabel: 'View player records',
+    },
+    {
+      label: 'Staff accounts',
+      value: platformTotals.staffAccounts ?? 0,
+      caption: 'Staff and platform operators',
+      detail: `${platformTotals.clubUsers ?? 0} linked to clubs`,
+      path: '/platform-staff',
+      actionLabel: 'View platform staff',
+    },
+    {
+      label: 'Parent accounts',
+      value: platformTotals.parentAccounts ?? 0,
+      caption: 'Authenticated parent users',
+      detail: 'Separate from staff accounts',
+      path: '/platform-analytics?focus=parents',
+      actionLabel: 'View parent adoption',
     },
     {
       label: 'Development records',
       value: platformTotals.evaluations ?? 0,
       caption: 'Saved player reports',
       detail: `${platformTotals.recentEvaluations ?? 0} in the last 7 days`,
+      path: '/platform-analytics?focus=development',
+      actionLabel: 'View development analytics',
     },
     {
-      label: 'Shared exports',
-      value: platformTotals.communications ?? 0,
-      caption: 'Emails and shares',
-      detail: `${platformTotals.recentCommunications ?? 0} in the last 7 days`,
+      label: 'Recent admin activity',
+      value: platformTotals.recentAdminActions ?? 0,
+      caption: 'Admin actions in the last 7 days',
+      detail: 'Recent measure, not a capped lifetime total',
+      path: '/platform-data-hygiene#recent-activity',
+      actionLabel: 'View activity context',
     },
     {
-      label: 'Audit events',
-      value: platformTotals.auditEvents ?? 0,
-      caption: 'Tracked admin actions',
-      detail: 'Accountability trail',
-    },
-    {
-      label: 'Platform admins',
-      value: platformTotals.platformAdmins ?? 0,
-      caption: 'Owner level access',
-      detail: 'Restricted admin users',
+      label: 'Open platform issues',
+      value: Number(openIssueCount ?? 0),
+      caption: 'Product and production reports',
+      detail: 'Items that still need review',
+      path: '/platform-feedback',
+      actionLabel: 'View platform feedback',
     },
   ]
 }

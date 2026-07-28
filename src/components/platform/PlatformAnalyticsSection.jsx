@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { SectionCard } from '../ui/SectionCard.jsx'
 
 const PRESET_OPTIONS = [
   ['today', 'Today'],
@@ -64,12 +65,12 @@ function FilterSelect({ label, name, value, options, onChange }) {
 function HeatmapCell({ value, maximum }) {
   const intensity = maximum ? Math.min(1, Number(value ?? 0) / maximum) : 0
   const backgroundColor = intensity
-    ? `color-mix(in srgb, #0f766e ${Math.max(18, Math.round(intensity * 100))}%, white)`
-    : '#f8fafc'
+    ? `color-mix(in srgb, var(--accent) ${Math.max(18, Math.round(intensity * 100))}%, var(--panel-bg))`
+    : 'var(--panel-alt)'
 
   return (
     <td
-      className="min-w-11 border border-white px-1 py-2 text-center text-xs font-black text-slate-900"
+      className="min-w-11 border border-[var(--panel-bg)] px-1 py-2 text-center text-xs font-black text-[var(--text-primary)]"
       style={{ backgroundColor }}
       title={`${Number(value ?? 0).toLocaleString()} events`}
     >
@@ -301,6 +302,12 @@ export function PlatformAnalyticsSection({
             <OverviewCard label="Page views" value={overview.pageViews?.current} detail={formatChange(overview.pageViews)} />
           </div>
 
+          <SectionCard
+            title="Page and role activity"
+            description="Top routes and privacy-safe role totals for the selected period."
+            defaultCollapsed
+            storageKey="platform-analytics-page-role"
+          >
           <div className="grid gap-5 xl:grid-cols-2">
             <article className="rounded-xl border border-slate-200 p-4">
               <h3 className="text-lg font-black text-slate-950">Top pages</h3>
@@ -332,19 +339,34 @@ export function PlatformAnalyticsSection({
               </div>
             </article>
           </div>
+          </SectionCard>
 
-          <article className="rounded-xl border border-slate-200 p-4">
-            <h3 className="text-lg font-black text-slate-950">Top-page heatmaps</h3>
+          <SectionCard
+            title="Top-page heatmaps"
+            description="Exact values remain visible in every cell for screen readers and low-colour environments."
+            defaultCollapsed
+            storageKey="platform-analytics-page-heatmaps"
+          >
             <p className="mb-4 text-sm font-semibold text-slate-600">Exact values remain visible in every cell for screen readers and low-colour environments.</p>
             <PageHeatmap heatmap={report.pageHeatmap} />
-          </article>
+          </SectionCard>
 
-          <article className="rounded-xl border border-slate-200 p-4">
-            <h3 className="text-lg font-black text-slate-950">Overall platform heatmap</h3>
+          <SectionCard
+            title="Overall platform heatmap"
+            description="Choose one aggregate metric. Hours use Europe/London time."
+            defaultCollapsed
+            storageKey="platform-analytics-overall-heatmap"
+          >
             <p className="mb-4 text-sm font-semibold text-slate-600">Choose one aggregate metric. Hours use Europe/London time.</p>
             <OverallHeatmap heatmap={report.overallHeatmap} />
-          </article>
+          </SectionCard>
 
+          <SectionCard
+            title="Adoption and maintenance context"
+            description="Parent adoption, club activity, and quiet maintenance guidance."
+            defaultCollapsed
+            storageKey="platform-analytics-adoption-maintenance"
+          >
           <div className="grid gap-5 xl:grid-cols-3">
             <article className="rounded-xl border border-slate-200 p-4">
               <h3 className="text-lg font-black text-slate-950">Parent adoption</h3>
@@ -376,16 +398,21 @@ export function PlatformAnalyticsSection({
               ) : <p className="mt-3 text-sm font-bold text-slate-600">{maintenance?.message || 'Insufficient data.'}</p>}
             </article>
           </div>
+          </SectionCard>
 
-          <details className="rounded-xl border border-slate-200 p-4">
-            <summary className="cursor-pointer text-base font-black text-slate-950">Definitions and exclusions</summary>
+          <SectionCard
+            title="Definitions and exclusions"
+            description="How aggregate measures are calculated and which activity is excluded."
+            defaultCollapsed
+            storageKey="platform-analytics-definitions"
+          >
             <dl className="mt-3 space-y-3 text-sm">
               {Object.entries(report.definitions).map(([key, value]) => <div key={key}><dt className="font-black text-slate-900">{labelValue(key)}</dt><dd className="font-semibold text-slate-600">{value}</dd></div>)}
             </dl>
             <p className="mt-3 text-sm font-bold text-slate-600">
               Default exclusions are {report.exclusionsActive ? 'active' : 'disabled'} for test accounts, demo accounts, Platform Admin activity, and non-production environments.
             </p>
-          </details>
+          </SectionCard>
         </>
       ) : null}
     </section>
