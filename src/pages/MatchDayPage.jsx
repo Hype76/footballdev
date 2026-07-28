@@ -125,6 +125,7 @@ import {
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
+  autoSelectAvailablePlayers: true,
   fixtureType: '',
   matchDate: '',
   kickoffTime: '',
@@ -509,6 +510,26 @@ function getPlayerSquadDecision(match, row) {
     decidedAt: decision?.decidedAt || '',
     decidedByName: decision?.decidedByName || '',
   }
+}
+
+function getAutomaticSelectionFailure(match, row) {
+  if (
+    match?.autoSelectAvailablePlayers !== true
+    || String(row?.status || '').toLowerCase() !== 'available'
+  ) {
+    return null
+  }
+
+  const latestAutomaticSelection = (match?.eventLog || [])
+    .filter((entry) => (
+      String(entry.playerId || '') === String(row?.playerId || '')
+      && entry.metadata?.source === 'availability_auto_selection'
+    ))
+    .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))[0] || null
+
+  return latestAutomaticSelection?.metadata?.automaticSelectionSucceeded === false
+    ? latestAutomaticSelection
+    : null
 }
 
 function getAvailabilityHistoryForPlayer(match, row) {
@@ -4749,6 +4770,7 @@ function MatchDayCard({
                 {currentAvailabilityRows.map((row) => {
                   const historyRows = getAvailabilityHistoryForPlayer(match, row)
                   const squadDecision = getPlayerSquadDecision(match, row)
+                  const automaticSelectionFailure = getAutomaticSelectionFailure(match, row)
 
                   return (
                     <div key={row.id || row.playerId || row.playerName} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
@@ -4771,6 +4793,11 @@ function MatchDayCard({
                       <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
                         {formatResponseDateTime(row.selectedAt)}
                       </p>
+                      {automaticSelectionFailure && squadDecision.status !== 'selected' ? (
+                        <p className="mt-3 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-3 text-sm font-black leading-6 text-[#92400e]" role="status">
+                          Player marked Available but could not be added to the match selection.
+                        </p>
+                      ) : null}
                       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={`Squad decision for ${row.playerName || 'player'}`}>
                         {MATCH_DAY_SQUAD_DECISION_OPTIONS.map((option) => {
                           const blockReason = getSquadDecisionChangeBlockReason({
@@ -6527,6 +6554,24 @@ function FixtureSetupModal({
               <label className="block">
                 <span className={labelClass}>Address</span>
                 <input value={form.venueAddress} onChange={(event) => updateManualLocation({ venueAddress: event.target.value })} className={inputClass} />
+              </label>
+            </div>
+
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+              <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
+                <input
+                  id="matchday-auto-select-available"
+                  type="checkbox"
+                  checked={form.autoSelectAvailablePlayers === true}
+                  onChange={(event) => updateForm({ autoSelectAvailablePlayers: event.target.checked })}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-[#047857]"
+                />
+                <span>
+                  <span className="block text-sm font-black text-[#101828]">Automatically select players who respond Available</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                    When enabled, invited players who respond Available will be added to the match selection automatically.
+                  </span>
+                </span>
               </label>
             </div>
 

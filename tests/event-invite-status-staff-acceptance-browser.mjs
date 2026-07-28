@@ -141,6 +141,7 @@ function matchRow() {
     match_duration_minutes: 90,
     venue_name: 'Fixture Ground',
     venue_address: '',
+    auto_select_available_players: true,
     status: 'scheduled',
     teams: { name: 'U12 Fixture Team' },
     match_day_availability_requests: matchState.requests,
@@ -349,6 +350,16 @@ try {
   await signIn(desktop.page)
   await openEvent(desktop.page, 'FP TEST Match Invite')
 
+  await desktop.page.getByRole('button', { name: 'Edit event' }).click()
+  const desktopAutoSelect = desktop.page.getByRole('checkbox', { name: 'Automatically select players who respond Available' })
+  await desktopAutoSelect.waitFor({ state: 'visible' })
+  assert.equal(await desktopAutoSelect.isChecked(), true)
+  await desktop.page.getByText('When enabled, invited players who respond Available will be added to the match selection automatically.').waitFor({ state: 'visible' })
+  const desktopAutoSelectBox = await desktopAutoSelect.locator('xpath=..').boundingBox()
+  assert.ok(desktopAutoSelectBox && desktopAutoSelectBox.height >= 48)
+  await desktop.page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await openEvent(desktop.page, 'FP TEST Match Invite')
+
   const selectedChip = desktop.page.getByRole('button', { name: 'Selected Player: Selected, Available' })
   const pendingChip = desktop.page.getByRole('button', { name: 'Pending Player: Awaiting response' })
   await selectedChip.waitFor({ state: 'visible' })
@@ -372,6 +383,10 @@ try {
 
   await desktop.page.getByRole('button', { name: 'Close' }).last().click()
   await openEvent(desktop.page, 'FP TEST Training Invite')
+  await desktop.page.getByRole('button', { name: 'Edit event' }).click()
+  assert.equal(await desktop.page.getByRole('checkbox', { name: 'Automatically select players who respond Available' }).count(), 0)
+  await desktop.page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await openEvent(desktop.page, 'FP TEST Training Invite')
   const trainingChip = desktop.page.getByRole('button', { name: 'Training Player: Awaiting response' })
   await trainingChip.click()
   const trainingConfirm = desktop.page.getByRole('dialog').last()
@@ -379,12 +394,29 @@ try {
   await trainingConfirm.getByRole('button', { name: 'Accept on behalf of player' }).click()
   await desktop.page.getByRole('button', { name: 'Training Player: Available' }).waitFor({ state: 'visible', timeout: 15000 })
   assert.equal(await desktop.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await desktop.page.goto(`${baseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await desktop.page.getByRole('heading', { name: 'Game Day' }).waitFor({ state: 'visible', timeout: 15000 })
+  await desktop.page.getByRole('button', { name: 'Create fixture' }).first().click()
+  const createAutoSelect = desktop.page.getByRole('checkbox', { name: 'Automatically select players who respond Available' })
+  await createAutoSelect.waitFor({ state: 'visible' })
+  assert.equal(await createAutoSelect.isChecked(), true)
+  await desktop.page.getByText('When enabled, invited players who respond Available will be added to the match selection automatically.').waitFor({ state: 'visible' })
+  assert.equal(await desktop.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   assert.deepEqual(desktop.pageErrors, [])
   await desktopContext.close()
 
-  const mobileContext = await browser.newContext({ colorScheme: 'dark', isMobile: true, viewport: { width: 390, height: 844 } })
+  const mobileContext = await browser.newContext({ colorScheme: 'light', isMobile: true, viewport: { width: 390, height: 844 } })
   const mobile = await preparePage(mobileContext)
   await signIn(mobile.page)
+  await openEvent(mobile.page, 'FP TEST Match Invite')
+  await mobile.page.getByRole('button', { name: 'Edit event' }).click()
+  const mobileAutoSelect = mobile.page.getByRole('checkbox', { name: 'Automatically select players who respond Available' })
+  await mobileAutoSelect.waitFor({ state: 'visible' })
+  assert.equal(await mobileAutoSelect.isChecked(), true)
+  const mobileAutoSelectBox = await mobileAutoSelect.locator('xpath=..').boundingBox()
+  assert.ok(mobileAutoSelectBox && mobileAutoSelectBox.height >= 48)
+  assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await mobile.page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await openEvent(mobile.page, 'FP TEST Match Invite')
   const mobileChip = mobile.page.getByRole('button', { name: 'Pending Player: Available' })
   await mobileChip.waitFor({ state: 'visible' })
@@ -397,7 +429,7 @@ try {
   assert.deepEqual(mobile.pageErrors, [])
   await mobileContext.close()
 
-  console.log('Event invite status and staff acceptance browser checks passed on desktop dark mode and mobile.')
+  console.log('Event invite status, automatic match selection, and staff acceptance browser checks passed on desktop dark mode and mobile light mode.')
 } catch (error) {
   console.error(server.getOutput())
   throw error

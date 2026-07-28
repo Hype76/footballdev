@@ -33,6 +33,7 @@ export function normalizeFixtureSetupIntent(intent = {}) {
 
   return {
     arrivalTime: kickoffTimeTbc ? '' : normalizeText(intent.arrivalTime),
+    autoSelectAvailablePlayers: intent.autoSelectAvailablePlayers !== false,
     clockMode: normalizeMatchClockMode(intent.clockMode),
     fixtureType: normalizeMatchDayFixtureType(intent.fixtureType),
     homeAway: normalizeNewMatchHomeAway(intent.homeAway),

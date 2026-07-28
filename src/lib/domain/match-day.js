@@ -537,6 +537,7 @@ export function normalizeMatchDay(row) {
     requestScorer: normalizeBoolean(row.request_scorer ?? row.requestScorer ?? row.status === 'scorer_request'),
     requestLinesman: normalizeBoolean(row.request_linesman ?? row.requestLinesman),
     requestReferee: normalizeBoolean(row.request_referee ?? row.requestReferee),
+    autoSelectAvailablePlayers: row.auto_select_available_players === true || row.autoSelectAvailablePlayers === true,
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     notificationRevision: Number(row.notification_revision ?? row.notificationRevision ?? 1),
@@ -754,6 +755,7 @@ function buildMatchDayListSelect() {
     request_scorer,
     request_linesman,
     request_referee,
+    auto_select_available_players,
     parent_visible,
     parent_audience,
     notification_revision,
@@ -906,6 +908,7 @@ function buildMatchDaySnapshot(row) {
     requestScorer: row.request_scorer === true,
     requestLinesman: row.request_linesman === true,
     requestReferee: row.request_referee === true,
+    autoSelectAvailablePlayers: row.auto_select_available_players === true,
     parentVisible: row.parent_visible === true,
     parentAudience: normalizeText(row.parent_audience),
     status: normalizeText(row.status),
@@ -937,6 +940,7 @@ function buildMatchDaySnapshotFromMatch(match) {
     requestScorer: match.requestScorer === true,
     requestLinesman: match.requestLinesman === true,
     requestReferee: match.requestReferee === true,
+    autoSelectAvailablePlayers: match.autoSelectAvailablePlayers === true,
     parentVisible: match.parentVisible === true,
     parentAudience: normalizeText(match.parentAudience),
     status: normalizeText(match.status),
@@ -1278,6 +1282,7 @@ export async function createMatchDay({ user, match }) {
       request_scorer: requestScorer,
       request_linesman: requestLinesman,
       request_referee: requestReferee,
+      auto_select_available_players: match?.autoSelectAvailablePlayers !== false,
       parent_visible: parentVisible,
       parent_audience: parentAudience,
       status: normalizeStatus(match?.status || (requestScorer ? 'scorer_request' : 'scheduled')),
@@ -1388,6 +1393,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.requestScorer !== undefined) payload.request_scorer = normalizeBoolean(updates.requestScorer)
   if (updates.requestLinesman !== undefined) payload.request_linesman = normalizeBoolean(updates.requestLinesman)
   if (updates.requestReferee !== undefined) payload.request_referee = normalizeBoolean(updates.requestReferee)
+  if (updates.autoSelectAvailablePlayers !== undefined) payload.auto_select_available_players = normalizeBoolean(updates.autoSelectAvailablePlayers)
   if (updates.parentVisible !== undefined) {
     payload.parent_visible = updates.parentVisible !== false
     if (updates.parentVisible === false) {

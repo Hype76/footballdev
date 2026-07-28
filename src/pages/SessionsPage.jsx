@@ -214,6 +214,7 @@ function getDefaultCalendarForm(date = '') {
 
   return {
     arrivalTime: '',
+    autoSelectAvailablePlayers: true,
     date: eventDate,
     endTime: '',
     eventType: 'training',
@@ -660,6 +661,7 @@ function getFormFromCalendarEvent(event, invites = []) {
     return {
       ...getDefaultCalendarForm(source.matchDate || event.date),
       arrivalTime: source.kickoffTimeTbc ? '' : formatTimeInput(source.arrivalTime),
+      autoSelectAvailablePlayers: source.autoSelectAvailablePlayers === true,
       date: formatDateInput(source.matchDate || event.date),
       endTime: source.kickoffTimeTbc ? '' : addMinutesToTime(source.kickoffTime, 120),
       eventType: 'match',
@@ -1691,6 +1693,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setErrorMessage('')
 
     try {
+      let automaticSelectionFailed = false
       const result = await acceptEventPlayerAvailabilityOnBehalf({
         eventId: sourceId,
         eventType,
@@ -1701,6 +1704,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
       if (isMatchFixture) {
         const refreshedMatch = await getMatchDay({ user, matchDayId: sourceId })
+        const latestAutomaticSelection = (refreshedMatch.eventLog || [])
+          .filter((entry) => (
+            String(entry.playerId || '') === playerId
+            && entry.metadata?.source === 'availability_auto_selection'
+          ))
+          .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))[0]
+        automaticSelectionFailed = (
+          refreshedMatch.autoSelectAvailablePlayers === true
+          && latestAutomaticSelection?.metadata?.automaticSelectionSucceeded === false
+        )
         setMatchDays((current) => current.map((match) => match.id === refreshedMatch.id ? refreshedMatch : match))
         setCalendarModal((current) => {
           if (String(current?.event?.sourceId ?? '').trim() !== sourceId) {
@@ -1724,10 +1737,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       }
 
       showToast({
-        title: result.changed ? 'Player accepted' : 'Already accepted',
-        message: result.changed
-          ? `${invite.player?.playerName || 'Player'} is now Available. The response is recorded as staff acting on behalf.`
-          : `${invite.player?.playerName || 'Player'} is already ${status?.availabilityLabel || 'Available'}.`,
+        title: automaticSelectionFailed ? 'Player available, selection needs attention' : result.changed ? 'Player accepted' : 'Already accepted',
+        message: automaticSelectionFailed
+          ? 'Player marked Available but could not be added to the match selection.'
+          : result.changed
+            ? `${invite.player?.playerName || 'Player'} is now Available. The response is recorded as staff acting on behalf.`
+            : `${invite.player?.playerName || 'Player'} is already ${status?.availabilityLabel || 'Available'}.`,
+        tone: automaticSelectionFailed ? 'warning' : undefined,
       })
     } catch (error) {
       console.error(error)
@@ -1750,6 +1766,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     openMatchDayFixtureSetup({
       arrivalTime: form.arrivalTime,
+      autoSelectAvailablePlayers: form.autoSelectAvailablePlayers !== false,
       fixtureType: form.fixtureType,
       kickoffTime: form.startTime,
       kickoffTimeTbc: form.kickoffTimeTbc === true,
@@ -2065,6 +2082,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       if (isMatch && !sourceType) {
         openMatchDayFixtureSetup({
           arrivalTime: calendarForm.arrivalTime,
+          autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers !== false,
           fixtureType: calendarForm.fixtureType,
           kickoffTime: calendarForm.startTime,
           kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
@@ -2304,6 +2322,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         } else if (sourceType === 'match-day') {
           const payload = {
             arrivalTime: calendarForm.arrivalTime,
+            autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers === true,
             fixtureType: calendarForm.fixtureType,
             homeAway: 'home',
             kickoffTime: calendarForm.startTime,
@@ -4309,6 +4328,25 @@ function CalendarEventModal({
               ) : null}
             </div>
             )}
+
+            {isMatchFixture ? (
+              <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+                <input
+                  type="checkbox"
+                  name="autoSelectAvailablePlayers"
+                  checked={form.autoSelectAvailablePlayers === true}
+                  onChange={onChange}
+                  disabled={isBusy}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-[#047857]"
+                />
+                <span>
+                  <span className="block text-sm font-black text-[#101828]">Automatically select players who respond Available</span>
+                  <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+                    When enabled, invited players who respond Available will be added to the match selection automatically.
+                  </span>
+                </span>
+              </label>
+            ) : null}
 
             {showInvites ? (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
