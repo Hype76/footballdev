@@ -190,6 +190,10 @@ export {
 } from './domain/calendar-event-invites.js'
 
 export {
+  acceptEventPlayerAvailabilityOnBehalf,
+} from './domain/event-availability-staff-actions.js'
+
+export {
   getParentCalendarVisualState,
   getParentInvitationCategory,
   getParentInvitationResponseOptions,

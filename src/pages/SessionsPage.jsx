@@ -45,6 +45,7 @@ import { openMatchDayFixtureSetup } from '../lib/matchday-workflow.js'
 import { isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 import {
   addPlayersToAssessmentSession,
+  acceptEventPlayerAvailabilityOnBehalf,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
   cancelPendingTrainingAvailabilityRequests,
@@ -62,7 +63,7 @@ import {
   getCalendarEvents,
   getCalendarEventInvites,
   getDefaultTrainingAvailabilityForm,
-  getTrainingAvailabilityChipState,
+  getMatchDay,
   getMatchDays,
   getPolls,
   getResourceLibraryItems,
@@ -97,7 +98,10 @@ import {
   getWholeSquadSelectionState,
 } from '../lib/domain/calendar-invite-scope.js'
 import { getCalendarNotificationToast } from '../lib/domain/calendar-notification-status.js'
-import { buildMatchDayPlayerInviteStatusMap } from '../lib/domain/calendar-actionable-invites.js'
+import {
+  buildMatchDayPlayerInviteStateMap,
+  resolveEventInvitePlayerStatus,
+} from '../lib/domain/calendar-actionable-invites.js'
 import { buildCalendarNotificationHtml } from '../lib/calendar-notification-email.js'
 import {
   addMinutesToRequiredTime,
@@ -991,6 +995,93 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   useEffect(() => {
     let isMounted = true
+    let refreshInFlight = false
+    const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
+    const sourceType = String(calendarModal?.event?.sourceType ?? '').trim()
+    const eventType = String(calendarModal?.event?.data?.eventType ?? calendarForm.eventType ?? '').trim()
+
+    if (!sourceId || !['match-day', 'calendar'].includes(sourceType)) {
+      return () => {
+        isMounted = false
+      }
+    }
+
+    const refreshAvailability = async () => {
+      if (refreshInFlight || document.visibilityState === 'hidden') {
+        return
+      }
+
+      refreshInFlight = true
+
+      try {
+        if (sourceType === 'match-day') {
+          const matchDay = await getMatchDay({ user, matchDayId: sourceId })
+
+          if (!isMounted) {
+            return
+          }
+
+          setCalendarModal((current) => {
+            if (String(current?.event?.sourceId ?? '').trim() !== sourceId) {
+              return current
+            }
+
+            return {
+              ...current,
+              event: {
+                ...current.event,
+                data: matchDay,
+              },
+            }
+          })
+          setMatchDays((current) => current.map((match) => match.id === matchDay.id ? matchDay : match))
+        } else if (eventType === 'training') {
+          const summaries = await getTrainingAvailabilitySummaryForEvents({ user, eventIds: [sourceId] })
+
+          if (isMounted) {
+            setTrainingAvailabilitySummaryByEventId((current) => ({
+              ...current,
+              [sourceId]: summaries[sourceId] || null,
+            }))
+          }
+        }
+      } catch (error) {
+        console.error(error)
+      } finally {
+        refreshInFlight = false
+      }
+    }
+
+    const handleVisibleRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshAvailability()
+      }
+    }
+    const intervalId = window.setInterval(() => {
+      void refreshAvailability()
+    }, 10000)
+
+    void refreshAvailability()
+    window.addEventListener('focus', handleVisibleRefresh)
+    document.addEventListener('visibilitychange', handleVisibleRefresh)
+
+    return () => {
+      isMounted = false
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', handleVisibleRefresh)
+      document.removeEventListener('visibilitychange', handleVisibleRefresh)
+    }
+  }, [
+    calendarForm.eventType,
+    calendarModal?.event?.data?.eventType,
+    calendarModal?.event?.sourceId,
+    calendarModal?.event?.sourceType,
+    user,
+    userScopeKey,
+  ])
+
+  useEffect(() => {
+    let isMounted = true
     const event = calendarModal?.event
     const eventId = String(event?.sourceId ?? '').trim()
     const eventTeamId = String(event?.data?.teamId ?? '').trim()
@@ -1583,6 +1674,73 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       trainingAvailabilitySendDaysBefore: setting?.sendDaysBefore ?? 2,
     })
     setCalendarModal({ mode: 'view', event })
+  }
+
+  const handleAcceptEventAvailabilityOnBehalf = async ({ invite, occurrenceDate, status }) => {
+    const event = calendarModal?.event
+    const sourceId = String(event?.sourceId ?? '').trim()
+    const isMatchFixture = event?.sourceType === 'match-day'
+    const eventType = isMatchFixture ? 'match' : calendarForm.eventType
+    const playerId = String(invite?.playerId ?? '').trim()
+
+    if (!sourceId || !playerId || !['match', 'training'].includes(eventType)) {
+      throw new Error('This invitation is not available for staff acceptance.')
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const result = await acceptEventPlayerAvailabilityOnBehalf({
+        eventId: sourceId,
+        eventType,
+        occurrenceDate,
+        playerId,
+        user,
+      })
+
+      if (isMatchFixture) {
+        const refreshedMatch = await getMatchDay({ user, matchDayId: sourceId })
+        setMatchDays((current) => current.map((match) => match.id === refreshedMatch.id ? refreshedMatch : match))
+        setCalendarModal((current) => {
+          if (String(current?.event?.sourceId ?? '').trim() !== sourceId) {
+            return current
+          }
+
+          return {
+            ...current,
+            event: {
+              ...current.event,
+              data: refreshedMatch,
+            },
+          }
+        })
+      } else {
+        const summaries = await getTrainingAvailabilitySummaryForEvents({ user, eventIds: [sourceId] })
+        setTrainingAvailabilitySummaryByEventId((current) => ({
+          ...current,
+          [sourceId]: summaries[sourceId] || null,
+        }))
+      }
+
+      showToast({
+        title: result.changed ? 'Player accepted' : 'Already accepted',
+        message: result.changed
+          ? `${invite.player?.playerName || 'Player'} is now Available. The response is recorded as staff acting on behalf.`
+          : `${invite.player?.playerName || 'Player'} is already ${status?.availabilityLabel || 'Available'}.`,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The player could not be accepted on their behalf.')
+      showToast({
+        title: 'Player not accepted',
+        message: error.message || 'The player could not be accepted on their behalf.',
+        tone: 'error',
+      })
+      throw error
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const openCalendarMatchDayWorkflow = (form) => {
@@ -2865,6 +3023,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             navigate(href || '/sessions')
           }}
           onResourceIdsChange={handleCalendarResourceIdsChange}
+          onAcceptOnBehalf={handleAcceptEventAvailabilityOnBehalf}
           onSubmit={handleCalendarSave}
           resourceOptions={calendarResourceOptions}
           selectedInvitePlayers={selectedCalendarInvitePlayers}
@@ -3163,6 +3322,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           navigate(href || '/sessions')
         }}
         onResourceIdsChange={handleCalendarResourceIdsChange}
+        onAcceptOnBehalf={handleAcceptEventAvailabilityOnBehalf}
         onSubmit={handleCalendarSave}
         resourceOptions={calendarResourceOptions}
         selectedInvitePlayers={selectedCalendarInvitePlayers}
@@ -3451,41 +3611,61 @@ function getTrainingAvailabilityDetailByPlayerId(details = []) {
 }
 
 function getTrainingAvailabilityChipClasses(tone) {
+  if (tone === 'purple') {
+    return 'border-[#d8b4fe] bg-[#f3e8ff] text-[#6b21a8] dark:border-[#a855f7] dark:bg-[#3b0764] dark:text-[#f3e8ff]'
+  }
+
   if (tone === 'green') {
-    return 'border-[#86efac] bg-[#dcfce7] text-[#166534]'
+    return 'border-[#86efac] bg-[#dcfce7] text-[#166534] dark:border-[#22c55e] dark:bg-[#052e16] dark:text-[#dcfce7]'
   }
 
   if (tone === 'red') {
-    return 'border-[#fecaca] bg-[#fef2f2] text-[#991b1b]'
+    return 'border-[#fecaca] bg-[#fef2f2] text-[#991b1b] dark:border-[#ef4444] dark:bg-[#450a0a] dark:text-[#fee2e2]'
   }
 
   if (tone === 'orange') {
-    return 'border-[#fed7aa] bg-[#fff7ed] text-[#9a3412]'
+    return 'border-[#fed7aa] bg-[#fff7ed] text-[#9a3412] dark:border-[#f97316] dark:bg-[#431407] dark:text-[#ffedd5]'
   }
 
-  return 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]'
+  return 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] dark:border-[#3b82f6] dark:bg-[#172554] dark:text-[#dbeafe]'
 }
 
-function TrainingAvailabilityPlayerChip({ detail, invite }) {
-  const state = detail
-    ? {
-        label: detail.responseLabel,
-        tone: detail.responseTone,
-      }
-    : getTrainingAvailabilityChipState('pending')
-  const playerName = invite.player?.playerName || detail?.playerName || 'Player'
-  const statusLabel = state.label || 'No response'
-  const title = `${playerName}: ${statusLabel} for this session`
+function EventInvitePlayerChip({ actionable, invite, onOpen, status }) {
+  const playerName = invite.player?.playerName || 'Player'
+  const title = `${playerName}: ${status.accessibleLabel}`
+  const className = `inline-flex min-h-12 max-w-full flex-col items-start justify-center rounded-lg border px-3 py-2 text-left text-xs font-black transition focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 ${getTrainingAvailabilityChipClasses(status.tone)}`
+  const content = (
+    <>
+      <span className="max-w-full truncate">{playerName}</span>
+      <span className="mt-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] opacity-90">{status.primaryLabel}</span>
+      {status.secondaryLabel ? (
+        <span className="mt-0.5 text-[0.62rem] font-bold opacity-80">{status.secondaryLabel}</span>
+      ) : null}
+    </>
+  )
+
+  if (!actionable) {
+    return (
+      <span
+        className={className}
+        title={title}
+        aria-label={title}
+      >
+        {content}
+      </span>
+    )
+  }
 
   return (
-    <span
-      className={`inline-flex max-w-full flex-col rounded-lg border px-3 py-1.5 text-xs font-black ${getTrainingAvailabilityChipClasses(state.tone)}`}
+    <button
+      type="button"
+      className={`${className} cursor-pointer hover:brightness-95`}
       title={title}
       aria-label={title}
+      onClick={onOpen}
     >
-      <span className="truncate">{playerName}</span>
-      <span className="mt-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] opacity-80">{statusLabel}</span>
-    </span>
+      {content}
+    </button>
   )
 }
 
@@ -3615,6 +3795,7 @@ function CalendarEventModal({
   onChange,
   onDelete,
   onEdit,
+  onAcceptOnBehalf,
   onOpenWorkflow,
   onResourceIdsChange,
   onSubmit,
@@ -3625,6 +3806,8 @@ function CalendarEventModal({
   user,
   variant = '',
 }) {
+  const [availabilityAction, setAvailabilityAction] = useState(null)
+
   if (!isOpen) {
     return null
   }
@@ -3673,15 +3856,24 @@ function CalendarEventModal({
     ...(hasInviteTeam ? [{ value: 'all_team_parents', label: 'All parents in the team' }] : []),
     ...(canUseClubLevel ? [{ value: 'all_club_parents', label: 'All parents in the club' }] : []),
   ]
-  const actionableInviteStatusByPlayerId = event?.sourceType === 'match-day'
-    ? buildMatchDayPlayerInviteStatusMap({
+  const matchInviteStatesByPlayerId = event?.sourceType === 'match-day'
+    ? buildMatchDayPlayerInviteStateMap({
+        invitedPlayerIds: form.invitedPlayerIds,
         matchDay: event.data,
-        selectedPlayerIds: form.invitedPlayerIds,
       })
     : {}
+  const canUseStaffAcceptance = Boolean(
+    Number(user?.roleRank ?? 0) >= 20
+    && user?.role !== 'parent_portal'
+    && (
+      event?.sourceType === 'match-day'
+      || (event?.sourceType === 'calendar' && form.eventType === 'training')
+    ),
+  )
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-stretch justify-center overflow-hidden bg-[#101828]/45 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
+    <>
+      <div className="fixed inset-0 z-[80] flex items-stretch justify-center overflow-hidden bg-[#101828]/45 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
       <div
         role="dialog"
         aria-modal="true"
@@ -3753,12 +3945,21 @@ function CalendarEventModal({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {currentInvites.map((invite) => {
                     const detail = trainingAvailabilityDetailsByPlayerId.get(String(invite.playerId ?? ''))
+                    const status = event?.sourceType === 'match-day'
+                      ? matchInviteStatesByPlayerId[String(invite.playerId ?? '')]
+                        || resolveEventInvitePlayerStatus({ matchFixture: true })
+                      : resolveEventInvitePlayerStatus({
+                          availabilityStatus: detail?.responseStatus,
+                          matchFixture: false,
+                        })
 
                     return (
-                      <TrainingAvailabilityPlayerChip
+                      <EventInvitePlayerChip
+                        actionable={canUseStaffAcceptance}
                         key={invite.id}
-                        detail={detail}
                         invite={invite}
+                        onOpen={() => setAvailabilityAction({ invite, status })}
+                        status={status}
                       />
                     )
                   })}
@@ -4186,7 +4387,7 @@ function CalendarEventModal({
                             </span>
                             {event?.sourceType === 'match-day' ? (
                               <span className="mt-1 block text-xs font-black text-[#047857]">
-                                {actionableInviteStatusByPlayerId[String(player.id)] || 'Not invited'}
+                                {matchInviteStatesByPlayerId[String(player.id)]?.accessibleLabel || 'Not invited'}
                               </span>
                             ) : null}
                           </span>
@@ -4260,7 +4461,32 @@ function CalendarEventModal({
           </div>
         )}
       </div>
-    </div>
+      </div>
+      <ConfirmModal
+        isOpen={Boolean(availabilityAction)}
+        isBusy={isBusy}
+        title={availabilityAction?.invite?.player?.playerName || 'Invited player'}
+        message="This records an Available response by you as authorised staff. It does not sign in as, or impersonate, the parent or player."
+        items={[
+          `Current availability: ${availabilityAction?.status?.availabilityLabel || 'Awaiting response'}`,
+          ...(availabilityAction?.status?.matchSelectionLabel
+            ? [`Match selection: ${availabilityAction.status.matchSelectionLabel}`]
+            : []),
+        ]}
+        itemsTitle="Invitation status"
+        confirmLabel="Accept on behalf of player"
+        confirmDisabled={availabilityAction?.status?.canAcceptOnBehalf === false}
+        onCancel={() => setAvailabilityAction(null)}
+        onConfirm={async () => {
+          await onAcceptOnBehalf({
+            invite: availabilityAction.invite,
+            occurrenceDate: availabilityOccurrenceDate,
+            status: availabilityAction.status,
+          })
+          setAvailabilityAction(null)
+        }}
+      />
+    </>
   )
 }
 
