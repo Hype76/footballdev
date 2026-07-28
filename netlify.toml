@@ -14,6 +14,9 @@
   node_bundler = "esbuild"
   external_node_modules = ["@sparticuz/chromium"]
 
+[functions."process-platform-analytics"]
+  schedule = "*/15 * * * *"
+
 [context.production]
   command = "npm run build:live && npm run verify:build-env"
 
