@@ -8,7 +8,6 @@ import { getParentPortalPolls, submitParentPortalPollVote } from '../lib/supabas
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
-const panelClass = 'rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10'
 const chipClass = 'inline-flex w-fit whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 
 function getPollVoteCounts(poll) {
@@ -204,7 +203,10 @@ export function ParentPollsPage() {
   return (
     <ParentPortalRouteShell
       activeSection="polls"
+      links={links}
       newStateByCategory={newStateByCategory}
+      onSelectedParentLinkChange={setSelectedLinkId}
+      selectedLink={selectedLink}
       selectedParentLinkId={selectedLink?.id}
       user={user}
     >
@@ -235,21 +237,7 @@ export function ParentPollsPage() {
           </div>
         </div>
 
-        <div className="grid gap-5 bg-[#f7faf8] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-          <aside className="space-y-4">
-            <ParentPollChildSelector
-              links={links}
-              onSelect={setSelectedLinkId}
-              selectedLink={selectedLink}
-            />
-
-            <div className={panelClass}>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Selected child</p>
-              <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink?.playerName || 'No child selected'}</p>
-              <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Team: {selectedLink?.teamName || 'No team assigned'}, Club: {selectedLink?.clubName || 'No club assigned'}</p>
-            </div>
-          </aside>
-
+        <div className="bg-[#f7faf8] px-5 py-5 sm:px-6">
           <div className="min-w-0">
             {errorMessage ? (
               <NoticeBanner title="Poll action failed" message={errorMessage} />
@@ -334,28 +322,6 @@ function ParentPollMetric({ caption, isLoading, label, value }) {
       <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
     </article>
-  )
-}
-
-function ParentPollChildSelector({ links, onSelect, selectedLink }) {
-  return (
-    <div className={panelClass}>
-      <label htmlFor="parent-poll-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">
-        Child
-      </label>
-      <select
-        id="parent-poll-child"
-        value={selectedLink?.id || ''}
-        onChange={(event) => onSelect(event.target.value)}
-        className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]"
-      >
-        {links.map((link) => (
-          <option key={link.id} value={link.id}>
-            {link.playerName}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
-          </option>
-        ))}
-      </select>
-    </div>
   )
 }
 

@@ -176,14 +176,14 @@ test('parent shell exposes the requested switch only from authoritative team opt
     readFile(parentPortalPageUrl, 'utf8'),
   ])
 
-  assert.match(source, /resolvedAccessModeOptions\.some\(\(option\) => option\?\.id === 'team'\)/)
-  assert.match(source, /Switch to Staff Platform/)
+  assert.match(source, /getParentPortalStaffReturnMode\(\{ accessModeOptions, user \}\)/)
+  assert.match(source, /PARENT_PORTAL_STAFF_RETURN_LABEL/)
   assert.match(source, /aria-label="Parent account actions"/)
   assert.match(source, /Checking staff access\.\.\./)
   assert.match(source, /await selectAccessMode\('team', \{ deferCommit: true \}\)/)
   assert.match(source, /switchToMainAppWorkspace\(\{ session, targetPath: TEAM_WORKSPACE_HOME_PATH \}\)/)
-  assert.match(parentPortalSource, /<ParentPortalAccountActions/)
-  assert.match(parentPortalSource, /showAccountActions=\{false\}/)
+  assert.match(parentPortalSource, /onSignOut=\{handleParentSignOut\}/)
+  assert.doesNotMatch(parentPortalSource, /showAccountActions=\{false\}/)
 })
 
 test('cross-host switching transfers the existing session without URL tokens', async () => {

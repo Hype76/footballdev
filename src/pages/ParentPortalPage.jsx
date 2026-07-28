@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
 import {
-  ParentPortalAccountActions,
   ParentPortalSectionNav,
 } from '../components/parent-portal/ParentPortalShell.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
@@ -1309,30 +1308,20 @@ export function ParentPortalPage() {
       className="parent-portal-theme-scope space-y-4 pb-44 sm:space-y-5 lg:pb-0"
       data-testid="parent-portal-page"
     >
-      <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
-          <div className="min-w-0">
-            <p className={eyebrowClass}>Family portal</p>
-            <h1 className="mt-2 truncate text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
-              {selectedLink?.playerName || 'Parent portal'}
-            </h1>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Updates shared by the club
-            </p>
-            <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-              You only see updates the club has shared for this child.
-            </p>
-          </div>
-
-          <ParentChildSelector
-            isSigningOut={isSigningOut}
-            links={links}
-            onSelect={setSelectedLinkId}
-            onSignOut={handleParentSignOut}
-            selectedLink={selectedLink}
-          />
+      <header className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="min-w-0">
+          <p className={eyebrowClass}>Family Portal</p>
+          <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
+            {selectedLink?.playerName || 'Parent portal'}
+          </h1>
+          <p className="mt-1 truncate text-sm font-semibold text-[#4b5f55]">
+            {selectedLink?.teamName || 'No team assigned'}
+          </p>
         </div>
-      </section>
+        <p className="inline-flex max-w-xl items-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-xs font-semibold leading-5 text-[#4b5f55]">
+          Private family view. You only see information the club has shared for this child.
+        </p>
+      </header>
 
       {searchParams.get('linked') === '1' && requestedParentLinkId && selectedLink?.id === requestedParentLinkId ? (
         <NoticeBanner
@@ -1348,10 +1337,14 @@ export function ParentPortalPage() {
         <ParentPortalSectionNav
           activeSection={activeSection}
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
+          isSigningOut={isSigningOut}
+          links={links}
           newStateByCategory={parentNavNewState}
+          onParentLinkSelect={setSelectedLinkId}
           onSelect={handleSectionSelect}
+          onSignOut={handleParentSignOut}
+          selectedLink={selectedLink}
           selectedParentLinkId={selectedLink?.id}
-          showAccountActions={false}
           user={user}
           variant="desktop"
         />
@@ -1462,10 +1455,14 @@ export function ParentPortalPage() {
       <ParentPortalSectionNav
         activeSection={activeSection}
         className="lg:hidden"
+        isSigningOut={isSigningOut}
+        links={links}
         newStateByCategory={parentNavNewState}
+        onParentLinkSelect={setSelectedLinkId}
         onSelect={handleSectionSelect}
+        onSignOut={handleParentSignOut}
+        selectedLink={selectedLink}
         selectedParentLinkId={selectedLink?.id}
-        showAccountActions={false}
         user={user}
         variant="mobile"
       />
@@ -3022,56 +3019,6 @@ function ParentPortalSignOutButton({ className = '', isSigningOut, onSignOut }) 
     >
       {isSigningOut ? 'Signing out...' : 'Sign out'}
     </button>
-  )
-}
-
-function ParentChildSelector({ isSigningOut, links, onSelect, onSignOut, selectedLink }) {
-  if (!selectedLink) {
-    return (
-      <div className={panelClass}>
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Child being viewed</p>
-        <p className="mt-2 text-lg font-black text-[#101828]">No linked child yet</p>
-        <p className={`mt-2 ${bodyTextClass}`}>{noChildMessage}</p>
-        <div className="mt-4 border-t border-[#d7e5dc] pt-4">
-          <ParentPortalAccountActions
-            isSigningOut={isSigningOut}
-            onSignOut={onSignOut}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className={panelClass}>
-      <label htmlFor="parent-portal-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">
-        Child being viewed
-      </label>
-      <select
-        id="parent-portal-child"
-        value={selectedLink?.id || ''}
-        onChange={(event) => onSelect(event.target.value)}
-        className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
-      >
-        {links.map((link) => (
-          <option key={link.id} value={link.id}>
-            {formatParentChildTeamLabel(link)}
-          </option>
-        ))}
-      </select>
-      <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">
-        Team: {selectedLink.teamName || 'No team assigned'}, Club: {selectedLink.clubName || 'No club assigned'}
-      </p>
-      <p className={`mt-3 ${bodyTextClass}`}>
-        You are only viewing information the club has shared for this child.
-      </p>
-      <div className="mt-4 border-t border-[#d7e5dc] pt-4">
-        <ParentPortalAccountActions
-          isSigningOut={isSigningOut}
-          onSignOut={onSignOut}
-        />
-      </div>
-    </div>
   )
 }
 

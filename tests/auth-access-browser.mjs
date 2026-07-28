@@ -1400,7 +1400,7 @@ try {
     const { page } = await preparePage(context)
     await parentSignIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl)
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await assertVisibleText(page, 'Family portal')
+    await assertVisibleText(page, 'Family Portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
     await assertNoSetupGuideTrigger(page)
     await context.close()
@@ -1447,12 +1447,12 @@ try {
     await page.locator('a[aria-label="Resources, New activity"]:visible').first()
       .waitFor({ state: 'visible', timeout: 15000 })
 
-    await page.locator('#parent-portal-child').selectOption('parent-link-fixture-second')
+    await page.locator('#parent-portal-shell-child').selectOption('parent-link-fixture-second')
     await page.waitForFunction(() => (
       document.querySelectorAll('a[aria-label="Resources, New activity"]:not([hidden])').length === 0
     ))
 
-    await page.locator('#parent-portal-child').selectOption('parent-link-fixture')
+    await page.locator('#parent-portal-shell-child').selectOption('parent-link-fixture')
     await page.locator('a[aria-label="Resources, New activity"]:visible').first()
       .waitFor({ state: 'visible', timeout: 15000 })
 
@@ -1508,7 +1508,7 @@ try {
       false,
     )
 
-    await page.locator('#parent-chat-child').selectOption('parent-link-fixture-second')
+    await page.locator('#parent-portal-shell-child').selectOption('parent-link-fixture-second')
     await page.getByText('Second child preview', { exact: true }).waitFor({ state: 'visible' })
     await page.getByText('First child preview', { exact: true }).waitFor({ state: 'detached' })
     assert.equal(
@@ -1800,7 +1800,7 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'parent')
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await assertVisibleText(page, 'Family portal')
+    await assertVisibleText(page, 'Family Portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
     assert.equal(await page.getByText(/sign-in is for club staff/i).count(), 0)
     await assertNoSetupGuideTrigger(page)
@@ -1863,7 +1863,7 @@ try {
     await seedSelectedAccessMode(page, 'team')
     await parentSignIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl)
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await assertVisibleText(page, 'Family portal')
+    await assertVisibleText(page, 'Family Portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
     await context.close()
   })
@@ -2028,7 +2028,7 @@ try {
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Switch to Staff Platform' }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Back to club workspace' }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Retry' }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Sign in again' }).count(), 0)
     assert.equal(await page.getByText('Fixture Child').count(), 0)
@@ -2036,19 +2036,74 @@ try {
     await context.close()
   })
 
+  await runScenario('Family Portal shell restores club branding and safe child context on desktop and mobile', async () => {
+    const desktopContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
+    const { page: desktopPage } = await preparePage(desktopContext)
+    await parentSignIn(desktopPage, 'parent-multiple.fixture@footballplayer.test', mainBaseUrl)
+    await desktopPage.waitForURL('**/parent-portal', { timeout: 15000 })
+
+    const desktopContextPanel = desktopPage.getByTestId('parent-portal-context-desktop')
+    await desktopContextPanel.waitFor({ state: 'visible' })
+    await desktopContextPanel.getByRole('img', { name: 'Fixture United logo' }).waitFor({ state: 'visible' })
+    await desktopContextPanel.getByText('Fixture United', { exact: true }).waitFor({ state: 'visible' })
+    const desktopChildSelector = desktopContextPanel.locator('#parent-portal-shell-child')
+    assert.equal(await desktopChildSelector.locator('option').count(), 2)
+    await desktopChildSelector.selectOption('parent-link-fixture-second')
+    await desktopContextPanel.getByRole('paragraph').filter({ hasText: 'Second Fixture Child' }).waitFor({ state: 'visible' })
+    await desktopPage.getByText('Private family view. You only see information the club has shared for this child.', { exact: true }).waitFor({ state: 'visible' })
+    assert.equal(await desktopPage.getByText('Child being viewed', { exact: true }).count(), 0)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Back to club workspace' }).count(), 0)
+    assert.equal(await desktopPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    await desktopContext.close()
+
+    const mobileContext = await browser.newContext({
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 390, height: 844 },
+    })
+    const { page: mobilePage } = await preparePage(mobileContext)
+    await parentSignIn(mobilePage, 'parent-multiple.fixture@footballplayer.test', mainBaseUrl)
+    await mobilePage.waitForURL('**/parent-portal', { timeout: 15000 })
+
+    const mobileContextPanel = mobilePage.getByTestId('parent-portal-context-mobile')
+    await mobileContextPanel.waitFor({ state: 'visible' })
+    await mobileContextPanel.getByText('Fixture United', { exact: true }).waitFor({ state: 'visible' })
+    const mobileChildSelector = mobileContextPanel.locator('#parent-portal-shell-child-mobile')
+    await mobileChildSelector.selectOption('parent-link-fixture-second')
+    await mobileContextPanel.getByRole('paragraph').filter({ hasText: 'Second Fixture Child' }).waitFor({ state: 'visible' })
+    const mobileNavState = await mobileContextPanel.locator('xpath=..').evaluate((element) => {
+      const styles = getComputedStyle(element)
+      const signOut = element.querySelector('[aria-label="Sign out of the parent portal"]')
+      return {
+        bottom: element.getBoundingClientRect().bottom,
+        position: styles.position,
+        signOutHeight: signOut?.getBoundingClientRect().height ?? 0,
+        viewportHeight: window.innerHeight,
+      }
+    })
+    assert.equal(mobileNavState.position, 'fixed')
+    assert.ok(mobileNavState.bottom <= mobileNavState.viewportHeight + 1)
+    assert.ok(mobileNavState.signOutHeight >= 44)
+    assert.equal(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    await mobileContext.close()
+  })
+
   await runScenario('parent portal sign out is visible and clears the fixture session', async () => {
     const desktopContext = await browser.newContext()
     const { page: desktopPage } = await preparePage(desktopContext)
     await parentSignIn(desktopPage, 'parent.fixture@footballplayer.test', mainBaseUrl)
     await desktopPage.waitForURL('**/parent-portal', { timeout: 15000 })
-    const mainAccountActions = desktopPage.getByLabel('Parent account actions').first()
+    const mainAccountActions = desktopPage
+      .getByTestId('parent-portal-context-desktop')
+      .locator('xpath=..')
+      .getByLabel('Parent account actions')
     await mainAccountActions.getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
-    assert.equal(await desktopPage.getByRole('button', { name: /Sign out/ }).count(), 1)
-    assert.equal(await desktopPage.getByRole('button', { name: 'Switch to Staff Platform' }).count(), 0)
+    assert.equal(await mainAccountActions.getByRole('button', { name: /Sign out/ }).count(), 1)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Back to club workspace' }).count(), 0)
     await desktopPage.goto(`${mainBaseUrl}/parent-portal?section=settings`, { waitUntil: 'domcontentloaded' })
     await assertVisibleText(desktopPage, 'Parent settings')
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
-    assert.equal(await desktopPage.getByRole('button', { name: 'Switch to Staff Platform' }).count(), 0)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Back to club workspace' }).count(), 0)
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().click()
     await waitForPathname(desktopPage, '/sign-in')
     assert.equal(new URL(desktopPage.url()).searchParams.get('tab'), 'parent')
@@ -2062,10 +2117,14 @@ try {
     const { page: mobilePage } = await preparePage(mobileContext)
     await parentSignIn(mobilePage, 'parent.fixture@footballplayer.test', mainBaseUrl)
     await mobilePage.waitForURL('**/parent-portal', { timeout: 15000 })
-    await mobilePage.getByLabel('Parent account actions').first().getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
+    const mobileAccountActions = mobilePage
+      .getByTestId('parent-portal-context-mobile')
+      .locator('xpath=..')
+      .getByLabel('Parent account actions')
+    await mobileAccountActions.getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
     await mobilePage.goto(`${mainBaseUrl}/parent-portal?section=settings`, { waitUntil: 'domcontentloaded' })
     await assertVisibleText(mobilePage, 'Parent settings')
-    await mobilePage.getByLabel('Parent account actions').first().getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
+    await mobileAccountActions.getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
     await mobileContext.close()
   })
 
@@ -2074,7 +2133,7 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'parent')
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.getByRole('button', { name: 'Back to club workspace' }).first().click()
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team access')
     await assertVisibleText(page, 'Club-wide view')
@@ -2094,7 +2153,7 @@ try {
     await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
     await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.getByRole('button', { name: 'Back to club workspace' }).first().click()
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
     await assertVisibleText(page, 'Team tools')
@@ -2109,7 +2168,7 @@ try {
     await assertSelectedOption(page, 'Access view', 'Team access')
     await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.getByRole('button', { name: 'Back to club workspace' }).first().click()
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team access')
     await assertVisibleText(page, 'Club-wide view')
@@ -2124,14 +2183,19 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'parent')
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    const accountActions = page.getByLabel('Parent account actions').first()
-    const switchButton = accountActions.getByRole('button', { name: 'Switch to Staff Platform' })
+    const accountActions = page
+      .getByTestId('parent-portal-context-mobile')
+      .locator('xpath=..')
+      .getByLabel('Parent account actions')
+    const switchButton = accountActions.getByRole('button', { name: 'Back to club workspace' })
     const signOutButton = accountActions.getByRole('button', { name: /Sign out/ })
     await switchButton.waitFor({ state: 'visible', timeout: 15000 })
     await signOutButton.waitFor({ state: 'visible', timeout: 15000 })
     const [switchBox, signOutBox] = await Promise.all([switchButton.boundingBox(), signOutButton.boundingBox()])
     assert.ok(switchBox && signOutBox)
-    assert.ok(switchBox.y + switchBox.height <= signOutBox.y)
+    assert.ok(Math.abs(switchBox.y - signOutBox.y) <= 2)
+    assert.ok(switchBox.height >= 44)
+    assert.ok(signOutBox.height >= 44)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await context.close()
   })
@@ -2141,7 +2205,7 @@ try {
     const { page } = await preparePage(context)
     await parentSignIn(page, 'multi.fixture@footballplayer.test', parentBaseUrl)
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Switch to Staff Platform' }).first().click()
+    await page.getByRole('button', { name: 'Back to club workspace' }).first().click()
     await page.waitForURL(`${mainBaseUrl}/coach`, { timeout: 15000 })
     await assertVisibleText(page, 'Club-wide view')
     assert.equal(
@@ -2165,7 +2229,7 @@ try {
 
     await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await assertVisibleText(page, 'Family portal')
+    await assertVisibleText(page, 'Family Portal')
     await page.getByLabel('Access view').waitFor({ state: 'detached', timeout: 15000 })
     assert.equal(await page.getByLabel('Access view').count(), 0)
     await assertVisibleTextContaining(page, 'Fixture Child')

@@ -25,25 +25,33 @@ const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url
 const footballCalendarUrl = new URL('../src/components/sessions/FootballCalendar.jsx', import.meta.url)
 
 test('parent dashboard explains no linked child state in plain English', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const [source, shellSource] = await Promise.all([
+    readFile(parentPortalPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+  ])
+  const combinedSource = `${source}\n${shellSource}`
 
   assert.match(source, /No child is linked to this parent account yet/)
   assert.match(source, /Ask your club or team contact to send a parent invite/)
   assert.match(source, /Parent portal/)
-  assert.match(source, /No linked child yet/)
+  assert.match(combinedSource, /No linked child/)
   assert.doesNotMatch(source, /No child links are active for this parent account\./)
 })
 
 test('parent dashboard explains linked child and multiple child selection', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const [source, shellSource] = await Promise.all([
+    readFile(parentPortalPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+  ])
 
   assert.match(source, /\{selectedLink\?\.playerName \|\| 'Parent portal'\}/)
-  assert.match(source, /Updates shared by the club/)
-  assert.match(source, /Child being viewed/)
+  assert.match(source, /Private family view/)
+  assert.match(shellSource, /parent-portal-shell-child/)
+  assert.match(shellSource, /allowedLinks\.map/)
   assert.match(source, /formatParentChildTeamLabel\(link\)/)
   assert.match(source, /Team not available/)
   assert.doesNotMatch(source, /Other linked children/)
-  assert.match(source, /You only see updates the club has shared for this child/)
+  assert.match(source, /You only see information the club has shared for this child/)
   assert.match(source, /Dates, invites, match cards, resources, and results appear here when the club shares them/)
 })
 
@@ -72,16 +80,21 @@ test('parent dashboard uses section navigation instead of one long page', async 
 })
 
 test('parent child selector is placed before dashboard content', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const [source, shellSource] = await Promise.all([
+    readFile(parentPortalPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+  ])
 
-  const selectorIndex = source.indexOf('<ParentChildSelector')
+  const selectorIndex = shellSource.indexOf('id="parent-portal-shell-child"')
+  const shellNavIndex = shellSource.indexOf('<nav aria-label="Parent portal sections"')
   const navIndex = source.indexOf('<ParentPortalSectionNav')
   const overviewIndex = source.indexOf('<ParentOverviewPanel')
 
   assert.notEqual(selectorIndex, -1)
+  assert.notEqual(shellNavIndex, -1)
   assert.notEqual(navIndex, -1)
   assert.notEqual(overviewIndex, -1)
-  assert.ok(selectorIndex < navIndex)
+  assert.ok(selectorIndex < shellNavIndex)
   assert.ok(navIndex < overviewIndex)
 })
 
@@ -174,24 +187,25 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
 
   assert.match(shellSource, /function ParentPortalAccountActions/)
   assert.match(shellSource, /accessModeOptions, isProfileLoading, selectAccessMode, session, signOut, user/)
-  assert.match(shellSource, /const canOpenTeamWorkspace = resolvedAccessModeOptions\.some/)
+  assert.match(shellSource, /getParentPortalStaffReturnMode\(\{ accessModeOptions, user \}\)/)
   assert.match(shellSource, /await selectAccessMode\('team', \{ deferCommit: true \}\)/)
   assert.match(shellSource, /TEAM_WORKSPACE_HOME_PATH/)
   assert.match(shellSource, /switchToMainAppWorkspace\(\{ session, targetPath: TEAM_WORKSPACE_HOME_PATH \}\)/)
-  assert.match(shellSource, /aria-label="Switch to Staff Platform"/)
-  assert.match(shellSource, /Switch to Staff Platform/)
+  assert.match(shellSource, /aria-label=\{PARENT_PORTAL_STAFF_RETURN_LABEL\}/)
+  assert.match(shellSource, /PARENT_PORTAL_STAFF_RETURN_LABEL/)
   assert.match(shellSource, /await signOut\(\)/)
   assert.match(shellSource, /rememberParentAccessIntent\(\)/)
   assert.match(shellSource, /window\.location\.assign\(buildMainAppUrl\('\/sign-in\?tab=parent'\)\)/)
   assert.match(shellSource, /aria-label="Sign out of the parent portal"/)
   assert.match(shellSource, /Sign out/)
-  assert.match(shellSource, /mt-3 shrink-0 border-t/)
+  assert.match(shellSource, /mt-auto shrink-0 border-t/)
   assert.match(shellSource, /mt-1 border-t/)
   assert.match(shellSource, /grid min-h-0 gap-2 overflow-y-auto overscroll-contain/)
   assert.match(shellSource, /fixed inset-x-0 bottom-0 z-\[60\]/)
-  assert.match(source, /<ParentPortalAccountActions/)
-  assert.match(source, /showAccountActions=\{false\}/)
-  assert.match(source, /pb-28/)
+  assert.match(source, /onSignOut=\{handleParentSignOut\}/)
+  assert.match(source, /isSigningOut=\{isSigningOut\}/)
+  assert.doesNotMatch(source, /showAccountActions=\{false\}/)
+  assert.match(source, /pb-44/)
   assert.match(source, /activeSection === 'settings'/)
   assert.match(messagesSource, /activeSection="chat"/)
   assert.match(pollsSource, /<ParentPortalRouteShell[\s\S]*activeSection="polls"/)
@@ -270,8 +284,9 @@ test('parent portal shell persists navigation on Chat, polls and family routes',
   assert.match(shellSource, /variant="desktop"/)
   assert.match(shellSource, /variant="mobile"/)
   assert.match(shellSource, /const parentPortalSections = \[/)
-  const sectionsEnd = shellSource.indexOf('export function ParentPortalSectionNav')
-  const sectionsSource = shellSource.slice(0, sectionsEnd)
+  const sectionsStart = shellSource.indexOf('const parentPortalSections = [')
+  const sectionsEnd = shellSource.indexOf('\n]\n', sectionsStart) + 3
+  const sectionsSource = shellSource.slice(sectionsStart, sectionsEnd)
   assert.doesNotMatch(sectionsSource, /id: 'family'|to: '\/friends-family'|Friends and Family/)
   assert.doesNotMatch(sectionsSource, /coach|admin|staff/i)
 })

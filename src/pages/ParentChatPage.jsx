@@ -110,7 +110,10 @@ export function ParentChatPage() {
   return (
     <ParentPortalRouteShell
       activeSection="chat"
+      links={links}
       newStateByCategory={newStateByCategory}
+      onSelectedParentLinkChange={handleSelectedParentLinkChange}
+      selectedLink={selectedLink}
       selectedParentLinkId={selectedLink?.id}
       user={user}
     >
@@ -118,13 +121,10 @@ export function ParentChatPage() {
         key={`${selectedLink?.id || 'none'}:${childOnly ? 'child' : 'all'}`}
         childFilterAvailable={childFilterAvailable}
         childOnly={childOnly}
-        links={links}
         onBeforeRoomLoad={captureActivityState}
         onChildOnlyChange={setChildOnly}
         onRoomLoadSuccess={handleRoomLoadSuccess}
-        onSelectedParentLinkChange={handleSelectedParentLinkChange}
         parentLinkId={selectedLink?.id}
-        selectedParentLink={selectedLink}
         user={user}
         variant="parent"
       />

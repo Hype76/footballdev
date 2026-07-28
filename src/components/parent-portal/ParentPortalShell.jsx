@@ -1,9 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import fallbackLogo from '../../assets/football-player-logo.png'
 import { useAuth } from '../../lib/auth.js'
 import { buildMainAppUrl } from '../../lib/app-origins.js'
 import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
+import { resolveParentPortalBranding } from '../../lib/parent-portal-branding.js'
+import {
+  getParentPortalStaffReturnMode,
+  PARENT_PORTAL_STAFF_RETURN_LABEL,
+  resolveParentPortalShellContext,
+} from '../../lib/parent-portal-shell.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
+import { getStoredThemeMode, saveThemePreferences } from '../../lib/theme.js'
 import { switchToMainAppWorkspace } from '../../lib/workspace-session-bridge.jsx'
 import { TEAM_WORKSPACE_HOME_PATH } from '../../lib/workspace-routes.js'
 
@@ -19,11 +27,122 @@ const parentPortalSections = [
   { id: 'settings', label: 'Settings', description: 'Profile and preferences', to: '/parent-portal?section=settings' },
 ]
 
+function ParentPortalContext({
+  links,
+  onParentLinkSelect,
+  selectedLink,
+  selectedParentLinkId,
+  variant,
+}) {
+  const {
+    activeLink,
+    allowedLinks,
+    childName,
+    clubLogoUrl,
+    clubName,
+    teamName,
+  } = resolveParentPortalShellContext({
+    links,
+    selectedLink,
+    selectedParentLinkId,
+  })
+  const logoUrl = clubLogoUrl || fallbackLogo
+  const isMobile = variant === 'mobile'
+
+  return (
+    <section
+      aria-label="Family Portal context"
+      data-testid={`parent-portal-context-${variant}`}
+      className={isMobile
+        ? 'mb-1.5 flex min-w-0 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2'
+        : 'mb-3 shrink-0 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3'}
+    >
+      <div className={isMobile ? 'flex min-w-0 flex-1 items-center gap-2' : 'flex min-w-0 items-center gap-3'}>
+        <div className={isMobile
+          ? 'flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d7e5dc] bg-white'
+          : 'flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10'}
+        >
+          <img
+            src={logoUrl}
+            alt={clubLogoUrl ? `${clubName} logo` : 'Football Player logo'}
+            className="h-full w-full object-contain p-1.5"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#047857] sm:text-[11px]">
+            Family Portal
+          </p>
+          <p className={isMobile
+            ? 'truncate text-sm font-black text-[#101828]'
+            : 'mt-1 truncate text-lg font-black tracking-tight text-[#101828]'}
+          >
+            {clubName}
+          </p>
+          {isMobile ? (
+            <p className="truncate text-[11px] font-semibold text-[#4b5f55]">
+              {childName} | {teamName}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {!isMobile ? (
+        <div className="mt-3 grid gap-2">
+          <label className="grid gap-1" htmlFor="parent-portal-shell-child">
+            <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+              Child
+            </span>
+            <select
+              id="parent-portal-shell-child"
+              value={activeLink?.id || ''}
+              onChange={(event) => onParentLinkSelect?.(event.target.value)}
+              disabled={allowedLinks.length === 0}
+              className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {allowedLinks.length > 0 ? allowedLinks.map((link) => (
+                <option key={link.id} value={link.id}>
+                  {link.playerName || 'Linked child'}
+                </option>
+              )) : <option value="">No linked child</option>}
+            </select>
+          </label>
+          <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+            <p className="truncate text-xs font-black text-[#101828]">{childName}</p>
+            <p className="mt-1 truncate text-[11px] font-semibold text-[#4b5f55]">{teamName}</p>
+          </div>
+        </div>
+      ) : allowedLinks.length > 1 ? (
+        <label className="shrink-0" htmlFor="parent-portal-shell-child-mobile">
+          <span className="sr-only">Child</span>
+          <select
+            id="parent-portal-shell-child-mobile"
+            value={activeLink?.id || ''}
+            onChange={(event) => onParentLinkSelect?.(event.target.value)}
+            aria-label="Choose child"
+            className="min-h-11 max-w-[8.5rem] rounded-lg border border-[#d7e5dc] bg-white px-2 py-2 text-xs font-black text-[#101828] outline-none focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]"
+          >
+            {allowedLinks.map((link) => (
+              <option key={link.id} value={link.id}>
+                {link.playerName || 'Linked child'}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+    </section>
+  )
+}
+
 export function ParentPortalSectionNav({
   activeSection,
   className = '',
+  isSigningOut = false,
+  links = [],
   newStateByCategory = {},
+  onParentLinkSelect,
   onSelect,
+  onSignOut,
+  selectedLink,
   selectedParentLinkId,
   showAccountActions = true,
   user,
@@ -47,7 +166,14 @@ export function ParentPortalSectionNav({
 
   return (
     <div className={wrapperClass}>
-      <nav aria-label="Parent portal sections">
+      <ParentPortalContext
+        links={links}
+        onParentLinkSelect={onParentLinkSelect}
+        selectedLink={selectedLink}
+        selectedParentLinkId={selectedParentLinkId}
+        variant={variant}
+      />
+      <nav aria-label="Parent portal sections" className={variant === 'desktop' ? 'min-h-0 flex-1 overflow-y-auto' : ''}>
         <div className={listClass}>
           {visibleSections.map((section) => {
             const isActive = activeSection === section.id
@@ -109,8 +235,12 @@ export function ParentPortalSectionNav({
         </div>
       </nav>
       {showAccountActions ? (
-        <div className={variant === 'mobile' ? 'mt-1 border-t border-[#d7e5dc] pt-1.5' : 'mt-3 shrink-0 border-t border-[#d7e5dc] pt-3'}>
-          <ParentPortalAccountActions variant={variant} />
+        <div className={variant === 'mobile' ? 'mt-1 border-t border-[#d7e5dc] pt-1.5' : 'mt-auto shrink-0 border-t border-[#d7e5dc] pt-3'}>
+          <ParentPortalAccountActions
+            isSigningOut={isSigningOut}
+            onSignOut={onSignOut}
+            variant={variant}
+          />
         </div>
       ) : null}
     </div>
@@ -127,18 +257,15 @@ export function ParentPortalAccountActions({
   const [isOpeningTeam, setIsOpeningTeam] = useState(false)
   const [switchError, setSwitchError] = useState('')
   const isSigningOut = externalIsSigningOut || internalIsSigningOut
-  const resolvedAccessModeOptions = [
-    ...(Array.isArray(accessModeOptions) ? accessModeOptions : []),
-    ...(Array.isArray(user?.accessModeOptions) ? user.accessModeOptions : []),
-  ]
-  const canOpenTeamWorkspace = resolvedAccessModeOptions.some((option) => option?.id === 'team')
+  const staffReturnMode = getParentPortalStaffReturnMode({ accessModeOptions, user })
+  const canOpenTeamWorkspace = staffReturnMode === 'team'
   const buttonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#f2b8b5] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff4f3] disabled:cursor-not-allowed disabled:opacity-60',
-    variant === 'mobile' ? 'min-h-9 px-3 py-2 text-xs' : '',
+    variant === 'mobile' ? 'px-3 py-2 text-xs' : '',
   ].filter(Boolean).join(' ')
   const switchButtonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#047857] bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/10 transition hover:bg-[#036c4a] disabled:cursor-not-allowed disabled:opacity-60',
-    variant === 'mobile' ? 'min-h-9 px-3 py-2 text-xs' : '',
+    variant === 'mobile' ? 'px-3 py-2 text-xs' : '',
   ].filter(Boolean).join(' ')
 
   const handleOpenTeamWorkspace = async () => {
@@ -150,7 +277,7 @@ export function ParentPortalAccountActions({
       await switchToMainAppWorkspace({ session, targetPath: TEAM_WORKSPACE_HOME_PATH })
     } catch (error) {
       console.error(error)
-      setSwitchError(error.message || 'Staff access could not be opened. Try again or ask a club admin to review this account.')
+      setSwitchError(error.message || 'The club workspace could not be opened. Try again or ask a club admin to review this account.')
       setIsOpeningTeam(false)
     }
   }
@@ -175,9 +302,12 @@ export function ParentPortalAccountActions({
   }
 
   return (
-    <div className="grid gap-2" aria-label="Parent account actions">
+    <div
+      className={variant === 'mobile' && canOpenTeamWorkspace ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}
+      aria-label="Parent account actions"
+    >
       {isProfileLoading && !canOpenTeamWorkspace ? (
-        <p aria-live="polite" className="text-center text-xs font-bold text-[#4b5f55]">
+        <p aria-live="polite" className={variant === 'mobile' ? 'col-span-2 text-center text-xs font-bold text-[#4b5f55]' : 'text-center text-xs font-bold text-[#4b5f55]'}>
           Checking staff access...
         </p>
       ) : null}
@@ -186,10 +316,10 @@ export function ParentPortalAccountActions({
           type="button"
           onClick={handleOpenTeamWorkspace}
           disabled={isOpeningTeam || isSigningOut || isProfileLoading}
-          aria-label="Switch to Staff Platform"
+          aria-label={PARENT_PORTAL_STAFF_RETURN_LABEL}
           className={switchButtonClass}
         >
-          {isOpeningTeam ? 'Opening...' : 'Switch to Staff Platform'}
+          {isOpeningTeam ? 'Opening club workspace...' : PARENT_PORTAL_STAFF_RETURN_LABEL}
         </button>
       ) : null}
       <button
@@ -202,7 +332,7 @@ export function ParentPortalAccountActions({
         {isSigningOut ? 'Signing out...' : 'Sign out'}
       </button>
       {switchError ? (
-        <p role="alert" className={variant === 'mobile' ? 'text-xs font-bold text-[#b42318]' : 'text-sm font-bold text-[#b42318]'}>
+        <p role="alert" className={variant === 'mobile' ? 'col-span-2 text-xs font-bold text-[#b42318]' : 'text-sm font-bold text-[#b42318]'}>
           {switchError}
         </p>
       ) : null}
@@ -213,21 +343,57 @@ export function ParentPortalAccountActions({
 export function ParentPortalRouteShell({
   activeSection,
   children,
+  links = [],
   newStateByCategory,
+  onSelectedParentLinkChange,
+  selectedLink,
   selectedParentLinkId,
   user,
 }) {
+  const profileLinks = user?.parentPortalLinks
+  const resolvedLinks = useMemo(
+    () => (Array.isArray(links) && links.length > 0
+      ? links
+      : (Array.isArray(profileLinks) ? profileLinks : [])),
+    [links, profileLinks],
+  )
+  const resolvedSelectedLink = useMemo(
+    () => selectedLink
+      ?? resolvedLinks.find((link) => link.id === selectedParentLinkId)
+      ?? resolvedLinks[0],
+    [resolvedLinks, selectedLink, selectedParentLinkId],
+  )
+
+  useEffect(() => {
+    if (!resolvedSelectedLink?.id) {
+      return
+    }
+
+    const branding = resolveParentPortalBranding({
+      selectedLink: resolvedSelectedLink,
+      links: resolvedLinks,
+    })
+    saveThemePreferences({
+      mode: getStoredThemeMode(),
+      accent: branding.accent,
+      buttonStyle: branding.buttonStyle,
+    })
+  }, [resolvedLinks, resolvedSelectedLink])
+
   return (
     <div
-      className="parent-portal-theme-scope space-y-4 pb-28 sm:space-y-5 lg:pb-0"
+      className="parent-portal-theme-scope space-y-4 pb-44 sm:space-y-5 lg:pb-0"
       data-testid="parent-portal-route-shell"
     >
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
           activeSection={activeSection}
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
+          links={resolvedLinks}
           newStateByCategory={newStateByCategory}
-          selectedParentLinkId={selectedParentLinkId}
+          onParentLinkSelect={onSelectedParentLinkChange}
+          selectedLink={resolvedSelectedLink}
+          selectedParentLinkId={resolvedSelectedLink?.id || selectedParentLinkId}
           user={user}
           variant="desktop"
         />
@@ -238,8 +404,11 @@ export function ParentPortalRouteShell({
       <ParentPortalSectionNav
         activeSection={activeSection}
         className="lg:hidden"
+        links={resolvedLinks}
         newStateByCategory={newStateByCategory}
-        selectedParentLinkId={selectedParentLinkId}
+        onParentLinkSelect={onSelectedParentLinkChange}
+        selectedLink={resolvedSelectedLink}
+        selectedParentLinkId={resolvedSelectedLink?.id || selectedParentLinkId}
         user={user}
         variant="mobile"
       />

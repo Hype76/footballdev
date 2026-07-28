@@ -165,7 +165,13 @@ export function FriendsFamilyPage() {
   return (
     <ParentPortalRouteShell
       activeSection="family"
+      links={links}
       newStateByCategory={newStateByCategory}
+      onSelectedParentLinkChange={(linkId) => {
+        setSelectedLinkId(linkId)
+        setShareUrl('')
+      }}
+      selectedLink={selectedLink}
       selectedParentLinkId={selectedLink?.id}
       user={user}
     >

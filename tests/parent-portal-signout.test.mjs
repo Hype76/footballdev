@@ -3,22 +3,22 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
+const parentPortalShellUrl = new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 
-test('parent portal renders visible sign out actions in the main header and settings', async () => {
+test('parent portal renders visible sign out actions in the shared shell and settings', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
-  const childSelectorStart = source.indexOf('function ParentChildSelector')
-  const childSelectorEnd = source.indexOf('function PushNotificationPanel', childSelectorStart)
-  const childSelectorSection = source.slice(childSelectorStart, childSelectorEnd)
+  const shellSource = await readFile(parentPortalShellUrl, 'utf8')
   const settingsStart = source.indexOf('function ParentSettingsPanel')
   const settingsEnd = source.indexOf('function toDateOnly', settingsStart)
   const settingsSection = source.slice(settingsStart, settingsEnd)
 
   assert.match(source, /function ParentPortalSignOutButton/)
   assert.match(source, /'Sign out'/)
-  assert.match(childSelectorSection, /<ParentPortalAccountActions/)
-  assert.match(childSelectorSection, /isSigningOut=\{isSigningOut\}/)
-  assert.match(childSelectorSection, /onSignOut=\{onSignOut\}/)
+  assert.match(shellSource, /<ParentPortalAccountActions/)
+  assert.match(shellSource, /isSigningOut=\{isSigningOut\}/)
+  assert.match(shellSource, /onSignOut=\{onSignOut\}/)
+  assert.match(shellSource, /aria-label="Sign out of the parent portal"/)
   assert.match(settingsSection, /<ParentPortalSignOutButton/)
   assert.match(settingsSection, /className="w-full sm:w-auto"/)
 })

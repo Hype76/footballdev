@@ -99,14 +99,11 @@ function getRoomEmptyCopy(room) {
 export function ParentChatWorkspace({
   childFilterAvailable = false,
   childOnly = false,
-  links = [],
   onBeforeRoomLoad,
   onChildOnlyChange,
   onRoomLoadSuccess,
-  onSelectedParentLinkChange,
   onUnreadCountChange,
   parentLinkId,
-  selectedParentLink,
   user,
   variant = 'parent',
 }) {
@@ -334,55 +331,29 @@ export function ParentChatWorkspace({
             ? 'Use the controlled child, team and selected squad rooms available for your current staff assignment.'
             : 'Keep child, team and selected match conversations inside footballplayer.online.'}
         </p>
-        {variant === 'parent' && (links.length > 1 || childFilterAvailable) ? (
-          <div className="mt-5 grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 sm:grid-cols-2 sm:items-end">
-            {links.length > 1 ? (
-              <div>
-                <label
-                  htmlFor="parent-chat-child"
-                  className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]"
-                >
-                  Child
-                </label>
-                <select
-                  id="parent-chat-child"
-                  value={selectedParentLink?.id || ''}
-                  onChange={(event) => onSelectedParentLinkChange?.(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]"
-                >
-                  {links.map((link) => (
-                    <option key={link.id} value={link.id}>
-                      {link.playerName}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            {childFilterAvailable ? (
-              <div className={links.length > 1 ? '' : 'sm:col-span-2'}>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
-                  Parent Portal view
-                </p>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={childOnly}
-                  onClick={() => onChildOnlyChange?.(!childOnly)}
-                  className="flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-left text-sm font-black text-[#101828] transition hover:border-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bbf7d0]"
-                >
-                  <span>Your child only</span>
-                  <span
-                    aria-hidden="true"
-                    className={`relative h-7 w-12 shrink-0 rounded-full transition ${childOnly ? 'bg-[#047857]' : 'bg-[#98a2b3]'}`}
-                  >
-                    <span
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${childOnly ? 'left-6' : 'left-1'}`}
-                    />
-                  </span>
-                  <span className="sr-only">{childOnly ? 'Enabled' : 'Disabled'}</span>
-                </button>
-              </div>
-            ) : null}
+        {variant === 'parent' && childFilterAvailable ? (
+          <div className="mt-5 max-w-sm rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
+              Parent Portal view
+            </p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={childOnly}
+              onClick={() => onChildOnlyChange?.(!childOnly)}
+              className="flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-left text-sm font-black text-[#101828] transition hover:border-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bbf7d0]"
+            >
+              <span>Your child only</span>
+              <span
+                aria-hidden="true"
+                className={`relative h-7 w-12 shrink-0 rounded-full transition ${childOnly ? 'bg-[#047857]' : 'bg-[#98a2b3]'}`}
+              >
+                <span
+                  className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${childOnly ? 'left-6' : 'left-1'}`}
+                />
+              </span>
+              <span className="sr-only">{childOnly ? 'Enabled' : 'Disabled'}</span>
+            </button>
           </div>
         ) : null}
       </div>

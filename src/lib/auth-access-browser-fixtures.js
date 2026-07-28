@@ -34,6 +34,7 @@ const parentPortalLinks = [
     playerName: 'Fixture Child',
     clubId: 'club-fixture',
     clubName: 'Fixture United',
+    clubLogoUrl: '/assets/football-player-logo.png',
     teamId: 'team-u12',
     teamName: 'U12 Fixture Team',
     status: 'active',
