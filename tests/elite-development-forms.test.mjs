@@ -21,7 +21,7 @@ import { normalizeFeedbackFormSnapshot } from '../src/lib/domain/evaluation-norm
 import { normalizeResponseValue } from '../src/hooks/evaluations/evaluationFormUtils.js'
 import { getParentVisibleDevelopmentResponses } from '../netlify/functions/lib/_development-parent-email-output.js'
 
-const migrationUrl = new URL('../supabase/migrations/20260727202636_elite_development_forms_batch1.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260728050325_elite_development_forms_batch1.sql', import.meta.url)
 
 function metricField(overrides = {}) {
   const field = normalizeFeedbackFormField({

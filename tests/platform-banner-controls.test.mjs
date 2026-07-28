@@ -15,8 +15,8 @@ import {
   validatePlatformBannerDraft,
 } from '../src/lib/platform-banner-config.js'
 
-const baseMigrationUrl = new URL('../supabase/migrations/20260726110413_platform_banner_controls.sql', import.meta.url)
-const audienceMigrationUrl = new URL('../supabase/migrations/20260726112602_platform_banner_audiences.sql', import.meta.url)
+const baseMigrationUrl = new URL('../supabase/migrations/20260726111558_platform_banner_controls.sql', import.meta.url)
+const audienceMigrationUrl = new URL('../supabase/migrations/20260726114113_platform_banner_audiences.sql', import.meta.url)
 const adminPageUrl = new URL('../src/pages/PlatformAdminPage.jsx', import.meta.url)
 const adminSectionUrl = new URL('../src/components/platform/PlatformBannerManagementSection.jsx', import.meta.url)
 const platformBannerNoticeUrl = new URL('../src/components/platform/PlatformBannerNotice.jsx', import.meta.url)

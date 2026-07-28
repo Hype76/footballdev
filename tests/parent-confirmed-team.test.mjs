@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const migrationUrl = new URL(
-  '../supabase/migrations/20260725151941_parent_portal_confirmed_team_read_model.sql',
+  '../supabase/migrations/20260725153849_parent_portal_confirmed_team_read_model.sql',
   import.meta.url,
 )
 const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)

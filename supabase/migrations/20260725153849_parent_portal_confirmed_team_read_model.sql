@@ -115,8 +115,3 @@ grant execute on function public.get_parent_portal_confirmed_teams(uuid) to serv
 
 comment on function public.get_parent_portal_confirmed_teams(uuid) is
   'Returns only ordered staff-selected player display names for parent-visible fixtures in the authenticated parent link team.';
-
--- Repair procedure:
--- 1. Revoke execute from authenticated and service_role.
--- 2. Drop public.get_parent_portal_confirmed_teams(uuid).
--- 3. Roll the application back to the previous production commit.

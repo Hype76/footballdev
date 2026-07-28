@@ -316,7 +316,7 @@ test('Platform Admin authority is required and normal users are denied', async (
 
 test('privacy, accessible fallback, mobile layout, and existing controls remain present', async () => {
   const [migration, component, page, auth] = await Promise.all([
-    readFile(new URL('../supabase/migrations/20260727192925_platform_analytics_foundation.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/20260728050210_platform_analytics_foundation.sql', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/platform/PlatformAnalyticsSection.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/PlatformAdminPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/lib/auth.js', import.meta.url), 'utf8'),

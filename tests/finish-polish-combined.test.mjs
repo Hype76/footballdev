@@ -13,7 +13,7 @@ import {
   validateFeedbackFormDraft,
 } from '../src/lib/domain/feedback-forms.js'
 
-const migrationPath = new URL('../supabase/migrations/20260723152244_fp_v1_finish_polish_combined_14.sql', import.meta.url)
+const migrationPath = new URL('../supabase/migrations/20260723160015_fp_v1_finish_polish_combined_14.sql', import.meta.url)
 const feedbackPagePath = new URL('../src/pages/FeedbackFormsPage.jsx', import.meta.url)
 const createEvaluationPagePath = new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url)
 const matchDayPagePath = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)

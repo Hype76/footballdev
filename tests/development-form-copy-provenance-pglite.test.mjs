@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL(
-  '../supabase/migrations/20260728173000_development_form_copy_provenance.sql',
+  '../supabase/migrations/20260728104901_development_form_copy_provenance.sql',
   import.meta.url,
 )
 

@@ -337,7 +337,7 @@ test('unsupported storage formats fail before upload', async () => {
 })
 
 test('the forward migration uses the exact non-decorated production allowlist fixture', async () => {
-  const migration = await readFile(new URL('../supabase/migrations/20260723120119_data_transfer_storage_mime_allowlist_portable_season_recovery_08.sql', import.meta.url), 'utf8')
+  const migration = await readFile(new URL('../supabase/migrations/20260723121825_data_transfer_storage_mime_allowlist_portable_season_recovery_08.sql', import.meta.url), 'utf8')
   for (const mimeType of DATA_TRANSFER_STORAGE_MIME_ALLOWLIST) {
     assert.match(migration, new RegExp(`'${mimeType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`))
   }

@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import { PGlite } from '@electric-sql/pglite'
 
-const migrationUrl = new URL('../supabase/migrations/20260723152244_fp_v1_finish_polish_combined_14.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260723160015_fp_v1_finish_polish_combined_14.sql', import.meta.url)
 
 async function createStarterTemplateDatabase() {
   const db = new PGlite()

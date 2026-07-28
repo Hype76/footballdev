@@ -11,7 +11,7 @@ import {
 import { buildImportPlan, toWorkbookExportData } from '../netlify/functions/lib/_data-transfer-plan.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260717102324_data_transfer_v1.sql', import.meta.url)
-const storageMimeMigrationUrl = new URL('../supabase/migrations/20260723120119_data_transfer_storage_mime_allowlist_portable_season_recovery_08.sql', import.meta.url)
+const storageMimeMigrationUrl = new URL('../supabase/migrations/20260723121825_data_transfer_storage_mime_allowlist_portable_season_recovery_08.sql', import.meta.url)
 
 async function createDatabase() {
   const db = new PGlite()
