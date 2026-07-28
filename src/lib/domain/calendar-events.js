@@ -16,7 +16,9 @@ import {
   validateOrdinaryEventDateTime,
 } from '../calendar-datetime-integrity.js'
 
-const EVENT_TYPES = ['general', 'availability_deadline', 'parent_cutoff', 'training', 'match']
+const USER_FACING_EVENT_TYPES = ['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other']
+const LEGACY_EVENT_TYPES = ['availability_deadline', 'parent_cutoff']
+const EVENT_TYPES = [...USER_FACING_EVENT_TYPES, ...LEGACY_EVENT_TYPES]
 const RECURRENCE_FREQUENCIES = ['none', 'weekly', 'fortnightly', 'monthly']
 const PARENT_AUDIENCES = ['none', 'involved_players', 'all_team_parents', 'all_club_parents']
 
@@ -27,6 +29,16 @@ function normalizeText(value) {
 function normalizeEventType(value) {
   const normalizedValue = normalizeText(value)
   return EVENT_TYPES.includes(normalizedValue) ? normalizedValue : 'general'
+}
+
+function assertUserFacingEventType(value) {
+  const normalizedValue = normalizeText(value)
+
+  if (!USER_FACING_EVENT_TYPES.includes(normalizedValue)) {
+    throw new Error('Choose a supported user-facing event type.')
+  }
+
+  return normalizedValue
 }
 
 function normalizeRecurrenceFrequency(value) {
@@ -108,7 +120,7 @@ function buildCalendarPayload({ user, event }) {
     ? buildRequiredLocalDateTime(structuredDateTime.date, structuredDateTime.endTime)
     : event?.endsAt)
   const eventTypeValue = normalizeText(event?.eventType)
-  const eventType = normalizeEventType(eventTypeValue)
+  const eventType = assertUserFacingEventType(eventTypeValue)
   const recurrenceFrequency = normalizeRecurrenceFrequency(event?.recurrenceFrequency)
   const recurrenceUntil = normalizeDateOnly(event?.recurrenceUntil) || null
   const requestedTeamId = normalizeText(event?.teamId)

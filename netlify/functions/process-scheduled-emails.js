@@ -7,6 +7,11 @@ import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
 import { prepareScheduledResourceNotificationRow } from './lib/_resource-notification-email.js'
+import {
+  isCalendarNotificationQueueRow,
+  isTrialCalendarNotificationQueueRow,
+  prepareScheduledCalendarNotificationRow,
+} from './lib/_calendar-notification-email.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -34,10 +39,6 @@ function getSafeErrorDetails(error) {
   }
 }
 
-function isCalendarNotificationQueueRow(row) {
-  return row?.payload?.communicationLog?.metadata?.source === 'calendar_event_notification'
-}
-
 async function updateCalendarNotificationEvent(queueId, status, lastError = null) {
   if (!queueId) {
     return
@@ -54,6 +55,19 @@ async function updateCalendarNotificationEvent(queueId, status, lastError = null
 
   if (error) {
     console.error('Calendar notification delivery state update failed', error)
+  }
+
+  const { error: trialError } = await supabaseAdmin
+    .from('calendar_trial_event_invitations')
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+      ...(lastError ? { revoked_reason: String(lastError).slice(0, 1000) } : {}),
+    })
+    .eq('email_queue_id', queueId)
+
+  if (trialError) {
+    console.error('Trial Calendar notification delivery state update failed', trialError)
   }
 }
 
@@ -175,18 +189,29 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       roleRank: 100,
     }
     assertPlanFeature(planProfile, 'parentEmails')
-    const resourceNotificationPreparation = await prepareScheduledResourceNotificationRow(
+    const calendarNotificationPreparation = await prepareScheduledCalendarNotificationRow(
       lockedRow,
       {
         supabaseClient: supabaseAdmin,
       },
     )
+    const resourceNotificationPreparation = await prepareScheduledResourceNotificationRow(
+      calendarNotificationPreparation.row,
+      {
+        supabaseClient: supabaseAdmin,
+      },
+    )
 
-    if (resourceNotificationPreparation.skipped) {
+    if (calendarNotificationPreparation.skipped || resourceNotificationPreparation.skipped) {
+      const skipReason = calendarNotificationPreparation.skipReason
+        || resourceNotificationPreparation.skipReason
       await discardSkippedScheduledEmail(
         lockedRow,
-        resourceNotificationPreparation.skipReason,
+        skipReason,
       )
+      if (isCalendarNotificationQueueRow(lockedRow)) {
+        await updateCalendarNotificationEvent(lockedRow.id, 'failed', skipReason)
+      }
       return 'skipped'
     }
 
@@ -194,7 +219,8 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       resourceNotificationPreparation.row,
       planProfile,
       {
-        fromDisplayName: resourceNotificationPreparation.email?.fromDisplayName,
+        fromDisplayName: calendarNotificationPreparation.email?.fromDisplayName
+          || resourceNotificationPreparation.email?.fromDisplayName,
       },
     )
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
@@ -202,9 +228,29 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     })
 
     if (isCalendarNotificationQueueRow(lockedRow)) {
+      const preparedRow = resourceNotificationPreparation.row
+      const preparedPayload = preparedRow.payload || {}
+      const sentPayload = isTrialCalendarNotificationQueueRow(lockedRow)
+        ? {
+            ...preparedPayload,
+            resendPayload: {
+              ...(preparedPayload.resendPayload || {}),
+              html: '<p>Trial event invitation sent.</p>',
+            },
+            trialEventInvitation: {
+              ...(preparedPayload.trialEventInvitation || {}),
+              rawToken: null,
+            },
+          }
+        : preparedPayload
       await supabaseAdmin
         .from('scheduled_email_queue')
-        .update({ status: 'sent', last_error: null })
+        .update({
+          status: 'sent',
+          last_error: null,
+          payload: sentPayload,
+          subject: preparedRow.subject,
+        })
         .eq('id', lockedRow.id)
       await updateCalendarNotificationEvent(lockedRow.id, 'sent')
     } else {
@@ -218,7 +264,11 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       return 'duplicate'
     }
 
-    const communicationLog = await createSentCommunicationLog(lockedRow)
+    const communicationLog = await createSentCommunicationLog(
+      isTrialCalendarNotificationQueueRow(lockedRow)
+        ? lockedRow
+        : resourceNotificationPreparation.row,
+    )
     await sendScheduledParentPush(communicationLog)
 
     return 'sent'
@@ -270,28 +320,53 @@ export async function processCalendarNotificationCommand({ commandId, profile } 
     }
   }
 
-  const { data: notificationEvents, error: eventsError } = await supabaseAdmin
+  let notificationEventsQuery = supabaseAdmin
     .from('calendar_event_notification_events')
     .select('id, email_queue_id, status')
     .eq('notification_command_id', command.id)
     .eq('club_id', command.club_id)
-    .eq('team_id', command.team_id)
+
+  notificationEventsQuery = command.team_id
+    ? notificationEventsQuery.eq('team_id', command.team_id)
+    : notificationEventsQuery.is('team_id', null)
+
+  const { data: notificationEvents, error: eventsError } = await notificationEventsQuery
 
   if (eventsError) {
     console.error('Calendar notification delivery rows lookup failed', eventsError)
     throw new Error('Calendar notification delivery rows could not be loaded.')
   }
 
-  const queueIds = [...new Set((notificationEvents ?? []).map((row) => row.email_queue_id).filter(Boolean))]
+  const { data: trialInvitationEvents, error: trialEventsError } = await supabaseAdmin
+    .from('calendar_trial_event_invitations')
+    .select('id, email_queue_id, status')
+    .eq('notification_command_id', command.id)
+    .eq('club_id', command.club_id)
+
+  if (trialEventsError) {
+    console.error('Trial Calendar notification delivery rows lookup failed', trialEventsError)
+    throw new Error('Trial Calendar notification delivery rows could not be loaded.')
+  }
+
+  const allNotificationEvents = [
+    ...(notificationEvents ?? []),
+    ...(trialInvitationEvents ?? []),
+  ]
+  const queueIds = [...new Set(allNotificationEvents.map((row) => row.email_queue_id).filter(Boolean))]
   let queueRows = []
 
   if (queueIds.length > 0) {
-    const { data, error } = await supabaseAdmin
+    let queueRowsQuery = supabaseAdmin
       .from('scheduled_email_queue')
       .select('*')
       .in('id', queueIds)
       .eq('club_id', command.club_id)
-      .eq('team_id', command.team_id)
+
+    queueRowsQuery = command.team_id
+      ? queueRowsQuery.eq('team_id', command.team_id)
+      : queueRowsQuery.is('team_id', null)
+
+    const { data, error } = await queueRowsQuery
 
     if (error) {
       console.error('Calendar notification queue lookup failed', error)
@@ -301,12 +376,17 @@ export async function processCalendarNotificationCommand({ commandId, profile } 
     queueRows = data ?? []
   }
 
-  const { data: payloadQueueRows, error: payloadQueueError } = await supabaseAdmin
+  let payloadQueueQuery = supabaseAdmin
     .from('scheduled_email_queue')
     .select('*')
     .eq('club_id', command.club_id)
-    .eq('team_id', command.team_id)
     .contains('payload', { communicationLog: { metadata: { notificationCommandId: command.id } } })
+
+  payloadQueueQuery = command.team_id
+    ? payloadQueueQuery.eq('team_id', command.team_id)
+    : payloadQueueQuery.is('team_id', null)
+
+  const { data: payloadQueueRows, error: payloadQueueError } = await payloadQueueQuery
 
   if (payloadQueueError) {
     console.error('Calendar notification payload queue rows lookup failed', payloadQueueError)
@@ -326,7 +406,7 @@ export async function processCalendarNotificationCommand({ commandId, profile } 
     skippedCount: 0,
   }
 
-  for (const notificationEvent of notificationEvents ?? []) {
+  for (const notificationEvent of allNotificationEvents) {
     if (notificationEvent.status === 'sent') {
       summary.deliveredCount += 1
       summary.skippedCount += 1

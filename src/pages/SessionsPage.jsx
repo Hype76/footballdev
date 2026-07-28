@@ -98,6 +98,7 @@ import {
 } from '../lib/domain/calendar-invite-scope.js'
 import { getCalendarNotificationToast } from '../lib/domain/calendar-notification-status.js'
 import { buildMatchDayPlayerInviteStatusMap } from '../lib/domain/calendar-actionable-invites.js'
+import { buildCalendarNotificationHtml } from '../lib/calendar-notification-email.js'
 import {
   addMinutesToRequiredTime,
   buildRequiredLocalDateTime,
@@ -113,9 +114,11 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const EVENT_TYPE_OPTIONS = [
   { value: 'training', label: 'Training session' },
   { value: 'match', label: 'Match or fixture' },
-  { value: 'availability_deadline', label: 'Availability deadline' },
-  { value: 'parent_cutoff', label: 'Parent response cut-off' },
+  { value: 'meeting', label: 'Meeting' },
+  { value: 'tournament', label: 'Tournament' },
+  { value: 'social', label: 'Social event' },
   { value: 'general', label: 'General club or team event', clubOnlyLabel: 'Team event' },
+  { value: 'other', label: 'Other event' },
 ]
 const RECURRENCE_OPTIONS = [
   { value: 'none', label: 'Does not repeat' },
@@ -216,8 +219,8 @@ function getDefaultCalendarForm(date = '') {
     inviteWholeSquad: false,
     location: '',
     notes: '',
-    notifyInvitedFamilies: false,
-    notificationRequestToken: '',
+    notifyInvitedFamilies: true,
+    notificationRequestToken: createNotificationRequestToken(),
     opponent: '',
     kickoffTimeTbc: false,
     parentAudience: 'involved_players',
@@ -340,7 +343,7 @@ function isClubWideShareableCalendarEvent({ form, safeTeamId, user }) {
 }
 
 function isCalendarResourceEventType(eventType) {
-  return ['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'].includes(getTrimmedFormValue(eventType))
+  return ['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'].includes(getTrimmedFormValue(eventType))
 }
 
 function isLegacyRecurringSessionEvent(event) {
@@ -469,27 +472,8 @@ function getTrimmedFormValue(value) {
   return String(value ?? '').trim()
 }
 
-function escapeEventInviteHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
-
-function formatEventInviteDateTime(date, time) {
-  const dateValue = formatDateInput(date)
-  const timeValue = formatTimeInput(time)
-
-  if (!dateValue && !timeValue) {
-    return 'Time to be confirmed'
-  }
-
-  return `${dateValue || 'Date to be confirmed'}${timeValue ? ` at ${timeValue}` : ''}`
-}
-
 function buildCalendarEventInviteEmailHtml({
+  clubLogoUrl,
   clubName,
   eventTitle,
   eventType,
@@ -499,33 +483,21 @@ function buildCalendarEventInviteEmailHtml({
   playerName,
   startsAtLabel,
   teamName,
+  themeAccent,
 }) {
-  const resolvedParent = parentName || 'Parent or guardian'
-  const resolvedPlayer = playerName || 'your child'
-  const resolvedClub = clubName || 'Your club'
-  const resolvedTeam = teamName || 'their team'
-  const resolvedTitle = eventTitle || 'Club event'
-
-  return `
-    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 720px; margin: 0 auto;">
-      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Event invite</p>
-      <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.2;">${escapeEventInviteHtml(resolvedTitle)}</h1>
-      <p style="margin: 0 0 18px; font-size: 15px;">Hi ${escapeEventInviteHtml(resolvedParent)}, ${escapeEventInviteHtml(resolvedPlayer)} has been invited to this Football Player event.</p>
-      <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
-        <p style="margin: 0 0 8px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">Details</p>
-        <p style="margin: 0 0 6px; font-size: 14px;"><strong>When:</strong> ${escapeEventInviteHtml(startsAtLabel)}</p>
-        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Team:</strong> ${escapeEventInviteHtml(resolvedTeam)}</p>
-        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Type:</strong> ${escapeEventInviteHtml(eventType || 'Event')}</p>
-        ${location ? `<p style="margin: 0 0 6px; font-size: 14px;"><strong>Location:</strong> ${escapeEventInviteHtml(location)}</p>` : ''}
-        ${notes ? `<p style="margin: 0; font-size: 14px;"><strong>Notes:</strong> ${escapeEventInviteHtml(notes)}</p>` : ''}
-      </div>
-      <p style="margin: 0 0 18px; font-size: 14px;">You can also see this invite in the parent portal.</p>
-      <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeEventInviteHtml(resolvedClub)} | ${escapeEventInviteHtml(resolvedTeam)}</p>
-      <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
-        <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
-      </div>
-    </div>
-  `
+  return buildCalendarNotificationHtml({
+    clubLogoUrl,
+    clubName,
+    eventTitle,
+    eventType,
+    location,
+    notes,
+    parentName,
+    playerName,
+    startsAt: startsAtLabel,
+    teamName,
+    themeAccent,
+  })
 }
 
 function getEventInviteScheduledAt() {
@@ -638,12 +610,14 @@ function getInvitesForCalendarEvent(event, invites = []) {
 
 function getFormInviteFields(event, invites = []) {
   const eventInvites = getInvitesForCalendarEvent(event, invites)
+  const notifyInvitedFamilies = eventInvites.some((invite) => invite.notifyRequested)
 
   return {
     invitedPlayerIds: eventInvites.map((invite) => invite.playerId).filter(Boolean),
-    inviteTrialPlayers: false,
+    inviteTrialPlayers: eventInvites.some((invite) => String(invite.player?.section ?? invite.playerStatusAtInvite ?? '').trim().toLowerCase() === 'trial'),
     inviteWholeSquad: false,
-    notifyInvitedFamilies: false,
+    notificationRequestToken: notifyInvitedFamilies ? createNotificationRequestToken() : '',
+    notifyInvitedFamilies,
     parentAudience: eventInvites.length > 0 ? 'involved_players' : 'none',
     shareWithParents: eventInvites.length > 0,
   }
@@ -1847,12 +1821,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return { queued: 0, failed: 0 }
     }
 
-    const startsAtLabel = formatEventInviteDateTime(calendarForm.date, calendarForm.startTime)
+    const startsAtLabel = buildDateTime(calendarForm.date, calendarForm.startTime)
     const scheduledAt = getEventInviteScheduledAt()
     const results = await Promise.allSettled(invitesToQueue.map((invite) => createScheduledEmail({
       user,
       item: {
-        clubName: user?.clubName || 'Football Player',
+        clubName: user?.clubName || 'Your club',
         communicationLog: {
           clubId: user?.clubId,
           playerId: invite.playerId,
@@ -1869,9 +1843,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
           },
         },
-        displayName: user?.displayName || user?.name || 'Football Player',
+        displayName: user?.clubName || 'Your club',
         html: buildCalendarEventInviteEmailHtml({
-          clubName: user?.clubName || 'Football Player',
+          clubLogoUrl: user?.clubLogoUrl || '',
+          clubName: user?.clubName || 'Your club',
           eventTitle: sourceTitle,
           eventType: calendarForm.eventType,
           location: calendarForm.location,
@@ -1880,11 +1855,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           playerName: invite.player?.playerName,
           startsAtLabel,
           teamName,
+          themeAccent: user?.themeAccent || '',
         }),
         parentName: invite.parentContactName,
         playerName: invite.player?.playerName,
         scheduledAt,
-        subject: `Football Player: ${sourceTitle || 'Event invite'}`,
+        subject: `${user?.clubName || 'Your club'}: ${sourceTitle || 'Event invite'}`,
         teamId: safeTeamId,
         teamName,
         toEmail: invite.parentContactEmail,
@@ -1962,16 +1938,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       let failedInviteEmails = 0
       let calendarNotificationResult = null
       let refreshedMatchDaysAfterNotification = null
-      const shouldSyncInvites = Boolean(safeTeamId)
       const syncInvites = async ({ calendarEventId = '', matchDayId = '', assessmentSessionId = '', sourceTitle = '' } = {}) => {
-        if (!shouldSyncInvites) {
+        if (!safeTeamId && !calendarEventId) {
           return
         }
 
         const sharedInvolvedPlayers = calendarForm.shareWithParents && calendarForm.parentAudience === 'involved_players'
         const sharedAllTeamParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_team_parents'
+        const sharedAllClubParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_club_parents'
         const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
-        const notifyRequested = calendarForm.notifyInvitedFamilies && (sharedInvolvedPlayers || sharedAllTeamParents)
+        const notifyRequested = calendarForm.notifyInvitedFamilies && (sharedInvolvedPlayers || sharedAllTeamParents || sharedAllClubParents)
 
         if (calendarEventId || matchDayId) {
           const eventId = calendarEventId || matchDayId
@@ -1985,17 +1961,24 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             includeTrialPlayers: calendarForm.inviteTrialPlayers,
           }))
           const hasOnlyWholeSquadScopePlayers = notificationPlayers.every((player) => wholeSquadScopeIds.has(String(player.id)))
-          const parentScopeResult = await syncCalendarEventParentScope({
-            user,
-            eventId,
-            eventSource,
-            includeTrialPlayers: calendarForm.inviteTrialPlayers,
-            playerIds: sharedInvolvedPlayers ? notificationPlayers.map((player) => player.id) : [],
-            selectionMode: sharedInvolvedPlayers && wholeSquadSelectionState.checked && hasOnlyWholeSquadScopePlayers
-              ? 'whole_squad'
-              : 'manual',
-          })
-          nextCalendarInvites = await getCalendarEventInvites({ user })
+          const parentScopeResult = safeTeamId
+            ? await syncCalendarEventParentScope({
+                user,
+                eventId,
+                eventSource,
+                includeTrialPlayers: calendarForm.inviteTrialPlayers,
+                playerIds: sharedInvolvedPlayers ? notificationPlayers.map((player) => player.id) : [],
+                selectionMode: sharedInvolvedPlayers && wholeSquadSelectionState.checked && hasOnlyWholeSquadScopePlayers
+                  ? 'whole_squad'
+                  : 'manual',
+              })
+            : {
+                portalRecordCount: 0,
+                responseRequirement: 'informational',
+              }
+          if (safeTeamId) {
+            nextCalendarInvites = await getCalendarEventInvites({ user })
+          }
 
           if (notifyRequested) {
             try {
@@ -2008,7 +1991,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
               })
               queuedInviteEmails += calendarNotificationResult.queuedCount
               failedInviteEmails += calendarNotificationResult.failedCount
-              nextCalendarInvites = await getCalendarEventInvites({ user })
+              if (safeTeamId) {
+                nextCalendarInvites = await getCalendarEventInvites({ user })
+              }
               if (matchDayId && calendarNotificationResult.actionReconciliationState === 'ready') {
                 try {
                   refreshedMatchDaysAfterNotification = await getMatchDays({ user })
@@ -4038,6 +4023,24 @@ function CalendarEventModal({
                     </span>
                   </span>
                 </label>
+                {form.shareWithParents ? (
+                  <label className="mt-4 flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                    <input
+                      type="checkbox"
+                      name="notifyInvitedFamilies"
+                      checked={form.notifyInvitedFamilies}
+                      onChange={onChange}
+                      disabled={isBusy}
+                      className="mt-1 h-5 w-5 accent-[#047857]"
+                    />
+                    <span>
+                      {event ? 'Send updated invitations to club families' : 'Notify club families'}
+                      <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+                        Sends one club-branded event invitation to each eligible active family contact.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
               </div>
             ) : (
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">

@@ -128,13 +128,13 @@ test('Calendar create and edit call the authoritative command after saving the e
   assert.match(sessionsPage, /nextCalendarInvites = await getCalendarEventInvites\(\{ user \}\)/i)
 })
 
-test('edit notification is opt-in every time and communicates partial states precisely', () => {
+test('edit notification preserves the saved staff selection and communicates partial states precisely', () => {
   const formInviteStart = sessionsPage.indexOf('function getFormInviteFields')
   const formInviteEnd = sessionsPage.indexOf('\nfunction ', formInviteStart + 1)
   const formInviteSource = sessionsPage.slice(formInviteStart, formInviteEnd)
 
-  assert.match(formInviteSource, /notifyInvitedFamilies: false/i)
-  assert.doesNotMatch(formInviteSource, /some\(\(invite\) => invite\.notifyRequested\)/i)
+  assert.match(formInviteSource, /notifyInvitedFamilies = eventInvites\.some\(\(invite\) => invite\.notifyRequested\)/i)
+  assert.match(formInviteSource, /notificationRequestToken: notifyInvitedFamilies \? createNotificationRequestToken\(\) : ''/i)
   assert.match(notificationStatus, /parent email[\s\S]*sent/i)
   assert.match(sessionsPage, /Event saved, parent notification incomplete/i)
   assert.match(notificationStatus, /parent emails could not be sent\. Please try again/i)

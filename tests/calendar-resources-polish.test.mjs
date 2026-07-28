@@ -77,7 +77,7 @@ test('calendar UI attaches resources only to team custom events and protects rec
   const source = await readFile(sessionsPageUrl, 'utf8')
 
   assert.match(source, /function isCalendarResourceEventType\(eventType\)/)
-  assert.match(source, /\['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'\]\.includes/)
+  assert.match(source, /\['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'\]\.includes/)
   assert.match(source, /const defaultForm = getDefaultCalendarForm\(date\)[\s\S]*const eventType = \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType[\s\S]*eventType,/)
   assert.match(source, /const saveTrainingAsSession = isTraining && \(calendarModal\?\.variant === 'session' \|\| sourceType === 'session'\)/)
   assert.match(source, /const canShowTeamResourceArea = Boolean\(!isSessionCreate && !clubWideOnly && safeFormTeamId && canManageResourceLibrary\(user\)\)/)
@@ -113,7 +113,7 @@ test('calendar UI attaches resources only to team custom events and protects rec
   assert.match(source, /This and future events is not available in V1/)
 })
 
-test('calendar event schema and domain allow training and match calendar-event rows', async () => {
+test('calendar event schema retains legacy types while the domain exposes supported user-facing types', async () => {
   const [migration, domain] = await Promise.all([
     readFile(calendarEventTypesMigrationUrl, 'utf8'),
     readFile(new URL('../src/lib/domain/calendar-events.js', import.meta.url), 'utf8'),
@@ -121,7 +121,9 @@ test('calendar event schema and domain allow training and match calendar-event r
 
   assert.match(migration, /drop constraint if exists calendar_events_event_type_check/i)
   assert.match(migration, /event_type in \('general', 'availability_deadline', 'parent_cutoff', 'training', 'match'\)/i)
-  assert.match(domain, /const EVENT_TYPES = \['general', 'availability_deadline', 'parent_cutoff', 'training', 'match'\]/)
+  assert.match(domain, /const USER_FACING_EVENT_TYPES = \['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'\]/)
+  assert.match(domain, /const LEGACY_EVENT_TYPES = \['availability_deadline', 'parent_cutoff'\]/)
+  assert.match(domain, /assertUserFacingEventType/)
 })
 
 test('Developer Fields direct route remains while normal navigation hides it', async () => {
