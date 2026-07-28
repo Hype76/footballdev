@@ -113,7 +113,7 @@ test('theme and collapse state use shared tokens and current-session storage', a
   assert.match(cssSource, /var\(--panel-bg\)/)
   assert.match(cssSource, /var\(--text-primary\)/)
   assert.match(billingSource, /title="Stripe coupon data unavailable"/)
-  assert.match(billingSource, /hasStripeDataError=\{Boolean\(errorMessage\)\}/)
+  assert.match(billingSource, /hasStripeDataError=\{Boolean\(couponErrorMessage\)\}/)
 })
 
 test('Data Hygiene exposes reporting only and adds no destructive cleanup control', async () => {

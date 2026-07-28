@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BillingHeroAndStats } from '../components/platform-billing/BillingHeroAndStats.jsx'
 import { CreateCouponSection } from '../components/platform-billing/CreateCouponSection.jsx'
 import { CreateTesterCodeSection } from '../components/platform-billing/CreateTesterCodeSection.jsx'
@@ -12,6 +12,26 @@ import {
   defaultCouponForm,
   defaultTesterCodeForm,
 } from '../lib/platform-billing-utils.js'
+
+const sharedBillingLoadRequests = new Map()
+
+function getSharedBillingLoadRequest(key, load) {
+  const existingRequest = sharedBillingLoadRequests.get(key)
+
+  if (existingRequest) {
+    return existingRequest
+  }
+
+  const request = Promise.resolve().then(load)
+  sharedBillingLoadRequests.set(key, request)
+  void request.finally(() => {
+    if (sharedBillingLoadRequests.get(key) === request) {
+      sharedBillingLoadRequests.delete(key)
+    }
+  }).catch(() => undefined)
+
+  return request
+}
 
 function BillingSuccessBanner({ message }) {
   return (
@@ -34,15 +54,18 @@ export function PlatformBillingOptionsPage() {
   const [testerCodes, setTesterCodes] = useState([])
   const [couponForm, setCouponForm] = useState(defaultCouponForm)
   const [testerCodeForm, setTesterCodeForm] = useState(defaultTesterCodeForm)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isCouponLoading, setIsCouponLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSavingTesterCode, setIsSavingTesterCode] = useState(false)
   const [livePromotionId, setLivePromotionId] = useState('')
   const [deletingCouponId, setDeletingCouponId] = useState('')
   const [updatingTesterCodeId, setUpdatingTesterCodeId] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [couponErrorMessage, setCouponErrorMessage] = useState('')
+  const [testerCodeErrorMessage, setTesterCodeErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [currentTime] = useState(() => Date.now())
+  const couponLoadRequestRef = useRef(null)
+  const testerCodeLoadRequestRef = useRef(null)
 
   const sortedCoupons = useMemo(
     () => [...coupons].sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || ''))),
@@ -85,13 +108,21 @@ export function PlatformBillingOptionsPage() {
 
   const loadCoupons = useCallback(async () => {
     if (!session?.access_token || !isSuperAdmin(user)) {
-      setIsLoading(false)
+      setIsCouponLoading(false)
       return
     }
 
-    setErrorMessage('')
+    const requestKey = `${user?.id || user?.email || 'platform-admin'}:${session.access_token}`
+    const existingRequest = couponLoadRequestRef.current
 
-    try {
+    if (existingRequest?.key === requestKey) {
+      return existingRequest.promise.catch(() => undefined)
+    }
+
+    const request = getSharedBillingLoadRequest(`coupons:${requestKey}`, async () => {
+      setCouponErrorMessage('')
+      setIsCouponLoading(true)
+
       const response = await fetch('/.netlify/functions/manage-stripe-coupons', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -103,12 +134,24 @@ export function PlatformBillingOptionsPage() {
         throw new Error(result.message || 'Coupons could not be loaded')
       }
 
-      setCoupons(Array.isArray(result.coupons) ? result.coupons : [])
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Billing coupons could not be loaded right now.')
+      return Array.isArray(result.coupons) ? result.coupons : []
+    })
+
+    couponLoadRequestRef.current = {
+      key: requestKey,
+      promise: request,
+    }
+
+    try {
+      setCoupons(await request)
+    } catch {
+      console.warn('Billing coupons could not be loaded.')
+      setCouponErrorMessage('Billing coupons could not be loaded right now.')
     } finally {
-      setIsLoading(false)
+      if (couponLoadRequestRef.current?.promise === request) {
+        couponLoadRequestRef.current = null
+      }
+      setIsCouponLoading(false)
     }
   }, [session?.access_token, user])
 
@@ -121,7 +164,16 @@ export function PlatformBillingOptionsPage() {
       return
     }
 
-    try {
+    const requestKey = `${user?.id || user?.email || 'platform-admin'}:${session.access_token}`
+    const existingRequest = testerCodeLoadRequestRef.current
+
+    if (existingRequest?.key === requestKey) {
+      return existingRequest.promise.catch(() => undefined)
+    }
+
+    const request = getSharedBillingLoadRequest(`tester-codes:${requestKey}`, async () => {
+      setTesterCodeErrorMessage('')
+
       const response = await fetch('/.netlify/functions/manage-tester-access-codes', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -133,10 +185,23 @@ export function PlatformBillingOptionsPage() {
         throw new Error(result.message || 'Tester access codes could not be loaded')
       }
 
-      setTesterCodes(Array.isArray(result.codes) ? result.codes : [])
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Tester access codes could not be loaded right now.')
+      return Array.isArray(result.codes) ? result.codes : []
+    })
+
+    testerCodeLoadRequestRef.current = {
+      key: requestKey,
+      promise: request,
+    }
+
+    try {
+      setTesterCodes(await request)
+    } catch {
+      console.warn('Tester access codes could not be loaded.')
+      setTesterCodeErrorMessage('Tester access codes could not be loaded right now.')
+    } finally {
+      if (testerCodeLoadRequestRef.current?.promise === request) {
+        testerCodeLoadRequestRef.current = null
+      }
     }
   }, [session?.access_token, user])
 
@@ -166,7 +231,7 @@ export function PlatformBillingOptionsPage() {
     }
 
     setIsSavingTesterCode(true)
-    setErrorMessage('')
+    setTesterCodeErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -189,8 +254,8 @@ export function PlatformBillingOptionsPage() {
       setSuccessMessage('Tester access code created.')
       showToast({ title: 'Tester code saved', message: 'Tester access code has been created.' })
     } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Tester access code could not be created.')
+      console.warn('Tester access code creation failed.')
+      setTesterCodeErrorMessage(error.message || 'Tester access code could not be created.')
     } finally {
       setIsSavingTesterCode(false)
     }
@@ -202,7 +267,7 @@ export function PlatformBillingOptionsPage() {
     }
 
     setUpdatingTesterCodeId(code.id)
-    setErrorMessage('')
+    setTesterCodeErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -227,8 +292,8 @@ export function PlatformBillingOptionsPage() {
       setSuccessMessage(!code.isActive ? 'Tester access code enabled.' : 'Tester access code disabled.')
       showToast({ title: 'Tester code saved', message: !code.isActive ? 'Tester access code has been enabled.' : 'Tester access code has been disabled.' })
     } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Tester access code could not be updated.')
+      console.warn('Tester access code update failed.')
+      setTesterCodeErrorMessage(error.message || 'Tester access code could not be updated.')
     } finally {
       setUpdatingTesterCodeId('')
     }
@@ -242,7 +307,7 @@ export function PlatformBillingOptionsPage() {
     }
 
     setIsSaving(true)
-    setErrorMessage('')
+    setCouponErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -265,8 +330,8 @@ export function PlatformBillingOptionsPage() {
       setSuccessMessage('Coupon created.')
       showToast({ title: 'Coupon saved', message: 'Coupon has been created.' })
     } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Coupon could not be created.')
+      console.warn('Coupon creation failed.')
+      setCouponErrorMessage(error.message || 'Coupon could not be created.')
     } finally {
       setIsSaving(false)
     }
@@ -286,7 +351,7 @@ export function PlatformBillingOptionsPage() {
     }
 
     setDeletingCouponId(coupon.id)
-    setErrorMessage('')
+    setCouponErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -311,8 +376,8 @@ export function PlatformBillingOptionsPage() {
       setSuccessMessage('Coupon deleted.')
       showToast({ title: 'Coupon deleted', message: 'Coupon has been removed.' })
     } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Coupon could not be deleted.')
+      console.warn('Coupon deletion failed.')
+      setCouponErrorMessage(error.message || 'Coupon could not be deleted.')
     } finally {
       setDeletingCouponId('')
     }
@@ -325,7 +390,7 @@ export function PlatformBillingOptionsPage() {
 
     const shouldShowLive = !coupon.liveOnWebsite
     setLivePromotionId(coupon.promotionCodeId)
-    setErrorMessage('')
+    setCouponErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -350,8 +415,8 @@ export function PlatformBillingOptionsPage() {
       setSuccessMessage(shouldShowLive ? 'Promotion is live on the website.' : 'Promotion is no longer live on the website.')
       showToast({ title: 'Promotion saved', message: shouldShowLive ? 'Promotion is live on the website.' : 'Promotion is no longer live on the website.' })
     } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Live promotion could not be updated.')
+      console.warn('Live promotion update failed.')
+      setCouponErrorMessage(error.message || 'Live promotion could not be updated.')
     } finally {
       setLivePromotionId('')
     }
@@ -377,10 +442,17 @@ export function PlatformBillingOptionsPage() {
         description="Create promotion codes and manage platform level billing options."
       />
 
-      {errorMessage ? (
+      {couponErrorMessage ? (
         <NoticeBanner
           title="Stripe coupon data unavailable"
-          message={errorMessage}
+          message={couponErrorMessage}
+        />
+      ) : null}
+
+      {testerCodeErrorMessage ? (
+        <NoticeBanner
+          title="Tester access data unavailable"
+          message={testerCodeErrorMessage}
         />
       ) : null}
 
@@ -390,8 +462,8 @@ export function PlatformBillingOptionsPage() {
 
       <BillingHeroAndStats
         billingStats={billingStats}
-        isLoading={isLoading}
-        hasStripeDataError={Boolean(errorMessage)}
+        isLoading={isCouponLoading}
+        hasStripeDataError={Boolean(couponErrorMessage)}
       />
 
       <CreateCouponSection
@@ -417,7 +489,7 @@ export function PlatformBillingOptionsPage() {
 
       <ExistingCouponsSection
         deletingCouponId={deletingCouponId}
-        isLoading={isLoading}
+        isLoading={isCouponLoading}
         livePromotionId={livePromotionId}
         onDeleteCoupon={(coupon) => void handleDeleteCoupon(coupon)}
         onSetLivePromotion={(coupon) => void handleSetLivePromotion(coupon)}

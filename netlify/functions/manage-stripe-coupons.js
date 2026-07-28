@@ -1,8 +1,18 @@
-import process from 'node:process'
-import Stripe from 'stripe'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
+import {
+  createStripeServerClient,
+  isStripeProviderError,
+  logStripeFailure,
+} from './lib/_stripe-runtime.js'
+
+function publicError(message, statusCode = 400) {
+  return Object.assign(new Error(message), {
+    exposeMessage: true,
+    statusCode,
+  })
+}
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -34,7 +44,7 @@ function getEndOfDayTimestamp(value) {
   const timestamp = Math.floor(parsedDate.getTime() / 1000)
 
   if (timestamp <= Math.floor(Date.now() / 1000)) {
-    throw new Error('End date must be in the future')
+    throw publicError('End date must be in the future')
   }
 
   return timestamp
@@ -44,13 +54,13 @@ async function getPlatformAdmin(event) {
   const token = getBearerToken(event)
 
   if (!token) {
-    throw new Error('Login is required')
+    throw publicError('Login is required', 401)
   }
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token)
 
   if (authError || !authData?.user?.id) {
-    throw new Error('Login is required')
+    throw publicError('Login is required', 401)
   }
 
   const profile = await loadActiveAuthorityProfile(supabaseAdmin, authData.user, {
@@ -58,20 +68,10 @@ async function getPlatformAdmin(event) {
   })
 
   if (profile.role !== 'super_admin') {
-    throw new Error('Platform admin access is required')
+    throw publicError('Platform admin access is required', 403)
   }
 
   return profile
-}
-
-function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('Billing is not configured')
-  }
-
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-02-25.clover',
-  })
 }
 
 async function listCoupons(stripe) {
@@ -124,11 +124,11 @@ async function createCoupon(stripe, body) {
   const firstTimeOnly = Boolean(body.firstTimeOnly)
 
   if (!name) {
-    throw new Error('Coupon name is required')
+    throw publicError('Coupon name is required')
   }
 
   if (!code) {
-    throw new Error('Promotion code is required')
+    throw publicError('Promotion code is required')
   }
 
   const couponPayload = {
@@ -150,7 +150,7 @@ async function createCoupon(stripe, body) {
     couponPayload.amount_off = Math.round(amountOff * 100)
     couponPayload.currency = 'gbp'
   } else {
-    throw new Error('Enter a percentage or fixed amount discount')
+    throw publicError('Enter a percentage or fixed amount discount')
   }
 
   const coupon = await stripe.coupons.create(couponPayload)
@@ -185,7 +185,7 @@ async function setLivePromotion(stripe, body) {
   const showLive = Boolean(body.showLive)
 
   if (showLive && !promotionCodeId) {
-    throw new Error('Promotion code is required')
+    throw publicError('Promotion code is required')
   }
 
   const promotionCodes = await stripe.promotionCodes.list({ limit: 100 })
@@ -200,7 +200,7 @@ async function setLivePromotion(stripe, body) {
     )
 
   if (showLive && !promotionCodes.data.some((promotionCode) => promotionCode.id === promotionCodeId)) {
-    throw new Error('Promotion code was not found')
+    throw publicError('Promotion code was not found', 404)
   }
 
   await Promise.all(updates)
@@ -211,7 +211,7 @@ async function deleteCoupon(stripe, body) {
   const promotionCodeId = cleanText(body.promotionCodeId, 120)
 
   if (!couponId && !promotionCodeId) {
-    throw new Error('Coupon is required')
+    throw publicError('Coupon is required')
   }
 
   let resolvedCouponId = couponId
@@ -230,7 +230,7 @@ async function deleteCoupon(stripe, body) {
   }
 
   if (!resolvedCouponId) {
-    throw new Error('Coupon was not found')
+    throw publicError('Coupon was not found', 404)
   }
 
   await stripe.coupons.del(resolvedCouponId)
@@ -244,7 +244,7 @@ async function deleteCoupon(stripe, body) {
 export async function handler(event) {
   try {
     const admin = await getPlatformAdmin(event)
-    const stripe = getStripe()
+    const stripe = createStripeServerClient()
 
     if (event.httpMethod === 'GET') {
       const coupons = await listCoupons(stripe)
@@ -329,7 +329,27 @@ export async function handler(event) {
 
     return json(405, { success: false, message: 'Method not allowed' })
   } catch (error) {
-    console.error(error)
-    return json(500, { success: false, message: error.message || 'Coupon action could not be completed' })
+    if (error?.exposeMessage) {
+      return json(Number(error.statusCode ?? 400), {
+        success: false,
+        message: error.message,
+      })
+    }
+
+    if (isStripeProviderError(error)) {
+      logStripeFailure('Stripe coupon request failed', error)
+    } else {
+      console.error('Coupon request failed', {
+        code: String(error?.code ?? '').slice(0, 80) || 'unknown',
+        statusCode: Number(error?.statusCode ?? 0) || null,
+      })
+    }
+
+    return json(503, {
+      success: false,
+      message: event.httpMethod === 'GET'
+        ? 'Stripe coupon data is temporarily unavailable.'
+        : 'Stripe coupon action could not be completed.',
+    })
   }
 }

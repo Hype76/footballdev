@@ -1,5 +1,6 @@
 import { createFromAddress, getEmailProviderConfig, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { getAuthenticatedPlanProfile } from './lib/_plan-gate.js'
+import { isApprovedInternalSmokeRecipient } from './lib/_internal-smoke-recipients.js'
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
 function jsonResponse(statusCode, payload) {
@@ -74,6 +75,13 @@ export async function handler(event) {
 
     if (!isValidEmail(toEmail)) {
       return jsonResponse(400, { success: false, message: 'Enter a valid diagnostic recipient email.' })
+    }
+
+    if (!isApprovedInternalSmokeRecipient(toEmail)) {
+      return jsonResponse(403, {
+        success: false,
+        message: 'Email diagnostics are limited to approved internal smoke recipients.',
+      })
     }
 
     const response = await sendEmail({

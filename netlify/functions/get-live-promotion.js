@@ -1,15 +1,19 @@
 import process from 'node:process'
-import Stripe from 'stripe'
 import { json } from './lib/_stripe-billing.js'
+import {
+  createStripeServerClient,
+  inspectStripeServerKey,
+  logStripeFailure,
+} from './lib/_stripe-runtime.js'
 
 function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  const inspection = inspectStripeServerKey(process.env.STRIPE_SECRET_KEY)
+
+  if (inspection.code === 'missing') {
     return null
   }
 
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-02-25.clover',
-  })
+  return createStripeServerClient()
 }
 
 function isLiveWebsitePromotion(promotionCode) {
@@ -80,7 +84,7 @@ export async function handler(event) {
       promotion: formatPromotion(coupon, livePromotionCode),
     })
   } catch (error) {
-    console.error(error)
+    logStripeFailure('Live promotion request failed', error)
     return json(200, { success: true, promotion: null })
   }
 }

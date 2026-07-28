@@ -1,6 +1,5 @@
 import process from 'node:process'
 import { Buffer } from 'node:buffer'
-import Stripe from 'stripe'
 import { supabaseAdmin } from './lib/_supabase.js'
 import {
   getPlanFromPriceId,
@@ -10,6 +9,7 @@ import {
   normalizePlanKey,
   normalizePlanStatus,
 } from './lib/_stripe-billing.js'
+import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 
 function getRawBody(event) {
@@ -248,13 +248,18 @@ export async function handler(event) {
     return json(405, { success: false, message: 'Method not allowed' })
   }
 
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
     return json(500, { success: false, message: 'Stripe webhooks are not configured' })
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-02-25.clover',
-  })
+  let stripe
+
+  try {
+    stripe = createStripeServerClient()
+  } catch (error) {
+    logStripeFailure('Stripe webhook configuration failed', error)
+    return json(500, { success: false, message: 'Stripe webhooks are not configured' })
+  }
 
   let stripeEvent
 
@@ -265,7 +270,7 @@ export async function handler(event) {
       process.env.STRIPE_WEBHOOK_SECRET,
     )
   } catch (error) {
-    console.error(error)
+    logStripeFailure('Stripe webhook signature failed', error)
     return json(400, { success: false, message: 'Invalid webhook signature' })
   }
 
@@ -289,7 +294,7 @@ export async function handler(event) {
 
     return json(200, { success: true })
   } catch (error) {
-    console.error(error)
+    logStripeFailure('Stripe webhook processing failed', error)
     return json(500, { success: false, message: 'Webhook could not be processed' })
   }
 }

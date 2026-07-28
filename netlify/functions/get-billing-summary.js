@@ -1,8 +1,7 @@
-import process from 'node:process'
-import Stripe from 'stripe'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
+import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 
 function formatInvoice(invoice) {
   return {
@@ -43,10 +42,6 @@ export async function handler(event) {
     return json(405, { success: false, message: 'Method not allowed' })
   }
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return json(500, { success: false, message: 'Billing is not configured yet' })
-  }
-
   try {
     const caller = await getCaller(event)
 
@@ -77,9 +72,7 @@ export async function handler(event) {
     let invoices = []
 
     if (club.stripe_customer_id) {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2026-02-25.clover',
-      })
+      const stripe = createStripeServerClient()
       const invoiceResult = await stripe.invoices.list({
         customer: club.stripe_customer_id,
         limit: 12,
@@ -108,7 +101,7 @@ export async function handler(event) {
       },
     })
   } catch (error) {
-    console.error(error)
+    logStripeFailure('Billing summary request failed', error)
     return json(500, { success: false, message: 'Billing details could not be loaded' })
   }
 }

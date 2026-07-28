@@ -1,6 +1,6 @@
 import process from 'node:process'
-import Stripe from 'stripe'
 import { arePaymentsDisabled, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json } from './lib/_stripe-billing.js'
+import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
 function cleanString(value) {
@@ -31,7 +31,7 @@ async function getValidatedLivePromotionCodeId(stripe, promotionCodeId) {
 
     return promotionCode.id
   } catch (error) {
-    console.error(error)
+    logStripeFailure('Live promotion lookup failed', error)
     return ''
   }
 }
@@ -78,10 +78,6 @@ export async function handler(event) {
     return json(403, { success: false, message: 'Payments are disabled in this test environment' })
   }
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return json(500, { success: false, message: 'Checkout is not configured yet' })
-  }
-
   try {
     const body = JSON.parse(event.body || '{}')
     const planKey = normalizePlanKey(body.planKey || body.planName)
@@ -109,9 +105,7 @@ export async function handler(event) {
     }
 
     const appUrl = (process.env.VITE_APP_URL || process.env.URL || 'https://footballplayer.online').replace(/\/$/, '')
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2026-02-25.clover',
-    })
+    const stripe = createStripeServerClient()
     const livePromotionCodeId = await getValidatedLivePromotionCodeId(stripe, body.livePromotionCodeId)
 
     const checkoutParams = {
@@ -133,14 +127,14 @@ export async function handler(event) {
         throw promotionError
       }
 
-      console.error('Auto promotion checkout failed', promotionError)
+      logStripeFailure('Auto promotion checkout failed', promotionError)
       promotionApplied = false
       session = await createCheckoutSession(stripe, checkoutParams)
     }
 
     return json(200, { success: true, url: session.url, promotionApplied })
   } catch (error) {
-    console.error(error)
+    logStripeFailure('Checkout request failed', error)
     return json(500, { success: false, message: 'Checkout could not be started' })
   }
 }

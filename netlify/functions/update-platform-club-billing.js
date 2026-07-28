@@ -1,8 +1,8 @@
 import process from 'node:process'
-import Stripe from 'stripe'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json, normalizePlanStatus } from './lib/_stripe-billing.js'
+import { createStripeServerClient } from './lib/_stripe-runtime.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getPlanDefaultLimit, getPlanLimit, normalizePlanKey, normalizeTeamLimitOverride } from '../../src/lib/plans.js'
 
@@ -44,9 +44,7 @@ async function setSubscriptionPause(subscriptionId, isPaused) {
     }
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-02-25.clover',
-  })
+  const stripe = createStripeServerClient()
 
   await stripe.subscriptions.update(subscriptionId, {
     pause_collection: isPaused ? { behavior: 'void' } : null,
