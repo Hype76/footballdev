@@ -3,10 +3,6 @@ import { createAuditLog } from './audit.js'
 import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
 import { normalizeParentContacts } from './contact-utils.js'
-import {
-  getEntryIdentity,
-  getEntryUserId,
-} from './core-normalizers.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -192,72 +188,23 @@ export async function saveCalendarEventInvites({
     .filter((player) => normalizeText(player?.id))
     .filter((player, index, allPlayers) => allPlayers.findIndex((candidate) => normalizeText(candidate.id) === normalizeText(player.id)) === index)
 
-  if (!normalizedTeamId && selectedPlayers.length > 0) {
+  if (!normalizedTeamId) {
     throw new Error('Choose a team before inviting players.')
   }
 
-  const existingQuery = supabase
-    .from('calendar_event_invites')
-    .select('*')
-    .eq('club_id', user.clubId)
-    .eq(sourceFilter.column, sourceFilter.value)
-    .neq('invite_status', 'cancelled')
-
-  const { data: existingRows, error: existingError } = await existingQuery
-
-  if (existingError) {
-    console.error(existingError)
-    throw existingError
-  }
-
   const selectedPlayerIds = selectedPlayers.map((player) => normalizeText(player.id))
-  const cancelIds = (existingRows ?? [])
-    .filter((row) => !selectedPlayerIds.includes(normalizeText(row.player_id)))
-    .map((row) => row.id)
-
-  if (cancelIds.length > 0) {
-    const { error: cancelError } = await supabase
-      .from('calendar_event_invites')
-      .update({
-        invite_status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        updated_by: getEntryUserId(user),
-        ...getEntryIdentity(user, 'updated_by'),
-      })
-      .in('id', cancelIds)
-
-    if (cancelError) {
-      console.error(cancelError)
-      throw cancelError
-    }
-  }
-
-  if (selectedPlayers.length === 0) {
-    clearViewCaches()
-    invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
-    invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
-    return []
-  }
 
   const parentLinks = await getActiveParentLinks({
     clubId: user.clubId,
     teamId: normalizedTeamId,
     playerIds: selectedPlayerIds,
   })
-  const existingRowsByPlayerId = new Map(
-    (existingRows ?? []).map((row) => [normalizeText(row.player_id), row]),
-  )
 
   const rows = selectedPlayers.map((player) => {
     const parentLink = parentLinks.get(normalizeText(player.id))
     const contact = getPrimaryContact(player, parentLink)
-    const existingRow = existingRowsByPlayerId.get(normalizeText(player.id))
 
     return {
-      club_id: user.clubId,
-      team_id: normalizedTeamId,
-      calendar_event_id: sourceFilter.column === 'calendar_event_id' ? sourceFilter.value : null,
-      assessment_session_id: sourceFilter.column === 'assessment_session_id' ? sourceFilter.value : null,
       player_id: player.id,
       parent_link_id: parentLink?.id || null,
       player_status_at_invite: normalizeText(player.section || player.status),
@@ -266,23 +213,17 @@ export async function saveCalendarEventInvites({
       parent_contact_email: contact.email,
       player_contact_email: '',
       recipient_contacts: contact.contacts,
-      invite_status: existingRow?.responded_at ? existingRow.invite_status : 'active',
       notify_requested: notifyRequested === true,
-      cancelled_at: null,
-      created_by: getEntryUserId(user),
-      ...getEntryIdentity(user),
-      updated_by: getEntryUserId(user),
-      ...getEntryIdentity(user, 'updated_by'),
-      updated_at: new Date().toISOString(),
     }
   })
 
   const { data, error } = await supabase
-    .from('calendar_event_invites')
-    .upsert(rows, {
-      onConflict: 'club_id,player_id,calendar_event_id,assessment_session_id',
+    .rpc('sync_calendar_event_invites', {
+      team_id_value: normalizedTeamId,
+      calendar_event_id_value: sourceFilter.column === 'calendar_event_id' ? sourceFilter.value : null,
+      assessment_session_id_value: sourceFilter.column === 'assessment_session_id' ? sourceFilter.value : null,
+      invite_rows_value: rows,
     })
-    .select('*, players:player_id (id, player_name, section, team, parent_name, parent_email, parent_contacts)')
 
   if (error) {
     console.error(error)
@@ -304,7 +245,28 @@ export async function saveCalendarEventInvites({
     },
   })
 
-  return (data ?? []).map(normalizeCalendarEventInvite)
+  const selectedPlayersById = new Map(
+    selectedPlayers.map((player) => [normalizeText(player.id), player]),
+  )
+
+  return (data ?? []).map((row) => {
+    const player = selectedPlayersById.get(normalizeText(row.player_id))
+
+    return normalizeCalendarEventInvite({
+      ...row,
+      players: player
+        ? {
+            id: player.id,
+            player_name: player.playerName ?? player.player_name,
+            section: player.section ?? player.status,
+            team: player.team,
+            parent_name: player.parentName ?? player.parent_name,
+            parent_email: player.parentEmail ?? player.parent_email,
+            parent_contacts: player.parentContacts ?? player.parent_contacts,
+          }
+        : null,
+    })
+  })
 }
 
 function normalizeParentPortalInvite(row) {

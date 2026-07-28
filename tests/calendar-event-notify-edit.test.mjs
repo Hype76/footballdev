@@ -7,14 +7,16 @@ const calendarDomainUrl = new URL('../src/lib/domain/calendar-events.js', import
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const calendarInvitesDomainUrl = new URL('../src/lib/domain/calendar-event-invites.js', import.meta.url)
+const calendarInviteSyncUrl = new URL('../supabase/migrations/20260728070451_calendar_invite_transactional_sync.sql', import.meta.url)
 const notificationStatusUrl = new URL('../src/lib/domain/calendar-notification-status.js', import.meta.url)
 
-const [migration, calendarDomain, sessionsPage, parentPortalPage, calendarInvitesDomain, notificationStatus] = await Promise.all([
+const [migration, calendarDomain, sessionsPage, parentPortalPage, calendarInvitesDomain, calendarInviteSync, notificationStatus] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(calendarDomainUrl, 'utf8'),
   readFile(sessionsPageUrl, 'utf8'),
   readFile(parentPortalPageUrl, 'utf8'),
   readFile(calendarInvitesDomainUrl, 'utf8'),
+  readFile(calendarInviteSyncUrl, 'utf8'),
   readFile(notificationStatusUrl, 'utf8'),
 ])
 
@@ -65,7 +67,9 @@ test('notify creates or updates one informational Portal record per event and ch
   assert.match(migration, /notify_requested = true/i)
   assert.match(migration, /when public\.calendar_event_invites\.responded_at is not null then public\.calendar_event_invites\.invite_status/i)
   assert.doesNotMatch(migration, /responded_at\s*=\s*null/i)
-  assert.match(calendarInvitesDomain, /existingRow\?\.responded_at \? existingRow\.invite_status : 'active'/i)
+  assert.match(calendarInvitesDomain, /\.rpc\('sync_calendar_event_invites'/i)
+  assert.match(calendarInviteSync, /when existing\.responded_at is not null then existing\.invite_status/i)
+  assert.doesNotMatch(calendarInviteSync, /responded_at\s*=\s*null/i)
   assert.match(migration, /'responseRequirement', 'informational'/i)
 })
 
