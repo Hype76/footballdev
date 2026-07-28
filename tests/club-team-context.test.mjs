@@ -57,7 +57,7 @@ test('manual team switching remains available through explicit team selectors', 
   const layoutSource = await readFile(layoutUrl, 'utf8')
 
   assert.match(sidebarSource, /await selectTeam\(teamId\)/)
-  assert.match(sidebarSource, /<span className="text-\[11px\] font-black uppercase tracking-\[0\.16em\] text-\[#4b5f55\]">\s*Access view\s*<\/span>/)
+  assert.match(sidebarSource, /<span className="text-\[11px\] font-black uppercase tracking-\[0\.16em\] text-\[var\(--text-muted\)\]">\s*Access view\s*<\/span>/)
   assert.match(layoutSource, /await selectTeam\(teamId\)/)
 })
 

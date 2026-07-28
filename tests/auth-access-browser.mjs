@@ -12,6 +12,8 @@ const mainBaseUrl = `http://127.0.0.1:${port}`
 const parentBaseUrl = `http://parent.footballplayer.online:${port}`
 const parentThemeScreenshotDirectory = 'outputs/fp-v1-parent-portal-themes-release-04e'
 await mkdir(parentThemeScreenshotDirectory, { recursive: true })
+const managerHomeScreenshotDirectory = 'outputs/fp-v1-manager-home-darkmode-39e'
+await mkdir(managerHomeScreenshotDirectory, { recursive: true })
 const parentThemeMatrix = [
   { accent: 'green', label: 'light-default', mode: 'light' },
   { accent: 'green', label: 'dark-default', mode: 'dark' },
@@ -1118,6 +1120,117 @@ async function auditStandaloneTheme(page, { label }) {
   }
 }
 
+async function auditManagerHome(page, { label, mode }) {
+  const audit = await page.evaluate(({ expectedMode }) => {
+    function parseRgb(value) {
+      const channels = String(value || '').match(/[\d.]+/g)?.slice(0, 3).map(Number)
+      return channels?.length === 3 ? channels : null
+    }
+
+    function luminance(rgb) {
+      const channels = rgb.map((value) => {
+        const normalized = value / 255
+        return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+      })
+      return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2])
+    }
+
+    function contrastRatio(foreground, background) {
+      const foregroundRgb = parseRgb(foreground)
+      const backgroundRgb = parseRgb(background)
+      if (!foregroundRgb || !backgroundRgb) return 0
+      const foregroundLuminance = luminance(foregroundRgb)
+      const backgroundLuminance = luminance(backgroundRgb)
+      return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
+        / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+    }
+
+    function inheritedBackground(element) {
+      let current = element
+      while (current) {
+        const background = getComputedStyle(current).backgroundColor
+        if (background && background !== 'transparent' && background !== 'rgba(0, 0, 0, 0)') {
+          return background
+        }
+        current = current.parentElement
+      }
+      return getComputedStyle(document.body).backgroundColor
+    }
+
+    const scope = document.querySelector('[data-testid="manager-home"]')
+    const rootStyle = getComputedStyle(document.documentElement)
+    const token = (name) => {
+      const probe = document.createElement('span')
+      probe.style.color = rootStyle.getPropertyValue(name).trim()
+      probe.style.position = 'fixed'
+      probe.style.visibility = 'hidden'
+      document.body.append(probe)
+      const resolved = getComputedStyle(probe).color
+      probe.remove()
+      return resolved
+    }
+    const sections = [
+      'manager-home-header',
+      'manager-home-next-session',
+      'manager-home-quick-actions',
+      'manager-home-metrics',
+      'manager-home-latest-notes',
+    ].map((testId) => {
+      const element = document.querySelector(`[data-testid="${testId}"]`)
+      return {
+        background: element ? getComputedStyle(element).backgroundColor : null,
+        present: Boolean(element),
+        testId,
+      }
+    })
+    const textSamples = scope
+      ? [...scope.querySelectorAll('h1, h2, a')]
+        .filter((element) => element.getClientRects().length > 0)
+        .map((element) => {
+          const style = getComputedStyle(element)
+          const background = inheritedBackground(element)
+          return {
+            background,
+            foreground: style.color,
+            ratio: contrastRatio(style.color, background),
+            text: element.textContent.trim().slice(0, 60),
+          }
+        })
+      : []
+
+    return {
+      bodyBackground: getComputedStyle(document.body).backgroundColor,
+      bodyLuminance: luminance(parseRgb(getComputedStyle(document.body).backgroundColor) || [255, 255, 255]),
+      documentOverflows: document.documentElement.scrollWidth > window.innerWidth,
+      expectedModeApplied: document.documentElement.classList.contains(`theme-${expectedMode}`),
+      panelBackground: token('--panel-bg'),
+      primaryBackground: token('--button-primary'),
+      scopePresent: Boolean(scope),
+      sections,
+      shellBackground: token('--shell-card'),
+      textSamples,
+    }
+  }, { expectedMode: mode })
+
+  assert.equal(audit.scopePresent, true, `${label} renders Manager Home`)
+  assert.equal(audit.expectedModeApplied, true, `${label} applies ${mode} mode`)
+  assert.equal(audit.documentOverflows, false, `${label} has no horizontal overflow`)
+  assert.equal(audit.sections.every((section) => section.present), true, `${label} renders all Manager Home sections`)
+  assert.equal(audit.sections[0].background, audit.shellBackground, `${label} uses the shell token for the header`)
+  for (const section of audit.sections.slice(1)) {
+    assert.equal(section.background, audit.panelBackground, `${label} uses the quiet panel token for ${section.testId}`)
+    assert.notEqual(section.background, audit.primaryBackground, `${label} does not fill ${section.testId} with the action colour`)
+  }
+  for (const sample of audit.textSamples) {
+    assert.ok(sample.ratio >= 4.5, `${label} "${sample.text}" contrast ${sample.ratio.toFixed(2)} is at least 4.5`)
+  }
+  if (mode === 'dark') {
+    assert.ok(audit.bodyLuminance < 0.08, `${label} uses a near-black charcoal page background`)
+  }
+
+  return audit
+}
+
 async function runScenario(name, callback) {
   await callback()
   console.log(`ok ${name}`)
@@ -1355,6 +1468,89 @@ try {
     await assertSidebarFooterContract(page, { reportIssueExpected: false })
     await context.close()
   })
+
+  for (const viewport of [
+    { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
+    { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
+  ]) {
+    for (const mode of ['light', 'dark']) {
+      await runScenario(`${viewport.name} Manager Home ${mode} mode preserves hierarchy, actions and accessibility`, async () => {
+        const context = await browser.newContext(viewport.options)
+        const { page } = await preparePage(context)
+        await signIn(page, 'manager.fixture@footballplayer.test')
+        await page.waitForURL('**/coach', { timeout: 15000 })
+        await closeOnboardingDialog(page)
+        await page.getByTestId('manager-home').waitFor({ state: 'visible', timeout: 15000 })
+        await applyTheme(page, { accent: 'green', mode })
+
+        await page.getByRole('heading', { name: 'No session scheduled yet', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+        assert.equal(await page.getByTestId('manager-home-next-session').getByRole('link', { name: 'Add event' }).getAttribute('href'), '/calendar?action=add-event')
+
+        const expectedActions = [
+          ['View squad', '/players/current'],
+          ['Add player note', '/assess-player/new?choosePlayer=1'],
+          ['Add assessment', '/assess-player/new?choosePlayer=1'],
+          ['Open calendar', '/calendar'],
+        ]
+        for (const [name, href] of expectedActions) {
+          const link = page.getByTestId('manager-home-quick-actions').getByRole('link', { name: new RegExp(`^${name}`) })
+          await link.waitFor({ state: 'visible', timeout: 15000 })
+          assert.equal(await link.getAttribute('href'), href)
+          await link.focus()
+          const focusStyle = await link.evaluate((element) => ({
+            boxShadow: getComputedStyle(element).boxShadow,
+            outlineStyle: getComputedStyle(element).outlineStyle,
+          }))
+          assert.equal(
+            focusStyle.boxShadow !== 'none' || focusStyle.outlineStyle !== 'none',
+            true,
+            `${viewport.name} ${mode} ${name} has a visible focus indicator`,
+          )
+        }
+
+        const coachMode = page.getByRole('button', { name: 'Coach Mode', exact: true })
+        const fullMode = page.getByRole('button', { name: 'Full Mode', exact: true })
+        assert.equal(await fullMode.getAttribute('aria-pressed'), 'true')
+        await coachMode.click()
+        assert.equal(await coachMode.getAttribute('aria-pressed'), 'true')
+        await page.getByTestId('manager-home-next-session').waitFor({ state: 'visible' })
+        assert.equal(await page.getByTestId('manager-home-quick-actions').count(), 0)
+        assert.equal(await page.getByTestId('manager-home-metrics').count(), 0)
+        assert.equal(await page.getByTestId('manager-home-latest-notes').count(), 0)
+        await fullMode.click()
+        await page.getByTestId('manager-home-quick-actions').waitFor({ state: 'visible' })
+        assert.equal(await fullMode.getAttribute('aria-pressed'), 'true')
+
+        await page.getByTestId('manager-home-metrics').getByText('Players', { exact: true }).waitFor({ state: 'visible' })
+        await page.getByTestId('manager-home-latest-notes').getByText(
+          'Coach notes and assessments will appear here after the first session.',
+          { exact: true },
+        ).waitFor({ state: 'visible' })
+
+        await auditManagerHome(page, {
+          label: `${viewport.name} Manager Home ${mode}`,
+          mode,
+        })
+
+        if (viewport.name === 'mobile') {
+          await openMobileNavigation(page)
+          const sidebar = page.locator('aside')
+          await sidebar.getByText('Club tools', { exact: true }).waitFor({ state: 'visible' })
+          await sidebar.getByText('Match Operations', { exact: true }).waitFor({ state: 'visible' })
+          await sidebar.getByText('Team Comms', { exact: true }).waitFor({ state: 'visible' })
+          await sidebar.getByText('Squad tools', { exact: true }).waitFor({ state: 'visible' })
+          assert.equal(await sidebar.locator('a[aria-current="page"]').getAttribute('href'), '/coach')
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+        }
+
+        await page.screenshot({
+          fullPage: true,
+          path: `${managerHomeScreenshotDirectory}/${viewport.name}-${mode}.png`,
+        })
+        await context.close()
+      })
+    }
+  }
 
   for (const viewport of [
     { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },

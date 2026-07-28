@@ -105,7 +105,7 @@ function NavItemLabel({ item, pollCount = 0 }) {
 
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#047857] shadow-sm shadow-[#047857]/10 ring-1 ring-[#d7e5dc]">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--panel-bg)] text-[var(--text-secondary)] ring-1 ring-[var(--border-color)]">
         <NavIcon name={getNavIcon(item.path)} />
       </span>
       <span className="min-w-0 flex-1">
@@ -113,7 +113,7 @@ function NavItemLabel({ item, pollCount = 0 }) {
         {item.helper ? <span className="mt-0.5 block truncate whitespace-nowrap text-xs font-semibold opacity-80">{item.helper}</span> : null}
       </span>
       {count > 0 ? (
-        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-lg bg-[#047857] px-2 text-xs font-black text-white shadow-sm shadow-[#047857]/20">
+        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--button-primary)] px-2 text-xs font-black text-[var(--button-primary-text)]">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -151,9 +151,9 @@ function OperationsStrip({ canUseTeamWorkflow, displayUser, isParentPortal, onCl
           key={action.path}
           to={action.path}
           onClick={onClose}
-          className="group grid min-h-20 place-items-center rounded-lg border border-[#d7e5dc] bg-white px-2 py-3 text-center text-[#4b5f55] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] hover:text-[#101828]"
+          className="group grid min-h-20 place-items-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-2 py-3 text-center text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:bg-[var(--sidebar-active-bg)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] text-[#065f46] transition group-hover:bg-white">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-secondary)] transition group-hover:bg-[var(--panel-bg)]">
             <NavIcon name={action.icon} />
           </span>
           <span className="mt-2 text-xs font-black leading-4">{action.label}</span>
@@ -527,22 +527,22 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(20.5rem,calc(100vw-1rem))] max-w-[20.5rem] flex-col overflow-y-auto border-r border-[#d7e5dc] bg-white px-3 py-4 shadow-2xl shadow-[#047857]/10 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(20.5rem,calc(100vw-1rem))] max-w-[20.5rem] flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-3 py-4 shadow-2xl shadow-black/20 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3 shadow-sm shadow-[#047857]/10">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]">
                   <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#047857]">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">
                     {isParentPortal ? 'Family portal' : isCoachOnly ? 'Coach tools' : 'Football Player'}
                   </p>
-                  <h2 className="mt-1 max-w-[min(12.5rem,calc(100vw-9rem))] truncate whitespace-nowrap text-lg font-black tracking-tight text-[#101828]">{clubLabel}</h2>
+                  <h2 className="mt-1 max-w-[min(12.5rem,calc(100vw-9rem))] truncate whitespace-nowrap text-lg font-black tracking-tight text-[var(--text-primary)]">{clubLabel}</h2>
                 </div>
               </div>
             </div>
@@ -550,17 +550,17 @@ export function Sidebar({ isOpen, onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-[#4b5f55] shadow-sm lg:hidden"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] lg:hidden"
               aria-label="Close navigation"
             >
               X
             </button>
           </div>
 
-          <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
-            <p className="text-xs font-black text-[#101828]">{isParentPortal ? 'Family view' : isCoachOnly ? 'Team workspace' : 'Club workspace'}</p>
-            <p className="mt-1 truncate whitespace-nowrap text-sm font-black text-[#047857]">{workspaceContext}</p>
-            <p className="mt-1 text-[11px] font-semibold leading-5 text-[#66756c]">
+          <div className="mt-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+            <p className="text-xs font-black text-[var(--text-primary)]">{isParentPortal ? 'Family view' : isCoachOnly ? 'Team workspace' : 'Club workspace'}</p>
+            <p className="mt-1 truncate whitespace-nowrap text-sm font-black text-[var(--text-secondary)]">{workspaceContext}</p>
+            <p className="mt-1 text-[11px] font-semibold leading-5 text-[var(--text-muted)]">
               {workLaneLabel} | {teamLabel}
             </p>
           </div>
@@ -568,13 +568,13 @@ export function Sidebar({ isOpen, onClose }) {
           <div className="mt-3 grid gap-2">
             {isDemoUser(displayUser) ? (
               <label className="grid gap-1">
-                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">
                   Demo role
                 </span>
                 <select
                   value={demoRoleKey || ''}
                   onChange={(event) => setDemoRolePreview(event.target.value)}
-                  className="min-h-11 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#0f9f6e]"
+                  className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-black text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--focus-ring)]"
                 >
                   <option value="">Default role</option>
                   {DEMO_ROLE_OPTIONS.map((role) => (
@@ -588,7 +588,7 @@ export function Sidebar({ isOpen, onClose }) {
 
             {shouldShowWorkspaceSelector ? (
               <label className="grid gap-1">
-                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">
                   Access view
                 </span>
                 <select
@@ -596,7 +596,7 @@ export function Sidebar({ isOpen, onClose }) {
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
                   title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
-                  className="min-h-11 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#0f9f6e] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-black text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
                   {hasParentPortalAccess ? <option value="__parent_portal__">Family portal</option> : null}
@@ -619,9 +619,9 @@ export function Sidebar({ isOpen, onClose }) {
               </label>
             ) : null}
 
-            <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
-              <p className="truncate whitespace-nowrap text-xs font-black text-[#101828]">{workLaneLabel}</p>
-              <p className="mt-1 truncate whitespace-nowrap text-[11px] font-semibold text-[#66756c]">{roleLabel}, {userLabel}</p>
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+              <p className="truncate whitespace-nowrap text-xs font-black text-[var(--text-primary)]">{workLaneLabel}</p>
+              <p className="mt-1 truncate whitespace-nowrap text-[11px] font-semibold text-[var(--text-muted)]">{roleLabel}, {userLabel}</p>
             </div>
           </div>
         </div>
@@ -685,10 +685,10 @@ export function Sidebar({ isOpen, onClose }) {
                 }}
                 className={({ isActive }) =>
                   [
-                    'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
+                    'block rounded-lg border px-4 py-3 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
                     isActive
-                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
-                      : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
+                      ? 'border-[var(--accent)] bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                      : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] hover:bg-[var(--panel-alt)]',
                   ].join(' ')
                 }
               >
@@ -709,10 +709,10 @@ export function Sidebar({ isOpen, onClose }) {
                   }}
                   className={({ isActive }) =>
                     [
-                      'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
+                      'block rounded-lg border px-4 py-3 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
                       isActive
-                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
-                      : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
+                          ? 'border-[var(--accent)] bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                          : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] hover:bg-[var(--panel-alt)]',
                     ].join(' ')
                   }
                 >
@@ -735,10 +735,10 @@ export function Sidebar({ isOpen, onClose }) {
               }}
               className={({ isActive }) =>
                 [
-                  'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
+                      'block rounded-lg border px-4 py-3 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
                   isActive
-                    ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
-                    : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
+                        ? 'border-[var(--accent)] bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                        : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] hover:bg-[var(--panel-alt)]',
                 ].join(' ')
               }
             >
@@ -758,10 +758,10 @@ export function Sidebar({ isOpen, onClose }) {
             }}
             className={({ isActive }) =>
               [
-                'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
+                'block rounded-lg border px-4 py-3 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
                 isActive
-                  ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
-                  : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
+                  ? 'border-[var(--accent)] bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                  : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] hover:bg-[var(--panel-alt)]',
               ].join(' ')
             }
           >
@@ -772,7 +772,7 @@ export function Sidebar({ isOpen, onClose }) {
             onClick={handleSignOut}
             disabled={isSigningOut}
             title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#f7faf8]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
           >
             {isSigningOut ? 'Signing out...' : 'Sign out'}
           </button>
@@ -784,12 +784,12 @@ export function Sidebar({ isOpen, onClose }) {
 
 function PrimaryNavSection({ items, onClose, pollCount, title }) {
   return (
-    <section className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2 shadow-sm shadow-[#101828]/5">
+    <section className="px-1 py-1">
       <div className="flex items-center justify-between px-2">
-        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">
           {title}
         </p>
-        <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[11px] font-black text-[#166534]">
+        <span className="px-2 py-1 text-[11px] font-black text-[var(--text-secondary)]">
           Live
         </span>
       </div>
@@ -809,10 +809,10 @@ function PrimaryNavSection({ items, onClose, pollCount, title }) {
             }}
             className={({ isActive }) =>
               [
-                'block rounded-lg px-3 py-3 transition',
+                    'block rounded-lg px-3 py-3 transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
                 isActive
-                  ? 'bg-[#ecfdf5] text-[#065f46] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
-                  : 'bg-white text-[#4b5f55] shadow-sm shadow-[#047857]/5 hover:bg-[#ecfdf5] hover:text-[#101828]',
+                  ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)] ring-1 ring-[var(--accent)]'
+                  : 'text-[var(--text-muted)] hover:bg-[var(--panel-alt)] hover:text-[var(--text-primary)]',
               ].join(' ')
             }
           >
@@ -826,14 +826,14 @@ function PrimaryNavSection({ items, onClose, pollCount, title }) {
 
 function NavGroup({ defaultOpen = false, items, onClose, pollCount, title }) {
   return (
-    <details open={defaultOpen} className="group rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-sm shadow-[#047857]/10">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
+    <details open={defaultOpen} className="group border-t border-[var(--border-color)] px-1 pt-2">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[var(--text-primary)]">
         <span className="min-w-0 flex-1">
           <span className="block truncate whitespace-nowrap">{title}</span>
-          <span className="mt-0.5 block truncate whitespace-nowrap text-xs font-semibold text-[#4b5f55]">{groupDescriptions[title] || 'Workspace tools'}</span>
+          <span className="mt-0.5 block truncate whitespace-nowrap text-xs font-semibold text-[var(--text-muted)]">{groupDescriptions[title] || 'Workspace tools'}</span>
         </span>
-        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#4b5f55] group-open:hidden">Show</span>
-        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#4b5f55] group-open:inline-flex">Hide</span>
+        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-[var(--panel-alt)] px-2 py-1 text-xs font-black text-[var(--text-muted)] group-open:hidden">Show</span>
+        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-[var(--panel-alt)] px-2 py-1 text-xs font-black text-[var(--text-muted)] group-open:inline-flex">Hide</span>
       </summary>
       <div className="mt-2 grid gap-1.5">
         {items.map((item) =>
@@ -854,10 +854,10 @@ function NavGroup({ defaultOpen = false, items, onClose, pollCount, title }) {
               }}
               className={({ isActive }) =>
                 [
-                  'block rounded-lg px-3 py-3 transition',
+                      'block rounded-lg px-3 py-3 transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
                   isActive
-                    ? 'bg-[#ecfdf5] text-[#065f46] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
-                    : 'text-[#4b5f55] hover:bg-[#f7faf8] hover:text-[#101828]',
+                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)] ring-1 ring-[var(--accent)]'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-alt)] hover:text-[var(--text-primary)]',
                 ].join(' ')
               }
             >
@@ -893,14 +893,14 @@ function DisabledNavItem({ item }) {
       disabled
       aria-disabled="true"
       title={item.disabledMessage}
-      className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 text-left opacity-70"
+      className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-left opacity-70"
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#4b5f55] ring-1 ring-[#d7e5dc]">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--panel-bg)] text-[var(--text-muted)] ring-1 ring-[var(--border-color)]">
         <NavIcon name={getNavIcon(item.path)} />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-black text-[#4b5f55]">{item.label}</span>
-        <span className="mt-1 block text-xs leading-5 text-[#6d8076]">{item.disabledMessage}</span>
+        <span className="block text-sm font-black text-[var(--text-muted)]">{item.label}</span>
+        <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{item.disabledMessage}</span>
       </span>
     </button>
   )

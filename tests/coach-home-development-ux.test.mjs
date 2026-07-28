@@ -4,9 +4,9 @@ import { test } from 'node:test'
 
 const coachHomeUrl = new URL('../src/pages/CoachHomePage.jsx', import.meta.url)
 
-test('latest player note cards link to the player profile with accessible focus styling', async () => {
+test('latest player note rows link to the player profile with accessible focus styling', async () => {
   const source = await readFile(coachHomeUrl, 'utf8')
-  const start = source.indexOf('<h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Latest player notes</h2>')
+  const start = source.indexOf('data-testid="manager-home-latest-notes"')
   const end = source.indexOf('{!isLoading && recentEvaluations.length === 0', start)
 
   assert.notEqual(start, -1)

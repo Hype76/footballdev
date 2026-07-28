@@ -24,12 +24,12 @@ import {
 } from '../lib/session-page-utils.js'
 import { isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
-const surfaceClass = 'overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10'
-const sectionHeaderClass = 'border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#065f46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white'
+const surfaceClass = 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/10'
+const sectionHeaderClass = 'border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-5 sm:px-6'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[var(--text-muted)]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-black text-[var(--button-primary-text)] shadow-sm shadow-black/10 transition hover:bg-[var(--button-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:ring-offset-2 focus:ring-offset-[var(--panel-bg)]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)] hover:bg-[var(--sidebar-active-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:ring-offset-2 focus:ring-offset-[var(--panel-bg)]'
 const COACH_MODE_STORAGE_KEY = 'football-player:coach-mode'
 const COACH_MODE_CHANGED_EVENT = 'football-player:coach-mode-changed'
 
@@ -53,7 +53,7 @@ function saveCoachModePreference(isCoachMode) {
 function CoachModeToggle({ isCoachMode, onChange }) {
   return (
     <div
-      className="grid w-full grid-cols-2 gap-1 rounded-lg border border-[#d7e5dc] bg-white p-1 shadow-sm shadow-[#047857]/10"
+      className="grid w-full grid-cols-2 gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-1"
       aria-label="Coach mode display"
     >
       {[
@@ -67,8 +67,8 @@ function CoachModeToggle({ isCoachMode, onChange }) {
           aria-pressed={isCoachMode === option.value}
           className={`min-h-10 w-full min-w-0 rounded-md px-3 py-2 text-center text-sm font-black transition ${
             isCoachMode === option.value
-              ? 'bg-[#047857] text-white'
-              : 'bg-white text-[#101828] hover:bg-[#ecfdf5]'
+              ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)] shadow-sm shadow-black/10'
+              : 'bg-transparent text-[var(--text-muted)] hover:bg-[var(--sidebar-active-bg)] hover:text-[var(--text-primary)]'
           }`}
         >
           {option.label}
@@ -222,27 +222,30 @@ function ClubAdminHomeView({
   ]
 
   return (
-    <div className="space-y-5">
-      <section className={surfaceClass}>
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <div className="px-5 py-6 sm:px-6 lg:px-8">
+    <div data-testid="manager-home" className="manager-home-theme space-y-5">
+      <section
+        data-testid="manager-home-header"
+        className="rounded-xl bg-[var(--shell-card)] px-5 py-5 shadow-sm shadow-black/10 sm:px-6 lg:flex lg:items-center lg:justify-between lg:gap-8 lg:px-8"
+      >
+          <div className="min-w-0">
             <p className={eyebrowClass}>{homeCopy.title}</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+            <h1 className="mt-2 max-w-4xl text-3xl font-black tracking-tight text-[var(--text-primary)] sm:text-4xl">
               {greeting}
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[var(--text-muted)] sm:text-base">
               {homeCopy.description}
             </p>
           </div>
-          <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Club workspace</p>
-            <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
-              {user?.clubName || 'Your club'}
-            </p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Club Admin access for shared club setup and staff controls.
-            </p>
-            <div className="mt-4">
+          <aside className="mt-5 w-full max-w-md lg:mt-0 lg:shrink-0">
+            <div className="mb-3 flex min-w-0 items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">Club workspace</p>
+                <p className="mt-1 truncate text-sm font-black text-[var(--text-primary)]">
+                  {user?.clubName || 'Your club'}
+                </p>
+              </div>
+              <p className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">Club Admin</p>
+            </div>
               <CoachModeToggle
                 isCoachMode={isCoachMode}
                 onChange={(value) => {
@@ -250,9 +253,7 @@ function ClubAdminHomeView({
                   saveCoachModePreference(value)
                 }}
               />
-            </div>
           </aside>
-        </div>
       </section>
 
       {errorMessage ? (
@@ -261,21 +262,21 @@ function ClubAdminHomeView({
         </div>
       ) : null}
 
-      {!isCoachMode ? <section className={surfaceClass}>
+      {!isCoachMode ? <section data-testid="manager-home-club-metrics" className={surfaceClass}>
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Club overview</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--text-primary)]">
             {isLoading ? 'Loading club workspace' : 'Your club at a glance'}
           </h2>
           <p className={`mt-2 ${bodyTextClass}`}>
             Review the shared club setup before moving into a specific team.
           </p>
         </div>
-        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid divide-y divide-[var(--border-color)] md:grid-cols-5 md:divide-x md:divide-y-0">
           {metricItems.map((item) => (
-            <div key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
-              <p className="mt-2 text-2xl font-black text-[#101828]">{item.value}</p>
+            <div key={item.label} className="px-5 py-4 sm:px-6">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">{item.label}</p>
+              <p className="mt-2 text-2xl font-black text-[var(--text-primary)]">{item.value}</p>
             </div>
           ))}
         </div>
@@ -284,20 +285,23 @@ function ClubAdminHomeView({
       {!isCoachMode ? <section className={surfaceClass}>
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Admin actions</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Club setup tools</h2>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--text-primary)]">Club setup tools</h2>
           <p className={`mt-2 ${bodyTextClass}`}>
             Use these controls for club-wide setup. Select a team when you need team operations.
           </p>
         </div>
-        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2 px-5 py-5 sm:px-6 md:grid-cols-2">
           {adminActions.map((action) => (
             <Link
               key={`${action.path}:${action.label}`}
               to={action.path}
-              className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+              className="flex min-h-14 items-center justify-between gap-4 rounded-lg px-3 py-3 transition hover:bg-[var(--sidebar-active-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
             >
-              <p className="text-base font-black text-[#101828]">{action.label}</p>
-              <p className={`mt-2 ${bodyTextClass}`}>{action.description}</p>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[var(--text-primary)]">{action.label}</span>
+                <span className="mt-1 block text-xs font-semibold leading-5 text-[var(--text-muted)]">{action.description}</span>
+              </span>
+              <span aria-hidden="true" className="shrink-0 text-xs font-black uppercase tracking-[0.14em] text-[var(--text-secondary)]">Open</span>
             </Link>
           ))}
         </div>
@@ -601,27 +605,30 @@ export function CoachHomePage() {
   }
 
   return (
-    <div className="space-y-5">
-      <section className={surfaceClass}>
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <div className="px-5 py-6 sm:px-6 lg:px-8">
+    <div data-testid="manager-home" className="manager-home-theme space-y-5">
+      <section
+        data-testid="manager-home-header"
+        className="rounded-xl bg-[var(--shell-card)] px-5 py-5 shadow-sm shadow-black/10 sm:px-6 lg:flex lg:items-center lg:justify-between lg:gap-8 lg:px-8"
+      >
+          <div className="min-w-0">
             <p className={eyebrowClass}>{homeCopy.title}</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+            <h1 className="mt-2 max-w-4xl text-3xl font-black tracking-tight text-[var(--text-primary)] sm:text-4xl">
               {greeting}
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[var(--text-muted)] sm:text-base">
               {homeCopy.description}
             </p>
           </div>
-          <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Current team</p>
-            <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
-              {user?.activeTeamName || user?.clubName || 'Team not selected'}
-            </p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-              {user?.roleLabel || 'Coach'} access for {user?.clubName || 'this club'}.
-            </p>
-            <div className="mt-4">
+          <aside className="mt-5 w-full max-w-md lg:mt-0 lg:shrink-0">
+            <div className="mb-3 flex min-w-0 items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">Current team</p>
+                <p className="mt-1 truncate text-sm font-black text-[var(--text-primary)]">
+                  {user?.activeTeamName || user?.clubName || 'Team not selected'}
+                </p>
+              </div>
+              <p className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">{user?.roleLabel || 'Coach'}</p>
+            </div>
               <CoachModeToggle
                 isCoachMode={isCoachMode}
                 onChange={(value) => {
@@ -629,9 +636,7 @@ export function CoachHomePage() {
                   saveCoachModePreference(value)
                 }}
               />
-            </div>
           </aside>
-        </div>
       </section>
 
       {errorMessage ? (
@@ -640,12 +645,12 @@ export function CoachHomePage() {
         </div>
       ) : null}
 
-      <section className={surfaceClass}>
+      <section data-testid="manager-home-next-session" className={surfaceClass}>
         <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className={eyebrowClass}>Next up</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--text-primary)]">
                 {activeSession?.title || activeSession?.team || (isLoading ? 'Loading next item' : 'No session scheduled yet')}
               </h2>
               <p className={`mt-2 ${bodyTextClass}`}>
@@ -660,22 +665,38 @@ export function CoachHomePage() {
             </Link>
           </div>
         </div>
+      </section>
 
-        {!isCoachMode ? <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4">
+      {!isCoachMode ? <section data-testid="manager-home-quick-actions" aria-labelledby="manager-home-quick-actions-title" className={surfaceClass}>
+        <div className="flex items-center justify-between gap-4 px-5 pt-5 sm:px-6">
+          <div>
+            <p className={eyebrowClass}>Work shortcuts</p>
+            <h2 id="manager-home-quick-actions-title" className="mt-1 text-lg font-black tracking-tight text-[var(--text-primary)]">Quick actions</h2>
+          </div>
+          <p className="hidden text-xs font-semibold text-[var(--text-muted)] sm:block">Current team</p>
+        </div>
+        <div className="grid gap-1 px-3 py-3 sm:grid-cols-2 sm:px-4 xl:grid-cols-4">
           {secondaryActions.map((action) => (
             <Link
               key={`${action.path}:${action.label}`}
               to={action.path}
-              className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+              className="flex min-h-14 items-center justify-between gap-3 rounded-lg px-3 py-3 transition hover:bg-[var(--sidebar-active-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
             >
-              <span className="block text-sm font-black text-[#101828]">{action.label}</span>
-              <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.description}</span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[var(--text-primary)]">{action.label}</span>
+                <span className="mt-1 block truncate text-xs font-semibold text-[var(--text-muted)]">{action.description}</span>
+              </span>
+              <span aria-hidden="true" className="shrink-0 text-lg font-black text-[var(--text-secondary)]">›</span>
             </Link>
           ))}
-        </div> : null}
-      </section>
+        </div>
+      </section> : null}
 
-      {!isCoachMode ? <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {!isCoachMode ? <section
+        data-testid="manager-home-metrics"
+        aria-label="Team metrics"
+        className="grid grid-cols-2 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] divide-x divide-y divide-[var(--border-color)] md:grid-cols-4 md:divide-y-0"
+      >
         {snapshotItems.map((item) => (
           <CoachMetric key={item.label} label={item.label} value={item.value} isLoading={isLoading} />
         ))}
@@ -686,36 +707,36 @@ export function CoachHomePage() {
           <div className={sectionHeaderClass}>
             <div>
               <p className={eyebrowClass}>Staff voice notes</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Unassigned voice notes</h2>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--text-primary)]">Unassigned voice notes</h2>
               <p className={`mt-2 ${bodyTextClass}`}>
                 Assign saved staff notes to a player when you are ready.
               </p>
             </div>
           </div>
           {voiceNotePanelMessage ? (
-            <div className="mx-5 mt-5 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] sm:mx-6">
+            <div className="mx-5 mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-secondary)] sm:mx-6">
               {voiceNotePanelMessage}
             </div>
           ) : null}
           {unassignedVoiceNotes.length > 0 ? (
             <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-2">
               {unassignedVoiceNotes.map((note) => (
-              <div key={note.id} className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
+              <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-sm font-black text-[#101828]">{note.note || 'Staff voice note'}</p>
-                    <p className="mt-1 text-xs font-bold text-[#4b5f55]">
+                    <p className="text-sm font-black text-[var(--text-primary)]">{note.note || 'Staff voice note'}</p>
+                    <p className="mt-1 text-xs font-bold text-[var(--text-muted)]">
                       {formatVoiceNoteDate(note.createdAt)} | {formatVoiceNoteDuration(note.audioDurationSeconds)}
                     </p>
                   </div>
-                  <span className="inline-flex w-fit rounded-full border border-[#b6d8c5] bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#065f46]">
+                  <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--text-secondary)]">
                     Staff only
                   </span>
                 </div>
                 {note.audioUrl ? (
                   <audio controls src={note.audioUrl} className="mt-4 w-full" />
                 ) : (
-                  <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+                  <p className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-3 text-sm font-bold text-[var(--text-muted)]">
                     Audio preview is unavailable. Try refreshing the page.
                   </p>
                 )}
@@ -723,7 +744,7 @@ export function CoachHomePage() {
                   <button
                     type="button"
                     onClick={() => openVoiceNoteAssignment(note)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white"
+                    className={primaryButtonClass}
                   >
                     Assign to player
                   </button>
@@ -731,7 +752,7 @@ export function CoachHomePage() {
                     type="button"
                     onClick={() => deleteRecoveredVoiceNote(note)}
                     disabled={deletingVoiceNoteId === note.id}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#8b4b4b] hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--danger-text)] hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {deletingVoiceNoteId === note.id ? 'Deleting...' : 'Delete'}
                   </button>
@@ -743,12 +764,12 @@ export function CoachHomePage() {
         </section>
       ) : null}
 
-      {!isCoachMode ? <section className={surfaceClass}>
+      {!isCoachMode ? <section data-testid="manager-home-latest-notes" className={surfaceClass}>
         <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className={eyebrowClass}>Development</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Latest player notes</h2>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--text-primary)]">Latest player notes</h2>
             </div>
             <Link
               to="/assess-player/completed"
@@ -758,25 +779,27 @@ export function CoachHomePage() {
             </Link>
           </div>
         </div>
-        <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-3">
+        <div className="divide-y divide-[var(--border-color)]">
           {recentEvaluations.map((evaluation) => (
             <Link
               key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`}
               to={`/player/${encodeURIComponent(evaluation.playerName)}`}
-              className="group rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white"
+              className="group grid gap-3 px-5 py-4 transition hover:bg-[var(--sidebar-active-bg)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--focus-ring)] sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_auto] sm:items-center sm:px-6"
             >
-              <p className="truncate text-sm font-black text-[#101828]">{evaluation.playerName}</p>
-              <p className="mt-2 text-xs font-semibold text-[#4b5f55]">{getEvaluationContextLabel(evaluation, user)}</p>
-              <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black text-[var(--text-primary)]">{evaluation.playerName}</span>
+                <span className="mt-1 block text-xs font-semibold text-[var(--text-muted)]">{getEvaluationContextLabel(evaluation, user)}</span>
+              </span>
+              <span className="line-clamp-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
                 {getEvaluationSummary(evaluation)}
-              </p>
-              <span className="mt-3 inline-flex text-xs font-black uppercase tracking-[0.14em] text-[#047857] group-hover:text-[#065f46]">
+              </span>
+              <span className="inline-flex text-xs font-black uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                 Open player profile
               </span>
             </Link>
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
-            <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55] lg:col-span-3">
+            <div className="px-5 py-6 text-sm font-bold text-[var(--text-muted)] sm:px-6">
               Coach notes and assessments will appear here after the first session.
             </div>
           ) : null}
@@ -856,12 +879,12 @@ export function CoachHomePage() {
 function CoachMetric({ actionLabel = 'Open', compact = false, isLoading, label, to, value }) {
   const content = (
     <>
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">{label}</span>
-      <span className={['mt-2 block font-black text-[#101828]', compact ? 'text-2xl' : 'text-3xl'].join(' ')}>
+      <span className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</span>
+      <span className={['mt-2 block font-black text-[var(--text-primary)]', compact ? 'text-2xl' : 'text-3xl'].join(' ')}>
         {isLoading ? '...' : value}
       </span>
       {to ? (
-        <span className={['inline-flex items-center justify-center rounded-lg bg-[#047857] px-3 py-2 text-xs font-black text-white shadow-sm shadow-[#047857]/20', compact ? 'mt-3 min-h-8' : 'mt-4 min-h-9'].join(' ')}>
+        <span className={['inline-flex items-center justify-center rounded-lg bg-[var(--button-primary)] px-3 py-2 text-xs font-black text-[var(--button-primary-text)]', compact ? 'mt-3 min-h-8' : 'mt-4 min-h-9'].join(' ')}>
           {actionLabel}
         </span>
       ) : null}
@@ -873,7 +896,7 @@ function CoachMetric({ actionLabel = 'Open', compact = false, isLoading, label, 
       <Link
         to={to}
         aria-label={`${actionLabel} ${label.toLowerCase()}`}
-        className={['block rounded-lg border border-[#d7e5dc] bg-white text-left shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}
+        className={['block text-left transition hover:bg-[var(--sidebar-active-bg)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--focus-ring)]', compact ? 'px-3 py-3' : 'px-5 py-4 sm:px-6'].join(' ')}
       >
         {content}
       </Link>
@@ -881,7 +904,7 @@ function CoachMetric({ actionLabel = 'Open', compact = false, isLoading, label, 
   }
 
   return (
-    <div className={['rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}>
+    <div className={compact ? 'px-3 py-3' : 'px-5 py-4 sm:px-6'}>
       {content}
     </div>
   )
