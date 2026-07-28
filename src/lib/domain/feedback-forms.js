@@ -16,7 +16,6 @@ import {
   getStableCategoryKey,
   getStableCategoryLabel,
   getStableMetricKey,
-  isEliteStarterTemplate,
 } from '../elite-development.js'
 
 export const FEEDBACK_FORM_FIELD_TYPES = Object.freeze([
@@ -250,6 +249,8 @@ export function normalizeFeedbackFormRow(row = {}) {
     version: Number(row.version ?? 1) || 1,
     starterTemplateKey: String(row.starter_template_key ?? row.starterTemplateKey ?? '').trim(),
     starterTemplateVersion: row.starter_template_version ?? row.starterTemplateVersion ?? null,
+    sourceTemplateKey: String(row.source_template_key ?? row.sourceTemplateKey ?? '').trim(),
+    sourceTemplateVersion: row.source_template_version ?? row.sourceTemplateVersion ?? null,
     duplicatedFromId: row.duplicated_from_id ?? row.duplicatedFromId ?? '',
     archivedAt: row.archived_at ?? row.archivedAt ?? '',
     createdBy: row.created_by ?? row.createdBy ?? '',
@@ -482,9 +483,48 @@ export async function setStarterFeedbackFormHidden({ hidden, templateId, templat
   })
 }
 
-export async function duplicateStarterFeedbackForm({ selectionId, user } = {}) {
+export function buildFeedbackFormCopyDraft({ action = 'duplicate', sourceForm, sourceType = 'team' } = {}) {
+  const normalizedAction = String(action ?? '').trim().toLowerCase()
+  const normalizedSourceType = String(sourceType ?? '').trim().toLowerCase()
+
+  if (!['customise', 'duplicate'].includes(normalizedAction)) {
+    throw new Error('Choose Duplicate or Customise before copying a feedback form.')
+  }
+
+  if (!sourceForm?.name || !Array.isArray(sourceForm.fields)) {
+    throw new Error('The source feedback form is not available to copy.')
+  }
+
+  if (normalizedSourceType === 'team' && normalizedAction === 'customise') {
+    throw new Error('Use Edit to customise a team-owned feedback form.')
+  }
+
+  const sourceTemplateKey = String(
+    sourceForm.templateKey
+      ?? sourceForm.sourceTemplateKey
+      ?? sourceForm.starterTemplateKey
+      ?? '',
+  ).trim()
+  const sourceTemplateVersion = Number(
+    sourceForm.sourceTemplateVersion
+      ?? sourceForm.starterTemplateVersion
+      ?? sourceForm.version
+      ?? 0,
+  )
+
+  return {
+    duplicatedFromId: normalizedSourceType === 'team' ? String(sourceForm.id ?? '').trim() : '',
+    fields: sourceForm.fields.map((field) => normalizeFeedbackFormField(field)),
+    name: `${String(sourceForm.name).trim()} ${normalizedAction === 'customise' ? 'custom' : 'copy'}`,
+    sourceTemplateKey,
+    sourceTemplateVersion: sourceTemplateKey && sourceTemplateVersion > 0 ? sourceTemplateVersion : null,
+  }
+}
+
+export async function duplicateStarterFeedbackForm({ action = 'duplicate', selectionId, user } = {}) {
   await blockDemoMutation(user)
   await assertFeedbackFormManager(user)
+  const normalizedAction = String(action ?? '').trim().toLowerCase()
 
   const starterForms = await getStarterFeedbackForms({ includeHidden: true, user })
   const sourceForm = starterForms.find((form) => form.selectionId === selectionId)
@@ -493,26 +533,24 @@ export async function duplicateStarterFeedbackForm({ selectionId, user } = {}) {
     throw new Error('The selected starter template is not available to duplicate.')
   }
 
-  const isEliteTemplate = isEliteStarterTemplate(sourceForm)
-
-  if (isEliteTemplate && sourceForm.isInstalled) {
-    throw new Error(`${sourceForm.name} is already installed for this team as ${sourceForm.installedFormName}.`)
-  }
+  const copyDraft = buildFeedbackFormCopyDraft({
+    action: normalizedAction,
+    sourceForm,
+    sourceType: 'platform',
+  })
 
   const createdForm = await createFeedbackForm({
     user,
-    name: isEliteTemplate ? sourceForm.name : `${sourceForm.name} custom`,
-    fields: sourceForm.fields,
-    starterTemplateKey: isEliteTemplate ? sourceForm.templateKey : '',
-    starterTemplateVersion: isEliteTemplate ? sourceForm.version : null,
+    ...copyDraft,
   })
 
   await createAuditLog({
     user,
-    action: isEliteTemplate ? 'starter_feedback_form_installed' : 'starter_feedback_form_duplicated',
+    action: normalizedAction === 'customise' ? 'starter_feedback_form_customised' : 'starter_feedback_form_duplicated',
     entityType: 'feedback_form',
     entityId: createdForm.id,
     metadata: {
+      copyAction: normalizedAction,
       sourceTemplateKey: sourceForm.templateKey,
       sourceTemplateVersion: sourceForm.version,
       formName: createdForm.name,
@@ -523,8 +561,11 @@ export async function duplicateStarterFeedbackForm({ selectionId, user } = {}) {
 }
 
 export async function createFeedbackForm({
+  duplicatedFromId = '',
   fields,
   name,
+  sourceTemplateKey = '',
+  sourceTemplateVersion = null,
   starterTemplateKey = '',
   starterTemplateVersion = null,
   user,
@@ -537,6 +578,9 @@ export async function createFeedbackForm({
     created_by: getEntryUserId(user),
     created_by_name: getEntryUserName(user),
     created_by_email: getEntryUserEmail(user),
+    duplicated_from_id: String(duplicatedFromId ?? '').trim() || null,
+    source_template_key: String(sourceTemplateKey ?? '').trim() || null,
+    source_template_version: Number(sourceTemplateVersion) > 0 ? Number(sourceTemplateVersion) : null,
     starter_template_key: String(starterTemplateKey ?? '').trim() || null,
     starter_template_version: Number(starterTemplateVersion) > 0 ? Number(starterTemplateVersion) : null,
   })
@@ -641,39 +685,28 @@ export async function duplicateFeedbackForm({ formId, user }) {
   }
 
   const sourceForm = normalizeFeedbackFormRow(existingRow)
+  const copyDraft = buildFeedbackFormCopyDraft({
+    sourceForm,
+    sourceType: 'team',
+  })
   const createdForm = await createFeedbackForm({
     user,
-    name: `${sourceForm.name} copy`,
-    fields: sourceForm.fields,
+    ...copyDraft,
   })
-
-  const { data, error } = await supabase
-    .from('feedback_forms')
-    .update({ duplicated_from_id: sourceForm.id })
-    .eq('id', createdForm.id)
-    .select('*')
-    .single()
-
-  if (error) {
-    console.error(error)
-    throw error
-  }
-
-  const duplicatedForm = normalizeFeedbackFormRow(data)
 
   await createAuditLog({
     user,
     action: 'feedback_form_duplicated',
     entityType: 'feedback_form',
-    entityId: duplicatedForm.id,
+    entityId: createdForm.id,
     metadata: {
-      formName: duplicatedForm.name,
+      formName: createdForm.name,
       sourceFormId: sourceForm.id,
       sourceFormName: sourceForm.name,
     },
   })
 
-  return duplicatedForm
+  return createdForm
 }
 
 export async function archiveFeedbackForm({ formId, user }) {
@@ -730,7 +763,7 @@ export function buildFeedbackFormSnapshot({ form, formResponses = {} } = {}) {
 
   return {
     formId: form.isPlatformTemplate === true ? null : form.id || null,
-    templateKey: form.templateKey || form.starterTemplateKey || null,
+    templateKey: form.templateKey || form.sourceTemplateKey || form.starterTemplateKey || null,
     formName: form.name,
     formVersion: Number(form.version ?? 1) || 1,
     isPlatformTemplate: form.isPlatformTemplate === true,

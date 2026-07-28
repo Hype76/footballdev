@@ -47,6 +47,7 @@ export {
 
 export {
   archiveFeedbackForm,
+  buildFeedbackFormCopyDraft,
   buildFeedbackFormSnapshot,
   canCompleteFeedbackForms,
   canManageFeedbackForms,

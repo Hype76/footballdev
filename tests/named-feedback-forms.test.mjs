@@ -5,11 +5,13 @@ import { test } from 'node:test'
 import { canManageFeedbackForms as canManageFeedbackFormsFromAuth } from '../src/lib/auth-permissions.js'
 import {
   archiveFeedbackForm,
+  buildFeedbackFormCopyDraft,
   buildFeedbackFormSnapshot,
   canCompleteFeedbackForms,
   canManageFeedbackForms,
   createFeedbackForm,
   duplicateFeedbackForm,
+  duplicateStarterFeedbackForm,
   getUsableFeedbackFormFields,
   normalizeFeedbackFormField,
   setStarterFeedbackFormHidden,
@@ -67,6 +69,11 @@ test('management actions deny Coach, Assistant Coach, and Parent before any data
     await assert.rejects(createFeedbackForm({ fields, name: 'Denied form', user: deniedUser }), expectedDenial)
     await assert.rejects(updateFeedbackForm({ fields, formId: feedbackFormId, name: 'Denied form', user: deniedUser }), expectedDenial)
     await assert.rejects(duplicateFeedbackForm({ formId: feedbackFormId, user: deniedUser }), expectedDenial)
+    await assert.rejects(duplicateStarterFeedbackForm({
+      action: 'customise',
+      selectionId: 'platform-starter:fixture-template:1',
+      user: deniedUser,
+    }), expectedDenial)
     await assert.rejects(archiveFeedbackForm({ formId: feedbackFormId, user: deniedUser }), expectedDenial)
     await assert.rejects(setStarterFeedbackFormHidden({
       hidden: true,
@@ -75,6 +82,80 @@ test('management actions deny Coach, Assistant Coach, and Parent before any data
       user: deniedUser,
     }), expectedDenial)
   }
+})
+
+test('platform and team copy drafts preserve configuration and source traceability', () => {
+  const platformSource = {
+    fields: [
+      {
+        id: 'staff-note',
+        label: 'Staff note',
+        type: 'textarea',
+        orderIndex: 2,
+        parentVisible: false,
+        required: true,
+      },
+      {
+        id: 'player-score',
+        label: 'Player score',
+        type: 'score_1_10',
+        orderIndex: 1,
+        parentVisible: true,
+        required: false,
+      },
+    ],
+    name: 'Platform review',
+    templateKey: 'platform-review',
+    version: 3,
+  }
+  const originalFields = structuredClone(platformSource.fields)
+  const duplicated = buildFeedbackFormCopyDraft({
+    action: 'duplicate',
+    sourceForm: platformSource,
+    sourceType: 'platform',
+  })
+  const customised = buildFeedbackFormCopyDraft({
+    action: 'customise',
+    sourceForm: platformSource,
+    sourceType: 'platform',
+  })
+
+  assert.equal(duplicated.name, 'Platform review copy')
+  assert.equal(customised.name, 'Platform review custom')
+  assert.equal(duplicated.duplicatedFromId, '')
+  assert.equal(duplicated.sourceTemplateKey, 'platform-review')
+  assert.equal(duplicated.sourceTemplateVersion, 3)
+  assert.deepEqual(
+    duplicated.fields.map((field) => [field.id, field.orderIndex, field.parentVisible, field.required]),
+    [
+      ['staff-note', 2, false, true],
+      ['player-score', 1, true, false],
+    ],
+  )
+  assert.deepEqual(platformSource.fields, originalFields)
+
+  const teamCopy = buildFeedbackFormCopyDraft({
+    sourceForm: {
+      ...customised,
+      id: feedbackFormId,
+      name: customised.name,
+      sourceTemplateVersion: 3,
+      version: 7,
+    },
+    sourceType: 'team',
+  })
+  assert.equal(teamCopy.name, 'Platform review custom copy')
+  assert.equal(teamCopy.duplicatedFromId, feedbackFormId)
+  assert.equal(teamCopy.sourceTemplateKey, 'platform-review')
+  assert.equal(teamCopy.sourceTemplateVersion, 3)
+  assert.throws(
+    () => buildFeedbackFormCopyDraft({
+      action: 'customise',
+      sourceForm: { id: feedbackFormId, name: 'Team form', fields: [] },
+      sourceType: 'team',
+    }),
+    /Use Edit/,
+  )
 })
 
 test('feedback form draft validation rejects blank names and unusable fields', () => {

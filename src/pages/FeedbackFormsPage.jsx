@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
@@ -66,6 +66,7 @@ function getFieldTypeLabel(type) {
 
 function StarterTemplateList({
   isSaving,
+  onCustomise,
   onDuplicate,
   onToggleHidden,
   onUse,
@@ -111,17 +112,16 @@ function StarterTemplateList({
                   Use form
                 </button>
               ) : null}
+              <button type="button" onClick={() => onDuplicate(template)} disabled={isSaving} className={secondaryButtonClass}>
+                Duplicate
+              </button>
               <button
                 type="button"
-                onClick={() => onDuplicate(template)}
-                disabled={isSaving || template.isInstalled}
+                onClick={() => onCustomise(template)}
+                disabled={isSaving}
                 className={isEliteStarterTemplate(template) ? primaryButtonClass : secondaryButtonClass}
               >
-                {template.isInstalled
-                  ? 'Already added'
-                  : isEliteStarterTemplate(template)
-                    ? 'Add to team'
-                    : 'Duplicate and customise'}
+                Customise
               </button>
               <button type="button" onClick={() => onToggleHidden(template)} disabled={isSaving} className={secondaryButtonClass}>
                 {template.isHidden ? 'Show' : 'Hide'}
@@ -191,6 +191,8 @@ export function FeedbackFormsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const copyInFlightRef = useRef(new Set())
+  const formNameRef = useRef(null)
   const activeForms = useMemo(() => forms.filter((form) => !form.isArchived), [forms])
   const archivedForms = useMemo(() => forms.filter((form) => form.isArchived), [forms])
 
@@ -314,6 +316,9 @@ export function FeedbackFormsPage() {
   }
 
   const handleDuplicate = async (form) => {
+    const copyKey = `team:${form.id}`
+    if (copyInFlightRef.current.has(copyKey)) return
+    copyInFlightRef.current.add(copyKey)
     setIsSaving(true)
     setErrorMessage('')
     setSuccessMessage('')
@@ -328,6 +333,7 @@ export function FeedbackFormsPage() {
       console.error(error)
       setErrorMessage(error.message || 'Could not duplicate this feedback form.')
     } finally {
+      copyInFlightRef.current.delete(copyKey)
       setIsSaving(false)
     }
   }
@@ -375,23 +381,38 @@ export function FeedbackFormsPage() {
     }
   }
 
-  const handleStarterDuplicate = async (template) => {
+  const handleStarterCopy = async (template, action) => {
+    const copyKey = `platform:${template.selectionId}`
+    if (copyInFlightRef.current.has(copyKey)) return
+    copyInFlightRef.current.add(copyKey)
     setIsSaving(true)
     setErrorMessage('')
     setSuccessMessage('')
 
     try {
       const duplicatedForm = await duplicateStarterFeedbackForm({
+        action,
         selectionId: template.selectionId,
         user,
       })
       await refreshForms()
-      setEditor(createEditorState(duplicatedForm))
-      setSuccessMessage(`${duplicatedForm.name} is now a team-owned form and is ready to edit.`)
+      if (action === 'customise') {
+        setEditor(createEditorState(duplicatedForm))
+        requestAnimationFrame(() => formNameRef.current?.focus())
+      }
+      const actionLabel = action === 'customise' ? 'customised' : 'duplicated'
+      setSuccessMessage(`${duplicatedForm.name} ${actionLabel} as a team-owned form.`)
+      showToast({
+        title: `Platform template ${actionLabel}`,
+        message: action === 'customise'
+          ? `${duplicatedForm.name} is open in the form builder.`
+          : `${duplicatedForm.name} is ready in Active forms.`,
+      })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not duplicate this starter template.')
+      setErrorMessage(error.message || `Could not ${action} this starter template.`)
     } finally {
+      copyInFlightRef.current.delete(copyKey)
       setIsSaving(false)
     }
   }
@@ -438,7 +459,8 @@ export function FeedbackFormsPage() {
             <StarterTemplateList
               templates={eliteStarterTemplates}
               isSaving={isSaving}
-              onDuplicate={handleStarterDuplicate}
+              onCustomise={(template) => handleStarterCopy(template, 'customise')}
+              onDuplicate={(template) => handleStarterCopy(template, 'duplicate')}
               onToggleHidden={handleStarterVisibility}
               onUse={(template) => navigate(`/assess-player/new?feedbackForm=${encodeURIComponent(template.selectionId)}`)}
             />
@@ -450,7 +472,8 @@ export function FeedbackFormsPage() {
             <StarterTemplateList
               templates={recommendedStarterTemplates}
               isSaving={isSaving}
-              onDuplicate={handleStarterDuplicate}
+              onCustomise={(template) => handleStarterCopy(template, 'customise')}
+              onDuplicate={(template) => handleStarterCopy(template, 'duplicate')}
               onToggleHidden={handleStarterVisibility}
               onUse={(template) => navigate(`/assess-player/new?feedbackForm=${encodeURIComponent(template.selectionId)}`)}
             />
@@ -464,7 +487,8 @@ export function FeedbackFormsPage() {
             <StarterTemplateList
               templates={otherStarterTemplates}
               isSaving={isSaving}
-              onDuplicate={handleStarterDuplicate}
+              onCustomise={(template) => handleStarterCopy(template, 'customise')}
+              onDuplicate={(template) => handleStarterCopy(template, 'duplicate')}
               onToggleHidden={handleStarterVisibility}
               onUse={(template) => navigate(`/assess-player/new?feedbackForm=${encodeURIComponent(template.selectionId)}`)}
             />
@@ -483,6 +507,7 @@ export function FeedbackFormsPage() {
             <label className="block lg:max-w-xl lg:flex-1">
               <span className="mb-2 block text-sm font-black text-[#101828]">Form name</span>
               <input
+                ref={formNameRef}
                 value={editor.name}
                 onChange={(event) => setEditor((current) => ({ ...current, name: event.target.value }))}
                 onKeyDown={stopTextInputSpacePropagation}

@@ -283,6 +283,23 @@ async function assertCleanBrowserSignals(fixture) {
   assert.deepEqual(fixture.failedRequests, [])
 }
 
+async function applyTheme(page, mode) {
+  await page.evaluate((nextMode) => {
+    for (const element of [document.documentElement, document.body]) {
+      element.classList.remove('theme-light', 'theme-dark')
+      element.classList.add(`theme-${nextMode}`)
+    }
+    window.localStorage.setItem('app-theme-mode', nextMode)
+    window.dispatchEvent(new CustomEvent('app-theme-changed', {
+      detail: { accent: 'green', buttonStyle: 'solid', mode: nextMode },
+    }))
+  }, mode)
+  await page.waitForFunction((expectedMode) => (
+    document.documentElement.classList.contains(`theme-${expectedMode}`)
+    && document.body.classList.contains(`theme-${expectedMode}`)
+  ), mode)
+}
+
 const server = startServer()
 let browser
 
@@ -343,7 +360,18 @@ try {
     assert.equal(await fixture.page.getByText('Recommended', { exact: true }).count(), 1)
     assert.equal(await fixture.page.getByRole('button', { name: 'Archive' }).count(), 0)
     assert.equal(await fixture.page.getByRole('button', { name: 'Hide' }).count(), 2)
-    assert.equal(await fixture.page.getByRole('button', { name: 'Duplicate and customise' }).count(), 2)
+    assert.equal(await fixture.page.getByRole('button', { name: 'Duplicate' }).count(), 2)
+    assert.equal(await fixture.page.getByRole('button', { name: 'Customise' }).count(), 2)
+    for (const mode of ['light', 'dark']) {
+      await applyTheme(fixture.page, mode)
+      const customiseButton = fixture.page.getByRole('button', { name: 'Customise' }).first()
+      await customiseButton.focus()
+      assert.equal(await customiseButton.evaluate((element) => document.activeElement === element), true)
+      assert.equal(await customiseButton.evaluate((element) => {
+        const styles = getComputedStyle(element)
+        return styles.display !== 'none' && styles.visibility !== 'hidden' && element.getBoundingClientRect().height >= 44
+      }), true)
+    }
 
     const formName = fixture.page.getByLabel('Form name')
     await formName.pressSequentially('Match day  feedback')
@@ -404,8 +432,27 @@ try {
     await fixture.page.getByRole('heading', { name: '1 archived' }).waitFor()
 
     const recommendedCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' })
-    await recommendedCard.getByRole('button', { name: 'Duplicate and customise' }).click()
-    await fixture.page.getByText('U11-U12 Game Understanding Review custom', { exact: true }).first().waitFor()
+    const starterSnapshot = structuredClone(starterTemplates[0])
+    await recommendedCard.getByRole('button', { name: 'Duplicate' }).evaluate((button) => {
+      button.click()
+      button.click()
+    })
+    await fixture.page.getByText('U11-U12 Game Understanding Review copy duplicated as a team-owned form.', { exact: true }).waitFor()
+    assert.equal(fixture.customForms.length, 3)
+    assert.equal(fixture.customForms[2].name, 'U11-U12 Game Understanding Review copy')
+    assert.equal(fixture.customForms[2].source_template_key, 'u11-u12-game-understanding-review')
+    assert.equal(fixture.customForms[2].source_template_version, 1)
+    assert.equal(fixture.customForms[2].duplicated_from_id, null)
+    assert.deepEqual(starterTemplates[0], starterSnapshot)
+
+    const duplicatedStarterCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' }).first()
+    await duplicatedStarterCard.getByRole('button', { name: 'Customise' }).click()
+    await fixture.page.getByText('U11-U12 Game Understanding Review custom customised as a team-owned form.', { exact: true }).waitFor()
+    assert.equal(fixture.customForms.length, 4)
+    assert.equal(fixture.customForms[3].source_template_key, 'u11-u12-game-understanding-review')
+    assert.equal(fixture.customForms[3].source_template_version, 1)
+    assert.equal(await formName.inputValue(), 'U11-U12 Game Understanding Review custom')
+    assert.equal(await formName.evaluate((element) => document.activeElement === element), true)
     assert.ok(await fixture.page.getByRole('button', { name: 'Edit' }).count() >= 2)
 
     const refreshedRecommendedCard = fixture.page.locator('article').filter({ hasText: 'U11-U12 Game Understanding Review' })
@@ -430,6 +477,7 @@ try {
       'feedback_form_duplicated',
       'feedback_form_archived',
       'starter_feedback_form_duplicated',
+      'starter_feedback_form_customised',
     ]) {
       assert.ok(fixture.auditRequests.some((request) => request.action === action), `${action} audit missing`)
     }
