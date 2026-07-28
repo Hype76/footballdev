@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { getRoleLabel } from '../../lib/auth.js'
 import { Pagination } from '../ui/Pagination.jsx'
 
@@ -6,7 +7,7 @@ function getStaffDisplayName(member) {
 }
 
 function getStaffRoleLabel(member) {
-  return member?.pendingInvite ? member.roleLabel : getRoleLabel(member)
+  return member?.teamRoleLabel || (member?.pendingInvite ? member.roleLabel : getRoleLabel(member))
 }
 
 function StaffStateBadge({ member }) {
@@ -28,11 +29,14 @@ const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm sh
 
 export function TeamStaffAllocationsSection({
   availableStaff,
+  canManageStaffAllocations,
+  canManageStructure,
   isLoading,
   isSaving,
   onAddExistingStaff,
   onDeleteTeam,
   onRemoveStaff,
+  onRoleChangeRequest,
   onSaveTeamName,
   onSelectedTeamChange,
   onStaffPageChange,
@@ -53,6 +57,7 @@ export function TeamStaffAllocationsSection({
   teamNameDrafts,
   teamPage,
   teamPageSize,
+  teamRoleOptions,
 }) {
   return (
     <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10" data-tour-id="team-staff-section">
@@ -90,10 +95,13 @@ export function TeamStaffAllocationsSection({
           {selectedTeam ? (
             <SelectedTeamPanel
               availableStaff={availableStaff}
+              canManageStaffAllocations={canManageStaffAllocations}
+              canManageStructure={canManageStructure}
               isSaving={isSaving}
               onAddExistingStaff={onAddExistingStaff}
               onDeleteTeam={onDeleteTeam}
               onRemoveStaff={onRemoveStaff}
+              onRoleChangeRequest={onRoleChangeRequest}
               onSaveTeamName={onSaveTeamName}
               onStaffPageChange={onStaffPageChange}
               onStaffSearchChange={onStaffSearchChange}
@@ -107,6 +115,7 @@ export function TeamStaffAllocationsSection({
               staffSearch={staffSearch}
               staffToAddId={staffToAddId}
               teamNameDrafts={teamNameDrafts}
+              teamRoleOptions={teamRoleOptions}
             />
           ) : null}
         </div>
@@ -169,10 +178,13 @@ function TeamList({
 
 function SelectedTeamPanel({
   availableStaff,
+  canManageStaffAllocations,
+  canManageStructure,
   isSaving,
   onAddExistingStaff,
   onDeleteTeam,
   onRemoveStaff,
+  onRoleChangeRequest,
   onSaveTeamName,
   onStaffPageChange,
   onStaffSearchChange,
@@ -186,12 +198,14 @@ function SelectedTeamPanel({
   staffSearch,
   staffToAddId,
   teamNameDrafts,
+  teamRoleOptions,
 }) {
   return (
     <div className={`${panelClass} p-4`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          {canManageStructure ? (
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#101828]">Team name</span>
               <input
@@ -219,12 +233,19 @@ function SelectedTeamPanel({
             >
               Save name
             </button>
-          </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Managed team</p>
+              <p className="mt-2 text-xl font-black text-[#101828]">{selectedTeam.name}</p>
+            </div>
+          )}
           <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
             {selectedTeamStaff.length} staff allocated to this team.
           </p>
         </div>
-        <button
+        {canManageStructure ? (
+          <button
           type="button"
           disabled={isSaving}
           title={isSaving ? 'Please wait while team details are being saved.' : undefined}
@@ -232,27 +253,33 @@ function SelectedTeamPanel({
           className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e4] disabled:cursor-not-allowed disabled:opacity-60"
         >
           Delete team
-        </button>
+          </button>
+        ) : null}
       </div>
 
-      <AddExistingStaffPanel
-        availableStaff={availableStaff}
-        isSaving={isSaving}
-        onAddExistingStaff={onAddExistingStaff}
-        onStaffSearchChange={onStaffSearchChange}
-        onStaffToAddChange={onStaffToAddChange}
-        staffSearch={staffSearch}
-        staffToAddId={staffToAddId}
-      />
+      {canManageStaffAllocations ? (
+        <AddExistingStaffPanel
+          availableStaff={availableStaff}
+          isSaving={isSaving}
+          onAddExistingStaff={onAddExistingStaff}
+          onStaffSearchChange={onStaffSearchChange}
+          onStaffToAddChange={onStaffToAddChange}
+          staffSearch={staffSearch}
+          staffToAddId={staffToAddId}
+        />
+      ) : null}
 
       <AllocatedStaffList
         isSaving={isSaving}
+        canManageStaffAllocations={canManageStaffAllocations}
         onRemoveStaff={onRemoveStaff}
+        onRoleChangeRequest={onRoleChangeRequest}
         onStaffPageChange={onStaffPageChange}
         paginatedSelectedTeamStaff={paginatedSelectedTeamStaff}
         selectedTeamStaff={selectedTeamStaff}
         staffPage={staffPage}
         staffPageSize={staffPageSize}
+        teamRoleOptions={teamRoleOptions}
       />
     </div>
   )
@@ -319,13 +346,16 @@ function AddExistingStaffPanel({
 }
 
 function AllocatedStaffList({
+  canManageStaffAllocations,
   isSaving,
   onRemoveStaff,
+  onRoleChangeRequest,
   onStaffPageChange,
   paginatedSelectedTeamStaff,
   selectedTeamStaff,
   staffPage,
   staffPageSize,
+  teamRoleOptions,
 }) {
   return (
     <div className="mt-5">
@@ -359,16 +389,27 @@ function AllocatedStaffList({
                       Assigned
                     </span>
                   </div>
+                  {!member.pendingInvite ? (
+                    <TeamRoleControl
+                      key={`${member.assignmentId}:${member.teamRoleKey}`}
+                      isSaving={isSaving}
+                      member={member}
+                      onRoleChangeRequest={onRoleChangeRequest}
+                      teamRoleOptions={teamRoleOptions}
+                    />
+                  ) : null}
                 </div>
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  title={isSaving ? 'Please wait while staff allocation is being saved.' : undefined}
-                  onClick={() => void onRemoveStaff(member.id)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Remove
-                </button>
+                {canManageStaffAllocations ? (
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    title={isSaving ? 'Please wait while staff allocation is being saved.' : undefined}
+                    onClick={() => void onRemoveStaff(member.id)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Remove
+                  </button>
+                ) : null}
               </div>
             </div>
           ))}
@@ -380,6 +421,44 @@ function AllocatedStaffList({
         pageSize={staffPageSize}
         totalItems={selectedTeamStaff.length}
       />
+    </div>
+  )
+}
+
+function TeamRoleControl({ isSaving, member, onRoleChangeRequest, teamRoleOptions }) {
+  const [roleKey, setRoleKey] = useState(member.teamRoleKey || '')
+  const selectedRole = teamRoleOptions.find((role) => role.roleKey === roleKey)
+  const unchanged = roleKey === member.teamRoleKey
+
+  return (
+    <div className="mt-3 grid gap-2">
+      <label className="block">
+        <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
+          Team role
+        </span>
+        <select
+          aria-label={`Team role for ${getStaffDisplayName(member)}`}
+          value={roleKey}
+          disabled={isSaving || !member.assignmentId}
+          onChange={(event) => setRoleKey(event.target.value)}
+          className={fieldClass}
+        >
+          {teamRoleOptions.map((role) => (
+            <option key={role.roleKey} value={role.roleKey}>
+              {role.roleLabel}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        disabled={isSaving || !member.assignmentId || unchanged || !selectedRole}
+        title={unchanged ? 'Choose a different role before continuing.' : undefined}
+        onClick={() => onRoleChangeRequest(member, selectedRole)}
+        className={secondaryButtonClass}
+      >
+        Review role change
+      </button>
     </div>
   )
 }

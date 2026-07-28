@@ -344,6 +344,7 @@ function ClubMetricGrid({ club }) {
 
 function ClubUsersList({ club, onAccountAction, updatingUserId }) {
   const users = Array.isArray(club?.users) ? club.users.filter((member) => member?.id) : []
+  const roles = Array.isArray(club?.roles) ? club.roles.filter((role) => role?.roleKey) : []
   return (
     <div>
       <p className={eyebrowClass}>Adult user accounts</p>
@@ -365,6 +366,14 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
                     </span>
                     <StatusPill status={member.status} />
                   </div>
+                  <RoleChangeControl
+                    key={`${member.id}:${member.role}`}
+                    club={club}
+                    member={member}
+                    onAccountAction={onAccountAction}
+                    roles={roles}
+                    updatingUserId={updatingUserId}
+                  />
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
                   <button
@@ -397,6 +406,50 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
           ))
         )}
       </div>
+    </div>
+  )
+}
+
+function RoleChangeControl({ club, member, onAccountAction, roles, updatingUserId }) {
+  const [roleKey, setRoleKey] = useState(member.role || '')
+  const selectedRole = roles.find((role) => role.roleKey === roleKey)
+  const isUnchanged = roleKey === member.role
+  const isBusy = updatingUserId === member.id
+  const isUnavailable = !member.membershipId || roles.length === 0
+
+  return (
+    <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <label className="block">
+        <span className={eyebrowClass}>Club role</span>
+        <select
+          aria-label={`Club role for ${member.name || member.email}`}
+          value={roleKey}
+          disabled={isBusy || isUnavailable}
+          onChange={(event) => setRoleKey(event.target.value)}
+          className={fieldClass}
+        >
+          {roles.map((role) => (
+            <option key={role.roleKey} value={role.roleKey}>
+              {role.roleLabel}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        disabled={isBusy || isUnavailable || isUnchanged || !selectedRole}
+        title={
+          isUnavailable
+            ? 'This club assignment is not available for role management.'
+            : isUnchanged
+              ? 'Choose a different role before continuing.'
+              : undefined
+        }
+        onClick={() => void onAccountAction(club, member, 'role', selectedRole)}
+        className={secondaryButtonClass}
+      >
+        Review role change
+      </button>
     </div>
   )
 }

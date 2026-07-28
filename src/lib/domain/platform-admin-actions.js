@@ -397,7 +397,18 @@ export async function getPlatformStats(user) {
   }
 
   return getCachedResource('platform-stats', async () => {
-    const [clubsResult, teamLimitOverridesResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult] = await Promise.all([
+    const [
+      clubsResult,
+      teamLimitOverridesResult,
+      usersResult,
+      membershipsResult,
+      rolesResult,
+      teamsResult,
+      playersResult,
+      evaluationsResult,
+      communicationLogsResult,
+      auditLogsResult,
+    ] = await Promise.all([
       supabase
         .from('clubs')
         .select(`${CLUB_SELECT}, created_at`)
@@ -406,6 +417,8 @@ export async function getPlatformStats(user) {
         .from('club_team_limit_overrides')
         .select('club_id, team_limit_override, updated_at'),
       supabase.from('users').select('id, email, username, name, role, role_label, role_rank, club_id, status, suspended_at').order('email', { ascending: true }),
+      supabase.from('user_club_memberships').select('id, auth_user_id, club_id, role, role_label, role_rank'),
+      supabase.from('club_roles').select('id, club_id, role_key, role_label, role_rank, is_system'),
       supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
       supabase.from('players').select('id, club_id, section, status, created_at'),
       supabase.from('evaluations').select('id, club_id, section, status, created_at'),
@@ -413,7 +426,18 @@ export async function getPlatformStats(user) {
       supabase.from('audit_logs').select('id, club_id, action, created_at'),
     ])
 
-    const results = [clubsResult, teamLimitOverridesResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult]
+    const results = [
+      clubsResult,
+      teamLimitOverridesResult,
+      usersResult,
+      membershipsResult,
+      rolesResult,
+      teamsResult,
+      playersResult,
+      evaluationsResult,
+      communicationLogsResult,
+      auditLogsResult,
+    ]
     const firstError = results.find((result) => result.error)?.error
 
     if (firstError) {
@@ -424,6 +448,8 @@ export async function getPlatformStats(user) {
     const clubs = (clubsResult.data ?? []).filter((club) => club?.id)
     const teamLimitOverrides = (teamLimitOverridesResult.data ?? []).filter((override) => override?.club_id)
     const users = (usersResult.data ?? []).filter((member) => member?.id)
+    const memberships = (membershipsResult.data ?? []).filter((membership) => membership?.id)
+    const clubRoles = (rolesResult.data ?? []).filter((role) => role?.id)
     const teams = (teamsResult.data ?? []).filter((team) => team?.id)
     const players = (playersResult.data ?? []).filter((player) => player?.id)
     const evaluations = (evaluationsResult.data ?? []).filter((evaluation) => evaluation?.id)
@@ -431,6 +457,9 @@ export async function getPlatformStats(user) {
     const auditLogs = (auditLogsResult.data ?? []).filter((log) => log?.id)
     const invalidClubRows = (clubsResult.data ?? []).length - clubs.length
     const teamLimitOverrideByClubId = new Map(teamLimitOverrides.map((override) => [override.club_id, override]))
+    const membershipByUserClub = new Map(
+      memberships.map((membership) => [`${membership.auth_user_id}:${membership.club_id}`, membership]),
+    )
     const invalidUserRows = (usersResult.data ?? []).length - users.length
     const invalidTeamRows = (teamsResult.data ?? []).length - teams.length
 
@@ -565,6 +594,7 @@ export async function getPlatformStats(user) {
             .map(([label, count]) => ({ label, count }))
             .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
           users: clubUsers.map((member) => ({
+            membershipId: membershipByUserClub.get(`${member.id}:${club.id}`)?.id || '',
             id: member.id,
             email: String(member.email ?? '').trim(),
             name: String(member.name ?? member.username ?? '').trim(),
@@ -574,6 +604,16 @@ export async function getPlatformStats(user) {
             status: String(member.status ?? 'active').trim() || 'active',
             suspendedAt: member.suspended_at ?? '',
           })),
+          roles: clubRoles
+            .filter((role) => role.club_id === club.id && role.role_key !== 'super_admin')
+            .map((role) => ({
+              id: role.id,
+              roleKey: String(role.role_key ?? '').trim(),
+              roleLabel: String(role.role_label ?? '').trim(),
+              roleRank: Number(role.role_rank ?? 0),
+              isSystem: Boolean(role.is_system),
+            }))
+            .sort((left, right) => right.roleRank - left.roleRank || left.roleLabel.localeCompare(right.roleLabel)),
           teams: clubTeams.map((team) => ({
             id: team.id,
             name: String(team.name ?? '').trim() || 'Unnamed team',

@@ -87,6 +87,7 @@ export {
   createStaffUserWithPassword,
   deleteClubInvite,
   assignClubUserRole,
+  changeStaffRoleAssignment,
   canUpdateClubUserName,
   canRemoveClubUser,
   getClubRoles,

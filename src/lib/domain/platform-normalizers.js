@@ -95,6 +95,7 @@ export function normalizePlatformStatsPayload(stats) {
         .map((member) => ({
           ...member,
           id: String(member.id ?? '').trim(),
+          membershipId: String(member.membershipId ?? '').trim(),
           email: String(member.email ?? '').trim(),
           name: String(member.name ?? '').trim(),
           role: String(member.role ?? '').trim(),
@@ -102,6 +103,16 @@ export function normalizePlatformStatsPayload(stats) {
           roleRank: normalizeNumber(member.roleRank),
           status: String(member.status ?? 'active').trim() || 'active',
           suspendedAt: member.suspendedAt ?? '',
+        })),
+      roles: normalizeArray(club.roles)
+        .filter((role) => String(role.roleKey ?? '').trim())
+        .map((role) => ({
+          ...role,
+          id: String(role.id ?? '').trim(),
+          roleKey: String(role.roleKey ?? '').trim(),
+          roleLabel: String(role.roleLabel ?? '').trim(),
+          roleRank: normalizeNumber(role.roleRank),
+          isSystem: Boolean(role.isSystem),
         })),
       teams: normalizeArray(club.teams)
         .filter((team) => String(team.id ?? '').trim())

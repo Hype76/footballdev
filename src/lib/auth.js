@@ -70,6 +70,28 @@ const PLATFORM_ADMIN_ACCESS_OPTION = {
   label: 'Platform Admin',
   meta: 'Open platform administration tools',
 }
+
+function applyContextualTeamRole(profile, team) {
+  if (!profile || !team || isClubAdmin(profile)) {
+    return profile
+  }
+
+  const role = String(team.assignmentRole ?? '').trim()
+  const roleLabel = String(team.assignmentRoleLabel ?? '').trim()
+  const roleRank = Number(team.assignmentRoleRank ?? 0)
+
+  if (!role || !roleLabel || roleRank <= 0) {
+    return profile
+  }
+
+  return {
+    ...profile,
+    role,
+    roleLabel,
+    roleRank,
+    activeTeamAssignmentId: team.assignmentId || '',
+  }
+}
 const PARENT_ACCESS_OPTION = {
   id: 'parent',
   label: 'Parent',
@@ -291,13 +313,13 @@ function RuntimeAuthProvider({ children }) {
       }
 
       window.sessionStorage.setItem(SELECTED_TEAM_STORAGE_KEY, onlyTeam.id)
-      return {
+      return applyContextualTeamRole({
         ...profile,
         activeTeamId: onlyTeam.id,
         activeTeamName: onlyTeam.name,
         themeMode: profile.themeMode || '',
         themeButtonStyle: profile.themeButtonStyle || 'solid',
-      }
+      }, onlyTeam)
     }
 
     const selectedTeamId = window.sessionStorage.getItem(SELECTED_TEAM_STORAGE_KEY) || ''
@@ -313,13 +335,13 @@ function RuntimeAuthProvider({ children }) {
     }
 
     setTeamOptions(assignedTeams)
-    return {
+    return applyContextualTeamRole({
       ...profile,
       activeTeamId: selectedTeam.id,
       activeTeamName: selectedTeam.name,
       themeMode: profile.themeMode || '',
       themeButtonStyle: profile.themeButtonStyle || 'solid',
-    }
+    }, selectedTeam)
   }
 
   const applyDemoRolePreview = (profile, roleKey = demoRoleKeyRef.current) => {
@@ -893,13 +915,13 @@ function RuntimeAuthProvider({ children }) {
         return current
       }
 
-      return {
+      return applyContextualTeamRole({
         ...current,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
         themeMode: current.themeMode || '',
         themeButtonStyle: current.themeButtonStyle || 'solid',
-      }
+      }, selectedTeam)
     })
   }
 

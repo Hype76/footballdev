@@ -256,7 +256,7 @@ export async function getAssignedTeamsForUser(user) {
 
   return getCachedResource(`assigned-teams:${user.id}:${user.clubId}`, async () => {
     const [{ data: assignmentRows, error: assignmentError }, { data: clubTeams, error: teamsError }] = await Promise.all([
-      supabase.from('team_staff').select('team_id').eq('user_id', user.id),
+      supabase.from('team_staff').select('id, team_id, role_key, role_label, role_rank').eq('user_id', user.id),
       supabase.from('teams').select('*').eq('club_id', user.clubId).order('name', { ascending: true }),
     ])
 
@@ -267,13 +267,29 @@ export async function getAssignedTeamsForUser(user) {
     }
 
     const teams = (clubTeams ?? []).map(normalizeTeamRow)
-    const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
+    const assignmentByTeamId = new Map(
+      (assignmentRows ?? [])
+        .filter((row) => String(row.team_id ?? '').trim())
+        .map((row) => [String(row.team_id), row]),
+    )
+    const teamIds = [...assignmentByTeamId.keys()]
 
     if (teamIds.length === 0) {
       return []
     }
 
-    return teams.filter((team) => teamIds.includes(String(team.id)))
+    return teams
+      .filter((team) => teamIds.includes(String(team.id)))
+      .map((team) => {
+        const assignment = assignmentByTeamId.get(String(team.id))
+        return normalizeTeamRow({
+          ...team,
+          assignment_id: assignment?.id,
+          assignment_role: assignment?.role_key,
+          assignment_role_label: assignment?.role_label,
+          assignment_role_rank: assignment?.role_rank,
+        })
+      })
   })
 }
 

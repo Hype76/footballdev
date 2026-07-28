@@ -84,6 +84,8 @@ export function PlatformAdminStaffSection({
             ) : (
               platformAdmins.map((admin) => {
                 const isCurrentUser = String(admin.id) === String(currentUserId)
+                const activePlatformAdminCount = platformAdmins.filter((item) => item.status === 'active').length
+                const isFinalActiveAdmin = admin.status === 'active' && activePlatformAdminCount <= 1
 
                   return (
                 <div key={admin.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
@@ -98,12 +100,14 @@ export function PlatformAdminStaffSection({
                       <StatusPill status={admin.status} />
                       <button
                         type="button"
-                        disabled={isCurrentUser || deletingAdminId === admin.id}
+                        disabled={isCurrentUser || isFinalActiveAdmin || deletingAdminId === admin.id}
                         title={
                           deletingAdminId === admin.id
                             ? 'Please wait while this platform admin is being deleted.'
                             : isCurrentUser
                               ? 'You cannot delete your own platform admin account.'
+                              : isFinalActiveAdmin
+                                ? 'Add another active Platform Admin before deleting the final Platform Admin.'
                               : 'Delete platform admin'
                         }
                         onClick={() => onDelete(admin)}

@@ -117,7 +117,16 @@ export function canUseDataTransfer(user) {
 }
 
 export function canManageTeamSettings(user) {
-  return isClubAdmin(user) && isPlanAccessActive(user)
+  return Boolean(user)
+    && isPlanAccessActive(user)
+    && (
+      isClubAdmin(user)
+      || (
+        user.role === 'head_manager'
+        && Number(user.roleRank ?? 0) >= 70
+        && Boolean(user.activeTeamId)
+      )
+    )
 }
 
 export function canViewEndSeasonStats(user) {

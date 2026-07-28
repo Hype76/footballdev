@@ -11,6 +11,8 @@ const baseUrl = configuredBaseUrl || `http://127.0.0.1:${port}`
 const fixtureEmail = 'platform.fixture@footballplayer.test'
 const fixturePassword = 'FixturePass123!'
 const fixtureUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const fixtureClubStaffId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+const fixtureClubMembershipId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 const disposableClub = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Disposable Runtime Club FC',
@@ -413,14 +415,51 @@ async function prepareContext(
 
     const payloads = {
       clubs: [disposableClub],
-      users: [],
+      club_team_limit_overrides: [],
+      users: [{
+        id: fixtureClubStaffId,
+        email: 'coach.role-control@example.test',
+        username: 'Fixture Coach',
+        name: 'Fixture Coach',
+        role: 'coach',
+        role_label: 'Coach',
+        role_rank: 30,
+        club_id: disposableClub.id,
+        status: 'active',
+        suspended_at: null,
+      }],
       teams: teamDeleted ? disposableTeams.slice(1) : disposableTeams,
       players: [],
       evaluations: [],
       communication_logs: [],
       audit_logs: [],
       parent_player_links: [],
-      user_club_memberships: [],
+      user_club_memberships: [{
+        id: fixtureClubMembershipId,
+        auth_user_id: fixtureClubStaffId,
+        club_id: disposableClub.id,
+        role: 'coach',
+        role_label: 'Coach',
+        role_rank: 30,
+      }],
+      club_roles: [
+        {
+          id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          club_id: disposableClub.id,
+          role_key: 'coach',
+          role_label: 'Coach',
+          role_rank: 30,
+          is_system: true,
+        },
+        {
+          id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+          club_id: disposableClub.id,
+          role_key: 'manager',
+          role_label: 'Manager',
+          role_rank: 50,
+          is_system: true,
+        },
+      ],
     }
 
     await fulfillJson(route, 200, payloads[tableName] || [])
@@ -742,6 +781,23 @@ try {
 
     await page.getByRole('button', { name: 'Invite Club Admin' }).waitFor({ state: 'visible' })
     await page.getByRole('button', { name: 'Assign Team Admin' }).waitFor({ state: 'visible' })
+    await page.getByLabel('Club role for Fixture Coach').selectOption('manager')
+    const reviewRoleButton = page.getByRole('button', { name: 'Review role change' })
+    await reviewRoleButton.focus()
+    await page.keyboard.press('Enter')
+    const roleDialog = page.locator('[role="dialog"]').filter({ hasText: 'Confirm staff role change' })
+    await roleDialog.waitFor({ state: 'visible' })
+    for (const [label, value] of [
+      ['Current role', 'Coach'],
+      ['New role', 'Manager'],
+      ['Scope', disposableClub.name],
+      ['Consequence', 'This grants only the selected club role authority.'],
+    ]) {
+      const detailRow = roleDialog.locator('li').filter({ hasText: label })
+      await detailRow.getByText(value, { exact: true }).waitFor({ state: 'visible' })
+    }
+    await roleDialog.getByText('No staff email or notification will be sent.', { exact: true }).waitFor({ state: 'visible' })
+    await roleDialog.getByRole('button', { name: 'Cancel' }).click()
     assert.equal(await page.getByText(/token_digest|auth_user_id|fixture-owner-token/i).count(), 0)
     assert.ok(requests.platformAccess.some((request) => request.method === 'GET'))
     await mkdir('output/playwright', { recursive: true })
@@ -756,6 +812,9 @@ try {
     await page.getByRole('button', { name: 'Replace invitation' }).waitFor({ state: 'visible' })
     await page.getByRole('button', { name: 'Cancel invitation' }).waitFor({ state: 'visible' })
     await page.getByRole('button', { name: 'Restore access' }).waitFor({ state: 'visible' })
+    await page.getByLabel('Club role for Fixture Coach').selectOption('manager')
+    await page.getByRole('button', { name: 'Review role change' }).click()
+    await page.locator('[role="dialog"]').filter({ hasText: 'Confirm staff role change' }).waitFor({ state: 'visible' })
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     assert.ok(overflow <= 1, `Unexpected mobile horizontal overflow: ${overflow}px`)
     await mkdir('output/playwright', { recursive: true })

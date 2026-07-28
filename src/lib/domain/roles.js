@@ -1,5 +1,6 @@
 export {
   assignClubUserRole,
+  changeStaffRoleAssignment,
   canUpdateClubUserName,
   canRemoveClubUser,
   createStaffInvite,

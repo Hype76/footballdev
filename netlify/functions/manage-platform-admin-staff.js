@@ -209,6 +209,19 @@ async function deletePlatformAdmin(event, adminUser) {
     throw new Error('You cannot delete your own platform admin account.')
   }
 
+  const { count: activePlatformAdminCount, error: activePlatformAdminCountError } = await supabaseAdmin
+    .from('platform_admins')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'active')
+
+  if (activePlatformAdminCountError) {
+    throw activePlatformAdminCountError
+  }
+
+  if (Number(activePlatformAdminCount ?? 0) <= 1) {
+    throw new Error('Another active Platform Admin must exist before the final Platform Admin can be deleted.')
+  }
+
   const { data: targetUser, error: targetUserError } = await supabaseAdmin
     .from('users')
     .select('id, email, name, role')

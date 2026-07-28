@@ -25,12 +25,14 @@ import {
 } from '../lib/auth.js'
 import {
   createStaffInvite,
+  changeStaffRoleAssignment,
   createClubRole,
   createTeam,
   deleteTeam,
   getClubRoles,
   getClubUserInvites,
   getClubUsers,
+  getVisibleClubUsers,
   getEvaluations,
   getPlayers,
   readViewCacheValue,
@@ -61,6 +63,7 @@ const teamSetupRules = [
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 const PENDING_INVITE_PREFIX = 'invite:'
+const TEAM_ROLE_KEYS = new Set(['head_manager', 'manager', 'coach', 'assistant_coach'])
 
 function pendingInviteToStaffMember(invite) {
   const inviteId = String(invite?.id ?? '').trim()
@@ -96,7 +99,10 @@ function isTeamScopedStaffMember(member) {
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
   const { showToast } = useToast()
-  const cacheKey = user?.clubId ? `team-management:${user.clubId}` : ''
+  const isClubAdminUser = user?.role === 'admin' || user?.role === 'super_admin'
+  const cacheKey = user?.clubId
+    ? `team-management:${user.clubId}:${isClubAdminUser ? 'club' : `${user.id}:${user.activeTeamId || 'team'}`}`
+    : ''
   const [teams, setTeams] = useState(() => {
     const cachedTeams = readViewCacheValue(cacheKey, 'teams', [])
     return Array.isArray(cachedTeams) ? cachedTeams : []
@@ -126,6 +132,7 @@ export function TeamManagementPage() {
   const [teamPage, setTeamPage] = useState(1)
   const [staffPage, setStaffPage] = useState(1)
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
+  const [roleChangeTarget, setRoleChangeTarget] = useState(null)
   const [isCreateTeamModalOpen, setIsCreateTeamModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
@@ -142,8 +149,13 @@ export function TeamManagementPage() {
       try {
         const [teamsResult, usersResult, invitesResult, assignmentsResult, rolesResult, playersResult, evaluationsResult] = await Promise.allSettled([
           withRequestTimeout(() => getTeams(user), 'Could not load teams.'),
-          withRequestTimeout(() => getClubUsers(user), 'Could not load club users.'),
-          withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending staff invites.'),
+          withRequestTimeout(
+            () => isClubAdminUser ? getClubUsers(user) : getVisibleClubUsers(user),
+            'Could not load club users.',
+          ),
+          isClubAdminUser
+            ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending staff invites.')
+            : Promise.resolve([]),
           withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
@@ -229,7 +241,7 @@ export function TeamManagementPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user, userScopeKey])
+  }, [cacheKey, isClubAdminUser, user, userScopeKey])
 
   const teamScopedUsers = useMemo(
     () => users.filter(isTeamScopedStaffMember),
@@ -239,20 +251,35 @@ export function TeamManagementPage() {
   const teamAssignments = useMemo(
     () => {
       const teamScopedStaffIds = new Set(teamScopedUsers.map((member) => member.id))
+      const managedTeamIds = isClubAdminUser
+        ? null
+        : new Set(
+            assignments
+              .filter((assignment) => assignment.userId === user?.id && assignment.roleKey === 'head_manager')
+              .map((assignment) => assignment.teamId),
+          )
 
-      return teams.map((team) => ({
-        ...team,
-        staffIds: assignments
-          .filter((assignment) => assignment.teamId === team.id && teamScopedStaffIds.has(assignment.userId))
-          .map((assignment) => assignment.userId),
-      }))
+      return teams
+        .filter((team) => !managedTeamIds || managedTeamIds.has(team.id))
+        .map((team) => ({
+          ...team,
+          staffIds: assignments
+            .filter((assignment) => assignment.teamId === team.id && teamScopedStaffIds.has(assignment.userId))
+            .map((assignment) => assignment.userId),
+        }))
     },
-    [assignments, teamScopedUsers, teams],
+    [assignments, isClubAdminUser, teamScopedUsers, teams, user?.id],
   )
 
   const assignableRoles = useMemo(
     () => roles.filter((role) => canAssignRole(user, role)),
     [roles, user],
+  )
+  const teamRoleOptions = useMemo(
+    () => roles
+      .filter((role) => TEAM_ROLE_KEYS.has(role.roleKey) && Number(role.roleRank ?? 0) <= 70)
+      .sort((left, right) => Number(right.roleRank ?? 0) - Number(left.roleRank ?? 0)),
+    [roles],
   )
   const selectedTeam = useMemo(
     () => teamAssignments.find((team) => team.id === selectedTeamId) ?? teamAssignments[0] ?? null,
@@ -263,9 +290,21 @@ export function TeamManagementPage() {
       selectedTeam
         ? teamScopedUsers
             .filter((member) => selectedTeam.staffIds.includes(member.id))
+            .map((member) => {
+              const assignment = assignments.find(
+                (item) => item.teamId === selectedTeam.id && item.userId === member.id,
+              )
+              return {
+                ...member,
+                assignmentId: assignment?.id || '',
+                teamRoleKey: assignment?.roleKey || member.role,
+                teamRoleLabel: assignment?.roleLabel || member.roleLabel,
+                teamRoleRank: assignment?.roleRank || member.roleRank,
+              }
+            })
             .sort((left, right) => getStaffDisplayName(left).localeCompare(getStaffDisplayName(right)))
         : [],
-    [selectedTeam, teamScopedUsers],
+    [assignments, selectedTeam, teamScopedUsers],
   )
   const selectedTeamStaffEmails = useMemo(
     () => new Set(selectedTeamStaff.map((member) => normalizeStaffEmail(member)).filter(Boolean)),
@@ -653,6 +692,59 @@ export function TeamManagementPage() {
     await handleTeamStaffToggle(selectedTeam.id, memberId, false)
   }
 
+  const handleRoleChangeRequest = (member, nextRole) => {
+    if (!member?.assignmentId || !nextRole?.roleKey || !selectedTeam?.id) {
+      setErrorMessage('This staff assignment is incomplete. Refresh the team and try again.')
+      return
+    }
+
+    setRoleChangeTarget({
+      member,
+      nextRole,
+      team: selectedTeam,
+    })
+  }
+
+  const confirmRoleChange = async (password) => {
+    if (!roleChangeTarget) {
+      return
+    }
+
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user.email, password)
+      await changeStaffRoleAssignment({
+        user,
+        assignmentId: roleChangeTarget.member.assignmentId,
+        roleKey: roleChangeTarget.nextRole.roleKey,
+        requestSource: 'team_management',
+      })
+      const nextAssignments = await getTeamStaffAssignments(user)
+      setAssignments(nextAssignments)
+      writeTeamCache({ assignments: nextAssignments })
+      await refreshTeamSelection?.()
+      setMessage('Team staff role updated.')
+      showToast({
+        title: 'Team role updated',
+        message: `${getStaffDisplayName(roleChangeTarget.member)} is now ${roleChangeTarget.nextRole.roleLabel}.`,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not update the team staff role.')
+      showToast({
+        title: 'Team role not updated',
+        message: error.message || 'Could not update the team staff role.',
+        tone: 'error',
+      })
+    } finally {
+      setIsSaving(false)
+      setRoleChangeTarget(null)
+    }
+  }
+
   const handleTeamNameSave = async (teamId) => {
     const nextName = String(teamNameDrafts[teamId] ?? '').trim()
     const currentTeam = teams.find((team) => team.id === teamId)
@@ -758,32 +850,39 @@ export function TeamManagementPage() {
         />
       ) : null}
 
-      <CreateTeamSection
-        canCreateMoreTeams={canCreateMoreTeams}
-        hasTeams={teams.length > 0}
-        isSaving={isSaving}
-        onOpenCreateTeam={() => setIsCreateTeamModalOpen(true)}
-        teamLimitMessage={teamLimitMessage}
-      />
+      {isClubAdminUser ? (
+        <CreateTeamSection
+          canCreateMoreTeams={canCreateMoreTeams}
+          hasTeams={teams.length > 0}
+          isSaving={isSaving}
+          onOpenCreateTeam={() => setIsCreateTeamModalOpen(true)}
+          teamLimitMessage={teamLimitMessage}
+        />
+      ) : null}
 
-      <CreateStaffLoginSection
-        assignableRoles={assignableRoles}
-        canCreateMoreStaff={canCreateMoreStaff}
-        coachForm={coachForm}
-        isSaving={isSaving}
-        onCoachFormChange={handleCoachFormChange}
-        onCreateCoach={handleCreateCoach}
-        staffLimitMessage={staffLimitMessage}
-        teams={teams}
-      />
+      {isClubAdminUser ? (
+        <CreateStaffLoginSection
+          assignableRoles={assignableRoles}
+          canCreateMoreStaff={canCreateMoreStaff}
+          coachForm={coachForm}
+          isSaving={isSaving}
+          onCoachFormChange={handleCoachFormChange}
+          onCreateCoach={handleCreateCoach}
+          staffLimitMessage={staffLimitMessage}
+          teams={teams}
+        />
+      ) : null}
 
       <TeamStaffAllocationsSection
         availableStaff={filteredAvailableStaffForSelectedTeam}
+        canManageStaffAllocations={isClubAdminUser}
+        canManageStructure={isClubAdminUser}
         isLoading={isLoading}
         isSaving={isSaving}
         onAddExistingStaff={handleAddExistingStaffToTeam}
         onDeleteTeam={handleDeleteTeam}
         onRemoveStaff={handleRemoveStaffFromSelectedTeam}
+        onRoleChangeRequest={handleRoleChangeRequest}
         onSaveTeamName={handleTeamNameSave}
         onSelectedTeamChange={setSelectedTeamId}
         onStaffPageChange={setStaffPage}
@@ -809,6 +908,7 @@ export function TeamManagementPage() {
         teamNameDrafts={teamNameDrafts}
         teamPage={teamPage}
         teamPageSize={TEAM_PAGE_SIZE}
+        teamRoleOptions={teamRoleOptions}
       />
 
       <ConfirmModal
@@ -824,6 +924,27 @@ export function TeamManagementPage() {
         onCancel={() => setTeamDeleteTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteTeam(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(roleChangeTarget)}
+        isBusy={isSaving}
+        title="Confirm team role change"
+        message="Review the staff member, current role, new role, team scope, and access consequence before confirming."
+        items={[
+          `Staff member: ${getStaffDisplayName(roleChangeTarget?.member)}`,
+          `Current role: ${roleChangeTarget?.member?.teamRoleLabel || 'Unknown role'}`,
+          `New role: ${roleChangeTarget?.nextRole?.roleLabel || 'No role selected'}`,
+          `Team scope: ${roleChangeTarget?.team?.name || 'Selected team'}`,
+          Number(roleChangeTarget?.nextRole?.roleRank ?? 0) < Number(roleChangeTarget?.member?.teamRoleRank ?? 0)
+            ? 'Consequence: This removes team management authority immediately.'
+            : 'Consequence: This grants authority only inside the selected team.',
+          'No staff email or notification will be sent.',
+        ]}
+        confirmLabel="Change role"
+        onCancel={() => setRoleChangeTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmRoleChange(password)}
       />
 
       <CreateTeamModal

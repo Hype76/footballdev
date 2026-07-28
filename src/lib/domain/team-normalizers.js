@@ -15,6 +15,10 @@ export function normalizeTeamRow(row) {
     themeAccent: String(row.theme_accent ?? row.themeAccent ?? '').trim(),
     themeButtonStyle: String(row.theme_button_style ?? row.themeButtonStyle ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
+    assignmentId: row.assignmentId ?? row.assignment_id ?? '',
+    assignmentRole: String(row.assignmentRole ?? row.assignment_role ?? row.role_key ?? '').trim(),
+    assignmentRoleLabel: String(row.assignmentRoleLabel ?? row.assignment_role_label ?? row.role_label ?? '').trim(),
+    assignmentRoleRank: Number(row.assignmentRoleRank ?? row.assignment_role_rank ?? row.role_rank ?? 0),
   }
 }
 
@@ -23,6 +27,11 @@ export function normalizeTeamStaffRow(row) {
     id: row.id,
     teamId: row.team_id ?? row.teamId ?? '',
     userId: row.user_id ?? row.userId ?? '',
+    roleKey: String(row.role_key ?? row.roleKey ?? '').trim(),
+    roleLabel: String(row.role_label ?? row.roleLabel ?? '').trim(),
+    roleRank: Number(row.role_rank ?? row.roleRank ?? 0),
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }

@@ -138,6 +138,50 @@ export async function assignClubUserRole({ user, email, role }) {
   }
 }
 
+export async function changeStaffRoleAssignment({
+  user,
+  assignmentId,
+  roleKey,
+  requestSource = 'application',
+}) {
+  await blockDemoMutation(user)
+
+  const normalizedAssignmentId = String(assignmentId ?? '').trim()
+  const normalizedRoleKey = normalizeRoleKey(roleKey)
+
+  if (!normalizedAssignmentId || !normalizedRoleKey) {
+    throw new Error('Choose a staff assignment and role before continuing.')
+  }
+
+  const { data, error } = await supabase.rpc('change_staff_role_assignment', {
+    p_assignment_id: normalizedAssignmentId,
+    p_target_role_key: normalizedRoleKey,
+    p_request_source: String(requestSource ?? 'application').trim() || 'application',
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  if (!data?.success) {
+    const roleError = new Error(data?.message || 'The staff role could not be changed.')
+    roleError.code = data?.category || 'role_change_denied'
+    throw roleError
+  }
+
+  invalidateMemoryCacheByPrefix('club-users:')
+  invalidateMemoryCacheByPrefix('visible-club-users:')
+  invalidateMemoryCacheByPrefix('user-access:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('platform-stats')
+  clearViewCaches()
+
+  return data
+}
+
 export async function createStaffUserWithPassword({ user, email, password, role }) {
   await blockDemoMutation(user)
 
@@ -242,15 +286,30 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
   const existingUser = existingUsers?.[0]
 
   if (existingUser) {
-    const { data: updatedUserRow, error: updateError } = await supabase.rpc('set_club_user_role', {
-      target_user_id: existingUser.id,
-      target_role_key: roleKey,
-      target_team_id: normalizedTeamId,
-    })
+    const rpcName = normalizedTeamId ? 'assign_team_staff_role' : 'set_club_user_role'
+    const rpcPayload = normalizedTeamId
+      ? {
+          p_target_user_id: existingUser.id,
+          p_team_id: normalizedTeamId,
+          p_target_role_key: roleKey,
+          p_request_source: 'staff_invitation',
+        }
+      : {
+          target_user_id: existingUser.id,
+          target_role_key: roleKey,
+          target_team_id: null,
+        }
+    const { data: updatedUserRow, error: updateError } = await supabase.rpc(rpcName, rpcPayload)
 
     if (updateError) {
       console.error(updateError)
       throw updateError
+    }
+
+    if (normalizedTeamId && !updatedUserRow?.success) {
+      const assignmentError = new Error(updatedUserRow?.message || 'The team staff role could not be assigned.')
+      assignmentError.code = updatedUserRow?.category || 'team_role_assignment_denied'
+      throw assignmentError
     }
 
     invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
@@ -260,7 +319,7 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
 
     return {
       kind: 'user',
-      record: normalizeUserProfile(updatedUserRow),
+      record: normalizedTeamId ? existingUser : normalizeUserProfile(updatedUserRow),
     }
   }
 
