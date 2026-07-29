@@ -191,6 +191,15 @@ export {
 } from './domain/calendar-event-invites.js'
 
 export {
+  applyEventPlayerChanges,
+  EVENT_PLAYER_COMMUNICATION_MODES,
+  getEventPlayerCommunicationMissingIds,
+  getEventPlayerCommunicationRecipientCount,
+  getEventPlayerManagementLabel,
+  previewEventPlayerChanges,
+} from './domain/event-player-management.js'
+
+export {
   acceptEventPlayerAvailabilityOnBehalf,
 } from './domain/event-availability-staff-actions.js'
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { CompletedMatchEventReport } from '../components/match-day/CompletedMatchEventReport.jsx'
@@ -1883,6 +1883,7 @@ function mergeMatchDaySummaries(currentMatches = [], nextSummaries = []) {
 export function MatchDayPage() {
   const { session, user } = useAuth()
   const { showToast } = useToast()
+  const navigate = useNavigate()
   const [matches, setMatches] = useState([])
   const [teams, setTeams] = useState([])
   const [players, setPlayers] = useState([])
@@ -3905,6 +3906,9 @@ export function MatchDayPage() {
                 onVoidShootoutKick={handleVoidShootoutKick}
                 onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
                 onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
+                onManageInvitedPlayers={(selectedMatch) => {
+                  navigate(`/sessions?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
+                }}
                 onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
                   ...currentDrafts,
                   [match.id]: {
@@ -4056,6 +4060,9 @@ export function MatchDayPage() {
                   onVoidShootoutKick={handleVoidShootoutKick}
                   onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
                   onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
+                  onManageInvitedPlayers={(selectedMatch) => {
+                    navigate(`/sessions?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
+                  }}
                   onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
                     ...currentDrafts,
                     [match.id]: {
@@ -4434,6 +4441,7 @@ function MatchDayCard({
   onGameModeStart,
   onGameModeStatusChange,
   onHydrate,
+  onManageInvitedPlayers,
   onOpenEventModal,
   onOpenGoalModal,
   onShootoutKick,
@@ -4602,6 +4610,16 @@ function MatchDayCard({
                 className={`${primaryButtonClass} w-full sm:w-auto`}
               >
                 {isBusy ? 'Saving...' : primaryLiveAction.label}
+              </button>
+            ) : null}
+            {!isGameMode ? (
+              <button
+                type="button"
+                onClick={() => onManageInvitedPlayers(match)}
+                disabled={isBusy || !['scheduled', 'scorer_request'].includes(match.status)}
+                className={`${secondaryButtonClass} w-full sm:w-auto`}
+              >
+                Manage invited players
               </button>
             ) : null}
             {!isGameMode ? (

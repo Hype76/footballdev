@@ -204,17 +204,17 @@ test('new-event choices cover every supported user-facing type and omit pseudo-e
   assert.match(migration, /tg_op = 'UPDATE'[\s\S]*new\.event_type is distinct from old\.event_type/i)
 })
 
-test('notification choice defaults on for creation and preserves the saved edit selection', async () => {
+test('notification choice defaults off and preserves the saved player scope', async () => {
   const sessionsPage = await readFile(new URL('../src/pages/SessionsPage.jsx', import.meta.url), 'utf8')
   const inviteFieldsSource = sessionsPage.slice(
     sessionsPage.indexOf('function getFormInviteFields'),
     sessionsPage.indexOf('function getFormFromCalendarEvent'),
   )
 
-  assert.match(sessionsPage, /notifyInvitedFamilies: true/)
-  assert.match(sessionsPage, /notificationRequestToken: createNotificationRequestToken\(\)/)
-  assert.match(inviteFieldsSource, /eventInvites\.some\(\(invite\) => invite\.notifyRequested\)/)
-  assert.match(inviteFieldsSource, /notificationRequestToken: notifyInvitedFamilies \? createNotificationRequestToken\(\) : ''/)
+  assert.match(sessionsPage, /notifyInvitedFamilies: false/)
+  assert.match(sessionsPage, /notificationRequestToken: ''/)
+  assert.match(inviteFieldsSource, /invitedPlayerIds: eventInvites\.map\(\(invite\) => invite\.playerId\)/)
+  assert.match(inviteFieldsSource, /notifyInvitedFamilies: false/)
   assert.match(sessionsPage, /name="notifyInvitedFamilies"/)
   assert.match(sessionsPage, /current\.notificationRequestToken \|\| createNotificationRequestToken\(\)/)
 })

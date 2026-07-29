@@ -75,9 +75,9 @@ function requireManagerUser(user) {
   requireStaffUser(user)
 }
 
-export function getDefaultTrainingAvailabilityForm(eventType = 'training') {
+export function getDefaultTrainingAvailabilityForm() {
   return {
-    requestTrainingAvailability: normalizeText(eventType) === 'training',
+    requestTrainingAvailability: false,
     trainingAvailabilitySendDaysBefore: 2,
   }
 }

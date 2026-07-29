@@ -80,8 +80,8 @@ test('UI distinguishes Portal success from email command and queue failures', ()
   assert.match(sessionsPage, /Calendar not saved/)
 })
 
-test('new event notifications default on but remain optional and one request token survives through save', () => {
-  assert.match(sessionsPage, /notifyInvitedFamilies: true/)
+test('new event notifications default off but remain optional and one request token survives through save', () => {
+  assert.match(sessionsPage, /notifyInvitedFamilies: false/)
   assert.match(sessionsPage, /type="checkbox"[\s\S]*name="notifyInvitedFamilies"/)
   assert.match(sessionsPage, /current\.notificationRequestToken \|\| createNotificationRequestToken\(\)/)
   assert.match(sessionsPage, /requestToken: calendarForm\.notificationRequestToken/)

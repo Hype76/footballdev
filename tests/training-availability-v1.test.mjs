@@ -82,7 +82,7 @@ test('calendar UI exposes training-only availability controls and saves settings
   const source = await readFile(sessionsPageUrl, 'utf8')
 
   assert.match(source, /getDefaultTrainingAvailabilityForm\('training'\)/)
-  assert.match(source, /requestTrainingAvailability: sourceEventType === 'training' \? setting\?\.enabled \?\? true : false/)
+  assert.match(source, /requestTrainingAvailability: sourceEventType === 'training' \? setting\?\.enabled \?\? false : false/)
   assert.match(source, /const canShowTrainingAvailability = Boolean\(!isSessionCreate && !clubWideOnly && safeFormTeamId && form\.eventType === 'training'/)
   assert.match(source, /Request player availability from parents\?/)
   assert.match(source, /trainingAvailabilitySendDaysBefore/)
@@ -92,10 +92,10 @@ test('calendar UI exposes training-only availability controls and saves settings
   assert.match(source, /TrainingAvailabilitySummary/)
 })
 
-test('domain helpers default training to yes, non-training to no, and keep summaries per event', async () => {
+test('domain helpers default training communication off and keep summaries per event', async () => {
   const source = await readFile(domainUrl, 'utf8')
 
-  assert.match(source, /requestTrainingAvailability: normalizeText\(eventType\) === 'training'/)
+  assert.match(source, /requestTrainingAvailability: false/)
   assert.match(source, /sendDaysBefore: clampSendDaysBefore/)
   assert.match(source, /\.from\('training_availability_settings'\)/)
   assert.match(source, /\.from\('training_availability_request_players'\)/)
@@ -170,6 +170,9 @@ test('scheduled processor creates per occurrence parent email requests without p
   assert.match(processor, /if \(sendAt\.getTime\(\) > now\.getTime\(\)\) {[\s\S]*continue[\s\S]*}[\s\S]*const due = await upsertDueRequest/)
   assert.match(processor, /training_availability_requests/)
   assert.match(processor, /training_availability_request_players/)
+  assert.match(processor, /\.from\('calendar_event_invites'\)/)
+  assert.match(processor, /\.neq\('invite_status', 'cancelled'\)/)
+  assert.match(processor, /if \(scopedPlayerIds\.length > 0\) {[\s\S]*playersQuery = playersQuery\.in\('id', scopedPlayerIds\)/)
   assert.match(processor, /findExistingRecipient/)
   assert.match(processor, /\.select\('id, player_id, team_id, club_id, email, status'\)/)
   assert.doesNotMatch(processor, /parent_name, display_name/)

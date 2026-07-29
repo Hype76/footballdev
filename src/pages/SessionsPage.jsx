@@ -73,11 +73,17 @@ import {
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
+  getEventPlayerCommunicationMissingIds,
+  getEventPlayerCommunicationRecipientCount,
+  getEventPlayerManagementLabel,
   getSessionStaffNotes,
   getPlayers,
   notifyCalendarEventParents,
+  previewEventPlayerChanges,
   readViewCache,
   readViewCacheValue,
+  applyEventPlayerChanges,
+  EVENT_PLAYER_COMMUNICATION_MODES,
   saveCalendarEventInvites,
   saveTrainingAvailabilitySettings,
   syncCalendarEventResourceLinks,
@@ -307,8 +313,8 @@ function getDefaultCalendarForm(date = '') {
     inviteWholeSquad: false,
     location: '',
     notes: '',
-    notifyInvitedFamilies: true,
-    notificationRequestToken: createNotificationRequestToken(),
+    notifyInvitedFamilies: false,
+    notificationRequestToken: '',
     opponent: '',
     kickoffTimeTbc: false,
     parentAudience: 'involved_players',
@@ -698,14 +704,13 @@ function getInvitesForCalendarEvent(event, invites = []) {
 
 function getFormInviteFields(event, invites = []) {
   const eventInvites = getInvitesForCalendarEvent(event, invites)
-  const notifyInvitedFamilies = eventInvites.some((invite) => invite.notifyRequested)
 
   return {
     invitedPlayerIds: eventInvites.map((invite) => invite.playerId).filter(Boolean),
     inviteTrialPlayers: eventInvites.some((invite) => String(invite.player?.section ?? invite.playerStatusAtInvite ?? '').trim().toLowerCase() === 'trial'),
     inviteWholeSquad: false,
-    notificationRequestToken: notifyInvitedFamilies ? createNotificationRequestToken() : '',
-    notifyInvitedFamilies,
+    notificationRequestToken: '',
+    notifyInvitedFamilies: false,
     parentAudience: eventInvites.length > 0 ? 'involved_players' : 'none',
     shareWithParents: eventInvites.length > 0,
   }
@@ -880,6 +885,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
   const [calendarModal, setCalendarModal] = useState(null)
   const [calendarForm, setCalendarForm] = useState(() => getDefaultCalendarForm())
+  const [calendarPlayerCommunicationMode, setCalendarPlayerCommunicationMode] = useState(EVENT_PLAYER_COMMUNICATION_MODES.none)
+  const [calendarPlayerReview, setCalendarPlayerReview] = useState(null)
   const [calendarEventResourcesById, setCalendarEventResourcesById] = useState({})
   const [calendarResourceOptions, setCalendarResourceOptions] = useState([])
   const [isCalendarResourcesLoading, setIsCalendarResourcesLoading] = useState(false)
@@ -1440,6 +1447,47 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   }, [cacheKey, canShowPollsInCalendar, completedSessionId, isClubWideCalendar, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
 
   useEffect(() => {
+    const requestedAction = String(searchParams.get('action') ?? '').trim()
+    const requestedEventId = String(searchParams.get('eventId') ?? '').trim()
+    const requestedSource = String(searchParams.get('source') ?? '').trim()
+
+    if (requestedAction !== 'manage-players' || !requestedEventId || isLoading) {
+      return
+    }
+
+    const requestedEvent = calendarEvents.find((event) => (
+      String(event.sourceId ?? '') === requestedEventId
+      && (!requestedSource || event.sourceType === requestedSource)
+    ))
+
+    if (!requestedEvent) {
+      setErrorMessage('The requested event could not be opened for player management.')
+      const nextSearchParams = new URLSearchParams(searchParams)
+      nextSearchParams.delete('action')
+      nextSearchParams.delete('eventId')
+      nextSearchParams.delete('source')
+      setSearchParams(nextSearchParams, { replace: true })
+      return
+    }
+
+    const nextForm = getFormFromCalendarEvent(requestedEvent, calendarInvites)
+    setCalendarForm({
+      ...nextForm,
+      notificationRequestToken: createNotificationRequestToken(),
+      notifyInvitedFamilies: false,
+    })
+    setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
+    setCalendarPlayerReview(null)
+    setCalendarModal({ mode: 'manage-players', event: requestedEvent })
+
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('action')
+    nextSearchParams.delete('eventId')
+    nextSearchParams.delete('source')
+    setSearchParams(nextSearchParams, { replace: true })
+  }, [calendarEvents, calendarInvites, isLoading, searchParams, setSearchParams])
+
+  useEffect(() => {
     let isMounted = true
 
     const loadSessionPlayers = async () => {
@@ -1723,7 +1771,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setCalendarForm({
       ...defaultForm,
       eventType,
-      requestTrainingAvailability: eventType === 'training',
+      requestTrainingAvailability: false,
       teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
     })
     setCalendarModal({ mode: 'create', event: null })
@@ -1732,6 +1780,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const handleCalendarModalClose = () => {
     setCalendarModal(null)
     setCalendarForm(getDefaultCalendarForm())
+    setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
+    setCalendarPlayerReview(null)
     setErrorMessage('')
   }
 
@@ -1755,10 +1805,128 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     setCalendarForm({
       ...baseForm,
-      requestTrainingAvailability: sourceEventType === 'training' ? setting?.enabled ?? true : false,
+      requestTrainingAvailability: sourceEventType === 'training' ? setting?.enabled ?? false : false,
       trainingAvailabilitySendDaysBefore: setting?.sendDaysBefore ?? 2,
     })
     setCalendarModal({ mode: 'view', event })
+  }
+
+  const handleOpenCalendarPlayerManagement = () => {
+    const event = calendarModal?.event
+
+    if (!event?.sourceId || !['calendar', 'match-day', 'session'].includes(event.sourceType)) {
+      setErrorMessage('This calendar item does not support player management here.')
+      return
+    }
+
+    setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
+    setCalendarPlayerReview(null)
+    setCalendarForm((current) => ({
+      ...current,
+      notificationRequestToken: createNotificationRequestToken(),
+      notifyInvitedFamilies: false,
+    }))
+    setCalendarModal((current) => ({ ...current, mode: 'manage-players' }))
+  }
+
+  const handleReviewCalendarPlayerChanges = async () => {
+    const event = calendarModal?.event
+
+    if (!event?.sourceId) {
+      setErrorMessage('Choose a saved event before reviewing player changes.')
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const review = await previewEventPlayerChanges({
+        eventId: event.sourceId,
+        selectedPlayerIds: calendarForm.invitedPlayerIds,
+        sourceType: event.sourceType,
+        user,
+      })
+      setCalendarPlayerReview(review)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Player changes could not be reviewed.')
+      showToast({
+        title: 'Review unavailable',
+        message: error.message || 'Player changes could not be reviewed.',
+        tone: 'error',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleApplyCalendarPlayerChanges = async ({ confirmSelectedRemovals = false } = {}) => {
+    const event = calendarModal?.event
+
+    if (!event?.sourceId || !calendarPlayerReview) {
+      setErrorMessage('Review the player changes before saving.')
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const result = await applyEventPlayerChanges({
+        communicationMode: calendarPlayerCommunicationMode,
+        confirmSelectedRemovals,
+        eventId: event.sourceId,
+        requestToken: calendarForm.notificationRequestToken,
+        selectedPlayerIds: calendarForm.invitedPlayerIds,
+        sourceType: event.sourceType,
+        user,
+      })
+      const refreshedInvites = await getCalendarEventInvites({ user })
+      setCalendarInvites(refreshedInvites)
+      writeCalendarAwareCache({ calendarInvites: refreshedInvites })
+
+      if (event.sourceType === 'match-day') {
+        const refreshedMatch = await getMatchDay({ user, matchDayId: event.sourceId })
+        setMatchDays((current) => current.map((match) => match.id === refreshedMatch.id ? refreshedMatch : match))
+        setCalendarModal((current) => ({
+          ...current,
+          event: {
+            ...current.event,
+            data: refreshedMatch,
+          },
+          mode: 'view',
+        }))
+      } else {
+        setCalendarModal((current) => ({ ...current, mode: 'view' }))
+      }
+
+      setCalendarPlayerReview(null)
+      setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
+      setCalendarForm((current) => ({
+        ...current,
+        invitedPlayerIds: result.selectedPlayerIds,
+        notificationRequestToken: '',
+        notifyInvitedFamilies: false,
+      }))
+      showToast({
+        title: 'Event players updated',
+        message: result.queuedCount > 0
+          ? `${result.addedPlayerIds.length} added, ${result.removedPlayerIds.length} removed, and ${result.queuedCount} notification${result.queuedCount === 1 ? '' : 's'} queued.`
+          : `${result.addedPlayerIds.length} added and ${result.removedPlayerIds.length} removed. No notifications were queued.`,
+        tone: result.failedCount > 0 ? 'warning' : undefined,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Event players could not be updated.')
+      showToast({
+        title: 'Players not updated',
+        message: error.message || 'Event players could not be updated.',
+        tone: 'error',
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleAcceptEventAvailabilityOnBehalf = async ({ invite, occurrenceDate, status }) => {
@@ -1869,6 +2037,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const { checked, name, type, value } = event.target
 
     setErrorMessage('')
+    if (['invitedPlayerIds', 'inviteWholeSquad', 'inviteTrialPlayers'].includes(name)) {
+      setCalendarPlayerReview(null)
+    }
 
     if (name === 'eventType' && value === 'match' && calendarModal?.mode === 'create' && !calendarModal?.event) {
       openCalendarMatchDayWorkflow({
@@ -2001,7 +2172,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       }
 
       if (name === 'eventType') {
-        nextForm.requestTrainingAvailability = value === 'training'
+        nextForm.requestTrainingAvailability = false
       }
 
       if (name === 'eventType' && value === 'match') {
@@ -3113,6 +3284,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           isResourcesLoading={isCalendarResourcesLoading}
           isOpen={Boolean(calendarModal)}
           mode={calendarModal?.mode || 'create'}
+          playerCommunicationMode={calendarPlayerCommunicationMode}
+          playerReview={calendarPlayerReview}
           onCancel={handleCalendarModalClose}
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
@@ -3124,6 +3297,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             setCalendarModal(null)
             navigate(href || '/sessions')
           }}
+          onManagePlayers={handleOpenCalendarPlayerManagement}
+          onPlayerCommunicationModeChange={(mode) => {
+            setCalendarPlayerCommunicationMode(mode)
+          }}
+          onPlayerReviewBack={() => {
+            setCalendarPlayerReview(null)
+            setCalendarForm((current) => ({
+              ...current,
+              notificationRequestToken: createNotificationRequestToken(),
+            }))
+          }}
+          onReviewPlayerChanges={handleReviewCalendarPlayerChanges}
+          onApplyPlayerChanges={handleApplyCalendarPlayerChanges}
           onResourceIdsChange={handleCalendarResourceIdsChange}
           onAcceptOnBehalf={handleAcceptEventAvailabilityOnBehalf}
           onSubmit={handleCalendarSave}
@@ -3412,6 +3598,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         isResourcesLoading={isCalendarResourcesLoading}
         isOpen={Boolean(calendarModal)}
         mode={calendarModal?.mode || 'create'}
+        playerCommunicationMode={calendarPlayerCommunicationMode}
+        playerReview={calendarPlayerReview}
         onCancel={handleCalendarModalClose}
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
@@ -3423,6 +3611,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           setCalendarModal(null)
           navigate(href || '/sessions')
         }}
+        onManagePlayers={handleOpenCalendarPlayerManagement}
+        onPlayerCommunicationModeChange={(mode) => {
+          setCalendarPlayerCommunicationMode(mode)
+        }}
+        onPlayerReviewBack={() => {
+          setCalendarPlayerReview(null)
+          setCalendarForm((current) => ({
+            ...current,
+            notificationRequestToken: createNotificationRequestToken(),
+          }))
+        }}
+        onReviewPlayerChanges={handleReviewCalendarPlayerChanges}
+        onApplyPlayerChanges={handleApplyCalendarPlayerChanges}
         onResourceIdsChange={handleCalendarResourceIdsChange}
         onAcceptOnBehalf={handleAcceptEventAvailabilityOnBehalf}
         onSubmit={handleCalendarSave}
@@ -3882,6 +4083,347 @@ function TrainingAvailabilitySettings({ form, isBusy, onChange }) {
   )
 }
 
+function EventPlayerManagementPanel({
+  communicationMode,
+  currentInvites = [],
+  event,
+  form,
+  invitePlayers = [],
+  isBusy,
+  matchInviteStatesByPlayerId = {},
+  onApply,
+  onBack,
+  onChange,
+  onCommunicationModeChange,
+  onReview,
+  review,
+}) {
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
+  const currentInviteByPlayerId = new Map(
+    currentInvites.map((invite) => [String(invite.playerId ?? ''), invite]),
+  )
+  const currentPlayerIds = new Set(currentInviteByPlayerId.keys())
+  const selectedPlayerIds = new Set((form.invitedPlayerIds ?? []).map(String))
+  const selectedRemovalIds = new Set(review?.selectedRemovalPlayerIds ?? [])
+  const playersById = new Map(invitePlayers.map((player) => [String(player.id), player]))
+  const getPlayerName = (playerId) => (
+    playersById.get(String(playerId))?.playerName
+    || currentInviteByPlayerId.get(String(playerId))?.player?.playerName
+    || 'Player'
+  )
+  const recipientCount = getEventPlayerCommunicationRecipientCount(review, communicationMode)
+  const missingContactNames = getEventPlayerCommunicationMissingIds(review, communicationMode).map(getPlayerName)
+  const hasChanges = Boolean((review?.addedPlayerIds?.length ?? 0) + (review?.removedPlayerIds?.length ?? 0))
+  const canApply = Boolean(
+    review
+    && (
+      hasChanges
+      || communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll
+    )
+  )
+  const primaryLabel = (() => {
+    const addedCount = review?.addedPlayerIds?.length ?? 0
+    const removedCount = review?.removedPlayerIds?.length ?? 0
+
+    if (communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyAdded) {
+      return `Add ${addedCount} player${addedCount === 1 ? '' : 's'} and notify ${recipientCount} contact${recipientCount === 1 ? '' : 's'}`
+    }
+
+    if (communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyRemoved) {
+      return `Remove ${removedCount} player${removedCount === 1 ? '' : 's'} and notify ${recipientCount} contact${recipientCount === 1 ? '' : 's'}`
+    }
+
+    if (communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll) {
+      return `Resend invitations to ${recipientCount} contact${recipientCount === 1 ? '' : 's'}`
+    }
+
+    if (addedCount > 0 && removedCount > 0) {
+      return `Save ${addedCount} addition${addedCount === 1 ? '' : 's'} and ${removedCount} removal${removedCount === 1 ? '' : 's'} without notifications`
+    }
+
+    if (addedCount > 0) {
+      return `Add ${addedCount} player${addedCount === 1 ? '' : 's'} without notifications`
+    }
+
+    return `Remove ${removedCount} player${removedCount === 1 ? '' : 's'} without notification`
+  })()
+  const confirmationItems = [
+    `${review?.addedPlayerIds?.length ?? 0} added`,
+    `${review?.removedPlayerIds?.length ?? 0} removed`,
+    `${review?.unchangedPlayerIds?.length ?? 0} unchanged`,
+    communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.none
+      ? 'No notifications will be queued'
+      : `${recipientCount} eligible contact${recipientCount === 1 ? '' : 's'} will be queued`,
+    ...(selectedRemovalIds.size > 0
+      ? [`${selectedRemovalIds.size} selected match player${selectedRemovalIds.size === 1 ? '' : 's'} will be changed to Not selected`]
+      : []),
+  ]
+
+  return (
+    <>
+      <div data-testid="event-player-management" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch] sm:px-6 sm:py-5">
+          {!review ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3">
+                <p className="text-sm font-black text-[#065f46]">Player changes and communications are separate</p>
+                <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+                  Review the player delta first. The safe default saves additions and removals without sending email, push, SMS, or invitation resends.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#101828]">{getEventPlayerManagementLabel(form.eventType)}</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+                    {selectedPlayerIds.size} selected for {event?.title || 'this event'}
+                  </p>
+                </div>
+                <span className="rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
+                  {currentPlayerIds.size} current
+                </span>
+              </div>
+
+              <div className="max-h-[min(28rem,55vh)] overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white">
+                {invitePlayers.map((player) => {
+                  const playerId = String(player.id)
+                  const isCurrent = currentPlayerIds.has(playerId)
+                  const isSelected = selectedPlayerIds.has(playerId)
+                  const invite = currentInviteByPlayerId.get(playerId)
+                  const matchState = matchInviteStatesByPlayerId[playerId]
+                  const changeLabel = isCurrent && !isSelected
+                    ? 'Marked for removal'
+                    : !isCurrent && isSelected
+                      ? 'Newly added'
+                      : isCurrent
+                        ? 'Current'
+                        : 'Available'
+                  const changeTone = isCurrent && !isSelected
+                    ? 'border-red-200 bg-red-50 text-red-700'
+                    : !isCurrent && isSelected
+                      ? 'border-[#bbf7d0] bg-[#ecfdf5] text-[#065f46]'
+                      : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55]'
+                  const deliveryLabel = matchState?.accessibleLabel
+                    || (invite?.notifyRequested ? 'Notification requested' : isCurrent ? 'Added, not notified' : 'Invitation not sent')
+
+                  return (
+                    <label
+                      key={player.id}
+                      className="flex min-h-16 items-start gap-3 border-b border-[#d7e5dc] px-3 py-3 last:border-b-0"
+                    >
+                      <input
+                        type="checkbox"
+                        name="invitedPlayerIds"
+                        value={player.id}
+                        checked={isSelected}
+                        onChange={onChange}
+                        disabled={isBusy}
+                        className="mt-1 h-5 w-5 shrink-0 accent-[#047857]"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-black text-[#101828]">{player.playerName}</span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${changeTone}`}>
+                            {changeLabel}
+                          </span>
+                        </span>
+                        <span className="mt-1 block text-xs font-bold text-[#4b5f55]">
+                          {player.section || 'Player'} · {deliveryLabel}
+                        </span>
+                        {matchState?.matchSelectionLabel ? (
+                          <span className="mt-1 block text-xs font-black text-[#047857]">
+                            Match selection: {matchState.matchSelectionLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <PlayerChangeMetric label="Added" value={review.addedPlayerIds.length} />
+                <PlayerChangeMetric label="Removed" value={review.removedPlayerIds.length} tone="red" />
+                <PlayerChangeMetric label="Unchanged" value={review.unchangedPlayerIds.length} />
+              </div>
+
+              <PlayerChangeReviewList
+                getPlayerName={getPlayerName}
+                groups={[
+                  { ids: review.addedPlayerIds, label: 'Players added' },
+                  { ids: review.removedPlayerIds, label: 'Players removed' },
+                  { ids: review.unchangedPlayerIds, label: 'Players unchanged' },
+                ]}
+              />
+
+              {selectedRemovalIds.size > 0 ? (
+                <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3">
+                  <p className="text-sm font-black text-[#92400e]">Selected-player confirmation required</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-[#92400e]">
+                    {selectedRemovalIds.size} removed match player{selectedRemovalIds.size === 1 ? ' is' : 's are'} currently selected. Saving will preserve the history and change the current squad decision to Not selected.
+                  </p>
+                </div>
+              ) : null}
+
+              <fieldset className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <legend className="px-1 text-sm font-black text-[#101828]">Communication choice</legend>
+                <div className="mt-2 grid gap-3">
+                  <PlayerCommunicationChoice
+                    checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.none}
+                    description="Save player changes only. No email, push, SMS, or invitation resend will occur."
+                    label="Save player changes without notifications"
+                    mode={EVENT_PLAYER_COMMUNICATION_MODES.none}
+                    onChange={onCommunicationModeChange}
+                  />
+                  <PlayerCommunicationChoice
+                    checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyAdded}
+                    description={`Queue only newly added eligible contacts. ${review.addedRecipientCount} contact${review.addedRecipientCount === 1 ? '' : 's'} eligible.`}
+                    disabled={review.addedPlayerIds.length === 0}
+                    label="Notify newly added players only"
+                    mode={EVENT_PLAYER_COMMUNICATION_MODES.notifyAdded}
+                    onChange={onCommunicationModeChange}
+                  />
+                  <PlayerCommunicationChoice
+                    checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyRemoved}
+                    description={`Queue only removed eligible contacts. ${review.removedRecipientCount} contact${review.removedRecipientCount === 1 ? '' : 's'} eligible.`}
+                    disabled={review.removedPlayerIds.length === 0}
+                    label="Notify removed players only"
+                    mode={EVENT_PLAYER_COMMUNICATION_MODES.notifyRemoved}
+                    onChange={onCommunicationModeChange}
+                  />
+                </div>
+              </fieldset>
+
+              <fieldset className="rounded-lg border border-[#fedf89] bg-[#fffaeb] p-4">
+                <legend className="px-1 text-sm font-black text-[#92400e]">Separate resend action</legend>
+                <PlayerCommunicationChoice
+                  checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll}
+                  description={`All ${review.currentRecipientCount} eligible current contacts will be contacted. Retries use the same idempotent command.`}
+                  disabled={review.selectedPlayerIds.length === 0}
+                  label="Resend invitations to everyone"
+                  mode={EVENT_PLAYER_COMMUNICATION_MODES.resendAll}
+                  onChange={onCommunicationModeChange}
+                />
+              </fieldset>
+
+              <div className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+                <p className="text-sm font-black text-[#101828]">Communication review</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  {communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.none
+                    ? 'No notifications will be sent.'
+                    : `${recipientCount} eligible contact${recipientCount === 1 ? '' : 's'} will be queued for this explicit action.`}
+                </p>
+                {missingContactNames.length > 0 ? (
+                  <p className="mt-2 text-xs font-bold leading-5 text-[#92400e]">
+                    No valid contact: {missingContactNames.join(', ')}. Their player changes will still be saved.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0 border-t border-[#d7e5dc] bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {review ? (
+              <button type="button" onClick={onBack} disabled={isBusy} className={secondaryButtonClass}>
+                Back to players
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={review ? () => setIsConfirmationOpen(true) : onReview}
+              disabled={isBusy || (review ? !canApply : false)}
+              className={primaryButtonClass}
+            >
+              {isBusy ? 'Working...' : review ? primaryLabel : 'Review player changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={isConfirmationOpen}
+        isBusy={isBusy}
+        title={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll
+          ? 'Confirm resend to all current contacts'
+          : 'Confirm player changes'}
+        message={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.none
+          ? 'Player changes will be saved without notifications.'
+          : 'Only the reviewed recipient scope will be queued. Unchanged recipients are not contacted unless resend all was selected.'}
+        items={confirmationItems}
+        itemsTitle="This command will:"
+        confirmLabel={primaryLabel}
+        onCancel={() => setIsConfirmationOpen(false)}
+        onConfirm={async () => {
+          await onApply({ confirmSelectedRemovals: selectedRemovalIds.size > 0 })
+          setIsConfirmationOpen(false)
+        }}
+      />
+    </>
+  )
+}
+
+function PlayerChangeMetric({ label, tone = 'green', value }) {
+  const toneClass = tone === 'red'
+    ? 'border-red-200 bg-red-50 text-red-700'
+    : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#065f46]'
+
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${toneClass}`}>
+      <p className="text-xs font-black uppercase tracking-[0.14em]">{label}</p>
+      <p className="mt-1 text-2xl font-black">{value}</p>
+    </div>
+  )
+}
+
+function PlayerChangeReviewList({ getPlayerName, groups = [] }) {
+  return (
+    <div className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+      <p className="text-sm font-black text-[#101828]">Player delta</p>
+      <div className="mt-3 grid gap-3">
+        {groups.map((group) => (
+          <div key={group.label}>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{group.label}</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+              {group.ids.length > 0 ? group.ids.map(getPlayerName).join(', ') : 'None'}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PlayerCommunicationChoice({
+  checked,
+  description,
+  disabled = false,
+  label,
+  mode,
+  onChange,
+}) {
+  return (
+    <label className={`flex min-h-12 items-start gap-3 rounded-lg border px-3 py-3 ${checked ? 'border-[#047857] bg-[#ecfdf5]' : 'border-[#d7e5dc] bg-white'} ${disabled ? 'opacity-55' : ''}`}>
+      <input
+        type="radio"
+        name="eventPlayerCommunicationMode"
+        value={mode}
+        checked={checked}
+        onChange={() => onChange(mode)}
+        disabled={disabled}
+        className="mt-1 h-5 w-5 shrink-0 accent-[#047857]"
+      />
+      <span>
+        <span className="block text-sm font-black text-[#101828]">{label}</span>
+        <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">{description}</span>
+      </span>
+    </label>
+  )
+}
+
 function CalendarEventModal({
   attachedResources = [],
   clubWideOnly = false,
@@ -3893,13 +4435,20 @@ function CalendarEventModal({
   isResourcesLoading = false,
   isOpen,
   mode,
+  playerCommunicationMode = EVENT_PLAYER_COMMUNICATION_MODES.none,
+  playerReview = null,
   onCancel,
   onChange,
   onDelete,
   onEdit,
   onAcceptOnBehalf,
+  onApplyPlayerChanges,
+  onManagePlayers,
   onOpenWorkflow,
+  onPlayerCommunicationModeChange,
+  onPlayerReviewBack,
   onResourceIdsChange,
+  onReviewPlayerChanges,
   onSubmit,
   resourceOptions = [],
   selectedInvitePlayers = [],
@@ -4042,14 +4591,23 @@ function CalendarEventModal({
     return null
   }
 
-  const isEditing = mode !== 'view'
+  const isManagingPlayers = mode === 'manage-players'
+  const isEditing = mode !== 'view' && !isManagingPlayers
   const editableSource = !event || event.editable !== false
   const isInheritedClubEvent = Boolean(event?.isInheritedClubEvent || event?.data?.isInheritedClubEvent)
   const showOpponent = form.eventType === 'match'
   const isMatchFixture = form.eventType === 'match'
   const showRecurrence = form.eventType !== 'match'
   const isSessionCreate = mode === 'create' && variant === 'session'
-  const title = isSessionCreate ? 'Create session' : mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
+  const title = isManagingPlayers
+    ? getEventPlayerManagementLabel(form.eventType)
+    : isSessionCreate
+      ? 'Create session'
+      : mode === 'create'
+        ? 'Add calendar event'
+        : mode === 'edit'
+          ? 'Edit calendar event'
+          : 'Calendar event'
   const selectedSummary = isMatchFixture
     ? [form.date, form.kickoffTimeTbc ? 'Time TBC' : form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
     : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
@@ -4147,6 +4705,23 @@ function CalendarEventModal({
         </div>
 
         {!isEditing ? (
+          isManagingPlayers ? (
+            <EventPlayerManagementPanel
+              communicationMode={playerCommunicationMode}
+              currentInvites={currentInvites}
+              event={event}
+              form={form}
+              invitePlayers={invitePlayers}
+              isBusy={isBusy}
+              matchInviteStatesByPlayerId={matchInviteStatesByPlayerId}
+              onApply={onApplyPlayerChanges}
+              onBack={onPlayerReviewBack}
+              onChange={onChange}
+              onCommunicationModeChange={onPlayerCommunicationModeChange}
+              onReview={onReviewPlayerChanges}
+              review={playerReview}
+            />
+          ) : (
           <div data-testid="calendar-event-modal-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch] sm:px-6 sm:py-5">
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{event?.sourceType || 'event'}</p>
@@ -4222,6 +4797,7 @@ function CalendarEventModal({
             ) : null}
           </div>
           </div>
+          )
         ) : null}
 
         {isEditing ? (
@@ -4719,7 +5295,7 @@ function CalendarEventModal({
               </div>
             </div>
           </form>
-        ) : (
+        ) : !isManagingPlayers ? (
           <>
             {(event?.href || hasMobileSecondaryActions) ? (
               <div data-testid="calendar-mobile-action-bar" className="shrink-0 border-t border-[#d7e5dc] bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
@@ -4746,6 +5322,11 @@ function CalendarEventModal({
               {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : <span />}
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" onClick={handleModalCancel} className={secondaryButtonClass}>Close</button>
+                {editableSource ? (
+                  <button type="button" onClick={onManagePlayers} className={secondaryButtonClass}>
+                    {getEventPlayerManagementLabel(form.eventType)}
+                  </button>
+                ) : null}
                 {editableSource ? <button type="button" onClick={onEdit} className={secondaryButtonClass}>Edit event</button> : null}
                 {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Move or reschedule</button> : null}
                 {event && editableSource ? (
@@ -4761,7 +5342,7 @@ function CalendarEventModal({
               </div>
             </div>
           </>
-        )}
+        ) : null}
         {isMobileActionMenuOpen ? (
           <div className="absolute inset-0 z-20 flex items-end bg-[#101828]/40 sm:hidden">
             <button
@@ -4796,6 +5377,19 @@ function CalendarEventModal({
                 </button>
               </div>
               <div className="mt-3 grid gap-2">
+                {!isEditing && !isManagingPlayers && editableSource ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMobileActionMenuOpen(false)
+                      onManagePlayers()
+                    }}
+                    className={compactSecondaryButtonClass}
+                  >
+                    {getEventPlayerManagementLabel(form.eventType)}
+                  </button>
+                ) : null}
                 {!isEditing && editableSource ? (
                   <button
                     type="button"

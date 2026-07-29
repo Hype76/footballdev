@@ -497,12 +497,35 @@ async function sendRecipientEmail({ appOrigin, event, occurrence, occurrences, p
 }
 
 async function processDueRequest({ appOrigin, event, occurrence, occurrences, request, supabase }) {
-  const { data: players, error: playersError } = await supabase
+  const { data: scopedInvites, error: scopedInvitesError } = await supabase
+    .from('calendar_event_invites')
+    .select('player_id')
+    .eq('club_id', request.club_id)
+    .eq('team_id', request.team_id)
+    .eq('calendar_event_id', request.calendar_event_id)
+    .neq('invite_status', 'cancelled')
+
+  if (scopedInvitesError) {
+    throw scopedInvitesError
+  }
+
+  const scopedPlayerIds = [...new Set(
+    (scopedInvites ?? [])
+      .map((invite) => String(invite.player_id ?? '').trim())
+      .filter(Boolean),
+  )]
+  let playersQuery = supabase
     .from('players')
     .select('id, club_id, team_id, player_name, parent_name, parent_email, contact_type, status')
     .eq('club_id', request.club_id)
     .eq('team_id', request.team_id)
     .neq('status', 'archived')
+
+  if (scopedPlayerIds.length > 0) {
+    playersQuery = playersQuery.in('id', scopedPlayerIds)
+  }
+
+  const { data: players, error: playersError } = await playersQuery
 
   if (playersError) {
     throw playersError

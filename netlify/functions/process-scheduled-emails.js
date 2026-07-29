@@ -71,6 +71,25 @@ async function updateCalendarNotificationEvent(queueId, status, lastError = null
   }
 }
 
+async function updateEventPlayerNotificationEvent(queueId, status, lastError = null) {
+  if (!queueId) {
+    return
+  }
+
+  const { error } = await supabaseAdmin
+    .from('event_player_notification_events')
+    .update({
+      status,
+      last_error: lastError,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('email_queue_id', queueId)
+
+  if (error && error.code !== 'PGRST205' && error.code !== '42P01') {
+    console.error('Event player notification delivery state update failed', error)
+  }
+}
+
 async function lockScheduledEmail(row, { retryFailed = false } = {}) {
   const { data, error } = await supabaseAdmin
     .from('scheduled_email_queue')
@@ -181,6 +200,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
   if (isCalendarNotificationQueueRow(lockedRow)) {
     await updateCalendarNotificationEvent(lockedRow.id, 'processing')
   }
+  await updateEventPlayerNotificationEvent(lockedRow.id, 'processing')
 
   try {
     const planProfile = {
@@ -212,6 +232,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       if (isCalendarNotificationQueueRow(lockedRow)) {
         await updateCalendarNotificationEvent(lockedRow.id, 'failed', skipReason)
       }
+      await updateEventPlayerNotificationEvent(lockedRow.id, 'failed', skipReason)
       return 'skipped'
     }
 
@@ -226,6 +247,8 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
       idempotencySeed: `scheduled:${lockedRow.id}`,
     })
+
+    await updateEventPlayerNotificationEvent(lockedRow.id, 'sent')
 
     if (isCalendarNotificationQueueRow(lockedRow)) {
       const preparedRow = resourceNotificationPreparation.row
@@ -279,6 +302,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     if (isCalendarNotificationQueueRow(lockedRow)) {
       await updateCalendarNotificationEvent(lockedRow.id, 'failed', error.message || String(error))
     }
+    await updateEventPlayerNotificationEvent(lockedRow.id, 'failed', error.message || String(error))
     return 'failed'
   }
 }

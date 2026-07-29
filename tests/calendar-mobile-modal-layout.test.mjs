@@ -50,13 +50,14 @@ test('Mobile view mode has compact Open item and More actions controls without a
 
 test('More actions is an accessible non-nested menu with destructive action last', () => {
   const menuStart = modalSource.indexOf('id="calendar-mobile-actions"')
-  const menuEnd = modalSource.indexOf('</div>\n            </div>\n          </div>', menuStart)
+  const menuEnd = modalSource.indexOf('<ConfirmModal', menuStart)
   assert.notEqual(menuStart, -1)
   assert.notEqual(menuEnd, -1)
 
   const menuSource = modalSource.slice(menuStart, menuEnd)
   assert.match(menuSource, /role="menu"/)
   assert.match(menuSource, /aria-labelledby="calendar-mobile-actions-title"/)
+  assert.match(menuSource, /role="menuitem"[\s\S]*onManagePlayers/)
   assert.match(menuSource, /role="menuitem"[\s\S]*Edit event/)
   assert.match(menuSource, /role="menuitem"[\s\S]*Move or reschedule/)
   assert.match(menuSource, /role="menuitem"[\s\S]*Cancel fixture/)
