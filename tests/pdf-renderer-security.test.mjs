@@ -335,7 +335,12 @@ test('historical activity PDFs are rebuilt from scoped records and ignore stored
         hasAttachment: true,
         subject: 'Development update',
         body: 'Structured message body.',
-        assessmentFields: [{ label: 'Technical', value: '7' }],
+        assessmentFields: [{
+          label: 'Technical',
+          value: '7',
+          fieldType: 'rating',
+          isDefault: true,
+        }],
         pdfHtml: `<script>${legacyMarker}</script>`,
       },
     },
@@ -370,6 +375,7 @@ test('historical activity PDFs are rebuilt from scoped records and ignore stored
   assert.equal(document.context.clubName, 'Trusted Club')
   assert.equal(document.context.playerName, 'Trusted Player')
   assert.equal(document.context.teamName, 'Trusted Team')
+  assert.deepEqual(document.assessmentFields, [{ label: 'Technical', value: '7' }])
   assert.doesNotMatch(JSON.stringify(document), new RegExp(legacyMarker))
   assert.ok(mock.calls.find((call) => call.table === 'communication_logs')?.filters.some(
     ([column, value]) => column === 'club_id' && value === 'club-a',

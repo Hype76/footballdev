@@ -279,12 +279,19 @@ export async function loadCommunicationPdfDocument({
     diagnostics.rendererStage = 'resource_resolved'
   }
 
+  const assessmentFields = Array.isArray(metadata.assessmentFields)
+    ? metadata.assessmentFields.map((item) => ({
+        label: item?.label,
+        value: item?.value,
+      }))
+    : []
+
   return buildParentMessagePdfDocument({
     clubName,
     playerName: normalizeText(evaluation?.player_name || player?.player_name || metadata.playerName) || 'Player',
     teamName: team.name || normalizeText(evaluation?.team || player?.team || metadata.team),
     subject: normalizeText(metadata.subject) || 'Parent message',
     body: normalizeText(metadata.body),
-    assessmentFields: Array.isArray(metadata.assessmentFields) ? metadata.assessmentFields : [],
+    assessmentFields,
   })
 }
