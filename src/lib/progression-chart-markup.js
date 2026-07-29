@@ -61,6 +61,7 @@ export function buildProgressionChartMarkup(points = [], { imageSrc = '' } = {})
     return `
       <div style="margin: 10px 0 0; border: 1px solid #d7e5dc; border-radius: 12px; background: #ffffff; padding: 12px;">
         <img src="${escapeHtml(imageSrc)}" alt="Progression score chart out of 10" width="640" style="display: block; width: 100%; max-width: 640px; height: auto;" />
+        <p style="margin: 8px 0 0; color: #4f6552; font-size: 11px; line-height: 1.4;">The final point represents the current Development review.</p>
       </div>
     `
   }
@@ -87,12 +88,13 @@ export function buildProgressionChartMarkup(points = [], { imageSrc = '' } = {})
         <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#9fc5ad" stroke-width="2" />
         <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="#9fc5ad" stroke-width="2" />
         <path d="${linePath}" fill="none" stroke="#047857" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-        ${coordinates.map((point) => `
-          <circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="6" fill="#ccff00" stroke="#047857" stroke-width="2" />
+        ${coordinates.map((point, index) => `
+          <circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="${index === coordinates.length - 1 ? 8 : 6}" fill="${index === coordinates.length - 1 ? '#047857' : '#ccff00'}" stroke="#047857" stroke-width="2" />
           <text x="${point.x.toFixed(1)}" y="${Math.max(padding - 8, point.y - 12).toFixed(1)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="800" fill="#101828">${escapeHtml(point.value.toFixed(1))}</text>
           <text x="${point.x.toFixed(1)}" y="${height - 14}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${axisLabelFontSize}" font-weight="700" fill="#4f6552">${escapeHtml(formatAxisLabel(point.label))}</text>
         `).join('')}
       </svg>
+      <p style="margin: 8px 0 0; color: #4f6552; font-size: 11px; line-height: 1.4;">The final point represents the current Development review.</p>
     </div>
   `
 }

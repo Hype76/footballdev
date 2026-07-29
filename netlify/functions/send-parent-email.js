@@ -1,8 +1,12 @@
 import process from 'node:process'
 import { createHash, randomUUID } from 'node:crypto'
-import { buildEmailHtml as buildParentEmailHtml } from '../../src/lib/email-builder.js'
+import {
+  buildDevelopmentParentEmailHtml,
+  buildEmailHtml as buildParentEmailHtml,
+} from '../../src/lib/email-builder.js'
 import { buildPdfBuffer, buildProgressionChartPngBuffer } from '../../src/lib/pdf-builder.js'
 import { buildAssessmentPdfDocument } from '../../src/lib/pdf-document.js'
+import { buildDevelopmentParentReportContent } from '../../src/lib/development-parent-report-content.js'
 import {
   normalizeDevelopmentEmailBody,
   resolveDevelopmentEmailOutputPolicy,
@@ -481,6 +485,9 @@ export async function prepareParentEmail({ body, requestUser }) {
         requestedSections: body.emailSections,
       })
     : null
+  const developmentContent = developmentReport
+    ? buildDevelopmentParentReportContent(developmentReport)
+    : null
   const authoritativeResponses = developmentReport
     ? developmentReport.responseItems.map((item) => ({
         fieldId: item.fieldId,
@@ -500,27 +507,36 @@ export async function prepareParentEmail({ body, requestUser }) {
           requestedSections: body.emailSections,
         })
       : body.emailSections
-  const developmentChartImages = outputPolicy.shouldBuildChartAttachments && developmentContext
+  const developmentChartImages = outputPolicy.shouldBuildChartAttachments && developmentContext &&
+    !developmentContent
     ? buildDevelopmentChartImages(authoritativeEmailSections, developmentContext.outputKey)
     : []
   const emailSectionsWithChartContent = developmentChartImages.length > 0
     ? addDevelopmentChartContentIds(authoritativeEmailSections, developmentChartImages)
     : authoritativeEmailSections
   const emailHtml = outputPolicy.isDevelopmentEmailOnly
-    ? buildParentEmailHtml({
-        parentName: authoritativeParentName || parentName,
-        playerName: authoritativePlayerName || playerName,
-        teamName: safeTeamName,
-        clubName: safeClubName,
-        section: developmentContext?.evaluation?.section || body.section,
-        session: developmentContext?.evaluation?.session || body.session,
-        responses: authoritativeResponses,
-        emailSections: developmentContext ? emailSectionsWithChartContent : authoritativeEmailSections,
-        emailBody: normalizeDevelopmentEmailBody(body.emailBody),
-        clubLogoUrl: authoritativeLogoUrl || logoUrl,
-        origin: 'https://footballplayer.online',
-        useChartContentIds: developmentChartImages.length > 0,
-      })
+    ? developmentContent
+      ? buildDevelopmentParentEmailHtml({
+          content: developmentContent,
+          parentName: authoritativeParentName || parentName,
+          clubLogoUrl: authoritativeLogoUrl || logoUrl,
+          origin: 'https://footballplayer.online',
+          pdfAttached: outputPolicy.shouldAttachPdf,
+        })
+      : buildParentEmailHtml({
+          parentName: authoritativeParentName || parentName,
+          playerName: authoritativePlayerName || playerName,
+          teamName: safeTeamName,
+          clubName: safeClubName,
+          section: developmentContext?.evaluation?.section || body.section,
+          session: developmentContext?.evaluation?.session || body.session,
+          responses: authoritativeResponses,
+          emailSections: developmentContext ? emailSectionsWithChartContent : authoritativeEmailSections,
+          emailBody: normalizeDevelopmentEmailBody(body.emailBody),
+          clubLogoUrl: authoritativeLogoUrl || logoUrl,
+          origin: 'https://footballplayer.online',
+          useChartContentIds: developmentChartImages.length > 0,
+        })
     : normalizeEmailHtml(clientHtml)
 
   if (emailHtml.length > 200000) {
@@ -533,18 +549,16 @@ export async function prepareParentEmail({ body, requestUser }) {
   }
 
   const chartAttachments = outputPolicy.shouldBuildChartAttachments
-    ? await buildProgressionChartAttachments(
+    ? developmentContent
+      ? []
+      : await buildProgressionChartAttachments(
         developmentContext ? developmentChartImages : body.progressionChartImages,
       )
     : []
   const authoritativePdfDocument = shouldAttachPdf
     ? developmentContext
       ? buildAssessmentPdfDocument({
-          clubName: safeClubName,
-          playerName: authoritativePlayerName,
-          teamName: safeTeamName,
-          section: developmentContext.evaluation.section,
-          session: developmentContext.evaluation.session,
+          content: developmentContent,
           responseItems: authoritativeResponses,
           emailSections: authoritativeEmailSections,
         })

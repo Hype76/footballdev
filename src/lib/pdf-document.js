@@ -6,6 +6,7 @@ import {
   isDefaultAssessmentScoreValue,
 } from './assessment-scoring.js'
 import { validatePdfBranding } from './pdf-branding.js'
+import { buildDevelopmentParentReportContent } from './development-parent-report-content.js'
 
 export const PDF_DOCUMENT_VERSION = 1
 
@@ -80,9 +81,20 @@ function normalizeText(value, { label, maxLength, required = false } = {}) {
 }
 
 function normalizeContext(value) {
-  assertAllowedKeys(value, ['clubName', 'playerName', 'teamName', 'section', 'session'], 'PDF context')
+  assertAllowedKeys(value, [
+    'clubName',
+    'playerName',
+    'teamName',
+    'section',
+    'session',
+    'authorName',
+    'reportDate',
+    'formName',
+    'recipientLabel',
+    'overallAssessment',
+  ], 'PDF context')
 
-  return {
+  const context = {
     clubName: normalizeText(value.clubName, {
       label: 'Club name',
       maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
@@ -106,6 +118,35 @@ function normalizeContext(value) {
       maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
     }),
   }
+  const optionalContext = {
+    authorName: normalizeText(value.authorName, {
+      label: 'Author name',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+    }),
+    reportDate: normalizeText(value.reportDate, {
+      label: 'Report date',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+    }),
+    formName: normalizeText(value.formName, {
+      label: 'Form name',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+    }),
+    recipientLabel: normalizeText(value.recipientLabel, {
+      label: 'Recipient wording',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+    }),
+    overallAssessment: normalizeText(value.overallAssessment, {
+      label: 'Overall assessment',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+    }),
+  }
+
+  return Object.entries(optionalContext).reduce(
+    (result, [key, normalizedValue]) => normalizedValue
+      ? { ...result, [key]: normalizedValue }
+      : result,
+    context,
+  )
 }
 
 function normalizeResponseItems(value, label = 'Response items') {
@@ -190,13 +231,21 @@ function normalizeEmailSections(value) {
 }
 
 function validateAssessmentDocument(value) {
-  assertAllowedKeys(value, ['version', 'reportType', 'context', 'responseItems', 'emailSections'], 'PDF document')
+  assertAllowedKeys(value, [
+    'version',
+    'reportType',
+    'context',
+    'responseItems',
+    'summaryItems',
+    'emailSections',
+  ], 'PDF document')
 
   return {
     version: PDF_DOCUMENT_VERSION,
     reportType: PDF_REPORT_TYPES.assessment,
     context: normalizeContext(value.context),
     responseItems: normalizeResponseItems(value.responseItems ?? []),
+    summaryItems: normalizeResponseItems(value.summaryItems ?? [], 'Summary items'),
     emailSections: normalizeEmailSections(value.emailSections ?? []),
   }
 }
@@ -271,17 +320,45 @@ export function buildAssessmentPdfDocument({
   section = '',
   session = '',
   responseItems = [],
+  summaryItems = [],
   emailSections = [],
+  developmentReport = null,
+  content: suppliedContent = null,
 } = {}) {
+  const content = suppliedContent || (developmentReport
+    ? buildDevelopmentParentReportContent(developmentReport)
+    : null)
+
   return validatePdfDocument({
     version: PDF_DOCUMENT_VERSION,
     reportType: PDF_REPORT_TYPES.assessment,
-    context: { clubName, playerName, teamName, section, session },
-    responseItems: Array.isArray(responseItems)
-      ? responseItems.map((item) => ({ label: item?.label, value: item?.value }))
+    context: content
+      ? {
+          clubName: content.context.clubName,
+          playerName: content.context.playerName,
+          teamName: content.context.teamName,
+          section: content.context.section,
+          session: content.context.reportDate,
+          authorName: content.context.authorName,
+          reportDate: content.context.reportDate,
+          formName: content.context.formName,
+          recipientLabel: content.context.recipientLabel,
+          overallAssessment: content.overallAssessment.value,
+        }
+      : { clubName, playerName, teamName, section, session },
+    responseItems: Array.isArray(content?.responseItems ?? responseItems)
+      ? (content?.responseItems ?? responseItems).map((item) => ({ label: item?.label, value: item?.value }))
       : responseItems,
-    emailSections: Array.isArray(emailSections)
-      ? emailSections.map((emailSection) => ({
+    summaryItems: Array.isArray(content?.summaryItems ?? summaryItems)
+      ? (content?.summaryItems ?? summaryItems).map((item) => ({
+          label: item?.label,
+          value: String(item?.value ?? '').length > 220
+            ? `${String(item.value).slice(0, 217).trimEnd()}...`
+            : item?.value,
+        }))
+      : summaryItems,
+    emailSections: Array.isArray(content?.sections ?? emailSections)
+      ? (content?.sections ?? emailSections).map((emailSection) => ({
           title: emailSection?.title,
           body: emailSection?.body,
           chartPoints: Array.isArray(emailSection?.chartPoints)
@@ -351,6 +428,14 @@ function renderBrandMark(branding) {
 
 function renderContext(document, branding) {
   const context = document.context
+  const facts = [
+    ['Team', context.teamName || branding.teamName || 'Not provided'],
+    ['Section', context.section || 'Development'],
+    ['Report date', context.reportDate || context.session || 'Not provided'],
+    ...(context.formName ? [['Form', context.formName]] : []),
+    ...(context.authorName ? [['Coach or author', context.authorName]] : []),
+    ...(context.recipientLabel ? [['Prepared for', context.recipientLabel]] : []),
+  ]
 
   return `
     <header
@@ -371,9 +456,7 @@ function renderContext(document, branding) {
       </div>
     </header>
     <dl class="context-grid">
-      <div><dt>Team</dt><dd>${escapeHtml(context.teamName || branding.teamName || 'Not provided')}</dd></div>
-      <div><dt>Section</dt><dd>${escapeHtml(context.section || 'Development')}</dd></div>
-      <div><dt>Session</dt><dd>${escapeHtml(context.session || 'Not provided')}</dd></div>
+      ${facts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}
     </dl>
   `
 }
@@ -384,21 +467,30 @@ function renderRows(items, emptyMessage) {
   }
 
   const rows = []
+  let index = 0
 
-  for (let index = 0; index < items.length; index += 2) {
-    rows.push(`<div class="response-row">${items.slice(index, index + 2).map((item) => `
-      <section class="response-card">
-        <h3>${escapeHtml(item.label)}</h3>
-        <p>${escapeHtml(item.value || 'Not provided')}</p>
+  while (index < items.length) {
+    const item = items[index]
+    const longItem = String(item?.value ?? '').length > 600
+    const nextItemIsLong = String(items[index + 1]?.value ?? '').length > 600
+    const rowItems = longItem || nextItemIsLong ? [item] : items.slice(index, index + 2)
+    rows.push(`<div class="response-row${longItem ? ' response-row-long' : ''}">${rowItems.map((rowItem) => `
+      <section class="response-card${longItem ? ' response-card-long' : ''}">
+        <h3>${escapeHtml(rowItem.label)}</h3>
+        <p>${escapeHtml(rowItem.value || 'Not provided')}</p>
       </section>
     `).join('')}</div>`)
+    index += rowItems.length
   }
 
   return `<div class="response-grid">${rows.join('')}</div>`
 }
 
 function isScoredResponseItem(item) {
-  return isDefaultAssessmentScoreLabel(item?.label) && isDefaultAssessmentScoreValue(item?.value)
+  return (
+    isDefaultAssessmentScoreLabel(item?.label) &&
+    isDefaultAssessmentScoreValue(item?.value)
+  ) || /^\d+(?:\.\d+)?\s*\/\s*10(?:\s*-\s*.+)?$/i.test(String(item?.value ?? '').trim())
 }
 
 function renderScoringGuide(items) {
@@ -413,16 +505,37 @@ function renderScoringGuide(items) {
   </section>`
 }
 
+function formatPdfResponseValue(item) {
+  return isDefaultAssessmentScoreLabel(item?.label) && isDefaultAssessmentScoreValue(item?.value)
+    ? formatDefaultAssessmentScoreForParent(item.value)
+    : item?.value
+}
+
 function renderAssessmentDocument(document, branding) {
+  const hasCurrentSummary =
+    Boolean(document.context.overallAssessment && document.context.overallAssessment !== 'Not recorded') ||
+    document.summaryItems.length > 0
+
   return `
     ${renderContext(document, branding)}
     <main>
+      ${hasCurrentSummary ? `
+        <section class="panel current-summary">
+          <h2>Current assessment summary</h2>
+          ${document.context.overallAssessment && document.context.overallAssessment !== 'Not recorded'
+            ? `<div class="overall-assessment"><span>Overall assessment</span><strong>${escapeHtml(document.context.overallAssessment)}</strong></div>`
+            : ''}
+          ${document.summaryItems.length > 0
+            ? renderRows(document.summaryItems, '')
+            : ''}
+        </section>
+      ` : ''}
       <section class="panel">
         <h2>Development responses</h2>
         ${renderRows(document.responseItems.map((item) => ({
           ...item,
-          value: isScoredResponseItem(item) ? formatDefaultAssessmentScoreForParent(item.value) : item.value,
-        })), 'No development fields were selected.')}
+          value: formatPdfResponseValue(item),
+        })), 'This report contains only the summary information deliberately selected by the coaching team. No completed Development response fields were selected for sharing.')}
       </section>
       ${document.emailSections.map((section) => `
         <section class="panel section-block">
@@ -507,10 +620,15 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           main { margin-top: 16px; }
           .panel { border: 1px solid #d7e5dc; border-radius: 12px; background: #fbfcf9; padding: 12px; margin-top: 12px; break-inside: auto; }
           .panel > h2 { margin: 0; color: #101828; font-size: 15px; line-height: 1.25; }
+          .overall-assessment { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; border: 1px solid #d7e5dc; border-radius: 9px; background: #ffffff; padding: 10px 12px; break-inside: avoid; }
+          .overall-assessment span { color: #4f6552; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+          .overall-assessment strong { color: #101828; font-size: 14px; text-align: right; }
           .response-grid { display: block; margin-top: 10px; }
           .response-row { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; break-inside: avoid; }
           .response-row:first-child { margin-top: 0; }
           .response-card { flex: 0 0 calc(50% - 4px); min-width: 0; border: 1px solid #e2e8f0; border-radius: 9px; background: #ffffff; padding: 9px 10px; break-inside: avoid; }
+          .response-row-long { display: block; break-inside: auto; }
+          .response-card-long { width: 100%; break-inside: auto; }
           .response-card h3 { margin: 0; color: #4f6552; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
           .response-card p, .section-body { margin: 6px 0 0; color: #334155; white-space: pre-wrap; overflow-wrap: anywhere; }
           .section-block { break-inside: avoid; }

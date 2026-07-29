@@ -13,6 +13,7 @@ import {
   isDefaultAssessmentScoreLabel,
   isDefaultAssessmentScoreValue,
 } from './assessment-scoring.js'
+import { buildDevelopmentParentReportContent } from './development-parent-report-content.js'
 
 function escapeHtml(value) {
   return sanitizeAssessmentOutputText(value)
@@ -45,10 +46,20 @@ function normaliseResponses(responses) {
 }
 
 function isScoredResponseItem(item) {
-  return isDefaultAssessmentScoreLabel(item?.label) && isDefaultAssessmentScoreValue(item?.value)
+  return (
+    Number.isFinite(Number(item?.numericScore)) &&
+    isDefaultAssessmentScoreValue(item.numericScore)
+  ) || (
+    isDefaultAssessmentScoreLabel(item?.label) &&
+    isDefaultAssessmentScoreValue(item?.value)
+  )
 }
 
 function formatParentResponseValue(item) {
+  if (item?.value && Number.isFinite(Number(item?.numericScore))) {
+    return item.value
+  }
+
   return isScoredResponseItem(item) ? formatDefaultAssessmentScoreForParent(item.value) : item?.value
 }
 
@@ -201,6 +212,110 @@ function buildPoweredByFooterMarkup() {
       <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
         <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
       </div>
+  `
+}
+
+function buildDevelopmentReportFacts(content) {
+  const facts = [
+    ['Overall assessment', content.overallAssessment?.value || 'Not recorded'],
+    ['Report date', formatSessionForDisplay(content.context?.reportDate) || 'Not recorded'],
+    ['Team', content.context?.teamName || 'Team'],
+    ['Development form', content.context?.formName || 'Development report'],
+  ]
+
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; margin: 0 0 20px;">
+      <tbody>
+        <tr>
+          <td width="50%" style="padding: 0 6px 8px 0; vertical-align: top;">${buildInfoCard(facts[0][0], facts[0][1])}</td>
+          <td width="50%" style="padding: 0 0 8px 6px; vertical-align: top;">${buildInfoCard(facts[1][0], facts[1][1])}</td>
+        </tr>
+        <tr>
+          <td width="50%" style="padding: 0 6px 0 0; vertical-align: top;">${buildInfoCard(facts[2][0], facts[2][1])}</td>
+          <td width="50%" style="padding: 0 0 0 6px; vertical-align: top;">${buildInfoCard(facts[3][0], facts[3][1])}</td>
+        </tr>
+      </tbody>
+    </table>
+  `
+}
+
+function buildDevelopmentSectionsMarkup(sections = []) {
+  if (!Array.isArray(sections) || sections.length === 0) {
+    return ''
+  }
+
+  return `
+    <div style="margin: 0 0 20px;">
+      ${sections.map((section) => `
+        <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 10px;">
+          <p style="margin: 0 0 6px; color: #142018; font-size: 14px; font-weight: 700;">${escapeHtml(section.title)}</p>
+          <p style="margin: 0; color: #4f6552; font-size: 13px; line-height: 1.5;">${formatLines(section.body)}</p>
+          ${Array.isArray(section.chartPoints) && section.chartPoints.length >= 2
+            ? '<p style="margin: 8px 0 0; color: #4f6552; font-size: 12px; line-height: 1.45;">The final progression point represents the current Development review.</p>'
+            : ''}
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+export function buildDevelopmentParentEmailHtml({
+  developmentReport,
+  content: suppliedContent,
+  parentName = '',
+  clubLogoUrl = '',
+  logoUrl = '',
+  origin = '',
+  pdfAttached = false,
+} = {}) {
+  const content = suppliedContent || buildDevelopmentParentReportContent(developmentReport)
+  const resolvedParent = parentName || content.context.recipientLabel || 'Parent or guardian'
+  const authorName = content.context.authorName
+  const reviewIntroduction = authorName
+    ? `${content.context.playerName}'s latest Development review has been completed by ${authorName}.`
+    : `${content.context.playerName}'s latest Development review is complete.`
+  const logoMarkup = buildEmailLogoMarkup({
+    altText: content.context.clubName || content.context.teamName || 'Football Player',
+    clubLogoUrl: clubLogoUrl || logoUrl,
+    origin,
+  })
+  const responseMarkup = content.emptySelection
+    ? `
+      <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
+        <p style="margin: 0; color: #4f6552; font-size: 13px; line-height: 1.5;">This update contains only the summary information deliberately selected by the coaching team. No completed Development response fields were selected for sharing.</p>
+      </div>
+    `
+    : `
+      <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 12px; margin: 0 0 20px;">
+        <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Current Development summary</p>
+        ${buildResponseMarkup(content.responseItems)}
+      </div>
+    `
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 760px; margin: 0 auto;">
+      ${logoMarkup}
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Development report</p>
+      <h1 style="margin: 0 0 6px; font-size: 26px; line-height: 1.2;">${escapeHtml(content.context.playerName)}</h1>
+      <p style="margin: 0 0 22px; color: #4f6552; font-size: 13px;">${escapeHtml(content.context.clubName)} | ${escapeHtml(content.context.teamName)}</p>
+
+      <p style="margin: 0 0 14px; font-size: 15px;">Hi ${escapeHtml(resolvedParent)},</p>
+      <p style="margin: 0 0 20px; font-size: 15px;">${escapeHtml(reviewIntroduction)}</p>
+
+      ${buildDevelopmentReportFacts(content)}
+      ${responseMarkup}
+      ${buildDevelopmentSectionsMarkup(content.sections)}
+
+      ${pdfAttached
+        ? '<p style="margin: 0 0 18px; font-size: 14px; font-weight: 700;">The full club-branded Development report is attached.</p>'
+        : ''}
+      <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions about this review, please reply to this email.</p>
+      <p style="margin: 0; color: #142018; font-size: 13px;">Kind regards,</p>
+      <p style="margin: 3px 0 0; color: #142018; font-size: 13px; font-weight: 700;">${escapeHtml(authorName || `${content.context.teamName} Development team`)}</p>
+      <p style="margin: 3px 0 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(content.context.clubName)} | ${escapeHtml(content.context.teamName)}</p>
+      ${buildScoringKeyMarkup(content.responseItems)}
+      ${buildPoweredByFooterMarkup()}
+    </div>
   `
 }
 
