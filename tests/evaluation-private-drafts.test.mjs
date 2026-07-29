@@ -324,6 +324,7 @@ test('private draft payload includes assessment, output, and delivery settings',
       session: '2026-06-20',
     },
     includeAttendanceSummary: false,
+    isPdfAttachmentApproved: true,
     inviteDate: '2026-06-27',
     lastUsedSession: '2026-06-20',
     offlineDraftId: 'offline-1',
@@ -334,20 +335,26 @@ test('private draft payload includes assessment, output, and delivery settings',
     },
     saveVersion: 7,
     scheduledEmailDateTime: '2026-06-20T18:30',
+    selectedDevelopmentParentLinkIds: ['link-1'],
     selectedFeedbackFormId: '__default_development_form__',
     selectedExportLabels: ['Technical', 'Comment'],
     selectedParentContactIndexes: [0, 1],
+    nextAssessmentReminderChoice: 'set',
+    nextAssessmentReminderDate: '2026-08-20',
     savedAt: '2026-06-16T10:00:00.000Z',
   })
 
   assert.equal(payload.responseValues.technical, '8')
-  assert.equal(Object.prototype.hasOwnProperty.call(payload, 'isPdfAttachmentApproved'), false)
+  assert.equal(payload.isPdfAttachmentApproved, true)
   assert.equal(payload.includeAttendanceSummary, false)
   assert.equal(payload.emailSendMode, 'scheduled')
   assert.equal(payload.scheduledEmailDateTime, '2026-06-20T18:30')
+  assert.deepEqual(payload.selectedDevelopmentParentLinkIds, ['link-1'])
   assert.equal(payload.selectedFeedbackFormId, '__default_development_form__')
   assert.deepEqual(payload.selectedExportLabels, ['Technical', 'Comment'])
   assert.equal(payload.archiveAfterNoPlace, true)
+  assert.equal(payload.nextAssessmentReminderChoice, 'set')
+  assert.equal(payload.nextAssessmentReminderDate, '2026-08-20')
   assert.equal(payload.draftMeta.clientSaveVersion, 7)
   assert.equal(payload.draftMeta.clientSavedAt, '2026-06-16T10:00:00.000Z')
 })

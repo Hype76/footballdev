@@ -131,6 +131,7 @@ const requests = {
   evaluationPosts: [],
   evaluationPatches: [],
   reportFinalizations: [],
+  submissionConfirmations: [],
   optionalOutputs: [],
 }
 let delayNextDraftWrite = false
@@ -364,6 +365,18 @@ async function preparePage(context) {
         evaluationId: payload.evaluationId,
         reportVersion: 1,
         responseCount: Array.isArray(payload.responses) ? payload.responses.length : 0,
+      })
+      return
+    }
+
+    if (payload?.action === 'confirm_development_submission') {
+      requests.submissionConfirmations.push(payload)
+      await fulfillJson(route, 200, {
+        success: true,
+        operationId: payload.operationId,
+        evaluationId: payload.evaluationId,
+        confirmationHash: 'synthetic-confirmation',
+        confirmedAt: new Date().toISOString(),
       })
       return
     }
@@ -655,13 +668,17 @@ try {
   assert.ok(formBDraft)
 
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Submit Development Record')
+    const button = [...document.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Save record without email')
     button?.click()
     button?.click()
   })
-  await page.getByRole('heading', { name: 'Set next development reminder' }).waitFor({ timeout: 20000 })
-  await page.getByRole('button', { name: 'Not now, save only' }).click()
-  await page.getByRole('heading', { name: 'Development Record saved' }).waitFor({ timeout: 15000 })
+  await page.getByRole('heading', { name: 'Final Development submission review' }).waitFor({ timeout: 20000 })
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Save record without email')
+    button?.click()
+    button?.click()
+  })
+  await page.getByRole('heading', { name: 'Development record saved' }).waitFor({ timeout: 15000 })
 
   assert.equal(requests.evaluationPosts.length, 1, 'Repeated submit clicks must create one evaluation.')
   assert.equal(formBDraft.status, 'submitted', 'Final submission must close the matching draft.')
@@ -726,13 +743,13 @@ try {
   const evaluationPatchesBeforeOptionalFailure = requests.evaluationPatches.length
   const draftsBeforeOptionalFailure = requests.draftPosts.length + requests.draftPatches.length
   failOptionalOutput = true
-  await page.getByRole('button', { name: 'Submit Development Record' }).click()
+  await page.getByRole('button', { name: 'Save record and send email' }).click()
   await page.getByRole('heading', { name: 'Default template' }).waitFor({ timeout: 15000 })
-  await page.getByRole('button', { name: 'Continue' }).click()
-  await page.getByRole('heading', { name: 'Set next development reminder' }).waitFor({ timeout: 20000 })
-  await page.getByRole('button', { name: 'Not now, send email' }).click()
+  await page.getByRole('button', { name: 'Use template and review submission' }).click()
+  await page.getByRole('heading', { name: 'Final Development submission review' }).waitFor({ timeout: 20000 })
+  await page.getByRole('dialog').getByRole('button', { name: 'Save record and send email' }).click()
   await page.getByRole('heading', {
-    name: 'Development Record saved, but optional output did not complete',
+    name: 'Development record saved with output action needed',
   }).waitFor({ timeout: 15000 })
   assert.equal(
     requests.evaluationPosts.length,
@@ -754,11 +771,11 @@ try {
   failOptionalOutput = false
   await page.getByRole('button', { name: 'Continue' }).click()
 
-  await page.getByRole('button', { name: 'Submit Development Record' }).click()
-  await page.getByRole('heading', { name: 'Set next development reminder' }).waitFor({ timeout: 20000 })
-  await page.getByRole('button', { name: 'Not now, send email' }).click()
+  await page.getByRole('button', { name: 'Save record and send email' }).click()
+  await page.getByRole('heading', { name: 'Final Development submission review' }).waitFor({ timeout: 20000 })
+  await page.getByRole('dialog').getByRole('button', { name: 'Save record and send email' }).click()
   await page.getByRole('heading', {
-    name: 'Development record saved and email sent',
+    name: 'Development record saved',
   }).waitFor({ timeout: 15000 })
 
   assert.equal(

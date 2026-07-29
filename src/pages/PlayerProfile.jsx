@@ -24,7 +24,11 @@ import {
   mergeEmailTemplatesWithDefaults,
   normalizeEmailTemplateAudience,
 } from '../lib/email-templates.js'
-import { sendParentEmail, sendParentPortalInvite } from '../lib/email-builder.js'
+import {
+  confirmDevelopmentSubmission,
+  sendParentEmail,
+  sendParentPortalInvite,
+} from '../lib/email-builder.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import { isDemoUser } from '../lib/demo.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
@@ -968,69 +972,113 @@ export function PlayerProfile() {
       }
 
       const scheduledAt = isScheduledSend ? new Date(scheduledEmailDateTime).toISOString() : ''
+      const selectedParentLinkIds = [
+        ...new Set(
+          payloads.flatMap((item) => item.payload?.selectedParentLinkIds || []),
+        ),
+      ]
+      const submissionOperationId = evaluation.isDirectEmail ? '' : evaluation.id
 
-      await Promise.all(payloads.map((item) => sendParentEmail({
+      if (!evaluation.isDirectEmail) {
+        await confirmDevelopmentSubmission({
+          operationId: submissionOperationId,
+          evaluationId: evaluation.id,
+          clubId: user?.clubId,
+          teamId: user?.activeTeamId || evaluation.teamId || '',
+          playerId: evaluation.playerId || primaryPlayer?.id || '',
+          outputContext: payloads[0]?.payload?.outputContext || '',
+          sendMode: isScheduledSend ? 'scheduled' : 'now',
+          scheduledAt,
+          attachPdf: false,
+          includeAttendance: payloads.some((item) =>
+            (item.payload?.emailSections || []).some((section) => section.key === 'attendanceSummary'),
+          ),
+          selectedParentLinkIds,
+          selectedResponseCount: attachAssessmentFields ? emailConfirmTarget.responses.length : 0,
+          reminderDate: '',
+        })
+      }
+
+      const emailResults = await Promise.all(payloads.map((item) => sendParentEmail({
         ...item.payload,
         responses: attachAssessmentFields ? item.payload.responses : [],
         attachPdf,
         teamId: user?.activeTeamId || '',
         playerId: evaluation.playerId || primaryPlayer?.id || '',
         scheduledAt,
-        communicationLog: isScheduledSend
-          ? {
-              clubId: user?.clubId || '',
-              playerId: evaluation.playerId || primaryPlayer?.id || null,
-              evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
-              userId: user?.id || '',
-              userName: user?.displayName || user?.username || user?.name || user?.email || '',
-              userEmail: user?.email || '',
-              recipientEmail: item.recipientEmails || recipientEmails,
-              metadata: {
-                subject: item.payload?.subject || '',
-                body: item.payload?.emailBody || '',
-                templateName: emailConfirmTarget.templateName || '',
-                team: item.payload?.team || '',
-                club: item.payload?.club || '',
-                playerName: routePlayerName,
-                hasAttachment: attachPdf,
-                hasAssessmentFields: attachAssessmentFields,
-                emailSections: item.payload?.emailSections || [],
-                scheduledAt,
-                assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
-              },
-            }
-          : null,
+        submissionOperationId,
+        includeAttendance: (item.payload?.emailSections || [])
+          .some((section) => section.key === 'attendanceSummary'),
+        communicationLog: {
+          clubId: user?.clubId || '',
+          playerId: evaluation.playerId || primaryPlayer?.id || null,
+          evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
+          userId: user?.id || '',
+          userName: user?.displayName || user?.username || user?.name || user?.email || '',
+          userEmail: user?.email || '',
+          recipientEmail: item.recipientEmails || recipientEmails,
+          metadata: {
+            subject: item.payload?.subject || '',
+            body: item.payload?.emailBody || '',
+            templateName: emailConfirmTarget.templateName || '',
+            team: item.payload?.team || '',
+            club: item.payload?.club || '',
+            playerName: routePlayerName,
+            hasAttachment: attachPdf,
+            hasAssessmentFields: attachAssessmentFields,
+            emailSections: item.payload?.emailSections || [],
+            scheduledAt,
+            assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
+            submissionOperationId,
+          },
+        },
       })))
       showToast({ title: isScheduledSend ? 'Email scheduled' : 'Email sent successfully' })
 
       const playerId = evaluation.playerId || primaryPlayer?.id
-      const communicationLog = await createCommunicationLog({
-        user,
-        playerId,
-        evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
-        channel: 'email',
-        action: isScheduledSend ? 'parent_email_scheduled' : 'parent_email_sent',
-        recipientEmail: recipientEmails,
-        metadata: {
-          subject: payloads[0]?.payload?.subject || '',
-          body: payloads[0]?.payload?.emailBody || '',
-          templateName: emailConfirmTarget.templateName || '',
-          team: payloads[0]?.payload?.team || '',
-          club: payloads[0]?.payload?.club || '',
-          playerName: routePlayerName,
-          hasAttachment: attachPdf,
-          hasAssessmentFields: attachAssessmentFields,
-          emailSections: payloads[0]?.payload?.emailSections || [],
-          scheduledAt,
-          assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
-        },
-      })
+      const clientLogItems = payloads.filter((_, index) =>
+        !emailResults[index]?.communicationLogId &&
+        emailResults[index]?.duplicate !== true,
+      )
+      const communicationLog = clientLogItems.length > 0
+        ? await createCommunicationLog({
+            user,
+            playerId,
+            evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
+            channel: 'email',
+            action: isScheduledSend ? 'parent_email_scheduled' : 'parent_email_sent',
+            recipientEmail: clientLogItems.map((item) => item.recipientEmails).filter(Boolean).join(','),
+            metadata: {
+              subject: clientLogItems[0]?.payload?.subject || '',
+              body: clientLogItems[0]?.payload?.emailBody || '',
+              templateName: emailConfirmTarget.templateName || '',
+              team: clientLogItems[0]?.payload?.team || '',
+              club: clientLogItems[0]?.payload?.club || '',
+              playerName: routePlayerName,
+              hasAttachment: attachPdf,
+              hasAssessmentFields: attachAssessmentFields,
+              emailSections: clientLogItems[0]?.payload?.emailSections || [],
+              scheduledAt,
+              assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
+              submissionOperationId,
+            },
+          })
+        : null
 
-      if (!isScheduledSend && communicationLog?.id) {
-        await sendParentMobilePushNotification({
-          id: communicationLog.id,
-          type: 'parent_message',
-        })
+      if (!isScheduledSend) {
+        const communicationLogIds = [
+          communicationLog?.id,
+          ...emailResults
+            .filter((result) => result?.communicationLogDuplicate !== true)
+            .map((result) => result?.communicationLogId),
+        ].filter(Boolean)
+
+        await Promise.all(communicationLogIds.map((id) =>
+          sendParentMobilePushNotification({
+            id,
+            type: 'parent_message',
+          }),
+        ))
       }
 
       if (playerId) {

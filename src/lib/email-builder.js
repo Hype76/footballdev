@@ -449,6 +449,47 @@ export async function finalizeDevelopmentParentReport(data = {}) {
   return result
 }
 
+export async function confirmDevelopmentSubmission(data = {}) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+  const response = await fetch('/.netlify/functions/send-parent-email', {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'confirm_development_submission',
+      operationId: data.operationId,
+      evaluationId: data.evaluationId,
+      clubId: data.clubId,
+      teamId: data.teamId,
+      playerId: data.playerId,
+      outputContext: data.outputContext,
+      sendMode: data.sendMode,
+      scheduledAt: data.scheduledAt,
+      attachPdf: data.attachPdf === true,
+      includeAttendance: data.includeAttendance === true,
+      selectedParentLinkIds: data.selectedParentLinkIds,
+      selectedResponseCount: data.selectedResponseCount,
+      reminderDate: data.reminderDate,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success !== true) {
+    throw Object.assign(
+      new Error(result.message || 'The final Development submission confirmation could not be recorded.'),
+      {
+        code: result.code || 'DEVELOPMENT_SUBMISSION_CONFIRMATION_FAILED',
+        statusCode: response.status,
+      },
+    )
+  }
+
+  return result
+}
+
 export async function sendParentEmail(data) {
   const progressionChartImages = getProgressionChartImages(data.emailSections)
   let chartIndex = 0
@@ -515,6 +556,8 @@ export async function sendParentEmail(data) {
       section: data.section,
       session: data.session,
       scheduledAt: data.scheduledAt,
+      submissionOperationId: data.submissionOperationId,
+      includeAttendance: data.includeAttendance === true,
       communicationLog: data.communicationLog,
       progressionChartImages,
     }),
@@ -523,7 +566,13 @@ export async function sendParentEmail(data) {
   const result = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(result.message || 'Email failed - will retry automatically')
+    throw Object.assign(
+      new Error(result.message || 'Email failed - will retry automatically'),
+      {
+        code: result.code || 'DEVELOPMENT_PARENT_EMAIL_SEND_FAILED',
+        statusCode: response.status,
+      },
+    )
   }
 
   if (result.scheduled) {

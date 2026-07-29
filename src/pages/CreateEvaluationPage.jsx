@@ -21,6 +21,7 @@ import {
 } from '../lib/email-templates.js'
 import { isDemoUser } from '../lib/demo.js'
 import {
+  confirmDevelopmentSubmission,
   finalizeDevelopmentParentReport,
   sendParentEmail,
 } from '../lib/email-builder.js'
@@ -52,7 +53,17 @@ import {
   PRIVATE_EVALUATION_DRAFT_STATUSES,
   saveServerEvaluationDraft,
 } from '../lib/evaluation-drafts.js'
-import { normalizeDevelopmentPreviewMode } from '../lib/development-email-output-policy.js'
+import {
+  DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
+  DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
+  normalizeDevelopmentPreviewMode,
+} from '../lib/development-email-output-policy.js'
+import {
+  buildDevelopmentCompletionItems,
+  buildDevelopmentSubmissionReviewItems,
+  createDevelopmentMeaningfulStateSignature,
+  getDevelopmentSubmissionActionLabel,
+} from '../lib/development-submission-flow.js'
 import {
   buildComments,
   buildFormResponses,
@@ -87,6 +98,7 @@ import {
   PLAYER_CONTACT_TYPES,
   archivePlayer,
   buildFeedbackFormSnapshot,
+  createAssessmentReminderOnce,
   createCommunicationLog,
   createEvaluation,
   getActiveFeedbackForms,
@@ -591,6 +603,9 @@ export function CreateEvaluationPage() {
   const evaluationContentRevisionRef = useRef(0)
   const developmentRecipientContextKeyRef = useRef('')
   const hasUnsavedChangesRef = useRef(false)
+  const currentMeaningfulDraftSignatureRef = useRef('')
+  const meaningfulDraftBaselineRef = useRef('')
+  const hasMeaningfulUserChangeRef = useRef(false)
   const pendingContextChangeRef = useRef(null)
   const restoredPrivateDraftExportLabelsRef = useRef(null)
   const serverDraftRestoreCompleteKeyRef = useRef('')
@@ -670,9 +685,9 @@ export function CreateEvaluationPage() {
   const [dataRefreshNotice, setDataRefreshNotice] = useState('')
   const [teamsLoadErrorMessage, setTeamsLoadErrorMessage] = useState('')
   const [evaluationClientId, setEvaluationClientId] = useState(createLocalId)
-  const [nextAssessmentReminderTarget, setNextAssessmentReminderTarget] = useState(null)
+  const [nextAssessmentReminderChoice, setNextAssessmentReminderChoice] = useState('skip')
   const [nextAssessmentReminderDate, setNextAssessmentReminderDate] = useState('')
-  const [isSavingNextAssessmentReminder, setIsSavingNextAssessmentReminder] = useState(false)
+  const [isFinalReviewOpen, setIsFinalReviewOpen] = useState(false)
   const [completionModal, setCompletionModal] = useState(null)
   const [completionNavigationUrl, setCompletionNavigationUrl] = useState('')
   const [archiveAfterNoPlace, setArchiveAfterNoPlace] = useState(false)
@@ -682,6 +697,24 @@ export function CreateEvaluationPage() {
   const [isContextChangePending, setIsContextChangePending] = useState(false)
   const [isLoadingDraft, setIsLoadingDraft] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const meaningfulDraftSignature = createDevelopmentMeaningfulStateSignature({
+    archiveAfterNoPlace,
+    emailSendMode,
+    emailTemplateKey,
+    formData,
+    includeAttendanceSummary,
+    inviteDate,
+    isPdfAttachmentApproved,
+    nextAssessmentReminderChoice,
+    nextAssessmentReminderDate,
+    previewMode,
+    responseValues,
+    scheduledEmailDateTime,
+    selectedDevelopmentParentLinkIds,
+    selectedExportLabels,
+    selectedParentContactIndexes,
+  })
+  currentMeaningfulDraftSignatureRef.current = meaningfulDraftSignature
   const buildCurrentPrivateDraftContext = useCallback((currentFormData = formData) => {
     const playerName = normalizePlayerName(currentFormData.playerName)
     const matchingPlayer = findSavedPlayerForEvaluation(
@@ -717,15 +750,19 @@ export function CreateEvaluationPage() {
       emailTemplateKey,
       formData,
       includeAttendanceSummary,
+      isPdfAttachmentApproved,
       inviteDate,
       lastUsedSession,
       previewMode,
       responseValues,
       saveVersion,
       scheduledEmailDateTime,
+      selectedDevelopmentParentLinkIds,
       selectedFeedbackFormId,
       selectedExportLabels,
       selectedParentContactIndexes,
+      nextAssessmentReminderChoice,
+      nextAssessmentReminderDate,
     })
   ), [
     archiveAfterNoPlace,
@@ -733,14 +770,18 @@ export function CreateEvaluationPage() {
     emailTemplateKey,
     formData,
     includeAttendanceSummary,
+    isPdfAttachmentApproved,
     inviteDate,
     lastUsedSession,
     previewMode,
     responseValues,
     scheduledEmailDateTime,
+    selectedDevelopmentParentLinkIds,
     selectedFeedbackFormId,
     selectedExportLabels,
     selectedParentContactIndexes,
+    nextAssessmentReminderChoice,
+    nextAssessmentReminderDate,
   ])
 
   const restorePrivateDraftPayload = useCallback((draft) => {
@@ -775,13 +816,21 @@ export function CreateEvaluationPage() {
     setSelectedFeedbackFormId(String(payload.selectedFeedbackFormId ?? '').trim())
     setLastUsedSession(nextSessionValue)
     setIncludeAttendanceSummary(payload.includeAttendanceSummary !== false)
+    setIsPdfAttachmentApproved(payload.isPdfAttachmentApproved === true)
     setEmailSendMode(payload.emailSendMode === 'scheduled' ? 'scheduled' : 'now')
     setScheduledEmailDateTime(String(payload.scheduledEmailDateTime ?? ''))
+    setSelectedDevelopmentParentLinkIds(
+      Array.isArray(payload.selectedDevelopmentParentLinkIds)
+        ? payload.selectedDevelopmentParentLinkIds
+        : [],
+    )
     restoredPrivateDraftExportLabelsRef.current = Array.isArray(payload.selectedExportLabels)
       ? payload.selectedExportLabels
       : null
     setSelectedExportLabels(restoredPrivateDraftExportLabelsRef.current)
     setArchiveAfterNoPlace(Boolean(payload.archiveAfterNoPlace))
+    setNextAssessmentReminderChoice(payload.nextAssessmentReminderChoice === 'set' ? 'set' : 'skip')
+    setNextAssessmentReminderDate(String(payload.nextAssessmentReminderDate ?? ''))
 
     if (draft?.id) {
       const nextInfo = {
@@ -797,6 +846,7 @@ export function CreateEvaluationPage() {
     }
 
     hasUnsavedChangesRef.current = false
+    hasMeaningfulUserChangeRef.current = false
     setHasUnsavedChanges(false)
     setPrivateDraftStatus('restored')
     return true
@@ -807,16 +857,34 @@ export function CreateEvaluationPage() {
       return
     }
 
-    hasUnsavedChangesRef.current = true
-    setHasUnsavedChanges(true)
-    setPrivateDraftStatus('unsaved')
+    hasMeaningfulUserChangeRef.current = true
   }, [])
 
   const clearDraftBaseline = useCallback((status = 'idle') => {
+    meaningfulDraftBaselineRef.current = currentMeaningfulDraftSignatureRef.current
+    hasMeaningfulUserChangeRef.current = false
     hasUnsavedChangesRef.current = false
     setHasUnsavedChanges(false)
     setPrivateDraftStatus(status)
   }, [])
+
+  useEffect(() => {
+    if (!hasInitializedRef.current) {
+      return
+    }
+
+    if (!meaningfulDraftBaselineRef.current || !hasMeaningfulUserChangeRef.current) {
+      meaningfulDraftBaselineRef.current = meaningfulDraftSignature
+      hasUnsavedChangesRef.current = false
+      setHasUnsavedChanges(false)
+      return
+    }
+
+    const isDirty = meaningfulDraftSignature !== meaningfulDraftBaselineRef.current
+    hasUnsavedChangesRef.current = isDirty
+    setHasUnsavedChanges(isDirty)
+    setPrivateDraftStatus(isDirty ? 'unsaved' : 'idle')
+  }, [meaningfulDraftSignature])
 
   useEffect(() => {
     if (!user) {
@@ -1688,73 +1756,52 @@ export function CreateEvaluationPage() {
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then development records can be assigned correctly.'
     : 'No teams exist for this club yet. Ask a manager to create a team before adding development records.'
-  const reminderMessage = previewMode === 'email'
-    ? emailSendMode === 'scheduled'
-      ? 'Set the next reminder before confirming the scheduled parent update.'
-      : 'Set the next reminder before confirming the parent update.'
-    : 'Do you want to set a reminder for the next development record?'
-  const reminderCancelLabel = previewMode === 'email'
-    ? emailSendMode === 'scheduled'
-      ? 'Not now, schedule email'
-      : 'Not now, send email'
-    : 'Not now, save only'
-  const reminderConfirmLabel = previewMode === 'email'
-    ? emailSendMode === 'scheduled'
-      ? 'Save Reminder and Schedule Email'
-      : 'Save Reminder and Send Email'
-    : 'Save Reminder'
+  const finalSubmissionActionLabel = getDevelopmentSubmissionActionLabel({
+    emailSendMode,
+    previewMode,
+  })
+  const finalSubmissionReviewItems = buildDevelopmentSubmissionReviewItems({
+    emailSendMode,
+    includeAttendanceSummary,
+    isPdfAttachmentApproved,
+    nextAssessmentReminderChoice,
+    nextAssessmentReminderDate,
+    playerName: formData.playerName,
+    previewMode,
+    recordDate: formatSessionForDisplay(formData.reportDate || formData.session),
+    recipients: selectedParentContacts,
+    selectedResponseCount: selectedResponseItems.length,
+    teamName: formData.team,
+  })
 
-  const getCompletionModalForOutcome = ({ outcome, playerName, requestedPdf = false }) => {
-    if (outcome === 'sent') {
-      return {
-        title: requestedPdf
-          ? 'Development record saved and email sent with PDF'
-          : 'Development record saved and email sent',
-        message: requestedPdf
-          ? `${playerName} development record has been saved and the parent email was sent with its requested PDF attachment.`
-          : `${playerName} development record has been saved and the parent email has been sent.`,
-      }
-    }
-
-    if (outcome === 'scheduled') {
-      return {
-        title: requestedPdf
-          ? 'Development record saved and email with PDF scheduled'
-          : 'Development record saved and email scheduled',
-        message: requestedPdf
-          ? `${playerName} development record has been saved and the parent email was scheduled with its requested PDF attachment.`
-          : `${playerName} development record has been saved and the parent email has been scheduled.`,
-      }
-    }
-
-    if (outcome === 'send_failed') {
-      return {
-        title: 'Development Record saved, but optional output did not complete',
-        message: requestedPdf
-          ? 'Development Record saved, but the requested PDF could not be attached, so no parent email was sent. Please retry when ready.'
-          : 'Development Record saved, but the parent email could not be sent. Please try again later.',
-      }
-    }
-
-    if (outcome === 'schedule_failed') {
-      return {
-        title: 'Development Record saved, but optional output did not complete',
-        message: requestedPdf
-          ? 'Development Record saved, but the requested PDF email could not be scheduled. Please retry when ready.'
-          : 'Development Record saved, but the parent email could not be sent. Please try again later.',
-      }
-    }
-
-    if (outcome === 'no_recipient') {
-      return {
-        title: 'Development Record saved',
-        message: 'Development Record saved, but no eligible linked parent email is currently available.',
-      }
-    }
-
+  const getCompletionModalForOutcome = ({
+    outcome,
+    playerName,
+    reminderCreated = false,
+    reminderDate = '',
+    reminderFailed = false,
+    requestedPdf = false,
+  }) => {
+    const outputFailed = ['no_recipient', 'schedule_failed', 'send_failed'].includes(outcome)
     return {
-      title: editingEvaluation ? 'Development Record updated' : 'Development Record saved',
-      message: `${playerName} Development Record has been saved.`,
+      title: outputFailed
+        ? 'Development record saved with output action needed'
+        : editingEvaluation
+          ? 'Development record updated'
+          : 'Development record saved',
+      message: outputFailed
+        ? requestedPdf
+          ? `${playerName} was saved, but the requested PDF failed and the parent email was not sent. Retry is available without creating another record.`
+          : `${playerName} was saved, but the requested parent email did not complete. Retry is available without creating another record.`
+        : `The final Development submission for ${playerName} completed.`,
+      items: buildDevelopmentCompletionItems({
+        emailOutcome: outcome,
+        isPdfAttachmentApproved: requestedPdf,
+        previewMode,
+        reminderCreated,
+        reminderDate,
+        reminderFailed,
+      }),
     }
   }
 
@@ -2065,6 +2112,9 @@ export function CreateEvaluationPage() {
     setPrivateDraftInfo(null)
     setResponseValues(createEmptyResponseValues(dynamicFields))
     setIsPdfAttachmentApproved(false)
+    setNextAssessmentReminderChoice('skip')
+    setNextAssessmentReminderDate('')
+    setIsFinalReviewOpen(false)
     clearDraftBaseline('idle')
   }
 
@@ -2295,6 +2345,50 @@ export function CreateEvaluationPage() {
       return
     }
 
+    if (previewMode === 'email') {
+      if (!canUseParentEmail) {
+        setActionErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
+        return
+      }
+
+      if (selectedParentContacts.length === 0) {
+        setActionErrorMessage(`Select at least one eligible ${contactNoun} before continuing.`)
+        return
+      }
+
+      if (isPdfAttachmentApproved && !canUseDevelopmentPdf) {
+        setActionErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.pdfReports))
+        return
+      }
+
+      if (
+        emailSendMode === 'scheduled' &&
+        (!scheduledEmailDateTime || Number.isNaN(new Date(scheduledEmailDateTime).getTime()))
+      ) {
+        setActionErrorMessage('Choose a valid scheduled send date and time.')
+        return
+      }
+    }
+
+    if (
+      !isNoPlaceOfferedTemplate &&
+      nextAssessmentReminderChoice === 'set' &&
+      !nextAssessmentReminderDate
+    ) {
+      setActionErrorMessage('Choose a reminder date or select Skip reminder before continuing.')
+      return
+    }
+
+    if (isNoPlaceOfferedTemplate) {
+      setNextAssessmentReminderChoice('skip')
+      setNextAssessmentReminderDate('')
+    }
+
+    setActionErrorMessage('')
+    setIsFinalReviewOpen(true)
+  }
+
+  const executeDevelopmentSubmission = async () => {
     if (submissionPromiseRef.current) {
       return
     }
@@ -2303,6 +2397,8 @@ export function CreateEvaluationPage() {
     setIsSubmitting(true)
     setActionErrorMessage('')
     let completionOutcome = 'saved'
+    let reminderCreated = false
+    let reminderFailed = false
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
@@ -2312,6 +2408,7 @@ export function CreateEvaluationPage() {
       const existingEvaluationId = String(
         editingEvaluation?.id || priorPersistedEvaluation?.evaluation?.id || '',
       ).trim()
+      const submissionOperationId = existingEvaluationId || evaluation.id
       const canReusePersistedEvaluation =
         Boolean(priorPersistedEvaluation?.evaluation?.id) &&
         priorPersistedEvaluation.contentRevision === evaluationContentRevisionRef.current &&
@@ -2319,6 +2416,39 @@ export function CreateEvaluationPage() {
           !priorPersistedEvaluation.fingerprint ||
           priorPersistedEvaluation.fingerprint === evaluationFingerprint
         )
+
+      const isScheduledSend = previewMode === 'email' && emailSendMode === 'scheduled'
+      const scheduledAt = isScheduledSend ? new Date(scheduledEmailDateTime).toISOString() : ''
+      const confirmationResult = await confirmDevelopmentSubmission({
+        operationId: submissionOperationId,
+        evaluationId: submissionOperationId,
+        clubId: user?.clubId,
+        teamId: evaluation.teamId || developmentRecipientTeamId,
+        playerId: evaluation.playerId || archiveCandidatePlayer?.id || '',
+        outputContext: normalizedContactType === PLAYER_CONTACT_TYPES.parent
+          ? DEVELOPMENT_PARENT_OUTPUT_CONTEXT
+          : DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
+        sendMode: previewMode === 'email'
+          ? isScheduledSend ? 'scheduled' : 'now'
+          : 'none',
+        scheduledAt,
+        attachPdf: previewMode === 'email' && isPdfAttachmentApproved,
+        includeAttendance: previewMode === 'email' && includeAttendanceSummary,
+        selectedParentLinkIds: previewMode === 'email' && useLinkedParentRecipients
+          ? selectedDevelopmentParentLinkIds
+          : [],
+        selectedResponseCount: selectedResponseItems.length,
+        reminderDate: nextAssessmentReminderChoice === 'set'
+          ? nextAssessmentReminderDate
+          : '',
+      })
+
+      if (String(confirmationResult.operationId ?? '') !== submissionOperationId) {
+        throw Object.assign(
+          new Error('The final Development submission confirmation could not be verified.'),
+          { code: 'DEVELOPMENT_SUBMISSION_CONFIRMATION_FAILED' },
+        )
+      }
 
       if (!existingEvaluationId && user?.clubId) {
         const allEvaluations = await getEvaluations({ user })
@@ -2380,13 +2510,6 @@ export function CreateEvaluationPage() {
           }
 
           setIsSendingParentEmail(true)
-          const isScheduledSend = emailSendMode === 'scheduled'
-
-          if (isScheduledSend && (!scheduledEmailDateTime || Number.isNaN(new Date(scheduledEmailDateTime).getTime()))) {
-            throw new Error('Choose a valid scheduled send date and time.')
-          }
-
-          const scheduledAt = isScheduledSend ? new Date(scheduledEmailDateTime).toISOString() : ''
           const progressionSourceEvaluations = [savedEvaluation, ...previousEvaluations]
             .filter(Boolean)
             .filter((item, index, items) => items.findIndex((candidate) => String(candidate.id ?? '') === String(item.id ?? '')) === index)
@@ -2425,6 +2548,8 @@ export function CreateEvaluationPage() {
             selectedEmailTemplateKey,
             selectedParentContacts,
             selectedResponseItems,
+            submissionOperationId,
+            includeAttendance: includeAttendanceSummary,
             user,
           })
 
@@ -2437,28 +2562,27 @@ export function CreateEvaluationPage() {
             teamId: savedEvaluation?.teamId || evaluation.teamId || developmentRecipientTeamId,
             playerId: savedEvaluation?.playerId || evaluation.playerId || '',
             scheduledAt,
-            communicationLog: isScheduledSend
-              ? {
-                  clubId: user?.clubId || '',
-                  playerId: savedEvaluation?.playerId || evaluation.playerId || null,
-                  evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
-                  userId: user?.id || '',
-                  userName: user?.displayName || user?.username || user?.name || user?.email || '',
-                  userEmail: user?.email || '',
-                  recipientEmail: emailJob.recipientEmail,
-                  metadata: {
-                    subject: emailJob.payload?.subject || '',
-                    body: emailJob.payload?.emailBody || '',
-                    templateName: emailJob.templateName || '',
-                    team: emailJob.payload?.team || '',
-                    club: emailJob.payload?.club || '',
-                    playerName: normalizedPlayerName,
-                    hasAttachment: emailJob.payload?.attachPdf === true,
-                    scheduledAt,
-                    assessmentFields: selectedResponseItems,
-                  },
-                }
-              : null,
+            communicationLog: {
+              clubId: user?.clubId || '',
+              playerId: savedEvaluation?.playerId || evaluation.playerId || null,
+              evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+              userId: user?.id || '',
+              userName: user?.displayName || user?.username || user?.name || user?.email || '',
+              userEmail: user?.email || '',
+              recipientEmail: emailJob.recipientEmail,
+              metadata: {
+                subject: emailJob.payload?.subject || '',
+                body: emailJob.payload?.emailBody || '',
+                templateName: emailJob.templateName || '',
+                team: emailJob.payload?.team || '',
+                club: emailJob.payload?.club || '',
+                playerName: normalizedPlayerName,
+                hasAttachment: emailJob.payload?.attachPdf === true,
+                scheduledAt,
+                assessmentFields: selectedResponseItems,
+                submissionOperationId,
+              },
+            },
           })))
           const completedEmailJobs = emailJobs
             .map((emailJob, index) => ({
@@ -2472,43 +2596,55 @@ export function CreateEvaluationPage() {
               result: emailResults[index] || {},
             }))
             .filter(({ result }) => result.outcome === 'no_recipient')
-          const newlyCompletedEmailJobs = completedEmailJobs.filter(({ result }) => result.duplicate !== true)
+          const clientLoggedEmailJobs = completedEmailJobs.filter(
+            ({ result }) => !result.communicationLogId && result.duplicate !== true,
+          )
 
           if (completedEmailJobs.length > 0) {
             let communicationLog = null
 
-            if (newlyCompletedEmailJobs.length > 0) {
+            if (clientLoggedEmailJobs.length > 0) {
               communicationLog = await createCommunicationLog({
                 user,
                 playerId: savedEvaluation?.playerId || evaluation.playerId,
                 evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
                 channel: 'email',
                 action: isScheduledSend ? 'parent_email_scheduled' : 'parent_email_sent',
-                recipientEmail: newlyCompletedEmailJobs
+                recipientEmail: clientLoggedEmailJobs
                   .map(({ emailJob, result }) => result.recipientEmail || emailJob.recipientEmail)
                   .filter(Boolean)
                   .join(','),
                 metadata: {
-                  subject: newlyCompletedEmailJobs[0]?.emailJob?.payload?.subject || '',
-                  body: newlyCompletedEmailJobs[0]?.emailJob?.payload?.emailBody || '',
-                  templateName: newlyCompletedEmailJobs.map(({ emailJob }) => emailJob.templateName).join(', '),
-                  team: newlyCompletedEmailJobs[0]?.emailJob?.payload?.team || '',
-                  club: newlyCompletedEmailJobs[0]?.emailJob?.payload?.club || '',
+                  subject: clientLoggedEmailJobs[0]?.emailJob?.payload?.subject || '',
+                  body: clientLoggedEmailJobs[0]?.emailJob?.payload?.emailBody || '',
+                  templateName: clientLoggedEmailJobs.map(({ emailJob }) => emailJob.templateName).join(', '),
+                  team: clientLoggedEmailJobs[0]?.emailJob?.payload?.team || '',
+                  club: clientLoggedEmailJobs[0]?.emailJob?.payload?.club || '',
                   playerName: normalizedPlayerName,
-                  hasAttachment: newlyCompletedEmailJobs.some(
+                  hasAttachment: clientLoggedEmailJobs.some(
                     ({ emailJob }) => emailJob.payload?.attachPdf === true,
                   ),
                   scheduledAt,
                   assessmentFields: selectedResponseItems,
+                  submissionOperationId,
                 },
               })
             }
 
-            if (!isScheduledSend && communicationLog?.id) {
-              await sendParentMobilePushNotification({
-                id: communicationLog.id,
-                type: 'parent_message',
-              })
+            if (!isScheduledSend) {
+              const communicationLogIds = [
+                communicationLog?.id,
+                ...completedEmailJobs
+                  .filter(({ result }) => result.communicationLogDuplicate !== true)
+                  .map(({ result }) => result.communicationLogId),
+              ].filter(Boolean)
+
+              await Promise.all(communicationLogIds.map((id) =>
+                sendParentMobilePushNotification({
+                  id,
+                  type: 'parent_message',
+                }),
+              ))
             }
 
             completionOutcome = unavailableEmailJobs.length > 0
@@ -2560,6 +2696,31 @@ export function CreateEvaluationPage() {
         }
       }
 
+      if (
+        !isNoPlaceOfferedTemplate &&
+        nextAssessmentReminderChoice === 'set' &&
+        nextAssessmentReminderDate
+      ) {
+        try {
+          await createAssessmentReminderOnce({
+            user,
+            playerId: savedEvaluation?.playerId || evaluation.playerId,
+            evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+            dueDate: nextAssessmentReminderDate,
+            metadata: {
+              playerName: normalizedPlayerName,
+              team: formData.team,
+              section: formData.section,
+              submissionOperationId,
+            },
+          })
+          reminderCreated = true
+        } catch (reminderError) {
+          reminderFailed = true
+          console.error('Next Development reminder failed', reminderError)
+        }
+      }
+
       const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
 
       writeSessionAssessmentProgress({
@@ -2605,6 +2766,9 @@ export function CreateEvaluationPage() {
       setCompletionModal(getCompletionModalForOutcome({
         outcome: completionOutcome,
         playerName: normalizedPlayerName,
+        reminderCreated,
+        reminderDate: nextAssessmentReminderDate,
+        reminderFailed,
         requestedPdf: isPdfAttachmentApproved,
       }))
       if (!shouldPreserveSavedRecordForRetry) {
@@ -2612,14 +2776,9 @@ export function CreateEvaluationPage() {
         setIsPdfAttachmentApproved(false)
       }
       setArchiveAfterNoPlace(false)
-      if (!isNoPlaceOfferedTemplate) {
-        setNextAssessmentReminderTarget({
-          evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
-          playerId: savedEvaluation?.playerId || evaluation.playerId,
-          playerName: normalizedPlayerName,
-          team: formData.team,
-          section: formData.section,
-        })
+      if (!shouldPreserveSavedRecordForRetry) {
+        setNextAssessmentReminderChoice('skip')
+        setNextAssessmentReminderDate('')
       }
     } catch (error) {
       console.error('Development record submit failed', error)
@@ -2667,47 +2826,6 @@ export function CreateEvaluationPage() {
     setIsPreviousScoresConfirmOpen(false)
   }
 
-  const handleSaveNextAssessmentReminder = async () => {
-    if (isNoPlaceOfferedTemplate) {
-      setNextAssessmentReminderTarget(null)
-      setNextAssessmentReminderDate('')
-      return
-    }
-
-    if (!nextAssessmentReminderTarget || !nextAssessmentReminderDate) {
-      return
-    }
-
-    setIsSavingNextAssessmentReminder(true)
-
-    try {
-      await createCommunicationLog({
-        user,
-        playerId: nextAssessmentReminderTarget.playerId,
-        evaluationId: nextAssessmentReminderTarget.evaluationId,
-        channel: 'reminder',
-        action: 'next_assessment_reminder_set',
-        metadata: {
-          dueDate: nextAssessmentReminderDate,
-          playerName: nextAssessmentReminderTarget.playerName,
-          team: nextAssessmentReminderTarget.team,
-          section: nextAssessmentReminderTarget.section,
-        },
-      })
-      setNextAssessmentReminderTarget(null)
-      setNextAssessmentReminderDate('')
-    } catch (error) {
-      console.error(error)
-      showToast({
-        title: 'Reminder not saved',
-        message: error.message || 'The development record was saved, but the reminder could not be saved.',
-        tone: 'error',
-      })
-    } finally {
-      setIsSavingNextAssessmentReminder(false)
-    }
-  }
-
   const privateDraftBanner = getPrivateDraftBannerCopy(privateDraftStatus, privateDraftInfo)
 
   return (
@@ -2751,13 +2869,14 @@ export function CreateEvaluationPage() {
       <ConfirmModal
         isOpen={isDefaultTemplateConfirmOpen}
         title="Default template"
-        message={canConfigureEmailTemplates ? 'You are sending a default template. You can continue now, or open Templates to customise it first.' : 'You are sending a default template. Continue only if this message is suitable for the parent update.'}
-        itemsTitle="Template"
+        message={canConfigureEmailTemplates ? 'Review this default message or open Templates to customise it. Choosing the template proceeds to final submission review and does not send anything yet.' : 'Review this default message. Choosing the template proceeds to final submission review and does not send anything yet.'}
+        itemsTitle="Email choices"
         items={[
-          selectedEmailTemplate?.label || 'Default template',
-          `Recipient type: ${contactNounPlural}`,
+          `Template: ${selectedEmailTemplate?.label || 'Default template'}`,
+          `Recipients: ${selectedParentContacts.map((contact) => contact.name || contact.email).filter(Boolean).join(', ') || contactNounPlural}`,
+          `PDF: ${isPdfAttachmentApproved ? 'Attach' : 'Not attached'}`,
         ]}
-        confirmLabel="Continue"
+        confirmLabel="Use template and review submission"
         cancelLabel={canConfigureEmailTemplates ? 'Configure Email Templates' : 'Cancel'}
         onCancel={() => {
           if (canConfigureEmailTemplates) {
@@ -2783,38 +2902,87 @@ export function CreateEvaluationPage() {
       />
 
       <ConfirmModal
-        isOpen={Boolean(nextAssessmentReminderTarget) && !isNoPlaceOfferedTemplate}
-        isBusy={isSavingNextAssessmentReminder}
-        title="Set next development reminder"
-        message={reminderMessage}
-        cancelLabel={reminderCancelLabel}
-        confirmLabel={reminderConfirmLabel}
-        confirmDisabled={!nextAssessmentReminderDate}
-        onCancel={() => {
-          setNextAssessmentReminderTarget(null)
-          setNextAssessmentReminderDate('')
+        isOpen={isFinalReviewOpen}
+        isBusy={isSubmitting}
+        title="Final Development submission review"
+        message="Nothing has been saved, queued, generated, or sent yet. Check every choice, then use the final action below."
+        itemsTitle="Final choices"
+        items={finalSubmissionReviewItems}
+        cancelLabel="Back to editing"
+        confirmLabel={finalSubmissionActionLabel}
+        confirmDisabled={
+          nextAssessmentReminderChoice === 'set' &&
+          !nextAssessmentReminderDate
+        }
+        onCancel={() => setIsFinalReviewOpen(false)}
+        onClose={() => setIsFinalReviewOpen(false)}
+        onConfirm={async () => {
+          setIsFinalReviewOpen(false)
+          await executeDevelopmentSubmission()
         }}
-        onClose={() => {
-          setNextAssessmentReminderTarget(null)
-          setNextAssessmentReminderDate('')
-        }}
-        onConfirm={() => void handleSaveNextAssessmentReminder()}
       >
-        <label className="block">
-          <span className="mb-2 block text-sm font-black text-[#101828]">Reminder date</span>
-          <input
-            type="date"
-            value={nextAssessmentReminderDate}
-            onChange={(event) => setNextAssessmentReminderDate(event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
-          />
-        </label>
+        {!isNoPlaceOfferedTemplate ? (
+          <fieldset>
+            <legend className="mb-2 block text-sm font-black text-[#101828]">
+              Next review reminder
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828]">
+                <input
+                  type="radio"
+                  name="next-development-reminder-choice"
+                  checked={nextAssessmentReminderChoice === 'skip'}
+                  onChange={() => {
+                    setNextAssessmentReminderChoice('skip')
+                    setNextAssessmentReminderDate('')
+                    markDraftUnsaved()
+                  }}
+                  className="h-4 w-4 accent-[#047857]"
+                />
+                Skip reminder
+              </label>
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828]">
+                <input
+                  type="radio"
+                  name="next-development-reminder-choice"
+                  checked={nextAssessmentReminderChoice === 'set'}
+                  onChange={() => {
+                    setNextAssessmentReminderChoice('set')
+                    markDraftUnsaved()
+                  }}
+                  className="h-4 w-4 accent-[#047857]"
+                />
+                Set reminder
+              </label>
+            </div>
+            {nextAssessmentReminderChoice === 'set' ? (
+              <label className="mt-3 block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Reminder date</span>
+                <input
+                  type="date"
+                  value={nextAssessmentReminderDate}
+                  onChange={(event) => {
+                    setNextAssessmentReminderDate(event.target.value)
+                    markDraftUnsaved()
+                  }}
+                  className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
+                />
+              </label>
+            ) : null}
+          </fieldset>
+        ) : (
+          <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+            No next review reminder will be created for this outcome.
+          </p>
+        )}
       </ConfirmModal>
 
       <ConfirmModal
-        isOpen={Boolean(completionModal) && !nextAssessmentReminderTarget}
+        isOpen={Boolean(completionModal)}
         title={completionModal?.title || 'Development Record saved'}
         message={completionModal?.message || ''}
+        itemsTitle="Completion status"
+        items={completionModal?.items || []}
         confirmLabel="Continue"
         hideCancel
         onCancel={handleCompletionContinue}
@@ -3001,6 +3169,7 @@ export function CreateEvaluationPage() {
                 }}
                 onPdfAttachmentApprovedChange={(value) => {
                   setIsPdfAttachmentApproved(Boolean(value) && canUseDevelopmentPdf)
+                  markDraftUnsaved()
                 }}
                 onEmailSendModeChange={(value) => {
                   setEmailSendMode(value)

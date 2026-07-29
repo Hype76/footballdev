@@ -39,8 +39,9 @@ test('Development Record draft persistence is an explicit manual action only', (
 
 test('manual draft state changes only after a genuine user edit', () => {
   assert.match(pageSource, /const markDraftUnsaved = useCallback/)
-  assert.match(pageSource, /setHasUnsavedChanges\(true\)/)
-  assert.match(pageSource, /setPrivateDraftStatus\('unsaved'\)/)
+  assert.match(pageSource, /hasMeaningfulUserChangeRef\.current = true/)
+  assert.match(pageSource, /meaningfulDraftSignature !== meaningfulDraftBaselineRef\.current/)
+  assert.match(pageSource, /setPrivateDraftStatus\(isDirty \? 'unsaved' : 'idle'\)/)
   assert.doesNotMatch(pageSource, /Changes are being prepared for private draft saving\./)
 })
 
@@ -58,7 +59,7 @@ test('unsaved Development Record navigation uses the exact approved warning', ()
   assert.match(pageSource, /Leave without saving/)
 })
 
-test('final submit remains separate from Save Draft and preserves partial success copy', () => {
+test('final submit remains separate from Save Draft and uses explicit outcome labels', () => {
   const submitHandler = pageSource.slice(
     pageSource.indexOf('const handleSubmit = async'),
     pageSource.indexOf('const handleContinueWithDefaultTemplate'),
@@ -66,8 +67,9 @@ test('final submit remains separate from Save Draft and preserves partial succes
 
   assert.doesNotMatch(submitHandler, /handleSaveDraft/)
   assert.doesNotMatch(submitHandler, /flushPrivateDraftSave/)
-  assert.match(pageSource, /Development Record saved, but optional output did not complete/)
-  assert.match(submitSource, /Submit Development Record/)
+  assert.match(pageSource, /Final Development submission review/)
+  assert.match(pageSource, /Development record saved with output action needed/)
+  assert.match(submitSource, /getDevelopmentSubmissionActionLabel/)
 })
 
 test('starter template draft and final snapshot preserve template key, version, and answers', () => {

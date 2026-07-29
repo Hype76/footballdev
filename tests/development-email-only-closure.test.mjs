@@ -80,7 +80,7 @@ test('Development PDF control is deliberate and capability gated while internal-
   assert.match(profileModals, /Output: Email selected parents/)
 })
 
-test('legacy email and PDF browser preferences normalize to email-only and PDF state is not persisted', () => {
+test('legacy email and PDF browser preferences normalize to email-only and deliberate PDF state is persisted', () => {
   const payload = createPrivateEvaluationDraftPayload({
     isPdfAttachmentApproved: true,
     previewMode: 'email_and_pdf',
@@ -90,7 +90,7 @@ test('legacy email and PDF browser preferences normalize to email-only and PDF s
   assert.equal(normalizeDevelopmentPreviewMode('email'), 'email')
   assert.equal(normalizeDevelopmentPreviewMode('scored'), 'scored')
   assert.equal(payload.previewMode, 'email')
-  assert.equal(Object.prototype.hasOwnProperty.call(payload, 'isPdfAttachmentApproved'), false)
+  assert.equal(payload.isPdfAttachmentApproved, true)
 })
 
 test('Development browser payload identifies the saved record and defaults to no PDF request', () => {

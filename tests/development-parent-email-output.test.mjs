@@ -471,14 +471,17 @@ test('provider failure preserves the evaluation and maps to an optional-output r
   assert.ok(createIndex >= 0)
   assert.ok(sendIndex > createIndex)
   assert.ok(optionalCatchIndex > sendIndex)
-  assert.match(pageSource, /Development Record saved, but the parent email could not be sent\. Please try again later\./)
+  assert.match(pageSource, /was saved, but the requested parent email did not complete\. Retry is available without creating another record\./)
 })
 
 test('queue failure preserves the evaluation and keeps scheduling optional', async () => {
   const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
   const functionSource = await source('../netlify/functions/send-parent-email.js')
 
-  assert.ok(pageSource.indexOf('const savedEvaluation = canReusePersistedEvaluation') < pageSource.indexOf('scheduledAt'))
+  assert.ok(
+    pageSource.indexOf('const savedEvaluation = canReusePersistedEvaluation') <
+    pageSource.indexOf('const emailResults = await Promise.all'),
+  )
   assert.match(pageSource, /completionOutcome = emailSendMode === 'scheduled' \? 'schedule_failed' : 'send_failed'/)
   assert.match(functionSource, /Email could not be added to the queue\./)
 })
@@ -535,5 +538,5 @@ test('final submission without optional email remains Green', async () => {
 
   assert.match(pageSource, /let completionOutcome = 'saved'/)
   assert.match(pageSource, /if \(previewMode === 'email'\)/)
-  assert.match(pageSource, /message: `\$\{playerName\} Development Record has been saved\.`/)
+  assert.match(pageSource, /buildDevelopmentCompletionItems\(\{/)
 })

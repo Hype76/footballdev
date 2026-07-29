@@ -3,6 +3,7 @@ import { EvaluationExportFieldsSelector } from './EvaluationExportFieldsSelector
 import { NoticeBanner } from '../ui/NoticeBanner.jsx'
 import { ScheduleDateTimePicker } from '../ui/ScheduleDateTimePicker.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { getDevelopmentSubmissionActionLabel } from '../../lib/development-submission-flow.js'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
@@ -59,7 +60,10 @@ export function SubmitExportSection({
   shouldShowInviteDate,
 }) {
   const isEmailEnabled = previewMode === 'email'
-  const submitActionLabel = 'Submit Development Record'
+  const submitActionLabel = getDevelopmentSubmissionActionLabel({
+    emailSendMode,
+    previewMode,
+  })
   const submittingLabel = isEmailEnabled
     ? emailSendMode === 'scheduled'
       ? 'Saving and scheduling...'

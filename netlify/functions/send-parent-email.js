@@ -30,6 +30,8 @@ import {
 } from './lib/_plan-gate.js'
 import {
   finalizeDevelopmentParentReportSnapshot,
+  createDevelopmentOutputKey,
+  createDevelopmentOutputQueueId,
   getDevelopmentParentReport,
   getParentVisibleDevelopmentEmailSections,
   getParentVisibleDevelopmentResponses,
@@ -38,6 +40,10 @@ import {
   reauthorizePreparedDevelopmentParentEmail,
 } from './lib/_development-parent-email-output.js'
 import { authorizeAssessmentPdfReport } from './lib/_pdf-report.js'
+import {
+  assertDevelopmentSubmissionOperation,
+  confirmDevelopmentSubmissionOperation,
+} from './lib/_development-submission-operation.js'
 
 void supabaseAdmin
 
@@ -94,8 +100,12 @@ function successResponse(payload = {}) {
   return jsonResponse(200, { success: true, ...payload })
 }
 
-function failureResponse(statusCode, message) {
-  return jsonResponse(statusCode, { success: false, message })
+function failureResponse(statusCode, message, code = '') {
+  return jsonResponse(statusCode, {
+    success: false,
+    message,
+    ...(code ? { code } : {}),
+  })
 }
 
 function getMissingEnvVars() {
@@ -403,6 +413,15 @@ export async function prepareParentEmail({ body, requestUser }) {
     developmentPdfEnabled: isDevelopmentPdfServerEnabled(process.env),
   })
 
+  const submissionOperation = await assertDevelopmentSubmissionOperation(
+    supabaseAdmin,
+    {
+      body,
+      profile: planProfile,
+      outputContext: body.outputContext,
+    },
+  )
+
   if (outputPolicy.shouldRejectUnavailableDevelopmentPdf) {
     throw Object.assign(
       new Error('Email not sent because the requested PDF is not available. Retry the PDF attachment.'),
@@ -618,7 +637,20 @@ export async function prepareParentEmail({ body, requestUser }) {
     outputKey: developmentContext?.outputKey || '',
     outputQueueId: developmentContext?.outputQueueId || '',
     recipientLinkId: developmentContext?.recipient?.linkId || '',
-    communicationLog: body.communicationLog && typeof body.communicationLog === 'object' ? body.communicationLog : null,
+    communicationLog: body.communicationLog && typeof body.communicationLog === 'object'
+      ? {
+          ...body.communicationLog,
+          metadata: {
+            ...(body.communicationLog.metadata && typeof body.communicationLog.metadata === 'object'
+              ? body.communicationLog.metadata
+              : {}),
+            developmentOutputKey: developmentContext?.outputKey || '',
+            recipientLinkId: developmentContext?.recipient?.linkId || '',
+            submissionOperationId: submissionOperation?.operation_id || '',
+          },
+        }
+      : null,
+    submissionOperationId: submissionOperation?.operation_id || '',
   }
 
   return {
@@ -723,6 +755,166 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
   })
 
   return data
+}
+
+async function ensureDevelopmentCommunicationLog(preparedEmail, action) {
+  const outputKey = String(preparedEmail?.storedPayload?.outputKey ?? '').trim()
+  const log = preparedEmail?.storedPayload?.communicationLog
+
+  if (!outputKey || !log || typeof log !== 'object' || !log.clubId || !log.userId) {
+    return null
+  }
+
+  const findExistingLog = async () => {
+    const { data, error } = await supabaseAdmin
+      .from('communication_logs')
+      .select('id, club_id')
+      .eq('action', action)
+      .eq('metadata->>developmentOutputKey', outputKey)
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
+
+    return data
+  }
+  const existingLog = await findExistingLog()
+  if (existingLog?.id) {
+    return {
+      ...existingLog,
+      duplicate: true,
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('communication_logs')
+    .insert({
+      club_id: log.clubId,
+      player_id: log.playerId || null,
+      evaluation_id: log.evaluationId || null,
+      user_id: log.userId,
+      user_name: String(log.userName ?? '').trim(),
+      user_email: String(log.userEmail ?? '').trim().toLowerCase(),
+      channel: 'email',
+      action,
+      recipient_email: preparedEmail.recipients.join(', '),
+      metadata: {
+        ...(log.metadata && typeof log.metadata === 'object' ? log.metadata : {}),
+        developmentOutputKey: outputKey,
+        recipientLinkId: preparedEmail.storedPayload.recipientLinkId || '',
+        submissionOperationId: preparedEmail.storedPayload.submissionOperationId || '',
+      },
+    })
+    .select('id, club_id')
+    .single()
+
+  if (error?.code === '23505') {
+    const duplicateLog = await findExistingLog()
+    if (duplicateLog?.id) {
+      return {
+        ...duplicateLog,
+        duplicate: true,
+      }
+    }
+  }
+
+  if (error) {
+    throw error
+  }
+
+  return {
+    ...data,
+    duplicate: false,
+  }
+}
+
+async function findExistingDevelopmentOutput({
+  body,
+  profile,
+  scheduledAt,
+} = {}) {
+  if (String(body.outputContext ?? '').trim() !== 'development_record') {
+    return null
+  }
+
+  const selectedParentLinkIds = Array.isArray(body.selectedParentLinkIds)
+    ? [...new Set(body.selectedParentLinkIds.map((value) => String(value ?? '').trim()).filter(Boolean))]
+    : []
+  const evaluationId = String(body.evaluationId ?? '').trim()
+
+  if (!evaluationId || selectedParentLinkIds.length !== 1) {
+    return null
+  }
+
+  await assertDevelopmentSubmissionOperation(
+    supabaseAdmin,
+    {
+      body,
+      profile,
+      outputContext: body.outputContext,
+    },
+  )
+
+  const outputKey = createDevelopmentOutputKey(evaluationId, selectedParentLinkIds[0])
+  const action = scheduledAt ? 'parent_email_scheduled' : 'parent_email_sent'
+  const logQuery = supabaseAdmin
+    .from('communication_logs')
+    .select('id')
+    .eq('action', action)
+    .eq('metadata->>developmentOutputKey', outputKey)
+    .maybeSingle()
+
+  if (scheduledAt) {
+    const queueId = createDevelopmentOutputQueueId(outputKey)
+    const [{ data: queueRow, error: queueError }, { data: communicationLog, error: logError }] = await Promise.all([
+      supabaseAdmin
+        .from('scheduled_email_queue')
+        .select('id, scheduled_at')
+        .eq('id', queueId)
+        .maybeSingle(),
+      logQuery,
+    ])
+
+    if (queueError || logError) {
+      throw queueError || logError
+    }
+
+    return queueRow?.id
+      ? {
+          scheduled: true,
+          duplicate: true,
+          communicationLogId: communicationLog?.id || '',
+          communicationLogDuplicate: Boolean(communicationLog?.id),
+          queueId: queueRow.id,
+          scheduledAt: queueRow.scheduled_at,
+          recipientLinkId: selectedParentLinkIds[0],
+        }
+      : null
+  }
+
+  const [{ data: emailLog, error: emailLogError }, { data: communicationLog, error: logError }] = await Promise.all([
+    supabaseAdmin
+      .from('email_logs')
+      .select('id, status')
+      .eq('idempotency_key', outputKey)
+      .eq('status', 'sent')
+      .maybeSingle(),
+    logQuery,
+  ])
+
+  if (emailLogError || logError) {
+    throw emailLogError || logError
+  }
+
+  return emailLog?.id
+    ? {
+        duplicate: true,
+        communicationLogId: communicationLog?.id || '',
+        communicationLogDuplicate: Boolean(communicationLog?.id),
+        recipientLinkId: selectedParentLinkIds[0],
+      }
+    : null
 }
 
 export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed = '' } = {}) {
@@ -886,6 +1078,51 @@ export async function handler(event) {
       })
     }
 
+    if (String(body.action ?? '').trim() === 'confirm_development_submission') {
+      if (String(body.playerId ?? '').trim()) {
+        const recipientCandidates = await loadDevelopmentParentRecipientCandidates(
+          supabaseAdmin,
+          {
+            profile: requestUser,
+            playerId: body.playerId,
+            teamId: body.teamId,
+          },
+        )
+        const eligibleLinkIds = new Set(
+          recipientCandidates.map((candidate) => String(candidate.linkId ?? '').trim()).filter(Boolean),
+        )
+        const requestedLinkIds = Array.isArray(body.selectedParentLinkIds)
+          ? body.selectedParentLinkIds.map((value) => String(value ?? '').trim()).filter(Boolean)
+          : []
+
+        if (requestedLinkIds.some((linkId) => !eligibleLinkIds.has(linkId))) {
+          throw Object.assign(
+            new Error('One or more selected parent recipients are no longer eligible.'),
+            {
+              code: 'DEVELOPMENT_SUBMISSION_RECIPIENT_UNAVAILABLE',
+              publicMessage: 'One or more selected parent recipients are no longer eligible.',
+              statusCode: 409,
+            },
+          )
+        }
+      }
+
+      const operation = await confirmDevelopmentSubmissionOperation(
+        supabaseAdmin,
+        {
+          body,
+          profile: requestUser,
+        },
+      )
+
+      return successResponse({
+        operationId: operation.operation_id,
+        evaluationId: operation.evaluation_id,
+        confirmationHash: operation.confirmation_hash,
+        confirmedAt: operation.confirmed_at,
+      })
+    }
+
     const missingEnvVars = getMissingEnvVars()
 
     if (missingEnvVars.length > 0) {
@@ -896,6 +1133,16 @@ export async function handler(event) {
 
     if (scheduledAt && !isFutureScheduledDate(scheduledAt)) {
       throw Object.assign(new Error('Scheduled send time must be at least 30 seconds from now.'), { statusCode: 400 })
+    }
+
+    const existingDevelopmentOutput = await findExistingDevelopmentOutput({
+      body,
+      profile: requestUser,
+      scheduledAt,
+    })
+
+    if (existingDevelopmentOutput) {
+      return successResponse(existingDevelopmentOutput)
     }
 
     const preparedEmail = await prepareParentEmail({ body, requestUser })
@@ -913,9 +1160,15 @@ export async function handler(event) {
 
     if (isFutureScheduledDate(scheduledAt)) {
       const scheduledRecord = await createScheduledEmail({ preparedEmail, scheduledAt })
+      const communicationLog = await ensureDevelopmentCommunicationLog(
+        preparedEmail,
+        'parent_email_scheduled',
+      )
       return successResponse({
         scheduled: true,
         duplicate: Boolean(scheduledRecord.duplicate),
+        communicationLogId: communicationLog?.id || '',
+        communicationLogDuplicate: communicationLog?.duplicate === true,
         queueId: scheduledRecord.id,
         scheduledAt: scheduledRecord.scheduled_at,
         recipientLinkId: preparedEmail.storedPayload.recipientLinkId,
@@ -928,16 +1181,24 @@ export async function handler(event) {
         `${body.evaluationId || 'parent-email'}:${randomUUID()}`,
     })
     emailLogRecord = sendResult.emailLogRecord
+    const communicationLog = await ensureDevelopmentCommunicationLog(
+      preparedEmail,
+      'parent_email_sent',
+    )
 
     if (sendResult.duplicate) {
       return successResponse({
         duplicate: true,
+        communicationLogId: communicationLog?.id || '',
+        communicationLogDuplicate: communicationLog?.duplicate === true,
         recipientLinkId: preparedEmail.storedPayload.recipientLinkId,
       })
     }
 
     return successResponse({
       ...sendResult,
+      communicationLogId: communicationLog?.id || '',
+      communicationLogDuplicate: communicationLog?.duplicate === true,
       recipientEmail: preparedEmail.recipients.join(', '),
       recipientLinkId: preparedEmail.storedPayload.recipientLinkId,
     })
@@ -965,6 +1226,10 @@ export async function handler(event) {
     const publicMessage = error.publicMessage
       ? getPublicEmailErrorMessage(error)
       : error.statusCode ? error.message : 'Email failed. Please try again in a moment.'
-    return failureResponse(error.statusCode || 500, publicMessage)
+    return failureResponse(
+      error.statusCode || 500,
+      publicMessage,
+      error.code || 'DEVELOPMENT_PARENT_EMAIL_SEND_FAILED',
+    )
   }
 }

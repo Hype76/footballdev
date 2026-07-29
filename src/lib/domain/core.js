@@ -1327,6 +1327,89 @@ export async function createCommunicationLog({
   return data
 }
 
+export async function createAssessmentReminderOnce({
+  user,
+  playerId,
+  evaluationId,
+  dueDate,
+  metadata = {},
+} = {}) {
+  if (isDemoAccountValue(user)) {
+    return null
+  }
+
+  const normalizedEvaluationId = String(evaluationId ?? '').trim()
+  const normalizedDueDate = String(dueDate ?? '').trim()
+
+  if (!user?.clubId || !user?.id || !normalizedEvaluationId || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedDueDate)) {
+    throw new Error('Choose a valid next review reminder date.')
+  }
+
+  const findExistingReminder = async () => {
+    const { data, error } = await supabase
+      .from('communication_logs')
+      .select('id')
+      .eq('club_id', user.clubId)
+      .eq('evaluation_id', normalizedEvaluationId)
+      .eq('channel', 'reminder')
+      .eq('action', 'next_assessment_reminder_set')
+      .eq('metadata->>dueDate', normalizedDueDate)
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
+
+    return data
+  }
+  const existingReminder = await findExistingReminder()
+  if (existingReminder?.id) {
+    return {
+      ...existingReminder,
+      duplicate: true,
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('communication_logs')
+    .insert({
+      club_id: user.clubId,
+      player_id: playerId || null,
+      evaluation_id: normalizedEvaluationId,
+      user_id: user.id,
+      user_name: getEntryUserName(user),
+      user_email: getEntryUserEmail(user),
+      channel: 'reminder',
+      action: 'next_assessment_reminder_set',
+      recipient_email: '',
+      metadata: {
+        ...metadata,
+        dueDate: normalizedDueDate,
+      },
+    })
+    .select('id')
+    .single()
+
+  if (error?.code === '23505') {
+    const duplicateReminder = await findExistingReminder()
+    if (duplicateReminder?.id) {
+      return {
+        ...duplicateReminder,
+        duplicate: true,
+      }
+    }
+  }
+
+  if (error) {
+    throw error
+  }
+
+  return {
+    ...data,
+    duplicate: false,
+  }
+}
+
 export async function getPlayerCommunicationLogs({ user, playerId, limit = 50 } = {}) {
   if (!user?.clubId || !playerId) {
     return []

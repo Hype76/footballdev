@@ -238,15 +238,21 @@ export function buildPrivateEvaluationDraftContext({
 }
 
 export function hasPrivateEvaluationDraftContent(payload = {}) {
-  return hasEnteredValue(payload.formData?.playerName) ||
-    hasEnteredValue(payload.responseValues) ||
+  return hasEnteredValue(payload.responseValues) ||
+    hasEnteredValue(payload.formData?.session) ||
+    hasEnteredValue(payload.formData?.reportDate) ||
+    hasEnteredValue(payload.formData?.reviewDate) ||
     hasEnteredValue(payload.formData?.parentContacts) ||
     hasEnteredValue(payload.emailTemplateKey) ||
     hasEnteredValue(payload.inviteDate) ||
     hasEnteredValue(payload.selectedExportLabels) ||
+    hasEnteredValue(payload.selectedDevelopmentParentLinkIds) ||
     hasEnteredValue(payload.scheduledEmailDateTime) ||
+    payload.isPdfAttachmentApproved === true ||
     payload.includeAttendanceSummary === false ||
     payload.emailSendMode === 'scheduled' ||
+    payload.nextAssessmentReminderChoice === 'set' ||
+    hasEnteredValue(payload.nextAssessmentReminderDate) ||
     payload.archiveAfterNoPlace === true
 }
 
@@ -256,6 +262,7 @@ export function createPrivateEvaluationDraftPayload({
   emailTemplateKey = '',
   formData = {},
   includeAttendanceSummary = true,
+  isPdfAttachmentApproved = false,
   inviteDate = '',
   lastUsedSession = '',
   offlineDraftId = '',
@@ -263,9 +270,12 @@ export function createPrivateEvaluationDraftPayload({
   responseValues = {},
   saveVersion = 0,
   scheduledEmailDateTime = '',
+  selectedDevelopmentParentLinkIds = [],
   selectedFeedbackFormId = '',
   selectedExportLabels = null,
   selectedParentContactIndexes = [0],
+  nextAssessmentReminderChoice = 'skip',
+  nextAssessmentReminderDate = '',
   savedAt = '',
 } = {}) {
   return {
@@ -279,10 +289,14 @@ export function createPrivateEvaluationDraftPayload({
     inviteDate,
     offlineDraftId,
     includeAttendanceSummary,
+    isPdfAttachmentApproved: isPdfAttachmentApproved === true,
     emailSendMode,
     scheduledEmailDateTime,
+    selectedDevelopmentParentLinkIds,
     selectedExportLabels,
     archiveAfterNoPlace,
+    nextAssessmentReminderChoice: nextAssessmentReminderChoice === 'set' ? 'set' : 'skip',
+    nextAssessmentReminderDate,
     draftMeta: {
       clientSaveVersion: Number(saveVersion) || 0,
       clientSavedAt: savedAt || new Date().toISOString(),

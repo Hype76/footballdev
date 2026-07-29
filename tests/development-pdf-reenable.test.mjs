@@ -81,7 +81,7 @@ test('production activates both gates while previews remain dark', async () => {
   )
 })
 
-test('Development PDF UI is deliberate, role gated, loading safe and not draft persisted', async () => {
+test('Development PDF UI is deliberate, role gated, loading safe and draft persisted', async () => {
   const createPage = await source('../src/pages/CreateEvaluationPage.jsx')
   const submitSection = await source('../src/components/evaluations/SubmitExportSection.jsx')
   const drafts = await source('../src/lib/evaluation-drafts.js')
@@ -98,12 +98,12 @@ test('Development PDF UI is deliberate, role gated, loading safe and not draft p
   assert.match(submitSection, /Creates a PDF copy of this Development report and attaches it to the parent email\./)
   assert.match(createPage, /Add or select a parent contact before sending this report\./)
   assert.match(createPage, /developmentPdfServerAvailable !== true/)
-  assert.doesNotMatch(drafts, /isPdfAttachmentApproved/)
+  assert.match(drafts, /isPdfAttachmentApproved/)
   const attachmentChoiceHandler = createPage.slice(
     createPage.indexOf('onPdfAttachmentApprovedChange={(value) => {'),
     createPage.indexOf('onEmailSendModeChange={(value) => {'),
   )
-  assert.doesNotMatch(attachmentChoiceHandler, /markDraftUnsaved/)
+  assert.match(attachmentChoiceHandler, /markDraftUnsaved/)
 })
 
 test('trusted Development requests fail safely instead of silently dropping an unavailable PDF', async () => {
@@ -123,8 +123,8 @@ test('Development attachment payload stays server-authoritative and records accu
   assert.doesNotMatch(formUtils, /pdfDocument: buildAssessmentPdfDocument/)
   assert.match(createPage, /attachPdf: isPdfAttachmentApproved/)
   assert.match(createPage, /hasAttachment: emailJob\.payload\?\.attachPdf === true/)
-  assert.match(createPage, /hasAttachment: newlyCompletedEmailJobs\.some/)
-  assert.match(createPage, /requested PDF could not be attached, so no parent email was sent/)
+  assert.match(createPage, /hasAttachment: clientLoggedEmailJobs\.some/)
+  assert.match(createPage, /requested PDF failed and the parent email was not sent/)
   assert.match(createPage, /persistedEvaluationForRetryRef/)
   assert.match(emailFunction, /isDevelopmentPdfServerEnabled\(process\.env\)/)
   assert.match(emailFunction, /assertPlanFeature\(planProfile, 'pdfReports'\)/)

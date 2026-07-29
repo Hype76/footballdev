@@ -827,6 +827,8 @@ export function buildParentEmailJobs({
   selectedEmailTemplateKey,
   selectedParentContacts,
   selectedResponseItems,
+  submissionOperationId = '',
+  includeAttendance = false,
   user,
 }) {
   return contactAudiences
@@ -919,6 +921,8 @@ export function buildParentEmailJobs({
             selectedParentLinkIds: usesServerRecipientResolution && contact?.linkId
               ? [contact.linkId]
               : [],
+            submissionOperationId,
+            includeAttendance: includeAttendance === true,
           }
 
           return {
