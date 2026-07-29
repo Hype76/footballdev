@@ -3,13 +3,15 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260729090000_event_player_communications_v1.sql', import.meta.url)
+const resendConfirmationMigrationUrl = new URL('../supabase/migrations/20260729093000_event_player_comms_resend_confirmation.sql', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/event-player-management.js', import.meta.url)
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const scheduledEmailProcessorUrl = new URL('../netlify/functions/process-scheduled-emails.js', import.meta.url)
 
-const [migration, domain, sessionsPage, matchDayPage, scheduledEmailProcessor] = await Promise.all([
+const [migration, resendConfirmationMigration, domain, sessionsPage, matchDayPage, scheduledEmailProcessor] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
+  readFile(resendConfirmationMigrationUrl, 'utf8'),
   readFile(domainUrl, 'utf8'),
   readFile(sessionsPageUrl, 'utf8'),
   readFile(matchDayPageUrl, 'utf8'),
@@ -71,6 +73,10 @@ test('notifications are delta scoped and retries cannot duplicate queue ledgers'
   assert.match(scheduledEmailProcessor, /updateEventPlayerNotificationEvent\(lockedRow\.id, 'processing'\)/)
   assert.match(scheduledEmailProcessor, /updateEventPlayerNotificationEvent\(lockedRow\.id, 'sent'\)/)
   assert.match(scheduledEmailProcessor, /updateEventPlayerNotificationEvent\(lockedRow\.id, 'failed'/)
+  assert.match(resendConfirmationMigration, /confirm_resend_all_value is not true/)
+  assert.match(resendConfirmationMigration, /Confirm the separate resend-to-all action/)
+  assert.match(domain, /confirm_resend_all_value: confirmResendAll === true/)
+  assert.match(sessionsPage, /confirmResendAll: communicationMode === EVENT_PLAYER_COMMUNICATION_MODES\.resendAll/)
 })
 
 test('match selection and training history safeguards are explicit', () => {

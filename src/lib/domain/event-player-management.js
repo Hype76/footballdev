@@ -195,6 +195,7 @@ export async function previewEventPlayerChanges({
 
 export async function applyEventPlayerChanges({
   communicationMode = EVENT_PLAYER_COMMUNICATION_MODES.none,
+  confirmResendAll = false,
   confirmSelectedRemovals = false,
   eventId,
   requestToken,
@@ -218,6 +219,7 @@ export async function applyEventPlayerChanges({
 
   const { data, error } = await supabase.rpc('apply_event_player_changes', {
     communication_mode_value: normalizedMode,
+    confirm_resend_all_value: confirmResendAll === true,
     confirm_selected_removals_value: confirmSelectedRemovals === true,
     event_id_value: source.eventId,
     request_token_value: normalizedRequestToken,

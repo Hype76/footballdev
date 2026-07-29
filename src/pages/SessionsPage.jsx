@@ -1861,7 +1861,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }
   }
 
-  const handleApplyCalendarPlayerChanges = async ({ confirmSelectedRemovals = false } = {}) => {
+  const handleApplyCalendarPlayerChanges = async ({
+    confirmResendAll = false,
+    confirmSelectedRemovals = false,
+  } = {}) => {
     const event = calendarModal?.event
 
     if (!event?.sourceId || !calendarPlayerReview) {
@@ -1875,6 +1878,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     try {
       const result = await applyEventPlayerChanges({
         communicationMode: calendarPlayerCommunicationMode,
+        confirmResendAll,
         confirmSelectedRemovals,
         eventId: event.sourceId,
         requestToken: calendarForm.notificationRequestToken,
@@ -4358,7 +4362,10 @@ function EventPlayerManagementPanel({
         confirmLabel={primaryLabel}
         onCancel={() => setIsConfirmationOpen(false)}
         onConfirm={async () => {
-          await onApply({ confirmSelectedRemovals: selectedRemovalIds.size > 0 })
+          await onApply({
+            confirmResendAll: communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll,
+            confirmSelectedRemovals: selectedRemovalIds.size > 0,
+          })
           setIsConfirmationOpen(false)
         }}
       />

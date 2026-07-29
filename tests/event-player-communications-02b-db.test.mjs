@@ -4,7 +4,11 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260729090000_event_player_communications_v1.sql', import.meta.url)
-const migration = await readFile(migrationUrl, 'utf8')
+const resendConfirmationMigrationUrl = new URL('../supabase/migrations/20260729093000_event_player_comms_resend_confirmation.sql', import.meta.url)
+const [migration, resendConfirmationMigration] = await Promise.all([
+  readFile(migrationUrl, 'utf8'),
+  readFile(resendConfirmationMigrationUrl, 'utf8'),
+])
 
 const ids = {
   actor: '10000000-0000-4000-8000-000000000001',
@@ -230,6 +234,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(resendConfirmationMigration)
 
   await db.exec(`
     insert into auth.users(id) values ('${ids.actor}'), ('${ids.parent}');
@@ -311,6 +316,43 @@ test('migration parses and add without notification is idempotent with zero queu
   assert.equal(first.rows[0].result.queuedCount, 0)
   assert.equal(retry.rows[0].result.duplicate, true)
   assert.deepEqual(counts.rows[0], { commands: 1, queue_rows: 0, active_invites: 2 })
+  await db.close()
+})
+
+test('resend all fails closed without the separate server confirmation', async () => {
+  const db = await createDatabase()
+  const token = '80000000-0000-4000-8000-000000000009'
+
+  await assert.rejects(
+    db.query(`
+      select public.apply_event_player_changes(
+        'calendar',
+        '${ids.event}',
+        array['${ids.player1}'::uuid],
+        'resend_all',
+        '${token}',
+        false
+      )
+    `),
+    /Confirm the separate resend-to-all action/,
+  )
+
+  const queueBefore = await db.query('select count(*)::integer as count from public.scheduled_email_queue')
+  assert.equal(queueBefore.rows[0].count, 0)
+
+  const confirmed = await db.query(`
+    select public.apply_event_player_changes(
+      'calendar',
+      '${ids.event}',
+      array['${ids.player1}'::uuid],
+      'resend_all',
+      '${token}',
+      false,
+      true
+    ) as result
+  `)
+  assert.equal(confirmed.rows[0].result.queuedCount, 1)
+
   await db.close()
 })
 
