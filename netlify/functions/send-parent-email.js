@@ -44,6 +44,18 @@ function safeReference(value) {
     : 'none'
 }
 
+function logSafeError(label, error, context = {}) {
+  const numericStatusCode = Number(error?.statusCode)
+
+  console.error(label, {
+    caller: 'send-parent-email',
+    code: String(error?.code || context.code || 'DEVELOPMENT_PARENT_EMAIL_FAILED'),
+    errorName: String(error?.name || 'Error'),
+    ...(Number.isFinite(numericStatusCode) ? { statusCode: numericStatusCode } : {}),
+    ...context,
+  })
+}
+
 function createDeterministicQueueId(value) {
   const hash = createHash('sha256').update(String(value ?? '')).digest('hex')
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
@@ -238,7 +250,10 @@ async function createEmailAuditLog(payload) {
   try {
     await createServerAuditLog(payload)
   } catch (error) {
-    console.error('Email audit logging failed', error)
+    logSafeError('Email audit logging failed', error, {
+      step: 'audit_log',
+      workflow: 'email',
+    })
   }
 }
 
@@ -274,7 +289,10 @@ async function buildProgressionChartAttachments(chartImages = []) {
         contentId: String(chartImage.contentId || `progression-chart-${attachments.length}`).trim(),
       })
     } catch (error) {
-      console.error('Progression chart image generation failed', error)
+      logSafeError('Progression chart image generation failed', error, {
+        step: 'chart_render',
+        workflow: 'email_attachment',
+      })
     }
   }
 
@@ -613,7 +631,10 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
   }
 
   if (error) {
-    console.error(error)
+    logSafeError('Scheduled email queue write failed', error, {
+      step: 'queue_write',
+      workflow: 'scheduled_email',
+    })
     throw new Error('Email could not be added to the queue.')
   }
 
@@ -831,7 +852,10 @@ export async function handler(event) {
       recipientLinkId: preparedEmail.storedPayload.recipientLinkId,
     })
   } catch (error) {
-    console.error(error)
+    logSafeError('Parent email request failed', error, {
+      step: 'handler',
+      workflow: 'parent_email',
+    })
     emailLogRecord = error.emailLogRecord || emailLogRecord
     await markEmailLogFailed(emailLogRecord, error)
     await createEmailAuditLog({
@@ -841,7 +865,9 @@ export async function handler(event) {
       metadata: {
         to: recipients,
         subject: emailSubject,
-        error: error.message,
+        error: error.publicMessage
+          ? getPublicEmailErrorMessage(error)
+          : 'Parent email request failed.',
         errorCode: error.code || 'DEVELOPMENT_PARENT_EMAIL_SEND_FAILED',
       },
     })

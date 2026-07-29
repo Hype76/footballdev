@@ -24,6 +24,10 @@ test('requested PDF email failures fail closed and never fall back to an attachm
 
   assert.doesNotMatch(emailFunction, /retrying without attachment/i)
   assert.doesNotMatch(emailFunction, /removeAttachments/)
+  assert.doesNotMatch(emailFunction, /console\.error\([^,]*error\)/)
+  assert.doesNotMatch(emailFunction, /console\.error\([^,]+,\s*error\)/)
+  assert.match(emailFunction, /function logSafeError/)
+  assert.match(emailFunction, /Parent email request failed/)
   assert.match(emailFunction, /PDF_ATTACHMENT_GENERATION_FAILED/)
   assert.match(emailFunction, /PDF_ATTACHMENT_DELIVERY_FAILED/)
   assert.match(emailFunction, /Email not sent because the requested PDF/)
