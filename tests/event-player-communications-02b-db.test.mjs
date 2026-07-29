@@ -5,9 +5,11 @@ import { test } from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260729090000_event_player_communications_v1.sql', import.meta.url)
 const resendConfirmationMigrationUrl = new URL('../supabase/migrations/20260729093000_event_player_comms_resend_confirmation.sql', import.meta.url)
-const [migration, resendConfirmationMigration] = await Promise.all([
+const recipientTypeMigrationUrl = new URL('../supabase/migrations/20260729094500_event_player_recipient_type_alignment.sql', import.meta.url)
+const [migration, resendConfirmationMigration, recipientTypeMigration] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(resendConfirmationMigrationUrl, 'utf8'),
+  readFile(recipientTypeMigrationUrl, 'utf8'),
 ])
 
 const ids = {
@@ -143,6 +145,8 @@ async function createDatabase() {
       updated_by uuid,
       updated_by_name text,
       updated_by_email text,
+      constraint calendar_event_invites_recipient_type_check
+        check (recipient_type in ('parent_guardian', 'player', 'parent_and_player')),
       constraint calendar_event_invites_source_player_key
         unique nulls not distinct (club_id, player_id, calendar_event_id, assessment_session_id, match_day_id)
     );
@@ -235,6 +239,7 @@ async function createDatabase() {
 
   await db.exec(migration)
   await db.exec(resendConfirmationMigration)
+  await db.exec(recipientTypeMigration)
 
   await db.exec(`
     insert into auth.users(id) values ('${ids.actor}'), ('${ids.parent}');
