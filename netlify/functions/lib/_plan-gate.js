@@ -194,3 +194,7 @@ export function assertPlanFeature(planProfile, featureName) {
     throw Object.assign(new Error(createCapabilityDeniedMessage(access)), { statusCode: 403, access })
   }
 }
+
+export function canUsePlanFeature(planProfile, featureName) {
+  return getFeatureAccess(planProfile, featureName).allowed
+}

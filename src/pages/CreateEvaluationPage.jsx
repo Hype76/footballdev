@@ -660,6 +660,7 @@ export function CreateEvaluationPage() {
   const [selectedDevelopmentParentLinkIds, setSelectedDevelopmentParentLinkIds] = useState([])
   const [isLoadingDevelopmentParentRecipients, setIsLoadingDevelopmentParentRecipients] = useState(false)
   const [developmentParentRecipientLoadError, setDevelopmentParentRecipientLoadError] = useState('')
+  const [developmentPdfServerAvailable, setDevelopmentPdfServerAvailable] = useState(null)
   const [inviteDate, setInviteDate] = useState('')
   const [selectedExportLabels, setSelectedExportLabels] = useState(null)
   const [actionErrorMessage, setActionErrorMessage] = useState('')
@@ -1537,7 +1538,7 @@ export function CreateEvaluationPage() {
     [formData.team, normalizedCurrentPlayerName, savedPlayers, user?.activeTeamId],
   )
   const useLinkedParentRecipients = normalizedContactType !== PLAYER_CONTACT_TYPES.self
-  const canUseDevelopmentPdf = hasDevelopmentPdfAccess && useLinkedParentRecipients
+  const showDevelopmentPdfOption = hasDevelopmentPdfAccess && useLinkedParentRecipients
   const developmentRecipientTeamId = String(
     archiveCandidatePlayer?.teamId ||
     availableTeams.find((team) => team.name === formData.team)?.id ||
@@ -1559,6 +1560,7 @@ export function CreateEvaluationPage() {
       setDevelopmentParentRecipients([])
       setSelectedDevelopmentParentLinkIds([])
       setDevelopmentParentRecipientLoadError('')
+      setDevelopmentPdfServerAvailable(null)
       return []
     }
 
@@ -1566,17 +1568,19 @@ export function CreateEvaluationPage() {
     setDevelopmentParentRecipientLoadError('')
 
     try {
-      const candidates = await getDevelopmentParentEmailRecipientCandidates({
+      const result = await getDevelopmentParentEmailRecipientCandidates({
         user,
         player: archiveCandidatePlayer,
         teamId: developmentRecipientTeamId,
       })
+      const candidates = result.recipients
       const eligibleCandidates = candidates.filter((candidate) => candidate.eligible)
       const eligibleIds = new Set(eligibleCandidates.map((candidate) => candidate.linkId))
       const isNewContext =
         developmentRecipientContextKeyRef.current !== developmentRecipientContextKey
 
       developmentRecipientContextKeyRef.current = developmentRecipientContextKey
+      setDevelopmentPdfServerAvailable(result.pdfAttachmentAvailable)
       setDevelopmentParentRecipients(eligibleCandidates)
       setSelectedDevelopmentParentLinkIds((current) =>
         isNewContext && !preserveSelected
@@ -1587,6 +1591,7 @@ export function CreateEvaluationPage() {
       return candidates
     } catch (error) {
       console.error('Development parent recipients could not be loaded', error)
+      setDevelopmentPdfServerAvailable(null)
       setDevelopmentParentRecipientLoadError(
         'Linked parent recipients could not be refreshed. Current selections are retained.',
       )
@@ -1660,6 +1665,22 @@ export function CreateEvaluationPage() {
     selectedParentContactIndexes,
     useLinkedParentRecipients,
   ])
+  const developmentPdfUnavailableReason = !showDevelopmentPdfOption
+    ? ''
+    : !archiveCandidatePlayer?.id || !developmentRecipientTeamId
+      ? 'Select a saved player and team before attaching a PDF report.'
+      : isLoadingDevelopmentParentRecipients
+        ? 'Checking PDF attachment availability...'
+        : developmentParentRecipientLoadError
+          ? 'PDF attachment availability could not be confirmed. Refresh the parent contacts and try again.'
+          : selectedParentContacts.length === 0
+            ? 'Add or select a parent contact before sending this report.'
+            : developmentPdfServerAvailable !== true
+              ? 'PDF attachment is unavailable for this report type.'
+              : ''
+  const canUseDevelopmentPdf =
+    showDevelopmentPdfOption &&
+    developmentPdfUnavailableReason === ''
   const isDemoAccount = isDemoUser(user)
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then development records can be assigned correctly.'
@@ -2923,6 +2944,7 @@ export function CreateEvaluationPage() {
                 canSubmitEvaluation={canSubmitEvaluation}
                 canUseDevelopmentPdf={canUseDevelopmentPdf}
                 contactNoun={contactNoun}
+                developmentPdfUnavailableReason={developmentPdfUnavailableReason}
                 hasSavedExportSelection={hasSavedExportSelection}
                 includeAttendanceSummary={includeAttendanceSummary}
                 inviteDate={inviteDate}
@@ -2978,6 +3000,7 @@ export function CreateEvaluationPage() {
                 selectedExportLabels={selectedExportLabels}
                 selectedResponseItems={selectedResponseItems}
                 scheduledEmailDateTime={scheduledEmailDateTime}
+                showDevelopmentPdfOption={showDevelopmentPdfOption}
                 shouldShowInviteDate={shouldShowInviteDate}
               />
             </form>

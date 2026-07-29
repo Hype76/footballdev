@@ -72,9 +72,8 @@ export default defineConfig(({ mode }) => {
           importScripts: ['push-sw.js'],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg}'],
           cleanupOutdatedCaches: true,
-          // Keep update activation user-driven so hard refreshes do not trigger a second page load.
-          clientsClaim: false,
-          skipWaiting: false,
+          clientsClaim: true,
+          skipWaiting: true,
           navigateFallback: null,
           runtimeCaching: [
             {

@@ -82,8 +82,8 @@ test('shared PDF caller map stays structured and Development activation remains 
   assert.match(endpoint, /FIXED_FILENAME = 'football-player-report\.pdf'/)
   assert.match(matchDay, /%PDF-1\.4/)
   assert.match(developmentCreate, /isDevelopmentPdfClientEnabled\(import\.meta\.env\)/)
-  assert.match(developmentSubmit, /\{canUseDevelopmentPdf \? \(/)
-  assert.match(developmentSubmit, /Attach development PDF/)
+  assert.match(developmentSubmit, /\{showDevelopmentPdfOption \? \(/)
+  assert.match(developmentSubmit, /Attach PDF report/)
 })
 
 test('structured response cards paginate as explicit rows without Chromium grid fragmentation', async () => {

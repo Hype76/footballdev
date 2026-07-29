@@ -18,6 +18,7 @@ export function SubmitExportSection({
   canSaveDraft,
   canSubmitEvaluation,
   canUseDevelopmentPdf,
+  developmentPdfUnavailableReason,
   contactNoun,
   hasSavedExportSelection,
   includeAttendanceSummary,
@@ -54,6 +55,7 @@ export function SubmitExportSection({
   scheduledEmailDateTime,
   selectedExportLabels,
   selectedResponseItems,
+  showDevelopmentPdfOption,
   shouldShowInviteDate,
 }) {
   const isEmailEnabled = previewMode === 'email'
@@ -142,25 +144,35 @@ export function SubmitExportSection({
             </label>
           ) : null}
 
-          {canUseDevelopmentPdf ? (
-            <label className={`${choiceCardClass} h-full`}>
+          {showDevelopmentPdfOption ? (
+            <label className={`${choiceCardClass} h-full ${canUseDevelopmentPdf ? '' : 'cursor-not-allowed opacity-70'}`}>
               <input
                 type="checkbox"
                 checked={Boolean(isPdfAttachmentApproved)}
                 onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-                disabled={isSubmitting}
-                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+                disabled={isSubmitting || !canUseDevelopmentPdf}
+                aria-describedby={
+                  developmentPdfUnavailableReason
+                    ? 'development-pdf-help development-pdf-unavailable'
+                    : 'development-pdf-help'
+                }
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#047857] focus-visible:ring-offset-2"
               />
               <span>
-                <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
-                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Deliberately include the selected development details and progression chart as a PDF attachment.
+                <span className="block text-sm font-black text-[#101828]">Attach PDF report</span>
+                <span id="development-pdf-help" className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Creates a PDF copy of this Development report and attaches it to the parent email.
                 </span>
+                {developmentPdfUnavailableReason ? (
+                  <span id="development-pdf-unavailable" className="mt-1 block text-xs font-bold leading-5 text-[#9a3412]">
+                    {developmentPdfUnavailableReason}
+                  </span>
+                ) : null}
               </span>
             </label>
           ) : null}
 
-          <div className={canUseDevelopmentPdf ? '' : 'md:col-span-2'}>
+          <div className={showDevelopmentPdfOption ? '' : 'md:col-span-2'}>
             <label className={`${choiceCardClass} h-full`}>
               <input
                 type="checkbox"

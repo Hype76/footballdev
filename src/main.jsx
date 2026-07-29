@@ -15,7 +15,27 @@ window.addEventListener('vite:preloadError', (event) => {
   recoverFromStaleChunk(event.payload)
 })
 
+const PWA_VERSION_REQUEST = 'football-player:pwa-version-request'
+const PWA_VERSION_RESPONSE = 'football-player:pwa-version-response'
+
+function getCurrentEntryUrl() {
+  const entryScript = document.querySelector('script[type="module"][src]')
+  return entryScript ? new URL(entryScript.src, window.location.origin).href : ''
+}
+
 if (import.meta.env.MODE === 'production') {
+  navigator.serviceWorker?.addEventListener('message', (event) => {
+    if (event.data?.type !== PWA_VERSION_REQUEST) {
+      return
+    }
+
+    event.source?.postMessage({
+      type: PWA_VERSION_RESPONSE,
+      requestId: String(event.data.requestId ?? ''),
+      entryUrl: getCurrentEntryUrl(),
+    })
+  })
+
   void import('virtual:pwa-register').then(({ registerSW }) => {
     registerSW({
       immediate: true,

@@ -14,7 +14,10 @@ export async function getDevelopmentParentEmailRecipientCandidates({
   const resolvedTeamId = normalizeText(teamId || player?.teamId)
 
   if (!clubId || !playerId || !resolvedTeamId || user?.role === 'super_admin') {
-    return []
+    return {
+      pdfAttachmentAvailable: false,
+      recipients: [],
+    }
   }
 
   const { data: sessionData } = await supabase.auth.getSession()
@@ -38,5 +41,8 @@ export async function getDevelopmentParentEmailRecipientCandidates({
     throw new Error(result.message || 'Development parent recipients could not be loaded.')
   }
 
-  return Array.isArray(result.recipients) ? result.recipients : []
+  return {
+    pdfAttachmentAvailable: result.pdfAttachmentAvailable === true,
+    recipients: Array.isArray(result.recipients) ? result.recipients : [],
+  }
 }

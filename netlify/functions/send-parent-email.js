@@ -21,6 +21,7 @@ import {
 import { supabaseAdmin } from './lib/_supabase.js'
 import {
   assertPlanFeature,
+  canUsePlanFeature,
   getAuthenticatedPlanProfile,
 } from './lib/_plan-gate.js'
 import {
@@ -807,6 +808,9 @@ export async function handler(event) {
 
       return successResponse({
         recipients: resolvedRecipients,
+        pdfAttachmentAvailable:
+          isDevelopmentPdfServerEnabled(process.env) &&
+          canUsePlanFeature(requestUser, 'pdfReports'),
       })
     }
 
