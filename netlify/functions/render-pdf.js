@@ -1,12 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { buildPdfBuffer, countPdfPages } from '../../src/lib/pdf-builder.js'
+import {
+  PDF_RENDERER_VERSION,
+  buildPdfBuffer,
+  countPdfPages,
+} from '../../src/lib/pdf-builder.js'
 import { PDF_REPORT_TYPES } from '../../src/lib/pdf-document.js'
 import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
   getClubPlanProfile,
 } from './lib/_plan-gate.js'
-import { loadCommunicationPdfDocument } from './lib/_pdf-report.js'
+import { loadCommunicationPdfReport } from './lib/_pdf-report.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 
 const MAX_REQUEST_BYTES = 16_384
@@ -127,7 +131,7 @@ function getPublicError(error) {
 export function createRenderPdfHandler({
   authenticate = authenticatePdfRequest,
   loadClubPlan = getClubPlanProfile,
-  loadReport = loadCommunicationPdfDocument,
+  loadReport = loadCommunicationPdfReport,
   render = buildPdfBuffer,
   database = supabaseAdmin,
   logger = console,
@@ -194,16 +198,27 @@ export function createRenderPdfHandler({
       assertPlanFeature(planProfile, 'pdfReports')
       diagnostics.rendererStage = 'resource_resolution'
 
-      const document = await loadReport({
+      const report = await loadReport({
         supabaseAdmin: database,
         profile: actorProfile,
         clubId: body.clubId,
         communicationLogId: body.communicationLogId,
         diagnostics,
       })
+
+      if (!report?.document || !report?.branding) {
+        throw Object.assign(new Error('The PDF report could not be resolved.'), {
+          code: 'PDF_REPORT_RESOLUTION_FAILED',
+          statusCode: 500,
+        })
+      }
+
       diagnostics.authorityResult = 'authorized'
       diagnostics.rendererInvocation = true
-      const pdfBuffer = await render(document, { diagnostics })
+      const pdfBuffer = await render(report.document, {
+        branding: report.branding,
+        diagnostics,
+      })
       outputBytes = pdfBuffer.length
       diagnostics.outputBytes = outputBytes
       diagnostics.pageCount = diagnostics.pageCount || countPdfPages(pdfBuffer)
@@ -216,7 +231,20 @@ export function createRenderPdfHandler({
           'Content-Disposition': `attachment; filename="${FIXED_FILENAME}"`,
           'Content-Security-Policy': "sandbox; default-src 'none'",
           'Content-Type': 'application/pdf',
+          'Server-Timing': [
+            `logo-fetch;dur=${Number(diagnostics.logoFetchDurationMs ?? 0)}`,
+            `logo-validation;dur=${Number(diagnostics.logoValidationDurationMs ?? 0)}`,
+            `logo-conversion;dur=${Number(diagnostics.logoConversionDurationMs ?? 0)}`,
+            `browser-launch;dur=${Number(diagnostics.browserLaunchDurationMs ?? 0)}`,
+            `pdf-render;dur=${Number(diagnostics.renderDurationMs ?? 0)}`,
+          ].join(', '),
+          'X-PDF-Branding-Source': String(diagnostics.brandingSource || 'fallback'),
+          'X-PDF-Cleanup-State': String(diagnostics.cleanupState || 'unknown'),
+          'X-PDF-Embedded-Resources': String(Number(diagnostics.embeddedResourceCount ?? 0)),
+          'X-PDF-Network-Requests': String(Number(diagnostics.networkRequestCount ?? 0)),
+          'X-PDF-Output-Bytes': String(outputBytes),
           'X-PDF-Page-Count': String(diagnostics.pageCount),
+          'X-PDF-Renderer-Version': String(PDF_RENDERER_VERSION),
           'X-PDF-Request-Id': requestId,
           'X-Content-Type-Options': 'nosniff',
         },
@@ -248,16 +276,30 @@ export function createRenderPdfHandler({
         actorRef: diagnostics.actorRef || 'none',
         authorityResult: diagnostics.authorityResult,
         browserLaunchResult: diagnostics.browserLaunchResult,
+        browserLaunchDurationMs: Number(diagnostics.browserLaunchDurationMs ?? 0),
+        brandingDurationMs: Number(diagnostics.brandingDurationMs ?? 0),
+        brandingFallbackReason: diagnostics.brandingFallbackReason || 'none',
+        brandingSource: diagnostics.brandingSource || 'fallback',
         caller: diagnostics.caller,
         cleanupState: diagnostics.cleanupState,
         clubRef: diagnostics.clubRef || 'none',
         failureCategory: diagnostics.failureCategory,
+        embeddedResourceCount: Number(diagnostics.embeddedResourceCount ?? 0),
         networkRequestCount: diagnostics.networkRequestCount,
+        logoConversionDurationMs: Number(diagnostics.logoConversionDurationMs ?? 0),
+        logoFetchDurationMs: Number(diagnostics.logoFetchDurationMs ?? 0),
+        logoInputBytes: Number(diagnostics.logoInputBytes ?? 0),
+        logoOutputBytes: Number(diagnostics.logoOutputBytes ?? 0),
+        logoValidationDurationMs: Number(diagnostics.logoValidationDurationMs ?? 0),
+        memoryRssBytes: Number(diagnostics.memoryRssBytes ?? 0),
         pageCount: diagnostics.pageCount,
+        renderDurationMs: Number(diagnostics.renderDurationMs ?? 0),
         rendererInvocation: diagnostics.rendererInvocation,
+        rendererVersion: PDF_RENDERER_VERSION,
         resourceRef: diagnostics.resourceRef || 'none',
         step: diagnostics.rendererStage,
         teamRef: safeReference(diagnostics.teamId),
+        totalRenderDurationMs: Number(diagnostics.totalRenderDurationMs ?? 0),
         workflow: diagnostics.workflow,
       })
     }

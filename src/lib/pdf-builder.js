@@ -1,12 +1,20 @@
 import { Buffer } from 'node:buffer'
+import process from 'node:process'
 import chromium from '@sparticuz/chromium'
 import puppeteer from 'puppeteer-core'
 import {
   PDF_REPORT_TYPES,
   buildProgressionChartDocument,
   renderPdfDocumentHtml,
+  renderPdfFooterTemplate,
   validatePdfDocument,
 } from './pdf-document.js'
+import {
+  PDF_BRANDING_LIMITS,
+  validatePdfBranding,
+} from './pdf-branding.js'
+
+export const PDF_RENDERER_VERSION = 2
 
 export const PDF_RENDER_LIMITS = Object.freeze({
   browserLaunchTimeoutMs: 5_000,
@@ -125,8 +133,29 @@ async function launchBrowserWithCleanup(launchBrowser) {
   }
 }
 
+export function isTrustedPdfEmbeddedImageRequest(request) {
+  const requestUrl = String(request?.url?.() ?? '')
+  const resourceType = String(request?.resourceType?.() ?? '')
+
+  return resourceType === 'image'
+    && requestUrl.length <= PDF_BRANDING_LIMITS.maxLogoDataUriLength
+    && /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(requestUrl)
+}
+
 function installIsolationHandlers(page, diagnostics) {
   page.on('request', (request) => {
+    if (isTrustedPdfEmbeddedImageRequest(request)) {
+      if (diagnostics) {
+        diagnostics.embeddedResourceCount = Number(diagnostics.embeddedResourceCount ?? 0) + 1
+      }
+
+      if (!request.isInterceptResolutionHandled?.()) {
+        void request.continue()
+      }
+
+      return
+    }
+
     if (diagnostics) {
       diagnostics.networkRequestCount = Number(diagnostics.networkRequestCount ?? 0) + 1
     }
@@ -180,12 +209,15 @@ function validatePngOutput(pngBuffer) {
 }
 
 async function renderInIsolatedBrowser(document, {
+  branding = null,
   diagnostics = null,
   launchBrowser = launchChromium,
   outputType = 'pdf',
   timeoutMs = PDF_RENDER_LIMITS.totalRenderTimeoutMs,
 } = {}) {
+  const totalRenderStartedAt = Date.now()
   const validatedDocument = validatePdfDocument(document)
+  const validatedBranding = validatePdfBranding(branding, { context: validatedDocument.context })
 
   if (activeRenderCount >= PDF_RENDER_LIMITS.maxConcurrentRenders) {
     throw rendererError('PDF_BUSY', 429)
@@ -199,6 +231,7 @@ async function renderInIsolatedBrowser(document, {
     Object.assign(diagnostics, {
       browserLaunchResult: 'not_started',
       cleanupState: 'not_started',
+      embeddedResourceCount: 0,
       networkRequestCount: 0,
       outputBytes: 0,
       pageCount: 0,
@@ -212,10 +245,12 @@ async function renderInIsolatedBrowser(document, {
         diagnostics.rendererStage = 'browser_launch'
       }
 
+      const browserLaunchStartedAt = Date.now()
       browser = await launchBrowserWithCleanup(launchBrowser)
 
       if (diagnostics) {
         diagnostics.browserLaunchResult = 'ready'
+        diagnostics.browserLaunchDurationMs = Date.now() - browserLaunchStartedAt
         diagnostics.rendererStage = 'page_create'
       }
 
@@ -239,7 +274,8 @@ async function renderInIsolatedBrowser(document, {
         diagnostics.rendererStage = 'document_render'
       }
 
-      await page.setContent(renderPdfDocumentHtml(validatedDocument), {
+      const documentRenderStartedAt = Date.now()
+      await page.setContent(renderPdfDocumentHtml(validatedDocument, { branding: validatedBranding }), {
         waitUntil: 'domcontentloaded',
         timeout: PDF_RENDER_LIMITS.navigationTimeoutMs,
       })
@@ -278,12 +314,22 @@ async function renderInIsolatedBrowser(document, {
       }
 
       const pdf = await withTimeout(
-        page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true }),
+        page.pdf({
+          format: 'A4',
+          printBackground: true,
+          preferCSSPageSize: true,
+          displayHeaderFooter: validatedDocument.reportType !== PDF_REPORT_TYPES.progressionChart,
+          headerTemplate: '<div></div>',
+          footerTemplate: validatedDocument.reportType === PDF_REPORT_TYPES.progressionChart
+            ? '<div></div>'
+            : renderPdfFooterTemplate(validatedBranding, validatedDocument.context),
+        }),
         PDF_RENDER_LIMITS.pdfTimeoutMs,
       )
       const output = validatePdfOutput(Buffer.from(pdf))
 
       if (diagnostics) {
+        diagnostics.renderDurationMs = Date.now() - documentRenderStartedAt
         diagnostics.outputBytes = output.length
         diagnostics.pageCount = countPdfPages(output)
         diagnostics.rendererStage = 'output_ready'
@@ -312,6 +358,8 @@ async function renderInIsolatedBrowser(document, {
         diagnostics.rendererStage === 'output_ready'
           ? 'complete'
           : diagnostics.rendererStage
+      diagnostics.totalRenderDurationMs = Date.now() - totalRenderStartedAt
+      diagnostics.memoryRssBytes = Number(process.memoryUsage?.().rss ?? 0)
     }
 
     activeRenderCount -= 1

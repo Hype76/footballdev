@@ -3,132 +3,19 @@ import {
   buildParentMessagePdfDocument,
   validatePdfDocument,
 } from '../../../src/lib/pdf-document.js'
+import { resolvePdfBranding } from './_pdf-branding.js'
+import {
+  assertPdfScope,
+  normalizePdfText,
+  pdfForbidden,
+  pdfMissingResource,
+} from './_pdf-authority.js'
 
-const CLUB_WIDE_ROLE_RANK = 50
+const normalizeText = normalizePdfText
+const forbidden = pdfForbidden
+const missingResource = pdfMissingResource
 
-function normalizeText(value) {
-  return String(value ?? '').trim()
-}
-
-function forbidden(code = 'PDF_SCOPE_DENIED') {
-  throw Object.assign(new Error('This PDF report is not available.'), {
-    code,
-    statusCode: 403,
-  })
-}
-
-function missingResource() {
-  throw Object.assign(new Error('This PDF report is not available.'), {
-    code: 'PDF_REPORT_NOT_FOUND',
-    statusCode: 404,
-  })
-}
-
-export function assertPdfScope({
-  profile,
-  targetClubId,
-  targetTeamId = '',
-  teamExists = true,
-  teamAssigned = false,
-} = {}) {
-  const actorId = normalizeText(profile?.id)
-  const actorClubId = normalizeText(profile?.clubId)
-  const actorRole = normalizeText(profile?.role)
-  const actorRank = Number(profile?.roleRank ?? 0)
-  const clubId = normalizeText(targetClubId)
-  const teamId = normalizeText(targetTeamId)
-
-  if (!actorId || !clubId) {
-    forbidden()
-  }
-
-  if (actorRole !== 'super_admin' && actorClubId !== clubId) {
-    forbidden('PDF_CROSS_CLUB_DENIED')
-  }
-
-  if (teamId && !teamExists) {
-    forbidden('PDF_CROSS_TEAM_DENIED')
-  }
-
-  if (actorRole === 'super_admin' || actorRank >= CLUB_WIDE_ROLE_RANK) {
-    return true
-  }
-
-  if (!teamId || !teamAssigned) {
-    forbidden('PDF_CROSS_TEAM_DENIED')
-  }
-
-  return true
-}
-
-async function loadTeamScope(supabaseAdmin, { profile, clubId, teamId }) {
-  const normalizedTeamId = normalizeText(teamId)
-
-  if (!normalizedTeamId) {
-    assertPdfScope({ profile, targetClubId: clubId })
-    return { id: '', name: '', teamAssigned: false }
-  }
-
-  const { data: team, error: teamError } = await supabaseAdmin
-    .from('teams')
-    .select('id, club_id, name')
-    .eq('id', normalizedTeamId)
-    .eq('club_id', clubId)
-    .maybeSingle()
-
-  if (teamError) {
-    throw teamError
-  }
-
-  let teamAssigned = false
-
-  if (team?.id && normalizeText(profile.role) !== 'super_admin' && Number(profile.roleRank ?? 0) < CLUB_WIDE_ROLE_RANK) {
-    const { data: assignment, error: assignmentError } = await supabaseAdmin
-      .from('team_staff')
-      .select('team_id')
-      .eq('team_id', team.id)
-      .eq('user_id', profile.id)
-      .maybeSingle()
-
-    if (assignmentError) {
-      throw assignmentError
-    }
-
-    teamAssigned = Boolean(assignment?.team_id)
-  }
-
-  assertPdfScope({
-    profile,
-    targetClubId: clubId,
-    targetTeamId: normalizedTeamId,
-    teamExists: Boolean(team?.id),
-    teamAssigned,
-  })
-
-  return {
-    id: normalizeText(team?.id),
-    name: normalizeText(team?.name),
-    teamAssigned,
-  }
-}
-
-async function loadClubName(supabaseAdmin, clubId) {
-  const { data: club, error } = await supabaseAdmin
-    .from('clubs')
-    .select('id, name')
-    .eq('id', clubId)
-    .maybeSingle()
-
-  if (error) {
-    throw error
-  }
-
-  if (!club?.id) {
-    missingResource()
-  }
-
-  return normalizeText(club.name) || 'Club'
-}
+export { assertPdfScope }
 
 async function loadEvaluation(supabaseAdmin, evaluationId, clubId) {
   const normalizedEvaluationId = normalizeText(evaluationId)
@@ -180,7 +67,7 @@ async function loadPlayer(supabaseAdmin, playerId, clubId) {
   return player
 }
 
-export async function authorizeAssessmentPdfDocument({
+export async function authorizeAssessmentPdfReport({
   supabaseAdmin,
   profile,
   clubId,
@@ -188,6 +75,7 @@ export async function authorizeAssessmentPdfDocument({
   evaluationId = '',
   playerId = '',
   document,
+  diagnostics = null,
 }) {
   const validatedDocument = validatePdfDocument(document)
 
@@ -201,29 +89,37 @@ export async function authorizeAssessmentPdfDocument({
     ? await loadPlayer(supabaseAdmin, evaluation.player_id, normalizedClubId)
     : await loadPlayer(supabaseAdmin, playerId, normalizedClubId)
   const resourceTeamId = normalizeText(evaluation?.team_id || player?.team_id || teamId)
-  const [clubName, team] = await Promise.all([
-    loadClubName(supabaseAdmin, normalizedClubId),
-    loadTeamScope(supabaseAdmin, {
-      profile,
-      clubId: normalizedClubId,
-      teamId: resourceTeamId,
-    }),
-  ])
-
-  return validatePdfDocument({
+  const { branding, scope } = await resolvePdfBranding({
+    supabaseAdmin,
+    profile,
+    clubId: normalizedClubId,
+    teamId: resourceTeamId,
+    reportType: validatedDocument.reportType,
+    diagnostics,
+  })
+  const authorizedDocument = validatePdfDocument({
     ...validatedDocument,
     context: {
       ...validatedDocument.context,
-      clubName,
+      clubName: branding.clubName,
       playerName: normalizeText(evaluation?.player_name || player?.player_name) || validatedDocument.context.playerName,
-      teamName: team.name || normalizeText(evaluation?.team || player?.team) || validatedDocument.context.teamName,
+      teamName: branding.teamName || normalizeText(evaluation?.team || player?.team) || validatedDocument.context.teamName,
       section: normalizeText(evaluation?.section) || validatedDocument.context.section,
       session: normalizeText(evaluation?.session) || validatedDocument.context.session,
     },
   })
+
+  return {
+    branding,
+    document: authorizedDocument,
+    scope: {
+      clubId: normalizeText(scope.club?.id),
+      teamId: normalizeText(scope.team?.id),
+    },
+  }
 }
 
-export async function loadCommunicationPdfDocument({
+export async function loadCommunicationPdfReport({
   supabaseAdmin,
   profile,
   clubId,
@@ -264,17 +160,17 @@ export async function loadCommunicationPdfDocument({
     ? await loadPlayer(supabaseAdmin, evaluation.player_id, normalizedClubId)
     : await loadPlayer(supabaseAdmin, log.player_id, normalizedClubId)
   const resourceTeamId = normalizeText(evaluation?.team_id || player?.team_id)
-  const [clubName, team] = await Promise.all([
-    loadClubName(supabaseAdmin, normalizedClubId),
-    loadTeamScope(supabaseAdmin, {
-      profile,
-      clubId: normalizedClubId,
-      teamId: resourceTeamId,
-    }),
-  ])
+  const { branding, scope } = await resolvePdfBranding({
+    supabaseAdmin,
+    profile,
+    clubId: normalizedClubId,
+    teamId: resourceTeamId,
+    reportType: PDF_REPORT_TYPES.parentMessage,
+    diagnostics,
+  })
 
   if (diagnostics) {
-    diagnostics.teamId = team.id
+    diagnostics.teamId = normalizeText(scope.team?.id)
     diagnostics.authorityResult = 'authorized'
     diagnostics.rendererStage = 'resource_resolved'
   }
@@ -286,12 +182,19 @@ export async function loadCommunicationPdfDocument({
       }))
     : []
 
-  return buildParentMessagePdfDocument({
-    clubName,
-    playerName: normalizeText(evaluation?.player_name || player?.player_name || metadata.playerName) || 'Player',
-    teamName: team.name || normalizeText(evaluation?.team || player?.team || metadata.team),
-    subject: normalizeText(metadata.subject) || 'Parent message',
-    body: normalizeText(metadata.body),
-    assessmentFields,
-  })
+  return {
+    branding,
+    document: buildParentMessagePdfDocument({
+      clubName: branding.clubName,
+      playerName: normalizeText(evaluation?.player_name || player?.player_name || metadata.playerName) || 'Player',
+      teamName: branding.teamName || normalizeText(evaluation?.team || player?.team || metadata.team),
+      subject: normalizeText(metadata.subject) || 'Parent message',
+      body: normalizeText(metadata.body),
+      assessmentFields,
+    }),
+    scope: {
+      clubId: normalizeText(scope.club?.id),
+      teamId: normalizeText(scope.team?.id),
+    },
+  }
 }

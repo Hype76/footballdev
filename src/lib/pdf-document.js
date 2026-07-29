@@ -5,6 +5,7 @@ import {
   isDefaultAssessmentScoreLabel,
   isDefaultAssessmentScoreValue,
 } from './assessment-scoring.js'
+import { validatePdfBranding } from './pdf-branding.js'
 
 export const PDF_DOCUMENT_VERSION = 1
 
@@ -332,20 +333,48 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;')
 }
 
-function renderContext(context, eyebrow) {
+function getReportTitle(reportType) {
+  return reportType === PDF_REPORT_TYPES.parentMessage
+    ? 'Parent Message Report'
+    : reportType === PDF_REPORT_TYPES.assessment
+      ? 'Development Report'
+      : 'Progression Chart'
+}
+
+function renderBrandMark(branding) {
+  if (branding.clubLogoData) {
+    return `<img class="club-logo" src="${escapeHtml(branding.clubLogoData)}" alt="${escapeHtml(`${branding.clubName} logo`)}" />`
+  }
+
+  return `<div class="club-initials" aria-label="${escapeHtml(`${branding.clubName} initials`)}">${escapeHtml(branding.clubInitials)}</div>`
+}
+
+function renderContext(document, branding) {
+  const context = document.context
+
   return `
-    <header class="report-header">
-      <div>
-        <p class="eyebrow">${escapeHtml(eyebrow)}</p>
-        <h1>${escapeHtml(context.clubName)}</h1>
-        <h2>${escapeHtml(context.playerName)}</h2>
+    <header
+      class="report-header"
+      style="--club-accent: ${branding.primaryColour}; --club-accent-soft: ${branding.secondaryColour}; --club-accent-text: ${branding.accentTextColour};"
+    >
+      <div class="club-identity">
+        ${renderBrandMark(branding)}
+        <div class="club-copy">
+          <p class="club-name">${escapeHtml(branding.clubName)}</p>
+          <p class="team-name">${escapeHtml(branding.teamName || 'Club report')}</p>
+        </div>
       </div>
-      <dl class="context-grid">
-        <div><dt>Team</dt><dd>${escapeHtml(context.teamName || 'Not provided')}</dd></div>
-        <div><dt>Section</dt><dd>${escapeHtml(context.section || 'Development')}</dd></div>
-        <div><dt>Session</dt><dd>${escapeHtml(context.session || 'Not provided')}</dd></div>
-      </dl>
+      <div class="report-identity">
+        <p class="report-title">${escapeHtml(getReportTitle(document.reportType))}</p>
+        <h1>${escapeHtml(context.playerName)}</h1>
+        <p class="generated-date">Generated ${escapeHtml(branding.generatedDate || 'securely')}</p>
+      </div>
     </header>
+    <dl class="context-grid">
+      <div><dt>Team</dt><dd>${escapeHtml(context.teamName || branding.teamName || 'Not provided')}</dd></div>
+      <div><dt>Section</dt><dd>${escapeHtml(context.section || 'Development')}</dd></div>
+      <div><dt>Session</dt><dd>${escapeHtml(context.session || 'Not provided')}</dd></div>
+    </dl>
   `
 }
 
@@ -384,9 +413,9 @@ function renderScoringGuide(items) {
   </section>`
 }
 
-function renderAssessmentDocument(document) {
+function renderAssessmentDocument(document, branding) {
   return `
-    ${renderContext(document.context, 'Development PDF')}
+    ${renderContext(document, branding)}
     <main>
       <section class="panel">
         <h2>Development responses</h2>
@@ -407,9 +436,9 @@ function renderAssessmentDocument(document) {
   `
 }
 
-function renderParentMessageDocument(document) {
+function renderParentMessageDocument(document, branding) {
   return `
-    ${renderContext(document.context, 'Parent message')}
+    ${renderContext(document, branding)}
     <main>
       <section class="panel section-block">
         <h2>${escapeHtml(document.subject)}</h2>
@@ -427,30 +456,51 @@ function renderProgressionChartDocument(document) {
   return `<main class="chart-page">${buildProgressionChartMarkup(document.points)}</main>`
 }
 
-export function renderPdfDocumentHtml(value) {
+export function renderPdfFooterTemplate(brandingValue, context = {}) {
+  const branding = validatePdfBranding(brandingValue, { context })
+
+  return `<div style="box-sizing:border-box;width:100%;padding:0 14mm 4mm;color:#667085;font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.35;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid ${branding.secondaryColour};padding-top:5px;">
+      <span style="max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:#344054;">${escapeHtml(branding.clubName)}</span>
+      <span>${escapeHtml(branding.confidentialityLabel)} | Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+    </div>
+    <div style="margin-top:2px;text-align:right;font-size:7px;color:#98a2b3;">${escapeHtml(branding.platformAttribution)}</div>
+  </div>`
+}
+
+export function renderPdfDocumentHtml(value, { branding: brandingValue = null } = {}) {
   const document = validatePdfDocument(value)
+  const branding = validatePdfBranding(brandingValue, { context: document.context })
   const content = document.reportType === PDF_REPORT_TYPES.assessment
-    ? renderAssessmentDocument(document)
+    ? renderAssessmentDocument(document, branding)
     : document.reportType === PDF_REPORT_TYPES.parentMessage
-      ? renderParentMessageDocument(document)
+      ? renderParentMessageDocument(document, branding)
       : renderProgressionChartDocument(document)
 
   return `<!doctype html>
     <html lang="en">
       <head>
         <meta charset="utf-8" />
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <style>
-          @page { size: A4; margin: 14mm; }
+          @page { size: A4; margin: 14mm 14mm 23mm; }
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; background: #ffffff; color: #101828; font-family: Arial, Helvetica, sans-serif; }
           body { font-size: 12px; line-height: 1.45; }
-          .report-header { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.7fr); gap: 18px; border-bottom: 2px solid #d7e5dc; padding: 0 0 16px; break-inside: avoid; }
-          .eyebrow { margin: 0; color: #047857; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-          h1 { margin: 8px 0 0; font-size: 22px; line-height: 1.15; }
-          .report-header h2 { margin: 8px 0 0; color: #334155; font-size: 18px; line-height: 1.2; }
-          .context-grid { display: grid; grid-template-columns: 1fr; gap: 7px; margin: 0; }
+          .report-header { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr); align-items: center; gap: 20px; border-bottom: 3px solid var(--club-accent); padding: 0 0 14px; break-inside: avoid; }
+          .club-identity { display: flex; min-width: 0; align-items: center; gap: 13px; }
+          .club-logo, .club-initials { width: 64px; height: 64px; flex: 0 0 64px; border: 1px solid var(--club-accent-soft); border-radius: 12px; background: #ffffff; }
+          .club-logo { display: block; object-fit: contain; padding: 5px; }
+          .club-initials { display: flex; align-items: center; justify-content: center; background: var(--club-accent-soft); color: var(--club-accent-text); font-size: 20px; font-weight: 900; letter-spacing: .04em; }
+          .club-copy { min-width: 0; }
+          .club-name { margin: 0; color: #101828; font-size: 18px; font-weight: 900; line-height: 1.15; overflow-wrap: anywhere; }
+          .team-name { margin: 5px 0 0; color: #475467; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
+          .report-identity { min-width: 0; text-align: right; }
+          .report-title { margin: 0; color: var(--club-accent-text); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+          h1 { margin: 7px 0 0; color: #101828; font-size: 21px; line-height: 1.15; overflow-wrap: anywhere; }
+          .generated-date { margin: 6px 0 0; color: #667085; font-size: 9px; font-weight: 700; }
+          .context-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 11px 0 0; break-inside: avoid; }
           .context-grid div { border: 1px solid #d7e5dc; border-radius: 8px; background: #f7faf8; padding: 7px 9px; }
           dt { color: #4f6552; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
           dd { margin: 3px 0 0; color: #101828; font-weight: 700; }
@@ -468,12 +518,13 @@ export function renderPdfDocumentHtml(value) {
           .scoring-guide p { margin: 5px 0 0; color: #334155; font-size: 10px; line-height: 1.35; }
           .empty { margin: 10px 0 0; color: #66756c; }
           .chart-page { width: 760px; min-height: 240px; margin: 0; padding: 20px; }
-          footer { border-top: 1px solid #d7e5dc; margin-top: 18px; padding-top: 10px; color: #66756c; font-size: 9px; }
+          @media print {
+            .report-header, .context-grid { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          }
         </style>
       </head>
       <body>
         ${content}
-        ${document.reportType === PDF_REPORT_TYPES.progressionChart ? '' : '<footer>Generated securely by Football Player | footballplayer.online</footer>'}
       </body>
     </html>`
 }

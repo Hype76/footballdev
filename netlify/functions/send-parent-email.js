@@ -31,7 +31,7 @@ import {
   loadDevelopmentParentRecipientCandidates,
   reauthorizePreparedDevelopmentParentEmail,
 } from './lib/_development-parent-email-output.js'
-import { authorizeAssessmentPdfDocument } from './lib/_pdf-report.js'
+import { authorizeAssessmentPdfReport } from './lib/_pdf-report.js'
 
 void supabaseAdmin
 
@@ -173,20 +173,24 @@ function withTimeout(promise, timeoutMs, errorMessage) {
   })
 }
 
-async function buildPdfAttachment(pdfDocument, context = {}) {
+async function buildPdfAttachment(pdfReport, context = {}) {
   const startedAt = Date.now()
-  const diagnostics = {
+  const diagnostics = context.diagnostics || {}
+  Object.assign(diagnostics, {
     caller: 'send-parent-email',
     cleanupState: 'not_started',
     networkRequestCount: 0,
     rendererStage: 'queued',
     workflow: 'email_attachment',
-  }
+  })
   let pdfBuffer
 
   try {
     pdfBuffer = await withTimeout(
-      buildPdfBuffer(pdfDocument, { diagnostics }),
+      buildPdfBuffer(pdfReport.document, {
+        branding: pdfReport.branding,
+        diagnostics,
+      }),
       PDF_ATTACHMENT_TIMEOUT_MS,
       'PDF generation timed out',
     )
@@ -226,16 +230,29 @@ async function buildPdfAttachment(pdfDocument, context = {}) {
   console.info('PDF attachment generation completed', {
     actorRef: safeReference(context.actorId),
     browserLaunchResult: diagnostics.browserLaunchResult,
+    browserLaunchDurationMs: Number(diagnostics.browserLaunchDurationMs ?? 0),
+    brandingDurationMs: Number(diagnostics.brandingDurationMs ?? 0),
+    brandingFallbackReason: diagnostics.brandingFallbackReason || 'none',
+    brandingSource: diagnostics.brandingSource || 'fallback',
     caller: diagnostics.caller,
     cleanupState: diagnostics.cleanupState,
     clubRef: safeReference(context.clubId),
     durationMs: Date.now() - startedAt,
+    embeddedResourceCount: Number(diagnostics.embeddedResourceCount ?? 0),
+    logoConversionDurationMs: Number(diagnostics.logoConversionDurationMs ?? 0),
+    logoFetchDurationMs: Number(diagnostics.logoFetchDurationMs ?? 0),
+    logoInputBytes: Number(diagnostics.logoInputBytes ?? 0),
+    logoOutputBytes: Number(diagnostics.logoOutputBytes ?? 0),
+    logoValidationDurationMs: Number(diagnostics.logoValidationDurationMs ?? 0),
+    memoryRssBytes: Number(diagnostics.memoryRssBytes ?? 0),
     networkRequestCount: diagnostics.networkRequestCount,
     outputBucket: pdfBuffer.length < 1_000_000 ? 'under-1mb' : '1mb-or-more',
     pageCount: diagnostics.pageCount,
+    renderDurationMs: Number(diagnostics.renderDurationMs ?? 0),
     resourceRef: safeReference(context.resourceId),
     step: diagnostics.rendererStage,
     teamRef: safeReference(context.teamId),
+    totalRenderDurationMs: Number(diagnostics.totalRenderDurationMs ?? 0),
     workflow: diagnostics.workflow,
   })
 
@@ -515,8 +532,9 @@ export async function prepareParentEmail({ body, requestUser }) {
         })
       : pdfDocument
     : null
-  const authorizedPdfDocument = shouldAttachPdf
-    ? await authorizeAssessmentPdfDocument({
+  const pdfDiagnostics = shouldAttachPdf ? {} : null
+  const authorizedPdfReport = shouldAttachPdf
+    ? await authorizeAssessmentPdfReport({
         supabaseAdmin,
         profile: planProfile,
         clubId: planProfile.clubId,
@@ -524,13 +542,15 @@ export async function prepareParentEmail({ body, requestUser }) {
         evaluationId: developmentContext?.evaluation?.id || body.evaluationId,
         playerId: developmentContext?.player?.id || body.playerId,
         document: authoritativePdfDocument,
+        diagnostics: pdfDiagnostics,
       })
     : null
   const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(
-    authorizedPdfDocument,
+    authorizedPdfReport,
     {
       actorId: requestUser.id,
       clubId: planProfile.clubId,
+      diagnostics: pdfDiagnostics,
       resourceId: developmentContext?.evaluation?.id || body.evaluationId || body.playerId,
       teamId: developmentContext?.team?.id || body.teamId,
     },

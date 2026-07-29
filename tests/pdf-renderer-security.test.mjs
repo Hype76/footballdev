@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { assertPdfScope, loadCommunicationPdfDocument } from '../netlify/functions/lib/_pdf-report.js'
+import { assertPdfScope, loadCommunicationPdfReport } from '../netlify/functions/lib/_pdf-report.js'
 import {
   PDF_DOCUMENT_LIMITS,
   PDF_DOCUMENT_VERSION,
@@ -9,13 +9,19 @@ import {
   buildAssessmentPdfDocument,
   buildParentMessagePdfDocument,
   renderPdfDocumentHtml,
+  renderPdfFooterTemplate,
   validatePdfDocument,
 } from '../src/lib/pdf-document.js'
+import {
+  PDF_BRANDING_VERSION,
+  validatePdfBranding,
+} from '../src/lib/pdf-branding.js'
 import {
   PDF_RENDER_LIMITS,
   buildPdfBuffer,
   getActivePdfRenderCount,
   isNetworkRequestAllowed,
+  isTrustedPdfEmbeddedImageRequest,
 } from '../src/lib/pdf-builder.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -39,6 +45,26 @@ function validPdfBuffer(pageCount = 1) {
   return Buffer.from(`%PDF-1.7\n${'/Type /Page\n'.repeat(pageCount)}%%EOF`, 'latin1')
 }
 
+function validBranding(overrides = {}) {
+  return validatePdfBranding({
+    version: PDF_BRANDING_VERSION,
+    clubName: 'Example Club',
+    clubInitials: 'EC',
+    primaryColour: '#1d4ed8',
+    secondaryColour: '#dbeafe',
+    accentTextColour: '#1e3a8a',
+    teamName: 'Under 12',
+    platformAttribution: 'caller value is ignored',
+    confidentialityLabel: 'Confidential',
+    generatedDate: '29 July 2026',
+    brandingSource: 'club-initials',
+    fallbackReason: 'LOGO_MISSING',
+    logoWidth: 0,
+    logoHeight: 0,
+    ...overrides,
+  })
+}
+
 function createMockBrowser({
   pdfBuffer = validPdfBuffer(),
   scrollHeight = 900,
@@ -51,7 +77,10 @@ function createMockBrowser({
     close: async () => calls.push('page.close'),
     evaluate: async () => scrollHeight,
     on: (name, handler) => handlers.set(name, handler),
-    pdf: async () => pdfBuffer,
+    pdf: async (options) => {
+      calls.push({ pdfOptions: options })
+      return pdfBuffer
+    },
     screenshot: async () => screenshotBuffer,
     setBypassCSP: async (value) => calls.push(`csp:${value}`),
     setContent: async (html) => {
@@ -130,8 +159,8 @@ function createTableMock(rows) {
   return { calls, database }
 }
 
-test('PDF document schema rejects executable, remote-resource, and caller-controlled output fields', () => {
-  const forbiddenFields = ['html', 'css', 'url', 'image', 'filename', 'template', 'script']
+test('PDF document schema rejects executable, remote-resource, branding, and caller-controlled output fields', () => {
+  const forbiddenFields = ['html', 'css', 'url', 'image', 'filename', 'template', 'script', 'branding', 'logoData', 'primaryColour']
 
   for (const field of forbiddenFields) {
     assert.throws(() => validatePdfDocument({ ...validParentDocument(), [field]: 'not accepted' }), {
@@ -189,8 +218,9 @@ test('server-owned HTML keeps hostile text inert and blocks active content and r
   assert.match(html, /&lt;script&gt;run\(\)&lt;\/script&gt;/)
   assert.match(html, /default-src 'none'/)
   assert.match(html, /script-src 'none'/)
-  assert.match(html, /img-src 'none'/)
+  assert.match(html, /img-src data:/)
   assert.match(html, /connect-src 'none'/)
+  assert.doesNotMatch(html, /img-src https?:/)
   assert.doesNotMatch(html, /process\.env|SUPABASE_SERVICE_ROLE_KEY/)
 })
 
@@ -211,6 +241,19 @@ test('network isolation denies every request class without resolving or fetching
   for (const destination of destinations) {
     assert.equal(isNetworkRequestAllowed(destination), false)
   }
+
+  assert.equal(isTrustedPdfEmbeddedImageRequest({
+    resourceType: () => 'image',
+    url: () => 'data:image/png;base64,iVBORw0KGgoAAA=',
+  }), true)
+  assert.equal(isTrustedPdfEmbeddedImageRequest({
+    resourceType: () => 'image',
+    url: () => 'https://example.test/logo.png',
+  }), false)
+  assert.equal(isTrustedPdfEmbeddedImageRequest({
+    resourceType: () => 'image',
+    url: () => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+  }), false)
 })
 
 test('isolated renderer uses the dedicated browser default context, disables active content, and always cleans up', async () => {
@@ -218,6 +261,7 @@ test('isolated renderer uses the dedicated browser default context, disables act
   const diagnostics = {}
   const mock = createMockBrowser({ onSetContent: (html) => { renderedHtml = html } })
   const output = await buildPdfBuffer(validParentDocument(), {
+    branding: validBranding(),
     diagnostics,
     launchBrowser: async () => mock.browser,
   })
@@ -233,6 +277,13 @@ test('isolated renderer uses the dedicated browser default context, disables act
   assert.equal(diagnostics.cleanupState, 'complete')
   assert.equal(diagnostics.pageCount, 1)
   assert.match(renderedHtml, /Content-Security-Policy/)
+  assert.match(renderedHtml, /Development update/)
+  assert.match(renderedHtml, /29 July 2026/)
+  const pdfOptions = mock.calls.find((call) => typeof call === 'object' && call.pdfOptions)?.pdfOptions
+  assert.equal(pdfOptions.displayHeaderFooter, true)
+  assert.match(pdfOptions.footerTemplate, /pageNumber/)
+  assert.match(pdfOptions.footerTemplate, /totalPages/)
+  assert.match(pdfOptions.footerTemplate, /Generated securely by Footballplayer\.online/)
 
   let aborted = false
   mock.handlers.get('request')?.({
@@ -241,6 +292,17 @@ test('isolated renderer uses the dedicated browser default context, disables act
   })
   await new Promise((resolve) => setImmediate(resolve))
   assert.equal(aborted, true)
+  assert.equal(diagnostics.networkRequestCount, 1)
+  let embeddedContinued = false
+  mock.handlers.get('request')?.({
+    continue: async () => { embeddedContinued = true },
+    isInterceptResolutionHandled: () => false,
+    resourceType: () => 'image',
+    url: () => 'data:image/png;base64,iVBORw0KGgoAAA=',
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(embeddedContinued, true)
+  assert.equal(diagnostics.embeddedResourceCount, 1)
   assert.equal(diagnostics.networkRequestCount, 1)
   assert.equal(getActivePdfRenderCount(), 0)
 })
@@ -365,17 +427,21 @@ test('historical activity PDFs are rebuilt from scoped records and ignore stored
     teams: { id: 'team-a', club_id: 'club-a', name: 'Trusted Team' },
     team_staff: { team_id: 'team-a' },
   })
-  const document = await loadCommunicationPdfDocument({
+  const report = await loadCommunicationPdfReport({
     supabaseAdmin: mock.database,
     profile: activePlanProfile({ role: 'coach', roleRank: 20 }),
     clubId: 'club-a',
     communicationLogId: 'log-a',
   })
+  const document = report.document
 
   assert.equal(document.context.clubName, 'Trusted Club')
   assert.equal(document.context.playerName, 'Trusted Player')
   assert.equal(document.context.teamName, 'Trusted Team')
   assert.deepEqual(document.assessmentFields, [{ label: 'Technical', value: '7' }])
+  assert.equal(report.branding.clubName, 'Trusted Club')
+  assert.equal(report.branding.teamName, 'Trusted Team')
+  assert.equal(report.branding.brandingSource, 'club-initials')
   assert.doesNotMatch(JSON.stringify(document), new RegExp(legacyMarker))
   assert.ok(mock.calls.find((call) => call.table === 'communication_logs')?.filters.some(
     ([column, value]) => column === 'club_id' && value === 'club-a',
@@ -389,7 +455,10 @@ test('public PDF endpoint accepts only an authenticated resource identifier and 
   const logs = []
   const handler = createRenderPdfHandler({
     authenticate: async () => activePlanProfile(),
-    loadReport: async () => validParentDocument(),
+    loadReport: async () => ({
+      branding: validBranding(),
+      document: validParentDocument(),
+    }),
     render: async () => validPdfBuffer(),
     logger: {
       error: (...values) => logs.push(values),
@@ -407,6 +476,8 @@ test('public PDF endpoint accepts only an authenticated resource identifier and 
   assert.equal(response.headers.get('content-disposition'), 'attachment; filename="football-player-report.pdf"')
   assert.equal(response.headers.get('cache-control'), 'no-store')
   assert.equal(response.headers.get('x-pdf-page-count'), '1')
+  assert.equal(response.headers.get('x-pdf-renderer-version'), '2')
+  assert.equal(response.headers.get('x-pdf-network-requests'), '0')
   assert.equal(response.headers.get('x-pdf-request-id'), 'request-a')
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff')
   assert.equal(Buffer.from(await response.arrayBuffer()).equals(validPdfBuffer()), true)
@@ -525,4 +596,17 @@ test('assessment documents remain bounded and support server-rendered charts onl
       chartPoints: [{ label: 'First', value: 6, url: 'https://example.test' }, { label: 'Second', value: 8 }],
     }],
   }), { code: 'PDF_INVALID_REQUEST' })
+})
+
+test('footer template is server-owned, branded, confidential, and dynamically paginated', () => {
+  const footer = renderPdfFooterTemplate(validBranding({
+    clubName: '<Club A>',
+    confidentialityLabel: 'Intended recipient only',
+  }))
+
+  assert.match(footer, /&lt;Club A&gt;/)
+  assert.match(footer, /Intended recipient only/)
+  assert.match(footer, /Page <span class="pageNumber"><\/span> of <span class="totalPages"><\/span>/)
+  assert.match(footer, /Generated securely by Footballplayer\.online/)
+  assert.doesNotMatch(footer, /caller value is ignored/)
 })
