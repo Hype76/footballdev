@@ -2402,12 +2402,13 @@ export function CreateEvaluationPage() {
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
-      const evaluation = buildEvaluationPayload(evaluationClientId)
-      const evaluationFingerprint = createEvaluationPersistenceFingerprint(evaluation)
       const priorPersistedEvaluation = persistedEvaluationForRetryRef.current
       const existingEvaluationId = String(
         editingEvaluation?.id || priorPersistedEvaluation?.evaluation?.id || '',
       ).trim()
+      const evaluationPayloadId = existingEvaluationId || evaluationClientId
+      const evaluation = buildEvaluationPayload(evaluationPayloadId)
+      const evaluationFingerprint = createEvaluationPersistenceFingerprint(evaluation)
       const submissionOperationId = existingEvaluationId || evaluation.id
       const canReusePersistedEvaluation =
         Boolean(priorPersistedEvaluation?.evaluation?.id) &&

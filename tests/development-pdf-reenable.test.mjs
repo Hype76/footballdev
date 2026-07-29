@@ -143,6 +143,8 @@ test('retry and duplicate protections remain in both record and email paths', as
   assert.match(createPage, /if \(submissionPromiseRef\.current\)/)
   assert.match(createPage, /shouldPreserveSavedRecordForRetry/)
   assert.match(createPage, /persistedEvaluationForRetryRef\.current/)
+  assert.match(createPage, /const evaluationPayloadId = existingEvaluationId \|\| evaluationClientId/)
+  assert.match(createPage, /const evaluation = buildEvaluationPayload\(evaluationPayloadId\)/)
   assert.match(emailFunction, /createPendingEmailLog/)
   assert.match(emailFunction, /createEmailDedupeKey/)
   assert.match(emailFunction, /duplicate: true/)
