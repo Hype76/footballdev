@@ -27,7 +27,9 @@ function isMissingTableError(error) {
   const code = String(error?.code ?? '').trim()
   const message = String(error?.message ?? '').toLowerCase()
 
-  return code === '42P01' || message.includes('relation') && message.includes('does not exist')
+  return code === '42P01' ||
+    code === 'PGRST205' ||
+    message.includes('relation') && message.includes('does not exist')
 }
 
 async function getAuthUser(event) {
@@ -172,6 +174,11 @@ async function getMobileDevices({ clubId, parentLinkIds, teamId }) {
   const { data, error } = await query
 
   if (error) {
+    if (isMissingTableError(error)) {
+      console.warn('Mobile push devices table is not available; skipping native parent push.')
+      return []
+    }
+
     throw error
   }
 
