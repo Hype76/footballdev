@@ -140,11 +140,15 @@ test('server policy fails closed unless the trusted Development PDF activation i
     assert.equal(policy.shouldAttachPdf, false)
     assert.equal(policy.shouldBuildChartAttachments, false)
   }
+  assert.equal(attachPolicy.shouldRejectUnavailableDevelopmentPdf, true)
+  assert.equal(includePolicy.shouldRejectUnavailableDevelopmentPdf, true)
+  assert.equal(cachedClientPolicy.shouldRejectUnavailableDevelopmentPdf, false)
 
   assert.equal(unrelatedPolicy.isDevelopmentEmailOnly, false)
   assert.equal(unrelatedPolicy.shouldAttachPdf, true)
   assert.equal(unrelatedPolicy.shouldBuildChartAttachments, true)
   assert.equal(enabledPolicy.canAttachDevelopmentPdf, true)
+  assert.equal(enabledPolicy.shouldRejectUnavailableDevelopmentPdf, false)
   assert.equal(enabledPolicy.shouldAttachPdf, true)
   assert.equal(enabledPolicy.shouldBuildChartAttachments, true)
   assert.equal(enabledLegacyIncludePolicy.requestedPdf, true)

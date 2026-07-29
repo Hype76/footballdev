@@ -379,6 +379,17 @@ export async function prepareParentEmail({ body, requestUser }) {
     developmentPdfEnabled: isDevelopmentPdfServerEnabled(process.env),
   })
 
+  if (outputPolicy.shouldRejectUnavailableDevelopmentPdf) {
+    throw Object.assign(
+      new Error('Email not sent because the requested PDF is not available. Retry the PDF attachment.'),
+      {
+        code: 'DEVELOPMENT_PDF_UNAVAILABLE',
+        publicMessage: 'Email not sent because the requested PDF is not available. Retry the PDF attachment.',
+        statusCode: 503,
+      },
+    )
+  }
+
   const normalizedSenderEmail = normaliseEmail(senderEmail)
   const bodyUserId = String(body.userId ?? '').trim()
 

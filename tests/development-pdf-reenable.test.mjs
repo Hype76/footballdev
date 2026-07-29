@@ -50,12 +50,16 @@ test('Development attachment and chart work remain server-dark until trusted act
   })
 
   assert.equal(disabled.requestedPdf, true)
+  assert.equal(disabled.shouldRejectUnavailableDevelopmentPdf, true)
   assert.equal(disabled.shouldAttachPdf, false)
   assert.equal(disabled.shouldBuildChartAttachments, false)
+  assert.equal(enabled.shouldRejectUnavailableDevelopmentPdf, false)
   assert.equal(enabled.shouldAttachPdf, true)
   assert.equal(enabled.shouldBuildChartAttachments, true)
+  assert.equal(direct.shouldRejectUnavailableDevelopmentPdf, false)
   assert.equal(direct.shouldAttachPdf, true)
   assert.equal(direct.shouldBuildChartAttachments, true)
+  assert.equal(unsupportedDevelopmentRecipient.shouldRejectUnavailableDevelopmentPdf, false)
   assert.equal(unsupportedDevelopmentRecipient.shouldAttachPdf, false)
   assert.equal(unsupportedDevelopmentRecipient.shouldBuildChartAttachments, false)
 })
@@ -98,6 +102,14 @@ test('Development PDF UI is deliberate, role gated, loading safe and not draft p
     createPage.indexOf('onEmailSendModeChange={(value) => {'),
   )
   assert.doesNotMatch(attachmentChoiceHandler, /markDraftUnsaved/)
+})
+
+test('trusted Development requests fail safely instead of silently dropping an unavailable PDF', async () => {
+  const functionSource = await source('../netlify/functions/send-parent-email.js')
+
+  assert.match(functionSource, /if \(outputPolicy\.shouldRejectUnavailableDevelopmentPdf\)/)
+  assert.match(functionSource, /code: 'DEVELOPMENT_PDF_UNAVAILABLE'/)
+  assert.match(functionSource, /Email not sent because the requested PDF is not available\. Retry the PDF attachment\./)
 })
 
 test('Development attachment payload stays server-authoritative and records accurate outcomes', async () => {

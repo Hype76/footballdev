@@ -45,6 +45,10 @@ export function resolveDevelopmentEmailOutputPolicy({
     isDevelopmentEmailOnly,
     requiresDevelopmentParentResolution: normalizedOutputContext === DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
     requestedPdf,
+    shouldRejectUnavailableDevelopmentPdf:
+      normalizedOutputContext === DEVELOPMENT_PARENT_OUTPUT_CONTEXT &&
+      requestedPdf &&
+      !canAttachDevelopmentPdf,
     shouldAttachPdf: attachPdf === true && (!isDevelopmentEmailOnly || canAttachDevelopmentPdf),
     shouldBuildChartAttachments: !isDevelopmentEmailOnly || (canAttachDevelopmentPdf && attachPdf === true),
   }
