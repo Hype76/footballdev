@@ -244,7 +244,10 @@ async function renderInIsolatedBrowser(document, {
         timeout: PDF_RENDER_LIMITS.navigationTimeoutMs,
       })
 
-      const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight)
+      // Use the browser global explicitly. Bundlers may rename the renderer's
+      // `document` parameter and accidentally rewrite a bare `document`
+      // reference inside this serialized page callback.
+      const scrollHeight = await page.evaluate(() => globalThis.document.documentElement.scrollHeight)
       const estimatedPages = Math.max(1, Math.ceil(Number(scrollHeight || 0) / 1123))
 
       if (outputType === 'pdf' && estimatedPages > PDF_RENDER_LIMITS.maxPages) {

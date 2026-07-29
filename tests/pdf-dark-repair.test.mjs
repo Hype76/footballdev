@@ -11,6 +11,8 @@ test('single-process Chromium uses one dedicated browser process without a secon
 
   assert.match(renderer, /page = await browser\.newPage\(\)/)
   assert.doesNotMatch(renderer, /browser\.createBrowserContext\(\)/)
+  assert.match(renderer, /globalThis\.document\.documentElement\.scrollHeight/)
+  assert.doesNotMatch(renderer, /=> document\.documentElement\.scrollHeight/)
   assert.match(renderer, /totalRenderTimeoutMs:\s*8_000/)
   assert.match(renderer, /cleanupState/)
   assert.match(renderer, /networkRequestCount/)
