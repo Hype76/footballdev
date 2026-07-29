@@ -253,8 +253,9 @@ test('staff fixture setup exposes confirmed and Time TBC choices accessibly', ()
 
 test('calendar modal is constrained and scrollable on desktop and mobile', () => {
   assert.match(calendarPageSource, /role="dialog"[\s\S]*aria-modal="true"[\s\S]*aria-labelledby="calendar-event-modal-title"/)
-  assert.match(calendarPageSource, /max-h-\[calc\(100dvh-1\.5rem\)\][\s\S]*max-w-3xl[\s\S]*overflow-hidden/)
-  assert.match(calendarPageSource, /min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32/)
+  assert.match(calendarPageSource, /top-\[var\(--calendar-modal-viewport-top\)\][\s\S]*h-\[var\(--calendar-modal-viewport-height\)\]/)
+  assert.match(calendarPageSource, /h-screen min-h-0[\s\S]*max-w-3xl[\s\S]*overflow-hidden/)
+  assert.match(calendarPageSource, /min-h-0 flex-1 overflow-y-auto overscroll-contain/)
 })
 
 test('fixture setup modal remains constrained and scrollable on desktop and mobile', () => {

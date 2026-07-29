@@ -210,10 +210,21 @@ const calendarRows = [
   },
 ]
 
+const bulkPlayerRows = Array.from({ length: 24 }, (_, index) => ({
+  id: `bulk-player-${index + 1}`,
+  club_id: 'club-fixture',
+  team_id: 'team-u12',
+  player_name: `Long List Player ${String(index + 1).padStart(2, '0')}`,
+  section: 'Squad',
+  team: 'U12 Fixture Team',
+  status: 'active',
+}))
+
 const playerRows = [
   { id: 'selected-player', club_id: 'club-fixture', team_id: 'team-u12', player_name: 'Selected Player', section: 'Squad', team: 'U12 Fixture Team', status: 'active' },
   { id: 'pending-player', club_id: 'club-fixture', team_id: 'team-u12', player_name: 'Pending Player', section: 'Squad', team: 'U12 Fixture Team', status: 'active' },
   { id: 'training-player', club_id: 'club-fixture', team_id: 'team-u12', player_name: 'Training Player', section: 'Squad', team: 'U12 Fixture Team', status: 'active' },
+  ...bulkPlayerRows,
 ]
 
 const inviteRows = [
@@ -244,6 +255,15 @@ const inviteRows = [
     invite_status: 'active',
     players: playerRows[2],
   },
+  ...bulkPlayerRows.map((player, index) => ({
+    id: `invite-bulk-${index + 1}`,
+    club_id: 'club-fixture',
+    team_id: 'team-u12',
+    match_day_id: 'match-fixture',
+    player_id: player.id,
+    invite_status: 'active',
+    players: player,
+  })),
 ]
 
 function json(route, body, status = 200) {
@@ -409,7 +429,34 @@ try {
   const mobile = await preparePage(mobileContext)
   await signIn(mobile.page)
   await openEvent(mobile.page, 'FP TEST Match Invite')
-  await mobile.page.getByRole('button', { name: 'Edit event' }).click()
+  const mobileModal = mobile.page.getByTestId('calendar-event-modal')
+  const mobileContent = mobile.page.getByTestId('calendar-event-modal-content')
+  const mobileActionBar = mobile.page.getByTestId('calendar-mobile-action-bar')
+  const mobileClose = mobile.page.getByRole('button', { name: 'Close calendar event' })
+  const mobileMoreActions = mobile.page.getByRole('button', { name: 'More actions' })
+  const modalBox = await mobileModal.boundingBox()
+  const contentBox = await mobileContent.boundingBox()
+  const actionBarBox = await mobileActionBar.boundingBox()
+  const closeBox = await mobileClose.boundingBox()
+  assert.ok(modalBox && modalBox.height >= 800 && modalBox.height <= 844)
+  assert.ok(contentBox && actionBarBox && contentBox.height > actionBarBox.height * 3)
+  assert.ok(actionBarBox.height < 100)
+  assert.ok(closeBox && closeBox.width >= 44 && closeBox.height >= 44)
+  assert.equal(await mobileActionBar.getByRole('button', { name: 'Close', exact: true }).count(), 0)
+  assert.equal(await mobile.page.evaluate(() => document.body.style.overflow), 'hidden')
+  assert.equal(await mobileContent.evaluate((element) => element.scrollHeight > element.clientHeight), true)
+  await mobileMoreActions.click()
+  const mobileActionSheet = mobile.page.getByTestId('calendar-mobile-actions')
+  await mobileActionSheet.waitFor({ state: 'visible' })
+  assert.deepEqual(
+    await mobileActionSheet.getByRole('menuitem').allTextContents(),
+    ['Edit event', 'Move or reschedule', 'Cancel fixture'],
+  )
+  await mobile.page.keyboard.press('Escape')
+  await mobileActionSheet.waitFor({ state: 'hidden' })
+  assert.equal(await mobileMoreActions.evaluate((element) => element === document.activeElement), true)
+  await mobileMoreActions.click()
+  await mobileActionSheet.getByRole('menuitem', { name: 'Edit event' }).click()
   const mobileAutoSelect = mobile.page.getByRole('checkbox', { name: 'Automatically select players who respond Available' })
   await mobileAutoSelect.waitFor({ state: 'visible' })
   assert.equal(await mobileAutoSelect.isChecked(), true)
@@ -424,12 +471,38 @@ try {
   assert.ok(chipBox && chipBox.height >= 48)
   assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   await mobileChip.click()
-  await mobile.page.getByRole('dialog').last().getByText('Available', { exact: true }).waitFor({ state: 'visible' })
+  const mobileAvailabilityDialog = mobile.page.getByRole('dialog').last()
+  await mobileAvailabilityDialog.getByText('Available', { exact: true }).waitFor({ state: 'visible' })
   assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await mobileAvailabilityDialog.getByRole('button', { name: 'Cancel' }).click()
+  await mobileClose.click()
+  await mobileModal.waitFor({ state: 'hidden' })
+  assert.equal(await mobile.page.evaluate(() => document.body.style.overflow), '')
   assert.deepEqual(mobile.pageErrors, [])
   await mobileContext.close()
 
-  console.log('Event invite status, automatic match selection, and staff acceptance browser checks passed on desktop dark mode and mobile light mode.')
+  const shortAndroidContext = await browser.newContext({
+    colorScheme: 'dark',
+    isMobile: true,
+    viewport: { width: 360, height: 480 },
+  })
+  const shortAndroid = await preparePage(shortAndroidContext)
+  await signIn(shortAndroid.page)
+  await openEvent(shortAndroid.page, 'FP TEST Match Invite')
+  const shortModalBox = await shortAndroid.page.getByTestId('calendar-event-modal').boundingBox()
+  const shortContentBox = await shortAndroid.page.getByTestId('calendar-event-modal-content').boundingBox()
+  const shortActionBox = await shortAndroid.page.getByTestId('calendar-mobile-action-bar').boundingBox()
+  assert.ok(shortModalBox && shortModalBox.height >= 450 && shortModalBox.height <= 480)
+  assert.ok(shortContentBox && shortActionBox && shortContentBox.height > shortActionBox.height * 2)
+  assert.equal(
+    await shortAndroid.page.getByTestId('calendar-event-modal-content').evaluate((element) => element.scrollHeight > element.clientHeight),
+    true,
+  )
+  assert.equal(await shortAndroid.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  assert.deepEqual(shortAndroid.pageErrors, [])
+  await shortAndroidContext.close()
+
+  console.log('Event invite status, automatic match selection, staff acceptance, and Calendar modal layout checks passed on desktop dark mode, iPhone-sized light mode, and short Android-sized dark mode.')
 } catch (error) {
   console.error(server.getOutput())
   throw error

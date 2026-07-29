@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { CoachOptionsSection } from '../components/sessions/CoachOptionsSection.jsx'
@@ -115,6 +115,12 @@ const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const primaryButtonClass = 'inline-flex min-h-14 items-center justify-center rounded-lg bg-[#047857] px-5 py-4 text-base font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5]'
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
+const compactPrimaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-2.5 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#bbf7d0] disabled:cursor-not-allowed disabled:opacity-60'
+const compactSecondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2.5 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#bbf7d0] disabled:cursor-not-allowed disabled:opacity-60'
+const calendarModalViewportBaseStyle = {
+  '--calendar-modal-viewport-height': '100dvh',
+  '--calendar-modal-viewport-top': '0px',
+}
 const EVENT_TYPE_OPTIONS = [
   { value: 'training', label: 'Training session' },
   { value: 'match', label: 'Match or fixture' },
@@ -130,6 +136,83 @@ const RECURRENCE_OPTIONS = [
   { value: 'fortnightly', label: 'Fortnightly' },
   { value: 'monthly', label: 'Monthly' },
 ]
+
+function useCalendarModalPageScrollLock(isLocked) {
+  useEffect(() => {
+    if (!isLocked || typeof document === 'undefined' || typeof window === 'undefined') {
+      return undefined
+    }
+
+    const scrollY = window.scrollY || 0
+    const { body, documentElement } = document
+    const previousBodyStyle = {
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+    }
+    const previousOverscrollBehavior = documentElement.style.overscrollBehavior
+
+    body.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = '100%'
+    documentElement.style.overscrollBehavior = 'none'
+
+    return () => {
+      body.style.overflow = previousBodyStyle.overflow
+      body.style.position = previousBodyStyle.position
+      body.style.top = previousBodyStyle.top
+      body.style.width = previousBodyStyle.width
+      documentElement.style.overscrollBehavior = previousOverscrollBehavior
+      window.scrollTo(0, scrollY)
+    }
+  }, [isLocked])
+}
+
+function useCalendarModalViewportStyle(isOpen) {
+  const [viewportStyle, setViewportStyle] = useState(calendarModalViewportBaseStyle)
+
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') {
+      return undefined
+    }
+
+    const updateViewportStyle = () => {
+      const visualViewport = window.visualViewport
+      const viewportHeight = Math.max(320, Math.round(visualViewport?.height || window.innerHeight || 0))
+      const viewportTop = Math.max(0, Math.round(visualViewport?.offsetTop || 0))
+
+      setViewportStyle({
+        '--calendar-modal-viewport-height': `${viewportHeight}px`,
+        '--calendar-modal-viewport-top': `${viewportTop}px`,
+      })
+    }
+
+    updateViewportStyle()
+    window.addEventListener('resize', updateViewportStyle)
+    window.visualViewport?.addEventListener('resize', updateViewportStyle)
+    window.visualViewport?.addEventListener('scroll', updateViewportStyle)
+
+    return () => {
+      window.removeEventListener('resize', updateViewportStyle)
+      window.visualViewport?.removeEventListener('resize', updateViewportStyle)
+      window.visualViewport?.removeEventListener('scroll', updateViewportStyle)
+    }
+  }, [isOpen])
+
+  return viewportStyle
+}
+
+function getModalFocusableElements(root) {
+  if (!root) {
+    return []
+  }
+
+  return [...root.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )].filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true')
+}
 
 function formatDateInput(value) {
   if (value instanceof Date) {
@@ -3826,6 +3909,134 @@ function CalendarEventModal({
   variant = '',
 }) {
   const [availabilityAction, setAvailabilityAction] = useState(null)
+  const [isMobileActionMenuOpen, setIsMobileActionMenuOpen] = useState(false)
+  const dialogRef = useRef(null)
+  const closeButtonRef = useRef(null)
+  const mobileActionMenuButtonRef = useRef(null)
+  const mobileActionMenuRef = useRef(null)
+  const returnFocusRef = useRef(null)
+  const calendarModalViewportStyle = useCalendarModalViewportStyle(isOpen)
+
+  useCalendarModalPageScrollLock(isOpen)
+
+  const handleModalCancel = useCallback(() => {
+    setAvailabilityAction(null)
+    setIsMobileActionMenuOpen(false)
+    onCancel()
+  }, [onCancel, setAvailabilityAction, setIsMobileActionMenuOpen])
+
+  const handleModalSubmit = (submitEvent) => {
+    setIsMobileActionMenuOpen(false)
+    onSubmit(submitEvent)
+  }
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    returnFocusRef.current = document.activeElement
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus())
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame)
+      const returnTarget = returnFocusRef.current
+
+      if (returnTarget && document.contains(returnTarget) && typeof returnTarget.focus === 'function') {
+        window.requestAnimationFrame(() => returnTarget.focus())
+      }
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+
+        if (availabilityAction) {
+          setAvailabilityAction(null)
+          return
+        }
+
+        if (isMobileActionMenuOpen) {
+          setIsMobileActionMenuOpen(false)
+          window.requestAnimationFrame(() => mobileActionMenuButtonRef.current?.focus())
+          return
+        }
+
+        if (!isBusy) {
+          handleModalCancel()
+        }
+        return
+      }
+
+      if (event.key !== 'Tab') {
+        return
+      }
+
+      const confirmationDialogs = availabilityAction
+        ? [...document.querySelectorAll('[role="dialog"]')]
+        : []
+      const activeRoot = availabilityAction
+        ? confirmationDialogs.at(-1)
+        : isMobileActionMenuOpen
+          ? mobileActionMenuRef.current
+          : dialogRef.current
+      const focusableElements = getModalFocusableElements(activeRoot)
+
+      if (focusableElements.length === 0) {
+        event.preventDefault()
+        return
+      }
+
+      const firstElement = focusableElements[0]
+      const lastElement = focusableElements.at(-1)
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [availabilityAction, handleModalCancel, isBusy, isMobileActionMenuOpen, isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !availabilityAction) {
+      return undefined
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const dialogs = [...document.querySelectorAll('[role="dialog"]')]
+      getModalFocusableElements(dialogs.at(-1))[0]?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(focusFrame)
+  }, [availabilityAction, isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !isMobileActionMenuOpen) {
+      return undefined
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const menu = mobileActionMenuRef.current
+      const firstAction = menu?.querySelector('[role="menuitem"]:not([disabled])')
+      const firstFocusable = getModalFocusableElements(menu)[0]
+      const focusTarget = firstAction || firstFocusable
+      focusTarget?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(focusFrame)
+  }, [isMobileActionMenuOpen, isOpen])
 
   if (!isOpen) {
     return null
@@ -3856,6 +4067,7 @@ function CalendarEventModal({
   const showRepeatUpdateScope = isRecurringCalendarEdit
   const showRepeatDeleteScope = Boolean(event && editableSource && isRecurringCalendarEdit)
   const deleteButtonDisabled = isBusy || (showRepeatDeleteScope && form.deleteRepeatScope !== 'entire_series')
+  const hasMobileSecondaryActions = Boolean(event && editableSource)
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
@@ -3892,26 +4104,37 @@ function CalendarEventModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-[80] flex items-stretch justify-center overflow-hidden bg-[#101828]/45 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
       <div
+        className="fixed inset-x-0 top-[var(--calendar-modal-viewport-top)] z-[80] flex h-[var(--calendar-modal-viewport-height)] items-stretch justify-center overflow-hidden bg-[#101828]/45 sm:inset-x-0 sm:items-center sm:px-4 sm:py-6"
+        style={calendarModalViewportStyle}
+      >
+      <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="calendar-event-modal-title"
-        className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15 sm:max-h-[calc(100vh-2rem)]"
+        aria-hidden={availabilityAction ? 'true' : undefined}
+        data-testid="calendar-event-modal"
+        className="relative flex h-screen min-h-0 w-full max-w-3xl flex-col overflow-hidden border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15 sm:h-auto sm:max-h-[calc(100vh-2rem)] sm:rounded-lg"
+        style={{
+          height: 'var(--calendar-modal-viewport-height)',
+          maxHeight: 'var(--calendar-modal-viewport-height)',
+        }}
       >
         <button
+          ref={closeButtonRef}
           type="button"
-          onClick={onCancel}
+          onClick={handleModalCancel}
           disabled={isBusy}
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-10 inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#bbf7d0] disabled:cursor-not-allowed disabled:opacity-60 sm:right-4 sm:top-4"
           aria-label="Close calendar event"
         >
           X
         </button>
-        <div className="shrink-0 border-b border-[#d7e5dc] px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+        <div className="shrink-0 border-b border-[#d7e5dc] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:pb-4 sm:pt-6">
           <p className={eyebrowClass}>Calendar</p>
-          <h2 id="calendar-event-modal-title" className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+          <h2 id="calendar-event-modal-title" className="mt-1.5 pr-14 text-xl font-black tracking-tight text-[#101828] sm:mt-3 sm:text-2xl">{title}</h2>
+          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-[#4b5f55] sm:mt-2 sm:text-sm sm:leading-6">
             {isSessionCreate
               ? 'Create a training or match session with time, location, notes, repeats, and player invites.'
               : 'Add, move, edit, or cancel football activity from one place.'}
@@ -3924,7 +4147,7 @@ function CalendarEventModal({
         </div>
 
         {!isEditing ? (
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+          <div data-testid="calendar-event-modal-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch] sm:px-6 sm:py-5">
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{event?.sourceType || 'event'}</p>
             <h3 className="mt-2 text-xl font-black text-[#101828]">{event?.title || form.title || 'Calendar event'}</h3>
@@ -4002,8 +4225,8 @@ function CalendarEventModal({
         ) : null}
 
         {isEditing ? (
-          <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 px-5 py-5 sm:px-6">
+          <form onSubmit={handleModalSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div data-testid="calendar-event-modal-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-24 px-4 py-4 [-webkit-overflow-scrolling:touch] sm:scroll-pb-32 sm:px-6 sm:py-5">
             <div className="grid gap-4">
               <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
@@ -4458,11 +4681,31 @@ function CalendarEventModal({
             </div>
             </div>
 
-            <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div data-testid="calendar-mobile-action-bar" className="shrink-0 border-t border-[#d7e5dc] bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+              <div className={`grid gap-2 ${hasMobileSecondaryActions ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <button type="button" onClick={handleModalCancel} disabled={isBusy} className={compactSecondaryButtonClass}>Cancel</button>
+                <button type="submit" disabled={isBusy} className={compactPrimaryButtonClass}>{isBusy ? 'Saving...' : 'Save'}</button>
+                {hasMobileSecondaryActions ? (
+                  <button
+                    ref={mobileActionMenuButtonRef}
+                    type="button"
+                    aria-controls="calendar-mobile-actions"
+                    aria-expanded={isMobileActionMenuOpen}
+                    onClick={() => setIsMobileActionMenuOpen(true)}
+                    className={compactSecondaryButtonClass}
+                  >
+                    More
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <div className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
               <div>
                 {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <button type="button" onClick={handleModalCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save changes'}</button>
                 {event && editableSource ? (
                   <button
                     type="button"
@@ -4473,31 +4716,130 @@ function CalendarEventModal({
                     {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
                   </button>
                 ) : null}
-                <button type="button" onClick={onCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
-                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save changes'}</button>
               </div>
             </div>
           </form>
         ) : (
-          <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-              {event && editableSource ? (
+          <>
+            {(event?.href || hasMobileSecondaryActions) ? (
+              <div data-testid="calendar-mobile-action-bar" className="shrink-0 border-t border-[#d7e5dc] bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+                <div className={`grid gap-2 ${event?.href && hasMobileSecondaryActions ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {event?.href ? (
+                    <button type="button" onClick={onOpenWorkflow} className={compactPrimaryButtonClass}>Open item</button>
+                  ) : null}
+                  {hasMobileSecondaryActions ? (
+                    <button
+                      ref={mobileActionMenuButtonRef}
+                      type="button"
+                      aria-controls="calendar-mobile-actions"
+                      aria-expanded={isMobileActionMenuOpen}
+                      onClick={() => setIsMobileActionMenuOpen(true)}
+                      className={compactSecondaryButtonClass}
+                    >
+                      More actions
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            <div data-testid="calendar-desktop-action-bar" className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
+              {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : <span />}
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <button type="button" onClick={handleModalCancel} className={secondaryButtonClass}>Close</button>
+                {editableSource ? <button type="button" onClick={onEdit} className={secondaryButtonClass}>Edit event</button> : null}
+                {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Move or reschedule</button> : null}
+                {event && editableSource ? (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    disabled={deleteButtonDisabled}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </>
+        )}
+        {isMobileActionMenuOpen ? (
+          <div className="absolute inset-0 z-20 flex items-end bg-[#101828]/40 sm:hidden">
+            <button
+              type="button"
+              aria-label="Close more actions"
+              className="absolute inset-0 cursor-default"
+              onClick={() => {
+                setIsMobileActionMenuOpen(false)
+                window.requestAnimationFrame(() => mobileActionMenuButtonRef.current?.focus())
+              }}
+            />
+            <div
+              ref={mobileActionMenuRef}
+              id="calendar-mobile-actions"
+              role="menu"
+              aria-labelledby="calendar-mobile-actions-title"
+              data-testid="calendar-mobile-actions"
+              className="relative z-10 w-full rounded-t-2xl border border-[#d7e5dc] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <h3 id="calendar-mobile-actions-title" className="text-base font-black text-[#101828]">More actions</h3>
                 <button
                   type="button"
-                  onClick={onDelete}
-                  disabled={deleteButtonDisabled}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => {
+                    setIsMobileActionMenuOpen(false)
+                    window.requestAnimationFrame(() => mobileActionMenuButtonRef.current?.focus())
+                  }}
+                  aria-label="Close more actions"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] text-sm font-black text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#bbf7d0]"
                 >
-                  {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
+                  X
                 </button>
-              ) : null}
-              {editableSource ? <button type="button" onClick={onEdit} className={secondaryButtonClass}>Edit event</button> : null}
-              {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Move or reschedule</button> : null}
-              <button type="button" onClick={onCancel} className={secondaryButtonClass}>Close</button>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {!isEditing && editableSource ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMobileActionMenuOpen(false)
+                      onEdit()
+                    }}
+                    className={compactSecondaryButtonClass}
+                  >
+                    Edit event
+                  </button>
+                ) : null}
+                {!isEditing && editableSource ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMobileActionMenuOpen(false)
+                      onEdit()
+                    }}
+                    className={compactSecondaryButtonClass}
+                  >
+                    Move or reschedule
+                  </button>
+                ) : null}
+                {event && editableSource ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMobileActionMenuOpen(false)
+                      onDelete()
+                    }}
+                    disabled={deleteButtonDisabled}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
       </div>
       <ConfirmModal
