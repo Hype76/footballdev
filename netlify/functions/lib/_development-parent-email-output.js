@@ -5,6 +5,12 @@ import {
   buildProgressionEmailSections,
 } from '../../../src/lib/player-progression.js'
 import {
+  formatAssessmentScore,
+  getAssessmentScoreGuideLabel,
+  getAssessmentScoreMax,
+  isAssessmentScoreFieldType,
+} from '../../../src/lib/assessment-scoring.js'
+import {
   isValidDevelopmentParentRecipientEmail,
   getDevelopmentParentRecipientCandidates,
   normalizeDevelopmentParentRecipientEmail,
@@ -26,6 +32,7 @@ const DEFAULT_PARENT_VISIBLE_LABELS = new Set([
   'Overall Comments',
 ])
 const SAFE_EMAIL_SECTION_KEYS = new Set(['attendanceSummary', 'progressionChart'])
+const DEVELOPMENT_PARENT_REPORT_VERSION = 1
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -139,7 +146,7 @@ export function getParentVisibleDevelopmentEmailSections({
   requestedSections = [],
 } = {}) {
   const requestedKeys = new Set(
-    sanitizeAssessmentEmailSections(requestedSections)
+    (Array.isArray(requestedSections) ? requestedSections : [])
       .map((section) => normalizeText(section?.key))
       .filter((key) => SAFE_EMAIL_SECTION_KEYS.has(key)),
   )
@@ -168,6 +175,232 @@ export function getParentVisibleDevelopmentEmailSections({
       body: normalizeText(section.body),
       ...(Array.isArray(section.chartPoints) ? { chartPoints: section.chartPoints } : {}),
     }))
+}
+
+function normalizeStoredValue(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : ''
+  }
+
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  return normalizeText(value)
+}
+
+function hasStoredValue(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value)
+  }
+
+  if (typeof value === 'boolean') {
+    return true
+  }
+
+  return Boolean(normalizeText(value))
+}
+
+function getAuthoritativeFieldValue(evaluation, field) {
+  const savedResponses = evaluation?.form_responses && typeof evaluation.form_responses === 'object'
+    ? evaluation.form_responses
+    : {}
+  const label = normalizeText(field?.label)
+
+  if (label && Object.hasOwn(savedResponses, label)) {
+    return normalizeStoredValue(savedResponses[label])
+  }
+
+  return normalizeStoredValue(field?.value)
+}
+
+function formatDevelopmentFieldValue(field, value) {
+  const type = normalizeText(field?.type)
+
+  if (isAssessmentScoreFieldType(type)) {
+    const numericScore = Number(value)
+    const maxScore = getAssessmentScoreMax(type)
+    const ratingLabel = getAssessmentScoreGuideLabel(numericScore)
+    const formattedScore = formatAssessmentScore(numericScore)
+
+    return {
+      displayValue: formattedScore
+        ? `${formattedScore} / ${maxScore}${ratingLabel ? ` - ${ratingLabel}` : ''}`
+        : '',
+      numericScore: Number.isFinite(numericScore) ? numericScore : null,
+      ratingLabel,
+    }
+  }
+
+  return {
+    displayValue: normalizeText(value),
+    numericScore: null,
+    ratingLabel: '',
+  }
+}
+
+function normalizeReportRecipient(recipient = {}) {
+  return {
+    linkId: normalizeText(recipient.linkId),
+    name: normalizeText(recipient.name) || 'Parent or guardian',
+  }
+}
+
+function getRequestedFieldSelection(requestedResponses) {
+  if (!Array.isArray(requestedResponses)) {
+    return null
+  }
+
+  return requestedResponses.slice(0, 200).map((item) => ({
+    fieldId: normalizeText(item?.fieldId || item?.field_id),
+    label: normalizeText(item?.label),
+  }))
+}
+
+export function resolveDevelopmentParentReport({
+  club,
+  evaluation,
+  evaluations = [],
+  player,
+  recipients = [],
+  requestedResponses,
+  requestedSections = [],
+  team,
+} = {}) {
+  const snapshot = evaluation?.feedback_form_snapshot &&
+    typeof evaluation.feedback_form_snapshot === 'object'
+    ? evaluation.feedback_form_snapshot
+    : {}
+  const snapshotFields = Array.isArray(snapshot.fields) ? snapshot.fields : []
+  const requestedSelection = getRequestedFieldSelection(requestedResponses)
+  const selectedFields = requestedSelection === null
+    ? snapshotFields.filter(isParentVisibleField)
+    : requestedSelection
+        .map((selection) =>
+          snapshotFields.find((field) =>
+            (selection.fieldId && normalizeText(field?.id) === selection.fieldId) ||
+            (!selection.fieldId && selection.label && normalizeText(field?.label) === selection.label),
+          ),
+        )
+        .filter(Boolean)
+  const uniqueFields = selectedFields.filter((field, index, fields) => {
+    const fieldId = normalizeText(field?.id)
+    const label = normalizeText(field?.label)
+    return fields.findIndex((candidate) =>
+      (fieldId && normalizeText(candidate?.id) === fieldId) ||
+      (!fieldId && label && normalizeText(candidate?.label) === label),
+    ) === index
+  })
+  const responseItems = uniqueFields
+    .map((field, index) => {
+      if (!isParentVisibleField(field)) {
+        return null
+      }
+
+      const rawValue = getAuthoritativeFieldValue(evaluation, field)
+      if (!hasStoredValue(rawValue)) {
+        return null
+      }
+
+      const formatted = formatDevelopmentFieldValue(field, rawValue)
+
+      return {
+        fieldId: normalizeText(field?.id) || `snapshot-field-${index + 1}`,
+        label: normalizeText(field?.label),
+        type: normalizeText(field?.type) || 'text',
+        rawValue,
+        displayValue: formatted.displayValue,
+        numericScore: formatted.numericScore,
+        ratingLabel: formatted.ratingLabel,
+        order: Number(field?.orderIndex ?? field?.order_index ?? index + 1) || index + 1,
+        parentVisible: true,
+        selected: true,
+      }
+    })
+    .filter(Boolean)
+  const emailSections = getParentVisibleDevelopmentEmailSections({
+    evaluation,
+    evaluations,
+    requestedSections,
+  })
+  const normalizedRecipients = recipients
+    .map(normalizeReportRecipient)
+    .filter((recipient) => recipient.linkId)
+    .filter((recipient, index, items) =>
+      items.findIndex((candidate) => candidate.linkId === recipient.linkId) === index,
+    )
+
+  return {
+    version: DEVELOPMENT_PARENT_REPORT_VERSION,
+    finalizedAt: new Date().toISOString(),
+    historyCutoffAt: normalizeText(evaluation?.created_at),
+    evaluationId: normalizeText(evaluation?.id),
+    club: {
+      id: normalizeText(evaluation?.club_id || club?.id),
+      name: normalizeText(club?.name),
+    },
+    team: {
+      id: normalizeText(evaluation?.team_id || team?.id),
+      name: normalizeText(team?.name || evaluation?.team),
+    },
+    player: {
+      id: normalizeText(evaluation?.player_id || player?.id),
+      name: normalizeText(evaluation?.player_name || player?.player_name),
+    },
+    author: {
+      id: normalizeText(evaluation?.coach_id),
+      name: normalizeText(evaluation?.created_by_name || evaluation?.coach),
+    },
+    section: normalizeText(evaluation?.section),
+    recordDate: normalizeText(evaluation?.date),
+    form: {
+      id: normalizeText(evaluation?.feedback_form_id || snapshot?.formId || snapshot?.form_id),
+      name: normalizeText(evaluation?.feedback_form_name || snapshot?.formName || snapshot?.form_name),
+      version: Number(evaluation?.feedback_form_version || snapshot?.formVersion || snapshot?.form_version || 1) || 1,
+      templateKey: normalizeText(snapshot?.templateKey || snapshot?.template_key),
+    },
+    recipients: normalizedRecipients,
+    responseItems,
+    overallScore: evaluation?.average_score !== null &&
+      evaluation?.average_score !== undefined &&
+      normalizeText(evaluation.average_score) &&
+      Number.isFinite(Number(evaluation.average_score))
+      ? Number(evaluation.average_score)
+      : null,
+    attendanceIncluded: emailSections.some((section) => section.key === 'attendanceSummary'),
+    progressionIncluded: emailSections.some((section) => section.key === 'progressionChart'),
+    emailSections,
+  }
+}
+
+export function isDevelopmentParentReportSnapshot(value) {
+  return value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Number(value.version) === DEVELOPMENT_PARENT_REPORT_VERSION &&
+    Array.isArray(value.responseItems) &&
+    Array.isArray(value.emailSections)
+}
+
+export function getDevelopmentParentReport({
+  context,
+  requestedResponses,
+  requestedSections,
+} = {}) {
+  if (isDevelopmentParentReportSnapshot(context?.evaluation?.development_parent_report)) {
+    return context.evaluation.development_parent_report
+  }
+
+  return resolveDevelopmentParentReport({
+    club: context?.club,
+    evaluation: context?.evaluation,
+    evaluations: context?.evaluations,
+    player: context?.player,
+    recipients: context?.recipient ? [context.recipient] : [],
+    requestedResponses,
+    requestedSections,
+    team: context?.team,
+  })
 }
 
 export function createDevelopmentOutputKey(evaluationId, recipientLinkId) {
@@ -390,12 +623,11 @@ export async function loadDevelopmentParentRecipientCandidates(
   }).filter((candidate) => candidate.eligible)
 }
 
-export async function loadDevelopmentParentEmailContext(
+export async function loadDevelopmentParentReportContext(
   supabaseAdmin,
   {
     evaluationId,
     profile,
-    selectedParentLinkIds = [],
   } = {},
 ) {
   const normalizedEvaluationId = normalizeText(evaluationId)
@@ -407,7 +639,7 @@ export async function loadDevelopmentParentEmailContext(
   const evaluation = await loadOne(
     supabaseAdmin
       .from('evaluations')
-      .select('id, club_id, team_id, player_id, player_name, team, section, session, form_responses, feedback_form_snapshot')
+      .select('id, club_id, team_id, player_id, player_name, team, section, session, date, created_at, coach_id, coach, created_by_name, scores, average_score, comments, form_responses, feedback_form_id, feedback_form_name, feedback_form_version, feedback_form_snapshot')
       .eq('id', normalizedEvaluationId)
       .maybeSingle(),
     'DEVELOPMENT_PARENT_EMAIL_NOT_FOUND',
@@ -435,6 +667,7 @@ export async function loadDevelopmentParentEmailContext(
     .select('id, club_id, team_id, player_id, player_name, team, section, session, date, created_at, scores, average_score, comments, form_responses, feedback_form_id, feedback_form_name, feedback_form_snapshot')
     .eq('club_id', evaluation.club_id)
     .eq('player_id', player.id)
+    .lte('created_at', evaluation.created_at)
     .order('created_at', { ascending: true })
     .limit(100)
 
@@ -448,31 +681,18 @@ export async function loadDevelopmentParentEmailContext(
     throw evaluationsError
   }
 
-  const recipientResolution = resolveDevelopmentRecipientsFromRows({
-    evaluation,
-    player,
-    links,
-    selectedParentLinkIds,
-  })
+  const { data: reportRow, error: reportError } = await supabaseAdmin
+    .from('development_parent_reports')
+    .select('evaluation_id, report_snapshot')
+    .eq('evaluation_id', evaluation.id)
+    .eq('club_id', evaluation.club_id)
+    .maybeSingle()
 
-  if (recipientResolution.outcome === 'no_recipient') {
-    return {
-      ...recipientResolution,
-      evaluation,
-      player,
-    }
+  if (reportError) {
+    throw reportError
   }
 
-  if (recipientResolution.recipients.length !== 1) {
-    throw outputError(
-      'Send one selected parent recipient per request.',
-      400,
-      'DEVELOPMENT_PARENT_EMAIL_ONE_RECIPIENT_PER_REQUEST',
-    )
-  }
-
-  const recipient = recipientResolution.recipients[0]
-  const outputKey = createDevelopmentOutputKey(evaluation.id, recipient.linkId)
+  evaluation.development_parent_report = reportRow?.report_snapshot ?? {}
 
   const [{ data: club, error: clubError }, { data: team, error: teamError }] = await Promise.all([
     supabaseAdmin
@@ -497,16 +717,131 @@ export async function loadDevelopmentParentEmailContext(
   }
 
   return {
-    ...recipientResolution,
     evaluation,
     player,
     club,
     team,
+    links,
     evaluations: evaluations ?? [evaluation],
+  }
+}
+
+export async function loadDevelopmentParentEmailContext(
+  supabaseAdmin,
+  {
+    evaluationId,
+    profile,
+    selectedParentLinkIds = [],
+  } = {},
+) {
+  const context = await loadDevelopmentParentReportContext(supabaseAdmin, {
+    evaluationId,
+    profile,
+  })
+  const recipientResolution = resolveDevelopmentRecipientsFromRows({
+    evaluation: context.evaluation,
+    player: context.player,
+    links: context.links,
+    selectedParentLinkIds,
+  })
+
+  if (recipientResolution.outcome === 'no_recipient') {
+    return {
+      ...context,
+      ...recipientResolution,
+    }
+  }
+
+  if (recipientResolution.recipients.length !== 1) {
+    throw outputError(
+      'Send one selected parent recipient per request.',
+      400,
+      'DEVELOPMENT_PARENT_EMAIL_ONE_RECIPIENT_PER_REQUEST',
+    )
+  }
+
+  const recipient = recipientResolution.recipients[0]
+  const outputKey = createDevelopmentOutputKey(context.evaluation.id, recipient.linkId)
+
+  return {
+    ...context,
+    ...recipientResolution,
     recipient,
     outputKey,
     outputQueueId: createDevelopmentOutputQueueId(outputKey),
   }
+}
+
+export async function finalizeDevelopmentParentReportSnapshot(
+  supabaseAdmin,
+  {
+    evaluationId,
+    includeAttendance = false,
+    includeProgression = true,
+    profile,
+    requestedResponses = [],
+    selectedParentLinkIds = [],
+  } = {},
+) {
+  const context = await loadDevelopmentParentReportContext(supabaseAdmin, {
+    evaluationId,
+    profile,
+  })
+  const normalizedSelectedLinkIds = uniqueIds(selectedParentLinkIds)
+  const recipientResolution = normalizedSelectedLinkIds.length > 0
+    ? resolveDevelopmentRecipientsFromRows({
+        evaluation: context.evaluation,
+        player: context.player,
+        links: context.links,
+        selectedParentLinkIds: normalizedSelectedLinkIds,
+      })
+    : { outcome: 'ready', recipients: [], unavailableLinkIds: [] }
+
+  if (recipientResolution.outcome !== 'ready') {
+    throw outputError(
+      'The selected parent recipients are no longer available.',
+      409,
+      recipientResolution.code || 'DEVELOPMENT_PARENT_REPORT_RECIPIENTS_UNAVAILABLE',
+    )
+  }
+
+  const requestedSections = [
+    ...(includeAttendance ? [{ key: 'attendanceSummary' }] : []),
+    ...(includeProgression ? [{ key: 'progressionChart' }] : []),
+  ]
+  const report = resolveDevelopmentParentReport({
+    ...context,
+    recipients: recipientResolution.recipients,
+    requestedResponses,
+    requestedSections,
+  })
+  const { data, error } = await supabaseAdmin
+    .from('development_parent_reports')
+    .upsert({
+      evaluation_id: context.evaluation.id,
+      club_id: context.evaluation.club_id,
+      report_snapshot: report,
+      finalized_at: report.finalizedAt,
+      finalized_by: normalizeText(profile?.id) || null,
+    }, {
+      onConflict: 'evaluation_id',
+    })
+    .select('evaluation_id, report_snapshot')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  if (!isDevelopmentParentReportSnapshot(data?.report_snapshot)) {
+    throw outputError(
+      'The Development report snapshot could not be finalized.',
+      500,
+      'DEVELOPMENT_PARENT_REPORT_FINALIZE_FAILED',
+    )
+  }
+
+  return data.report_snapshot
 }
 
 export async function reauthorizePreparedDevelopmentParentEmail(

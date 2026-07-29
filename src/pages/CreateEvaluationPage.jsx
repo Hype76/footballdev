@@ -20,7 +20,10 @@ import {
   normalizeEmailTemplateAudience,
 } from '../lib/email-templates.js'
 import { isDemoUser } from '../lib/demo.js'
-import { sendParentEmail } from '../lib/email-builder.js'
+import {
+  finalizeDevelopmentParentReport,
+  sendParentEmail,
+} from '../lib/email-builder.js'
 import {
   getDevelopmentParentEmailRecipientCandidates,
 } from '../lib/domain/development-parent-email-recipients.js'
@@ -2338,6 +2341,26 @@ export function CreateEvaluationPage() {
         fingerprint: evaluationFingerprint,
       }
 
+      try {
+        await finalizeDevelopmentParentReport({
+          clubId: user?.clubId,
+          teamId: savedEvaluation?.teamId || evaluation.teamId || developmentRecipientTeamId,
+          playerId: savedEvaluation?.playerId || evaluation.playerId || '',
+          evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+          selectedParentLinkIds: useLinkedParentRecipients
+            ? selectedDevelopmentParentLinkIds
+            : [],
+          responses: selectedResponseItems,
+          includeAttendance: includeAttendanceSummary,
+          includeProgression: true,
+        })
+      } catch (reportError) {
+        throw Object.assign(reportError, {
+          code: 'DEVELOPMENT_PARENT_REPORT_FINALIZE_FAILED',
+          savedEvaluation,
+        })
+      }
+
       clearViewCaches()
 
       if (editingEvaluation) {
@@ -2600,9 +2623,13 @@ export function CreateEvaluationPage() {
       }
     } catch (error) {
       console.error('Development record submit failed', error)
-      setIsSaved(false)
-
-      setActionErrorMessage(getDevelopmentRecordSaveFailureMessage(error))
+      const reportFinalizeFailed = error?.code === 'DEVELOPMENT_PARENT_REPORT_FINALIZE_FAILED'
+      setIsSaved(reportFinalizeFailed)
+      setActionErrorMessage(
+        reportFinalizeFailed
+          ? 'The Development record was saved, but its parent report could not be finalized. Submit again to retry without creating a duplicate record.'
+          : getDevelopmentRecordSaveFailureMessage(error),
+      )
     } finally {
       setIsSendingParentEmail(false)
       setIsSubmitting(false)

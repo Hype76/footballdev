@@ -395,9 +395,17 @@ export function createResponseItems(fields, responseValues, includeEmptyValues =
       }
 
       return {
+        fieldId: String(field.id ?? '').trim(),
         fieldType: field.type,
         isDefault: Boolean(field.isDefault),
         label: field.label,
+        orderIndex: Number(field.orderIndex ?? field.order_index ?? 0) || 0,
+        parentVisible: Boolean(
+          field.isDefault ||
+          field.is_default ||
+          field.parentVisible ||
+          field.parent_visible,
+        ),
         value,
       }
     })
@@ -419,11 +427,15 @@ export function sortResponseItemsByValueType(items = []) {
 
 export function isExportableResponseValue(value) {
   if (typeof value === 'number') {
-    return !Number.isNaN(value) && value !== 0
+    return Number.isFinite(value)
+  }
+
+  if (typeof value === 'boolean') {
+    return true
   }
 
   const trimmedValue = String(value ?? '').trim()
-  return trimmedValue !== '' && trimmedValue !== '0'
+  return trimmedValue !== ''
 }
 
 export function parseStoredDraft(storageKey) {

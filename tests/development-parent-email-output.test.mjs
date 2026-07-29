@@ -3,10 +3,16 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import {
+  getDevelopmentParentReport,
   getParentVisibleDevelopmentResponses,
   getParentVisibleDevelopmentEmailSections,
+  resolveDevelopmentParentReport,
   resolveDevelopmentRecipientFromRows,
 } from '../netlify/functions/lib/_development-parent-email-output.js'
+import {
+  createResponseItems,
+  isExportableResponseValue,
+} from '../src/hooks/evaluations/evaluationFormUtils.js'
 
 const clubId = '11111111-1111-4111-8111-111111111111'
 const otherClubId = '22222222-2222-4222-8222-222222222222'
@@ -206,6 +212,254 @@ test('safe email sections are reconstructed from saved evaluation history', () =
     sections.find((section) => section.key === 'progressionChart')?.chartPoints.map((point) => point.value),
     [6, 7],
   )
+})
+
+test('canonical report preserves selected Development data and excludes private staff notes', () => {
+  const ratingFields = Array.from({ length: 9 }, (_, index) => ({
+    id: `rating-${index + 1}`,
+    label: `Rating ${index + 1}`,
+    type: 'score_1_10',
+    includeInProgressChart: true,
+    metricKey: `fp-test.rating-${index + 1}`,
+    categoryKey: 'fp-test',
+    parentVisible: true,
+    orderIndex: index + 1,
+    value: index + 1,
+  }))
+  const narrativeFields = [
+    {
+      id: 'short-text',
+      label: 'Short parent note',
+      type: 'text',
+      parentVisible: true,
+      orderIndex: 10,
+      value: 'Keep scanning before receiving.',
+    },
+    {
+      id: 'long-text',
+      label: 'Long parent narrative',
+      type: 'textarea',
+      parentVisible: true,
+      orderIndex: 11,
+      value: 'The player is building confidence and should keep practising on both feet.',
+    },
+    {
+      id: 'summary',
+      label: 'Parent summary',
+      type: 'textarea',
+      parentVisible: true,
+      orderIndex: 12,
+      value: 'A positive review with clear next steps.',
+    },
+    {
+      id: 'private-notes',
+      label: 'Private staff notes',
+      type: 'textarea',
+      parentVisible: false,
+      orderIndex: 13,
+      value: 'Do not disclose this note.',
+    },
+  ]
+  const fields = [...ratingFields, ...narrativeFields]
+  const formResponses = Object.fromEntries(fields.map((field) => [field.label, field.value]))
+  const requestedResponses = fields.map((field) => ({
+    fieldId: field.id,
+    label: field.label,
+    value: 'Browser-controlled value',
+  }))
+  const report = resolveDevelopmentParentReport({
+    club: { id: clubId, name: 'FP TEST Club' },
+    team: { id: teamId, name: 'FP TEST Team' },
+    player: { id: playerId, player_name: 'FP TEST Player' },
+    recipients: [{ linkId: link().id, name: 'FP TEST Parent' }],
+    requestedResponses,
+    requestedSections: [
+      { key: 'attendanceSummary' },
+      { key: 'progressionChart' },
+    ],
+    evaluation: evaluation({
+      average_score: 5,
+      coach_id: '99999999-9999-4999-8999-999999999999',
+      coach: 'FP TEST Coach',
+      created_by_name: 'FP TEST Coach',
+      created_by_email: 'fp.test.coach@example.test',
+      created_at: '2026-07-29T12:00:00.000Z',
+      date: '29/07/2026',
+      feedback_form_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      feedback_form_name: 'FP TEST Full Development Form',
+      feedback_form_version: 3,
+      feedback_form_snapshot: {
+        formId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        formName: 'FP TEST Full Development Form',
+        formVersion: 3,
+        templateKey: 'fp-test-full-development',
+        fields,
+      },
+      form_responses: formResponses,
+    }),
+    evaluations: [
+      evaluation({
+        average_score: 4,
+        created_at: '2026-07-01T12:00:00.000Z',
+        date: '01/07/2026',
+        feedback_form_snapshot: { fields },
+        form_responses: formResponses,
+      }),
+      evaluation({
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        average_score: 5,
+        created_at: '2026-07-29T12:00:00.000Z',
+        date: '29/07/2026',
+        feedback_form_snapshot: { fields },
+        form_responses: formResponses,
+      }),
+    ],
+  })
+
+  assert.equal(report.version, 1)
+  assert.equal(report.responseItems.length, 12)
+  assert.deepEqual(report.responseItems.slice(0, 9).map((item) => item.fieldId), ratingFields.map((field) => field.id))
+  assert.equal(report.responseItems[0].rawValue, 1)
+  assert.equal(report.responseItems[0].displayValue, '1 / 10 - Well Below Standard')
+  assert.equal(report.responseItems[8].ratingLabel, 'Excellent')
+  assert.equal(report.responseItems[9].rawValue, 'Keep scanning before receiving.')
+  assert.equal(report.overallScore, 5)
+  assert.equal(report.form.version, 3)
+  assert.equal(report.author.name, 'FP TEST Coach')
+  assert.equal(report.recipients[0].linkId, link().id)
+  assert.equal(report.historyCutoffAt, '2026-07-29T12:00:00.000Z')
+  assert.deepEqual(report.emailSections.map((section) => section.key), [
+    'attendanceSummary',
+    'progressionChart',
+  ])
+  assert.doesNotMatch(JSON.stringify(report), /Do not disclose|Browser-controlled/)
+})
+
+test('zero and false responses remain exportable and reconstruct from saved values', () => {
+  const fields = [
+    {
+      id: 'number-zero',
+      label: 'Number zero',
+      type: 'number',
+      parentVisible: true,
+      orderIndex: 1,
+    },
+    {
+      id: 'boolean-false',
+      label: 'Boolean false',
+      type: 'boolean',
+      parentVisible: true,
+      orderIndex: 2,
+    },
+  ]
+  const responseItems = createResponseItems(fields, {
+    'number-zero': 0,
+    'boolean-false': false,
+  })
+  const report = resolveDevelopmentParentReport({
+    club: { id: clubId, name: 'FP TEST Club' },
+    team: { id: teamId, name: 'FP TEST Team' },
+    player: player(),
+    requestedResponses: responseItems,
+    evaluation: evaluation({
+      form_responses: {
+        'Number zero': 0,
+        'Boolean false': false,
+      },
+      feedback_form_snapshot: { fields },
+    }),
+  })
+
+  assert.equal(isExportableResponseValue(0), true)
+  assert.equal(isExportableResponseValue(false), true)
+  assert.equal(responseItems.length, 2)
+  assert.equal(report.responseItems[0].rawValue, 0)
+  assert.equal(report.responseItems[0].displayValue, '0')
+  assert.equal(report.responseItems[1].rawValue, false)
+  assert.equal(report.responseItems[1].displayValue, 'false')
+})
+
+test('saved canonical report wins over later browser requests and historical rows reconstruct safely', () => {
+  const savedReport = resolveDevelopmentParentReport({
+    club: { id: clubId, name: 'FP TEST Club' },
+    team: { id: teamId, name: 'FP TEST Team' },
+    player: player(),
+    recipients: [{ linkId: link().id, name: 'FP TEST Parent' }],
+    requestedResponses: [{ fieldId: 'technical', label: 'Technical' }],
+    evaluation: evaluation({
+      feedback_form_snapshot: {
+        fields: [
+          {
+            id: 'technical',
+            label: 'Technical',
+            type: 'score_1_10',
+            isDefault: true,
+            orderIndex: 1,
+            value: 7,
+          },
+          {
+            id: 'private',
+            label: 'Staff note',
+            type: 'textarea',
+            parentVisible: false,
+            orderIndex: 2,
+            value: 'Internal only.',
+          },
+        ],
+      },
+    }),
+  })
+  const saved = getDevelopmentParentReport({
+    context: {
+      club: { id: clubId, name: 'FP TEST Club' },
+      team: { id: teamId, name: 'FP TEST Team' },
+      player: player(),
+      evaluation: evaluation({
+        development_parent_report: savedReport,
+      }),
+      evaluations: [],
+      recipient: { linkId: link().id, name: 'FP TEST Parent' },
+    },
+    requestedResponses: [{ label: 'Staff note', value: 'Attempted leak.' }],
+  })
+  const reconstructed = getDevelopmentParentReport({
+    context: {
+      club: { id: clubId, name: 'FP TEST Club' },
+      team: { id: teamId, name: 'FP TEST Team' },
+      player: player(),
+      evaluation: evaluation({
+        development_parent_report: {},
+      }),
+      evaluations: [evaluation()],
+      recipient: { linkId: link().id, name: 'FP TEST Parent' },
+    },
+    requestedResponses: [{ label: 'Technical', value: 10 }],
+  })
+
+  assert.deepEqual(saved, savedReport)
+  assert.equal(saved.responseItems[0].rawValue, 7)
+  assert.equal(reconstructed.responseItems[0].rawValue, 7)
+  assert.doesNotMatch(JSON.stringify(saved), /Attempted leak|Internal only/)
+})
+
+test('finalization runs after record persistence and before any parent output', async () => {
+  const pageSource = await source('../src/pages/CreateEvaluationPage.jsx')
+  const functionSource = await source('../netlify/functions/send-parent-email.js')
+  const migrationSource = await source('../supabase/migrations/20260729160000_development_parent_report_snapshot.sql')
+  const saveIndex = pageSource.indexOf('const savedEvaluation = canReusePersistedEvaluation')
+  const finalizeIndex = pageSource.indexOf('await finalizeDevelopmentParentReport')
+  const emailIndex = pageSource.indexOf('const emailResults = await Promise.all')
+
+  assert.ok(saveIndex >= 0)
+  assert.ok(finalizeIndex > saveIndex)
+  assert.ok(emailIndex > finalizeIndex)
+  assert.match(functionSource, /action.*finalize_development_parent_report/)
+  assert.match(functionSource, /finalizeDevelopmentParentReportSnapshot/)
+  assert.match(functionSource, /const developmentReport = developmentContext/)
+  assert.match(functionSource, /responseItems: authoritativeResponses/)
+  assert.match(migrationSource, /create table if not exists public\.development_parent_reports/)
+  assert.match(migrationSource, /revoke all on table public\.development_parent_reports from anon, authenticated/)
+  assert.match(migrationSource, /grant select, insert, update, delete on table public\.development_parent_reports to service_role/)
 })
 
 test('provider failure preserves the evaluation and maps to an optional-output result', async () => {

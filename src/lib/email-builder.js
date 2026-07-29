@@ -304,6 +304,36 @@ export function buildPlayerFeedbackSubject({ playerName, teamName, team }) {
   return 'Football Player Report'
 }
 
+export async function finalizeDevelopmentParentReport(data = {}) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+  const response = await fetch('/.netlify/functions/send-parent-email', {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'finalize_development_parent_report',
+      clubId: data.clubId,
+      teamId: data.teamId,
+      playerId: data.playerId,
+      evaluationId: data.evaluationId,
+      selectedParentLinkIds: data.selectedParentLinkIds,
+      responses: data.responses,
+      includeAttendance: data.includeAttendance === true,
+      includeProgression: data.includeProgression !== false,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success !== true) {
+    throw new Error(result.message || 'The Development report snapshot could not be finalized.')
+  }
+
+  return result
+}
+
 export async function sendParentEmail(data) {
   const progressionChartImages = getProgressionChartImages(data.emailSections)
   let chartIndex = 0

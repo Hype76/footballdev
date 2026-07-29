@@ -130,6 +130,7 @@ const requests = {
   draftPosts: [],
   evaluationPosts: [],
   evaluationPatches: [],
+  reportFinalizations: [],
   optionalOutputs: [],
 }
 let delayNextDraftWrite = false
@@ -352,6 +353,17 @@ async function preparePage(context) {
           eligible: true,
           unavailableReason: '',
         }],
+      })
+      return
+    }
+
+    if (payload?.action === 'finalize_development_parent_report') {
+      requests.reportFinalizations.push(payload)
+      await fulfillJson(route, 200, {
+        success: true,
+        evaluationId: payload.evaluationId,
+        reportVersion: 1,
+        responseCount: Array.isArray(payload.responses) ? payload.responses.length : 0,
       })
       return
     }
@@ -790,6 +802,7 @@ try {
     draftPatchCount: requests.draftPatches.length,
     draftPostCount: requests.draftPosts.length,
     evaluationPostCount: requests.evaluationPosts.length,
+    reportFinalizationCount: requests.reportFinalizations.length,
   }))
   console.error(server.getOutput())
   throw error

@@ -25,6 +25,8 @@ import {
   getAuthenticatedPlanProfile,
 } from './lib/_plan-gate.js'
 import {
+  finalizeDevelopmentParentReportSnapshot,
+  getDevelopmentParentReport,
   getParentVisibleDevelopmentEmailSections,
   getParentVisibleDevelopmentResponses,
   loadDevelopmentParentEmailContext,
@@ -472,16 +474,32 @@ export async function prepareParentEmail({ body, requestUser }) {
   const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
   const safeReplyTo = cleanHeaderPart(senderReplyTo || authoritativeReplyTo || replyToEmail || clubContactEmail || clubEmail, '')
   const senderCopyEmails = getSenderCopyEmails(senderEmail, recipients)
-  const authoritativeResponses = developmentContext
-    ? getParentVisibleDevelopmentResponses(developmentContext.evaluation, body.responses)
-    : body.responses
-  const authoritativeEmailSections = developmentContext
-    ? getParentVisibleDevelopmentEmailSections({
-        evaluation: developmentContext.evaluation,
-        evaluations: developmentContext.evaluations,
+  const developmentReport = developmentContext
+    ? getDevelopmentParentReport({
+        context: developmentContext,
+        requestedResponses: body.responses,
         requestedSections: body.emailSections,
       })
-    : body.emailSections
+    : null
+  const authoritativeResponses = developmentReport
+    ? developmentReport.responseItems.map((item) => ({
+        fieldId: item.fieldId,
+        fieldType: item.type,
+        label: item.label,
+        value: item.displayValue,
+      }))
+    : developmentContext
+      ? getParentVisibleDevelopmentResponses(developmentContext.evaluation, body.responses)
+      : body.responses
+  const authoritativeEmailSections = developmentReport
+    ? developmentReport.emailSections
+    : developmentContext
+      ? getParentVisibleDevelopmentEmailSections({
+          evaluation: developmentContext.evaluation,
+          evaluations: developmentContext.evaluations,
+          requestedSections: body.emailSections,
+        })
+      : body.emailSections
   const developmentChartImages = outputPolicy.shouldBuildChartAttachments && developmentContext
     ? buildDevelopmentChartImages(authoritativeEmailSections, developmentContext.outputKey)
     : []
@@ -831,6 +849,26 @@ export async function handler(event) {
         pdfAttachmentAvailable:
           isDevelopmentPdfServerEnabled(process.env) &&
           canUsePlanFeature(requestUser, 'pdfReports'),
+      })
+    }
+
+    if (String(body.action ?? '').trim() === 'finalize_development_parent_report') {
+      const report = await finalizeDevelopmentParentReportSnapshot(
+        supabaseAdmin,
+        {
+          evaluationId: body.evaluationId,
+          includeAttendance: body.includeAttendance === true,
+          includeProgression: body.includeProgression !== false,
+          profile: requestUser,
+          requestedResponses: body.responses,
+          selectedParentLinkIds: body.selectedParentLinkIds,
+        },
+      )
+
+      return successResponse({
+        evaluationId: report.evaluationId,
+        reportVersion: report.version,
+        responseCount: report.responseItems.length,
       })
     }
 
