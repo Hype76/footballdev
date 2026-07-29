@@ -22,6 +22,7 @@ const coachId = '44444444-4444-4444-8444-444444444444'
 const evaluationId = '55555555-5555-4555-8555-555555555555'
 const assessmentSessionId = '66666666-6666-4666-8666-666666666666'
 const feedbackFormId = '77777777-7777-4777-8777-777777777777'
+const evaluationActionsPath = new URL('../src/lib/domain/evaluation-actions.js', import.meta.url)
 
 function createBasePayload(overrides = {}) {
   return createEvaluationPayload({
@@ -184,6 +185,16 @@ test('final development record payload keeps active team id when team name looku
   assert.equal(payload.feedbackFormId, feedbackFormId)
   assert.equal(row.team_id, teamId)
   assert.equal(row.feedback_form_id, feedbackFormId)
+})
+
+test('final save preserves the selected scoped player id instead of creating a name-based duplicate', async () => {
+  const source = await readFile(evaluationActionsPath, 'utf8')
+
+  assert.match(source, /async function resolveSelectedEvaluationPlayer\(/)
+  assert.match(source, /\.eq\('id', selectedPlayerId\)[\s\S]*\.eq\('club_id', clubId\)/)
+  assert.match(source, /if \(teamId\) \{[\s\S]*query = query\.eq\('team_id', teamId\)/)
+  assert.match(source, /playerId: data\.playerId,[\s\S]*const existingPlayer = selectedPlayer \|\| await findExistingPlayer/)
+  assert.match(source, /if \(!existingPlayer\?\.id\) \{[\s\S]*await assertPlayerLimitForUpsert/)
 })
 
 test('final development record payload requires a valid report date', () => {

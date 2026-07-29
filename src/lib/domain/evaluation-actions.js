@@ -70,6 +70,44 @@ async function recoverCreatedEvaluationFromDuplicateId(payload) {
   return data || null
 }
 
+async function resolveSelectedEvaluationPlayer({
+  clubId,
+  playerId,
+  teamId,
+}) {
+  const selectedPlayerId = String(playerId ?? '').trim()
+
+  if (!selectedPlayerId) {
+    return null
+  }
+
+  let query = supabase
+    .from('players')
+    .select('id, club_id, team_id')
+    .eq('id', selectedPlayerId)
+    .eq('club_id', clubId)
+
+  if (teamId) {
+    query = query.eq('team_id', teamId)
+  }
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  if (!data?.id) {
+    throw Object.assign(
+      new Error('The selected player could not be matched to this club and team.'),
+      { code: 'SELECTED_PLAYER_SCOPE_MISMATCH' },
+    )
+  }
+
+  return data
+}
+
 export async function createEvaluation(data) {
   const evaluationUser = {
     id: data.coachId,
@@ -152,22 +190,30 @@ export async function createEvaluation(data) {
   }
 
   if (data.clubId && data.playerName && data.section) {
-    await assertPlayerLimitForUpsert({
-      user: evaluationUser,
+    const selectedPlayer = await resolveSelectedEvaluationPlayer({
       clubId: data.clubId,
-      section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
-      playerName: data.playerName,
-      team: data.team,
+      playerId: data.playerId,
       teamId: linkedTeamId || data.teamId,
     })
-
-    const existingPlayer = await findExistingPlayer({
+    const existingPlayer = selectedPlayer || await findExistingPlayer({
       clubId: data.clubId,
       section: data.section,
       playerName: data.playerName,
       team: data.team,
       teamId: linkedTeamId || data.teamId,
     })
+
+    if (!existingPlayer?.id) {
+      await assertPlayerLimitForUpsert({
+        user: evaluationUser,
+        clubId: data.clubId,
+        section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
+        playerName: data.playerName,
+        team: data.team,
+        teamId: linkedTeamId || data.teamId,
+      })
+    }
+
     const playerPayload = {
       club_id: data.clubId,
       team_id: linkedTeamId || data.teamId || null,
