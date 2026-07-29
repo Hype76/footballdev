@@ -6,10 +6,12 @@ import { test } from 'node:test'
 const migrationUrl = new URL('../supabase/migrations/20260729090000_event_player_communications_v1.sql', import.meta.url)
 const resendConfirmationMigrationUrl = new URL('../supabase/migrations/20260729093000_event_player_comms_resend_confirmation.sql', import.meta.url)
 const recipientTypeMigrationUrl = new URL('../supabase/migrations/20260729094500_event_player_recipient_type_alignment.sql', import.meta.url)
-const [migration, resendConfirmationMigration, recipientTypeMigration] = await Promise.all([
+const deleteCleanupMigrationUrl = new URL('../supabase/migrations/20260729100000_event_player_delete_cleanup.sql', import.meta.url)
+const [migration, resendConfirmationMigration, recipientTypeMigration, deleteCleanupMigration] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(resendConfirmationMigrationUrl, 'utf8'),
   readFile(recipientTypeMigrationUrl, 'utf8'),
+  readFile(deleteCleanupMigrationUrl, 'utf8'),
 ])
 
 const ids = {
@@ -240,6 +242,7 @@ async function createDatabase() {
   await db.exec(migration)
   await db.exec(resendConfirmationMigration)
   await db.exec(recipientTypeMigration)
+  await db.exec(deleteCleanupMigration)
 
   await db.exec(`
     insert into auth.users(id) values ('${ids.actor}'), ('${ids.parent}');
@@ -384,6 +387,39 @@ test('delta notification queues only new valid contacts and keeps missing contac
   assert.equal(result.rows[0].result.queuedCount, 1)
   assert.equal(result.rows[0].result.missingContactCount, 1)
   assert.deepEqual(queue.rows, [{ to_email: 'three@example.test', notification_kind: 'player_added' }])
+  await db.close()
+})
+
+test('event deletion cancels pending communication and cascades command history safely', async () => {
+  const db = await createDatabase()
+  const token = '80000000-0000-4000-8000-000000000010'
+
+  const result = await db.query(`
+    select public.apply_event_player_changes(
+      'calendar',
+      '${ids.event}',
+      array['${ids.player1}'::uuid, '${ids.player2}'::uuid],
+      'notify_added',
+      '${token}',
+      false
+    ) as result
+  `)
+  assert.equal(result.rows[0].result.queuedCount, 1)
+
+  await db.exec(`delete from public.calendar_events where id = '${ids.event}'`)
+
+  const counts = await db.query(`
+    select
+      (select count(*)::integer from public.event_player_change_commands) as commands,
+      (select count(*)::integer from public.event_player_notification_events) as notifications,
+      (select count(*)::integer from public.scheduled_email_queue) as queue
+  `)
+  assert.deepEqual(counts.rows[0], {
+    commands: 0,
+    notifications: 0,
+    queue: 0,
+  })
+
   await db.close()
 })
 

@@ -5,15 +5,17 @@ import { test } from 'node:test'
 const migrationUrl = new URL('../supabase/migrations/20260729090000_event_player_communications_v1.sql', import.meta.url)
 const resendConfirmationMigrationUrl = new URL('../supabase/migrations/20260729093000_event_player_comms_resend_confirmation.sql', import.meta.url)
 const recipientTypeMigrationUrl = new URL('../supabase/migrations/20260729094500_event_player_recipient_type_alignment.sql', import.meta.url)
+const deleteCleanupMigrationUrl = new URL('../supabase/migrations/20260729100000_event_player_delete_cleanup.sql', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/event-player-management.js', import.meta.url)
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const scheduledEmailProcessorUrl = new URL('../netlify/functions/process-scheduled-emails.js', import.meta.url)
 
-const [migration, resendConfirmationMigration, recipientTypeMigration, domain, sessionsPage, matchDayPage, scheduledEmailProcessor] = await Promise.all([
+const [migration, resendConfirmationMigration, recipientTypeMigration, deleteCleanupMigration, domain, sessionsPage, matchDayPage, scheduledEmailProcessor] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(resendConfirmationMigrationUrl, 'utf8'),
   readFile(recipientTypeMigrationUrl, 'utf8'),
+  readFile(deleteCleanupMigrationUrl, 'utf8'),
   readFile(domainUrl, 'utf8'),
   readFile(sessionsPageUrl, 'utf8'),
   readFile(matchDayPageUrl, 'utf8'),
@@ -81,6 +83,8 @@ test('notifications are delta scoped and retries cannot duplicate queue ledgers'
   assert.match(sessionsPage, /confirmResendAll: communicationMode === EVENT_PLAYER_COMMUNICATION_MODES\.resendAll/)
   assert.match(recipientTypeMigration, /'parent_guardian'::text as recipient_type/)
   assert.doesNotMatch(recipientTypeMigration, /else 'parent'/)
+  assert.match(deleteCleanupMigration, /on delete cascade/)
+  assert.match(deleteCleanupMigration, /cancel_event_player_command_queue/)
 })
 
 test('match selection and training history safeguards are explicit', () => {
