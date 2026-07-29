@@ -803,6 +803,7 @@ export function writeSessionAssessmentProgress({ assessmentSessionId, playerName
 
 export function buildParentEmailJobs({
   allowServerRecipientResolution = false,
+  attachPdf = false,
   contactAudiences,
   emailSections = [],
   emailTemplates,
@@ -900,6 +901,9 @@ export function buildParentEmailJobs({
             outputContext: contactType === playerContactTypes.parent
               ? DEVELOPMENT_PARENT_OUTPUT_CONTEXT
               : DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
+            attachPdf:
+              attachPdf === true &&
+              contactType === playerContactTypes.parent,
             selectedParentLinkIds: usesServerRecipientResolution && contact?.linkId
               ? [contact.linkId]
               : [],

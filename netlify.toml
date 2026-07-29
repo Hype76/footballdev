@@ -3,7 +3,9 @@
   publish = "dist"
 
 [build.environment]
+  ENABLE_DEVELOPMENT_PDF = "false"
   NODE_VERSION = "22.17.0"
+  VITE_ENABLE_DEVELOPMENT_PDF = "false"
   VITE_PAYMENTS_DISABLED = "true"
 
 [build.processing.html]
@@ -21,18 +23,24 @@
   command = "npm run build:live && npm run verify:build-env"
 
 [context.production.environment]
+  ENABLE_DEVELOPMENT_PDF = "true"
+  VITE_ENABLE_DEVELOPMENT_PDF = "true"
   VITE_PAYMENTS_DISABLED = "false"
 
 [context.branch-deploy]
   command = "node scripts/staging-retired.mjs branch-deploy"
 
 [context.branch-deploy.environment]
+  ENABLE_DEVELOPMENT_PDF = "false"
+  VITE_ENABLE_DEVELOPMENT_PDF = "false"
   VITE_PAYMENTS_DISABLED = "true"
 
 [context.deploy-preview]
   command = "npm run build:live && npm run verify:build-env"
 
 [context.deploy-preview.environment]
+  ENABLE_DEVELOPMENT_PDF = "false"
+  VITE_ENABLE_DEVELOPMENT_PDF = "false"
   VITE_PAYMENTS_DISABLED = "true"
 
 [[redirects]]

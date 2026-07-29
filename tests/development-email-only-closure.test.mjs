@@ -63,15 +63,18 @@ function buildDevelopmentEmailJob() {
   })[0]
 }
 
-test('Development output choices are email selected parents or internal only with no PDF control', async () => {
+test('Development PDF control is deliberate and capability gated while internal-only remains available', async () => {
   const createPage = await source('../src/pages/CreateEvaluationPage.jsx')
   const submitSection = await source('../src/components/evaluations/SubmitExportSection.jsx')
   const profileModals = await source('../src/components/players/PlayerProfileModals.jsx')
 
-  assert.match(createPage, /isEmailEnabled \? 'Email selected parents' : 'Internal only'/)
+  assert.match(createPage, /isDevelopmentPdfClientEnabled\(import\.meta\.env\)/)
+  assert.match(createPage, /canUseUiFeature\(user, CAPABILITIES\.pdfReports\)/)
   assert.match(submitSection, />Email selected parents</)
-  assert.doesNotMatch(createPage, /Email and PDF|Attach development PDF|isPdfAttachmentApproved/)
-  assert.doesNotMatch(submitSection, /Email and PDF|email and PDF|Attach development PDF|isPdfAttachmentApproved/)
+  assert.match(createPage, /useState\(false\)/)
+  assert.match(submitSection, /\{canUseDevelopmentPdf \? \(/)
+  assert.match(submitSection, />Attach development PDF</)
+  assert.match(submitSection, /disabled=\{isSubmitting\}/)
   assert.doesNotMatch(profileModals, /Attach development PDF/)
   assert.match(profileModals, /emailConfirmTarget\?\.evaluation\?\.isDirectEmail/)
   assert.match(profileModals, /Output: Email selected parents/)
@@ -90,17 +93,17 @@ test('legacy email and PDF browser preferences normalize to email-only and PDF s
   assert.equal(Object.prototype.hasOwnProperty.call(payload, 'isPdfAttachmentApproved'), false)
 })
 
-test('Development browser payload identifies the saved record and does not request or describe a PDF', () => {
+test('Development browser payload identifies the saved record and defaults to no PDF request', () => {
   const job = buildDevelopmentEmailJob()
 
   assert.equal(job.payload.outputContext, DEVELOPMENT_PARENT_OUTPUT_CONTEXT)
   assert.deepEqual(job.payload.selectedParentLinkIds, ['77777777-7777-4777-8777-777777777777'])
-  assert.equal(Object.prototype.hasOwnProperty.call(job.payload, 'attachPdf'), false)
+  assert.equal(job.payload.attachPdf, false)
   assert.equal(Object.prototype.hasOwnProperty.call(job.payload, 'includePdf'), false)
   assert.equal(Object.prototype.hasOwnProperty.call(job.payload, 'pdfDocument'), false)
 })
 
-test('server policy ignores stale Development PDF flags and suppresses all browser rendering attachments', () => {
+test('server policy fails closed unless the trusted Development PDF activation is present', () => {
   const attachPolicy = resolveDevelopmentEmailOutputPolicy({
     outputContext: DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
     attachPdf: true,
@@ -118,6 +121,18 @@ test('server policy ignores stale Development PDF flags and suppresses all brows
     outputContext: DIRECT_PARENT_EMAIL_OUTPUT_CONTEXT,
     attachPdf: true,
   })
+  const enabledPolicy = resolveDevelopmentEmailOutputPolicy({
+    outputContext: DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
+    attachPdf: true,
+  }, {
+    developmentPdfEnabled: true,
+  })
+  const enabledLegacyIncludePolicy = resolveDevelopmentEmailOutputPolicy({
+    outputContext: DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
+    includePdf: true,
+  }, {
+    developmentPdfEnabled: true,
+  })
 
   for (const policy of [attachPolicy, includePolicy, cachedClientPolicy]) {
     assert.equal(policy.isDevelopmentEmailOnly, true)
@@ -129,12 +144,19 @@ test('server policy ignores stale Development PDF flags and suppresses all brows
   assert.equal(unrelatedPolicy.isDevelopmentEmailOnly, false)
   assert.equal(unrelatedPolicy.shouldAttachPdf, true)
   assert.equal(unrelatedPolicy.shouldBuildChartAttachments, true)
+  assert.equal(enabledPolicy.canAttachDevelopmentPdf, true)
+  assert.equal(enabledPolicy.shouldAttachPdf, true)
+  assert.equal(enabledPolicy.shouldBuildChartAttachments, true)
+  assert.equal(enabledLegacyIncludePolicy.requestedPdf, true)
+  assert.equal(enabledLegacyIncludePolicy.shouldAttachPdf, false)
+  assert.equal(enabledLegacyIncludePolicy.shouldBuildChartAttachments, false)
 })
 
-test('server gates Chromium, chart and PDF work behind the email-only policy', async () => {
+test('server gates Chromium, chart and PDF work behind trusted policy and plan checks', async () => {
   const functionSource = await source('../netlify/functions/send-parent-email.js')
 
   assert.match(functionSource, /const shouldAttachPdf = outputPolicy\.shouldAttachPdf/)
+  assert.match(functionSource, /isDevelopmentPdfServerEnabled\(process\.env\)/)
   assert.match(functionSource, /const chartAttachments = outputPolicy\.shouldBuildChartAttachments/)
   assert.match(functionSource, /const authoritativePdfDocument = shouldAttachPdf/)
   assert.match(functionSource, /const pdfAttachments = shouldAttachPdf \? await buildPdfAttachment/)

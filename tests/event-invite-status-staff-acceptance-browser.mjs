@@ -450,7 +450,7 @@ try {
   await mobileActionSheet.waitFor({ state: 'visible' })
   assert.deepEqual(
     await mobileActionSheet.getByRole('menuitem').allTextContents(),
-    ['Edit event', 'Move or reschedule', 'Cancel fixture'],
+    ['Manage invited players', 'Edit event', 'Move or reschedule', 'Cancel fixture'],
   )
   await mobile.page.keyboard.press('Escape')
   await mobileActionSheet.waitFor({ state: 'hidden' })

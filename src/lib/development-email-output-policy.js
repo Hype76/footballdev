@@ -25,6 +25,8 @@ export function resolveDevelopmentEmailOutputPolicy({
   evaluationId = '',
   includePdf = false,
   outputContext = '',
+} = {}, {
+  developmentPdfEnabled = false,
 } = {}) {
   const normalizedOutputContext = String(outputContext ?? '').trim()
   const isLegacyDevelopmentRequest =
@@ -32,13 +34,19 @@ export function resolveDevelopmentEmailOutputPolicy({
   const isDevelopmentEmailOnly =
     DEVELOPMENT_EMAIL_ONLY_OUTPUT_CONTEXTS.has(normalizedOutputContext) ||
     isLegacyDevelopmentRequest
+  const canAttachDevelopmentPdf =
+    normalizedOutputContext === DEVELOPMENT_PARENT_OUTPUT_CONTEXT &&
+    developmentPdfEnabled === true
+  const requestedPdf = attachPdf === true || includePdf === true
 
   return {
+    canAttachDevelopmentPdf,
+    developmentPdfEnabled: developmentPdfEnabled === true,
     isDevelopmentEmailOnly,
     requiresDevelopmentParentResolution: normalizedOutputContext === DEVELOPMENT_PARENT_OUTPUT_CONTEXT,
-    requestedPdf: attachPdf === true || includePdf === true,
-    shouldAttachPdf: !isDevelopmentEmailOnly && attachPdf === true,
-    shouldBuildChartAttachments: !isDevelopmentEmailOnly,
+    requestedPdf,
+    shouldAttachPdf: attachPdf === true && (!isDevelopmentEmailOnly || canAttachDevelopmentPdf),
+    shouldBuildChartAttachments: !isDevelopmentEmailOnly || (canAttachDevelopmentPdf && attachPdf === true),
   }
 }
 

@@ -7,6 +7,7 @@ import {
   normalizeDevelopmentEmailBody,
   resolveDevelopmentEmailOutputPolicy,
 } from '../../src/lib/development-email-output-policy.js'
+import { isDevelopmentPdfServerEnabled } from '../../src/lib/development-pdf-feature.js'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import {
   createEmailDedupeKey,
@@ -374,7 +375,9 @@ export async function prepareParentEmail({ body, requestUser }) {
     throw Object.assign(new Error('The email request is not valid.'), { statusCode: 400 })
   }
 
-  const outputPolicy = resolveDevelopmentEmailOutputPolicy(body)
+  const outputPolicy = resolveDevelopmentEmailOutputPolicy(body, {
+    developmentPdfEnabled: isDevelopmentPdfServerEnabled(process.env),
+  })
 
   const normalizedSenderEmail = normaliseEmail(senderEmail)
   const bodyUserId = String(body.userId ?? '').trim()

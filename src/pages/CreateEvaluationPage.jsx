@@ -24,6 +24,7 @@ import { sendParentEmail } from '../lib/email-builder.js'
 import {
   getDevelopmentParentEmailRecipientCandidates,
 } from '../lib/domain/development-parent-email-recipients.js'
+import { isDevelopmentPdfClientEnabled } from '../lib/development-pdf-feature.js'
 import { buildPlayerProgressionData, buildProgressionEmailSections } from '../lib/player-progression.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
@@ -426,6 +427,7 @@ function DevelopmentRecordCommandPanel({
   enabledFieldCount,
   formData,
   isEmailEnabled,
+  isPdfAttachmentApproved,
   previousEvaluationCount,
   selectedContactCount,
   selectedResponseCount,
@@ -488,7 +490,9 @@ function DevelopmentRecordCommandPanel({
           Previous records: <span className="font-black text-[#101828]">{previousEvaluationCount}</span>
         </p>
         <p>
-          Output: <span className="font-black text-[#101828]">{isEmailEnabled ? 'Email selected parents' : 'Internal only'}</span>
+          Output: <span className="font-black text-[#101828]">{isEmailEnabled
+            ? isPdfAttachmentApproved ? 'Email selected parents with PDF' : 'Email selected parents'
+            : 'Internal only'}</span>
         </p>
         <p className="md:col-span-3">
           Recipients: <span className="font-black text-[#101828]">{selectedContactCount} selected {contactNounPlural}</span>
@@ -593,6 +597,9 @@ export function CreateEvaluationPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
   const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
+  const hasDevelopmentPdfAccess =
+    isDevelopmentPdfClientEnabled(import.meta.env) &&
+    canUseUiFeature(user, CAPABILITIES.pdfReports)
   const searchParamsKey = searchParams.toString()
   const editingEvaluationId = String(searchParams.get('evaluationId') ?? '').trim()
   const requestedAssessmentSection = String(searchParams.get('section') ?? '').trim()
@@ -635,6 +642,7 @@ export function CreateEvaluationPage() {
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
+  const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
   const [includeAttendanceSummary, setIncludeAttendanceSummary] = useState(true)
   const [emailSendMode, setEmailSendMode] = useState('now')
   const [scheduledEmailDateTime, setScheduledEmailDateTime] = useState('')
@@ -1529,6 +1537,7 @@ export function CreateEvaluationPage() {
     [formData.team, normalizedCurrentPlayerName, savedPlayers, user?.activeTeamId],
   )
   const useLinkedParentRecipients = normalizedContactType !== PLAYER_CONTACT_TYPES.self
+  const canUseDevelopmentPdf = hasDevelopmentPdfAccess && useLinkedParentRecipients
   const developmentRecipientTeamId = String(
     archiveCandidatePlayer?.teamId ||
     availableTeams.find((team) => team.name === formData.team)?.id ||
@@ -1671,32 +1680,44 @@ export function CreateEvaluationPage() {
       : 'Save Reminder and Send Email'
     : 'Save Reminder'
 
-  const getCompletionModalForOutcome = ({ outcome, playerName }) => {
+  const getCompletionModalForOutcome = ({ outcome, playerName, requestedPdf = false }) => {
     if (outcome === 'sent') {
       return {
-        title: 'Development record saved and email sent',
-        message: `${playerName} development record has been saved and the parent email has been sent.`,
+        title: requestedPdf
+          ? 'Development record saved and email sent with PDF'
+          : 'Development record saved and email sent',
+        message: requestedPdf
+          ? `${playerName} development record has been saved and the parent email was sent with its requested PDF attachment.`
+          : `${playerName} development record has been saved and the parent email has been sent.`,
       }
     }
 
     if (outcome === 'scheduled') {
       return {
-        title: 'Development record saved and email scheduled',
-        message: `${playerName} development record has been saved and the parent email has been scheduled.`,
+        title: requestedPdf
+          ? 'Development record saved and email with PDF scheduled'
+          : 'Development record saved and email scheduled',
+        message: requestedPdf
+          ? `${playerName} development record has been saved and the parent email was scheduled with its requested PDF attachment.`
+          : `${playerName} development record has been saved and the parent email has been scheduled.`,
       }
     }
 
     if (outcome === 'send_failed') {
       return {
         title: 'Development Record saved, but optional output did not complete',
-        message: 'Development Record saved, but the parent email could not be sent. Please try again later.',
+        message: requestedPdf
+          ? 'Development Record saved, but the requested PDF could not be attached, so no parent email was sent. Please retry when ready.'
+          : 'Development Record saved, but the parent email could not be sent. Please try again later.',
       }
     }
 
     if (outcome === 'schedule_failed') {
       return {
         title: 'Development Record saved, but optional output did not complete',
-        message: 'Development Record saved, but the parent email could not be sent. Please try again later.',
+        message: requestedPdf
+          ? 'Development Record saved, but the requested PDF email could not be scheduled. Please retry when ready.'
+          : 'Development Record saved, but the parent email could not be sent. Please try again later.',
       }
     }
 
@@ -1943,6 +1964,12 @@ export function CreateEvaluationPage() {
   }, [isDemoAccount, previewMode])
 
   useEffect(() => {
+    if (!canUseDevelopmentPdf && isPdfAttachmentApproved) {
+      setIsPdfAttachmentApproved(false)
+    }
+  }, [canUseDevelopmentPdf, isPdfAttachmentApproved])
+
+  useEffect(() => {
     if (restoredPrivateDraftExportLabelsRef.current) {
       setSelectedExportLabels(restoredPrivateDraftExportLabelsRef.current)
       restoredPrivateDraftExportLabelsRef.current = null
@@ -2013,6 +2040,7 @@ export function CreateEvaluationPage() {
     privateDraftInfoRef.current = null
     setPrivateDraftInfo(null)
     setResponseValues(createEmptyResponseValues(dynamicFields))
+    setIsPdfAttachmentApproved(false)
     clearDraftBaseline('idle')
   }
 
@@ -2303,6 +2331,10 @@ export function CreateEvaluationPage() {
             throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
           }
 
+          if (isPdfAttachmentApproved && !canUseDevelopmentPdf) {
+            throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.pdfReports))
+          }
+
           setIsSendingParentEmail(true)
           const isScheduledSend = emailSendMode === 'scheduled'
 
@@ -2335,6 +2367,7 @@ export function CreateEvaluationPage() {
 
           const emailJobs = buildParentEmailJobs({
             allowServerRecipientResolution: true,
+            attachPdf: isPdfAttachmentApproved,
             contactAudiences,
             emailSections: assessmentEmailSections,
             emailTemplates,
@@ -2376,7 +2409,7 @@ export function CreateEvaluationPage() {
                     team: emailJob.payload?.team || '',
                     club: emailJob.payload?.club || '',
                     playerName: normalizedPlayerName,
-                    hasAttachment: false,
+                    hasAttachment: emailJob.payload?.attachPdf === true,
                     scheduledAt,
                     assessmentFields: selectedResponseItems,
                   },
@@ -2418,7 +2451,9 @@ export function CreateEvaluationPage() {
                   team: newlyCompletedEmailJobs[0]?.emailJob?.payload?.team || '',
                   club: newlyCompletedEmailJobs[0]?.emailJob?.payload?.club || '',
                   playerName: normalizedPlayerName,
-                  hasAttachment: false,
+                  hasAttachment: newlyCompletedEmailJobs.some(
+                    ({ emailJob }) => emailJob.payload?.attachPdf === true,
+                  ),
                   scheduledAt,
                   assessmentFields: selectedResponseItems,
                 },
@@ -2526,9 +2561,11 @@ export function CreateEvaluationPage() {
       setCompletionModal(getCompletionModalForOutcome({
         outcome: completionOutcome,
         playerName: normalizedPlayerName,
+        requestedPdf: isPdfAttachmentApproved,
       }))
       if (!shouldPreserveSavedRecordForRetry) {
         persistedEvaluationForRetryRef.current = null
+        setIsPdfAttachmentApproved(false)
       }
       setArchiveAfterNoPlace(false)
       if (!isNoPlaceOfferedTemplate) {
@@ -2564,6 +2601,7 @@ export function CreateEvaluationPage() {
     markDraftUnsaved()
 
     if (!shouldEmail) {
+      setIsPdfAttachmentApproved(false)
       setEmailSendMode('now')
       setScheduledEmailDateTime('')
     }
@@ -2809,6 +2847,7 @@ export function CreateEvaluationPage() {
           enabledFieldCount={enabledFields.length}
           formData={formData}
           isEmailEnabled={previewMode === 'email'}
+          isPdfAttachmentApproved={isPdfAttachmentApproved}
           previousEvaluationCount={previousEvaluations.length}
           selectedContactCount={selectedParentContacts.length}
           selectedResponseCount={selectedResponseItems.length}
@@ -2882,6 +2921,7 @@ export function CreateEvaluationPage() {
                 canArchiveAfterNoPlace={canArchiveAfterNoPlace}
                 canSaveDraft={!editingEvaluation}
                 canSubmitEvaluation={canSubmitEvaluation}
+                canUseDevelopmentPdf={canUseDevelopmentPdf}
                 contactNoun={contactNoun}
                 hasSavedExportSelection={hasSavedExportSelection}
                 includeAttendanceSummary={includeAttendanceSummary}
@@ -2890,6 +2930,7 @@ export function CreateEvaluationPage() {
                 isLoadingEmailTemplates={isLoadingEmailTemplates}
                 isLoadingDraft={isLoadingDraft}
                 isNoPlaceOfferedTemplate={isNoPlaceOfferedTemplate}
+                isPdfAttachmentApproved={isPdfAttachmentApproved}
                 isSaved={isSaved}
                 isSendingParentEmail={isSendingParentEmail}
                 isSavingDraft={isSavingDraft}
@@ -2908,6 +2949,9 @@ export function CreateEvaluationPage() {
                 onIncludeAttendanceSummaryChange={(value) => {
                   setIncludeAttendanceSummary(value)
                   markDraftUnsaved()
+                }}
+                onPdfAttachmentApprovedChange={(value) => {
+                  setIsPdfAttachmentApproved(Boolean(value) && canUseDevelopmentPdf)
                 }}
                 onEmailSendModeChange={(value) => {
                   setEmailSendMode(value)

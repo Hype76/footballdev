@@ -61,7 +61,7 @@ test('manual downloads validate the PDF and prevent repeated mobile taps', async
   assert.match(download, /link\.download = PDF_DOWNLOAD_FILENAME/)
 })
 
-test('shared PDF caller map stays structured and Development controls remain dark', async () => {
+test('shared PDF caller map stays structured and Development activation remains fail closed', async () => {
   const developmentPolicy = await source('../src/lib/development-email-output-policy.js')
   const directEmailCaller = await source('../src/hooks/players/playerProfileUtils.js')
   const developmentCreate = await source('../src/pages/CreateEvaluationPage.jsx')
@@ -72,7 +72,8 @@ test('shared PDF caller map stays structured and Development controls remain dar
   const endpoint = await source('../netlify/functions/render-pdf.js')
 
   assert.match(developmentPolicy, /isDevelopmentEmailOnly/)
-  assert.match(developmentPolicy, /shouldAttachPdf: !isDevelopmentEmailOnly/)
+  assert.match(developmentPolicy, /canAttachDevelopmentPdf/)
+  assert.match(developmentPolicy, /attachPdf === true && \(!isDevelopmentEmailOnly \|\| canAttachDevelopmentPdf\)/)
   assert.match(directEmailCaller, /buildAssessmentPdfDocument/)
   assert.match(activity, /exportCommunicationPdf/)
   assert.match(emailFunction, /buildProgressionChartPngBuffer/)
@@ -80,8 +81,9 @@ test('shared PDF caller map stays structured and Development controls remain dar
   assert.match(endpoint, /loadCommunicationPdfDocument/)
   assert.match(endpoint, /FIXED_FILENAME = 'football-player-report\.pdf'/)
   assert.match(matchDay, /%PDF-1\.4/)
-  assert.doesNotMatch(developmentCreate, /Email and PDF|Attach development PDF/)
-  assert.doesNotMatch(developmentSubmit, /Email and PDF|Attach development PDF/)
+  assert.match(developmentCreate, /isDevelopmentPdfClientEnabled\(import\.meta\.env\)/)
+  assert.match(developmentSubmit, /\{canUseDevelopmentPdf \? \(/)
+  assert.match(developmentSubmit, /Attach development PDF/)
 })
 
 test('structured response cards paginate as explicit rows without Chromium grid fragmentation', async () => {

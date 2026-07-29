@@ -17,6 +17,7 @@ export function SubmitExportSection({
   canArchiveAfterNoPlace,
   canSaveDraft,
   canSubmitEvaluation,
+  canUseDevelopmentPdf,
   contactNoun,
   hasSavedExportSelection,
   includeAttendanceSummary,
@@ -25,6 +26,7 @@ export function SubmitExportSection({
   isLoadingEmailTemplates,
   isLoadingDraft,
   isNoPlaceOfferedTemplate,
+  isPdfAttachmentApproved,
   isSaved,
   isSendingParentEmail,
   isSavingDraft,
@@ -39,6 +41,7 @@ export function SubmitExportSection({
   onScheduledEmailDateTimeChange,
   onEmailAfterSaveChange,
   onIncludeAttendanceSummaryChange,
+  onPdfAttachmentApprovedChange,
   onPrintBlankForm,
   onReorderExportField,
   onSaveDraft,
@@ -139,7 +142,25 @@ export function SubmitExportSection({
             </label>
           ) : null}
 
-          <div className="md:col-span-2">
+          {canUseDevelopmentPdf ? (
+            <label className={`${choiceCardClass} h-full`}>
+              <input
+                type="checkbox"
+                checked={Boolean(isPdfAttachmentApproved)}
+                onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
+                disabled={isSubmitting}
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Deliberately include the selected development details and progression chart as a PDF attachment.
+                </span>
+              </span>
+            </label>
+          ) : null}
+
+          <div className={canUseDevelopmentPdf ? '' : 'md:col-span-2'}>
             <label className={`${choiceCardClass} h-full`}>
               <input
                 type="checkbox"
@@ -213,7 +234,7 @@ export function SubmitExportSection({
             <div>
               <p className="text-sm font-black text-[#101828]">Football details to include</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Choose what goes into the {contactNoun} email. This choice is saved in this browser for this player.
+                Choose what goes into the {contactNoun} email{isPdfAttachmentApproved ? ' and attached PDF' : ''}. This choice is saved in this browser for this player.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
