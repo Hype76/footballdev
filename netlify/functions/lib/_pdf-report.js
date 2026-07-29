@@ -228,6 +228,7 @@ export async function loadCommunicationPdfDocument({
   profile,
   clubId,
   communicationLogId,
+  diagnostics = null,
 }) {
   const normalizedClubId = normalizeText(clubId)
   const normalizedLogId = normalizeText(communicationLogId)
@@ -271,6 +272,12 @@ export async function loadCommunicationPdfDocument({
       teamId: resourceTeamId,
     }),
   ])
+
+  if (diagnostics) {
+    diagnostics.teamId = team.id
+    diagnostics.authorityResult = 'authorized'
+    diagnostics.rendererStage = 'resource_resolved'
+  }
 
   return buildParentMessagePdfDocument({
     clubName,

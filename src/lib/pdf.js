@@ -3,6 +3,8 @@ import { supabase } from './supabase-client.js'
 
 const PDF_DOWNLOAD_TIMEOUT_MS = 15_000
 const PDF_DOWNLOAD_FILENAME = 'football-player-report.pdf'
+const PDF_MIN_BYTES = 512
+const PDF_MAX_BYTES = 5 * 1024 * 1024
 
 function downloadBlob(blob) {
   const url = URL.createObjectURL(blob)
@@ -10,10 +12,11 @@ function downloadBlob(blob) {
   link.href = url
   link.download = PDF_DOWNLOAD_FILENAME
   link.rel = 'noopener'
+  link.target = '_blank'
   document.body.appendChild(link)
   link.click()
   link.remove()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
 }
 
 async function fetchWithTimeout(url, options, timeoutMs) {
@@ -77,6 +80,19 @@ export async function exportCommunicationPdf({ clubId, communicationLogId }) {
     throw new Error(message)
   }
 
-  const pdfBlob = await response.blob()
+  const contentType = String(response.headers.get('content-type') ?? '').toLowerCase()
+
+  if (!contentType.startsWith('application/pdf')) {
+    throw new Error('PDF export returned an invalid file.')
+  }
+
+  const pdfBytes = new Uint8Array(await response.arrayBuffer())
+  const signature = new TextDecoder('ascii').decode(pdfBytes.subarray(0, 5))
+
+  if (pdfBytes.byteLength < PDF_MIN_BYTES || pdfBytes.byteLength > PDF_MAX_BYTES || signature !== '%PDF-') {
+    throw new Error('PDF export returned an invalid file.')
+  }
+
+  const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
   downloadBlob(pdfBlob)
 }

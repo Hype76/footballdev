@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { buildEmailHtml as buildParentEmailHtml } from '../../src/lib/email-builder.js'
 import { buildPdfBuffer, buildProgressionChartPngBuffer } from '../../src/lib/pdf-builder.js'
 import { buildAssessmentPdfDocument } from '../../src/lib/pdf-document.js'
@@ -34,6 +34,20 @@ import { authorizeAssessmentPdfDocument } from './lib/_pdf-report.js'
 void supabaseAdmin
 
 const DEMO_EMAIL = 'demo@playerfeedback.online'
+const PDF_ATTACHMENT_TIMEOUT_MS = 9_250
+
+function safeReference(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  return normalizedValue
+    ? createHash('sha256').update(normalizedValue).digest('hex').slice(0, 12)
+    : 'none'
+}
+
+function createDeterministicQueueId(value) {
+  const hash = createHash('sha256').update(String(value ?? '')).digest('hex')
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
+}
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
@@ -145,16 +159,71 @@ function withTimeout(promise, timeoutMs, errorMessage) {
   })
 }
 
-async function buildPdfAttachment(pdfDocument) {
-  const pdfBuffer = await withTimeout(
-    buildPdfBuffer(pdfDocument),
-    10000,
-    'PDF generation timed out',
-  )
+async function buildPdfAttachment(pdfDocument, context = {}) {
+  const startedAt = Date.now()
+  const diagnostics = {
+    caller: 'send-parent-email',
+    cleanupState: 'not_started',
+    networkRequestCount: 0,
+    rendererStage: 'queued',
+    workflow: 'email_attachment',
+  }
+  let pdfBuffer
+
+  try {
+    pdfBuffer = await withTimeout(
+      buildPdfBuffer(pdfDocument, { diagnostics }),
+      PDF_ATTACHMENT_TIMEOUT_MS,
+      'PDF generation timed out',
+    )
+  } catch (error) {
+    console.error('PDF attachment generation failed', {
+      actorRef: safeReference(context.actorId),
+      caller: diagnostics.caller,
+      cleanupState: diagnostics.cleanupState,
+      clubRef: safeReference(context.clubId),
+      code: String(error?.code || 'PDF_ATTACHMENT_GENERATION_FAILED'),
+      durationMs: Date.now() - startedAt,
+      errorName: String(error?.name || 'Error'),
+      resourceRef: safeReference(context.resourceId),
+      step: diagnostics.rendererStage,
+      teamRef: safeReference(context.teamId),
+      workflow: diagnostics.workflow,
+    })
+    throw Object.assign(
+      new Error('Email not sent because the requested PDF could not be generated. Retry the PDF attachment.'),
+      {
+        cause: error,
+        code: 'PDF_ATTACHMENT_GENERATION_FAILED',
+        publicMessage: 'Email not sent because the requested PDF could not be generated. Retry the PDF attachment.',
+        statusCode: 503,
+      },
+    )
+  }
 
   if (!pdfBuffer?.length) {
-    throw Object.assign(new Error('PDF attachment generation failed.'), { statusCode: 500 })
+    throw Object.assign(new Error('Email not sent because the requested PDF could not be generated. Retry the PDF attachment.'), {
+      code: 'PDF_ATTACHMENT_GENERATION_FAILED',
+      publicMessage: 'Email not sent because the requested PDF could not be generated. Retry the PDF attachment.',
+      statusCode: 503,
+    })
   }
+
+  console.info('PDF attachment generation completed', {
+    actorRef: safeReference(context.actorId),
+    browserLaunchResult: diagnostics.browserLaunchResult,
+    caller: diagnostics.caller,
+    cleanupState: diagnostics.cleanupState,
+    clubRef: safeReference(context.clubId),
+    durationMs: Date.now() - startedAt,
+    networkRequestCount: diagnostics.networkRequestCount,
+    outputBucket: pdfBuffer.length < 1_000_000 ? 'under-1mb' : '1mb-or-more',
+    pageCount: diagnostics.pageCount,
+    resourceRef: safeReference(context.resourceId),
+    step: diagnostics.rendererStage,
+    teamRef: safeReference(context.teamId),
+    workflow: diagnostics.workflow,
+  })
 
   return [
     {
@@ -163,12 +232,6 @@ async function buildPdfAttachment(pdfDocument) {
       contentType: 'application/pdf',
     },
   ]
-}
-
-function removeAttachments(emailPayload) {
-  const { attachments, ...payloadWithoutAttachments } = emailPayload
-  void attachments
-  return payloadWithoutAttachments
 }
 
 async function createEmailAuditLog(payload) {
@@ -287,6 +350,12 @@ export async function prepareParentEmail({ body, requestUser }) {
     parentName,
     senderEmail,
   } = body
+  const requestedIdempotencyKey = String(body.idempotencyKey ?? '').trim()
+
+  if (requestedIdempotencyKey.length > 200) {
+    throw Object.assign(new Error('The email request is not valid.'), { statusCode: 400 })
+  }
+
   const outputPolicy = resolveDevelopmentEmailOutputPolicy(body)
 
   const normalizedSenderEmail = normaliseEmail(senderEmail)
@@ -424,7 +493,15 @@ export async function prepareParentEmail({ body, requestUser }) {
         document: authoritativePdfDocument,
       })
     : null
-  const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(authorizedPdfDocument) : []
+  const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(
+    authorizedPdfDocument,
+    {
+      actorId: requestUser.id,
+      clubId: planProfile.clubId,
+      resourceId: developmentContext?.evaluation?.id || body.evaluationId || body.playerId,
+      teamId: developmentContext?.team?.id || body.teamId,
+    },
+  ) : []
   const attachments = [...pdfAttachments, ...chartAttachments]
   const emailSubject = String(subject ?? '').trim() || 'Football Player'
   const emailPayload = buildEmailPayload({
@@ -451,6 +528,7 @@ export async function prepareParentEmail({ body, requestUser }) {
     actorId: String(requestUser.id ?? '').trim(),
     actorEmail: requestUser.email,
     actorRole: planProfile.role,
+    idempotencyKey: requestedIdempotencyKey,
     requiredFeature: 'parentEmails',
     outputKey: developmentContext?.outputKey || '',
     outputQueueId: developmentContext?.outputQueueId || '',
@@ -476,9 +554,12 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
     preparedEmail,
   )
   const outputKey = String(authorizedPreparedEmail.storedPayload.outputKey ?? '').trim()
+  const requestIdempotencyKey = String(authorizedPreparedEmail.storedPayload.idempotencyKey ?? '').trim()
   const deterministicQueueId = outputKey
     ? String(authorizedPreparedEmail.storedPayload.outputQueueId ?? '').trim()
-    : ''
+    : requestIdempotencyKey
+      ? createDeterministicQueueId(`${authorizedPreparedEmail.planProfile.clubId}:${requestIdempotencyKey}`)
+      : ''
 
   if (deterministicQueueId) {
     const { data: existingRow, error: existingError } = await supabaseAdmin
@@ -588,7 +669,7 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
   }
 
   let response
-  let sentPayload = preparedEmail.emailPayload
+  const sentPayload = preparedEmail.emailPayload
   const isResourceNotification = preparedEmail.storedPayload?.resourceNotification?.type === 'resource_shared'
   const context = {
     emailType: isResourceNotification ? 'resource_shared' : 'parent_feedback',
@@ -611,15 +692,27 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
       throw Object.assign(sendWithPdfError, { emailLogRecord })
     }
 
-    console.error('Email send with PDF failed, retrying without attachment', sendWithPdfError)
-    sentPayload = removeAttachments(preparedEmail.emailPayload)
-    response = await sendEmail(sentPayload, {
-      context: {
-        ...context,
-        emailType: 'parent_feedback_without_attachment',
-      },
-      publicMessage: 'Email could not be sent. Please try again in a moment.',
+    console.error('Email send with requested PDF attachment failed', {
+      actorRef: safeReference(context.actorId),
+      caller: 'send-parent-email',
+      clubRef: safeReference(context.clubId),
+      code: String(sendWithPdfError?.code || 'PDF_ATTACHMENT_DELIVERY_FAILED'),
+      errorName: String(sendWithPdfError?.name || 'Error'),
+      resourceRef: safeReference(context.targetEntityId),
+      step: 'provider_send',
+      teamRef: safeReference(context.teamId),
+      workflow: 'email_attachment',
     })
+    throw Object.assign(
+      new Error('Email not sent because the requested PDF attachment could not be delivered. Retry the email with PDF.'),
+      {
+        cause: sendWithPdfError,
+        code: 'PDF_ATTACHMENT_DELIVERY_FAILED',
+        emailLogRecord,
+        publicMessage: 'Email not sent because the requested PDF attachment could not be delivered. Retry the email with PDF.',
+        statusCode: Number(sendWithPdfError?.statusCode || 502),
+      },
+    )
   }
 
   await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
@@ -719,7 +812,9 @@ export async function handler(event) {
     }
 
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
-      idempotencySeed: preparedEmail.storedPayload.outputKey || `${body.evaluationId || 'parent-email'}:${randomUUID()}`,
+      idempotencySeed: preparedEmail.storedPayload.outputKey ||
+        preparedEmail.storedPayload.idempotencyKey ||
+        `${body.evaluationId || 'parent-email'}:${randomUUID()}`,
     })
     emailLogRecord = sendResult.emailLogRecord
 

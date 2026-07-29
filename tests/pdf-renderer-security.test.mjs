@@ -64,13 +64,13 @@ function createMockBrowser({
     setRequestInterception: async (value) => calls.push(`interception:${value}`),
     setViewport: async () => calls.push('viewport'),
   }
-  const context = {
-    close: async () => calls.push('context.close'),
-    newPage: async () => page,
-  }
   const browser = {
     close: async () => calls.push('browser.close'),
-    createBrowserContext: async () => context,
+    createBrowserContext: async () => {
+      calls.push('context.create')
+      throw new Error('A separate target is incompatible with single-process Chromium.')
+    },
+    newPage: async () => page,
   }
 
   return { browser, calls, handlers, page }
@@ -213,10 +213,12 @@ test('network isolation denies every request class without resolving or fetching
   }
 })
 
-test('isolated renderer disables JavaScript, aborts requests, validates output, and always cleans up', async () => {
+test('isolated renderer uses the dedicated browser default context, disables active content, and always cleans up', async () => {
   let renderedHtml = ''
+  const diagnostics = {}
   const mock = createMockBrowser({ onSetContent: (html) => { renderedHtml = html } })
   const output = await buildPdfBuffer(validParentDocument(), {
+    diagnostics,
     launchBrowser: async () => mock.browser,
   })
 
@@ -225,8 +227,11 @@ test('isolated renderer disables JavaScript, aborts requests, validates output, 
   assert.ok(mock.calls.includes('csp:false'))
   assert.ok(mock.calls.includes('interception:true'))
   assert.ok(mock.calls.includes('page.close'))
-  assert.ok(mock.calls.includes('context.close'))
   assert.ok(mock.calls.includes('browser.close'))
+  assert.equal(mock.calls.includes('context.create'), false)
+  assert.equal(diagnostics.browserLaunchResult, 'ready')
+  assert.equal(diagnostics.cleanupState, 'complete')
+  assert.equal(diagnostics.pageCount, 1)
   assert.match(renderedHtml, /Content-Security-Policy/)
 
   let aborted = false
@@ -236,6 +241,7 @@ test('isolated renderer disables JavaScript, aborts requests, validates output, 
   })
   await new Promise((resolve) => setImmediate(resolve))
   assert.equal(aborted, true)
+  assert.equal(diagnostics.networkRequestCount, 1)
   assert.equal(getActivePdfRenderCount(), 0)
 })
 
@@ -394,6 +400,8 @@ test('public PDF endpoint accepts only an authenticated resource identifier and 
   assert.equal(response.headers.get('content-type'), 'application/pdf')
   assert.equal(response.headers.get('content-disposition'), 'attachment; filename="football-player-report.pdf"')
   assert.equal(response.headers.get('cache-control'), 'no-store')
+  assert.equal(response.headers.get('x-pdf-page-count'), '1')
+  assert.equal(response.headers.get('x-pdf-request-id'), 'request-a')
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff')
   assert.equal(Buffer.from(await response.arrayBuffer()).equals(validPdfBuffer()), true)
   assert.doesNotMatch(JSON.stringify(logs), /club-a|log-a|opaque-token/)

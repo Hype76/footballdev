@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
-import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
+import { createHash, randomUUID } from 'node:crypto'
+import { buildPdfBuffer, countPdfPages } from '../../src/lib/pdf-builder.js'
 import { PDF_REPORT_TYPES } from '../../src/lib/pdf-document.js'
 import {
   assertPlanFeature,
@@ -25,6 +25,16 @@ function safeJson(status, code, message, extraHeaders = {}) {
       },
     },
   )
+}
+
+function safeReference(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue) {
+    return 'none'
+  }
+
+  return createHash('sha256').update(normalizedValue).digest('hex').slice(0, 12)
 }
 
 function invalidRequest(code = 'PDF_INVALID_REQUEST') {
@@ -127,6 +137,18 @@ export function createRenderPdfHandler({
     const startedAt = Date.now()
     let status = 500
     let outputBytes = 0
+    const diagnostics = {
+      authorityResult: 'not_started',
+      browserLaunchResult: 'not_started',
+      caller: 'render-pdf',
+      cleanupState: 'not_started',
+      failureCategory: 'none',
+      networkRequestCount: 0,
+      pageCount: 0,
+      rendererInvocation: false,
+      rendererStage: 'request_received',
+      workflow: 'manual_download',
+    }
 
     try {
       if (request.method !== 'POST') {
@@ -156,7 +178,12 @@ export function createRenderPdfHandler({
       }
 
       const body = parseRequestBody(new TextDecoder().decode(bodyBytes))
+      diagnostics.clubRef = safeReference(body.clubId)
+      diagnostics.resourceRef = safeReference(body.communicationLogId)
+      diagnostics.rendererStage = 'authentication'
       const actorProfile = await authenticate(requestToLegacyEvent(request), {})
+      diagnostics.actorRef = safeReference(actorProfile.id || actorProfile.authUserId)
+      diagnostics.authorityResult = 'authenticated'
       let planProfile = actorProfile
 
       if (actorProfile.role === 'super_admin') {
@@ -165,15 +192,21 @@ export function createRenderPdfHandler({
       }
 
       assertPlanFeature(planProfile, 'pdfReports')
+      diagnostics.rendererStage = 'resource_resolution'
 
       const document = await loadReport({
         supabaseAdmin: database,
         profile: actorProfile,
         clubId: body.clubId,
         communicationLogId: body.communicationLogId,
+        diagnostics,
       })
-      const pdfBuffer = await render(document)
+      diagnostics.authorityResult = 'authorized'
+      diagnostics.rendererInvocation = true
+      const pdfBuffer = await render(document, { diagnostics })
       outputBytes = pdfBuffer.length
+      diagnostics.outputBytes = outputBytes
+      diagnostics.pageCount = diagnostics.pageCount || countPdfPages(pdfBuffer)
       status = 200
 
       return new Response(pdfBuffer, {
@@ -183,28 +216,49 @@ export function createRenderPdfHandler({
           'Content-Disposition': `attachment; filename="${FIXED_FILENAME}"`,
           'Content-Security-Policy': "sandbox; default-src 'none'",
           'Content-Type': 'application/pdf',
+          'X-PDF-Page-Count': String(diagnostics.pageCount),
+          'X-PDF-Request-Id': requestId,
           'X-Content-Type-Options': 'nosniff',
         },
       })
     } catch (error) {
       const publicError = getPublicError(error)
       status = publicError.status
+      diagnostics.failureCategory = String(error?.code || error?.name || publicError.code)
 
       if (status >= 500) {
         logger.error?.('PDF renderer request failed', {
           requestId,
           code: publicError.code,
           errorName: String(error?.name ?? 'Error'),
+          failureCategory: diagnostics.failureCategory,
+          step: diagnostics.rendererStage,
         })
       }
 
-      return safeJson(publicError.status, publicError.code, publicError.message)
+      return safeJson(publicError.status, publicError.code, publicError.message, {
+        'X-PDF-Request-Id': requestId,
+      })
     } finally {
       logger.info?.('PDF renderer request completed', {
         requestId,
         status,
         durationMs: Date.now() - startedAt,
         outputBucket: outputBytes === 0 ? 'none' : outputBytes < 1_000_000 ? 'under-1mb' : '1mb-or-more',
+        actorRef: diagnostics.actorRef || 'none',
+        authorityResult: diagnostics.authorityResult,
+        browserLaunchResult: diagnostics.browserLaunchResult,
+        caller: diagnostics.caller,
+        cleanupState: diagnostics.cleanupState,
+        clubRef: diagnostics.clubRef || 'none',
+        failureCategory: diagnostics.failureCategory,
+        networkRequestCount: diagnostics.networkRequestCount,
+        pageCount: diagnostics.pageCount,
+        rendererInvocation: diagnostics.rendererInvocation,
+        resourceRef: diagnostics.resourceRef || 'none',
+        step: diagnostics.rendererStage,
+        teamRef: safeReference(diagnostics.teamId),
+        workflow: diagnostics.workflow,
       })
     }
   }

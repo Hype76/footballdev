@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { formatActivityDate, getActivityLabel } from '../../hooks/players/playerProfileUtils.js'
 import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/retention.js'
@@ -44,6 +44,7 @@ export function PlayerStaffActivity({
   const [openActivityId, setOpenActivityId] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [downloadingActivityId, setDownloadingActivityId] = useState('')
+  const downloadLockRef = useRef(false)
   const saveNoteDisabledReason = isSavingNote
     ? 'Please wait while this note is being saved.'
     : isSavingVoiceNote
@@ -177,6 +178,11 @@ export function PlayerStaffActivity({
                   isOpen={openActivityId === log.id}
                   log={log}
                   onDownloadPdf={async () => {
+                    if (downloadLockRef.current) {
+                      return
+                    }
+
+                    downloadLockRef.current = true
                     setDownloadError('')
                     setDownloadingActivityId(log.id)
 
@@ -189,6 +195,7 @@ export function PlayerStaffActivity({
                       console.error(error)
                       setDownloadError(error.message || 'PDF could not be downloaded.')
                     } finally {
+                      downloadLockRef.current = false
                       setDownloadingActivityId('')
                     }
                   }}

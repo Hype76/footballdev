@@ -812,11 +812,25 @@ export function PlayerProfile() {
         return
       }
 
+      const emailAttemptId =
+        globalThis.crypto?.randomUUID?.() ||
+        `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      const retrySafeEmailDetails = {
+        ...emailDetails,
+        payloads: emailDetails.payloads.map((item, index) => ({
+          ...item,
+          payload: {
+            ...item.payload,
+            idempotencyKey: `direct-parent-email:${emailAttemptId}:${index}`,
+          },
+        })),
+      }
+
       setIsPdfAttachmentApproved(false)
       setIsAssessmentFieldsApproved(emailDetails.responses.length > 0)
       setEmailSendMode('now')
       setScheduledEmailDateTime('')
-      setEmailConfirmTarget(emailDetails)
+      setEmailConfirmTarget(retrySafeEmailDetails)
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not prepare the parent email.')

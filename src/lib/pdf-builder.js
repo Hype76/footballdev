@@ -9,12 +9,12 @@ import {
 } from './pdf-document.js'
 
 export const PDF_RENDER_LIMITS = Object.freeze({
-  browserLaunchTimeoutMs: 8_000,
-  navigationTimeoutMs: 4_000,
-  pdfTimeoutMs: 10_000,
-  screenshotTimeoutMs: 8_000,
-  totalRenderTimeoutMs: 15_000,
-  resourceCleanupTimeoutMs: 1_000,
+  browserLaunchTimeoutMs: 5_000,
+  navigationTimeoutMs: 2_500,
+  pdfTimeoutMs: 4_500,
+  screenshotTimeoutMs: 4_500,
+  totalRenderTimeoutMs: 8_000,
+  resourceCleanupTimeoutMs: 500,
   maxPdfBytes: 5 * 1024 * 1024,
   maxPngBytes: 2 * 1024 * 1024,
   maxPages: 20,
@@ -55,11 +55,12 @@ function withTimeout(promise, timeoutMs, code = 'PDF_RENDER_TIMEOUT') {
 
 async function closeQuietly(resource, { terminateProcess = false } = {}) {
   if (!resource?.close) {
-    return
+    return { attempted: false, closed: true, terminated: false }
   }
 
   let cleanupTimeoutId
   let closed = false
+  let terminated = false
 
   try {
     await Promise.race([
@@ -81,11 +82,14 @@ async function closeQuietly(resource, { terminateProcess = false } = {}) {
     if (!closed && terminateProcess) {
       try {
         resource.process?.()?.kill?.('SIGKILL')
+        terminated = true
       } catch {
         // The browser process may already have exited.
       }
     }
   }
+
+  return { attempted: true, closed, terminated }
 }
 
 async function launchChromium() {
@@ -121,8 +125,12 @@ async function launchBrowserWithCleanup(launchBrowser) {
   }
 }
 
-function installIsolationHandlers(page) {
+function installIsolationHandlers(page, diagnostics) {
   page.on('request', (request) => {
+    if (diagnostics) {
+      diagnostics.networkRequestCount = Number(diagnostics.networkRequestCount ?? 0) + 1
+    }
+
     if (!request.isInterceptResolutionHandled?.()) {
       void request.abort('blockedbyclient')
     }
@@ -135,7 +143,7 @@ function installIsolationHandlers(page) {
   })
 }
 
-function countPdfPages(pdfBuffer) {
+export function countPdfPages(pdfBuffer) {
   return (pdfBuffer.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length
 }
 
@@ -172,6 +180,7 @@ function validatePngOutput(pngBuffer) {
 }
 
 async function renderInIsolatedBrowser(document, {
+  diagnostics = null,
   launchBrowser = launchChromium,
   outputType = 'pdf',
   timeoutMs = PDF_RENDER_LIMITS.totalRenderTimeoutMs,
@@ -184,23 +193,50 @@ async function renderInIsolatedBrowser(document, {
 
   activeRenderCount += 1
   let browser
-  let context
   let page
+
+  if (diagnostics) {
+    Object.assign(diagnostics, {
+      browserLaunchResult: 'not_started',
+      cleanupState: 'not_started',
+      networkRequestCount: 0,
+      outputBytes: 0,
+      pageCount: 0,
+      rendererStage: 'queued',
+    })
+  }
 
   try {
     return await withTimeout((async () => {
+      if (diagnostics) {
+        diagnostics.rendererStage = 'browser_launch'
+      }
+
       browser = await launchBrowserWithCleanup(launchBrowser)
-      context = await browser.createBrowserContext()
-      page = await context.newPage()
+
+      if (diagnostics) {
+        diagnostics.browserLaunchResult = 'ready'
+        diagnostics.rendererStage = 'page_create'
+      }
+
+      // @sparticuz/chromium launches with --single-process. A separate browser
+      // context asks Chromium to create another target and closes the browser in
+      // the Netlify runtime. Each render already owns a fresh browser process,
+      // so the default context remains isolated without that incompatible step.
+      page = await browser.newPage()
       await page.setJavaScriptEnabled(false)
       await page.setBypassCSP(false)
       await page.setRequestInterception(true)
       page.setDefaultNavigationTimeout(PDF_RENDER_LIMITS.navigationTimeoutMs)
       page.setDefaultTimeout(PDF_RENDER_LIMITS.navigationTimeoutMs)
-      installIsolationHandlers(page)
+      installIsolationHandlers(page, diagnostics)
 
       if (outputType === 'png') {
         await page.setViewport({ width: 760, height: 240, deviceScaleFactor: 2 })
+      }
+
+      if (diagnostics) {
+        diagnostics.rendererStage = 'document_render'
       }
 
       await page.setContent(renderPdfDocumentHtml(validatedDocument), {
@@ -216,23 +252,65 @@ async function renderInIsolatedBrowser(document, {
       }
 
       if (outputType === 'png') {
+        if (diagnostics) {
+          diagnostics.rendererStage = 'png_output'
+        }
+
         const screenshot = await withTimeout(
           page.screenshot({ type: 'png', fullPage: true, omitBackground: false }),
           PDF_RENDER_LIMITS.screenshotTimeoutMs,
         )
-        return validatePngOutput(Buffer.from(screenshot))
+        const output = validatePngOutput(Buffer.from(screenshot))
+
+        if (diagnostics) {
+          diagnostics.outputBytes = output.length
+          diagnostics.rendererStage = 'output_ready'
+        }
+
+        return output
+      }
+
+      if (diagnostics) {
+        diagnostics.rendererStage = 'pdf_output'
       }
 
       const pdf = await withTimeout(
         page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true }),
         PDF_RENDER_LIMITS.pdfTimeoutMs,
       )
-      return validatePdfOutput(Buffer.from(pdf))
+      const output = validatePdfOutput(Buffer.from(pdf))
+
+      if (diagnostics) {
+        diagnostics.outputBytes = output.length
+        diagnostics.pageCount = countPdfPages(output)
+        diagnostics.rendererStage = 'output_ready'
+      }
+
+      return output
     })(), timeoutMs)
+  } catch (error) {
+    if (diagnostics) {
+      diagnostics.failureCategory = String(error?.code || error?.name || 'PDF_RENDER_FAILED')
+    }
+
+    throw error
   } finally {
-    await closeQuietly(page)
-    await closeQuietly(context)
-    await closeQuietly(browser, { terminateProcess: true })
+    const pageCleanup = await closeQuietly(page)
+    const browserCleanup = await closeQuietly(browser, { terminateProcess: true })
+
+    if (diagnostics) {
+      diagnostics.cleanupState =
+        pageCleanup.closed && browserCleanup.closed
+          ? 'complete'
+          : browserCleanup.terminated
+            ? 'forced'
+            : 'incomplete'
+      diagnostics.rendererStage =
+        diagnostics.rendererStage === 'output_ready'
+          ? 'complete'
+          : diagnostics.rendererStage
+    }
+
     activeRenderCount -= 1
   }
 }
