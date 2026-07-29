@@ -169,6 +169,53 @@ test('parent-visible fields only are taken from the saved evaluation', () => {
   ])
 })
 
+test('legacy default Development records reconstruct the selected parent report fields', () => {
+  const formResponses = {
+    Technical: 6,
+    Tactical: 7,
+    Physical: 8,
+    Mentality: 9,
+    Coachability: 10,
+    Strengths: 'Reliable first touch.',
+    Improvements: 'Scan earlier.',
+    'Overall Comments': 'Positive progress.',
+    'Staff note': 'Private.',
+  }
+  const requestedResponses = Object.entries(formResponses).map(([label, value], index) => ({
+    fieldId: `default-field-${index + 1}`,
+    label,
+    value: `Browser value ${value}`,
+  }))
+  const report = resolveDevelopmentParentReport({
+    club: { id: clubId, name: 'FP TEST Club' },
+    team: { id: teamId, name: 'FP TEST Team' },
+    player: player(),
+    requestedResponses,
+    evaluation: evaluation({
+      feedback_form_snapshot: {},
+      form_responses: formResponses,
+    }),
+  })
+
+  assert.equal(report.responseItems.length, 8)
+  assert.deepEqual(
+    report.responseItems.map((item) => item.label),
+    [
+      'Technical',
+      'Tactical',
+      'Physical',
+      'Mentality',
+      'Coachability',
+      'Strengths',
+      'Improvements',
+      'Overall Comments',
+    ],
+  )
+  assert.equal(report.responseItems[0].rawValue, 6)
+  assert.equal(report.responseItems[0].displayValue, '6 / 10 - Slightly Above Expected')
+  assert.doesNotMatch(JSON.stringify(report), /Staff note|Private|Browser value/)
+})
+
 test('safe email sections are reconstructed from saved evaluation history', () => {
   const sections = getParentVisibleDevelopmentEmailSections({
     evaluation: evaluation(),

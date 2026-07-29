@@ -31,6 +31,16 @@ const DEFAULT_PARENT_VISIBLE_LABELS = new Set([
   'Improvements',
   'Overall Comments',
 ])
+const DEFAULT_PARENT_VISIBLE_FIELD_TYPES = new Map([
+  ['Technical', 'score_1_10'],
+  ['Tactical', 'score_1_10'],
+  ['Physical', 'score_1_10'],
+  ['Mentality', 'score_1_10'],
+  ['Coachability', 'score_1_10'],
+  ['Strengths', 'textarea'],
+  ['Improvements', 'textarea'],
+  ['Overall Comments', 'textarea'],
+])
 const SAFE_EMAIL_SECTION_KEYS = new Set(['attendanceSummary', 'progressionChart'])
 const DEVELOPMENT_PARENT_REPORT_VERSION = 1
 
@@ -257,6 +267,30 @@ function getRequestedFieldSelection(requestedResponses) {
   }))
 }
 
+function getLegacyDefaultSnapshotFields(evaluation, requestedSelection) {
+  const savedResponses = evaluation?.form_responses && typeof evaluation.form_responses === 'object'
+    ? evaluation.form_responses
+    : {}
+  const selections = requestedSelection === null
+    ? [...DEFAULT_PARENT_VISIBLE_LABELS].map((label) => ({ fieldId: '', label }))
+    : requestedSelection
+
+  return selections
+    .filter((selection) =>
+      DEFAULT_PARENT_VISIBLE_LABELS.has(selection.label) &&
+      Object.hasOwn(savedResponses, selection.label),
+    )
+    .map((selection, index) => ({
+      id: selection.fieldId || `default-development-field-${index + 1}`,
+      label: selection.label,
+      type: DEFAULT_PARENT_VISIBLE_FIELD_TYPES.get(selection.label) || 'text',
+      isDefault: true,
+      isEnabled: true,
+      orderIndex: index + 1,
+      parentVisible: true,
+    }))
+}
+
 export function resolveDevelopmentParentReport({
   club,
   evaluation,
@@ -273,11 +307,14 @@ export function resolveDevelopmentParentReport({
     : {}
   const snapshotFields = Array.isArray(snapshot.fields) ? snapshot.fields : []
   const requestedSelection = getRequestedFieldSelection(requestedResponses)
+  const authoritativeFields = snapshotFields.length > 0
+    ? snapshotFields
+    : getLegacyDefaultSnapshotFields(evaluation, requestedSelection)
   const selectedFields = requestedSelection === null
-    ? snapshotFields.filter(isParentVisibleField)
+    ? authoritativeFields.filter(isParentVisibleField)
     : requestedSelection
         .map((selection) =>
-          snapshotFields.find((field) =>
+          authoritativeFields.find((field) =>
             (selection.fieldId && normalizeText(field?.id) === selection.fieldId) ||
             (!selection.fieldId && selection.label && normalizeText(field?.label) === selection.label),
           ),
