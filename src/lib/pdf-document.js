@@ -354,12 +354,18 @@ function renderRows(items, emptyMessage) {
     return `<p class="empty">${escapeHtml(emptyMessage)}</p>`
   }
 
-  return `<div class="response-grid">${items.map((item) => `
-    <section class="response-card">
-      <h3>${escapeHtml(item.label)}</h3>
-      <p>${escapeHtml(item.value || 'Not provided')}</p>
-    </section>
-  `).join('')}</div>`
+  const rows = []
+
+  for (let index = 0; index < items.length; index += 2) {
+    rows.push(`<div class="response-row">${items.slice(index, index + 2).map((item) => `
+      <section class="response-card">
+        <h3>${escapeHtml(item.label)}</h3>
+        <p>${escapeHtml(item.value || 'Not provided')}</p>
+      </section>
+    `).join('')}</div>`)
+  }
+
+  return `<div class="response-grid">${rows.join('')}</div>`
 }
 
 function isScoredResponseItem(item) {
@@ -451,8 +457,10 @@ export function renderPdfDocumentHtml(value) {
           main { margin-top: 16px; }
           .panel { border: 1px solid #d7e5dc; border-radius: 12px; background: #fbfcf9; padding: 12px; margin-top: 12px; break-inside: auto; }
           .panel > h2 { margin: 0; color: #101828; font-size: 15px; line-height: 1.25; }
-          .response-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
-          .response-card { border: 1px solid #e2e8f0; border-radius: 9px; background: #ffffff; padding: 9px 10px; break-inside: avoid; }
+          .response-grid { display: block; margin-top: 10px; }
+          .response-row { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; break-inside: avoid; }
+          .response-row:first-child { margin-top: 0; }
+          .response-card { flex: 0 0 calc(50% - 4px); min-width: 0; border: 1px solid #e2e8f0; border-radius: 9px; background: #ffffff; padding: 9px 10px; break-inside: avoid; }
           .response-card h3 { margin: 0; color: #4f6552; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
           .response-card p, .section-body { margin: 6px 0 0; color: #334155; white-space: pre-wrap; overflow-wrap: anywhere; }
           .section-block { break-inside: avoid; }

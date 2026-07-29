@@ -77,3 +77,26 @@ test('shared PDF caller map stays structured and Development controls remain dar
   assert.doesNotMatch(developmentCreate, /Email and PDF|Attach development PDF/)
   assert.doesNotMatch(developmentSubmit, /Email and PDF|Attach development PDF/)
 })
+
+test('structured response cards paginate as explicit rows without Chromium grid fragmentation', async () => {
+  const {
+    buildParentMessagePdfDocument,
+    renderPdfDocumentHtml,
+  } = await import('../src/lib/pdf-document.js')
+  const document = buildParentMessagePdfDocument({
+    clubName: 'FP TEST',
+    playerName: 'FP TEST Player',
+    teamName: 'FP TEST Team',
+    subject: 'Multi-page verification',
+    body: 'Synthetic structured content',
+    assessmentFields: Array.from({ length: 42 }, (_, index) => ({
+      label: `Field ${index + 1}`,
+      value: `Value ${index + 1}`,
+    })),
+  })
+  const html = renderPdfDocumentHtml(document)
+
+  assert.equal((html.match(/class="response-row"/g) || []).length, 21)
+  assert.match(html, /\.response-row \{[^}]*display: flex;[^}]*break-inside: avoid;/)
+  assert.doesNotMatch(html, /\.response-grid \{[^}]*display: grid;/)
+})
