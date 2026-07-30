@@ -7,6 +7,10 @@ const migration = readFileSync(
   new URL('../supabase/migrations/20260728170000_staff_role_assignment_control.sql', import.meta.url),
   'utf8',
 )
+const promotionMigration = readFileSync(
+  new URL('../supabase/migrations/20260730194500_team_staff_promotion_10d.sql', import.meta.url),
+  'utf8',
+)
 
 const ID = {
   clubA: '10000000-0000-4000-8000-000000000001',
@@ -210,6 +214,7 @@ async function createDatabase() {
       ('${ID.teamC}', '${ID.coachC}');
   `)
   await db.exec(migration)
+  await db.exec(promotionMigration)
   return db
 }
 
@@ -450,6 +455,92 @@ test('team assignment helper reuses protected transitions for existing assignmen
     )
     assert.equal(managerEscalation.rows[0].result.success, false)
     assert.equal(managerEscalation.rows[0].result.category, 'team_scope_forbidden')
+  } finally {
+    await db.close()
+  }
+})
+
+test('Manager promotes within rank 50 and cannot exceed the grant ceiling', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, ID.managerA)
+    const coachAssignment = await assignmentId(db, ID.teamA, ID.coachA)
+
+    for (const roleKey of ['assistant_coach', 'coach', 'manager']) {
+      const changed = await changeRole(db, coachAssignment, roleKey, 'manager_allowed_test')
+      assert.equal(changed.success, true)
+      assert.equal(changed.assignment.role_key, roleKey)
+      assert.equal(changed.grantCeiling, 50)
+    }
+
+    const teamAdminDenied = await changeRole(db, coachAssignment, 'head_manager', 'manager_ceiling_test')
+    assert.equal(teamAdminDenied.success, false)
+    assert.equal(teamAdminDenied.category, 'grant_ceiling_exceeded')
+
+    const audit = await db.query(
+      `select action, outcome, metadata ->> 'denialCategory' as denial_category
+       from public.audit_logs
+       where metadata ->> 'requestSource' = 'manager_ceiling_test'`,
+    )
+    assert.deepEqual(audit.rows[0], {
+      action: 'staff_role_change_denied',
+      outcome: 'denied',
+      denial_category: 'grant_ceiling_exceeded',
+    })
+  } finally {
+    await db.close()
+  }
+})
+
+test('Manager cannot change Team Admin, cross-team, cross-club or protected assignments', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, ID.managerA)
+
+    const teamAdminAssignment = await assignmentId(db, ID.teamA, ID.teamAdminA)
+    const teamAdminDenied = await changeRole(db, teamAdminAssignment, 'coach', 'manager_target_ceiling_test')
+    assert.equal(teamAdminDenied.success, false)
+    assert.equal(teamAdminDenied.category, 'target_above_grant_ceiling')
+
+    const otherTeamAssignment = await assignmentId(db, ID.teamA2, ID.coachA)
+    const crossTeamDenied = await changeRole(db, otherTeamAssignment, 'manager', 'manager_cross_team_test')
+    assert.equal(crossTeamDenied.success, false)
+    assert.equal(crossTeamDenied.category, 'team_scope_forbidden')
+
+    const otherClubAssignment = await assignmentId(db, ID.teamB, ID.teamAdminB)
+    const crossClubDenied = await changeRole(db, otherClubAssignment, 'manager', 'manager_cross_club_test')
+    assert.equal(crossClubDenied.success, false)
+    assert.equal(crossClubDenied.category, 'team_scope_forbidden')
+
+    const protectedAssignment = await assignmentId(db, ID.teamA, ID.clubAdminA)
+    const protectedDenied = await changeRole(db, protectedAssignment, 'coach', 'manager_protected_test')
+    assert.equal(protectedDenied.success, false)
+    assert.equal(protectedDenied.category, 'protected_assignment')
+
+    for (const roleKey of ['admin', 'super_admin']) {
+      const unsupported = await changeRole(db, otherTeamAssignment, roleKey, 'manager_global_role_test')
+      assert.equal(unsupported.success, false)
+      assert.equal(unsupported.category, 'role_not_supported')
+    }
+  } finally {
+    await db.close()
+  }
+})
+
+test('Manager self-demotion takes effect immediately and removes management authority', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, ID.managerA)
+    const managerAssignment = await assignmentId(db, ID.teamA, ID.managerA)
+    const coachAssignment = await assignmentId(db, ID.teamA, ID.coachA)
+
+    const selfDemoted = await changeRole(db, managerAssignment, 'coach', 'manager_self_demotion_test')
+    assert.equal(selfDemoted.success, true)
+    assert.equal(selfDemoted.assignment.role_key, 'coach')
+
+    const deniedAfterDemotion = await changeRole(db, coachAssignment, 'manager', 'manager_stale_session_test')
+    assert.equal(deniedAfterDemotion.success, false)
+    assert.equal(deniedAfterDemotion.category, 'team_scope_forbidden')
   } finally {
     await db.close()
   }

@@ -56,8 +56,9 @@ test('team-scoped invitations no longer mutate the global profile role', () => {
 })
 
 test('Team Admin interface is scoped, confirmed, keyboard-usable and refreshes authority', () => {
-  assert.match(permissions, /user\.role === 'head_manager'[\s\S]*user\.activeTeamId/)
-  assert.match(teamPage, /assignment\.userId === user\?\.id && assignment\.roleKey === 'head_manager'/)
+  assert.match(permissions, /\['head_manager', 'manager'\]\.includes\(user\.role\)[\s\S]*user\.activeTeamId/)
+  assert.match(teamPage, /canManageAssignedTeamRole\(user, assignment\)/)
+  assert.match(teamPage, /getPermittedTeamRoleOptions/)
   assert.match(teamPage, /changeStaffRoleAssignment/)
   assert.match(teamPage, /requestSource: 'team_management'/)
   assert.match(teamPage, /await refreshTeamSelection\?\.\(\)/)

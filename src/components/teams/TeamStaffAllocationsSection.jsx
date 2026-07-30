@@ -58,6 +58,7 @@ export function TeamStaffAllocationsSection({
   teamPage,
   teamPageSize,
   teamRoleOptions,
+  teamRoleAuthorityMessage,
 }) {
   return (
     <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10" data-tour-id="team-staff-section">
@@ -116,6 +117,7 @@ export function TeamStaffAllocationsSection({
               staffToAddId={staffToAddId}
               teamNameDrafts={teamNameDrafts}
               teamRoleOptions={teamRoleOptions}
+              teamRoleAuthorityMessage={teamRoleAuthorityMessage}
             />
           ) : null}
         </div>
@@ -199,6 +201,7 @@ function SelectedTeamPanel({
   staffToAddId,
   teamNameDrafts,
   teamRoleOptions,
+  teamRoleAuthorityMessage,
 }) {
   return (
     <div className={`${panelClass} p-4`}>
@@ -280,6 +283,7 @@ function SelectedTeamPanel({
         staffPage={staffPage}
         staffPageSize={staffPageSize}
         teamRoleOptions={teamRoleOptions}
+        teamRoleAuthorityMessage={teamRoleAuthorityMessage}
       />
     </div>
   )
@@ -356,10 +360,12 @@ function AllocatedStaffList({
   staffPage,
   staffPageSize,
   teamRoleOptions,
+  teamRoleAuthorityMessage,
 }) {
   return (
     <div className="mt-5">
       <p className="text-sm font-black text-[#101828]">Allocated staff</p>
+      <p className={`mt-1 ${bodyTextClass}`}>{teamRoleAuthorityMessage}</p>
       {selectedTeamStaff.length === 0 ? (
         <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-6 shadow-sm shadow-[#047857]/10">
           <p className="text-sm font-black text-[#101828]">No staff are allocated to this team yet.</p>
@@ -427,8 +433,18 @@ function AllocatedStaffList({
 
 function TeamRoleControl({ isSaving, member, onRoleChangeRequest, teamRoleOptions }) {
   const [roleKey, setRoleKey] = useState(member.teamRoleKey || '')
+  const grantCeiling = Math.max(0, ...teamRoleOptions.map((role) => Number(role.roleRank ?? 0)))
+  const targetAboveGrantCeiling = Number(member.teamRoleRank ?? 0) > grantCeiling
   const selectedRole = teamRoleOptions.find((role) => role.roleKey === roleKey)
   const unchanged = roleKey === member.teamRoleKey
+
+  if (targetAboveGrantCeiling) {
+    return (
+      <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 text-xs font-semibold leading-5 text-[#4b5f55]">
+        This staff role is above your grant ceiling and cannot be changed from your current team authority.
+      </p>
+    )
+  }
 
   return (
     <div className="mt-3 grid gap-2">

@@ -44,6 +44,11 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 import { canAddStaffAccessEmail, createLimitUpgradeMessage, getUniqueStaffAccessEmails, isWithinPlanLimit } from '../lib/plans.js'
+import {
+  canManageAssignedTeamRole,
+  getPermittedTeamRoleOptions,
+  getTeamRoleAuthorityMessage,
+} from '../lib/team-staff-role-policy.js'
 
 const teamSetupRules = [
   {
@@ -63,8 +68,6 @@ const teamSetupRules = [
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 const PENDING_INVITE_PREFIX = 'invite:'
-const TEAM_ROLE_KEYS = new Set(['head_manager', 'manager', 'coach', 'assistant_coach'])
-
 function pendingInviteToStaffMember(invite) {
   const inviteId = String(invite?.id ?? '').trim()
 
@@ -255,7 +258,7 @@ export function TeamManagementPage() {
         ? null
         : new Set(
             assignments
-              .filter((assignment) => assignment.userId === user?.id && assignment.roleKey === 'head_manager')
+              .filter((assignment) => canManageAssignedTeamRole(user, assignment))
               .map((assignment) => assignment.teamId),
           )
 
@@ -268,22 +271,37 @@ export function TeamManagementPage() {
             .map((assignment) => assignment.userId),
         }))
     },
-    [assignments, isClubAdminUser, teamScopedUsers, teams, user?.id],
+    [assignments, isClubAdminUser, teamScopedUsers, teams, user],
   )
 
   const assignableRoles = useMemo(
     () => roles.filter((role) => canAssignRole(user, role)),
     [roles, user],
   )
-  const teamRoleOptions = useMemo(
-    () => roles
-      .filter((role) => TEAM_ROLE_KEYS.has(role.roleKey) && Number(role.roleRank ?? 0) <= 70)
-      .sort((left, right) => Number(right.roleRank ?? 0) - Number(left.roleRank ?? 0)),
-    [roles],
-  )
   const selectedTeam = useMemo(
     () => teamAssignments.find((team) => team.id === selectedTeamId) ?? teamAssignments[0] ?? null,
     [selectedTeamId, teamAssignments],
+  )
+  const selectedActorAssignment = useMemo(
+    () => assignments.find(
+      (assignment) => assignment.teamId === selectedTeam?.id && assignment.userId === user?.id,
+    ) ?? null,
+    [assignments, selectedTeam?.id, user?.id],
+  )
+  const teamRoleOptions = useMemo(
+    () => getPermittedTeamRoleOptions({
+      roles,
+      user,
+      assignment: selectedActorAssignment,
+    }),
+    [roles, selectedActorAssignment, user],
+  )
+  const teamRoleAuthorityMessage = useMemo(
+    () => getTeamRoleAuthorityMessage({
+      user,
+      assignment: selectedActorAssignment,
+    }),
+    [selectedActorAssignment, user],
   )
   const selectedTeamStaff = useMemo(
     () =>
@@ -909,6 +927,7 @@ export function TeamManagementPage() {
         teamPage={teamPage}
         teamPageSize={TEAM_PAGE_SIZE}
         teamRoleOptions={teamRoleOptions}
+        teamRoleAuthorityMessage={teamRoleAuthorityMessage}
       />
 
       <ConfirmModal

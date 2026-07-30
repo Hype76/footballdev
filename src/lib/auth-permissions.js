@@ -134,8 +134,8 @@ export function canManageTeamSettings(user) {
     && (
       isClubAdmin(user)
       || (
-        user.role === 'head_manager'
-        && Number(user.roleRank ?? 0) >= 70
+        ['head_manager', 'manager'].includes(user.role)
+        && Number(user.roleRank ?? 0) >= 50
         && Boolean(user.activeTeamId)
       )
     )
