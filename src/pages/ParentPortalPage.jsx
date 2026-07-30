@@ -5,6 +5,7 @@ import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLoc
 import {
   ParentPortalSectionNav,
 } from '../components/parent-portal/ParentPortalShell.jsx'
+import { ParentDevelopmentPanel } from '../components/parent-portal/ParentDevelopmentPanel.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -28,6 +29,7 @@ import {
   getParentSquadDecisionStatus,
   getParentInvitationTypeLabel,
   getParentPortalInvitationState,
+  getParentPortalDevelopmentHistory,
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentPortalPlayerResources,
@@ -98,7 +100,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
-const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'resources', 'settings'])
+const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'development', 'resources', 'settings'])
 const EXTENDED_MATCH_ACTIONS = new Set([
   'normal_time_complete',
   'start_extra_time',
@@ -482,9 +484,9 @@ function orderPlayersWithRecentScorers(players, match) {
 }
 
 export function ParentPortalPage() {
-  const { authUser, resetPassword, signOut, user } = useAuth()
+  const { authUser, resetPassword, session, signOut, user } = useAuth()
   const { showToast } = useToast()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const links = useMemo(() => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []), [user?.parentPortalLinks])
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
@@ -494,6 +496,10 @@ export function ParentPortalPage() {
   const [matches, setMatches] = useState([])
   const [players, setPlayers] = useState([])
   const [playerResources, setPlayerResources] = useState([])
+  const [developmentReports, setDevelopmentReports] = useState([])
+  const [developmentReportsLinkId, setDevelopmentReportsLinkId] = useState('')
+  const [developmentLoadError, setDevelopmentLoadError] = useState('')
+  const [isLoadingDevelopment, setIsLoadingDevelopment] = useState(false)
   const [sharedCalendarEvents, setSharedCalendarEvents] = useState([])
   const [goalForms, setGoalForms] = useState({})
   const [parentMatchAction, setParentMatchAction] = useState(null)
@@ -523,7 +529,9 @@ export function ParentPortalPage() {
   const [activeInvitationId, setActiveInvitationId] = useState('')
   const [invitationError, setInvitationError] = useState('')
   const requestedParentLinkId = String(searchParams.get('parentLinkId') ?? '').trim()
-  const selectedLink = links.find((link) => link.id === selectedLinkId)
+  const requestedDevelopmentReportId = String(searchParams.get('reportId') ?? '').trim()
+  const selectedLink = links.find((link) => link.id === requestedParentLinkId)
+    ?? links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
   const {
@@ -609,6 +617,48 @@ export function ParentPortalPage() {
     }
 
     setActiveSection(sectionId)
+  }
+
+  const handleParentLinkSelect = (parentLinkId) => {
+    const normalizedParentLinkId = String(parentLinkId ?? '').trim()
+
+    if (!normalizedParentLinkId || !links.some((link) => link.id === normalizedParentLinkId)) {
+      return
+    }
+
+    setDevelopmentReports([])
+    setDevelopmentReportsLinkId('')
+    setDevelopmentLoadError('')
+    setSelectedLinkId(normalizedParentLinkId)
+
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('parentLinkId', normalizedParentLinkId)
+    nextSearchParams.delete('reportId')
+    setSearchParams(nextSearchParams)
+  }
+
+  const handleOpenDevelopmentReport = (reportId) => {
+    if (!selectedLink?.id || !reportId) {
+      return
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'development')
+    nextSearchParams.set('parentLinkId', selectedLink.id)
+    nextSearchParams.set('reportId', reportId)
+    setSearchParams(nextSearchParams)
+  }
+
+  const handleShowDevelopmentHistory = () => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'development')
+
+    if (selectedLink?.id) {
+      nextSearchParams.set('parentLinkId', selectedLink.id)
+    }
+
+    nextSearchParams.delete('reportId')
+    setSearchParams(nextSearchParams)
   }
 
   useEffect(() => {
@@ -828,6 +878,50 @@ export function ParentPortalPage() {
       window.clearInterval(intervalId)
     }
   }, [captureActivityState, selectedLink?.id])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    setDevelopmentReports([])
+    setDevelopmentReportsLinkId('')
+    setDevelopmentLoadError('')
+
+    if (!selectedLink?.id) {
+      setIsLoadingDevelopment(false)
+      return () => {
+        isCurrent = false
+      }
+    }
+
+    setIsLoadingDevelopment(true)
+
+    void getParentPortalDevelopmentHistory({
+      accessToken: session?.access_token,
+      parentLinkId: selectedLink.id,
+    }).then((reports) => {
+      if (isCurrent) {
+        setDevelopmentReports(reports)
+        setDevelopmentReportsLinkId(selectedLink.id)
+      }
+    }).catch((error) => {
+      console.error(error)
+
+      if (isCurrent) {
+        setDevelopmentReportsLinkId(selectedLink.id)
+        setDevelopmentLoadError(
+          error.message || 'Development history could not be loaded.',
+        )
+      }
+    }).finally(() => {
+      if (isCurrent) {
+        setIsLoadingDevelopment(false)
+      }
+    })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [selectedLink?.id, session?.access_token])
 
   useEffect(() => {
     if (
@@ -1340,7 +1434,7 @@ export function ParentPortalPage() {
           isSigningOut={isSigningOut}
           links={links}
           newStateByCategory={parentNavNewState}
-          onParentLinkSelect={setSelectedLinkId}
+          onParentLinkSelect={handleParentLinkSelect}
           onSelect={handleSectionSelect}
           onSignOut={handleParentSignOut}
           selectedLink={selectedLink}
@@ -1423,6 +1517,23 @@ export function ParentPortalPage() {
             />
           ) : null}
 
+          {activeSection === 'development' ? (
+            <ParentDevelopmentPanel
+              accessToken={session?.access_token}
+              isLoading={isLoadingDevelopment || (
+                Boolean(selectedLink?.id)
+                && developmentReportsLinkId !== selectedLink.id
+                && !developmentLoadError
+              )}
+              loadError={developmentLoadError}
+              onOpenReport={handleOpenDevelopmentReport}
+              onShowHistory={handleShowDevelopmentHistory}
+              reports={developmentReportsLinkId === selectedLink?.id ? developmentReports : []}
+              requestedReportId={requestedDevelopmentReportId}
+              selectedLink={selectedLink}
+            />
+          ) : null}
+
           {activeSection === 'resources' ? (
             <ParentResourcesPanel
               isLoading={isLoadingMatches}
@@ -1458,7 +1569,7 @@ export function ParentPortalPage() {
         isSigningOut={isSigningOut}
         links={links}
         newStateByCategory={parentNavNewState}
-        onParentLinkSelect={setSelectedLinkId}
+        onParentLinkSelect={handleParentLinkSelect}
         onSelect={handleSectionSelect}
         onSignOut={handleParentSignOut}
         selectedLink={selectedLink}

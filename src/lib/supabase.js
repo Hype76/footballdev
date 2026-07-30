@@ -306,6 +306,11 @@ export {
 } from './domain/parent-portal-activity.js'
 
 export {
+  downloadParentPortalDevelopmentPdf,
+  getParentPortalDevelopmentHistory,
+} from './domain/parent-development.js'
+
+export {
   archiveResourceLibraryItem,
   assignResourceLibraryItem,
   createExternalResourceLibraryItem,

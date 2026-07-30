@@ -83,7 +83,7 @@ test('Parent portal reads shared resources only through the scoped RPC helper', 
   assert.match(domain, /normalizeParentPortalResourceItem\(\{[\s\S]*shareDescription: row\.share_description/)
   assert.match(parentPortalShell, /id: 'resources'/)
   assert.match(parentPortalShell, /to: '\/parent-portal\?section=resources'/)
-  assert.match(parentPortalPage, /parentPortalSectionIds = new Set\(\['overview', 'calendar', 'invites', 'matches', 'results', 'resources', 'settings'\]\)/)
+  assert.match(parentPortalPage, /parentPortalSectionIds = new Set\(\['overview', 'calendar', 'invites', 'matches', 'results', 'development', 'resources', 'settings'\]\)/)
   assert.match(parentPortalPage, /getParentPortalPlayerResources\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.match(parentPortalPage, /getParentPortalResourceAccessUrl/)
   assert.match(parentPortalPage, /function ParentResourcesPanel/)

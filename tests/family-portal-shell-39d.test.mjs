@@ -125,6 +125,7 @@ test('desktop and mobile shells preserve safe context, actions, navigation, and 
     'Invites',
     'Match cards',
     'Results',
+    'Development',
     'Resources',
     'Chat',
     'Polls',
@@ -136,7 +137,7 @@ test('desktop and mobile shells preserve safe context, actions, navigation, and 
 
 test('the main page uses a compact heading and shell context instead of the oversized repeated hero', () => {
   assert.match(portalSource, /Private family view/)
-  assert.match(portalSource, /onParentLinkSelect=\{setSelectedLinkId\}/)
+  assert.match(portalSource, /onParentLinkSelect=\{handleParentLinkSelect\}/)
   assert.match(portalSource, /links=\{links\}/)
   assert.match(portalSource, /selectedLink=\{selectedLink\}/)
   assert.doesNotMatch(portalSource, /function ParentChildSelector/)

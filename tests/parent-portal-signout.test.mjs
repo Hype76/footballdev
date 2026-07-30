@@ -30,7 +30,7 @@ test('parent portal sign out uses the auth helper and redirects to unified paren
   const handlerEnd = source.indexOf('async function loadMatches()', handlerStart)
   const handlerSection = source.slice(handlerStart, handlerEnd)
 
-  assert.match(source, /const \{ authUser, resetPassword, signOut, user \} = useAuth\(\)/)
+  assert.match(source, /const \{ authUser, resetPassword, session, signOut, user \} = useAuth\(\)/)
   assert.match(source, /import \{ buildMainAppUrl \} from '\.\.\/lib\/app-origins\.js'/)
   assert.match(handlerSection, /await signOut\(\)/)
   assert.match(handlerSection, /window\.sessionStorage\.clear\(\)/)

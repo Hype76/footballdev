@@ -327,12 +327,45 @@ export async function resolvePdfBranding({
   storageOrigin = process.env.VITE_SUPABASE_URL,
 } = {}) {
   const startedAt = Date.now()
-  const generatedDate = formatGeneratedDate(now())
   const scope = await loadAuthorisedPdfBrandingScope(supabaseAdmin, {
     profile,
     clubId,
     teamId,
   })
+  const branding = await buildPdfBrandingForAuthorisedScope({
+    supabaseAdmin,
+    club: scope.club,
+    team: scope.team,
+    reportType,
+    diagnostics,
+    now,
+    fetchTimeoutMs,
+    storageOrigin,
+  })
+
+  if (diagnostics) {
+    diagnostics.brandingDurationMs = Date.now() - startedAt
+  }
+
+  return {
+    branding,
+    scope,
+  }
+}
+
+export async function buildPdfBrandingForAuthorisedScope({
+  supabaseAdmin,
+  club,
+  team = null,
+  reportType = '',
+  diagnostics = null,
+  now = () => new Date(),
+  fetchTimeoutMs = PDF_LOGO_FETCH_TIMEOUT_MS,
+  storageOrigin = process.env.VITE_SUPABASE_URL,
+} = {}) {
+  const startedAt = Date.now()
+  const generatedDate = formatGeneratedDate(now())
+  const scope = { club, team }
   const clubName = normalizePdfText(scope.club.name) || 'Footballplayer.online'
   const teamName = normalizePdfText(scope.team?.name)
   const colours = resolveAccent(scope.club.theme_accent)
@@ -380,8 +413,5 @@ export async function resolvePdfBranding({
     diagnostics.teamId = normalizePdfText(scope.team?.id)
   }
 
-  return {
-    branding,
-    scope,
-  }
+  return branding
 }

@@ -21,6 +21,7 @@ const parentPortalSections = [
   { id: 'invites', label: 'Invites', description: 'Sessions and events', to: '/parent-portal?section=invites' },
   { id: 'matches', label: 'Match cards', description: 'Live and upcoming', to: '/parent-portal?section=matches' },
   { id: 'results', label: 'Results', description: 'Previous games', to: '/parent-portal?section=results' },
+  { id: 'development', label: 'Development', description: 'Shared reports', to: '/parent-portal?section=development' },
   { id: 'resources', label: 'Resources', description: 'Shared links', to: '/parent-portal?section=resources' },
   { id: 'chat', label: 'Chat', description: 'Child, team and match chat', to: '/parent-chat', recoveryPath: '/parent-chat' },
   { id: 'polls', label: 'Polls', description: 'Questions to answer', to: '/parent-polls', recoveryPath: '/parent-polls' },
