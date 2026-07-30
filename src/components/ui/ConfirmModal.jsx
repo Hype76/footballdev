@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const overlayClassName = 'fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6'
+const overlayClassName = 'fixed inset-0 flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6'
 const panelClassName =
   'relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-[var(--text-primary)] shadow-xl shadow-[#101828]/10 ring-1 ring-white/70 sm:p-6'
 const closeButtonClassName =
@@ -47,6 +47,7 @@ export function ConfirmModal({
   onCancel,
   onClose,
   onConfirm,
+  overlayZIndexClassName = 'z-[80]',
   reasonLabel = 'Reason',
   reasonPlaceholder = '',
   requireReason = false,
@@ -161,7 +162,7 @@ export function ConfirmModal({
     : defaultConfirmButtonClassName
 
   return (
-    <div className={overlayClassName}>
+    <div className={`${overlayZIndexClassName} ${overlayClassName}`}>
       <div
         role="dialog"
         aria-modal="true"

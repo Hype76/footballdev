@@ -68,7 +68,9 @@ test('match event invite state uses canonical response and squad decision record
 test('event details expose accessible staff acceptance and active refresh', async () => {
   const source = await readFile(sessionsPageUrl, 'utf8')
 
-  assert.match(source, /confirmLabel="Accept on behalf of player"/)
+  assert.match(source, /EventResponseManagerDialog/)
+  assert.match(source, /onAcceptOnBehalf=\{\(row\) =>/)
+  assert.match(source, /confirmLabel=\{form\.eventType === 'training'[\s\S]*'Accept on behalf of player'/)
   assert.match(source, /Current availability:/)
   assert.match(source, /Match selection:/)
   assert.match(source, /min-h-12/)

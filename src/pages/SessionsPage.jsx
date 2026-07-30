@@ -3,6 +3,10 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { CoachOptionsSection } from '../components/sessions/CoachOptionsSection.jsx'
 import { CreateSessionSection } from '../components/sessions/CreateSessionSection.jsx'
+import {
+  EventResponseManagerDialog,
+  EventResponseSummary,
+} from '../components/sessions/EventResponseManager.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.jsx'
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
@@ -106,9 +110,6 @@ import {
   getWholeSquadSelectionState,
 } from '../lib/domain/calendar-invite-scope.js'
 import { getCalendarNotificationToast } from '../lib/domain/calendar-notification-status.js'
-import {
-  resolveEventInvitePlayerStatus,
-} from '../lib/domain/calendar-actionable-invites.js'
 import { buildCalendarNotificationHtml } from '../lib/calendar-notification-email.js'
 import {
   addMinutesToRequiredTime,
@@ -3466,6 +3467,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           attachedResources={currentCalendarEventResources}
           currentInvites={currentCalendarEventInvites}
           event={calendarModal?.event}
+          eventResponseManager={currentEventResponseModel.responseManager}
           form={calendarForm}
           invitePlayers={calendarInvitePlayers}
           isBusy={isSaving}
@@ -3778,6 +3780,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         attachedResources={currentCalendarEventResources}
         currentInvites={currentCalendarEventInvites}
         event={calendarModal?.event}
+        eventResponseManager={currentEventResponseModel.responseManager}
         form={calendarForm}
         invitePlayers={calendarInvitePlayers}
         isBusy={isSaving}
@@ -4085,18 +4088,6 @@ function getTrainingAvailabilityDetailsForOccurrence(summary, occurrenceDate) {
   return details.filter((detail) => formatDateInput(detail.occurrenceDate || detail.occurrenceStartsAt) === normalizedOccurrenceDate)
 }
 
-function getTrainingAvailabilityDetailByPlayerId(details = []) {
-  return details.reduce((map, detail) => {
-    const playerId = String(detail.playerId ?? '').trim()
-
-    if (playerId && !map.has(playerId)) {
-      map.set(playerId, detail)
-    }
-
-    return map
-  }, new Map())
-}
-
 function getTrainingAvailabilityChipClasses(tone) {
   if (tone === 'purple') {
     return 'border-[#d8b4fe] bg-[#f3e8ff] text-[#6b21a8] dark:border-[#a855f7] dark:bg-[#3b0764] dark:text-[#f3e8ff]'
@@ -4115,85 +4106,6 @@ function getTrainingAvailabilityChipClasses(tone) {
   }
 
   return 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] dark:border-[#3b82f6] dark:bg-[#172554] dark:text-[#dbeafe]'
-}
-
-function EventInvitePlayerChip({ actionable, invite, onOpen, status }) {
-  const playerName = invite.player?.playerName || 'Player'
-  const title = `${playerName}: ${status.accessibleLabel}`
-  const className = `inline-flex min-h-12 max-w-full flex-col items-start justify-center rounded-lg border px-3 py-2 text-left text-xs font-black transition focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 ${getTrainingAvailabilityChipClasses(status.tone)}`
-  const content = (
-    <>
-      <span className="max-w-full truncate">{playerName}</span>
-      <span className="mt-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] opacity-90">{status.primaryLabel}</span>
-      {status.secondaryLabel ? (
-        <span className="mt-0.5 text-[0.62rem] font-bold opacity-80">{status.secondaryLabel}</span>
-      ) : null}
-    </>
-  )
-
-  if (!actionable) {
-    return (
-      <span
-        className={className}
-        title={title}
-        aria-label={title}
-      >
-        {content}
-      </span>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      className={`${className} cursor-pointer hover:brightness-95`}
-      title={title}
-      aria-label={title}
-      onClick={onOpen}
-    >
-      {content}
-    </button>
-  )
-}
-
-function TrainingAvailabilitySummary({ summary }) {
-  if (!summary) {
-    return null
-  }
-
-  const responded = Number(summary.responded ?? 0)
-  const sent = Number(summary.sent ?? 0)
-  const pending = Number(summary.pending ?? 0)
-  const failed = Number(summary.failed ?? 0)
-
-  return (
-    <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Assigned availability</p>
-      <div className="mt-2 grid gap-2 sm:grid-cols-4">
-        <div>
-          <p className="text-lg font-black text-[#101828]">{responded}</p>
-          <p className="text-xs font-bold text-[#4b5f55]">responded</p>
-        </div>
-        <div>
-          <p className="text-lg font-black text-[#101828]">{sent}</p>
-          <p className="text-xs font-bold text-[#4b5f55]">sent</p>
-        </div>
-        <div>
-          <p className="text-lg font-black text-[#101828]">{pending}</p>
-          <p className="text-xs font-bold text-[#4b5f55]">pending</p>
-        </div>
-        <div>
-          <p className="text-lg font-black text-[#101828]">{failed}</p>
-          <p className="text-xs font-bold text-[#4b5f55]">failed</p>
-        </div>
-      </div>
-      {responded > 0 ? (
-        <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
-          Available {summary.available || 0}, not available {summary.unavailable || 0}, maybe {summary.maybe || 0}.
-        </p>
-      ) : null}
-    </div>
-  )
 }
 
 function TrainingAvailabilityParentNotes({ details = [] }) {
@@ -4616,6 +4528,7 @@ function CalendarEventModal({
   clubWideOnly = false,
   currentInvites = [],
   event,
+  eventResponseManager = null,
   form,
   invitePlayers = [],
   isBusy,
@@ -4646,10 +4559,13 @@ function CalendarEventModal({
 }) {
   const [availabilityAction, setAvailabilityAction] = useState(null)
   const [isMobileActionMenuOpen, setIsMobileActionMenuOpen] = useState(false)
+  const [isResponseManagerOpen, setIsResponseManagerOpen] = useState(false)
   const dialogRef = useRef(null)
   const closeButtonRef = useRef(null)
   const mobileActionMenuButtonRef = useRef(null)
   const mobileActionMenuRef = useRef(null)
+  const responseManagerButtonRef = useRef(null)
+  const responseManagerDialogRef = useRef(null)
   const returnFocusRef = useRef(null)
   const calendarModalViewportStyle = useCalendarModalViewportStyle(isOpen)
 
@@ -4658,8 +4574,9 @@ function CalendarEventModal({
   const handleModalCancel = useCallback(() => {
     setAvailabilityAction(null)
     setIsMobileActionMenuOpen(false)
+    setIsResponseManagerOpen(false)
     onCancel()
-  }, [onCancel, setAvailabilityAction, setIsMobileActionMenuOpen])
+  }, [onCancel, setAvailabilityAction, setIsMobileActionMenuOpen, setIsResponseManagerOpen])
 
   const handleModalSubmit = (submitEvent) => {
     setIsMobileActionMenuOpen(false)
@@ -4698,6 +4615,12 @@ function CalendarEventModal({
           return
         }
 
+        if (isResponseManagerOpen) {
+          setIsResponseManagerOpen(false)
+          window.requestAnimationFrame(() => responseManagerButtonRef.current?.focus())
+          return
+        }
+
         if (isMobileActionMenuOpen) {
           setIsMobileActionMenuOpen(false)
           window.requestAnimationFrame(() => mobileActionMenuButtonRef.current?.focus())
@@ -4719,9 +4642,11 @@ function CalendarEventModal({
         : []
       const activeRoot = availabilityAction
         ? confirmationDialogs.at(-1)
-        : isMobileActionMenuOpen
-          ? mobileActionMenuRef.current
-          : dialogRef.current
+        : isResponseManagerOpen
+          ? responseManagerDialogRef.current
+          : isMobileActionMenuOpen
+            ? mobileActionMenuRef.current
+            : dialogRef.current
       const focusableElements = getModalFocusableElements(activeRoot)
 
       if (focusableElements.length === 0) {
@@ -4743,7 +4668,14 @@ function CalendarEventModal({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [availabilityAction, handleModalCancel, isBusy, isMobileActionMenuOpen, isOpen])
+  }, [
+    availabilityAction,
+    handleModalCancel,
+    isBusy,
+    isMobileActionMenuOpen,
+    isOpen,
+    isResponseManagerOpen,
+  ])
 
   useEffect(() => {
     if (!isOpen || !availabilityAction) {
@@ -4825,7 +4757,6 @@ function CalendarEventModal({
   const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
   const availabilityOccurrenceDate = getTrainingAvailabilityOccurrenceDate({ event, form })
   const trainingAvailabilityDetails = getTrainingAvailabilityDetailsForOccurrence(trainingAvailabilitySummary, availabilityOccurrenceDate)
-  const trainingAvailabilityDetailsByPlayerId = getTrainingAvailabilityDetailByPlayerId(trainingAvailabilityDetails)
   const eventTypeOptions = getCalendarEventTypeOptions(user, { clubWideOnly })
   const parentAudienceOptions = [
     { value: 'involved_players', label: 'Only parents of involved players' },
@@ -4840,15 +4771,6 @@ function CalendarEventModal({
         ]),
       )
     : {}
-  const canUseStaffAcceptance = Boolean(
-    Number(user?.roleRank ?? 0) >= 20
-    && user?.role !== 'parent_portal'
-    && (
-      event?.sourceType === 'match-day'
-      || (event?.sourceType === 'calendar' && form.eventType === 'training')
-    ),
-  )
-
   return (
     <>
       <div
@@ -4860,7 +4782,7 @@ function CalendarEventModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="calendar-event-modal-title"
-        aria-hidden={availabilityAction ? 'true' : undefined}
+        aria-hidden={availabilityAction || isResponseManagerOpen ? 'true' : undefined}
         data-testid="calendar-event-modal"
         className="relative flex h-screen min-h-0 w-full max-w-3xl flex-col overflow-hidden border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15 sm:h-auto sm:max-h-[calc(100vh-2rem)] sm:rounded-lg"
         style={{
@@ -4945,39 +4867,19 @@ function CalendarEventModal({
                 ) : null}
               </div>
             ) : null}
-            {currentInvites.length > 0 ? (
-              <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Invited players</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {currentInvites.map((invite) => {
-                    const detail = trainingAvailabilityDetailsByPlayerId.get(String(invite.playerId ?? ''))
-                    const status = invite.display
-                      || (event?.sourceType === 'match-day'
-                        ? matchInviteStatesByPlayerId[String(invite.playerId ?? '')]
-                          || resolveEventInvitePlayerStatus({ matchFixture: true })
-                        : resolveEventInvitePlayerStatus({
-                            availabilityStatus: detail?.responseStatus,
-                            matchFixture: false,
-                          }))
-
-                    return (
-                      <EventInvitePlayerChip
-                        actionable={canUseStaffAcceptance}
-                        key={invite.id}
-                        invite={invite}
-                        onOpen={() => setAvailabilityAction({ invite, status })}
-                        status={status}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
+            {eventResponseManager?.counts?.total > 0 ? (
+              <EventResponseSummary
+                buttonRef={responseManagerButtonRef}
+                manager={eventResponseManager}
+                onViewResponses={() => {
+                  setIsResponseManagerOpen(true)
+                }}
+              />
             ) : (
               <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-4">
                 <p className="text-sm font-black text-[#101828]">No players have been added to this event.</p>
               </div>
             )}
-            {form.eventType === 'training' ? <TrainingAvailabilitySummary summary={trainingAvailabilitySummary} /> : null}
             {form.eventType === 'training' ? <TrainingAvailabilityParentNotes details={trainingAvailabilityDetails} /> : null}
             <CalendarAttachedResourcesList resources={attachedResources} />
             {showRepeatDeleteScope ? (
@@ -5630,11 +5532,34 @@ function CalendarEventModal({
         ) : null}
       </div>
       </div>
+      {isResponseManagerOpen && eventResponseManager ? (
+        <EventResponseManagerDialog
+          ariaHidden={Boolean(availabilityAction)}
+          dialogRef={responseManagerDialogRef}
+          eventContext={selectedSummary}
+          eventTitle={event?.title || form.title || 'Event responses'}
+          isBusy={isBusy}
+          manager={eventResponseManager}
+          onAcceptOnBehalf={(row) => {
+            setAvailabilityAction({
+              invite: row.sourceRow,
+              status: row.sourceRow.display,
+            })
+          }}
+          onClose={() => {
+            setIsResponseManagerOpen(false)
+            window.requestAnimationFrame(() => responseManagerButtonRef.current?.focus())
+          }}
+        />
+      ) : null}
       <ConfirmModal
         isOpen={Boolean(availabilityAction)}
         isBusy={isBusy}
+        overlayZIndexClassName="z-[100]"
         title={availabilityAction?.invite?.player?.playerName || 'Invited player'}
-        message="This records an Available response by you as authorised staff. It does not sign in as, or impersonate, the parent or player."
+        message={form.eventType === 'training'
+          ? 'This records an Attending response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.'
+          : 'This records an Available response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.'}
         items={[
           `Current availability: ${availabilityAction?.status?.availabilityLabel || 'Awaiting response'}`,
           ...(availabilityAction?.status?.matchSelectionLabel
@@ -5642,7 +5567,9 @@ function CalendarEventModal({
             : []),
         ]}
         itemsTitle="Invitation status"
-        confirmLabel="Accept on behalf of player"
+        confirmLabel={form.eventType === 'training'
+          ? 'Mark attending on behalf'
+          : 'Accept on behalf of player'}
         confirmDisabled={availabilityAction?.status?.canAcceptOnBehalf === false}
         onCancel={() => setAvailabilityAction(null)}
         onConfirm={async () => {

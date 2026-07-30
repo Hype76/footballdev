@@ -1,5 +1,6 @@
 import { supabase } from '../supabase-client.js'
 import { normalizeCalendarEventInvite } from './calendar-event-invites.js'
+import { buildEventResponseManagerModel } from './event-response-manager.js'
 
 const FINAL_RESPONSE_STATES = new Set(['available', 'maybe', 'unavailable'])
 const DELIVERY_FAILURE_STATES = new Set(['failed', 'delivery_failed'])
@@ -627,6 +628,10 @@ export function buildEventResponseReadModel({
       sourceType: source.sourceType,
     },
     participants,
+    responseManager: buildEventResponseManagerModel({
+      eventType,
+      participants,
+    }),
   }
 }
 

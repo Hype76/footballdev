@@ -210,7 +210,7 @@ const calendarRows = [
   },
 ]
 
-const bulkPlayerRows = Array.from({ length: 24 }, (_, index) => ({
+const bulkPlayerRows = Array.from({ length: 32 }, (_, index) => ({
   id: `bulk-player-${index + 1}`,
   club_id: 'club-fixture',
   team_id: 'team-u12',
@@ -235,6 +235,9 @@ const inviteRows = [
     match_day_id: 'match-fixture',
     player_id: 'selected-player',
     invite_status: 'active',
+    notify_requested: true,
+    recipient_type: 'parent_guardian',
+    response_requirement: 'response_required',
     players: playerRows[0],
   },
   {
@@ -244,6 +247,9 @@ const inviteRows = [
     match_day_id: 'match-fixture',
     player_id: 'pending-player',
     invite_status: 'active',
+    notify_requested: true,
+    recipient_type: 'parent_guardian',
+    response_requirement: 'response_required',
     players: playerRows[1],
   },
   {
@@ -253,6 +259,9 @@ const inviteRows = [
     calendar_event_id: 'training-event',
     player_id: 'training-player',
     invite_status: 'active',
+    notify_requested: true,
+    recipient_type: 'parent_guardian',
+    response_requirement: 'response_required',
     players: playerRows[2],
   },
   ...bulkPlayerRows.map((player, index) => ({
@@ -275,7 +284,33 @@ function json(route, body, status = 200) {
   })
 }
 
-async function preparePage(context) {
+async function preparePage(context, { standalone = false } = {}) {
+  if (standalone) {
+    await context.addInitScript(() => {
+      Object.defineProperty(window.navigator, 'standalone', {
+        configurable: true,
+        value: true,
+      })
+      const originalMatchMedia = window.matchMedia.bind(window)
+      window.matchMedia = (query) => {
+        if (query === '(display-mode: standalone)') {
+          return {
+            addEventListener() {},
+            addListener() {},
+            dispatchEvent() { return false },
+            matches: true,
+            media: query,
+            onchange: null,
+            removeEventListener() {},
+            removeListener() {},
+          }
+        }
+
+        return originalMatchMedia(query)
+      }
+    })
+  }
+
   await context.route('**/auth/v1/**', (route) => json(route, {}))
   await context.route('**/.netlify/functions/**', (route) => json(route, { success: false }, 404))
   await context.route('**/rest/v1/**', async (route) => {
@@ -380,39 +415,69 @@ try {
   await desktop.page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await openEvent(desktop.page, 'FP TEST Match Invite')
 
-  const selectedChip = desktop.page.getByRole('button', { name: 'Selected Player: Selected, Available' })
-  const pendingChip = desktop.page.getByRole('button', { name: 'Pending Player: Awaiting response' })
-  await selectedChip.waitFor({ state: 'visible' })
-  await pendingChip.waitFor({ state: 'visible' })
+  const desktopSummary = desktop.page.getByTestId('event-response-summary')
+  await desktopSummary.waitFor({ state: 'visible' })
+  await desktopSummary.getByText('34 participants', { exact: true }).waitFor({ state: 'visible' })
+  await desktopSummary.getByText('Available', { exact: true }).waitFor({ state: 'visible' })
+  await desktopSummary.getByText('Awaiting response', { exact: true }).waitFor({ state: 'visible' })
+  await desktopSummary.getByText('Invitation not sent', { exact: true }).waitFor({ state: 'visible' })
+  await desktopSummary.getByText('Selected', { exact: true }).waitFor({ state: 'visible' })
+  await desktopSummary.getByText('Not selected', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await desktop.page.getByText('Invited players', { exact: true }).count(), 0)
 
-  await selectedChip.focus()
+  const desktopViewResponses = desktopSummary.getByRole('button', { name: 'View responses' })
+  await desktopViewResponses.focus()
   await desktop.page.keyboard.press('Enter')
-  const selectedConfirm = desktop.page.getByRole('dialog').last()
-  await selectedConfirm.getByText('Current availability', { exact: true }).waitFor({ state: 'visible' })
-  await selectedConfirm.getByText('Available', { exact: true }).waitFor({ state: 'visible' })
-  await selectedConfirm.getByText('Match selection', { exact: true }).waitFor({ state: 'visible' })
-  await selectedConfirm.getByText('Selected', { exact: true }).waitFor({ state: 'visible' })
-  assert.equal(await selectedConfirm.getByRole('button', { name: 'Accept on behalf of player' }).isDisabled(), true)
-  await selectedConfirm.getByRole('button', { name: 'Cancel' }).click()
+  const desktopManager = desktop.page.getByTestId('event-response-manager')
+  await desktopManager.waitFor({ state: 'visible' })
+  await desktopManager.getByText('34 of 34 players', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await desktopManager.locator('[role="row"][data-player-id]').count(), 34)
+  assert.deepEqual(
+    await desktopManager.locator('[role="rowgroup"] h3').allTextContents(),
+    ['Available (1)', 'Awaiting response (1)', 'Invitation not sent (32)'],
+  )
 
-  await pendingChip.click()
+  await desktopManager.getByRole('tab', { name: 'Invitation not sent (32)' }).click()
+  assert.equal(await desktopManager.locator('[role="row"][data-player-id]').count(), 32)
+  const desktopSearch = desktopManager.getByRole('searchbox', { name: 'Search players' })
+  await desktopSearch.fill('long list player 17')
+  await desktopManager.getByText('1 of 34 players', { exact: true }).waitFor({ state: 'visible' })
+  await desktopManager.getByText('Long List Player 17', { exact: true }).waitFor({ state: 'visible' })
+  await desktopManager.getByRole('button', { name: 'Clear search' }).click()
+  await desktopManager.getByRole('tab', { name: 'Awaiting response (1)' }).click()
+
+  const pendingRow = desktopManager.locator('[role="row"][data-player-id="pending-player"]')
+  await pendingRow.getByRole('button', { name: 'Actions for Pending Player' }).click()
+  await pendingRow.getByRole('menuitem', { name: 'Mark available on behalf' }).click()
   const pendingConfirm = desktop.page.getByRole('dialog').last()
   await pendingConfirm.getByText('Awaiting response', { exact: true }).waitFor({ state: 'visible' })
   await pendingConfirm.getByRole('button', { name: 'Accept on behalf of player' }).click()
-  await desktop.page.getByRole('button', { name: 'Pending Player: Available' }).waitFor({ state: 'visible', timeout: 15000 })
+  await desktopManager.getByRole('tab', { name: 'Available (2)' }).waitFor({ state: 'visible', timeout: 15000 })
+  await desktopManager.getByRole('tab', { name: 'All (34)' }).click()
+  await desktopManager.locator('[role="row"][data-player-id="pending-player"]').getByText('Available', { exact: true }).waitFor({ state: 'visible' })
+  await desktop.page.keyboard.press('Escape')
+  await desktopManager.waitFor({ state: 'hidden' })
+  assert.equal(await desktopViewResponses.evaluate((element) => element === document.activeElement), true)
 
-  await desktop.page.getByRole('button', { name: 'Close' }).last().click()
+  await desktop.page.getByRole('button', { name: 'Close calendar event' }).click()
   await openEvent(desktop.page, 'FP TEST Training Invite')
   await desktop.page.getByRole('button', { name: 'Edit event' }).click()
   assert.equal(await desktop.page.getByRole('checkbox', { name: 'Automatically select players who respond Available' }).count(), 0)
   await desktop.page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await openEvent(desktop.page, 'FP TEST Training Invite')
-  const trainingChip = desktop.page.getByRole('button', { name: 'Training Player: Awaiting response' })
-  await trainingChip.click()
+  const trainingSummary = desktop.page.getByTestId('event-response-summary')
+  await trainingSummary.getByText('Awaiting response', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await trainingSummary.getByText('Match selection', { exact: true }).count(), 0)
+  await trainingSummary.getByRole('button', { name: 'View responses' }).click()
+  const trainingManager = desktop.page.getByTestId('event-response-manager')
+  await trainingManager.getByRole('tab', { name: 'Awaiting response (1)' }).click()
+  const trainingRow = trainingManager.locator('[role="row"][data-player-id="training-player"]')
+  await trainingRow.getByRole('button', { name: 'Actions for Training Player' }).click()
+  await trainingRow.getByRole('menuitem', { name: 'Mark attending on behalf' }).click()
   const trainingConfirm = desktop.page.getByRole('dialog').last()
   assert.equal(await trainingConfirm.getByText('Match selection', { exact: true }).count(), 0)
-  await trainingConfirm.getByRole('button', { name: 'Accept on behalf of player' }).click()
-  await desktop.page.getByRole('button', { name: 'Training Player: Available' }).waitFor({ state: 'visible', timeout: 15000 })
+  await trainingConfirm.getByRole('button', { name: 'Mark attending on behalf' }).click()
+  await trainingManager.getByRole('tab', { name: 'Attending (1)', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   assert.equal(await desktop.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   await desktop.page.goto(`${baseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await desktop.page.getByRole('heading', { name: 'Game Day' }).waitFor({ state: 'visible', timeout: 15000 })
@@ -424,6 +489,9 @@ try {
   assert.equal(await desktop.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   assert.deepEqual(desktop.pageErrors, [])
   await desktopContext.close()
+
+  matchState.availability = matchState.availability.filter((row) => row.id !== 'availability-pending')
+  trainingAccepted = false
 
   const mobileContext = await browser.newContext({ colorScheme: 'light', isMobile: true, viewport: { width: 390, height: 844 } })
   const mobile = await preparePage(mobileContext)
@@ -465,21 +533,82 @@ try {
   assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   await mobile.page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await openEvent(mobile.page, 'FP TEST Match Invite')
-  const mobileChip = mobile.page.getByRole('button', { name: 'Pending Player: Available' })
-  await mobileChip.waitFor({ state: 'visible' })
-  const chipBox = await mobileChip.boundingBox()
-  assert.ok(chipBox && chipBox.height >= 48)
-  assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-  await mobileChip.click()
+  const mobileSummary = mobile.page.getByTestId('event-response-summary')
+  const mobileViewResponses = mobileSummary.getByRole('button', { name: 'View responses' })
+  const mobileViewResponsesBox = await mobileViewResponses.boundingBox()
+  assert.ok(mobileViewResponsesBox && mobileViewResponsesBox.height >= 44)
+  await mobileViewResponses.click()
+  const mobileManager = mobile.page.getByTestId('event-response-manager')
+  const mobileManagerBox = await mobileManager.boundingBox()
+  assert.ok(mobileManagerBox && mobileManagerBox.height >= 800 && mobileManagerBox.height <= 844)
+  assert.equal(await mobileManager.locator('[role="row"][data-player-id]').count(), 34)
+  const mobileSearch = mobileManager.getByRole('searchbox', { name: 'Search players' })
+  await mobileSearch.fill('PENDING')
+  await mobileManager.getByText('1 of 34 players', { exact: true }).waitFor({ state: 'visible' })
+  const mobilePendingRow = mobileManager.locator('[role="row"][data-player-id="pending-player"]')
+  const mobileActionButton = mobilePendingRow.getByRole('button', { name: 'Actions for Pending Player' })
+  const mobileActionButtonBox = await mobileActionButton.boundingBox()
+  assert.ok(mobileActionButtonBox && mobileActionButtonBox.height >= 44)
+  await mobileActionButton.click()
+  const mobileRowMenu = mobilePendingRow.getByRole('menu', { name: 'Actions for Pending Player' })
+  const mobileRowMenuBox = await mobileRowMenu.boundingBox()
+  assert.ok(mobileRowMenuBox && mobileRowMenuBox.x >= 0 && mobileRowMenuBox.x + mobileRowMenuBox.width <= 390)
+  await mobileRowMenu.getByRole('menuitem', { name: 'Mark available on behalf' }).click()
   const mobileAvailabilityDialog = mobile.page.getByRole('dialog').last()
-  await mobileAvailabilityDialog.getByText('Available', { exact: true }).waitFor({ state: 'visible' })
+  await mobileAvailabilityDialog.getByText('Awaiting response', { exact: true }).waitFor({ state: 'visible' })
+  await mobileAvailabilityDialog.getByRole('button', { name: 'Accept on behalf of player' }).click()
+  await mobileManager.getByRole('tab', { name: 'Available (2)' }).waitFor({ state: 'visible', timeout: 15000 })
   assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-  await mobileAvailabilityDialog.getByRole('button', { name: 'Cancel' }).click()
+  await mobileManager.getByRole('button', { name: 'Close response manager' }).click()
+  await mobile.page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'View responses')
+  assert.equal(await mobileViewResponses.evaluate((element) => element === document.activeElement), true)
   await mobileClose.click()
   await mobileModal.waitFor({ state: 'hidden' })
   assert.equal(await mobile.page.evaluate(() => document.body.style.overflow), '')
   assert.deepEqual(mobile.pageErrors, [])
   await mobileContext.close()
+
+  const tabletContext = await browser.newContext({
+    colorScheme: 'light',
+    hasTouch: true,
+    viewport: { width: 820, height: 1180 },
+  })
+  const tablet = await preparePage(tabletContext)
+  await signIn(tablet.page)
+  await openEvent(tablet.page, 'FP TEST Match Invite')
+  await tablet.page.getByTestId('event-response-summary').getByRole('button', { name: 'View responses' }).click()
+  const tabletManager = tablet.page.getByTestId('event-response-manager')
+  const tabletManagerBox = await tabletManager.boundingBox()
+  assert.ok(tabletManagerBox && tabletManagerBox.width >= 760 && tabletManagerBox.width <= 820)
+  await tabletManager.getByRole('tab', { name: 'Invitation not sent (32)' }).click()
+  await tabletManager.getByRole('searchbox', { name: 'Search players' }).fill('Player 08')
+  await tabletManager.getByText('Long List Player 08', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await tablet.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  assert.deepEqual(tablet.pageErrors, [])
+  await tabletContext.close()
+
+  const pwaContext = await browser.newContext({
+    colorScheme: 'dark',
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 393, height: 852 },
+  })
+  const pwa = await preparePage(pwaContext, { standalone: true })
+  await signIn(pwa.page)
+  assert.equal(await pwa.page.evaluate(() => (
+    window.matchMedia('(display-mode: standalone)').matches
+    && window.navigator.standalone === true
+  )), true)
+  await openEvent(pwa.page, 'FP TEST Training Invite')
+  await pwa.page.getByTestId('event-response-summary').getByRole('button', { name: 'View responses' }).click()
+  const pwaManager = pwa.page.getByTestId('event-response-manager')
+  await pwaManager.getByRole('tab', { name: 'Attending (0)', exact: true }).waitFor({ state: 'visible' })
+  await pwaManager.getByRole('tab', { name: 'Awaiting response (1)' }).waitFor({ state: 'visible' })
+  const pwaManagerBox = await pwaManager.boundingBox()
+  assert.ok(pwaManagerBox && pwaManagerBox.height >= 820 && pwaManagerBox.height <= 852)
+  assert.equal(await pwa.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  assert.deepEqual(pwa.pageErrors, [])
+  await pwaContext.close()
 
   const shortAndroidContext = await browser.newContext({
     colorScheme: 'dark',
@@ -498,11 +627,22 @@ try {
     await shortAndroid.page.getByTestId('calendar-event-modal-content').evaluate((element) => element.scrollHeight > element.clientHeight),
     true,
   )
+  await shortAndroid.page.getByTestId('event-response-summary').getByRole('button', { name: 'View responses' }).click()
+  const shortManager = shortAndroid.page.getByTestId('event-response-manager')
+  const shortManagerBox = await shortManager.boundingBox()
+  assert.ok(shortManagerBox && shortManagerBox.height >= 450 && shortManagerBox.height <= 480)
+  assert.equal(
+    await shortManager.locator('.overflow-y-auto').evaluate((element) => element.scrollHeight > element.clientHeight),
+    true,
+  )
+  await shortManager.getByRole('tab', { name: 'Invitation not sent (32)' }).click()
+  await shortManager.getByRole('searchbox', { name: 'Search players' }).fill('Player 32')
+  await shortManager.getByText('Long List Player 32', { exact: true }).waitFor({ state: 'visible' })
   assert.equal(await shortAndroid.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   assert.deepEqual(shortAndroid.pageErrors, [])
   await shortAndroidContext.close()
 
-  console.log('Event invite status, automatic match selection, staff acceptance, and Calendar modal layout checks passed on desktop dark mode, iPhone-sized light mode, and short Android-sized dark mode.')
+  console.log('Event response summary, grouped manager, search, staff acceptance, and Calendar layout checks passed on desktop, tablet, iPhone, short Android, and controlled standalone PWA sessions.')
 } catch (error) {
   console.error(server.getOutput())
   throw error
