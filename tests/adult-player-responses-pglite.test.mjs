@@ -4,6 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260730110000_adult_player_account_foundation.sql', import.meta.url)
+const auditMigrationUrl = new URL('../supabase/migrations/20260730123000_adult_player_auth_only_audit_actor.sql', import.meta.url)
 
 const ids = {
   club: '11000000-0000-4000-8000-000000000001',
@@ -27,6 +28,7 @@ async function setClaims(db, userId = '') {
 
 async function createDatabase() {
   const migration = await readFile(migrationUrl, 'utf8')
+  const auditMigration = await readFile(auditMigrationUrl, 'utf8')
   const db = new PGlite()
 
   await db.exec(`
@@ -179,7 +181,7 @@ async function createDatabase() {
     create table public.audit_logs (
       id uuid primary key default gen_random_uuid(),
       club_id uuid,
-      actor_id uuid,
+      actor_id uuid references public.users (id) on delete set null,
       action text not null,
       entity_type text not null,
       entity_id uuid,
@@ -289,6 +291,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(auditMigration)
 
   await db.exec(`
     insert into public.clubs (id, name, contact_email)
@@ -393,12 +396,14 @@ test('adult player sees and responds only to own direct invitations', async () =
   )
 
   const audits = await db.query(`
-    select action, metadata
+    select action, actor_id, metadata
     from public.audit_logs
-    where actor_id = $1
+    where metadata ->> 'actorAuthUserId' = $1
     order by created_at
   `, [ids.user])
   assert.equal(audits.rows.length, 3)
+  assert.ok(audits.rows.every((row) => row.actor_id === null))
+  assert.ok(audits.rows.every((row) => row.metadata.actorAuthUserId === ids.user))
   assert.ok(audits.rows.every((row) => row.metadata.responseSource === 'adult_player'))
   assert.ok(audits.rows.every((row) => row.metadata.playerId === ids.player))
   await db.close()
