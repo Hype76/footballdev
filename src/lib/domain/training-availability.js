@@ -155,6 +155,11 @@ export function normalizeTrainingAvailabilityDetail(row = {}) {
     playerId: row.player_id ?? row.playerId ?? '',
     playerName: normalizeText(row.player_name ?? row.playerName),
     recipientStatus: normalizeText(row.status ?? row.recipientStatus),
+    recipientType: normalizeText(row.recipient_type ?? row.recipientType),
+    parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
+    emailSentAt: row.email_sent_at ?? row.emailSentAt ?? '',
+    lastError: normalizeText(row.last_error ?? row.lastError),
+    createdAt: row.created_at ?? row.createdAt ?? '',
     responseStatus: responseStatus || 'pending',
     responseLabel: state.label,
     responseTone: state.tone,
@@ -206,7 +211,7 @@ export async function getTrainingAvailabilitySummaryForEvents({ user, eventIds =
 
   const { data, error } = await supabase
     .from('training_availability_request_players')
-    .select('id, request_id, calendar_event_id, player_id, player_name, status, training_availability_requests(id, occurrence_date, occurrence_starts_at), training_availability_responses(status, note, responded_at, responded_by_name)')
+    .select('id, request_id, calendar_event_id, player_id, player_name, parent_link_id, recipient_type, status, email_sent_at, last_error, created_at, training_availability_requests(id, occurrence_date, occurrence_starts_at), training_availability_responses(status, note, responded_at, responded_by_name)')
     .eq('club_id', user.clubId)
     .in('calendar_event_id', normalizedEventIds)
 

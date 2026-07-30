@@ -62,6 +62,7 @@ import {
   getCalendarEventResources,
   getCalendarEvents,
   getCalendarEventInvites,
+  getEventResponseEvidenceForEvent,
   getDefaultTrainingAvailabilityForm,
   getMatchDay,
   getMatchDays,
@@ -94,6 +95,7 @@ import {
   isPastMatchDayDate,
   withRequestTimeout,
   writeViewCache,
+  buildEventResponseReadModel,
 } from '../lib/supabase.js'
 import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
 import {
@@ -105,7 +107,6 @@ import {
 } from '../lib/domain/calendar-invite-scope.js'
 import { getCalendarNotificationToast } from '../lib/domain/calendar-notification-status.js'
 import {
-  buildMatchDayPlayerInviteStateMap,
   resolveEventInvitePlayerStatus,
 } from '../lib/domain/calendar-actionable-invites.js'
 import { buildCalendarNotificationHtml } from '../lib/calendar-notification-email.js'
@@ -677,29 +678,22 @@ function validateParentSharing({ form, safeTeamId, selectedPlayers, user }) {
   }
 }
 
-function getInvitesForCalendarEvent(event, invites = []) {
-  const sourceType = event?.sourceType || ''
-  const sourceId = String(event?.sourceId ?? '').trim()
-
-  if (!sourceId) {
-    return []
-  }
-
-  return invites.filter((invite) => {
-    if (sourceType === 'calendar') {
-      return invite.calendarEventId === sourceId
-    }
-
-    if (sourceType === 'session') {
-      return invite.assessmentSessionId === sourceId
-    }
-
-    if (sourceType === 'match-day') {
-      return invite.matchDayId === sourceId
-    }
-
-    return false
-  })
+function getInvitesForCalendarEvent(event, invites = [], {
+  auditEvents = [],
+  deliveryEvents = [],
+  occurrenceDate = '',
+  sessionParticipants = [],
+  trainingAvailabilitySummary = null,
+} = {}) {
+  return buildEventResponseReadModel({
+    auditEvents,
+    calendarInvites: invites,
+    deliveryEvents,
+    event,
+    occurrenceDate,
+    sessionParticipants,
+    trainingAvailabilitySummary,
+  }).participants
 }
 
 function getFormInviteFields(event, invites = []) {
@@ -892,6 +886,15 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const [isCalendarResourcesLoading, setIsCalendarResourcesLoading] = useState(false)
   const [trainingAvailabilitySettingsByEventId, setTrainingAvailabilitySettingsByEventId] = useState({})
   const [trainingAvailabilitySummaryByEventId, setTrainingAvailabilitySummaryByEventId] = useState({})
+  const [eventResponseEvidence, setEventResponseEvidence] = useState({
+    auditEvents: [],
+    calendarInvites: [],
+    deliveryEvents: [],
+    loaded: false,
+    sessionParticipants: [],
+    sourceId: '',
+    sourceType: '',
+  })
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
@@ -916,6 +919,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
   const currentSessionRef = useRef(null)
+  const calendarDeepLinkRequestRef = useRef('')
   const userScopeKey = user
     ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}:${user.activeTeamName || ''}`
     : ''
@@ -980,10 +984,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     () => buildSelectedInvitePlayers(calendarForm, calendarInvitePlayers),
     [calendarForm, calendarInvitePlayers],
   )
-  const currentCalendarEventInvites = useMemo(
-    () => getInvitesForCalendarEvent(calendarModal?.event, calendarInvites),
-    [calendarInvites, calendarModal?.event],
-  )
   const currentCalendarEventResources = useMemo(() => {
     const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
     return sourceId ? calendarEventResourcesById[sourceId] || [] : []
@@ -992,6 +992,32 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
     return sourceId ? trainingAvailabilitySummaryByEventId[sourceId] || null : null
   }, [calendarModal?.event?.sourceId, trainingAvailabilitySummaryByEventId])
+  const currentEventResponseModel = useMemo(() => {
+    const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
+    const sourceType = String(calendarModal?.event?.sourceType ?? '').trim()
+    const evidenceMatches = (
+      eventResponseEvidence.loaded === true
+      && eventResponseEvidence.sourceId === sourceId
+      && eventResponseEvidence.sourceType === sourceType
+    )
+
+    return buildEventResponseReadModel({
+      auditEvents: evidenceMatches ? eventResponseEvidence.auditEvents : [],
+      calendarInvites: evidenceMatches ? eventResponseEvidence.calendarInvites : calendarInvites,
+      deliveryEvents: evidenceMatches ? eventResponseEvidence.deliveryEvents : [],
+      event: calendarModal?.event,
+      occurrenceDate: calendarForm.date,
+      sessionParticipants: evidenceMatches ? eventResponseEvidence.sessionParticipants : [],
+      trainingAvailabilitySummary: currentTrainingAvailabilitySummary,
+    })
+  }, [
+    calendarForm.date,
+    calendarInvites,
+    calendarModal?.event,
+    currentTrainingAvailabilitySummary,
+    eventResponseEvidence,
+  ])
+  const currentCalendarEventInvites = currentEventResponseModel.participants
   const calendarResourceTeamId = useMemo(() => {
     if (!calendarModal || isClubWideCalendar) {
       return ''
@@ -1087,6 +1113,64 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   useEffect(() => {
     let isMounted = true
+    const event = calendarModal?.event
+    const sourceId = String(event?.sourceId ?? '').trim()
+    const sourceType = String(event?.sourceType ?? '').trim()
+
+    if (!sourceId || !['calendar', 'match-day', 'session'].includes(sourceType)) {
+      setEventResponseEvidence({
+        auditEvents: [],
+        calendarInvites: [],
+        deliveryEvents: [],
+        loaded: false,
+        sessionParticipants: [],
+        sourceId: '',
+        sourceType: '',
+      })
+      return () => {
+        isMounted = false
+      }
+    }
+
+    getEventResponseEvidenceForEvent({ event, user })
+      .then((evidence) => {
+        if (isMounted) {
+          setEventResponseEvidence({
+            ...evidence,
+            loaded: true,
+            sourceId,
+            sourceType,
+          })
+        }
+      })
+      .catch((error) => {
+        console.error(error)
+        if (isMounted) {
+          setEventResponseEvidence({
+            auditEvents: [],
+            calendarInvites: [],
+            deliveryEvents: [],
+            loaded: false,
+            sessionParticipants: [],
+            sourceId: '',
+            sourceType: '',
+          })
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [
+    calendarModal?.event,
+    calendarModal?.event?.sourceId,
+    calendarModal?.event?.sourceType,
+    user,
+    userScopeKey,
+  ])
+
+  useEffect(() => {
+    let isMounted = true
     let refreshInFlight = false
     const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
     const sourceType = String(calendarModal?.event?.sourceType ?? '').trim()
@@ -1136,6 +1220,23 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
               [sourceId]: summaries[sourceId] || null,
             }))
           }
+        }
+
+        const evidence = await getEventResponseEvidenceForEvent({
+          event: {
+            sourceId,
+            sourceType,
+          },
+          user,
+        })
+
+        if (isMounted) {
+          setEventResponseEvidence({
+            ...evidence,
+            loaded: true,
+            sourceId,
+            sourceType,
+          })
         }
       } catch (error) {
         console.error(error)
@@ -1450,8 +1551,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const requestedAction = String(searchParams.get('action') ?? '').trim()
     const requestedEventId = String(searchParams.get('eventId') ?? '').trim()
     const requestedSource = String(searchParams.get('source') ?? '').trim()
+    const requestKey = `${requestedAction}:${requestedSource}:${requestedEventId}`
 
-    if (requestedAction !== 'manage-players' || !requestedEventId || isLoading) {
+    if (
+      requestedAction !== 'manage-players'
+      || !requestedEventId
+      || isLoading
+      || calendarDeepLinkRequestRef.current === requestKey
+    ) {
       return
     }
 
@@ -1470,22 +1577,75 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return
     }
 
-    const nextForm = getFormFromCalendarEvent(requestedEvent, calendarInvites)
-    setCalendarForm({
-      ...nextForm,
-      notificationRequestToken: createNotificationRequestToken(),
-      notifyInvitedFamilies: false,
-    })
-    setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
-    setCalendarPlayerReview(null)
-    setCalendarModal({ mode: 'manage-players', event: requestedEvent })
+    calendarDeepLinkRequestRef.current = requestKey
 
-    const nextSearchParams = new URLSearchParams(searchParams)
-    nextSearchParams.delete('action')
-    nextSearchParams.delete('eventId')
-    nextSearchParams.delete('source')
-    setSearchParams(nextSearchParams, { replace: true })
-  }, [calendarEvents, calendarInvites, isLoading, searchParams, setSearchParams])
+    const openAuthoritativePlayerManagement = async () => {
+      try {
+        const event = requestedEvent.sourceType === 'match-day'
+          ? {
+              ...requestedEvent,
+              data: await getMatchDay({
+                matchDayId: requestedEvent.sourceId,
+                user,
+              }),
+            }
+          : requestedEvent
+        const evidence = await getEventResponseEvidenceForEvent({ event, user })
+        const trainingSummary = event?.data?.eventType === 'training'
+          ? (
+              await getTrainingAvailabilitySummaryForEvents({
+                eventIds: [event.sourceId],
+                user,
+              })
+            )[event.sourceId] || null
+          : trainingAvailabilitySummaryByEventId[event.sourceId] || null
+        const requestedEventResponseRows = buildEventResponseReadModel({
+          ...evidence,
+          event,
+          occurrenceDate: event.date,
+          trainingAvailabilitySummary: trainingSummary,
+        }).participants
+        const nextForm = getFormFromCalendarEvent(event, requestedEventResponseRows)
+
+        setEventResponseEvidence({
+          ...evidence,
+          loaded: true,
+          sourceId: event.sourceId,
+          sourceType: event.sourceType,
+        })
+        setCalendarForm({
+          ...nextForm,
+          notificationRequestToken: createNotificationRequestToken(),
+          notifyInvitedFamilies: false,
+        })
+        setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
+        setCalendarPlayerReview(null)
+        setCalendarModal({ mode: 'manage-players', event })
+      } catch (error) {
+        console.error(error)
+        setErrorMessage(
+          error.message
+          || 'The requested event could not be loaded for authoritative player management.',
+        )
+      } finally {
+        calendarDeepLinkRequestRef.current = ''
+        const nextSearchParams = new URLSearchParams(searchParams)
+        nextSearchParams.delete('action')
+        nextSearchParams.delete('eventId')
+        nextSearchParams.delete('source')
+        setSearchParams(nextSearchParams, { replace: true })
+      }
+    }
+
+    void openAuthoritativePlayerManagement()
+  }, [
+    calendarEvents,
+    isLoading,
+    searchParams,
+    setSearchParams,
+    trainingAvailabilitySummaryByEventId,
+    user,
+  ])
 
   useEffect(() => {
     let isMounted = true
@@ -1782,6 +1942,15 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setCalendarForm(getDefaultCalendarForm())
     setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
     setCalendarPlayerReview(null)
+    setEventResponseEvidence({
+      auditEvents: [],
+      calendarInvites: [],
+      deliveryEvents: [],
+      loaded: false,
+      sessionParticipants: [],
+      sourceId: '',
+      sourceType: '',
+    })
     setErrorMessage('')
   }
 
@@ -1797,7 +1966,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   const handleCalendarEventOpen = (event) => {
     setErrorMessage('')
-    const baseForm = getFormFromCalendarEvent(event, calendarInvites)
+    const eventResponseRows = buildEventResponseReadModel({
+      calendarInvites,
+      event,
+      occurrenceDate: event.date,
+      trainingAvailabilitySummary: trainingAvailabilitySummaryByEventId[event.sourceId] || null,
+    }).participants
+    const baseForm = getFormFromCalendarEvent(event, eventResponseRows)
     const sourceEventType = event?.data?.eventType || baseForm.eventType
     const setting = event?.sourceType === 'calendar'
       ? trainingAvailabilitySettingsByEventId[event.sourceId]
@@ -1823,10 +1998,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setCalendarPlayerReview(null)
     setCalendarForm((current) => ({
       ...current,
+      invitedPlayerIds: currentCalendarEventInvites.map((invite) => invite.playerId).filter(Boolean),
       notificationRequestToken: createNotificationRequestToken(),
       notifyInvitedFamilies: false,
     }))
     setCalendarModal((current) => ({ ...current, mode: 'manage-players' }))
+  }
+
+  const handleCalendarEdit = () => {
+    setCalendarForm((current) => ({
+      ...current,
+      invitedPlayerIds: currentCalendarEventInvites.map((invite) => invite.playerId).filter(Boolean),
+    }))
+    setCalendarModal((current) => ({ ...current, mode: 'edit' }))
   }
 
   const handleReviewCalendarPlayerChanges = async () => {
@@ -3293,9 +3477,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           onCancel={handleCalendarModalClose}
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
-          onEdit={() => {
-            setCalendarModal((current) => ({ ...current, mode: 'edit' }))
-          }}
+          onEdit={handleCalendarEdit}
           onOpenWorkflow={() => {
             const href = calendarModal?.event?.href
             setCalendarModal(null)
@@ -3607,9 +3789,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onCancel={handleCalendarModalClose}
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
-        onEdit={() => {
-          setCalendarModal((current) => ({ ...current, mode: 'edit' }))
-        }}
+        onEdit={handleCalendarEdit}
         onOpenWorkflow={() => {
           const href = calendarModal?.event?.href
           setCalendarModal(null)
@@ -4194,7 +4374,7 @@ function EventPlayerManagementPanel({
                   const isCurrent = currentPlayerIds.has(playerId)
                   const isSelected = selectedPlayerIds.has(playerId)
                   const invite = currentInviteByPlayerId.get(playerId)
-                  const matchState = matchInviteStatesByPlayerId[playerId]
+                  const eventState = invite?.display || matchInviteStatesByPlayerId[playerId]
                   const changeLabel = isCurrent && !isSelected
                     ? 'Marked for removal'
                     : !isCurrent && isSelected
@@ -4207,7 +4387,7 @@ function EventPlayerManagementPanel({
                     : !isCurrent && isSelected
                       ? 'border-[#bbf7d0] bg-[#ecfdf5] text-[#065f46]'
                       : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55]'
-                  const deliveryLabel = matchState?.accessibleLabel
+                  const deliveryLabel = eventState?.accessibleLabel
                     || (invite?.notifyRequested ? 'Notification requested' : isCurrent ? 'Added, not notified' : 'Invitation not sent')
 
                   return (
@@ -4234,9 +4414,9 @@ function EventPlayerManagementPanel({
                         <span className="mt-1 block text-xs font-bold text-[#4b5f55]">
                           {player.section || 'Player'} · {deliveryLabel}
                         </span>
-                        {matchState?.matchSelectionLabel ? (
+                        {eventState?.matchSelectionLabel ? (
                           <span className="mt-1 block text-xs font-black text-[#047857]">
-                            Match selection: {matchState.matchSelectionLabel}
+                            Match selection: {eventState.matchSelectionLabel}
                           </span>
                         ) : null}
                       </span>
@@ -4653,10 +4833,12 @@ function CalendarEventModal({
     ...(canUseClubLevel ? [{ value: 'all_club_parents', label: 'All parents in the club' }] : []),
   ]
   const matchInviteStatesByPlayerId = event?.sourceType === 'match-day'
-    ? buildMatchDayPlayerInviteStateMap({
-        invitedPlayerIds: form.invitedPlayerIds,
-        matchDay: event.data,
-      })
+    ? Object.fromEntries(
+        currentInvites.map((invite) => [
+          String(invite.playerId ?? ''),
+          invite.display,
+        ]),
+      )
     : {}
   const canUseStaffAcceptance = Boolean(
     Number(user?.roleRank ?? 0) >= 20
@@ -4769,13 +4951,14 @@ function CalendarEventModal({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {currentInvites.map((invite) => {
                     const detail = trainingAvailabilityDetailsByPlayerId.get(String(invite.playerId ?? ''))
-                    const status = event?.sourceType === 'match-day'
-                      ? matchInviteStatesByPlayerId[String(invite.playerId ?? '')]
-                        || resolveEventInvitePlayerStatus({ matchFixture: true })
-                      : resolveEventInvitePlayerStatus({
-                          availabilityStatus: detail?.responseStatus,
-                          matchFixture: false,
-                        })
+                    const status = invite.display
+                      || (event?.sourceType === 'match-day'
+                        ? matchInviteStatesByPlayerId[String(invite.playerId ?? '')]
+                          || resolveEventInvitePlayerStatus({ matchFixture: true })
+                        : resolveEventInvitePlayerStatus({
+                            availabilityStatus: detail?.responseStatus,
+                            matchFixture: false,
+                          }))
 
                     return (
                       <EventInvitePlayerChip
@@ -4789,7 +4972,11 @@ function CalendarEventModal({
                   })}
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-4">
+                <p className="text-sm font-black text-[#101828]">No players have been added to this event.</p>
+              </div>
+            )}
             {form.eventType === 'training' ? <TrainingAvailabilitySummary summary={trainingAvailabilitySummary} /> : null}
             {form.eventType === 'training' ? <TrainingAvailabilityParentNotes details={trainingAvailabilityDetails} /> : null}
             <CalendarAttachedResourcesList resources={attachedResources} />
