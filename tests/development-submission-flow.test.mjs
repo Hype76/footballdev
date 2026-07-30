@@ -178,6 +178,19 @@ test('completion statuses distinguish saved, PDF, email and reminder outcomes', 
       'Reminder: Not requested',
     ],
   )
+  assert.deepEqual(
+    buildDevelopmentCompletionItems({
+      emailOutcome: 'recipient_review',
+      isPdfAttachmentApproved: true,
+      previewMode: 'email',
+    }),
+    [
+      'Development record: Saved',
+      'PDF: Not generated, retry available',
+      'Parent email: Not sent, review recipients',
+      'Reminder: Not requested',
+    ],
+  )
 })
 
 test('server confirmation rejects missing operations and accepts an exact confirmed operation', async () => {
@@ -264,9 +277,9 @@ test('source sequencing and append-only database contracts preserve the final co
     page.indexOf('const handleContinueWithDefaultTemplate'),
   )
 
-  assert.ok(execution.indexOf('await confirmDevelopmentSubmission') < execution.indexOf('await createEvaluation'))
   assert.ok(execution.indexOf('await createEvaluation') < execution.indexOf('await finalizeDevelopmentParentReport'))
-  assert.ok(execution.indexOf('await finalizeDevelopmentParentReport') < execution.indexOf('sendParentEmail'))
+  assert.ok(execution.indexOf('await finalizeDevelopmentParentReport') < execution.indexOf('await confirmDevelopmentSubmission'))
+  assert.ok(execution.indexOf('await confirmDevelopmentSubmission') < execution.indexOf('sendParentEmail'))
   assert.ok(execution.indexOf('sendParentEmail') < execution.indexOf('createAssessmentReminderOnce'))
   assert.match(page, /Nothing has been saved, queued, generated, or sent yet\./)
   assert.match(page, /Use template and review submission/)

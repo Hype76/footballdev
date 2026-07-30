@@ -834,7 +834,18 @@ export function buildParentEmailJobs({
   return contactAudiences
     .flatMap((audience) => {
       const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? playerContactTypes.self : playerContactTypes.parent
-      const contacts = selectedParentContacts.filter((contact) => contact.type === contactType)
+      const contacts = selectedParentContacts
+        .filter((contact) => contact.type === contactType)
+        .filter((contact, index, items) => {
+          if (contactType !== playerContactTypes.parent) {
+            return true
+          }
+
+          const normalizedEmail = String(contact?.email ?? '').trim().toLowerCase()
+          return !normalizedEmail || items.findIndex(
+            (candidate) => String(candidate?.email ?? '').trim().toLowerCase() === normalizedEmail,
+          ) === index
+        })
       const recipientContacts = contacts.length > 0
         ? contacts
         : allowServerRecipientResolution && contactType === playerContactTypes.parent

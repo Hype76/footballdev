@@ -192,9 +192,11 @@ export function buildDevelopmentCompletionItems({
   reminderFailed = false,
 } = {}) {
   const isEmailRequested = previewMode === 'email'
-  const emailFailed = ['no_recipient', 'schedule_failed', 'send_failed'].includes(emailOutcome)
+  const emailFailed = ['no_recipient', 'recipient_review', 'schedule_failed', 'send_failed'].includes(emailOutcome)
   const pdfStatus = !isEmailRequested || !isPdfAttachmentApproved
     ? 'Not requested'
+    : emailOutcome === 'recipient_review'
+      ? 'Not generated, retry available'
     : emailFailed
       ? 'Failed, retry available'
       : 'Attached'
@@ -204,6 +206,8 @@ export function buildDevelopmentCompletionItems({
       ? 'Scheduled'
       : emailOutcome === 'sent'
         ? 'Sent'
+        : emailOutcome === 'recipient_review'
+          ? 'Not sent, review recipients'
         : isPdfAttachmentApproved
           ? 'Not sent because requested PDF failed'
           : 'Failed, retry available'

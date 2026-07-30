@@ -183,6 +183,31 @@ test('cross-club links fail', () => {
   assert.equal(result.outcome, 'no_recipient')
 })
 
+test('one ineligible selected recipient returns a complete review result and no partial delivery set', () => {
+  const result = resolveSelectedDevelopmentParentRecipients({
+    links: [
+      link(),
+      link({
+        id: secondLinkId,
+        team_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        email: 'second.parent@example.test',
+        primary_contact: false,
+      }),
+    ],
+    ...scope(),
+    selectedParentLinkIds: [firstLinkId, secondLinkId],
+  })
+
+  assert.equal(result.outcome, 'no_recipient')
+  assert.deepEqual(result.eligibleRecipients.map((recipient) => recipient.linkId), [firstLinkId])
+  assert.deepEqual(result.ineligibleRecipients, [{
+    linkId: secondLinkId,
+    name: 'FP TEST Two',
+    unavailableReason: 'outside_record_scope',
+  }])
+  assert.deepEqual(result.deliveryRecipients, [])
+})
+
 test('inactive links fail', () => {
   const result = resolveSelectedDevelopmentParentRecipients({
     links: [link({ status: 'revoked' })],
@@ -295,7 +320,7 @@ test('additional guardian contact uses its explicit Development communication pr
   ])
 })
 
-test('duplicate eligible recipient records resolve to one safe email candidate', () => {
+test('duplicate eligible recipient records preserve link attribution and one delivery target', () => {
   const result = getDevelopmentParentRecipientCandidates({
     links: [
       link(),
@@ -311,8 +336,29 @@ test('duplicate eligible recipient records resolve to one safe email candidate',
     }),
   }).filter((candidate) => candidate.eligible)
 
-  assert.equal(result.length, 1)
+  assert.equal(result.length, 2)
   assert.equal(result[0].linkId, firstLinkId)
+  assert.equal(result[1].duplicateOfLinkId, firstLinkId)
+
+  const selected = resolveSelectedDevelopmentParentRecipients({
+    links: [
+      link(),
+      link({
+        id: secondLinkId,
+        primary_contact: false,
+      }),
+    ],
+    ...scope({
+      parentContacts: [
+        { name: 'FP TEST One', email: 'first.parent@example.test' },
+      ],
+    }),
+    selectedParentLinkIds: [firstLinkId, secondLinkId],
+  })
+
+  assert.equal(selected.outcome, 'ready')
+  assert.equal(selected.recipients.length, 2)
+  assert.equal(selected.deliveryRecipients.length, 1)
 })
 
 test('failed send refresh prunes recipients that are no longer eligible', async () => {

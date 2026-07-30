@@ -1782,7 +1782,7 @@ export function CreateEvaluationPage() {
     reminderFailed = false,
     requestedPdf = false,
   }) => {
-    const outputFailed = ['no_recipient', 'schedule_failed', 'send_failed'].includes(outcome)
+    const outputFailed = ['no_recipient', 'recipient_review', 'schedule_failed', 'send_failed'].includes(outcome)
     return {
       title: outputFailed
         ? 'Development record saved with output action needed'
@@ -1790,7 +1790,9 @@ export function CreateEvaluationPage() {
           ? 'Development record updated'
           : 'Development record saved',
       message: outputFailed
-        ? requestedPdf
+        ? outcome === 'recipient_review'
+          ? `${playerName} was saved, but the parent email was not sent because the recipient list needs reviewing. Review recipients and retry without creating another record.`
+        : requestedPdf
           ? `${playerName} was saved, but the requested PDF failed and the parent email was not sent. Retry is available without creating another record.`
           : `${playerName} was saved, but the requested parent email did not complete. Retry is available without creating another record.`
         : `The final Development submission for ${playerName} completed.`,
@@ -2420,36 +2422,6 @@ export function CreateEvaluationPage() {
 
       const isScheduledSend = previewMode === 'email' && emailSendMode === 'scheduled'
       const scheduledAt = isScheduledSend ? new Date(scheduledEmailDateTime).toISOString() : ''
-      const confirmationResult = await confirmDevelopmentSubmission({
-        operationId: submissionOperationId,
-        evaluationId: submissionOperationId,
-        clubId: user?.clubId,
-        teamId: evaluation.teamId || developmentRecipientTeamId,
-        playerId: evaluation.playerId || archiveCandidatePlayer?.id || '',
-        outputContext: normalizedContactType === PLAYER_CONTACT_TYPES.parent
-          ? DEVELOPMENT_PARENT_OUTPUT_CONTEXT
-          : DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
-        sendMode: previewMode === 'email'
-          ? isScheduledSend ? 'scheduled' : 'now'
-          : 'none',
-        scheduledAt,
-        attachPdf: previewMode === 'email' && isPdfAttachmentApproved,
-        includeAttendance: previewMode === 'email' && includeAttendanceSummary,
-        selectedParentLinkIds: previewMode === 'email' && useLinkedParentRecipients
-          ? selectedDevelopmentParentLinkIds
-          : [],
-        selectedResponseCount: selectedResponseItems.length,
-        reminderDate: nextAssessmentReminderChoice === 'set'
-          ? nextAssessmentReminderDate
-          : '',
-      })
-
-      if (String(confirmationResult.operationId ?? '') !== submissionOperationId) {
-        throw Object.assign(
-          new Error('The final Development submission confirmation could not be verified.'),
-          { code: 'DEVELOPMENT_SUBMISSION_CONFIRMATION_FAILED' },
-        )
-      }
 
       if (!existingEvaluationId && user?.clubId) {
         const allEvaluations = await getEvaluations({ user })
@@ -2472,8 +2444,9 @@ export function CreateEvaluationPage() {
         fingerprint: evaluationFingerprint,
       }
 
+      let reportResult
       try {
-        await finalizeDevelopmentParentReport({
+        reportResult = await finalizeDevelopmentParentReport({
           clubId: user?.clubId,
           teamId: savedEvaluation?.teamId || evaluation.teamId || developmentRecipientTeamId,
           playerId: savedEvaluation?.playerId || evaluation.playerId || '',
@@ -2491,6 +2464,46 @@ export function CreateEvaluationPage() {
           savedEvaluation,
         })
       }
+      let confirmationResult
+      try {
+        confirmationResult = await confirmDevelopmentSubmission({
+          operationId: submissionOperationId,
+          evaluationId: savedEvaluation?.id || submissionOperationId,
+          clubId: user?.clubId,
+          teamId: savedEvaluation?.teamId || evaluation.teamId || developmentRecipientTeamId,
+          playerId: savedEvaluation?.playerId || evaluation.playerId || archiveCandidatePlayer?.id || '',
+          outputContext: normalizedContactType === PLAYER_CONTACT_TYPES.parent
+            ? DEVELOPMENT_PARENT_OUTPUT_CONTEXT
+            : DEVELOPMENT_RECIPIENT_OUTPUT_CONTEXT,
+          sendMode: previewMode === 'email'
+            ? isScheduledSend ? 'scheduled' : 'now'
+            : 'none',
+          scheduledAt,
+          attachPdf: previewMode === 'email' && isPdfAttachmentApproved,
+          includeAttendance: previewMode === 'email' && includeAttendanceSummary,
+          selectedParentLinkIds: previewMode === 'email' && useLinkedParentRecipients
+            ? selectedDevelopmentParentLinkIds
+            : [],
+          selectedResponseCount: selectedResponseItems.length,
+          reminderDate: nextAssessmentReminderChoice === 'set'
+            ? nextAssessmentReminderDate
+            : '',
+        })
+      } catch (confirmationError) {
+        throw Object.assign(confirmationError, {
+          savedEvaluation,
+        })
+      }
+
+      if (String(confirmationResult.operationId ?? '') !== submissionOperationId) {
+        throw Object.assign(
+          new Error('The final Development submission confirmation could not be verified.'),
+          {
+            code: 'DEVELOPMENT_SUBMISSION_CONFIRMATION_FAILED',
+            savedEvaluation,
+          },
+        )
+      }
 
       clearViewCaches()
 
@@ -2500,7 +2513,19 @@ export function CreateEvaluationPage() {
         setEvaluationClientId(createLocalId())
       }
 
-      if (previewMode === 'email') {
+      const recipientReviewRequired =
+        previewMode === 'email' &&
+        useLinkedParentRecipients &&
+        reportResult?.recipientReviewRequired === true
+
+      if (recipientReviewRequired) {
+        await loadDevelopmentParentRecipients({
+          preserveSelected: true,
+        })
+        completionOutcome = 'recipient_review'
+      }
+
+      if (previewMode === 'email' && !recipientReviewRequired) {
         try {
           if (!canUseParentEmail) {
             throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
@@ -2747,6 +2772,7 @@ export function CreateEvaluationPage() {
       setLastSavedPlayerName(normalizedPlayerName)
       const shouldPreserveSavedRecordForRetry = [
         'no_recipient',
+        'recipient_review',
         'schedule_failed',
         'send_failed',
       ].includes(completionOutcome)
@@ -2784,11 +2810,14 @@ export function CreateEvaluationPage() {
     } catch (error) {
       console.error('Development record submit failed', error)
       const reportFinalizeFailed = error?.code === 'DEVELOPMENT_PARENT_REPORT_FINALIZE_FAILED'
-      setIsSaved(reportFinalizeFailed)
+      const recordAlreadySaved = reportFinalizeFailed || Boolean(error?.savedEvaluation?.id)
+      setIsSaved(recordAlreadySaved)
       setActionErrorMessage(
         reportFinalizeFailed
           ? 'The Development record was saved, but its parent report could not be finalized. Submit again to retry without creating a duplicate record.'
-          : getDevelopmentRecordSaveFailureMessage(error),
+          : recordAlreadySaved
+            ? 'The Development record and parent report were saved, but optional output could not be completed. Retry without creating a duplicate record.'
+            : getDevelopmentRecordSaveFailureMessage(error),
       )
     } finally {
       setIsSendingParentEmail(false)

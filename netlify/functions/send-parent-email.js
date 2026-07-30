@@ -1075,38 +1075,13 @@ export async function handler(event) {
         evaluationId: report.evaluationId,
         reportVersion: report.version,
         responseCount: report.responseItems.length,
+        recipientReviewRequired: report.recipientReviewRequired === true,
+        eligibleRecipients: report.eligibleRecipients ?? report.recipients ?? [],
+        ineligibleRecipients: report.ineligibleRecipients ?? [],
       })
     }
 
     if (String(body.action ?? '').trim() === 'confirm_development_submission') {
-      if (String(body.playerId ?? '').trim()) {
-        const recipientCandidates = await loadDevelopmentParentRecipientCandidates(
-          supabaseAdmin,
-          {
-            profile: requestUser,
-            playerId: body.playerId,
-            teamId: body.teamId,
-          },
-        )
-        const eligibleLinkIds = new Set(
-          recipientCandidates.map((candidate) => String(candidate.linkId ?? '').trim()).filter(Boolean),
-        )
-        const requestedLinkIds = Array.isArray(body.selectedParentLinkIds)
-          ? body.selectedParentLinkIds.map((value) => String(value ?? '').trim()).filter(Boolean)
-          : []
-
-        if (requestedLinkIds.some((linkId) => !eligibleLinkIds.has(linkId))) {
-          throw Object.assign(
-            new Error('One or more selected parent recipients are no longer eligible.'),
-            {
-              code: 'DEVELOPMENT_SUBMISSION_RECIPIENT_UNAVAILABLE',
-              publicMessage: 'One or more selected parent recipients are no longer eligible.',
-              statusCode: 409,
-            },
-          )
-        }
-      }
-
       const operation = await confirmDevelopmentSubmissionOperation(
         supabaseAdmin,
         {

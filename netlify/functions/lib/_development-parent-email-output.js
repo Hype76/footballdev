@@ -834,21 +834,15 @@ export async function finalizeDevelopmentParentReportSnapshot(
       })
     : { outcome: 'ready', recipients: [], unavailableLinkIds: [] }
 
-  if (recipientResolution.outcome !== 'ready') {
-    throw outputError(
-      'The selected parent recipients are no longer available.',
-      409,
-      recipientResolution.code || 'DEVELOPMENT_PARENT_REPORT_RECIPIENTS_UNAVAILABLE',
-    )
-  }
-
   const requestedSections = [
     ...(includeAttendance ? [{ key: 'attendanceSummary' }] : []),
     ...(includeProgression ? [{ key: 'progressionChart' }] : []),
   ]
   const report = resolveDevelopmentParentReport({
     ...context,
-    recipients: recipientResolution.recipients,
+    recipients: recipientResolution.outcome === 'ready'
+      ? recipientResolution.recipients
+      : recipientResolution.eligibleRecipients,
     requestedResponses,
     requestedSections,
   })
@@ -878,7 +872,12 @@ export async function finalizeDevelopmentParentReportSnapshot(
     )
   }
 
-  return data.report_snapshot
+  return {
+    ...data.report_snapshot,
+    recipientReviewRequired: recipientResolution.outcome !== 'ready',
+    eligibleRecipients: recipientResolution.eligibleRecipients ?? recipientResolution.recipients,
+    ineligibleRecipients: recipientResolution.ineligibleRecipients ?? [],
+  }
 }
 
 export async function reauthorizePreparedDevelopmentParentEmail(

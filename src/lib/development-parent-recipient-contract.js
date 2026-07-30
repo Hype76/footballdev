@@ -40,6 +40,13 @@ function getLinkCommunicationPreference(link) {
   }
 }
 
+function hasAuthoritativeLinkedRecipientIdentity(link) {
+  return Boolean(
+    normalizeText(link?.auth_user_id ?? link?.authUserId) ||
+    normalizeText(link?.guardian_id ?? link?.guardianId),
+  )
+}
+
 function getUnavailableReason({
   linkId,
   clubMatches,
@@ -108,7 +115,7 @@ export function normalizeDevelopmentParentRecipientCandidate(
   const playerMatches = linkPlayerId === normalizeText(playerId)
   const developmentRecipientConfigured = communicationPreference.explicit
     ? communicationPreference.allowed
-    : Boolean(configuredContact)
+    : hasAuthoritativeLinkedRecipientIdentity(link) || Boolean(configuredContact)
   const unavailableReason = getUnavailableReason({
     linkId,
     clubMatches,
@@ -130,6 +137,11 @@ export function normalizeDevelopmentParentRecipientCandidate(
       'Parent or guardian',
     email,
     contactSource,
+    recipientIdentitySource: hasAuthoritativeLinkedRecipientIdentity(link)
+      ? 'linked_identity'
+      : configuredContact
+        ? 'configured_contact'
+        : 'unavailable',
     communicationsPreferenceExplicit: communicationPreference.explicit,
     type: 'parent',
     primary: (link?.primary_contact ?? link?.primaryContact) === true,
@@ -163,19 +175,23 @@ export function getDevelopmentParentRecipientCandidates({
         left.linkId.localeCompare(right.linkId),
     )
 
-  const seenEligibleEmails = new Set()
+  const firstEligibleLinkByEmail = new Map()
 
-  return candidates.filter((candidate) => {
+  return candidates.map((candidate) => {
     if (!candidate.eligible || !candidate.email) {
-      return true
+      return candidate
     }
 
-    if (seenEligibleEmails.has(candidate.email)) {
-      return false
+    const duplicateOfLinkId = firstEligibleLinkByEmail.get(candidate.email) || ''
+    if (!duplicateOfLinkId) {
+      firstEligibleLinkByEmail.set(candidate.email, candidate.linkId)
     }
 
-    seenEligibleEmails.add(candidate.email)
-    return true
+    return {
+      ...candidate,
+      deliveryLinkId: duplicateOfLinkId || candidate.linkId,
+      duplicateOfLinkId,
+    }
   })
 }
 
@@ -225,12 +241,30 @@ export function resolveSelectedDevelopmentParentRecipients({
   const unavailableLinkIds = selectedIds.filter(
     (linkId) => candidatesById.get(linkId)?.eligible !== true,
   )
+  const eligibleRecipients = selectedCandidates.filter((candidate) => candidate.eligible)
+  const ineligibleRecipients = selectedIds
+    .filter((linkId) => candidatesById.get(linkId)?.eligible !== true)
+    .map((linkId) => {
+      const candidate = candidatesById.get(linkId)
+      return {
+        linkId,
+        name: candidate?.name || 'Parent or guardian',
+        unavailableReason: candidate?.unavailableReason || 'recipient_not_found',
+      }
+    })
+  const deliveryRecipients = eligibleRecipients.filter(
+    (candidate, index, recipients) =>
+      recipients.findIndex((item) => item.email === candidate.email) === index,
+  )
 
   if (selectedCandidates.length !== selectedIds.length || unavailableLinkIds.length > 0) {
     return {
       outcome: 'no_recipient',
       code: 'DEVELOPMENT_PARENT_EMAIL_SELECTED_LINK_UNAVAILABLE',
       recipients: [],
+      eligibleRecipients,
+      ineligibleRecipients,
+      deliveryRecipients: [],
       unavailableLinkIds,
     }
   }
@@ -239,6 +273,9 @@ export function resolveSelectedDevelopmentParentRecipients({
     outcome: 'ready',
     code: 'DEVELOPMENT_PARENT_EMAIL_RECIPIENTS_RESOLVED',
     recipients: selectedCandidates,
+    eligibleRecipients: selectedCandidates,
+    ineligibleRecipients: [],
+    deliveryRecipients,
     unavailableLinkIds: [],
   }
 }

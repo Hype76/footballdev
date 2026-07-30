@@ -163,6 +163,46 @@ test('legacy portal link default false is treated as unspecified, not an explici
   assert.equal(result.recipients[0].communicationsPreferenceExplicit, false)
 })
 
+test('two accepted Auth-linked parents remain eligible without duplicated player contacts', () => {
+  const secondLinkId = '99999999-9999-4999-8999-999999999999'
+  const links = [
+    applyDevelopmentParentContactResolution({
+      link: link(),
+      authUser: {
+        id: authUserId,
+        email: 'first.current@example.test',
+      },
+    }),
+    applyDevelopmentParentContactResolution({
+      link: link({
+        id: secondLinkId,
+        auth_user_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        email: 'second.snapshot@example.test',
+        primary_contact: false,
+      }),
+      authUser: {
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        email: 'second.current@example.test',
+      },
+    }),
+  ]
+  const result = resolveSelectedDevelopmentParentRecipients({
+    links,
+    ...scope({ parentContacts: [] }),
+    selectedParentLinkIds: [linkId, secondLinkId],
+  })
+
+  assert.equal(result.outcome, 'ready')
+  assert.deepEqual(result.recipients.map((recipient) => recipient.linkId), [
+    linkId,
+    secondLinkId,
+  ])
+  assert.deepEqual(result.deliveryRecipients.map((recipient) => recipient.email), [
+    'first.current@example.test',
+    'second.current@example.test',
+  ])
+})
+
 test('nullable legacy communication preference is accepted safely', () => {
   const enriched = applyDevelopmentParentContactResolution({
     link: link({ receives_communications: null }),
