@@ -168,6 +168,15 @@ test('single-player invitation endpoint resolves recipients server-side and uses
   assert.match(invitationFunction, /existing\.status === 'failed'/)
   assert.match(matchSendFunction, /target exactly one player/)
   assert.match(matchSendFunction, /eventPlayerInvitationAction/)
+  assert.doesNotMatch(matchSendFunction, /invitationAction === 'resend' && \(existingQueues \?\? \[\]\)\.length === 0/)
+  assert.match(matchSendFunction, /existingRequest\?\.id && targetedInvitationAction[\s\S]*\.update\(\{[\s\S]*token_hash: tokenHash/)
+  assert.doesNotMatch(
+    matchSendFunction.slice(
+      matchSendFunction.indexOf('existingRequest?.id && targetedInvitationAction'),
+      matchSendFunction.indexOf(': supabase', matchSendFunction.indexOf('existingRequest?.id && targetedInvitationAction')),
+    ),
+    /status: 'pending'|volunteer_scorer_response|volunteer_responded_at/,
+  )
   assert.match(migration, /idempotency_key uuid not null unique/)
   assert.match(migration, /revoke all on public\.event_player_invitation_actions from public, anon, authenticated/)
   assert.doesNotMatch(invitationFunction, /resendAll|resend_all/)

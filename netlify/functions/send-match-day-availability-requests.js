@@ -675,10 +675,6 @@ export async function handler(event) {
             throw Object.assign(new Error('This player already has an invitation. Use Resend invitation.'), { statusCode: 409 })
           }
 
-          if (invitationAction === 'resend' && (existingQueues ?? []).length === 0) {
-            throw Object.assign(new Error('There is no existing invitation to resend.'), { statusCode: 409 })
-          }
-
           if (invitationAction === 'retry' && !(existingQueues ?? []).some((queue) => queue.status === 'failed')) {
             throw Object.assign(new Error('This invitation does not have a failed delivery to retry.'), { statusCode: 409 })
           }
@@ -687,31 +683,42 @@ export async function handler(event) {
         }
 
         const { token, tokenHash } = createInvitationToken()
-        const { data: request, error: requestError } = await supabase
-          .from('match_day_availability_requests')
-          .upsert({
-            match_day_id: match.id,
-            club_id: match.club_id,
-            team_id: match.team_id || null,
-            player_id: player.id,
-            player_name: player.player_name,
-            recipient_email: contact.email,
-            recipient_name: contact.name,
-            recipient_type: contact.type,
-            parent_link_id: parentLink?.id || null,
-            channel: 'email',
-            token_hash: tokenHash,
-            status: 'pending',
-            volunteer_scorer_response: 'no_response',
-            volunteer_linesman_response: 'no_response',
-            volunteer_referee_response: 'no_response',
-            volunteer_responded_at: null,
-            created_by: profile.id,
-            created_by_name: normalizeText(profile.display_name || profile.name || profile.email),
-            updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'match_day_id,player_id,recipient_email,recipient_type,channel',
-          })
+        const requestMutation = existingRequest?.id && targetedInvitationAction
+          ? supabase
+              .from('match_day_availability_requests')
+              .update({
+                parent_link_id: parentLink?.id || null,
+                recipient_name: contact.name,
+                token_hash: tokenHash,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingRequest.id)
+          : supabase
+              .from('match_day_availability_requests')
+              .upsert({
+                match_day_id: match.id,
+                club_id: match.club_id,
+                team_id: match.team_id || null,
+                player_id: player.id,
+                player_name: player.player_name,
+                recipient_email: contact.email,
+                recipient_name: contact.name,
+                recipient_type: contact.type,
+                parent_link_id: parentLink?.id || null,
+                channel: 'email',
+                token_hash: tokenHash,
+                status: 'pending',
+                volunteer_scorer_response: 'no_response',
+                volunteer_linesman_response: 'no_response',
+                volunteer_referee_response: 'no_response',
+                volunteer_responded_at: null,
+                created_by: profile.id,
+                created_by_name: normalizeText(profile.display_name || profile.name || profile.email),
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'match_day_id,player_id,recipient_email,recipient_type,channel',
+              })
+        const { data: request, error: requestError } = await requestMutation
           .select('*')
           .single()
 
