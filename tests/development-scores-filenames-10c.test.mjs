@@ -236,7 +236,7 @@ test('canonical PDF filenames use immutable snapshot identity, preserve safe nam
   const cases = [
     [{
       player: { name: "Ava O'Neil-Smith" },
-      recordDate: '2026-07-30',
+      recordDate: '30/07/2026',
       team: { name: 'U17 Green' },
     }, "Ava O'Neil-Smith - 30-07-26 - U17 Green.pdf"],
     [{
@@ -254,6 +254,11 @@ test('canonical PDF filenames use immutable snapshot identity, preserve safe nam
       recordDate: '',
       team: {},
     }, 'Player - Date not recorded - Team.pdf'],
+    [{
+      player: { name: 'Historical Player' },
+      recordDate: '9-1-26',
+      team: { name: 'Historical Team' },
+    }, 'Historical Player - 09-01-26 - Historical Team.pdf'],
   ]
 
   for (const [snapshot, expected] of cases) {

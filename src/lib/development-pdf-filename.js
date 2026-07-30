@@ -51,6 +51,28 @@ function formatSnapshotDate(value) {
   if (dateOnlyMatch) {
     return `${dateOnlyMatch[3]}-${dateOnlyMatch[2]}-${dateOnlyMatch[1].slice(-2)}`
   }
+  const displayDateMatch = normalizedValue.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/)
+
+  if (displayDateMatch) {
+    const day = Number(displayDateMatch[1])
+    const month = Number(displayDateMatch[2])
+    const fullYear = displayDateMatch[3].length === 2
+      ? 2000 + Number(displayDateMatch[3])
+      : Number(displayDateMatch[3])
+    const parsedDisplayDate = new Date(Date.UTC(fullYear, month - 1, day))
+
+    if (
+      parsedDisplayDate.getUTCFullYear() === fullYear &&
+      parsedDisplayDate.getUTCMonth() === month - 1 &&
+      parsedDisplayDate.getUTCDate() === day
+    ) {
+      return [
+        String(day).padStart(2, '0'),
+        String(month).padStart(2, '0'),
+        String(fullYear).slice(-2),
+      ].join('-')
+    }
+  }
 
   const parsedDate = new Date(normalizedValue)
 
