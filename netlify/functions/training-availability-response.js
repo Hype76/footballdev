@@ -116,8 +116,8 @@ function detailRows(response) {
 function availabilityFieldset(response) {
   const currentStatus = normalizeText(response.response_status).toLowerCase()
   const choices = [
-    ['available', 'Available'],
-    ['unavailable', 'Not available'],
+    ['available', 'Attending'],
+    ['unavailable', 'Not attending'],
     ['maybe', 'Maybe'],
   ]
 

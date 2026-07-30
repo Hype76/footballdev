@@ -128,7 +128,21 @@ function getSendAt(occurrence, setting) {
   return addDays(occurrence.occurrenceStartsAt, -Number(setting.send_days_before ?? 2))
 }
 
-function getPlayerContacts({ parentLinks = [], player }) {
+export function getPlayerContacts({ parentLinks = [], player }) {
+  const contactType = normalizeText(player.contact_type || 'parent').toLowerCase()
+  const directEmail = normalizeEmail(player.parent_email)
+
+  if (contactType === 'self') {
+    return isValidEmail(directEmail)
+      ? [{
+          email: directEmail,
+          name: normalizeText(player.player_name),
+          parentLinkId: null,
+          type: 'player',
+        }]
+      : []
+  }
+
   const linkedContacts = parentLinks
     .filter((link) => String(link.player_id) === String(player.id))
     .map((link) => ({
@@ -143,17 +157,9 @@ function getPlayerContacts({ parentLinks = [], player }) {
     return linkedContacts
   }
 
-  const contactType = normalizeText(player.contact_type || 'parent').toLowerCase()
-
-  if (contactType === 'self') {
-    return []
-  }
-
-  const parentEmail = normalizeEmail(player.parent_email)
-
-  return isValidEmail(parentEmail)
+  return isValidEmail(directEmail)
     ? [{
-        email: parentEmail,
+        email: directEmail,
         name: normalizeText(player.parent_name || player.player_name),
         parentLinkId: null,
         type: 'parent',
@@ -431,9 +437,12 @@ async function createRecipient({ contact, player, request, supabase }) {
       parent_link_id: contact.parentLinkId,
       recipient_email: contact.email,
       recipient_name: contact.name,
-      recipient_type: 'parent',
+      recipient_type: contact.type,
       token_hash: hashToken(token),
-      status: 'queued',
+      status: contact.type === 'unavailable' ? 'failed' : 'queued',
+      last_error: contact.type === 'unavailable'
+        ? 'No eligible parent or adult-player recipient is available.'
+        : null,
     })
     .select('*')
     .single()
@@ -445,9 +454,37 @@ async function createRecipient({ contact, player, request, supabase }) {
   return { row: data, token }
 }
 
+async function markRecipientDeliveryFailed({ requestPlayerId, supabase }) {
+  const { error } = await supabase
+    .from('training_availability_request_players')
+    .update({
+      status: 'failed',
+      last_error: 'Training availability email could not be sent.',
+    })
+    .eq('id', requestPlayerId)
+
+  if (error) {
+    throw error
+  }
+}
+
 async function sendRecipientEmail({ appOrigin, event, occurrence, occurrences, player, recipient, requestPlayer, supabase, teamName, token }) {
-  if (!token || ['sent', 'responded'].includes(normalizeText(requestPlayer.status))) {
+  const currentStatus = normalizeText(requestPlayer.status)
+
+  if (['sent', 'responded'].includes(currentStatus)) {
     return 'skipped'
+  }
+
+  if (currentStatus === 'failed') {
+    return 'failed'
+  }
+
+  if (!token) {
+    await markRecipientDeliveryFailed({
+      requestPlayerId: requestPlayer.id,
+      supabase,
+    })
+    return 'failed'
   }
 
   const responseUrl = `${appOrigin}/.netlify/functions/training-availability-response?token=${token}`
@@ -499,7 +536,7 @@ async function sendRecipientEmail({ appOrigin, event, occurrence, occurrences, p
 async function processDueRequest({ appOrigin, event, occurrence, occurrences, request, supabase }) {
   const { data: scopedInvites, error: scopedInvitesError } = await supabase
     .from('calendar_event_invites')
-    .select('player_id')
+    .select('player_id, notify_requested, response_requirement, training_availability_requested')
     .eq('club_id', request.club_id)
     .eq('team_id', request.team_id)
     .eq('calendar_event_id', request.calendar_event_id)
@@ -511,21 +548,25 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
 
   const scopedPlayerIds = [...new Set(
     (scopedInvites ?? [])
+      .filter((invite) => (
+        invite.training_availability_requested === true
+        && invite.notify_requested === true
+        && normalizeText(invite.response_requirement) === 'response_required'
+      ))
       .map((invite) => String(invite.player_id ?? '').trim())
       .filter(Boolean),
   )]
-  let playersQuery = supabase
+  const playersQuery = supabase
     .from('players')
     .select('id, club_id, team_id, player_name, parent_name, parent_email, contact_type, status')
     .eq('club_id', request.club_id)
     .eq('team_id', request.team_id)
     .neq('status', 'archived')
+    .in('id', scopedPlayerIds)
 
-  if (scopedPlayerIds.length > 0) {
-    playersQuery = playersQuery.in('id', scopedPlayerIds)
-  }
-
-  const { data: players, error: playersError } = await playersQuery
+  const { data: players, error: playersError } = scopedPlayerIds.length > 0
+    ? await playersQuery
+    : { data: [], error: null }
 
   if (playersError) {
     throw playersError
@@ -553,13 +594,26 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
     const contacts = getPlayerContacts({ parentLinks: parentLinks ?? [], player })
 
     if (contacts.length === 0) {
+      await createRecipient({
+        contact: {
+          email: '',
+          name: '',
+          parentLinkId: null,
+          type: 'unavailable',
+        },
+        player,
+        request,
+        supabase,
+      })
       summary.missingParents += 1
+      summary.failed += 1
       continue
     }
 
     for (const contact of contacts) {
+      const recipient = await createRecipient({ contact, player, request, supabase })
+
       try {
-        const recipient = await createRecipient({ contact, player, request, supabase })
         const status = await sendRecipientEmail({
           appOrigin,
           event,
@@ -575,6 +629,10 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
         summary[status] += 1
       } catch (error) {
         console.error('Training availability recipient failed', error)
+        await markRecipientDeliveryFailed({
+          requestPlayerId: recipient.row.id,
+          supabase,
+        })
         summary.failed += 1
       }
     }

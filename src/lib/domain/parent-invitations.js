@@ -6,6 +6,12 @@ const ATTENDANCE_RESPONSE_OPTIONS = [
   { value: 'maybe', label: 'Maybe' },
 ]
 
+const TRAINING_RESPONSE_OPTIONS = [
+  { value: 'available', label: 'Attending' },
+  { value: 'unavailable', label: 'Not attending' },
+  { value: 'maybe', label: 'Maybe' },
+]
+
 const ROLE_RESPONSE_OPTIONS = [
   { value: 'yes', label: 'Accept offer' },
   { value: 'no', label: 'Decline offer' },
@@ -200,11 +206,16 @@ export function getParentInvitationStatus(invitation = {}) {
     }
   }
 
+  const isTrainingAttendance = invitation.invitationType === 'training_attendance'
   const responseLabels = {
-    accepted: invitation.invitationType === 'match_attendance' ? 'Available' : 'Accepted',
-    available: 'Available',
-    declined: invitation.invitationType === 'match_attendance' ? 'Unavailable' : 'Declined',
-    unavailable: 'Unavailable',
+    accepted: invitation.invitationType === 'match_attendance'
+      ? 'Available'
+      : isTrainingAttendance ? 'Attending' : 'Accepted',
+    available: isTrainingAttendance ? 'Attending' : 'Available',
+    declined: invitation.invitationType === 'match_attendance'
+      ? 'Unavailable'
+      : isTrainingAttendance ? 'Not attending' : 'Declined',
+    unavailable: isTrainingAttendance ? 'Not attending' : 'Unavailable',
     maybe: 'Maybe',
     yes: 'Accepted',
     no: 'Declined',
@@ -221,9 +232,9 @@ export function getParentInvitationStatus(invitation = {}) {
   return {
     label,
     detail: invitation.lockReason || availableDetail || (invitation.canChangeResponse ? 'You can change this response while the invitation remains open.' : ''),
-    tone: label === 'Available'
+    tone: ['Available', 'Attending'].includes(label)
       ? 'accepted'
-      : label === 'Unavailable'
+      : ['Unavailable', 'Not attending'].includes(label)
         ? 'declined'
         : label === 'Awaiting response'
           ? 'waiting'
@@ -276,11 +287,11 @@ export function getParentInvitationCategory(invitation = {}) {
     return 'selected'
   }
 
-  if (status.label === 'Available' || status.label === 'Maybe') {
+  if (['Available', 'Attending', 'Maybe'].includes(status.label)) {
     return 'accepted'
   }
 
-  if (status.label === 'Unavailable') {
+  if (['Unavailable', 'Not attending'].includes(status.label)) {
     return 'declined'
   }
 
@@ -552,7 +563,11 @@ export function getParentInvitationResponseOptions(invitation = {}) {
     return ROLE_RESPONSE_OPTIONS
   }
 
-  if (['training_attendance', 'match_attendance'].includes(invitation.invitationType)) {
+  if (invitation.invitationType === 'training_attendance') {
+    return TRAINING_RESPONSE_OPTIONS
+  }
+
+  if (invitation.invitationType === 'match_attendance') {
     return ATTENDANCE_RESPONSE_OPTIONS
   }
 

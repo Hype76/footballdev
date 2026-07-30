@@ -4240,9 +4240,9 @@ function TrainingAvailabilitySettings({ form, isBusy, onChange }) {
             className="mt-1 h-5 w-5 accent-[#047857]"
           />
           <span>
-            Request player availability from parents?
+            Request player availability?
             <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-              Sends parent email requests for players in this team only.
+              Sends secure response requests only to eligible parent or adult-player contacts for the attached players.
             </span>
           </span>
         </label>

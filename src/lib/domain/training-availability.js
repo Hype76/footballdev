@@ -8,11 +8,11 @@ function normalizeText(value) {
 
 export const TRAINING_AVAILABILITY_CHIP_STATES = {
   available: {
-    label: 'Available',
+    label: 'Attending',
     tone: 'green',
   },
   unavailable: {
-    label: 'Not available',
+    label: 'Not attending',
     tone: 'red',
   },
   pending: {
@@ -253,20 +253,12 @@ export async function saveTrainingAvailabilitySettings({ user, event, settings }
   }
 
   const payload = buildTrainingAvailabilityPayload(settings)
-  const row = {
-    calendar_event_id: eventId,
-    club_id: user.clubId,
-    team_id: teamId,
-    enabled: payload.enabled,
-    send_days_before: payload.sendDaysBefore,
-    created_by: user.id || null,
-    updated_by: user.id || null,
-  }
-
   const { data, error } = await supabase
-    .from('training_availability_settings')
-    .upsert(row, { onConflict: 'calendar_event_id' })
-    .select('*')
+    .rpc('save_training_availability_setting_v2', {
+      event_id_value: eventId,
+      enabled_value: payload.enabled,
+      send_days_before_value: payload.sendDaysBefore,
+    })
     .single()
 
   if (error) {

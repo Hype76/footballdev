@@ -139,6 +139,7 @@ test('attendance and role offers expose only their supported response transition
 
   assert.deepEqual(getParentInvitationResponseOptions(attendance).map((option) => option.value), ['available', 'unavailable', 'maybe'])
   assert.deepEqual(getParentInvitationResponseOptions(training).map((option) => option.value), ['available', 'unavailable', 'maybe'])
+  assert.deepEqual(getParentInvitationResponseOptions(training).map((option) => option.label), ['Attending', 'Not attending', 'Maybe'])
   assert.deepEqual(getParentInvitationResponseOptions(role).map((option) => option.value), ['yes', 'no'])
   assert.deepEqual(getParentInvitationResponseOptions(information), [])
 })
