@@ -4,6 +4,10 @@ import { createClient } from '@supabase/supabase-js'
 import { buildDevelopmentParentReportContent } from '../../src/lib/development-parent-report-content.js'
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 import { buildAssessmentPdfDocument } from '../../src/lib/pdf-document.js'
+import {
+  buildDevelopmentPdfContentDisposition,
+  buildDevelopmentPdfFilename,
+} from '../../src/lib/development-pdf-filename.js'
 import { buildPdfBrandingForAuthorisedScope } from './lib/_pdf-branding.js'
 import {
   buildParentDevelopmentHistory,
@@ -178,11 +182,6 @@ function getReportSnapshot(reportRows, reportId) {
   )?.report_snapshot
 }
 
-function getReadablePdfFilename(report) {
-  const date = normalizeText(report.recordDate).slice(0, 10) || 'report'
-  return `development-report-${date}.pdf`
-}
-
 async function buildParentDevelopmentPdf({
   parentLink,
   report,
@@ -231,7 +230,7 @@ async function buildParentDevelopmentPdf({
   return {
     buffer: Buffer.from(pdfBuffer),
     diagnostics,
-    filename: getReadablePdfFilename(report),
+    filename: buildDevelopmentPdfFilename(reportSnapshot),
   }
 }
 
@@ -396,7 +395,7 @@ export default async (request) => {
       status: 200,
       headers: {
         'Cache-Control': 'private, no-store, max-age=0',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': buildDevelopmentPdfContentDisposition(filename),
         'Content-Length': String(buffer.length),
         'Content-Security-Policy': "sandbox; default-src 'none'",
         'Content-Type': 'application/pdf',

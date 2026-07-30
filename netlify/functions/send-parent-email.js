@@ -7,6 +7,7 @@ import {
 import { buildPdfBuffer, buildProgressionChartPngBuffer } from '../../src/lib/pdf-builder.js'
 import { buildAssessmentPdfDocument } from '../../src/lib/pdf-document.js'
 import { buildDevelopmentParentReportContent } from '../../src/lib/development-parent-report-content.js'
+import { buildDevelopmentPdfFilename } from '../../src/lib/development-pdf-filename.js'
 import {
   normalizeDevelopmentEmailBody,
   resolveDevelopmentEmailOutputPolicy,
@@ -274,7 +275,7 @@ async function buildPdfAttachment(pdfReport, context = {}) {
 
   return [
     {
-      filename: 'player-feedback.pdf',
+      filename: String(context.filename || 'player-feedback.pdf').trim(),
       content: pdfBuffer.toString('base64'),
       contentType: 'application/pdf',
     },
@@ -507,6 +508,9 @@ export async function prepareParentEmail({ body, requestUser }) {
   const developmentContent = developmentReport
     ? buildDevelopmentParentReportContent(developmentReport)
     : null
+  const developmentPdfFilename = developmentReport
+    ? buildDevelopmentPdfFilename(developmentReport)
+    : 'player-feedback.pdf'
   const authoritativeResponses = developmentReport
     ? developmentReport.responseItems.map((item) => ({
         fieldId: item.fieldId,
@@ -602,6 +606,7 @@ export async function prepareParentEmail({ body, requestUser }) {
       actorId: requestUser.id,
       clubId: planProfile.clubId,
       diagnostics: pdfDiagnostics,
+      filename: developmentPdfFilename,
       resourceId: developmentContext?.evaluation?.id || body.evaluationId || body.playerId,
       teamId: developmentContext?.team?.id || body.teamId,
     },

@@ -7,6 +7,7 @@ import {
 } from './assessment-scoring.js'
 import { validatePdfBranding } from './pdf-branding.js'
 import { buildDevelopmentParentReportContent } from './development-parent-report-content.js'
+import { normalizeDevelopmentScorePresentation } from './development-score-contract.js'
 
 export const PDF_DOCUMENT_VERSION = 1
 
@@ -159,18 +160,42 @@ function normalizeResponseItems(value, label = 'Response items') {
   }
 
   return value.map((item) => {
-    assertAllowedKeys(item, ['label', 'value'], 'Response item')
-
-    return {
+    assertAllowedKeys(item, [
+      'label',
+      'value',
+      'type',
+      'numericScore',
+      'maxScore',
+      'ratingLabel',
+      'order',
+    ], 'Response item')
+    const scorePresentation = normalizeDevelopmentScorePresentation(item)
+    const normalizedItem = {
       label: normalizeText(item.label, {
         label: 'Response label',
         maxLength: PDF_DOCUMENT_LIMITS.maxLabelLength,
         required: true,
       }),
-      value: normalizeText(item.value, {
+      value: normalizeText(scorePresentation.displayValue || item.value, {
         label: 'Response value',
         maxLength: PDF_DOCUMENT_LIMITS.maxTextLength,
       }),
+    }
+
+    if (!scorePresentation.isScored) {
+      return normalizedItem
+    }
+
+    return {
+      ...normalizedItem,
+      type: scorePresentation.type,
+      numericScore: scorePresentation.numericScore,
+      maxScore: scorePresentation.maxScore,
+      ratingLabel: normalizeText(scorePresentation.ratingLabel, {
+        label: 'Rating label',
+        maxLength: PDF_DOCUMENT_LIMITS.maxLabelLength,
+      }),
+      order: Number.isFinite(Number(item.order)) ? Number(item.order) : 0,
     }
   })
 }
@@ -347,7 +372,15 @@ export function buildAssessmentPdfDocument({
         }
       : { clubName, playerName, teamName, section, session },
     responseItems: Array.isArray(content?.responseItems ?? responseItems)
-      ? (content?.responseItems ?? responseItems).map((item) => ({ label: item?.label, value: item?.value }))
+      ? (content?.responseItems ?? responseItems).map((item) => ({
+          label: item?.label,
+          value: item?.value,
+          type: item?.type,
+          numericScore: item?.numericScore,
+          maxScore: item?.maxScore,
+          ratingLabel: item?.ratingLabel,
+          order: item?.order,
+        }))
       : responseItems,
     summaryItems: Array.isArray(content?.summaryItems ?? summaryItems)
       ? (content?.summaryItems ?? summaryItems).map((item) => ({
@@ -488,20 +521,37 @@ function renderRows(items, emptyMessage) {
 
 function isScoredResponseItem(item) {
   return (
+    Number.isFinite(Number(item?.numericScore)) &&
+    Number.isFinite(Number(item?.maxScore)) &&
+    Number(item.maxScore) > 0
+  ) || (
     isDefaultAssessmentScoreLabel(item?.label) &&
     isDefaultAssessmentScoreValue(item?.value)
   ) || /^\d+(?:\.\d+)?\s*\/\s*10(?:\s*-\s*.+)?$/i.test(String(item?.value ?? '').trim())
 }
 
 function renderScoringGuide(items) {
-  if (!items.some(isScoredResponseItem)) {
+  const scoredItems = items.filter(isScoredResponseItem)
+
+  if (scoredItems.length === 0) {
     return ''
   }
+  const scoreMaxima = scoredItems
+    .map((item) => Number(item.maxScore || 10))
+    .filter((value, index, values) => Number.isFinite(value) && value > 0 && values.indexOf(value) === index)
+  const usesApprovedTenPointScale = scoreMaxima.length === 1 && scoreMaxima[0] === 10
+  const scaleDescription = usesApprovedTenPointScale
+    ? 'Player feedback is scored out of 10. A 5 means the player is broadly at the expected level, 6 shows slightly above expected performance, and 10 means exceptional for this context rather than flawless.'
+    : scoreMaxima.length === 1
+      ? `This saved Development form uses a 1 to ${scoreMaxima[0]} scoring scale. Each selected score is shown with its saved maximum and rating label.`
+      : 'This saved Development report contains more than one scoring scale. Each selected score is shown with its saved maximum and rating label.'
 
   return `<section class="panel scoring-guide">
     <h2>How scoring works</h2>
-    <p class="section-body">Player feedback is scored out of 10. A 5 means the player is broadly at the expected level, 6 shows slightly above expected performance, and 10 means exceptional for this context rather than flawless.</p>
-    ${DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `<p><strong>${item.score} - ${escapeHtml(item.label)}:</strong> ${escapeHtml(item.description)}</p>`).join('')}
+    <p class="section-body">${escapeHtml(scaleDescription)}</p>
+    ${usesApprovedTenPointScale
+      ? DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `<p><strong>${item.score} - ${escapeHtml(item.label)}:</strong> ${escapeHtml(item.description)}</p>`).join('')
+      : ''}
   </section>`
 }
 

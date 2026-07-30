@@ -48,7 +48,8 @@ function normaliseResponses(responses) {
 function isScoredResponseItem(item) {
   return (
     Number.isFinite(Number(item?.numericScore)) &&
-    isDefaultAssessmentScoreValue(item.numericScore)
+    Number.isFinite(Number(item?.maxScore)) &&
+    Number(item.maxScore) > 0
   ) || (
     isDefaultAssessmentScoreLabel(item?.label) &&
     isDefaultAssessmentScoreValue(item?.value)
@@ -61,10 +62,6 @@ function formatParentResponseValue(item) {
   }
 
   return isScoredResponseItem(item) ? formatDefaultAssessmentScoreForParent(item.value) : item?.value
-}
-
-function hasScoredResponses(responseItems) {
-  return responseItems.some((item) => isScoredResponseItem(item))
 }
 
 function isExportableResponseValue(value) {
@@ -87,15 +84,26 @@ function chunkResponseRows(responseItems) {
 }
 
 function buildScoringKeyMarkup(responseItems) {
-  if (!hasScoredResponses(responseItems)) {
+  const scoredItems = responseItems.filter(isScoredResponseItem)
+
+  if (scoredItems.length === 0) {
     return ''
   }
+  const scoreMaxima = scoredItems
+    .map((item) => Number(item.maxScore || 10))
+    .filter((value, index, values) => Number.isFinite(value) && value > 0 && values.indexOf(value) === index)
+  const usesApprovedTenPointScale = scoreMaxima.length === 1 && scoreMaxima[0] === 10
+  const scaleDescription = usesApprovedTenPointScale
+    ? 'Player feedback is scored out of 10. A 5 means the player is broadly at the expected level, 6 gives coaches a clear way to show slightly above expected performance, and 10 means exceptional for this context rather than flawless.'
+    : scoreMaxima.length === 1
+      ? `This saved Development form uses a 1 to ${scoreMaxima[0]} scoring scale. Each selected score is shown with its saved maximum and rating label.`
+      : 'This saved Development report contains more than one scoring scale. Each selected score is shown with its saved maximum and rating label.'
 
   return `
     <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
       <p style="margin: 0 0 8px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">How scoring works</p>
-      <p style="margin: 0 0 10px; color: #142018; font-size: 13px; line-height: 1.55;">Player feedback is scored out of 10. A 5 means the player is broadly at the expected level, 6 gives coaches a clear way to show slightly above expected performance, and 10 means exceptional for this context rather than flawless.</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+      <p style="margin: 0 0 10px; color: #142018; font-size: 13px; line-height: 1.55;">${escapeHtml(scaleDescription)}</p>
+      ${usesApprovedTenPointScale ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
         <tbody>
           ${DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `
             <tr>
@@ -104,7 +112,7 @@ function buildScoringKeyMarkup(responseItems) {
             </tr>
           `).join('')}
         </tbody>
-      </table>
+      </table>` : ''}
     </div>
   `
 }

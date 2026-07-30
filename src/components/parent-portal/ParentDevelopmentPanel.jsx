@@ -19,9 +19,12 @@ function formatReportDate(value) {
   })
 }
 
-function formatOverallScore(value) {
+function formatOverallScore(value, maxScore) {
   const score = Number(value)
-  return Number.isFinite(score) ? `${score} / 10` : 'Not recorded'
+  const maximum = Number(maxScore)
+  return Number.isFinite(score) && Number.isFinite(maximum) && maximum > 0
+    ? `${score} / ${maximum}`
+    : 'Not recorded'
 }
 
 function getDeliveryTone(state) {
@@ -42,7 +45,7 @@ function ReportFacts({ report }) {
     ['Team', report.team?.name || 'Team'],
     ['Report date', formatReportDate(report.recordDate || report.finalizedAt)],
     ['Form', report.form?.name || 'Development report'],
-    ['Overall score', formatOverallScore(report.overallScore)],
+    ['Overall score', formatOverallScore(report.overallScore, report.overallMaxScore)],
     ['Author', report.author?.name || 'Not shown'],
   ]
 
@@ -150,15 +153,17 @@ function ReportDetail({
                 <article key={item.fieldId || `${item.label}-${item.order}`} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                     <h4 className="font-black text-[#101828]">{item.label}</h4>
-                    {item.numericScore !== null ? (
+                    {item.numericScore !== null && item.maxScore !== null ? (
                       <span className="text-sm font-black text-[#047857]">
-                        {item.numericScore} / 10{item.ratingLabel ? ` | ${item.ratingLabel}` : ''}
+                        {item.numericScore} / {item.maxScore}{item.ratingLabel ? ` - ${item.ratingLabel}` : ''}
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">
-                    {item.displayValue}
-                  </p>
+                  {item.numericScore === null || item.maxScore === null ? (
+                    <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">
+                      {item.displayValue}
+                    </p>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -270,7 +275,7 @@ export function ParentDevelopmentPanel({
                       {report.form?.name || 'Development report'}
                     </h4>
                     <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-                      {report.team?.name || 'Team'} | Overall {formatOverallScore(report.overallScore)}
+                      {report.team?.name || 'Team'} | Overall {formatOverallScore(report.overallScore, report.overallMaxScore)}
                     </p>
                     {report.author?.name ? (
                       <p className="mt-1 text-xs font-semibold text-[#60756a]">Author: {report.author.name}</p>

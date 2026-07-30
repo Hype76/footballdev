@@ -219,7 +219,7 @@ test('snapshot normalization retains metric, category, visibility and platform p
   assert.equal(snapshot.fields[0].parentVisible, false)
 })
 
-test('parent output includes approved summary and hides private staff notes and elite metrics', () => {
+test('parent output includes selected elite scores and approved summary while hiding private staff notes', () => {
   const evaluationRow = {
     form_responses: {
       'Parent-visible summary': 'Working with confidence.',
@@ -239,7 +239,10 @@ test('parent output includes approved summary and hides private staff notes and 
     { label: 'Private staff notes', value: 'Staff only detail.' },
     { label: 'Finishing', value: 8 },
   ])
-  assert.deepEqual(visible, [{ label: 'Parent-visible summary', value: 'Working with confidence.' }])
+  assert.deepEqual(visible, [
+    { label: 'Parent-visible summary', value: 'Working with confidence.' },
+    { label: 'Finishing', value: 8 },
+  ])
 })
 
 async function createDatabase() {

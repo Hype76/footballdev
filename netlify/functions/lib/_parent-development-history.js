@@ -1,4 +1,7 @@
 import { createDevelopmentOutputKey, createDevelopmentOutputQueueId } from './_development-parent-email-output.js'
+import {
+  normalizeDevelopmentScorePresentation,
+} from '../../../src/lib/development-score-contract.js'
 
 const VISIBLE_COMMUNICATION_ACTIONS = new Set([
   'parent_email_scheduled',
@@ -41,7 +44,9 @@ function normalizeResponseItem(item = {}) {
   }
 
   const label = normalizeText(item.label)
-  const displayValue = normalizeText(item.displayValue ?? item.value)
+  const scorePresentation = normalizeDevelopmentScorePresentation(item)
+  const displayValue = scorePresentation.displayValue ||
+    normalizeText(item.displayValue ?? item.value)
 
   if (!label || !displayValue) {
     return null
@@ -50,10 +55,11 @@ function normalizeResponseItem(item = {}) {
   return {
     fieldId: normalizeText(item.fieldId),
     label,
-    type: normalizeText(item.type) || 'text',
+    type: scorePresentation.type,
     displayValue,
-    numericScore: normalizeScore(item.numericScore),
-    ratingLabel: normalizeText(item.ratingLabel),
+    numericScore: scorePresentation.numericScore,
+    maxScore: scorePresentation.maxScore,
+    ratingLabel: scorePresentation.ratingLabel,
     order: Number(item.order) || 0,
   }
 }
@@ -201,6 +207,9 @@ function normalizeReport({
       templateKey: normalizeText(snapshot.form?.templateKey),
     },
     overallScore: normalizeScore(snapshot.overallScore),
+    overallMaxScore: normalizeScore(snapshot.overallMaxScore) ||
+      responseItems.find((item) => item.maxScore)?.maxScore ||
+      10,
     attendanceIncluded: snapshot.attendanceIncluded === true,
     progressionIncluded: snapshot.progressionIncluded === true,
     responseItems,

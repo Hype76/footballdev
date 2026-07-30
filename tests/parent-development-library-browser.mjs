@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import net from 'node:net'
-import { chromium } from 'playwright'
+import { chromium, devices } from 'playwright'
 
 const fixturePassword = 'FixturePass123!'
 const port = Number(process.env.PARENT_DEVELOPMENT_BROWSER_PORT || 5450 + Math.floor(Math.random() * 200))
@@ -98,7 +98,7 @@ function buildReport({
   formName = 'First child review',
   id = firstReportId,
   playerId = 'player-fixture',
-  playerName = 'Fixture Child',
+  playerName = "Fixture O'Neil-Child",
   recordDate = '2026-07-29',
   canDownloadPdf = true,
   pdfLabel = 'PDF attached',
@@ -121,6 +121,7 @@ function buildReport({
       templateKey: 'fixture-review',
     },
     overallScore: 8,
+    overallMaxScore: 10,
     attendanceIncluded: true,
     progressionIncluded: true,
     responseItems: [
@@ -128,10 +129,41 @@ function buildReport({
         fieldId: 'technical',
         label: 'Technical',
         type: 'score_1_10',
-        displayValue: uniqueFeedback,
-        numericScore: 8,
-        ratingLabel: 'Strong',
+        displayValue: '1 / 10 - Well Below Standard',
+        numericScore: 1,
+        maxScore: 10,
+        ratingLabel: 'Well Below Standard',
         order: 1,
+      },
+      {
+        fieldId: 'tactical',
+        label: 'Tactical',
+        type: 'score_1_10',
+        displayValue: '5 / 10 - Expected Level',
+        numericScore: 5,
+        maxScore: 10,
+        ratingLabel: 'Expected Level',
+        order: 2,
+      },
+      {
+        fieldId: 'game-impact',
+        label: 'Game impact',
+        type: 'score_1_10',
+        displayValue: '10 / 10 - Exceptional',
+        numericScore: 10,
+        maxScore: 10,
+        ratingLabel: 'Exceptional',
+        order: 3,
+      },
+      {
+        fieldId: 'review-summary',
+        label: 'Review summary',
+        type: 'textarea',
+        displayValue: uniqueFeedback,
+        numericScore: null,
+        maxScore: null,
+        ratingLabel: '',
+        order: 4,
       },
       {
         fieldId: 'strengths',
@@ -140,7 +172,7 @@ function buildReport({
         displayValue: 'Calm receiving under pressure.',
         numericScore: null,
         ratingLabel: '',
-        order: 2,
+        order: 5,
       },
       {
         fieldId: 'priority',
@@ -149,7 +181,7 @@ function buildReport({
         displayValue: 'Scan earlier before receiving.',
         numericScore: null,
         ratingLabel: '',
-        order: 3,
+        order: 6,
       },
       {
         fieldId: 'training',
@@ -158,7 +190,7 @@ function buildReport({
         displayValue: 'First-touch direction drills.',
         numericScore: null,
         ratingLabel: '',
-        order: 4,
+        order: 7,
       },
     ],
     sections: [
@@ -219,8 +251,33 @@ const reportsByLink = {
   ],
 }
 
-async function prepareContext(browser, options) {
+async function prepareContext(browser, { standalone = false, ...options }) {
   const context = await browser.newContext(options)
+  if (standalone) {
+    await context.addInitScript(() => {
+      Object.defineProperty(window.navigator, 'standalone', {
+        configurable: true,
+        value: true,
+      })
+      const originalMatchMedia = window.matchMedia.bind(window)
+      window.matchMedia = (query) => {
+        if (query === '(display-mode: standalone)') {
+          return {
+            addEventListener() {},
+            addListener() {},
+            dispatchEvent() { return false },
+            matches: true,
+            media: query,
+            onchange: null,
+            removeEventListener() {},
+            removeListener() {},
+          }
+        }
+
+        return originalMatchMedia(query)
+      }
+    })
+  }
   const consoleErrors = []
   const pageErrors = []
   const failedResources = []
@@ -261,7 +318,7 @@ async function prepareContext(browser, options) {
         status: 200,
         contentType: 'application/pdf',
         headers: {
-          'content-disposition': 'attachment; filename="development-report-2026-07-29.pdf"',
+          'content-disposition': "attachment; filename=\"Fixture O'Neil-Child - 29-07-26 - U12 Fixture Team.pdf\"; filename*=UTF-8''Fixture%20O%27Neil-Child%20-%2029-07-26%20-%20U12%20Fixture%20Team.pdf",
         },
         body: Buffer.from('%PDF-1.4\nfixture\n%%EOF'),
       })
@@ -361,6 +418,9 @@ async function verifyDevelopmentJourney(session, viewportName) {
   await page.getByRole('button', { name: 'View report' }).first().click()
   await page.waitForURL(`**reportId=${firstReportId}`)
   await page.getByText('Great first-child feedback.', { exact: true }).waitFor({ state: 'visible' })
+  await page.getByText('1 / 10 - Well Below Standard', { exact: true }).waitFor({ state: 'visible' })
+  await page.getByText('5 / 10 - Expected Level', { exact: true }).waitFor({ state: 'visible' })
+  await page.getByText('10 / 10 - Exceptional', { exact: true }).waitFor({ state: 'visible' })
   await page.getByText('Strengths', { exact: true }).waitFor({ state: 'visible' })
   await page.getByText('Development priority', { exact: true }).waitFor({ state: 'visible' })
   await page.getByText('Training focus', { exact: true }).waitFor({ state: 'visible' })
@@ -377,13 +437,13 @@ async function verifyDevelopmentJourney(session, viewportName) {
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Download PDF' }).click()
   const download = await downloadPromise
-  assert.equal(download.suggestedFilename(), 'development-report-2026-07-29.pdf')
+  assert.equal(download.suggestedFilename(), "Fixture O'Neil-Child - 29-07-26 - U12 Fixture Team.pdf")
 
   await page.getByRole('button', { name: 'Back to Development history' }).click()
   session.setDelaySecondChild(true)
-  const childSelector = viewportName === 'mobile'
-    ? page.getByLabel('Choose child')
-    : page.locator('#parent-portal-shell-child')
+  const childSelector = viewportName === 'desktop'
+    ? page.locator('#parent-portal-shell-child')
+    : page.getByLabel('Choose child')
   await childSelector.selectOption(secondLinkId)
   await page.waitForURL(`**parentLinkId=${secondLinkId}`)
   await page.getByText('Loading Development history...', { exact: true }).waitFor({ state: 'visible' })
@@ -412,6 +472,24 @@ async function verifyDevelopmentJourney(session, viewportName) {
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     true,
   )
+  if (viewportName === 'pwa') {
+    assert.equal(await page.evaluate(() => (
+      window.matchMedia('(display-mode: standalone)').matches
+      && window.navigator.standalone === true
+    )), true)
+    const manifestResult = await page.evaluate(async () => {
+      const manifestLink = document.querySelector('link[rel="manifest"]')?.getAttribute('href') || ''
+      const response = await fetch(manifestLink)
+      return {
+        manifestLink,
+        ok: response.ok,
+        contentType: response.headers.get('content-type') || '',
+      }
+    })
+    assert.match(manifestResult.manifestLink, /manifest\.webmanifest/)
+    assert.equal(manifestResult.ok, true)
+    assert.match(manifestResult.contentType, /manifest|json/i)
+  }
   assert.deepEqual(session.consoleErrors, [])
   assert.deepEqual(session.pageErrors, [])
   assert.deepEqual(session.failedResources, [])
@@ -426,12 +504,14 @@ try {
 
   for (const viewport of [
     { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
-    { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
+    { name: 'iPhone', options: { ...devices['iPhone 13'] } },
+    { name: 'android', options: { ...devices['Galaxy S9+'] } },
+    { name: 'pwa', options: { ...devices['iPhone 13'], standalone: true } },
   ]) {
     const session = await prepareContext(browser, viewport.options)
     await verifyDevelopmentJourney(session, viewport.name)
     await session.context.close()
-    process.stdout.write(`PASS ${viewport.name}: Development history, child isolation, direct route, PDF, refresh, history, and responsive layout\n`)
+    process.stdout.write(`PASS ${viewport.name}: Development scores, canonical PDF filename, child isolation, direct route, refresh, history, and responsive layout\n`)
   }
 } catch (error) {
   process.stderr.write(`${error.stack || error}\n`)

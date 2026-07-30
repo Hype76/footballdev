@@ -2,6 +2,10 @@ import {
   formatDefaultAssessmentScoreForParent,
   isDefaultAssessmentScoreValue,
 } from './assessment-scoring.js'
+import {
+  formatDevelopmentScore,
+  normalizeDevelopmentScorePresentation,
+} from './development-score-contract.js'
 
 const SUMMARY_ROLE_PATTERNS = Object.freeze([
   { key: 'strengths', pattern: /\b(strengths?|doing well|positive)\b/i },
@@ -37,8 +41,9 @@ function normalizeResponseItem(item = {}) {
     return null
   }
 
-  const numericScore = normalizeScore(item.numericScore)
-  const value = normalizeText(item.displayValue ?? item.value)
+  const scorePresentation = normalizeDevelopmentScorePresentation(item)
+  const value = scorePresentation.displayValue ||
+    normalizeText(item.displayValue ?? item.value)
 
   if (!normalizeText(item.label) || !value) {
     return null
@@ -47,9 +52,10 @@ function normalizeResponseItem(item = {}) {
   return {
     label: normalizeText(item.label),
     value,
-    type: normalizeText(item.type || item.fieldType) || 'text',
-    numericScore,
-    ratingLabel: normalizeText(item.ratingLabel),
+    type: scorePresentation.type,
+    numericScore: scorePresentation.numericScore,
+    maxScore: scorePresentation.maxScore,
+    ratingLabel: scorePresentation.ratingLabel,
     order: Number(item.order) || 0,
   }
 }
@@ -93,21 +99,32 @@ function buildFormLabel(form = {}) {
   return name || 'Development report'
 }
 
-function buildOverallAssessment(report = {}) {
+function buildOverallAssessment(report = {}, responseItems = []) {
   const overallScore = normalizeScore(report.overallScore)
+  const responseMaxima = responseItems
+    .map((item) => normalizeScore(item.maxScore))
+    .filter((value, index, values) => value !== null && value > 0 && values.indexOf(value) === index)
+  const overallMaxScore = normalizeScore(report.overallMaxScore)
+    ?? (responseMaxima.length === 1 ? responseMaxima[0] : null)
+    ?? 10
 
   if (overallScore === null) {
     return {
+      maxScore: overallMaxScore,
       score: null,
       value: 'Not recorded',
     }
   }
 
   return {
+    maxScore: overallMaxScore,
     score: overallScore,
-    value: isDefaultAssessmentScoreValue(overallScore)
+    value: overallMaxScore === 10 && isDefaultAssessmentScoreValue(overallScore)
       ? formatDefaultAssessmentScoreForParent(overallScore)
-      : `${overallScore} / 10`,
+      : formatDevelopmentScore({
+          numericScore: overallScore,
+          maxScore: overallMaxScore,
+        }),
   }
 }
 
@@ -124,7 +141,7 @@ export function buildDevelopmentParentReportContent(report = {}) {
     .filter(Boolean)
   const attendance = sections.find((section) => section.key === 'attendanceSummary') || null
   const progression = sections.find((section) => section.key === 'progressionChart') || null
-  const overallAssessment = buildOverallAssessment(report)
+  const overallAssessment = buildOverallAssessment(report, responseItems)
 
   return {
     version: 1,
@@ -158,14 +175,18 @@ export function getDevelopmentParentReportSemanticContent(content = {}) {
       reportDate: normalizeText(content.context?.reportDate),
     },
     overallAssessment: {
+      maxScore: normalizeScore(content.overallAssessment?.maxScore),
       score: normalizeScore(content.overallAssessment?.score),
       value: normalizeText(content.overallAssessment?.value),
     },
     responseItems: (Array.isArray(content.responseItems) ? content.responseItems : []).map((item) => ({
       label: normalizeText(item.label),
       value: normalizeText(item.value),
+      type: normalizeText(item.type),
       numericScore: normalizeScore(item.numericScore),
+      maxScore: normalizeScore(item.maxScore),
       ratingLabel: normalizeText(item.ratingLabel),
+      order: Number(item.order) || 0,
     })),
     attendance: content.attendance
       ? {

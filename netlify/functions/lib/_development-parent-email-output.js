@@ -5,11 +5,12 @@ import {
   buildProgressionEmailSections,
 } from '../../../src/lib/player-progression.js'
 import {
-  formatAssessmentScore,
-  getAssessmentScoreGuideLabel,
   getAssessmentScoreMax,
   isAssessmentScoreFieldType,
 } from '../../../src/lib/assessment-scoring.js'
+import {
+  normalizeDevelopmentScorePresentation,
+} from '../../../src/lib/development-score-contract.js'
 import {
   isValidDevelopmentParentRecipientEmail,
   getDevelopmentParentRecipientCandidates,
@@ -111,6 +112,11 @@ function isParentVisibleField(field) {
     field?.parent_visible === true
 }
 
+function isParentOutputEligibleField(field, explicitlySelected = false) {
+  return isParentVisibleField(field) ||
+    (explicitlySelected && isAssessmentScoreFieldType(normalizeText(field?.type)))
+}
+
 function normalizeDevelopmentProgressionEvaluation(evaluation = {}) {
   return {
     ...evaluation,
@@ -128,11 +134,28 @@ export function getParentVisibleDevelopmentResponses(evaluation, requestedRespon
     ? evaluation.form_responses
     : {}
   const snapshotFields = getSnapshotFields(evaluation)
+  const requestedItems = Array.isArray(requestedResponses) ? requestedResponses : []
+  const requestedFieldIds = new Set(
+    requestedItems.map((item) => normalizeText(item?.fieldId || item?.field_id)).filter(Boolean),
+  )
+  const requestedLabels = new Set(
+    requestedItems.map((item) => normalizeText(item?.label)).filter(Boolean),
+  )
   const allowedLabels = snapshotFields.length > 0
-    ? new Set(snapshotFields.filter(isParentVisibleField).map((field) => normalizeText(field?.label)).filter(Boolean))
+    ? new Set(
+        snapshotFields
+          .filter((field) => {
+            const explicitlySelected =
+              requestedFieldIds.has(normalizeText(field?.id)) ||
+              requestedLabels.has(normalizeText(field?.label))
+            return isParentOutputEligibleField(field, explicitlySelected)
+          })
+          .map((field) => normalizeText(field?.label))
+          .filter(Boolean),
+      )
     : DEFAULT_PARENT_VISIBLE_LABELS
 
-  return (Array.isArray(requestedResponses) ? requestedResponses : [])
+  return requestedItems
     .map((item) => {
       const label = normalizeText(item?.label)
 
@@ -228,23 +251,17 @@ function formatDevelopmentFieldValue(field, value) {
   const type = normalizeText(field?.type)
 
   if (isAssessmentScoreFieldType(type)) {
-    const numericScore = Number(value)
-    const maxScore = getAssessmentScoreMax(type)
-    const ratingLabel = getAssessmentScoreGuideLabel(numericScore)
-    const formattedScore = formatAssessmentScore(numericScore)
-
-    return {
-      displayValue: formattedScore
-        ? `${formattedScore} / ${maxScore}${ratingLabel ? ` - ${ratingLabel}` : ''}`
-        : '',
-      numericScore: Number.isFinite(numericScore) ? numericScore : null,
-      ratingLabel,
-    }
+    return normalizeDevelopmentScorePresentation({
+      type,
+      rawValue: value,
+      maxScore: getAssessmentScoreMax(type),
+    })
   }
 
   return {
     displayValue: normalizeText(value),
     numericScore: null,
+    maxScore: null,
     ratingLabel: '',
   }
 }
@@ -330,7 +347,7 @@ export function resolveDevelopmentParentReport({
   })
   const responseItems = uniqueFields
     .map((field, index) => {
-      if (!isParentVisibleField(field)) {
+      if (!isParentOutputEligibleField(field, requestedSelection !== null)) {
         return null
       }
 
@@ -348,6 +365,7 @@ export function resolveDevelopmentParentReport({
         rawValue,
         displayValue: formatted.displayValue,
         numericScore: formatted.numericScore,
+        maxScore: formatted.maxScore,
         ratingLabel: formatted.ratingLabel,
         order: Number(field?.orderIndex ?? field?.order_index ?? index + 1) || index + 1,
         parentVisible: true,
@@ -404,6 +422,14 @@ export function resolveDevelopmentParentReport({
       Number.isFinite(Number(evaluation.average_score))
       ? Number(evaluation.average_score)
       : null,
+    overallMaxScore: (() => {
+      const maxima = authoritativeFields
+        .filter((field) => isAssessmentScoreFieldType(normalizeText(field?.type)))
+        .map((field) => getAssessmentScoreMax(normalizeText(field.type)))
+        .filter((value, index, values) => value > 0 && values.indexOf(value) === index)
+
+      return maxima.length === 1 ? maxima[0] : null
+    })(),
     attendanceIncluded: emailSections.some((section) => section.key === 'attendanceSummary'),
     progressionIncluded: emailSections.some((section) => section.key === 'progressionChart'),
     emailSections,
