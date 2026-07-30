@@ -13,21 +13,6 @@ function getBearerToken(event) {
   return header.startsWith('Bearer ') ? header.slice(7) : ''
 }
 
-async function getVerifiedAuthUser(token) {
-  const { data: claimsData, error: claimsError } = await supabasePublic.auth.getClaims(token)
-  const claims = claimsData?.claims
-  const id = String(claims?.sub ?? '').trim()
-
-  if (claimsError || !id) {
-    return null
-  }
-
-  return {
-    id,
-    email: normalizeEmail(claims.email),
-  }
-}
-
 function isPastDate(value) {
   const rawValue = String(value ?? '').trim()
 
@@ -77,12 +62,13 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
-  const authUser = await getVerifiedAuthUser(token)
+  const { data: authData, error: authError } = await supabasePublic.auth.getUser(token)
 
-  if (!authUser) {
+  if (authError || !authData?.user) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
+  const authUser = authData.user
   const authEmail = normalizeEmail(authUser.email)
   const normalizedClubId = String(clubId ?? '').trim()
   const normalizedUserId = String(userId ?? '').trim()
@@ -124,15 +110,15 @@ export async function getAuthenticatedRequestUser(event) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
-  const authUser = await getVerifiedAuthUser(token)
+  const { data: authData, error: authError } = await supabasePublic.auth.getUser(token)
 
-  if (!authUser) {
+  if (authError || !authData?.user) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
   return {
-    id: authUser.id,
-    email: authUser.email,
+    id: String(authData.user.id ?? '').trim(),
+    email: normalizeEmail(authData.user.email),
   }
 }
 
