@@ -313,5 +313,13 @@ test('shared UI exposes one responsive dialog with accessible rows, filters, sea
   assert.match(sessionsSource, /EventResponseSummary/)
   assert.match(sessionsSource, /EventResponseManagerDialog/)
   assert.match(componentSource, /View responses/)
+  assert.match(
+    sessionsSource,
+    /const refreshedEvidence = await getEventResponseEvidenceForEvent\(\{\s*event: refreshedEvent,\s*user,\s*\}\)/,
+  )
+  assert.match(
+    sessionsSource,
+    /setEventResponseEvidence\(\{\s*\.\.\.refreshedEvidence,\s*loaded: true,\s*sourceId,\s*sourceType: event\.sourceType,/,
+  )
   assert.doesNotMatch(sessionsSource, /function EventInvitePlayerChip/)
 })

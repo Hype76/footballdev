@@ -2134,6 +2134,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     try {
       let automaticSelectionFailed = false
+      let refreshedEvent = event
       const result = await acceptEventPlayerAvailabilityOnBehalf({
         eventId: sourceId,
         eventType,
@@ -2144,6 +2145,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
       if (isMatchFixture) {
         const refreshedMatch = await getMatchDay({ user, matchDayId: sourceId })
+        refreshedEvent = {
+          ...event,
+          data: refreshedMatch,
+        }
         const latestAutomaticSelection = (refreshedMatch.eventLog || [])
           .filter((entry) => (
             String(entry.playerId || '') === playerId
@@ -2175,6 +2180,17 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           [sourceId]: summaries[sourceId] || null,
         }))
       }
+
+      const refreshedEvidence = await getEventResponseEvidenceForEvent({
+        event: refreshedEvent,
+        user,
+      })
+      setEventResponseEvidence({
+        ...refreshedEvidence,
+        loaded: true,
+        sourceId,
+        sourceType: event.sourceType,
+      })
 
       showToast({
         title: automaticSelectionFailed ? 'Player available, selection needs attention' : result.changed ? 'Player accepted' : 'Already accepted',
