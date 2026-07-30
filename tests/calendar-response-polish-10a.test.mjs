@@ -9,10 +9,12 @@ import {
 
 const files = {
   component: new URL('../src/components/sessions/EventResponseManager.jsx', import.meta.url),
+  currentContactMigration: new URL('../supabase/migrations/20260730161926_match_response_current_contact_alignment.sql', import.meta.url),
   invitationClient: new URL('../src/lib/domain/event-player-invitation-actions.js', import.meta.url),
   invitationFunction: new URL('../netlify/functions/send-event-player-invitation.js', import.meta.url),
   matchSendFunction: new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url),
   migration: new URL('../supabase/migrations/20260730151849_calendar_response_polish_10a.sql', import.meta.url),
+  trainingCurrentContactMigration: new URL('../supabase/migrations/20260730162800_training_response_current_contact_alignment.sql', import.meta.url),
   trainingUpsertMigration: new URL('../supabase/migrations/20260730160636_training_invitation_upsert_constraint.sql', import.meta.url),
   sessions: new URL('../src/pages/SessionsPage.jsx', import.meta.url),
 }
@@ -134,19 +136,47 @@ test('Add Event route handlers are hoisted in the unconditional hook region and 
 })
 
 test('response-link repair permits only a still-current server-side contact and leaves stale contacts denied', async () => {
-  const { migration } = await sources()
-  const predicate = migration.slice(
-    migration.indexOf('create or replace function public.is_match_day_action_token_current_internal'),
-    migration.indexOf('create or replace function public.mark_event_player_unavailable_on_behalf'),
-  )
+  const {
+    currentContactMigration,
+    migration,
+    trainingCurrentContactMigration,
+  } = await sources()
+  const predicate = currentContactMigration
 
   assert.match(predicate, /request\.expires_at >= timezone\('utc', now\(\)\)/)
   assert.match(predicate, /match_day\.status[\s\S]*not in \('cancelled', 'full_time', 'postponed'\)/)
   assert.match(predicate, /parent_link\.status = 'active'/)
   assert.match(predicate, /player\.parent_email/)
   assert.match(predicate, /jsonb_array_elements\(coalesce\(player\.parent_contacts/)
+  assert.match(predicate, /current_contacts\.self_match/)
+  assert.match(predicate, /current_contacts\.parent_match/)
+  assert.match(predicate, /current_contacts\.usable_count = 0/)
   assert.match(predicate, /lower\(btrim\(request\.recipient_email\)\)/)
-  assert.doesNotMatch(predicate, /or request\.recipient_type = 'parent'\s*\)/)
+  assert.doesNotMatch(predicate, /request\.recipient_type = 'player'\)\s*or/)
+  assert.match(migration, /mark_event_player_unavailable_on_behalf/)
+
+  assert.match(
+    trainingCurrentContactMigration,
+    /is_training_availability_token_current_internal/,
+  )
+  assert.match(trainingCurrentContactMigration, /player\.parent_email/)
+  assert.match(trainingCurrentContactMigration, /parent_link\.status = 'active'/)
+  assert.match(
+    trainingCurrentContactMigration,
+    /request_player\.recipient_type = 'player'[\s\S]*player\.contact_type = 'self'/,
+  )
+  assert.match(
+    trainingCurrentContactMigration,
+    /request_player\.recipient_type = 'parent'[\s\S]*not exists \([\s\S]*active_parent_link/,
+  )
+  assert.equal(
+    (
+      trainingCurrentContactMigration.match(
+        /if not public\.is_training_availability_token_current_internal\(normalized_token_hash\) then/g,
+      ) ?? []
+    ).length,
+    2,
+  )
 })
 
 test('single-player invitation endpoint resolves recipients server-side and uses durable idempotency', async () => {

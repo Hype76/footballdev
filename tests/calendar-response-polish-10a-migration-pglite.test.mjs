@@ -11,6 +11,14 @@ const trainingUpsertMigrationUrl = new URL(
   '../supabase/migrations/20260730160636_training_invitation_upsert_constraint.sql',
   import.meta.url,
 )
+const currentContactMigrationUrl = new URL(
+  '../supabase/migrations/20260730161926_match_response_current_contact_alignment.sql',
+  import.meta.url,
+)
+const trainingCurrentContactMigrationUrl = new URL(
+  '../supabase/migrations/20260730162800_training_response_current_contact_alignment.sql',
+  import.meta.url,
+)
 
 async function createDatabase() {
   const db = new PGlite()
@@ -27,7 +35,10 @@ async function createDatabase() {
     $$;
 
     create table public.clubs (id uuid primary key);
-    create table public.teams (id uuid primary key);
+    create table public.teams (
+      id uuid primary key,
+      name text
+    );
     create table public.users (
       id uuid primary key references auth.users(id),
       status text,
@@ -46,6 +57,7 @@ async function createDatabase() {
       status text,
       player_name text,
       parent_email text,
+      contact_type text,
       parent_contacts jsonb
     );
     create table public.parent_player_links (
@@ -82,6 +94,9 @@ async function createDatabase() {
       club_id uuid not null,
       team_id uuid,
       event_type text,
+      title text,
+      location text,
+      notes text,
       cancelled_at timestamptz
     );
     create table public.calendar_event_invites (
@@ -157,6 +172,7 @@ async function createDatabase() {
       team_id uuid not null,
       occurrence_date date not null,
       occurrence_starts_at timestamptz not null,
+      occurrence_ends_at timestamptz,
       status text not null,
       created_at timestamptz default timezone('utc', now())
     );
@@ -167,7 +183,12 @@ async function createDatabase() {
       club_id uuid not null,
       team_id uuid not null,
       player_id uuid not null,
+      player_name text not null,
+      parent_link_id uuid,
       recipient_email text not null,
+      recipient_name text,
+      recipient_type text,
+      token_hash text,
       status text not null,
       responded_at timestamptz,
       updated_at timestamptz
@@ -202,6 +223,8 @@ async function createDatabase() {
 
   await db.exec(await readFile(migrationUrl, 'utf8'))
   await db.exec(await readFile(trainingUpsertMigrationUrl, 'utf8'))
+  await db.exec(await readFile(currentContactMigrationUrl, 'utf8'))
+  await db.exec(await readFile(trainingCurrentContactMigrationUrl, 'utf8'))
   return db
 }
 
@@ -278,6 +301,71 @@ test('complete response polish migration applies and keeps token authority curre
   await db.close()
 })
 
+test('adult-player response tokens follow the current server-resolved self contact', async () => {
+  const db = await createDatabase()
+  const ids = {
+    club: '10000000-0000-0000-0000-000000000011',
+    team: '20000000-0000-0000-0000-000000000011',
+    player: '30000000-0000-0000-0000-000000000011',
+    match: '40000000-0000-0000-0000-000000000011',
+    request: '50000000-0000-0000-0000-000000000011',
+  }
+  const tokenHash = 'b'.repeat(64)
+
+  await db.query('insert into public.clubs (id) values ($1)', [ids.club])
+  await db.query('insert into public.teams (id) values ($1)', [ids.team])
+  await db.query(`
+    insert into public.players (
+      id, club_id, team_id, status, player_name, parent_email, contact_type, parent_contacts
+    ) values (
+      $1, $2, $3, 'active', 'FP TEST Adult Player', 'current@example.test', 'self', '[]'::jsonb
+    )
+  `, [ids.player, ids.club, ids.team])
+  await db.query(`
+    insert into public.match_days (id, club_id, team_id, status)
+    values ($1, $2, $3, 'scheduled')
+  `, [ids.match, ids.club, ids.team])
+  await db.query(`
+    insert into public.match_day_availability_requests (
+      id, match_day_id, club_id, team_id, player_id, recipient_type, recipient_email,
+      token_hash, status, expires_at
+    ) values (
+      $1, $2, $3, $4, $5, 'player', 'current@example.test',
+      $6, 'pending', timezone('utc', now()) + interval '1 day'
+    )
+  `, [ids.request, ids.match, ids.club, ids.team, ids.player, tokenHash])
+
+  const fallbackContact = await db.query(
+    'select public.is_match_day_action_token_current_internal($1) current',
+    [tokenHash],
+  )
+  assert.equal(fallbackContact.rows[0].current, true)
+
+  await db.query(`
+    update public.players
+    set parent_email = null,
+        parent_contacts = '[{"name":"Adult","email":"current@example.test","type":"self"}]'::jsonb
+    where id = $1
+  `, [ids.player])
+  const explicitSelfContact = await db.query(
+    'select public.is_match_day_action_token_current_internal($1) current',
+    [tokenHash],
+  )
+  assert.equal(explicitSelfContact.rows[0].current, true)
+
+  await db.query(
+    "update public.players set parent_contacts = '[]'::jsonb where id = $1",
+    [ids.player],
+  )
+  const removedContact = await db.query(
+    'select public.is_match_day_action_token_current_internal($1) current',
+    [tokenHash],
+  )
+  assert.equal(removedContact.rows[0].current, false)
+
+  await db.close()
+})
+
 test('training invitation upsert has a matching plain-column unique key', async () => {
   const db = await createDatabase()
   const index = await db.query(`
@@ -290,5 +378,92 @@ test('training invitation upsert has a matching plain-column unique key', async 
 
   assert.equal(index.rows.length, 1)
   assert.match(index.rows[0].indexdef, /\(request_id, player_id, recipient_email\)/i)
+  await db.close()
+})
+
+test('training response tokens follow the current server-resolved adult-player contact', async () => {
+  const db = await createDatabase()
+  const ids = {
+    club: '10000000-0000-0000-0000-000000000021',
+    team: '20000000-0000-0000-0000-000000000021',
+    player: '30000000-0000-0000-0000-000000000021',
+    event: '40000000-0000-0000-0000-000000000021',
+    request: '50000000-0000-0000-0000-000000000021',
+    requestPlayer: '60000000-0000-0000-0000-000000000021',
+  }
+  const tokenHash = 'c'.repeat(64)
+
+  await db.query('insert into public.clubs (id) values ($1)', [ids.club])
+  await db.query("insert into public.teams (id, name) values ($1, 'FP TEST Team')", [ids.team])
+  await db.query(`
+    insert into public.players (
+      id, club_id, team_id, status, player_name, parent_email, contact_type, parent_contacts
+    ) values (
+      $1, $2, $3, 'active', 'FP TEST Adult Player', 'current@example.test', 'self', '[]'::jsonb
+    )
+  `, [ids.player, ids.club, ids.team])
+  await db.query(`
+    insert into public.calendar_events (
+      id, club_id, team_id, event_type, title
+    ) values (
+      $1, $2, $3, 'training', 'FP TEST Training'
+    )
+  `, [ids.event, ids.club, ids.team])
+  await db.query(`
+    insert into public.training_availability_requests (
+      id, calendar_event_id, club_id, team_id, occurrence_date,
+      occurrence_starts_at, occurrence_ends_at, status
+    ) values (
+      $1, $2, $3, $4, current_date, timezone('utc', now()),
+      timezone('utc', now()) + interval '1 hour', 'sent'
+    )
+  `, [ids.request, ids.event, ids.club, ids.team])
+  await db.query(`
+    insert into public.training_availability_request_players (
+      id, request_id, calendar_event_id, club_id, team_id, player_id,
+      player_name, recipient_email, recipient_name, recipient_type,
+      token_hash, status
+    ) values (
+      $1, $2, $3, $4, $5, $6, 'FP TEST Adult Player',
+      'current@example.test', 'FP TEST Adult Player', 'player', $7, 'sent'
+    )
+  `, [
+    ids.requestPlayer,
+    ids.request,
+    ids.event,
+    ids.club,
+    ids.team,
+    ids.player,
+    tokenHash,
+  ])
+
+  const currentContact = await db.query(
+    'select public.is_training_availability_token_current_internal($1) current',
+    [tokenHash],
+  )
+  assert.equal(currentContact.rows[0].current, true)
+
+  const visibleResponse = await db.query(
+    'select * from public.get_training_availability_response($1)',
+    [tokenHash],
+  )
+  assert.equal(visibleResponse.rows.length, 1)
+
+  await db.query(
+    'update public.players set parent_email = null where id = $1',
+    [ids.player],
+  )
+
+  const removedContact = await db.query(
+    'select public.is_training_availability_token_current_internal($1) current',
+    [tokenHash],
+  )
+  assert.equal(removedContact.rows[0].current, false)
+
+  const revokedResponse = await db.query(
+    'select * from public.get_training_availability_response($1)',
+    [tokenHash],
+  )
+  assert.equal(revokedResponse.rows.length, 0)
   await db.close()
 })
