@@ -163,7 +163,7 @@ async function loadRecipientPreview({
       .maybeSingle(),
     adminSupabase
       .from('parent_player_links')
-      .select('id, player_id, email, parent_name, display_name, status')
+      .select('id, player_id, email, status')
       .eq('club_id', scopedEvent.club_id)
       .eq('team_id', scopedEvent.team_id)
       .eq('player_id', playerId)
@@ -378,7 +378,7 @@ async function sendTrainingInvitation({
 
   const { data: parentLinks, error: parentLinksError } = await adminSupabase
     .from('parent_player_links')
-    .select('id, player_id, email, parent_name, display_name')
+    .select('id, player_id, email')
     .eq('club_id', scopedEvent.club_id)
     .eq('team_id', scopedEvent.team_id)
     .eq('player_id', playerId)

@@ -161,6 +161,8 @@ test('single-player invitation endpoint resolves recipients server-side and uses
   assert.match(invitationFunction, /getPlayerContacts\(\{ parentLinks: parentLinks \?\? \[\], player \}\)/)
   assert.match(invitationFunction, /preview: true/)
   assert.match(invitationFunction, /address: maskEmail\(contact\.email\)/)
+  assert.doesNotMatch(invitationFunction, /\.select\('id, player_id, email, parent_name/)
+  assert.doesNotMatch(invitationFunction, /\.select\('id, player_id, email, display_name/)
   assert.match(invitationFunction, /const recipientPreview = await loadRecipientPreview\([\s\S]*if \(preview\)[\s\S]*const actionCommand = await beginAction/)
   assert.match(invitationFunction, /status: failedCount > 0 \? 'partial_failed' : 'sent'/)
   assert.match(invitationFunction, /existing\.status === 'failed'/)
