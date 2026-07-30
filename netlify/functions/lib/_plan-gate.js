@@ -1,6 +1,8 @@
 import { getFeatureAccess, normalizePlanKey } from '../../../src/lib/paywall-access.js'
 import { loadActiveAuthorityProfile } from './_authority-profile.js'
-import { supabaseAdmin } from './_supabase.js'
+import { createPublicSupabaseClient, supabaseAdmin } from './_supabase.js'
+
+const supabasePublic = createPublicSupabaseClient()
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -60,7 +62,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token)
+  const { data: authData, error: authError } = await supabasePublic.auth.getUser(token)
 
   if (authError || !authData?.user) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
@@ -108,7 +110,7 @@ export async function getAuthenticatedRequestUser(event) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token)
+  const { data: authData, error: authError } = await supabasePublic.auth.getUser(token)
 
   if (authError || !authData?.user) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
