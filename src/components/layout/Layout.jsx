@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Outlet, useLocation, useMatches } from 'react-router-dom'
-import { canCreateEvaluation, canManagePolls, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
+import { Link, Navigate, Outlet, useLocation, useMatches } from 'react-router-dom'
+import { canCreateEvaluation, canManagePolls, isAdultPlayerUser, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import {
   assignPlayerStaffNote,
   createAuditLog,
@@ -70,7 +70,8 @@ export function Layout() {
   const matches = useMatches()
   const isParentShellHost = isParentPortalHost()
   const isParentIntentRoute = isParentIntentPath(location.pathname)
-  const shouldBypassMainShell = isParentShellHost || isParentIntentRoute
+  const isAdultPlayerRoute = location.pathname === '/player'
+  const shouldBypassMainShell = isParentShellHost || isParentIntentRoute || isAdultPlayerRoute
   const activeTitle = [...matches].reverse().find((match) => match.handle?.title)?.handle?.title ?? 'Dashboard'
   const resolvedTheme = useMemo(
     () => (themeMode === 'system' ? systemTheme : themeMode),
@@ -285,6 +286,10 @@ export function Layout() {
   const needsClubSelection = !needsAccessModeSelection && !isSuperAdmin(user) && clubOptions.length > 1
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
   const shouldSuppressOnboardingSetup = location.pathname !== '/user-settings'
+
+  if (isAdultPlayerUser(user) && !isAdultPlayerRoute) {
+    return <Navigate to="/player" replace />
+  }
 
   if (shouldBypassMainShell) {
     return (

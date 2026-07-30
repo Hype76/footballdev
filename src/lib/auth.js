@@ -6,6 +6,7 @@ import {
   claimStripeCheckoutForProfile,
 } from './auth-session-utils.js'
 import {
+  isAdultPlayerUser,
   isClubAdmin,
   isParentPortalUser,
   isSuperAdmin,
@@ -51,6 +52,7 @@ export {
   hasTeamWorkflowContext,
   isClubAdmin,
   isDemoAccount,
+  isAdultPlayerUser,
   isSuperAdmin,
   isParentPortalUser,
   isTesterAccessExpired,
@@ -594,12 +596,40 @@ function RuntimeAuthProvider({ children }) {
           return
         }
 
+        if (profile?.adultPlayerAccessUnavailable) {
+          setAccessModeOptions([])
+          setClubOptions([])
+          setTeamOptions([])
+          setUser(null)
+          setHasPlatformAdminAccess(false)
+          setAccessRouteMismatch(profile)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
         if (hasPlatformAccess && isParentPortalUser(profile) && !selectedAccessMode) {
           setAccessModeOptions(buildAccessModeOptions([PARENT_ACCESS_OPTION], hasPlatformAccess))
           setClubOptions([])
           setUser(null)
           setHasPlatformAdminAccess(true)
           setAccessRouteMismatch(null)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
+        if (isAdultPlayerUser(profile)) {
+          window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'player')
+          window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
+          window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+          window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+          setClubOptions([])
+          setAccessModeOptions([])
+          setTeamOptions([])
+          setUser((currentUser) => areUsersEquivalent(currentUser, profile) ? currentUser : profile)
+          setAccessRouteMismatch(null)
+          setHasPlatformAdminAccess(false)
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -798,8 +828,8 @@ function RuntimeAuthProvider({ children }) {
 
     const nextAccessMode = String(accessMode ?? '').trim()
 
-    if (!['team', 'parent', 'platform_admin'].includes(nextAccessMode)) {
-      throw new Error('Choose parent, team, or platform admin access to continue.')
+    if (!['team', 'parent', 'player', 'platform_admin'].includes(nextAccessMode)) {
+      throw new Error('Choose player, parent, team, or platform admin access to continue.')
     }
 
     setAuthError('')
@@ -852,7 +882,9 @@ function RuntimeAuthProvider({ children }) {
         window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       }
 
-      const profileWithTeam = profile?.role === 'parent_portal' ? profile : await applyTeamSelection(profile)
+      const profileWithTeam = ['parent_portal', 'adult_player'].includes(profile?.role)
+        ? profile
+        : await applyTeamSelection(profile)
 
       if (options.redirectTo) {
         window.location.assign(options.redirectTo)

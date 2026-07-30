@@ -241,6 +241,83 @@ async function getParentPortalMemberships(authUser) {
   }
 }
 
+async function getAdultPlayerAccountState(authUser) {
+  if (!authUser?.id) {
+    return null
+  }
+
+  const { data, error } = await supabase.rpc('get_own_adult_player_account_state')
+
+  if (error) {
+    console.error(error)
+    throw new Error('Adult-player account access could not be verified.')
+  }
+
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row?.link_id) {
+    return null
+  }
+
+  return {
+    linkId: row.link_id,
+    userId: row.user_id,
+    playerId: row.player_id,
+    playerName: String(row.player_name ?? '').trim(),
+    playerStatus: String(row.player_status ?? '').trim(),
+    dateOfBirth: row.date_of_birth ?? null,
+    contactType: String(row.contact_type ?? '').trim(),
+    clubId: row.club_id,
+    clubName: String(row.club_name ?? '').trim(),
+    clubLogoUrl: String(row.club_logo_url ?? '').trim(),
+    clubContactEmail: String(row.club_contact_email ?? '').trim(),
+    teamId: row.team_id,
+    teamName: String(row.team_name ?? '').trim(),
+    themeMode: String(row.theme_mode ?? '').trim(),
+    themeAccent: String(row.theme_accent ?? '').trim(),
+    themeButtonStyle: String(row.theme_button_style ?? '').trim(),
+    linkStatus: String(row.link_status ?? '').trim(),
+    verifiedAt: row.verified_at ?? null,
+    accessMode: String(row.access_mode ?? 'player').trim(),
+    roleLabel: String(row.role_label ?? 'Player').trim(),
+    accessGranted: row.access_granted === true,
+    denialCategory: String(row.denial_category ?? '').trim(),
+  }
+}
+
+function normalizeAdultPlayerProfile(authUser, accountState) {
+  return {
+    id: authUser.id,
+    email: String(authUser.email ?? '').trim().toLowerCase(),
+    username: String(authUser.user_metadata?.username ?? '').trim(),
+    name: accountState.playerName || String(authUser.user_metadata?.name ?? authUser.email ?? '').trim(),
+    displayName: accountState.playerName || String(authUser.user_metadata?.display_name ?? authUser.email ?? '').trim(),
+    role: 'adult_player',
+    roleLabel: 'Player',
+    roleRank: 0,
+    accessMode: 'player',
+    accountStatus: 'active',
+    planKey: PLAN_KEYS.individual,
+    planStatus: 'active',
+    isPlanComped: false,
+    clubId: accountState.clubId,
+    clubName: accountState.clubName,
+    clubLogoUrl: accountState.clubLogoUrl,
+    clubContactEmail: accountState.clubContactEmail,
+    activeTeamId: accountState.teamId,
+    activeTeamName: accountState.teamName,
+    themeMode: accountState.themeMode,
+    themeAccent: accountState.themeAccent,
+    themeButtonStyle: accountState.themeButtonStyle,
+    adultPlayerLinkId: accountState.linkId,
+    adultPlayerLinkStatus: accountState.linkStatus,
+    selectedPlayerId: accountState.playerId,
+    selectedPlayerName: accountState.playerName,
+    selectedPlayerDateOfBirth: accountState.dateOfBirth,
+    playerContactType: accountState.contactType,
+    accessModeOptions: [],
+  }
+}
+
 function normalizeParentPortalProfile(authUser, parentLinks, options = {}) {
   const selectedLink = parentLinks[0]
 
@@ -340,7 +417,11 @@ export function shouldCompleteSignupClubProfile({ selectedAccessMode = '', login
     return false
   }
 
-  return normalizedSelectedAccessMode !== 'parent'
+  if (normalizedLoginAccessIntent === 'player') {
+    return false
+  }
+
+  return !['parent', 'player'].includes(normalizedSelectedAccessMode)
 }
 
 async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false, signupIntent = false }) {
@@ -444,6 +525,22 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     let data = await loadUserRow()
+    const adultPlayerAccountState = isDemoAuthUser
+      ? null
+      : await getAdultPlayerAccountState(authUser)
+
+    if (adultPlayerAccountState) {
+      if (!adultPlayerAccountState.accessGranted) {
+        return {
+          adultPlayerAccessUnavailable: true,
+          adultPlayerAccessReason: adultPlayerAccountState.denialCategory || 'access_denied',
+          intendedAccessMode: 'player',
+        }
+      }
+
+      return normalizeAdultPlayerProfile(authUser, adultPlayerAccountState)
+    }
+
     const parentMemberships = isDemoAuthUser
       ? { links: [], lookupFailed: false }
       : await getParentPortalMemberships(authUser)

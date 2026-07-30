@@ -20,6 +20,7 @@ import {
   canViewBilling,
   canViewEndSeasonStats,
   hasTeamWorkflowContext,
+  isAdultPlayerUser,
   isClubAdmin,
   isSuperAdmin,
   isParentPortalUser,
@@ -61,6 +62,7 @@ function lazyRoute(importer, exportName) {
 
 const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'AddPlayerPage')
 const ActivityLogPage = lazyRoute(() => import('../pages/ActivityLogPage.jsx'), 'ActivityLogPage')
+const AdultPlayerPage = lazyRoute(() => import('../pages/AdultPlayerPage.jsx'), 'AdultPlayerPage')
 const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage.jsx'), 'ArchivedPlayersPage')
 const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'BillingPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
@@ -403,6 +405,38 @@ function TeamAccessUnavailableState() {
   )
 }
 
+function AdultPlayerAccessUnavailableState() {
+  const { signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    await signOut()
+    window.location.assign('/sign-in')
+  }
+
+  return (
+    <RouteGateState
+      eyebrow="Player account"
+      title="Player access is not available"
+      message="This account is signed in, but its verified adult-player link is inactive or no longer eligible."
+      rules={[
+        {
+          title: 'Access fails closed',
+          body: 'No parent, staff, or administration access is granted as a fallback.',
+        },
+        {
+          title: 'Ask the platform team',
+          body: 'A controlled platform operation must review the player record and account link.',
+        },
+      ]}
+      actions={(
+        <button type="button" onClick={handleSignOut} className={secondaryActionClassName}>
+          Sign out
+        </button>
+      )}
+    />
+  )
+}
+
 function ClubSuspendedState() {
   return (
     <RouteGateState
@@ -654,6 +688,10 @@ function getDefaultWorkspacePath(user) {
     return '/parent-portal'
   }
 
+  if (isAdultPlayerUser(user)) {
+    return '/player'
+  }
+
   if (isAccountSuspended(user) || isClubSuspended(user)) {
     return '/'
   }
@@ -719,6 +757,13 @@ function useWorkspaceRouteGate({
   }
 
   if (!user) {
+    if (accessRouteMismatch?.adultPlayerAccessUnavailable) {
+      return {
+        element: <AdultPlayerAccessUnavailableState />,
+        user: null,
+      }
+    }
+
     if (accessRouteMismatch?.loginIntentMismatch) {
       return {
         element: <LoginIntentSignInRedirect intent={accessRouteMismatch.intendedAccessMode || loginIntent} />,
@@ -751,6 +796,13 @@ function useWorkspaceRouteGate({
     return {
       element: <ParentAccessSignInRedirect />,
       user: null,
+    }
+  }
+
+  if (isAdultPlayerUser(user)) {
+    return {
+      element: <Navigate to="/player" replace />,
+      user,
     }
   }
 
@@ -905,6 +957,10 @@ function WorkspaceHome() {
   }
 
   if (!user) {
+    if (accessRouteMismatch?.adultPlayerAccessUnavailable) {
+      return <AdultPlayerAccessUnavailableState />
+    }
+
     if (accessRouteMismatch?.loginIntentMismatch) {
       return <LoginIntentSignInRedirect intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
     }
@@ -926,6 +982,10 @@ function WorkspaceHome() {
 
   if (isParentPortalUser(user)) {
     return <Navigate to="/parent-portal" replace />
+  }
+
+  if (isAdultPlayerUser(user)) {
+    return <Navigate to="/player" replace />
   }
 
   if (isAccountSuspended(user)) {
@@ -1037,6 +1097,32 @@ function RequirePlayerWorkflowAccess() {
       return <FeatureUnavailableState capability={routeCapability} user={user} />
     }
 
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireAdultPlayerAccess() {
+  const { accessRouteMismatch, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/sign-in" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <DelayedRouteFallback />
+  }
+
+  if (!user && accessRouteMismatch?.adultPlayerAccessUnavailable) {
+    return <AdultPlayerAccessUnavailableState />
+  }
+
+  if (!isAdultPlayerUser(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -1618,6 +1704,22 @@ export const router = createBrowserRouter([
       {
         element: <Layout />,
         children: [
+          {
+            element: <RequireAdultPlayerAccess />,
+            children: [
+              {
+                path: 'player',
+                element: (
+                  <PageSuspense>
+                    <AdultPlayerPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Player',
+                },
+              },
+            ],
+          },
           {
             path: 'dashboard',
             element: <Navigate to="/" replace />,

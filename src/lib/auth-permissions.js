@@ -21,6 +21,10 @@ export function getRoleLabel(user) {
     return 'Team Admin'
   }
 
+  if (isAdultPlayerUser(user)) {
+    return 'Player'
+  }
+
   return user.roleLabel || user.role || 'Unknown'
 }
 
@@ -68,7 +72,7 @@ export function isDemoAccount(user) {
 }
 
 export function canViewPlatformFeedback(user) {
-  return Boolean(user) && !isDemoAccount(user)
+  return Boolean(user) && !isDemoAccount(user) && !isAdultPlayerUser(user)
 }
 
 export function isClubAdmin(user) {
@@ -77,6 +81,14 @@ export function isClubAdmin(user) {
 
 export function isParentPortalUser(user) {
   return user?.role === 'parent_portal'
+}
+
+export function isAdultPlayerUser(user) {
+  return user?.role === 'adult_player'
+}
+
+function isPortalOnlyUser(user) {
+  return isParentPortalUser(user) || isAdultPlayerUser(user)
 }
 
 export function canManageUsers(user) {
@@ -100,7 +112,7 @@ export function canViewActivityLog(user) {
 }
 
 export function canUseDataTransfer(user) {
-  if (!user || isParentPortalUser(user) || isDemoAccount(user)) {
+  if (!user || isPortalOnlyUser(user) || isDemoAccount(user)) {
     return false
   }
 
@@ -130,7 +142,7 @@ export function canManageTeamSettings(user) {
 }
 
 export function canViewEndSeasonStats(user) {
-  if (!user?.clubId || isSuperAdmin(user) || isParentPortalUser(user) || !isPlanAccessActive(user)) {
+  if (!user?.clubId || isSuperAdmin(user) || isPortalOnlyUser(user) || !isPlanAccessActive(user)) {
     return false
   }
 
@@ -142,11 +154,11 @@ export function canViewEndSeasonStats(user) {
 }
 
 export function canManageTeamAppearance(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isPortalOnlyUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canAssignRole(user, targetRole) {
-  if (!user || !targetRole) {
+  if (!user || !targetRole || isPortalOnlyUser(user)) {
     return false
   }
 
@@ -163,7 +175,7 @@ export function canAssignRole(user, targetRole) {
 export function canManageFormFields(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
-    && !isParentPortalUser(user)
+    && !isPortalOnlyUser(user)
     && !isClubAdmin(user)
     && isPlanAccessActive(user)
     && Number(user?.roleRank ?? 0) >= 20
@@ -173,7 +185,7 @@ export function canManageFormFields(user) {
 export function canManageFeedbackForms(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
-    && !isParentPortalUser(user)
+    && !isPortalOnlyUser(user)
     && !isClubAdmin(user)
     && isPlanAccessActive(user)
     && Number(user?.roleRank ?? 0) >= 50
@@ -185,7 +197,7 @@ export function canManageParentEmailTemplates(user) {
 }
 
 export function canManageEmailQueue(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isPortalOnlyUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
 }
 
 export function canManageClubSettings(user) {
@@ -213,7 +225,7 @@ export function canViewBilling(user) {
 }
 
 export function canDeletePlayer(user) {
-  return Boolean(user?.clubId) && Number(user?.roleRank ?? 0) >= 20
+  return Boolean(user?.clubId) && !isPortalOnlyUser(user) && Number(user?.roleRank ?? 0) >= 20
 }
 
 export function canShareEvaluation(user, evaluation) {
@@ -225,7 +237,7 @@ export function canShareEvaluation(user, evaluation) {
 }
 
 export function canCreateEvaluation(user) {
-  if (!user) {
+  if (!user || isPortalOnlyUser(user)) {
     return false
   }
 
@@ -235,7 +247,7 @@ export function canCreateEvaluation(user) {
 export function hasTeamWorkflowContext(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
-    && !isParentPortalUser(user)
+    && !isPortalOnlyUser(user)
     && isPlanAccessActive(user)
     && Boolean(user?.activeTeamId)
 }
@@ -243,23 +255,23 @@ export function hasTeamWorkflowContext(user) {
 export function needsTeamWorkflowContext(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
-    && !isParentPortalUser(user)
+    && !isPortalOnlyUser(user)
     && isPlanAccessActive(user)
     && !user?.activeTeamId
 }
 
 export function canManageParentLinks(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user)
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isPortalOnlyUser(user) && isPlanAccessActive(user)
 }
 
 export function canManagePolls(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isPortalOnlyUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
 }
 
 export function canUseStaffChat(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
-    && !isParentPortalUser(user)
+    && !isPortalOnlyUser(user)
     && isPlanAccessActive(user)
     && Number(user?.roleRank ?? 0) >= 20
 }
@@ -271,7 +283,7 @@ export function canUseClubStaffChat(user) {
 export function canUseResourceLibrary(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
-    && !isParentPortalUser(user)
+    && !isPortalOnlyUser(user)
     && isPlanAccessActive(user)
     && Number(user?.roleRank ?? 0) >= 20
 }
@@ -283,7 +295,7 @@ export function canManageResourceLibrary(user) {
 export function canManageMatchDay(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
-    && !isParentPortalUser(user)
+    && !isPortalOnlyUser(user)
     && !isClubAdmin(user)
     && isPlanAccessActive(user)
     && Number(user?.roleRank ?? 0) >= 20
@@ -295,7 +307,7 @@ export function canEditEvaluation(user, evaluation) {
     return false
   }
 
-  if (isParentPortalUser(user)) {
+  if (isPortalOnlyUser(user)) {
     return false
   }
 
@@ -336,7 +348,7 @@ export function canViewEvaluation(user, evaluation) {
     return false
   }
 
-  if (isParentPortalUser(user)) {
+  if (isPortalOnlyUser(user)) {
     return false
   }
 

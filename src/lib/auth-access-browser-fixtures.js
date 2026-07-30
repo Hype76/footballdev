@@ -260,6 +260,27 @@ const fixtureAccounts = {
     defaultMode: 'parent',
     parentProfileUnavailable: true,
   },
+  'adult-player.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'player',
+    playerProfile: makeBaseProfile('adult-player.fixture@footballplayer.test', {
+      name: 'Adult Player Fixture',
+      displayName: 'Adult Player Fixture',
+      role: 'adult_player',
+      roleLabel: 'Player',
+      roleRank: 0,
+      accessMode: 'player',
+      planKey: 'individual',
+      activeTeamId: 'team-u12',
+      activeTeamName: 'U12 Fixture Team',
+      adultPlayerLinkId: 'adult-player-link-fixture',
+      adultPlayerLinkStatus: 'active',
+      selectedPlayerId: 'adult-player-fixture',
+      selectedPlayerName: 'Adult Player Fixture',
+      parentPortalLinks: [],
+    }),
+  },
   'fallback-dual.fixture@footballplayer.test': {
     password: 'FixturePass123!',
     hasPlatformAdminAccess: false,
@@ -411,6 +432,10 @@ function clearPendingFixtureAccessState() {
 function getProfileForMode(account, mode, selectedTeamId = '') {
   const selectedTeam = teamOptions.find((team) => String(team.id) === String(selectedTeamId))
 
+  if (account.playerProfile) {
+    return account.playerProfile
+  }
+
   if (mode === 'platform_admin' && account.platformProfile) {
     return account.platformProfile
   }
@@ -534,8 +559,9 @@ export function FixtureAuthProvider({ AuthContext, children }) {
   const authUser = session?.user || null
   const hasPlatformAdminAccess = Boolean(account?.hasPlatformAdminAccess)
   const isParentProfile = user?.role === 'parent_portal'
+  const isAdultPlayerProfile = user?.role === 'adult_player'
   const isPlatformProfile = user?.role === 'super_admin'
-  const nextTeamOptions = user && !isParentProfile && !isPlatformProfile && !account?.hideTeamOptions ? teamOptions : []
+  const nextTeamOptions = user && !isParentProfile && !isAdultPlayerProfile && !isPlatformProfile && !account?.hideTeamOptions ? teamOptions : []
   const nextClubOptions = isPlatformProfile ? clubOptions : []
   const nextAccessModeOptions = Array.isArray(user?.accessModeOptions)
     ? user.accessModeOptions

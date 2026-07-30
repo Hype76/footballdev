@@ -2,7 +2,7 @@ export const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
 export const SELECTED_ACCESS_MODE_EXPLICIT_KEY = 'selected-access-mode-explicit'
 export const LOGIN_ACCESS_INTENT_STORAGE_KEY = 'login-access-intent'
 
-const loginAccessIntents = new Set(['team', 'parent', 'platform_admin'])
+const loginAccessIntents = new Set(['team', 'parent', 'player', 'platform_admin'])
 
 export function normalizeLoginAccessIntent(intent = '') {
   const normalizedIntent = String(intent ?? '').trim()
