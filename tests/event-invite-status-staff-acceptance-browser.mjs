@@ -120,8 +120,21 @@ const matchState = {
       status: 'pending',
     },
   ],
+  decisions: [
+    {
+      id: 'decision-selected',
+      match_day_id: 'match-fixture',
+      club_id: 'club-fixture',
+      team_id: 'team-u12',
+      player_id: 'selected-player',
+      status: 'selected',
+    },
+  ],
 }
 let trainingAccepted = false
+let invitationActionCount = 0
+let invitationPreviewCount = 0
+let calendarMutationCount = 0
 
 function matchRow() {
   return {
@@ -146,16 +159,7 @@ function matchRow() {
     teams: { name: 'U12 Fixture Team' },
     match_day_availability_requests: matchState.requests,
     match_day_player_availability: matchState.availability,
-    match_day_player_squad_decisions: [
-      {
-        id: 'decision-selected',
-        match_day_id: 'match-fixture',
-        club_id: 'club-fixture',
-        team_id: 'team-u12',
-        player_id: 'selected-player',
-        status: 'selected',
-      },
-    ],
+    match_day_player_squad_decisions: matchState.decisions,
     match_day_player_availability_history: [],
     match_day_event_log: [],
     match_day_events: [],
@@ -313,6 +317,29 @@ async function preparePage(context, { standalone = false } = {}) {
 
   await context.route('**/auth/v1/**', (route) => json(route, {}))
   await context.route('**/.netlify/functions/**', (route) => json(route, { success: false }, 404))
+  await context.route('**/.netlify/functions/send-event-player-invitation', (route) => {
+    const payload = route.request().postDataJSON()
+
+    if (payload.preview === true) {
+      invitationPreviewCount += 1
+      return json(route, {
+        success: true,
+        preview: true,
+        playerId: payload.playerId,
+        recipientCount: 1,
+        recipients: [{ address: 'p***@example.test', type: 'Parent' }],
+      })
+    }
+
+    invitationActionCount += 1
+    return json(route, {
+      success: true,
+      duplicate: false,
+      failedCount: 0,
+      playerId: payload.playerId,
+      recipientCount: 1,
+    })
+  })
   await context.route('**/rest/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -348,12 +375,57 @@ async function preparePage(context, { standalone = false } = {}) {
       })
     }
 
+    if (path.endsWith('/rpc/mark_event_player_unavailable_on_behalf')) {
+      const payload = request.postDataJSON()
+      const availability = matchState.availability.find((row) => row.player_id === payload.player_id_value)
+
+      if (payload.event_type_value === 'match' && availability) {
+        availability.status = 'unavailable'
+      }
+
+      return json(route, {
+        changed: true,
+        eventId: payload.event_id_value,
+        eventType: payload.event_type_value,
+        occurrenceDate: payload.occurrence_date_value,
+        playerId: payload.player_id_value,
+        previousStatus: 'available',
+        respondedAt: new Date().toISOString(),
+        responseStatus: 'unavailable',
+        source: 'staff_on_behalf',
+      })
+    }
+
+    if (path.endsWith('/rpc/set_match_day_player_squad_decision')) {
+      const payload = request.postDataJSON()
+      const savedDecision = {
+        id: 'decision-pending',
+        match_day_id: payload.match_day_id_value,
+        club_id: 'club-fixture',
+        team_id: 'team-u12',
+        player_id: payload.player_id_value,
+        status: payload.decision_value,
+        decided_at: new Date().toISOString(),
+        decided_by_name: 'Manager Fixture',
+      }
+      matchState.decisions = [
+        ...matchState.decisions.filter((row) => row.player_id !== payload.player_id_value),
+        savedDecision,
+      ]
+      return json(route, [savedDecision])
+    }
+
     if (path.endsWith('/match_days')) {
       return json(route, url.searchParams.has('id') ? matchRow() : [matchRow()])
     }
     if (path.endsWith('/players')) return json(route, playerRows)
     if (path.endsWith('/teams')) return json(route, [{ id: 'team-u12', club_id: 'club-fixture', name: 'U12 Fixture Team', status: 'active' }])
-    if (path.endsWith('/calendar_events')) return json(route, calendarRows)
+    if (path.endsWith('/calendar_events')) {
+      if (request.method() !== 'GET') {
+        calendarMutationCount += 1
+      }
+      return json(route, calendarRows)
+    }
     if (path.endsWith('/calendar_event_invites')) return json(route, inviteRows)
     if (path.endsWith('/training_availability_settings')) {
       return json(route, [{ id: 'training-setting', club_id: 'club-fixture', team_id: 'team-u12', calendar_event_id: 'training-event', enabled: true, send_days_before: 2 }])
@@ -365,8 +437,14 @@ async function preparePage(context, { standalone = false } = {}) {
 
   const page = await context.newPage()
   const pageErrors = []
+  const consoleErrors = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
-  return { page, pageErrors }
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text())
+    }
+  })
+  return { consoleErrors, page, pageErrors }
 }
 
 async function signIn(page) {
@@ -403,6 +481,30 @@ try {
   const desktopContext = await browser.newContext({ colorScheme: 'dark', viewport: { width: 1440, height: 1000 } })
   const desktop = await preparePage(desktopContext)
   await signIn(desktop.page)
+  await desktop.page.getByRole('button', { name: 'Add event', exact: true }).click()
+  await desktop.page.getByRole('heading', { name: 'Add calendar event' }).waitFor({ state: 'visible', timeout: 15000 })
+  assert.equal(calendarMutationCount, 0)
+  await desktop.page.getByRole('button', { name: 'Close calendar event' }).click()
+  await desktop.page.waitForURL(`${baseUrl}/calendar`, { timeout: 15000 })
+  await desktop.page.goto(`${baseUrl}/calendar?action=add-event`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  try {
+    await desktop.page.getByRole('heading', { name: 'Add calendar event' }).waitFor({ state: 'visible', timeout: 15000 })
+  } catch (error) {
+    console.error(desktop.consoleErrors)
+    console.error(desktop.pageErrors)
+    console.error(await desktop.page.locator('body').innerText())
+    throw error
+  }
+  await desktop.page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await desktop.page.getByRole('heading', { name: /Calendar$/ }).waitFor({ state: 'visible', timeout: 15000 })
+  await desktop.page.goForward({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await desktop.page.getByRole('heading', { name: 'Add calendar event' }).waitFor({ state: 'visible', timeout: 15000 })
+  await desktop.page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await desktop.page.getByRole('heading', { name: 'Add calendar event' }).waitFor({ state: 'visible', timeout: 15000 })
+  assert.equal(calendarMutationCount, 0)
+  await desktop.page.getByRole('button', { name: 'Close calendar event' }).click()
+  await desktop.page.waitForURL(`${baseUrl}/calendar`, { timeout: 15000 })
+  assert.equal(calendarMutationCount, 0)
   await openEvent(desktop.page, 'FP TEST Match Invite')
 
   await desktop.page.getByRole('button', { name: 'Edit event' }).click()
@@ -447,16 +549,39 @@ try {
   await desktopManager.getByRole('tab', { name: 'Awaiting response (1)' }).click()
 
   const pendingRow = desktopManager.locator('[role="row"][data-player-id="pending-player"]')
-  await pendingRow.getByRole('button', { name: 'Actions for Pending Player' }).click()
-  await pendingRow.getByRole('menuitem', { name: 'Mark available on behalf' }).click()
+  await pendingRow.getByRole('button', { name: 'Expand' }).click()
+  const pendingDetailsRow = desktopManager.locator('[role="row"][data-player-id="pending-player-details"]')
+  await pendingDetailsRow.getByRole('button', { name: 'Actions for Pending Player' }).click()
+  await pendingDetailsRow.getByRole('menuitem', { name: 'Resend invitation' }).click()
+  const resendConfirm = desktop.page.getByRole('dialog').last()
+  await resendConfirm.getByText('p***@example.test', { exact: true }).waitFor({ state: 'visible' })
+  await resendConfirm.getByRole('button', { name: 'Resend invitation' }).click()
+  await wait(500)
+  assert.equal(invitationPreviewCount, 1)
+  assert.equal(invitationActionCount, 1)
+  await pendingDetailsRow.getByRole('button', { name: 'Actions for Pending Player' }).click()
+  await pendingDetailsRow.getByRole('menuitem', { name: 'Mark available on behalf' }).click()
   const pendingConfirm = desktop.page.getByRole('dialog').last()
   await pendingConfirm.getByText('Awaiting response', { exact: true }).waitFor({ state: 'visible' })
   await pendingConfirm.getByRole('button', { name: 'Accept on behalf of player' }).click()
   await desktopManager.getByRole('tab', { name: 'Available (2)' }).waitFor({ state: 'visible', timeout: 15000 })
   await desktopManager.getByRole('tab', { name: 'All (34)' }).click()
-  await desktopManager.locator('[role="row"][data-player-id="pending-player"]').getByText('Available', { exact: true }).waitFor({ state: 'visible' })
+  await desktopManager.locator('[role="row"][data-player-id="pending-player"]').getByText('Available', { exact: true }).nth(1).waitFor({ state: 'visible' })
+  const acceptedPendingRow = desktopManager.locator('[role="row"][data-player-id="pending-player-details"]')
+  await acceptedPendingRow.getByRole('button', { name: 'Actions for Pending Player' }).click()
+  await acceptedPendingRow.getByRole('menuitem', { name: 'Select for squad' }).click()
+  const selectConfirm = desktop.page.getByRole('dialog').last()
+  await selectConfirm.getByRole('button', { name: 'Select for squad' }).click()
+  await acceptedPendingRow.getByText('Selected', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+  await acceptedPendingRow.getByRole('button', { name: 'Actions for Pending Player' }).click()
+  await acceptedPendingRow.getByRole('menuitem', { name: 'Mark Unavailable' }).click()
+  const unavailableConfirm = desktop.page.getByRole('dialog').last()
+  await unavailableConfirm.getByRole('button', { name: 'Mark Unavailable' }).click()
+  await desktopManager.getByRole('tab', { name: 'Unavailable (1)' }).waitFor({ state: 'visible', timeout: 15000 })
+  await acceptedPendingRow.getByText('Selected', { exact: true }).waitFor({ state: 'visible' })
   await desktop.page.keyboard.press('Escape')
   await desktopManager.waitFor({ state: 'hidden' })
+  await desktop.page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'View responses')
   assert.equal(await desktopViewResponses.evaluate((element) => element === document.activeElement), true)
 
   await desktop.page.getByRole('button', { name: 'Close calendar event' }).click()
@@ -472,8 +597,10 @@ try {
   const trainingManager = desktop.page.getByTestId('event-response-manager')
   await trainingManager.getByRole('tab', { name: 'Awaiting response (1)' }).click()
   const trainingRow = trainingManager.locator('[role="row"][data-player-id="training-player"]')
-  await trainingRow.getByRole('button', { name: 'Actions for Training Player' }).click()
-  await trainingRow.getByRole('menuitem', { name: 'Mark attending on behalf' }).click()
+  await trainingRow.getByRole('button', { name: 'Expand' }).click()
+  const trainingDetailsRow = trainingManager.locator('[role="row"][data-player-id="training-player-details"]')
+  await trainingDetailsRow.getByRole('button', { name: 'Actions for Training Player' }).click()
+  await trainingDetailsRow.getByRole('menuitem', { name: 'Mark attending on behalf' }).click()
   const trainingConfirm = desktop.page.getByRole('dialog').last()
   assert.equal(await trainingConfirm.getByText('Match selection', { exact: true }).count(), 0)
   await trainingConfirm.getByRole('button', { name: 'Mark attending on behalf' }).click()
@@ -491,6 +618,7 @@ try {
   await desktopContext.close()
 
   matchState.availability = matchState.availability.filter((row) => row.id !== 'availability-pending')
+  matchState.decisions = matchState.decisions.filter((row) => row.player_id !== 'pending-player')
   trainingAccepted = false
 
   const mobileContext = await browser.newContext({ colorScheme: 'light', isMobile: true, viewport: { width: 390, height: 844 } })
@@ -522,6 +650,7 @@ try {
   )
   await mobile.page.keyboard.press('Escape')
   await mobileActionSheet.waitFor({ state: 'hidden' })
+  await mobile.page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'More actions')
   assert.equal(await mobileMoreActions.evaluate((element) => element === document.activeElement), true)
   await mobileMoreActions.click()
   await mobileActionSheet.getByRole('menuitem', { name: 'Edit event' }).click()
@@ -546,11 +675,13 @@ try {
   await mobileSearch.fill('PENDING')
   await mobileManager.getByText('1 of 34 players', { exact: true }).waitFor({ state: 'visible' })
   const mobilePendingRow = mobileManager.locator('[role="row"][data-player-id="pending-player"]')
-  const mobileActionButton = mobilePendingRow.getByRole('button', { name: 'Actions for Pending Player' })
+  await mobilePendingRow.getByRole('button', { name: 'Expand' }).click()
+  const mobilePendingDetailsRow = mobileManager.locator('[role="row"][data-player-id="pending-player-details"]')
+  const mobileActionButton = mobilePendingDetailsRow.getByRole('button', { name: 'Actions for Pending Player' })
   const mobileActionButtonBox = await mobileActionButton.boundingBox()
   assert.ok(mobileActionButtonBox && mobileActionButtonBox.height >= 44)
   await mobileActionButton.click()
-  const mobileRowMenu = mobilePendingRow.getByRole('menu', { name: 'Actions for Pending Player' })
+  const mobileRowMenu = mobilePendingDetailsRow.getByRole('menu', { name: 'Actions for Pending Player' })
   const mobileRowMenuBox = await mobileRowMenu.boundingBox()
   assert.ok(mobileRowMenuBox && mobileRowMenuBox.x >= 0 && mobileRowMenuBox.x + mobileRowMenuBox.width <= 390)
   await mobileRowMenu.getByRole('menuitem', { name: 'Mark available on behalf' }).click()

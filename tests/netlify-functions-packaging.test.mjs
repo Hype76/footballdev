@@ -15,6 +15,7 @@ test('Report Issue feedback endpoints remain deployable top-level Netlify functi
   assert.ok(topLevelFunctions.includes('platform-feedback-reports'))
   assert.ok(topLevelFunctions.includes('platform-feedback-report-update'))
   assert.ok(topLevelFunctions.includes('platform-feedback-attachment-url'))
+  assert.ok(topLevelFunctions.includes('send-event-player-invitation'))
 })
 
 test('shared Netlify helpers do not consume deployable function slots', () => {
@@ -24,5 +25,5 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.equal(topLevelFunctions.includes('_plan-gate'), false)
   assert.ok(topLevelFunctions.includes('manage-club-logo'))
   assert.ok(topLevelFunctions.includes('security-audit-monitor'))
-  assert.equal(topLevelFunctions.length, 59)
+  assert.equal(topLevelFunctions.length, 60)
 })

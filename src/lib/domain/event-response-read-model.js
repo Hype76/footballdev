@@ -10,6 +10,7 @@ const RESPONSE_AUDIT_ACTIONS = [
   'adult_player_match_response_saved',
   'adult_player_training_response_saved',
   'event_player_availability_accepted_on_behalf',
+  'event_player_availability_marked_unavailable_on_behalf',
 ]
 
 function normalizeText(value) {
@@ -32,11 +33,12 @@ function normalizeDateOnly(value) {
 }
 
 function getEventSource(event = {}) {
-  const sourceType = normalizeStatus(event.sourceType)
-  const sourceId = normalizeText(event.sourceId)
+  const safeEvent = event && typeof event === 'object' ? event : {}
+  const sourceType = normalizeStatus(safeEvent.sourceType)
+  const sourceId = normalizeText(safeEvent.sourceId)
   const eventType = sourceType === 'match-day'
     ? 'match'
-    : normalizeStatus(event?.data?.eventType ?? event?.data?.sessionType ?? event.eventType) || 'general'
+    : normalizeStatus(safeEvent?.data?.eventType ?? safeEvent?.data?.sessionType ?? safeEvent.eventType) || 'general'
 
   return {
     eventType: eventType === 'match' ? 'match' : eventType,
@@ -296,6 +298,9 @@ function createParticipantRow({
     attendanceState: 'not_recorded',
     staffActions: {
       canAcceptOnBehalf: false,
+      canMarkUnavailable: false,
+      canSelectForSquad: false,
+      invitationAction: '',
     },
     warningState: '',
     eventType,
@@ -567,6 +572,15 @@ export function buildEventResponseReadModel({
     .map((row) => {
       const withDelivery = applyDeliveryEvidence(row, deliveryEvents)
       const display = getEventResponseDisplayState(withDelivery)
+      const responseState = normalizeStatus(withDelivery.responseState)
+      const matchSelectionState = normalizeStatus(withDelivery.matchSelectionState)
+      const invitationAction = normalizeStatus(withDelivery.invitationState) === 'not_sent'
+        ? 'send'
+        : ['failed', 'partial_failure'].includes(normalizeStatus(withDelivery.deliveryState))
+          ? 'retry'
+          : normalizeStatus(withDelivery.invitationState) === 'created'
+            ? 'resend'
+            : ''
       return {
         ...withDelivery,
         responseLabel: withDelivery.responseState === 'not_invited'
@@ -576,6 +590,13 @@ export function buildEventResponseReadModel({
             : getResponseLabel(eventType, withDelivery.responseState),
         staffActions: {
           canAcceptOnBehalf: display.canAcceptOnBehalf,
+          canMarkUnavailable: ['match', 'training'].includes(eventType)
+            && responseState !== 'unavailable'
+            && normalizeStatus(withDelivery.invitationState) !== 'not_sent',
+          canSelectForSquad: eventType === 'match'
+            && responseState === 'available'
+            && matchSelectionState !== 'selected',
+          invitationAction,
         },
         display,
       }

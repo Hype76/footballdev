@@ -133,88 +133,190 @@ export function EventResponseSummary({
 function ResponseManagerRow({
   activeActionPlayerId,
   eventType,
+  expanded,
   isBusy,
   onActionMenuChange,
   onAcceptOnBehalf,
+  onExpandedChange,
+  onInvitationAction,
+  onMarkUnavailable,
+  onSelectForSquad,
   row,
 }) {
   const actionMenuOpen = activeActionPlayerId === row.playerId
   const actionLabel = eventType === 'training'
     ? 'Mark attending on behalf'
     : 'Mark available on behalf'
+  const detailsId = `response-details-${row.playerId}`
+  const hasActions = row.canAcceptOnBehalf
+    || row.canMarkUnavailable
+    || row.canSelectForSquad
+    || Boolean(row.invitationAction)
 
   return (
-    <div
-      role="row"
-      className="relative grid min-w-0 gap-3 border-b border-[#d7e5dc] px-3 py-3 last:border-b-0 sm:grid-cols-[minmax(12rem,1.6fr)_minmax(8rem,1fr)_minmax(7rem,0.9fr)_minmax(7rem,0.9fr)_minmax(8rem,1fr)_auto] sm:items-center sm:px-4"
-      data-player-id={row.playerId}
-    >
-      <div role="cell" className="flex min-w-0 items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ecfdf5] text-xs font-black text-[#065f46]"
-        >
-          {row.initials}
-        </span>
-        <span className="min-w-0 break-words text-sm font-black text-[#101828]">{row.playerName}</span>
-      </div>
-      <div role="cell" className="min-w-0">
-        <span className="mr-2 text-[11px] font-black uppercase tracking-wide text-[#60756a] sm:hidden">Response</span>
-        <span className="text-sm font-black text-[#101828]">{row.responseLabel}</span>
-        {row.warningLabel ? <span className="mt-1 block break-words text-xs font-bold text-red-700">{row.warningLabel}</span> : null}
-      </div>
-      <div role="cell" className="min-w-0">
-        <span className="mr-2 text-[11px] font-black uppercase tracking-wide text-[#60756a] sm:hidden">Selection</span>
-        <span className="text-sm font-bold text-[#4b5f55]">{row.selectionLabel || 'Not applicable'}</span>
-      </div>
-      <div role="cell" className="min-w-0">
-        <span className="mr-2 text-[11px] font-black uppercase tracking-wide text-[#60756a] sm:hidden">Invitation</span>
-        <span className="text-sm font-bold text-[#4b5f55]">{row.deliveryLabel}</span>
-      </div>
-      <div role="cell" className="min-w-0">
-        <span className="mr-2 text-[11px] font-black uppercase tracking-wide text-[#60756a] sm:hidden">Responded</span>
-        <span className="block text-sm font-bold text-[#4b5f55]">{formatRespondedAt(row.respondedAt)}</span>
-        <span className="mt-1 block text-xs font-semibold text-[#60756a]">{row.responseSourceLabel}</span>
-      </div>
-      <div role="cell" className="relative flex min-w-0 justify-start sm:justify-end">
-        {row.canAcceptOnBehalf ? (
-          <>
-            <button
-              type="button"
-              aria-expanded={actionMenuOpen}
-              aria-haspopup="menu"
-              aria-label={`Actions for ${row.playerName}`}
-              onClick={() => onActionMenuChange(actionMenuOpen ? '' : row.playerId)}
-              className={secondaryButtonClass}
+    <>
+      <div
+        role="row"
+        className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(10rem,0.7fr)_auto] sm:px-4 ${expanded ? '' : 'border-b border-[#d7e5dc]'}`}
+        data-player-id={row.playerId}
+      >
+        <div role="cell" className="min-w-0">
+          <button
+            type="button"
+            aria-controls={detailsId}
+            aria-expanded={expanded}
+            onClick={() => onExpandedChange(expanded ? '' : row.playerId)}
+            className="flex min-w-0 items-center gap-3 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-[#bbf7d0]"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ecfdf5] text-xs font-black text-[#065f46]"
             >
-              Actions
-            </button>
-            {actionMenuOpen ? (
-              <div
-                role="menu"
-                aria-label={`Actions for ${row.playerName}`}
-                className="absolute bottom-full left-0 z-20 mb-2 w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-xl shadow-[#101828]/15 sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mb-0 sm:mt-2"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={isBusy}
-                  onClick={() => {
-                    onActionMenuChange('')
-                    onAcceptOnBehalf(row)
-                  }}
-                  className={`${secondaryButtonClass} w-full justify-start text-left`}
-                >
-                  {actionLabel}
-                </button>
+              {row.initials}
+            </span>
+            <span className="min-w-0">
+              <span className="block break-words text-sm font-black text-[#101828]">{row.playerName}</span>
+              <span className="mt-1 block text-xs font-bold text-[#60756a] sm:hidden">{row.responseLabel}</span>
+            </span>
+          </button>
+        </div>
+        <div role="cell" className="hidden min-w-0 sm:block">
+          <span className="text-sm font-black text-[#101828]">{row.responseLabel}</span>
+          {row.warningLabel ? <span className="mt-1 block break-words text-xs font-bold text-red-700">{row.warningLabel}</span> : null}
+        </div>
+        <div role="cell">
+          <button
+            type="button"
+            aria-controls={detailsId}
+            aria-expanded={expanded}
+            onClick={() => onExpandedChange(expanded ? '' : row.playerId)}
+            className={secondaryButtonClass}
+          >
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
+      </div>
+
+      {expanded ? (
+        <div role="row" className="border-b border-[#d7e5dc]" data-player-id={`${row.playerId}-details`}>
+          <div
+            id={detailsId}
+            role="cell"
+            aria-colspan="3"
+            className="border-t border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 sm:px-4"
+          >
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div>
+              <dt className="text-[11px] font-black uppercase tracking-wide text-[#60756a]">Response</dt>
+              <dd className="mt-1 text-sm font-black text-[#101828]">{row.responseLabel}</dd>
+            </div>
+            {eventType === 'match' ? (
+              <div>
+                <dt className="text-[11px] font-black uppercase tracking-wide text-[#60756a]">Match selection</dt>
+                <dd className="mt-1 text-sm font-bold text-[#4b5f55]">{row.selectionLabel || 'Not selected'}</dd>
               </div>
             ) : null}
-          </>
-        ) : (
-          <span className="text-xs font-bold text-[#60756a]">No action</span>
-        )}
-      </div>
-    </div>
+            <div>
+              <dt className="text-[11px] font-black uppercase tracking-wide text-[#60756a]">Invitation and delivery</dt>
+              <dd className="mt-1 text-sm font-bold text-[#4b5f55]">{row.deliveryLabel}</dd>
+              {row.warningLabel ? <span className="mt-1 block break-words text-xs font-bold text-red-700">{row.warningLabel}</span> : null}
+            </div>
+            <div>
+              <dt className="text-[11px] font-black uppercase tracking-wide text-[#60756a]">Response time</dt>
+              <dd className="mt-1 text-sm font-bold text-[#4b5f55]">{formatRespondedAt(row.respondedAt)}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] font-black uppercase tracking-wide text-[#60756a]">Response source</dt>
+              <dd className="mt-1 text-sm font-bold text-[#4b5f55]">{row.responseSourceLabel}</dd>
+            </div>
+            </dl>
+
+            <div className="relative mt-3 flex min-w-0 justify-start">
+              {hasActions ? (
+                <>
+                  <button
+                    type="button"
+                    aria-expanded={actionMenuOpen}
+                    aria-haspopup="menu"
+                    aria-label={`Actions for ${row.playerName}`}
+                    onClick={() => onActionMenuChange(actionMenuOpen ? '' : row.playerId)}
+                    className={secondaryButtonClass}
+                  >
+                    Actions
+                  </button>
+                  {actionMenuOpen ? (
+                    <div
+                      role="menu"
+                      aria-label={`Actions for ${row.playerName}`}
+                      className="absolute bottom-full left-0 z-20 mb-2 grid w-[min(20rem,calc(100vw-2rem))] gap-2 rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-xl shadow-[#101828]/15 sm:bottom-auto sm:top-full sm:mb-0 sm:mt-2"
+                    >
+                      {row.invitationAction ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={isBusy}
+                          onClick={() => {
+                            onActionMenuChange('')
+                            onInvitationAction(row, row.invitationAction)
+                          }}
+                          className={`${secondaryButtonClass} w-full justify-start text-left`}
+                        >
+                          {row.invitationActionLabel}
+                        </button>
+                      ) : null}
+                      {row.canAcceptOnBehalf ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={isBusy}
+                          onClick={() => {
+                            onActionMenuChange('')
+                            onAcceptOnBehalf(row)
+                          }}
+                          className={`${secondaryButtonClass} w-full justify-start text-left`}
+                        >
+                          {actionLabel}
+                        </button>
+                      ) : null}
+                      {row.canMarkUnavailable ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={isBusy}
+                          onClick={() => {
+                            onActionMenuChange('')
+                            onMarkUnavailable(row)
+                          }}
+                          className={`${secondaryButtonClass} w-full justify-start text-left`}
+                        >
+                          Mark Unavailable
+                        </button>
+                      ) : null}
+                      {row.canSelectForSquad ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={isBusy}
+                          onClick={() => {
+                            onActionMenuChange('')
+                            onSelectForSquad(row)
+                          }}
+                          className={`${secondaryButtonClass} w-full justify-start text-left`}
+                        >
+                          Select for squad
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <span className="text-xs font-bold text-[#60756a]">No action available</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   )
 }
 
@@ -227,10 +329,14 @@ export function EventResponseManagerDialog({
   manager,
   onAcceptOnBehalf,
   onClose,
+  onInvitationAction,
+  onMarkUnavailable,
+  onSelectForSquad,
 }) {
   const [activeFilter, setActiveFilter] = useState(EVENT_RESPONSE_FILTERS.all)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeActionPlayerId, setActiveActionPlayerId] = useState('')
+  const [expandedPlayerId, setExpandedPlayerId] = useState('')
   const searchInputRef = useRef(null)
   const view = useMemo(() => getEventResponseManagerView({
     activeFilter,
@@ -341,16 +447,10 @@ export function EventResponseManagerDialog({
               aria-label={`${eventTitle} response rows`}
               className="overflow-visible rounded-lg border border-[#d7e5dc] bg-white"
             >
-              <div
-                role="row"
-                className="sticky top-0 z-10 hidden grid-cols-[minmax(12rem,1.6fr)_minmax(8rem,1fr)_minmax(7rem,0.9fr)_minmax(7rem,0.9fr)_minmax(8rem,1fr)_auto] gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55] sm:grid"
-              >
+              <div role="row" className="sticky top-0 z-10 hidden grid-cols-[minmax(14rem,1fr)_minmax(10rem,0.7fr)_auto] gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55] sm:grid">
                 <span role="columnheader">Player</span>
                 <span role="columnheader">Response</span>
-                <span role="columnheader">Selection</span>
-                <span role="columnheader">Invitation</span>
-                <span role="columnheader">Responded</span>
-                <span role="columnheader">Actions</span>
+                <span role="columnheader">Details</span>
               </div>
 
               {view.groups.map((group) => (
@@ -359,7 +459,7 @@ export function EventResponseManagerDialog({
                     <h3
                       id={`response-group-${group.key}`}
                       role="columnheader"
-                      aria-colspan="6"
+                      aria-colspan="3"
                       className="text-xs font-black uppercase tracking-[0.14em] text-[#065f46]"
                     >
                       {group.label} ({group.rows.length})
@@ -370,9 +470,17 @@ export function EventResponseManagerDialog({
                       key={row.id}
                       activeActionPlayerId={activeActionPlayerId}
                       eventType={manager.eventType}
+                      expanded={expandedPlayerId === row.playerId}
                       isBusy={isBusy}
                       onActionMenuChange={setActiveActionPlayerId}
                       onAcceptOnBehalf={onAcceptOnBehalf}
+                      onExpandedChange={(playerId) => {
+                        setExpandedPlayerId(playerId)
+                        setActiveActionPlayerId('')
+                      }}
+                      onInvitationAction={onInvitationAction}
+                      onMarkUnavailable={onMarkUnavailable}
+                      onSelectForSquad={onSelectForSquad}
                       row={row}
                     />
                   ))}

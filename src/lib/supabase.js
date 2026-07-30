@@ -208,7 +208,12 @@ export {
 
 export {
   acceptEventPlayerAvailabilityOnBehalf,
+  markEventPlayerUnavailableOnBehalf,
 } from './domain/event-availability-staff-actions.js'
+
+export {
+  sendEventPlayerInvitationAction,
+} from './domain/event-player-invitation-actions.js'
 
 export {
   getParentCalendarVisualState,

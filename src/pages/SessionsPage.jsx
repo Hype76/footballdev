@@ -50,6 +50,7 @@ import { isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 import {
   addPlayersToAssessmentSession,
   acceptEventPlayerAvailabilityOnBehalf,
+  markEventPlayerUnavailableOnBehalf,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
   cancelPendingTrainingAvailabilityRequests,
@@ -91,6 +92,8 @@ import {
   EVENT_PLAYER_COMMUNICATION_MODES,
   saveCalendarEventInvites,
   saveTrainingAvailabilitySettings,
+  sendEventPlayerInvitationAction,
+  setMatchDayPlayerSquadDecision,
   syncCalendarEventResourceLinks,
   syncCalendarEventParentScope,
   updateCalendarEvent,
@@ -828,7 +831,7 @@ function buildCalendarNotificationPlayers(form, invitePlayers, selectedPlayers) 
 }
 
 export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
-  const { user } = useAuth()
+  const { session, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
@@ -1318,18 +1321,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return
     }
 
-    const nextSearchParams = new URLSearchParams(searchParams)
-    nextSearchParams.delete('action')
-    nextSearchParams.delete('type')
-    setSearchParams(nextSearchParams, { replace: true })
-
     if (requestedAction === 'add-event') {
       handleOpenCalendarCreate('', requestedType)
-      return
+    } else {
+      handleOpenSessionCreateModal()
     }
 
-    handleOpenSessionCreateModal()
-  // This reacts only to explicit route quick actions.
+  // Function declarations keep the direct-route effect safe before any loading return.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, setSearchParams])
 
@@ -1916,7 +1914,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     })
   }
 
-  const handleOpenCalendarCreate = (date = '', requestedEventType = '') => {
+  function handleOpenCalendarCreate(date = '', requestedEventType = '') {
     setErrorMessage('')
     const defaultForm = getDefaultCalendarForm(date)
     const eventType = (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType
@@ -1953,9 +1951,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       sourceType: '',
     })
     setErrorMessage('')
+
+    if (searchParams.has('action') || searchParams.has('type')) {
+      const nextSearchParams = new URLSearchParams(searchParams)
+      nextSearchParams.delete('action')
+      nextSearchParams.delete('type')
+      setSearchParams(nextSearchParams, { replace: true })
+    }
   }
 
-  const handleOpenSessionCreateModal = () => {
+  function handleOpenSessionCreateModal() {
     setErrorMessage('')
     setCalendarForm({
       ...getDefaultCalendarForm(),
@@ -2207,6 +2212,224 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       showToast({
         title: 'Player not accepted',
         message: error.message || 'The player could not be accepted on their behalf.',
+        tone: 'error',
+      })
+      throw error
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleMarkEventUnavailableOnBehalf = async ({ invite, occurrenceDate }) => {
+    const event = calendarModal?.event
+    const sourceId = String(event?.sourceId ?? '').trim()
+    const isMatchFixture = event?.sourceType === 'match-day'
+    const eventType = isMatchFixture ? 'match' : calendarForm.eventType
+    const playerId = String(invite?.playerId ?? '').trim()
+
+    if (!sourceId || !playerId || !['match', 'training'].includes(eventType)) {
+      throw new Error('This invitation is not available for a staff response.')
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      let refreshedEvent = event
+      const result = await markEventPlayerUnavailableOnBehalf({
+        eventId: sourceId,
+        eventType,
+        occurrenceDate,
+        playerId,
+        user,
+      })
+
+      if (isMatchFixture) {
+        const refreshedMatch = await getMatchDay({ user, matchDayId: sourceId })
+        refreshedEvent = { ...event, data: refreshedMatch }
+        setMatchDays((current) => current.map((match) => match.id === refreshedMatch.id ? refreshedMatch : match))
+        setCalendarModal((current) => (
+          String(current?.event?.sourceId ?? '').trim() === sourceId
+            ? { ...current, event: { ...current.event, data: refreshedMatch } }
+            : current
+        ))
+      } else {
+        const summaries = await getTrainingAvailabilitySummaryForEvents({ user, eventIds: [sourceId] })
+        setTrainingAvailabilitySummaryByEventId((current) => ({
+          ...current,
+          [sourceId]: summaries[sourceId] || null,
+        }))
+      }
+
+      const refreshedEvidence = await getEventResponseEvidenceForEvent({
+        event: refreshedEvent,
+        user,
+      })
+      setEventResponseEvidence({
+        ...refreshedEvidence,
+        loaded: true,
+        sourceId,
+        sourceType: event.sourceType,
+      })
+
+      showToast({
+        title: result.changed ? 'Player marked unavailable' : 'Already unavailable',
+        message: result.changed
+          ? `${invite.player?.playerName || 'Player'} is now Unavailable. The response is recorded as staff acting on behalf.`
+          : `${invite.player?.playerName || 'Player'} is already Unavailable.`,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The player could not be marked unavailable.')
+      showToast({
+        title: 'Availability not updated',
+        message: error.message || 'The player could not be marked unavailable.',
+        tone: 'error',
+      })
+      throw error
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSelectEventPlayerForSquad = async ({ invite }) => {
+    const event = calendarModal?.event
+    const sourceId = String(event?.sourceId ?? '').trim()
+    const playerId = String(invite?.playerId ?? '').trim()
+
+    if (event?.sourceType !== 'match-day' || !sourceId || !playerId) {
+      throw new Error('Squad selection is available for saved Match Day fixtures only.')
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await setMatchDayPlayerSquadDecision({
+        decision: 'selected',
+        matchDayId: sourceId,
+        playerId,
+      })
+      const refreshedMatch = await getMatchDay({ user, matchDayId: sourceId })
+      const refreshedEvent = { ...event, data: refreshedMatch }
+      setMatchDays((current) => current.map((match) => match.id === refreshedMatch.id ? refreshedMatch : match))
+      setCalendarModal((current) => (
+        String(current?.event?.sourceId ?? '').trim() === sourceId
+          ? { ...current, event: { ...current.event, data: refreshedMatch } }
+          : current
+      ))
+      const refreshedEvidence = await getEventResponseEvidenceForEvent({
+        event: refreshedEvent,
+        user,
+      })
+      setEventResponseEvidence({
+        ...refreshedEvidence,
+        loaded: true,
+        sourceId,
+        sourceType: event.sourceType,
+      })
+      showToast({
+        title: 'Player selected',
+        message: `${invite.player?.playerName || 'Player'} is selected for the match squad. Their availability response was not changed.`,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The player could not be selected for the squad.')
+      showToast({
+        title: 'Squad selection not updated',
+        message: error.message || 'The player could not be selected for the squad.',
+        tone: 'error',
+      })
+      throw error
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleEventPlayerInvitationAction = async ({
+    action,
+    invite,
+    occurrenceDate,
+    preview = false,
+    requestToken,
+  }) => {
+    const event = calendarModal?.event
+    const sourceId = String(event?.sourceId ?? '').trim()
+    const playerId = String(invite?.playerId ?? '').trim()
+
+    if (!sourceId || !playerId) {
+      throw new Error('Choose one saved event and player before sending an invitation.')
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const result = await sendEventPlayerInvitationAction({
+        accessToken: session?.access_token,
+        action,
+        eventId: sourceId,
+        idempotencyKey: requestToken,
+        occurrenceDate,
+        playerId,
+        preview,
+        sourceType: event.sourceType,
+        user,
+      })
+
+      if (preview) {
+        return result
+      }
+
+      let refreshedEvent = event
+
+      if (event.sourceType === 'match-day') {
+        const refreshedMatch = await getMatchDay({ user, matchDayId: sourceId })
+        refreshedEvent = { ...event, data: refreshedMatch }
+        setMatchDays((current) => current.map((match) => match.id === refreshedMatch.id ? refreshedMatch : match))
+        setCalendarModal((current) => (
+          String(current?.event?.sourceId ?? '').trim() === sourceId
+            ? { ...current, event: { ...current.event, data: refreshedMatch } }
+            : current
+        ))
+      } else if (calendarForm.eventType === 'training') {
+        const summaries = await getTrainingAvailabilitySummaryForEvents({ user, eventIds: [sourceId] })
+        setTrainingAvailabilitySummaryByEventId((current) => ({
+          ...current,
+          [sourceId]: summaries[sourceId] || null,
+        }))
+      }
+
+      const refreshedEvidence = await getEventResponseEvidenceForEvent({
+        event: refreshedEvent,
+        user,
+      })
+      setEventResponseEvidence({
+        ...refreshedEvidence,
+        loaded: true,
+        sourceId,
+        sourceType: event.sourceType,
+      })
+      const actionLabel = action === 'send' ? 'sent' : action === 'retry' ? 'retried' : 'resent'
+      const successfulRecipientCount = Math.max(0, result.recipientCount - result.failedCount)
+      showToast({
+        title: result.duplicate ? 'Invitation action already completed' : `Invitation ${actionLabel}`,
+        message: result.duplicate
+          ? 'This exact invitation action was already completed safely.'
+          : result.failedCount > 0
+            ? `${successfulRecipientCount} recipient delivery attempt${successfulRecipientCount === 1 ? '' : 's'} succeeded and ${result.failedCount} failed. Failed delivery remains visible for Retry.`
+            : event.sourceType === 'match-day'
+              ? `${invite.player?.playerName || 'Player'} invitation queued for ${result.recipientCount} server-resolved recipient${result.recipientCount === 1 ? '' : 's'}.`
+              : `${invite.player?.playerName || 'Player'} invitation sent to ${result.recipientCount} server-resolved recipient${result.recipientCount === 1 ? '' : 's'}.`,
+        tone: result.failedCount > 0 ? 'warning' : undefined,
+      })
+      return result
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The invitation action could not be completed.')
+      showToast({
+        title: preview ? 'Recipient preview unavailable' : 'Invitation not sent',
+        message: error.message || 'The invitation action could not be completed.',
         tone: 'error',
       })
       throw error
@@ -3516,6 +3739,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           onApplyPlayerChanges={handleApplyCalendarPlayerChanges}
           onResourceIdsChange={handleCalendarResourceIdsChange}
           onAcceptOnBehalf={handleAcceptEventAvailabilityOnBehalf}
+          onInvitationAction={handleEventPlayerInvitationAction}
+          onMarkUnavailable={handleMarkEventUnavailableOnBehalf}
+          onSelectForSquad={handleSelectEventPlayerForSquad}
           onSubmit={handleCalendarSave}
           resourceOptions={calendarResourceOptions}
           selectedInvitePlayers={selectedCalendarInvitePlayers}
@@ -3829,6 +4055,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onApplyPlayerChanges={handleApplyCalendarPlayerChanges}
         onResourceIdsChange={handleCalendarResourceIdsChange}
         onAcceptOnBehalf={handleAcceptEventAvailabilityOnBehalf}
+        onInvitationAction={handleEventPlayerInvitationAction}
+        onMarkUnavailable={handleMarkEventUnavailableOnBehalf}
+        onSelectForSquad={handleSelectEventPlayerForSquad}
         onSubmit={handleCalendarSave}
         resourceOptions={calendarResourceOptions}
         selectedInvitePlayers={selectedCalendarInvitePlayers}
@@ -4558,6 +4787,9 @@ function CalendarEventModal({
   onDelete,
   onEdit,
   onAcceptOnBehalf,
+  onInvitationAction,
+  onMarkUnavailable,
+  onSelectForSquad,
   onApplyPlayerChanges,
   onManagePlayers,
   onOpenWorkflow,
@@ -5558,6 +5790,43 @@ function CalendarEventModal({
           manager={eventResponseManager}
           onAcceptOnBehalf={(row) => {
             setAvailabilityAction({
+              action: 'available',
+              invite: row.sourceRow,
+              status: row.sourceRow.display,
+            })
+          }}
+          onInvitationAction={async (row, action) => {
+            const requestToken = crypto.randomUUID()
+
+            try {
+              const recipientPreview = await onInvitationAction({
+                action,
+                invite: row.sourceRow,
+                occurrenceDate: availabilityOccurrenceDate,
+                preview: true,
+                requestToken,
+              })
+              setAvailabilityAction({
+                action,
+                invite: row.sourceRow,
+                recipientPreview,
+                requestToken,
+                status: row.sourceRow.display,
+              })
+            } catch {
+              setAvailabilityAction(null)
+            }
+          }}
+          onMarkUnavailable={(row) => {
+            setAvailabilityAction({
+              action: 'unavailable',
+              invite: row.sourceRow,
+              status: row.sourceRow.display,
+            })
+          }}
+          onSelectForSquad={(row) => {
+            setAvailabilityAction({
+              action: 'select',
               invite: row.sourceRow,
               status: row.sourceRow.display,
             })
@@ -5573,27 +5842,70 @@ function CalendarEventModal({
         isBusy={isBusy}
         overlayZIndexClassName="z-[100]"
         title={availabilityAction?.invite?.player?.playerName || 'Invited player'}
-        message={form.eventType === 'training'
-          ? 'This records an Attending response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.'
-          : 'This records an Available response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.'}
+        message={{
+          available: form.eventType === 'training'
+            ? 'This records an Attending response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.'
+            : 'This records an Available response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.',
+          unavailable: 'This records an Unavailable response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.',
+          select: 'This selects only this available player for the saved match squad. It does not change their availability response.',
+          send: 'This sends an invitation to server-resolved eligible contacts for this player only.',
+          resend: 'This rotates the response token and deliberately resends an invitation to server-resolved eligible contacts for this player only.',
+          retry: 'This rotates the response token and retries the failed invitation for this player only.',
+        }[availabilityAction?.action] || ''}
         items={[
           `Current availability: ${availabilityAction?.status?.availabilityLabel || 'Awaiting response'}`,
           ...(availabilityAction?.status?.matchSelectionLabel
             ? [`Match selection: ${availabilityAction.status.matchSelectionLabel}`]
             : []),
+          ...(availabilityAction?.action && ['send', 'resend', 'retry'].includes(availabilityAction.action)
+            ? [`Invitation action: ${availabilityAction.action}`]
+            : []),
+          ...(availabilityAction?.recipientPreview?.recipients ?? []).map((recipient) =>
+            `${recipient.type || 'Recipient'}: ${recipient.address}`),
         ]}
         itemsTitle="Invitation status"
-        confirmLabel={form.eventType === 'training'
-          ? 'Mark attending on behalf'
-          : 'Accept on behalf of player'}
-        confirmDisabled={availabilityAction?.status?.canAcceptOnBehalf === false}
+        confirmLabel={{
+          available: form.eventType === 'training' ? 'Mark attending on behalf' : 'Accept on behalf of player',
+          unavailable: 'Mark Unavailable',
+          select: 'Select for squad',
+          send: 'Send invitation',
+          resend: 'Resend invitation',
+          retry: 'Retry invitation',
+        }[availabilityAction?.action] || 'Confirm'}
+        confirmDisabled={
+          availabilityAction?.action === 'available'
+            ? availabilityAction?.status?.canAcceptOnBehalf === false
+            : false
+        }
         onCancel={() => setAvailabilityAction(null)}
         onConfirm={async () => {
-          await onAcceptOnBehalf({
-            invite: availabilityAction.invite,
-            occurrenceDate: availabilityOccurrenceDate,
-            status: availabilityAction.status,
-          })
+          if (availabilityAction.action === 'available') {
+            await onAcceptOnBehalf({
+              invite: availabilityAction.invite,
+              occurrenceDate: availabilityOccurrenceDate,
+              status: availabilityAction.status,
+            })
+          } else if (availabilityAction.action === 'unavailable') {
+            await onMarkUnavailable({
+              invite: availabilityAction.invite,
+              occurrenceDate: availabilityOccurrenceDate,
+              status: availabilityAction.status,
+            })
+          } else if (availabilityAction.action === 'select') {
+            await onSelectForSquad({
+              invite: availabilityAction.invite,
+              status: availabilityAction.status,
+            })
+          } else {
+            await onInvitationAction({
+              action: availabilityAction.action,
+              invite: availabilityAction.invite,
+              occurrenceDate: availabilityOccurrenceDate,
+              preview: false,
+              requestToken: availabilityAction.requestToken,
+              status: availabilityAction.status,
+            })
+          }
           setAvailabilityAction(null)
         }}
       />

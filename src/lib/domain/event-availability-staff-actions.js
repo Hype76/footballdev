@@ -71,3 +71,59 @@ export async function acceptEventPlayerAvailabilityOnBehalf({
     source: normalizeText(data?.source) || 'staff_on_behalf',
   }
 }
+
+export async function markEventPlayerUnavailableOnBehalf({
+  user,
+  eventType,
+  eventId,
+  playerId,
+  occurrenceDate = '',
+} = {}) {
+  await blockDemoMutation(user)
+  requireStaffUser(user)
+
+  const normalizedEventType = normalizeText(eventType).toLowerCase()
+  const normalizedEventId = normalizeText(eventId)
+  const normalizedPlayerId = normalizeText(playerId)
+  const normalizedOccurrenceDate = normalizeText(occurrenceDate)
+
+  if (!['match', 'training'].includes(normalizedEventType)) {
+    throw new Error('Mark unavailable supports Match Day and training invitations only.')
+  }
+
+  if (!normalizedEventId || !normalizedPlayerId) {
+    throw new Error('Choose an invited player and event before marking them unavailable.')
+  }
+
+  if (normalizedEventType === 'training' && !normalizedOccurrenceDate) {
+    throw new Error('Choose a training occurrence before marking a player unavailable.')
+  }
+
+  const { data, error } = await supabase.rpc('mark_event_player_unavailable_on_behalf', {
+    event_id_value: normalizedEventId,
+    event_type_value: normalizedEventType,
+    occurrence_date_value: normalizedEventType === 'training' ? normalizedOccurrenceDate : null,
+    player_id_value: normalizedPlayerId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  clearViewCaches()
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
+
+  return {
+    changed: data?.changed === true,
+    eventId: normalizeText(data?.eventId) || normalizedEventId,
+    eventType: normalizeText(data?.eventType) || normalizedEventType,
+    occurrenceDate: normalizeText(data?.occurrenceDate) || normalizedOccurrenceDate,
+    playerId: normalizeText(data?.playerId) || normalizedPlayerId,
+    previousStatus: normalizeText(data?.previousStatus) || 'pending',
+    respondedAt: data?.respondedAt ?? '',
+    responseStatus: normalizeText(data?.responseStatus) || 'unavailable',
+    source: normalizeText(data?.source) || 'staff_on_behalf',
+  }
+}

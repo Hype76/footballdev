@@ -3,36 +3,32 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
+const parentPortalShellUrl = new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url)
 const footballCalendarUrl = new URL('../src/components/sessions/FootballCalendar.jsx', import.meta.url)
 
 test('parent child selector labels include child name and team name', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
-  const formatterStart = source.indexOf('function formatParentChildTeamLabel')
-  const formatterEnd = source.indexOf('function isPreviousMatch', formatterStart)
-  const formatterSection = source.slice(formatterStart, formatterEnd)
-  const selectorStart = source.indexOf('function ParentChildSelector')
-  const selectorEnd = source.indexOf('function PushNotificationPanel', selectorStart)
-  const selectorSection = source.slice(selectorStart, selectorEnd)
+  const source = await readFile(parentPortalShellUrl, 'utf8')
+  const contextStart = source.indexOf('function ParentPortalContext')
+  const contextEnd = source.indexOf('export function ParentPortalSectionNav', contextStart)
+  const contextSection = source.slice(contextStart, contextEnd)
 
-  assert.match(formatterSection, /const childName = String\(link\?\.playerName/)
-  assert.match(formatterSection, /const teamName = String\(link\?\.teamName/)
-  assert.match(formatterSection, /Team not available/)
-  assert.match(formatterSection, /return `\$\{childName\} - \$\{teamName\}`/)
-  assert.match(selectorSection, /links\.map\(\(link\) => \(/)
-  assert.match(selectorSection, /\{formatParentChildTeamLabel\(link\)\}/)
+  assert.match(contextSection, /allowedLinks\.map\(\(link\) => \(/)
+  assert.match(contextSection, /\{link\.playerName \|\| 'Linked child'\}/)
+  assert.match(contextSection, /\{childName\} \| \{teamName\}/)
+  assert.match(contextSection, /\{teamName\}/)
 })
 
 test('parent child context removes duplicate other linked children list and keeps shared account actions', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
-  const selectorStart = source.indexOf('function ParentChildSelector')
-  const selectorEnd = source.indexOf('function PushNotificationPanel', selectorStart)
-  const selectorSection = source.slice(selectorStart, selectorEnd)
+  const source = await readFile(parentPortalShellUrl, 'utf8')
+  const navStart = source.indexOf('export function ParentPortalSectionNav')
+  const navEnd = source.indexOf('export function ParentPortalAccountActions', navStart)
+  const navSection = source.slice(navStart, navEnd)
 
-  assert.match(selectorSection, /<ParentPortalAccountActions/)
-  assert.match(selectorSection, /Team: \{selectedLink\.teamName \|\| 'No team assigned'\}/)
-  assert.match(selectorSection, /Club: \{selectedLink\.clubName \|\| 'No club assigned'\}/)
-  assert.doesNotMatch(selectorSection, /Other linked children/)
-  assert.doesNotMatch(selectorSection, /otherLinks/)
+  assert.match(navSection, /<ParentPortalAccountActions/)
+  assert.match(navSection, /<ParentPortalContext/)
+  assert.match(navSection, /selectedLink=\{selectedLink\}/)
+  assert.doesNotMatch(navSection, /Other linked children/)
+  assert.doesNotMatch(navSection, /otherLinks/)
 })
 
 test('parent calendar defaults to selected child mode and can switch to all linked children', async () => {

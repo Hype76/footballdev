@@ -68,7 +68,7 @@ test('generic Add Event opens without an implicit calendar date', () => {
 })
 
 test('an explicitly supplied calendar date remains available to the create form', () => {
-  assert.match(calendarPageSource, /const handleOpenCalendarCreate = \(date = '', requestedEventType = ''\) => \{/)
+  assert.match(calendarPageSource, /function handleOpenCalendarCreate\(date = '', requestedEventType = ''\) \{/)
   assert.match(calendarPageSource, /const defaultForm = getDefaultCalendarForm\(date\)/)
 })
 

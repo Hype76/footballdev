@@ -118,6 +118,7 @@ function normalizeManagerRow(row, eventType) {
   const category = getEventResponseCategory(row)
   const match = isMatchEvent(eventType)
   const selected = match && normalizeStatus(row.matchSelectionState) === 'selected'
+  const invitationAction = row?.staffActions?.invitationAction || ''
 
   return {
     id: normalizeText(row.id) || `${normalizeText(row.playerId)}:${category}`,
@@ -134,6 +135,14 @@ function normalizeManagerRow(row, eventType) {
       ? normalizeText(row.deliveryError) || 'Delivery needs attention'
       : '',
     canAcceptOnBehalf: row?.staffActions?.canAcceptOnBehalf === true,
+    canMarkUnavailable: row?.staffActions?.canMarkUnavailable === true,
+    canSelectForSquad: row?.staffActions?.canSelectForSquad === true,
+    invitationAction,
+    invitationActionLabel: {
+      retry: 'Retry invitation',
+      resend: 'Resend invitation',
+      send: 'Send invitation',
+    }[invitationAction] || '',
     sourceRow: row,
   }
 }

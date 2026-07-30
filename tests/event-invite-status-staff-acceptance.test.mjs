@@ -70,7 +70,7 @@ test('event details expose accessible staff acceptance and active refresh', asyn
 
   assert.match(source, /EventResponseManagerDialog/)
   assert.match(source, /onAcceptOnBehalf=\{\(row\) =>/)
-  assert.match(source, /confirmLabel=\{form\.eventType === 'training'[\s\S]*'Accept on behalf of player'/)
+  assert.match(source, /available: form\.eventType === 'training' \? 'Mark attending on behalf' : 'Accept on behalf of player'/)
   assert.match(source, /Current availability:/)
   assert.match(source, /Match selection:/)
   assert.match(source, /min-h-12/)

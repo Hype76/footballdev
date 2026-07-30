@@ -516,6 +516,9 @@ export async function handler(event) {
     const playerIds = Array.isArray(body.playerIds) ? body.playerIds.map(normalizeText).filter(Boolean) : []
     const notificationRequestToken = normalizeText(body.notificationRequestToken)
     const calendarEditMode = body.source === 'calendar_edit'
+    const invitationAction = normalizeText(body.invitationAction).toLowerCase()
+    const invitationActionKey = normalizeText(body.idempotencyKey)
+    const targetedInvitationAction = ['send', 'resend', 'retry'].includes(invitationAction)
 
     if (!matchDayId) {
       throw Object.assign(new Error('Match Day is required.'), { statusCode: 400 })
@@ -523,6 +526,17 @@ export async function handler(event) {
 
     if (!calendarEditMode && playerIds.length === 0) {
       throw Object.assign(new Error('Select at least one player.'), { statusCode: 400 })
+    }
+
+    if (targetedInvitationAction && playerIds.length !== 1) {
+      throw Object.assign(new Error('A direct invitation action must target exactly one player.'), { statusCode: 400 })
+    }
+
+    if (
+      targetedInvitationAction
+      && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invitationActionKey)
+    ) {
+      throw Object.assign(new Error('A valid invitation idempotency key is required.'), { statusCode: 400 })
     }
 
     if (calendarEditMode && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationRequestToken)) {
@@ -538,6 +552,34 @@ export async function handler(event) {
         profile,
         supabase,
       }))
+    }
+
+    if (targetedInvitationAction) {
+      const { data: priorActions, error: priorActionError } = await adminSupabase
+        .from('scheduled_email_queue')
+        .select('id')
+        .eq('club_id', profile.club_id)
+        .contains('payload', {
+          eventPlayerInvitationAction: {
+            idempotencyKey: invitationActionKey,
+          },
+        })
+        .limit(1)
+
+      if (priorActionError) {
+        throw priorActionError
+      }
+
+      if ((priorActions ?? []).length > 0) {
+        return json(200, {
+          success: true,
+          duplicate: true,
+          duplicateCount: 1,
+          queuedCount: 0,
+          recipientCount: 0,
+          playerId: playerIds[0],
+        })
+      }
     }
 
     const { data: match, error: matchError } = await supabase
@@ -599,7 +641,7 @@ export async function handler(event) {
         const parentLink = findParentLinkForContact(parentLinks ?? [], player, contact)
         const { data: existingRequest, error: existingRequestError } = await adminSupabase
           .from('match_day_availability_requests')
-          .select('id')
+          .select('id, status')
           .eq('match_day_id', match.id)
           .eq('player_id', player.id)
           .eq('recipient_email', contact.email)
@@ -617,17 +659,31 @@ export async function handler(event) {
             .select('id, status')
             .eq('club_id', match.club_id)
             .contains('payload', { matchDayAvailability: { requestId: existingRequest.id } })
-            .in('status', ['scheduled', 'sending', 'sent'])
-            .limit(1)
+            .order('created_at', { ascending: false })
+            .limit(20)
 
           if (existingQueueError) {
             throw existingQueueError
           }
 
-          if ((existingQueues ?? []).length > 0) {
+          if (!targetedInvitationAction && (existingQueues ?? []).some((queue) => ['scheduled', 'sending', 'sent'].includes(queue.status))) {
             duplicateQueueCount += 1
             continue
           }
+
+          if (invitationAction === 'send') {
+            throw Object.assign(new Error('This player already has an invitation. Use Resend invitation.'), { statusCode: 409 })
+          }
+
+          if (invitationAction === 'resend' && (existingQueues ?? []).length === 0) {
+            throw Object.assign(new Error('There is no existing invitation to resend.'), { statusCode: 409 })
+          }
+
+          if (invitationAction === 'retry' && !(existingQueues ?? []).some((queue) => queue.status === 'failed')) {
+            throw Object.assign(new Error('This invitation does not have a failed delivery to retry.'), { statusCode: 409 })
+          }
+        } else if (invitationAction === 'resend' || invitationAction === 'retry') {
+          throw Object.assign(new Error('There is no existing invitation for this action.'), { statusCode: 409 })
         }
 
         const { token, tokenHash } = createInvitationToken()
@@ -721,6 +777,7 @@ export async function handler(event) {
               type: 'match_day_availability',
               matchDayId: match.id,
               matchDayAvailabilityRequestId: request.id,
+              invitationAction: targetedInvitationAction ? invitationAction : 'initial_send',
             },
           },
           matchDayAvailability: {
@@ -730,6 +787,14 @@ export async function handler(event) {
             parentLinkId: parentLink?.id || '',
             purpose: 'availability_request_notification',
           },
+          ...(targetedInvitationAction ? {
+            eventPlayerInvitationAction: {
+              action: invitationAction,
+              idempotencyKey: invitationActionKey,
+              playerId: player.id,
+              sourceType: 'match-day',
+            },
+          } : {}),
         }
         const { data: queuedEmail, error: queueError } = await adminSupabase
           .from('scheduled_email_queue')
@@ -760,6 +825,8 @@ export async function handler(event) {
             queueId: queuedEmail.id,
             requestId: request.id,
             source: 'send_match_day_availability_requests',
+            invitationAction: targetedInvitationAction ? invitationAction : 'initial_send',
+            invitationActionKey: targetedInvitationAction ? invitationActionKey : '',
           },
           newValue: {
             queued: true,
@@ -781,6 +848,9 @@ export async function handler(event) {
       missingContactCount: missingContacts.length,
       missingContacts,
       duplicateCount: duplicateQueueCount,
+      duplicate: false,
+      playerId: targetedInvitationAction ? playerIds[0] : '',
+      recipientCount: targetedInvitationAction ? queuedEmails.length : 0,
       emailConfigured: true,
     })
   } catch (error) {

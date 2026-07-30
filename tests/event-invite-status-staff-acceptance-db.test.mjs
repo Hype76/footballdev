@@ -7,6 +7,10 @@ const migrationUrl = new URL(
   '../supabase/migrations/20260728150556_event_invite_status_staff_acceptance.sql',
   import.meta.url,
 )
+const responsePolishMigrationUrl = new URL(
+  '../supabase/migrations/20260730151849_calendar_response_polish_10a.sql',
+  import.meta.url,
+)
 
 const IDS = {
   audit: '00000000-0000-0000-0000-000000000001',
@@ -35,7 +39,15 @@ async function setActor(db, actorId) {
 
 async function createDatabase() {
   const db = new PGlite()
-  const migration = await readFile(migrationUrl, 'utf8')
+  const [migration, responsePolishMigration] = await Promise.all([
+    readFile(migrationUrl, 'utf8'),
+    readFile(responsePolishMigrationUrl, 'utf8'),
+  ])
+  const unavailableFunction = responsePolishMigration.match(
+    /create or replace function public\.mark_event_player_unavailable_on_behalf[\s\S]*?comment on function public\.mark_event_player_unavailable_on_behalf\(text, uuid, uuid, date\) is[\s\S]*?;/,
+  )?.[0]
+
+  assert.ok(unavailableFunction, 'Candidate migration must contain the complete unavailable staff action.')
 
   await db.exec(`
     create schema auth;
@@ -270,6 +282,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(unavailableFunction)
 
   await db.exec(`
     insert into public.users (id, status, role, role_rank, name, username, email, role_label, club_id)
@@ -468,6 +481,74 @@ test('parent, cross-team staff, uninvited players, and closed events are denied'
     audit_rows: 0,
     match_responses: 0,
     training_responses: 0,
+  })
+
+  await db.close()
+})
+
+test('authorised staff can mark a match player unavailable without changing squad selection', async () => {
+  const db = await createDatabase()
+  await setActor(db, IDS.manager)
+
+  const first = await db.query(
+    `select public.mark_event_player_unavailable_on_behalf('match', $1, $2, null) result`,
+    [IDS.match, IDS.player],
+  )
+  const repeat = await db.query(
+    `select public.mark_event_player_unavailable_on_behalf('match', $1, $2, null) result`,
+    [IDS.match, IDS.player],
+  )
+
+  assert.equal(first.rows[0].result.changed, true)
+  assert.equal(first.rows[0].result.responseStatus, 'unavailable')
+  assert.equal(repeat.rows[0].result.changed, false)
+
+  const evidence = await db.query(`
+    select
+      (select status from public.match_day_player_availability limit 1) response_status,
+      (select count(*)::int from public.match_day_player_availability_history) history_count,
+      (select action from public.audit_logs limit 1) audit_action,
+      (select status from public.match_day_player_squad_decisions limit 1) squad_status
+  `)
+
+  assert.deepEqual(evidence.rows[0], {
+    audit_action: 'event_player_availability_marked_unavailable_on_behalf',
+    history_count: 1,
+    response_status: 'unavailable',
+    squad_status: 'selected',
+  })
+
+  await db.close()
+})
+
+test('authorised staff can mark a training player unavailable idempotently', async () => {
+  const db = await createDatabase()
+  await setActor(db, IDS.manager)
+
+  const first = await db.query(
+    `select public.mark_event_player_unavailable_on_behalf('training', $1, $2, '2099-01-01') result`,
+    [IDS.trainingEvent, IDS.player],
+  )
+  const repeat = await db.query(
+    `select public.mark_event_player_unavailable_on_behalf('training', $1, $2, '2099-01-01') result`,
+    [IDS.trainingEvent, IDS.player],
+  )
+
+  assert.equal(first.rows[0].result.changed, true)
+  assert.equal(first.rows[0].result.responseStatus, 'unavailable')
+  assert.equal(repeat.rows[0].result.changed, false)
+
+  const evidence = await db.query(`
+    select
+      (select status from public.training_availability_responses limit 1) response_status,
+      (select status from public.training_availability_request_players limit 1) request_player_status,
+      (select action from public.audit_logs limit 1) audit_action
+  `)
+
+  assert.deepEqual(evidence.rows[0], {
+    audit_action: 'event_player_availability_marked_unavailable_on_behalf',
+    request_player_status: 'responded',
+    response_status: 'unavailable',
   })
 
   await db.close()
