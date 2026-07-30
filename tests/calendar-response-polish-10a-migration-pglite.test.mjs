@@ -7,6 +7,10 @@ const migrationUrl = new URL(
   '../supabase/migrations/20260730151849_calendar_response_polish_10a.sql',
   import.meta.url,
 )
+const trainingUpsertMigrationUrl = new URL(
+  '../supabase/migrations/20260730160636_training_invitation_upsert_constraint.sql',
+  import.meta.url,
+)
 
 async function createDatabase() {
   const db = new PGlite()
@@ -163,6 +167,7 @@ async function createDatabase() {
       club_id uuid not null,
       team_id uuid not null,
       player_id uuid not null,
+      recipient_email text not null,
       status text not null,
       responded_at timestamptz,
       updated_at timestamptz
@@ -196,6 +201,7 @@ async function createDatabase() {
   `)
 
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(trainingUpsertMigrationUrl, 'utf8'))
   return db
 }
 
@@ -269,5 +275,20 @@ test('complete response polish migration applies and keeps token authority curre
   )
   assert.equal(closedFixture.rows[0].current, false)
 
+  await db.close()
+})
+
+test('training invitation upsert has a matching plain-column unique key', async () => {
+  const db = await createDatabase()
+  const index = await db.query(`
+    select indexdef
+    from pg_indexes
+    where schemaname = 'public'
+      and tablename = 'training_availability_request_players'
+      and indexname = 'training_availability_request_players_upsert_key'
+  `)
+
+  assert.equal(index.rows.length, 1)
+  assert.match(index.rows[0].indexdef, /\(request_id, player_id, recipient_email\)/i)
   await db.close()
 })

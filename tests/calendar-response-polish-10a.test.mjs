@@ -13,6 +13,7 @@ const files = {
   invitationFunction: new URL('../netlify/functions/send-event-player-invitation.js', import.meta.url),
   matchSendFunction: new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url),
   migration: new URL('../supabase/migrations/20260730151849_calendar_response_polish_10a.sql', import.meta.url),
+  trainingUpsertMigration: new URL('../supabase/migrations/20260730160636_training_invitation_upsert_constraint.sql', import.meta.url),
   sessions: new URL('../src/pages/SessionsPage.jsx', import.meta.url),
 }
 
@@ -149,7 +150,13 @@ test('response-link repair permits only a still-current server-side contact and 
 })
 
 test('single-player invitation endpoint resolves recipients server-side and uses durable idempotency', async () => {
-  const { invitationClient, invitationFunction, matchSendFunction, migration } = await sources()
+  const {
+    invitationClient,
+    invitationFunction,
+    matchSendFunction,
+    migration,
+    trainingUpsertMigration,
+  } = await sources()
 
   assert.match(invitationClient, /playerId: normalizedPlayerId/)
   assert.doesNotMatch(invitationClient, /recipientEmail|parentEmail|to:/)
@@ -179,6 +186,10 @@ test('single-player invitation endpoint resolves recipients server-side and uses
   )
   assert.match(migration, /idempotency_key uuid not null unique/)
   assert.match(migration, /revoke all on public\.event_player_invitation_actions from public, anon, authenticated/)
+  assert.match(
+    trainingUpsertMigration,
+    /training_availability_request_players\(request_id, player_id, recipient_email\)/,
+  )
   assert.doesNotMatch(invitationFunction, /resendAll|resend_all/)
 })
 
