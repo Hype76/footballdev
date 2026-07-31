@@ -16,7 +16,7 @@ const clubAdminRoleAlignmentMigration = await readFile(
   'utf8',
 )
 const quarantineConflictAlignmentMigration = await readFile(
-  new URL('../supabase/migrations/20260801001627_analytics_quarantine_conflict_alignment_14a.sql', import.meta.url),
+  new URL('../supabase/migrations/20260731231726_analytics_quarantine_conflict_alignment_14a.sql', import.meta.url),
   'utf8',
 )
 
