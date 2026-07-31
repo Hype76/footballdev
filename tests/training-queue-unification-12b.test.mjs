@@ -189,6 +189,46 @@ test('automatic Training creates durable work before eligibility and uses one-mi
   assert.doesNotMatch(manualInvitation, /\bsendEmail\(/)
 })
 
+test('automatic reconciliation preserves an already eligible manual invitation queue', async () => {
+  const { getReconciledRequestSendAt } = await import(`${processorUrl.href}?manual-queue-preservation=${Date.now()}`)
+  const now = new Date('2026-07-31T07:45:00.000Z')
+  const automaticSendAt = new Date('2026-08-01T07:45:00.000Z')
+
+  assert.equal(
+    getReconciledRequestSendAt({
+      existingRequest: {
+        status: 'queued',
+        send_at: '2026-07-31T07:44:30.000Z',
+      },
+      now,
+      scheduledSendAt: automaticSendAt,
+    }).toISOString(),
+    '2026-07-31T07:44:30.000Z',
+  )
+  assert.equal(
+    getReconciledRequestSendAt({
+      existingRequest: {
+        status: 'queued',
+        send_at: '2026-08-01T07:44:30.000Z',
+      },
+      now,
+      scheduledSendAt: automaticSendAt,
+    }).toISOString(),
+    automaticSendAt.toISOString(),
+  )
+  assert.equal(
+    getReconciledRequestSendAt({
+      existingRequest: {
+        status: 'pending',
+        send_at: '2026-07-31T07:44:30.000Z',
+      },
+      now,
+      scheduledSendAt: automaticSendAt,
+    }).toISOString(),
+    automaticSendAt.toISOString(),
+  )
+})
+
 test('canonical Training RSVP builder includes event context, response form, link and deadline', async () => {
   const {
     buildAvailabilityEmail,

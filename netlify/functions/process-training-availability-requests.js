@@ -355,6 +355,22 @@ async function loadSettings(supabase) {
   })
 }
 
+export function getReconciledRequestSendAt({
+  existingRequest,
+  now = new Date(),
+  scheduledSendAt,
+}) {
+  const existingSendAt = new Date(existingRequest?.send_at || '')
+  const currentTime = now instanceof Date ? now : new Date(now)
+  const automaticSendAt = scheduledSendAt instanceof Date ? scheduledSendAt : new Date(scheduledSendAt)
+  const preserveEligibleQueue = normalizeText(existingRequest?.status) === 'queued'
+    && !Number.isNaN(existingSendAt.getTime())
+    && !Number.isNaN(currentTime.getTime())
+    && existingSendAt.getTime() <= currentTime.getTime()
+
+  return preserveEligibleQueue ? existingSendAt : automaticSendAt
+}
+
 async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
   const event = Array.isArray(setting.calendar_events) ? setting.calendar_events[0] : setting.calendar_events
   const { data: existingRequest, error: existingRequestError } = await supabase
@@ -370,6 +386,10 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
 
   if (existingRequest?.id) {
     if (['pending', 'queued', 'partial_failed'].includes(normalizeText(existingRequest.status))) {
+      const reconciledSendAt = getReconciledRequestSendAt({
+        existingRequest,
+        scheduledSendAt: sendAt,
+      })
       const { data: reconciledRequest, error: reconcileError } = await supabase
         .from('training_availability_requests')
         .update({
@@ -378,7 +398,7 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
           team_id: setting.team_id,
           occurrence_starts_at: occurrence.occurrenceStartsAt.toISOString(),
           occurrence_ends_at: occurrence.occurrenceEndsAt?.toISOString() || null,
-          send_at: sendAt.toISOString(),
+          send_at: reconciledSendAt.toISOString(),
         })
         .eq('id', existingRequest.id)
         .select('*')
@@ -391,7 +411,7 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
       return {
         event,
         request: reconciledRequest,
-        sendAt: new Date(reconciledRequest.send_at || sendAt),
+        sendAt: new Date(reconciledRequest.send_at || reconciledSendAt),
       }
     }
 
