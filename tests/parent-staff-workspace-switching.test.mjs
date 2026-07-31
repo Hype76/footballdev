@@ -218,7 +218,8 @@ test('runtime switch revalidates existing staff access before changing mode', as
   assert.match(coreSource, /loadAuthoritativeStaffMemberships/)
   assert.doesNotMatch(coreSource, /buildLegacyStaffMembershipFromProfile/)
   assert.match(coreSource, /loadedAuthoritativeStaffMemberships = memberships/)
-  assert.match(coreSource, /canSwitchParentToStaff\(\{ profile: data, memberships \}\)/)
+  assert.match(coreSource, /const verifiedStaffReturnMode = await resolveOwnParentStaffReturnMode\(authUser\)/)
+  assert.match(coreSource, /if \(verifiedStaffReturnMode !== 'team'\)/)
   assert.match(authSource, /Staff access is no longer active/)
 })
 

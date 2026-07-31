@@ -57,6 +57,7 @@ import {
   canSwitchParentToStaff,
   getActiveStaffMemberships,
 } from '../staff-workspace-access.js'
+import { resolveOwnParentStaffReturnMode } from '../parent-staff-return-access.js'
 import {
   getEntryIdentity,
   getEntryUserEmail,
@@ -589,8 +590,9 @@ export async function fetchUserProfile(authUser, options = {}) {
 
     if (selectedAccessMode === 'team' && requireExistingStaffAccess) {
       const memberships = await loadAuthoritativeStaffMemberships()
+      const verifiedStaffReturnMode = await resolveOwnParentStaffReturnMode(authUser)
 
-      if (!canSwitchParentToStaff({ profile: data, memberships })) {
+      if (verifiedStaffReturnMode !== 'team') {
         return {
           teamAccessUnavailable: true,
           intendedAccessMode: 'team',
