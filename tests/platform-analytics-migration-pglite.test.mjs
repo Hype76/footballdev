@@ -15,6 +15,10 @@ const clubAdminRoleAlignmentMigration = await readFile(
   new URL('../supabase/migrations/20260731230057_analytics_club_admin_role_alignment_14a.sql', import.meta.url),
   'utf8',
 )
+const quarantineConflictAlignmentMigration = await readFile(
+  new URL('../supabase/migrations/20260801001627_analytics_quarantine_conflict_alignment_14a.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
@@ -58,6 +62,7 @@ async function createDatabase() {
   await db.exec(migration)
   await db.exec(eventFoundationMigration)
   await db.exec(clubAdminRoleAlignmentMigration)
+  await db.exec(quarantineConflictAlignmentMigration)
   return db
 }
 
@@ -387,6 +392,27 @@ test('canonical event migration adds private processing evidence and determinist
       authenticated_quarantine: false,
       service_runs: true,
     })
+
+    await db.exec(`
+      set role service_role;
+      insert into public.analytics_event_quarantine (
+        source_kind, source_record_id, safe_reason, safe_event_name
+      ) values (
+        'audit', '40000000-0000-4000-8000-000000000001', 'route_unclassifiable', 'page.view'
+      ) on conflict (source_kind, source_record_id, safe_reason) do nothing;
+      insert into public.analytics_event_quarantine (
+        source_kind, source_record_id, safe_reason, safe_event_name
+      ) values (
+        'audit', '40000000-0000-4000-8000-000000000001', 'route_unclassifiable', 'page.view'
+      ) on conflict (source_kind, source_record_id, safe_reason) do nothing;
+      reset role;
+    `)
+    const quarantineDedupe = await db.query(`
+      select count(*)::integer as row_count
+      from public.analytics_event_quarantine
+      where source_record_id = '40000000-0000-4000-8000-000000000001'
+    `)
+    assert.equal(quarantineDedupe.rows[0].row_count, 1)
   } finally {
     await db.close()
   }
