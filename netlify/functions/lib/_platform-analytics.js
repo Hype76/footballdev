@@ -91,7 +91,8 @@ async function resolveAuthoritativeEventContext({ supabaseAdmin, authUser, profi
     if (!team) throw statusError('The reported analytics team is not available.', 403, 'analytics_team_spoof_denied')
 
     const isPlatformAdmin = normalizeProfileRole(profile) === 'super_admin'
-    const isClubAdmin = normalizeProfileRole(profile) === 'club_admin' && profile.club_id === team.club_id
+    const isClubAdmin = ['admin', 'club_admin'].includes(normalizeProfileRole(profile))
+      && profile.club_id === team.club_id
     const staff = await maybeSingle(
       supabaseAdmin
         .from('team_staff')

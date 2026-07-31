@@ -313,7 +313,7 @@ export function sanitizeAnalyticsMetadata(eventName, metadata) {
 export function analyticsRoleFamily(role) {
   const normalized = String(role ?? '').trim().toLowerCase()
   if (normalized === 'super_admin') return 'platform_admin'
-  if (normalized === 'club_admin') return 'club_admin'
+  if (['admin', 'club_admin'].includes(normalized)) return 'club_admin'
   if (['parent', 'parent_portal'].includes(normalized)) return 'parent'
   if (normalized === 'adult_player') return 'player'
   if (['head_manager', 'manager', 'coach', 'assistant_coach'].includes(normalized)) return 'staff'

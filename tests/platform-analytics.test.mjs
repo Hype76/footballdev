@@ -299,6 +299,7 @@ test('versioned taxonomy separates navigation, authentication, and meaningful ac
   assert.equal(action.definition.meaningful, true)
   assert.deepEqual(page.metadata, { deviceCategory: 'mobile', pwaState: 'standalone' })
   assert.equal(analyticsRoleFamily('super_admin'), 'platform_admin')
+  assert.equal(analyticsRoleFamily('admin'), 'club_admin')
   assert.equal(analyticsRoleFamily('parent_portal'), 'parent')
   assert.equal(analyticsRoleFamily('coach'), 'staff')
 })
