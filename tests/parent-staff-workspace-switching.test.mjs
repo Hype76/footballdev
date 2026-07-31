@@ -18,6 +18,7 @@ const fixtureAuthUrl = new URL('../src/lib/auth-access-browser-fixtures.js', imp
 const shellUrl = new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url)
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const sessionBridgeUrl = new URL('../src/lib/workspace-session-bridge.jsx', import.meta.url)
+const staffReturnAccessUrl = new URL('../src/lib/parent-staff-return-access.js', import.meta.url)
 
 const activeProfile = {
   id: 'staff-user',
@@ -170,18 +171,28 @@ test('eligibility option changes are not hidden by stale user equivalence', () =
   assert.equal(areUsersEquivalent(parentProfile, resolvedProfile), false)
 })
 
-test('parent shell exposes the requested switch only from authoritative team options', async () => {
-  const [source, parentPortalSource] = await Promise.all([
+test('parent shell exposes the requested switch only after authoritative staff access checks', async () => {
+  const [source, parentPortalSource, staffReturnAccessSource] = await Promise.all([
     readFile(shellUrl, 'utf8'),
     readFile(parentPortalPageUrl, 'utf8'),
+    readFile(staffReturnAccessUrl, 'utf8'),
   ])
 
   assert.match(source, /getParentPortalStaffReturnMode\(\{ accessModeOptions, user \}\)/)
+  assert.match(source, /resolveOwnParentStaffReturnMode\(\{ id: authUserId \}\)/)
+  assert.match(source, /declaredStaffReturnMode \|\| verifiedStaffReturnMode/)
   assert.match(source, /PARENT_PORTAL_STAFF_RETURN_LABEL/)
   assert.match(source, /aria-label="Parent account actions"/)
   assert.match(source, /Checking staff access\.\.\./)
   assert.match(source, /await selectAccessMode\('team', \{ deferCommit: true \}\)/)
   assert.match(source, /switchToMainAppWorkspace\(\{ session, targetPath: TEAM_WORKSPACE_HOME_PATH \}\)/)
+  assert.match(staffReturnAccessSource, /from\('users'\)/)
+  assert.match(staffReturnAccessSource, /from\('user_club_memberships'\)/)
+  assert.match(staffReturnAccessSource, /\.eq\('id', authUserId\)/)
+  assert.match(staffReturnAccessSource, /\.eq\('auth_user_id', authUserId\)/)
+  assert.match(staffReturnAccessSource, /canSwitchParentToStaff/)
+  assert.match(staffReturnAccessSource, /resolveOwnParentStaffReturnMode\(authUser\)/)
+  assert.doesNotMatch(staffReturnAccessSource, /resolveOwnParentStaffReturnMode\(\{[^}]*clubId/)
   assert.match(parentPortalSource, /onSignOut=\{handleParentSignOut\}/)
   assert.doesNotMatch(parentPortalSource, /showAccountActions=\{false\}/)
 })
@@ -223,7 +234,7 @@ test('staff context remains stored while switching into and out of the parent po
 })
 
 test('focused implementation files contain no em dash characters', async () => {
-  const paths = [authUrl, coreUrl, fixtureAuthUrl, shellUrl, parentPortalPageUrl, sessionBridgeUrl, new URL('../src/lib/staff-workspace-access.js', import.meta.url)]
+  const paths = [authUrl, coreUrl, fixtureAuthUrl, shellUrl, parentPortalPageUrl, sessionBridgeUrl, staffReturnAccessUrl, new URL('../src/lib/staff-workspace-access.js', import.meta.url)]
   const sources = await Promise.all(paths.map((path) => readFile(path, 'utf8')))
 
   assert.equal(sources.some((source) => source.includes('\u2014')), false, fileURLToPath(shellUrl))

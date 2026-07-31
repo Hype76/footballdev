@@ -10,6 +10,7 @@ import {
   PARENT_PORTAL_STAFF_RETURN_LABEL,
   resolveParentPortalShellContext,
 } from '../../lib/parent-portal-shell.js'
+import { resolveOwnParentStaffReturnMode } from '../../lib/parent-staff-return-access.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 import { getStoredThemeMode, saveThemePreferences } from '../../lib/theme.js'
 import { switchToMainAppWorkspace } from '../../lib/workspace-session-bridge.jsx'
@@ -256,14 +257,44 @@ export function ParentPortalAccountActions({
   const { accessModeOptions, isProfileLoading, selectAccessMode, session, signOut, user } = useAuth()
   const [internalIsSigningOut, setInternalIsSigningOut] = useState(false)
   const [isOpeningTeam, setIsOpeningTeam] = useState(false)
+  const [verifiedStaffReturn, setVerifiedStaffReturn] = useState({ mode: '', userId: '' })
   const [switchError, setSwitchError] = useState('')
   const isSigningOut = externalIsSigningOut || internalIsSigningOut
-  const staffReturnMode = getParentPortalStaffReturnMode({ accessModeOptions, user })
+  const declaredStaffReturnMode = getParentPortalStaffReturnMode({ accessModeOptions, user })
+  const authUserId = String(session?.user?.id ?? '').trim()
+  const verifiedStaffReturnMode = verifiedStaffReturn.userId === authUserId
+    ? verifiedStaffReturn.mode
+    : ''
+  const staffReturnMode = declaredStaffReturnMode || verifiedStaffReturnMode
   const canOpenTeamWorkspace = staffReturnMode === 'team'
   const buttonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#f2b8b5] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff4f3] disabled:cursor-not-allowed disabled:opacity-60',
     variant === 'mobile' ? 'px-3 py-2 text-xs' : '',
   ].filter(Boolean).join(' ')
+
+  useEffect(() => {
+    if (declaredStaffReturnMode === 'team' || !authUserId) {
+      return undefined
+    }
+
+    let isCurrent = true
+
+    resolveOwnParentStaffReturnMode({ id: authUserId })
+      .then((mode) => {
+        if (isCurrent) {
+          setVerifiedStaffReturn({ mode, userId: authUserId })
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setVerifiedStaffReturn({ mode: '', userId: authUserId })
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [authUserId, declaredStaffReturnMode])
   const switchButtonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#047857] bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/10 transition hover:bg-[#036c4a] disabled:cursor-not-allowed disabled:opacity-60',
     variant === 'mobile' ? 'px-3 py-2 text-xs' : '',
