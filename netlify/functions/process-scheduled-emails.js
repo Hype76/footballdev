@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import process from 'node:process'
 import { authorizeProcessorRequest } from './lib/_processor-auth.js'
 import { markEmailLogFailed } from './lib/_email-log-store.js'
@@ -197,6 +198,9 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     return 'skipped'
   }
 
+  const claimedAt = new Date().toISOString()
+  const workerInvocationId = randomUUID()
+
   if (isCalendarNotificationQueueRow(lockedRow)) {
     await updateCalendarNotificationEvent(lockedRow.id, 'processing')
   }
@@ -245,6 +249,19 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       },
     )
     const sendResult = await sendPreparedParentEmail(preparedEmail, {
+      deliveryTelemetry: {
+        ...(lockedRow.payload?.deliveryTelemetry || {}),
+        logicalKey: `scheduled_email_queue:${lockedRow.id}`,
+        sourceType: 'scheduled_email_queue',
+        sourceId: lockedRow.id,
+        originActionAt: lockedRow.payload?.deliveryTelemetry?.originActionAt || lockedRow.created_at,
+        eligibleAt: lockedRow.scheduled_at,
+        enqueuedAt: lockedRow.payload?.deliveryTelemetry?.enqueuedAt || lockedRow.created_at,
+        scheduledAt: lockedRow.scheduled_at,
+        claimedAt,
+        processingStartedAt: new Date().toISOString(),
+        workerInvocationId,
+      },
       idempotencySeed: `scheduled:${lockedRow.id}`,
     })
 

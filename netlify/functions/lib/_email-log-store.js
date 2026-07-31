@@ -302,7 +302,7 @@ export async function lockEmailLogForRetry(emailLog) {
     .eq('status', 'failed')
     .eq('is_processing', false)
     .lt('attempts', 3)
-    .select('id, attempts, payload')
+    .select('id, attempts, payload, created_at, next_retry_at')
     .maybeSingle()
 
   if (error) {

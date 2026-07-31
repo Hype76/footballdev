@@ -121,6 +121,44 @@ function createSafeLogPayload({ context = {}, payload = {}, response = null, err
   }
 }
 
+async function loadTelemetryClient() {
+  return import('./_email-delivery-telemetry.js')
+}
+
+function getSafeTelemetryError(error) {
+  return {
+    code: normalizeText(error?.code || error?.name || 'email_telemetry_failed').slice(0, 100),
+    message: 'Email delivery telemetry could not be persisted.',
+  }
+}
+
+async function finishTelemetry({
+  error = null,
+  response = null,
+  telemetryClient,
+  telemetryPromise,
+}) {
+  if (!telemetryPromise || !telemetryClient) {
+    return
+  }
+
+  try {
+    const attempt = await telemetryPromise
+
+    if (!attempt) {
+      return
+    }
+
+    await telemetryClient.completeEmailDeliveryAttempt({
+      attempt,
+      error,
+      response,
+    })
+  } catch (telemetryError) {
+    console.warn('email_delivery_telemetry_finish_failed', getSafeTelemetryError(telemetryError))
+  }
+}
+
 export function getEmailProviderConfig(env = process.env) {
   const apiKey = normalizeText(env.RESEND_API_KEY)
   const fromEmail = normalizeEmail(env.RESEND_FROM_EMAIL || env.EMAIL_FROM_ADDRESS || DEFAULT_FROM_EMAIL)
@@ -172,6 +210,7 @@ export async function sendEmail(emailPayload, {
   env = process.env,
   publicMessage = DEFAULT_PUBLIC_FAILURE_MESSAGE,
   resendClient = null,
+  telemetryClient = null,
 } = {}) {
   const config = assertEmailProviderConfig({ env, publicMessage })
   const payload = normalizeResendPayload(emailPayload)
@@ -200,6 +239,27 @@ export async function sendEmail(emailPayload, {
 
   delete safePayload.reply_to
 
+  let resolvedTelemetryClient = telemetryClient
+
+  if (resolvedTelemetryClient === null && !resendClient) {
+    try {
+      resolvedTelemetryClient = await loadTelemetryClient()
+    } catch (telemetryError) {
+      console.warn('email_delivery_telemetry_load_failed', getSafeTelemetryError(telemetryError))
+      resolvedTelemetryClient = false
+    }
+  }
+
+  const telemetryPromise = resolvedTelemetryClient
+    ? resolvedTelemetryClient.beginEmailDeliveryAttempt({
+        context,
+        payload: safePayload,
+      }).catch((telemetryError) => {
+        console.warn('email_delivery_telemetry_begin_failed', getSafeTelemetryError(telemetryError))
+        return null
+      })
+    : null
+
   try {
     const resend = resendClient || new Resend(config.apiKey)
     const response = await resend.emails.send(safePayload)
@@ -221,6 +281,12 @@ export async function sendEmail(emailPayload, {
       response,
     })))
 
+    await finishTelemetry({
+      response,
+      telemetryClient: resolvedTelemetryClient,
+      telemetryPromise,
+    })
+
     return response
   } catch (error) {
     const wrappedError = error instanceof EmailProviderError
@@ -236,6 +302,12 @@ export async function sendEmail(emailPayload, {
       payload: safePayload,
       error: wrappedError,
     })))
+
+    await finishTelemetry({
+      error: wrappedError,
+      telemetryClient: resolvedTelemetryClient,
+      telemetryPromise,
+    })
 
     throw wrappedError
   }

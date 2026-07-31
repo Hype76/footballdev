@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import process from 'node:process'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { sendEmail } from './lib/_email-provider.js'
@@ -106,6 +107,20 @@ export async function handler(event) {
           teamId: String(lockedEmailLog.payload?.teamId || ''),
           targetEntityType: 'email_log',
           targetEntityId: lockedEmailLog.id,
+          emailLogId: lockedEmailLog.id,
+          deliveryTelemetry: {
+            ...(lockedEmailLog.payload?.deliveryTelemetry || {}),
+            logicalKey: `email_log:${lockedEmailLog.id}`,
+            sourceType: 'email_log',
+            sourceId: lockedEmailLog.id,
+            emailLogId: lockedEmailLog.id,
+            originActionAt: lockedEmailLog.payload?.deliveryTelemetry?.originActionAt
+              || lockedEmailLog.created_at,
+            eligibleAt: lockedEmailLog.next_retry_at || new Date().toISOString(),
+            claimedAt: new Date().toISOString(),
+            processingStartedAt: new Date().toISOString(),
+            workerInvocationId: randomUUID(),
+          },
         },
         publicMessage: 'Email retry could not be sent. Please try again in a moment.',
       })

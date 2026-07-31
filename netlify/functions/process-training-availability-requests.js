@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
@@ -468,7 +468,19 @@ async function markRecipientDeliveryFailed({ requestPlayerId, supabase }) {
   }
 }
 
-async function sendRecipientEmail({ appOrigin, event, occurrence, occurrences, player, recipient, requestPlayer, supabase, teamName, token }) {
+async function sendRecipientEmail({
+  appOrigin,
+  event,
+  occurrence,
+  occurrences,
+  player,
+  recipient,
+  request,
+  requestPlayer,
+  supabase,
+  teamName,
+  token,
+}) {
   const currentStatus = normalizeText(requestPlayer.status)
 
   if (['sent', 'responded'].includes(currentStatus)) {
@@ -513,6 +525,18 @@ async function sendRecipientEmail({ appOrigin, event, occurrence, occurrences, p
       teamId: requestPlayer.team_id,
       targetEntityType: 'training_availability_request_player',
       targetEntityId: requestPlayer.id,
+      deliveryTelemetry: {
+        logicalKey: `training_availability_request_player:${requestPlayer.id}`,
+        sourceType: 'training_availability_request_player',
+        sourceId: requestPlayer.id,
+        originActionAt: request.generated_at || request.created_at,
+        eligibleAt: request.send_at,
+        enqueuedAt: requestPlayer.created_at,
+        scheduledAt: request.send_at,
+        claimedAt: new Date().toISOString(),
+        processingStartedAt: new Date().toISOString(),
+        workerInvocationId: randomUUID(),
+      },
     },
     publicMessage: 'Training availability email could not be sent.',
   })
@@ -621,6 +645,7 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
           occurrences,
           player,
           recipient: contact,
+          request,
           requestPlayer: recipient.row,
           supabase,
           teamName,

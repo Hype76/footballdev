@@ -14,6 +14,7 @@ import {
 } from '../../src/lib/development-email-output-policy.js'
 import { isDevelopmentPdfServerEnabled } from '../../src/lib/development-pdf-feature.js'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { recordEmailPreparationFailure } from './lib/_email-delivery-telemetry.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
@@ -385,6 +386,7 @@ function isFutureScheduledDate(dateValue) {
 }
 
 export async function prepareParentEmail({ body, requestUser }) {
+  const originActionAt = new Date().toISOString()
   const planProfile = requestUser
   assertPlanFeature(planProfile, 'parentEmails')
 
@@ -600,17 +602,72 @@ export async function prepareParentEmail({ body, requestUser }) {
         diagnostics: pdfDiagnostics,
       })
     : null
+  const pdfStartedAt = shouldAttachPdf ? new Date().toISOString() : null
+  let pdfFinishedAt = null
   const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(
-    authorizedPdfReport,
-    {
-      actorId: requestUser.id,
-      clubId: planProfile.clubId,
-      diagnostics: pdfDiagnostics,
-      filename: developmentPdfFilename,
-      resourceId: developmentContext?.evaluation?.id || body.evaluationId || body.playerId,
-      teamId: developmentContext?.team?.id || body.teamId,
-    },
-  ) : []
+        authorizedPdfReport,
+        {
+          actorId: requestUser.id,
+          clubId: planProfile.clubId,
+          diagnostics: pdfDiagnostics,
+          filename: developmentPdfFilename,
+          resourceId: developmentContext?.evaluation?.id || body.evaluationId || body.playerId,
+          teamId: developmentContext?.team?.id || body.teamId,
+        },
+      )
+    .catch(async (pdfError) => {
+      pdfFinishedAt = new Date().toISOString()
+
+      try {
+        const telemetrySourceId = String(
+          developmentContext?.evaluation?.id
+          || body.evaluationId
+          || body.playerId
+          || '',
+        ).trim()
+        await recordEmailPreparationFailure({
+          context: {
+            clubId: planProfile.clubId,
+            emailType: 'development_parent_pdf',
+            targetEntityId: telemetrySourceId || null,
+            targetEntityType: developmentContext?.evaluation?.id || body.evaluationId
+              ? 'evaluation'
+              : 'player',
+            teamId: developmentContext?.team?.id || body.teamId || null,
+            deliveryTelemetry: {
+              eligibleAt: originActionAt,
+              logicalKey: telemetrySourceId
+                ? `development_pdf_preparation:${telemetrySourceId}:${safeReference(requestedIdempotencyKey)}`
+                : `development_pdf_preparation:${randomUUID()}`,
+              originActionAt,
+              pdfFinishedAt,
+              pdfStartedAt,
+              processingStartedAt: pdfStartedAt,
+              sourceId: telemetrySourceId || null,
+              sourceType: 'development_pdf_preparation',
+            },
+          },
+          error: pdfError,
+          payload: {
+            attachments: [{
+              contentType: 'application/pdf',
+              filename: developmentPdfFilename,
+            }],
+            to: [],
+          },
+        })
+      } catch (telemetryError) {
+        console.warn('Email delivery preparation telemetry failed', {
+          code: String(telemetryError?.code || telemetryError?.name || 'EMAIL_TELEMETRY_FAILED'),
+        })
+      }
+
+      throw pdfError
+    })
+    .finally(() => {
+      pdfFinishedAt ||= new Date().toISOString()
+    }) : []
+
   const attachments = [...pdfAttachments, ...chartAttachments]
   const emailSubject = String(subject ?? '').trim() || 'Football Player'
   const emailPayload = buildEmailPayload({
@@ -642,6 +699,12 @@ export async function prepareParentEmail({ body, requestUser }) {
     outputKey: developmentContext?.outputKey || '',
     outputQueueId: developmentContext?.outputQueueId || '',
     recipientLinkId: developmentContext?.recipient?.linkId || '',
+    deliveryTelemetry: {
+      originActionAt,
+      eligibleAt: originActionAt,
+      pdfStartedAt,
+      pdfFinishedAt,
+    },
     communicationLog: body.communicationLog && typeof body.communicationLog === 'object'
       ? {
           ...body.communicationLog,
@@ -702,6 +765,16 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
     }
   }
 
+  const enqueuedAt = new Date().toISOString()
+  const queuedPayload = {
+    ...authorizedPreparedEmail.storedPayload,
+    deliveryTelemetry: {
+      ...(authorizedPreparedEmail.storedPayload.deliveryTelemetry || {}),
+      eligibleAt: scheduledAt.toISOString(),
+      enqueuedAt,
+      scheduledAt: scheduledAt.toISOString(),
+    },
+  }
   const { data, error } = await supabaseAdmin
     .from('scheduled_email_queue')
     .insert({
@@ -714,7 +787,7 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
       subject: authorizedPreparedEmail.emailSubject,
       status: 'scheduled',
       scheduled_at: scheduledAt.toISOString(),
-      payload: authorizedPreparedEmail.storedPayload,
+      payload: queuedPayload,
     })
     .select('id, scheduled_at')
     .single()
@@ -922,7 +995,13 @@ async function findExistingDevelopmentOutput({
     : null
 }
 
-export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed = '' } = {}) {
+export async function sendPreparedParentEmail(
+  preparedEmail,
+  {
+    deliveryTelemetry = {},
+    idempotencySeed = '',
+  } = {},
+) {
   preparedEmail = await reauthorizePreparedDevelopmentParentEmail(supabaseAdmin, preparedEmail)
   let emailLogRecord = null
   const dedupeKey = createEmailDedupeKey(preparedEmail.emailPayload)
@@ -965,6 +1044,15 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
     teamId: preparedEmail.storedPayload.teamId,
     targetEntityType: 'player',
     targetEntityId: preparedEmail.storedPayload.playerId || '',
+    emailLogId: emailLogRecord?.id || '',
+    deliveryTelemetry: {
+      ...(preparedEmail.storedPayload.deliveryTelemetry || {}),
+      sourceType: 'email_log',
+      sourceId: emailLogRecord?.id || '',
+      emailLogId: emailLogRecord?.id || '',
+      logicalKey: emailLogRecord?.id ? `email_log:${emailLogRecord.id}` : '',
+      ...deliveryTelemetry,
+    },
   }
 
   try {

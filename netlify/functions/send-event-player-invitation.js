@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import {
@@ -475,11 +475,12 @@ async function sendTrainingInvitation({
     )
   }
 
+  const manualEligibleAt = new Date().toISOString()
   const { error: requestSendingError } = await adminSupabase
     .from('training_availability_requests')
     .update({
       last_error: null,
-      send_at: new Date().toISOString(),
+      send_at: manualEligibleAt,
       status: 'sending',
     })
     .eq('id', request.id)
@@ -562,6 +563,18 @@ async function sendTrainingInvitation({
           targetEntityType: 'training_availability_request_player',
           teamId: scopedEvent.team_id,
           userRole: profile.role,
+          deliveryTelemetry: {
+            logicalKey: `training_availability_request_player:${requestPlayer.id}`,
+            sourceType: 'training_availability_request_player',
+            sourceId: requestPlayer.id,
+            originActionAt: request.generated_at || request.created_at || manualEligibleAt,
+            eligibleAt: manualEligibleAt,
+            enqueuedAt: requestPlayer.created_at,
+            scheduledAt: manualEligibleAt,
+            claimedAt: new Date().toISOString(),
+            processingStartedAt: new Date().toISOString(),
+            workerInvocationId: randomUUID(),
+          },
         },
         publicMessage: 'Training availability email could not be sent.',
       })

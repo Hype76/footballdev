@@ -1,4 +1,5 @@
 import { createFromAddress, getEmailProviderConfig, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { getEmailOperationalMetrics } from './lib/_email-delivery-telemetry.js'
 import { getAuthenticatedPlanProfile } from './lib/_plan-gate.js'
 import { isApprovedInternalSmokeRecipient } from './lib/_internal-smoke-recipients.js'
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
@@ -59,12 +60,23 @@ export async function handler(event) {
     }
 
     const config = getEmailProviderConfig()
+    let operationalMetrics = []
+
+    try {
+      operationalMetrics = await getEmailOperationalMetrics()
+    } catch (metricsError) {
+      console.warn('email_operational_metrics_unavailable', {
+        code: normalizeText(metricsError?.code || metricsError?.name || 'metrics_unavailable'),
+      })
+    }
+
     const basePayload = {
       success: true,
       configured: config.configured,
       missing: config.missing,
       fromDomain: config.fromDomain,
       fromEmail: config.fromEmail,
+      operationalMetrics,
     }
 
     if (body.sendTest !== true) {
