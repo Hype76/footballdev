@@ -142,12 +142,11 @@ test('processor is safe with no events and persists a successful measurable run'
   assert.equal(result.rowsAggregated, 0)
   assert.equal(result.watermarkBefore, watermark)
   assert.equal(result.watermarkAfter, watermark)
-  assert.equal(client.evidence.runUpdates.at(-1).status, 'succeeded')
-  assert.equal(client.evidence.runUpdates.at(-1).rows_aggregated, 0)
-  assert.equal('audit_watermark_after' in client.evidence.runUpdates.at(-1), false)
-  assert.equal(client.evidence.stateUpdates.at(-1).last_successful_run_id, runId)
-  assert.equal(client.evidence.stateUpdates.at(-1).audit_watermark_created_at, watermark)
   assert.equal(client.evidence.rpcCalls[0].name, 'refresh_platform_analytics_aggregates')
+  assert.equal(client.evidence.rpcCalls[1].name, 'complete_platform_analytics_processor_run')
+  assert.equal(client.evidence.rpcCalls[1].args.rows_aggregated_value, 0)
+  assert.equal(client.evidence.rpcCalls[1].args.watermark_after_value, watermark)
+  assert.equal(client.evidence.rpcCalls[1].args.audit_watermark_after_value, watermark)
 })
 
 test('processor skips overlapping invocation before scanning source rows', async () => {
@@ -191,8 +190,22 @@ test('processor advances a deterministic watermark, marks rows once, and bounds 
   })
   assert.equal(result.rowsAggregated, 1)
   assert.equal(result.watermarkAfter, event.received_at)
-  assert.equal(client.evidence.eventUpdates.length, 1)
-  assert.deepEqual(client.evidence.eventUpdates[0].ids, [event.id])
+  assert.equal(client.evidence.eventUpdates.length, 0)
+  const completion = client.evidence.rpcCalls.at(-1)
+  const { finished_at_value: finishedAt, ...completionArgs } = completion.args
+  assert.match(finishedAt, /^2026-07-31T/)
+  assert.equal(completion.name, 'complete_platform_analytics_processor_run')
+  assert.deepEqual(completionArgs, {
+      run_id_value: runId,
+      event_ids_value: [event.id],
+      rows_scanned_value: 0,
+      rows_accepted_value: 0,
+      rows_rejected_value: 0,
+      rows_unattributed_value: 0,
+      rows_aggregated_value: 1,
+      watermark_after_value: event.received_at,
+      audit_watermark_after_value: watermark,
+  })
   assert.ok(client.evidence.limits.some((item) => (
     item.table === 'analytics_events' && item.value === 20_000
   )))
@@ -218,5 +231,5 @@ test('failed processing records a safe failure and a later run can resume', asyn
     invocationId: 'invocation:resumed',
   })
   assert.equal(result.rowsAggregated, 0)
-  assert.equal(resumed.evidence.runUpdates.at(-1).status, 'succeeded')
+  assert.equal(resumed.evidence.rpcCalls.at(-1).name, 'complete_platform_analytics_processor_run')
 })

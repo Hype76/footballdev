@@ -72,16 +72,20 @@ async function pendingEvents(supabaseAdmin, endAt) {
   return data || []
 }
 
-async function markProcessed(supabaseAdmin, events, runId, processedAt) {
-  for (let index = 0; index < events.length; index += 500) {
-    const ids = events.slice(index, index + 500).map((row) => row.id)
-    const { error } = await supabaseAdmin
-      .from('analytics_events')
-      .update({ processed_at: processedAt, processor_run_id: runId })
-      .in('id', ids)
-      .is('processed_at', null)
-    if (error) throw error
-  }
+async function completeRun(supabaseAdmin, runId, state, events, values) {
+  const { error } = await supabaseAdmin.rpc('complete_platform_analytics_processor_run', {
+    run_id_value: runId,
+    event_ids_value: events.map((row) => row.id),
+    finished_at_value: values.finished_at,
+    rows_scanned_value: values.rows_scanned,
+    rows_accepted_value: values.rows_accepted,
+    rows_rejected_value: values.rows_rejected,
+    rows_unattributed_value: values.rows_unattributed,
+    rows_aggregated_value: values.rows_aggregated,
+    watermark_after_value: values.watermark_after || state.watermark,
+    audit_watermark_after_value: values.audit_watermark_after || state.auditWatermark,
+  })
+  if (error) throw error
 }
 
 async function finishRun(supabaseAdmin, runId, state, values) {
@@ -146,7 +150,6 @@ export async function processPlatformAnalytics({
     if (refreshError) throw refreshError
 
     const processedAt = new Date().toISOString()
-    await markProcessed(supabaseAdmin, events, run.id, processedAt)
     const last = events.at(-1)
     const watermarkAfter = last?.received_at || state.watermark
     const unattributed = events.filter((row) => (
@@ -154,8 +157,8 @@ export async function processPlatformAnalytics({
       || (row.actor_role_family !== 'platform_admin' && !row.club_id)
     )).length
 
-    await finishRun(supabaseAdmin, run.id, state, {
-      status: 'succeeded',
+    await completeRun(supabaseAdmin, run.id, state, events, {
+      finished_at: processedAt,
       rows_scanned: ingest.auditRowsRead,
       rows_accepted: ingest.analyticsRowsPrepared,
       rows_rejected: ingest.rowsRejected,

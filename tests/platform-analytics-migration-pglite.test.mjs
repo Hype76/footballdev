@@ -19,6 +19,10 @@ const quarantineConflictAlignmentMigration = await readFile(
   new URL('../supabase/migrations/20260731231726_analytics_quarantine_conflict_alignment_14a.sql', import.meta.url),
   'utf8',
 )
+const atomicProcessorCompletionMigration = await readFile(
+  new URL('../supabase/migrations/20260731233958_analytics_processor_atomic_completion_14a.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
@@ -63,6 +67,7 @@ async function createDatabase() {
   await db.exec(eventFoundationMigration)
   await db.exec(clubAdminRoleAlignmentMigration)
   await db.exec(quarantineConflictAlignmentMigration)
+  await db.exec(atomicProcessorCompletionMigration)
   return db
 }
 
@@ -385,12 +390,24 @@ test('canonical event migration adds private processing evidence and determinist
       select
         has_table_privilege('anon', 'public.analytics_processor_runs', 'select') as anon_runs,
         has_table_privilege('authenticated', 'public.analytics_event_quarantine', 'select') as authenticated_quarantine,
-        has_table_privilege('service_role', 'public.analytics_processor_runs', 'insert') as service_runs
+        has_table_privilege('service_role', 'public.analytics_processor_runs', 'insert') as service_runs,
+        has_function_privilege(
+          'anon',
+          'public.complete_platform_analytics_processor_run(uuid,uuid[],timestamptz,integer,integer,integer,integer,integer,timestamptz,timestamptz)',
+          'execute'
+        ) as anon_complete,
+        has_function_privilege(
+          'service_role',
+          'public.complete_platform_analytics_processor_run(uuid,uuid[],timestamptz,integer,integer,integer,integer,integer,timestamptz,timestamptz)',
+          'execute'
+        ) as service_complete
     `)
     assert.deepEqual(privacy.rows[0], {
       anon_runs: false,
       authenticated_quarantine: false,
       service_runs: true,
+      anon_complete: false,
+      service_complete: true,
     })
 
     await db.exec(`
