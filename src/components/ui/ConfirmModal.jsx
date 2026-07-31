@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 const overlayClassName = 'fixed inset-0 flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6'
 const panelClassName =
@@ -61,6 +61,7 @@ export function ConfirmModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const cancelButtonRef = useRef(null)
   const submittingRef = useRef(false)
+  const titleId = useId()
 
   const resetFields = () => {
     setPassword('')
@@ -117,8 +118,13 @@ export function ConfirmModal({
 
   const handleConfirm = async (event) => {
     event.preventDefault()
+    const isConfirmationLocked = isBusy || isSubmitting || submittingRef.current || confirmDisabled
 
-    if (isBusy || isSubmitting || submittingRef.current || confirmDisabled) {
+    if (isBusy || isSubmitting || confirmDisabled) {
+      return
+    }
+
+    if (isConfirmationLocked) {
       return
     }
 
@@ -201,6 +207,7 @@ export function ConfirmModal({
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
         className={panelClassName}
       >
         <button
@@ -215,7 +222,7 @@ export function ConfirmModal({
         </button>
         <form onSubmit={handleConfirm}>
           <p className={eyebrowClassName}>Please confirm</p>
-          <h2 className={titleClassName}>{title}</h2>
+          <h2 id={titleId} className={titleClassName}>{title}</h2>
           {message ? <p className={messageClassName}>{message}</p> : null}
         {items.length > 0 ? (
           <div className={itemsPanelClassName}>

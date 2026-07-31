@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
+import { PracticeMatchEntryCard, PracticeMatchScoring } from '../components/match-day/PracticeMatchScoring.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import {
   ParentPortalSectionNav,
@@ -487,6 +488,29 @@ function orderPlayersWithRecentScorers(players, match) {
 }
 
 export function ParentPortalPage() {
+  const { authUser, session } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const practiceParentIdentity = String(authUser?.id || session?.user?.id || '').trim()
+  const isPracticeMatchOpen = searchParams.get('practice') === 'match-scoring' && Boolean(practiceParentIdentity)
+
+  if (isPracticeMatchOpen) {
+    return (
+      <PracticeMatchScoring
+        key={practiceParentIdentity}
+        onExit={() => {
+          const nextParams = new URLSearchParams(searchParams)
+          nextParams.delete('practice')
+          setSearchParams(nextParams)
+        }}
+        parentIdentity={practiceParentIdentity}
+      />
+    )
+  }
+
+  return <ParentPortalExperience />
+}
+
+function ParentPortalExperience() {
   const { authUser, resetPassword, session, signOut, user } = useAuth()
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1398,6 +1422,12 @@ export function ParentPortalPage() {
     openParentMatchActionModal({ type: 'correctGoal', match, goalEvent })
   }
 
+  const handleOpenPracticeMatch = () => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('practice', 'match-scoring')
+    setSearchParams(nextParams)
+  }
+
   const handleParentMatchActionConfirm = async () => {
     if (!parentMatchAction) {
       return
@@ -1465,6 +1495,11 @@ export function ParentPortalPage() {
           selectedLink={selectedLink}
         />
       ) : null}
+
+      <PracticeMatchEntryCard
+        hasTodayMatch={todayMatches.length > 0}
+        onOpen={handleOpenPracticeMatch}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
