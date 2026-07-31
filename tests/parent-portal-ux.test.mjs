@@ -135,7 +135,8 @@ test('parent dashboard no data states are helpful and not errors', async () => {
   assert.doesNotMatch(source, /No Match Day updates are available for this child right now/)
   assert.doesNotMatch(source, /Follow the selected child/)
   assert.doesNotMatch(source, /What you can see/)
-  assert.doesNotMatch(source, /ParentMatchDayHero/)
+  assert.match(source, /todayMatches\.length > 0 && !scorerGameModeMatchId/)
+  assert.match(source, /<ParentMatchDayHero/)
   assert.doesNotMatch(source, /ParentMatchMetric/)
 })
 

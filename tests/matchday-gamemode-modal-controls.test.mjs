@@ -12,7 +12,7 @@ test('Open Game Mode is read only while Start Match and Resume Match use explici
   const gameModeOpen = source.slice(gameModeOpenStart, source.indexOf('const handleGameModeStatusChange', gameModeOpenStart))
 
   assert.match(statusChange, /status === 'live'/)
-  assert.match(statusChange, /await saveMatchStatus\(match, 'live'\)/)
+  assert.match(statusChange, /await handleStartMatch\(match\)/)
   assert.match(statusChange, /status === 'second_half' \|\| status === 'resume_match'/)
   assert.match(statusChange, /await saveMatchStatus\(match, status\)/)
   assert.match(gameModeOpen, /await hydrateMatchDay\(match\)/)

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
+import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import {
   ParentPortalSectionNav,
 } from '../components/parent-portal/ParentPortalShell.jsx'
@@ -43,6 +44,8 @@ import {
   recordParentScorerShootoutKick,
   setParentScorerMatchDayExtendedState,
   setParentScorerMatchDayTimerState,
+  sortMatchDayPresentation,
+  startParentScorerMatchDay,
   splitParentInvitationsForViews,
   updateMatchDayScoreAsScorer,
   updateSignedInPassword,
@@ -551,6 +554,10 @@ export function ParentPortalPage() {
     () => sortParentResultsNewestFirst(matches.filter(isPreviousMatch)),
     [matches],
   )
+  const todayMatches = useMemo(
+    () => sortMatchDayPresentation(matches.filter((match) => match.isToday)),
+    [matches],
+  )
   const invitationEvents = useMemo(() => groupParentInvitationsByEvent(parentInvitations), [parentInvitations])
   const parentCalendarEvents = useMemo(
     () => buildParentCalendarEvents({
@@ -611,12 +618,35 @@ export function ParentPortalPage() {
     }
   }, [parentCalendarEvents, searchParams])
 
+  useEffect(() => {
+    const requestedMatchDayId = String(searchParams.get('matchDayId') ?? '').trim()
+    const requestedMatch = matches.find((match) => match.id === requestedMatchDayId)
+    if (requestedMatch?.isScorer && requestedMatch?.isToday) {
+      setActiveSection('matches')
+      setScorerGameModeMatchId(requestedMatch.id)
+    }
+  }, [matches, searchParams])
+
   const handleSectionSelect = (sectionId) => {
     if (!parentPortalSectionIds.has(sectionId)) {
       return
     }
 
     setActiveSection(sectionId)
+  }
+
+  const handleOpenTodayGameMode = (match) => {
+    if (!match?.isToday || !match?.isScorer) {
+      return
+    }
+
+    setActiveSection('matches')
+    setScorerGameModeMatchId(match.id)
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'matches')
+    nextSearchParams.set('parentLinkId', selectedLink?.id || '')
+    nextSearchParams.set('matchDayId', match.id)
+    setSearchParams(nextSearchParams)
   }
 
   const handleParentLinkSelect = (parentLinkId) => {
@@ -1163,13 +1193,14 @@ export function ParentPortalPage() {
     setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
-      const saveTimerAction = EXTENDED_MATCH_ACTIONS.has(timerAction)
-        ? setParentScorerMatchDayExtendedState
-        : setParentScorerMatchDayTimerState
-      await saveTimerAction({
-        match,
-        action: timerAction,
-      })
+      if (timerAction === 'start') {
+        await startParentScorerMatchDay({ match })
+      } else {
+        const saveTimerAction = EXTENDED_MATCH_ACTIONS.has(timerAction)
+          ? setParentScorerMatchDayExtendedState
+          : setParentScorerMatchDayTimerState
+        await saveTimerAction({ match, action: timerAction })
+      }
 
       const transitionNotificationType = timerAction === 'start'
         ? 'live'
@@ -1427,6 +1458,14 @@ export function ParentPortalPage() {
       {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
       {invitationError ? <NoticeBanner title="Response not changed" message={invitationError} /> : null}
 
+      {todayMatches.length > 0 && !scorerGameModeMatchId ? (
+        <ParentMatchDayHero
+          matches={todayMatches}
+          onOpenGameMode={handleOpenTodayGameMode}
+          selectedLink={selectedLink}
+        />
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
           activeSection={activeSection}
@@ -1498,6 +1537,7 @@ export function ParentPortalPage() {
               handleVoidShootoutKick={handleVoidShootoutKick}
               handleTimerAction={handleTimerAction}
               handleVolunteer={handleVolunteer}
+              hideTodayMatches={!scorerGameModeMatchId}
               isLoading={isLoadingMatches}
               selectedLink={selectedLink}
               setScoreDrafts={setScoreDrafts}
@@ -1608,6 +1648,19 @@ function ParentMatchActionModal({
   const modalCopy = getParentMatchActionModalCopy(action)
   const isGoalCorrection = action?.type === 'correctGoal'
 
+  if (action?.type === 'timer' && action?.timerAction === 'start') {
+    return (
+      <StartMatchConfirmModal
+        isBusy={isBusy}
+        isOpen
+        match={action.match}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+        scorerLabel="Selected parent scorer"
+      />
+    )
+  }
+
   return (
     <ConfirmModal
       cancelLabel="Cancel"
@@ -1706,6 +1759,67 @@ function ParentMatchActionModal({
       ) : null}
 
     </ConfirmModal>
+  )
+}
+
+function ParentMatchDayHero({ matches, onOpenGameMode, selectedLink }) {
+  return (
+    <section
+      aria-labelledby="parent-match-day-hero-title"
+      className="overflow-hidden rounded-xl border border-[var(--accent)] bg-[var(--panel-bg)] shadow-lg shadow-[#047857]/10"
+      data-testid="parent-match-day-hero"
+    >
+      <div className="bg-[var(--accent-soft)] px-4 py-4 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]">Today&apos;s Game Day</p>
+        <h2 id="parent-match-day-hero-title" className="mt-1 text-2xl font-black tracking-tight text-[var(--text-primary)]">
+          {matches.length === 1 ? 'Your match is ready' : `${matches.length} matches today`}
+        </h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
+          Today&apos;s fixtures are ordered live first, then by upcoming kick-off, with completed matches last.
+        </p>
+      </div>
+      <div className="grid gap-3 p-4 sm:p-5 lg:grid-cols-2">
+        {matches.map((match, index) => {
+          const venue = getMatchVenueDisplay(match)
+          return (
+            <article
+              key={match.id}
+              className={`rounded-lg border p-4 ${index === 0 ? 'border-[var(--accent)] bg-[var(--panel-soft)]' : 'border-[var(--border-color)] bg-[var(--panel-bg)]'}`}
+              data-testid={`parent-match-day-hero-card-${match.id}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                  {String(match.status || 'scheduled').replace(/_/g, ' ')}
+                </span>
+                {match.isScorer ? (
+                  <span className="rounded-full bg-[#047857] px-3 py-1 text-xs font-black text-white">You are today&apos;s scorer</span>
+                ) : null}
+              </div>
+              <h3 className="mt-3 text-xl font-black text-[var(--text-primary)]">{getMatchDayDisplayName(match)}</h3>
+              <dl className="mt-3 grid gap-2 text-sm font-semibold text-[var(--text-muted)] sm:grid-cols-2">
+                <div><dt className="font-black text-[var(--text-primary)]">Kick-off</dt><dd>{getFixtureKickoffLabel(match)}</dd></div>
+                <div><dt className="font-black text-[var(--text-primary)]">Home or away</dt><dd>{match.homeAway || 'To be confirmed'}</dd></div>
+                <div><dt className="font-black text-[var(--text-primary)]">Venue</dt><dd>{venue || 'To be confirmed'}</dd></div>
+                <div><dt className="font-black text-[var(--text-primary)]">Child</dt><dd>{selectedLink?.playerName || 'Linked child'}</dd></div>
+              </dl>
+              {match.isScorer ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenGameMode(match)}
+                  className={`${primaryButtonClass} mt-4 w-full sm:w-auto`}
+                >
+                  Open Game Mode
+                </button>
+              ) : (
+                <p className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-muted)]">
+                  Fixture information only. Live scoring controls are available only to the selected scorer.
+                </p>
+              )}
+            </article>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -2602,6 +2716,7 @@ function ParentMatchCardsPanel({
   handleVoidShootoutKick,
   handleTimerAction,
   handleVolunteer,
+  hideTodayMatches,
   isLoading,
   selectedLink,
   setScoreDrafts,
@@ -2611,6 +2726,8 @@ function ParentMatchCardsPanel({
   squadPlayers,
   updateGoalForm,
 }) {
+  const visibleActiveMatches = activeMatches
+
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -2628,9 +2745,9 @@ function ParentMatchCardsPanel({
           <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
             Loading match cards...
           </p>
-        ) : activeMatches.length > 0 ? (
+        ) : visibleActiveMatches.length > 0 ? (
           <div className="space-y-4">
-            {activeMatches.map((match) => (
+            {visibleActiveMatches.map((match) => (
               <ParentMatchCard
                 key={match.id}
                 activeMatchId={activeMatchId}
@@ -2660,6 +2777,7 @@ function ParentMatchCardsPanel({
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
                 isGameMode={scorerGameModeMatchId === match.id}
                 selectedLink={selectedLink}
+                suppressGameModeEntry={hideTodayMatches && match.isToday}
               />
             ))}
           </div>
@@ -3206,6 +3324,7 @@ function ParentMatchCard({
   scoreDraft,
   isGameMode,
   selectedLink,
+  suppressGameModeEntry = false,
 }) {
   const isBusy = activeMatchId === match.id
   const orderedPlayers = useMemo(() => orderPlayersWithRecentScorers(players, match), [match, players])
@@ -3354,13 +3473,17 @@ function ParentMatchCard({
               <p className="text-sm font-black text-[#101828]">Scorer Game Mode</p>
               <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Opening this view does not start or change the match.</p>
             </div>
-            <button
-              type="button"
-              onClick={onToggleGameMode}
-              className={secondaryButtonClass}
-            >
-              {isGameMode ? 'Close Game Mode' : 'Open Game Mode'}
-            </button>
+            {suppressGameModeEntry ? (
+              <p className="text-sm font-black text-[#047857]">Use Open Game Mode in today&apos;s hero above.</p>
+            ) : (
+              <button
+                type="button"
+                onClick={onToggleGameMode}
+                className={secondaryButtonClass}
+              >
+                {isGameMode ? 'Close Game Mode' : 'Open Game Mode'}
+              </button>
+            )}
           </div>
 
           {isGameMode ? (

@@ -193,6 +193,9 @@ async function prepareContext(browser, viewportOptions, {
   await context.route('**/.netlify/functions/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
   })
+  await context.route('**/api/parent-development/history', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reports: [] }) })
+  })
   await context.route('**/.netlify/functions/platform-admin-access**', async (route) => {
     await route.fulfill({
       status: platformAdminFails ? 503 : 200,
@@ -266,6 +269,51 @@ async function prepareContext(browser, viewportOptions, {
         match_day_id: fixtureState.match.id,
         selected_player_names: fixtureState.confirmedNames,
       }]),
+    })
+  })
+  await context.route('**/rest/v1/rpc/get_parent_scorer_game_mode_match_ids', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(fixtureState.match.is_scorer ? [{ match_day_id: fixtureState.match.id }] : []),
+    })
+  })
+  await context.route('**/rest/v1/rpc/get_match_day_presentation_states', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        match_day_id: fixtureState.match.id,
+        is_today: true,
+        presentation_priority: fixtureState.match.status === 'live' ? 0 : 1,
+        scheduled_kickoff_at: '2026-07-22T18:00:00Z',
+        is_before_kickoff: fixtureState.match.status === 'scheduled',
+        server_local_date: '2026-07-22',
+        server_local_time: '10:00:30',
+      }]),
+    })
+  })
+  await context.route('**/rest/v1/rpc/start_match_day', async (route) => {
+    const payload = route.request().postDataJSON()
+    mutationRequests.push({ rpc: 'start_match_day', payload })
+    fixtureState.match = {
+      ...fixtureState.match,
+      status: 'live',
+      timer_status: 'running',
+      timer_started_at: '2026-07-22T10:00:00Z',
+      phase_started_at: '2026-07-22T10:00:00Z',
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        matchDayId: fixtureState.match.id,
+        status: 'live',
+        timerStatus: 'running',
+        timerStartedAt: fixtureState.match.timer_started_at,
+        timerElapsedSeconds: 0,
+        alreadyStarted: false,
+      }),
     })
   })
   await context.route('**/rest/v1/rpc/set_match_day_timer_state', async (route) => {
@@ -460,6 +508,7 @@ try {
       const staff = await prepareContext(browser, viewport.options)
       await signIn(staff.page)
       await staff.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+      await staff.page.getByTestId('staff-match-day-hero-heading').waitFor({ state: 'visible', timeout: 30000 })
       const staffManageButton = staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first()
       await staffManageButton.waitFor({ state: 'visible', timeout: 30000 })
       await staffManageButton.click()
@@ -479,6 +528,8 @@ try {
       const scorer = await prepareContext(browser, viewport.options, { isScorer: true })
       await signIn(scorer.page, { parent: true })
       await openParentMatches(scorer.page)
+      await scorer.page.getByTestId('parent-match-day-hero').waitFor({ state: 'visible', timeout: 30000 })
+      await scorer.page.getByText('You are today\'s scorer', { exact: true }).waitFor({ state: 'visible' })
       await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
       await scorer.page.getByText('Authoritative match clock', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       await scorer.page.getByText('0:00', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
@@ -491,17 +542,24 @@ try {
       assert.equal(scorer.mutationRequests.length, 0, `${viewport.name} parent scorer Game Mode open must not mutate`)
 
       await scorer.page.getByRole('button', { name: 'Start match' }).click()
-      await scorer.page.getByRole('dialog').getByRole('button', { name: 'Start match' }).click()
+      await scorer.page.getByText('This is before the scheduled kick-off time.', { exact: false }).waitFor({ state: 'visible' })
+      await scorer.page.keyboard.press('Escape')
+      await scorer.page.getByRole('dialog').waitFor({ state: 'hidden' })
+      assert.equal(scorer.mutationRequests.length, 0, `${viewport.name} cancelled Start Match must not mutate`)
+      await scorer.page.getByRole('button', { name: 'Start match' }).click()
+      const startConfirmButton = scorer.page.getByRole('dialog').getByRole('button', { name: 'Start match' })
+      await startConfirmButton.evaluate((button) => {
+        button.click()
+        button.click()
+      })
       await scorer.page.getByRole('button', { name: 'Pause' }).waitFor({ state: 'visible', timeout: 15000 })
       assert.deepEqual(scorer.mutationRequests, [{
-        rpc: 'set_match_day_timer_state',
-        payload: { match_day_id_value: 'match-parity-fixture', action_value: 'start' },
+        rpc: 'start_match_day',
+        payload: { match_day_id_value: 'match-parity-fixture' },
       }])
 
       await verifyBackgroundForeground(scorer.page, scorer.context)
       await scorer.page.reload({ waitUntil: 'domcontentloaded' })
-      await scorer.page.getByRole('button', { name: 'Open Game Mode' }).waitFor({ state: 'visible', timeout: 30000 })
-      await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
       await scorer.page.getByRole('button', { name: 'Pause' }).waitFor({ state: 'visible', timeout: 15000 })
 
       scorer.fixtureState.match = { ...scorer.fixtureState.match, is_scorer: false, role_assignments: [] }
@@ -520,6 +578,8 @@ try {
     })
     await signIn(ordinary.page, { parent: true })
     await openParentMatches(ordinary.page)
+    await ordinary.page.getByTestId('parent-match-day-hero').waitFor({ state: 'visible', timeout: 30000 })
+    await ordinary.page.getByText('Fixture information only.', { exact: false }).waitFor({ state: 'visible' })
     await ordinary.page.getByRole('heading', { name: 'Confirmed Team' }).waitFor({ state: 'visible' })
     for (const playerName of ordinary.fixtureState.confirmedNames) {
       await ordinary.page.getByText(playerName, { exact: true }).waitFor({ state: 'visible' })
@@ -615,8 +675,6 @@ try {
   await clockRetry.page.getByText('Syncing clock...', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
   assert.equal(clockRetry.mutationRequests.length, 0)
   await clockRetry.page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
-  await clockRetry.page.getByRole('button', { name: 'Open Game Mode' }).waitFor({ state: 'visible', timeout: 30000 })
-  await clockRetry.page.getByRole('button', { name: 'Open Game Mode' }).click()
   await clockRetry.page.getByText('0:30', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
   assert.equal(clockRetry.mutationRequests.length, 0)
   assertNoPageFailures(clockRetry, 'server-clock failure and refresh retry')

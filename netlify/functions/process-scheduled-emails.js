@@ -240,6 +240,41 @@ async function sendScheduledParentPush(communicationLog) {
   }
 }
 
+async function validateMatchDayScorerReminder(row) {
+  const reminder = row?.payload?.matchDayScorerReminder
+  const operationKey = String(reminder?.operationKey ?? '').trim()
+  if (!operationKey) {
+    return { valid: true }
+  }
+
+  const { data, error } = await supabaseAdmin.rpc('validate_match_day_scorer_reminder', {
+    operation_key_value: operationKey,
+  })
+  if (error) {
+    console.error('Match Day scorer reminder validation failed', error)
+    return { valid: false, reason: 'match_day_scorer_reminder_validation_failed' }
+  }
+
+  return {
+    valid: data?.valid === true,
+    reason: String(data?.reason || 'match_day_scorer_reminder_stale'),
+  }
+}
+
+async function markMatchDayScorerReminderSent(row) {
+  const operationKey = String(row?.payload?.matchDayScorerReminder?.operationKey ?? '').trim()
+  if (!operationKey) {
+    return
+  }
+
+  const { error } = await supabaseAdmin.rpc('mark_match_day_scorer_reminder_sent', {
+    operation_key_value: operationKey,
+  })
+  if (error) {
+    console.error('Match Day scorer reminder completion update failed', error)
+  }
+}
+
 export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
   const workerInvocationId = randomUUID()
   const lockedRow = await lockScheduledEmail(row, {
@@ -258,6 +293,12 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
   await updateEventPlayerNotificationEvent(lockedRow.id, 'processing')
 
   try {
+    const scorerReminderValidation = await validateMatchDayScorerReminder(lockedRow)
+    if (!scorerReminderValidation.valid) {
+      await discardSkippedScheduledEmail(lockedRow, scorerReminderValidation.reason)
+      return 'skipped'
+    }
+
     const planProfile = {
       ...await getClubPlanProfile(lockedRow.club_id),
       role: 'system',
@@ -373,6 +414,8 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       })
       .eq('id', lockedRow.id)
       .eq('lease_owner', workerInvocationId)
+
+    await markMatchDayScorerReminderSent(lockedRow)
 
     if (isCalendarNotificationQueueRow(lockedRow)) {
       await updateCalendarNotificationEvent(lockedRow.id, 'sent')

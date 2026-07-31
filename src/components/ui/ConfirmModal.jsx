@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const overlayClassName = 'fixed inset-0 flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6'
 const panelClassName =
@@ -59,6 +59,8 @@ export function ConfirmModal({
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [validationError, setValidationError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const cancelButtonRef = useRef(null)
+  const submittingRef = useRef(false)
 
   const resetFields = () => {
     setPassword('')
@@ -66,6 +68,7 @@ export function ConfirmModal({
     setIsPasswordVisible(false)
     setValidationError('')
     setIsSubmitting(false)
+    submittingRef.current = false
   }
 
   useEffect(() => {
@@ -75,8 +78,31 @@ export function ConfirmModal({
       setIsPasswordVisible(false)
       setValidationError('')
       setIsSubmitting(false)
+      submittingRef.current = false
     }
   }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const focusTimer = window.setTimeout(() => {
+      cancelButtonRef.current?.focus()
+    }, 0)
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !isBusy && !isSubmitting) {
+        event.preventDefault()
+        onCancel()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.clearTimeout(focusTimer)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isBusy, isOpen, isSubmitting, onCancel])
 
   const handleCancel = () => {
     resetFields()
@@ -92,7 +118,7 @@ export function ConfirmModal({
   const handleConfirm = async (event) => {
     event.preventDefault()
 
-    if (isBusy || isSubmitting || confirmDisabled) {
+    if (isBusy || isSubmitting || submittingRef.current || confirmDisabled) {
       return
     }
 
@@ -110,6 +136,7 @@ export function ConfirmModal({
     }
 
     setValidationError('')
+    submittingRef.current = true
     setIsSubmitting(true)
 
     try {
@@ -118,6 +145,7 @@ export function ConfirmModal({
       console.error(error)
       setValidationError(error.message || 'This action could not be completed.')
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }
@@ -162,7 +190,14 @@ export function ConfirmModal({
     : defaultConfirmButtonClassName
 
   return (
-    <div className={`${overlayZIndexClassName} ${overlayClassName}`}>
+    <div
+      className={`${overlayZIndexClassName} ${overlayClassName}`}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isActionBusy) {
+          handleCancel()
+        }
+      }}
+    >
       <div
         role="dialog"
         aria-modal="true"
@@ -257,6 +292,7 @@ export function ConfirmModal({
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
           {hideCancel ? null : (
             <button
+              ref={cancelButtonRef}
               type="button"
               onClick={handleCancel}
               disabled={isActionBusy}

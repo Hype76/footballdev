@@ -33,6 +33,7 @@ import {
   normalizeExtraTimePeriodCount,
   normalizeMatchDayConclusionRule,
 } from '../matchday-extended-ops.js'
+export { sortMatchDayPresentation } from '../matchday-presentation.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
@@ -579,6 +580,12 @@ export function normalizeMatchDay(row) {
     previousHiddenAt: row.previous_hidden_at ?? row.previousHiddenAt ?? '',
     deletedAt: row.deleted_at ?? row.deletedAt ?? '',
     deletedBy: row.deleted_by ?? row.deletedBy ?? '',
+    isToday: row.is_today === true || row.isToday === true,
+    presentationPriority: Number(row.presentation_priority ?? row.presentationPriority ?? 99),
+    scheduledKickoffAt: row.scheduled_kickoff_at ?? row.scheduledKickoffAt ?? '',
+    isBeforeKickoff: row.is_before_kickoff === true || row.isBeforeKickoff === true,
+    serverLocalDate: row.server_local_date ?? row.serverLocalDate ?? '',
+    serverLocalTime: row.server_local_time ?? row.serverLocalTime ?? '',
     availabilityStatus: normalizeText(row.availability_status ?? row.availabilityStatus),
     availabilityRespondedAt: row.availability_responded_at ?? row.availabilityRespondedAt ?? '',
     volunteerScorerResponse: normalizeVolunteerResponse(row.volunteer_scorer_response ?? row.volunteerScorerResponse),
@@ -610,6 +617,38 @@ export function normalizeMatchDay(row) {
     finalReport: normalizeMatchDayFinalReport(rawFinalReport),
     isHydrated: row.isHydrated === true || hasMatchDayDetails(row),
   }
+}
+
+async function attachMatchDayPresentationStates(matches) {
+  const matchList = Array.isArray(matches) ? matches : []
+  const matchDayIds = matchList.map((match) => normalizeText(match?.id)).filter(Boolean)
+
+  if (matchDayIds.length === 0) {
+    return matchList
+  }
+
+  const { data, error } = await supabase.rpc('get_match_day_presentation_states', {
+    match_day_ids_value: matchDayIds,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const stateByMatchId = new Map((data ?? []).map((row) => [String(row.match_day_id ?? row.matchDayId), row]))
+  return matchList.map((match) => {
+    const state = stateByMatchId.get(String(match.id)) ?? {}
+    return {
+      ...match,
+      isToday: state.is_today === true || state.isToday === true,
+      presentationPriority: Number(state.presentation_priority ?? state.presentationPriority ?? 99),
+      scheduledKickoffAt: state.scheduled_kickoff_at ?? state.scheduledKickoffAt ?? '',
+      isBeforeKickoff: state.is_before_kickoff === true || state.isBeforeKickoff === true,
+      serverLocalDate: state.server_local_date ?? state.serverLocalDate ?? '',
+      serverLocalTime: state.server_local_time ?? state.serverLocalTime ?? '',
+    }
+  })
 }
 
 function normalizeParentPortalMatchDay(row) {
@@ -1081,7 +1120,7 @@ export async function getMatchDays({ user } = {}) {
     throw error
   }
 
-  return (data ?? []).map(normalizeMatchDay)
+  return attachMatchDayPresentationStates((data ?? []).map(normalizeMatchDay))
 }
 
 export async function getMatchDay({ user, matchDayId } = {}) {
@@ -1113,7 +1152,8 @@ export async function getMatchDay({ user, matchDayId } = {}) {
     throw new Error('This match day is not linked to your active team.')
   }
 
-  return normalizeMatchDay(data)
+  const [match] = await attachMatchDayPresentationStates([normalizeMatchDay(data)])
+  return match
 }
 
 export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, decision }) {
@@ -1571,6 +1611,26 @@ export async function startMatchDay({ user, match, matchId } = {}) {
   return normalizeMatchDayTimerResult(data, match)
 }
 
+export async function startParentScorerMatchDay({ match, matchId } = {}) {
+  const normalizedMatchId = normalizeText(match?.id ?? matchId)
+  if (!normalizedMatchId) {
+    throw new Error('Choose a match to start.')
+  }
+
+  const { data, error } = await supabase.rpc('start_match_day', {
+    match_day_id_value: normalizedMatchId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayTimerResult(data, match)
+}
+
 export async function setMatchDayExtendedState({ user, match, matchId, action }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
@@ -1893,7 +1953,7 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     (scorerGameModeData ?? []).map((row) => String(row.match_day_id ?? row.matchDayId ?? '')),
   )
 
-  return (data ?? []).map((row) => {
+  const matches = (data ?? []).map((row) => {
     const extended = extendedByMatchId.get(row.id) ?? {}
     const contextByEventId = new Map((extended.event_contexts ?? extended.eventContexts ?? []).map((context) => [context.id, context]))
     const events = (row.events ?? []).map((event) => ({
@@ -1909,6 +1969,8 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
       events,
     })
   })
+
+  return attachMatchDayPresentationStates(matches)
 }
 
 export async function getParentPortalMatchDayPlayers({ parentLinkId }) {

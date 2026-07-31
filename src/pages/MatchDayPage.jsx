@@ -5,6 +5,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { CompletedMatchEventReport } from '../components/match-day/CompletedMatchEventReport.jsx'
 import { CompletedMatchReportExportActions } from '../components/match-day/CompletedMatchReportExportActions.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
+import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
 import {
@@ -45,6 +46,7 @@ import {
   setMatchDayPlayerSquadDecision,
   setMatchDayExtendedState,
   setMatchDayTimerState,
+  sortMatchDayPresentation,
   startMatchDay,
   updateMatchDay,
   updateStaffMatchDayScore,
@@ -1924,6 +1926,7 @@ export function MatchDayPage() {
   const [liveEntryModal, setLiveEntryModal] = useState(null)
   const [pendingStatusAction, setPendingStatusAction] = useState(null)
   const [pendingMatchAction, setPendingMatchAction] = useState(null)
+  const [startMatchPrompt, setStartMatchPrompt] = useState(null)
   const [goalCorrectionModal, setGoalCorrectionModal] = useState(null)
   const [goalCorrectionError, setGoalCorrectionError] = useState('')
   const [undoEventModal, setUndoEventModal] = useState(null)
@@ -1942,14 +1945,18 @@ export function MatchDayPage() {
     [activeFixtureMode, activeMatches],
   )
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
+  const todayMatches = useMemo(
+    () => sortMatchDayPresentation(matches.filter((match) => match.isToday)),
+    [matches],
+  )
   const canDeletePreviousGames = Number(user.roleRank ?? 0) >= 50
   const liveMatches = useMemo(
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
     [activeMatches],
   )
   const pitchsidePriorityMatch = useMemo(
-    () => activeMatches.find(isLiveMatchConsoleState) || activeMatches[0] || null,
-    [activeMatches],
+    () => todayMatches[0] || activeMatches.find(isLiveMatchConsoleState) || activeMatches[0] || null,
+    [activeMatches, todayMatches],
   )
   const scorerRequests = useMemo(
     () => activeMatches.filter((match) => match.status === 'scorer_request').length,
@@ -2672,7 +2679,7 @@ export function MatchDayPage() {
   const handleStatusChange = async (match, status) => {
     if (status === 'live') {
       setGameModeMatchId(match.id)
-      await saveMatchStatus(match, 'live')
+      await handleStartMatch(match)
       return
     }
 
@@ -2728,12 +2735,22 @@ export function MatchDayPage() {
     }
 
     setGameModeMatchId(match.id)
-    await persistTimerAction(hydratedMatch, 'start', {
+    setStartMatchPrompt(hydratedMatch)
+  }
+
+  const handleConfirmStartMatch = async () => {
+    const match = startMatchPrompt
+    if (!match) {
+      return
+    }
+
+    await persistTimerAction(match, 'start', {
       loadingMessage: 'Starting match...',
       successMessage: 'Match started.',
       toastMessage: 'The first period is now running.',
       saveTimerAction: startMatchDay,
     })
+    setStartMatchPrompt(null)
   }
 
   const handleGameModeStatusChange = async (match, status) => {
@@ -3772,6 +3789,16 @@ export function MatchDayPage() {
 
       {pitchsidePriorityMatch ? (
         <div className={isGameModeActive ? 'hidden xl:block' : ''}>
+          {todayMatches.length > 0 ? (
+            <div className="mb-3 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-3" data-testid="staff-match-day-hero-heading">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]">Today&apos;s Game Day</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text-muted)]">
+                {todayMatches.length === 1
+                  ? 'Today&apos;s fixture is the primary operational view.'
+                  : `${todayMatches.length} fixtures today, ordered live first, then by upcoming kick-off, with completed matches last.`}
+              </p>
+            </div>
+          ) : null}
           <PitchsideCockpitPanel
             isBusy={activeMatchId === pitchsidePriorityMatch.id}
             isExpanded={expandedMatchId === pitchsidePriorityMatch.id}
@@ -4144,6 +4171,15 @@ export function MatchDayPage() {
         title={pendingStatusAction?.title || 'Confirm match status'}
         onCancel={() => setPendingStatusAction(null)}
         onConfirm={handleConfirmStatusAction}
+      />
+
+      <StartMatchConfirmModal
+        isBusy={Boolean(activeMatchId)}
+        isOpen={Boolean(startMatchPrompt)}
+        match={startMatchPrompt}
+        onCancel={() => setStartMatchPrompt(null)}
+        onConfirm={handleConfirmStartMatch}
+        scorerLabel={user?.name || user?.role || 'Authorised staff member'}
       />
 
       <ConfirmModal
