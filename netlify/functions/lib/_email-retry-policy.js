@@ -62,7 +62,7 @@ export function classifyEmailFailure(error) {
   }
 
   if (
-    /recipient|invalid_email|email_invalid|not_found/.test(code)
+    /recipient|invalid_email|email_invalid|email_to_invalid|not_found/.test(code)
     || /recipient.*invalid|invalid.*recipient|email address.*invalid/.test(message)
   ) {
     return { category: 'non_retryable_recipient', retryable: false, safeCode: code }
@@ -72,7 +72,7 @@ export function classifyEmailFailure(error) {
     status === 400
     || status === 404
     || status === 422
-    || /malformed|invalid_payload|validation|missing_required|invalid_parameter/.test(code)
+    || /malformed|invalid_payload|validation|missing_required|invalid_parameter|email_from_invalid/.test(code)
   ) {
     return { category: 'non_retryable_malformed_payload', retryable: false, safeCode: code }
   }

@@ -47,6 +47,8 @@ test('failure classification separates retryable and terminal outcomes', () => {
   assert.equal(classifyEmailFailure({ code: '40001' }).category, 'retryable_database')
   assert.equal(classifyEmailFailure({ statusCode: 403 }).category, 'non_retryable_authorization')
   assert.equal(classifyEmailFailure({ code: 'invalid_recipient' }).category, 'non_retryable_recipient')
+  assert.equal(classifyEmailFailure({ code: 'email_to_invalid' }).category, 'non_retryable_recipient')
+  assert.equal(classifyEmailFailure({ code: 'email_from_invalid' }).category, 'non_retryable_malformed_payload')
   assert.equal(classifyEmailFailure({ code: 'event_revoked' }).category, 'non_retryable_cancelled')
   assert.equal(classifyEmailFailure({ statusCode: 400 }).category, 'non_retryable_malformed_payload')
 })
