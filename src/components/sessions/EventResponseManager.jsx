@@ -140,6 +140,7 @@ function ResponseManagerRow({
   onExpandedChange,
   onInvitationAction,
   onMarkUnavailable,
+  onOpenPlayerProfile,
   onSelectForSquad,
   row,
 }) {
@@ -163,10 +164,9 @@ function ResponseManagerRow({
         <div role="cell" className="min-w-0">
           <button
             type="button"
-            aria-controls={detailsId}
-            aria-expanded={expanded}
-            onClick={() => onExpandedChange(expanded ? '' : row.playerId)}
-            className="flex min-w-0 items-center gap-3 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-[#bbf7d0]"
+            onClick={() => onOpenPlayerProfile?.(row)}
+            className="flex min-h-11 min-w-0 items-center gap-3 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-[#bbf7d0]"
+            aria-label={`Open ${row.playerName} player profile`}
           >
             <span
               aria-hidden="true"
@@ -331,6 +331,7 @@ export function EventResponseManagerDialog({
   onClose,
   onInvitationAction,
   onMarkUnavailable,
+  onOpenPlayerProfile,
   onSelectForSquad,
 }) {
   const [activeFilter, setActiveFilter] = useState(EVENT_RESPONSE_FILTERS.all)
@@ -480,6 +481,7 @@ export function EventResponseManagerDialog({
                       }}
                       onInvitationAction={onInvitationAction}
                       onMarkUnavailable={onMarkUnavailable}
+                      onOpenPlayerProfile={onOpenPlayerProfile}
                       onSelectForSquad={onSelectForSquad}
                       row={row}
                     />

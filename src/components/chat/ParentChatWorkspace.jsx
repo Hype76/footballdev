@@ -104,6 +104,7 @@ export function ParentChatWorkspace({
   onRoomLoadSuccess,
   onUnreadCountChange,
   parentLinkId,
+  initialRoomId = '',
   user,
   variant = 'parent',
 }) {
@@ -148,6 +149,10 @@ export function ParentChatWorkspace({
 
       setRooms(nextRooms)
       setSelectedRoomId((currentRoomId) => {
+        if (initialRoomId && nextRooms.some((room) => room.id === initialRoomId)) {
+          return initialRoomId
+        }
+
         if (nextRooms.some((room) => room.id === currentRoomId)) {
           return currentRoomId
         }
@@ -167,7 +172,7 @@ export function ParentChatWorkspace({
         setIsLoadingRooms(false)
       }
     }
-  }, [chatScope])
+  }, [chatScope, initialRoomId])
 
   const loadMessages = useCallback(async (roomId, { keepError = false } = {}) => {
     if (!roomId) {

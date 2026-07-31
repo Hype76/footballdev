@@ -41,6 +41,7 @@ import {
 } from '../lib/session-page-utils.js'
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
 import { getMatchDayDisplayName } from '../lib/matchday-display.js'
+import { buildEventResponsePlayerNavigation } from '../lib/domain/player-profile-navigation.js'
 import {
   assertValidMatchDayFixtureType,
   MATCH_DAY_FIXTURE_TYPE_OPTIONS,
@@ -1553,7 +1554,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const requestKey = `${requestedAction}:${requestedSource}:${requestedEventId}`
 
     if (
-      requestedAction !== 'manage-players'
+      !['manage-players', 'view-responses'].includes(requestedAction)
       || !requestedEventId
       || isLoading
       || calendarDeepLinkRequestRef.current === requestKey
@@ -1567,7 +1568,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     ))
 
     if (!requestedEvent) {
-      setErrorMessage('The requested event could not be opened for player management.')
+      setErrorMessage('The requested event could not be opened in the saved event context.')
       const nextSearchParams = new URLSearchParams(searchParams)
       nextSearchParams.delete('action')
       nextSearchParams.delete('eventId')
@@ -1619,7 +1620,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         })
         setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
         setCalendarPlayerReview(null)
-        setCalendarModal({ mode: 'manage-players', event })
+        setCalendarModal({
+          mode: requestedAction === 'manage-players' ? 'manage-players' : 'view',
+          event,
+          openResponseManager: requestedAction === 'view-responses',
+          responseManagerRequestId: requestedAction === 'view-responses'
+            ? createNotificationRequestToken()
+            : '',
+        })
       } catch (error) {
         console.error(error)
         setErrorMessage(
@@ -1990,6 +1998,27 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       trainingAvailabilitySendDaysBefore: setting?.sendDaysBefore ?? 2,
     })
     setCalendarModal({ mode: 'view', event })
+  }
+
+  const handleOpenEventResponsePlayer = (row) => {
+    const event = calendarModal?.event
+
+    try {
+      const navigation = buildEventResponsePlayerNavigation({
+        currentSearch: searchParams.toString(),
+        event,
+        players,
+        row,
+        user,
+      })
+      const returnUrl = `${window.location.pathname}${navigation.returnSearch ? `?${navigation.returnSearch}` : ''}`
+
+      window.history.replaceState(window.history.state, '', returnUrl)
+      setCalendarModal(null)
+      navigate(navigation.profilePath)
+    } catch (error) {
+      setErrorMessage(error.message || 'The selected response could not open a player profile.')
+    }
   }
 
   const handleOpenCalendarPlayerManagement = () => {
@@ -3703,6 +3732,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         />
 
         <CalendarEventModal
+          key={calendarModal?.responseManagerRequestId || `${calendarModal?.event?.sourceType || 'new'}:${calendarModal?.event?.sourceId || 'new'}`}
           attachedResources={currentCalendarEventResources}
           currentInvites={currentCalendarEventInvites}
           event={calendarModal?.event}
@@ -3713,6 +3743,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           isResourcesLoading={isCalendarResourcesLoading}
           isOpen={Boolean(calendarModal)}
           mode={calendarModal?.mode || 'create'}
+          openResponseManagerOnMount={calendarModal?.openResponseManager === true}
           playerCommunicationMode={calendarPlayerCommunicationMode}
           playerReview={calendarPlayerReview}
           onCancel={handleCalendarModalClose}
@@ -3725,6 +3756,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             navigate(href || '/sessions')
           }}
           onManagePlayers={handleOpenCalendarPlayerManagement}
+          onOpenPlayerProfile={handleOpenEventResponsePlayer}
           onPlayerCommunicationModeChange={(mode) => {
             setCalendarPlayerCommunicationMode(mode)
           }}
@@ -4019,6 +4051,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onConfirm={() => void confirmCompleteSession()}
       />
       <CalendarEventModal
+        key={calendarModal?.responseManagerRequestId || `${calendarModal?.event?.sourceType || 'new'}:${calendarModal?.event?.sourceId || 'new'}`}
         attachedResources={currentCalendarEventResources}
         currentInvites={currentCalendarEventInvites}
         event={calendarModal?.event}
@@ -4029,6 +4062,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         isResourcesLoading={isCalendarResourcesLoading}
         isOpen={Boolean(calendarModal)}
         mode={calendarModal?.mode || 'create'}
+        openResponseManagerOnMount={calendarModal?.openResponseManager === true}
         playerCommunicationMode={calendarPlayerCommunicationMode}
         playerReview={calendarPlayerReview}
         onCancel={handleCalendarModalClose}
@@ -4041,6 +4075,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           navigate(href || '/sessions')
         }}
         onManagePlayers={handleOpenCalendarPlayerManagement}
+        onOpenPlayerProfile={handleOpenEventResponsePlayer}
         onPlayerCommunicationModeChange={(mode) => {
           setCalendarPlayerCommunicationMode(mode)
         }}
@@ -4780,6 +4815,7 @@ function CalendarEventModal({
   isResourcesLoading = false,
   isOpen,
   mode,
+  openResponseManagerOnMount = false,
   playerCommunicationMode = EVENT_PLAYER_COMMUNICATION_MODES.none,
   playerReview = null,
   onCancel,
@@ -4792,6 +4828,7 @@ function CalendarEventModal({
   onSelectForSquad,
   onApplyPlayerChanges,
   onManagePlayers,
+  onOpenPlayerProfile,
   onOpenWorkflow,
   onPlayerCommunicationModeChange,
   onPlayerReviewBack,
@@ -4807,7 +4844,9 @@ function CalendarEventModal({
 }) {
   const [availabilityAction, setAvailabilityAction] = useState(null)
   const [isMobileActionMenuOpen, setIsMobileActionMenuOpen] = useState(false)
-  const [isResponseManagerOpen, setIsResponseManagerOpen] = useState(false)
+  const [isResponseManagerOpen, setIsResponseManagerOpen] = useState(
+    () => openResponseManagerOnMount && eventResponseManager?.counts?.total > 0,
+  )
   const dialogRef = useRef(null)
   const closeButtonRef = useRef(null)
   const mobileActionMenuButtonRef = useRef(null)
@@ -5824,6 +5863,7 @@ function CalendarEventModal({
               status: row.sourceRow.display,
             })
           }}
+          onOpenPlayerProfile={onOpenPlayerProfile}
           onSelectForSquad={(row) => {
             setAvailabilityAction({
               action: 'select',

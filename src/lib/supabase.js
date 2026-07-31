@@ -300,6 +300,11 @@ export {
 } from './domain/parent-chat.js'
 
 export {
+  getPlayerLinkedChatContext,
+  startOrReusePlayerChat,
+} from './domain/player-chat.js'
+
+export {
   getParentPortalActivityState,
   markParentPortalChatViewed,
   markParentPortalCategoryViewed,

@@ -415,6 +415,23 @@ async function preparePage(context, { standalone = false } = {}) {
       return json(route, [savedDecision])
     }
 
+    if (path.endsWith('/rpc/get_player_linked_chat_context')) {
+      const payload = request.postDataJSON()
+      return json(route, {
+        ok: true,
+        playerId: payload.player_id_value,
+        clubId: 'club-fixture',
+        teamId: 'team-u12',
+        permissions: {
+          canStartParent: false,
+          canStartStaff: true,
+          canViewParent: true,
+          canViewStaff: true,
+        },
+        conversations: [],
+      })
+    }
+
     if (path.endsWith('/match_days')) {
       return json(route, url.searchParams.has('id') ? matchRow() : [matchRow()])
     }
@@ -431,6 +448,20 @@ async function preparePage(context, { standalone = false } = {}) {
       return json(route, [{ id: 'training-setting', club_id: 'club-fixture', team_id: 'team-u12', calendar_event_id: 'training-event', enabled: true, send_days_before: 2 }])
     }
     if (path.endsWith('/training_availability_request_players')) return json(route, trainingRequestRows())
+    if (path.endsWith('/training_availability_responses')) {
+      return json(route, trainingAccepted
+        ? [{
+            request_id: 'training-request',
+            calendar_event_id: 'training-event',
+            player_id: 'training-player',
+            status: 'available',
+            note: '',
+            responded_at: new Date().toISOString(),
+            responded_by_name: 'Manager Fixture',
+            response_source: 'staff_on_behalf',
+          }]
+        : [])
+    }
 
     return json(route, [])
   })
@@ -539,6 +570,18 @@ try {
     ['Available (1)', 'Awaiting response (1)', 'Invitation not sent (32)'],
   )
 
+  const desktopPlayerProfileButton = desktopManager.getByRole('button', { name: 'Open Pending Player player profile' })
+  await desktopPlayerProfileButton.focus()
+  await desktop.page.keyboard.press('Enter')
+  await desktop.page.waitForURL((url) => (
+    url.pathname === '/player/Pending%20Player'
+    && url.searchParams.get('playerId') === 'pending-player'
+    && url.searchParams.get('teamId') === 'team-u12'
+    && url.searchParams.get('clubId') === 'club-fixture'
+  ), { timeout: 15000 })
+  await desktop.page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await desktop.page.getByTestId('event-response-manager').waitFor({ state: 'visible', timeout: 15000 })
+
   await desktopManager.getByRole('tab', { name: 'Invitation not sent (32)' }).click()
   assert.equal(await desktopManager.locator('[role="row"][data-player-id]').count(), 32)
   const desktopSearch = desktopManager.getByRole('searchbox', { name: 'Search players' })
@@ -585,6 +628,7 @@ try {
   assert.equal(await desktopViewResponses.evaluate((element) => element === document.activeElement), true)
 
   await desktop.page.getByRole('button', { name: 'Close calendar event' }).click()
+  await desktop.page.getByRole('button', { name: 'Agenda' }).click()
   await openEvent(desktop.page, 'FP TEST Training Invite')
   await desktop.page.getByRole('button', { name: 'Edit event' }).click()
   assert.equal(await desktop.page.getByRole('checkbox', { name: 'Automatically select players who respond Available' }).count(), 0)
@@ -675,6 +719,9 @@ try {
   await mobileSearch.fill('PENDING')
   await mobileManager.getByText('1 of 34 players', { exact: true }).waitFor({ state: 'visible' })
   const mobilePendingRow = mobileManager.locator('[role="row"][data-player-id="pending-player"]')
+  const mobilePlayerProfileButton = mobilePendingRow.getByRole('button', { name: 'Open Pending Player player profile' })
+  const mobilePlayerProfileButtonBox = await mobilePlayerProfileButton.boundingBox()
+  assert.ok(mobilePlayerProfileButtonBox && mobilePlayerProfileButtonBox.height >= 44)
   await mobilePendingRow.getByRole('button', { name: 'Expand' }).click()
   const mobilePendingDetailsRow = mobileManager.locator('[role="row"][data-player-id="pending-player-details"]')
   const mobileActionButton = mobilePendingDetailsRow.getByRole('button', { name: 'Actions for Pending Player' })
@@ -730,11 +777,21 @@ try {
     window.matchMedia('(display-mode: standalone)').matches
     && window.navigator.standalone === true
   )), true)
+  await pwa.page.getByRole('button', { name: 'Agenda' }).click()
   await openEvent(pwa.page, 'FP TEST Training Invite')
   await pwa.page.getByTestId('event-response-summary').getByRole('button', { name: 'View responses' }).click()
   const pwaManager = pwa.page.getByTestId('event-response-manager')
   await pwaManager.getByRole('tab', { name: 'Attending (0)', exact: true }).waitFor({ state: 'visible' })
   await pwaManager.getByRole('tab', { name: 'Awaiting response (1)' }).waitFor({ state: 'visible' })
+  const pwaTrainingProfileButton = pwaManager.getByRole('button', { name: 'Open Training Player player profile' })
+  await pwaTrainingProfileButton.click()
+  await pwa.page.waitForURL((url) => (
+    url.pathname === '/player/Training%20Player'
+    && url.searchParams.get('playerId') === 'training-player'
+    && url.searchParams.get('teamId') === 'team-u12'
+  ), { timeout: 15000 })
+  await pwa.page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await pwa.page.getByTestId('event-response-manager').waitFor({ state: 'visible', timeout: 15000 })
   const pwaManagerBox = await pwaManager.boundingBox()
   assert.ok(pwaManagerBox && pwaManagerBox.height >= 820 && pwaManagerBox.height <= 852)
   assert.equal(await pwa.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)

@@ -6,7 +6,7 @@ import { blockDemoMutation } from './demo-guards.js'
 import { getAvailableTeamsForUser } from './team-actions.js'
 import { getVisibleClubUsers } from './role-queries.js'
 
-export const STAFF_CHAT_CONVERSATION_TYPES = ['club_staff', 'team_staff', 'group', 'direct']
+export const STAFF_CHAT_CONVERSATION_TYPES = ['club_staff', 'team_staff', 'group', 'direct', 'player_staff']
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -74,6 +74,7 @@ export function normalizeStaffChatConversation(row) {
     id: row.id ?? '',
     clubId: row.club_id ?? row.clubId ?? '',
     teamId: row.team_id ?? row.teamId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
     type: normalizeConversationType(row.type),
     title: normalizeText(row.title),
     createdBy: row.created_by ?? row.createdBy ?? '',
@@ -123,6 +124,12 @@ export function canOpenStaffChatConversationForUser(conversation, user) {
     return Boolean(activeTeamId) && normalizeText(conversation.teamId) === activeTeamId
   }
 
+  if (conversation.type === 'player_staff') {
+    const activeTeamId = normalizeText(user?.activeTeamId)
+    return Number(user?.roleRank ?? 0) >= 50
+      || (Boolean(activeTeamId) && normalizeText(conversation.teamId) === activeTeamId)
+  }
+
   if (conversation.type === 'direct') {
     return conversation.members.length === 2
   }
@@ -144,7 +151,7 @@ async function getReadableStaffChatConversation({ conversationId, user } = {}) {
 
   const { data, error } = await supabase
     .from('staff_chat_conversations')
-    .select('id, club_id, team_id, type, staff_chat_members(id, conversation_id, club_id, user_id, archived_at)')
+    .select('id, club_id, team_id, player_id, type, staff_chat_members(id, conversation_id, club_id, user_id, archived_at)')
     .eq('id', normalizedConversationId)
     .eq('club_id', user.clubId)
     .maybeSingle()

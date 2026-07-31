@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { canUseClubStaffChat, canUseStaffChat, useAuth } from '../lib/auth.js'
 import {
   archiveStaffChatConversation,
@@ -17,6 +18,7 @@ const conversationTabs = [
   { key: 'team_staff', label: 'Team Staff' },
   { key: 'group', label: 'Groups' },
   { key: 'direct', label: 'Direct Messages' },
+  { key: 'player_staff', label: 'Player discussions' },
 ]
 
 function formatTime(value) {
@@ -50,6 +52,10 @@ function getConversationTitle(conversation, currentUserId) {
     return 'Team Staff'
   }
 
+  if (conversation.type === 'player_staff') {
+    return 'Player staff discussion'
+  }
+
   if (conversation.type === 'direct') {
     const otherMember = conversation.members.find((member) => member.userId !== currentUserId)
     return otherMember?.user?.name || otherMember?.user?.email || 'Direct message'
@@ -69,6 +75,10 @@ function getConversationMeta(conversation) {
     return `${memberCount} team staff`
   }
 
+  if (conversation.type === 'player_staff') {
+    return `${memberCount} authorised staff`
+  }
+
   if (conversation.type === 'direct') {
     return '1-to-1 staff chat'
   }
@@ -78,7 +88,12 @@ function getConversationMeta(conversation) {
 
 export function StaffChatPage() {
   const { user } = useAuth()
-  const [activeType, setActiveType] = useState('club_staff')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedConversationId = String(searchParams.get('conversationId') ?? '').trim()
+  const requestedType = String(searchParams.get('type') ?? '').trim()
+  const [activeType, setActiveType] = useState(
+    conversationTabs.some((tab) => tab.key === requestedType) ? requestedType : 'club_staff',
+  )
   const [conversations, setConversations] = useState([])
   const [selectedConversationId, setSelectedConversationId] = useState('')
   const [messages, setMessages] = useState([])
@@ -129,6 +144,13 @@ export function StaffChatPage() {
       setStaff(nextStaff)
       setTeams(nextTeams)
       setSelectedConversationId((current) => {
+        if (requestedConversationId && nextConversations.some((conversation) => (
+          conversation.id === requestedConversationId
+          && (!requestedType || conversation.type === requestedType)
+        ))) {
+          return requestedConversationId
+        }
+
         if (current && nextConversations.some((conversation) => conversation.id === current && conversation.type === activeType)) {
           return current
         }
@@ -141,7 +163,19 @@ export function StaffChatPage() {
       setErrorMessage(error.message || 'Staff Chat could not be loaded.')
       setStatus('ready')
     }
-  }, [activeType, canOpenStaffChat, user])
+  }, [activeType, canOpenStaffChat, requestedConversationId, requestedType, user])
+
+  useEffect(() => {
+    const requestedConversation = conversations.find((conversation) => (
+      conversation.id === requestedConversationId
+      && (!requestedType || conversation.type === requestedType)
+    ))
+
+    if (requestedConversation) {
+      setActiveType(requestedConversation.type)
+      setSelectedConversationId(requestedConversation.id)
+    }
+  }, [conversations, requestedConversationId, requestedType])
 
   useEffect(() => {
     void loadStaffChat()
@@ -218,6 +252,14 @@ export function StaffChatPage() {
         ? current.filter((id) => id !== memberId)
         : [...current, memberId]
     ))
+  }
+
+  const handleConversationTypeChange = (type) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('conversationId')
+    nextSearchParams.delete('type')
+    setSearchParams(nextSearchParams, { replace: true })
+    setActiveType(type)
   }
 
   const createConversation = async (type) => {
@@ -364,7 +406,7 @@ export function StaffChatPage() {
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveType(tab.key)}
+                onClick={() => handleConversationTypeChange(tab.key)}
                 className={[
                   'min-h-11 rounded-lg border px-3 py-2 text-sm font-black transition',
                   activeType === tab.key
@@ -553,6 +595,17 @@ function CreateConversationPanel({
   teams,
   user,
 }) {
+  if (activeType === 'player_staff') {
+    return (
+      <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
+        <p className="text-sm font-black text-[var(--text-primary)]">Player discussions</p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-[var(--text-muted)]">
+          Start a player-linked staff discussion from the authorised player profile.
+        </p>
+      </div>
+    )
+  }
+
   if (activeType === 'club_staff') {
     return (
       <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">

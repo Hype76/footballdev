@@ -339,6 +339,10 @@ async function preparePage(context) {
   const authRequests = []
   const routedRequests = []
 
+  await context.route('**/rest/v1/**', async (route) => {
+    routedRequests.push(route.request().url())
+    await fulfillJson(route, [])
+  })
   await context.route('http://fixture.supabase.test/rest/v1/**', async (route) => {
     await fulfillJson(route, [])
   })
@@ -377,7 +381,69 @@ async function preparePage(context) {
     await fulfillJson(route, { keys: [fixtureJwtPublicJwk] })
   })
   await context.route(/\/rest\/v1\/users(?:\?|$)/, async (route) => {
-    await fulfillJson(route, fixtureUserProfile())
+    const url = new URL(route.request().url())
+    const idFilter = String(url.searchParams.get('id') ?? '')
+    await fulfillJson(route, idFilter.startsWith('eq.')
+      ? fixtureUserProfile()
+      : [fixtureUserProfile()])
+  })
+  await context.route('**/rest/v1/rpc/get_own_adult_player_account_state', async (route) => {
+    await fulfillJson(route, [])
+  })
+  await context.route('**/rest/v1/rpc/accept_own_club_user_invites', async (route) => {
+    await fulfillJson(route, [])
+  })
+  await context.route(/\/rest\/v1\/platform_banners(?:\?|$)/, async (route) => {
+    await fulfillJson(route, [])
+  })
+  await context.route('**/rest/v1/rpc/get_player_linked_chat_context', async (route) => {
+    const payload = route.request().postDataJSON()
+    await fulfillJson(route, {
+      ok: true,
+      playerId: payload.player_id_value,
+      clubId: 'club-fixture',
+      teamId: 'team-u12',
+      permissions: {
+        canStartParent: true,
+        canStartStaff: true,
+        canViewParent: true,
+        canViewStaff: true,
+      },
+      conversations: [
+        {
+          id: 'parent-room-fixture',
+          conversationType: 'parent',
+          label: 'Parent conversation',
+          title: 'Chat with Staff',
+          status: 'active',
+          teamId: 'team-u12',
+          playerId: payload.player_id_value,
+          participants: [
+            { id: 'parent-fixture', name: 'Fixture Parent', kind: 'parent' },
+            { id: fixtureUserId, name: 'Coach Fixture', kind: 'staff' },
+          ],
+          lastMessageAt: '2026-07-31T15:00:00.000Z',
+          unreadCount: 1,
+          canOpen: true,
+        },
+        {
+          id: 'staff-conversation-fixture',
+          conversationType: 'staff',
+          label: 'Staff discussion',
+          title: 'Fixture Player staff discussion',
+          status: 'active',
+          teamId: 'team-u12',
+          playerId: payload.player_id_value,
+          participants: [
+            { id: fixtureUserId, name: 'Coach Fixture', kind: 'staff' },
+            { id: 'manager-fixture', name: 'Manager Fixture', kind: 'staff' },
+          ],
+          lastMessageAt: '2026-07-31T16:00:00.000Z',
+          unreadCount: 0,
+          canOpen: true,
+        },
+      ],
+    })
   })
   await context.route(/\/rest\/v1\/user_club_memberships(?:\?|$)/, async (route) => {
     await fulfillJson(route, [])
@@ -424,7 +490,10 @@ async function preparePage(context) {
   })
   await context.route('**/rest/v1/parent_player_links**', async (route) => {
     const url = new URL(route.request().url())
-    await fulfillJson(route, filterRows(parentLinks, url.searchParams))
+    await fulfillJson(
+      route,
+      url.searchParams.has('auth_user_id') ? [] : filterRows(parentLinks, url.searchParams),
+    )
   })
   await context.route(/\/rest\/v1\/player_staff_notes(?:\?|$)/, async (route) => {
     await fulfillJson(route, [])
@@ -443,6 +512,13 @@ async function preparePage(context) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ success: false, message: 'Fixture function stub.' }),
+    })
+  })
+  await context.route('**/.netlify/functions/platform-analytics**', async (route) => {
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, accepted: true }),
     })
   })
 
@@ -529,6 +605,36 @@ try {
   await page.getByText('Email: parent.fixture@example.test', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('Forward', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByRole('button', { name: 'Edit Details' }).waitFor({ state: 'visible', timeout: 15000 })
+  const playerChatSection = page.getByTestId('player-linked-chat-section')
+  await playerChatSection.getByRole('heading', { name: 'Player-linked Chat' }).waitFor({ state: 'visible', timeout: 15000 })
+  await playerChatSection.getByRole('heading', { name: 'Parent conversation' }).waitFor({ state: 'visible' })
+  await playerChatSection.getByRole('heading', { name: 'Staff discussion' }).waitFor({ state: 'visible' })
+  await playerChatSection.getByText('Participants: Fixture Parent, Coach Fixture', { exact: true }).waitFor({ state: 'visible' })
+  await playerChatSection.getByText('Participants: Coach Fixture, Manager Fixture', { exact: true }).waitFor({ state: 'visible' })
+  await playerChatSection.getByText('1 unread', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await playerChatSection.getByText('Unrelated Parent', { exact: false }).count(), 0)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  const staffDiscussion = playerChatSection.locator('article').filter({ hasText: 'Staff discussion' })
+  const staffOpenButton = staffDiscussion.getByRole('button', { name: 'Open conversation' })
+  const staffOpenButtonBox = await staffOpenButton.boundingBox()
+  assert.ok(staffOpenButtonBox && staffOpenButtonBox.height >= 44)
+  await staffOpenButton.click()
+  await page.waitForURL((url) => (
+    url.pathname === '/staff-chat'
+    && url.searchParams.get('type') === 'player_staff'
+    && url.searchParams.get('conversationId') === 'staff-conversation-fixture'
+  ), { timeout: 15000 })
+  await page.getByRole('button', { name: 'Team Staff' }).click()
+  await page.waitForURL((url) => (
+    url.pathname === '/staff-chat'
+    && !url.searchParams.has('type')
+    && !url.searchParams.has('conversationId')
+  ), { timeout: 15000 })
+  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.getByTestId('player-linked-chat-section').waitFor({ state: 'visible', timeout: 15000 })
+  await page.setViewportSize({ width: 1280, height: 720 })
 
   assert.equal(await page.getByText('Demo Team', { exact: true }).count(), 0)
   assert.equal(await page.getByText('Contact: Demo Parent', { exact: true }).count(), 0)

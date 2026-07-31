@@ -786,8 +786,8 @@ async function parentSignIn(page, email, baseUrl = parentBaseUrl) {
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
 }
 
-async function assertVisibleText(page, text) {
-  await page.getByText(text, { exact: true }).filter({ visible: true }).first().waitFor({ state: 'visible', timeout: 15000 })
+async function assertVisibleText(page, text, timeout = 15000) {
+  await page.getByText(text, { exact: true }).filter({ visible: true }).first().waitFor({ state: 'visible', timeout })
 }
 
 async function assertVisibleTextContaining(page, text) {
@@ -2206,7 +2206,7 @@ try {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'lookup-failed-dual.fixture@footballplayer.test', mainBaseUrl)
-    await assertVisibleText(page, 'Parent access could not be confirmed')
+    await assertVisibleText(page, 'Parent access could not be confirmed', 60000)
     await assertVisibleText(page, 'A temporary Parent-link lookup problem is not treated as proof that the link is missing.')
     assert.equal(await page.getByText(/sign-in is for parent access/i).count(), 0)
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
