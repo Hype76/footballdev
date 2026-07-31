@@ -11,6 +11,10 @@ const migrationSql = await readFile(
   new URL('../supabase/migrations/20260731095100_email_lease_retry_12d.sql', import.meta.url),
   'utf8',
 )
+const providerEventScopeSql = await readFile(
+  new URL('../supabase/migrations/20260731104500_email_provider_event_scope_12d.sql', import.meta.url),
+  'utf8',
+)
 
 const CLUB_ID = '12d00000-0000-4000-8000-000000000001'
 const TEAM_ID = '12d00000-0000-4000-8000-000000000002'
@@ -79,6 +83,7 @@ async function createDatabase() {
   `)
   await db.exec(observabilitySql)
   await db.exec(migrationSql)
+  await db.exec(providerEventScopeSql)
   return db
 }
 
@@ -225,5 +230,23 @@ test('provider events are idempotent and keep accepted separate from delivered',
     where id = '${NEW_QUEUE_ID}'
   `)
   assert.deepEqual(states.rows.map((row) => row.delivery_state), ['delivered', 'delivered'])
+  await db.close()
+})
+
+test('provider events for unknown workspace messages are ignored', async () => {
+  const db = await createDatabase()
+  const result = await db.query(`
+    select public.record_email_provider_event_v1(
+      'event_unknown_12d', 'provider_outside_footballplayer',
+      'email.delivered', timezone('utc', now()), repeat('f', 64)
+    ) as inserted
+  `)
+  assert.equal(result.rows[0].inserted, false)
+
+  const events = await db.query(`
+    select count(*)::integer as event_count
+    from public.email_provider_events
+  `)
+  assert.equal(events.rows[0].event_count, 0)
   await db.close()
 })
