@@ -208,6 +208,7 @@ export function getPublicEmailErrorMessage(error, fallback = DEFAULT_PUBLIC_FAIL
 export async function sendEmail(emailPayload, {
   context = {},
   env = process.env,
+  idempotencyKey = '',
   publicMessage = DEFAULT_PUBLIC_FAILURE_MESSAGE,
   resendClient = null,
   telemetryClient = null,
@@ -262,7 +263,13 @@ export async function sendEmail(emailPayload, {
 
   try {
     const resend = resendClient || new Resend(config.apiKey)
-    const response = await resend.emails.send(safePayload)
+    const providerIdempotencyKey = normalizeText(
+      idempotencyKey || context.providerIdempotencyKey,
+    )
+    const response = await resend.emails.send(
+      safePayload,
+      providerIdempotencyKey ? { idempotencyKey: providerIdempotencyKey } : undefined,
+    )
     const providerError = getProviderResponseError(response)
 
     if (providerError) {

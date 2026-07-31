@@ -26,5 +26,7 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.ok(topLevelFunctions.includes('manage-club-logo'))
   assert.ok(topLevelFunctions.includes('security-audit-monitor'))
   assert.ok(topLevelFunctions.includes('parent-development-history'))
-  assert.equal(topLevelFunctions.length, 61)
+  assert.ok(topLevelFunctions.includes('resend-webhook'))
+  assert.ok(topLevelFunctions.includes('configure-resend-webhook'))
+  assert.equal(topLevelFunctions.length, 63)
 })

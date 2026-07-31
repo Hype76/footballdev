@@ -3,12 +3,7 @@ import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
 } from './lib/_plan-gate.js'
-import { sendPreparedParentEmail } from './send-parent-email.js'
-import { sendParentMobilePushById } from './send-parent-mobile-push.js'
-import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
 import { processCalendarNotificationCommand, sendScheduledEmail } from './process-scheduled-emails.js'
-import { isResourceNotificationQueueRow } from './lib/_resource-notification-email.js'
-import { isCalendarNotificationQueueRow } from './lib/_calendar-notification-email.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -123,11 +118,14 @@ function normalizeRow(row) {
     createdByEmail: row.created_by_email,
     toEmail: row.to_email,
     subject: row.subject,
-    status: row.status,
+    status: row.delivery_state || row.status,
+    deliveryState: row.delivery_state || row.status,
     scheduledAt: row.scheduled_at,
     previewText: htmlToPlainText(html),
     hasAttachment: Boolean(resendPayload.attachments?.length),
-    lastError: row.last_error,
+    lastError: row.delivery_state === 'failed' || row.delivery_state === 'retrying'
+      ? 'Email delivery needs attention.'
+      : null,
     attempts: row.attempts,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -164,7 +162,7 @@ async function listQueue({ profile }) {
     .from('scheduled_email_queue')
     .select('*')
     .eq('club_id', profile.clubId)
-    .in('status', ['scheduled', 'failed'])
+    .in('status', ['scheduled', 'sending', 'sent', 'failed'])
     .order('scheduled_at', { ascending: true })
     .limit(250)
 
@@ -342,123 +340,49 @@ async function deleteQueueItem({ body, profile }) {
   return { id: row.id }
 }
 
-async function createSentCommunicationLog(row) {
-  const log = row.payload?.communicationLog
-
-  if (!log || typeof log !== 'object' || !log.clubId || !log.userId) {
-    return null
-  }
-
-  const { data, error } = await supabaseAdmin.from('communication_logs').insert({
-    club_id: log.clubId,
-    player_id: log.playerId || null,
-    evaluation_id: log.evaluationId || null,
-    user_id: log.userId,
-    user_name: String(log.userName ?? '').trim(),
-    user_email: String(log.userEmail ?? row.created_by_email ?? '').trim().toLowerCase(),
-    channel: 'email',
-    action: 'parent_email_sent',
-    recipient_email: String(log.recipientEmail ?? row.to_email ?? '').trim(),
-    metadata: log.metadata && typeof log.metadata === 'object' ? log.metadata : {},
-  }).select('id, club_id').single()
-
-  if (error) {
-    console.error('Queued email communication log failed', error)
-    return null
-  }
-
-  return data
-}
-
-async function sendQueuedParentPush(communicationLog) {
-  if (!communicationLog?.id || !communicationLog?.club_id) {
-    return
-  }
-
-  try {
-    await sendParentMobilePushById({
-      id: communicationLog.id,
-      profile: {
-        clubId: communicationLog.club_id,
-        role: 'system',
-        roleRank: 100,
-      },
-      type: 'parent_message',
-    })
-  } catch (error) {
-    console.error('Queued email parent mobile push failed', error)
-  }
-}
-
 async function sendNowQueueItem({ body, profile }) {
   const row = await getQueueRow({ id: body.id, profile })
 
-  if (
-    isCalendarNotificationQueueRow(row)
-    || isResourceNotificationQueueRow(row)
-  ) {
-    const status = await sendScheduledEmail(row, { retryFailed: true })
-
-    if (status === 'failed') {
-      throw new Error('The queued email could not be sent. Please try again.')
-    }
-
-    if (status === 'skipped') {
-      throw Object.assign(new Error('This email is already being processed.'), { statusCode: 409 })
-    }
-
-    return {
-      id: row.id,
-      duplicate: status === 'duplicate',
-    }
+  if (row.legacy_review_required || row.retry_enabled === false) {
+    throw Object.assign(
+      new Error('This legacy delivery requires separate review before retry.'),
+      { statusCode: 409 },
+    )
   }
 
-  if (row.status === 'sending') {
-    throw Object.assign(new Error('This email is already being sent.'), { statusCode: 409 })
+  if (row.status === 'sent') {
+    return { id: row.id, duplicate: true }
   }
 
-  const { data: lockedRow, error: lockError } = await supabaseAdmin
+  const dueNow = new Date().toISOString()
+  const dueUpdate = row.status === 'failed'
+    ? { next_retry_at: dueNow }
+    : { scheduled_at: dueNow }
+  const { error: dueError } = await supabaseAdmin
     .from('scheduled_email_queue')
-    .update({ status: 'sending' })
+    .update(dueUpdate)
     .eq('id', row.id)
-    .neq('status', 'sending')
-    .select('*')
-    .maybeSingle()
 
-  if (lockError || !lockedRow) {
+  if (dueError) {
+    throw new Error('The queued email could not be prepared for retry.')
+  }
+
+  const status = await sendScheduledEmail(
+    { ...row, ...dueUpdate },
+    { retryFailed: row.status === 'failed' },
+  )
+
+  if (status === 'failed') {
+    throw new Error('The queued email could not be sent. Please try again.')
+  }
+
+  if (status === 'skipped') {
     throw Object.assign(new Error('This email is already being processed.'), { statusCode: 409 })
   }
 
-  try {
-    assertPlanFeature(profile, 'parentEmails')
-    const sendResult = await sendPreparedParentEmail(buildPreparedScheduledEmail(lockedRow, profile), {
-      idempotencySeed: `scheduled:${lockedRow.id}`,
-    })
-
-    await supabaseAdmin
-      .from('scheduled_email_queue')
-      .delete()
-      .eq('id', lockedRow.id)
-
-    if (!sendResult.duplicate) {
-      const communicationLog = await createSentCommunicationLog(lockedRow)
-      await sendQueuedParentPush(communicationLog)
-    }
-
-    return {
-      id: lockedRow.id,
-      duplicate: Boolean(sendResult.duplicate),
-    }
-  } catch (error) {
-    await supabaseAdmin
-      .from('scheduled_email_queue')
-      .update({
-        status: 'failed',
-        last_error: error.message || String(error),
-        attempts: Number(lockedRow.attempts ?? 0) + 1,
-      })
-      .eq('id', lockedRow.id)
-    throw error
+  return {
+    id: row.id,
+    duplicate: status === 'duplicate',
   }
 }
 

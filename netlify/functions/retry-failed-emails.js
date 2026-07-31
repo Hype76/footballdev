@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto'
 import process from 'node:process'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { sendEmail } from './lib/_email-provider.js'
-import { authorizeProcessorRequest } from './lib/_processor-auth.js'
+import {
+  authorizeNativeScheduledRequest,
+  authorizeProcessorRequest,
+} from './lib/_processor-auth.js'
 import {
   getFailedEmailLogs,
   getStoredResendPayload,
@@ -27,27 +30,20 @@ function jsonResponse(statusCode, payload) {
   }
 }
 
-function failureResponse(statusCode, message) {
-  return jsonResponse(statusCode, { success: false, message })
-}
-
 function getMissingEnvVars() {
   return ['RESEND_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'VITE_SUPABASE_URL'].filter(
     (envName) => !process.env[envName],
   )
 }
 
-export async function handler(event) {
-  const authorization = authorizeProcessorRequest(event)
-
-  if (!authorization.ok) {
-    return authorization.response
-  }
-
+export async function processFailedEmails() {
   const missingEnvVars = getMissingEnvVars()
 
   if (missingEnvVars.length > 0) {
-    return failureResponse(503, 'Retry processor is not configured.')
+    return {
+      statusCode: 503,
+      payload: { success: false, message: 'Retry processor is not configured.' },
+    }
   }
 
   const failedEmailLogs = await getFailedEmailLogs()
@@ -60,10 +56,6 @@ export async function handler(event) {
   }
 
   for (const emailLog of failedEmailLogs) {
-    if (Number(emailLog.attempts ?? 0) >= 3) {
-      continue
-    }
-
     const lockedEmailLog = await lockEmailLogForRetry(emailLog)
 
     if (!lockedEmailLog) {
@@ -99,6 +91,7 @@ export async function handler(event) {
       )
       const resendPayload = authorizedPreparedEmail.emailPayload
       const response = await sendEmail(resendPayload, {
+        idempotencyKey: `fp-retry-${lockedEmailLog.idempotency_key || lockedEmailLog.id}`,
         context: {
           emailType: String(lockedEmailLog.payload?.requiredFeature || 'retry_failed_email'),
           actorId: String(lockedEmailLog.payload?.actorId || ''),
@@ -119,7 +112,7 @@ export async function handler(event) {
             eligibleAt: lockedEmailLog.next_retry_at || new Date().toISOString(),
             claimedAt: new Date().toISOString(),
             processingStartedAt: new Date().toISOString(),
-            workerInvocationId: randomUUID(),
+            workerInvocationId: lockedEmailLog.workerInvocationId || randomUUID(),
           },
         },
         publicMessage: 'Email retry could not be sent. Please try again in a moment.',
@@ -135,5 +128,34 @@ export async function handler(event) {
     }
   }
 
-  return jsonResponse(200, { success: true, ...summary })
+  return {
+    statusCode: 200,
+    payload: { success: true, ...summary },
+  }
+}
+
+export async function handler(event) {
+  const authorization = authorizeProcessorRequest(event)
+
+  if (!authorization.ok) {
+    return authorization.response
+  }
+
+  const result = await processFailedEmails()
+  return jsonResponse(result.statusCode, result.payload)
+}
+
+export const config = {
+  schedule: '* * * * *',
+}
+
+export default async function scheduledHandler(request) {
+  const authorization = await authorizeNativeScheduledRequest(request)
+
+  if (!authorization.ok) {
+    return authorization.response
+  }
+
+  const result = await processFailedEmails()
+  return Response.json(result.payload, { status: result.statusCode })
 }

@@ -18,6 +18,12 @@ import {
   prepareScheduledTrainingInvitationRow,
   updateTrainingInvitationDelivery,
 } from './process-training-availability-requests.js'
+import {
+  MAX_EMAIL_DELIVERY_ATTEMPTS,
+  classifyEmailFailure,
+  getNextEmailRetryAt,
+  getProviderMessageId,
+} from './lib/_email-retry-policy.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -96,33 +102,50 @@ async function updateEventPlayerNotificationEvent(queueId, status, lastError = n
   }
 }
 
-async function lockScheduledEmail(row, { retryFailed = false } = {}) {
-  const { data, error } = await supabaseAdmin
-    .from('scheduled_email_queue')
-    .update({ status: 'sending' })
-    .eq('id', row.id)
-    .in('status', retryFailed ? ['scheduled', 'failed'] : ['scheduled'])
-    .select('*')
-    .maybeSingle()
+async function lockScheduledEmail(row, {
+  retryFailed = false,
+  workerInvocationId,
+} = {}) {
+  const { data, error } = await supabaseAdmin.rpc('claim_scheduled_email_job_v1', {
+    target_job_id: row.id,
+    target_worker_invocation_id: workerInvocationId,
+    lease_seconds: 120,
+    allow_failed: retryFailed,
+  })
 
   if (error) {
     console.error('Scheduled email lock failed', error)
     return null
   }
 
-  return data
+  return Array.isArray(data) ? data[0] || null : data
 }
 
-async function markScheduledEmailFailed(row, error) {
+async function markScheduledEmailFailed(row, error, workerInvocationId) {
   const attempts = Number(row.attempts ?? 0) + 1
+  const failure = classifyEmailFailure(error)
+  const retryAllowed = failure.retryable
+    && row.retry_enabled !== false
+    && row.legacy_review_required !== true
+    && attempts < MAX_EMAIL_DELIVERY_ATTEMPTS
+  const nextRetryAt = retryAllowed ? getNextEmailRetryAt(attempts) : null
   const { error: updateError } = await supabaseAdmin
     .from('scheduled_email_queue')
     .update({
       status: 'failed',
       attempts,
-      last_error: error.message || String(error),
+      last_error: 'Email delivery failed.',
+      delivery_state: retryAllowed ? 'retrying' : 'failed',
+      next_retry_at: nextRetryAt,
+      failure_category: failure.category,
+      safe_error_code: failure.safeCode,
+      terminal_at: retryAllowed ? null : new Date().toISOString(),
+      lease_owner: null,
+      leased_at: null,
+      lease_expires_at: null,
     })
     .eq('id', row.id)
+    .eq('lease_owner', workerInvocationId)
 
   if (updateError) {
     console.error('Scheduled email failure update failed', updateError)
@@ -141,7 +164,19 @@ async function discardSkippedScheduledEmail(row, reason) {
 
   const { error } = await supabaseAdmin
     .from('scheduled_email_queue')
-    .delete()
+    .update({
+      status: 'failed',
+      delivery_state: 'cancelled',
+      retry_enabled: false,
+      next_retry_at: null,
+      last_error: 'Email delivery was cancelled before send.',
+      failure_category: 'non_retryable_cancelled',
+      safe_error_code: String(reason || 'cancelled').slice(0, 100),
+      terminal_at: new Date().toISOString(),
+      lease_owner: null,
+      leased_at: null,
+      lease_expires_at: null,
+    })
     .eq('id', row.id)
 
   if (error) {
@@ -206,15 +241,17 @@ async function sendScheduledParentPush(communicationLog) {
 }
 
 export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
-  const lockedRow = await lockScheduledEmail(row, { retryFailed })
+  const workerInvocationId = randomUUID()
+  const lockedRow = await lockScheduledEmail(row, {
+    retryFailed,
+    workerInvocationId,
+  })
 
   if (!lockedRow) {
     return 'skipped'
   }
 
   const claimedAt = new Date().toISOString()
-  const workerInvocationId = randomUUID()
-
   if (isCalendarNotificationQueueRow(lockedRow)) {
     await updateCalendarNotificationEvent(lockedRow.id, 'processing')
   }
@@ -289,6 +326,8 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         workerInvocationId,
       },
       idempotencySeed: `scheduled:${lockedRow.id}`,
+      retryOwner: 'scheduled_queue',
+      retryPending: true,
     })
 
     if (isTrainingInvitationQueueRow(lockedRow)) {
@@ -300,37 +339,43 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     }
     await updateEventPlayerNotificationEvent(lockedRow.id, 'sent')
 
+    const preparedRow = resourceNotificationPreparation.row
+    const preparedPayload = preparedRow.payload || {}
+    const sentPayload = isTrialCalendarNotificationQueueRow(lockedRow)
+      ? {
+          ...preparedPayload,
+          resendPayload: {
+            ...(preparedPayload.resendPayload || {}),
+            html: '<p>Trial event invitation sent.</p>',
+          },
+          trialEventInvitation: {
+            ...(preparedPayload.trialEventInvitation || {}),
+            rawToken: null,
+          },
+        }
+      : preparedPayload
+    await supabaseAdmin
+      .from('scheduled_email_queue')
+      .update({
+        status: 'sent',
+        delivery_state: 'provider_accepted',
+        last_error: null,
+        next_retry_at: null,
+        failure_category: null,
+        safe_error_code: null,
+        provider_message_id: getProviderMessageId(sendResult),
+        provider_accepted_at: new Date().toISOString(),
+        lease_owner: null,
+        leased_at: null,
+        lease_expires_at: null,
+        payload: sentPayload,
+        subject: preparedRow.subject,
+      })
+      .eq('id', lockedRow.id)
+      .eq('lease_owner', workerInvocationId)
+
     if (isCalendarNotificationQueueRow(lockedRow)) {
-      const preparedRow = resourceNotificationPreparation.row
-      const preparedPayload = preparedRow.payload || {}
-      const sentPayload = isTrialCalendarNotificationQueueRow(lockedRow)
-        ? {
-            ...preparedPayload,
-            resendPayload: {
-              ...(preparedPayload.resendPayload || {}),
-              html: '<p>Trial event invitation sent.</p>',
-            },
-            trialEventInvitation: {
-              ...(preparedPayload.trialEventInvitation || {}),
-              rawToken: null,
-            },
-          }
-        : preparedPayload
-      await supabaseAdmin
-        .from('scheduled_email_queue')
-        .update({
-          status: 'sent',
-          last_error: null,
-          payload: sentPayload,
-          subject: preparedRow.subject,
-        })
-        .eq('id', lockedRow.id)
       await updateCalendarNotificationEvent(lockedRow.id, 'sent')
-    } else {
-      await supabaseAdmin
-        .from('scheduled_email_queue')
-        .delete()
-        .eq('id', lockedRow.id)
     }
 
     if (sendResult.duplicate) {
@@ -348,7 +393,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
   } catch (error) {
     console.error('Scheduled email send failed', getSafeErrorDetails(error))
     await markEmailLogFailed(error.emailLogRecord, error)
-    await markScheduledEmailFailed(lockedRow, error)
+    await markScheduledEmailFailed(lockedRow, error, workerInvocationId)
     if (isTrainingInvitationQueueRow(lockedRow)) {
       await updateTrainingInvitationDelivery({
         lastError: 'Training availability email could not be sent.',
@@ -362,9 +407,9 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       })
     }
     if (isCalendarNotificationQueueRow(lockedRow)) {
-      await updateCalendarNotificationEvent(lockedRow.id, 'failed', error.message || String(error))
+      await updateCalendarNotificationEvent(lockedRow.id, 'failed', 'Email delivery failed.')
     }
-    await updateEventPlayerNotificationEvent(lockedRow.id, 'failed', error.message || String(error))
+    await updateEventPlayerNotificationEvent(lockedRow.id, 'failed', 'Email delivery failed.')
     return 'failed'
   }
 }
@@ -562,8 +607,12 @@ export async function processScheduledEmails() {
   const { data, error } = await supabaseAdmin
     .from('scheduled_email_queue')
     .select('*')
-    .eq('status', 'scheduled')
-    .lte('scheduled_at', now)
+    .in('status', ['scheduled', 'failed', 'sending'])
+    .or(
+      `and(status.eq.scheduled,scheduled_at.lte.${now}),`
+      + `and(status.eq.failed,retry_enabled.eq.true,legacy_review_required.eq.false,next_retry_at.lte.${now}),`
+      + `and(status.eq.sending,retry_enabled.eq.true,legacy_review_required.eq.false,lease_expires_at.lte.${now})`,
+    )
     .order('scheduled_at', { ascending: true })
     .limit(25)
 
@@ -584,7 +633,9 @@ export async function processScheduledEmails() {
   }
 
   for (const row of data ?? []) {
-    const status = await sendScheduledEmail(row)
+    const status = row.status === 'failed'
+      ? await sendScheduledEmail(row, { retryFailed: true })
+      : await sendScheduledEmail(row)
     summary[status] += 1
   }
 

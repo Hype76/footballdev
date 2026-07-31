@@ -56,6 +56,32 @@ test('sendEmail succeeds and normalizes reply_to to replyTo', async () => {
   assert.equal(Object.hasOwn(calls[0], 'reply_to'), false)
 })
 
+test('sendEmail forwards a stable provider idempotency key', async () => {
+  const calls = []
+  const resendClient = {
+    emails: {
+      send: async (payload, options) => {
+        calls.push({ payload, options })
+        return { data: { id: 'email_idempotent_12d' } }
+      },
+    },
+  }
+
+  await sendEmail({
+    from: 'Coach <feedback@footballplayer.online>',
+    to: ['parent@example.com'],
+    subject: 'Training invitation',
+    html: '<p>Hello</p>',
+  }, {
+    env: validEnv,
+    idempotencyKey: 'fp-email-job-12d',
+    resendClient,
+  })
+
+  assert.equal(calls.length, 1)
+  assert.deepEqual(calls[0].options, { idempotencyKey: 'fp-email-job-12d' })
+})
+
 test('sendEmail throws when the provider returns an error object', async () => {
   const resendClient = {
     emails: {

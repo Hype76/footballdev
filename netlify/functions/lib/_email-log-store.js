@@ -1,5 +1,12 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { supabaseAdmin } from './_supabase.js'
+import {
+  EMAIL_RETRY_POLICY_VERSION,
+  MAX_EMAIL_DELIVERY_ATTEMPTS,
+  classifyEmailFailure,
+  getNextEmailRetryAt,
+  getProviderMessageId,
+} from './_email-retry-policy.js'
 
 const DUPLICATE_SEND_LIMIT = 3
 const DUPLICATE_SEND_WINDOW_MS = 5 * 60 * 1000
@@ -76,17 +83,6 @@ export function createEmailIdempotencyKey({ payload, idempotencySeed }) {
     .digest('hex')
 }
 
-function getNextRetryDate(attempts) {
-  const delayByAttempt = {
-    1: 60 * 1000,
-    2: 5 * 60 * 1000,
-    3: 15 * 60 * 1000,
-  }
-  const delayMs = delayByAttempt[attempts] ?? delayByAttempt[3]
-
-  return new Date(Date.now() + delayMs).toISOString()
-}
-
 export function getStoredResendPayload(emailLog) {
   return normalizeResendPayload(emailLog?.payload?.resendPayload || emailLog?.payload || {})
 }
@@ -98,6 +94,8 @@ export async function createPendingEmailLog({
   dedupeKey,
   recipientDedupeKeys = [],
   idempotencyKey,
+  retryEnabled = true,
+  retryPending = false,
 }) {
   const normalizedRecipientDedupeKeys = Array.from(
     new Set((Array.isArray(recipientDedupeKeys) ? recipientDedupeKeys : []).map((key) => String(key ?? '').trim()).filter(Boolean)),
@@ -133,7 +131,7 @@ export async function createPendingEmailLog({
 
   const { data: existingRecord, error: selectError } = await supabaseAdmin
     .from('email_logs')
-    .select('id, status, attempts, payload')
+    .select('id, status, attempts, payload, idempotency_key, retry_enabled, legacy_review_required')
     .eq('idempotency_key', idempotencyKey)
     .maybeSingle()
 
@@ -142,8 +140,12 @@ export async function createPendingEmailLog({
     return { record: null, skipped: false }
   }
 
-  if (existingRecord?.status === 'sent' || existingRecord?.status === 'pending') {
+  if (existingRecord?.status === 'sent' || (existingRecord?.status === 'pending' && !retryPending)) {
     return { record: existingRecord, skipped: true }
+  }
+
+  if (existingRecord?.legacy_review_required) {
+    return { record: existingRecord, blocked: true, legacyReviewRequired: true }
   }
 
   if (existingRecord) {
@@ -157,9 +159,16 @@ export async function createPendingEmailLog({
         to_email: recipients.join(', '),
         is_processing: false,
         next_retry_at: null,
+        delivery_state: 'queued',
+        retry_enabled: retryEnabled,
+        legacy_review_required: false,
+        retry_policy_version: EMAIL_RETRY_POLICY_VERSION,
+        failure_category: null,
+        safe_error_code: null,
+        terminal_at: null,
       })
       .eq('id', existingRecord.id)
-      .select('id, status, attempts, payload')
+      .select('id, status, attempts, payload, idempotency_key, retry_enabled, legacy_review_required')
       .single()
 
     if (error) {
@@ -182,15 +191,19 @@ export async function createPendingEmailLog({
       payload,
       is_processing: false,
       next_retry_at: null,
+      delivery_state: 'queued',
+      retry_enabled: retryEnabled,
+      legacy_review_required: false,
+      retry_policy_version: EMAIL_RETRY_POLICY_VERSION,
     })
-    .select('id, status, attempts, payload')
+    .select('id, status, attempts, payload, idempotency_key, retry_enabled, legacy_review_required')
     .single()
 
   if (error) {
     if (error.code === '23505') {
       const { data: duplicateRecord, error: duplicateSelectError } = await supabaseAdmin
         .from('email_logs')
-        .select('id, status, attempts, payload')
+        .select('id, status, attempts, payload, idempotency_key, retry_enabled, legacy_review_required')
         .eq('idempotency_key', idempotencyKey)
         .maybeSingle()
 
@@ -220,6 +233,14 @@ export async function markEmailLogSent(record, response, { recipientDedupeKeys =
       last_error: null,
       is_processing: false,
       next_retry_at: null,
+      delivery_state: 'provider_accepted',
+      provider_message_id: getProviderMessageId(response),
+      provider_accepted_at: new Date().toISOString(),
+      failure_category: null,
+      safe_error_code: null,
+      lease_owner: null,
+      leased_at: null,
+      lease_expires_at: null,
     })
     .eq('id', record.id)
 
@@ -265,15 +286,27 @@ export async function markEmailLogFailed(record, error) {
   }
 
   const attempts = Number(record.attempts ?? 0) + 1
-  const nextRetryAt = getNextRetryDate(attempts)
+  const failure = classifyEmailFailure(error)
+  const retryAllowed = failure.retryable
+    && record.retry_enabled !== false
+    && record.legacy_review_required !== true
+    && attempts < MAX_EMAIL_DELIVERY_ATTEMPTS
+  const nextRetryAt = retryAllowed ? getNextEmailRetryAt(attempts) : null
   const { error: updateError } = await supabaseAdmin
     .from('email_logs')
     .update({
       status: 'failed',
       attempts,
-      last_error: error?.message || String(error),
+      last_error: 'Email delivery failed.',
       is_processing: false,
       next_retry_at: nextRetryAt,
+      delivery_state: retryAllowed ? 'retrying' : 'failed',
+      failure_category: failure.category,
+      safe_error_code: failure.safeCode,
+      terminal_at: retryAllowed ? null : new Date().toISOString(),
+      lease_owner: null,
+      leased_at: null,
+      lease_expires_at: null,
     })
     .eq('id', record.id)
 
@@ -295,23 +328,19 @@ export async function markEmailLogFailed(record, error) {
 }
 
 export async function getFailedEmailLogs({ limit = 25 } = {}) {
-  const now = new Date().toISOString()
-  const { data, error } = await supabaseAdmin
-    .from('email_logs')
-    .select('id, attempts, payload, is_processing, next_retry_at')
-    .eq('status', 'failed')
-    .eq('is_processing', false)
-    .lt('attempts', 3)
-    .or(`next_retry_at.is.null,next_retry_at.lte.${now}`)
-    .order('created_at', { ascending: true })
-    .limit(limit)
+  const workerInvocationId = randomUUID()
+  const { data, error } = await supabaseAdmin.rpc('claim_email_retry_jobs_v1', {
+    target_worker_invocation_id: workerInvocationId,
+    lease_seconds: 120,
+    batch_limit: limit,
+  })
 
   if (error) {
     console.error('Failed email log fetch failed', error)
     return []
   }
 
-  return data ?? []
+  return (data ?? []).map((row) => ({ ...row, workerInvocationId }))
 }
 
 export async function lockEmailLogForRetry(emailLog) {
@@ -319,22 +348,7 @@ export async function lockEmailLogForRetry(emailLog) {
     return null
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('email_logs')
-    .update({ is_processing: true })
-    .eq('id', emailLog.id)
-    .eq('status', 'failed')
-    .eq('is_processing', false)
-    .lt('attempts', 3)
-    .select('id, attempts, payload, created_at, next_retry_at')
-    .maybeSingle()
-
-  if (error) {
-    console.error('Email retry lock failed', error)
-    return null
-  }
-
-  return data
+  return emailLog
 }
 
 export async function unlockEmailLogForRetry(emailLog) {
@@ -344,8 +358,14 @@ export async function unlockEmailLogForRetry(emailLog) {
 
   const { error } = await supabaseAdmin
     .from('email_logs')
-    .update({ is_processing: false })
+    .update({
+      is_processing: false,
+      lease_owner: null,
+      leased_at: null,
+      lease_expires_at: null,
+    })
     .eq('id', emailLog.id)
+    .eq('lease_owner', emailLog.workerInvocationId || emailLog.lease_owner)
 
   if (error) {
     console.error('Email retry unlock failed', error)

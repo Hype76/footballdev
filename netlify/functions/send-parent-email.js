@@ -1000,6 +1000,8 @@ export async function sendPreparedParentEmail(
   {
     deliveryTelemetry = {},
     idempotencySeed = '',
+    retryOwner = 'email_log',
+    retryPending = false,
   } = {},
 ) {
   preparedEmail = await reauthorizePreparedDevelopmentParentEmail(supabaseAdmin, preparedEmail)
@@ -1020,9 +1022,18 @@ export async function sendPreparedParentEmail(
     dedupeKey,
     recipientDedupeKeys,
     idempotencyKey: finalIdempotencyKey,
+    retryEnabled: retryOwner === 'email_log',
+    retryPending,
   })
 
   emailLogRecord = pendingLogResult.record
+
+  if (pendingLogResult.legacyReviewRequired) {
+    throw Object.assign(
+      new Error('This legacy email requires separate review before retry.'),
+      { statusCode: 409, emailLogRecord },
+    )
+  }
 
   if (pendingLogResult.blocked) {
     throw Object.assign(new Error('This email has already been sent 3 times in 5 minutes. Wait before sending again.'), { statusCode: 429, emailLogRecord })
@@ -1065,6 +1076,7 @@ export async function sendPreparedParentEmail(
   try {
     response = await sendEmail(preparedEmail.emailPayload, {
       context,
+      idempotencyKey: `fp-email-${finalIdempotencyKey}`,
       publicMessage: 'Email could not be sent. Please try again in a moment.',
     })
   } catch (sendWithPdfError) {
