@@ -22,6 +22,7 @@ function processorClient({
     eventUpdates: [],
     rpcCalls: [],
     limits: [],
+    ranges: [],
   }
 
   const client = {
@@ -87,6 +88,10 @@ function processorClient({
           gt() { return query },
           lte() { return query },
           order() { return query },
+          async range(start, end) {
+            evidence.ranges.push({ table, start, end })
+            return { data: [], error: null }
+          },
           async limit(value) {
             evidence.limits.push({ table, value })
             return { data: [], error: null }
@@ -102,6 +107,10 @@ function processorClient({
               is() { return query },
               lte() { return query },
               order() { return query },
+              async range(start, end) {
+                evidence.ranges.push({ table, start, end })
+                return { data: events.slice(start, end + 1), error: null }
+              },
               async limit(value) {
                 evidence.limits.push({ table, value })
                 return { data: events, error: null }
@@ -206,9 +215,31 @@ test('processor advances a deterministic watermark, marks rows once, and bounds 
       watermark_after_value: event.received_at,
       audit_watermark_after_value: watermark,
   })
-  assert.ok(client.evidence.limits.some((item) => (
-    item.table === 'analytics_events' && item.value === 20_000
+  assert.ok(client.evidence.ranges.some((item) => (
+    item.table === 'analytics_events' && item.start === 0 && item.end === 999
   )))
+})
+
+test('processor paginates beyond the provider row cap without exceeding its bounded batch', async () => {
+  const events = Array.from({ length: 1_001 }, (_, index) => ({
+    id: `event-${index}`,
+    received_at: new Date(now.getTime() - (1_001 - index) * 1000).toISOString(),
+    occurred_at: new Date(now.getTime() - (1_001 - index) * 1000).toISOString(),
+    actor_role_family: 'staff',
+    club_id: '33333333-3333-4333-8333-333333333333',
+  }))
+  const client = processorClient({ events })
+  const result = await processPlatformAnalytics({
+    supabaseAdmin: client,
+    now,
+    invocationId: 'invocation:paginated-events',
+  })
+
+  assert.equal(result.rowsAggregated, 1_001)
+  assert.ok(client.evidence.ranges.some((item) => (
+    item.table === 'analytics_events' && item.start === 1_000 && item.end === 1_999
+  )))
+  assert.equal(client.evidence.rpcCalls.at(-1).args.event_ids_value.length, 1_001)
 })
 
 test('failed processing records a safe failure and a later run can resume', async () => {

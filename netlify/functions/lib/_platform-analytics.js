@@ -526,16 +526,20 @@ export async function ingestAuditAnalyticsEvents({
   environment = 'production',
   processorRunId = null,
 } = {}) {
-  const { data: auditRows, error: auditError } = await supabaseAdmin
-    .from('audit_logs')
-    .select('id,actor_id,actor_role_label,club_id,action,entity_type,outcome,metadata,created_at')
-    .gte('created_at', startAt)
-    .lte('created_at', endAt)
-    .order('created_at', { ascending: true })
-    .limit(MAX_AUDIT_INGEST_ROWS)
+  const auditRows = []
+  for (let offset = 0; offset < MAX_AUDIT_INGEST_ROWS; offset += REPORT_PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('audit_logs')
+      .select('id,actor_id,actor_role_label,club_id,action,entity_type,outcome,metadata,created_at')
+      .gte('created_at', startAt)
+      .lte('created_at', endAt)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + REPORT_PAGE_SIZE - 1)
 
-  if (auditError) {
-    throw auditError
+    if (error) throw error
+    auditRows.push(...(data || []))
+    if (!data || data.length < REPORT_PAGE_SIZE) break
   }
 
   const profiles = await loadProfilesById(supabaseAdmin, (auditRows || []).map((row) => row.actor_id))

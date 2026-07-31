@@ -7,6 +7,7 @@ export const config = {
 }
 
 const MAX_PROCESSING_ROWS = 20_000
+const PROCESSING_PAGE_SIZE = 1_000
 const STALE_RUN_AFTER_MS = 30 * 60 * 1000
 
 function isoDate(value) {
@@ -60,16 +61,21 @@ async function claimRun(supabaseAdmin, invocationId, state, endAt) {
 }
 
 async function pendingEvents(supabaseAdmin, endAt) {
-  const { data, error } = await supabaseAdmin
-    .from('analytics_events')
-    .select('id,received_at,occurred_at,actor_role_family,club_id')
-    .is('processed_at', null)
-    .lte('received_at', endAt)
-    .order('received_at', { ascending: true })
-    .order('id', { ascending: true })
-    .limit(MAX_PROCESSING_ROWS)
-  if (error) throw error
-  return data || []
+  const rows = []
+  for (let offset = 0; offset < MAX_PROCESSING_ROWS; offset += PROCESSING_PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('analytics_events')
+      .select('id,received_at,occurred_at,actor_role_family,club_id')
+      .is('processed_at', null)
+      .lte('received_at', endAt)
+      .order('received_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + PROCESSING_PAGE_SIZE - 1)
+    if (error) throw error
+    rows.push(...(data || []))
+    if (!data || data.length < PROCESSING_PAGE_SIZE) break
+  }
+  return rows
 }
 
 async function completeRun(supabaseAdmin, runId, state, events, values) {
