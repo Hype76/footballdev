@@ -1,3 +1,4 @@
+# Phase 13C migration ledger: 20260731182313_player_linked_chat_history_13c.sql
 [build]
   command = "npm run build:live && npm run verify:build-env"
   publish = "dist"
