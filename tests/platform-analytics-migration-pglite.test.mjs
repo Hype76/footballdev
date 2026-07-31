@@ -8,7 +8,7 @@ const migration = await readFile(
   'utf8',
 )
 const eventFoundationMigration = await readFile(
-  new URL('../supabase/migrations/20260731230000_analytics_event_foundation_14a.sql', import.meta.url),
+  new URL('../supabase/migrations/20260731224352_analytics_event_foundation_14a.sql', import.meta.url),
   'utf8',
 )
 
