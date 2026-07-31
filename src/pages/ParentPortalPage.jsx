@@ -14,6 +14,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { buildMainAppUrl } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
+import { recordAnalyticsEvent } from '../lib/domain/platform-analytics.js'
 import {
   getCurrentPushSubscription,
   getPushSupportState,
@@ -689,6 +690,14 @@ function ParentPortalExperience() {
     nextSearchParams.set('parentLinkId', normalizedParentLinkId)
     nextSearchParams.delete('reportId')
     setSearchParams(nextSearchParams)
+    const selected = links.find((link) => link.id === normalizedParentLinkId)
+    void recordAnalyticsEvent({
+      accessToken: session?.access_token,
+      eventName: 'child.switch',
+      route: '/parent-portal',
+      teamId: selected?.teamId,
+      workspaceRole: 'parent_portal',
+    }).catch(() => {})
   }
 
   const handleOpenDevelopmentReport = (reportId) => {

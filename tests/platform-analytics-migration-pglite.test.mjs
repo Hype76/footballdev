@@ -7,6 +7,10 @@ const migration = await readFile(
   new URL('../supabase/migrations/20260728050210_platform_analytics_foundation.sql', import.meta.url),
   'utf8',
 )
+const eventFoundationMigration = await readFile(
+  new URL('../supabase/migrations/20260731230000_analytics_event_foundation_14a.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
@@ -48,6 +52,7 @@ async function createDatabase() {
       ('${IDS.parent}', '${IDS.club}', 'parent_portal');
   `)
   await db.exec(migration)
+  await db.exec(eventFoundationMigration)
   return db
 }
 
@@ -271,6 +276,151 @@ test('raw metadata allowlist rejects unapproved free text at the database bounda
       `),
       /analytics_events_metadata_allowlist_check/i,
     )
+  } finally {
+    await db.close()
+  }
+})
+
+test('canonical event migration adds private processing evidence and deterministic idempotency', async () => {
+  const db = await createDatabase()
+
+  try {
+    await db.exec(`
+      set role service_role;
+      insert into public.analytics_events (
+        occurred_at, event_name, user_id, role, club_id, team_id, session_id, platform,
+        canonical_route, feature_key, environment, metadata, client_event_id,
+        source_kind, is_meaningful, is_parent_activation, is_club_activation, is_excluded
+      ) values (
+        '2026-07-31T12:00:00Z', 'page.view', '${IDS.staff}', 'coach', '${IDS.club}', '${IDS.team}',
+        'session:canonical', 'web', '/calendar', 'navigation', 'production',
+        '{"deviceCategory":"mobile"}', 'event:canonical', 'direct', false, false, false, false
+      );
+      reset role;
+    `)
+
+    const canonical = await db.query(`
+      select event_category, action_family, route_key, actor_profile_id,
+        actor_role_at_event, actor_role_family, page_view, idempotency_key,
+        schema_version, metadata
+      from public.analytics_events
+      where client_event_id = 'event:canonical'
+    `)
+    assert.deepEqual(canonical.rows[0], {
+      event_category: 'navigation',
+      action_family: 'navigation',
+      route_key: '/calendar',
+      actor_profile_id: IDS.staff,
+      actor_role_at_event: 'coach',
+      actor_role_family: 'staff',
+      page_view: true,
+      idempotency_key: 'event:canonical',
+      schema_version: 2,
+      metadata: { deviceCategory: 'mobile' },
+    })
+
+    await db.exec(`
+      set role service_role;
+      select public.refresh_platform_analytics_aggregates('2026-07-31', '2026-07-31');
+      reset role;
+    `)
+    const aggregate = await db.query(`
+      select
+        (select sum(page_view_count)::integer from public.analytics_daily_user_activity) as daily_views,
+        (select sum(page_views)::integer from public.analytics_daily_page_user_activity) as page_views,
+        (select sum(page_views)::integer from public.analytics_hourly_platform_activity) as hourly_views
+    `)
+    assert.deepEqual(aggregate.rows[0], {
+      daily_views: 1,
+      page_views: 1,
+      hourly_views: 1,
+    })
+
+    await assert.rejects(
+      db.exec(`
+        set role service_role;
+        insert into public.analytics_events (
+          event_name, user_id, role, club_id, session_id, platform,
+          canonical_route, feature_key, environment, metadata, client_event_id,
+          source_kind, is_meaningful, is_parent_activation, is_club_activation, is_excluded
+        ) values (
+          'page.view', '${IDS.staff}', 'coach', '${IDS.club}',
+          'session:canonical', 'web', '/calendar', 'navigation', 'production',
+          '{}', 'event:canonical', 'direct', false, false, false, false
+        );
+      `),
+      /duplicate|unique/i,
+    )
+    await db.exec('reset role;')
+
+    const privacy = await db.query(`
+      select
+        has_table_privilege('anon', 'public.analytics_processor_runs', 'select') as anon_runs,
+        has_table_privilege('authenticated', 'public.analytics_event_quarantine', 'select') as authenticated_quarantine,
+        has_table_privilege('service_role', 'public.analytics_processor_runs', 'insert') as service_runs
+    `)
+    assert.deepEqual(privacy.rows[0], {
+      anon_runs: false,
+      authenticated_quarantine: false,
+      service_runs: true,
+    })
+  } finally {
+    await db.close()
+  }
+})
+
+test('diagnostic RPC reconciles raw canonical counts and reports processor state', async () => {
+  const db = await createDatabase()
+
+  try {
+    await db.exec(`
+      set role service_role;
+      insert into public.analytics_events (
+        occurred_at, event_name, user_id, role, club_id, session_id, platform,
+        canonical_route, feature_key, environment, metadata, client_event_id,
+        source_kind, is_meaningful, is_parent_activation, is_club_activation, is_excluded,
+        fp_test_state
+      ) values
+      (
+        '2026-07-31T12:00:00Z', 'page.view', '${IDS.staff}', 'coach', '${IDS.club}',
+        'session:diagnostic', 'web', '/calendar', 'navigation', 'production',
+        '{}', 'event:diagnostic-page', 'direct', false, false, false, false, false
+      ),
+      (
+        '2026-07-31T12:01:00Z', 'poll.responded', '${IDS.parent}', 'parent_portal', '${IDS.club}',
+        'session:diagnostic', 'parent_app', '/parent-polls', 'polls', 'production',
+        '{}', 'event:diagnostic-action', 'direct', true, true, true, true, true
+      );
+      reset role;
+    `)
+    await db.exec('set role service_role;')
+    const result = await db.query(`
+      select public.get_platform_analytics_diagnostics(
+        '2026-07-31T00:00:00Z',
+        '2026-08-01T00:00:00Z'
+      ) as diagnostic
+    `)
+    await db.exec('reset role;')
+    assert.deepEqual(result.rows[0].diagnostic, {
+      rawEvents: 2,
+      canonicallyClassifiedEvents: 2,
+      pageViews: 1,
+      meaningfulActions: 1,
+      successfulLogins: 0,
+      distinctUsers: 2,
+      attributedRoles: 2,
+      attributedClubs: 2,
+      unattributedUsers: 0,
+      unattributedRoles: 0,
+      unattributedClubs: 0,
+      internalEvents: 0,
+      fpTestEvents: 1,
+      processorWatermark: null,
+      lastSuccessfulProcessorRun: null,
+      lastFailedProcessorRun: null,
+      rowsAwaitingProcessing: 2,
+      rowsQuarantined: 0,
+    })
   } finally {
     await db.close()
   }

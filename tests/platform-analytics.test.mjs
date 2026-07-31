@@ -2,11 +2,13 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
+  analyticsRoleFamily,
   canonicalizeAnalyticsRoute,
   getMeaningfulRouteEvent,
   isClearlyExcludedAnalyticsProfile,
   mapAuditActionToAnalyticsEvent,
   normalizeAnalyticsEventInput,
+  shouldRecordAnalyticsPageView,
 } from '../src/lib/analytics/registry.js'
 import {
   buildPlatformAnalyticsReport,
@@ -271,6 +273,159 @@ test('event input accepts allowlisted events, rejects aggregate-only events, and
   assert.equal(mapAuditActionToAnalyticsEvent('data_transfer_request_denied'), '')
   assert.equal(mapAuditActionToAnalyticsEvent('list'), '')
   assert.equal(mapAuditActionToAnalyticsEvent('player_updated'), 'platform.action_completed')
+  assert.equal(mapAuditActionToAnalyticsEvent('evaluation_submitted'), 'development.record_submitted')
+  assert.equal(mapAuditActionToAnalyticsEvent('parent_poll_vote_submitted'), 'poll.responded')
+  assert.equal(mapAuditActionToAnalyticsEvent('staff_invite_sent'), 'invitation.sent')
+  assert.equal(mapAuditActionToAnalyticsEvent('player_created'), 'player.created')
+})
+
+test('versioned taxonomy separates navigation, authentication, and meaningful actions', () => {
+  const page = normalizeAnalyticsEventInput({
+    eventName: 'page.view',
+    clientEventId: 'event:page',
+    route: '/calendar',
+    metadata: {
+      deviceCategory: 'mobile',
+      pwaState: 'standalone',
+      childName: 'must be removed',
+      message: 'must be removed',
+    },
+  })
+  const action = normalizeAnalyticsEventInput({
+    eventName: 'development.record_submitted',
+    clientEventId: 'event:development',
+  })
+  assert.equal(page.definition.activityClass, 'navigation')
+  assert.equal(action.definition.meaningful, true)
+  assert.deepEqual(page.metadata, { deviceCategory: 'mobile', pwaState: 'standalone' })
+  assert.equal(analyticsRoleFamily('super_admin'), 'platform_admin')
+  assert.equal(analyticsRoleFamily('parent_portal'), 'parent')
+  assert.equal(analyticsRoleFamily('coach'), 'staff')
+})
+
+test('strict-mode and hydration duplicates are suppressed while later navigation remains legitimate', () => {
+  const values = new Map()
+  const storage = {
+    getItem: (key) => values.get(key) || null,
+    setItem: (key, value) => values.set(key, value),
+  }
+  assert.equal(shouldRecordAnalyticsPageView({ key: 'user:team:/calendar', now: 1_000, storage }), true)
+  assert.equal(shouldRecordAnalyticsPageView({ key: 'user:team:/calendar', now: 1_500, storage }), false)
+  assert.equal(shouldRecordAnalyticsPageView({ key: 'user:team:/players', now: 1_600, storage }), true)
+  assert.equal(shouldRecordAnalyticsPageView({ key: 'user:team:/calendar', now: 4_000, storage }), true)
+})
+
+function analyticsCaptureClient() {
+  const captured = []
+  const profile = {
+    id: staffId,
+    role: 'coach',
+    role_rank: 40,
+    club_id: clubId,
+    status: 'active',
+    email: 'staff@safe-club.test',
+  }
+
+  return {
+    captured,
+    auth: { getUser: async () => ({ data: { user: { id: staffId } }, error: null }) },
+    from(table) {
+      if (table === 'analytics_events') {
+        return {
+          async upsert(rows, options) {
+            captured.push({ row: Array.isArray(rows) ? rows[0] : rows, options })
+            return { error: null }
+          },
+        }
+      }
+      const filters = {}
+      const query = {
+        select() { return query },
+        eq(key, value) { filters[key] = value; return query },
+        limit() { return query },
+        maybeSingle: async () => {
+          if (table === 'users') return { data: profile, error: null }
+          if (table === 'platform_admins') return { data: null, error: null }
+          if (table === 'user_club_memberships') {
+            return { data: { auth_user_id: staffId }, error: null }
+          }
+          if (table === 'clubs') {
+            return {
+              data: filters.id === clubId ? { id: clubId, name: 'Safe Club', status: 'active' } : null,
+              error: null,
+            }
+          }
+          if (table === 'teams') {
+            return {
+              data: filters.id
+                ? { id: filters.id, club_id: '99999999-9999-4999-8999-999999999999', name: 'Other team' }
+                : null,
+              error: null,
+            }
+          }
+          return { data: null, error: null }
+        },
+      }
+      return query
+    },
+  }
+}
+
+test('collector resolves authority server-side and denies client role and team spoofing', async () => {
+  const client = analyticsCaptureClient()
+  const handler = createPlatformAnalyticsHandler({ supabaseAdmin: client, now: () => now })
+  const accepted = await handler({
+    httpMethod: 'POST',
+    headers: {
+      authorization: 'Bearer token',
+      host: 'footballplayer.online',
+      'x-nf-request-id': 'request:1',
+    },
+    body: JSON.stringify({
+      eventName: 'page.view',
+      clientEventId: 'event:server-authority',
+      route: '/calendar?child=private',
+      role: 'super_admin',
+      clubId: '99999999-9999-4999-8999-999999999999',
+      environment: 'preview',
+      metadata: { childName: 'Private Child', deviceCategory: 'mobile' },
+    }),
+  })
+  assert.equal(accepted.statusCode, 202)
+  assert.equal(client.captured[0].row.role, 'coach')
+  assert.equal(client.captured[0].row.club_id, clubId)
+  assert.equal(client.captured[0].row.environment, 'production')
+  assert.equal(client.captured[0].row.schema_version, 2)
+  assert.equal(client.captured[0].row.page_view, true)
+  assert.deepEqual(client.captured[0].row.metadata, { deviceCategory: 'mobile' })
+  assert.deepEqual(client.captured[0].options, {
+    onConflict: 'user_id,event_name,client_event_id',
+    ignoreDuplicates: true,
+  })
+
+  const roleSpoof = await handler({
+    httpMethod: 'POST',
+    headers: { authorization: 'Bearer token', host: 'footballplayer.online' },
+    body: JSON.stringify({
+      eventName: 'workspace.switch',
+      clientEventId: 'event:role-spoof',
+      workspaceRole: 'super_admin',
+    }),
+  })
+  assert.equal(roleSpoof.statusCode, 403)
+  assert.equal(JSON.parse(roleSpoof.body).code, 'analytics_role_spoof_denied')
+
+  const teamSpoof = await handler({
+    httpMethod: 'POST',
+    headers: { authorization: 'Bearer token', host: 'footballplayer.online' },
+    body: JSON.stringify({
+      eventName: 'team.switch',
+      clientEventId: 'event:team-spoof',
+      teamId: '88888888-8888-4888-8888-888888888888',
+    }),
+  })
+  assert.equal(teamSpoof.statusCode, 403)
+  assert.equal(JSON.parse(teamSpoof.body).code, 'analytics_team_spoof_denied')
 })
 
 test('Platform Admin authority is required and normal users are denied', async () => {

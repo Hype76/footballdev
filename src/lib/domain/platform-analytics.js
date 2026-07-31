@@ -47,6 +47,8 @@ export async function recordAnalyticsEvent({
   clientEventId = '',
   sessionId = '',
   metadata = {},
+  teamId = '',
+  workspaceRole = '',
 } = {}) {
   if (!accessToken) {
     return { accepted: false, reason: 'no_authenticated_session' }
@@ -59,6 +61,8 @@ export async function recordAnalyticsEvent({
     clientEventId: clientEventId || randomEventId('event'),
     sessionId: sessionId || getAnalyticsSessionId(),
     metadata,
+    teamId,
+    workspaceRole,
   })
   const response = await fetch('/.netlify/functions/platform-analytics', {
     method: 'POST',

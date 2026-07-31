@@ -17,7 +17,7 @@ import { assertPasswordPolicy } from './password-policy.js'
 import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessIntent } from './login-access-intent.js'
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 import { STAFF_SWITCH_PENDING_STORAGE_KEY } from './workspace-routes.js'
-import { recordSuccessfulLoginAnalytics } from './domain/platform-analytics.js'
+import { recordAnalyticsEvent, recordSuccessfulLoginAnalytics } from './domain/platform-analytics.js'
 
 export {
   canAssignRole,
@@ -734,6 +734,14 @@ function RuntimeAuthProvider({ children }) {
           event === 'USER_UPDATED' ||
           (event === 'SIGNED_IN' && isSameUser)
 
+        if (event === 'TOKEN_REFRESHED') {
+          void recordAnalyticsEvent({
+            accessToken: nextSession.access_token,
+            eventName: 'auth.session_refresh',
+            route: window.location.pathname,
+          }).catch(() => {})
+        }
+
         void syncAuthenticatedSession(nextSession, {
           background: isBackgroundEvent,
         })
@@ -812,6 +820,13 @@ function RuntimeAuthProvider({ children }) {
       setUser(applyDemoRolePreview(profileWithTeam))
       setAccessRouteMismatch(null)
       setAuthError('')
+      void recordAnalyticsEvent({
+        accessToken: session?.access_token,
+        eventName: 'workspace.switch',
+        route: window.location.pathname,
+        teamId: profileWithTeam?.activeTeamId,
+        workspaceRole: profileWithTeam?.role,
+      }).catch(() => {})
     } catch (error) {
       console.error(error)
       setAuthError(error.message || 'Could not switch club.')
@@ -900,6 +915,13 @@ function RuntimeAuthProvider({ children }) {
       setUser(applyDemoRolePreview(profileWithTeam))
       setAccessRouteMismatch(null)
       setAuthError('')
+      void recordAnalyticsEvent({
+        accessToken: session?.access_token,
+        eventName: 'workspace.switch',
+        route: window.location.pathname,
+        teamId: profileWithTeam?.activeTeamId,
+        workspaceRole: profileWithTeam?.role,
+      }).catch(() => {})
     } catch (error) {
       console.error(error)
       setAuthError(error.message || 'Could not open this access.')
@@ -955,6 +977,13 @@ function RuntimeAuthProvider({ children }) {
         themeButtonStyle: current.themeButtonStyle || 'solid',
       }, selectedTeam)
     })
+    void recordAnalyticsEvent({
+      accessToken: session?.access_token,
+      eventName: 'team.switch',
+      route: window.location.pathname,
+      teamId: selectedTeam.id,
+      workspaceRole: selectedTeam.assignmentRole || userRef.current?.role,
+    }).catch(() => {})
   }
 
   const selectPlatformAdmin = async () => {
@@ -1242,6 +1271,11 @@ function RuntimeAuthProvider({ children }) {
 
   const signOut = async () => {
     const signingOutUser = userRef.current
+    await recordAnalyticsEvent({
+      accessToken: session?.access_token,
+      eventName: 'auth.logout',
+      route: window.location.pathname,
+    }).catch(() => {})
     const { error } = await supabase.auth.signOut()
 
     if (error) {

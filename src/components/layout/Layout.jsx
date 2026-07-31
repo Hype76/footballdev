@@ -33,6 +33,7 @@ import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
+import { shouldRecordAnalyticsPageView } from '../../lib/analytics/registry.js'
 import { PlatformBannerNotice } from '../platform/PlatformBannerNotice.jsx'
 import {
   LOGGED_IN_USERS_BANNER_KEY,
@@ -186,6 +187,19 @@ export function Layout() {
 
   useEffect(() => {
     if (shouldBypassMainShell || !user?.id) {
+      return
+    }
+
+    const pageViewKey = [
+      user.id,
+      user.activeTeamId || '',
+      location.pathname,
+      location.search,
+    ].join(':')
+    if (!shouldRecordAnalyticsPageView({
+      key: pageViewKey,
+      storage: window.sessionStorage,
+    })) {
       return
     }
 

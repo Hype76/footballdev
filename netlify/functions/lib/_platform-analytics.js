@@ -1,4 +1,5 @@
 import {
+  analyticsRoleFamily,
   canonicalizeAnalyticsRoute,
   getAnalyticsEventDefinition,
   getMeaningfulRouteEvent,
@@ -68,6 +69,84 @@ function normalizeProfileRole(profile = {}) {
   return text(profile.role).toLowerCase() || 'unknown'
 }
 
+function safeRequestId(event = {}) {
+  const value = text(event.headers?.['x-nf-request-id'] || event.headers?.['x-request-id'])
+  return /^[a-zA-Z0-9:_-]{1,96}$/.test(value) ? value : ''
+}
+
+async function maybeSingle(query) {
+  const { data, error } = await query.maybeSingle()
+  if (error) throw error
+  return data || null
+}
+
+async function resolveAuthoritativeEventContext({ supabaseAdmin, authUser, profile, input }) {
+  const allowedRoles = new Set([normalizeProfileRole(profile)])
+  let team = null
+
+  if (input.reportedTeamId) {
+    team = await maybeSingle(
+      supabaseAdmin.from('teams').select('id,club_id,name').eq('id', input.reportedTeamId),
+    )
+    if (!team) throw statusError('The reported analytics team is not available.', 403, 'analytics_team_spoof_denied')
+
+    const isPlatformAdmin = normalizeProfileRole(profile) === 'super_admin'
+    const isClubAdmin = normalizeProfileRole(profile) === 'club_admin' && profile.club_id === team.club_id
+    const staff = await maybeSingle(
+      supabaseAdmin
+        .from('team_staff')
+        .select('role_key')
+        .eq('team_id', team.id)
+        .eq('user_id', profile.id),
+    )
+    const parent = await maybeSingle(
+      supabaseAdmin
+        .from('parent_player_links')
+        .select('id')
+        .eq('team_id', team.id)
+        .eq('auth_user_id', authUser.id)
+        .eq('status', 'active'),
+    )
+
+    if (!isPlatformAdmin && !isClubAdmin && !staff && !parent) {
+      throw statusError('The reported analytics team is not authorized.', 403, 'analytics_team_spoof_denied')
+    }
+    if (staff?.role_key) allowedRoles.add(text(staff.role_key).toLowerCase())
+    if (parent) allowedRoles.add('parent_portal')
+  }
+
+  if (input.reportedRole === 'parent_portal' && !allowedRoles.has('parent_portal')) {
+    const parent = await maybeSingle(
+      supabaseAdmin
+        .from('parent_player_links')
+        .select('id')
+        .eq('auth_user_id', authUser.id)
+        .eq('status', 'active')
+        .limit(1),
+    )
+    if (parent) allowedRoles.add('parent_portal')
+  }
+
+  const requestedRole = input.reportedRole
+  if (requestedRole && !allowedRoles.has(requestedRole)) {
+    throw statusError('The reported analytics role is not authorized.', 403, 'analytics_role_spoof_denied')
+  }
+  const role = requestedRole || normalizeProfileRole(profile)
+  const clubId = team?.club_id || profile.club_id || null
+  const club = clubId
+    ? await maybeSingle(supabaseAdmin.from('clubs').select('id,name').eq('id', clubId))
+    : null
+  const scopeIdentity = [club?.name, team?.name].map((value) => text(value).toLowerCase()).join(' ')
+
+  return {
+    role,
+    clubId,
+    teamId: team?.id || null,
+    internalState: role === 'super_admin',
+    fpTestState: scopeIdentity.includes('fp test') || scopeIdentity.includes('fp-test'),
+  }
+}
+
 async function authenticateEvent(supabaseAdmin, event) {
   const token = getBearerToken(event)
 
@@ -95,16 +174,31 @@ async function requirePlatformAdmin(supabaseAdmin, event) {
   return authenticated
 }
 
-function buildEventRow({ input, profile, environment, occurredAt = new Date().toISOString(), sourceKind = 'direct' }) {
+function buildEventRow({
+  input,
+  profile,
+  environment,
+  context = {},
+  occurredAt = new Date().toISOString(),
+  receivedAt = new Date().toISOString(),
+  sourceKind = 'direct',
+  requestId = '',
+  processorRunId = null,
+}) {
   const definition = input.definition || getAnalyticsEventDefinition(input.eventName)
+  const role = context.role || normalizeProfileRole(profile)
+  const internalState = context.internalState ?? role === 'super_admin'
+  const fpTestState = Boolean(context.fpTestState)
+  const excluded = environment !== 'production' || internalState || fpTestState
 
   return {
     occurred_at: occurredAt,
+    received_at: receivedAt,
     event_name: input.eventName,
     user_id: profile.id,
-    role: normalizeProfileRole(profile),
-    club_id: profile.club_id || null,
-    team_id: null,
+    role,
+    club_id: context.clubId ?? profile.club_id ?? null,
+    team_id: context.teamId || null,
     session_id: input.sessionId || '',
     platform: input.platform || 'web',
     canonical_route: input.canonicalRoute || '',
@@ -116,7 +210,25 @@ function buildEventRow({ input, profile, environment, occurredAt = new Date().to
     is_meaningful: Boolean(definition?.meaningful),
     is_parent_activation: Boolean(definition?.parentActivation),
     is_club_activation: Boolean(definition?.clubActivation),
-    is_excluded: isClearlyExcludedAnalyticsProfile(profile, environment),
+    is_excluded: excluded,
+    event_category: definition?.activityClass === 'authentication'
+      ? 'authentication'
+      : (definition?.meaningful ? 'meaningful_action' : 'navigation'),
+    action_family: definition?.featureKey || 'unknown',
+    route_key: input.canonicalRoute || '',
+    source: sourceKind === 'audit' ? 'server_audit' : 'web',
+    production_state: environment,
+    actor_auth_user_id: profile.id,
+    actor_profile_id: profile.id,
+    actor_role_at_event: role,
+    actor_role_family: analyticsRoleFamily(role),
+    request_id: requestId,
+    internal_state: internalState,
+    fp_test_state: fpTestState,
+    page_view: ['page.view', 'page.viewed'].includes(input.eventName),
+    idempotency_key: input.clientEventId,
+    schema_version: 2,
+    processor_run_id: processorRunId,
   }
 }
 
@@ -125,9 +237,21 @@ export async function recordPlatformAnalyticsEvent({
   event,
   environment = resolveAnalyticsEnvironment(event),
 } = {}) {
-  const { profile } = await authenticateEvent(supabaseAdmin, event)
+  const { authUser, profile } = await authenticateEvent(supabaseAdmin, event)
   const input = normalizeAnalyticsEventInput(parseJsonBody(event))
-  const row = buildEventRow({ input, profile, environment })
+  const context = await resolveAuthoritativeEventContext({
+    supabaseAdmin,
+    authUser,
+    profile,
+    input,
+  })
+  const row = buildEventRow({
+    input,
+    profile,
+    environment,
+    context,
+    requestId: safeRequestId(event),
+  })
   const { error } = await supabaseAdmin
     .from('analytics_events')
     .upsert(row, {
@@ -342,15 +466,68 @@ async function loadProfilesById(supabaseAdmin, userIds) {
   return profiles
 }
 
+function isPageViewEvent(eventName) {
+  return eventName === 'page.view' || eventName === 'page.viewed'
+}
+
+export async function loadPlatformAnalyticsDiagnostics({
+  supabaseAdmin,
+  event,
+  now = new Date(),
+} = {}) {
+  await requirePlatformAdmin(supabaseAdmin, event)
+  const filters = normalizePlatformAnalyticsFilters(reportFilterInput(event), now)
+  const startAt = new Date(`${filters.startDate}T00:00:00.000Z`).toISOString()
+  const end = new Date(`${filters.endDate}T00:00:00.000Z`)
+  end.setUTCDate(end.getUTCDate() + 1)
+  const { data, error } = await supabaseAdmin.rpc('get_platform_analytics_diagnostics', {
+    start_at_value: startAt,
+    end_at_value: end.toISOString(),
+  })
+  if (error) throw error
+  return data || {}
+}
+
+async function loadScopeNames(supabaseAdmin, table, ids) {
+  const names = new Map()
+  const uniqueIds = [...new Set(ids.filter(Boolean))]
+  for (let index = 0; index < uniqueIds.length; index += 500) {
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select('id,name')
+      .in('id', uniqueIds.slice(index, index + 500))
+    if (error) throw error
+    for (const row of data || []) names.set(row.id, text(row.name).toLowerCase())
+  }
+  return names
+}
+
+function auditTeamId(row) {
+  const value = row?.metadata?.teamId || row?.metadata?.team_id
+  return /^[0-9a-f-]{36}$/i.test(text(value)) ? text(value) : null
+}
+
+function canonicalAuditRole(row, profile) {
+  const value = text(row?.actor_role_label).toLowerCase()
+  if (value.includes('platform') && value.includes('admin')) return 'super_admin'
+  if (value.includes('club') && value.includes('admin')) return 'club_admin'
+  if (value.includes('team') && value.includes('admin')) return 'head_manager'
+  if (value.includes('manager')) return 'manager'
+  if (value.includes('coach')) return 'coach'
+  if (value.includes('parent')) return 'parent_portal'
+  return normalizeProfileRole(profile)
+}
+
 export async function ingestAuditAnalyticsEvents({
   supabaseAdmin,
   startAt,
   endAt,
   environment = 'production',
+  processorRunId = null,
 } = {}) {
   const { data: auditRows, error: auditError } = await supabaseAdmin
     .from('audit_logs')
-    .select('id,actor_id,club_id,action,entity_type,outcome,metadata,created_at')
+    .select('id,actor_id,actor_role_label,club_id,action,entity_type,outcome,metadata,created_at')
     .gte('created_at', startAt)
     .lte('created_at', endAt)
     .order('created_at', { ascending: true })
@@ -361,45 +538,84 @@ export async function ingestAuditAnalyticsEvents({
   }
 
   const profiles = await loadProfilesById(supabaseAdmin, (auditRows || []).map((row) => row.actor_id))
+  const clubNames = await loadScopeNames(supabaseAdmin, 'clubs', (auditRows || []).map((row) => row.club_id))
+  const teamNames = await loadScopeNames(supabaseAdmin, 'teams', (auditRows || []).map(auditTeamId))
   const eventRows = []
+  const quarantineRows = []
 
   for (const auditRow of auditRows || []) {
     const profile = profiles.get(auditRow.actor_id)
     const eventName = mapAuditActionToAnalyticsEvent(auditRow.action)
 
-    if (
-      !profile?.id
-      || profile.status !== 'active'
-      || (auditRow.outcome && auditRow.outcome !== 'success')
-      || !eventName
-    ) {
+    if (auditRow.outcome && auditRow.outcome !== 'success') {
       continue
     }
 
-    const canonicalRoute = eventName === 'page.viewed' ? auditRoute(auditRow) : ''
-
-    if (eventName === 'page.viewed' && !canonicalRoute) {
+    if (!profile?.id || profile.status !== 'active') {
+      quarantineRows.push({
+        processor_run_id: processorRunId,
+        source_kind: 'audit',
+        source_record_id: auditRow.id,
+        safe_reason: 'actor_unattributed',
+        safe_event_name: eventName || '',
+        safe_actor_profile_id: auditRow.actor_id || null,
+      })
       continue
+    }
+
+    if (!eventName) {
+      continue
+    }
+
+    const canonicalRoute = isPageViewEvent(eventName) ? auditRoute(auditRow) : ''
+
+    if (isPageViewEvent(eventName) && !canonicalRoute) {
+      quarantineRows.push({
+        processor_run_id: processorRunId,
+        source_kind: 'audit',
+        source_record_id: auditRow.id,
+        safe_reason: 'route_unclassifiable',
+        safe_event_name: eventName,
+        safe_actor_profile_id: auditRow.actor_id,
+      })
+      continue
+    }
+
+    const roleAtEvent = canonicalAuditRole(auditRow, profile)
+    const teamId = auditTeamId(auditRow)
+    const fpTestState = [clubNames.get(auditRow.club_id), teamNames.get(teamId)]
+      .filter(Boolean)
+      .some((value) => value.includes('fp test') || value.includes('fp-test'))
+    const context = {
+      role: roleAtEvent,
+      clubId: auditRow.club_id || profile.club_id || null,
+      teamId,
+      internalState: roleAtEvent === 'super_admin',
+      fpTestState,
     }
 
     eventRows.push(buildEventRow({
       input: auditInput({ row: auditRow, eventName, route: canonicalRoute }),
       profile: { ...profile, club_id: auditRow.club_id || profile.club_id },
+      context,
       environment,
       occurredAt: auditRow.created_at,
       sourceKind: 'audit',
+      processorRunId,
     }))
 
-    if (eventName === 'page.viewed') {
+    if (isPageViewEvent(eventName)) {
       const meaningfulEvent = getMeaningfulRouteEvent(canonicalRoute)
 
       if (meaningfulEvent) {
         eventRows.push(buildEventRow({
           input: auditInput({ row: auditRow, eventName: meaningfulEvent, route: canonicalRoute }),
           profile: { ...profile, club_id: auditRow.club_id || profile.club_id },
+          context,
           environment,
           occurredAt: auditRow.created_at,
           sourceKind: 'audit',
+          processorRunId,
         }))
       }
     }
@@ -416,9 +632,21 @@ export async function ingestAuditAnalyticsEvents({
     if (error) throw error
   }
 
+  for (let index = 0; index < quarantineRows.length; index += 500) {
+    const { error } = await supabaseAdmin
+      .from('analytics_event_quarantine')
+      .upsert(quarantineRows.slice(index, index + 500), {
+        onConflict: 'source_kind,source_record_id,safe_reason',
+        ignoreDuplicates: true,
+      })
+    if (error) throw error
+  }
+
   return {
     auditRowsRead: auditRows?.length || 0,
     analyticsRowsPrepared: eventRows.length,
+    rowsRejected: quarantineRows.length,
+    lastAuditAt: auditRows?.at(-1)?.created_at || startAt,
   }
 }
 
@@ -435,6 +663,15 @@ export function createPlatformAnalyticsHandler({
       if (event.httpMethod === 'POST') {
         const result = await recordPlatformAnalyticsEvent({ supabaseAdmin, event })
         return json(202, { success: true, ...result })
+      }
+
+      if (queryValue(event, 'diagnostic') === 'true') {
+        const diagnostic = await loadPlatformAnalyticsDiagnostics({
+          supabaseAdmin,
+          event,
+          now: now(),
+        })
+        return json(200, { success: true, diagnostic })
       }
 
       const report = await loadPlatformAnalyticsReport({ supabaseAdmin, event, now: now() })
