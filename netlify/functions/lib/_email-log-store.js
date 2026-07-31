@@ -228,6 +228,17 @@ export async function markEmailLogSent(record, response, { recipientDedupeKeys =
     return
   }
 
+  const { error: telemetryError } = await supabaseAdmin
+    .from('email_delivery_jobs')
+    .update({ next_retry_at: null })
+    .eq('email_log_id', record.id)
+
+  if (telemetryError) {
+    console.warn('Email delivery retry telemetry clear failed', {
+      code: String(telemetryError.code || 'EMAIL_TELEMETRY_FAILED'),
+    })
+  }
+
   const eventRows = Array.from(
     new Set((Array.isArray(recipientDedupeKeys) ? recipientDedupeKeys : []).map((key) => String(key ?? '').trim()).filter(Boolean)),
   ).map((dedupeKey) => ({
@@ -254,6 +265,7 @@ export async function markEmailLogFailed(record, error) {
   }
 
   const attempts = Number(record.attempts ?? 0) + 1
+  const nextRetryAt = getNextRetryDate(attempts)
   const { error: updateError } = await supabaseAdmin
     .from('email_logs')
     .update({
@@ -261,12 +273,24 @@ export async function markEmailLogFailed(record, error) {
       attempts,
       last_error: error?.message || String(error),
       is_processing: false,
-      next_retry_at: getNextRetryDate(attempts),
+      next_retry_at: nextRetryAt,
     })
     .eq('id', record.id)
 
   if (updateError) {
     console.error('Email log failed update failed', updateError)
+    return
+  }
+
+  const { error: telemetryError } = await supabaseAdmin
+    .from('email_delivery_jobs')
+    .update({ next_retry_at: nextRetryAt })
+    .eq('email_log_id', record.id)
+
+  if (telemetryError) {
+    console.warn('Email delivery retry telemetry update failed', {
+      code: String(telemetryError.code || 'EMAIL_TELEMETRY_FAILED'),
+    })
   }
 }
 

@@ -181,6 +181,7 @@ test('empty and malformed metrics normalize to finite zero values', () => {
     delivery_type: '',
     eligible_count: 'NaN',
     eligibility_to_claim_p50_ms: null,
+    claim_to_provider_p95_ms: 'NaN',
     failed_count: -2,
     oldest_eligible_age_seconds: '15',
   }])
@@ -188,6 +189,7 @@ test('empty and malformed metrics normalize to finite zero values', () => {
   assert.equal(metrics.deliveryType, 'all')
   assert.equal(metrics.eligibleCount, 0)
   assert.equal(metrics.eligibilityToClaimP50Ms, 0)
+  assert.equal(metrics.claimToProviderP95Ms, 0)
   assert.equal(metrics.failedCount, 0)
   assert.equal(metrics.oldestEligibleAgeSeconds, 15)
   assert.equal(Object.values(metrics).some((value) => Number.isNaN(value)), false)

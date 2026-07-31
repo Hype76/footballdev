@@ -281,6 +281,8 @@ export function normalizeOperationalMetrics(rows = []) {
     oldestEligibleAgeSeconds: safeMetricNumber(row.oldest_eligible_age_seconds),
     eligibilityToClaimP50Ms: safeMetricNumber(row.eligibility_to_claim_p50_ms),
     eligibilityToClaimP95Ms: safeMetricNumber(row.eligibility_to_claim_p95_ms),
+    claimToProviderP50Ms: safeMetricNumber(row.claim_to_provider_p50_ms),
+    claimToProviderP95Ms: safeMetricNumber(row.claim_to_provider_p95_ms),
     providerAcceptanceP50Ms: safeMetricNumber(row.provider_acceptance_p50_ms),
     providerAcceptanceP95Ms: safeMetricNumber(row.provider_acceptance_p95_ms),
     pdfDurationP50Ms: safeMetricNumber(row.pdf_duration_p50_ms),

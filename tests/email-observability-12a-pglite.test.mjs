@@ -8,6 +8,13 @@ const migrationUrl = new URL(
   import.meta.url,
 )
 const migrationSql = await readFile(migrationUrl, 'utf8')
+const metricsMigrationSql = await readFile(
+  new URL(
+    '../supabase/migrations/20260731055855_email_observability_metrics_12a.sql',
+    import.meta.url,
+  ),
+  'utf8',
+)
 
 const CLUB_ID = '40000000-0000-4000-8000-000000000001'
 const TEAM_ID = '40000000-0000-4000-8000-000000000002'
@@ -36,6 +43,7 @@ async function createDatabase() {
     );
   `)
   await db.exec(migrationSql)
+  await db.exec(metricsMigrationSql)
   await db.exec(`
     insert into public.clubs(id) values ('${CLUB_ID}');
     insert into public.teams(id) values ('${TEAM_ID}');
@@ -115,6 +123,24 @@ test('migration records append-only attempts and persists provider acceptance ev
     total_eligible_to_accept_ms: 4250,
   })
 
+  const acceptedMetrics = await db.query(`
+    select
+      eligibility_to_claim_p50_ms,
+      claim_to_provider_p50_ms,
+      claim_to_provider_p95_ms,
+      provider_acceptance_p50_ms,
+      pdf_duration_p50_ms
+    from public.email_delivery_operational_metrics_v1
+    where delivery_type = 'all'
+  `)
+  assert.deepEqual(acceptedMetrics.rows[0], {
+    claim_to_provider_p50_ms: 1000,
+    claim_to_provider_p95_ms: 1000,
+    eligibility_to_claim_p50_ms: 3000,
+    pdf_duration_p50_ms: 500,
+    provider_acceptance_p50_ms: 250,
+  })
+
   const secondAttempt = await db.query(
     'select * from public.begin_email_delivery_attempt_v1($1::jsonb)',
     [JSON.stringify({
@@ -154,6 +180,8 @@ test('operational metrics are aggregate-only, null-safe, and locked to service r
   assert.equal(columnNames.includes('payload'), false)
   assert.equal(columnNames.includes('oldest_eligible_age_seconds'), true)
   assert.equal(columnNames.includes('eligibility_to_claim_p95_ms'), true)
+  assert.equal(columnNames.includes('claim_to_provider_p50_ms'), true)
+  assert.equal(columnNames.includes('claim_to_provider_p95_ms'), true)
 
   const metrics = await db.query(`
     select *
@@ -163,7 +191,31 @@ test('operational metrics are aggregate-only, null-safe, and locked to service r
   assert.equal(metrics.rows.length, 1)
   assert.equal(Number(metrics.rows[0].pending_count), 0)
   assert.equal(Number(metrics.rows[0].eligibility_to_claim_p50_ms), 0)
+  assert.equal(Number(metrics.rows[0].claim_to_provider_p95_ms), 0)
   assert.equal(Number(metrics.rows[0].pdf_duration_p95_ms), 0)
+
+  await db.query(`
+    insert into public.email_delivery_jobs (
+      logical_key,
+      delivery_type,
+      status,
+      eligible_at,
+      next_retry_at
+    ) values (
+      'retry-metric-12a',
+      'direct_email',
+      'failed',
+      timezone('utc', now()),
+      timezone('utc', now()) + interval '1 minute'
+    )
+  `)
+  const retryMetrics = await db.query(`
+    select retry_count, failed_count
+    from public.email_delivery_operational_metrics_v1
+    where delivery_type = 'all'
+  `)
+  assert.equal(Number(retryMetrics.rows[0].retry_count), 1)
+  assert.equal(Number(retryMetrics.rows[0].failed_count), 1)
 
   const grants = await db.query(`
     select grantee, privilege_type
