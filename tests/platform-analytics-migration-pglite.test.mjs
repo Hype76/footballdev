@@ -11,6 +11,10 @@ const eventFoundationMigration = await readFile(
   new URL('../supabase/migrations/20260731224352_analytics_event_foundation_14a.sql', import.meta.url),
   'utf8',
 )
+const clubAdminRoleAlignmentMigration = await readFile(
+  new URL('../supabase/migrations/20260731230057_analytics_club_admin_role_alignment_14a.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
@@ -53,6 +57,7 @@ async function createDatabase() {
   `)
   await db.exec(migration)
   await db.exec(eventFoundationMigration)
+  await db.exec(clubAdminRoleAlignmentMigration)
   return db
 }
 
@@ -296,6 +301,15 @@ test('canonical event migration adds private processing evidence and determinist
         'session:canonical', 'web', '/calendar', 'navigation', 'production',
         '{"deviceCategory":"mobile"}', 'event:canonical', 'direct', false, false, false, false
       );
+      insert into public.analytics_events (
+        occurred_at, event_name, user_id, role, club_id, session_id, platform,
+        canonical_route, feature_key, environment, metadata, client_event_id,
+        source_kind, is_meaningful, is_parent_activation, is_club_activation, is_excluded
+      ) values (
+        '2026-07-31T12:01:00Z', 'auth.login_succeeded', '${IDS.staff}', 'admin', '${IDS.club}',
+        'session:club-admin', 'web', '/coach', 'authentication', 'production',
+        '{}', 'event:club-admin', 'direct', false, false, false, false
+      );
       reset role;
     `)
 
@@ -317,6 +331,15 @@ test('canonical event migration adds private processing evidence and determinist
       idempotency_key: 'event:canonical',
       schema_version: 2,
       metadata: { deviceCategory: 'mobile' },
+    })
+    const clubAdmin = await db.query(`
+      select actor_role_at_event, actor_role_family
+      from public.analytics_events
+      where client_event_id = 'event:club-admin'
+    `)
+    assert.deepEqual(clubAdmin.rows[0], {
+      actor_role_at_event: 'admin',
+      actor_role_family: 'club_admin',
     })
 
     await db.exec(`
