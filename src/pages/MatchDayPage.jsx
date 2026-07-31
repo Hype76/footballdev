@@ -47,6 +47,7 @@ import {
   setMatchDayTimerState,
   startMatchDay,
   updateMatchDay,
+  updateStaffMatchDayScore,
   voidMatchDayShootoutKick,
   voidStaffMatchDayEvent,
   withRequestTimeout,
@@ -1858,6 +1859,15 @@ const MATCH_DAY_DETAIL_FIELDS = [
   'squadDecisions',
 ]
 
+const MATCH_DAY_LIVE_DETAIL_STATUSES = new Set([
+  'live',
+  'half_time',
+  'second_half',
+  'extra_time',
+  'penalties',
+  'full_time',
+])
+
 function mergeMatchDaySummaries(currentMatches = [], nextSummaries = []) {
   const currentMatchesById = new Map(currentMatches.map((match) => [String(match.id), match]))
 
@@ -2180,9 +2190,26 @@ export function MatchDayPage() {
           'Match Day live state could not be refreshed.',
         )
 
+        const liveDetailResults = await Promise.allSettled(
+          nextMatches
+            .filter((match) => MATCH_DAY_LIVE_DETAIL_STATUSES.has(match.status))
+            .map((match) => withRequestTimeout(
+              () => getMatchDay({ user, matchDayId: match.id }),
+              'Match Day live detail could not be refreshed.',
+            )),
+        )
+        const refreshedDetailsById = new Map(
+          liveDetailResults
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => [String(result.value.id), result.value]),
+        )
+        const detailRefreshFailed = liveDetailResults.some((result) => result.status === 'rejected')
+
         if (isCurrent) {
-          setMatches((currentMatches) => mergeMatchDaySummaries(currentMatches, nextMatches))
-          setLiveRefreshStatus('ok')
+          setMatches((currentMatches) => mergeMatchDaySummaries(currentMatches, nextMatches).map((match) => (
+            refreshedDetailsById.get(String(match.id)) || match
+          )))
+          setLiveRefreshStatus(detailRefreshFailed ? 'warning' : 'ok')
         }
       } catch (error) {
         console.error(error)
@@ -2849,13 +2876,11 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      const savedMatch = await updateMatchDay({
+      const savedMatch = await updateStaffMatchDayScore({
         user,
-        matchId: match.id,
-        updates: {
-          homeScore: draft.homeScore,
-          awayScore: draft.awayScore,
-        },
+        match,
+        homeScore: draft.homeScore,
+        awayScore: draft.awayScore,
       })
       const reconcileSavedMatch = (currentMatches) => reconcileMatchDayUpdateInList(currentMatches, {
         match: savedMatch,

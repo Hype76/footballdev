@@ -30,6 +30,7 @@ function responseBody(response) {
 
 test('Match Day push keeps web delivery when the optional mobile table is unavailable', async (t) => {
   const originalFrom = supabaseAdmin.from
+  const originalRpc = supabaseAdmin.rpc
   const originalGetUser = supabaseAdmin.auth.getUser
   const originalSendNotification = webpush.sendNotification
   const originalFetch = globalThis.fetch
@@ -43,6 +44,7 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
 
   t.after(() => {
     supabaseAdmin.from = originalFrom
+    supabaseAdmin.rpc = originalRpc
     supabaseAdmin.auth.getUser = originalGetUser
     webpush.sendNotification = originalSendNotification
     globalThis.fetch = originalFetch
@@ -63,6 +65,28 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
       data: { user: { id: 'staff-1', email: 'staff@example.com' } },
       error: null,
     })
+    supabaseAdmin.rpc = async (functionName) => {
+      if (functionName === 'authorize_match_day_push') {
+        return {
+          data: {
+            allowed: true,
+            targetParentLinkIds: ['link-1'],
+            operationKey: 'match-day:match-1:half-time:1:first-half',
+          },
+          error: null,
+        }
+      }
+
+      if (functionName === 'claim_match_day_push_operation') {
+        return { data: true, error: null }
+      }
+
+      if (functionName === 'complete_match_day_push_operation') {
+        return { data: true, error: null }
+      }
+
+      throw new Error(`Unexpected RPC: ${functionName}`)
+    }
     supabaseAdmin.from = (table) => {
       tables.push(table)
 
@@ -128,7 +152,7 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
     const response = await handler({
       httpMethod: 'POST',
       headers: { authorization: 'Bearer test-token' },
-      body: JSON.stringify({ matchDayId: 'match-1', type: 'update' }),
+      body: JSON.stringify({ matchDayId: 'match-1', type: 'half_time' }),
     })
 
     return { response, tables, warnings, errors, webPushes }

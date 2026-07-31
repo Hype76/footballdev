@@ -97,8 +97,8 @@ test('Match Day event save validates auto minutes before inserting and keeps mod
   assert.doesNotMatch(eventHandlerSource, /minute: normalizeStaffGoalText\(formEvent\.minute\) \|\| \(getCurrentMatchMinute\(match, liveClockNow\) \?\? ''\)/)
   assert.match(goalHandlerSource, /const resolvedMinute = resolveMatchDayEventMinute\({[\s\S]*manualMinute: formGoal\.minute/)
   assert.match(liveEntrySource, /errorMessage \? \([\s\S]*role="alert"[\s\S]*\{errorMessage\}/)
-  assert.match(domainSource, /minute: assertValidMatchDayEventMinute\(event\?\.minute\)/)
-  assert.match(domainSource, /minute: assertValidMatchDayEventMinute\(goal\?\.minute\)/)
+  assert.match(domainSource, /minute_value: assertValidMatchDayEventMinute\(event\?\.minute\)/)
+  assert.match(domainSource, /minute_value: assertValidMatchDayEventMinute\(goal\?\.minute\)/)
 })
 
 test('mobile active Game Mode hides admin page sections but keeps Manage and timeline', async () => {

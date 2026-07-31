@@ -563,7 +563,8 @@ test('staff manual score handler reconciles saved score before and after canonic
 
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
-  assert.match(handlerSource, /const savedMatch = await updateMatchDay\(/)
+  assert.match(handlerSource, /const savedMatch = await updateStaffMatchDayScore\(/)
+  assert.match(handlerSource, /match,/)
   assert.match(handlerSource, /homeScore: draft\.homeScore/)
   assert.match(handlerSource, /awayScore: draft\.awayScore/)
   assert.match(handlerSource, /const reconcileSavedMatch = \(currentMatches\) => reconcileMatchDayUpdateInList/)

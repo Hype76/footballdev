@@ -78,24 +78,48 @@ async function getMatch(matchDayId) {
   return data
 }
 
-async function canSendForMatch({ authUser, profile, match, parentLinkId }) {
-  if (profile.role !== 'parent_portal' && profile.clubId === match.club_id && profile.roleRank >= 20) {
-    return true
+async function authorizePush({ authUser, match, parentLinkId, type, eventId }) {
+  const { data, error } = await supabaseAdmin.rpc('authorize_match_day_push', {
+    actor_user_id_value: authUser.id,
+    match_day_id_value: match.id,
+    parent_link_id_value: parentLinkId || null,
+    notification_type_value: type,
+    event_id_value: eventId || null,
+  })
+
+  if (error) {
+    throw error
   }
 
-  if (parentLinkId) {
-    const { data } = await supabaseAdmin
-      .from('match_day_scorer_assignments')
-      .select('id')
-      .eq('match_day_id', match.id)
-      .eq('parent_link_id', parentLinkId)
-      .eq('auth_user_id', authUser.id)
-      .maybeSingle()
+  return data || { allowed: false }
+}
 
-    return Boolean(data?.id)
+async function claimPushOperation({ authUser, match, type, eventId, operationKey }) {
+  const { data, error } = await supabaseAdmin.rpc('claim_match_day_push_operation', {
+    match_day_id_value: match.id,
+    operation_key_value: operationKey,
+    notification_type_value: type,
+    event_id_value: eventId || null,
+    actor_user_id_value: authUser.id,
+  })
+
+  if (error) {
+    throw error
   }
 
-  return false
+  return data === true
+}
+
+async function completePushOperation({ operationKey, succeeded, errorMessage = '' }) {
+  const { error } = await supabaseAdmin.rpc('complete_match_day_push_operation', {
+    operation_key_value: operationKey,
+    succeeded_value: succeeded === true,
+    error_message_value: normalizeText(errorMessage),
+  })
+
+  if (error) {
+    throw error
+  }
 }
 
 function configureWebPush() {
@@ -123,6 +147,14 @@ function buildPayload({ match, type, event }) {
   const eventScorer = normalizeText(event?.scorer_initials || event?.scorer_name)
   const isOpponentGoal = normalizeText(event?.team_side) === 'opponent'
   const minute = event?.minute !== null && event?.minute !== undefined ? `${event.minute}' ` : ''
+
+  if (type === 'live') {
+    return {
+      title: 'Match started',
+      body: scoreLine,
+      tag: `match-day-${match.id}-live`,
+    }
+  }
 
   if (type === 'goal') {
     return {
@@ -210,6 +242,10 @@ function buildPayload({ match, type, event }) {
 }
 
 async function getSubscriptions({ match, targetParentLinkIds }) {
+  if (targetParentLinkIds.length === 0) {
+    return []
+  }
+
   let query = supabaseAdmin
     .from('parent_push_subscriptions')
     .select('id, endpoint, p256dh, auth')
@@ -220,9 +256,7 @@ async function getSubscriptions({ match, targetParentLinkIds }) {
     query = query.eq('team_id', match.team_id)
   }
 
-  if (targetParentLinkIds.length > 0) {
-    query = query.in('parent_link_id', targetParentLinkIds)
-  }
+  query = query.in('parent_link_id', targetParentLinkIds)
 
   const { data, error } = await query
 
@@ -234,6 +268,10 @@ async function getSubscriptions({ match, targetParentLinkIds }) {
 }
 
 async function getMobileDevices({ match, targetParentLinkIds }) {
+  if (targetParentLinkIds.length === 0) {
+    return []
+  }
+
   let query = supabaseAdmin
     .from('mobile_push_devices')
     .select('id, auth_user_id, device_token, parent_link_id')
@@ -246,9 +284,7 @@ async function getMobileDevices({ match, targetParentLinkIds }) {
     query = query.eq('team_id', match.team_id)
   }
 
-  if (targetParentLinkIds.length > 0) {
-    query = query.in('parent_link_id', targetParentLinkIds)
-  }
+  query = query.in('parent_link_id', targetParentLinkIds)
 
   const { data, error } = await query
 
@@ -362,37 +398,55 @@ export async function handler(event) {
     return failureResponse(405, 'Method Not Allowed')
   }
 
+  let claimedOperationKey = ''
+
   try {
     const webPushConfigured = configureWebPush()
 
     const authUser = await getAuthUser(event)
-    const profile = await getProfile(authUser)
+    await getProfile(authUser)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
-    const type = normalizeText(body.type) || 'update'
+    const type = normalizeText(body.type)
     const parentLinkId = normalizeText(body.parentLinkId)
-    const targetParentLinkIds = Array.isArray(body.targetParentLinkIds)
-      ? body.targetParentLinkIds.map(normalizeText).filter(Boolean)
-      : []
+    const eventId = normalizeText(body.eventId)
 
     if (!matchDayId) {
       return failureResponse(400, 'Match Day is required.')
     }
 
     const match = await getMatch(matchDayId)
-    const isAllowed = await canSendForMatch({ authUser, profile, match, parentLinkId })
+    const authorization = await authorizePush({ authUser, match, parentLinkId, type, eventId })
 
-    if (!isAllowed) {
+    if (authorization.allowed !== true) {
       return failureResponse(403, 'You cannot send notifications for this match.')
     }
 
+    const targetParentLinkIds = Array.isArray(authorization.targetParentLinkIds)
+      ? authorization.targetParentLinkIds.map(normalizeText).filter(Boolean)
+      : []
+    const operationKey = normalizeText(authorization.operationKey)
+    const claimed = await claimPushOperation({ authUser, match, type, eventId, operationKey })
+
+    if (!claimed) {
+      return jsonResponse(200, {
+        success: true,
+        duplicate: true,
+        sent: 0,
+        revoked: 0,
+        mobileSent: 0,
+        mobileFailed: 0,
+      })
+    }
+    claimedOperationKey = operationKey
+
     let eventRow = null
 
-    if (body.eventId) {
+    if (eventId) {
       const { data, error } = await supabaseAdmin
         .from('match_day_events')
         .select('*')
-        .eq('id', body.eventId)
+        .eq('id', eventId)
         .eq('match_day_id', match.id)
         .maybeSingle()
 
@@ -449,6 +503,8 @@ export async function handler(event) {
       payload: nativePayload,
       status: mobileResult.failed > 0 && mobileResult.sent === 0 ? 'failed' : 'sent',
     })
+    await completePushOperation({ operationKey, succeeded: true })
+    claimedOperationKey = ''
 
     return jsonResponse(200, {
       success: true,
@@ -458,6 +514,18 @@ export async function handler(event) {
       mobileFailed: mobileResult.failed,
     })
   } catch (error) {
+    if (claimedOperationKey) {
+      try {
+        await completePushOperation({
+          operationKey: claimedOperationKey,
+          succeeded: false,
+          errorMessage: error.message,
+        })
+      } catch (completionError) {
+        console.error('Match Day push operation completion failed', completionError)
+      }
+    }
+
     console.error(error)
     return failureResponse(error.statusCode || 500, error.message || 'Match Day notifications could not be sent.')
   }

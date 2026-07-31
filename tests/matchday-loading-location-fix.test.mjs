@@ -46,7 +46,7 @@ test('heavy Match Day detail loading is restricted to one authorised match', asy
   assert.doesNotMatch(detailSource, /\.order\(/)
 })
 
-test('refresh is lightweight, single flight, and preserves hydrated detail', async () => {
+test('refresh is single flight and replaces live hydrated detail from the canonical read model', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
   const start = source.indexOf('async function refreshLiveMatches()')
   const end = source.indexOf('const intervalId = window.setInterval', start)
@@ -59,7 +59,8 @@ test('refresh is lightweight, single flight, and preserves hydrated detail', asy
   assert.match(refreshSource, /liveRefreshStateRef\.current\.inFlight = false/)
   assert.match(refreshSource, /getMatchDays\(\{ user \}\)/)
   assert.match(refreshSource, /mergeMatchDaySummaries\(currentMatches, nextMatches\)/)
-  assert.doesNotMatch(refreshSource, /getMatchDay\(/)
+  assert.match(refreshSource, /getMatchDay\(\{ user, matchDayId: match\.id \}\)/)
+  assert.match(refreshSource, /refreshedDetailsById/)
   assert.doesNotMatch(refreshSource, /retry|setTimeout/)
 })
 

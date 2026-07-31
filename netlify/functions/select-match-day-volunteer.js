@@ -546,37 +546,6 @@ async function upsertRoleAssignment(adminSupabase, { match, parentLink, profile,
   return normalizeRoleAssignmentResponse(data || payload)
 }
 
-async function syncLegacyScorerAssignment(adminSupabase, { match, parentLink, profile, selected }) {
-  const { error: deleteError } = await adminSupabase
-    .from('match_day_scorer_assignments')
-    .delete()
-    .eq('match_day_id', match.id)
-
-  if (deleteError) {
-    throw deleteError
-  }
-
-  if (selected === false) {
-    return
-  }
-
-  const { error: insertError } = await adminSupabase
-    .from('match_day_scorer_assignments')
-    .insert({
-      match_day_id: match.id,
-      club_id: match.club_id,
-      team_id: match.team_id || null,
-      parent_link_id: parentLink.id,
-      auth_user_id: parentLink.auth_user_id || null,
-      assigned_by: profile.id,
-      assigned_by_name: normalizeText(profile.display_name || profile.name || profile.email),
-    })
-
-  if (insertError) {
-    throw insertError
-  }
-}
-
 async function createMatchDayEventLogEntry(adminSupabase, {
   action,
   match,
@@ -724,24 +693,48 @@ export async function handler(event) {
         throw Object.assign(new Error('This volunteer is not currently selected for that role.'), { statusCode: 409 })
       }
 
-      const { error: deleteRoleError } = await adminSupabase
-        .from('match_day_role_assignments')
-        .delete()
-        .eq('match_day_id', match.id)
-        .eq('role', role)
-
-      if (deleteRoleError) {
-        throw deleteRoleError
-      }
-
       if (role === 'scorer') {
-        await syncLegacyScorerAssignment(adminSupabase, { match, parentLink, profile, selected: false })
+        const { error: syncError } = await adminSupabase.rpc('sync_match_day_scorer_assignment', {
+          match_day_id_value: match.id,
+          parent_link_id_value: parentLink.id,
+          assigned_by_value: profile.id,
+          assigned_by_name_value: normalizeText(profile.display_name || profile.name || profile.email),
+          selected_value: false,
+        })
+
+        if (syncError) {
+          throw syncError
+        }
+      } else {
+        const { error: deleteRoleError } = await adminSupabase
+          .from('match_day_role_assignments')
+          .delete()
+          .eq('match_day_id', match.id)
+          .eq('role', role)
+
+        if (deleteRoleError) {
+          throw deleteRoleError
+        }
       }
     } else {
-      savedAssignment = await upsertRoleAssignment(adminSupabase, { match, parentLink, profile, role })
-
       if (role === 'scorer') {
-        await syncLegacyScorerAssignment(adminSupabase, { match, parentLink, profile, selected: true })
+        const { error: syncError } = await adminSupabase.rpc('sync_match_day_scorer_assignment', {
+          match_day_id_value: match.id,
+          parent_link_id_value: parentLink.id,
+          assigned_by_value: profile.id,
+          assigned_by_name_value: normalizeText(profile.display_name || profile.name || profile.email),
+          selected_value: true,
+        })
+
+        if (syncError) {
+          throw syncError
+        }
+
+        savedAssignment = normalizeRoleAssignmentResponse(
+          await getCurrentAssignment(adminSupabase, match.id, role),
+        )
+      } else {
+        savedAssignment = await upsertRoleAssignment(adminSupabase, { match, parentLink, profile, role })
       }
     }
 

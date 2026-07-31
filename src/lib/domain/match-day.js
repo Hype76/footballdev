@@ -96,6 +96,20 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+function createMatchDayRequestId(requestId = '') {
+  const normalizedRequestId = normalizeText(requestId)
+
+  if (normalizedRequestId) {
+    return normalizedRequestId
+  }
+
+  if (typeof globalThis.crypto?.randomUUID !== 'function') {
+    throw new Error('This browser cannot create a safe Match Day request id. Refresh or update the browser before retrying.')
+  }
+
+  return globalThis.crypto.randomUUID()
+}
+
 function normalizeTime(value) {
   return normalizeRequiredTime(value)
 }
@@ -1682,82 +1696,26 @@ export async function selectMatchDayScorer({ user, match, interest }) {
   return selectMatchDayVolunteer({ user, match, volunteer: interest, role: 'scorer', selected: true })
 }
 
-export async function addStaffMatchDayGoal({ user, match, goal }) {
+export async function addStaffMatchDayGoal({ user, match, goal, requestId = '' }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
   assertMatchDayHasStarted(match)
 
   const teamSide = normalizeText(goal?.teamSide) === 'opponent' ? 'opponent' : 'club'
-  let nextHomeScore = Number(match.homeScore ?? 0)
-  let nextAwayScore = Number(match.awayScore ?? 0)
-
-  if (teamSide === 'club') {
-    if (match.homeAway === 'away') {
-      nextAwayScore += 1
-    } else {
-      nextHomeScore += 1
-    }
-  } else if (match.homeAway === 'away') {
-    nextHomeScore += 1
-  } else {
-    nextAwayScore += 1
-  }
-
-  const payload = {
-    match_day_id: match.id,
-    club_id: match.clubId,
-    team_id: match.teamId || null,
-    event_type: 'goal',
-    team_side: teamSide,
-    minute: assertValidMatchDayEventMinute(goal?.minute),
-    scorer_name: normalizeText(goal?.scorerName),
-    scorer_initials: getInitialsFromFullName(goal?.scorerName),
-    scorer_shirt_number: normalizeText(goal?.scorerShirtNumber),
-    assist_name: normalizeText(goal?.assistName),
-    assist_initials: getInitialsFromFullName(goal?.assistName),
-    assist_shirt_number: normalizeText(goal?.assistShirtNumber),
-    home_score: nextHomeScore,
-    away_score: nextAwayScore,
-    notes: normalizeText(goal?.notes),
-    is_penalty_goal: goal?.isPenaltyGoal === true,
-    match_phase: normalizeText(match.currentMatchPhase) || 'pre_match',
-    created_by: getEntryUserId(user),
-    created_by_name: getEntryUserName(user),
-  }
-
-  let matchUpdateQuery = supabase
-    .from('match_days')
-    .update({
-      home_score: nextHomeScore,
-      away_score: nextAwayScore,
-      status: match.status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', match.id)
-    .eq('club_id', user.clubId)
-    .is('deleted_at', null)
-
-  matchUpdateQuery = scopeMatchDayQueryToActiveTeam(matchUpdateQuery, user)
-
-  const { data: updatedMatch, error: updateError } = await matchUpdateQuery
-    .select('id')
-    .single()
-
-  if (updateError) {
-    console.error(updateError)
-    throw updateError
-  }
-
-  if (!updatedMatch?.id) {
-    throw new Error('This match day is not linked to your active team.')
-  }
-
-  const { data, error } = await supabase
-    .from('match_day_events')
-    .insert(payload)
-    .select('*')
-    .single()
+  const { data, error } = await supabase.rpc('record_match_day_goal_v2', {
+    match_day_id_value: match.id,
+    parent_link_id_value: null,
+    team_side_value: teamSide,
+    scorer_name_value: normalizeText(goal?.scorerName),
+    scorer_shirt_number_value: normalizeText(goal?.scorerShirtNumber),
+    assist_name_value: normalizeText(goal?.assistName),
+    assist_shirt_number_value: normalizeText(goal?.assistShirtNumber),
+    minute_value: assertValidMatchDayEventMinute(goal?.minute),
+    notes_value: normalizeText(goal?.notes),
+    is_penalty_goal_value: goal?.isPenaltyGoal === true,
+    request_id_value: createMatchDayRequestId(requestId),
+  })
 
   if (error) {
     console.error(error)
@@ -1765,30 +1723,33 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
-  await createMatchDayEventLogEntry({
-    user,
-    match,
-    eventType: 'scorer_updated',
-    eventLabel: 'Goal added',
-    previousValue: {
-      homeScore: Number(match.homeScore ?? 0),
-      awayScore: Number(match.awayScore ?? 0),
-      status: normalizeText(match.status),
-    },
-    newValue: {
-      homeScore: nextHomeScore,
-      awayScore: nextAwayScore,
-      status: match.status,
-    },
-    metadata: {
-      goalEventId: data.id,
-      teamSide,
-      minute: payload.minute,
-      scorerName: payload.scorer_name,
-      source: 'staff_match_day',
-    },
-  })
+  invalidateMemoryCacheByPrefix('parent-match-day:')
   return normalizeMatchDayEvent(data)
+}
+
+export async function updateStaffMatchDayScore({ user, match, homeScore, awayScore, requestId = '' }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+  assertMatchDayHasStarted(match)
+
+  const { error } = await supabase.rpc('record_match_day_score_correction_v2', {
+    match_day_id_value: match.id,
+    parent_link_id_value: null,
+    home_score_value: Number(homeScore ?? 0),
+    away_score_value: Number(awayScore ?? 0),
+    notes_value: 'Score corrected by staff',
+    request_id_value: createMatchDayRequestId(requestId),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return getMatchDay({ user, matchDayId: match.id })
 }
 
 export async function resetPreviousMatchDayResults({ user, teamId = '' } = {}) {
@@ -1893,10 +1854,12 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     { data, error },
     { data: extendedData, error: extendedError },
     { data: confirmedTeamData, error: confirmedTeamError },
+    { data: scorerGameModeData, error: scorerGameModeError },
   ] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: normalizedParentLinkId }),
+    supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: normalizedParentLinkId }),
   ])
 
   if (error) {
@@ -1914,12 +1877,20 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     throw confirmedTeamError
   }
 
+  if (scorerGameModeError) {
+    console.error(scorerGameModeError)
+    throw scorerGameModeError
+  }
+
   const extendedByMatchId = new Map((extendedData ?? []).map((row) => [row.match_day_id ?? row.matchDayId, row]))
   const confirmedTeamByMatchId = new Map(
     (confirmedTeamData ?? []).map((row) => [
       row.match_day_id ?? row.matchDayId,
       row.selected_player_names ?? row.selectedPlayerNames ?? [],
     ]),
+  )
+  const scorerGameModeMatchIds = new Set(
+    (scorerGameModeData ?? []).map((row) => String(row.match_day_id ?? row.matchDayId ?? '')),
   )
 
   return (data ?? []).map((row) => {
@@ -1933,6 +1904,7 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     return normalizeParentPortalMatchDay({
       ...row,
       ...extended,
+      is_scorer: scorerGameModeMatchIds.has(String(row.id)),
       selected_player_names: confirmedTeamByMatchId.get(row.id) ?? [],
       events,
     })
@@ -1978,12 +1950,14 @@ export async function expressMatchDayScorerInterest({ parentLinkId, matchDayId, 
   return data
 }
 
-export async function updateMatchDayScoreAsScorer({ parentLinkId, matchDayId, homeScore, awayScore }) {
-  const { data, error } = await supabase.rpc('update_match_day_score_as_scorer', {
+export async function updateMatchDayScoreAsScorer({ parentLinkId, matchDayId, homeScore, awayScore, requestId = '' }) {
+  const { data, error } = await supabase.rpc('record_match_day_score_correction_v2', {
     parent_link_id_value: parentLinkId,
     match_day_id_value: matchDayId,
     home_score_value: Number(homeScore ?? 0),
     away_score_value: Number(awayScore ?? 0),
+    notes_value: 'Score corrected by parent scorer',
+    request_id_value: createMatchDayRequestId(requestId),
   })
 
   if (error) {
@@ -2225,7 +2199,7 @@ export async function voidStaffMatchDayEvent({ user, match, event, reasonCode = 
   return normalizeMatchDayEventVoidResult(data)
 }
 
-export async function addStaffMatchDayEvent({ user, match, event }) {
+export async function addStaffMatchDayEvent({ user, match, event, requestId = '' }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
@@ -2236,34 +2210,20 @@ export async function addStaffMatchDayEvent({ user, match, event }) {
     throw new Error('Choose a supported Match Day event type.')
   }
 
-  const isSubstitution = eventType === 'substitution'
   const teamSide = normalizeText(event?.teamSide) === 'opponent' ? 'opponent' : 'club'
 
-  const payload = {
-    match_day_id: match.id,
-    club_id: match.clubId,
-    team_id: match.teamId || null,
-    event_type: eventType,
-    team_side: teamSide,
-    minute: assertValidMatchDayEventMinute(event?.minute),
-    scorer_name: normalizeText(event?.playerName),
-    scorer_initials: getInitialsFromFullName(event?.playerName),
-    scorer_shirt_number: normalizeText(event?.playerShirtNumber),
-    assist_name: isSubstitution ? normalizeText(event?.playerOnName) : '',
-    assist_initials: isSubstitution ? getInitialsFromFullName(event?.playerOnName) : '',
-    assist_shirt_number: isSubstitution ? normalizeText(event?.playerOnShirtNumber) : '',
-    home_score: Number(match.homeScore ?? 0),
-    away_score: Number(match.awayScore ?? 0),
-    notes: normalizeText(event?.notes),
-    created_by: getEntryUserId(user),
-    created_by_name: getEntryUserName(user),
-  }
-
-  const { data, error } = await supabase
-    .from('match_day_events')
-    .insert(payload)
-    .select('*')
-    .single()
+  const { data, error } = await supabase.rpc('record_match_day_staff_event_v2', {
+    match_day_id_value: match.id,
+    event_type_value: eventType,
+    team_side_value: teamSide,
+    minute_value: assertValidMatchDayEventMinute(event?.minute),
+    player_name_value: normalizeText(event?.playerName),
+    player_shirt_number_value: normalizeText(event?.playerShirtNumber),
+    player_on_name_value: normalizeText(event?.playerOnName),
+    player_on_shirt_number_value: normalizeText(event?.playerOnShirtNumber),
+    notes_value: normalizeText(event?.notes),
+    request_id_value: createMatchDayRequestId(requestId),
+  })
 
   if (error) {
     console.error(error)
@@ -2271,35 +2231,13 @@ export async function addStaffMatchDayEvent({ user, match, event }) {
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
-  await createMatchDayEventLogEntry({
-    user,
-    match,
-    eventType,
-    eventLabel: getMatchDayEventLogLabel(eventType),
-    previousValue: null,
-    newValue: {
-      eventType,
-      teamSide: payload.team_side,
-      minute: payload.minute,
-      playerName: payload.scorer_name,
-      playerOnName: payload.assist_name,
-      notes: payload.notes,
-    },
-    metadata: {
-      matchEventId: data.id,
-      teamSide: payload.team_side,
-      minute: payload.minute,
-      playerName: payload.scorer_name,
-      playerOnName: payload.assist_name,
-      source: 'staff_match_day',
-    },
-  })
+  invalidateMemoryCacheByPrefix('parent-match-day:')
 
   return normalizeMatchDayEvent(data)
 }
 
-export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }) {
-  const { data, error } = await supabase.rpc('add_match_day_goal_as_scorer', {
+export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal, requestId = '' }) {
+  const { data, error } = await supabase.rpc('record_match_day_goal_v2', {
     parent_link_id_value: parentLinkId,
     match_day_id_value: matchDayId,
     team_side_value: normalizeText(goal?.teamSide) === 'opponent' ? 'opponent' : 'club',
@@ -2310,6 +2248,7 @@ export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }
     minute_value: assertValidMatchDayEventMinute(goal?.minute),
     notes_value: normalizeText(goal?.notes),
     is_penalty_goal_value: goal?.isPenaltyGoal === true,
+    request_id_value: createMatchDayRequestId(requestId),
   })
 
   if (error) {
@@ -2319,7 +2258,7 @@ export async function addMatchDayGoalAsScorer({ parentLinkId, matchDayId, goal }
 
   invalidateMemoryCacheByPrefix('match-day:')
   invalidateMemoryCacheByPrefix('parent-match-day:')
-  return data
+  return data?.id || data
 }
 
 export async function correctMatchDayGoalAsScorer({ parentLinkId, match, event, goal, reason = '' }) {

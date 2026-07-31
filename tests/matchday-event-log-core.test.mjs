@@ -6,6 +6,7 @@ import { test } from 'node:test'
 import { normalizeMatchDay } from '../src/lib/domain/match-day.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260704084216_match_day_event_log_core.sql', import.meta.url)
+const scorerAuthorityMigrationUrl = new URL('../supabase/migrations/20260731110000_fp_v1_gameday_scorer_authority_02a.sql', import.meta.url)
 const matchEventTypesMigrationUrl = migrationSourceUrl('20260705074811_matchday_event_types_cards_subs_water.sql', 'active')
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const goalStateUrl = new URL('../src/lib/matchday-goal-state.js', import.meta.url)
@@ -75,7 +76,10 @@ test('domain read model includes event log entries in Match Day payloads', async
 })
 
 test('domain writes event log entries after successful core Match Day actions only', async () => {
-  const source = await readFile(domainUrl, 'utf8')
+  const [source, scorerAuthorityMigration] = await Promise.all([
+    readFile(domainUrl, 'utf8'),
+    readFile(scorerAuthorityMigrationUrl, 'utf8'),
+  ])
 
   assert.match(source, /export async function createMatchDayEventLogEntry/)
   assert.match(source, /\.from\('match_day_event_log'\)[\s\S]*\.insert\(/)
@@ -83,7 +87,8 @@ test('domain writes event log entries after successful core Match Day actions on
   assert.match(source, /action: 'match_day_created'[\s\S]*await createMatchDayEventLogEntry\(\{[\s\S]*eventType: 'match_day_created'/)
   assert.match(source, /export async function updateMatchDay[\s\S]*const previousSnapshot = await getMatchDayEventLogSnapshot/)
   assert.match(source, /eventType === 'note_updated' \? 'Note updated' : 'Fixture updated'/)
-  assert.match(source, /export async function addStaffMatchDayGoal[\s\S]*eventType: 'scorer_updated'/)
+  assert.match(source, /export async function addStaffMatchDayGoal[\s\S]*supabase\.rpc\('record_match_day_goal_v2'/)
+  assert.match(scorerAuthorityMigration, /create or replace function public\.record_match_day_goal_v2[\s\S]*insert into public\.match_day_event_log[\s\S]*'scorer_updated'/)
   assert.match(source, /return normalizeMatchDayEvent\(data\)/)
 })
 
@@ -242,10 +247,10 @@ test('staff Match Day event model accepts and logs cards substitutions and water
 
   assert.match(domain, /const MATCH_DAY_STAFF_EVENT_TYPES = new Set\(\[[\s\S]*'yellow_card'[\s\S]*'red_card'[\s\S]*'substitution'[\s\S]*'water_break'/)
   assert.match(domain, /export async function addStaffMatchDayEvent/)
-  assert.match(domain, /event_type: eventType/)
-  assert.match(domain, /home_score: Number\(match\.homeScore \?\? 0\)/)
-  assert.match(domain, /away_score: Number\(match\.awayScore \?\? 0\)/)
-  assert.match(domain, /eventType,[\s\S]*eventLabel: getMatchDayEventLogLabel\(eventType\)/)
+  assert.match(domain, /supabase\.rpc\('record_match_day_staff_event_v2'/)
+  assert.match(domain, /event_type_value: eventType/)
+  assert.match(domain, /request_id_value: createMatchDayRequestId\(requestId\)/)
+  assert.doesNotMatch(domain, /\.from\('match_day_events'\)[\s\S]{0,180}\.insert\(/)
   assert.doesNotMatch(domain, /suspension|disciplinary|season card|card total|substitution statistics/i)
   assert.match(goalState, /export function reconcileMatchDayEvent/)
   assert.match(goalState, /event\.eventType \?\? event\.event_type/)
@@ -271,8 +276,7 @@ test('staff Match Day page renders compact cards substitutions and water break c
   assert.match(source, /Save event/)
   assert.match(source, /Player On/)
   assert.doesNotMatch(source, /Player On \/ note/)
-  assert.match(domain, /home_score: Number\(match\.homeScore \?\? 0\)/)
-  assert.match(domain, /away_score: Number\(match\.awayScore \?\? 0\)/)
+  assert.match(domain, /supabase\.rpc\('record_match_day_staff_event_v2'/)
   assert.match(source, /<span className=\{smallLabelClass\}>Team<\/span>[\s\S]*<option value="club">Our team<\/option>[\s\S]*<option value="opponent">Opponent<\/option>/)
   assert.match(timelineSource, /getMatchEventBadge\(event\)/)
   assert.match(timelineSource, /aria-label=\{badge\.label\}/)
@@ -305,11 +309,10 @@ test('staff substitutions save Player Off and Player On as structured event pers
   assert.match(source, /disabled=\{isSubstitutionEvent && String\(player\.id\) === String\(matchEventForm\.playerOnId\)\}/)
   assert.match(source, /disabled=\{String\(player\.id\) === String\(matchEventForm\.playerId\)\}/)
   assert.match(source, /Choose a different Player On for this substitution\./)
-  assert.match(eventWriterSource, /const isSubstitution = eventType === 'substitution'/)
-  assert.match(eventWriterSource, /scorer_name: normalizeText\(event\?\.playerName\)/)
-  assert.match(eventWriterSource, /assist_name: isSubstitution \? normalizeText\(event\?\.playerOnName\) : ''/)
-  assert.match(eventWriterSource, /assist_shirt_number: isSubstitution \? normalizeText\(event\?\.playerOnShirtNumber\) : ''/)
-  assert.match(eventWriterSource, /playerOnName: payload\.assist_name/)
+  assert.match(eventWriterSource, /player_name_value: normalizeText\(event\?\.playerName\)/)
+  assert.match(eventWriterSource, /player_on_name_value: normalizeText\(event\?\.playerOnName\)/)
+  assert.match(eventWriterSource, /player_on_shirt_number_value: normalizeText\(event\?\.playerOnShirtNumber\)/)
+  assert.match(eventWriterSource, /supabase\.rpc\('record_match_day_staff_event_v2'/)
   assert.match(eventWriterSource, /return normalizeMatchDayEvent\(data\)/)
   assert.match(detailSource, /event\.eventType === 'substitution'/)
   assert.match(detailSource, /label: 'Player Off'/)
@@ -334,8 +337,8 @@ test('opponent match events can omit player names while using opponent labels', 
   assert.notEqual(labelStart, -1)
   assert.notEqual(labelEnd, -1)
   assert.match(eventWriterSource, /const teamSide = normalizeText\(event\?\.teamSide\) === 'opponent' \? 'opponent' : 'club'/)
-  assert.match(eventWriterSource, /team_side: teamSide/)
-  assert.match(eventWriterSource, /scorer_name: normalizeText\(event\?\.playerName\)/)
+  assert.match(eventWriterSource, /team_side_value: teamSide/)
+  assert.match(eventWriterSource, /player_name_value: normalizeText\(event\?\.playerName\)/)
   assert.doesNotMatch(eventWriterSource, /playerName[\s\S]{0,80}throw new Error/)
   assert.match(source, /Opponent player name optional/)
   assert.match(source, /Opponent player on optional/)

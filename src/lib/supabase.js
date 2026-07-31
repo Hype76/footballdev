@@ -373,6 +373,7 @@ export {
   isPastMatchDayDate,
   isPastMatchDayDateTime,
   updateMatchDay,
+  updateStaffMatchDayScore,
   updateMatchDayScoreAsScorer,
   voidMatchDayGoalAsScorer,
   voidStaffMatchDayEvent,
