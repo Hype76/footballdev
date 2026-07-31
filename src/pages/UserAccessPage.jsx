@@ -13,18 +13,23 @@ import { initialUserAccessFormState, INVITE_PAGE_SIZE, MEMBER_PAGE_SIZE } from '
 import {
   canRemoveClubUser,
   canUpdateClubUserName,
+  assignClubUserRole,
   createStaffInvite,
   createClubRole,
   deleteClubInvite,
   getClubRoles,
   getClubUserInvites,
   getVisibleClubUsers,
+  getTeamStaffAssignments,
+  getTeams,
   removeClubUser,
   readViewCacheValue,
   updateClubUserName,
+  changeStaffRoleAssignment,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+import { getPermittedTeamRoleOptions } from '../lib/team-staff-role-policy.js'
 
 const staffAccessRules = [
   {
@@ -43,9 +48,27 @@ const staffAccessRules = [
 
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
+const safeTeamRoleDenialCategories = new Set([
+  'assignment_inactive',
+  'cross_club_target',
+  'final_team_admin',
+  'grant_ceiling_exceeded',
+  'protected_assignment',
+  'role_not_supported',
+  'target_above_grant_ceiling',
+  'team_scope_forbidden',
+])
+
+function getSafeTeamRoleErrorMessage(error) {
+  if (safeTeamRoleDenialCategories.has(String(error?.code ?? '')) && String(error?.message ?? '').trim()) {
+    return error.message
+  }
+
+  return 'Could not update the team role. The assignment may be protected or outside your authority.'
+}
 
 export function UserAccessPage() {
-  const { user } = useAuth()
+  const { refreshTeamSelection, user } = useAuth()
   const { showToast } = useToast()
   const accessScope =
     user?.role === 'admin' || user?.role === 'super_admin'
@@ -64,6 +87,14 @@ export function UserAccessPage() {
     const cachedInvites = readViewCacheValue(cacheKey, 'pendingInvites', [])
     return Array.isArray(cachedInvites) ? cachedInvites : []
   })
+  const [teams, setTeams] = useState(() => {
+    const cachedTeams = readViewCacheValue(cacheKey, 'teams', [])
+    return Array.isArray(cachedTeams) ? cachedTeams : []
+  })
+  const [assignments, setAssignments] = useState(() => {
+    const cachedAssignments = readViewCacheValue(cacheKey, 'assignments', [])
+    return Array.isArray(cachedAssignments) ? cachedAssignments : []
+  })
   const [formState, setFormState] = useState(initialUserAccessFormState)
   const [isLoading, setIsLoading] = useState(() => roles.length === 0 && members.length === 0 && pendingInvites.length === 0)
   const [isSaving, setIsSaving] = useState(false)
@@ -72,6 +103,8 @@ export function UserAccessPage() {
   const [invitePage, setInvitePage] = useState(1)
   const [inviteDeleteTarget, setInviteDeleteTarget] = useState(null)
   const [memberRemoveTarget, setMemberRemoveTarget] = useState(null)
+  const [clubRoleChangeTarget, setClubRoleChangeTarget] = useState(null)
+  const [roleChangeTarget, setRoleChangeTarget] = useState(null)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -83,12 +116,14 @@ export function UserAccessPage() {
       setErrorMessage('')
 
       try {
-        const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
+        const [rolesResult, membersResult, invitesResult, teamsResult, assignmentsResult] = await Promise.allSettled([
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
           withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load active users.'),
           user?.role === 'admin' || user?.role === 'super_admin'
             ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.')
             : Promise.resolve([]),
+          withRequestTimeout(() => getTeams(user), 'Could not load team names.'),
+          withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
         ])
 
         if (!isMounted) {
@@ -98,8 +133,14 @@ export function UserAccessPage() {
         const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
         const nextMembers = membersResult.status === 'fulfilled' ? membersResult.value : []
         const nextInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : []
+        const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
+        const nextAssignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
         const hasFailure =
-          rolesResult.status === 'rejected' || membersResult.status === 'rejected' || invitesResult.status === 'rejected'
+          rolesResult.status === 'rejected' ||
+          membersResult.status === 'rejected' ||
+          invitesResult.status === 'rejected' ||
+          teamsResult.status === 'rejected' ||
+          assignmentsResult.status === 'rejected'
 
         if (rolesResult.status === 'rejected') {
           console.error(rolesResult.reason)
@@ -113,14 +154,26 @@ export function UserAccessPage() {
           console.error(invitesResult.reason)
         }
 
+        if (teamsResult.status === 'rejected') {
+          console.error(teamsResult.reason)
+        }
+
+        if (assignmentsResult.status === 'rejected') {
+          console.error(assignmentsResult.reason)
+        }
+
         setRoles(nextRoles)
         setMembers(nextMembers)
         setPendingInvites(nextInvites)
+        setTeams(nextTeams)
+        setAssignments(nextAssignments)
         setNameDrafts(Object.fromEntries(nextMembers.map((member) => [member.id, member.name || ''])))
         writeViewCache(cacheKey, {
           roles: nextRoles,
           members: nextMembers,
           pendingInvites: nextInvites,
+          teams: nextTeams,
+          assignments: nextAssignments,
         })
         setFormState((current) => ({
           ...current,
@@ -150,9 +203,48 @@ export function UserAccessPage() {
     () => roles.filter((role) => canAssignRole(user, role)),
     [roles, user],
   )
+  const membersWithTeamAssignments = useMemo(() => {
+    const teamNames = new Map(teams.map((team) => [String(team.id), team.name]))
+    const actorAssignments = new Map(
+      assignments
+        .filter((assignment) => String(assignment.userId) === String(user?.id))
+        .map((assignment) => [String(assignment.teamId), assignment]),
+    )
+    const isClubScope = user?.role === 'admin' || user?.role === 'super_admin'
+
+    return members.map((member) => ({
+      ...member,
+      clubRoleOptions:
+        isClubScope &&
+        String(member.id) !== String(user?.id) &&
+        member.role !== 'super_admin'
+          ? roles.filter((role) => canAssignRole(user, role))
+          : [],
+      teamAssignments: assignments
+        .filter((assignment) =>
+          !String(assignment.userId).startsWith('invite:') &&
+          String(assignment.userId) === String(member.id) &&
+          (isClubScope || String(assignment.teamId) === String(user?.activeTeamId)),
+        )
+        .map((assignment) => ({
+          assignmentId: assignment.id,
+          teamId: assignment.teamId,
+          teamName: teamNames.get(String(assignment.teamId)) || 'Assigned team',
+          teamRoleKey: assignment.roleKey,
+          teamRoleLabel: assignment.roleLabel,
+          teamRoleRank: assignment.roleRank,
+          roleOptions: getPermittedTeamRoleOptions({
+            roles,
+            user,
+            assignment: actorAssignments.get(String(assignment.teamId)),
+          }),
+        }))
+        .sort((left, right) => left.teamName.localeCompare(right.teamName)),
+    }))
+  }, [assignments, members, roles, teams, user])
   const paginatedMembers = useMemo(
-    () => getPaginatedItems(members, memberPage, MEMBER_PAGE_SIZE),
-    [memberPage, members],
+    () => getPaginatedItems(membersWithTeamAssignments, memberPage, MEMBER_PAGE_SIZE),
+    [memberPage, membersWithTeamAssignments],
   )
   const paginatedInvites = useMemo(
     () => getPaginatedItems(pendingInvites, invitePage, INVITE_PAGE_SIZE),
@@ -199,17 +291,21 @@ export function UserAccessPage() {
   }
 
   const refreshAccessData = async () => {
-    const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
+    const [rolesResult, membersResult, invitesResult, teamsResult, assignmentsResult] = await Promise.allSettled([
       withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
       withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load active users.'),
       canManagePendingAllocations
         ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.')
         : Promise.resolve([]),
+      withRequestTimeout(() => getTeams(user), 'Could not load team names.'),
+      withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
     ])
 
     const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
     const nextMembers = membersResult.status === 'fulfilled' ? membersResult.value : []
     const nextInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : []
+    const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
+    const nextAssignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
 
     if (rolesResult.status === 'rejected') {
       console.error(rolesResult.reason)
@@ -223,14 +319,26 @@ export function UserAccessPage() {
       console.error(invitesResult.reason)
     }
 
+    if (teamsResult.status === 'rejected') {
+      console.error(teamsResult.reason)
+    }
+
+    if (assignmentsResult.status === 'rejected') {
+      console.error(assignmentsResult.reason)
+    }
+
     setRoles(nextRoles)
     setMembers(nextMembers)
     setPendingInvites(nextInvites)
+    setTeams(nextTeams)
+    setAssignments(nextAssignments)
     setNameDrafts(Object.fromEntries(nextMembers.map((member) => [member.id, member.name || ''])))
     writeViewCache(cacheKey, {
       roles: nextRoles,
       members: nextMembers,
       pendingInvites: nextInvites,
+      teams: nextTeams,
+      assignments: nextAssignments,
     })
   }
 
@@ -404,6 +512,101 @@ export function UserAccessPage() {
     }
   }
 
+  const handleRoleChangeRequest = (member, assignment, nextRole) => {
+    if (!assignment?.assignmentId || !assignment?.teamId || !nextRole?.roleKey) {
+      setErrorMessage('This staff assignment is incomplete. Refresh user access and try again.')
+      return
+    }
+
+    setMessage('')
+    setErrorMessage('')
+    setRoleChangeTarget({ assignment, member, nextRole })
+  }
+
+  const handleClubRoleChangeRequest = (member, nextRole) => {
+    if (!member?.id || !member?.email || !nextRole?.roleKey) {
+      setErrorMessage('This club assignment is incomplete. Refresh user access and try again.')
+      return
+    }
+
+    setMessage('')
+    setErrorMessage('')
+    setClubRoleChangeTarget({ member, nextRole })
+  }
+
+  const confirmClubRoleChange = async (password) => {
+    if (!clubRoleChangeTarget) {
+      return
+    }
+
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user.email, password)
+      await assignClubUserRole({
+        user,
+        email: clubRoleChangeTarget.member.email,
+        role: clubRoleChangeTarget.nextRole,
+      })
+      await refreshAccessData()
+      await refreshTeamSelection?.()
+      setMessage('Club staff role updated.')
+      showToast({
+        title: 'Club role updated',
+        message: `${clubRoleChangeTarget.member.name || clubRoleChangeTarget.member.email} is now ${clubRoleChangeTarget.nextRole.roleLabel}.`,
+      })
+    } catch (error) {
+      console.error(error)
+      const safeMessage = 'Could not update the club role. The role may be protected or outside your authority.'
+      setErrorMessage(safeMessage)
+      showToast({ title: 'Club role not updated', message: safeMessage, tone: 'error' })
+    } finally {
+      setIsSaving(false)
+      setClubRoleChangeTarget(null)
+    }
+  }
+
+  const confirmRoleChange = async (password) => {
+    if (!roleChangeTarget) {
+      return
+    }
+
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user.email, password)
+      await changeStaffRoleAssignment({
+        user,
+        assignmentId: roleChangeTarget.assignment.assignmentId,
+        roleKey: roleChangeTarget.nextRole.roleKey,
+        requestSource: 'user_access',
+      })
+      await refreshAccessData()
+      await refreshTeamSelection?.()
+      setMessage('Team staff role updated.')
+      showToast({
+        title: 'Team role updated',
+        message: `${roleChangeTarget.member.name || roleChangeTarget.member.email || 'Staff member'} is now ${roleChangeTarget.nextRole.roleLabel} for ${roleChangeTarget.assignment.teamName}.`,
+      })
+    } catch (error) {
+      console.error(error)
+      const safeMessage = getSafeTeamRoleErrorMessage(error)
+      setErrorMessage(safeMessage)
+      showToast({
+        title: 'Team role not updated',
+        message: safeMessage,
+        tone: 'error',
+      })
+    } finally {
+      setIsSaving(false)
+      setRoleChangeTarget(null)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -480,7 +683,9 @@ export function UserAccessPage() {
         nameDrafts={nameDrafts}
         onMemberPageChange={setMemberPage}
         onNameDraftChange={handleNameDraftChange}
+        onClubRoleChangeRequest={handleClubRoleChangeRequest}
         onRemoveMember={handleRemoveMember}
+        onRoleChangeRequest={handleRoleChangeRequest}
         onUpdateMemberName={handleUpdateMemberName}
         pageSize={MEMBER_PAGE_SIZE}
         paginatedMembers={paginatedMembers}
@@ -499,6 +704,47 @@ export function UserAccessPage() {
           pendingInvites={pendingInvites}
         />
       ) : null}
+
+      <ConfirmModal
+        isOpen={Boolean(clubRoleChangeTarget)}
+        isBusy={isSaving}
+        title="Confirm club role change"
+        message="Review the staff member, current club role, new club role, and access consequence before confirming. Team assignments remain independent."
+        itemsTitle="Role change details"
+        items={[
+          `Staff member: ${clubRoleChangeTarget?.member?.name || clubRoleChangeTarget?.member?.email || 'Selected staff member'}`,
+          `Current role: ${clubRoleChangeTarget ? getRoleLabel(clubRoleChangeTarget.member) : 'Unknown role'}`,
+          `New role: ${clubRoleChangeTarget?.nextRole?.roleLabel || 'Unknown role'}`,
+          `Club scope: ${user?.clubName || 'Current club'}`,
+          'Consequence: Club permissions refresh immediately after confirmation.',
+          'Team assignments: Existing team roles remain unchanged.',
+          'Notification: No staff email or notification will be sent.',
+        ]}
+        confirmLabel="Confirm club role change"
+        onCancel={() => setClubRoleChangeTarget(null)}
+        requirePassword
+        onConfirm={(password) => confirmClubRoleChange(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(roleChangeTarget)}
+        isBusy={isSaving}
+        title="Confirm team role change"
+        message="Review the staff member, current role, new role, team scope, and access consequence before confirming."
+        itemsTitle="Role change details"
+        items={[
+          `Staff member: ${roleChangeTarget?.member?.name || roleChangeTarget?.member?.email || 'Selected staff member'}`,
+          `Current role: ${roleChangeTarget?.assignment?.teamRoleLabel || 'Unknown role'}`,
+          `New role: ${roleChangeTarget?.nextRole?.roleLabel || 'Unknown role'}`,
+          `Team scope: ${roleChangeTarget?.assignment?.teamName || 'Unknown team'}`,
+          'Consequence: Team permissions refresh immediately after confirmation.',
+          'Notification: No staff email or notification will be sent.',
+        ]}
+        confirmLabel="Confirm role change"
+        onCancel={() => setRoleChangeTarget(null)}
+        requirePassword
+        onConfirm={(password) => confirmRoleChange(password)}
+      />
 
       <ConfirmModal
         isOpen={Boolean(memberRemoveTarget)}
