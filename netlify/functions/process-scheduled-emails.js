@@ -13,6 +13,11 @@ import {
   isTrialCalendarNotificationQueueRow,
   prepareScheduledCalendarNotificationRow,
 } from './lib/_calendar-notification-email.js'
+import {
+  isTrainingInvitationQueueRow,
+  prepareScheduledTrainingInvitationRow,
+  updateTrainingInvitationDelivery,
+} from './process-training-availability-requests.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -125,6 +130,15 @@ async function markScheduledEmailFailed(row, error) {
 }
 
 async function discardSkippedScheduledEmail(row, reason) {
+  if (isTrainingInvitationQueueRow(row)) {
+    await updateTrainingInvitationDelivery({
+      lastError: reason,
+      queueId: row.id,
+      status: 'cancelled',
+      supabase: supabaseAdmin,
+    })
+  }
+
   const { error } = await supabaseAdmin
     .from('scheduled_email_queue')
     .delete()
@@ -213,8 +227,15 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       roleRank: 100,
     }
     assertPlanFeature(planProfile, 'parentEmails')
-    const calendarNotificationPreparation = await prepareScheduledCalendarNotificationRow(
+    const trainingInvitationPreparation = await prepareScheduledTrainingInvitationRow(
       lockedRow,
+      {
+        appOrigin: String(process.env.URL || process.env.DEPLOY_PRIME_URL || 'https://footballplayer.online').replace(/\/$/, ''),
+        supabaseClient: supabaseAdmin,
+      },
+    )
+    const calendarNotificationPreparation = await prepareScheduledCalendarNotificationRow(
+      trainingInvitationPreparation.row,
       {
         supabaseClient: supabaseAdmin,
       },
@@ -226,8 +247,13 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       },
     )
 
-    if (calendarNotificationPreparation.skipped || resourceNotificationPreparation.skipped) {
-      const skipReason = calendarNotificationPreparation.skipReason
+    if (
+      trainingInvitationPreparation.skipped
+      || calendarNotificationPreparation.skipped
+      || resourceNotificationPreparation.skipped
+    ) {
+      const skipReason = trainingInvitationPreparation.skipReason
+        || calendarNotificationPreparation.skipReason
         || resourceNotificationPreparation.skipReason
       await discardSkippedScheduledEmail(
         lockedRow,
@@ -265,6 +291,13 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       idempotencySeed: `scheduled:${lockedRow.id}`,
     })
 
+    if (isTrainingInvitationQueueRow(lockedRow)) {
+      await updateTrainingInvitationDelivery({
+        queueId: lockedRow.id,
+        status: 'sent',
+        supabase: supabaseAdmin,
+      })
+    }
     await updateEventPlayerNotificationEvent(lockedRow.id, 'sent')
 
     if (isCalendarNotificationQueueRow(lockedRow)) {
@@ -316,6 +349,18 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     console.error('Scheduled email send failed', getSafeErrorDetails(error))
     await markEmailLogFailed(error.emailLogRecord, error)
     await markScheduledEmailFailed(lockedRow, error)
+    if (isTrainingInvitationQueueRow(lockedRow)) {
+      await updateTrainingInvitationDelivery({
+        lastError: 'Training availability email could not be sent.',
+        queueId: lockedRow.id,
+        status: 'failed',
+        supabase: supabaseAdmin,
+      }).catch((deliveryError) => {
+        console.error('Training invitation delivery state update failed', {
+          code: String(deliveryError?.code || deliveryError?.name || 'unknown'),
+        })
+      })
+    }
     if (isCalendarNotificationQueueRow(lockedRow)) {
       await updateCalendarNotificationEvent(lockedRow.id, 'failed', error.message || String(error))
     }

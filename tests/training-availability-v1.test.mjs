@@ -157,7 +157,7 @@ test('staff availability details include occurrence-specific response notes with
   assert.equal(summary.details[0].note, 'Might be late because of school trip.')
 })
 
-test('scheduled processor creates per occurrence parent email requests without push, sms, or volunteer roles', async () => {
+test('scheduled reconciler creates per occurrence RSVP jobs before eligibility without push, sms, or volunteer roles', async () => {
   const [processor, netlifyToml] = await Promise.all([
     readFile(processorUrl, 'utf8'),
     readFile(netlifyTomlUrl, 'utf8'),
@@ -167,7 +167,8 @@ test('scheduled processor creates per occurrence parent email requests without p
   assert.match(processor, /occurrenceDate/)
   assert.match(processor, /event\.recurrence_until \? new Date\(`\$\{event\.recurrence_until\}T23:59:59`\) : addMonths\(new Date\(\), 3\)/)
   assert.match(processor, /function getSendAt\(occurrence, setting\)/)
-  assert.match(processor, /if \(sendAt\.getTime\(\) > now\.getTime\(\)\) {[\s\S]*continue[\s\S]*}[\s\S]*const due = await upsertDueRequest/)
+  assert.doesNotMatch(processor, /if \(sendAt\.getTime\(\) > now\.getTime\(\)\)/)
+  assert.match(processor, /const due = await upsertDueRequest/)
   assert.match(processor, /training_availability_requests/)
   assert.match(processor, /training_availability_request_players/)
   assert.match(processor, /\.from\('calendar_event_invites'\)/)
@@ -176,14 +177,16 @@ test('scheduled processor creates per occurrence parent email requests without p
   assert.match(processor, /\.in\('id', scopedPlayerIds\)[\s\S]*scopedPlayerIds\.length > 0[\s\S]*await playersQuery[\s\S]*data: \[\], error: null/)
   assert.doesNotMatch(processor, /if \(scopedPlayerIds\.length > 0\) {[\s\S]*playersQuery = playersQuery\.in/)
   assert.match(processor, /findExistingRecipient/)
+  assert.match(processor, /queueTrainingInvitationRecipient/)
+  assert.match(processor, /\.from\('scheduled_email_queue'\)/)
   assert.match(processor, /\.select\('id, player_id, team_id, club_id, email, status'\)/)
   assert.doesNotMatch(processor, /parent_name, display_name/)
   assert.match(processor, /send_days_before/)
   assert.match(processor, /assertPlanFeature\({[\s\S]*getClubPlanProfile\(due\.request\.club_id\)[\s\S]*}, 'parentEmails'\)/)
-  assert.match(processor, /sendEmail/)
+  assert.doesNotMatch(processor, /\bsendEmail\(/)
   assert.match(processor, /getTrainingAvailabilitySendGate/)
   assert.match(processor, /const sendGate = getTrainingAvailabilitySendGate\(setting\)[\s\S]*if \(!sendGate\.allowed\) {[\s\S]*continue[\s\S]*}[\s\S]*const due = await upsertDueRequest/)
-  assert.match(processor, /export const config = \{[\s\S]*schedule: '\*\/15 \* \* \* \*'/)
+  assert.match(processor, /export const config = \{[\s\S]*schedule: '\* \* \* \* \*'/)
   assert.doesNotMatch(netlifyToml, /\[functions\."process-training-availability-requests"\]/)
   assert.doesNotMatch(processor, /sendParentMobilePushById/)
   assert.doesNotMatch(processor, /sms/i)

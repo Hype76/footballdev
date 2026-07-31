@@ -214,7 +214,7 @@ test('all equivalent processor paths have a server boundary before work begins',
   assert.doesNotMatch(wrapperHandler, /authorizeProcessorRequest|rejectDirectScheduledFunctionRequest/)
   assert.doesNotMatch(trainingHandler, /authorizeProcessorRequest|rejectDirectScheduledFunctionRequest/)
   assert.match(wrapper, /export const config = \{[\s\S]*schedule: '\* \* \* \* \*'/)
-  assert.match(training, /export const config = \{[\s\S]*schedule: '\*\/15 \* \* \* \*'/)
+  assert.match(training, /export const config = \{[\s\S]*schedule: '\* \* \* \* \*'/)
   assert.match(scheduled, /\.limit\(25\)/)
   assert.doesNotMatch(netlifyConfig, /\[functions\."send-scheduled-emails"\]/)
   assert.doesNotMatch(netlifyConfig, /\[functions\."process-training-availability-requests"\]/)

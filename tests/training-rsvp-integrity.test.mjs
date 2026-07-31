@@ -99,7 +99,7 @@ test('recipient resolution keeps parent and adult-player authority separate', as
   assert.deepEqual(missingContacts, [])
 })
 
-test('missing recipients and send failures remain visible without false delivery', async () => {
+test('missing recipients and queue failures remain visible without false delivery', async () => {
   const [migration, processor] = await Promise.all([
     readFile(migrationUrl, 'utf8'),
     readFile(processorUrl, 'utf8'),
@@ -109,9 +109,9 @@ test('missing recipients and send failures remain visible without false delivery
   assert.match(processor, /type: 'unavailable'/)
   assert.match(processor, /No eligible parent or adult-player recipient is available\./)
   assert.match(processor, /status: 'failed'/)
-  assert.match(processor, /Training availability email could not be sent\./)
-  assert.match(processor, /currentStatus === 'failed'[\s\S]*return 'failed'/)
-  assert.match(processor, /summary\.failed > 0 \? 'partial_failed' : 'sent'/)
+  assert.match(processor, /Training availability recipient queue failed/)
+  assert.match(processor, /currentStatus === 'failed'[\s\S]*status: 'failed'/)
+  assert.match(processor, /summary\.failed > 0 \? 'partial_failed' : 'queued'/)
 })
 
 test('training response surfaces use attendance language with canonical status values', async () => {

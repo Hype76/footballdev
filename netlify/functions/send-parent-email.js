@@ -1035,15 +1035,22 @@ export async function sendPreparedParentEmail(
   let response
   const sentPayload = preparedEmail.emailPayload
   const isResourceNotification = preparedEmail.storedPayload?.resourceNotification?.type === 'resource_shared'
+  const isTrainingInvitation = preparedEmail.storedPayload?.trainingInvitation?.invitationType === 'training_rsvp'
   const context = {
-    emailType: isResourceNotification ? 'resource_shared' : 'parent_feedback',
-    userRole: preparedEmail.storedPayload.actorRole || '',
+    emailType: isTrainingInvitation
+      ? 'training_availability'
+      : isResourceNotification
+        ? 'resource_shared'
+        : 'parent_feedback',
+    userRole: preparedEmail.storedPayload.actorRole || (isTrainingInvitation ? 'system' : ''),
     actorId: preparedEmail.storedPayload.actorId,
     actorEmail: preparedEmail.storedPayload.actorEmail,
     clubId: preparedEmail.planProfile.clubId,
     teamId: preparedEmail.storedPayload.teamId,
-    targetEntityType: 'player',
-    targetEntityId: preparedEmail.storedPayload.playerId || '',
+    targetEntityType: isTrainingInvitation ? 'training_availability_request_player' : 'player',
+    targetEntityId: isTrainingInvitation
+      ? preparedEmail.storedPayload.trainingInvitation.requestPlayerId || ''
+      : preparedEmail.storedPayload.playerId || '',
     emailLogId: emailLogRecord?.id || '',
     deliveryTelemetry: {
       ...(preparedEmail.storedPayload.deliveryTelemetry || {}),

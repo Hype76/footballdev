@@ -1,6 +1,6 @@
 import process from 'node:process'
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { createHash, randomBytes } from 'node:crypto'
+import { createFromAddress, getPublicEmailErrorMessage } from './lib/_email-provider.js'
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
@@ -21,6 +21,11 @@ function isValidEmail(value) {
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
+}
+
+function createDeterministicUuid(value) {
+  const hash = createHash('sha256').update(String(value ?? '')).digest('hex')
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
 }
 
 function escapeHtml(value) {
@@ -322,6 +327,9 @@ export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSched
         ${mapLinksMarkup}
         ${scheduleHtml}
         <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Open response form</a>
+        <p style="margin:12px 0 0;color:#4b5f55;font-size:13px;line-height:1.5;font-weight:700;">
+          Please respond before ${escapeHtml(formatDateTime(occurrence.occurrenceStartsAt))}.
+        </p>
         <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
           This link is unique to ${escapeHtml(recipient.email)}. Do not forward it.
         </p>
@@ -361,6 +369,32 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
   }
 
   if (existingRequest?.id) {
+    if (['pending', 'queued', 'partial_failed'].includes(normalizeText(existingRequest.status))) {
+      const { data: reconciledRequest, error: reconcileError } = await supabase
+        .from('training_availability_requests')
+        .update({
+          setting_id: setting.id,
+          club_id: setting.club_id,
+          team_id: setting.team_id,
+          occurrence_starts_at: occurrence.occurrenceStartsAt.toISOString(),
+          occurrence_ends_at: occurrence.occurrenceEndsAt?.toISOString() || null,
+          send_at: sendAt.toISOString(),
+        })
+        .eq('id', existingRequest.id)
+        .select('*')
+        .single()
+
+      if (reconcileError) {
+        throw reconcileError
+      }
+
+      return {
+        event,
+        request: reconciledRequest,
+        sendAt: new Date(reconciledRequest.send_at || sendAt),
+      }
+    }
+
     return {
       event,
       request: existingRequest,
@@ -412,19 +446,18 @@ async function findExistingRecipient({ requestId, playerId, recipientEmail, supa
   return data
 }
 
-async function createRecipient({ contact, player, request, supabase }) {
+async function createUnavailableRecipient({ player, request, supabase }) {
   const existing = await findExistingRecipient({
     requestId: request.id,
     playerId: player.id,
-    recipientEmail: contact.email,
+    recipientEmail: '',
     supabase,
   })
 
   if (existing?.id) {
-    return { row: existing, token: '' }
+    return existing
   }
 
-  const token = randomBytes(32).toString('hex')
   const { data, error } = await supabase
     .from('training_availability_request_players')
     .insert({
@@ -434,15 +467,15 @@ async function createRecipient({ contact, player, request, supabase }) {
       calendar_event_id: request.calendar_event_id,
       player_id: player.id,
       player_name: normalizeText(player.player_name),
-      parent_link_id: contact.parentLinkId,
-      recipient_email: contact.email,
-      recipient_name: contact.name,
-      recipient_type: contact.type,
-      token_hash: hashToken(token),
-      status: contact.type === 'unavailable' ? 'failed' : 'queued',
-      last_error: contact.type === 'unavailable'
-        ? 'No eligible parent or adult-player recipient is available.'
-        : null,
+      parent_link_id: null,
+      recipient_email: '',
+      recipient_name: '',
+      recipient_type: 'unavailable',
+      token_hash: hashToken(randomBytes(32).toString('hex')),
+      status: 'failed',
+      last_error: 'No eligible parent or adult-player recipient is available.',
+      invitation_type: 'training_rsvp',
+      response_deadline_at: request.occurrence_starts_at,
     })
     .select('*')
     .single()
@@ -451,54 +484,42 @@ async function createRecipient({ contact, player, request, supabase }) {
     throw error
   }
 
-  return { row: data, token }
+  return data
 }
 
-async function markRecipientDeliveryFailed({ requestPlayerId, supabase }) {
-  const { error } = await supabase
-    .from('training_availability_request_players')
-    .update({
-      status: 'failed',
-      last_error: 'Training availability email could not be sent.',
-    })
-    .eq('id', requestPlayerId)
-
-  if (error) {
-    throw error
-  }
+export function getTrainingInvitationQueueId({
+  deliveryAttempt,
+  eventId,
+  invitationType = 'training_rsvp',
+  occurrenceDate,
+  playerId,
+  recipientEmail,
+}) {
+  return createDeterministicUuid([
+    'training-availability',
+    eventId,
+    occurrenceDate,
+    playerId,
+    normalizeEmail(recipientEmail),
+    invitationType,
+    Number(deliveryAttempt || 1),
+  ].join(':'))
 }
 
-async function sendRecipientEmail({
+export function buildTrainingInvitationQueuePayload({
   appOrigin,
+  deliveryAttempt,
   event,
+  invitationType = 'training_rsvp',
   occurrence,
   occurrences,
   player,
   recipient,
   request,
-  requestPlayer,
-  supabase,
+  requestPlayerId = null,
   teamName,
   token,
 }) {
-  const currentStatus = normalizeText(requestPlayer.status)
-
-  if (['sent', 'responded'].includes(currentStatus)) {
-    return 'skipped'
-  }
-
-  if (currentStatus === 'failed') {
-    return 'failed'
-  }
-
-  if (!token) {
-    await markRecipientDeliveryFailed({
-      requestPlayerId: requestPlayer.id,
-      supabase,
-    })
-    return 'failed'
-  }
-
   const responseUrl = `${appOrigin}/.netlify/functions/training-availability-response?token=${token}`
   const email = buildAvailabilityEmail({
     appOrigin,
@@ -511,50 +532,584 @@ async function sendRecipientEmail({
     responseUrl,
     teamName,
   })
+  const enqueuedAt = new Date().toISOString()
 
-  await sendEmail({
-    from: createFromAddress('Football Player'),
-    to: [recipient.email],
-    subject: email.subject,
-    html: email.html,
-  }, {
-    context: {
-      emailType: 'training_availability',
-      userRole: 'system',
-      clubId: requestPlayer.club_id,
-      teamId: requestPlayer.team_id,
-      targetEntityType: 'training_availability_request_player',
-      targetEntityId: requestPlayer.id,
-      deliveryTelemetry: {
-        logicalKey: `training_availability_request_player:${requestPlayer.id}`,
-        sourceType: 'training_availability_request_player',
-        sourceId: requestPlayer.id,
-        originActionAt: request.generated_at || request.created_at,
-        eligibleAt: request.send_at,
-        enqueuedAt: requestPlayer.created_at,
-        scheduledAt: request.send_at,
-        claimedAt: new Date().toISOString(),
-        processingStartedAt: new Date().toISOString(),
-        workerInvocationId: randomUUID(),
-      },
+  return {
+    displayName: 'Football Player',
+    teamName,
+    clubName: normalizeText((Array.isArray(event.clubs) ? event.clubs[0] : event.clubs)?.name),
+    actorRole: 'system',
+    clubId: request.club_id,
+    teamId: request.team_id,
+    playerId: player.id,
+    playerName: normalizeText(player.player_name),
+    deliveryTelemetry: {
+      originActionAt: request.generated_at || request.created_at || enqueuedAt,
+      eligibleAt: request.send_at,
+      enqueuedAt,
+      scheduledAt: request.send_at,
     },
-    publicMessage: 'Training availability email could not be sent.',
+    requiredFeature: 'parentEmails',
+    resendPayload: {
+      from: createFromAddress('Football Player'),
+      to: [recipient.email],
+      subject: email.subject,
+      html: email.html,
+    },
+    trainingInvitation: {
+      version: 1,
+      requestId: request.id,
+      requestPlayerId,
+      eventId: request.calendar_event_id,
+      occurrenceDate: occurrence.occurrenceDate,
+      playerId: player.id,
+      recipientEmail: recipient.email,
+      parentLinkId: recipient.parentLinkId,
+      recipientType: recipient.type,
+      rawToken: token,
+      tokenHash: hashToken(token),
+      invitationType,
+      deliveryAttempt,
+      responseDeadlineAt: occurrence.occurrenceStartsAt.toISOString(),
+    },
+  }
+}
+
+export async function queueTrainingInvitationRecipient({
+  action = 'automatic',
+  appOrigin,
+  event,
+  occurrence,
+  occurrences,
+  player,
+  recipient,
+  request,
+  supabase,
+  teamName,
+}) {
+  const existing = await findExistingRecipient({
+    requestId: request.id,
+    playerId: player.id,
+    recipientEmail: recipient.email,
+    supabase,
+  })
+  const currentStatus = normalizeText(existing?.status)
+
+  if (action === 'automatic' && ['sent', 'responded'].includes(currentStatus)) {
+    return { status: 'skipped', requestPlayer: existing }
+  }
+
+  if (action === 'automatic' && currentStatus === 'failed') {
+    return { status: 'failed', requestPlayer: existing }
+  }
+
+  let existingQueue = null
+
+  if (existing?.email_queue_id) {
+    const { data, error } = await supabase
+      .from('scheduled_email_queue')
+      .select('*')
+      .eq('id', existing.email_queue_id)
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
+
+    existingQueue = data
+
+    if (existingQueue?.status === 'sending') {
+      if (action === 'automatic') {
+        return { status: 'skipped', requestPlayer: existing, queue: existingQueue }
+      }
+
+      throw Object.assign(new Error('This Training invitation is already being delivered.'), {
+        code: 'TRAINING_INVITATION_DELIVERY_IN_PROGRESS',
+        statusCode: 409,
+      })
+    }
+  }
+
+  const reusableToken = action === 'automatic'
+    ? normalizeText(existingQueue?.payload?.trainingInvitation?.rawToken)
+    : ''
+  const deliveryAttempt = reusableToken
+    ? Number(existing?.delivery_attempt || 1)
+    : Number(existing?.delivery_attempt || 0) + 1
+  const token = reusableToken || randomBytes(32).toString('hex')
+  const invitationType = normalizeText(existing?.invitation_type) || 'training_rsvp'
+  const queueId = reusableToken
+    ? existingQueue.id
+    : getTrainingInvitationQueueId({
+        deliveryAttempt,
+        eventId: event.id,
+        invitationType,
+        occurrenceDate: occurrence.occurrenceDate,
+        playerId: player.id,
+        recipientEmail: recipient.email,
+      })
+  const payload = buildTrainingInvitationQueuePayload({
+    appOrigin,
+    deliveryAttempt,
+    event,
+    invitationType,
+    occurrence,
+    occurrences,
+    player,
+    recipient,
+    request,
+    requestPlayerId: existing?.id || null,
+    teamName,
+    token,
+  })
+  const queueRecord = {
+    id: queueId,
+    club_id: request.club_id,
+    team_id: request.team_id,
+    created_by: null,
+    created_by_email: '',
+    to_email: recipient.email,
+    subject: payload.resendPayload.subject,
+    status: 'scheduled',
+    scheduled_at: request.send_at,
+    payload,
+    last_error: null,
+    attempts: 0,
+  }
+  const { error: queueError } = await supabase
+    .from('scheduled_email_queue')
+    .upsert(queueRecord, { onConflict: 'id' })
+
+  if (queueError) {
+    throw queueError
+  }
+
+  const requestPlayerRecord = {
+    request_id: request.id,
+    club_id: request.club_id,
+    team_id: request.team_id,
+    calendar_event_id: request.calendar_event_id,
+    player_id: player.id,
+    player_name: normalizeText(player.player_name),
+    parent_link_id: recipient.parentLinkId,
+    recipient_email: recipient.email,
+    recipient_name: recipient.name,
+    recipient_type: recipient.type,
+    token_hash: hashToken(token),
+    status: 'queued',
+    last_error: null,
+    email_queue_id: queueId,
+    delivery_attempt: deliveryAttempt,
+    invitation_type: invitationType,
+    response_deadline_at: occurrence.occurrenceStartsAt.toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  const { data: requestPlayer, error: requestPlayerError } = await supabase
+    .from('training_availability_request_players')
+    .upsert(requestPlayerRecord, {
+      onConflict: 'request_id,player_id,recipient_email',
+    })
+    .select('*')
+    .single()
+
+  if (requestPlayerError) {
+    throw requestPlayerError
+  }
+
+  const finalPayload = {
+    ...payload,
+    deliveryTelemetry: {
+      ...payload.deliveryTelemetry,
+      logicalKey: `training_availability_request_player:${requestPlayer.id}:delivery:${deliveryAttempt}`,
+      sourceType: 'training_availability_request_player',
+      sourceId: requestPlayer.id,
+    },
+    trainingInvitation: {
+      ...payload.trainingInvitation,
+      requestPlayerId: requestPlayer.id,
+    },
+  }
+  const { data: finalQueue, error: queueLinkError } = await supabase
+    .from('scheduled_email_queue')
+    .update({ payload: finalPayload })
+    .eq('id', queueId)
+    .eq('status', 'scheduled')
+    .select('*')
+    .maybeSingle()
+
+  if (queueLinkError) {
+    throw queueLinkError
+  }
+
+  if (!finalQueue?.id) {
+    throw Object.assign(new Error('Training invitation queue changed before it could be linked.'), {
+      code: 'TRAINING_INVITATION_QUEUE_RACE',
+    })
+  }
+
+  if (
+    existingQueue?.id
+    && existingQueue.id !== finalQueue.id
+    && existingQueue.status === 'scheduled'
+  ) {
+    const { error: supersededQueueError } = await supabase
+      .from('scheduled_email_queue')
+      .delete()
+      .eq('id', existingQueue.id)
+      .eq('status', 'scheduled')
+
+    if (supersededQueueError) {
+      throw supersededQueueError
+    }
+  }
+
+  return {
+    status: 'queued',
+    requestPlayer,
+    queue: finalQueue,
+    tokenReplaced: Boolean(existing?.id && !reusableToken),
+  }
+}
+
+export function isTrainingInvitationQueueRow(row = {}) {
+  return normalizeText(row?.payload?.trainingInvitation?.invitationType) === 'training_rsvp'
+}
+
+export async function prepareScheduledTrainingInvitationRow(row, {
+  appOrigin = 'https://footballplayer.online',
+  supabaseClient,
+} = {}) {
+  if (!isTrainingInvitationQueueRow(row)) {
+    return { row, skipped: false, skipReason: '' }
+  }
+
+  const invitation = row.payload.trainingInvitation
+  const requestId = normalizeText(invitation.requestId)
+  const requestPlayerId = normalizeText(invitation.requestPlayerId)
+  const eventId = normalizeText(invitation.eventId)
+  const playerId = normalizeText(invitation.playerId)
+  const recipientEmail = normalizeEmail(invitation.recipientEmail)
+  const rawToken = normalizeText(invitation.rawToken)
+
+  if (
+    !supabaseClient
+    || !requestId
+    || !requestPlayerId
+    || !eventId
+    || !playerId
+    || !isValidEmail(recipientEmail)
+    || !rawToken
+    || invitation.tokenHash !== hashToken(rawToken)
+  ) {
+    return {
+      row,
+      skipped: true,
+      skipReason: 'Training invitation queue metadata is incomplete or invalid.',
+    }
+  }
+
+  const [
+    { data: requestPlayer, error: requestPlayerError },
+    { data: request, error: requestError },
+    { data: event, error: eventError },
+    { data: player, error: playerError },
+    { data: invite, error: inviteError },
+    { data: setting, error: settingError },
+  ] = await Promise.all([
+    supabaseClient
+      .from('training_availability_request_players')
+      .select('*')
+      .eq('id', requestPlayerId)
+      .maybeSingle(),
+    supabaseClient
+      .from('training_availability_requests')
+      .select('*')
+      .eq('id', requestId)
+      .maybeSingle(),
+    supabaseClient
+      .from('calendar_events')
+      .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url)')
+      .eq('id', eventId)
+      .maybeSingle(),
+    supabaseClient
+      .from('players')
+      .select('id, club_id, team_id, player_name, parent_name, parent_email, contact_type, status')
+      .eq('id', playerId)
+      .maybeSingle(),
+    supabaseClient
+      .from('calendar_event_invites')
+      .select('id, invite_status, cancelled_at, notify_requested, response_requirement, training_availability_requested')
+      .eq('calendar_event_id', eventId)
+      .eq('player_id', playerId)
+      .maybeSingle(),
+    supabaseClient
+      .from('training_availability_settings')
+      .select('id, enabled')
+      .eq('calendar_event_id', eventId)
+      .maybeSingle(),
+  ])
+
+  const loadError = requestPlayerError || requestError || eventError || playerError || inviteError || settingError
+
+  if (loadError) {
+    throw loadError
+  }
+
+  const occurrences = event?.id ? buildOccurrences(event) : []
+  const occurrence = occurrences.find((candidate) => candidate.occurrenceDate === invitation.occurrenceDate)
+  const baseIsCurrent = Boolean(
+    requestPlayer?.id
+      && request?.id
+      && event?.id
+      && player?.id
+      && invite?.id
+      && setting?.enabled === true
+      && requestPlayer.request_id === request.id
+      && requestPlayer.email_queue_id === row.id
+      && requestPlayer.token_hash === hashToken(rawToken)
+      && requestPlayer.status === 'queued'
+      && request.status !== 'cancelled'
+      && event.event_type === 'training'
+      && !event.cancelled_at
+      && event.club_id === request.club_id
+      && event.team_id === request.team_id
+      && player.club_id === request.club_id
+      && player.team_id === request.team_id
+      && player.status !== 'archived'
+      && invite.invite_status !== 'cancelled'
+      && !invite.cancelled_at
+      && invite.notify_requested === true
+      && invite.training_availability_requested === true
+      && normalizeText(invite.response_requirement) === 'response_required'
+      && occurrence
+      && occurrence.occurrenceStartsAt.getTime() > Date.now()
+  )
+
+  if (!baseIsCurrent) {
+    return {
+      row,
+      skipped: true,
+      skipReason: 'Training invitation is no longer valid for the current event occurrence.',
+    }
+  }
+
+  let recipientIsCurrent = false
+  let recipient = {
+    email: recipientEmail,
+    name: normalizeText(requestPlayer.recipient_name),
+    parentLinkId: requestPlayer.parent_link_id,
+    type: requestPlayer.recipient_type,
+  }
+
+  if (requestPlayer.recipient_type === 'player') {
+    recipientIsCurrent = normalizeText(player.contact_type).toLowerCase() === 'self'
+      && normalizeEmail(player.parent_email) === recipientEmail
+    recipient = {
+      ...recipient,
+      name: normalizeText(player.player_name),
+      parentLinkId: null,
+      type: 'player',
+    }
+  } else if (requestPlayer.recipient_type === 'parent' && requestPlayer.parent_link_id) {
+    const { data: parentLink, error: parentLinkError } = await supabaseClient
+      .from('parent_player_links')
+      .select('id, player_id, club_id, team_id, email, status')
+      .eq('id', requestPlayer.parent_link_id)
+      .maybeSingle()
+
+    if (parentLinkError) {
+      throw parentLinkError
+    }
+
+    recipientIsCurrent = Boolean(
+      parentLink?.id
+        && parentLink.player_id === player.id
+        && parentLink.club_id === request.club_id
+        && parentLink.team_id === request.team_id
+        && parentLink.status === 'active'
+        && normalizeEmail(parentLink.email) === recipientEmail,
+    )
+  } else {
+    recipientIsCurrent = requestPlayer.recipient_type === 'parent'
+      && normalizeEmail(player.parent_email) === recipientEmail
+  }
+
+  if (!recipientIsCurrent) {
+    return {
+      row,
+      skipped: true,
+      skipReason: 'Training invitation recipient authority changed before delivery.',
+    }
+  }
+
+  const currentRequest = {
+    ...request,
+    occurrence_starts_at: occurrence.occurrenceStartsAt.toISOString(),
+    occurrence_ends_at: occurrence.occurrenceEndsAt?.toISOString() || null,
+    send_at: row.scheduled_at,
+  }
+  const refreshedPayload = buildTrainingInvitationQueuePayload({
+    appOrigin,
+    deliveryAttempt: requestPlayer.delivery_attempt,
+    event,
+    invitationType: requestPlayer.invitation_type,
+    occurrence,
+    occurrences,
+    player,
+    recipient,
+    request: currentRequest,
+    requestPlayerId: requestPlayer.id,
+    teamName: event.teams?.name || '',
+    token: rawToken,
   })
 
-  const { error } = await supabase
+  return {
+    row: {
+      ...row,
+      subject: refreshedPayload.resendPayload.subject,
+      payload: {
+        ...row.payload,
+        ...refreshedPayload,
+        deliveryTelemetry: {
+          ...refreshedPayload.deliveryTelemetry,
+          ...(row.payload.deliveryTelemetry || {}),
+          eligibleAt: row.scheduled_at,
+          scheduledAt: row.scheduled_at,
+          logicalKey: `training_availability_request_player:${requestPlayer.id}:delivery:${requestPlayer.delivery_attempt}`,
+          sourceType: 'training_availability_request_player',
+          sourceId: requestPlayer.id,
+        },
+        trainingInvitation: {
+          ...refreshedPayload.trainingInvitation,
+          requestPlayerId: requestPlayer.id,
+        },
+      },
+    },
+    skipped: false,
+    skipReason: '',
+  }
+}
+
+export async function updateTrainingInvitationDelivery({
+  lastError = null,
+  queueId,
+  status,
+  supabase,
+}) {
+  const { data: requestPlayer, error: requestPlayerError } = await supabase
+    .from('training_availability_request_players')
+    .select('id, request_id')
+    .eq('email_queue_id', queueId)
+    .maybeSingle()
+
+  if (requestPlayerError) {
+    throw requestPlayerError
+  }
+
+  if (!requestPlayer?.id) {
+    return
+  }
+
+  const recipientStatus = status === 'sent'
+    ? 'sent'
+    : status === 'failed'
+      ? 'failed'
+      : status === 'cancelled'
+        ? 'cancelled'
+        : 'queued'
+  const { error: updateError } = await supabase
     .from('training_availability_request_players')
     .update({
-      status: 'sent',
-      email_sent_at: new Date().toISOString(),
-      last_error: null,
+      status: recipientStatus,
+      last_error: lastError,
+      ...(status === 'sent' ? { email_sent_at: new Date().toISOString() } : {}),
     })
     .eq('id', requestPlayer.id)
+
+  if (updateError) {
+    throw updateError
+  }
+
+  const { data: recipients, error: recipientsError } = await supabase
+    .from('training_availability_request_players')
+    .select('status')
+    .eq('request_id', requestPlayer.request_id)
+
+  if (recipientsError) {
+    throw recipientsError
+  }
+
+  const statuses = (recipients ?? []).map((recipientRow) => recipientRow.status)
+  const requestStatus = statuses.some((value) => value === 'failed')
+    ? 'partial_failed'
+    : statuses.some((value) => value === 'queued' || value === 'pending')
+      ? 'queued'
+      : statuses.length > 0 && statuses.every((value) => value === 'cancelled')
+        ? 'cancelled'
+        : 'sent'
+  const { error: requestUpdateError } = await supabase
+    .from('training_availability_requests')
+    .update({
+      status: requestStatus,
+      last_error: requestStatus === 'partial_failed'
+        ? 'Some Training Availability emails could not be sent.'
+        : null,
+      ...(requestStatus === 'sent' ? { sent_at: new Date().toISOString() } : {}),
+    })
+    .eq('id', requestPlayer.request_id)
+
+  if (requestUpdateError) {
+    throw requestUpdateError
+  }
+}
+
+async function reconcileInvalidTrainingInvitationQueues({
+  appOrigin,
+  supabase,
+}) {
+  const { data: queueRows, error } = await supabase
+    .from('scheduled_email_queue')
+    .select('*')
+    .eq('status', 'scheduled')
+    .contains('payload', { trainingInvitation: { invitationType: 'training_rsvp' } })
+    .limit(250)
 
   if (error) {
     throw error
   }
 
-  return 'sent'
+  let cancelled = 0
+
+  for (const row of queueRows ?? []) {
+    const preparation = await prepareScheduledTrainingInvitationRow(row, {
+      appOrigin,
+      supabaseClient: supabase,
+    })
+
+    if (!preparation.skipped) {
+      continue
+    }
+
+    await updateTrainingInvitationDelivery({
+      lastError: preparation.skipReason,
+      queueId: row.id,
+      status: 'cancelled',
+      supabase,
+    })
+    const { error: deleteError } = await supabase
+      .from('scheduled_email_queue')
+      .delete()
+      .eq('id', row.id)
+      .eq('status', 'scheduled')
+
+    if (deleteError) {
+      throw deleteError
+    }
+
+    cancelled += 1
+  }
+
+  return cancelled
 }
 
 async function processDueRequest({ appOrigin, event, occurrence, occurrences, request, supabase }) {
@@ -611,20 +1166,14 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
     throw parentLinksError
   }
 
-  const summary = { sent: 0, skipped: 0, failed: 0, missingParents: 0 }
+  const summary = { queued: 0, skipped: 0, failed: 0, missingParents: 0 }
   const teamName = event.teams?.name || ''
 
   for (const player of players ?? []) {
     const contacts = getPlayerContacts({ parentLinks: parentLinks ?? [], player })
 
     if (contacts.length === 0) {
-      await createRecipient({
-        contact: {
-          email: '',
-          name: '',
-          parentLinkId: null,
-          type: 'unavailable',
-        },
+      await createUnavailableRecipient({
         player,
         request,
         supabase,
@@ -635,10 +1184,8 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
     }
 
     for (const contact of contacts) {
-      const recipient = await createRecipient({ contact, player, request, supabase })
-
       try {
-        const status = await sendRecipientEmail({
+        const result = await queueTrainingInvitationRecipient({
           appOrigin,
           event,
           occurrence,
@@ -646,30 +1193,26 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
           player,
           recipient: contact,
           request,
-          requestPlayer: recipient.row,
           supabase,
           teamName,
-          token: recipient.token,
         })
-        summary[status] += 1
+        summary[result.status] += 1
       } catch (error) {
-        console.error('Training availability recipient failed', error)
-        await markRecipientDeliveryFailed({
-          requestPlayerId: recipient.row.id,
-          supabase,
+        console.error('Training availability recipient queue failed', {
+          code: normalizeText(error?.code || error?.name || 'TRAINING_INVITATION_QUEUE_FAILED'),
         })
         summary.failed += 1
       }
     }
   }
 
-  const nextStatus = summary.failed > 0 ? 'partial_failed' : 'sent'
+  const nextStatus = summary.failed > 0 ? 'partial_failed' : 'queued'
   const { error: updateError } = await supabase
     .from('training_availability_requests')
     .update({
       status: nextStatus,
-      sent_at: new Date().toISOString(),
-      last_error: summary.failed > 0 ? 'Some Training Availability emails could not be sent.' : null,
+      sent_at: null,
+      last_error: summary.failed > 0 ? 'Some Training Availability invitations could not be queued.' : null,
     })
     .eq('id', request.id)
 
@@ -688,12 +1231,17 @@ export async function processTrainingAvailabilityRequests(event = {}) {
     scanned: 0,
     due: 0,
     gated: 0,
-    sent: 0,
+    queued: 0,
     skipped: 0,
     failed: 0,
     missingParents: 0,
+    reconciledCancelled: 0,
   }
 
+  summary.reconciledCancelled = await reconcileInvalidTrainingInvitationQueues({
+    appOrigin,
+    supabase,
+  })
   const settings = await loadSettings(supabase)
 
   for (const setting of settings) {
@@ -708,10 +1256,6 @@ export async function processTrainingAvailabilityRequests(event = {}) {
       }
 
       const sendAt = getSendAt(occurrence, setting)
-
-      if (sendAt.getTime() > now.getTime()) {
-        continue
-      }
 
       const sendGate = getTrainingAvailabilitySendGate(setting)
 
@@ -748,7 +1292,7 @@ export async function processTrainingAvailabilityRequests(event = {}) {
         supabase,
       })
 
-      summary.sent += requestSummary.sent
+      summary.queued += requestSummary.queued
       summary.skipped += requestSummary.skipped
       summary.failed += requestSummary.failed
       summary.missingParents += requestSummary.missingParents
@@ -759,7 +1303,7 @@ export async function processTrainingAvailabilityRequests(event = {}) {
 }
 
 export const config = {
-  schedule: '*/15 * * * *',
+  schedule: '* * * * *',
 }
 
 export default async function handler(request) {

@@ -195,15 +195,16 @@ test('empty and malformed metrics normalize to finite zero values', () => {
   assert.equal(Object.values(metrics).some((value) => Number.isNaN(value)), false)
 })
 
-test('Phase 1 leaves Training cadence, queue routing, and retry scheduling unchanged', async () => {
+test('Phase 2 moves Training to the one-minute queue while leaving retry scheduling unchanged', async () => {
   const [trainingSource, retrySource, scheduledSource] = await Promise.all([
     readFile(new URL('../netlify/functions/process-training-availability-requests.js', import.meta.url), 'utf8'),
     readFile(new URL('../netlify/functions/retry-failed-emails.js', import.meta.url), 'utf8'),
     readFile(new URL('../netlify/functions/send-scheduled-emails.js', import.meta.url), 'utf8'),
   ])
 
-  assert.match(trainingSource, /schedule:\s*'\*\/15 \* \* \* \*'/)
-  assert.match(trainingSource, /await sendEmail\(/)
+  assert.match(trainingSource, /schedule:\s*'\* \* \* \* \*'/)
+  assert.match(trainingSource, /queueTrainingInvitationRecipient/)
+  assert.doesNotMatch(trainingSource, /\bsendEmail\(/)
   assert.doesNotMatch(retrySource, /export const config\s*=/)
   assert.match(scheduledSource, /schedule:\s*'\* \* \* \* \*'/)
 })

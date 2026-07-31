@@ -1,5 +1,3 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import {
   getPlayerInvitationContacts,
@@ -8,10 +6,9 @@ import {
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 import {
-  buildAvailabilityEmail,
   buildOccurrences,
   getPlayerContacts,
-  shouldIncludeRecurringSchedule,
+  queueTrainingInvitationRecipient,
 } from './process-training-availability-requests.js'
 import { handler as sendMatchDayAvailabilityRequests } from './send-match-day-availability-requests.js'
 
@@ -32,10 +29,6 @@ function getAppOrigin(event = {}) {
   const host = event.headers?.['x-forwarded-host'] || event.headers?.host || 'footballplayer.online'
   const protocol = event.headers?.['x-forwarded-proto'] || 'https'
   return `${protocol}://${host}`.replace(/\/$/, '')
-}
-
-function hashToken(token) {
-  return createHash('sha256').update(token).digest('hex')
 }
 
 function isUuid(value) {
@@ -481,12 +474,20 @@ async function sendTrainingInvitation({
     .update({
       last_error: null,
       send_at: manualEligibleAt,
-      status: 'sending',
+      sent_at: null,
+      status: 'queued',
     })
     .eq('id', request.id)
 
   if (requestSendingError) {
     throw requestSendingError
+  }
+  request = {
+    ...request,
+    last_error: null,
+    send_at: manualEligibleAt,
+    sent_at: null,
+    status: 'queued',
   }
 
   const { error: inviteUpdateError } = await adminSupabase
@@ -505,116 +506,38 @@ async function sendTrainingInvitation({
   }
 
   let failedCount = 0
-  let sentCount = 0
+  let queuedCount = 0
 
   for (const { contact } of actionRecipients) {
-    const token = randomBytes(32).toString('hex')
-    const { data: requestPlayer, error: requestPlayerError } = await adminSupabase
-      .from('training_availability_request_players')
-      .upsert({
-        calendar_event_id: eventId,
-        club_id: scopedEvent.club_id,
-        last_error: null,
-        parent_link_id: contact.parentLinkId,
-        player_id: playerId,
-        player_name: player.player_name,
-        recipient_email: contact.email,
-        recipient_name: contact.name,
-        recipient_type: contact.type,
-        request_id: request.id,
-        status: 'queued',
-        team_id: scopedEvent.team_id,
-        token_hash: hashToken(token),
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'request_id,player_id,recipient_email',
-      })
-      .select('*')
-      .single()
-
-    if (requestPlayerError) {
-      throw requestPlayerError
-    }
-
-    const responseUrl = `${appOrigin}/.netlify/functions/training-availability-response?token=${token}`
-    const email = buildAvailabilityEmail({
-      appOrigin,
-      event,
-      includeRecurringSchedule: shouldIncludeRecurringSchedule({ occurrence, occurrences }),
-      occurrence,
-      occurrences,
-      player,
-      recipient: contact,
-      responseUrl,
-      teamName: event.teams?.name || '',
-    })
-
     try {
-      await sendEmail({
-        from: createFromAddress('Football Player'),
-        to: [contact.email],
-        subject: email.subject,
-        html: email.html,
-      }, {
-        context: {
-          clubId: scopedEvent.club_id,
-          emailType: 'training_availability',
-          targetEntityId: requestPlayer.id,
-          targetEntityType: 'training_availability_request_player',
-          teamId: scopedEvent.team_id,
-          userRole: profile.role,
-          deliveryTelemetry: {
-            logicalKey: `training_availability_request_player:${requestPlayer.id}`,
-            sourceType: 'training_availability_request_player',
-            sourceId: requestPlayer.id,
-            originActionAt: request.generated_at || request.created_at || manualEligibleAt,
-            eligibleAt: manualEligibleAt,
-            enqueuedAt: requestPlayer.created_at,
-            scheduledAt: manualEligibleAt,
-            claimedAt: new Date().toISOString(),
-            processingStartedAt: new Date().toISOString(),
-            workerInvocationId: randomUUID(),
-          },
-        },
-        publicMessage: 'Training availability email could not be sent.',
+      const queueResult = await queueTrainingInvitationRecipient({
+        action,
+        adminSupabase,
+        appOrigin,
+        event,
+        occurrence,
+        occurrences,
+        player,
+        recipient: contact,
+        request,
+        supabase: adminSupabase,
+        teamName: event.teams?.name || '',
       })
+      queuedCount += queueResult.status === 'queued' ? 1 : 0
     } catch (error) {
-      await adminSupabase
-        .from('training_availability_request_players')
-        .update({
-          last_error: 'Training availability email could not be sent.',
-          status: 'failed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', requestPlayer.id)
-      console.error('Training availability recipient failed', error)
-      failedCount += 1
-      continue
-    }
-
-    const { error: sentUpdateError } = await adminSupabase
-      .from('training_availability_request_players')
-      .update({
-        email_sent_at: new Date().toISOString(),
-        last_error: null,
-        status: 'sent',
-        updated_at: new Date().toISOString(),
+      console.error('Training availability recipient queue failed', {
+        code: normalizeText(error?.code || error?.name || 'TRAINING_INVITATION_QUEUE_FAILED'),
       })
-      .eq('id', requestPlayer.id)
-
-    if (sentUpdateError) {
-      throw sentUpdateError
+      failedCount += 1
     }
-
-    sentCount += 1
   }
 
   const { error: requestUpdateError } = await adminSupabase
     .from('training_availability_requests')
     .update({
-      last_error: failedCount > 0 ? 'Some Training Availability emails could not be sent.' : null,
-      sent_at: new Date().toISOString(),
-      status: failedCount > 0 ? 'partial_failed' : 'sent',
+      last_error: failedCount > 0 ? 'Some Training Availability invitations could not be queued.' : null,
+      sent_at: null,
+      status: failedCount > 0 ? 'partial_failed' : 'queued',
     })
     .eq('id', request.id)
 
@@ -635,7 +558,7 @@ async function sendTrainingInvitation({
         occurrenceDate,
         playerId,
         failedCount,
-        recipientCount: sentCount,
+        recipientCount: queuedCount,
         sourceType: 'calendar',
         teamId: scopedEvent.team_id,
       },
@@ -649,9 +572,9 @@ async function sendTrainingInvitation({
     auditLogRecorded: !auditError,
     failedCount,
     playerId,
-    queuedCount: 0,
-    recipientCount: sentCount + failedCount,
-    sentCount,
+    queuedCount,
+    recipientCount: queuedCount + failedCount,
+    sentCount: 0,
   }
 }
 
