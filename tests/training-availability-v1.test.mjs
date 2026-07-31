@@ -157,6 +157,56 @@ test('staff availability details include occurrence-specific response notes with
   assert.equal(summary.details[0].note, 'Might be late because of school trip.')
 })
 
+test('staff response summaries show one shared child response across linked parent recipients', async () => {
+  const { summarizeTrainingAvailabilityRows } = await import(domainUrl.href)
+  const sharedResponse = {
+    status: 'available',
+    note: 'Shared answer',
+    responded_at: '2026-07-30T12:00:00+00:00',
+    responded_by_name: 'Parent B',
+    response_source: 'parent',
+  }
+  const sharedRequest = {
+    id: 'request-shared',
+    occurrence_date: '2026-08-02',
+    occurrence_starts_at: '2026-08-02T09:00:00+00:00',
+  }
+  const rows = [
+    {
+      id: 'request-player-a',
+      request_id: 'request-shared',
+      calendar_event_id: 'event-shared',
+      player_id: 'player-shared',
+      player_name: 'Shared Child',
+      parent_link_id: 'parent-a',
+      recipient_type: 'parent',
+      status: 'responded',
+      training_availability_requests: sharedRequest,
+      training_availability_responses: sharedResponse,
+    },
+    {
+      id: 'request-player-b',
+      request_id: 'request-shared',
+      calendar_event_id: 'event-shared',
+      player_id: 'player-shared',
+      player_name: 'Shared Child',
+      parent_link_id: 'parent-b',
+      recipient_type: 'parent',
+      status: 'responded',
+      training_availability_requests: sharedRequest,
+      training_availability_responses: sharedResponse,
+    },
+  ]
+
+  const summary = summarizeTrainingAvailabilityRows(rows)
+
+  assert.equal(summary.responded, 2)
+  assert.equal(summary.available, 1)
+  assert.equal(summary.details.length, 1)
+  assert.equal(summary.details[0].responseSource, 'parent')
+  assert.equal(summary.details[0].respondedByName, 'Parent B')
+})
+
 test('scheduled reconciler creates per occurrence RSVP jobs before eligibility without push, sms, or volunteer roles', async () => {
   const [processor, netlifyToml] = await Promise.all([
     readFile(processorUrl, 'utf8'),

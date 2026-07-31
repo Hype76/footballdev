@@ -539,6 +539,7 @@ export function buildEventResponseReadModel({
           ? 'delivered'
           : 'queued'
       const responseSource = getAuditSource(auditEvents, playerId)
+        || normalizeStatus(detail.responseSource)
         || (detail.parentLinkId ? 'parent' : '')
         || (detail.respondedAt && normalizeStatus(detail.recipientType) === 'player' ? 'adult_player' : '')
 

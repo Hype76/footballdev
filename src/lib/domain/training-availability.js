@@ -100,10 +100,10 @@ export function summarizeTrainingAvailabilityRows(rows = []) {
     maybe: 0,
     details: [],
   }
+  const sharedResponses = new Map()
 
   for (const row of rows) {
     const status = normalizeText(row.status).toLowerCase()
-    const detail = normalizeTrainingAvailabilityDetail(row)
 
     if (status === 'responded') {
       summary.responded += 1
@@ -115,10 +115,20 @@ export function summarizeTrainingAvailabilityRows(rows = []) {
       summary.pending += 1
     }
 
-    const response = Array.isArray(row.training_availability_responses)
-      ? row.training_availability_responses[0]
-      : row.training_availability_responses
-    const responseStatus = normalizeText(response?.status).toLowerCase()
+    const detail = normalizeTrainingAvailabilityDetail(row)
+    const sharedKey = `${detail.requestId}:${detail.playerId}`
+    const existingDetail = sharedResponses.get(sharedKey)
+
+    if (!existingDetail || (
+      detail.respondedAt
+      && (!existingDetail.respondedAt || detail.respondedAt >= existingDetail.respondedAt)
+    )) {
+      sharedResponses.set(sharedKey, detail)
+    }
+  }
+
+  for (const detail of sharedResponses.values()) {
+    const responseStatus = normalizeText(detail.responseStatus).toLowerCase()
 
     if (responseStatus === 'available') {
       summary.available += 1
@@ -166,6 +176,7 @@ export function normalizeTrainingAvailabilityDetail(row = {}) {
     note: normalizeText(response?.note ?? row.note),
     respondedAt: response?.responded_at ?? row.responded_at ?? row.respondedAt ?? '',
     respondedByName: normalizeText(response?.responded_by_name ?? row.responded_by_name ?? row.respondedByName),
+    responseSource: normalizeText(response?.response_source ?? row.response_source ?? row.responseSource),
   }
 }
 
@@ -209,20 +220,43 @@ export async function getTrainingAvailabilitySummaryForEvents({ user, eventIds =
     return {}
   }
 
-  const { data, error } = await supabase
-    .from('training_availability_request_players')
-    .select('id, request_id, calendar_event_id, player_id, player_name, parent_link_id, recipient_type, status, email_sent_at, last_error, created_at, training_availability_requests(id, occurrence_date, occurrence_starts_at), training_availability_responses(status, note, responded_at, responded_by_name)')
-    .eq('club_id', user.clubId)
-    .in('calendar_event_id', normalizedEventIds)
+  const [
+    { data: requestPlayers, error: requestPlayersError },
+    { data: responses, error: responsesError },
+  ] = await Promise.all([
+    supabase
+      .from('training_availability_request_players')
+      .select('id, request_id, calendar_event_id, player_id, player_name, parent_link_id, recipient_type, status, email_sent_at, last_error, created_at, training_availability_requests(id, occurrence_date, occurrence_starts_at)')
+      .eq('club_id', user.clubId)
+      .in('calendar_event_id', normalizedEventIds),
+    supabase
+      .from('training_availability_responses')
+      .select('request_id, calendar_event_id, player_id, status, note, responded_at, responded_by_name, response_source')
+      .eq('club_id', user.clubId)
+      .in('calendar_event_id', normalizedEventIds),
+  ])
 
-  if (error) {
+  if (requestPlayersError || responsesError) {
+    const error = requestPlayersError || responsesError
     console.error(error)
     throw error
   }
 
+  const responseByRequestPlayer = new Map(
+    (responses ?? []).map((response) => [
+      `${normalizeText(response.request_id)}:${normalizeText(response.player_id)}`,
+      response,
+    ]),
+  )
   const rowsByEventId = new Map()
 
-  for (const row of data ?? []) {
+  for (const requestPlayer of requestPlayers ?? []) {
+    const row = {
+      ...requestPlayer,
+      training_availability_responses: responseByRequestPlayer.get(
+        `${normalizeText(requestPlayer.request_id)}:${normalizeText(requestPlayer.player_id)}`,
+      ) ?? null,
+    }
     const eventId = normalizeText(row.calendar_event_id)
 
     if (!eventId) {
