@@ -15,10 +15,10 @@ export function normalizeTeamRow(row) {
     themeAccent: String(row.theme_accent ?? row.themeAccent ?? '').trim(),
     themeButtonStyle: String(row.theme_button_style ?? row.themeButtonStyle ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
-    assignmentId: row.assignmentId ?? row.assignment_id ?? '',
-    assignmentRole: String(row.assignmentRole ?? row.assignment_role ?? row.role_key ?? '').trim(),
-    assignmentRoleLabel: String(row.assignmentRoleLabel ?? row.assignment_role_label ?? row.role_label ?? '').trim(),
-    assignmentRoleRank: Number(row.assignmentRoleRank ?? row.assignment_role_rank ?? row.role_rank ?? 0),
+    assignmentId: row.assignment_id ?? row.assignmentId ?? '',
+    assignmentRole: String(row.assignment_role ?? row.assignmentRole ?? row.role_key ?? '').trim(),
+    assignmentRoleLabel: String(row.assignment_role_label ?? row.assignmentRoleLabel ?? row.role_label ?? '').trim(),
+    assignmentRoleRank: Number(row.assignment_role_rank ?? row.assignmentRoleRank ?? row.role_rank ?? 0),
   }
 }
 

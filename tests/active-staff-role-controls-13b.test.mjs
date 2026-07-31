@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   getPermittedTeamRoleOptions,
 } from '../src/lib/team-staff-role-policy.js'
+import { normalizeTeamRow } from '../src/lib/domain/team-normalizers.js'
 
 const userAccessPage = readFileSync(new URL('../src/pages/UserAccessPage.jsx', import.meta.url), 'utf8')
 const activeUsersSection = readFileSync(
@@ -91,6 +92,26 @@ test('role mutation uses the canonical assignment RPC and refreshes assignment a
   assert.match(userAccessPage, /assignClubUserRole\(/)
   assert.match(userAccessPage, /Existing team roles remain unchanged\./)
   assert.match(userAccessPage, /The role may be protected or outside your authority\./)
+})
+
+test('fresh assignment data replaces the normalized profile fallback during permission refresh', () => {
+  const normalizedProfileTeam = normalizeTeamRow({
+    id: 'team-one',
+    club_id: 'club-one',
+    name: 'Team One',
+  })
+  const refreshedTeam = normalizeTeamRow({
+    ...normalizedProfileTeam,
+    assignment_id: 'assignment-one',
+    assignment_role: 'coach',
+    assignment_role_label: 'Coach',
+    assignment_role_rank: 30,
+  })
+
+  assert.equal(refreshedTeam.assignmentId, 'assignment-one')
+  assert.equal(refreshedTeam.assignmentRole, 'coach')
+  assert.equal(refreshedTeam.assignmentRoleLabel, 'Coach')
+  assert.equal(refreshedTeam.assignmentRoleRank, 30)
 })
 
 test('server boundary retains scope, ceiling, protected-role, final-admin and audit enforcement', () => {
