@@ -85,9 +85,13 @@ async function markProcessed(supabaseAdmin, events, runId, processedAt) {
 }
 
 async function finishRun(supabaseAdmin, runId, state, values) {
+  const {
+    audit_watermark_after: auditWatermarkAfter,
+    ...runValues
+  } = values
   const { error: runError } = await supabaseAdmin
     .from('analytics_processor_runs')
-    .update({ ...values, finished_at: values.finished_at || new Date().toISOString() })
+    .update({ ...runValues, finished_at: values.finished_at || new Date().toISOString() })
     .eq('id', runId)
   if (runError) throw runError
 
@@ -96,7 +100,7 @@ async function finishRun(supabaseAdmin, runId, state, values) {
     ...(values.status === 'succeeded'
       ? {
           watermark_received_at: values.watermark_after || state.watermark,
-          audit_watermark_created_at: values.audit_watermark_after || state.auditWatermark,
+          audit_watermark_created_at: auditWatermarkAfter || state.auditWatermark,
           last_successful_run_id: runId,
         }
       : { last_failed_run_id: runId }),

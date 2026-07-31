@@ -144,7 +144,9 @@ test('processor is safe with no events and persists a successful measurable run'
   assert.equal(result.watermarkAfter, watermark)
   assert.equal(client.evidence.runUpdates.at(-1).status, 'succeeded')
   assert.equal(client.evidence.runUpdates.at(-1).rows_aggregated, 0)
+  assert.equal('audit_watermark_after' in client.evidence.runUpdates.at(-1), false)
   assert.equal(client.evidence.stateUpdates.at(-1).last_successful_run_id, runId)
+  assert.equal(client.evidence.stateUpdates.at(-1).audit_watermark_created_at, watermark)
   assert.equal(client.evidence.rpcCalls[0].name, 'refresh_platform_analytics_aggregates')
 })
 
