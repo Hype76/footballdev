@@ -6,6 +6,7 @@ import {
   authorizeNativeScheduledRequest,
   authorizeProcessorRequest,
 } from './lib/_processor-auth.js'
+import { ensureResendWebhookConfigured } from './configure-resend-webhook.js'
 import {
   getFailedEmailLogs,
   getStoredResendPayload,
@@ -43,6 +44,21 @@ export async function processFailedEmails() {
     return {
       statusCode: 503,
       payload: { success: false, message: 'Retry processor is not configured.' },
+    }
+  }
+
+  try {
+    await ensureResendWebhookConfigured()
+  } catch (error) {
+    console.error('resend_webhook_configuration_failed', {
+      code: String(error?.code || error?.name || 'resend_webhook_configuration_failed'),
+    })
+    return {
+      statusCode: 503,
+      payload: {
+        success: false,
+        message: 'Email delivery verification is not configured.',
+      },
     }
   }
 

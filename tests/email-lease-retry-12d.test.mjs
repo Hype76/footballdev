@@ -8,7 +8,10 @@ import {
   getNextEmailRetryAt,
 } from '../netlify/functions/lib/_email-retry-policy.js'
 import { handleResendWebhook } from '../netlify/functions/resend-webhook.js'
-import { configureResendWebhook } from '../netlify/functions/configure-resend-webhook.js'
+import {
+  configureResendWebhook,
+  ensureResendWebhookConfigured,
+} from '../netlify/functions/configure-resend-webhook.js'
 
 test('retry worker is registered as a native one-minute scheduled function', async () => {
   const source = await readFile(
@@ -17,6 +20,7 @@ test('retry worker is registered as a native one-minute scheduled function', asy
   )
 
   assert.match(source, /authorizeNativeScheduledRequest/)
+  assert.match(source, /ensureResendWebhookConfigured/)
   assert.match(source, /schedule:\s*'\* \* \* \* \*'/)
   assert.match(source, /export default async function scheduledHandler/)
   assert.doesNotMatch(source, /attempts[^;\n]*>=\s*3/)
@@ -152,4 +156,35 @@ test('webhook configuration stores the provider signing secret without returning
   assert.equal(Object.hasOwn(result, 'signingSecret'), false)
   assert.equal(stored[0].name, 'configure_email_provider_webhook_v1')
   assert.equal(stored[0].args.signing_secret_value, 'whsec_12d')
+})
+
+test('scheduled webhook bootstrap reuses private configuration without provider calls', async () => {
+  let providerCalled = false
+  const result = await ensureResendWebhookConfigured({
+    env: {
+      URL: 'https://footballplayer.online',
+    },
+    resendClient: {
+      webhooks: {
+        list: async () => {
+          providerCalled = true
+          throw new Error('provider should not be called')
+        },
+      },
+    },
+    supabase: {
+      rpc: async (name) => {
+        assert.equal(name, 'get_email_provider_webhook_secret_v1')
+        return { data: 'stored-private-value', error: null }
+      },
+    },
+  })
+
+  assert.deepEqual(result, {
+    endpoint: 'https://footballplayer.online/.netlify/functions/resend-webhook',
+    eventCount: 6,
+    reusedStoredConfiguration: true,
+  })
+  assert.equal(providerCalled, false)
+  assert.equal(JSON.stringify(result).includes('stored-private-value'), false)
 })

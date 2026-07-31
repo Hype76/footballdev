@@ -107,6 +107,39 @@ export async function configureResendWebhook({
   }
 }
 
+export async function ensureResendWebhookConfigured({
+  env = process.env,
+  resendClient = null,
+  supabase = null,
+} = {}) {
+  const resolvedSupabase = supabase
+    || (await import('./lib/_supabase.js')).supabaseAdmin
+  const { data: storedSecret, error } = await resolvedSupabase.rpc(
+    'get_email_provider_webhook_secret_v1',
+    { provider_value: 'resend' },
+  )
+
+  if (error) {
+    throw Object.assign(new Error('Resend webhook configuration could not be checked.'), {
+      code: String(error.code || 'resend_webhook_check_failed'),
+    })
+  }
+
+  if (String(storedSecret || '').trim()) {
+    return {
+      endpoint: getWebhookEndpoint(env),
+      eventCount: WEBHOOK_EVENTS.length,
+      reusedStoredConfiguration: true,
+    }
+  }
+
+  return configureResendWebhook({
+    env,
+    resendClient,
+    supabase: resolvedSupabase,
+  })
+}
+
 export async function handler(event) {
   const authorization = authorizeProcessorRequest(event)
 
