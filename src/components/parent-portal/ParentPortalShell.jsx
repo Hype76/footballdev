@@ -160,10 +160,10 @@ export function ParentPortalSectionNav({
   ].join(' ')
   const wrapperClass = variant === 'mobile'
     ? `fixed inset-x-0 bottom-0 z-[60] max-h-[38dvh] overflow-y-auto border-t border-[#d7e5dc] bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-[#047857]/15 backdrop-blur ${className}`.trim()
-    : `flex max-h-[calc(100dvh-2.5rem)] flex-col rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 ${className}`.trim()
+    : `flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 ${className}`.trim()
   const listClass = variant === 'mobile'
     ? 'flex gap-2 overflow-x-auto overscroll-x-contain pb-1'
-    : 'grid min-h-0 gap-2 overflow-y-auto overscroll-contain pr-1'
+    : 'grid h-full min-h-0 gap-2 overflow-y-auto overscroll-contain pr-1'
 
   return (
     <div className={wrapperClass}>
@@ -174,7 +174,7 @@ export function ParentPortalSectionNav({
         selectedParentLinkId={selectedParentLinkId}
         variant={variant}
       />
-      <nav aria-label="Parent portal sections" className={variant === 'desktop' ? 'min-h-0 flex-1 overflow-y-auto' : ''}>
+      <nav aria-label="Parent portal sections" className={variant === 'desktop' ? 'min-h-0 flex-1 overflow-hidden' : ''}>
         <div className={listClass}>
           {visibleSections.map((section) => {
             const isActive = activeSection === section.id
@@ -344,9 +344,12 @@ export function ParentPortalAccountActions({
 export function ParentPortalRouteShell({
   activeSection,
   children,
+  isSigningOut = false,
   links = [],
   newStateByCategory,
   onSelectedParentLinkChange,
+  onSelect,
+  onSignOut,
   selectedLink,
   selectedParentLinkId,
   user,
@@ -383,31 +386,37 @@ export function ParentPortalRouteShell({
 
   return (
     <div
-      className="parent-portal-theme-scope space-y-4 pb-44 sm:space-y-5 lg:pb-0"
+      className="parent-portal-theme-scope space-y-4 pb-44 sm:space-y-5 lg:h-full lg:min-h-0 lg:space-y-0 lg:pb-0"
       data-testid="parent-portal-route-shell"
     >
-      <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:h-full lg:min-h-0 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
         <ParentPortalSectionNav
           activeSection={activeSection}
-          className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
+          className="hidden lg:flex"
+          isSigningOut={isSigningOut}
           links={resolvedLinks}
           newStateByCategory={newStateByCategory}
           onParentLinkSelect={onSelectedParentLinkChange}
+          onSelect={onSelect}
+          onSignOut={onSignOut}
           selectedLink={resolvedSelectedLink}
           selectedParentLinkId={resolvedSelectedLink?.id || selectedParentLinkId}
           user={user}
           variant="desktop"
         />
-        <main className="min-w-0">
+        <main className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:scroll-pb-6 lg:pr-1">
           {children}
         </main>
       </div>
       <ParentPortalSectionNav
         activeSection={activeSection}
         className="lg:hidden"
+        isSigningOut={isSigningOut}
         links={resolvedLinks}
         newStateByCategory={newStateByCategory}
         onParentLinkSelect={onSelectedParentLinkChange}
+        onSelect={onSelect}
+        onSignOut={onSignOut}
         selectedLink={resolvedSelectedLink}
         selectedParentLinkId={resolvedSelectedLink?.id || selectedParentLinkId}
         user={user}

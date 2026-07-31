@@ -72,6 +72,7 @@ export function Layout() {
   const isParentIntentRoute = isParentIntentPath(location.pathname)
   const isAdultPlayerRoute = location.pathname === '/player'
   const shouldBypassMainShell = isParentShellHost || isParentIntentRoute || isAdultPlayerRoute
+  const isParentPortalShell = Boolean(isParentPortalUser(user) && (isParentShellHost || isParentIntentRoute))
   const activeTitle = [...matches].reverse().find((match) => match.handle?.title)?.handle?.title ?? 'Dashboard'
   const resolvedTheme = useMemo(
     () => (themeMode === 'system' ? systemTheme : themeMode),
@@ -293,7 +294,7 @@ export function Layout() {
 
   if (shouldBypassMainShell) {
     return (
-      <div className="app-theme-scope min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+      <div className={`app-theme-scope min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)] ${isParentPortalShell ? 'lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden' : ''}`}>
         <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />
         {isParentPortalUser(user) ? (
           <PlatformBannerNotice
@@ -301,8 +302,8 @@ export function Layout() {
             bannerKey={PARENT_PORTAL_BANNER_KEY}
           />
         ) : null}
-        <main className="min-h-screen px-4 py-5 sm:px-6 md:px-8 xl:px-10">
-          <div className="mx-auto w-full max-w-[108rem]">
+        <main className={`min-h-screen px-4 py-5 sm:px-6 md:px-8 xl:px-10 ${isParentPortalShell ? 'lg:min-h-0 lg:flex-1 lg:overflow-hidden' : ''}`}>
+          <div className={`mx-auto w-full max-w-[108rem] ${isParentPortalShell ? 'lg:h-full lg:min-h-0' : ''}`}>
             <Outlet />
           </div>
         </main>

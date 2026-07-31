@@ -102,7 +102,7 @@ test('parent-only users cannot return to staff while team-capable users can', ()
     }),
     'team',
   )
-  assert.equal(PARENT_PORTAL_STAFF_RETURN_LABEL, 'Back to club workspace')
+  assert.equal(PARENT_PORTAL_STAFF_RETURN_LABEL, 'Return to staff platform')
 })
 
 test('desktop and mobile shells preserve safe context, actions, navigation, and safe areas', () => {
@@ -137,7 +137,7 @@ test('desktop and mobile shells preserve safe context, actions, navigation, and 
 
 test('the main page uses a compact heading and shell context instead of the oversized repeated hero', () => {
   assert.match(portalSource, /Private family view/)
-  assert.match(portalSource, /onParentLinkSelect=\{handleParentLinkSelect\}/)
+  assert.match(portalSource, /onSelectedParentLinkChange=\{handleParentLinkSelect\}/)
   assert.match(portalSource, /links=\{links\}/)
   assert.match(portalSource, /selectedLink=\{selectedLink\}/)
   assert.doesNotMatch(portalSource, /function ParentChildSelector/)

@@ -5,7 +5,7 @@ import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLoc
 import { PracticeMatchEntryCard, PracticeMatchScoring } from '../components/match-day/PracticeMatchScoring.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import {
-  ParentPortalSectionNav,
+  ParentPortalRouteShell,
 } from '../components/parent-portal/ParentPortalShell.jsx'
 import { ParentDevelopmentPanel } from '../components/parent-portal/ParentDevelopmentPanel.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
@@ -1459,24 +1459,37 @@ function ParentPortalExperience() {
   }
 
   return (
-    <div
-      className="parent-portal-theme-scope space-y-4 pb-44 sm:space-y-5 lg:pb-0"
-      data-testid="parent-portal-page"
-    >
-      <header className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <div className="min-w-0">
-          <p className={eyebrowClass}>Family Portal</p>
-          <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
-            {selectedLink?.playerName || 'Parent portal'}
-          </h1>
-          <p className="mt-1 truncate text-sm font-semibold text-[#4b5f55]">
-            {selectedLink?.teamName || 'No team assigned'}
-          </p>
-        </div>
-        <p className="inline-flex max-w-xl items-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-xs font-semibold leading-5 text-[#4b5f55]">
-          Private family view. You only see information the club has shared for this child.
-        </p>
-      </header>
+    <>
+      <ParentPortalRouteShell
+        activeSection={activeSection}
+        isSigningOut={isSigningOut}
+        links={links}
+        newStateByCategory={parentNavNewState}
+        onSelectedParentLinkChange={handleParentLinkSelect}
+        onSelect={handleSectionSelect}
+        onSignOut={handleParentSignOut}
+        selectedLink={selectedLink}
+        selectedParentLinkId={selectedLink?.id}
+        user={user}
+      >
+        <div
+          className="space-y-4 sm:space-y-5 lg:pb-1"
+          data-testid="parent-portal-page"
+        >
+          <header className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>Family Portal</p>
+              <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
+                {selectedLink?.playerName || 'Parent portal'}
+              </h1>
+              <p className="mt-1 truncate text-sm font-semibold text-[#4b5f55]">
+                {selectedLink?.teamName || 'No team assigned'}
+              </p>
+            </div>
+            <p className="inline-flex max-w-xl items-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-xs font-semibold leading-5 text-[#4b5f55]">
+              Private family view. You only see information the club has shared for this child.
+            </p>
+          </header>
 
       {searchParams.get('linked') === '1' && requestedParentLinkId && selectedLink?.id === requestedParentLinkId ? (
         <NoticeBanner
@@ -1501,23 +1514,7 @@ function ParentPortalExperience() {
         onOpen={handleOpenPracticeMatch}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
-        <ParentPortalSectionNav
-          activeSection={activeSection}
-          className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
-          isSigningOut={isSigningOut}
-          links={links}
-          newStateByCategory={parentNavNewState}
-          onParentLinkSelect={handleParentLinkSelect}
-          onSelect={handleSectionSelect}
-          onSignOut={handleParentSignOut}
-          selectedLink={selectedLink}
-          selectedParentLinkId={selectedLink?.id}
-          user={user}
-          variant="desktop"
-        />
-
-        <section className="min-w-0">
+          <section className="min-w-0">
           {activeSection === 'overview' ? (
             <ParentOverviewPanel
               activeMatches={activeMatches}
@@ -1635,24 +1632,9 @@ function ParentPortalExperience() {
               themePreference={parentThemePreference}
             />
           ) : null}
-        </section>
-      </div>
-
-      <ParentPortalSectionNav
-        activeSection={activeSection}
-        className="lg:hidden"
-        isSigningOut={isSigningOut}
-        links={links}
-        newStateByCategory={parentNavNewState}
-        onParentLinkSelect={handleParentLinkSelect}
-        onSelect={handleSectionSelect}
-        onSignOut={handleParentSignOut}
-        selectedLink={selectedLink}
-        selectedParentLinkId={selectedLink?.id}
-        user={user}
-        variant="mobile"
-      />
-
+          </section>
+        </div>
+      </ParentPortalRouteShell>
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
       <ParentCalendarEventModal
         activeInvitationId={activeInvitationId}
@@ -1668,7 +1650,7 @@ function ParentPortalExperience() {
         onConfirm={handleParentMatchActionConfirm}
         onGoalCorrectionFormChange={(updates) => setGoalCorrectionForm((current) => ({ ...current, ...updates }))}
       />
-    </div>
+    </>
   )
 }
 
