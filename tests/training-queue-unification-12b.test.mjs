@@ -20,7 +20,7 @@ const emailSenderUrl = new URL(
   import.meta.url,
 )
 const migrationUrl = new URL(
-  '../supabase/migrations/20260731065000_training_queue_unification_12b.sql',
+  '../supabase/migrations/20260731071546_training_queue_unification_12b.sql',
   import.meta.url,
 )
 
