@@ -497,6 +497,7 @@ test('audit ingestion quarantines stale team attribution instead of trusting a m
   )
   assert.match(source, /teamNames\.has\(requestedTeamId\)/)
   assert.match(source, /safe_reason: 'team_unattributed'/)
+  assert.equal((source.match(/receivedAt: endAt/g) || []).length, 2)
 })
 
 test('UK date boundaries remain stable across daylight-saving dates', () => {

@@ -616,6 +616,7 @@ export async function ingestAuditAnalyticsEvents({
       context,
       environment,
       occurredAt: auditRow.created_at,
+      receivedAt: endAt,
       sourceKind: 'audit',
       processorRunId,
     }))
@@ -630,6 +631,7 @@ export async function ingestAuditAnalyticsEvents({
           context,
           environment,
           occurredAt: auditRow.created_at,
+          receivedAt: endAt,
           sourceKind: 'audit',
           processorRunId,
         }))
