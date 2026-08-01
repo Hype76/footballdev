@@ -116,9 +116,9 @@ test('ordinary event timestamps are built only from valid explicit values', () =
 })
 
 test('calendar modal makes all three ordinary event date-time inputs required', () => {
-  assert.match(calendarPageSource, /<input name="date" type="date"[\s\S]*required className=\{fieldClass\}/)
-  assert.match(calendarPageSource, /<input name="startTime" type="time"[\s\S]*required=\{!isMatchFixture \|\| !form\.kickoffTimeTbc\}/)
-  assert.match(calendarPageSource, /<input name="endTime" type="time"[\s\S]*required className=\{fieldClass\}/)
+  assert.match(calendarPageSource, /<input name="date"[^>]*type="date"[^>]*required[^>]*className=\{fieldClass\}/)
+  assert.match(calendarPageSource, /<input name="startTime"[^>]*type="time"[^>]*required=\{!isMatchFixture \|\| !form\.kickoffTimeTbc\}/)
+  assert.match(calendarPageSource, /<input name="endTime"[^>]*type="time"[^>]*required[^>]*className=\{fieldClass\}/)
 })
 
 test('calendar close resets the create form to blank values', () => {

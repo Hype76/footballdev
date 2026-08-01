@@ -44,7 +44,8 @@ test('explicit training availability is an authenticated atomic invitation comma
   assert.match(consistencyMigration, /response_requirement = 'response_required'/)
   assert.match(consistencyMigration, /response_requirement = 'informational'/)
   assert.match(domain, /\.rpc\('save_training_availability_setting_v3'/)
-  assert.match(domain, /notify_invited_families_value: settings\?\.notifyInvitedFamilies === true/)
+  assert.match(domain, /const notifyInvitedFamilies = payload\.enabled \|\| settings\?\.notifyInvitedFamilies === true/)
+  assert.match(domain, /notify_invited_families_value: notifyInvitedFamilies/)
   assert.doesNotMatch(domain, /\.upsert\(row, \{ onConflict: 'calendar_event_id' \}\)/)
 })
 

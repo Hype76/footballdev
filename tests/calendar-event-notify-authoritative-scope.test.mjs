@@ -77,7 +77,8 @@ test('UI distinguishes Portal success from email command and queue failures', ()
   assert.match(notificationStatus, /parent email[\s\S]*sent/)
   assert.match(notificationStatus, /no eligible parent email addresses were available/)
   assert.match(sessionsPage, /Event saved, parent notification incomplete/)
-  assert.match(sessionsPage, /Calendar not saved/)
+  assert.match(sessionsPage, /id="calendar-modal-validation-summary"/)
+  assert.doesNotMatch(sessionsPage, /title: 'Calendar not saved'/)
 })
 
 test('new event notifications default off but remain optional and one request token survives through save', () => {

@@ -6,6 +6,16 @@ import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
+import {
+  buildOccurrences,
+  formatLondonDateLabel,
+  getTrainingCalendarSummary,
+} from './lib/_training-calendar.js'
+
+export {
+  buildOccurrences,
+  buildTrainingAvailabilityCalendarIcs,
+} from './lib/_training-calendar.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -47,86 +57,6 @@ function addDays(date, days) {
   const nextDate = new Date(date)
   nextDate.setDate(date.getDate() + days)
   return nextDate
-}
-
-function addMonths(date, months) {
-  const nextDate = new Date(date)
-  nextDate.setMonth(date.getMonth() + months)
-  return nextDate
-}
-
-function toDateOnly(value) {
-  const parsedDate = value instanceof Date ? value : new Date(String(value ?? ''))
-  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
-}
-
-function toTimeOnly(value) {
-  const normalizedValue = normalizeText(value)
-
-  if (/^\d{2}:\d{2}/.test(normalizedValue)) {
-    return normalizedValue.slice(0, 5)
-  }
-
-  const parsedDate = new Date(normalizedValue)
-  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(11, 16)
-}
-
-function buildDateTime(dateValue, timeValue) {
-  const date = toDateOnly(dateValue)
-  const time = toTimeOnly(timeValue) || '09:00'
-  return date ? new Date(`${date}T${time}:00`) : null
-}
-
-function getOccurrenceEndDate(event, occurrenceDate) {
-  const sourceStart = new Date(event.starts_at)
-  const sourceEnd = new Date(event.ends_at || event.starts_at)
-
-  if (Number.isNaN(sourceStart.getTime()) || Number.isNaN(sourceEnd.getTime())) {
-    return buildDateTime(occurrenceDate, event.ends_at || event.starts_at)
-  }
-
-  const dayOffset = Math.round((sourceEnd.getTime() - sourceStart.getTime()) / 86400000)
-  return addDays(new Date(`${toDateOnly(occurrenceDate)}T00:00:00`), dayOffset)
-}
-
-export function buildOccurrences(event) {
-  const startsAt = new Date(event.starts_at)
-
-  if (Number.isNaN(startsAt.getTime())) {
-    return []
-  }
-
-  const frequency = normalizeText(event.recurrence_frequency || 'none')
-  const until = event.recurrence_until ? new Date(`${event.recurrence_until}T23:59:59`) : addMonths(new Date(), 3)
-  const maxDate = frequency === 'none' || Number.isNaN(until.getTime()) ? startsAt : until
-  const occurrences = []
-  let cursor = new Date(startsAt)
-
-  while (occurrences.length < 80 && cursor.getTime() <= maxDate.getTime()) {
-    const date = toDateOnly(cursor)
-    const occurrenceStartsAt = buildDateTime(date, event.starts_at)
-    const occurrenceEndsAt = buildDateTime(getOccurrenceEndDate(event, date), event.ends_at || event.starts_at)
-
-    if (occurrenceStartsAt) {
-      occurrences.push({
-        occurrenceDate: date,
-        occurrenceStartsAt,
-        occurrenceEndsAt,
-      })
-    }
-
-    if (frequency === 'weekly') {
-      cursor = addDays(cursor, 7)
-    } else if (frequency === 'fortnightly') {
-      cursor = addDays(cursor, 14)
-    } else if (frequency === 'monthly') {
-      cursor = addMonths(cursor, 1)
-    } else {
-      break
-    }
-  }
-
-  return occurrences
 }
 
 function getSendAt(occurrence, setting) {
@@ -182,101 +112,45 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'Europe/London',
   }).format(parsedDate)
 }
 
-function formatDateLabel(value) {
-  const parsedDate = new Date(value)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return 'Date to be confirmed'
+function buildCalendarDownloadUrl(responseUrl) {
+  try {
+    const calendarUrl = new URL(responseUrl)
+    calendarUrl.searchParams.set('download', 'calendar')
+    return calendarUrl.toString()
+  } catch {
+    return ''
   }
-
-  return new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'full',
-    timeStyle: 'short',
-  }).format(parsedDate)
 }
 
-function formatIcsDate(value) {
-  const parsedDate = new Date(value)
-
-  if (Number.isNaN(parsedDate.getTime())) {
+function buildCalendarActionHtml({ calendarUrl, event, occurrences = [], showScheduleSummary, teamName }) {
+  if (!calendarUrl) {
     return ''
   }
 
-  return parsedDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
-}
-
-function escapeIcsText(value) {
-  return normalizeText(value)
-    .replace(/\\/g, '\\\\')
-    .replace(/\n/g, '\\n')
-    .replace(/,/g, '\\,')
-    .replace(/;/g, '\\;')
-}
-
-export function buildTrainingAvailabilityCalendarIcs({ event = {}, occurrences = [], teamName = '' } = {}) {
-  const validOccurrences = occurrences
-    .filter((occurrence) => formatIcsDate(occurrence.occurrenceStartsAt))
-    .slice(0, 52)
-
-  if (validOccurrences.length === 0) {
-    return ''
-  }
-
-  const calendarName = `${event.title || teamName || 'Training sessions'}`
-  const location = escapeIcsText(event.location || '')
-  const description = escapeIcsText('Training schedule from Football Player. Availability responses still apply to one session at a time.')
-  const events = validOccurrences.map((occurrence) => {
-    const startsAt = formatIcsDate(occurrence.occurrenceStartsAt)
-    const endsAt = formatIcsDate(occurrence.occurrenceEndsAt || occurrence.occurrenceStartsAt)
-    const uid = `training-availability-${event.id || 'event'}-${occurrence.occurrenceDate}@footballplayer.online`
-
-    return [
-      'BEGIN:VEVENT',
-      `UID:${uid}`,
-      `DTSTAMP:${formatIcsDate(new Date())}`,
-      `DTSTART:${startsAt}`,
-      endsAt ? `DTEND:${endsAt}` : '',
-      `SUMMARY:${escapeIcsText(event.title || 'Training session')}`,
-      location ? `LOCATION:${location}` : '',
-      `DESCRIPTION:${description}`,
-      'END:VEVENT',
-    ].filter(Boolean).join('\r\n')
-  }).join('\r\n')
-
-  return [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Football Player//Training Availability//EN',
-    'CALSCALE:GREGORIAN',
-    `X-WR-CALNAME:${escapeIcsText(calendarName)}`,
-    events,
-    'END:VCALENDAR',
-  ].join('\r\n')
-}
-
-function buildSeriesScheduleHtml({ event, occurrences = [], teamName }) {
-  const upcomingOccurrences = occurrences
-    .filter((occurrence) => occurrence?.occurrenceStartsAt instanceof Date && !Number.isNaN(occurrence.occurrenceStartsAt.getTime()))
-    .slice(0, 12)
-
-  if (upcomingOccurrences.length <= 1) {
-    return ''
-  }
-
-  const ics = buildTrainingAvailabilityCalendarIcs({ event, occurrences: upcomingOccurrences, teamName })
-  const calendarHref = ics ? `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}` : ''
+  const summary = getTrainingCalendarSummary({ event, occurrences })
+  const showOccurrences = showScheduleSummary && (
+    summary.occurrenceCount > 1
+    || normalizeText(event.recurrence_frequency ?? event.recurrenceFrequency) !== 'none'
+  )
+  const occurrenceMarkup = showOccurrences
+    ? `
+      <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;">Upcoming sessions</p>
+      <p style="margin:0 0 10px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:700;">Add the complete approved schedule to your calendar, then answer this availability request for this session only.</p>
+      <ul style="margin:0 0 8px 18px;padding:0;color:#101828;font-size:14px;line-height:1.6;font-weight:800;">
+        ${summary.displayedOccurrences.map((item) => `<li>${escapeHtml(formatLondonDateLabel(item.occurrenceStartsAt))}</li>`).join('')}
+      </ul>
+      ${summary.continuation ? `<p style="margin:0 0 12px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:800;">${escapeHtml(summary.continuation)}</p>` : ''}
+    `
+    : `<p style="margin:0 0 10px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:700;">Add ${escapeHtml(event.title || teamName || 'this training event')} to your calendar.</p>`
 
   return `
     <div style="border:1px solid #d7e5dc;border-radius:12px;background:#f7faf8;padding:14px 16px;margin:0 0 22px;">
-      <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;">Upcoming dates</p>
-      <p style="margin:0 0 10px;color:#4b5f55;font-size:14px;line-height:1.5;font-weight:700;">Add the full recurring schedule to your calendar, then answer this availability request for this session only.</p>
-      <ul style="margin:0 0 12px 18px;padding:0;color:#101828;font-size:14px;line-height:1.6;font-weight:800;">
-        ${upcomingOccurrences.map((item) => `<li>${escapeHtml(formatDateLabel(item.occurrenceStartsAt))}</li>`).join('')}
-      </ul>
-      ${calendarHref ? `<a href="${escapeHtml(calendarHref)}" style="display:inline-block;margin:0 0 4px;padding:10px 12px;border:1px solid #047857;color:#047857;text-decoration:none;border-radius:8px;font-weight:900;">Add schedule to calendar</a>` : ''}
+      ${occurrenceMarkup}
+      <a href="${escapeHtml(calendarUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:0 0 4px;padding:10px 12px;border:1px solid #047857;color:#047857;text-decoration:none;border-radius:8px;font-weight:900;">${escapeHtml(summary.actionLabel)}</a>
     </div>
   `
 }
@@ -293,9 +167,13 @@ export function shouldIncludeRecurringSchedule({ occurrence, occurrences = [] } 
 
 export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSchedule = false, occurrence, occurrences = [], player, recipient, responseUrl, teamName }) {
   const subject = `Training availability: ${event.title || teamName || 'Training session'}`
-  const scheduleHtml = includeRecurringSchedule
-    ? buildSeriesScheduleHtml({ event, occurrences, teamName })
-    : ''
+  const calendarHtml = buildCalendarActionHtml({
+    calendarUrl: buildCalendarDownloadUrl(responseUrl),
+    event,
+    occurrences,
+    showScheduleSummary: includeRecurringSchedule,
+    teamName,
+  })
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs
   const clubName = normalizeText(club?.name || 'Football Player')
   const logoMarkup = buildEmailLogoMarkup({
@@ -325,7 +203,7 @@ export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSched
           <tr><td style="padding:8px 0;color:#4b5f55;font-weight:700;">Location</td><td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(event.location || 'Not set')}</td></tr>
         </table>
         ${mapLinksMarkup}
-        ${scheduleHtml}
+        ${calendarHtml}
         <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Open response form</a>
         <p style="margin:12px 0 0;color:#4b5f55;font-size:13px;line-height:1.5;font-weight:700;">
           Please respond before ${escapeHtml(formatDateTime(occurrence.occurrenceStartsAt))}.

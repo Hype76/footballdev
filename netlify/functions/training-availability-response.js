@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto'
 import { Buffer } from 'node:buffer'
-import { createPublicSupabaseClient } from './lib/_supabase.js'
+import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import {
+  buildOccurrences,
+  buildTrainingAvailabilityCalendarIcs,
+  buildTrainingCalendarFilename,
+} from './lib/_training-calendar.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 
@@ -34,6 +39,21 @@ function htmlResponse(statusCode, body) {
     statusCode,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
     body,
+  }
+}
+
+function calendarResponse({ event, ics }) {
+  const filename = buildTrainingCalendarFilename(event)
+
+  return {
+    statusCode: 200,
+    headers: {
+      'Cache-Control': 'private, no-store',
+      'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+    },
+    body: ics,
   }
 }
 
@@ -209,10 +229,27 @@ async function submitTokenResponse(supabase, token, params) {
   return data?.[0] ?? null
 }
 
-export async function handler(event, { supabaseClient = null } = {}) {
+async function getCalendarEvent(adminSupabase, calendarEventId) {
+  const { data, error } = await adminSupabase
+    .from('calendar_events')
+    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, updated_at, notification_revision')
+    .eq('id', calendarEventId)
+    .eq('event_type', 'training')
+    .is('cancelled_at', null)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+export async function handler(event, { supabaseAdminClient = null, supabaseClient = null } = {}) {
   try {
     const params = event.httpMethod === 'POST' ? getFormBody(event) : new URLSearchParams(event.queryStringParameters || {})
     const token = normalizeText(params.get('token'))
+    const wantsCalendarDownload = event.httpMethod === 'GET' && normalizeText(params.get('download')).toLowerCase() === 'calendar'
 
     if (!/^[a-f0-9]{64}$/i.test(token)) {
       return invalidTokenPage()
@@ -226,6 +263,30 @@ export async function handler(event, { supabaseClient = null } = {}) {
       if (!response?.request_player_id) {
         logStaleResponseLink('response_lookup_empty', event)
         return staleLinkPage()
+      }
+
+      if (wantsCalendarDownload) {
+        const adminSupabase = supabaseAdminClient || createSupabaseAdminClient(event)
+        const calendarEvent = await getCalendarEvent(adminSupabase, response.calendar_event_id)
+
+        if (!calendarEvent?.id) {
+          logStaleResponseLink('calendar_event_lookup_empty', event)
+          return staleLinkPage()
+        }
+
+        const occurrences = buildOccurrences(calendarEvent)
+        const ics = buildTrainingAvailabilityCalendarIcs({
+          event: calendarEvent,
+          occurrences,
+          teamName: response.team_name,
+        })
+
+        if (!ics) {
+          logStaleResponseLink('calendar_schedule_empty', event)
+          return staleLinkPage()
+        }
+
+        return calendarResponse({ event: calendarEvent, ics })
       }
 
       return htmlResponse(200, page({

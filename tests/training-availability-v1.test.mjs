@@ -216,7 +216,7 @@ test('scheduled reconciler creates per occurrence RSVP jobs before eligibility w
 
   assert.match(processor, /buildOccurrences/)
   assert.match(processor, /occurrenceDate/)
-  assert.match(processor, /event\.recurrence_until \? new Date\(`\$\{event\.recurrence_until\}T23:59:59`\) : addMonths\(new Date\(\), 3\)/)
+  assert.match(processor, /from '\.\/lib\/_training-calendar\.js'/)
   assert.match(processor, /function getSendAt\(occurrence, setting\)/)
   assert.doesNotMatch(processor, /if \(sendAt\.getTime\(\) > now\.getTime\(\)\)/)
   assert.match(processor, /const due = await upsertDueRequest/)
@@ -290,8 +290,10 @@ test('first recurring training availability email includes schedule while respon
   })
   const ics = buildTrainingAvailabilityCalendarIcs({ event, occurrences, teamName: 'U17 Green' })
 
-  assert.match(firstEmail.html, /Upcoming dates/)
+  assert.match(firstEmail.html, /Upcoming sessions/)
   assert.match(firstEmail.html, /Add schedule to calendar/)
+  assert.match(firstEmail.html, /download=calendar/)
+  assert.doesNotMatch(firstEmail.html, /data:text\/calendar/)
   assert.match(firstEmail.html, /football-player-logo\.png/)
   assert.match(firstEmail.html, /Open in Google Maps/)
   assert.match(firstEmail.html, /Open in Apple Maps/)
@@ -299,11 +301,14 @@ test('first recurring training availability email includes schedule while respon
   assert.match(firstEmail.html, /This availability response is for this session only\./)
   assert.match(firstEmail.html, /token=abc/)
   assert.doesNotMatch(firstEmail.html, /token=def/)
-  assert.doesNotMatch(laterEmail.html, /Upcoming dates/)
+  assert.doesNotMatch(laterEmail.html, /Upcoming sessions/)
+  assert.match(laterEmail.html, /Add schedule to calendar/)
   assert.match(laterEmail.html, /This availability response is for this session only\./)
   assert.match(laterEmail.html, /token=def/)
   assert.match(ics, /BEGIN:VCALENDAR/)
-  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 3)
+  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 1)
+  assert.match(ics, /RRULE:FREQ=WEEKLY;COUNT=3/)
+  assert.match(ics, /TZID=Europe\/London/)
 })
 
 test('training availability send gate uses explicit server environment flags', async () => {

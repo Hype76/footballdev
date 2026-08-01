@@ -287,11 +287,12 @@ export async function saveTrainingAvailabilitySettings({ user, event, settings }
   }
 
   const payload = buildTrainingAvailabilityPayload(settings)
+  const notifyInvitedFamilies = payload.enabled || settings?.notifyInvitedFamilies === true
   const { data, error } = await supabase
     .rpc('save_training_availability_setting_v3', {
       event_id_value: eventId,
       enabled_value: payload.enabled,
-      notify_invited_families_value: settings?.notifyInvitedFamilies === true,
+      notify_invited_families_value: notifyInvitedFamilies,
       send_days_before_value: payload.sendDaysBefore,
     })
     .single()
@@ -308,7 +309,7 @@ export async function saveTrainingAvailabilitySettings({ user, event, settings }
     entityId: eventId,
     metadata: {
       enabled: payload.enabled,
-      notifyInvitedFamilies: settings?.notifyInvitedFamilies === true,
+      notifyInvitedFamilies,
       sendDaysBefore: payload.sendDaysBefore,
       teamId,
     },

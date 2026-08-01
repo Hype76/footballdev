@@ -360,18 +360,18 @@ function buildRecurrenceDates({ date, frequency, until }) {
   const untilDateValue = formatDateInput(until)
 
   if (!untilDateValue) {
-    throw new Error('Add a repeat until date for recurring events.')
+    throw calendarValidationError('recurrenceUntil', 'Add a repeat until date for recurring events.')
   }
 
   const startDate = new Date(`${startDateValue}T00:00:00`)
   const untilDate = new Date(`${untilDateValue}T23:59:59`)
 
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(untilDate.getTime())) {
-    throw new Error('Use a valid repeat until date.')
+    throw calendarValidationError('recurrenceUntil', 'Use a valid repeat until date.')
   }
 
   if (untilDate.getTime() < startDate.getTime()) {
-    throw new Error('Repeat until must be after the first event date.')
+    throw calendarValidationError('recurrenceUntil', 'Repeat until must be after the first event date.')
   }
 
   const dates = []
@@ -392,7 +392,7 @@ function buildRecurrenceDates({ date, frequency, until }) {
   }
 
   if (cursor.getTime() <= untilDate.getTime()) {
-    throw new Error('Recurring events are limited to 52 dates. Shorten the repeat range and try again.')
+    throw calendarValidationError('recurrenceUntil', 'Recurring events are limited to 52 dates. Shorten the repeat range and try again.')
   }
 
   return dates
@@ -553,6 +553,13 @@ function getCalendarEventSeriesDateTimeFields({ event, form } = {}) {
 }
 
 function getCalendarParentVisibility({ form, safeTeamId, user }) {
+  if (form?.eventType === 'training' && form?.requestTrainingAvailability === true) {
+    return {
+      parentAudience: 'involved_players',
+      parentVisible: true,
+    }
+  }
+
   const parentVisible = form?.shareWithParents === true
 
   if (!parentVisible) {
@@ -570,6 +577,10 @@ function getCalendarParentVisibility({ form, safeTeamId, user }) {
 
 function getTrimmedFormValue(value) {
   return String(value ?? '').trim()
+}
+
+function calendarValidationError(fieldName, message) {
+  return Object.assign(new Error(message), { fieldName })
 }
 
 function buildCalendarEventInviteEmailHtml({
@@ -614,50 +625,84 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
   const requiresTeam = !canCreateClubCalendarEvent(user) || isMatch || isTraining || Boolean(safeTeamId)
 
   if (!eventType) {
-    throw new Error('Choose an event type.')
+    throw calendarValidationError('eventType', 'Choose an event type.')
   }
 
   if (!date) {
-    throw new Error(isMatch ? 'Enter a match date.' : 'Enter an event date.')
+    throw calendarValidationError('date', isMatch ? 'Enter a match date.' : 'Enter an event date.')
   }
 
   if (requiresTeam && !safeTeamId) {
-    throw new Error('Choose a team for this event.')
+    throw calendarValidationError('teamId', 'Choose a team for this event.')
   }
 
   if (isMatch) {
-    assertValidMatchDayFixtureType(form.fixtureType)
-    validateFixtureDateTime({
-      kickoffTime: form.startTime,
-      kickoffTimeTbc: form.kickoffTimeTbc,
-      matchDate: form.date,
-    })
+    try {
+      assertValidMatchDayFixtureType(form.fixtureType)
+    } catch (error) {
+      throw calendarValidationError('fixtureType', error.message)
+    }
+
+    try {
+      validateFixtureDateTime({
+        kickoffTime: form.startTime,
+        kickoffTimeTbc: form.kickoffTimeTbc,
+        matchDate: form.date,
+      })
+    } catch (error) {
+      throw calendarValidationError(error.message.includes('date') ? 'date' : 'startTime', error.message)
+    }
 
     if (isPastMatchDayDate(date)) {
-      throw new Error('Match Day date must be today or in the future.')
+      throw calendarValidationError('date', 'Match Day date must be today or in the future.')
     }
 
     if (!title && !opponent) {
-      throw new Error('Add an opponent or event title for this fixture.')
+      throw calendarValidationError('opponent', 'Add an opponent or event title for this fixture.')
     }
 
     if (!form.kickoffTimeTbc && form.arrivalTime && isTimeAfter(form.arrivalTime, form.startTime)) {
-      throw new Error('Arrival time must be before kick-off time.')
+      throw calendarValidationError('arrivalTime', 'Arrival time must be before kick-off time.')
     }
 
     return
   }
 
-  validateOrdinaryEventDateTime({
-    date: form.date,
-    endTime: form.endTime,
-    startTime: form.startTime,
-  })
+  try {
+    validateOrdinaryEventDateTime({
+      date: form.date,
+      endTime: form.endTime,
+      startTime: form.startTime,
+    })
+  } catch (error) {
+    const fieldName = error.message.includes('date')
+      ? 'date'
+      : error.message.includes('start')
+        ? 'startTime'
+        : 'endTime'
+    throw calendarValidationError(fieldName, error.message)
+  }
 
   if (sourceType === 'calendar' || (!isTraining && eventType !== 'match')) {
     if (!title) {
-      throw new Error('Add an event title.')
+      throw calendarValidationError('title', 'Add an event title.')
     }
+  }
+}
+
+function validateTrainingAvailabilityForm({ form, selectedPlayers }) {
+  if (form.eventType !== 'training' || form.requestTrainingAvailability !== true) {
+    return
+  }
+
+  if (selectedPlayers.length === 0) {
+    throw calendarValidationError('invitedPlayerIds', 'Select at least one involved player before requesting availability.')
+  }
+
+  const sendDaysBefore = Number(form.trainingAvailabilitySendDaysBefore)
+
+  if (!Number.isInteger(sendDaysBefore) || sendDaysBefore < 0 || sendDaysBefore > 30) {
+    throw calendarValidationError('trainingAvailabilitySendDaysBefore', 'Send days before must be a whole number from 0 to 30.')
   }
 }
 
@@ -671,15 +716,15 @@ function validateParentSharing({ form, safeTeamId, selectedPlayers, user }) {
   }
 
   if (form.parentAudience === 'involved_players' && selectedPlayers.length === 0) {
-    throw new Error('You selected only parents of involved players, but no players are attached to this event. Add players or choose a wider parent audience.')
+    throw calendarValidationError('invitedPlayerIds', 'You selected only parents of involved players, but no players are attached to this event. Add players or choose a wider parent audience.')
   }
 
   if (form.parentAudience === 'all_team_parents' && !safeTeamId) {
-    throw new Error('Choose a team before sharing with all parents in the team.')
+    throw calendarValidationError('teamId', 'Choose a team before sharing with all parents in the team.')
   }
 
   if (form.parentAudience === 'all_club_parents' && !canCreateClubCalendarEvent(user)) {
-    throw new Error('Club parent sharing is only available to Club Admins.')
+    throw calendarValidationError('parentAudience', 'Club parent sharing is only available to Club Admins.')
   }
 }
 
@@ -884,6 +929,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
   const [calendarModal, setCalendarModal] = useState(null)
   const [calendarForm, setCalendarForm] = useState(() => getDefaultCalendarForm())
+  const [calendarValidation, setCalendarValidation] = useState(null)
   const [calendarPlayerCommunicationMode, setCalendarPlayerCommunicationMode] = useState(EVENT_PLAYER_COMMUNICATION_MODES.none)
   const [calendarPlayerReview, setCalendarPlayerReview] = useState(null)
   const [calendarEventResourcesById, setCalendarEventResourcesById] = useState({})
@@ -1924,6 +1970,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   function handleOpenCalendarCreate(date = '', requestedEventType = '') {
     setErrorMessage('')
+    setCalendarValidation(null)
     const defaultForm = getDefaultCalendarForm(date)
     const eventType = (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType
 
@@ -1945,6 +1992,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   }
 
   const handleCalendarModalClose = () => {
+    setCalendarValidation(null)
     setCalendarModal(null)
     setCalendarForm(getDefaultCalendarForm())
     setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
@@ -1970,6 +2018,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   function handleOpenSessionCreateModal() {
     setErrorMessage('')
+    setCalendarValidation(null)
     setCalendarForm({
       ...getDefaultCalendarForm(),
       eventType: 'training',
@@ -1980,6 +2029,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   const handleCalendarEventOpen = (event) => {
     setErrorMessage('')
+    setCalendarValidation(null)
     const eventResponseRows = buildEventResponseReadModel({
       calendarInvites,
       event,
@@ -1995,6 +2045,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setCalendarForm({
       ...baseForm,
       requestTrainingAvailability: sourceEventType === 'training' ? setting?.enabled ?? false : false,
+      shareWithParents: sourceEventType === 'training' && setting?.enabled ? true : baseForm.shareWithParents,
+      parentAudience: sourceEventType === 'training' && setting?.enabled ? 'involved_players' : baseForm.parentAudience,
+      notifyInvitedFamilies: sourceEventType === 'training' && setting?.enabled ? true : baseForm.notifyInvitedFamilies,
       trainingAvailabilitySendDaysBefore: setting?.sendDaysBefore ?? 2,
     })
     setCalendarModal({ mode: 'view', event })
@@ -2494,6 +2547,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const { checked, name, type, value } = event.target
 
     setErrorMessage('')
+    setCalendarValidation(null)
     if (['invitedPlayerIds', 'inviteWholeSquad', 'inviteTrialPlayers'].includes(name)) {
       setCalendarPlayerReview(null)
     }
@@ -2508,6 +2562,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }
 
     setCalendarForm((current) => {
+      if (name === 'requestTrainingAvailability') {
+        return {
+          ...current,
+          requestTrainingAvailability: checked,
+          shareWithParents: true,
+          parentAudience: 'involved_players',
+          notifyInvitedFamilies: checked,
+          notificationRequestToken: checked
+            ? current.notificationRequestToken || createNotificationRequestToken()
+            : '',
+        }
+      }
+
       if (name === 'kickoffTimeMode') {
         const kickoffTimeTbc = value === 'tbc'
         return {
@@ -2763,6 +2830,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     event.preventDefault()
     setIsSaving(true)
     setErrorMessage('')
+    setCalendarValidation(null)
 
     const activeEvent = calendarModal?.event || null
     const sourceType = activeEvent?.sourceType || ''
@@ -2783,6 +2851,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       }
 
       validateCalendarForm({ form: calendarForm, safeTeamId, sourceType, user })
+      validateTrainingAvailabilityForm({
+        form: calendarForm,
+        selectedPlayers: selectedCalendarInvitePlayers,
+      })
       validateParentSharing({
         form: calendarForm,
         safeTeamId,
@@ -3200,6 +3272,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
       setCalendarModal(null)
       setCalendarForm(getDefaultCalendarForm())
+      setCalendarValidation(null)
       setErrorMessage('')
     } catch (error) {
       console.error(error)
@@ -3214,6 +3287,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         }
         setCalendarModal(null)
         setCalendarForm(getDefaultCalendarForm())
+        setCalendarValidation(null)
         setErrorMessage('')
         showToast({
           title: 'Event saved, parent notification incomplete',
@@ -3223,8 +3297,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         return
       }
 
-      setErrorMessage(error.message || 'Calendar event could not be saved.')
-      showToast({ title: 'Calendar not saved', message: error.message || 'Calendar event could not be saved.', tone: 'error' })
+      setCalendarValidation({
+        fieldName: error.fieldName || '',
+        message: error.message || 'Calendar event could not be saved.',
+      })
     } finally {
       setIsSaving(false)
     }
@@ -3757,6 +3833,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           event={calendarModal?.event}
           eventResponseManager={currentEventResponseModel.responseManager}
           form={calendarForm}
+          validationError={calendarValidation}
           invitePlayers={calendarInvitePlayers}
           isBusy={isSaving}
           isResourcesLoading={isCalendarResourcesLoading}
@@ -4076,6 +4153,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         event={calendarModal?.event}
         eventResponseManager={currentEventResponseModel.responseManager}
         form={calendarForm}
+        validationError={calendarValidation}
         invitePlayers={calendarInvitePlayers}
         isBusy={isSaving}
         isResourcesLoading={isCalendarResourcesLoading}
@@ -4437,7 +4515,7 @@ function TrainingAvailabilityParentNotes({ details = [] }) {
   )
 }
 
-function TrainingAvailabilitySettings({ form, isBusy, onChange }) {
+function TrainingAvailabilitySettings({ form, isBusy, onChange, validationError }) {
   return (
     <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
       <div className={`grid gap-4 ${form.requestTrainingAvailability === true ? 'md:grid-cols-[1fr_12rem]' : ''}`}>
@@ -4468,8 +4546,15 @@ function TrainingAvailabilitySettings({ form, isBusy, onChange }) {
               value={form.trainingAvailabilitySendDaysBefore ?? 2}
               onChange={onChange}
               disabled={isBusy}
+              aria-invalid={validationError?.fieldName === 'trainingAvailabilitySendDaysBefore' || undefined}
+              aria-describedby={validationError?.fieldName === 'trainingAvailabilitySendDaysBefore' ? 'calendar-trainingAvailabilitySendDaysBefore-error' : undefined}
               className={fieldClass}
             />
+            {validationError?.fieldName === 'trainingAvailabilitySendDaysBefore' ? (
+              <span id="calendar-trainingAvailabilitySendDaysBefore-error" className="mt-2 block text-xs font-black text-[#b42318]">
+                {validationError.message}
+              </span>
+            ) : null}
           </label>
         ) : null}
       </div>
@@ -4831,6 +4916,7 @@ function CalendarEventModal({
   event,
   eventResponseManager = null,
   form,
+  validationError = null,
   invitePlayers = [],
   isBusy,
   isResourcesLoading = false,
@@ -5014,6 +5100,26 @@ function CalendarEventModal({
     return () => window.cancelAnimationFrame(focusFrame)
   }, [isMobileActionMenuOpen, isOpen])
 
+  useEffect(() => {
+    if (!isOpen || !validationError) {
+      return undefined
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const fieldName = String(validationError.fieldName || '').trim()
+      const field = fieldName
+        ? dialogRef.current?.querySelector(`[name="${fieldName}"]`)
+          || dialogRef.current?.querySelector(`[data-calendar-field="${fieldName}"]`)
+        : null
+      const target = field || dialogRef.current?.querySelector('#calendar-modal-validation-summary')
+
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target?.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(focusFrame)
+  }, [isOpen, validationError])
+
   if (!isOpen) {
     return null
   }
@@ -5041,11 +5147,14 @@ function CalendarEventModal({
   const canUseClubLevel = canCreateClubCalendarEvent(user)
   const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
   const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
-  const showInvites = !canShareClubWideWithParents && form.shareWithParents && form.parentAudience === 'involved_players'
   const canShowTeamResourceArea = Boolean(!clubWideOnly && safeFormTeamId && canManageResourceLibrary(user))
   const canUseCalendarResourceLinks = Boolean((!event || event.sourceType === 'calendar') && isCalendarResourceEventType(form.eventType))
   const canAttachResources = canShowTeamResourceArea && canUseCalendarResourceLinks
   const canShowTrainingAvailability = Boolean(!clubWideOnly && safeFormTeamId && form.eventType === 'training' && (!event || event.sourceType === 'calendar'))
+  const isTrainingRsvpMode = canShowTrainingAvailability && form.requestTrainingAvailability === true
+  const showInvites = !canShareClubWideWithParents && (
+    isTrainingRsvpMode || (form.shareWithParents && form.parentAudience === 'involved_players')
+  )
   const selectedResourceIds = new Set(Array.isArray(form.resourceIds) ? form.resourceIds.map(String) : [])
   const isRecurringCalendarEdit = isRecurringCalendarEvent({ event, form })
   const repeatUpdateScopeRequired = hasRecurringCalendarDateTimeChange({ event, form })
@@ -5079,6 +5188,17 @@ function CalendarEventModal({
         ]),
       )
     : {}
+  const validationProps = (fieldName) => validationError?.fieldName === fieldName
+    ? {
+        'aria-describedby': `calendar-${fieldName}-error`,
+        'aria-invalid': true,
+      }
+    : {}
+  const validationMessage = (fieldName) => validationError?.fieldName === fieldName ? (
+    <span id={`calendar-${fieldName}-error`} className="mt-2 block text-xs font-black text-[#b42318]">
+      {validationError.message}
+    </span>
+  ) : null
   return (
     <>
       <div
@@ -5205,14 +5325,26 @@ function CalendarEventModal({
         ) : null}
 
         {isEditing ? (
-          <form onSubmit={handleModalSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <form noValidate onSubmit={handleModalSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div data-testid="calendar-event-modal-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-24 px-4 py-4 [-webkit-overflow-scrolling:touch] sm:scroll-pb-32 sm:px-6 sm:py-5">
             <div className="grid gap-4">
+              {validationError ? (
+                <div
+                  id="calendar-modal-validation-summary"
+                  role="alert"
+                  aria-live="assertive"
+                  tabIndex={-1}
+                  className="rounded-lg border border-[#fda29b] bg-[#fff1f0] px-4 py-3 text-sm font-black text-[#b42318]"
+                >
+                  {validationError.message}
+                </div>
+              ) : null}
               <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Type</span>
                 <select
                   name="eventType"
+                  {...validationProps('eventType')}
                   value={form.eventType}
                   onChange={onChange}
                   disabled={isBusy || Boolean(event && event.sourceType !== 'calendar')}
@@ -5222,6 +5354,7 @@ function CalendarEventModal({
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+                {validationMessage('eventType')}
               </label>
               {clubWideOnly ? (
                 <div className="block">
@@ -5234,13 +5367,14 @@ function CalendarEventModal({
               ) : (
                 <label className="block">
                   <span className="mb-2 block text-sm font-black text-[#101828]">Team</span>
-                  <select name="teamId" value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                  <select name="teamId" {...validationProps('teamId')} value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
                     {canUseClubLevel ? <option value="">Club level</option> : null}
                     {!canUseClubLevel && !form.teamId ? <option value="">Choose team</option> : null}
                     {teams.map((team) => (
                       <option key={team.id} value={team.id}>{team.name}</option>
                     ))}
                   </select>
+                  {validationMessage('teamId')}
                   {!canUseClubLevel ? (
                     <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
                       Team staff can only save events against their assigned team.
@@ -5254,29 +5388,33 @@ function CalendarEventModal({
               <span className="mb-2 block text-sm font-black text-[#101828]">Title</span>
               <input
                 name="title"
+                {...validationProps('title')}
                 value={form.title}
                 onChange={onChange}
                 placeholder={form.eventType === 'training' ? 'Example: U12 training' : 'Example: Parent response deadline'}
                 className={fieldClass}
               />
+              {validationMessage('title')}
             </label>
 
             {showOpponent ? (
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Opponent</span>
-                <input name="opponent" value={form.opponent} onChange={onChange} placeholder="Example: Riverside Juniors" className={fieldClass} />
+                <input name="opponent" {...validationProps('opponent')} value={form.opponent} onChange={onChange} placeholder="Example: Riverside Juniors" className={fieldClass} />
+                {validationMessage('opponent')}
               </label>
             ) : null}
 
             {isMatchFixture ? (
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Fixture type</span>
-                <select name="fixtureType" value={form.fixtureType} onChange={onChange} disabled={isBusy} required className={fieldClass}>
+                <select name="fixtureType" {...validationProps('fixtureType')} value={form.fixtureType} onChange={onChange} disabled={isBusy} required className={fieldClass}>
                   <option value="">Choose fixture type</option>
                   {MATCH_DAY_FIXTURE_TYPE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+                {validationMessage('fixtureType')}
               </label>
             ) : null}
 
@@ -5303,22 +5441,26 @@ function CalendarEventModal({
             <div className="grid gap-4 md:grid-cols-3">
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Date</span>
-                <input name="date" type="date" min={isMatchFixture ? getTodayMatchDayDateValue() : undefined} value={form.date} onChange={onChange} required className={fieldClass} />
+                <input name="date" {...validationProps('date')} type="date" min={isMatchFixture ? getTodayMatchDayDateValue() : undefined} value={form.date} onChange={onChange} required className={fieldClass} />
+                {validationMessage('date')}
               </label>
               {isMatchFixture ? (
                 <label className="block">
                   <span className="mb-2 block text-sm font-black text-[#101828]">Arrival time</span>
-                  <input name="arrivalTime" type="time" value={form.arrivalTime} onChange={onChange} disabled={form.kickoffTimeTbc} className={fieldClass} />
+                  <input name="arrivalTime" {...validationProps('arrivalTime')} type="time" value={form.arrivalTime} onChange={onChange} disabled={form.kickoffTimeTbc} className={fieldClass} />
+                  {validationMessage('arrivalTime')}
                 </label>
               ) : null}
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">{isMatchFixture ? 'Kick-off time' : 'Start time'}</span>
-                <input name="startTime" type="time" value={form.startTime} onChange={onChange} required={!isMatchFixture || !form.kickoffTimeTbc} disabled={isMatchFixture && form.kickoffTimeTbc} className={fieldClass} />
+                <input name="startTime" {...validationProps('startTime')} type="time" value={form.startTime} onChange={onChange} required={!isMatchFixture || !form.kickoffTimeTbc} disabled={isMatchFixture && form.kickoffTimeTbc} className={fieldClass} />
+                {validationMessage('startTime')}
               </label>
               {!isMatchFixture ? (
                 <label className="block">
                   <span className="mb-2 block text-sm font-black text-[#101828]">End time</span>
-                  <input name="endTime" type="time" value={form.endTime} onChange={onChange} required className={fieldClass} />
+                  <input name="endTime" {...validationProps('endTime')} type="time" value={form.endTime} onChange={onChange} required className={fieldClass} />
+                  {validationMessage('endTime')}
                 </label>
               ) : null}
             </div>
@@ -5348,6 +5490,7 @@ function CalendarEventModal({
                     <span className="mb-2 block text-sm font-black text-[#101828]">Repeat until</span>
                     <input
                       name="recurrenceUntil"
+                      {...validationProps('recurrenceUntil')}
                       type="date"
                       value={form.recurrenceUntil}
                       onChange={onChange}
@@ -5355,6 +5498,7 @@ function CalendarEventModal({
                       required={form.recurrenceFrequency !== 'none'}
                       className={fieldClass}
                     />
+                    {validationMessage('recurrenceUntil')}
                   </label>
                 </div>
                 <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
@@ -5401,6 +5545,7 @@ function CalendarEventModal({
                 form={form}
                 isBusy={isBusy}
                 onChange={onChange}
+                validationError={validationError}
               />
             ) : null}
 
@@ -5426,7 +5571,11 @@ function CalendarEventModal({
               />
             ) : null}
 
-            {canShareClubWideWithParents ? (
+            {isTrainingRsvpMode ? (
+              <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black leading-6 text-[#065f46]">
+                Availability requests will be sent to eligible Parents or adult Players for the selected Players, and the event will appear in their Family Portal.
+              </div>
+            ) : canShareClubWideWithParents ? (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                 <label className="flex items-start gap-3">
                   <input
@@ -5550,7 +5699,13 @@ function CalendarEventModal({
             ) : null}
 
             {showInvites ? (
-              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+              <div
+                data-calendar-field="invitedPlayerIds"
+                tabIndex={validationError?.fieldName === 'invitedPlayerIds' ? -1 : undefined}
+                aria-invalid={validationError?.fieldName === 'invitedPlayerIds' || undefined}
+                aria-describedby={validationError?.fieldName === 'invitedPlayerIds' ? 'calendar-invitedPlayerIds-error' : undefined}
+                className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4"
+              >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-sm font-black text-[#101828]">Involved players</p>
@@ -5634,6 +5789,7 @@ function CalendarEventModal({
                       ))}
                     </div>
 
+                    {!isTrainingRsvpMode ? (
                     <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                       <input
                         type="checkbox"
@@ -5652,8 +5808,10 @@ function CalendarEventModal({
                         </span>
                       </span>
                     </label>
+                    ) : null}
                   </div>
                 )}
+                {validationMessage('invitedPlayerIds')}
               </div>
             ) : null}
             </div>
