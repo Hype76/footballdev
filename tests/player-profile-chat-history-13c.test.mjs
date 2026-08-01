@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { buildEventResponsePlayerNavigation } from '../src/lib/domain/player-profile-navigation.js'
 
-const migrationUrl = new URL('../supabase/migrations/20260731190000_player_linked_chat_history_13c.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260731182313_player_linked_chat_history_13c.sql', import.meta.url)
 const responseManagerUrl = new URL('../src/components/sessions/EventResponseManager.jsx', import.meta.url)
 const sessionsUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const playerChatSectionUrl = new URL('../src/components/players/PlayerChatSection.jsx', import.meta.url)

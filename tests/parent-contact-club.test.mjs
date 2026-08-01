@@ -74,7 +74,7 @@ test('parent profile links carry selected club contact email without new unscope
   const membershipsEnd = coreSource.indexOf('function normalizeParentPortalProfile', membershipsStart)
   const membershipsSection = coreSource.slice(membershipsStart, membershipsEnd)
 
-  assert.match(combinedSource, /clubs:club_id \(name, logo_url, contact_email\)/)
+  assert.match(combinedSource, /clubs:club_id \(name, logo_url, contact_email[^)]*\)/)
   assert.match(combinedSource, /clubContactEmail: String\(club\?\.contact_email \?\? ''\)\.trim\(\)/)
   assert.doesNotMatch(membershipsSection, /\.from\('team_staff'\)/)
   assert.doesNotMatch(parentPortalSource, /\.from\('team_staff'\)/)

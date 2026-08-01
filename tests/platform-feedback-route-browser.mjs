@@ -60,6 +60,7 @@ function startDevServer() {
     env: {
       ...process.env,
       BROWSER: 'none',
+      VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true',
       VITE_SUPABASE_URL: 'http://fixture.supabase.test',
       VITE_SUPABASE_PUBLISHABLE_KEY: 'fixture-publishable-key',
     },
@@ -303,8 +304,20 @@ try {
     assert.equal(await page.getByText('No product ideas have been submitted yet.').count() > 0, true)
     assert.equal(requests.reports.length > 0, true)
 
-    const issuePanelBackground = await page.locator('section[aria-labelledby="issue-reports-heading"]').evaluate((element) => getComputedStyle(element).backgroundColor)
-    assert.notEqual(issuePanelBackground, 'rgb(255, 255, 255)')
+    const issuePanelColours = await page.locator('section[aria-labelledby="issue-reports-heading"]').evaluate((element) => {
+      const themeProbe = document.createElement('span')
+      themeProbe.style.backgroundColor = 'var(--panel-bg)'
+      element.append(themeProbe)
+      const result = {
+        background: getComputedStyle(element).backgroundColor,
+        heading: getComputedStyle(element.querySelector('#issue-reports-heading')).color,
+        themePanel: getComputedStyle(themeProbe).backgroundColor,
+      }
+      themeProbe.remove()
+      return result
+    })
+    assert.equal(issuePanelColours.background, issuePanelColours.themePanel)
+    assert.notEqual(issuePanelColours.heading, issuePanelColours.background)
 
     await page.getByRole('button', { name: /mark reviewed/i }).click()
     await assert.doesNotReject(() => page.getByText('Reviewed').waitFor({ timeout: 15000 }))

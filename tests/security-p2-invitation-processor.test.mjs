@@ -204,11 +204,16 @@ test('all equivalent processor paths have a server boundary before work begins',
 
   const scheduledHandler = scheduled.slice(scheduled.indexOf('export async function handler'))
   const retryHandler = retry.slice(retry.indexOf('export async function handler'))
+  const retryProcessor = retry.slice(
+    retry.indexOf('export async function processFailedEmails'),
+    retry.indexOf('export async function handler'),
+  )
   const wrapperHandler = wrapper.slice(wrapper.indexOf('export default async function handler'))
   const trainingHandler = training.slice(training.indexOf('export default async function handler'))
 
   assert.ok(scheduledHandler.indexOf('authorizeProcessorRequest(event)') < scheduledHandler.indexOf('processScheduledEmails()'))
-  assert.ok(retryHandler.indexOf('authorizeProcessorRequest(event)') < retryHandler.indexOf('getMissingEnvVars()'))
+  assert.ok(retryHandler.indexOf('authorizeProcessorRequest(event)') < retryHandler.indexOf('processFailedEmails()'))
+  assert.ok(retryProcessor.indexOf('getMissingEnvVars()') < retryProcessor.indexOf('getFailedEmailLogs()'))
   assert.ok(wrapperHandler.indexOf('authorizeNativeScheduledRequest(request)') < wrapperHandler.indexOf('processScheduledEmails()'))
   assert.ok(trainingHandler.indexOf('authorizeNativeScheduledRequest(request)') < trainingHandler.indexOf('processTrainingAvailabilityRequests()'))
   assert.doesNotMatch(wrapperHandler, /authorizeProcessorRequest|rejectDirectScheduledFunctionRequest/)

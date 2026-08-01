@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
+const parentPortalShellUrl = new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url)
 const parentInvitePageUrl = new URL('../src/pages/ParentInvitePage.jsx', import.meta.url)
 const createParentAccountFunctionUrl = new URL('../netlify/functions/create-parent-account.js', import.meta.url)
 const cleanupMigrationUrl = migrationSourceUrl('20260616072046_20260616070626_harden_parent_portal_cleanup.sql', 'active')
@@ -119,12 +120,12 @@ test('parent settings display name is club-managed and has no parent self-servic
 })
 
 test('parent portal selector continues to expose every linked child for one parent account', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const source = await readFile(parentPortalShellUrl, 'utf8')
 
-  assert.match(source, /function ParentChildSelector\(\{[^}]*links[^}]*onSelect[^}]*selectedLink[^}]*\}\)/)
-  assert.match(source, /function formatParentChildTeamLabel\(link\)/)
-  assert.match(source, /links\.map\(\(link\) => \(/)
-  assert.match(source, /onChange=\{\(event\) => onSelect\(event\.target\.value\)\}/)
+  assert.match(source, /function ParentPortalContext\(\{[\s\S]*links[\s\S]*onParentLinkSelect[\s\S]*selectedLink/)
+  assert.match(source, /resolveParentPortalShellContext\(\{[\s\S]*links[\s\S]*selectedLink[\s\S]*selectedParentLinkId/)
+  assert.match(source, /allowedLinks\.map\(\(link\) => \(/)
+  assert.match(source, /onChange=\{\(event\) => onParentLinkSelect\?\.\(event\.target\.value\)\}/)
   assert.doesNotMatch(source, /Other linked children/)
   assert.doesNotMatch(source, /otherLinks\.map\(\(link\) => \(/)
 })

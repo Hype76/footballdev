@@ -86,7 +86,7 @@ test('desktop and mobile navigation use synchronised New while invite actions st
   assert.match(parentPortalPage, /eventInvites=\{pendingParentInvitations\}/)
   assert.match(parentPortalPage, /newStateByCategory=\{parentNavNewState\}/)
   assert.match(parentPortalPage, /categoryKey: activeSection/)
-  assert.match(parentPortalPage, /variant="mobile"/)
+  assert.match(parentPortalShell, /variant="mobile"/)
   assert.match(parentPortalShell, /Boolean\(newStateByCategory\[section\.id\]\)/)
   assert.match(parentPortalShell, />\s*New\s*</)
   assert.doesNotMatch(parentPortalShell, /typeof count === 'number'|\{count\}/)

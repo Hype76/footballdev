@@ -106,7 +106,7 @@ test('Parent route and state inventory covers every required V1 Parent area', ()
 })
 
 test('every reachable Parent surface enters the shared theme scope', () => {
-  assert.match(parentPortalPage, /className="parent-portal-theme-scope[^"]*"/)
+  assert.match(parentPortalPage, /<ParentPortalRouteShell/)
   assert.match(parentPortalPage, /data-testid="parent-portal-page"/)
   assert.match(parentPortalShell, /className="parent-portal-theme-scope[^"]*"/)
   assert.match(parentPortalShell, /data-testid="parent-portal-route-shell"/)

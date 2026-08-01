@@ -115,7 +115,7 @@ test('resource notification queue is re-authorized and rendered through every se
   ])
 
   assert.match(assignmentMigration, /'resourceNotification', jsonb_build_object\([\s\S]*'type', 'resource_shared'/i)
-  assert.match(manageScheduledEmails, /isResourceNotificationQueueRow\(row\)[\s\S]*sendScheduledEmail\(row, \{ retryFailed: true \}\)/)
+  assert.match(manageScheduledEmails, /sendScheduledEmail\([\s\S]*\{ \.\.\.row, \.\.\.dueUpdate \}[\s\S]*\{ retryFailed: row\.status === 'failed' \}/)
   assert.match(manageScheduledEmails, /payload\.resourceNotification\?\.type === 'resource_shared'[\s\S]*return false/)
   assert.match(processor, /prepareScheduledResourceNotificationRow/)
   assert.match(resourceEmail, /RESOURCE_NOTIFICATION_PARENT_PORTAL_URL/)
