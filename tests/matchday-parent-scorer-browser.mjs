@@ -8,7 +8,9 @@ const fixturePassword = 'FixturePass123!'
 const port = Number(process.env.MATCHDAY_SCORER_BROWSER_PORT || 4800 + Math.floor(Math.random() * 300))
 const mainBaseUrl = `http://127.0.0.1:${port}`
 const parentBaseUrl = mainBaseUrl
-const parentConfirmedTeamOnly = process.env.PARENT_CONFIRMED_TEAM_BROWSER_ONLY === 'true'
+const parentMatchWorkspaceOnly = process.env.PARENT_MATCH_WORKSPACE_BROWSER_ONLY === 'true'
+const parentMatchWorkspaceScreenshotDir = String(process.env.PARENT_MATCH_WORKSPACE_SCREENSHOT_DIR || '').trim()
+const parentConfirmedTeamOnly = process.env.PARENT_CONFIRMED_TEAM_BROWSER_ONLY === 'true' || parentMatchWorkspaceOnly
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -149,6 +151,7 @@ function createMatchFixture({ isLive = false, isScorer = false } = {}) {
 }
 
 async function prepareContext(browser, viewportOptions, {
+  additionalMatches = [],
   authRestoreDelayMs = 0,
   clockDelayMs = 0,
   clockFailureCount = 0,
@@ -164,9 +167,11 @@ async function prepareContext(browser, viewportOptions, {
 } = {}) {
   const context = await browser.newContext(viewportOptions)
   const fixtureState = {
+    additionalMatches: [...additionalMatches],
     confirmedNames: [...confirmedNames],
     match: { ...createMatchFixture({ isLive, isScorer }), ...matchOverrides },
   }
+  const getFixtureMatches = () => [fixtureState.match, ...fixtureState.additionalMatches]
   const mutationRequests = []
   const consoleErrors = []
   const pageErrors = []
@@ -232,7 +237,7 @@ async function prepareContext(browser, viewportOptions, {
       status: 200,
       contentType: 'application/json',
       headers: { 'content-range': '0-0/1' },
-      body: JSON.stringify([fixtureState.match]),
+      body: JSON.stringify(getFixtureMatches()),
     })
   })
   await context.route('**/rest/v1/rpc/get_parent_portal_match_days', async (route) => {
@@ -252,7 +257,7 @@ async function prepareContext(browser, viewportOptions, {
       return
     }
 
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([fixtureState.match]) })
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(getFixtureMatches()) })
   })
   await context.route('**/rest/v1/rpc/get_parent_portal_match_day_players', async (route) => {
     await route.fulfill({
@@ -265,10 +270,10 @@ async function prepareContext(browser, viewportOptions, {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([{
-        match_day_id: fixtureState.match.id,
-        selected_player_names: fixtureState.confirmedNames,
-      }]),
+      body: JSON.stringify(getFixtureMatches().map((match, index) => ({
+        match_day_id: match.id,
+        selected_player_names: index === 0 ? fixtureState.confirmedNames : [],
+      }))),
     })
   })
   await context.route('**/rest/v1/rpc/get_parent_scorer_game_mode_match_ids', async (route) => {
@@ -282,15 +287,15 @@ async function prepareContext(browser, viewportOptions, {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([{
-        match_day_id: fixtureState.match.id,
-        is_today: true,
-        presentation_priority: fixtureState.match.status === 'live' ? 0 : 1,
-        scheduled_kickoff_at: '2026-07-22T18:00:00Z',
-        is_before_kickoff: fixtureState.match.status === 'scheduled',
+      body: JSON.stringify(getFixtureMatches().map((match, index) => ({
+        match_day_id: match.id,
+        is_today: index === 0,
+        presentation_priority: index === 0 ? (match.status === 'live' ? 0 : 1) : index + 1,
+        scheduled_kickoff_at: index === 0 ? '2026-07-22T18:00:00Z' : `2026-07-${23 + index}T18:00:00Z`,
+        is_before_kickoff: match.status === 'scheduled',
         server_local_date: '2026-07-22',
         server_local_time: '10:00:30',
-      }]),
+      }))),
     })
   })
   await context.route('**/rest/v1/rpc/start_match_day', async (route) => {
@@ -483,6 +488,83 @@ function assertNoPageFailures(session, label) {
   assert.deepEqual(session.resourceFailures, [], `${label} must have zero document, script, or stylesheet failures`)
 }
 
+async function verifyParentMatchWorkspace(browser, viewport) {
+  const additionalMatches = [
+    {
+      ...createMatchFixture(),
+      id: 'match-workspace-2',
+      opponent: 'Balanced City',
+      match_date: '2030-07-30',
+      availability_status: 'pending',
+      squad_decision_state: 'pending',
+      volunteer_scorer_response: 'no_response',
+    },
+    {
+      ...createMatchFixture(),
+      id: 'match-workspace-3',
+      opponent: 'Compact Athletic',
+      match_date: '2030-08-06',
+      availability_status: 'available',
+      squad_decision_state: 'selected',
+    },
+  ]
+  const sessionState = await prepareContext(browser, { viewport }, { additionalMatches })
+  await signIn(sessionState.page, { parent: true })
+  await openParentMatches(sessionState.page)
+  await sessionState.page.getByText('Balanced City', { exact: false }).first().waitFor({ state: 'visible' })
+
+  const measure = () => sessionState.page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth > window.innerWidth,
+    ratio: Number((document.documentElement.scrollHeight / window.innerHeight).toFixed(2)),
+  }))
+  const listMeasurement = await measure()
+  let detailMeasurement = null
+  assert.equal(listMeasurement.overflow, false)
+  if (parentMatchWorkspaceScreenshotDir) {
+    await sessionState.page.screenshot({
+      path: `${parentMatchWorkspaceScreenshotDir}/parent-matches-${viewport.width}-list.png`,
+      fullPage: true,
+    })
+  }
+
+  if (viewport.width < 768) {
+    assert.ok(listMeasurement.ratio <= 3, `mobile list ratio ${listMeasurement.ratio} must be at most 3.00`)
+    assert.equal(await sessionState.page.getByRole('heading', { name: 'Confirmed Team' }).isVisible(), false)
+
+    await sessionState.page.getByRole('button', { name: /Balanced City/ }).click()
+    await sessionState.page.waitForURL('**matchDayId=match-workspace-2')
+    await sessionState.page.getByRole('button', { name: 'Back to matches' }).waitFor({ state: 'visible' })
+    detailMeasurement = await measure()
+    assert.equal(detailMeasurement.overflow, false)
+    assert.ok(detailMeasurement.ratio <= 3.5, `mobile detail ratio ${detailMeasurement.ratio} must be at most 3.50`)
+    if (parentMatchWorkspaceScreenshotDir) {
+      await sessionState.page.screenshot({
+        path: `${parentMatchWorkspaceScreenshotDir}/parent-matches-${viewport.width}-selected.png`,
+        fullPage: true,
+      })
+    }
+
+    await sessionState.page.goBack()
+    await sessionState.page.getByText('Upcoming matches', { exact: true }).waitFor({ state: 'visible' })
+    assert.equal(new URL(sessionState.page.url()).searchParams.has('matchDayId'), false)
+    await sessionState.page.getByRole('button', { name: /Compact Athletic/ }).click()
+    await sessionState.page.getByRole('button', { name: 'Back to matches' }).click()
+    await sessionState.page.getByText('Upcoming matches', { exact: true }).waitFor({ state: 'visible' })
+  } else {
+    assert.ok(listMeasurement.ratio <= 2, `desktop selected ratio ${listMeasurement.ratio} must be at most 2.00`)
+    await sessionState.page.getByRole('heading', { name: 'Confirmed Team' }).waitFor({ state: 'visible' })
+    await sessionState.page.getByRole('button', { name: /Balanced City/ }).click()
+    await sessionState.page.waitForURL('**matchDayId=match-workspace-2')
+    await sessionState.page.getByText('Awaiting response', { exact: true }).first().waitFor({ state: 'visible' })
+  }
+
+  assert.equal(sessionState.mutationRequests.length, 0)
+  assert.deepEqual(sessionState.consoleErrors, [])
+  assertNoPageFailures(sessionState, `${viewport.width}px Parent matches workspace`)
+  await sessionState.context.close()
+  return { detailMeasurement, listMeasurement }
+}
+
 const viewports = [
   { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
   { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
@@ -494,6 +576,12 @@ let browser
 try {
   await waitForPort('127.0.0.1', port)
   browser = await chromium.launch({ headless: true })
+
+  if (parentMatchWorkspaceOnly) {
+    const desktopMeasurement = await verifyParentMatchWorkspace(browser, { width: 1440, height: 900 })
+    const mobileMeasurement = await verifyParentMatchWorkspace(browser, { width: 375, height: 812 })
+    process.stdout.write(`PASS Parent matches workspace: desktop ${desktopMeasurement.listMeasurement.ratio}, mobile list ${mobileMeasurement.listMeasurement.ratio}, mobile selected ${mobileMeasurement.detailMeasurement.ratio}, URL and Back restoration, no overflow, zero mutations\n`)
+  }
 
   for (const viewport of viewports) {
     if (!parentConfirmedTeamOnly) {

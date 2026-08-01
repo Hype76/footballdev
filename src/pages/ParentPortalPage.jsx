@@ -557,6 +557,7 @@ function ParentPortalExperience() {
   const [activeInvitationId, setActiveInvitationId] = useState('')
   const [invitationError, setInvitationError] = useState('')
   const requestedParentLinkId = String(searchParams.get('parentLinkId') ?? '').trim()
+  const requestedMatchDayId = String(searchParams.get('matchDayId') ?? '').trim()
   const requestedDevelopmentReportId = String(searchParams.get('reportId') ?? '').trim()
   const selectedLink = links.find((link) => link.id === requestedParentLinkId)
     ?? links.find((link) => link.id === selectedLinkId)
@@ -648,13 +649,12 @@ function ParentPortalExperience() {
   }, [parentCalendarEvents, searchParams])
 
   useEffect(() => {
-    const requestedMatchDayId = String(searchParams.get('matchDayId') ?? '').trim()
     const requestedMatch = matches.find((match) => match.id === requestedMatchDayId)
     if (requestedMatch?.isScorer && requestedMatch?.isToday) {
       setActiveSection('matches')
       setScorerGameModeMatchId(requestedMatch.id)
     }
-  }, [matches, searchParams])
+  }, [matches, requestedMatchDayId])
 
   const handleSectionSelect = (sectionId) => {
     if (!parentPortalSectionIds.has(sectionId)) {
@@ -678,6 +678,41 @@ function ParentPortalExperience() {
     setSearchParams(nextSearchParams)
   }
 
+  const handleSelectParentMatch = (match) => {
+    if (!match?.id) {
+      return
+    }
+
+    setActiveSection('matches')
+    setScorerGameModeMatchId('')
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'matches')
+    nextSearchParams.set('parentLinkId', selectedLink?.id || '')
+    nextSearchParams.set('matchDayId', match.id)
+    setSearchParams(nextSearchParams)
+  }
+
+  const handleBackToParentMatches = () => {
+    setScorerGameModeMatchId('')
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'matches')
+    nextSearchParams.delete('matchDayId')
+    setSearchParams(nextSearchParams)
+  }
+
+  const handleOpenParentMatchSection = (sectionId) => {
+    if (!['calendar', 'invites', 'results'].includes(sectionId)) {
+      return
+    }
+
+    setActiveSection(sectionId)
+    setScorerGameModeMatchId('')
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', sectionId)
+    nextSearchParams.delete('matchDayId')
+    setSearchParams(nextSearchParams)
+  }
+
   const handleParentLinkSelect = (parentLinkId) => {
     const normalizedParentLinkId = String(parentLinkId ?? '').trim()
 
@@ -689,9 +724,11 @@ function ParentPortalExperience() {
     setDevelopmentReportsLinkId('')
     setDevelopmentLoadError('')
     setSelectedLinkId(normalizedParentLinkId)
+    setScorerGameModeMatchId('')
 
     const nextSearchParams = new URLSearchParams(searchParams)
     nextSearchParams.set('parentLinkId', normalizedParentLinkId)
+    nextSearchParams.delete('matchDayId')
     nextSearchParams.delete('reportId')
     setSearchParams(nextSearchParams)
     const selected = links.find((link) => link.id === normalizedParentLinkId)
@@ -1516,7 +1553,7 @@ function ParentPortalExperience() {
       {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
       {invitationError ? <NoticeBanner title="Response not changed" message={invitationError} /> : null}
 
-      {todayMatches.length > 0 && !scorerGameModeMatchId ? (
+      {activeSection === 'overview' && todayMatches.length > 0 && !scorerGameModeMatchId ? (
         <ParentMatchDayHero
           matches={todayMatches}
           onOpenGameMode={handleOpenTodayGameMode}
@@ -1524,10 +1561,12 @@ function ParentPortalExperience() {
         />
       ) : null}
 
-      <PracticeMatchEntryCard
-        hasTodayMatch={todayMatches.length > 0}
-        onOpen={handleOpenPracticeMatch}
-      />
+      {activeSection === 'overview' ? (
+        <PracticeMatchEntryCard
+          hasTodayMatch={todayMatches.length > 0}
+          onOpen={handleOpenPracticeMatch}
+        />
+      ) : null}
 
           <section className="min-w-0">
           {activeSection === 'overview' ? (
@@ -1586,12 +1625,19 @@ function ParentPortalExperience() {
               handleVolunteer={handleVolunteer}
               hideTodayMatches={!scorerGameModeMatchId}
               isLoading={isLoadingMatches}
+              onBackToMatches={handleBackToParentMatches}
+              onOpenGameMode={handleOpenTodayGameMode}
+              onOpenSection={handleOpenParentMatchSection}
+              onSelectMatch={handleSelectParentMatch}
+              previousMatches={previousMatches}
+              requestedMatchDayId={requestedMatchDayId}
               selectedLink={selectedLink}
               setScoreDrafts={setScoreDrafts}
               scoreDrafts={scoreDrafts}
               scorerGameModeMatchId={scorerGameModeMatchId}
               setScorerGameModeMatchId={setScorerGameModeMatchId}
               squadPlayers={squadPlayers}
+              todayMatches={todayMatches}
               updateGoalForm={updateGoalForm}
             />
           ) : null}
@@ -2750,51 +2796,115 @@ function ParentMatchCardsPanel({
   handleVolunteer,
   hideTodayMatches,
   isLoading,
+  onBackToMatches,
+  onOpenGameMode,
+  onOpenSection,
+  onSelectMatch,
+  previousMatches,
+  requestedMatchDayId,
   selectedLink,
   setScoreDrafts,
   scoreDrafts,
   scorerGameModeMatchId,
   setScorerGameModeMatchId,
   squadPlayers,
+  todayMatches,
   updateGoalForm,
 }) {
-  const visibleActiveMatches = activeMatches
+  const visibleActiveMatches = sortParentMatchWorkspace(activeMatches)
+  const requestedMatch = visibleActiveMatches.find((match) => match.id === requestedMatchDayId) ?? null
+  const selectedMatch = requestedMatch ?? visibleActiveMatches[0] ?? null
+  const showMobileDetail = Boolean(requestedMatch) || visibleActiveMatches.length === 1
+  const priorityMatch = visibleActiveMatches[0] ?? null
 
   return (
-    <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className={eyebrowClass}>Live and upcoming</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Match cards</h3>
+    <section className="space-y-3" aria-labelledby="parent-match-workspace-title">
+      <header className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className={eyebrowClass}>Live and upcoming</p>
+            <h3 id="parent-match-workspace-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Match cards</h3>
+            <p className={`mt-2 ${bodyTextClass}`}>Choose one match to review. Your response and match status stay near the top.</p>
+          </div>
+          <p className="text-sm font-black text-[#4b5f55]">{activeMatches.length} active</p>
         </div>
-        <p className="text-sm font-black text-[#4b5f55]">{activeMatches.length} active</p>
-      </div>
+      </header>
 
-      <div className="mt-4">
-        {!selectedLink ? (
-          <p className={emptyClass}>{noChildMessage}</p>
-        ) : isLoading ? (
-          <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-            Loading match cards...
-          </p>
-        ) : visibleActiveMatches.length > 0 ? (
-          <div className="space-y-4">
-            {visibleActiveMatches.map((match) => (
+      {todayMatches.length > 0 && !scorerGameModeMatchId ? (
+        <ParentMatchPrioritySummary
+          match={priorityMatch}
+          onOpenGameMode={onOpenGameMode}
+          onSelectMatch={onSelectMatch}
+          selectedLink={selectedLink}
+        />
+      ) : null}
+
+      {!selectedLink ? (
+        <p className={emptyClass}>{noChildMessage}</p>
+      ) : isLoading ? (
+        <p className={emptyClass}>Loading match cards...</p>
+      ) : visibleActiveMatches.length > 0 ? (
+        <div className="grid items-start gap-3 md:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)]">
+          <aside className={showMobileDetail ? 'hidden md:block' : 'block'} aria-label="Match list">
+            <div className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 md:max-h-[42rem] md:overflow-y-auto">
+              <div className="flex items-center justify-between gap-3 px-1 pb-3">
+                <div>
+                  <p className="text-sm font-black text-[#101828]">Upcoming matches</p>
+                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Response needs appear first.</p>
+                </div>
+                <span className="rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
+                  {visibleActiveMatches.length}
+                </span>
+              </div>
+              <div className="grid gap-2">
+                {visibleActiveMatches.map((match) => (
+                  <ParentMatchListItem
+                    key={match.id}
+                    isSelected={selectedMatch?.id === match.id}
+                    match={match}
+                    onSelect={onSelectMatch}
+                  />
+                ))}
+              </div>
+              <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-[#101828]">Previous matches</p>
+                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{previousMatches.length} shared result{previousMatches.length === 1 ? '' : 's'}</p>
+                  </div>
+                  <button type="button" onClick={() => onOpenSection('results')} className={secondaryButtonClass}>
+                    Open history
+                  </button>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <div className={showMobileDetail ? 'block' : 'hidden md:block'}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 md:hidden">
+              <button type="button" onClick={onBackToMatches} className={secondaryButtonClass}>
+                Back to matches
+              </button>
+              <button type="button" onClick={() => onOpenSection('results')} className={secondaryButtonClass}>
+                Previous matches
+              </button>
+            </div>
+            {selectedMatch ? (
               <ParentMatchCard
-                key={match.id}
                 activeMatchId={activeMatchId}
-                goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
-                match={match}
+                goalForm={goalForms[selectedMatch.id] ?? EMPTY_GOAL_FORM}
+                match={selectedMatch}
                 onAddGoal={handleAddGoal}
                 onCorrectGoal={handleCorrectGoal}
                 onGoalFormChange={updateGoalForm}
+                onOpenResponses={() => onOpenSection('invites')}
                 onPlayerPick={handlePlayerPick}
                 onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
                   ...currentDrafts,
-                  [match.id]: {
-                    homeScore: match.homeScore,
-                    awayScore: match.awayScore,
-                    ...(currentDrafts[match.id] ?? {}),
+                  [selectedMatch.id]: {
+                    homeScore: selectedMatch.homeScore,
+                    awayScore: selectedMatch.awayScore,
+                    ...(currentDrafts[selectedMatch.id] ?? {}),
                     ...updates,
                   },
                 }))}
@@ -2802,24 +2912,116 @@ function ParentMatchCardsPanel({
                 onShootoutKick={handleShootoutKick}
                 onVoidShootoutKick={handleVoidShootoutKick}
                 onTimerAction={handleTimerAction}
-                onToggleGameMode={() => setScorerGameModeMatchId((currentMatchId) => currentMatchId === match.id ? '' : match.id)}
+                onToggleGameMode={() => setScorerGameModeMatchId((currentMatchId) => currentMatchId === selectedMatch.id ? '' : selectedMatch.id)}
                 onVolunteer={handleVolunteer}
                 now={clockNow}
                 players={squadPlayers}
-                scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
-                isGameMode={scorerGameModeMatchId === match.id}
+                scoreDraft={scoreDrafts[selectedMatch.id] ?? { homeScore: selectedMatch.homeScore, awayScore: selectedMatch.awayScore }}
+                isGameMode={scorerGameModeMatchId === selectedMatch.id}
                 selectedLink={selectedLink}
-                suppressGameModeEntry={hideTodayMatches && match.isToday}
+                suppressGameModeEntry={hideTodayMatches && selectedMatch.isToday}
               />
-            ))}
+            ) : null}
           </div>
-        ) : (
+        </div>
+      ) : (
+        <div className="grid gap-3">
           <p className={emptyClass}>
             No match cards are shared for this child right now. When staff open a match card for parents, it will appear here.
           </p>
-        )}
+          {previousMatches.length > 0 ? (
+            <button type="button" onClick={() => onOpenSection('results')} className={secondaryButtonClass}>
+              Open {previousMatches.length} previous match{previousMatches.length === 1 ? '' : 'es'}
+            </button>
+          ) : null}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function parentMatchRequiresResponse(match = {}) {
+  const availabilityStatus = String(match.availabilityStatus || 'pending').toLowerCase()
+  if (['', 'pending', 'awaiting_response', 'no_response'].includes(availabilityStatus)) {
+    return true
+  }
+
+  return parentVolunteerRoleConfigs.some((role) =>
+    isRoleRequested(match, role) && String(match[role.responseKey] || 'no_response').toLowerCase() === 'no_response')
+}
+
+function sortParentMatchWorkspace(matches = []) {
+  return matches
+    .map((match, index) => ({ index, match }))
+    .sort((left, right) =>
+      Number(Boolean(right.match.isToday)) - Number(Boolean(left.match.isToday))
+      || Number(parentMatchRequiresResponse(right.match)) - Number(parentMatchRequiresResponse(left.match))
+      || left.index - right.index)
+    .map(({ match }) => match)
+}
+
+function ParentMatchPrioritySummary({ match, onOpenGameMode, onSelectMatch, selectedLink }) {
+  if (!match) {
+    return null
+  }
+
+  const needsResponse = parentMatchRequiresResponse(match)
+  return (
+    <section
+      className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] p-4 shadow-sm shadow-[#047857]/10"
+      data-testid="parent-match-day-hero"
+      aria-labelledby="parent-match-priority-title"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+            {needsResponse ? 'Response needs attention' : match.isToday ? "Today's Game Day" : 'Next relevant match'}
+          </p>
+          <h4 id="parent-match-priority-title" className="mt-1 text-lg font-black text-[var(--text-primary)]">{getMatchDayDisplayName(match)}</h4>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{formatMatchDate(match)} | {selectedLink?.playerName || 'Linked child'}</p>
+          {!match.isScorer ? (
+            <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">Fixture information only. Live scoring controls are available only to the selected scorer.</p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => onSelectMatch(match)} className={secondaryButtonClass}>View match</button>
+          {match.isScorer && match.isToday ? (
+            <button type="button" onClick={() => onOpenGameMode(match)} className={primaryButtonClass}>Open Game Mode</button>
+          ) : null}
+        </div>
       </div>
     </section>
+  )
+}
+
+function ParentMatchListItem({ isSelected, match, onSelect }) {
+  const needsResponse = parentMatchRequiresResponse(match)
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(match)}
+      aria-current={isSelected ? 'true' : undefined}
+      className={[
+        'w-full rounded-lg border p-3 text-left transition',
+        isSelected
+          ? 'border-[#047857] bg-[#ecfdf5]'
+          : 'border-[#d7e5dc] bg-white hover:border-[#047857] hover:bg-[#f7faf8]',
+      ].join(' ')}
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-black text-[#101828]">{getMatchDayDisplayName(match)}</span>
+          <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">{formatMatchDate(match)}</span>
+        </span>
+        {needsResponse ? (
+          <span className="shrink-0 rounded-full border border-[#fedf89] bg-[#fffaeb] px-2 py-1 text-[0.6875rem] font-black text-[#92400e]">Respond</span>
+        ) : null}
+      </span>
+      <span className="mt-2 flex flex-wrap gap-2 text-xs font-black text-[#4b5f55]">
+        <span>{getParentAvailabilityStatusLabel(match.availabilityStatus)}</span>
+        <span>{String(match.status || 'scheduled').replace(/_/g, ' ')}</span>
+      </span>
+    </button>
   )
 }
 
@@ -3343,6 +3545,7 @@ function ParentMatchCard({
   onAddGoal,
   onCorrectGoal,
   onGoalFormChange,
+  onOpenResponses,
   onPlayerPick,
   onScoreDraftChange,
   onScoreSave,
@@ -3420,6 +3623,31 @@ function ParentMatchCard({
         </div>
       </div>
 
+      {responseRows.length > 0 ? (
+        <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h5 className="text-sm font-black text-[#101828]">Your fixture response</h5>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">Review availability and volunteer responses without leaving this match context.</p>
+            </div>
+            <button type="button" onClick={onOpenResponses} className={secondaryButtonClass}>
+              Review response
+            </button>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {responseRows.map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">{label}</p>
+                <p className="mt-1 text-sm font-black text-[#101828]">{value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">
+            Open this fixture in Calendar or Invites to review and change active responses. Existing email response links continue to work.
+          </p>
+        </div>
+      ) : null}
+
       <section className={`${softPanelClass} mt-4`} aria-labelledby={`confirmed-team-${match.id}`}>
         <h5 id={`confirmed-team-${match.id}`} className="text-sm font-black text-[#101828]">Confirmed Team</h5>
         {match.confirmedTeam?.length > 0 ? (
@@ -3438,27 +3666,10 @@ function ParentMatchCard({
         )}
       </section>
 
-      {responseRows.length > 0 ? (
-        <div className={`${softPanelClass} mt-4`}>
-          <h5 className="text-sm font-black text-[#101828]">Your fixture response</h5>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {responseRows.map(([label, value]) => (
-              <div key={label} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">{label}</p>
-                <p className="mt-1 text-sm font-black text-[#101828]">{value}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">
-            Open this fixture in Calendar or Invites to review and change active responses. Existing email response links continue to work.
-          </p>
-        </div>
-      ) : null}
-
       {roleSelectionRows.length > 0 ? (
-        <div className={`${softPanelClass} mt-4`}>
-          <h5 className="text-sm font-black text-[#101828]">Volunteer role status</h5>
-          <div className="mt-3 grid gap-2">
+        <details className={`${softPanelClass} mt-4`}>
+          <summary className="cursor-pointer text-sm font-black text-[#101828]">Volunteer role status</summary>
+          <div className="mt-3 grid gap-2" data-testid="parent-volunteer-role-status">
             {roleSelectionRows.map((row) => (
               <div key={row.key} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -3480,7 +3691,7 @@ function ParentMatchCard({
               </div>
             ))}
           </div>
-        </div>
+        </details>
       ) : null}
 
       {!match.isScorer ? (
@@ -3686,31 +3897,34 @@ function ParentMatchCard({
       )}
 
       {match.events.length > 0 ? (
-        <div className="mt-4 space-y-2">
-          {match.events.slice(0, 8).map((event) => (
-            <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-[#101828]">
-                    {getParentMatchEventTitle(event)}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                    {getParentMatchEventDetail(event)}
-                  </p>
+        <details className={`${softPanelClass} mt-4`}>
+          <summary className="cursor-pointer text-sm font-black text-[#101828]">Match timeline ({match.events.length})</summary>
+          <div className="mt-3 space-y-2">
+            {match.events.slice(0, 8).map((event) => (
+              <div key={event.id} className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#101828]">
+                      {getParentMatchEventTitle(event)}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
+                      {getParentMatchEventDetail(event)}
+                    </p>
+                  </div>
+                  {match.isScorer && event.eventType === 'goal' && event.eventStatus !== 'voided' ? (
+                    <button
+                      type="button"
+                      onClick={() => onCorrectGoal(match, event)}
+                      className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
+                    >
+                      Edit
+                    </button>
+                  ) : null}
                 </div>
-                {match.isScorer && event.eventType === 'goal' && event.eventStatus !== 'voided' ? (
-                  <button
-                    type="button"
-                    onClick={() => onCorrectGoal(match, event)}
-                    className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
-                  >
-                    Edit
-                  </button>
-                ) : null}
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </details>
       ) : null}
     </article>
   )
