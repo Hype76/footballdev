@@ -1,4 +1,5 @@
 import { supabase } from '../supabase-client.js'
+import { getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import {
   isParentPortalActivityCategory,
   normalizeParentPortalActivityState,
@@ -15,16 +16,18 @@ export async function getParentPortalActivityState({ parentLinkId } = {}) {
     return {}
   }
 
-  const { data, error } = await supabase.rpc('get_parent_portal_activity_state', {
-    parent_link_id_value: normalizedParentLinkId,
-  })
+  return getCachedResource(`parent-portal:activity:${normalizedParentLinkId}`, async () => {
+    const { data, error } = await supabase.rpc('get_parent_portal_activity_state', {
+      parent_link_id_value: normalizedParentLinkId,
+    })
 
-  if (error) {
-    console.error(error)
-    throw error
-  }
+    if (error) {
+      console.error(error)
+      throw error
+    }
 
-  return toParentPortalActivityMap(data)
+    return toParentPortalActivityMap(data)
+  }, 0)
 }
 
 export async function markParentPortalCategoryViewed({
@@ -64,6 +67,7 @@ export async function markParentPortalCategoryViewed({
     throw new Error('Parent Portal viewed state could not be confirmed.')
   }
 
+  invalidateMemoryCacheByPrefix('parent-portal:activity:')
   return row
 }
 
@@ -100,5 +104,6 @@ export async function markParentPortalChatViewed({
     throw new Error('Parent Chat viewed state could not be confirmed.')
   }
 
+  invalidateMemoryCacheByPrefix('parent-portal:activity:')
   return row
 }

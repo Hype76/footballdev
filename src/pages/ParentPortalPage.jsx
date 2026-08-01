@@ -563,12 +563,16 @@ function ParentPortalExperience() {
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
   const {
+    activityByCategory,
     captureActivityState,
     markCategoryViewed,
     newStateByCategory: parentNavNewState,
   } = useParentPortalNavigationState({
     parentLinkId: selectedLink?.id,
+    refreshOnMount: false,
   })
+  const activityByCategoryRef = useRef(activityByCategory)
+  activityByCategoryRef.current = activityByCategory
   const [successfulCategoryLoad, setSuccessfulCategoryLoad] = useState({
     activitySnapshot: {},
     linkId: '',
@@ -882,12 +886,14 @@ function ParentPortalExperience() {
       }
 
       try {
-        let activitySnapshot = {}
+        let activitySnapshot = activityByCategoryRef.current
 
-        try {
-          activitySnapshot = await captureActivityState()
-        } catch {
-          activitySnapshot = {}
+        if (showLoading) {
+          try {
+            activitySnapshot = await captureActivityState()
+          } catch {
+            activitySnapshot = {}
+          }
         }
 
         const [nextMatches, nextPlayers, nextParentInvitations, nextSharedCalendarEvents, nextPlayerResources] = await Promise.all([

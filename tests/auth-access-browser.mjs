@@ -1651,12 +1651,20 @@ try {
 
   await runScenario('parent portal login opens family view', async () => {
     const context = await browser.newContext()
-    const { page } = await preparePage(context)
+    const { getActivityRequests, page } = await preparePage(context)
     await parentSignIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl)
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
     await assertVisibleText(page, 'Family Portal')
     await assertVisibleTextContaining(page, 'Fixture Child')
     await assertNoSetupGuideTrigger(page)
+    assert.equal(
+      getActivityRequests().filter((request) => (
+        request.operation === 'get'
+        && request.parentLinkId === 'parent-link-fixture'
+      )).length,
+      1,
+      'initial Parent Portal loading must issue one activity snapshot request',
+    )
     await context.close()
   })
 

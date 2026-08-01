@@ -11,6 +11,7 @@ const DEFAULT_SYNC_INTERVAL_MS = 15000
 
 export function useParentPortalNavigationState({
   parentLinkId,
+  refreshOnMount = true,
   syncIntervalMs = DEFAULT_SYNC_INTERVAL_MS,
 } = {}) {
   const normalizedParentLinkId = String(parentLinkId ?? '').trim()
@@ -136,9 +137,11 @@ export function useParentPortalNavigationState({
       return undefined
     }
 
-    const initialRefreshId = window.setTimeout(() => {
-      void refreshActivityState()
-    }, 0)
+    const initialRefreshId = refreshOnMount
+      ? window.setTimeout(() => {
+        void refreshActivityState()
+      }, 0)
+      : null
 
     const intervalId = window.setInterval(() => {
       void refreshActivityState()
@@ -166,13 +169,15 @@ export function useParentPortalNavigationState({
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      window.clearTimeout(initialRefreshId)
+      if (initialRefreshId !== null) {
+        window.clearTimeout(initialRefreshId)
+      }
       window.clearInterval(intervalId)
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener(PARENT_PORTAL_ACTIVITY_UPDATED_EVENT, handleActivityUpdated)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [normalizedParentLinkId, refreshActivityState, syncIntervalMs])
+  }, [normalizedParentLinkId, refreshActivityState, refreshOnMount, syncIntervalMs])
 
   const newStateByCategory = useMemo(
     () => toParentPortalNewStateMap(activityByCategory),

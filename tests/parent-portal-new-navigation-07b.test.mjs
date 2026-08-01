@@ -16,6 +16,7 @@ const pollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url
 const chatPageUrl = new URL('../src/pages/ParentChatPage.jsx', import.meta.url)
 const chatWorkspaceUrl = new URL('../src/components/chat/ParentChatWorkspace.jsx', import.meta.url)
 const hookUrl = new URL('../src/hooks/use-parent-portal-navigation-state.js', import.meta.url)
+const activityDomainUrl = new URL('../src/lib/domain/parent-portal-activity.js', import.meta.url)
 const migrationUrl = new URL('../supabase/migrations/20260727172754_parent_portal_navigation_view_state.sql', import.meta.url)
 
 test('activity registry inventories only current dynamic Parent navigation categories', () => {
@@ -94,6 +95,8 @@ test('category pages capture authority state before loading and clear only after
     portalPage,
     /activitySnapshot = await captureActivityState\(\)[\s\S]*await Promise\.all\(\[/,
   )
+  assert.match(portalPage, /refreshOnMount: false/)
+  assert.match(portalPage, /let activitySnapshot = activityByCategoryRef\.current[\s\S]*if \(showLoading\)/)
   assert.match(portalPage, /setSuccessfulCategoryLoad[\s\S]*markCategoryViewed/)
   assert.match(portalPage, /successfulCategoryLoad\.linkId !== selectedLink\.id/)
   assert.match(pollsPage, /activitySnapshot = await captureActivityState\(\)[\s\S]*getParentPortalPolls/)
@@ -106,16 +109,24 @@ test('category pages capture authority state before loading and clear only after
 })
 
 test('synchronisation hook uses server state, periodic refresh and conservative write handling', async () => {
-  const hook = await readFile(hookUrl, 'utf8')
+  const [hook, activityDomain] = await Promise.all([
+    readFile(hookUrl, 'utf8'),
+    readFile(activityDomainUrl, 'utf8'),
+  ])
 
   assert.match(hook, /getParentPortalActivityState/)
   assert.match(hook, /markParentPortalCategoryViewed/)
   assert.match(hook, /DEFAULT_SYNC_INTERVAL_MS = 15000/)
+  assert.match(hook, /refreshOnMount = true/)
+  assert.match(hook, /const initialRefreshId = refreshOnMount/)
   assert.match(hook, /window\.setInterval/)
   assert.match(hook, /visibilitychange/)
   assert.match(hook, /window\.addEventListener\('focus'/)
   assert.match(hook, /if \(!requestedParentLinkId \|\| !observedState\?\.isNew \|\| !observedState\.latestActivityAt\)/)
   assert.doesNotMatch(hook, /localStorage|sessionStorage/)
+  assert.match(activityDomain, /getCachedResource\(`parent-portal:activity:\$\{normalizedParentLinkId\}`/)
+  assert.match(activityDomain, /}, 0\)/)
+  assert.match(activityDomain, /invalidateMemoryCacheByPrefix\('parent-portal:activity:'\)/)
 })
 
 test('migration provides child isolation, explicit global scope, baseline and cursor-bounded writes', async () => {
