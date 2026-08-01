@@ -361,6 +361,7 @@ export async function loadPlatformAnalyticsReport({
     lifetimes,
     clubs,
     users,
+    identityAdoptionResult,
   ] = await Promise.all([
     selectReportTable(
       supabaseAdmin,
@@ -404,7 +405,17 @@ export async function loadPlatformAnalyticsReport({
     ),
     selectReferenceTable(supabaseAdmin, 'clubs', 'id,name,plan_key,created_at,status'),
     selectReferenceTable(supabaseAdmin, 'users', 'id,role,role_rank,club_id,created_at,status,email,username,name,display_name'),
+    supabaseAdmin.rpc('get_platform_analytics_identity_adoption', {
+      start_date_value: filters.startDate,
+      end_date_value: filters.endDate,
+      club_id_value: filters.clubId === 'all' ? null : filters.clubId,
+      plan_key_value: filters.plan === 'all' ? null : filters.plan,
+      include_excluded_value: filters.includeExcluded,
+      role_value: filters.role === 'all' ? null : filters.role,
+      platform_value: filters.platform === 'all' ? null : filters.platform,
+    }),
   ])
+  if (identityAdoptionResult.error) throw identityAdoptionResult.error
   const environment = resolveAnalyticsEnvironment(event)
   const safeUsers = users.map((user) => ({
     id: user.id,
@@ -425,6 +436,7 @@ export async function loadPlatformAnalyticsReport({
     lifetimes,
     clubs,
     users: safeUsers,
+    identityAdoption: identityAdoptionResult.data || {},
     filters,
     now,
   })

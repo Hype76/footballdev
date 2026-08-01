@@ -1,3 +1,5 @@
+import { platformAnalyticsMetricDefinitions } from './analytics/metric-definitions.js'
+
 export const PLATFORM_ANALYTICS_PRESETS = Object.freeze({
   today: 1,
   '7_days': 7,
@@ -164,18 +166,6 @@ function compareMetric(current, previous) {
 
 function activeRows(rows) {
   return rows.filter((row) => numberValue(row.meaningful_action_count ?? row.meaningfulActionCount) > 0)
-}
-
-function isParentRole(role) {
-  return String(role ?? '').toLowerCase() === 'parent_portal'
-}
-
-function isPlatformRole(role) {
-  return String(role ?? '').toLowerCase() === 'super_admin'
-}
-
-function isStaffRole(role) {
-  return Boolean(role) && !isParentRole(role) && !isPlatformRole(role)
 }
 
 function selectedDailyRows(rows, filters, clubPlanById) {
@@ -389,100 +379,22 @@ export function recommendMaintenanceWindow(hourlyRows, filters, clubPlanById) {
   }
 }
 
-function cleanUserRows(users) {
-  return users.filter((user) => String(user.status ?? 'active') === 'active')
-}
-
-function buildParentAdoption(users, lifetimes, selectedRows, filters) {
-  const parentUsers = cleanUserRows(users).filter((user) => isParentRole(user.role) && (filters.includeExcluded || !user.isExcluded))
-  const parentIds = new Set(parentUsers.map((user) => String(user.id ?? '')).filter(Boolean))
-  const lifetimeById = new Map(lifetimes.map((row) => [String(row.user_id ?? row.userId ?? ''), row]))
-  const loggedIn = [...parentIds].filter((id) => lifetimeById.get(id)?.first_login_at ?? lifetimeById.get(id)?.firstLoginAt).length
-  const activated = [...parentIds].filter((id) => {
-    const lifetime = lifetimeById.get(id)
-    return Boolean(
-      (lifetime?.first_login_at ?? lifetime?.firstLoginAt)
-      && (lifetime?.first_parent_action_at ?? lifetime?.firstParentActionAt),
-    )
-  }).length
-  const active = uniqueCount(
-    activeRows(selectedRows).filter((row) => isParentRole(row.role) && parentIds.has(String(row.user_id ?? row.userId ?? ''))),
-    (row) => String(row.user_id ?? row.userId ?? ''),
-  )
+function canonicalIdentityMetrics(identityAdoption = {}) {
+  const parent = identityAdoption.parentAdoption || {}
+  const staff = identityAdoption.staff || {}
+  const activity = identityAdoption.activity || {}
+  const activation = identityAdoption.clubActivation || {}
+  const dormancy = identityAdoption.dormancy || {}
 
   return {
-    stages: [
-      { key: 'registered', label: 'Registered parent accounts', count: parentIds.size, available: true },
-      { key: 'invited', label: 'Invitations sent', count: null, available: false },
-      { key: 'first_login', label: 'First successful login recorded', count: loggedIn, available: true },
-      { key: 'activated', label: 'First meaningful parent action recorded', count: activated, available: true },
-      { key: 'active', label: 'Active in the selected period', count: active, available: true },
-    ],
-    registered: parentIds.size,
-    activated,
-    active,
-    dormant: Math.max(0, activated - active),
-  }
-}
-
-function buildClubActivity(clubs, users, dailyRows, filters) {
-  const clubPlanById = new Map(clubs.map((club) => [String(club.id ?? ''), String(club.plan_key ?? club.planKey ?? '')]))
-  const eligibleRows = dailyRows.filter((row) => (
-    !isPlatformRole(row.role)
-    && filterRow(row, { ...filters, startDate: '1900-01-01', endDate: '9999-12-31' }, clubPlanById)
-  ))
-  const activeDailyRows = activeRows(eligibleRows.filter((row) => filterRow(row, filters, clubPlanById)))
-  const byClub = new Map()
-  const historyByClub = new Map()
-
-  for (const row of activeRows(eligibleRows)) {
-    const clubId = String(row.club_id ?? row.clubId ?? '')
-    if (!clubId) continue
-    const activityDate = String(row.activity_date ?? row.activityDate ?? '')
-    if (activityDate > (historyByClub.get(clubId) ?? '')) historyByClub.set(clubId, activityDate)
-  }
-
-  for (const row of activeDailyRows) {
-    const clubId = String(row.club_id ?? row.clubId ?? '')
-    if (!clubId) continue
-    const current = byClub.get(clubId) || { users: new Set(), days: new Set() }
-    current.users.add(String(row.user_id ?? row.userId ?? ''))
-    current.days.add(String(row.activity_date ?? row.activityDate ?? ''))
-    byClub.set(clubId, current)
-  }
-
-  const selectedClubs = clubs.filter((club) => {
-    if (filters.clubId !== 'all' && String(club.id) !== filters.clubId) return false
-    if (filters.plan !== 'all' && String(club.plan_key ?? club.planKey ?? '') !== filters.plan) return false
-    return true
-  })
-  const adminCounts = new Map()
-
-  for (const user of cleanUserRows(users)) {
-    if (!filters.includeExcluded && user.isExcluded) continue
-    if (isParentRole(user.role) || isPlatformRole(user.role) || numberValue(user.role_rank ?? user.roleRank) < 70) continue
-    const clubId = String(user.club_id ?? user.clubId ?? '')
-    if (clubId) adminCounts.set(clubId, (adminCounts.get(clubId) ?? 0) + 1)
-  }
-
-  const dormantThresholds = [14, 30, 60, 90]
-  const dormancy = Object.fromEntries(dormantThresholds.map((days) => [
-    `${days}Days`,
-    selectedClubs.filter((club) => {
-      const latest = historyByClub.get(String(club.id))
-      return !latest || latest < addUtcDays(filters.today, -days)
-    }).length,
-  ]))
-
-  return {
-    active: selectedClubs.filter((club) => byClub.has(String(club.id))).length,
-    engaged: selectedClubs.filter((club) => {
-      const activity = byClub.get(String(club.id))
-      return activity && activity.users.size >= 2 && activity.days.size >= 2
-    }).length,
-    oneAdministrator: selectedClubs.filter((club) => adminCounts.get(String(club.id)) === 1).length,
-    neverActivated: selectedClubs.filter((club) => !byClub.has(String(club.id))).length,
+    available: numberValue(identityAdoption.definitionVersion) >= 2,
+    parent,
+    staff,
+    activity,
+    activation,
     dormancy,
+    reconciliation: identityAdoption.reconciliation || {},
+    captureStartDate: identityAdoption.captureStartDate || null,
   }
 }
 
@@ -494,11 +406,12 @@ export function buildPlatformAnalyticsReport({
   hourlyUsers = [],
   lifetimes = [],
   clubs = [],
-  users = [],
+  identityAdoption = {},
   filters: filterInput = {},
   now = new Date(),
 } = {}) {
   const filters = normalizePlatformAnalyticsFilters(filterInput, now)
+  const identity = canonicalIdentityMetrics(identityAdoption)
   const clubPlanById = new Map(clubs.map((club) => [String(club.id ?? ''), String(club.plan_key ?? club.planKey ?? '')]))
   const selectedRows = selectedDailyRows(dailyUsers, filters, clubPlanById)
   const previousRows = activityWithin(dailyUsers, filters, clubPlanById, filters.previousStartDate, filters.previousEndDate)
@@ -520,15 +433,6 @@ export function buildPlatformAnalyticsReport({
   const topPages = withPageComparisons(currentPages, previousPages)
   const pageViews = topPages.reduce((total, page) => total + page.pageViews, 0)
   const previousPageViews = previousPages.reduce((total, page) => total + page.pageViews, 0)
-  const selectedActiveStaff = selectedActiveRows.filter((row) => isStaffRole(row.role))
-  const selectedActiveParents = selectedActiveRows.filter((row) => isParentRole(row.role))
-  const selectedActiveClubs = new Set(
-    selectedActiveRows
-      .filter((row) => !isPlatformRole(row.role))
-      .map((row) => String(row.club_id ?? row.clubId ?? ''))
-      .filter(Boolean),
-  )
-
   return {
     generatedAt: now.toISOString(),
     timezone: UK_TIME_ZONE,
@@ -540,6 +444,7 @@ export function buildPlatformAnalyticsReport({
       activatedParent: 'A registered parent with a successful login and at least one meaningful parent action.',
       activeClub: 'A club with at least one non-Platform-Admin meaningful action in the selected period.',
       engagedClub: 'A club with at least two active users across at least two separate days.',
+      registry: platformAnalyticsMetricDefinitions(),
     },
     overview: {
       activeUsersToday: uniqueCount(activeRows(todayRows), (row) => String(row.user_id ?? row.userId ?? '')),
@@ -553,9 +458,9 @@ export function buildPlatformAnalyticsReport({
       selectedSuccessfulLogins: compareMetric(sum(selectedRows, 'login_count'), sum(previousRows, 'login_count')),
       newUsers,
       returningUsers,
-      activeParents: uniqueCount(selectedActiveParents, (row) => String(row.user_id ?? row.userId ?? '')),
-      activeStaff: uniqueCount(selectedActiveStaff, (row) => String(row.user_id ?? row.userId ?? '')),
-      activeClubs: selectedActiveClubs.size,
+      activeParents: identity.available ? numberValue(identity.activity.activeParents) : 0,
+      activeStaff: identity.available ? numberValue(identity.activity.activeStaff) : 0,
+      activeClubs: identity.available ? numberValue(identity.activity.activeClubs) : 0,
       pageViews: compareMetric(pageViews, previousPageViews),
     },
     roleActivity: Object.values(
@@ -578,8 +483,34 @@ export function buildPlatformAnalyticsReport({
       startDate: addUtcDays(filters.today, -89),
       endDate: filters.today,
     }, clubPlanById),
-    parentAdoption: buildParentAdoption(users, lifetimes, selectedRows, filters),
-    clubActivity: buildClubActivity(clubs, users, dailyUsers, filters),
+    parentAdoption: {
+      ...identity.parent,
+      registered: numberValue(identity.parent.authenticatedParentAccounts),
+      activated: numberValue(identity.parent.parentsWithFirstMeaningfulAction),
+      active: numberValue(identity.parent.activeParents),
+      dormant: numberValue(identity.parent.dormantActivatedParents),
+      available: identity.available,
+    },
+    staffAccounts: { ...identity.staff, available: identity.available },
+    clubActivity: {
+      active: numberValue(identity.activity.activeClubs),
+      engaged: null,
+      oneAdministrator: null,
+      neverActivated: numberValue(identity.activation.noStaffLoginObserved),
+      insufficientActivationHistory: numberValue(identity.activation.insufficientStaffLoginHistory),
+      dormancy: {
+        '14Days': numberValue(identity.dormancy.dormant14Days),
+        '30Days': numberValue(identity.dormancy.dormant30Days),
+        '60Days': numberValue(identity.dormancy.dormant60Days),
+        '90Days': numberValue(identity.dormancy.dormant90Days),
+        noQualifyingActivity: numberValue(identity.dormancy.noQualifyingActivity),
+        insufficientHistory: numberValue(identity.dormancy.insufficientHistory),
+      },
+      activationStages: identity.activation.stages || [],
+      available: identity.available,
+    },
+    identityReconciliation: identity.reconciliation,
+    identityCaptureStartDate: identity.captureStartDate,
     options: {
       roles: [...new Set(dailyUsers.map((row) => String(row.role ?? '')).filter(Boolean))].sort(),
       platforms: [...new Set(dailyUsers.map((row) => String(row.platform ?? '')).filter(Boolean))].sort(),

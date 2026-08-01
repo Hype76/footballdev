@@ -40,6 +40,60 @@ function dailyRow(overrides = {}) {
   }
 }
 
+function identityFixture(overrides = {}) {
+  return {
+    definitionVersion: 2,
+    captureStartDate: '2026-05-01',
+    parentAdoption: {
+      contacts: 1,
+      invitationsSent: 1,
+      invitationsAccepted: 1,
+      authenticatedParentAccounts: 1,
+      successfulParentLogins: 1,
+      parentsWithFirstMeaningfulAction: 1,
+      activeParents: 1,
+      parentOnlyAccounts: 1,
+      dualRoleParentAccounts: 0,
+      activeChildLinks: 1,
+      dormantActivatedParents: 0,
+      stages: [],
+    },
+    staff: {
+      authenticatedStaffAccounts: 1,
+      activeStaffAccounts: 1,
+      assignmentCount: 1,
+      multiTeamAccounts: 0,
+      roleAccountCounts: [{ role: 'coach', accounts: 1 }],
+      roleAssignmentCounts: [{ role: 'coach', assignments: 1 }],
+    },
+    activity: { activeParents: 1, activeStaff: 1, activeClubs: 1 },
+    clubActivation: {
+      stages: [],
+      noStaffLoginObserved: 0,
+      insufficientStaffLoginHistory: 0,
+    },
+    dormancy: {
+      dormant14Days: 0,
+      dormant30Days: 0,
+      dormant60Days: 0,
+      dormant90Days: 0,
+      noQualifyingActivity: 0,
+      insufficientHistory: 0,
+    },
+    reconciliation: {
+      distinctAuthUsers: 2,
+      distinctProfiles: 2,
+      distinctParentContacts: 1,
+      distinctActiveLinks: 1,
+      distinctAssignments: 1,
+      dualRoleCount: 0,
+      revokedRelationshipCount: 0,
+      unresolvedIdentityCount: 0,
+    },
+    ...overrides,
+  }
+}
+
 function reportFixture(overrides = {}) {
   const input = {
     now,
@@ -53,6 +107,7 @@ function reportFixture(overrides = {}) {
       { user_id: staffId, first_login_at: '2026-06-01T09:00:00Z', first_meaningful_at: '2026-06-01T09:05:00Z' },
       { user_id: parentId, first_login_at: '2026-07-27T09:00:00Z', first_meaningful_at: '2026-07-27T09:05:00Z', first_parent_action_at: '2026-07-27T09:05:00Z' },
     ],
+    identityAdoption: identityFixture(),
     dailyUsers: [
       dailyRow({ login_count: 2, page_view_count: 5, meaningful_action_count: 2 }),
       dailyRow({
@@ -156,6 +211,81 @@ test('parent, staff, and active-club classifications use meaningful actions', ()
   assert.equal(report.parentAdoption.activated, 1)
 })
 
+test('canonical identity reconciliation separates contacts, links, accounts, assignments, and dual roles', () => {
+  const report = reportFixture({
+    identityAdoption: identityFixture({
+      parentAdoption: {
+        ...identityFixture().parentAdoption,
+        contacts: 3,
+        authenticatedParentAccounts: 2,
+        activeChildLinks: 4,
+        parentOnlyAccounts: 1,
+        dualRoleParentAccounts: 1,
+      },
+      staff: {
+        ...identityFixture().staff,
+        authenticatedStaffAccounts: 2,
+        assignmentCount: 4,
+        multiTeamAccounts: 1,
+      },
+      reconciliation: {
+        ...identityFixture().reconciliation,
+        distinctParentContacts: 3,
+        distinctActiveLinks: 4,
+        distinctAssignments: 4,
+        dualRoleCount: 1,
+      },
+    }),
+  })
+
+  assert.equal(report.parentAdoption.contacts, 3)
+  assert.equal(report.parentAdoption.registered, 2)
+  assert.equal(report.parentAdoption.activeChildLinks, 4)
+  assert.equal(report.parentAdoption.parentOnlyAccounts, 1)
+  assert.equal(report.parentAdoption.dualRoleParentAccounts, 1)
+  assert.equal(report.staffAccounts.authenticatedStaffAccounts, 2)
+  assert.equal(report.staffAccounts.assignmentCount, 4)
+  assert.equal(report.staffAccounts.multiTeamAccounts, 1)
+  assert.equal(report.identityReconciliation.dualRoleCount, 1)
+})
+
+test('canonical dormancy preserves honest empty states and finite non-negative values', () => {
+  const report = reportFixture({
+    identityAdoption: identityFixture({
+      clubActivation: { stages: [], noStaffLoginObserved: 1, insufficientStaffLoginHistory: 2 },
+      dormancy: {
+        dormant14Days: 1,
+        dormant30Days: 0,
+        dormant60Days: 0,
+        dormant90Days: 0,
+        noQualifyingActivity: 1,
+        insufficientHistory: 2,
+      },
+    }),
+  })
+
+  assert.equal(report.clubActivity.neverActivated, 1)
+  assert.equal(report.clubActivity.insufficientActivationHistory, 2)
+  assert.equal(report.clubActivity.dormancy.noQualifyingActivity, 1)
+  assert.equal(report.clubActivity.dormancy.insufficientHistory, 2)
+  for (const value of Object.values(report.clubActivity.dormancy)) {
+    assert.equal(Number.isFinite(value), true)
+    assert.ok(value >= 0)
+  }
+})
+
+test('metric definition registry is complete, versioned, and explicit about privacy and empty states', () => {
+  const definitions = reportFixture().definitions.registry
+  assert.ok(definitions.length >= 8)
+  for (const metric of definitions) {
+    for (const key of ['key', 'displayName', 'description', 'source', 'identityBasis', 'inclusionRules', 'exclusionRules', 'timeField', 'timezone', 'internalAndFpTestHandling', 'emptyState', 'drillDownQuery', 'version']) {
+      assert.ok(metric[key] !== undefined, `${metric.key} is missing ${key}`)
+    }
+    assert.equal(metric.version, 2)
+    assert.equal(metric.timezone, 'Europe/London')
+  }
+})
+
 test('canonical routes group dynamic paths and remove query strings and fragments', () => {
   assert.equal(canonicalizeAnalyticsRoute('https://footballplayer.online/player/abc-123?tab=notes#latest'), '/player/:playerId')
   assert.equal(canonicalizeAnalyticsRoute('/platform-clubs?status=active'), '/platform-admin/clubs')
@@ -206,12 +336,18 @@ test('test, demo, Platform Admin, and non-production profiles are identified', (
 })
 
 test('platform, role, and custom date filters apply independently', () => {
-  const parentReport = reportFixture({ filters: { preset: '30_days', role: 'parent_portal' } })
+  const parentReport = reportFixture({
+    filters: { preset: '30_days', role: 'parent_portal' },
+    identityAdoption: identityFixture({ activity: { activeParents: 1, activeStaff: 0, activeClubs: 1 } }),
+  })
   assert.equal(parentReport.overview.selectedActiveUsers.current, 1)
   assert.equal(parentReport.overview.activeParents, 1)
   assert.equal(parentReport.overview.activeStaff, 0)
 
-  const webReport = reportFixture({ filters: { preset: '30_days', platform: 'web' } })
+  const webReport = reportFixture({
+    filters: { preset: '30_days', platform: 'web' },
+    identityAdoption: identityFixture({ activity: { activeParents: 0, activeStaff: 1, activeClubs: 1 } }),
+  })
   assert.equal(webReport.overview.selectedActiveUsers.current, 1)
   assert.equal(webReport.overview.activeParents, 0)
 
@@ -460,6 +596,10 @@ test('Platform Admin authority is required and normal users are denied', async (
       range: async () => ({ data: [], error: null }),
     }
     return query
+  }
+  adminClient.rpc = async (name) => {
+    assert.equal(name, 'get_platform_analytics_identity_adoption')
+    return { data: identityFixture(), error: null }
   }
   const adminHandler = createPlatformAnalyticsHandler({ supabaseAdmin: adminClient, now: () => now })
   const adminResponse = await adminHandler({

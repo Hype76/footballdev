@@ -23,12 +23,19 @@ const atomicProcessorCompletionMigration = await readFile(
   new URL('../supabase/migrations/20260731233958_analytics_processor_atomic_completion_14a.sql', import.meta.url),
   'utf8',
 )
+const identityAdoptionMigration = await readFile(
+  new URL('../supabase/migrations/20260801005845_analytics_identity_adoption_14b.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
   team: '20000000-0000-4000-8000-000000000001',
   staff: '30000000-0000-4000-8000-000000000001',
   parent: '30000000-0000-4000-8000-000000000002',
+  teamTwo: '20000000-0000-4000-8000-000000000002',
+  player: '40000000-0000-4000-8000-000000000001',
+  playerTwo: '40000000-0000-4000-8000-000000000002',
 })
 
 async function createDatabase() {
@@ -41,24 +48,68 @@ async function createDatabase() {
     create table public.clubs (
       id uuid primary key,
       name text not null,
-      plan_key text not null default 'small_club'
+      plan_key text not null default 'small_club',
+      created_at timestamptz not null default now(),
+      status text not null default 'active'
     );
 
     create table public.teams (
       id uuid primary key,
       club_id uuid not null references public.clubs(id),
-      name text not null
+      name text not null,
+      created_at timestamptz not null default now(),
+      status text not null default 'active'
     );
 
     create table public.users (
       id uuid primary key,
       club_id uuid references public.clubs(id),
       role text not null,
-      status text not null default 'active'
+      status text not null default 'active',
+      email text,
+      name text,
+      username text,
+      display_name text
+    );
+
+    create table public.players (
+      id uuid primary key,
+      club_id uuid not null references public.clubs(id),
+      team_id uuid not null references public.teams(id),
+      status text not null default 'active',
+      created_at timestamptz not null default now()
+    );
+
+    create table public.parent_player_links (
+      id uuid primary key default gen_random_uuid(),
+      club_id uuid not null,
+      team_id uuid not null,
+      player_id uuid not null,
+      parent_link_id uuid,
+      guardian_id uuid,
+      auth_user_id uuid,
+      status text not null,
+      accepted_at timestamptz,
+      invite_sent_at timestamptz
+    );
+
+    create table public.team_staff (
+      id uuid primary key default gen_random_uuid(),
+      team_id uuid not null,
+      user_id uuid not null,
+      role_key text,
+      created_at timestamptz not null default now()
+    );
+
+    create table public.club_user_invites (
+      id uuid primary key default gen_random_uuid(),
+      club_id uuid not null,
+      invite_sent_at timestamptz
     );
 
     insert into public.clubs (id, name) values ('${IDS.club}', 'Analytics Test Club');
     insert into public.teams (id, club_id, name) values ('${IDS.team}', '${IDS.club}', 'Analytics Test Team');
+    insert into public.teams (id, club_id, name) values ('${IDS.teamTwo}', '${IDS.club}', 'Analytics Test Team Two');
     insert into public.users (id, club_id, role) values
       ('${IDS.staff}', '${IDS.club}', 'coach'),
       ('${IDS.parent}', '${IDS.club}', 'parent_portal');
@@ -68,6 +119,7 @@ async function createDatabase() {
   await db.exec(clubAdminRoleAlignmentMigration)
   await db.exec(quarantineConflictAlignmentMigration)
   await db.exec(atomicProcessorCompletionMigration)
+  await db.exec(identityAdoptionMigration)
   return db
 }
 
@@ -261,6 +313,80 @@ test('aggregation is idempotent, keeps login separate, and uses UK daylight-savi
     `)
     assert.equal(lifetime.rows.length, 2)
     assert.ok(lifetime.rows.some((row) => row.first_parent_action_at))
+  } finally {
+    await db.close()
+  }
+})
+
+test('identity adoption reconciles parent links, multi-team staff, dual roles, explicit login, and finite dormancy', async () => {
+  const db = await createDatabase()
+
+  try {
+    await insertFixtureEvents(db)
+    await db.exec(`
+      insert into public.players (id, club_id, team_id, status, created_at) values
+        ('${IDS.player}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-01T00:00:00Z'),
+        ('${IDS.playerTwo}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-02T00:00:00Z');
+
+      insert into public.parent_player_links (
+        club_id, team_id, player_id, parent_link_id, auth_user_id, status, accepted_at, invite_sent_at
+      ) values
+        ('${IDS.club}', '${IDS.team}', '${IDS.player}', '50000000-0000-4000-8000-000000000001', '${IDS.parent}', 'active', '2026-03-10T00:00:00Z', '2026-03-09T00:00:00Z'),
+        ('${IDS.club}', '${IDS.team}', '${IDS.playerTwo}', '50000000-0000-4000-8000-000000000001', '${IDS.parent}', 'active', '2026-03-10T00:00:00Z', '2026-03-09T00:00:00Z'),
+        ('${IDS.club}', '${IDS.team}', '${IDS.player}', '50000000-0000-4000-8000-000000000002', null, 'pending', null, '2026-03-11T00:00:00Z'),
+        ('${IDS.club}', '${IDS.team}', '${IDS.player}', '50000000-0000-4000-8000-000000000003', '${IDS.parent}', 'revoked', '2026-03-08T00:00:00Z', '2026-03-07T00:00:00Z');
+
+      insert into public.team_staff (team_id, user_id, role_key, created_at) values
+        ('${IDS.team}', '${IDS.staff}', 'coach', '2026-03-01T00:00:00Z'),
+        ('${IDS.teamTwo}', '${IDS.staff}', 'coach', '2026-03-02T00:00:00Z'),
+        ('${IDS.team}', '${IDS.parent}', 'assistant_coach', '2026-03-03T00:00:00Z');
+
+      insert into public.club_user_invites (club_id, invite_sent_at)
+      values ('${IDS.club}', '2026-02-28T00:00:00Z');
+
+      update public.analytics_events
+      set
+        actor_auth_user_id = user_id,
+        actor_profile_id = user_id,
+        actor_role_at_event = role,
+        actor_role_family = case when role = 'parent_portal' then 'parent' else 'staff' end,
+        production_state = 'production',
+        internal_state = false,
+        fp_test_state = false,
+        schema_version = 2;
+    `)
+
+    const result = await db.query(`
+      select public.get_platform_analytics_identity_adoption(
+        '2026-03-01', '2026-07-27', null, null, false, null, null
+      ) as metrics
+    `)
+    const metrics = result.rows[0].metrics
+
+    assert.equal(metrics.parentAdoption.authenticatedParentAccounts, 1)
+    assert.equal(metrics.parentAdoption.contacts, 2)
+    assert.equal(metrics.parentAdoption.activeChildLinks, 2)
+    assert.equal(metrics.parentAdoption.parentOnlyAccounts, 0)
+    assert.equal(metrics.parentAdoption.dualRoleParentAccounts, 1)
+    assert.equal(metrics.parentAdoption.successfulParentLogins, 0)
+    assert.equal(metrics.parentAdoption.parentsWithFirstMeaningfulAction, 1)
+    assert.equal(metrics.staff.authenticatedStaffAccounts, 2)
+    assert.equal(metrics.staff.assignmentCount, 3)
+    assert.equal(metrics.staff.multiTeamAccounts, 1)
+    assert.equal(metrics.reconciliation.dualRoleCount, 1)
+    assert.equal(metrics.reconciliation.revokedRelationshipCount, 1)
+    assert.equal(metrics.reconciliation.unresolvedIdentityCount, 0)
+    assert.equal(metrics.clubActivation.stages.find((stage) => stage.key === 'staff_login').count, 1)
+    assert.equal(metrics.dormancy.measuredClubs, 1)
+    assert.equal(Number.isFinite(metrics.dormancy.clubStates[0].daysSinceActivity), true)
+    assert.ok(metrics.dormancy.clubStates[0].daysSinceActivity >= 0)
+
+    const privileges = await db.query(`
+      select
+        has_function_privilege('authenticated', 'public.get_platform_analytics_identity_adoption(date,date,uuid,text,boolean,text,text)', 'execute') as authenticated_execute,
+        has_function_privilege('service_role', 'public.get_platform_analytics_identity_adoption(date,date,uuid,text,boolean,text,text)', 'execute') as service_execute
+    `)
+    assert.deepEqual(privileges.rows[0], { authenticated_execute: false, service_execute: true })
   } finally {
     await db.close()
   }
