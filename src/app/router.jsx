@@ -1999,7 +1999,7 @@ export const router = createBrowserRouter([
                     path: 'sessions/start',
                     element: (
                       <PageSuspense>
-                        <SessionsPage />
+                        <SessionsPage liveOnly />
                       </PageSuspense>
                     ),
                     handle: {

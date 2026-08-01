@@ -13,6 +13,7 @@ const recordingButtonClass = 'border-[#f04438] bg-[#d92d20] text-white hover:bg-
 
 export function SessionPlayersSection({
   canCompleteSessions,
+  compactMode = false,
   completedPlayerNames,
   isLoading,
   isSaving,
@@ -21,12 +22,14 @@ export function SessionPlayersSection({
   onAssessPlayer,
   onClearSessionPlayers,
   onDeleteVoiceNote,
+  onFocusedPlayerChange,
   onPageChange,
   onStartVoiceNote,
   onStopVoiceNote,
   paginatedPlayers,
   page,
   recordingTarget,
+  focusedPlayer,
   selectedSession,
   selectedSessionCompleted,
   selectedSessionId,
@@ -144,26 +147,64 @@ export function SessionPlayersSection({
             selectedSessionLocked={selectedSessionLocked}
           />
 
-          {paginatedPlayers.items.map((player) => (
-            <SessionPlayerCard
-              key={player.id}
-              completedPlayerNames={completedPlayerNames}
-              isSavingVoiceNote={isSavingVoiceNote}
-              onAssessPlayer={onAssessPlayer}
-              onStartVoiceNote={onStartVoiceNote}
-              onStopVoiceNote={onStopVoiceNote}
-              player={player}
-              recordingTarget={recordingTarget}
-              selectedSessionId={selectedSessionId}
-              selectedSessionLocked={selectedSessionLocked}
-            />
-          ))}
-          <Pagination
-            currentPage={page}
-            onPageChange={onPageChange}
-            pageSize={SESSION_PLAYER_PAGE_SIZE}
-            totalItems={sessionPlayers.length}
-          />
+          {compactMode ? (
+            <div className="space-y-4 rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#101828]/5">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Player in focus</span>
+                <select
+                  value={focusedPlayer?.id || ''}
+                  onChange={(event) => onFocusedPlayerChange(event.target.value)}
+                  className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]"
+                >
+                  {sessionPlayers.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.playerName}{completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? ', record completed' : ', record remaining'}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Choose one player for voice notes or an individual development record. Record all remains available above.
+                </p>
+              </label>
+
+              {focusedPlayer ? (
+                <SessionPlayerCard
+                  completedPlayerNames={completedPlayerNames}
+                  isSavingVoiceNote={isSavingVoiceNote}
+                  onAssessPlayer={onAssessPlayer}
+                  onStartVoiceNote={onStartVoiceNote}
+                  onStopVoiceNote={onStopVoiceNote}
+                  player={focusedPlayer}
+                  recordingTarget={recordingTarget}
+                  selectedSessionId={selectedSessionId}
+                  selectedSessionLocked={selectedSessionLocked}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <>
+              {paginatedPlayers.items.map((player) => (
+                <SessionPlayerCard
+                  key={player.id}
+                  completedPlayerNames={completedPlayerNames}
+                  isSavingVoiceNote={isSavingVoiceNote}
+                  onAssessPlayer={onAssessPlayer}
+                  onStartVoiceNote={onStartVoiceNote}
+                  onStopVoiceNote={onStopVoiceNote}
+                  player={player}
+                  recordingTarget={recordingTarget}
+                  selectedSessionId={selectedSessionId}
+                  selectedSessionLocked={selectedSessionLocked}
+                />
+              ))}
+              <Pagination
+                currentPage={page}
+                onPageChange={onPageChange}
+                pageSize={SESSION_PLAYER_PAGE_SIZE}
+                totalItems={sessionPlayers.length}
+              />
+            </>
+          )}
           </div>
         )}
       </div>

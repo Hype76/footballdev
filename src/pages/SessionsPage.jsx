@@ -877,7 +877,7 @@ function buildCalendarNotificationPlayers(form, invitePlayers, selectedPlayers) 
   return []
 }
 
-export function SessionsPage({ calendarOnly = false, historyOnly = false, setupOpen = false }) {
+export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOnly = false, setupOpen = false }) {
   const { session, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -978,6 +978,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, setupO
   const completedSessionId = String(searchParams.get('completedSessionId') ?? '').trim()
   const completedCount = Number(searchParams.get('completedCount') ?? 0)
   const requestedSessionId = String(searchParams.get('sessionId') ?? '').trim()
+  const requestedQueuePlayerId = String(searchParams.get('queuePlayerId') ?? '').trim()
 
   const combinedSessions = useMemo(
     () => [...sessions, ...buildHistoricalSessionsFromEvaluations(evaluations, sessions)],
@@ -1017,6 +1018,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, setupO
     [combinedSessions, selectedSessionId],
   )
   const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
+  const focusedQueuePlayer = sessionPlayers.find((player) => player.id === requestedQueuePlayerId) || sessionPlayers[0] || null
   const selectedSessionWorkspaceHref = selectedSessionId
     ? `/sessions/start?${getOpenSessionSearchParams(searchParams, selectedSessionId).toString()}`
     : '/sessions/start'
@@ -1970,6 +1972,18 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, setupO
       behavior: 'smooth',
       block: 'start',
     })
+  }
+
+  const handleQueuePlayerFocus = (playerId) => {
+    const nextPlayerId = String(playerId ?? '').trim()
+
+    if (!nextPlayerId) {
+      return
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('queuePlayerId', nextPlayerId)
+    setSearchParams(nextSearchParams)
   }
 
   function handleOpenCalendarCreate(date = '', requestedEventType = '') {
@@ -3937,22 +3951,38 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, setupO
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
 
-      <FootballCalendar
-        cursor={calendarCursor}
-        events={calendarEvents}
-        isLoading={isLoading}
-        onCursorChange={setCalendarCursor}
-        onOpenEvent={handleCalendarEventOpen}
-        onViewChange={setCalendarView}
-        view={calendarView}
-      />
+      {liveOnly ? (
+        <LiveSessionPlanningCard
+          onOpenCalendar={() => navigate('/calendar')}
+          onOpenHistory={() => navigate('/sessions/previous')}
+        />
+      ) : (
+        <FootballCalendar
+          cursor={calendarCursor}
+          events={calendarEvents}
+          isLoading={isLoading}
+          onCursorChange={setCalendarCursor}
+          onOpenEvent={handleCalendarEventOpen}
+          onViewChange={setCalendarView}
+          view={calendarView}
+        />
+      )}
 
-      <section className="grid gap-3 md:grid-cols-4">
-        <SessionSummaryCard isLoading={isLoading} label="Sessions" value={combinedSessions.length} caption="Saved training and match blocks." />
-        <SessionSummaryCard isLoading={isLoading} label="Open" value={openSessionCount} caption="Sessions still available to work." />
-        <SessionSummaryCard isLoading={isSessionPlayersLoading} label="In queue" value={sessionPlayers.length} caption="Players attached to the selected session." />
-        <SessionSummaryCard isLoading={isSessionPlayersLoading} label="Remaining" value={unassessedPlayerQueue.length} caption="Player records still to complete." />
-      </section>
+      {liveOnly ? (
+        <section aria-label="Live session summary" className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+          <SessionMetric isLoading={isLoading} label="Sessions" value={combinedSessions.length} />
+          <SessionMetric isLoading={isLoading} label="Open" value={openSessionCount} />
+          <SessionMetric isLoading={isSessionPlayersLoading} label="In queue" value={sessionPlayers.length} />
+          <SessionMetric isLoading={isSessionPlayersLoading} label="Remaining" value={unassessedPlayerQueue.length} />
+        </section>
+      ) : (
+        <section className="grid gap-3 md:grid-cols-4">
+          <SessionSummaryCard isLoading={isLoading} label="Sessions" value={combinedSessions.length} caption="Saved training and match blocks." />
+          <SessionSummaryCard isLoading={isLoading} label="Open" value={openSessionCount} caption="Sessions still available to work." />
+          <SessionSummaryCard isLoading={isSessionPlayersLoading} label="In queue" value={sessionPlayers.length} caption="Players attached to the selected session." />
+          <SessionSummaryCard isLoading={isSessionPlayersLoading} label="Remaining" value={unassessedPlayerQueue.length} caption="Player records still to complete." />
+        </section>
+      )}
 
       {requestedSessionMissing ? (
         <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-4 text-sm text-[#101828] shadow-sm shadow-[#101828]/5">
@@ -3996,6 +4026,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, setupO
 
       <MatchdayFocus
         assessedPlayerCount={assessedPlayerCount}
+        compact={liveOnly}
         isLoading={isLoading || isSessionPlayersLoading}
         onAssessAll={handleAssessAll}
         onOpenCreateSession={handleOpenSessionCreateModal}
@@ -4010,6 +4041,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, setupO
       <div ref={currentSessionRef} id="current-session">
         <SessionPlayersSection
           canCompleteSessions={canCompleteSessions}
+          compactMode={liveOnly}
           completedPlayerNames={completedPlayerNames}
           isLoading={isSessionPlayersLoading}
           isSaving={isSaving}
@@ -4027,12 +4059,14 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, setupO
           }
           onClearSessionPlayers={handleClearSessionPlayers}
           onDeleteVoiceNote={setVoiceNoteDeleteTarget}
+          onFocusedPlayerChange={handleQueuePlayerFocus}
           onPageChange={setSessionPlayerPage}
           onStartVoiceNote={handleStartVoiceNote}
           onStopVoiceNote={handleStopVoiceNote}
           paginatedPlayers={paginatedSessionPlayers}
           page={sessionPlayerPage}
           recordingTarget={recordingTarget}
+          focusedPlayer={focusedQueuePlayer}
           selectedSession={selectedSession}
           selectedSessionCompleted={selectedSessionCompleted}
           selectedSessionId={selectedSessionId}
@@ -6150,6 +6184,7 @@ function CalendarEventModal({
 
 function MatchdayFocus({
   assessedPlayerCount,
+  compact = false,
   isLoading,
   onAssessAll,
   onOpenCreateSession,
@@ -6174,13 +6209,13 @@ function MatchdayFocus({
         : 'Review completed session'
 
   return (
-    <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#101828]/5 sm:p-6">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+    <section className={`rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5 ${compact ? 'p-4 sm:p-5' : 'p-5 sm:p-6'}`}>
+      <div className={`grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${compact ? 'gap-3' : 'gap-4'}`}>
         <div className="min-w-0">
           <p className={eyebrowClass}>
             Live session
           </p>
-          <h3 className="mt-2 break-words text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+          <h3 className={`mt-2 break-words font-black tracking-tight text-[#101828] ${compact ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'}`}>
             {selectedSession?.title || selectedSession?.team || 'Get the next session ready'}
           </h3>
           <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold">
@@ -6193,12 +6228,14 @@ function MatchdayFocus({
               <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-3 py-1 text-[#166534]">Open</span>
             )}
           </div>
-          <p className={`mt-3 max-w-2xl ${bodyTextClass}`}>
-            Keep this screen open during training or a match. Add notes quickly, then work through the player queue without leaving the football context.
-          </p>
+          {compact ? null : (
+            <p className={`mt-3 max-w-2xl ${bodyTextClass}`}>
+              Keep this screen open during training or a match. Add notes quickly, then work through the player queue without leaving the football context.
+            </p>
+          )}
         </div>
 
-        <div className="grid gap-3 sm:min-w-56">
+        <div className={`grid sm:min-w-56 ${compact ? 'grid-cols-2 gap-2' : 'gap-3'}`}>
           {hasSession && hasPlayers && unassessedPlayerCount > 0 ? (
             <button
               type="button"
@@ -6235,6 +6272,26 @@ function MatchdayFocus({
               Session setup
             </button>
           ) : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function LiveSessionPlanningCard({ onOpenCalendar, onOpenHistory }) {
+  return (
+    <section aria-label="Session planning shortcuts" className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#101828]/5 sm:p-4">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <p className="text-sm font-bold leading-5 text-[#4b5f55]">
+          Planning stays in the calendar. Saved blocks stay in session history.
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:min-w-[22rem]">
+          <button type="button" onClick={onOpenCalendar} className={secondaryButtonClass}>
+            Open calendar
+          </button>
+          <button type="button" onClick={onOpenHistory} className={secondaryButtonClass}>
+            Session history
+          </button>
         </div>
       </div>
     </section>
