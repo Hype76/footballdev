@@ -60,7 +60,7 @@ export function RoleCard({ guide }) {
   )
 }
 
-export function QuickLinks({ links }) {
+export function QuickLinks({ links, compact = false }) {
   if (!links.length) {
     return (
       <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
@@ -70,12 +70,12 @@ export function QuickLinks({ links }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+    <div className={compact ? 'grid grid-cols-2 gap-3 sm:flex sm:flex-wrap' : 'flex flex-col gap-3 sm:flex-row sm:flex-wrap'}>
       {links.map((link) => (
         <Link
           key={link.path}
           to={link.path}
-          className={link.primary ? primaryButtonClass : secondaryButtonClass}
+          className={`${link.primary ? primaryButtonClass : secondaryButtonClass} ${compact ? 'w-full px-3 text-center sm:w-auto sm:px-5' : ''}`}
         >
           {link.label}
         </Link>
