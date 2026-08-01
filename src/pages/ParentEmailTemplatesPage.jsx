@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
-import { AvailableTemplateFieldsSection } from '../components/parent-email-templates/AvailableTemplateFieldsSection.jsx'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Navigate, useBlocker, useSearchParams } from 'react-router-dom'
 import { TemplateAudienceTabs } from '../components/parent-email-templates/TemplateAudienceTabs.jsx'
 import { TemplateEditorSection } from '../components/parent-email-templates/TemplateEditorSection.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
@@ -36,19 +36,69 @@ const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#0478
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const statCardClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10'
 
+function getTemplateRouteId(template) {
+  return String(template?.key || template?.id || '').trim()
+}
+
+function getTemplateSignature(template) {
+  return JSON.stringify({
+    audience: template?.audience || '',
+    body: template?.body || '',
+    isEnabled: template?.isEnabled !== false,
+    key: template?.key || '',
+    label: template?.label || '',
+    sectionAvailability: Array.isArray(template?.sectionAvailability) ? template.sectionAvailability : [],
+    subject: template?.subject || '',
+  })
+}
+
+function createTemplateSignatureMap(templates) {
+  return Object.fromEntries(templates.map((template) => [template.key, getTemplateSignature(template)]))
+}
+
 export function ParentEmailTemplatesPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [audience, setAudience] = useState(EMAIL_TEMPLATE_AUDIENCES.parent)
   const [templates, setTemplates] = useState(() => mergeParentEmailTemplates([], EMAIL_TEMPLATE_AUDIENCES.parent))
+  const [savedSignatures, setSavedSignatures] = useState(() => createTemplateSignatureMap(mergeParentEmailTemplates([], EMAIL_TEMPLATE_AUDIENCES.parent)))
   const [isLoading, setIsLoading] = useState(true)
   const [savingKey, setSavingKey] = useState('')
   const [deletingKey, setDeletingKey] = useState('')
   const [focusTemplateKey, setFocusTemplateKey] = useState('')
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [pendingAudience, setPendingAudience] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.planKey}:${user.activeTeamId || ''}` : ''
   const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
+  const selectedTemplateRouteId = String(searchParams.get('templateId') || '').trim()
+  const selectedTemplate = templates.find((template) => getTemplateRouteId(template) === selectedTemplateRouteId) || templates[0] || null
+  const hasExplicitSelection = Boolean(selectedTemplateRouteId && selectedTemplate)
+  const hasUnsavedChanges = useMemo(
+    () => templates.some((template) => savedSignatures[template.key] !== getTemplateSignature(template)),
+    [savedSignatures, templates],
+  )
+  const hasUnsavedChangesRef = useRef(hasUnsavedChanges)
+  const navigationBlocker = useBlocker(hasUnsavedChanges)
+
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges
+  }, [hasUnsavedChanges])
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasUnsavedChangesRef.current) {
+        return
+      }
+
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -65,7 +115,9 @@ export function ParentEmailTemplatesPage() {
         const savedTemplates = await getParentEmailTemplates({ user, includeDisabled: true, audience: 'all' })
 
         if (isMounted) {
-          setTemplates(mergeParentEmailTemplates(savedTemplates, audience))
+          const mergedTemplates = mergeParentEmailTemplates(savedTemplates, audience)
+          setTemplates(mergedTemplates)
+          setSavedSignatures(createTemplateSignatureMap(mergedTemplates))
         }
       } catch (error) {
         console.error(error)
@@ -86,6 +138,16 @@ export function ParentEmailTemplatesPage() {
       isMounted = false
     }
   }, [audience, canUseParentEmail, user, userScopeKey])
+
+  useEffect(() => {
+    if (isLoading || !selectedTemplateRouteId || templates.some((template) => getTemplateRouteId(template) === selectedTemplateRouteId)) {
+      return
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('templateId')
+    setSearchParams(nextSearchParams, { replace: true })
+  }, [isLoading, searchParams, selectedTemplateRouteId, setSearchParams, templates])
 
   if (!canManageParentEmailTemplates(user) || !canUseParentEmail) {
     return <Navigate to="/" replace />
@@ -154,6 +216,9 @@ export function ParentEmailTemplatesPage() {
       ...current,
       newTemplate,
     ])
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('templateId', getTemplateRouteId(newTemplate))
+    setSearchParams(nextSearchParams)
   }
 
   const insertField = (templateKey, fieldKey, selection = null) => {
@@ -188,6 +253,7 @@ export function ParentEmailTemplatesPage() {
       validateParentEmailTemplateContent(template)
       const savedTemplate = await upsertParentEmailTemplate({ user, template })
       setTemplates((current) => current.map((item) => (item.key === savedTemplate.key ? savedTemplate : item)))
+      setSavedSignatures((current) => ({ ...current, [savedTemplate.key]: getTemplateSignature(savedTemplate) }))
       setMessage(`${savedTemplate.label} saved for this team.`)
       showToast({ title: 'Template saved', message: `${savedTemplate.label} is available for this team.` })
     } catch (error) {
@@ -220,6 +286,16 @@ export function ParentEmailTemplatesPage() {
       }
 
       setTemplates((current) => current.filter((item) => item.key !== template.key))
+      setSavedSignatures((current) => {
+        const next = { ...current }
+        delete next[template.key]
+        return next
+      })
+      if (getTemplateRouteId(template) === selectedTemplateRouteId) {
+        const nextSearchParams = new URLSearchParams(searchParams)
+        nextSearchParams.delete('templateId')
+        setSearchParams(nextSearchParams, { replace: true })
+      }
       setMessage(`${template.label} deleted.`)
       showToast({ title: 'Template deleted', message: `${template.label} has been removed.` })
     } catch (error) {
@@ -234,45 +310,87 @@ export function ParentEmailTemplatesPage() {
   const customTemplateCount = templates.filter((template) => template.isCustom).length
   const audienceLabel = audience === EMAIL_TEMPLATE_AUDIENCES.player ? 'player' : 'parent'
 
+  const selectTemplate = (template) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('templateId', getTemplateRouteId(template))
+    setSearchParams(nextSearchParams)
+  }
+
+  const returnToTemplateList = () => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('templateId')
+    setSearchParams(nextSearchParams, { replace: true })
+  }
+
+  const changeAudience = (nextAudience) => {
+    if (nextAudience === audience) {
+      return
+    }
+
+    if (hasUnsavedChanges) {
+      setPendingAudience(nextAudience)
+      return
+    }
+
+    returnToTemplateList()
+    setAudience(nextAudience)
+  }
+
+  const stayAndContinueEditing = () => {
+    setPendingAudience('')
+    if (navigationBlocker.state === 'blocked') {
+      navigationBlocker.reset()
+    }
+  }
+
+  const leaveWithoutSaving = () => {
+    if (pendingAudience) {
+      const nextAudience = pendingAudience
+      setPendingAudience('')
+      setAudience(nextAudience)
+      return
+    }
+
+    if (navigationBlocker.state === 'blocked') {
+      navigationBlocker.proceed()
+    }
+  }
+
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <>
+    <div className="space-y-4 sm:space-y-5">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
-          <div>
+        <div className="grid gap-5 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
+          <div className="min-w-0">
             <p className={eyebrowClass}>Message templates</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-              Build the match week messages the club can trust.
+            <h1 className="mt-2 max-w-4xl text-3xl font-black leading-[1.05] tracking-tight text-[#101828] sm:text-4xl">
+              Email Templates
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Prepare short parent and player updates with approved fields, clear audience rules, and team-specific saved copy.
+            <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55] sm:text-base">
+              Choose one team template, update its approved content and settings, then review it before saving.
             </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {templateRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 shadow-sm shadow-[#047857]/10">
-                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
-                  <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
-                </div>
-              ))}
-            </div>
+            <details className="mt-3 max-w-3xl rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+              <summary className="cursor-pointer text-sm font-black text-[#101828]">Template guidance</summary>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                {templateRules.map((rule) => (
+                  <div key={rule.label}>
+                    <p className="text-sm font-black text-[#101828]">{rule.label}</p>
+                    <p className={`mt-1 ${bodyTextClass}`}>{rule.body}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-5 shadow-inner shadow-[#047857]/10">
-            <div>
-              <p className={eyebrowClass}>Template state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{enabledTemplateCount} enabled for {audienceLabel} emails</p>
-              <p className={`mt-2 ${bodyTextClass}`}>
-                {templates.length} templates are loaded for the current audience.
-              </p>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-inner shadow-[#047857]/10">
+            <p className={eyebrowClass}>Current team</p>
+            <p className="mt-2 text-lg font-black tracking-tight text-[#101828]">{enabledTemplateCount} enabled for {audienceLabel} emails</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <TemplateMetric label="Loaded" value={templates.length} />
               <TemplateMetric label="Enabled" value={enabledTemplateCount} />
               <TemplateMetric label="Custom" value={customTemplateCount} />
               <TemplateMetric label="Audience" value={audienceLabel} />
             </div>
-            <p className={`mt-4 ${bodyTextClass}`}>
-              Keep every template practical enough to send from the touchline without rewriting it.
-            </p>
           </div>
         </div>
       </section>
@@ -280,9 +398,7 @@ export function ParentEmailTemplatesPage() {
       {errorMessage ? <NoticeBanner title="Template action failed" message={errorMessage} /> : null}
       {message ? <NoticeBanner title="Template saved" message={message} tone="info" /> : null}
 
-      <AvailableTemplateFieldsSection />
-
-      <TemplateAudienceTabs audience={audience} onAudienceChange={setAudience} />
+      <TemplateAudienceTabs audience={audience} onAudienceChange={changeAudience} />
 
       <TemplateEditorSection
         audience={audience}
@@ -292,27 +408,44 @@ export function ParentEmailTemplatesPage() {
         onAddCustomTemplate={addCustomTemplate}
         onDeleteTemplate={deleteTemplate}
         onFieldInsert={insertField}
+        onBackToList={returnToTemplateList}
+        onSelectTemplate={selectTemplate}
         onTemplateFocused={() => setFocusTemplateKey('')}
         onResetTemplate={resetTemplate}
         onSaveTemplate={saveTemplate}
         onSectionToggle={toggleTemplateSection}
         onTemplateChange={updateTemplate}
         savingKey={savingKey}
+        hasExplicitSelection={hasExplicitSelection}
+        hasUnsavedChanges={hasUnsavedChanges}
+        selectedTemplateKey={selectedTemplate?.key || ''}
         templates={templates}
+        user={user}
       />
 
       {!canUseParentEmail ? (
         <NoticeBanner title="Parent email unavailable" message={createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails)} tone="info" />
       ) : null}
     </div>
+      <ConfirmModal
+        isOpen={Boolean(pendingAudience) || navigationBlocker.state === 'blocked'}
+        title="Unsaved template changes"
+        message="You have unsaved template changes. Leave without saving?"
+        cancelLabel="Stay and continue editing"
+        confirmLabel="Leave without saving"
+        onCancel={stayAndContinueEditing}
+        onClose={stayAndContinueEditing}
+        onConfirm={leaveWithoutSaving}
+      />
+    </>
   )
 }
 
 function TemplateMetric({ label, value }) {
   return (
-    <div className={statCardClass}>
+    <div className={`${statCardClass} px-3 py-3`}>
       <p className={eyebrowClass}>{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-[#101828]">{value}</p>
+      <p className="mt-1 break-words text-lg font-black text-[#101828]">{value}</p>
     </div>
   )
 }
