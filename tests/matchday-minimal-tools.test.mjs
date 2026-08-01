@@ -44,7 +44,7 @@ test('Match Day active fixture toggle persists locally and never reads previous 
   assert.match(source, /activeFixtureMode === 'all' \? activeMatches : activeMatches\.slice\(0, 1\)/)
   assert.match(source, /Next game/)
   assert.match(source, /List all/)
-  assert.match(source, /displayedActiveMatches\.map\(\(match\) => \(/)
+  assert.match(source, /displayedActiveMatches\.map\(renderFixtureNavigationCard\)/)
   assert.doesNotMatch(source, /activeFixtureMode[\s\S]{0,220}previousMatches\.map/)
 })
 

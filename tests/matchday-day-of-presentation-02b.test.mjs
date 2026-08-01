@@ -30,8 +30,8 @@ test('02B presentation uses server-derived today state and required ordering', a
   assert.match(parentPage, /data-testid="parent-match-day-hero"/)
   assert.match(parentPage, /You are today&apos;s scorer/)
   assert.match(parentPage, /Fixture information only/)
-  assert.match(staffPage, /data-testid="staff-match-day-hero-heading"/)
-  assert.match(staffPage, /todayMatches\[0\]/)
+  assert.match(staffPage, /sortMatchDayPresentation\(matches\.filter/)
+  assert.match(staffPage, /<FixtureNavigationCard/)
 })
 
 test('02B sorts multiple today fixtures live, upcoming, later, then completed', () => {

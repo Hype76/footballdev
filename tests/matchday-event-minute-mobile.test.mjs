@@ -101,7 +101,7 @@ test('Match Day event save validates auto minutes before inserting and keeps mod
   assert.match(domainSource, /minute_value: assertValidMatchDayEventMinute\(goal\?\.minute\)/)
 })
 
-test('mobile active Game Mode hides admin page sections but keeps Manage and timeline', async () => {
+test('mobile active Game Mode hides fixture navigation but keeps Manage and timeline', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
   const renderStart = source.indexOf('const isGameModeActive = Boolean(gameModeMatchId)')
   const renderEnd = source.indexOf('<ConfirmModal', renderStart)
@@ -112,10 +112,8 @@ test('mobile active Game Mode hides admin page sections but keeps Manage and tim
 
   assert.notEqual(renderStart, -1)
   assert.notEqual(renderEnd, -1)
-  assert.match(renderSource, /isGameModeActive \? 'hidden xl:block' : ''/)
-  assert.match(renderSource, /isGameModeActive \? 'hidden' : 'xl:hidden'/)
-  assert.match(renderSource, /isGameModeActive \? 'hidden xl:block' : ''/)
-  assert.match(renderSource, /isGameModeActive \? 'px-0 py-0 xl:px-5 xl:py-5'/)
+  assert.match(renderSource, /\$\{isGameModeActive \? 'hidden' : ''\}/)
+  assert.match(renderSource, /!selectedMatch && !isGameModeActive/)
   assert.match(gameModeSource, /onManage/)
   assert.match(gameModeSource, /Manage fixture/)
   assert.match(gameModeSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*match=\{match\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)

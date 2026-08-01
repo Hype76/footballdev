@@ -144,10 +144,10 @@ test('pre-match Game Mode entry remains read only and keeps a separate deliberat
   assert.match(source, /Start match/)
   const cardSource = source.slice(
     source.indexOf('function MatchDayCard'),
-    source.indexOf('function LiveMatchQuickActions'),
+    source.indexOf('function MatchDayGameModePanel'),
   )
-  assert.match(cardSource, /canOpenPreMatchGameMode = \['scheduled', 'scorer_request'\]\.includes\(match\.status\)/)
-  assert.match(cardSource, /canOpenPreMatchGameMode[\s\S]*onClick=\{\(\) => onGameModeStart\(match\)\}[\s\S]*Open Game Mode[\s\S]*primaryLiveAction[\s\S]*onStartMatch\(match\)[\s\S]*onClick=\{onToggle\}/)
+  assert.match(cardSource, /canOpenGameMode = !isMatchDayConcluded\(match\) && match\.status !== 'full_time'/)
+  assert.match(cardSource, /canOpenGameMode[\s\S]*onClick=\{\(\) => onGameModeStart\(match\)\}[\s\S]*Open Game Mode[\s\S]*primaryLiveAction[\s\S]*onStartMatch\(match\)/)
 })
 
 test('starter visibility audit uses the platform template UUID and keeps the key in metadata', async () => {

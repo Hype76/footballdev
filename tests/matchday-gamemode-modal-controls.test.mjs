@@ -26,7 +26,7 @@ test('Game Mode owns live goal and event entry through app modals', async () => 
   const source = await readFile(matchDayPageUrl, 'utf8')
   const cardSlice = source.slice(
     source.indexOf('function MatchDayCard'),
-    source.indexOf('function LiveMatchQuickActions'),
+    source.indexOf('function MatchDayGameModePanel'),
   )
   const gameModeSlice = source.slice(
     source.indexOf('function MatchDayGameModePanel'),
@@ -41,8 +41,8 @@ test('Game Mode owns live goal and event entry through app modals', async () => 
   assert.doesNotMatch(gameModeSlice, /activeFlow/)
   assert.doesNotMatch(cardSlice, /onAddGoal/)
   assert.doesNotMatch(cardSlice, /onAddMatchEvent/)
-  assert.match(cardSlice, /Use Game Mode for goals, cards, substitutions, hydration, half time, and full time/)
-  assert.match(cardSlice, /Manage stays focused on fixture setup, score checks, roles, availability, notes, and history/)
+  assert.match(cardSlice, /Open Game Mode/)
+  assert.match(cardSlice, /<MatchDayWorkspaceTabs/)
 })
 
 test('Game Mode modal fields prevent opponent and own-team mixed states', async () => {

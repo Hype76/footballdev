@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { CompletedMatchEventReport } from '../components/match-day/CompletedMatchEventReport.jsx'
 import { CompletedMatchReportExportActions } from '../components/match-day/CompletedMatchReportExportActions.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
+import { FixtureNavigationCard } from '../components/match-day/FixtureNavigationCard.jsx'
+import {
+  MatchDayWorkspaceTabs,
+} from '../components/match-day/MatchDayWorkspaceTabs.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
 import {
@@ -75,6 +79,7 @@ import {
   resolveMatchDayEventMinute,
 } from '../lib/matchday-event-minute.js'
 import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
+import { normalizeMatchDayWorkspaceSection } from '../lib/matchday-workspace.js'
 import {
   formatMatchTimerClock,
   getMatchTimerDisplayLabel,
@@ -1602,6 +1607,22 @@ function getRoleStatus(match, roleKey) {
   return 'Needed'
 }
 
+function getRoleWarningSummary(match) {
+  const requestedRoles = getRequestedVolunteerRoles(match)
+
+  if (requestedRoles.length === 0) {
+    return 'No roles requested'
+  }
+
+  const unassignedRoles = requestedRoles.filter((role) => !getSelectedRoleAssignment(match, role.key))
+
+  if (unassignedRoles.length === 0) {
+    return 'All requested roles assigned'
+  }
+
+  return `${unassignedRoles.length} ${unassignedRoles.length === 1 ? 'role needs' : 'roles need'} attention`
+}
+
 function getLatestEventLogEntry(match) {
   const eventLog = Array.isArray(match.eventLog) ? match.eventLog : []
 
@@ -1896,6 +1917,9 @@ export function MatchDayPage() {
   const { session, user } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedFixtureId = searchParams.get('fixture') || ''
+  const requestedWorkspaceSection = normalizeMatchDayWorkspaceSection(searchParams.get('section'))
   const [matches, setMatches] = useState([])
   const [teams, setTeams] = useState([])
   const [players, setPlayers] = useState([])
@@ -1912,7 +1936,8 @@ export function MatchDayPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [expandedMatchId, setExpandedMatchId] = useState('')
+  const [expandedMatchId, setExpandedMatchId] = useState(requestedFixtureId)
+  const [workspaceSection, setWorkspaceSection] = useState(requestedWorkspaceSection)
   const [isFixtureFormOpen, setIsFixtureFormOpen] = useState(false)
   const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
   const [isPreviousGamesOpen, setIsPreviousGamesOpen] = useState(false)
@@ -1934,29 +1959,29 @@ export function MatchDayPage() {
   const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
   const [selectedLocationId, setSelectedLocationId] = useState('')
   const liveRefreshStateRef = useRef({ inFlight: false, scopeKey: '' })
+  const deepLinkHydrationRef = useRef('')
   const liveClockNow = useServerSyncedClock({
     syncIntervalMs: LIVE_MATCH_REFRESH_INTERVAL_MS,
     tickIntervalMs: LIVE_MATCH_CLOCK_INTERVAL_MS,
   })
 
-  const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
+  const activeMatches = useMemo(
+    () => sortMatchDayPresentation(matches.filter((match) => !isPreviousMatch(match))),
+    [matches],
+  )
   const displayedActiveMatches = useMemo(
     () => (activeFixtureMode === 'all' ? activeMatches : activeMatches.slice(0, 1)),
     [activeFixtureMode, activeMatches],
   )
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
-  const todayMatches = useMemo(
-    () => sortMatchDayPresentation(matches.filter((match) => match.isToday)),
-    [matches],
+  const selectedMatch = useMemo(
+    () => matches.find((match) => String(match.id) === String(expandedMatchId)) || null,
+    [expandedMatchId, matches],
   )
   const canDeletePreviousGames = Number(user.roleRank ?? 0) >= 50
   const liveMatches = useMemo(
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
     [activeMatches],
-  )
-  const pitchsidePriorityMatch = useMemo(
-    () => todayMatches[0] || activeMatches.find(isLiveMatchConsoleState) || activeMatches[0] || null,
-    [activeMatches, todayMatches],
   )
   const scorerRequests = useMemo(
     () => activeMatches.filter((match) => match.status === 'scorer_request').length,
@@ -2174,6 +2199,53 @@ export function MatchDayPage() {
 
   useEffect(() => {
     let isCurrent = true
+
+    setWorkspaceSection(requestedWorkspaceSection)
+
+    if (!requestedFixtureId) {
+      setExpandedMatchId('')
+      setGameModeMatchId('')
+      deepLinkHydrationRef.current = ''
+      return undefined
+    }
+
+    setExpandedMatchId(requestedFixtureId)
+
+    const requestedMatch = matches.find((match) => String(match.id) === String(requestedFixtureId))
+
+    if (!requestedMatch || requestedMatch.isHydrated || deepLinkHydrationRef.current === requestedFixtureId) {
+      return undefined
+    }
+
+    deepLinkHydrationRef.current = requestedFixtureId
+
+    void withRequestTimeout(
+      () => getMatchDay({ user, matchDayId: requestedMatch.id }),
+      'Match Day detail could not be loaded.',
+    ).then((hydratedMatch) => {
+      if (!isCurrent) {
+        return
+      }
+
+      setMatches((currentMatches) => currentMatches.map((match) => (
+        match.id === hydratedMatch.id ? hydratedMatch : match
+      )))
+    }).catch((error) => {
+      console.error(error)
+
+      if (isCurrent) {
+        deepLinkHydrationRef.current = ''
+        setErrorMessage(error.message || 'Match Day detail could not be loaded.')
+      }
+    })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [matches, requestedFixtureId, requestedWorkspaceSection, user])
+
+  useEffect(() => {
+    let isCurrent = true
     const scopeKey = `${user.clubId || ''}:${user.activeTeamId || ''}`
 
     if (isLoading || !canManageMatchDay(user)) {
@@ -2274,7 +2346,10 @@ export function MatchDayPage() {
 
   const handleMatchToggle = async (match) => {
     if (expandedMatchId === match.id) {
-      setExpandedMatchId('')
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('fixture')
+      nextParams.delete('section')
+      setSearchParams(nextParams)
       return
     }
 
@@ -2282,6 +2357,31 @@ export function MatchDayPage() {
 
     if (hydratedMatch) {
       setExpandedMatchId(match.id)
+      setWorkspaceSection('overview')
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.set('fixture', String(match.id))
+      nextParams.set('section', 'overview')
+      setSearchParams(nextParams)
+    }
+  }
+
+  const closeSelectedMatch = () => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('fixture')
+    nextParams.delete('section')
+    setGameModeMatchId('')
+    setSearchParams(nextParams)
+  }
+
+  const handleWorkspaceSectionChange = (section) => {
+    const nextSection = normalizeMatchDayWorkspaceSection(section)
+    setWorkspaceSection(nextSection)
+    const nextParams = new URLSearchParams(searchParams)
+
+    if (expandedMatchId) {
+      nextParams.set('fixture', String(expandedMatchId))
+      nextParams.set('section', nextSection)
+      setSearchParams(nextParams, { replace: true })
     }
   }
 
@@ -3747,9 +3847,102 @@ export function MatchDayPage() {
   const undoTimelineEvent = undoEventMatch?.events?.find((candidate) => candidate.id === undoEventModal?.eventId) ?? null
   const isGameModeActive = Boolean(gameModeMatchId)
 
+  const renderFixtureNavigationCard = (match) => {
+    const locationSummary = getMatchLocationSummary(match)
+
+    return (
+      <FixtureNavigationCard
+        key={match.id}
+        availabilitySummary={getAvailabilitySummary(match)}
+        dateLabel={formatMatchDate(match)}
+        fixtureTypeLabel={getMatchDayFixtureTypeLabel(match.fixtureType)}
+        homeAwayLabel={getHomeAwayLabel(match.homeAway)}
+        isLive={isLiveMatchConsoleState(match)}
+        isSelected={String(expandedMatchId) === String(match.id)}
+        lifecycleLabel={getMatchLifecycleLabel(match)}
+        matchName={getMatchDayDisplayName(match)}
+        onOpen={() => void handleMatchToggle(match)}
+        roleWarningSummary={getRoleWarningSummary(match)}
+        scoreSummary={getMatchDayDisplayScore(match)}
+        teamName={match.teamName}
+        venueLabel={locationSummary.venueName || ''}
+      />
+    )
+  }
+
+  const renderSelectedMatchWorkspace = (match) => (
+    <div className="min-w-0 space-y-2" data-testid="game-day-selected-workspace">
+      <div className="xl:hidden">
+        <button
+          type="button"
+          onClick={closeSelectedMatch}
+          className={`${secondaryButtonClass} w-full`}
+        >
+          Back to fixtures
+        </button>
+      </div>
+      <MatchDayCard
+        activeMatchId={activeMatchId}
+        activeSquadDecisionKey={activeSquadDecisionKey}
+        activeVolunteerSelectionKey={activeVolunteerSelectionKey}
+        isGameMode={gameModeMatchId === match.id}
+        isExpanded
+        liveRefreshStatus={liveRefreshStatus}
+        match={match}
+        matchActionStatus={matchActionStatus}
+        now={liveClockNow}
+        onCorrectGoal={handleCorrectGoal}
+        onFinalReportSave={handleFinalReportSave}
+        onGameModeBack={() => setGameModeMatchId('')}
+        onGameModeHydrationToggle={handleGameModeHydrationToggle}
+        onGameModeStart={handleGameModeOpen}
+        onHydrate={hydrateMatchDay}
+        onManageInvitedPlayers={(selectedMatch) => {
+          navigate(`/sessions?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
+        }}
+        onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
+        onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
+        onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
+          ...currentDrafts,
+          [match.id]: {
+            homeScore: match.homeScore,
+            awayScore: match.awayScore,
+            ...(currentDrafts[match.id] ?? {}),
+            ...updates,
+          },
+        }))}
+        onScoreSave={handleScoreSave}
+        onShootoutKick={handleShootoutKick}
+        onSquadDecisionChange={handleSquadDecisionChange}
+        onStartMatch={handleStartMatch}
+        onStatusChange={handleStatusChange}
+        onGameModeStatusChange={handleGameModeStatusChange}
+        onUndoEvent={handleUndoEvent}
+        onVoidShootoutKick={handleVoidShootoutKick}
+        onVolunteerSelection={openVolunteerSelectionPrompt}
+        scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
+        volunteerSelectionStatus={volunteerSelectionStatus}
+        workspaceSection={workspaceSection}
+        onWorkspaceSectionChange={handleWorkspaceSectionChange}
+      />
+      {isPreviousMatch(match) && canDeletePreviousGames ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => handleDeletePrevious(match)}
+            disabled={Boolean(activeMatchId) || isSaving}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Delete previous game
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+
   return (
     <div className="space-y-5">
-      <section className="matchday-control-panel hidden overflow-hidden rounded-lg border shadow-sm xl:block">
+      {!selectedMatch && !isGameModeActive ? <section className="matchday-control-panel hidden overflow-hidden rounded-lg border shadow-sm xl:block">
         <div className="grid gap-5 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
             <p className="matchday-control-eyebrow text-xs font-black uppercase tracking-[0.18em]">Game day control</p>
@@ -3783,37 +3976,9 @@ export function MatchDayPage() {
           <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} tone="control" />
           <MatchMetric label="Goals" value={goalCount} isLoading={isLoading} tone="control" />
         </div>
-      </section>
+      </section> : null}
 
       {errorMessage ? <NoticeBanner title="Match Day action failed" message={errorMessage} /> : null}
-
-      {pitchsidePriorityMatch ? (
-        <div className={isGameModeActive ? 'hidden xl:block' : ''}>
-          {todayMatches.length > 0 ? (
-            <div className="mb-3 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-3" data-testid="staff-match-day-hero-heading">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]">Today&apos;s Game Day</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text-muted)]">
-                {todayMatches.length === 1
-                  ? 'Today&apos;s fixture is the primary operational view.'
-                  : `${todayMatches.length} fixtures today, ordered live first, then by upcoming kick-off, with completed matches last.`}
-              </p>
-            </div>
-          ) : null}
-          <PitchsideCockpitPanel
-            isBusy={activeMatchId === pitchsidePriorityMatch.id}
-            isExpanded={expandedMatchId === pitchsidePriorityMatch.id}
-            liveRefreshStatus={liveRefreshStatus}
-            match={pitchsidePriorityMatch}
-            matchActionStatus={matchActionStatus}
-            now={liveClockNow}
-            onGameModeStart={handleGameModeOpen}
-            onStartMatch={handleStartMatch}
-            onHydrationToggle={handleGameModeHydrationToggle}
-            onStatusChange={handleStatusChange}
-            onToggle={() => void handleMatchToggle(pitchsidePriorityMatch)}
-          />
-        </div>
-      ) : null}
 
       {isFixtureFormOpen ? (
         <FixtureSetupModal
@@ -3889,16 +4054,22 @@ export function MatchDayPage() {
         />
       ) : null}
 
-      <section className={`overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 ${isGameModeActive ? 'border-0 bg-transparent shadow-none xl:border xl:border-[#d7e5dc] xl:bg-white xl:shadow-sm' : ''}`}>
-        <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center`}>
+      <div
+        className={`${selectedMatch && !isGameModeActive ? 'xl:grid xl:grid-cols-[20rem_minmax(0,1fr)] xl:items-start' : ''} gap-4`}
+        data-testid="game-day-workspace"
+      >
+      <section className={`overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 ${selectedMatch ? 'hidden xl:block' : ''} ${isGameModeActive ? 'hidden' : ''}`}>
+        <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6`}>
           <div>
             <p className={eyebrowClass}>Fixture list</p>
             <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Active fixtures</h2>
-            <p className={`mt-1 max-w-3xl ${bodyTextClass}`}>
-              Keep the list compact. Open one fixture to manage score, roles, availability detail, and notes.
-            </p>
+            {!selectedMatch ? (
+              <p className={`mt-1 max-w-3xl ${bodyTextClass}`}>
+                Keep the list compact. Open one fixture to manage score, roles, availability detail, and notes.
+              </p>
+            ) : null}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="grid gap-2">
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-[#d7e5dc] bg-white p-1">
               {[
                 { label: 'Next game', value: 'next' },
@@ -3928,59 +4099,14 @@ export function MatchDayPage() {
             </button>
           </div>
         </div>
-        <div className={isGameModeActive ? 'px-0 py-0 xl:px-5 xl:py-5' : 'px-5 py-5 sm:px-6'}>
+        <div className={`px-5 py-5 sm:px-6 ${selectedMatch ? 'xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto xl:px-4 xl:py-4' : ''}`}>
         {isLoading ? (
           <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
             Loading match day...
           </p>
         ) : activeMatches.length > 0 ? (
           <div className="space-y-3">
-            {displayedActiveMatches.map((match) => (
-              <MatchDayCard
-                key={match.id}
-                activeMatchId={activeMatchId}
-                activeSquadDecisionKey={activeSquadDecisionKey}
-                isGameMode={gameModeMatchId === match.id}
-                isExpanded={expandedMatchId === match.id}
-                liveRefreshStatus={liveRefreshStatus}
-                match={match}
-                matchActionStatus={matchActionStatus}
-                now={liveClockNow}
-                onCorrectGoal={handleCorrectGoal}
-                onFinalReportSave={handleFinalReportSave}
-                onGameModeBack={() => setGameModeMatchId('')}
-                onGameModeHydrationToggle={handleGameModeHydrationToggle}
-                onGameModeStart={handleGameModeOpen}
-                onHydrate={hydrateMatchDay}
-                onStartMatch={handleStartMatch}
-                onGameModeStatusChange={handleGameModeStatusChange}
-                onShootoutKick={handleShootoutKick}
-                onVoidShootoutKick={handleVoidShootoutKick}
-                onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
-                onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
-                onManageInvitedPlayers={(selectedMatch) => {
-                  navigate(`/sessions?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
-                }}
-                onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
-                  ...currentDrafts,
-                  [match.id]: {
-                    homeScore: match.homeScore,
-                    awayScore: match.awayScore,
-                    ...(currentDrafts[match.id] ?? {}),
-                    ...updates,
-                  },
-                }))}
-                onScoreSave={handleScoreSave}
-                onSquadDecisionChange={handleSquadDecisionChange}
-                activeVolunteerSelectionKey={activeVolunteerSelectionKey}
-                onVolunteerSelection={openVolunteerSelectionPrompt}
-                onStatusChange={handleStatusChange}
-                onToggle={() => void handleMatchToggle(match)}
-                onUndoEvent={handleUndoEvent}
-                scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
-                volunteerSelectionStatus={volunteerSelectionStatus}
-              />
-            ))}
+            {displayedActiveMatches.map(renderFixtureNavigationCard)}
             {activeFixtureMode === 'next' && activeMatches.length > 1 ? (
               <p className={`rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55] ${isGameModeActive ? 'hidden xl:block' : ''}`}>
                 Showing the next upcoming fixture only. Use List all to show the rest of the active fixtures.
@@ -3995,10 +4121,42 @@ export function MatchDayPage() {
             </p>
           </div>
         )}
+          <div className="mt-4 border-t border-[#d7e5dc] pt-4">
+            <button
+              type="button"
+              onClick={() => setIsPreviousGamesOpen((isOpen) => !isOpen)}
+              className={`${secondaryButtonClass} w-full`}
+              aria-expanded={isPreviousGamesOpen}
+            >
+              {isPreviousGamesOpen ? 'Hide previous games' : `Previous games (${previousMatches.length})`}
+            </button>
+            {isPreviousGamesOpen ? (
+              <div className="mt-3 space-y-3" data-testid="game-day-previous-fixtures">
+                {canDeletePreviousGames ? (
+                  <button
+                    type="button"
+                    onClick={handleResetPrevious}
+                    disabled={isSaving || previousMatches.length === 0}
+                    className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#fdba74] bg-white px-4 py-2 text-xs font-black text-[#9a3412] transition hover:bg-[#ffedd5] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Reset previous games
+                  </button>
+                ) : null}
+                {previousMatches.length > 0 ? previousMatches.map(renderFixtureNavigationCard) : (
+                  <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-4 text-sm font-bold text-[#4b5f55]">
+                    No previous games are showing.
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
-      <section className={isGameModeActive ? 'hidden' : 'xl:hidden'}>
+      {selectedMatch ? renderSelectedMatchWorkspace(selectedMatch) : null}
+      </div>
+
+      {!selectedMatch && !isGameModeActive ? <section className="xl:hidden">
         <details className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
           <summary className="cursor-pointer bg-[#f7faf8] px-5 py-4 text-sm font-black text-[#101828]">
             Game Day overview and needs attention
@@ -4027,9 +4185,9 @@ export function MatchDayPage() {
             </div>
           </div>
         </details>
-      </section>
+      </section> : null}
 
-      <section className="hidden gap-3 xl:grid xl:grid-cols-4">
+      {!selectedMatch && !isGameModeActive ? <section className="hidden gap-3 xl:grid xl:grid-cols-4">
         {matchDaySummary.map((item) => (
           <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
@@ -4037,9 +4195,9 @@ export function MatchDayPage() {
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
           </article>
         ))}
-      </section>
+      </section> : null}
 
-      <section className="hidden overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 xl:block">
+      {!selectedMatch && !isGameModeActive ? <section className="hidden overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 xl:block">
         <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6">
           <p className={eyebrowClass}>Needs attention</p>
         </div>
@@ -4052,114 +4210,7 @@ export function MatchDayPage() {
             </article>
           ))}
         </div>
-      </section>
-
-      <section className={`overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 ${isGameModeActive ? 'hidden xl:block' : ''}`}>
-        <div className="grid gap-4 bg-[#f7faf8] px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div>
-            <p className={eyebrowClass}>Match operations</p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Previous games</h2>
-            <p className={`mt-1 max-w-3xl ${bodyTextClass}`}>
-              Older, completed, postponed, and cancelled fixtures stay here with the same staff controls.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={() => setIsPreviousGamesOpen((isOpen) => !isOpen)}
-              className={`${secondaryButtonClass} w-full sm:w-auto`}
-              aria-expanded={isPreviousGamesOpen}
-            >
-              {isPreviousGamesOpen ? 'Hide previous games' : 'Show previous games'}
-            </button>
-          </div>
-        </div>
-        {isPreviousGamesOpen ? (
-          <div className="border-t border-[#d7e5dc] px-5 py-5 sm:px-6">
-            <div className="mb-4 flex flex-col gap-3 rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-bold leading-6 text-[#92400e]">
-                Reset only when starting a new season. Full time results will be hidden from the parent results list.
-              </p>
-              <button
-                type="button"
-                onClick={handleResetPrevious}
-                disabled={isSaving || previousMatches.length === 0}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#fdba74] bg-white px-4 py-2 text-sm font-black text-[#9a3412] transition hover:bg-[#ffedd5] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Reset previous games
-              </button>
-            </div>
-          {previousMatches.length > 0 ? (
-            <div className="space-y-3">
-              {previousMatches.map((match) => (
-                <div key={match.id} className="space-y-2">
-                  <MatchDayCard
-                    activeMatchId={activeMatchId}
-                  activeSquadDecisionKey={activeSquadDecisionKey}
-                  isGameMode={false}
-                  isExpanded={expandedMatchId === match.id}
-                  match={match}
-                  matchActionStatus={matchActionStatus}
-                  onCorrectGoal={handleCorrectGoal}
-                  onFinalReportSave={handleFinalReportSave}
-                  onGameModeBack={() => setGameModeMatchId('')}
-                  onGameModeHydrationToggle={handleGameModeHydrationToggle}
-                  onGameModeStart={handleGameModeOpen}
-                  onHydrate={hydrateMatchDay}
-                  onStartMatch={handleStartMatch}
-                  onGameModeStatusChange={handleGameModeStatusChange}
-                  onShootoutKick={handleShootoutKick}
-                  onVoidShootoutKick={handleVoidShootoutKick}
-                  onOpenEventModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'event')}
-                  onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
-                  onManageInvitedPlayers={(selectedMatch) => {
-                    navigate(`/sessions?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
-                  }}
-                  onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
-                    ...currentDrafts,
-                    [match.id]: {
-                      homeScore: match.homeScore,
-                      awayScore: match.awayScore,
-                      ...(currentDrafts[match.id] ?? {}),
-                      ...updates,
-                    },
-                  }))}
-                  onScoreSave={handleScoreSave}
-                  onSquadDecisionChange={handleSquadDecisionChange}
-                  activeVolunteerSelectionKey={activeVolunteerSelectionKey}
-                  onVolunteerSelection={openVolunteerSelectionPrompt}
-                  onStatusChange={handleStatusChange}
-                  onToggle={() => void handleMatchToggle(match)}
-                  onUndoEvent={handleUndoEvent}
-                  scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore }}
-                    volunteerSelectionStatus={volunteerSelectionStatus}
-                  />
-                  {canDeletePreviousGames ? (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleDeletePrevious(match)}
-                        disabled={Boolean(activeMatchId) || isSaving}
-                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Delete previous game
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 shadow-sm shadow-[#047857]/10">
-              <p className="text-base font-black text-[#101828]">No previous games are showing.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Completed, cancelled, postponed, and past fixtures appear here without changing their management rules.
-              </p>
-            </div>
-          )}
-          </div>
-        ) : null}
-      </section>
+      </section> : null}
 
       <ConfirmModal
         confirmLabel={pendingStatusAction?.confirmLabel || 'Confirm'}
@@ -4252,129 +4303,6 @@ export function MatchDayPage() {
         onConfirm={handleVolunteerSelection}
       />
     </div>
-  )
-}
-
-function PitchsideCockpitPanel({
-  isBusy,
-  isExpanded,
-  liveRefreshStatus,
-  match,
-  matchActionStatus,
-  now,
-  onGameModeStart,
-  onHydrationToggle,
-  onStartMatch,
-  onStatusChange,
-  onToggle,
-}) {
-  const scoreSummary = getMatchDayDisplayScore(match)
-  const liveClockLabel = formatLiveMatchClock(match, now)
-  const matchPeriodLabel = getMatchPeriodLabel(match)
-  const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
-  const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`) ? matchActionStatus : null
-  const primaryLiveAction = getPrimaryLiveAction(match)
-  const isLiveConsole = isLiveMatchConsoleState(match)
-
-  return (
-    <section className="xl:hidden overflow-hidden rounded-lg border border-[#047857] bg-[#f8fffb] shadow-sm shadow-[#047857]/10" aria-label="Pitchside Game Day cockpit">
-      <div className="bg-[#ecfdf5] px-4 py-4">
-        <p className={eyebrowClass}>Game Day cockpit</p>
-        <h2 className="mt-2 text-xl font-black leading-tight text-[#101828]">{getMatchDayDisplayName(match)}</h2>
-        <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-lg border border-[#047857] bg-white px-3 py-3 text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Score</p>
-            <p className="mt-1 text-4xl font-black leading-none text-[#101828]">{scoreSummary}</p>
-          </div>
-          <div className="grid gap-2">
-            <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">{getMatchTimerDisplayLabel(match)}</p>
-              <p className="mt-1 text-lg font-black text-[#101828]">{liveClockLabel}</p>
-            </div>
-            <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">Period</p>
-              <p className="mt-1 text-lg font-black text-[#101828]">{matchPeriodLabel}</p>
-            </div>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className="inline-flex rounded-lg border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#047857]">
-            {getMatchLifecycleLabel(match)}
-          </span>
-          <span className={`inline-flex rounded-lg border px-3 py-1 text-xs font-black ${
-            liveRefreshStatus === 'warning'
-              ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
-              : 'border-[#bbf7d0] bg-white text-[#047857]'
-          }`}
-          >
-            {liveSyncLabel}
-          </span>
-        </div>
-      </div>
-
-      {controlStatus ? (
-        <div
-          role={controlStatus.tone === 'error' ? 'alert' : 'status'}
-          className={`border-t px-4 py-3 text-sm font-black ${
-            controlStatus.tone === 'error'
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : controlStatus.tone === 'loading'
-                ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
-                : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
-          }`}
-        >
-          {controlStatus.message}
-        </div>
-      ) : null}
-
-      {isLiveConsole ? (
-        <LiveMatchQuickActions
-          isBusy={isBusy}
-          isExpanded={isExpanded}
-          match={match}
-          onGameModeStart={onGameModeStart}
-          onHydrationToggle={onHydrationToggle}
-          onStatusChange={onStatusChange}
-          onToggle={onToggle}
-        />
-      ) : (
-        <div className="grid gap-2 border-t border-[#bbf7d0] bg-white px-4 py-3 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => onGameModeStart(match)}
-            disabled={isBusy || match.status === 'full_time'}
-            className={secondaryButtonClass}
-          >
-            Open Game Mode
-          </button>
-          {primaryLiveAction ? (
-            <button
-              type="button"
-              onClick={() => (
-                primaryLiveAction.status === 'live'
-                  ? onStartMatch(match)
-                  : primaryLiveAction.status === 'second_half'
-                    ? onStatusChange(match, 'second_half')
-                  : onStatusChange(match, primaryLiveAction.status)
-              )}
-              disabled={isBusy}
-              className={primaryButtonClass}
-            >
-              {isBusy ? 'Saving...' : primaryLiveAction.label}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onToggle}
-            className={primaryLiveAction ? secondaryButtonClass : primaryButtonClass}
-            aria-expanded={isExpanded}
-          >
-            {isExpanded ? 'Close fixture' : 'Manage fixture'}
-          </button>
-        </div>
-      )}
-    </section>
   )
 }
 
@@ -4513,10 +4441,11 @@ function MatchDayCard({
   onSquadDecisionChange,
   onVolunteerSelection,
   onStatusChange,
-  onToggle,
   onUndoEvent,
   scoreDraft,
   volunteerSelectionStatus,
+  workspaceSection,
+  onWorkspaceSectionChange,
 }) {
   const [isFinalReportOpen, setIsFinalReportOpen] = useState(false)
   const isBusy = activeMatchId === match.id
@@ -4533,7 +4462,7 @@ function MatchDayCard({
   const scoreSummary = getMatchDayDisplayScore(match)
   const locationSummary = getMatchLocationSummary(match)
   const primaryLiveAction = getPrimaryLiveAction(match)
-  const canOpenPreMatchGameMode = ['scheduled', 'scorer_request'].includes(match.status)
+  const canOpenGameMode = !isMatchDayConcluded(match) && match.status !== 'full_time'
   const controlStatus = matchActionStatus?.key?.startsWith(`${match.id}:`)
     && matchActionStatus.key !== `${match.id}:final-report`
     ? matchActionStatus
@@ -4559,10 +4488,6 @@ function MatchDayCard({
   })()
   const openManageFromGameMode = () => {
     onGameModeBack()
-
-    if (!isExpanded) {
-      onToggle()
-    }
   }
   const handleFinalReportToggle = async () => {
     if (isFinalReportOpen) {
@@ -4579,7 +4504,7 @@ function MatchDayCard({
 
   return (
     <article className={`overflow-hidden rounded-lg border shadow-sm shadow-[#047857]/10 ${isLiveConsole ? 'border-[#047857] bg-[#f8fffb]' : 'border-[#d7e5dc] bg-white'}`}>
-      <div className={`grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${isLiveConsole ? 'bg-[#ecfdf5]' : ''}`}>
+      <div className={`grid gap-4 px-4 py-3 sm:px-5 sm:py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${isLiveConsole ? 'bg-[#ecfdf5]' : ''}`}>
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
@@ -4637,7 +4562,7 @@ function MatchDayCard({
             </div>
           </div>
           <div className="grid gap-2">
-            {!isGameMode && canOpenPreMatchGameMode ? (
+            {!isGameMode && canOpenGameMode ? (
               <button
                 type="button"
                 onClick={() => onGameModeStart(match)}
@@ -4673,24 +4598,14 @@ function MatchDayCard({
                 {isBusy ? 'Saving...' : primaryLiveAction.label}
               </button>
             ) : null}
-            {!isGameMode ? (
+            {!isGameMode && ['scheduled', 'scorer_request'].includes(match.status) ? (
               <button
                 type="button"
                 onClick={() => onManageInvitedPlayers(match)}
-                disabled={isBusy || !['scheduled', 'scorer_request'].includes(match.status)}
+                disabled={isBusy}
                 className={`${secondaryButtonClass} w-full sm:w-auto`}
               >
                 Manage invited players
-              </button>
-            ) : null}
-            {!isGameMode ? (
-              <button
-                type="button"
-                onClick={onToggle}
-                className={`${primaryLiveAction ? secondaryButtonClass : primaryButtonClass} w-full sm:w-auto`}
-                aria-expanded={isExpanded}
-              >
-                {isExpanded ? 'Close' : 'Manage'}
               </button>
             ) : null}
           </div>
@@ -4731,20 +4646,8 @@ function MatchDayCard({
         />
       ) : null}
 
-      {isLiveConsole && !isGameMode ? (
-        <LiveMatchQuickActions
-          isBusy={isBusy}
-          isExpanded={isExpanded}
-          match={match}
-          onGameModeStart={onGameModeStart}
-          onHydrationToggle={onGameModeHydrationToggle}
-          onStatusChange={onStatusChange}
-          onToggle={onToggle}
-        />
-      ) : null}
-
       {!isGameMode ? (
-        <div className="grid gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
+        <div className="hidden gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:px-5 lg:grid lg:grid-cols-5">
           <CompactFact label="Availability" value={getAvailabilitySummary(match)} />
           <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
           <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
@@ -4774,34 +4677,21 @@ function MatchDayCard({
       ) : null}
 
       {isExpanded && !isGameMode ? (
-        <div className="flex flex-col gap-4 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-5">
-          <div className="order-6">
+        <>
+        <MatchDayWorkspaceTabs activeSection={workspaceSection} onChange={onWorkspaceSectionChange} />
+        <div
+          id={`game-day-workspace-${workspaceSection}`}
+          role="tabpanel"
+          className="flex flex-col gap-4 bg-white px-4 py-4 sm:px-5"
+        >
+          {workspaceSection === 'overview' ? <div>
             <MatchDayReadinessPanel match={match} />
-          </div>
+          </div> : null}
 
-          <section className={`${panelClass} order-1`}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h5 className="text-sm font-black text-[#101828]">Game Mode</h5>
-                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                  Open a minimal live scoring view with goal, card, hydration, half time, full time, and back controls.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onGameModeStart(match)}
-                disabled={isBusy || match.status === 'full_time'}
-                className={`${primaryButtonClass} w-full sm:w-auto`}
-              >
-                Open Game Mode
-              </button>
-            </div>
-          </section>
-
-          <div className="order-7 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          {workspaceSection === 'overview' ? (
             <section className={panelClass}>
               <h5 className="text-sm font-black text-[#101828]">Overview</h5>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <dl className="mt-3 grid grid-cols-2 gap-3">
                 <DetailItem label="Team" value={match.teamName || 'Our team'} />
                 <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
                 <DetailItem label="Fixture type" value={getMatchDayFixtureTypeLabel(match.fixtureType)} />
@@ -4814,7 +4704,10 @@ function MatchDayCard({
                 <DetailItem label="Status" value={getMatchLifecycleLabel(match)} />
               </dl>
             </section>
+          ) : null}
 
+          {workspaceSection === 'timeline' ? (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <section className={panelClass}>
               <h5 className="text-sm font-black text-[#101828]">Notes</h5>
               {match.notes ? (
@@ -4830,9 +4723,10 @@ function MatchDayCard({
             </section>
 
             <MatchDayEventLogPanel entries={eventLog} />
-          </div>
+            </div>
+          ) : null}
 
-          <section className={`${panelClass} order-8`}>
+          {workspaceSection === 'squad' ? <section className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Availability and final squad</h5>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
               Availability answers whether a player can play. The squad decision is a separate staff action and never changes the parent response.
@@ -4845,7 +4739,12 @@ function MatchDayCard({
               <AvailabilityCount label="Conflicts" value={availabilityStats.conflictCount} />
             </div>
             {currentAvailabilityRows.length > 0 ? (
-              <div className="mt-3 grid gap-2 lg:grid-cols-2">
+              <div
+                className="mt-3 grid max-h-[32rem] gap-2 overflow-y-auto pr-1 lg:grid-cols-2"
+                role="region"
+                aria-label="Player availability and squad decisions"
+                tabIndex={0}
+              >
                 {currentAvailabilityRows.map((row) => {
                   const historyRows = getAvailabilityHistoryForPlayer(match, row)
                   const squadDecision = getPlayerSquadDecision(match, row)
@@ -4956,17 +4855,18 @@ function MatchDayCard({
                 </p>
               </div>
             )}
-          </section>
+          </section> : null}
 
-          <div className="order-9">
+          {workspaceSection === 'roles' ? <>
+          <div>
             <TransportRiskPanel rows={transportRiskRows} summary={transportRiskSummary} />
           </div>
 
-          <div className="order-10">
+          <div>
             <TransportCoordinationPanel summary={transportCoordination} />
           </div>
 
-          <section className={`${panelClass} order-11`}>
+          <section className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Roles</h5>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
@@ -5070,8 +4970,9 @@ function MatchDayCard({
               </div>
             )}
           </section>
+          </> : null}
 
-          <section className={`${panelClass} order-2`}>
+          {workspaceSection === 'overview' ? <section className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Score</h5>
           {match.status === 'scheduled' || match.status === 'scorer_request' ? (
             <button
@@ -5083,7 +4984,7 @@ function MatchDayCard({
               Start match
             </button>
           ) : null}
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <label className="block">
               <span className={smallLabelClass}>Home ({displayParts.firstSide === 'home' ? displayParts.firstTeam : 'home team'})</span>
               <input
@@ -5108,7 +5009,7 @@ function MatchDayCard({
               type="button"
               onClick={() => onScoreSave(match)}
               disabled={isBusy || match.currentMatchPhase === 'penalties'}
-              className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
+              className="col-span-2 mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-1"
             >
               Save score
             </button>
@@ -5127,77 +5028,20 @@ function MatchDayCard({
               </button>
             ))}
             </div> : null}
-          </section>
+          </section> : null}
 
-          <section className={`${panelClass} order-3`}>
-            <h5 className="text-sm font-black text-[#101828]">Live scoring</h5>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-              Use Game Mode for goals, cards, substitutions, hydration, half time, and full time. Manage stays focused on fixture setup, score checks, roles, availability, notes, and history.
-            </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => onGameModeStart(match)}
-                disabled={isBusy || match.status === 'full_time'}
-                className={`${primaryButtonClass} w-full sm:w-auto`}
-              >
-                Open Game Mode
-              </button>
-            </div>
-          </section>
-
-          <div className="order-5">
+          {workspaceSection === 'timeline' ? <div>
             <MatchTimelinePanel
               events={events}
               match={match}
               onCorrectGoal={onCorrectGoal}
               onUndoEvent={onUndoEvent}
             />
-          </div>
+          </div> : null}
         </div>
+        </>
       ) : null}
     </article>
-  )
-}
-
-function LiveMatchQuickActions({
-  isBusy,
-  isExpanded,
-  match,
-  onGameModeStart,
-  onToggle,
-}) {
-  const openManagePanel = () => {
-    if (!isExpanded) {
-      onToggle()
-    }
-  }
-
-  return (
-    <section className="border-t border-[#bbf7d0] bg-white px-4 py-4 sm:px-5" aria-label="Live match actions">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <p className={eyebrowClass}>Live actions</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => onGameModeStart(match)}
-            disabled={isBusy || match.status === 'full_time'}
-            className={primaryButtonClass}
-          >
-            Open Game Mode
-          </button>
-          <button
-            type="button"
-            onClick={openManagePanel}
-            className={secondaryButtonClass}
-          >
-            Manage fixture
-          </button>
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -6042,7 +5886,7 @@ function MatchDayReadinessPanel({ match }) {
           {readiness.status}
         </span>
       </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-5">
         {readiness.items.map((item) => (
           <ReadinessItem key={item.label} item={item} />
         ))}
