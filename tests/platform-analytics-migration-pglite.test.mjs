@@ -28,7 +28,7 @@ const identityAdoptionMigration = await readFile(
   'utf8',
 )
 const dashboardHeatmapsMigration = await readFile(
-  new URL('../supabase/migrations/20260801011042_analytics_dashboard_heatmaps_14c.sql', import.meta.url),
+  new URL('../supabase/migrations/20260801012822_analytics_dashboard_heatmaps_14c.sql', import.meta.url),
   'utf8',
 )
 
