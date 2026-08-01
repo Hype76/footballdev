@@ -9,6 +9,7 @@ import {
 } from '../components/sessions/EventResponseManager.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.jsx'
+import { PreviousSessionsWorkspace } from '../components/sessions/PreviousSessionsWorkspace.jsx'
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
@@ -876,7 +877,7 @@ function buildCalendarNotificationPlayers(form, invitePlayers, selectedPlayers) 
   return []
 }
 
-export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
+export function SessionsPage({ calendarOnly = false, historyOnly = false, setupOpen = false }) {
   const { session, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1016,6 +1017,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     [combinedSessions, selectedSessionId],
   )
   const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
+  const selectedSessionWorkspaceHref = selectedSessionId
+    ? `/sessions/start?${getOpenSessionSearchParams(searchParams, selectedSessionId).toString()}`
+    : '/sessions/start'
   const calendarEvents = useMemo(
     () => buildFootballCalendarEvents({
       assessmentReminders: isClubWideCalendar ? [] : assessmentReminders,
@@ -1953,7 +1957,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setErrorMessage('')
     setSelectedSessionId(nextSessionId)
     setSelectedPlayerIds([])
-    setSearchParams(getOpenSessionSearchParams(searchParams, nextSessionId), { replace: true })
+    setSearchParams(getOpenSessionSearchParams(searchParams, nextSessionId), { replace: !historyOnly })
   }
 
   const handleCurrentSessionFocus = () => {
@@ -3880,6 +3884,20 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           variant={calendarModal?.variant || ''}
         />
       </div>
+    )
+  }
+
+  if (historyOnly) {
+    return (
+      <PreviousSessionsWorkspace
+        assessmentCount={selectedSessionAssessmentCount}
+        isLoading={isLoading || isSessionPlayersLoading}
+        onOpenSession={handleOpenSession}
+        selectedPlayerCount={sessionPlayers.length}
+        selectedSession={selectedSession}
+        sessions={combinedSessions}
+        workspaceHref={selectedSessionWorkspaceHref}
+      />
     )
   }
 

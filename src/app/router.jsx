@@ -2010,7 +2010,7 @@ export const router = createBrowserRouter([
                     path: 'sessions/previous',
                     element: (
                       <PageSuspense>
-                        <SessionsPage setupOpen />
+                        <SessionsPage historyOnly />
                       </PageSuspense>
                     ),
                     handle: {
