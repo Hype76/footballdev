@@ -8,6 +8,7 @@ import { PlayerMergeAssessments } from '../components/players/PlayerMergeAssessm
 import { PlayerOverview } from '../components/players/PlayerOverview.jsx'
 import { PlayerProfileActions } from '../components/players/PlayerProfileActions.jsx'
 import { PlayerProfileModals } from '../components/players/PlayerProfileModals.jsx'
+import { PlayerProfileWorkspaceNav } from '../components/players/PlayerProfileWorkspaceNav.jsx'
 import { PlayerProgressionCharts } from '../components/players/PlayerProgressionCharts.jsx'
 import { EliteDevelopmentCharts } from '../components/players/EliteDevelopmentCharts.jsx'
 import { PlayerStaffActivity } from '../components/players/PlayerStaffActivity.jsx'
@@ -17,6 +18,7 @@ import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canDeletePlayer, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { normalizePlayerProfilePanel, normalizePlayerProfileSection } from '../lib/player-profile-workspace.js'
 import {
   ASSESSMENT_EMAIL_TEMPLATE,
   DIRECT_EMAIL_TEMPLATE_SECTION,
@@ -143,7 +145,7 @@ function getPlayerPortalContacts(player) {
 export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const isDemoAccount = isDemoUser(user)
   const { showToast } = useToast()
@@ -151,6 +153,8 @@ export function PlayerProfile() {
   const profileSource = normalizePlayerProfileSource(searchParams.get('source'))
   const routePlayerId = String(searchParams.get('playerId') ?? '').trim()
   const routeTeamId = String(searchParams.get('teamId') ?? '').trim()
+  const activeProfileSection = normalizePlayerProfileSection(searchParams.get('view'))
+  const activeProfilePanel = normalizePlayerProfilePanel(activeProfileSection, searchParams.get('panel'))
   const isSavedPlayerProfileRoute = isSavedPlayerProfileSource(profileSource)
   const shouldLoadSavedPlayerById = Boolean(routePlayerId && isSavedPlayerProfileRoute)
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
@@ -1834,6 +1838,31 @@ export function PlayerProfile() {
     }
   }
 
+  const handleProfileSectionChange = (section) => {
+    const nextSection = normalizePlayerProfileSection(section)
+    const nextParams = new URLSearchParams(searchParams)
+
+    if (nextSection === 'overview') {
+      nextParams.delete('view')
+    } else {
+      nextParams.set('view', nextSection)
+    }
+    nextParams.delete('panel')
+    setSearchParams(nextParams)
+  }
+
+  const handleProfilePanelChange = (panel) => {
+    const nextPanel = normalizePlayerProfilePanel(activeProfileSection, panel)
+    const nextParams = new URLSearchParams(searchParams)
+
+    if (nextPanel) {
+      nextParams.set('panel', nextPanel)
+    } else {
+      nextParams.delete('panel')
+    }
+    setSearchParams(nextParams)
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -1849,29 +1878,43 @@ export function PlayerProfile() {
         />
       ) : null}
 
-      <PlayerOverview
-        evaluationCount={evaluations.length}
-        fieldMovement={fieldMovement}
-        isRecordingVoiceNote={isRecordingVoiceNote}
-        isSavingVoiceNote={isSavingVoiceNote}
-        lastSection={lastSection}
-        onStartVoiceNote={() => void handleStartProfileVoiceNote()}
-        onStopVoiceNote={handleStopProfileVoiceNote}
-        overallAverage={overallAverage}
-        playerName={routePlayerName}
-        primaryPlayer={primaryPlayer}
-        ratingTrend={ratingTrend}
-        ratingTrendMax={ratingTrendMax}
+      <PlayerProfileWorkspaceNav
+        activePanel={activeProfilePanel}
+        activeSection={activeProfileSection}
+        onPanelChange={handleProfilePanelChange}
+        onSectionChange={handleProfileSectionChange}
       />
 
-      <PlayerProgressionCharts
-        playerName={routePlayerName}
-        progressionData={progressionData}
-      />
+      {activeProfileSection === 'overview' ? (
+        <PlayerOverview
+          evaluationCount={evaluations.length}
+          fieldMovement={fieldMovement}
+          isRecordingVoiceNote={isRecordingVoiceNote}
+          isSavingVoiceNote={isSavingVoiceNote}
+          lastSection={lastSection}
+          onStartVoiceNote={() => void handleStartProfileVoiceNote()}
+          onStopVoiceNote={handleStopProfileVoiceNote}
+          overallAverage={overallAverage}
+          playerName={routePlayerName}
+          primaryPlayer={primaryPlayer}
+          ratingTrend={ratingTrend}
+          ratingTrendMax={ratingTrendMax}
+        />
+      ) : null}
 
-      <EliteDevelopmentCharts data={eliteDevelopmentData} />
+      {activeProfileSection === 'development' && activeProfilePanel === 'progression' ? (
+        <PlayerProgressionCharts
+          playerName={routePlayerName}
+          progressionData={progressionData}
+        />
+      ) : null}
 
-      <PlayerDetailsSection
+      {activeProfileSection === 'development' && activeProfilePanel === 'elite' ? (
+        <EliteDevelopmentCharts data={eliteDevelopmentData} />
+      ) : null}
+
+      {activeProfileSection === 'details' ? (
+        <PlayerDetailsSection
         directEmailSendingId={emailSendingId}
         editingPlayerId={editingPlayerId}
         getDirectEmailTemplateOptions={getDirectEmailTemplateOptions}
@@ -1911,29 +1954,36 @@ export function PlayerProfile() {
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}
         selectedDirectInviteDates={selectedDirectInviteDates}
-      />
+        />
+      ) : null}
 
-      <PlayerProfileActions
-        canUseSavedPlayerActions={canUseSavedPlayerActions}
-        isDeleting={isDeleting}
-        lastSection={lastSection}
-        lastTeam={lastTeam}
-        onDeletePlayer={handleDeletePlayer}
-        playerName={routePlayerName}
-        user={user}
-      />
+      {activeProfileSection === 'details' ? (
+        <PlayerProfileActions
+          canUseSavedPlayerActions={canUseSavedPlayerActions}
+          isDeleting={isDeleting}
+          lastSection={lastSection}
+          lastTeam={lastTeam}
+          onDeletePlayer={handleDeletePlayer}
+          playerName={routePlayerName}
+          user={user}
+        />
+      ) : null}
 
-      <PlayerAssignedResources
-        primaryPlayer={primaryPlayer}
-        user={user}
-      />
+      {activeProfileSection === 'communication' && activeProfilePanel === 'resources' ? (
+        <PlayerAssignedResources
+          primaryPlayer={primaryPlayer}
+          user={user}
+        />
+      ) : null}
 
-      <PlayerChatSection
-        player={primaryPlayer}
-        user={user}
-      />
+      {activeProfileSection === 'communication' && activeProfilePanel === 'chat' ? (
+        <PlayerChatSection
+          player={primaryPlayer}
+          user={user}
+        />
+      ) : null}
 
-      {canMergeEvaluations ? (
+      {activeProfileSection === 'records' && activeProfilePanel === 'merge' && canMergeEvaluations ? (
         <PlayerMergeAssessments
           evaluations={evaluations}
           isMergingEvaluations={isMergingEvaluations}
@@ -1954,7 +2004,8 @@ export function PlayerProfile() {
         />
       ) : null}
 
-      <PlayerStaffActivity
+      {activeProfileSection === 'records' && activeProfilePanel === 'activity' ? (
+        <PlayerStaffActivity
         activityLogs={activityLogs}
         deletingNoteId={deletingStaffNoteId}
         isRecordingVoiceNote={isRecordingVoiceNote}
@@ -1968,7 +2019,8 @@ export function PlayerProfile() {
         onStopVoiceNote={handleStopProfileVoiceNote}
         primaryPlayer={primaryPlayer}
         staffNotes={staffNotes}
-      />
+        />
+      ) : null}
 
       <ConfirmModal
         isOpen={Boolean(promoteConfirmTarget)}
@@ -2016,7 +2068,8 @@ export function PlayerProfile() {
         onConfirm={() => void confirmDeleteStaffNote()}
       />
 
-      <PlayerEvaluationsHistory
+      {activeProfileSection === 'records' && activeProfilePanel === 'history' ? (
+        <PlayerEvaluationsHistory
         availablePlayers={reassignPlayerOptions}
         canDeleteEvaluations={canDeleteEvaluations}
         emailSendingId={emailSendingId}
@@ -2069,7 +2122,8 @@ export function PlayerProfile() {
         selectedParentContacts={selectedParentContacts}
         selectedReassignTargets={selectedReassignTargets}
         user={user}
-      />
+        />
+      ) : null}
       <PlayerProfileModals
         emailConfirmTarget={emailConfirmTarget}
         emailSendingId={emailSendingId}
