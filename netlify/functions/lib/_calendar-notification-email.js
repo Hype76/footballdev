@@ -156,8 +156,8 @@ async function loadParentNotificationContext(supabaseClient, row) {
     return { reason: 'notification_scope_invalid', sendable: false }
   }
 
-  const [event, player, parentLink, brand] = await Promise.all([
-    loadEventContext(supabaseClient, notification),
+  const event = await loadEventContext(supabaseClient, notification)
+  const [player, parentLink, brand, calendarInvite] = await Promise.all([
     loadMaybeSingle(
       supabaseClient
         .from('players')
@@ -179,6 +179,17 @@ async function loadParentNotificationContext(supabaseClient, row) {
       clubId: notification.club_id,
       teamId: notification.team_id,
     }),
+    notification.calendar_event_id && normalizeText(event?.event_type).toLowerCase() === 'training'
+      ? loadMaybeSingle(
+          supabaseClient
+            .from('calendar_event_invites')
+            .select('id, response_requirement, training_availability_requested, invite_status')
+            .eq('calendar_event_id', notification.calendar_event_id)
+            .eq('player_id', notification.player_id)
+            .eq('club_id', notification.club_id),
+          'Calendar invitation',
+        )
+      : Promise.resolve(null),
   ])
   const parent = parentLink?.auth_user_id
     ? await loadMaybeSingle(
@@ -212,6 +223,17 @@ async function loadParentNotificationContext(supabaseClient, row) {
     && normalizeEmail(parentLink.email) === queueRecipient
     && teamScopeMatches
   )
+
+  if (
+    normalizeText(event?.event_type).toLowerCase() === 'training'
+    && calendarInvite?.invite_status !== 'cancelled'
+    && (
+      calendarInvite?.response_requirement === 'response_required'
+      || calendarInvite?.training_availability_requested === true
+    )
+  ) {
+    return { reason: 'training_response_delivery_owned_by_rsvp_queue', sendable: false }
+  }
 
   if (!sendable) {
     return { reason: 'authoritative_scope_inactive', sendable: false }

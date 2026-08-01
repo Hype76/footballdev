@@ -116,7 +116,8 @@ test('edit token rotation preserves responses while removed scope and closed fix
 test('edit remains opt-in and the UI promises updated actionable links', async () => {
   const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
 
-  assert.match(sessionsPage, /if \(notifyRequested\) \{[\s\S]*notifyCalendarEventParents/)
+  assert.match(sessionsPage, /if \(shouldQueueCalendarNotification\) \{[\s\S]*notifyCalendarEventParents/)
+  assert.match(sessionsPage, /shouldQueueCalendarNotification = notifyRequested[\s\S]*!\(isTraining && calendarForm\.requestTrainingAvailability\)/)
   assert.match(sessionsPage, /Send updated invitations to parents/)
   assert.match(sessionsPage, /secure availability and configured volunteer response links/)
   assert.match(sessionsPage, /const notifyRequested = calendarForm\.notifyInvitedFamilies/)

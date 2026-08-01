@@ -8,6 +8,10 @@ const migrationUrl = new URL(
   import.meta.url,
 )
 const migrationSql = await readFile(migrationUrl, 'utf8')
+const consistencyMigrationSql = await readFile(
+  new URL('../supabase/migrations/20260801122226_training_rsvp_consistency_21a.sql', import.meta.url),
+  'utf8',
+)
 
 const CLUB_ID = '30000000-0000-4000-8000-000000000001'
 const TEAM_ID = '30000000-0000-4000-8000-000000000002'
@@ -25,6 +29,7 @@ async function createDatabase() {
     create schema if not exists auth;
     create role anon;
     create role authenticated;
+    create role service_role;
 
     create function auth.uid()
     returns uuid
@@ -89,6 +94,7 @@ async function createDatabase() {
     );
   `)
   await db.exec(migrationSql)
+  await db.exec(consistencyMigrationSql)
   await db.exec(`
     insert into public.calendar_events (
       id,
@@ -188,6 +194,38 @@ test('turning requests off preserves real invitations and returns add-only rows 
   assert.equal(byPlayerId.get(INFORMATIONAL_PLAYER_ID).notify_requested, true)
   assert.equal(byPlayerId.get(INFORMATIONAL_PLAYER_ID).response_requirement, 'informational')
   assert.equal(byPlayerId.get(INFORMATIONAL_PLAYER_ID).training_availability_requested, false)
+})
+
+test('canonical command preserves add-without-communication for response-required Training', async () => {
+  const db = await createDatabase()
+  await db.query(
+    `select * from public.save_training_availability_setting_v3($1, true, 3, false)`,
+    [EVENT_ID],
+  )
+  const invites = await db.query(`
+    select notify_requested, response_requirement, training_availability_requested
+    from public.calendar_event_invites
+  `)
+
+  assert.ok(invites.rows.every((row) => row.notify_requested === false))
+  assert.ok(invites.rows.every((row) => row.response_requirement === 'response_required'))
+  assert.ok(invites.rows.every((row) => row.training_availability_requested === true))
+})
+
+test('canonical command keeps informational notification separate from response state', async () => {
+  const db = await createDatabase()
+  await db.query(
+    `select * from public.save_training_availability_setting_v3($1, false, 2, true)`,
+    [EVENT_ID],
+  )
+  const invites = await db.query(`
+    select notify_requested, response_requirement, training_availability_requested
+    from public.calendar_event_invites
+  `)
+
+  assert.ok(invites.rows.every((row) => row.notify_requested === true))
+  assert.ok(invites.rows.every((row) => row.response_requirement === 'informational'))
+  assert.ok(invites.rows.every((row) => row.training_availability_requested === false))
 })
 
 test('unavailable recipient state is truthful while ordinary blank recipients are rejected', async () => {

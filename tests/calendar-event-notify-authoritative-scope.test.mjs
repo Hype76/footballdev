@@ -25,7 +25,7 @@ test('saved Portal scope is committed before the notification command', () => {
 
   assert.ok(scopeIndex > 0)
   assert.ok(notifyIndex > scopeIndex)
-  assert.match(flow, /nextCalendarInvites = await getCalendarEventInvites\(\{ user \}\)[\s\S]*if \(notifyRequested\)/)
+  assert.match(flow, /nextCalendarInvites = await getCalendarEventInvites\(\{ user \}\)[\s\S]*if \(shouldQueueCalendarNotification\)/)
   assert.match(flow, /catch \(notificationError\)[\s\S]*portal_ready_email_command_failed/)
 })
 

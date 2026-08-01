@@ -6,6 +6,10 @@ const migrationUrl = new URL(
   '../supabase/migrations/20260730113501_training_rsvp_integrity.sql',
   import.meta.url,
 )
+const consistencyMigrationUrl = new URL(
+  '../supabase/migrations/20260801122226_training_rsvp_consistency_21a.sql',
+  import.meta.url,
+)
 const processorUrl = new URL(
   '../netlify/functions/process-training-availability-requests.js',
   import.meta.url,
@@ -17,8 +21,11 @@ const responseUrl = new URL(
 )
 
 test('explicit training availability is an authenticated atomic invitation command', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
-  const domain = await readFile(domainUrl, 'utf8')
+  const [migration, consistencyMigration, domain] = await Promise.all([
+    readFile(migrationUrl, 'utf8'),
+    readFile(consistencyMigrationUrl, 'utf8'),
+    readFile(domainUrl, 'utf8'),
+  ])
 
   assert.match(migration, /create or replace function public\.save_training_availability_setting_v2/)
   assert.match(migration, /security definer[\s\S]*set search_path = public/)
@@ -31,7 +38,13 @@ test('explicit training availability is an authenticated atomic invitation comma
   assert.match(migration, /not exists \([\s\S]*training_availability_request_players/)
   assert.match(migration, /revoke all on function public\.save_training_availability_setting_v2[\s\S]*from public, anon/)
   assert.match(migration, /grant execute on function public\.save_training_availability_setting_v2[\s\S]*to authenticated/)
-  assert.match(domain, /\.rpc\('save_training_availability_setting_v2'/)
+  assert.match(consistencyMigration, /create or replace function public\.save_training_availability_setting_v3/)
+  assert.match(consistencyMigration, /notify_invited_families_value boolean/)
+  assert.match(consistencyMigration, /notify_requested = normalized_notify/)
+  assert.match(consistencyMigration, /response_requirement = 'response_required'/)
+  assert.match(consistencyMigration, /response_requirement = 'informational'/)
+  assert.match(domain, /\.rpc\('save_training_availability_setting_v3'/)
+  assert.match(domain, /notify_invited_families_value: settings\?\.notifyInvitedFamilies === true/)
   assert.doesNotMatch(domain, /\.upsert\(row, \{ onConflict: 'calendar_event_id' \}\)/)
 })
 

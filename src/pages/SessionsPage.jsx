@@ -2770,7 +2770,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const teamName = getCalendarTeamName(safeTeamId)
     const isTraining = calendarForm.eventType === 'training'
     const isMatch = calendarForm.eventType === 'match'
-    const saveTrainingAsSession = isTraining && (calendarModal?.variant === 'session' || sourceType === 'session')
+    const saveTrainingAsSession = isTraining && sourceType === 'session'
     const trimmedTitle = getTrimmedFormValue(calendarForm.title)
     const trimmedOpponent = getTrimmedFormValue(calendarForm.opponent)
     let coreSavedEvent = null
@@ -2867,7 +2867,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             nextCalendarInvites = await getCalendarEventInvites({ user })
           }
 
-          if (notifyRequested) {
+          const shouldQueueCalendarNotification = notifyRequested
+            && !(isTraining && calendarForm.requestTrainingAvailability)
+
+          if (shouldQueueCalendarNotification) {
             try {
               calendarNotificationResult = await notifyCalendarEventParents({
                 user,
@@ -3118,18 +3121,34 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           : await createCalendarEvent({ user, event: payload })
         coreSavedEvent = savedEvent
         coreSavedCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
-        await syncInvites({ calendarEventId: savedEvent.id, sourceTitle: savedEvent.title })
         let savedTrainingAvailabilitySetting = null
 
-        if (calendarForm.eventType === 'training' && safeTeamId) {
+        if (calendarForm.eventType === 'training' && safeTeamId && !calendarForm.requestTrainingAvailability) {
           savedTrainingAvailabilitySetting = await saveTrainingAvailabilitySettings({
             user,
             event: savedEvent,
             settings: {
               requestTrainingAvailability: calendarForm.requestTrainingAvailability,
+              notifyInvitedFamilies: calendarForm.notifyInvitedFamilies,
               trainingAvailabilitySendDaysBefore: calendarForm.trainingAvailabilitySendDaysBefore,
             },
           })
+          nextCalendarInvites = await getCalendarEventInvites({ user })
+        }
+
+        await syncInvites({ calendarEventId: savedEvent.id, sourceTitle: savedEvent.title })
+
+        if (calendarForm.eventType === 'training' && safeTeamId && calendarForm.requestTrainingAvailability) {
+          savedTrainingAvailabilitySetting = await saveTrainingAvailabilitySettings({
+            user,
+            event: savedEvent,
+            settings: {
+              requestTrainingAvailability: true,
+              notifyInvitedFamilies: calendarForm.notifyInvitedFamilies,
+              trainingAvailabilitySendDaysBefore: calendarForm.trainingAvailabilitySendDaysBefore,
+            },
+          })
+          nextCalendarInvites = await getCalendarEventInvites({ user })
         }
 
         if (isCalendarResourceEventType(calendarForm.eventType) && safeTeamId && (sourceType === 'calendar' || calendarForm.resourceIds?.length > 0)) {
@@ -4421,7 +4440,7 @@ function TrainingAvailabilityParentNotes({ details = [] }) {
 function TrainingAvailabilitySettings({ form, isBusy, onChange }) {
   return (
     <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
-      <div className="grid gap-4 md:grid-cols-[1fr_12rem]">
+      <div className={`grid gap-4 ${form.requestTrainingAvailability === true ? 'md:grid-cols-[1fr_12rem]' : ''}`}>
         <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
           <input
             type="checkbox"
@@ -4438,19 +4457,21 @@ function TrainingAvailabilitySettings({ form, isBusy, onChange }) {
             </span>
           </span>
         </label>
-        <label className="block">
-          <span className="mb-2 block text-sm font-black text-[#101828]">Send days before</span>
-          <input
-            name="trainingAvailabilitySendDaysBefore"
-            type="number"
-            min="0"
-            max="30"
-            value={form.trainingAvailabilitySendDaysBefore ?? 2}
-            onChange={onChange}
-            disabled={isBusy || form.requestTrainingAvailability !== true}
-            className={fieldClass}
-          />
-        </label>
+        {form.requestTrainingAvailability === true ? (
+          <label className="block">
+            <span className="mb-2 block text-sm font-black text-[#101828]">Send days before</span>
+            <input
+              name="trainingAvailabilitySendDaysBefore"
+              type="number"
+              min="0"
+              max="30"
+              value={form.trainingAvailabilitySendDaysBefore ?? 2}
+              onChange={onChange}
+              disabled={isBusy}
+              className={fieldClass}
+            />
+          </label>
+        ) : null}
       </div>
       <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
         For repeating training, this applies separately to each occurrence.
@@ -5021,10 +5042,10 @@ function CalendarEventModal({
   const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
   const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
   const showInvites = !canShareClubWideWithParents && form.shareWithParents && form.parentAudience === 'involved_players'
-  const canShowTeamResourceArea = Boolean(!isSessionCreate && !clubWideOnly && safeFormTeamId && canManageResourceLibrary(user))
+  const canShowTeamResourceArea = Boolean(!clubWideOnly && safeFormTeamId && canManageResourceLibrary(user))
   const canUseCalendarResourceLinks = Boolean((!event || event.sourceType === 'calendar') && isCalendarResourceEventType(form.eventType))
   const canAttachResources = canShowTeamResourceArea && canUseCalendarResourceLinks
-  const canShowTrainingAvailability = Boolean(!isSessionCreate && !clubWideOnly && safeFormTeamId && form.eventType === 'training' && (!event || event.sourceType === 'calendar'))
+  const canShowTrainingAvailability = Boolean(!clubWideOnly && safeFormTeamId && form.eventType === 'training' && (!event || event.sourceType === 'calendar'))
   const selectedResourceIds = new Set(Array.isArray(form.resourceIds) ? form.resourceIds.map(String) : [])
   const isRecurringCalendarEdit = isRecurringCalendarEvent({ event, form })
   const repeatUpdateScopeRequired = hasRecurringCalendarDateTimeChange({ event, form })
@@ -5337,9 +5358,7 @@ function CalendarEventModal({
                   </label>
                 </div>
                 <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
-                  {isSessionCreate
-                    ? 'Recurring training creates separate session rows. Calendar events repeat on the calendar and are edited from this event.'
-                    : 'Repeating calendar events are stored as one series record and are edited from this event.'}
+                  Repeating calendar events are stored as one series record and are edited from this event.
                 </p>
                 {showRepeatUpdateScope ? (
                   <div className="mt-4 rounded-lg border border-[#fedf89] bg-white p-3">

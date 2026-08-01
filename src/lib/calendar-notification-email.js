@@ -93,6 +93,7 @@ export function buildCalendarNotificationHtml({
   const resolvedPlayerName = cleanEmailCopy(playerName, 'your child')
   const resolvedTitle = cleanEmailCopy(eventTitle, 'Club event')
   const resolvedType = cleanEmailCopy(eventType, 'Event')
+  const isTraining = normalizeText(eventType).toLowerCase() === 'training'
   const resolvedLocation = normalizeText(location)
   const resolvedNotes = normalizeText(notes)
   const resolvedActionUrl = trialInvitation ? normalizeText(responseUrl) : normalizeText(portalUrl)
@@ -106,7 +107,9 @@ export function buildCalendarNotificationHtml({
   })
   const responseCopy = trialInvitation
     ? 'Use the secure response link below to confirm attendance. This link is only for this event and this trial player.'
-    : 'Open the family calendar to review the event details. No response is required unless the event message says otherwise.'
+    : isTraining
+      ? 'This Training session has been shared with you. No attendance response has been requested.'
+      : 'This event has been shared with you for information. No attendance response has been requested.'
   const actionLabel = trialInvitation ? 'Respond to invitation' : 'View event details'
 
   return `

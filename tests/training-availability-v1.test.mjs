@@ -83,7 +83,8 @@ test('calendar UI exposes training-only availability controls and saves settings
 
   assert.match(source, /getDefaultTrainingAvailabilityForm\('training'\)/)
   assert.match(source, /requestTrainingAvailability: sourceEventType === 'training' \? setting\?\.enabled \?\? false : false/)
-  assert.match(source, /const canShowTrainingAvailability = Boolean\(!isSessionCreate && !clubWideOnly && safeFormTeamId && form\.eventType === 'training'/)
+  assert.match(source, /const canShowTrainingAvailability = Boolean\(!clubWideOnly && safeFormTeamId && form\.eventType === 'training'/)
+  assert.match(source, /const saveTrainingAsSession = isTraining && sourceType === 'session'/)
   assert.match(source, /Request player availability\?/)
   assert.match(source, /trainingAvailabilitySendDaysBefore/)
   assert.match(source, /For repeating training, this applies separately to each occurrence\./)
