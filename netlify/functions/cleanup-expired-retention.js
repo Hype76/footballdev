@@ -5,10 +5,6 @@ import { json } from './lib/_stripe-billing.js'
 
 const DATA_TRANSFER_PRIVATE_BUCKET = 'data-transfer-private'
 
-export const config = {
-  schedule: '@daily',
-}
-
 async function deleteExpiredVoiceNotes(nowIso) {
   const { data: notes, error } = await supabaseAdmin
     .from('player_staff_notes')

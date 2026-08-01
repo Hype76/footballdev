@@ -20,6 +20,9 @@
 [functions."process-platform-analytics"]
   schedule = "*/15 * * * *"
 
+[functions."cleanup-expired-retention"]
+  schedule = "@daily"
+
 [context.production]
   command = "npm run build:live && npm run verify:build-env"
 
