@@ -311,9 +311,9 @@ test('page and overall heatmaps aggregate exact hour and day values', () => {
   const players = report.pageHeatmap.rows.find((row) => row.route === '/players')
   assert.equal(players.byHour[9], 6)
   assert.equal(players.byHour[10], 2)
-  assert.equal(players.byDay[1], 8)
-  assert.equal(report.overallHeatmap.metrics.meaningfulActions[9][1], 2)
-  assert.equal(report.overallHeatmap.metrics.activeUsers[9][1], 1)
+  assert.equal(players.byDay[0], 8)
+  assert.equal(report.overallHeatmap.metrics.meaningfulActions[9][0], 2)
+  assert.equal(report.overallHeatmap.metrics.activeUsers[9][0], 1)
 })
 
 test('overall heatmap deduplicates an active user across platforms in the same hour', () => {
@@ -323,8 +323,51 @@ test('overall heatmap deduplicates an active user across platforms in the same h
       { activity_date: '2026-07-27', day_of_week: 1, hour_bucket: 9, user_id: staffId, role: 'coach', club_id: clubId, platform: 'coach_app', is_excluded: false, meaningful_actions: 1 },
     ],
   })
-  assert.equal(report.overallHeatmap.metrics.activeUsers[9][1], 1)
-  assert.equal(report.overallHeatmap.metrics.meaningfulActions[9][1], 2)
+  assert.equal(report.overallHeatmap.metrics.activeUsers[9][0], 1)
+  assert.equal(report.overallHeatmap.metrics.meaningfulActions[9][0], 2)
+})
+
+test('canonical dashboard evidence drives estate, authentication, friendly pages, role activity, and reconciled cells', () => {
+  const dashboardEvidence = {
+    definitionVersion: 3,
+    generatedAt: '2026-07-27T12:01:00Z',
+    accountEstate: { clubs: 2, teams: 3, activePlayers: 8, authenticatedStaffAccounts: 4 },
+    authentication: { successfulLoginsToday: 3, successfulLoginsSelected: 7, distinctUsersLoggingIn: 5, failedLogins: 1, failedLoginsAvailable: true },
+    productActivity: { activeUsersToday: 2, activeUsers7Days: 4, activeUsers30Days: 6, selectedActiveUsers: 6, pageViews: 9, meaningfulActions: 4, newActiveUsers: 1, returningActiveUsers: 5, activeParents: 1, activeStaff: 3, activeClubs: 2 },
+    topPages: [{ pageFamily: 'player_profile', canonicalRoute: '/player/:playerId', pageViews: 9, distinctUsers: 4, sessions: 3 }],
+    roleActivity: [{ role: 'coach', roleFamily: 'staff', activeUsers: 3, meaningfulActions: 4, totalEvents: 9 }],
+    heatmap: {
+      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      cells: [{ dayIndex: 0, hour: 9, pageViews: 9, meaningfulActions: 4, successfulLogins: 3, distinctUsers: 4, distinctClubs: 2, internalEvents: 0, fpTestEvents: 0 }],
+      totals: { pageViews: 9, meaningfulActions: 4, successfulLogins: 3 },
+    },
+    quality: { unattributedUsers: 0 },
+    processor: { processingLagSeconds: 0 },
+    reconciliation: { topPagesTotal: 9, sourcePageViewsTotal: 9, heatmapPageViewsTotal: 9 },
+  }
+  const report = reportFixture({ dashboardEvidence })
+  assert.equal(report.accountEstate.clubs, 2)
+  assert.equal(report.overview.selectedSuccessfulLogins.current, 7)
+  assert.equal(report.topPages[0].label, 'Player Profile')
+  assert.equal(report.roleActivity[0].meaningfulActions, 4)
+  assert.equal(report.overallHeatmap.metrics.pageViews[9][0], 9)
+  assert.equal(report.overallHeatmap.cells[9][0].distinctClubs, 2)
+  assert.equal(report.reconciliation.heatmapPageViewsTotal, report.reconciliation.sourcePageViewsTotal)
+})
+
+test('invalid dashboard filters fail safely and internal and FP TEST controls stay independent', () => {
+  const filters = normalizePlatformAnalyticsFilters({
+    activityType: 'not valid',
+    environment: 'secret',
+    clubId: 'not-a-uuid',
+    includeInternal: true,
+    includeFpTest: false,
+  }, now)
+  assert.equal(filters.activityType, 'all')
+  assert.equal(filters.environment, 'production')
+  assert.equal(filters.clubId, 'all')
+  assert.equal(filters.includeInternal, true)
+  assert.equal(filters.includeFpTest, false)
 })
 
 test('test, demo, Platform Admin, and non-production profiles are identified', () => {
@@ -598,8 +641,9 @@ test('Platform Admin authority is required and normal users are denied', async (
     return query
   }
   adminClient.rpc = async (name) => {
-    assert.equal(name, 'get_platform_analytics_identity_adoption')
-    return { data: identityFixture(), error: null }
+    if (name === 'get_platform_analytics_identity_adoption') return { data: identityFixture(), error: null }
+    assert.equal(name, 'get_platform_analytics_dashboard_14c')
+    return { data: { definitionVersion: 3 }, error: null }
   }
   const adminHandler = createPlatformAnalyticsHandler({ supabaseAdmin: adminClient, now: () => now })
   const adminResponse = await adminHandler({
@@ -621,7 +665,9 @@ test('privacy, accessible fallback, mobile layout, and existing controls remain 
   assert.match(migration, /metadata jsonb not null default '\{\}'::jsonb/)
   assert.match(migration, /check \(metadata = '\{\}'::jsonb\)/)
   assert.match(component, /<table/)
-  assert.match(component, /title=\{`\$\{Number\(value/)
+  assert.match(component, /aria-label=\{title\}/)
+  assert.match(component, /Cell reconciliation/)
+  assert.match(component, /Include FP TEST activity and estate/)
   assert.match(component, /sm:grid-cols-2 xl:grid-cols-4/)
   assert.match(component, /overflow-x-auto/)
   assert.match(page, /PlatformBannerManagementSection/)

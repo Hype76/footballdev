@@ -17,7 +17,22 @@ export const PLATFORM_ANALYTICS_METRICS = Object.freeze([
 ])
 
 const UK_TIME_ZONE = 'Europe/London'
-const DAY_NAMES = Object.freeze(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'])
+const DAY_NAMES = Object.freeze(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
+
+const ANALYTICS_ACTIVITY_TYPES = new Set(['all', 'authentication', 'navigation', 'meaningful_action'])
+const ANALYTICS_ENVIRONMENTS = new Set(['all', 'production', 'preview', 'test', 'local'])
+
+function safeFilterValue(value, fallback = 'all') {
+  const normalized = String(value ?? fallback).trim()
+  return /^[a-zA-Z0-9_:/.-]{1,120}$/.test(normalized) ? normalized : fallback
+}
+
+function safeUuidFilter(value) {
+  const normalized = String(value ?? 'all').trim()
+  return normalized === 'all' || /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)
+    ? normalized
+    : 'all'
+}
 
 function numberValue(value) {
   const number = Number(value ?? 0)
@@ -104,14 +119,22 @@ export function resolvePlatformAnalyticsRange(input = {}, now = new Date()) {
 
 export function normalizePlatformAnalyticsFilters(input = {}, now = new Date()) {
   const range = resolvePlatformAnalyticsRange(input, now)
+  const legacyExcluded = input.includeExcluded === true || input.includeExcluded === 'true'
+  const activityType = safeFilterValue(input.activityType)
+  const environment = safeFilterValue(input.environment, 'production')
   return {
     ...range,
-    role: String(input.role ?? 'all').trim() || 'all',
-    platform: String(input.platform ?? 'all').trim() || 'all',
-    clubId: String(input.clubId ?? 'all').trim() || 'all',
-    plan: String(input.plan ?? 'all').trim() || 'all',
-    route: String(input.route ?? 'all').trim() || 'all',
-    includeExcluded: input.includeExcluded === true || input.includeExcluded === 'true',
+    role: safeFilterValue(input.role),
+    platform: safeFilterValue(input.platform),
+    clubId: safeUuidFilter(input.clubId),
+    plan: safeFilterValue(input.plan),
+    route: safeFilterValue(input.route),
+    activityType: ANALYTICS_ACTIVITY_TYPES.has(activityType) ? activityType : 'all',
+    environment: ANALYTICS_ENVIRONMENTS.has(environment) ? environment : 'production',
+    pageFamily: safeFilterValue(input.pageFamily),
+    includeInternal: legacyExcluded || input.includeInternal === true || input.includeInternal === 'true',
+    includeFpTest: legacyExcluded || input.includeFpTest === true || input.includeFpTest === 'true',
+    includeExcluded: legacyExcluded,
   }
 }
 
@@ -234,7 +257,7 @@ function buildPageHeatmap(hourlyPageRows, dailyPageRows, topRoutes, filters, clu
     if (!routeSet.has(route)) continue
     const date = toUtcDate(`${row.activity_date ?? row.activityDate}T12:00:00.000Z`)
     if (!date) continue
-    const day = date.getUTCDay()
+    const day = (date.getUTCDay() + 6) % 7
     byDay.set(`${route}:${day}`, (byDay.get(`${route}:${day}`) ?? 0) + numberValue(row.page_views ?? row.pageViews))
   }
 
@@ -264,7 +287,7 @@ function buildOverallHeatmap(hourlyRows, filters, clubPlanById) {
   const activeUserMaps = new Map()
 
   for (const row of filtered) {
-    const day = numberValue(row.day_of_week ?? row.dayOfWeek)
+    const day = (numberValue(row.day_of_week ?? row.dayOfWeek) + 6) % 7
     const hour = numberValue(row.hour_bucket ?? row.hourBucket)
     const key = `${day}:${hour}`
 
@@ -323,7 +346,7 @@ export function recommendMaintenanceWindow(hourlyRows, filters, clubPlanById) {
   for (let day = 0; day < 7; day += 1) {
     for (let hour = 0; hour < 23; hour += 1) {
       const matchingRows = filtered.filter((row) => {
-        const rowDay = numberValue(row.day_of_week ?? row.dayOfWeek)
+        const rowDay = (numberValue(row.day_of_week ?? row.dayOfWeek) + 6) % 7
         const rowHour = numberValue(row.hour_bucket ?? row.hourBucket)
         return rowDay === day && (rowHour === hour || rowHour === hour + 1)
       })
@@ -398,6 +421,109 @@ function canonicalIdentityMetrics(identityAdoption = {}) {
   }
 }
 
+const FRIENDLY_PAGE_NAMES = Object.freeze({
+  parent_overview: 'Parent Overview',
+  parent_calendar: 'Parent Calendar',
+  parent_chat: 'Parent Chat',
+  parent_polls: 'Parent Polls',
+  friends_family: 'Friends and Family',
+  staff_calendar: 'Staff Calendar',
+  player_profile: 'Player Profile',
+  development: 'Development',
+  game_day: 'Game Day',
+  staff_access: 'Staff Access',
+  platform_analytics: 'Platform Analytics',
+  no_page: 'No page',
+})
+
+function friendlyPageName(pageFamily, canonicalRoute) {
+  if (FRIENDLY_PAGE_NAMES[pageFamily]) return FRIENDLY_PAGE_NAMES[pageFamily]
+  const route = String(canonicalRoute || pageFamily || '/other')
+  return route
+    .replace(/^\//, '')
+    .replace(/\//g, ' ')
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase()) || 'Other'
+}
+
+function buildCanonicalHeatmap(evidence = {}) {
+  const cells = Array.isArray(evidence.cells) ? evidence.cells : []
+  const cellMap = new Map(cells.map((cell) => [`${numberValue(cell.hour)}:${numberValue(cell.dayIndex)}`, cell]))
+  const metrics = ['meaningfulActions', 'successfulLogins', 'pageViews']
+
+  return {
+    days: Array.isArray(evidence.days) && evidence.days.length === 7 ? evidence.days : DAY_NAMES,
+    hours: Array.from({ length: 24 }, (_, hour) => hour),
+    metrics: Object.fromEntries(metrics.map((metric) => [
+      metric,
+      Array.from({ length: 24 }, (_, hour) =>
+        Array.from({ length: 7 }, (_, day) => numberValue(cellMap.get(`${hour}:${day}`)?.[metric])),
+      ),
+    ])),
+    cells: Array.from({ length: 24 }, (_, hour) =>
+      Array.from({ length: 7 }, (_, day) => {
+        const cell = cellMap.get(`${hour}:${day}`) || {}
+        return {
+          dayIndex: day,
+          day: (evidence.days || DAY_NAMES)[day] || DAY_NAMES[day],
+          hour,
+          pageViews: numberValue(cell.pageViews),
+          meaningfulActions: numberValue(cell.meaningfulActions),
+          successfulLogins: numberValue(cell.successfulLogins),
+          distinctUsers: numberValue(cell.distinctUsers),
+          distinctClubs: numberValue(cell.distinctClubs),
+          internalEvents: numberValue(cell.internalEvents),
+          fpTestEvents: numberValue(cell.fpTestEvents),
+        }
+      }),
+    ),
+    totals: {
+      pageViews: numberValue(evidence.totals?.pageViews),
+      meaningfulActions: numberValue(evidence.totals?.meaningfulActions),
+      successfulLogins: numberValue(evidence.totals?.successfulLogins),
+    },
+    timezone: 'Europe/London',
+    dayOrder: 'Monday to Sunday',
+  }
+}
+
+function canonicalDashboardSections(dashboardEvidence = {}, identity = {}) {
+  if (numberValue(dashboardEvidence.definitionVersion) < 3) return null
+  const product = dashboardEvidence.productActivity || {}
+  const authentication = dashboardEvidence.authentication || {}
+  const rawPages = Array.isArray(dashboardEvidence.topPages) ? dashboardEvidence.topPages : []
+  const pageViewsTotal = rawPages.reduce((total, page) => total + numberValue(page.pageViews), 0)
+  const topPages = rawPages.map((page) => ({
+    route: page.canonicalRoute || '/other',
+    pageFamily: page.pageFamily || 'other',
+    label: friendlyPageName(page.pageFamily, page.canonicalRoute),
+    pageViews: numberValue(page.pageViews),
+    uniqueUsers: numberValue(page.distinctUsers),
+    sessions: numberValue(page.sessions),
+    percentage: pageViewsTotal ? Math.round((numberValue(page.pageViews) / pageViewsTotal) * 1000) / 10 : 0,
+    comparison: { comparisonAvailable: false, current: numberValue(page.pageViews), previous: 0, changePercent: null },
+  }))
+
+  return {
+    generatedAt: dashboardEvidence.generatedAt || null,
+    accountEstate: dashboardEvidence.accountEstate || {},
+    authentication,
+    productActivity: {
+      ...product,
+      activeParents: product.activeParents === undefined ? numberValue(identity.activity?.activeParents) : numberValue(product.activeParents),
+      activeStaff: product.activeStaff === undefined ? numberValue(identity.activity?.activeStaff) : numberValue(product.activeStaff),
+      activeClubs: product.activeClubs === undefined ? numberValue(identity.activity?.activeClubs) : numberValue(product.activeClubs),
+      pageDrilldown: topPages.map((page) => ({ id: page.pageFamily, eventCount: page.pageViews })),
+    },
+    topPages,
+    roleActivity: Array.isArray(dashboardEvidence.roleActivity) ? dashboardEvidence.roleActivity : [],
+    overallHeatmap: buildCanonicalHeatmap(dashboardEvidence.heatmap),
+    dataQuality: dashboardEvidence.quality || {},
+    processor: dashboardEvidence.processor || {},
+    reconciliation: dashboardEvidence.reconciliation || {},
+  }
+}
+
 export function buildPlatformAnalyticsReport({
   dailyUsers = [],
   dailyPageUsers = [],
@@ -407,11 +533,13 @@ export function buildPlatformAnalyticsReport({
   lifetimes = [],
   clubs = [],
   identityAdoption = {},
+  dashboardEvidence = {},
   filters: filterInput = {},
   now = new Date(),
 } = {}) {
   const filters = normalizePlatformAnalyticsFilters(filterInput, now)
   const identity = canonicalIdentityMetrics(identityAdoption)
+  const canonicalDashboard = canonicalDashboardSections(dashboardEvidence, identity)
   const clubPlanById = new Map(clubs.map((club) => [String(club.id ?? ''), String(club.plan_key ?? club.planKey ?? '')]))
   const selectedRows = selectedDailyRows(dailyUsers, filters, clubPlanById)
   const previousRows = activityWithin(dailyUsers, filters, clubPlanById, filters.previousStartDate, filters.previousEndDate)
@@ -434,7 +562,7 @@ export function buildPlatformAnalyticsReport({
   const pageViews = topPages.reduce((total, page) => total + page.pageViews, 0)
   const previousPageViews = previousPages.reduce((total, page) => total + page.pageViews, 0)
   return {
-    generatedAt: now.toISOString(),
+    generatedAt: canonicalDashboard?.generatedAt || now.toISOString(),
     timezone: UK_TIME_ZONE,
     filters,
     exclusionsActive: !filters.includeExcluded,
@@ -446,24 +574,30 @@ export function buildPlatformAnalyticsReport({
       engagedClub: 'A club with at least two active users across at least two separate days.',
       registry: platformAnalyticsMetricDefinitions(),
     },
+    accountEstate: canonicalDashboard?.accountEstate || {},
+    authentication: canonicalDashboard?.authentication || {},
+    productActivity: canonicalDashboard?.productActivity || {},
     overview: {
-      activeUsersToday: uniqueCount(activeRows(todayRows), (row) => String(row.user_id ?? row.userId ?? '')),
-      activeUsers7Days: uniqueCount(activeRows(sevenDayRows), (row) => String(row.user_id ?? row.userId ?? '')),
-      activeUsers30Days: uniqueCount(activeRows(thirtyDayRows), (row) => String(row.user_id ?? row.userId ?? '')),
+      activeUsersToday: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeUsersToday) : uniqueCount(activeRows(todayRows), (row) => String(row.user_id ?? row.userId ?? '')),
+      activeUsers7Days: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeUsers7Days) : uniqueCount(activeRows(sevenDayRows), (row) => String(row.user_id ?? row.userId ?? '')),
+      activeUsers30Days: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeUsers30Days) : uniqueCount(activeRows(thirtyDayRows), (row) => String(row.user_id ?? row.userId ?? '')),
       selectedActiveUsers: compareMetric(
-        selectedActiveUserIds.size,
+        canonicalDashboard ? numberValue(canonicalDashboard.productActivity.selectedActiveUsers) : selectedActiveUserIds.size,
         uniqueCount(previousActiveRows, (row) => String(row.user_id ?? row.userId ?? '')),
       ),
-      successfulLoginsToday: sum(todayRows, 'login_count'),
-      selectedSuccessfulLogins: compareMetric(sum(selectedRows, 'login_count'), sum(previousRows, 'login_count')),
-      newUsers,
-      returningUsers,
-      activeParents: identity.available ? numberValue(identity.activity.activeParents) : 0,
-      activeStaff: identity.available ? numberValue(identity.activity.activeStaff) : 0,
-      activeClubs: identity.available ? numberValue(identity.activity.activeClubs) : 0,
-      pageViews: compareMetric(pageViews, previousPageViews),
+      successfulLoginsToday: canonicalDashboard ? numberValue(canonicalDashboard.authentication.successfulLoginsToday) : sum(todayRows, 'login_count'),
+      selectedSuccessfulLogins: compareMetric(canonicalDashboard ? numberValue(canonicalDashboard.authentication.successfulLoginsSelected) : sum(selectedRows, 'login_count'), sum(previousRows, 'login_count')),
+      distinctUsersLoggingIn: canonicalDashboard ? numberValue(canonicalDashboard.authentication.distinctUsersLoggingIn) : 0,
+      failedLogins: canonicalDashboard?.authentication.failedLoginsAvailable ? numberValue(canonicalDashboard.authentication.failedLogins) : null,
+      newUsers: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.newActiveUsers) : newUsers,
+      returningUsers: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.returningActiveUsers) : returningUsers,
+      activeParents: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeParents) : (identity.available ? numberValue(identity.activity.activeParents) : 0),
+      activeStaff: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeStaff) : (identity.available ? numberValue(identity.activity.activeStaff) : 0),
+      activeClubs: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeClubs) : (identity.available ? numberValue(identity.activity.activeClubs) : 0),
+      pageViews: compareMetric(canonicalDashboard ? numberValue(canonicalDashboard.productActivity.pageViews) : pageViews, previousPageViews),
+      meaningfulActions: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.meaningfulActions) : sum(selectedRows, 'meaningful_action_count'),
     },
-    roleActivity: Object.values(
+    roleActivity: canonicalDashboard?.roleActivity || Object.values(
       selectedActiveRows.reduce((map, row) => {
         const role = String(row.role ?? 'unknown')
         const current = map[role] || { role, userIds: new Set(), meaningfulActions: 0 }
@@ -475,25 +609,42 @@ export function buildPlatformAnalyticsReport({
     )
       .map((row) => ({ role: row.role, activeUsers: row.userIds.size, meaningfulActions: row.meaningfulActions }))
       .sort((left, right) => right.activeUsers - left.activeUsers || left.role.localeCompare(right.role)),
-    topPages,
+    topPages: canonicalDashboard?.topPages || topPages,
     pageHeatmap: buildPageHeatmap(hourlyPages, dailyPageUsers, topPages, filters, clubPlanById),
-    overallHeatmap: buildOverallHeatmap(hourlyUsers.length ? hourlyUsers : hourlyPlatform, filters, clubPlanById),
-    maintenanceWindow: recommendMaintenanceWindow(hourlyUsers.length ? hourlyUsers : hourlyPlatform, {
-      ...filters,
-      startDate: addUtcDays(filters.today, -89),
-      endDate: filters.today,
-    }, clubPlanById),
+    overallHeatmap: canonicalDashboard?.overallHeatmap || buildOverallHeatmap(hourlyUsers.length ? hourlyUsers : hourlyPlatform, filters, clubPlanById),
+    dataQuality: canonicalDashboard?.dataQuality || {},
+    processor: canonicalDashboard?.processor || {},
+    reconciliation: canonicalDashboard?.reconciliation || {},
+    maintenanceWindow: filters.includeInternal || filters.includeFpTest || filters.environment !== 'production' || filters.activityType !== 'all' || filters.pageFamily !== 'all'
+      ? {
+        available: false,
+        confidence: 'Filtered view',
+        weeksAnalyzed: 0,
+        message: 'Quiet-window guidance is shown only for the default production customer-activity scope.',
+      }
+      : recommendMaintenanceWindow(hourlyUsers.length ? hourlyUsers : hourlyPlatform, {
+        ...filters,
+        startDate: addUtcDays(filters.today, -89),
+        endDate: filters.today,
+      }, clubPlanById),
     parentAdoption: {
       ...identity.parent,
+      stages: (identity.parent.stages || []).map((stage) => stage.key === 'active' && canonicalDashboard
+        ? { ...stage, count: numberValue(canonicalDashboard.productActivity.activeParents) }
+        : stage),
       registered: numberValue(identity.parent.authenticatedParentAccounts),
       activated: numberValue(identity.parent.parentsWithFirstMeaningfulAction),
-      active: numberValue(identity.parent.activeParents),
+      active: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeParents) : numberValue(identity.parent.activeParents),
       dormant: numberValue(identity.parent.dormantActivatedParents),
       available: identity.available,
     },
-    staffAccounts: { ...identity.staff, available: identity.available },
+    staffAccounts: {
+      ...identity.staff,
+      activeStaffAccounts: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeStaff) : numberValue(identity.staff.activeStaffAccounts),
+      available: identity.available,
+    },
     clubActivity: {
-      active: numberValue(identity.activity.activeClubs),
+      active: canonicalDashboard ? numberValue(canonicalDashboard.productActivity.activeClubs) : numberValue(identity.activity.activeClubs),
       engaged: null,
       oneAdministrator: null,
       neverActivated: numberValue(identity.activation.noStaffLoginObserved),
@@ -520,6 +671,9 @@ export function buildPlatformAnalyticsReport({
         .sort((left, right) => left.name.localeCompare(right.name)),
       plans: [...new Set(clubs.map((club) => String(club.plan_key ?? club.planKey ?? '')).filter(Boolean))].sort(),
       routes: topPages.map((page) => page.route),
+      activityTypes: ['authentication', 'navigation', 'meaningful_action'],
+      environments: ['production', 'preview', 'test', 'local'],
+      pageFamilies: canonicalDashboard?.topPages.map((page) => ({ value: page.pageFamily, label: page.label })) || [],
     },
     dataState: dailyUsers.length
       ? (selectedRows.length || topPages.length ? 'available' : 'empty')

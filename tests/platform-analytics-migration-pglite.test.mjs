@@ -27,6 +27,10 @@ const identityAdoptionMigration = await readFile(
   new URL('../supabase/migrations/20260801010209_analytics_identity_adoption_14b.sql', import.meta.url),
   'utf8',
 )
+const dashboardHeatmapsMigration = await readFile(
+  new URL('../supabase/migrations/20260801011042_analytics_dashboard_heatmaps_14c.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
@@ -107,6 +111,12 @@ async function createDatabase() {
       invite_sent_at timestamptz
     );
 
+    create table public.evaluations (
+      id uuid primary key default gen_random_uuid(),
+      club_id uuid not null references public.clubs(id),
+      created_at timestamptz not null default now()
+    );
+
     insert into public.clubs (id, name) values ('${IDS.club}', 'Analytics Test Club');
     insert into public.teams (id, club_id, name) values ('${IDS.team}', '${IDS.club}', 'Analytics Test Team');
     insert into public.teams (id, club_id, name) values ('${IDS.teamTwo}', '${IDS.club}', 'Analytics Test Team Two');
@@ -120,6 +130,7 @@ async function createDatabase() {
   await db.exec(quarantineConflictAlignmentMigration)
   await db.exec(atomicProcessorCompletionMigration)
   await db.exec(identityAdoptionMigration)
+  await db.exec(dashboardHeatmapsMigration)
   return db
 }
 
@@ -387,6 +398,107 @@ test('identity adoption reconciles parent links, multi-team staff, dual roles, e
         has_function_privilege('service_role', 'public.get_platform_analytics_identity_adoption(date,date,uuid,text,boolean,text,text)', 'execute') as service_execute
     `)
     assert.deepEqual(privileges.rows[0], { authenticated_execute: false, service_execute: true })
+  } finally {
+    await db.close()
+  }
+})
+
+test('dashboard read model reconciles estate, event-time roles, friendly page families, and Monday-first heatmap cells', async () => {
+  const db = await createDatabase()
+
+  try {
+    await insertFixtureEvents(db)
+    await db.exec(`
+      insert into public.players (id, club_id, team_id, status, created_at)
+      values ('${IDS.player}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-01T00:00:00Z');
+      insert into public.parent_player_links (club_id, team_id, player_id, auth_user_id, status, accepted_at)
+      values ('${IDS.club}', '${IDS.team}', '${IDS.player}', '${IDS.parent}', 'active', '2026-03-10T00:00:00Z');
+      insert into public.team_staff (team_id, user_id, role_key)
+      values ('${IDS.team}', '${IDS.staff}', 'coach');
+      insert into public.evaluations (club_id, created_at)
+      values ('${IDS.club}', '2026-03-15T00:00:00Z');
+      update public.analytics_events
+      set
+        actor_auth_user_id = user_id,
+        actor_profile_id = user_id,
+        actor_role_at_event = role,
+        actor_role_family = case when role = 'parent_portal' then 'parent' else 'staff' end,
+        production_state = 'production',
+        internal_state = false,
+        fp_test_state = false,
+        schema_version = 2;
+    `)
+
+    const result = await db.query(`
+      select public.get_platform_analytics_dashboard_14c(
+        '2026-03-01', '2026-07-27', null, null, null, null, null,
+        'production', null, false, false
+      ) as dashboard
+    `)
+    const dashboard = result.rows[0].dashboard
+    assert.equal(dashboard.accountEstate.clubs, 1)
+    assert.equal(dashboard.accountEstate.teams, 2)
+    assert.equal(dashboard.accountEstate.activePlayers, 1)
+    assert.equal(dashboard.accountEstate.authenticatedStaffAccounts, 1)
+    assert.equal(dashboard.accountEstate.authenticatedParentAccounts, 1)
+    assert.equal(dashboard.accountEstate.developmentRecords, 1)
+    assert.equal(dashboard.reconciliation.topPagesTotal, dashboard.reconciliation.sourcePageViewsTotal)
+    assert.equal(dashboard.reconciliation.heatmapMeaningfulTotal, dashboard.reconciliation.sourceMeaningfulTotal)
+    assert.equal(dashboard.heatmap.days[0], 'Monday')
+    assert.equal(dashboard.heatmap.days[6], 'Sunday')
+    assert.equal(dashboard.heatmap.cells.every((cell) => cell.dayIndex >= 0 && cell.dayIndex <= 6), true)
+    assert.equal(JSON.stringify(dashboard).includes('@'), false)
+
+    const privileges = await db.query(`
+      select
+        has_function_privilege('authenticated', 'public.get_platform_analytics_dashboard_14c(date,date,uuid,text,text,text,text,text,text,boolean,boolean)', 'execute') as authenticated_execute,
+        has_function_privilege('service_role', 'public.get_platform_analytics_dashboard_14c(date,date,uuid,text,text,text,text,text,text,boolean,boolean)', 'execute') as service_execute
+    `)
+    assert.deepEqual(privileges.rows[0], { authenticated_execute: false, service_execute: true })
+  } finally {
+    await db.close()
+  }
+})
+
+test('dashboard read model stays bounded at larger synthetic volume', async () => {
+  const db = await createDatabase()
+
+  try {
+    await db.exec(`
+      set role service_role;
+      insert into public.analytics_events (
+        occurred_at, event_name, user_id, role, club_id, session_id, platform,
+        canonical_route, feature_key, environment, metadata, client_event_id,
+        source_kind, is_meaningful, is_parent_activation, is_club_activation, is_excluded
+      )
+      select
+        '2026-07-27T09:00:00Z'::timestamptz + (value || ' seconds')::interval,
+        case when value % 2 = 0 then 'page.viewed' else 'development.record_submitted' end,
+        '${IDS.staff}', 'coach', '${IDS.club}', 'session:bulk', 'web',
+        case when value % 2 = 0 then '/player/:playerId' else '/create-evaluation' end,
+        case when value % 2 = 0 then 'player' else 'development' end,
+        'production', '{}', 'event:bulk:' || value, 'direct', value % 2 = 1,
+        false, value % 2 = 1, false
+      from generate_series(1, 10000) value;
+      reset role;
+    `)
+
+    const startedAt = performance.now()
+    const result = await db.query(`
+      select public.get_platform_analytics_dashboard_14c(
+        '2026-07-01', '2026-07-31', null, null, null, null, null,
+        'production', null, false, false
+      ) as dashboard
+    `)
+    const elapsedMs = performance.now() - startedAt
+    const dashboard = result.rows[0].dashboard
+    assert.equal(dashboard.productActivity.pageViews, 5000)
+    assert.equal(dashboard.productActivity.meaningfulActions, 5000)
+    assert.equal(dashboard.reconciliation.heatmapPageViewsTotal, 5000)
+    assert.ok(dashboard.heatmap.cells.length <= 168)
+    assert.ok(dashboard.productActivity.drilldown.length <= 500)
+    assert.ok(JSON.stringify(dashboard).length < 1_000_000)
+    assert.ok(elapsedMs < 10000, `bounded dashboard query took ${elapsedMs}ms`)
   } finally {
     await db.close()
   }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import {
   PlatformDataHygieneSection,
@@ -67,8 +68,41 @@ const DEFAULT_ANALYTICS_FILTERS = Object.freeze({
   clubId: 'all',
   plan: 'all',
   route: 'all',
-  includeExcluded: false,
+  activityType: 'all',
+  environment: 'production',
+  pageFamily: 'all',
+  includeInternal: false,
+  includeFpTest: false,
 })
+
+const ANALYTICS_QUERY_KEYS = Object.freeze({
+  preset: 'analytics_range',
+  startDate: 'analytics_start',
+  endDate: 'analytics_end',
+  role: 'analytics_role',
+  platform: 'analytics_platform',
+  clubId: 'analytics_club',
+  plan: 'analytics_plan',
+  activityType: 'analytics_activity',
+  environment: 'analytics_environment',
+  pageFamily: 'analytics_page',
+  includeInternal: 'analytics_internal',
+  includeFpTest: 'analytics_fp_test',
+})
+
+function readAnalyticsFilters(searchParams) {
+  const next = { ...DEFAULT_ANALYTICS_FILTERS }
+  for (const [filterKey, queryKey] of Object.entries(ANALYTICS_QUERY_KEYS)) {
+    const value = searchParams.get(queryKey)
+    if (value === null) continue
+    next[filterKey] = ['includeInternal', 'includeFpTest'].includes(filterKey) ? value === 'true' : value
+  }
+  if (!['today', '7_days', '30_days', '90_days', 'custom'].includes(next.preset)) next.preset = '30_days'
+  if (!['all', 'authentication', 'navigation', 'meaningful_action'].includes(next.activityType)) next.activityType = 'all'
+  if (!['all', 'production', 'preview', 'test', 'local'].includes(next.environment)) next.environment = 'production'
+  if (next.clubId !== 'all' && !/^[0-9a-f-]{36}$/i.test(next.clubId)) next.clubId = 'all'
+  return next
+}
 
 function getPlatformActionErrorMessage(error, fallbackMessage) {
   const code = String(error?.code || error?.status || error?.statusCode || '').trim()
@@ -170,6 +204,7 @@ const PAGE_META = {
 }
 
 export function PlatformAdminPage({ section = 'dashboard' }) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { session, user } = useAuth()
   const { showToast } = useToast()
   const pageMeta = PAGE_META[section] || PAGE_META.dashboard
@@ -182,7 +217,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const showLegacyFeedback = section === 'feedback-legacy'
   const [stats, setStats] = useState(() => readCachedPlatformStats())
   const [analyticsReport, setAnalyticsReport] = useState(null)
-  const [analyticsFilters, setAnalyticsFilters] = useState(DEFAULT_ANALYTICS_FILTERS)
+  const [analyticsFilters, setAnalyticsFilters] = useState(() => readAnalyticsFilters(searchParams))
   const [analyticsErrorMessage, setAnalyticsErrorMessage] = useState('')
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false)
   const [feedbackItems, setFeedbackItems] = useState(() => {
@@ -236,6 +271,17 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     email: '',
     password: '',
   })
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    for (const [filterKey, queryKey] of Object.entries(ANALYTICS_QUERY_KEYS)) {
+      const value = analyticsFilters[filterKey]
+      const defaultValue = DEFAULT_ANALYTICS_FILTERS[filterKey]
+      if (value === defaultValue || value === '' || value === false) next.delete(queryKey)
+      else next.set(queryKey, String(value))
+    }
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true })
+  }, [analyticsFilters, searchParams, setSearchParams])
 
   const loadAnalytics = async ({ refresh = false } = {}) => {
     if (!isSuperAdmin(user) || !session?.access_token) return
@@ -1155,6 +1201,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           filters={analyticsFilters}
           isLoading={isAnalyticsLoading}
           onFiltersChange={setAnalyticsFilters}
+          onFiltersReset={() => setAnalyticsFilters({ ...DEFAULT_ANALYTICS_FILTERS })}
           onRefresh={() => void loadAnalytics({ refresh: true })}
           report={analyticsReport}
         />

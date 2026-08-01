@@ -285,6 +285,11 @@ function reportFilterInput(event) {
     clubId: queryValue(event, 'clubId'),
     plan: queryValue(event, 'plan'),
     route: queryValue(event, 'route'),
+    activityType: queryValue(event, 'activityType'),
+    environment: queryValue(event, 'environment'),
+    pageFamily: queryValue(event, 'pageFamily'),
+    includeInternal: queryValue(event, 'includeInternal'),
+    includeFpTest: queryValue(event, 'includeFpTest'),
     includeExcluded: queryValue(event, 'includeExcluded'),
   }
 }
@@ -362,6 +367,7 @@ export async function loadPlatformAnalyticsReport({
     clubs,
     users,
     identityAdoptionResult,
+    dashboardEvidenceResult,
   ] = await Promise.all([
     selectReportTable(
       supabaseAdmin,
@@ -410,12 +416,26 @@ export async function loadPlatformAnalyticsReport({
       end_date_value: filters.endDate,
       club_id_value: filters.clubId === 'all' ? null : filters.clubId,
       plan_key_value: filters.plan === 'all' ? null : filters.plan,
-      include_excluded_value: filters.includeExcluded,
+      include_excluded_value: filters.includeExcluded || filters.includeFpTest,
       role_value: filters.role === 'all' ? null : filters.role,
       platform_value: filters.platform === 'all' ? null : filters.platform,
     }),
+    supabaseAdmin.rpc('get_platform_analytics_dashboard_14c', {
+      start_date_value: filters.startDate,
+      end_date_value: filters.endDate,
+      club_id_value: filters.clubId === 'all' ? null : filters.clubId,
+      plan_key_value: filters.plan === 'all' ? null : filters.plan,
+      role_value: filters.role === 'all' ? null : filters.role,
+      platform_value: filters.platform === 'all' ? null : filters.platform,
+      activity_type_value: filters.activityType === 'all' ? null : filters.activityType,
+      environment_value: filters.environment === 'all' ? null : filters.environment,
+      page_family_value: filters.pageFamily === 'all' ? null : filters.pageFamily,
+      include_internal_value: filters.includeInternal,
+      include_fp_test_value: filters.includeFpTest,
+    }),
   ])
   if (identityAdoptionResult.error) throw identityAdoptionResult.error
+  if (dashboardEvidenceResult.error) throw dashboardEvidenceResult.error
   const environment = resolveAnalyticsEnvironment(event)
   const safeUsers = users.map((user) => ({
     id: user.id,
@@ -437,6 +457,7 @@ export async function loadPlatformAnalyticsReport({
     clubs,
     users: safeUsers,
     identityAdoption: identityAdoptionResult.data || {},
+    dashboardEvidence: dashboardEvidenceResult.data || {},
     filters,
     now,
   })

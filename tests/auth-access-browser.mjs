@@ -215,7 +215,7 @@ async function preparePage(context, {
     }
 
     const hours = Array.from({ length: 24 }, (_, hour) => hour)
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     const emptyHourDayGrid = () => hours.map(() => days.map(() => 0))
     const activeGrid = emptyHourDayGrid()
     activeGrid[9][1] = 4
@@ -229,6 +229,41 @@ async function preparePage(context, {
       },
       exclusionsActive: true,
       dataState: 'available',
+      accountEstate: {
+        clubs: 2,
+        teams: 3,
+        activePlayers: 24,
+        authenticatedStaffAccounts: 8,
+        authenticatedParentAccounts: 10,
+        parentContacts: 12,
+        activeParentChildLinks: 11,
+        parentOnlyAccounts: 6,
+        staffWithParentAccess: 4,
+        developmentRecords: 32,
+        drilldown: {},
+      },
+      authentication: {
+        successfulLoginsToday: 6,
+        successfulLoginsSelected: 24,
+        distinctUsersLoggingIn: 12,
+        failedLogins: 0,
+        failedLoginsAvailable: true,
+        drilldown: [],
+      },
+      productActivity: {
+        activeUsersToday: 4,
+        activeUsers7Days: 8,
+        activeUsers30Days: 12,
+        activeParents: 4,
+        activeStaff: 8,
+        activeClubs: 2,
+        pageViews: 42,
+        meaningfulActions: 42,
+        newActiveUsers: 3,
+        returningActiveUsers: 9,
+        drilldown: [],
+        pageDrilldown: [],
+      },
       definitions: {
         activeUser: 'A distinct authenticated user with at least one approved meaningful action.',
         successfulLogin: 'A completed authentication event, reported separately from meaningful activity.',
@@ -278,6 +313,8 @@ async function preparePage(context, {
       overallHeatmap: {
         hours,
         days,
+        cells: hours.map((hour) => days.map((day, dayIndex) => ({ day, dayIndex, hour, pageViews: activeGrid[hour][dayIndex], meaningfulActions: activeGrid[hour][dayIndex], successfulLogins: activeGrid[hour][dayIndex], distinctUsers: activeGrid[hour][dayIndex], distinctClubs: activeGrid[hour][dayIndex] ? 1 : 0, internalEvents: 0, fpTestEvents: 0 }))),
+        totals: { pageViews: 4, meaningfulActions: 4, successfulLogins: 4 },
         metrics: {
           activeUsers: activeGrid,
           meaningfulActions: activeGrid,
@@ -312,12 +349,18 @@ async function preparePage(context, {
         oneAdministrator: 1,
         neverActivated: 0,
       },
+      staffAccounts: { authenticatedStaffAccounts: 8, assignmentCount: 9, multiTeamAccounts: 1, activeStaffAccounts: 8 },
+      dataQuality: { unattributedUsers: 0, unattributedRoles: 0, unattributedClubs: 0, unknownEventNames: 0, quarantinedEvents: 0, unprocessedEvents: 0, internalEvents: 0, fpTestEvents: 0 },
+      processor: { processingLagSeconds: 0 },
       options: {
         roles: ['coach', 'parent_portal'],
         platforms: ['web', 'parent_app'],
         clubs: [{ id: 'fixture-club', name: 'Fixture Club', plan: 'small_club' }],
         plans: ['small_club'],
         routes: ['/players', '/calendar'],
+        activityTypes: ['authentication', 'navigation', 'meaningful_action'],
+        environments: ['production', 'preview', 'test', 'local'],
+        pageFamilies: [{ value: 'player_profile', label: 'Player Profile' }],
       },
     }
     await route.fulfill({
@@ -1274,20 +1317,22 @@ try {
     await page.goto(`${mainBaseUrl}/platform-analytics`)
     await page.waitForURL('**/platform-analytics', { timeout: 15000 })
     await page.getByRole('heading', { name: 'Platform Analytics', exact: true }).waitFor({ state: 'visible' })
+    await assertVisibleText(page, 'Account estate')
+    await assertVisibleText(page, 'Authentication')
+    await assertVisibleText(page, 'Product activity')
     for (const title of [
       'Page and role activity',
-      'Top-page heatmaps',
-      'Overall platform heatmap',
-      'Adoption and maintenance context',
+      'Activity heatmap',
+      'Club adoption and dormancy',
     ]) {
       const section = page.getByRole('heading', { name: title, exact: true }).locator('xpath=ancestor::section[1]')
       await section.getByRole('button', { name: 'Expand', exact: true }).click()
     }
     await assertVisibleText(page, 'Top pages')
-    await assertVisibleText(page, 'Top-page heatmaps')
-    await assertVisibleText(page, 'Overall platform heatmap')
+    await assertVisibleText(page, 'Account estate')
+    await assertVisibleText(page, 'Activity heatmap')
     await assertVisibleText(page, 'Quiet-window guidance')
-    assert.equal(await page.getByRole('table').count() >= 3, true)
+    assert.equal(await page.getByRole('table').count() >= 2, true)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await assertSelectedOption(page, 'Access view', 'Platform admin')
     await assertHeaderContextPanelRemoved(page)
@@ -1304,8 +1349,8 @@ try {
     await page.goto(`${mainBaseUrl}/platform-analytics`)
     await page.waitForURL('**/platform-analytics', { timeout: 15000 })
     await page.getByRole('heading', { name: 'Platform Analytics', exact: true }).waitFor({ state: 'visible' })
-    await assertVisibleText(page, 'Top-page heatmaps')
-    await assertVisibleText(page, 'Overall platform heatmap')
+    await assertVisibleText(page, 'Account estate')
+    await assertVisibleText(page, 'Activity heatmap')
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await context.close()
   })
