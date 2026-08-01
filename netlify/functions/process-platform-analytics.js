@@ -10,8 +10,15 @@ const MAX_PROCESSING_ROWS = 20_000
 const PROCESSING_PAGE_SIZE = 1_000
 const STALE_RUN_AFTER_MS = 30 * 60 * 1000
 
-function isoDate(value) {
-  return new Date(value).toISOString().slice(0, 10)
+export function analyticsReportingDate(value) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(value))
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${byType.year}-${byType.month}-${byType.day}`
 }
 
 async function loadProcessorState(supabaseAdmin, now) {
@@ -146,8 +153,8 @@ export async function processPlatformAnalytics({
     })
     const events = await pendingEvents(supabaseAdmin, endAt)
     const occurredDates = events.map((row) => row.occurred_at).filter(Boolean).sort()
-    const refreshStart = occurredDates.length ? isoDate(occurredDates[0]) : isoDate(startAt)
-    const refreshEnd = occurredDates.length ? isoDate(occurredDates.at(-1)) : isoDate(endAt)
+    const refreshStart = occurredDates.length ? analyticsReportingDate(occurredDates[0]) : analyticsReportingDate(startAt)
+    const refreshEnd = occurredDates.length ? analyticsReportingDate(occurredDates.at(-1)) : analyticsReportingDate(endAt)
 
     const { error: refreshError } = await supabaseAdmin.rpc('refresh_platform_analytics_aggregates', {
       start_date_value: refreshStart,

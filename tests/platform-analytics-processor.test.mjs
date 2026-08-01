@@ -4,11 +4,16 @@ import test from 'node:test'
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-only-service-role-key'
 
-const { processPlatformAnalytics } = await import('../netlify/functions/process-platform-analytics.js')
+const { analyticsReportingDate, processPlatformAnalytics } = await import('../netlify/functions/process-platform-analytics.js')
 
 const runId = '11111111-1111-4111-8111-111111111111'
 const watermark = '2026-07-30T12:00:00.000Z'
 const now = new Date('2026-07-31T12:00:00.000Z')
+
+test('processor refresh dates use Europe London boundaries across GMT and BST', () => {
+  assert.equal(analyticsReportingDate('2026-01-31T23:30:00Z'), '2026-01-31')
+  assert.equal(analyticsReportingDate('2026-07-31T23:03:56Z'), '2026-08-01')
+})
 
 function processorClient({
   conflict = false,
