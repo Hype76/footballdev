@@ -24,7 +24,7 @@ const atomicProcessorCompletionMigration = await readFile(
   'utf8',
 )
 const identityAdoptionMigration = await readFile(
-  new URL('../supabase/migrations/20260801005845_analytics_identity_adoption_14b.sql', import.meta.url),
+  new URL('../supabase/migrations/20260801010209_analytics_identity_adoption_14b.sql', import.meta.url),
   'utf8',
 )
 
