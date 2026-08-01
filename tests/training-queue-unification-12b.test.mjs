@@ -178,7 +178,9 @@ test('automatic Training creates durable work before eligibility and uses one-mi
   ])
 
   assert.doesNotMatch(processor, /if \(sendAt\.getTime\(\) > now\.getTime\(\)\)/)
-  assert.match(processor, /upsertDueRequest\({ occurrence, sendAt, setting, supabase }\)/)
+  assert.match(processor, /claimTrainingAvailabilityProcessorWork/)
+  assert.match(processor, /completeTrainingAvailabilityProcessorWork/)
+  assert.match(processor, /const requestResult = await upsertDueRequest\({[\s\S]*occurrence,[\s\S]*sendAt: getSendAt\(occurrence, setting\)/)
   assert.match(processor, /queueTrainingInvitationRecipient/)
   assert.match(processor, /\.from\('scheduled_email_queue'\)[\s\S]*\.upsert\(queueRecord/)
   assert.match(processor, /schedule: '\* \* \* \* \*'/)

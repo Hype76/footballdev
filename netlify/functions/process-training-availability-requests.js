@@ -1,6 +1,6 @@
 import process from 'node:process'
-import { createHash, randomBytes } from 'node:crypto'
-import { createFromAddress, getPublicEmailErrorMessage } from './lib/_email-provider.js'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createFromAddress } from './lib/_email-provider.js'
 import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
@@ -17,8 +17,48 @@ export {
   buildTrainingAvailabilityCalendarIcs,
 } from './lib/_training-calendar.js'
 
+export const TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS = Object.freeze({
+  batchSize: 8,
+  leaseSeconds: 45,
+  minimumStartBudgetMs: 1500,
+  recurrenceMutationLimit: 8,
+  retryDelayMs: 60_000,
+  runtimeBudgetMs: 20_000,
+  sendGateRetryDelayMs: 300_000,
+})
+
 function normalizeText(value) {
   return String(value ?? '').trim()
+}
+
+function normalizeSafeCode(value, fallback = 'TRAINING_AVAILABILITY_PROCESSOR_FAILED') {
+  const code = normalizeText(value || fallback)
+    .toUpperCase()
+    .replace(/[^A-Z0-9_:-]+/g, '_')
+    .slice(0, 120)
+
+  return code || fallback
+}
+
+function addMilliseconds(value, milliseconds) {
+  return new Date(new Date(value).getTime() + Number(milliseconds || 0))
+}
+
+function timestampsMatch(left, right) {
+  const leftTime = new Date(left || '').getTime()
+  const rightTime = new Date(right || '').getTime()
+  return Number.isNaN(leftTime) && Number.isNaN(rightTime)
+    ? normalizeText(left) === normalizeText(right)
+    : leftTime === rightTime
+}
+
+export function hasTrainingAvailabilityRuntimeBudget({
+  nowMs = Date.now(),
+  startedAtMs,
+  minimumStartBudgetMs = TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.minimumStartBudgetMs,
+  runtimeBudgetMs = TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.runtimeBudgetMs,
+} = {}) {
+  return Number(nowMs) - Number(startedAtMs) + Number(minimumStartBudgetMs) < Number(runtimeBudgetMs)
 }
 
 function normalizeEmail(value) {
@@ -216,21 +256,18 @@ export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSched
   }
 }
 
-async function loadSettings(supabase) {
+async function loadRecurrenceSetting({ supabase, work }) {
   const { data, error } = await supabase
     .from('training_availability_settings')
     .select('*, calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url))')
-    .eq('enabled', true)
-    .limit(100)
+    .eq('id', work.setting_id)
+    .maybeSingle()
 
   if (error) {
     throw error
   }
 
-  return (data ?? []).filter((setting) => {
-    const event = Array.isArray(setting.calendar_events) ? setting.calendar_events[0] : setting.calendar_events
-    return event?.id && event.event_type === 'training' && !event.cancelled_at && event.team_id
-  })
+  return data
 }
 
 export function getReconciledRequestSendAt({
@@ -249,17 +286,23 @@ export function getReconciledRequestSendAt({
   return preserveEligibleQueue ? existingSendAt : automaticSendAt
 }
 
-async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
+async function upsertDueRequest({ existingRequest: providedRequest, occurrence, sendAt, setting, supabase }) {
   const event = Array.isArray(setting.calendar_events) ? setting.calendar_events[0] : setting.calendar_events
-  const { data: existingRequest, error: existingRequestError } = await supabase
-    .from('training_availability_requests')
-    .select('*')
-    .eq('calendar_event_id', setting.calendar_event_id)
-    .eq('occurrence_date', occurrence.occurrenceDate)
-    .maybeSingle()
+  let existingRequest = providedRequest
 
-  if (existingRequestError) {
-    throw existingRequestError
+  if (providedRequest === undefined) {
+    const { data, error } = await supabase
+      .from('training_availability_requests')
+      .select('*')
+      .eq('calendar_event_id', setting.calendar_event_id)
+      .eq('occurrence_date', occurrence.occurrenceDate)
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
+
+    existingRequest = data
   }
 
   if (existingRequest?.id) {
@@ -268,16 +311,32 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
         existingRequest,
         scheduledSendAt: sendAt,
       })
+      const intended = {
+        setting_id: setting.id,
+        club_id: setting.club_id,
+        team_id: setting.team_id,
+        occurrence_starts_at: occurrence.occurrenceStartsAt.toISOString(),
+        occurrence_ends_at: occurrence.occurrenceEndsAt?.toISOString() || null,
+        send_at: reconciledSendAt.toISOString(),
+      }
+      const unchanged = Object.entries(intended).every(([key, value]) => (
+        ['occurrence_starts_at', 'occurrence_ends_at', 'send_at'].includes(key)
+          ? timestampsMatch(existingRequest[key], value)
+          : normalizeText(existingRequest[key]) === normalizeText(value)
+      ))
+
+      if (unchanged) {
+        return {
+          event,
+          mutation: 'no-op',
+          request: existingRequest,
+          sendAt: new Date(existingRequest.send_at || reconciledSendAt),
+        }
+      }
+
       const { data: reconciledRequest, error: reconcileError } = await supabase
         .from('training_availability_requests')
-        .update({
-          setting_id: setting.id,
-          club_id: setting.club_id,
-          team_id: setting.team_id,
-          occurrence_starts_at: occurrence.occurrenceStartsAt.toISOString(),
-          occurrence_ends_at: occurrence.occurrenceEndsAt?.toISOString() || null,
-          send_at: reconciledSendAt.toISOString(),
-        })
+        .update(intended)
         .eq('id', existingRequest.id)
         .select('*')
         .single()
@@ -288,6 +347,7 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
 
       return {
         event,
+        mutation: 'updated',
         request: reconciledRequest,
         sendAt: new Date(reconciledRequest.send_at || reconciledSendAt),
       }
@@ -295,6 +355,7 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
 
     return {
       event,
+      mutation: 'no-op',
       request: existingRequest,
       sendAt: new Date(existingRequest.send_at || sendAt),
     }
@@ -323,6 +384,7 @@ async function upsertDueRequest({ occurrence, sendAt, setting, supabase }) {
 
   return {
     event,
+    mutation: 'created',
     request: data,
     sendAt,
   }
@@ -353,7 +415,7 @@ async function createUnavailableRecipient({ player, request, supabase }) {
   })
 
   if (existing?.id) {
-    return existing
+    return { created: false, requestPlayer: existing }
   }
 
   const { data, error } = await supabase
@@ -382,7 +444,7 @@ async function createUnavailableRecipient({ player, request, supabase }) {
     throw error
   }
 
-  return data
+  return { created: true, requestPlayer: data }
 }
 
 export function getTrainingInvitationQueueId({
@@ -494,11 +556,11 @@ export async function queueTrainingInvitationRecipient({
   const currentStatus = normalizeText(existing?.status)
 
   if (action === 'automatic' && ['sent', 'responded'].includes(currentStatus)) {
-    return { status: 'skipped', requestPlayer: existing }
+    return { status: 'skipped', mutation: 'no-op', terminal: true, requestPlayer: existing }
   }
 
   if (action === 'automatic' && currentStatus === 'failed') {
-    return { status: 'failed', requestPlayer: existing }
+    return { status: 'failed', mutation: 'no-op', terminal: true, requestPlayer: existing }
   }
 
   let existingQueue = null
@@ -518,13 +580,53 @@ export async function queueTrainingInvitationRecipient({
 
     if (existingQueue?.status === 'sending') {
       if (action === 'automatic') {
-        return { status: 'skipped', requestPlayer: existing, queue: existingQueue }
+        return { status: 'skipped', mutation: 'no-op', requestPlayer: existing, queue: existingQueue }
       }
 
       throw Object.assign(new Error('This Training invitation is already being delivered.'), {
         code: 'TRAINING_INVITATION_DELIVERY_IN_PROGRESS',
         statusCode: 409,
       })
+    }
+  }
+
+  if (
+    action === 'automatic'
+    && currentStatus === 'queued'
+    && existingQueue?.status === 'scheduled'
+  ) {
+    if (timestampsMatch(existingQueue.scheduled_at, request.send_at)) {
+      return {
+        status: 'skipped',
+        mutation: 'no-op',
+        requestPlayer: existing,
+        queue: existingQueue,
+      }
+    }
+
+    const { data: rescheduledQueue, error: rescheduleError } = await supabase
+      .from('scheduled_email_queue')
+      .update({ scheduled_at: request.send_at })
+      .eq('id', existingQueue.id)
+      .eq('status', 'scheduled')
+      .select('*')
+      .maybeSingle()
+
+    if (rescheduleError) {
+      throw rescheduleError
+    }
+
+    if (!rescheduledQueue?.id) {
+      throw Object.assign(new Error('Training invitation queue changed before it could be rescheduled.'), {
+        code: 'TRAINING_INVITATION_QUEUE_RACE',
+      })
+    }
+
+    return {
+      status: 'queued',
+      mutation: 'updated',
+      requestPlayer: existing,
+      queue: rescheduledQueue,
     }
   }
 
@@ -663,6 +765,7 @@ export async function queueTrainingInvitationRecipient({
 
   return {
     status: 'queued',
+    mutation: existing?.id ? 'updated' : 'created',
     requestPlayer,
     queue: finalQueue,
     tokenReplaced: Boolean(existing?.id && !reusableToken),
@@ -961,53 +1064,281 @@ export async function updateTrainingInvitationDelivery({
   }
 }
 
-async function reconcileInvalidTrainingInvitationQueues({
-  appOrigin,
-  supabase,
-}) {
-  const { data: queueRows, error } = await supabase
-    .from('scheduled_email_queue')
-    .select('*')
-    .eq('status', 'scheduled')
-    .contains('payload', { trainingInvitation: { invitationType: 'training_rsvp' } })
-    .limit(250)
+async function claimTrainingAvailabilityProcessorWork({ supabase, workerId }) {
+  const { data, error } = await supabase.rpc('claim_training_availability_processor_work_v1', {
+    worker_id_value: workerId,
+    batch_size_value: 1,
+    lease_seconds_value: TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.leaseSeconds,
+  })
 
   if (error) {
     throw error
   }
 
-  let cancelled = 0
+  return data?.[0] ?? null
+}
 
-  for (const row of queueRows ?? []) {
-    const preparation = await prepareScheduledTrainingInvitationRow(row, {
-      appOrigin,
-      supabaseClient: supabase,
-    })
+async function completeTrainingAvailabilityProcessorWork({
+  cursorDate = null,
+  errorCode = null,
+  nextDueAt = null,
+  outcome,
+  supabase,
+  work,
+  workerId,
+}) {
+  const { data, error } = await supabase.rpc('complete_training_availability_processor_work_v1', {
+    work_id_value: work.id,
+    worker_id_value: workerId,
+    revision_value: work.revision,
+    outcome_value: outcome,
+    cursor_date_value: cursorDate,
+    next_due_at_value: nextDueAt?.toISOString?.() || nextDueAt || null,
+    error_code_value: errorCode,
+  })
 
-    if (!preparation.skipped) {
-      continue
-    }
-
-    await updateTrainingInvitationDelivery({
-      lastError: preparation.skipReason,
-      queueId: row.id,
-      status: 'cancelled',
-      supabase,
-    })
-    const { error: deleteError } = await supabase
-      .from('scheduled_email_queue')
-      .delete()
-      .eq('id', row.id)
-      .eq('status', 'scheduled')
-
-    if (deleteError) {
-      throw deleteError
-    }
-
-    cancelled += 1
+  if (error) {
+    throw error
   }
 
-  return cancelled
+  return normalizeText(data)
+}
+
+async function getTrainingAvailabilityProcessorBacklog(supabase) {
+  const { data, error } = await supabase.rpc('get_training_availability_processor_backlog_v1')
+
+  if (error) {
+    throw error
+  }
+
+  const row = data?.[0] ?? {}
+  return {
+    activeClaims: Math.max(0, Number(row.active_claim_count || 0)),
+    candidateDue: Math.max(0, Number(row.candidate_due_count || 0)),
+    oldestDueAt: normalizeText(row.oldest_due_at) || null,
+    remainingDue: Math.max(0, Number(row.remaining_due_count || 0)),
+  }
+}
+
+function emptyWorkSummary(overrides = {}) {
+  return {
+    created: 0,
+    updated: 0,
+    noOp: 0,
+    terminal: 0,
+    retryableFailures: 0,
+    outcome: 'completed',
+    cursorDate: null,
+    nextDueAt: null,
+    errorCode: null,
+    ...overrides,
+  }
+}
+
+export async function processRecurrenceWork({ now, supabase, work }) {
+  const setting = await loadRecurrenceSetting({ supabase, work })
+  const event = Array.isArray(setting?.calendar_events)
+    ? setting.calendar_events[0]
+    : setting?.calendar_events
+  const scopeIsCurrent = Boolean(
+    setting?.id
+      && setting.enabled === true
+      && event?.id
+      && event.event_type === 'training'
+      && !event.cancelled_at
+      && event.team_id
+      && setting.club_id === work.club_id
+      && setting.team_id === work.team_id
+      && event.club_id === work.club_id
+      && event.team_id === work.team_id,
+  )
+
+  if (!scopeIsCurrent) {
+    return emptyWorkSummary({
+      terminal: 1,
+      outcome: 'terminal',
+      errorCode: 'RECURRENCE_SCOPE_TERMINAL',
+    })
+  }
+
+  const occurrences = buildOccurrences(event)
+    .filter((occurrence) => occurrence.occurrenceStartsAt.getTime() > now.getTime())
+    .filter((occurrence) => !work.cursor_date || occurrence.occurrenceDate > work.cursor_date)
+
+  if (occurrences.length === 0) {
+    return emptyWorkSummary()
+  }
+
+  const { data: existingRequests, error: existingRequestsError } = await supabase
+    .from('training_availability_requests')
+    .select('*')
+    .eq('calendar_event_id', setting.calendar_event_id)
+
+  if (existingRequestsError) {
+    throw existingRequestsError
+  }
+
+  const existingByOccurrenceDate = new Map(
+    (existingRequests ?? []).map((request) => [request.occurrence_date, request]),
+  )
+  const result = emptyWorkSummary()
+  let cursorDate = work.cursor_date || null
+  let mutationCount = 0
+
+  for (const occurrence of occurrences) {
+    const requestResult = await upsertDueRequest({
+      existingRequest: existingByOccurrenceDate.get(occurrence.occurrenceDate) ?? null,
+      occurrence,
+      sendAt: getSendAt(occurrence, setting),
+      setting,
+      supabase,
+    })
+
+    result.created += requestResult.mutation === 'created' ? 1 : 0
+    result.updated += requestResult.mutation === 'updated' ? 1 : 0
+    result.noOp += requestResult.mutation === 'no-op' ? 1 : 0
+    cursorDate = occurrence.occurrenceDate
+
+    if (requestResult.mutation !== 'no-op') {
+      mutationCount += 1
+    }
+    if (mutationCount >= TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.recurrenceMutationLimit) {
+      break
+    }
+  }
+
+  const hasMore = occurrences.some((occurrence) => occurrence.occurrenceDate > cursorDate)
+
+  return {
+    ...result,
+    outcome: hasMore ? 'pending' : 'completed',
+    cursorDate,
+    nextDueAt: hasMore ? now : null,
+  }
+}
+
+async function loadRequestWork({ supabase, work }) {
+  const { data, error } = await supabase
+    .from('training_availability_requests')
+    .select('*, training_availability_settings:setting_id(*), calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url))')
+    .eq('id', work.request_id)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+async function processRequestWork({ appOrigin, now, supabase, work }) {
+  const request = await loadRequestWork({ supabase, work })
+  const setting = Array.isArray(request?.training_availability_settings)
+    ? request.training_availability_settings[0]
+    : request?.training_availability_settings
+  const event = Array.isArray(request?.calendar_events)
+    ? request.calendar_events[0]
+    : request?.calendar_events
+  const requestStatus = normalizeText(request?.status)
+  const scopeIsCurrent = Boolean(
+    request?.id
+      && ['pending', 'queued', 'partial_failed'].includes(requestStatus)
+      && setting?.id
+      && setting.enabled === true
+      && event?.id
+      && event.event_type === 'training'
+      && !event.cancelled_at
+      && event.team_id
+      && request.club_id === work.club_id
+      && request.team_id === work.team_id
+      && setting.club_id === work.club_id
+      && setting.team_id === work.team_id
+      && event.club_id === work.club_id
+      && event.team_id === work.team_id,
+  )
+
+  if (!scopeIsCurrent) {
+    return emptyWorkSummary({
+      terminal: 1,
+      outcome: 'terminal',
+      errorCode: 'REQUEST_SCOPE_TERMINAL',
+    })
+  }
+
+  const sendAt = new Date(request.send_at)
+
+  if (requestStatus === 'pending' && sendAt.getTime() > now.getTime()) {
+    return emptyWorkSummary({
+      outcome: 'pending',
+      nextDueAt: sendAt,
+    })
+  }
+
+  const occurrences = buildOccurrences(event)
+  const occurrence = occurrences.find((candidate) => candidate.occurrenceDate === request.occurrence_date)
+
+  if (!occurrence || occurrence.occurrenceStartsAt.getTime() <= now.getTime()) {
+    return emptyWorkSummary({
+      terminal: 1,
+      outcome: 'terminal',
+      errorCode: 'REQUEST_OCCURRENCE_TERMINAL',
+    })
+  }
+
+  const sendGate = getTrainingAvailabilitySendGate(setting)
+
+  if (requestStatus === 'pending' && !sendGate.allowed) {
+    return emptyWorkSummary({
+      outcome: 'retryable',
+      retryableFailures: 1,
+      nextDueAt: addMilliseconds(now, TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.sendGateRetryDelayMs),
+      errorCode: `SEND_GATE_${normalizeSafeCode(sendGate.mode, 'DISABLED')}`,
+    })
+  }
+
+  assertPlanFeature({
+    ...await getClubPlanProfile(request.club_id),
+    role: 'system',
+    roleRank: 100,
+  }, 'parentEmails')
+  const requestSummary = await processDueRequest({
+    appOrigin,
+    event,
+    occurrence,
+    occurrences,
+    request,
+    supabase,
+  })
+  const retryable = requestSummary.retryableFailures > 0
+
+  return emptyWorkSummary({
+    created: requestSummary.created,
+    updated: requestSummary.updated,
+    noOp: requestSummary.noOp,
+    terminal: requestSummary.terminal,
+    retryableFailures: requestSummary.retryableFailures,
+    outcome: retryable ? 'retryable' : 'completed',
+    nextDueAt: retryable
+      ? addMilliseconds(now, TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.retryDelayMs)
+      : null,
+    errorCode: retryable ? 'REQUEST_RECIPIENT_RETRYABLE' : null,
+  })
+}
+
+async function executeTrainingAvailabilityProcessorWork({ appOrigin, now, supabase, work }) {
+  if (work.work_type === 'recurrence') {
+    return processRecurrenceWork({ now, supabase, work })
+  }
+
+  if (work.work_type === 'request') {
+    return processRequestWork({ appOrigin, now, supabase, work })
+  }
+
+  return emptyWorkSummary({
+    terminal: 1,
+    outcome: 'terminal',
+    errorCode: 'UNKNOWN_WORK_TYPE',
+  })
 }
 
 async function processDueRequest({ appOrigin, event, occurrence, occurrences, request, supabase }) {
@@ -1064,20 +1395,32 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
     throw parentLinksError
   }
 
-  const summary = { queued: 0, skipped: 0, failed: 0, missingParents: 0 }
+  const summary = {
+    queued: 0,
+    skipped: 0,
+    failed: 0,
+    missingParents: 0,
+    created: 0,
+    updated: 0,
+    noOp: 0,
+    terminal: 0,
+    retryableFailures: 0,
+  }
   const teamName = event.teams?.name || ''
 
   for (const player of players ?? []) {
     const contacts = getPlayerContacts({ parentLinks: parentLinks ?? [], player })
 
     if (contacts.length === 0) {
-      await createUnavailableRecipient({
+      const unavailable = await createUnavailableRecipient({
         player,
         request,
         supabase,
       })
+      summary[unavailable.created ? 'created' : 'noOp'] += 1
       summary.missingParents += 1
       summary.failed += 1
+      summary.terminal += 1
       continue
     }
 
@@ -1095,108 +1438,192 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
           teamName,
         })
         summary[result.status] += 1
+        summary[result.mutation === 'created' ? 'created' : result.mutation === 'updated' ? 'updated' : 'noOp'] += 1
+        summary.terminal += result.terminal ? 1 : 0
       } catch (error) {
         console.error('Training availability recipient queue failed', {
           code: normalizeText(error?.code || error?.name || 'TRAINING_INVITATION_QUEUE_FAILED'),
         })
         summary.failed += 1
+        summary.retryableFailures += 1
       }
     }
   }
 
   const nextStatus = summary.failed > 0 ? 'partial_failed' : 'queued'
-  const { error: updateError } = await supabase
-    .from('training_availability_requests')
-    .update({
-      status: nextStatus,
-      sent_at: null,
-      last_error: summary.failed > 0 ? 'Some Training Availability invitations could not be queued.' : null,
-    })
-    .eq('id', request.id)
+  const nextLastError = summary.failed > 0
+    ? 'Some Training Availability invitations could not be queued.'
+    : null
+  const requestChanged = normalizeText(request.status) !== nextStatus
+    || normalizeText(request.last_error) !== normalizeText(nextLastError)
+    || Boolean(request.sent_at)
 
-  if (updateError) {
-    throw updateError
+  if (requestChanged) {
+    const { error: updateError } = await supabase
+      .from('training_availability_requests')
+      .update({
+        status: nextStatus,
+        sent_at: null,
+        last_error: nextLastError,
+      })
+      .eq('id', request.id)
+
+    if (updateError) {
+      throw updateError
+    }
+
+    summary.updated += 1
+  } else {
+    summary.noOp += 1
   }
 
   return summary
 }
 
 export async function processTrainingAvailabilityRequests(event = {}) {
-  const supabase = createSupabaseAdminClient(event)
-  const now = new Date()
+  const supabase = event.supabaseClient || createSupabaseAdminClient(event)
+  const clock = typeof event.now === 'function' ? event.now : () => new Date()
+  const startedAt = clock()
+  const startedAtMs = startedAt.getTime()
+  const workerId = normalizeText(event.workerId) || randomUUID()
+  const batchSize = Math.min(20, Math.max(
+    1,
+    Number(event.batchSize || TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.batchSize),
+  ))
+  const runtimeBudgetMs = Math.min(25_000, Math.max(
+    1_000,
+    Number(event.runtimeBudgetMs || TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.runtimeBudgetMs),
+  ))
   const appOrigin = getAppOrigin(event)
+  const initialBacklog = await getTrainingAvailabilityProcessorBacklog(supabase)
   const summary = {
-    scanned: 0,
-    due: 0,
-    gated: 0,
-    queued: 0,
-    skipped: 0,
-    failed: 0,
-    missingParents: 0,
-    reconciledCancelled: 0,
+    invocationId: randomUUID(),
+    startTime: startedAt.toISOString(),
+    endTime: null,
+    elapsedMs: 0,
+    runtimeBudgetMs,
+    candidateDueCount: initialBacklog.candidateDue,
+    claimedCount: 0,
+    processedCount: 0,
+    createdCount: 0,
+    updatedCount: 0,
+    noOpCount: 0,
+    terminalCount: 0,
+    retryableFailureCount: 0,
+    leaseConflictCount: 0,
+    remainingDueCount: initialBacklog.remainingDue,
+    budgetExhausted: false,
+    oldestDueAgeMs: initialBacklog.oldestDueAt
+      ? Math.max(0, startedAtMs - new Date(initialBacklog.oldestDueAt).getTime())
+      : 0,
+    workerId,
+    outcome: 'success',
   }
 
-  summary.reconciledCancelled = await reconcileInvalidTrainingInvitationQueues({
-    appOrigin,
-    supabase,
+  console.info('Training availability processor invocation started', {
+    invocationId: summary.invocationId,
+    workerId: summary.workerId,
+    startTime: summary.startTime,
+    runtimeBudgetMs: summary.runtimeBudgetMs,
+    candidateDueCount: summary.candidateDueCount,
   })
-  const settings = await loadSettings(supabase)
 
-  for (const setting of settings) {
-    const calendarEvent = Array.isArray(setting.calendar_events) ? setting.calendar_events[0] : setting.calendar_events
-    const occurrences = buildOccurrences(calendarEvent)
+  while (summary.claimedCount < batchSize) {
+    const now = clock()
+    if (!hasTrainingAvailabilityRuntimeBudget({
+      nowMs: now.getTime(),
+      startedAtMs,
+      runtimeBudgetMs,
+    })) {
+      summary.budgetExhausted = true
+      break
+    }
 
-    for (const occurrence of occurrences) {
-      summary.scanned += 1
+    const work = await claimTrainingAvailabilityProcessorWork({ supabase, workerId })
+    if (!work) {
+      break
+    }
 
-      if (occurrence.occurrenceStartsAt.getTime() <= now.getTime()) {
-        continue
-      }
+    summary.claimedCount += 1
 
-      const sendAt = getSendAt(occurrence, setting)
-
-      const sendGate = getTrainingAvailabilitySendGate(setting)
-
-      if (!sendGate.allowed) {
-        summary.gated += 1
-        console.warn('Training availability send gated', {
-          calendarEventId: setting.calendar_event_id,
-          clubId: setting.club_id,
-          gateMode: sendGate.mode,
-          occurrenceDate: occurrence.occurrenceDate,
-          teamId: setting.team_id,
-        })
-        continue
-      }
-
-      const due = await upsertDueRequest({ occurrence, sendAt, setting, supabase })
-
-      if (!['pending', 'queued', 'partial_failed'].includes(normalizeText(due.request.status))) {
-        continue
-      }
-
-      summary.due += 1
-      assertPlanFeature({
-        ...await getClubPlanProfile(due.request.club_id),
-        role: 'system',
-        roleRank: 100,
-      }, 'parentEmails')
-      const requestSummary = await processDueRequest({
+    try {
+      const result = await executeTrainingAvailabilityProcessorWork({
         appOrigin,
-        event: due.event,
-        occurrence,
-        occurrences,
-        request: due.request,
+        now,
         supabase,
+        work,
+      })
+      const completion = await completeTrainingAvailabilityProcessorWork({
+        cursorDate: result.cursorDate,
+        errorCode: result.errorCode,
+        nextDueAt: result.nextDueAt,
+        outcome: result.outcome,
+        supabase,
+        work,
+        workerId,
       })
 
-      summary.queued += requestSummary.queued
-      summary.skipped += requestSummary.skipped
-      summary.failed += requestSummary.failed
-      summary.missingParents += requestSummary.missingParents
+      if (completion === 'claim_lost') {
+        summary.leaseConflictCount += 1
+        continue
+      }
+
+      summary.processedCount += 1
+      summary.createdCount += result.created
+      summary.updatedCount += result.updated
+      summary.noOpCount += result.noOp
+      summary.terminalCount += result.terminal
+      summary.retryableFailureCount += result.retryableFailures
+    } catch (error) {
+      const errorCode = normalizeSafeCode(error?.code || error?.name)
+      summary.retryableFailureCount += 1
+      console.warn('Training availability processor work retryable failure', {
+        invocationId: summary.invocationId,
+        workType: normalizeSafeCode(work.work_type, 'UNKNOWN'),
+        code: errorCode,
+      })
+
+      try {
+        const completion = await completeTrainingAvailabilityProcessorWork({
+          errorCode,
+          nextDueAt: addMilliseconds(now, TRAINING_AVAILABILITY_PROCESSOR_DEFAULTS.retryDelayMs),
+          outcome: 'retryable',
+          supabase,
+          work,
+          workerId,
+        })
+        if (completion === 'claim_lost') {
+          summary.leaseConflictCount += 1
+        } else {
+          summary.processedCount += 1
+        }
+      } catch (completionError) {
+        summary.leaseConflictCount += 1
+        console.warn('Training availability processor completion failed', {
+          invocationId: summary.invocationId,
+          workType: normalizeSafeCode(work.work_type, 'UNKNOWN'),
+          code: normalizeSafeCode(completionError?.code || completionError?.name),
+        })
+      }
     }
   }
 
+  const finalBacklog = await getTrainingAvailabilityProcessorBacklog(supabase)
+  const endedAt = clock()
+  summary.endTime = endedAt.toISOString()
+  summary.elapsedMs = Math.max(0, endedAt.getTime() - startedAtMs)
+  summary.remainingDueCount = finalBacklog.remainingDue
+  summary.oldestDueAgeMs = finalBacklog.oldestDueAt
+    ? Math.max(0, endedAt.getTime() - new Date(finalBacklog.oldestDueAt).getTime())
+    : 0
+  summary.budgetExhausted = summary.budgetExhausted && summary.remainingDueCount > 0
+  summary.outcome = summary.retryableFailureCount > 0
+    ? 'success_with_retryable_failures'
+    : summary.budgetExhausted
+      ? 'success_budget_exhausted'
+      : 'success'
+
+  console.info('Training availability processor invocation completed', summary)
   return { success: true, ...summary }
 }
 
@@ -1208,18 +1635,18 @@ export default async function handler(request) {
   const authorization = await authorizeNativeScheduledRequest(request)
 
   if (!authorization.ok) {
-    return authorization.response
+    console.warn('Training availability scheduled authorization rejected', {
+      code: 'SCHEDULED_REQUEST_UNAUTHORIZED',
+    })
+    return
   }
 
   try {
-    return Response.json(await processTrainingAvailabilityRequests())
+    await processTrainingAvailabilityRequests()
   } catch (error) {
-    console.error(error)
-    return Response.json({
-      success: false,
-      message: error.publicMessage
-        ? getPublicEmailErrorMessage(error, 'Training Availability requests could not be processed.')
-        : 'Training Availability requests could not be processed.',
-    }, { status: error.statusCode || 500 })
+    console.error('Training availability processor invocation failed', {
+      code: normalizeSafeCode(error?.code || error?.name),
+    })
+    throw error
   }
 }

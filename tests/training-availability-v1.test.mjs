@@ -208,7 +208,7 @@ test('staff response summaries show one shared child response across linked pare
   assert.equal(summary.details[0].respondedByName, 'Parent B')
 })
 
-test('scheduled reconciler creates per occurrence RSVP jobs before eligibility without push, sms, or volunteer roles', async () => {
+test('scheduled processor claims bounded due work without push, sms, or volunteer roles', async () => {
   const [processor, netlifyToml] = await Promise.all([
     readFile(processorUrl, 'utf8'),
     readFile(netlifyTomlUrl, 'utf8'),
@@ -218,8 +218,10 @@ test('scheduled reconciler creates per occurrence RSVP jobs before eligibility w
   assert.match(processor, /occurrenceDate/)
   assert.match(processor, /from '\.\/lib\/_training-calendar\.js'/)
   assert.match(processor, /function getSendAt\(occurrence, setting\)/)
-  assert.doesNotMatch(processor, /if \(sendAt\.getTime\(\) > now\.getTime\(\)\)/)
-  assert.match(processor, /const due = await upsertDueRequest/)
+  assert.match(processor, /claimTrainingAvailabilityProcessorWork/)
+  assert.match(processor, /completeTrainingAvailabilityProcessorWork/)
+  assert.match(processor, /hasTrainingAvailabilityRuntimeBudget/)
+  assert.match(processor, /const requestResult = await upsertDueRequest/)
   assert.match(processor, /training_availability_requests/)
   assert.match(processor, /training_availability_request_players/)
   assert.match(processor, /\.from\('calendar_event_invites'\)/)
@@ -233,10 +235,10 @@ test('scheduled reconciler creates per occurrence RSVP jobs before eligibility w
   assert.match(processor, /\.select\('id, player_id, team_id, club_id, email, status'\)/)
   assert.doesNotMatch(processor, /parent_name, display_name/)
   assert.match(processor, /send_days_before/)
-  assert.match(processor, /assertPlanFeature\({[\s\S]*getClubPlanProfile\(due\.request\.club_id\)[\s\S]*}, 'parentEmails'\)/)
+  assert.match(processor, /assertPlanFeature\({[\s\S]*getClubPlanProfile\(request\.club_id\)[\s\S]*}, 'parentEmails'\)/)
   assert.doesNotMatch(processor, /\bsendEmail\(/)
   assert.match(processor, /getTrainingAvailabilitySendGate/)
-  assert.match(processor, /const sendGate = getTrainingAvailabilitySendGate\(setting\)[\s\S]*if \(!sendGate\.allowed\) {[\s\S]*continue[\s\S]*}[\s\S]*const due = await upsertDueRequest/)
+  assert.match(processor, /const sendGate = getTrainingAvailabilitySendGate\(setting\)[\s\S]*if \(requestStatus === 'pending' && !sendGate\.allowed\) {[\s\S]*outcome: 'retryable'/)
   assert.match(processor, /export const config = \{[\s\S]*schedule: '\* \* \* \* \*'/)
   assert.doesNotMatch(netlifyToml, /\[functions\."process-training-availability-requests"\]/)
   assert.doesNotMatch(processor, /sendParentMobilePushById/)
