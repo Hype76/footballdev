@@ -490,6 +490,15 @@ test('privacy, accessible fallback, mobile layout, and existing controls remain 
   assert.match(auth, /void recordSuccessfulLoginAnalytics\(data\)/)
 })
 
+test('audit ingestion quarantines stale team attribution instead of trusting a missing team', async () => {
+  const source = await readFile(
+    new URL('../netlify/functions/lib/_platform-analytics.js', import.meta.url),
+    'utf8',
+  )
+  assert.match(source, /teamNames\.has\(requestedTeamId\)/)
+  assert.match(source, /safe_reason: 'team_unattributed'/)
+})
+
 test('UK date boundaries remain stable across daylight-saving dates', () => {
   const spring = normalizePlatformAnalyticsFilters({ preset: 'today' }, new Date('2026-03-29T00:30:00.000Z'))
   const autumn = normalizePlatformAnalyticsFilters({ preset: 'today' }, new Date('2026-10-25T01:30:00.000Z'))

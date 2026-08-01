@@ -202,7 +202,7 @@ test('processor advances a deterministic watermark, marks rows once, and bounds 
   assert.equal(client.evidence.eventUpdates.length, 0)
   const completion = client.evidence.rpcCalls.at(-1)
   const { finished_at_value: finishedAt, ...completionArgs } = completion.args
-  assert.match(finishedAt, /^2026-07-31T/)
+  assert.match(finishedAt, /^\d{4}-\d{2}-\d{2}T/)
   assert.equal(completion.name, 'complete_platform_analytics_processor_run')
   assert.deepEqual(completionArgs, {
       run_id_value: runId,

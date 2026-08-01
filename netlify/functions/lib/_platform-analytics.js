@@ -587,7 +587,18 @@ export async function ingestAuditAnalyticsEvents({
     }
 
     const roleAtEvent = canonicalAuditRole(auditRow, profile)
-    const teamId = auditTeamId(auditRow)
+    const requestedTeamId = auditTeamId(auditRow)
+    const teamId = requestedTeamId && teamNames.has(requestedTeamId) ? requestedTeamId : null
+    if (requestedTeamId && !teamId) {
+      quarantineRows.push({
+        processor_run_id: processorRunId,
+        source_kind: 'audit',
+        source_record_id: auditRow.id,
+        safe_reason: 'team_unattributed',
+        safe_event_name: eventName,
+        safe_actor_profile_id: auditRow.actor_id,
+      })
+    }
     const fpTestState = [clubNames.get(auditRow.club_id), teamNames.get(teamId)]
       .filter(Boolean)
       .some((value) => value.includes('fp test') || value.includes('fp-test'))
