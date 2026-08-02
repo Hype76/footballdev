@@ -1,0 +1,2042 @@
+{
+  "generatedAt": "2026-08-02T00:51:58.292Z",
+  "target": "http://127.0.0.1:4178",
+  "portal": "Parent Portal",
+  "results": [
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=overview",
+      "resolvedRoute": "/parent-portal?section=overview",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1704,
+      "mainContentHeight": 1472,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 3.42,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-overview-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=calendar",
+      "resolvedRoute": "/parent-portal?section=calendar",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1845,
+      "mainContentHeight": 1613,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 3.75,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-calendar-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites",
+      "resolvedRoute": "/parent-portal?section=invites",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1728,
+      "mainContentHeight": 1496,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 3.48,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=matches",
+      "resolvedRoute": "/parent-portal?section=matches",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 812,
+      "mainContentHeight": 546,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 1.27,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-matches-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results",
+      "resolvedRoute": "/parent-portal?section=results",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1198,
+      "mainContentHeight": 966,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.25,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=development",
+      "resolvedRoute": "/parent-portal?section=development",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 834,
+      "mainContentHeight": 602,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 1.4,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-development-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=resources",
+      "resolvedRoute": "/parent-portal?section=resources",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 812,
+      "mainContentHeight": 436,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 1.01,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-resources-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings",
+      "resolvedRoute": "/parent-portal?section=settings",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1396,
+      "mainContentHeight": 1164,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.71,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-chat",
+      "resolvedRoute": "/parent-chat",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 935,
+      "mainContentHeight": 703,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 610,
+      "effectiveRatio": 1.15,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 1,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-chat-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-polls",
+      "resolvedRoute": "/parent-polls",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1763,
+      "mainContentHeight": 1532,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 610,
+      "effectiveRatio": 2.51,
+      "classification": "Amber",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-polls-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/friends-family",
+      "resolvedRoute": "/friends-family",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 2522,
+      "mainContentHeight": 2291,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 610,
+      "effectiveRatio": 3.76,
+      "classification": "Amber",
+      "primaryActionVisible": false,
+      "majorSectionCount": 3,
+      "workflowCount": 6,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-friends-family-one-child-populated-default-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "pageTitle": "Football Player",
+      "state": "Pending invitations page 2",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1370,
+      "mainContentHeight": 1138,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.65,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 2,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-pending-invitepage-2-pending-invitations-page-2-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "pageTitle": "Football Player",
+      "state": "Responded or upcoming invitations",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1188,
+      "mainContentHeight": 956,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.22,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 2,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-upcoming-invitepage-1-responded-or-upcoming-invitations-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "pageTitle": "Football Player",
+      "state": "Invitation history",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1530,
+      "mainContentHeight": 1298,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 3.02,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-history-invitepage-1-invitation-history-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results&resultPage=2",
+      "resolvedRoute": "/parent-portal?section=results&resultPage=2",
+      "pageTitle": "Football Player",
+      "state": "Shared results page 2",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1198,
+      "mainContentHeight": 966,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.25,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-resultpage-2-shared-results-page-2-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results&resultPage=3",
+      "resolvedRoute": "/parent-portal?section=results&resultPage=3",
+      "pageTitle": "Football Player",
+      "state": "Shared results page 3",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 992,
+      "mainContentHeight": 760,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 1.77,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-resultpage-3-shared-results-page-3-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=account",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=account",
+      "pageTitle": "Football Player",
+      "state": "Account settings",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1396,
+      "mainContentHeight": 1164,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.71,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-account-account-settings-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=security",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=security",
+      "pageTitle": "Football Player",
+      "state": "Security settings",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1248,
+      "mainContentHeight": 1016,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.36,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 1,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-security-security-settings-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=display",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=display",
+      "pageTitle": "Football Player",
+      "state": "Display and alert settings",
+      "viewport": "mobile",
+      "viewportWidth": 375,
+      "viewportHeight": 812,
+      "documentScrollHeight": 1270,
+      "mainContentHeight": 1038,
+      "persistentHeaderHeight": 180,
+      "persistentFooterOrNavigationHeight": 202,
+      "effectiveViewportHeight": 430,
+      "effectiveRatio": 2.41,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-display-display-and-alert-settings-mobile.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=overview",
+      "resolvedRoute": "/parent-portal?section=overview",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1290,
+      "mainContentHeight": 1054,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 1.51,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-overview-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=calendar",
+      "resolvedRoute": "/parent-portal?section=calendar",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1827,
+      "mainContentHeight": 1591,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 2.28,
+      "classification": "Amber",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-calendar-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites",
+      "resolvedRoute": "/parent-portal?section=invites",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1288,
+      "mainContentHeight": 1052,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 1.51,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=matches",
+      "resolvedRoute": "/parent-portal?section=matches",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 416,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.6,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-matches-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results",
+      "resolvedRoute": "/parent-portal?section=results",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 690,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.99,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=development",
+      "resolvedRoute": "/parent-portal?section=development",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 440,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.63,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-development-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=resources",
+      "resolvedRoute": "/parent-portal?section=resources",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 310,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.44,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-resources-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings",
+      "resolvedRoute": "/parent-portal?section=settings",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1086,
+      "mainContentHeight": 850,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 1.22,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-chat",
+      "resolvedRoute": "/parent-chat",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 679,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 813,
+      "effectiveRatio": 0.84,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 1,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-chat-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-polls",
+      "resolvedRoute": "/parent-polls",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1207,
+      "mainContentHeight": 971,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 813,
+      "effectiveRatio": 1.19,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-polls-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/friends-family",
+      "resolvedRoute": "/friends-family",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1815,
+      "mainContentHeight": 1580,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 813,
+      "effectiveRatio": 1.94,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 3,
+      "workflowCount": 6,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-friends-family-one-child-populated-default-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "pageTitle": "Football Player",
+      "state": "Pending invitations page 2",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 718,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 1.03,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 2,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-pending-invitepage-2-pending-invitations-page-2-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "pageTitle": "Football Player",
+      "state": "Responded or upcoming invitations",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 586,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.84,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 2,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-upcoming-invitepage-1-responded-or-upcoming-invitations-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "pageTitle": "Football Player",
+      "state": "Invitation history",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1164,
+      "mainContentHeight": 928,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 1.33,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-history-invitepage-1-invitation-history-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results&resultPage=2",
+      "resolvedRoute": "/parent-portal?section=results&resultPage=2",
+      "pageTitle": "Football Player",
+      "state": "Shared results page 2",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 690,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.99,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-resultpage-2-shared-results-page-2-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results&resultPage=3",
+      "resolvedRoute": "/parent-portal?section=results&resultPage=3",
+      "pageTitle": "Football Player",
+      "state": "Shared results page 3",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 484,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.69,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-resultpage-3-shared-results-page-3-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=account",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=account",
+      "pageTitle": "Football Player",
+      "state": "Account settings",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1086,
+      "mainContentHeight": 850,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 1.22,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-account-account-settings-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=security",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=security",
+      "pageTitle": "Football Player",
+      "state": "Security settings",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 666,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 0.95,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 1,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-security-security-settings-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=display",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=display",
+      "pageTitle": "Football Player",
+      "state": "Display and alert settings",
+      "viewport": "tablet",
+      "viewportWidth": 768,
+      "viewportHeight": 1024,
+      "documentScrollHeight": 1024,
+      "mainContentHeight": 726,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 211,
+      "effectiveViewportHeight": 699,
+      "effectiveRatio": 1.04,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-display-display-and-alert-settings-tablet.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=overview",
+      "resolvedRoute": "/parent-portal?section=overview",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-overview-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=calendar",
+      "resolvedRoute": "/parent-portal?section=calendar",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-calendar-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites",
+      "resolvedRoute": "/parent-portal?section=invites",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=matches",
+      "resolvedRoute": "/parent-portal?section=matches",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-matches-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results",
+      "resolvedRoute": "/parent-portal?section=results",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=development",
+      "resolvedRoute": "/parent-portal?section=development",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-development-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=resources",
+      "resolvedRoute": "/parent-portal?section=resources",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-resources-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings",
+      "resolvedRoute": "/parent-portal?section=settings",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-chat",
+      "resolvedRoute": "/parent-chat",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 900,
+      "effectiveRatio": 0.96,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 1,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-chat-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-polls",
+      "resolvedRoute": "/parent-polls",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 900,
+      "effectiveRatio": 0.96,
+      "classification": "Green",
+      "primaryActionVisible": false,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-polls-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/friends-family",
+      "resolvedRoute": "/friends-family",
+      "pageTitle": "Football Player",
+      "state": "One child populated default",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 0,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 900,
+      "effectiveRatio": 0.96,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 6,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-friends-family-one-child-populated-default-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "pageTitle": "Football Player",
+      "state": "Pending invitations page 2",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 2,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-pending-invitepage-2-pending-invitations-page-2-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "pageTitle": "Football Player",
+      "state": "Responded or upcoming invitations",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 2,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-upcoming-invitepage-1-responded-or-upcoming-invitations-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "resolvedRoute": "/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "pageTitle": "Football Player",
+      "state": "Invitation history",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 3,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-invites-inviteview-history-invitepage-1-invitation-history-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results&resultPage=2",
+      "resolvedRoute": "/parent-portal?section=results&resultPage=2",
+      "pageTitle": "Football Player",
+      "state": "Shared results page 2",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-resultpage-2-shared-results-page-2-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=results&resultPage=3",
+      "resolvedRoute": "/parent-portal?section=results&resultPage=3",
+      "pageTitle": "Football Player",
+      "state": "Shared results page 3",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-results-resultpage-3-shared-results-page-3-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=account",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=account",
+      "pageTitle": "Football Player",
+      "state": "Account settings",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 3,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-account-account-settings-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=security",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=security",
+      "pageTitle": "Football Player",
+      "state": "Security settings",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 1,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-security-security-settings-desktop.png"
+    },
+    {
+      "portal": "Parent Portal",
+      "role": "Parent",
+      "route": "/parent-portal?section=settings&settingsArea=display",
+      "resolvedRoute": "/parent-portal?section=settings&settingsArea=display",
+      "pageTitle": "Football Player",
+      "state": "Display and alert settings",
+      "viewport": "desktop",
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "documentScrollHeight": 900,
+      "mainContentHeight": 860,
+      "persistentHeaderHeight": 114,
+      "persistentFooterOrNavigationHeight": 0,
+      "effectiveViewportHeight": 786,
+      "effectiveRatio": 1.09,
+      "classification": "Green",
+      "primaryActionVisible": true,
+      "majorSectionCount": 2,
+      "workflowCount": 0,
+      "horizontalOverflow": false,
+      "accessResult": "Loaded",
+      "evidencePath": "FP-V1-PAGE-LENGTH-REMEDIATION-MASTER-06-screenshots/parent-parent-portal-section-settings-settingsarea-display-display-and-alert-settings-desktop.png"
+    }
+  ],
+  "consoleErrors": [
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=overview",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=overview",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=calendar",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=calendar",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=matches",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=matches",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=development",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=development",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=resources",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=resources",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=overview",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=overview",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=calendar",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=calendar",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=matches",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=matches",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=development",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=development",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=resources",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=resources",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=overview",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=overview",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=calendar",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=calendar",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=matches",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=matches",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=development",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=development",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=resources",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=resources",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "url": "http://127.0.0.1:4178/parent-portal?section=results",
+      "message": "Error: Development history could not be loaded.\n    at wA (http://127.0.0.1:4178/assets/domain-DkgPgwWA.js:153:116825)"
+    }
+  ],
+  "badResponses": [
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=overview"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=calendar"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=matches"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=development"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=resources"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=overview"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=calendar"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=matches"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=development"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=resources"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=overview"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=calendar"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=matches"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=development"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=resources"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=pending&invitePage=2"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=upcoming&invitePage=1"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=invites&inviteView=history&invitePage=1"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=2"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results&resultPage=3"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=account"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=security"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=settings&settingsArea=display"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:4178/api/parent-development/history",
+      "page": "http://127.0.0.1:4178/parent-portal?section=results"
+    }
+  ]
+}

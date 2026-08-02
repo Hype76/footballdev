@@ -106,6 +106,11 @@ const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'development', 'resources', 'settings'])
+const parentSettingsAreas = [
+  { id: 'account', label: 'Account' },
+  { id: 'security', label: 'Security' },
+  { id: 'display', label: 'Display and alerts' },
+]
 const EXTENDED_MATCH_ACTIONS = new Set([
   'normal_time_complete',
   'start_extra_time',
@@ -1918,7 +1923,12 @@ function ParentSettingsPanel({
   themePreference,
 }) {
   const { showToast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const themeOptions = ['system', 'light', 'dark']
+  const requestedSettingsArea = String(searchParams.get('settingsArea') ?? '').trim()
+  const settingsArea = parentSettingsAreas.some((area) => area.id === requestedSettingsArea)
+    ? requestedSettingsArea
+    : 'account'
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' })
   const [statusMessage, setStatusMessage] = useState('')
   const [settingsError, setSettingsError] = useState('')
@@ -1930,6 +1940,13 @@ function ParentSettingsPanel({
   const clearMessages = () => {
     setStatusMessage('')
     setSettingsError('')
+  }
+
+  const handleSettingsAreaChange = (areaId) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'settings')
+    nextSearchParams.set('settingsArea', areaId)
+    setSearchParams(nextSearchParams)
   }
 
   const handlePasswordSubmit = async (event) => {
@@ -1990,7 +2007,7 @@ function ParentSettingsPanel({
   }
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+    <section className="space-y-4">
       <div className="space-y-4">
         <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
@@ -2017,108 +2034,131 @@ function ParentSettingsPanel({
 
         {settingsError ? <NoticeBanner title="Settings not saved" message={settingsError} /> : null}
 
-        <ParentAccountContactPanel
-          parentEmail={parentEmail}
-          parentName={parentName}
-          selectedLink={selectedLink}
-        />
+        <div className="flex max-w-full gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Parent settings areas">
+          {parentSettingsAreas.map((area) => (
+            <button
+              key={area.id}
+              type="button"
+              role="tab"
+              aria-selected={settingsArea === area.id}
+              onClick={() => handleSettingsAreaChange(area.id)}
+              className={`${settingsArea === area.id ? primaryButtonClass : secondaryButtonClass} shrink-0`}
+            >
+              {area.label}
+            </button>
+          ))}
+        </div>
 
-        <form className={panelClass} onSubmit={handlePasswordSubmit}>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Password</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-xs font-black text-[#4b5f55]">New password</span>
-              <input
-                type="password"
-                value={passwordData.password}
-                onChange={(event) => setPasswordData((current) => ({ ...current, password: event.target.value }))}
-                minLength={PASSWORD_MIN_LENGTH}
-                autoComplete="new-password"
-                className={fieldClass}
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-black text-[#4b5f55]">Confirm password</span>
-              <input
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={(event) => setPasswordData((current) => ({ ...current, confirmPassword: event.target.value }))}
-                minLength={PASSWORD_MIN_LENGTH}
-                autoComplete="new-password"
-                className={fieldClass}
-              />
-            </label>
-          </div>
-          <p className={`mt-3 ${bodyTextClass}`}>{PASSWORD_POLICY_SUMMARY}</p>
-          <label className="mt-3 block">
-            <span className="mb-1 block text-xs font-black text-[#4b5f55]">Verification code, when requested</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={reauthenticationNonce}
-              onChange={(event) => setReauthenticationNonce(event.target.value.replace(/\D/g, '').slice(0, 8))}
-              autoComplete="one-time-code"
-              className={fieldClass}
+        {settingsArea === 'account' ? (
+          <>
+            <ParentAccountContactPanel
+              parentEmail={parentEmail}
+              parentName={parentName}
+              selectedLink={selectedLink}
             />
-          </label>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <button type="submit" disabled={isSavingPassword || !passwordData.password || !passwordData.confirmPassword} className={primaryButtonClass}>
-              {isSavingPassword ? 'Updating...' : 'Update password'}
-            </button>
-            <button type="button" onClick={handlePasswordVerification} disabled={isSendingVerification} className={secondaryButtonClass}>
-              {isSendingVerification ? 'Sending...' : 'Send verification code'}
-            </button>
-            <button type="button" onClick={handlePasswordReset} disabled={isSendingReset} className={secondaryButtonClass}>
-              {isSendingReset ? 'Sending...' : 'Send reset email'}
-            </button>
+
+            <div className={panelClass}>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Linked children</p>
+              <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink ? selectedLink.playerName : 'No child selected'}</p>
+              <p className={`mt-2 ${bodyTextClass}`}>
+                This account can view {selectedLink ? `${selectedLink.playerName} at ${selectedLink.clubName || 'the club'}` : 'linked child records once the club shares access'}.
+              </p>
+            </div>
+          </>
+        ) : null}
+
+        {settingsArea === 'security' ? (
+          <form className={panelClass} onSubmit={handlePasswordSubmit}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Password</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-black text-[#4b5f55]">New password</span>
+                <input
+                  type="password"
+                  value={passwordData.password}
+                  onChange={(event) => setPasswordData((current) => ({ ...current, password: event.target.value }))}
+                  minLength={PASSWORD_MIN_LENGTH}
+                  autoComplete="new-password"
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-black text-[#4b5f55]">Confirm password</span>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(event) => setPasswordData((current) => ({ ...current, confirmPassword: event.target.value }))}
+                  minLength={PASSWORD_MIN_LENGTH}
+                  autoComplete="new-password"
+                  className={fieldClass}
+                />
+              </label>
+            </div>
+            <p className={`mt-3 ${bodyTextClass}`}>{PASSWORD_POLICY_SUMMARY}</p>
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs font-black text-[#4b5f55]">Verification code, when requested</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={reauthenticationNonce}
+                onChange={(event) => setReauthenticationNonce(event.target.value.replace(/\D/g, '').slice(0, 8))}
+                autoComplete="one-time-code"
+                className={fieldClass}
+              />
+            </label>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button type="submit" disabled={isSavingPassword || !passwordData.password || !passwordData.confirmPassword} className={primaryButtonClass}>
+                {isSavingPassword ? 'Updating...' : 'Update password'}
+              </button>
+              <button type="button" onClick={handlePasswordVerification} disabled={isSendingVerification} className={secondaryButtonClass}>
+                {isSendingVerification ? 'Sending...' : 'Send verification code'}
+              </button>
+              <button type="button" onClick={handlePasswordReset} disabled={isSendingReset} className={secondaryButtonClass}>
+                {isSendingReset ? 'Sending...' : 'Send reset email'}
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {settingsArea === 'display' ? (
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <div className={panelClass}>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Theme preference</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {themeOptions.map((option) => {
+                  const isSelected = themePreference === option
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => onThemePreferenceChange(option)}
+                      aria-pressed={isSelected}
+                      className={[
+                        'min-h-11 rounded-lg border px-3 py-2 text-sm font-black capitalize transition',
+                        isSelected
+                          ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
+                          : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55] hover:border-[#047857] hover:bg-white',
+                      ].join(' ')}
+                    >
+                      {option}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className={`mt-3 ${bodyTextClass}`}>
+                System, Light, and Dark only change this device preference. Club colours still come from the linked child workspace.
+              </p>
+            </div>
+            <PushNotificationPanel
+              hasPushSubscription={hasPushSubscription}
+              isUpdatingPush={isUpdatingPush}
+              onDisable={onDisableNotifications}
+              onEnable={onEnableNotifications}
+              pushState={pushState}
+            />
           </div>
-        </form>
-
-        <div className={panelClass}>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Linked children</p>
-          <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink ? selectedLink.playerName : 'No child selected'}</p>
-          <p className={`mt-2 ${bodyTextClass}`}>
-            This account can view {selectedLink ? `${selectedLink.playerName} at ${selectedLink.clubName || 'the club'}` : 'linked child records once the club shares access'}.
-          </p>
-        </div>
-
-        <div className={panelClass}>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Theme preference</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            {themeOptions.map((option) => {
-              const isSelected = themePreference === option
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => onThemePreferenceChange(option)}
-                  aria-pressed={isSelected}
-                  className={[
-                    'min-h-11 rounded-lg border px-3 py-2 text-sm font-black capitalize transition',
-                    isSelected
-                      ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
-                      : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55] hover:border-[#047857] hover:bg-white',
-                  ].join(' ')}
-                >
-                  {option}
-                </button>
-              )
-            })}
-          </div>
-          <p className={`mt-3 ${bodyTextClass}`}>
-            System, Light, and Dark only change this device preference. Club colours still come from the linked child workspace.
-          </p>
-        </div>
-
+        ) : null}
       </div>
-
-      <PushNotificationPanel
-        hasPushSubscription={hasPushSubscription}
-        isUpdatingPush={isUpdatingPush}
-        onDisable={onDisableNotifications}
-        onEnable={onEnableNotifications}
-        pushState={pushState}
-      />
     </section>
   )
 }
@@ -3025,7 +3065,25 @@ function ParentMatchListItem({ isSelected, match, onSelect }) {
   )
 }
 
+const parentResultsPageSize = 3
+
 function ParentResultsPanel({ isLoading, onOpen, previousMatches }) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedPage = Number.parseInt(searchParams.get('resultPage') || '1', 10)
+  const pageCount = Math.max(1, Math.ceil(previousMatches.length / parentResultsPageSize))
+  const currentPage = Number.isFinite(requestedPage) ? Math.min(Math.max(requestedPage, 1), pageCount) : 1
+  const visibleMatches = previousMatches.slice(
+    (currentPage - 1) * parentResultsPageSize,
+    currentPage * parentResultsPageSize,
+  )
+
+  const handlePageChange = (nextPage) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'results')
+    nextSearchParams.set('resultPage', String(nextPage))
+    setSearchParams(nextSearchParams)
+  }
+
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -3040,9 +3098,20 @@ function ParentResultsPanel({ isLoading, onOpen, previousMatches }) {
         <p className={`mt-4 ${emptyClass}`}>Loading results...</p>
       ) : previousMatches.length > 0 ? (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {previousMatches.map((match) => (
+          {visibleMatches.map((match) => (
             <PreviousGameCard key={match.id} match={match} onOpen={onOpen} />
           ))}
+          {pageCount > 1 ? (
+            <div className="flex items-center justify-between gap-3 md:col-span-2" aria-label="Shared results pages">
+              <button type="button" className={secondaryButtonClass} disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>
+                Previous
+              </button>
+              <p className="text-sm font-black text-[#4b5f55]">Page {currentPage} of {pageCount}</p>
+              <button type="button" className={secondaryButtonClass} disabled={currentPage === pageCount} onClick={() => handlePageChange(currentPage + 1)}>
+                Next
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <p className={`mt-4 ${emptyClass}`}>
@@ -3348,16 +3417,39 @@ const parentInvitationTabs = [
   { id: PARENT_INVITATION_VIEWS.history, label: 'History' },
 ]
 
-const parentInvitationHistoryPageSize = 8
+const parentInvitationPageSize = 3
 
 function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEvent, selectedLink }) {
-  const [activeTab, setActiveTab] = useState(PARENT_INVITATION_VIEWS.pending)
-  const [visibleHistoryCount, setVisibleHistoryCount] = useState(parentInvitationHistoryPageSize)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedView = String(searchParams.get('inviteView') ?? '').trim()
+  const activeTab = parentInvitationTabs.some((tab) => tab.id === requestedView)
+    ? requestedView
+    : PARENT_INVITATION_VIEWS.pending
   const invitationViews = useMemo(() => splitParentInvitationsForViews(invitations), [invitations])
-  const activeInvitations = activeTab === PARENT_INVITATION_VIEWS.history
-    ? invitationViews[activeTab].slice(0, visibleHistoryCount)
-    : invitationViews[activeTab]
+  const requestedPage = Number.parseInt(searchParams.get('invitePage') || '1', 10)
+  const pageCount = Math.max(1, Math.ceil(invitationViews[activeTab].length / parentInvitationPageSize))
+  const currentPage = Number.isFinite(requestedPage) ? Math.min(Math.max(requestedPage, 1), pageCount) : 1
+  const activeInvitations = invitationViews[activeTab].slice(
+    (currentPage - 1) * parentInvitationPageSize,
+    currentPage * parentInvitationPageSize,
+  )
   const currentCount = invitationViews[PARENT_INVITATION_VIEWS.pending].length
+
+  const handleViewChange = (viewId) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'invites')
+    nextSearchParams.set('inviteView', viewId)
+    nextSearchParams.set('invitePage', '1')
+    setSearchParams(nextSearchParams)
+  }
+
+  const handlePageChange = (nextPage) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('section', 'invites')
+    nextSearchParams.set('inviteView', activeTab)
+    nextSearchParams.set('invitePage', String(nextPage))
+    setSearchParams(nextSearchParams)
+  }
 
   const openInvitationEvent = (invitation) => {
     const event = calendarEvents.find((calendarEvent) =>
@@ -3389,12 +3481,7 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
               type="button"
               role="tab"
               aria-selected={isActive}
-              onClick={() => {
-                setActiveTab(tab.id)
-                if (tab.id === PARENT_INVITATION_VIEWS.history) {
-                  setVisibleHistoryCount(parentInvitationHistoryPageSize)
-                }
-              }}
+              onClick={() => handleViewChange(tab.id)}
               className={`${isActive ? primaryButtonClass : secondaryButtonClass} shrink-0`}
             >
               {tab.label} ({count})
@@ -3448,14 +3535,16 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
                       </article>
                     )
                   })}
-            {activeTab === PARENT_INVITATION_VIEWS.history && visibleHistoryCount < invitationViews[PARENT_INVITATION_VIEWS.history].length ? (
-              <button
-                type="button"
-                onClick={() => setVisibleHistoryCount((count) => count + parentInvitationHistoryPageSize)}
-                className={`${secondaryButtonClass} md:col-span-2 md:justify-self-center`}
-              >
-                Load more history
-              </button>
+            {pageCount > 1 ? (
+              <div className="flex items-center justify-between gap-3 md:col-span-2" aria-label="Invitation pages">
+                <button type="button" className={secondaryButtonClass} disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>
+                  Previous
+                </button>
+                <p className="text-sm font-black text-[#4b5f55]">Page {currentPage} of {pageCount}</p>
+                <button type="button" className={secondaryButtonClass} disabled={currentPage === pageCount} onClick={() => handlePageChange(currentPage + 1)}>
+                  Next
+                </button>
+              </div>
             ) : null}
           </div>
         ) : (

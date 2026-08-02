@@ -92,12 +92,13 @@ test('desktop and mobile navigation use synchronised New while invite actions st
   assert.doesNotMatch(parentPortalShell, /typeof count === 'number'|\{count\}/)
 })
 
-test('invites page defaults to Pending and bounds history rendering', () => {
-  assert.match(parentPortalPage, /useState\(PARENT_INVITATION_VIEWS\.pending\)/)
+test('invites page defaults to Pending and bounds every invitation view', () => {
+  assert.match(parentPortalPage, /: PARENT_INVITATION_VIEWS\.pending/)
   assert.match(parentPortalPage, /label: 'Responded or Upcoming'/)
-  assert.match(parentPortalPage, /const parentInvitationHistoryPageSize = 8/)
-  assert.match(parentPortalPage, /\.slice\(0, visibleHistoryCount\)/)
-  assert.match(parentPortalPage, /Load more history/)
+  assert.match(parentPortalPage, /const parentInvitationPageSize = 3/)
+  assert.match(parentPortalPage, /currentPage \* parentInvitationPageSize/)
+  assert.match(parentPortalPage, /aria-label="Invitation pages"/)
+  assert.match(parentPortalPage, /nextSearchParams\.set\('invitePage', String\(nextPage\)\)/)
   assert.match(parentPortalPage, /You're all caught up\. There are no invitations waiting for your response\./)
   assert.match(parentPortalPage, /min-w-0 overflow-hidden/)
   assert.match(parentPortalPage, /break-words/)
