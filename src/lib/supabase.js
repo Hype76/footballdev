@@ -341,6 +341,33 @@ export {
 } from './domain/resource-library.js'
 
 export {
+  archiveFormationBoard,
+  createFormationBoard,
+  deleteFormationBoard,
+  duplicateFormationBoard,
+  FORMATION_BOARD_EXPORT_FORMATS,
+  FORMATION_BOARD_GAME_FORMATS,
+  FORMATION_BOARD_ORIENTATIONS,
+  FORMATION_BOARD_REGISTRY_VERSION,
+  FORMATION_BOARD_VISIBILITY_STATES,
+  getFormationBoard,
+  getFormationBoardError,
+  getFormationBoardPresets,
+  getFormationBoardPublications,
+  getFormationBoards,
+  getFormationBoardVersions,
+  normalizeFormationBoard,
+  normalizeFormationBoardPreset,
+  publishFormationBoardVersion,
+  renameFormationBoard,
+  requestFormationBoardExport,
+  restoreFormationBoard,
+  restoreFormationBoardVersion,
+  saveFormationBoardVersion,
+  setFormationBoardVisibility,
+} from './domain/formation-board.js'
+
+export {
   addMatchDayGoalAsScorer,
   correctMatchDayGoalAsScorer,
   correctStaffMatchDayGoal,
