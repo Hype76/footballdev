@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AccountProfileSection } from '../components/user-settings/AccountProfileSection.jsx'
 import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
 import { LoginEmailSection } from '../components/user-settings/LoginEmailSection.jsx'
@@ -42,6 +43,7 @@ import {
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const isDemoSettings = isDemoAccount(user)
   const isParentSettings = isParentPortalUser(user)
   const isClubAdminSettings = isClubAdmin(user)
@@ -54,6 +56,14 @@ export function UserSettingsPage() {
   const showSenderIdentity = canEditEmailTeamName
   const showDisplaySettings = Boolean(user?.id)
   const showSetupChecklistSettings = Boolean(user?.id) && user?.role !== 'super_admin'
+  const availableSettingsAreas = [
+    'profile',
+    ...(showDisplaySettings ? ['display'] : []),
+    ...(showSetupChecklistSettings ? ['setup'] : []),
+    'security',
+  ]
+  const requestedSettingsArea = String(searchParams.get('area') ?? '').trim()
+  const settingsArea = availableSettingsAreas.includes(requestedSettingsArea) ? requestedSettingsArea : 'profile'
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
   const [displayName, setDisplayName] = useState(user?.displayName || user?.username || user?.name || '')
@@ -499,6 +509,16 @@ export function UserSettingsPage() {
   const onboardingProgress = getOnboardingProgress(onboardingPlan)
   const onboardingNextStep = onboardingPlan?.steps?.find((step) => !step.complete) ?? onboardingPlan?.steps?.[0] ?? null
 
+  const openSettingsArea = (area) => {
+    const nextParams = new URLSearchParams(searchParams)
+    if (area === 'profile') {
+      nextParams.delete('area')
+    } else {
+      nextParams.set('area', area)
+    }
+    setSearchParams(nextParams)
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       {successMessage ? (
@@ -511,7 +531,32 @@ export function UserSettingsPage() {
         <NoticeBanner title="Account settings could not be saved" message={errorMessage} />
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[0.8fr_1fr]">
+      <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Settings workspace</p>
+        <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Open one account area at a time</h1>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+          Profile, display, setup, and security controls remain separate so changes stay clear.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {availableSettingsAreas.map((area) => (
+            <button
+              key={area}
+              type="button"
+              onClick={() => openSettingsArea(area)}
+              aria-pressed={settingsArea === area}
+              className={`inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-3 text-sm font-black capitalize transition ${
+                settingsArea === area
+                  ? 'border-[#047857] bg-[#047857] text-white'
+                  : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]'
+              }`}
+            >
+              {area}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {settingsArea === 'profile' ? (
         <AccountProfileSection
           authUser={authUser}
           canEditEmailClubName={canEditEmailClubName}
@@ -533,9 +578,9 @@ export function UserSettingsPage() {
           username={username}
           workspaceLabel={workspaceLabel}
         />
+      ) : null}
 
-        <div className="space-y-5">
-          {showDisplaySettings ? (
+      {settingsArea === 'display' && showDisplaySettings ? (
             <DisplaySettingsSection
               canEditBranding={canEditClubBranding}
               brandingUnavailableMessage={brandingUnavailableMessage}
@@ -555,9 +600,9 @@ export function UserSettingsPage() {
               themeButtonStyle={themeButtonStyle}
               themeMode={themeMode}
             />
-          ) : null}
+      ) : null}
 
-          {showSetupChecklistSettings ? (
+      {settingsArea === 'setup' && showSetupChecklistSettings ? (
             <SetupChecklistSettingsSection
               isHidden={Boolean(onboardingPlan?.manualState?.dismissedAt)}
               isLoading={isLoadingOnboardingSnapshot}
@@ -568,8 +613,10 @@ export function UserSettingsPage() {
               progress={onboardingProgress}
               scopeLabel={onboardingScopeLabel}
             />
-          ) : null}
+      ) : null}
 
+      {settingsArea === 'security' ? (
+        <div className="space-y-5">
           <LoginEmailSection
             currentEmail={currentLoginEmail}
             email={email}
@@ -605,7 +652,7 @@ export function UserSettingsPage() {
             <PrivilegedMfaSection isPlatformAdmin={isPlatformAdminSettings} />
           ) : null}
         </div>
-      </div>
+      ) : null}
     </div>
   )
 }

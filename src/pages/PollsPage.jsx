@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManagePolls, useAuth } from '../lib/auth.js'
@@ -43,21 +43,6 @@ const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#0478
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
 const chipClass = 'inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55] shadow-sm shadow-[#047857]/10'
-
-const pollRuleCards = [
-  {
-    label: 'Pick the football decision',
-    body: 'Start with the decision the coach needs: training attendance, match availability, time choice, or an award vote.',
-  },
-  {
-    label: 'Send to the right lane',
-    body: 'Parent questions go to the family portal. Staff questions stay inside the team workspace.',
-  },
-  {
-    label: 'Close the loop',
-    body: 'Close old requests once the squad or session choice is made so match week stays readable.',
-  },
-]
 
 function getOptionId(index) {
   return `option-${index + 1}`
@@ -166,6 +151,8 @@ function buildOptionsForSubmit(form) {
 export function PollsPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const workspaceView = searchParams.get('view') === 'create' ? 'create' : 'board'
   const [polls, setPolls] = useState([])
   const [teams, setTeams] = useState([])
   const [players, setPlayers] = useState([])
@@ -189,11 +176,6 @@ export function PollsPage() {
   const parentPollCount = useMemo(() => polls.filter((poll) => poll.audience === 'parents').length, [polls])
   const staffPollCount = useMemo(() => polls.filter((poll) => poll.audience === 'staff').length, [polls])
   const closedPollCount = useMemo(() => polls.filter((poll) => poll.status === 'closed').length, [polls])
-  const responseCount = useMemo(
-    () => polls.reduce((total, poll) => total + getTotalVotes(poll), 0),
-    [polls],
-  )
-
   const awardPlayers = useMemo(
     () =>
       players
@@ -435,6 +417,16 @@ export function PollsPage() {
     }
   }
 
+  const openWorkspaceView = (view) => {
+    const nextParams = new URLSearchParams(searchParams)
+    if (view === 'create') {
+      nextParams.set('view', 'create')
+    } else {
+      nextParams.delete('view')
+    }
+    setSearchParams(nextParams)
+  }
+
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -448,14 +440,6 @@ export function PollsPage() {
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
                 Ask parents or staff for one clear answer, watch replies come in, then close the poll when the team decision is made.
               </p>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {pollRuleCards.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
-                  </article>
-                ))}
-              </div>
             </div>
           </div>
           <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
@@ -471,9 +455,6 @@ export function PollsPage() {
               <DecisionMetric label="Closed" value={closedPollCount} isLoading={isLoading} />
               <DecisionMetric label="Visible" value={visiblePolls.length} isLoading={isLoading} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Use this board before team selection, session planning, and match day squads. Old polls should be closed once the answer is acted on.
-            </p>
           </div>
         </div>
       </section>
@@ -486,22 +467,26 @@ export function PollsPage() {
 
       {errorMessage ? <NoticeBanner title="Availability action failed" message={errorMessage} /> : null}
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        {[
-          { label: 'Open requests', value: openPollCount, caption: 'Still waiting for replies or action.' },
-          { label: 'Parent lane', value: parentPollCount, caption: 'Questions sent to family portal.' },
-          { label: 'Staff lane', value: staffPollCount, caption: 'Internal team staff decisions.' },
-          { label: 'Total replies', value: responseCount, caption: 'Responses across availability requests.' },
-        ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
-            <p className="mt-2 text-3xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
-          </div>
-        ))}
-      </div>
+      <section aria-label="Poll workspace" className="grid grid-cols-2 gap-2 rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-sm shadow-[#047857]/10">
+        <button
+          type="button"
+          onClick={() => openWorkspaceView('board')}
+          aria-pressed={workspaceView === 'board'}
+          className={workspaceView === 'board' ? primaryButtonClass : secondaryButtonClass}
+        >
+          Reply board
+        </button>
+        <button
+          type="button"
+          onClick={() => openWorkspaceView('create')}
+          aria-pressed={workspaceView === 'create'}
+          className={workspaceView === 'create' ? primaryButtonClass : secondaryButtonClass}
+        >
+          Create poll
+        </button>
+      </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm">
+      {workspaceView === 'create' ? <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm">
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Create poll</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Ask for one clear answer</h2>
@@ -679,9 +664,9 @@ export function PollsPage() {
           </button>
           </div>
         </form>
-      </section>
+      </section> : null}
 
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm">
+      {workspaceView === 'board' ? <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm">
         <div className="grid gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
             <p className={eyebrowClass}>Reply board</p>
@@ -726,7 +711,7 @@ export function PollsPage() {
           </p>
         )}
         </div>
-      </section>
+      </section> : null}
     </div>
   )
 }

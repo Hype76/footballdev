@@ -40,6 +40,7 @@ const playerRegisterRules = [
 ]
 
 export function PlayersPage({
+  compactMode = false,
   defaultView = 'all',
   headerDescription = 'Use one football register for squad status, parent contacts, team assignment, and development history. Search first, then open the profile before making decisions.',
   headerEyebrow = 'Player register',
@@ -50,6 +51,7 @@ export function PlayersPage({
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedViewFilter = searchParams.get('view') || defaultView
   const requestedSection = searchParams.get('section') || 'All'
+  const requestedPlayerKey = searchParams.get('player') || ''
   const isValidViewFilter = ['all', 'evaluated', 'scored'].includes(requestedViewFilter)
   const isValidSectionFilter = requestedSection === 'All' || EVALUATION_SECTIONS.includes(requestedSection)
   const viewFilter = isValidViewFilter ? requestedViewFilter : defaultView
@@ -261,6 +263,12 @@ export function PlayersPage({
     () => getPaginatedItems(filteredPlayers, playerPage, PLAYER_PAGE_SIZE),
     [filteredPlayers, playerPage],
   )
+  const focusedPlayer = filteredPlayers.find((player) => String(player.playerId || player.playerName) === requestedPlayerKey)
+    || filteredPlayers[0]
+    || null
+  const visiblePaginatedPlayers = compactMode
+    ? { ...paginatedPlayers, items: focusedPlayer ? [focusedPlayer] : [] }
+    : paginatedPlayers
 
   const totalEvaluations = playerRows.reduce((sum, player) => sum + player.totalEvaluations, 0)
   const evaluatedPlayerCount = playerRows.filter((player) => player.totalEvaluations > 0).length
@@ -288,6 +296,17 @@ export function PlayersPage({
   const clearInvalidFilters = () => {
     setSearchParams({})
     setPlayerPage(1)
+  }
+
+  const handleFocusedPlayerChange = (playerKey) => {
+    const nextPlayerKey = String(playerKey ?? '').trim()
+    if (!nextPlayerKey) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams)
+    params.set('player', nextPlayerKey)
+    setSearchParams(params)
   }
 
   if (!canCreateEvaluation(user)) {
@@ -375,14 +394,14 @@ export function PlayersPage({
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">{headerEyebrow}</p>
               <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">{headerTitle}</h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">{headerDescription}</p>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {compactMode ? null : <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {playerRegisterRules.map((item) => (
                   <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#101828]/5">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">{item.label}</p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
                   </article>
                 ))}
-              </div>
+              </div>}
             </div>
           </div>
           <div className="grid content-between border-t border-[#bbf7d0] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
@@ -401,9 +420,9 @@ export function PlayersPage({
               <PlayerMetric label="Records" value={totalEvaluations} isLoading={isLoading} />
               <PlayerMetric label="No record" value={playersWithoutRecords} isLoading={isLoading} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
+            {compactMode ? null : <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
               Add players once, then let sessions, notes, parent links, and match activity use the same record.
-            </p>
+            </p>}
           </div>
         </div>
       </section>
@@ -434,19 +453,22 @@ export function PlayersPage({
         </div>
       ) : null}
 
-      <PlayerStatsCards
+      {compactMode ? null : <PlayerStatsCards
         evaluatedPlayerCount={evaluatedPlayerCount}
         squadPlayerCount={squadPlayerCount}
         totalEvaluations={totalEvaluations}
         trialPlayerCount={trialPlayerCount}
-      />
+      />}
 
       <PlayersListSection
         actionLoadingKey={actionLoadingKey}
+        compactMode={compactMode}
         filteredPlayers={filteredPlayers}
+        focusedPlayer={focusedPlayer}
         isLoading={isLoading}
         onArchivePlayer={handleArchivePlayer}
         onFilterChange={updateListFilter}
+        onFocusedPlayerChange={handleFocusedPlayerChange}
         onMovePlayerToTrial={handleMovePlayerToTrial}
         onPageChange={setPlayerPage}
         onSearchChange={(nextSearchTerm) => {
@@ -454,7 +476,7 @@ export function PlayersPage({
           setPlayerPage(1)
         }}
         pageSize={PLAYER_PAGE_SIZE}
-        paginatedPlayers={paginatedPlayers}
+        paginatedPlayers={visiblePaginatedPlayers}
         playerPage={playerPage}
         searchTerm={searchTerm}
         urlSection={urlSection}

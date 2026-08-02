@@ -77,7 +77,8 @@ export function SubmitExportSection({
 
   return (
     <SectionCard
-      storageKey="development-record-submit-v2"
+      defaultCollapsed
+      storageKey="development-record-submit-v3"
       title="Submit and export"
       description="Save the record first. Parent email output is optional and should only include useful development detail."
     >

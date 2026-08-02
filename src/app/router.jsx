@@ -2032,7 +2032,7 @@ export const router = createBrowserRouter([
                     path: 'players/current',
                     element: (
                       <PageSuspense>
-                        <PlayersPage />
+                        <PlayersPage compactMode />
                       </PageSuspense>
                     ),
                     handle: {
@@ -2179,6 +2179,7 @@ export const router = createBrowserRouter([
                     element: (
                       <PageSuspense>
                         <PlayersPage
+                          compactMode
                           defaultView="evaluated"
                           headerDescription="Review players who already have completed development records, then open a profile for the full history."
                           headerEyebrow="Development"

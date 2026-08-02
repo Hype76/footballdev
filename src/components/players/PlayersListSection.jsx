@@ -11,10 +11,13 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 
 export function PlayersListSection({
   actionLoadingKey,
+  compactMode = false,
   filteredPlayers,
+  focusedPlayer,
   isLoading,
   onArchivePlayer,
   onFilterChange,
+  onFocusedPlayerChange,
   onMovePlayerToTrial,
   onPageChange,
   onSearchChange,
@@ -65,6 +68,22 @@ export function PlayersListSection({
       </div>
 
       <div className="grid gap-4 border-b border-[#d7e5dc] bg-white px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
+        {compactMode && filteredPlayers.length > 0 ? (
+          <label className="block md:col-span-2 lg:col-span-3">
+            <span className={labelClass}>Player in focus</span>
+            <select
+              value={String(focusedPlayer?.playerId || focusedPlayer?.playerName || '')}
+              onChange={(event) => onFocusedPlayerChange(event.target.value)}
+              className={fieldClass}
+            >
+              {filteredPlayers.map((player) => (
+                <option key={player.playerId || `${player.team}:${player.playerName}`} value={String(player.playerId || player.playerName)}>
+                  {player.playerName} | {player.section} | {player.team || 'No team'}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="block md:col-span-2">
           <span className={labelClass}>Search player register</span>
           <input
@@ -211,12 +230,12 @@ export function PlayersListSection({
               </div>
             )
           })}
-          <Pagination
+          {compactMode ? null : <Pagination
             currentPage={playerPage}
             onPageChange={onPageChange}
             pageSize={pageSize}
             totalItems={filteredPlayers.length}
-          />
+          />}
           </div>
         )}
       </div>

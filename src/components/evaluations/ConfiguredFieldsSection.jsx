@@ -11,7 +11,8 @@ export function ConfiguredFieldsSection({
 }) {
   return (
     <SectionCard
-      storageKey="development-record-fields-v2"
+      defaultCollapsed
+      storageKey="development-record-fields-v3"
       title="Development fields"
       description={
         isFallbackFields
