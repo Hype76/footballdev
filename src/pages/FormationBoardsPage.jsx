@@ -632,13 +632,24 @@ export function FormationBoardsPage() {
       setSavedSnapshot(nextSnapshot)
       setHistory([])
       setSaveState('saved')
-      setVersions(await getFormationBoardVersions(savedBoard.id))
       if (draftKey) window.localStorage.removeItem(draftKey)
-      await refreshBoards()
-      if (isNewBoard) navigate(`/resources/formation-boards?board=${savedBoard.id}`, { replace: true })
+      if (isNewBoard) {
+        allowNavigationRef.current = true
+        navigate(`/resources/formation-boards?board=${savedBoard.id}`, { replace: true })
+        window.setTimeout(() => { allowNavigationRef.current = false }, 0)
+      }
+
+      const [versionsResult, boardsResult] = await Promise.allSettled([
+        getFormationBoardVersions(savedBoard.id),
+        refreshBoards(),
+      ])
+      if (versionsResult.status === 'fulfilled') setVersions(versionsResult.value)
+      if (versionsResult.status === 'rejected' || boardsResult.status === 'rejected') {
+        console.warn('Formation Board saved, but its latest Team history could not be refreshed yet.')
+      }
       showToast({ title: 'Formation Board saved', message: `Version ${savedBoard.currentVersionNumber} is protected in Team history.` })
     } catch (error) {
-      console.error(error)
+      if (error.code !== 'formation_board_version_conflict') console.error(error)
       setSaveState(error.code === 'formation_board_version_conflict' ? 'conflict' : 'failed')
       if (error.code === 'formation_board_version_conflict') setConflict(error)
       else setErrorMessage(error.message || 'The Formation Board could not be saved. Retry when ready.')

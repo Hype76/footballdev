@@ -141,6 +141,7 @@ const players = Array.from({ length: 14 }, (_, index) => ({
 function createMockState({ seedSharedBoard = false } = {}) {
   let versionNumber = 1
   let shouldConflict = false
+  let shouldFailVersionRefresh = false
   const boardId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   const boards = []
 
@@ -190,6 +191,7 @@ function createMockState({ seedSharedBoard = false } = {}) {
   return {
     boards,
     setConflict() { shouldConflict = true },
+    failNextVersionRefresh() { shouldFailVersionRefresh = true },
     async handle(route) {
       const request = route.request()
       const url = new URL(request.url())
@@ -227,6 +229,10 @@ function createMockState({ seedSharedBoard = false } = {}) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(board) })
       }
       if (path.endsWith('/rpc/list_formation_board_versions')) {
+        if (shouldFailVersionRefresh) {
+          shouldFailVersionRefresh = false
+          return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'temporary_refresh_failure' }) })
+        }
         const current = boards[0]?.currentVersion
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(current ? [current] : []) })
       }
@@ -301,13 +307,17 @@ try {
   await desktopPage.getByRole('button', { name: 'Restore draft' }).click()
   assert.equal(await desktopPage.getByLabel('Staff notes').inputValue(), 'Protected local draft')
 
+  desktopFixture.state.failNextVersionRefresh()
+  await desktopPage.getByRole('button', { name: 'Save', exact: true }).click()
+  await desktopPage.getByText('Saved', { exact: true }).waitFor()
+  await desktopPage.getByLabel('Staff notes').fill('Protected conflict draft')
   desktopFixture.state.setConflict()
   await desktopPage.getByRole('button', { name: 'Save', exact: true }).click()
   await desktopPage.getByRole('heading', { name: 'A newer Team version is available' }).waitFor()
   await desktopPage.getByRole('button', { name: 'Reload latest' }).click()
   await desktopPage.getByText('Saved', { exact: true }).waitFor()
   await desktopPage.screenshot({ path: `${screenshotDirectory}/desktop-editor.png`, fullPage: true })
-  assert.deepEqual(consoleErrors.filter((message) => !/favicon|analytics|Failed to load resource|newer saved version/.test(message)), [])
+  assert.deepEqual(consoleErrors.filter((message) => !/favicon|analytics|Failed to load resource/.test(message)), [])
   await desktopFixture.context.close()
 
   const mobileFixture = await createFixtureContext(browser, 'manager.fixture@footballplayer.test', devices['iPhone 13'], { seedSharedBoard: true })

@@ -182,6 +182,9 @@ test('editor includes Pointer Events, tap positioning, keyboard movement, local 
   assert.match(page, /Save as new board/)
   assert.match(page, /Players and bench/)
   assert.match(page, /env\(safe-area-inset-bottom\)/)
+  assert.match(page, /Promise\.allSettled/)
+  assert.match(page, /error\.code !== 'formation_board_version_conflict'/)
+  assert.match(page, /allowNavigationRef\.current = true[\s\S]*board=\$\{savedBoard\.id\}/)
 })
 
 test('editor metadata and immutable version use one atomic server transaction', async () => {
