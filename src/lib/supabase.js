@@ -364,6 +364,7 @@ export {
   restoreFormationBoard,
   restoreFormationBoardVersion,
   saveFormationBoardVersion,
+  saveFormationBoardEditor,
   setFormationBoardVisibility,
 } from './domain/formation-board.js'
 

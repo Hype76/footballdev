@@ -292,6 +292,47 @@ export function canManageResourceLibrary(user) {
   return canUseResourceLibrary(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
+function getFormationBoardTeamRoleRank(user) {
+  if (isClubAdmin(user)) {
+    return Number(user?.activeTeamAssignmentRoleRank ?? 0)
+  }
+
+  return Number(user?.roleRank ?? 0)
+}
+
+export function canUseFormationBoards(user) {
+  if (!user?.clubId || !user?.activeTeamId || isSuperAdmin(user) || isPortalOnlyUser(user) || !isPlanAccessActive(user)) {
+    return false
+  }
+
+  return isClubAdmin(user) || getFormationBoardTeamRoleRank(user) >= 20
+}
+
+export function canCreateFormationBoard(user) {
+  return canUseFormationBoards(user) && getFormationBoardTeamRoleRank(user) >= 30
+}
+
+export function canEditFormationBoard(user, board) {
+  if (!canUseFormationBoards(user) || !board || board.archivedAt) {
+    return false
+  }
+
+  const teamRoleRank = getFormationBoardTeamRoleRank(user)
+
+  return teamRoleRank >= 50
+    || (teamRoleRank >= 30 && (board.visibilityState === 'shared' || String(board.createdByProfileId) === String(user?.id)))
+}
+
+export function canArchiveFormationBoard(user, board) {
+  if (!canUseFormationBoards(user) || !board) {
+    return false
+  }
+
+  const teamRoleRank = getFormationBoardTeamRoleRank(user)
+  return teamRoleRank >= 50
+    || (teamRoleRank >= 30 && String(board.createdByProfileId) === String(user?.id))
+}
+
 export function canManageMatchDay(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)

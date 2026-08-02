@@ -4,6 +4,7 @@ import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router
 import { Layout } from '../components/layout/Layout.jsx'
 import {
   canCreateEvaluation,
+  canUseFormationBoards,
   canManageClubSettings,
   canManageFeedbackForms,
   canManageFormFields,
@@ -76,6 +77,7 @@ const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPa
 const EndSeasonStatsPage = lazyRoute(() => import('../pages/EndSeasonStatsPage.jsx'), 'EndSeasonStatsPage')
 const EmailQueuePage = lazyRoute(() => import('../pages/EmailQueuePage.jsx'), 'EmailQueuePage')
 const FeedbackFormsPage = lazyRoute(() => import('../pages/FeedbackFormsPage.jsx'), 'FeedbackFormsPage')
+const FormationBoardsPage = lazyRoute(() => import('../pages/FormationBoardsPage.jsx'), 'FormationBoardsPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
@@ -1242,6 +1244,20 @@ function RequireResourceLibraryAccess() {
   return <Outlet />
 }
 
+function RequireFormationBoardAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canUseFormationBoards(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequireMatchDayAccess() {
   const { element, user } = useWorkspaceRouteGate()
 
@@ -2137,6 +2153,22 @@ export const router = createBrowserRouter([
                         ),
                         handle: {
                           title: 'Resource Library',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    element: <RequireFormationBoardAccess />,
+                    children: [
+                      {
+                        path: 'resources/formation-boards',
+                        element: (
+                          <PageSuspense>
+                            <FormationBoardsPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Formation Boards',
                         },
                       },
                     ],

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canManageResourceLibrary, canUseResourceLibrary, useAuth } from '../lib/auth.js'
+import { canManageResourceLibrary, canUseFormationBoards, canUseResourceLibrary, useAuth } from '../lib/auth.js'
 import {
   RESOURCE_LIBRARY_CATEGORIES,
   RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH,
@@ -148,6 +148,7 @@ export function ResourceLibraryPage() {
   const { showToast } = useToast()
   const canOpenResourceLibrary = canUseResourceLibrary(user)
   const canManage = canManageResourceLibrary(user)
+  const canOpenFormationBoards = canUseFormationBoards(user)
   const activeTeamId = String(user?.activeTeamId ?? '').trim()
   const activeTeamName = String(user?.activeTeamName ?? '').trim() || 'Selected team'
   const [resources, setResources] = useState([])
@@ -442,6 +443,19 @@ export function ResourceLibraryPage() {
 
       {errorMessage ? <NoticeBanner title="Resource Library action failed" message={errorMessage} /> : null}
       {successMessage ? <NoticeBanner title="Resource Library updated" message={successMessage} tone="info" /> : null}
+
+      {canOpenFormationBoards ? (
+        <section className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-[var(--text-primary)] shadow-sm shadow-[#047857]/10 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">Formation Boards</p>
+              <h2 className="mt-2 text-xl font-black">Plan Team shapes on an interactive pitch</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">Create, position, save, and share boards with authorised staff in {activeTeamName}.</p>
+            </div>
+            <Link to="/resources/formation-boards" className={primaryButtonClass}>Open Formation Boards</Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_14rem]">

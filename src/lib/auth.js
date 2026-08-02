@@ -21,9 +21,12 @@ import { recordAnalyticsEvent, recordSuccessfulLoginAnalytics } from './domain/p
 
 export {
   canAssignRole,
+  canArchiveFormationBoard,
   canCreateEvaluation,
+  canCreateFormationBoard,
   canDeletePlayer,
   canEditEvaluation,
+  canEditFormationBoard,
   canManageClubLogo,
   canManageClubSettings,
   canManageEmailQueue,
@@ -40,6 +43,7 @@ export {
   canShareEvaluation,
   canUseClubStaffChat,
   canUseDataTransfer,
+  canUseFormationBoards,
   canUseResourceLibrary,
   canUseStaffChat,
   canViewActivityLog,
@@ -74,7 +78,7 @@ const PLATFORM_ADMIN_ACCESS_OPTION = {
 }
 
 function applyContextualTeamRole(profile, team) {
-  if (!profile || !team || isClubAdmin(profile)) {
+  if (!profile || !team) {
     return profile
   }
 
@@ -82,16 +86,27 @@ function applyContextualTeamRole(profile, team) {
   const roleLabel = String(team.assignmentRoleLabel ?? '').trim()
   const roleRank = Number(team.assignmentRoleRank ?? 0)
 
+  const contextualProfile = {
+    ...profile,
+    activeTeamAssignmentId: team.assignmentId || '',
+    activeTeamAssignmentRole: role,
+    activeTeamAssignmentRoleLabel: roleLabel,
+    activeTeamAssignmentRoleRank: roleRank,
+  }
+
+  if (isClubAdmin(profile)) {
+    return contextualProfile
+  }
+
   if (!role || !roleLabel || roleRank <= 0) {
-    return profile
+    return contextualProfile
   }
 
   return {
-    ...profile,
+    ...contextualProfile,
     role,
     roleLabel,
     roleRank,
-    activeTeamAssignmentId: team.assignmentId || '',
   }
 }
 const PARENT_ACCESS_OPTION = {

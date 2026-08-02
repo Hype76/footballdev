@@ -18,6 +18,7 @@ const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
   formation_board_archive_forbidden: 'You do not have permission to archive this Formation Board.',
   formation_board_archived_publish_forbidden: 'Restore this Formation Board before publishing it.',
   formation_board_auth_required: 'Sign in again before using Formation Boards.',
+  formation_board_bench_limit_exceeded: 'This Formation Board has too many Players on the bench.',
   formation_board_create_forbidden: 'You do not have permission to create Formation Boards for this Team.',
   formation_board_delete_confirmation_failed: 'Enter the exact Formation Board title to confirm deletion.',
   formation_board_delete_forbidden: 'Only an authorised Team Admin or Manager can delete this Formation Board.',
@@ -27,6 +28,7 @@ const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
   formation_board_forbidden: 'You do not have permission to view this Formation Board.',
   formation_board_not_found: 'This Formation Board is no longer available.',
   formation_board_payload_invalid: 'Check the Formation Board details and try again.',
+  formation_board_pitch_player_limit_exceeded: 'This game format does not have enough pitch places for every selected Player.',
   formation_board_placement_invalid: 'Keep every Player marker within the pitch boundary.',
   formation_board_player_duplicate: 'A Player can only appear once on a Formation Board.',
   formation_board_player_invalid: 'One or more selected Players are not available for this Team.',
@@ -36,7 +38,11 @@ const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
   formation_board_published_delete_forbidden: 'Published Formation Boards must be archived and retained for resource history.',
   formation_board_resource_category_invalid: 'Choose an available Team Resource category.',
   formation_board_resource_not_linked: 'Choose a Team Resource already linked to this Formation Board.',
+  formation_board_restore_forbidden: 'You do not have permission to restore this Formation Board.',
+  formation_board_shirt_number_invalid: 'Use a shirt number from 0 to 999, or leave it blank.',
   formation_board_snapshot_invalid: 'Check the Player positions and bench, then try again.',
+  formation_board_snapshot_must_be_arrays: 'The saved pitch and bench data is not valid.',
+  formation_board_title_invalid: 'Enter a Formation Board title between 1 and 120 characters.',
   formation_board_version_conflict: 'A newer saved version is available. Reload it before saving your changes.',
   formation_board_version_not_found: 'That Formation Board version is no longer available.',
 })
@@ -256,6 +262,42 @@ export async function saveFormationBoardVersion({
     preset_key_value: presetKey,
     registry_version_value: registryVersion,
     target_board_id: boardId,
+    version_reason_value: versionReason,
+    visibility_value: visibility,
+  })
+
+  return normalizeFormationBoard(data)
+}
+
+export async function saveFormationBoardEditor({
+  bench = [],
+  boardId,
+  description = '',
+  expectedVersionNumber,
+  gameFormat,
+  notes = '',
+  pitchOrientation = 'portrait',
+  placements = [],
+  presetKey,
+  registryVersion = FORMATION_BOARD_REGISTRY_VERSION,
+  title,
+  user,
+  versionReason = 'editor_save',
+  visibility,
+} = {}) {
+  await prepareFormationBoardMutation(user)
+  const data = await callFormationBoardRpc('save_formation_board_editor', {
+    bench_value: bench,
+    description_value: description,
+    expected_version_number: expectedVersionNumber,
+    game_format_value: gameFormat,
+    notes_value: notes,
+    pitch_orientation_value: pitchOrientation,
+    placements_value: placements,
+    preset_key_value: presetKey,
+    registry_version_value: registryVersion,
+    target_board_id: boardId,
+    title_value: title,
     version_reason_value: versionReason,
     visibility_value: visibility,
   })

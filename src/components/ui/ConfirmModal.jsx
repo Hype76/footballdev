@@ -60,6 +60,7 @@ export function ConfirmModal({
   const [validationError, setValidationError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const cancelButtonRef = useRef(null)
+  const panelRef = useRef(null)
   const submittingRef = useRef(false)
   const titleId = useId()
 
@@ -95,6 +96,28 @@ export function ConfirmModal({
       if (event.key === 'Escape' && !isBusy && !isSubmitting) {
         event.preventDefault()
         onCancel()
+        return
+      }
+
+      if (event.key === 'Tab') {
+        const focusable = [...(panelRef.current?.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]',
+        ) ?? [])]
+
+        if (focusable.length === 0) {
+          return
+        }
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
       }
     }
 
@@ -205,6 +228,7 @@ export function ConfirmModal({
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

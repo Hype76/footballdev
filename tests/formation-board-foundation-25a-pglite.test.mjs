@@ -8,6 +8,7 @@ const migrationUrl = new URL('../supabase/migrations/20260802130700_formation_bo
 const auditSourceRepairUrl = new URL('../supabase/migrations/20260802132311_formation_board_audit_source_25a.sql', import.meta.url)
 const indexesMigrationUrl = new URL('../supabase/migrations/20260802133210_formation_board_indexes_25a.sql', import.meta.url)
 const compositeIndexesMigrationUrl = new URL('../supabase/migrations/20260802133419_formation_board_composite_indexes_25a.sql', import.meta.url)
+const editorSaveMigrationUrl = new URL('../supabase/migrations/20260802155000_formation_board_editor_save_25b.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -196,6 +197,8 @@ before(async () => {
   await db.exec(indexesMigration)
   const compositeIndexesMigration = await readFile(compositeIndexesMigrationUrl, 'utf8')
   await db.exec(compositeIndexesMigration)
+  const editorSaveMigration = await readFile(editorSaveMigrationUrl, 'utf8')
+  await db.exec(editorSaveMigration)
 
   await db.exec(`
     insert into public.clubs (id, name) values
@@ -383,6 +386,72 @@ test('save creates immutable versions and optimistic conflicts fail visibly', as
     db.query('update public.formation_board_versions set notes = $1 where board_id = $2', ['rewrite', sharedBoard.board.id]),
     /formation_board_snapshot_immutable/,
   )
+})
+
+test('editor save commits metadata and one immutable version atomically', async () => {
+  await setActor(IDS.manager)
+  const created = await rpc(
+    'public.create_formation_board($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)',
+    [IDS.teamA, 'Atomic starting title', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 1],
+  )
+  const atomicBoardId = created.rows[0].result.board.id
+  const beforeVersion = created.rows[0].result.board.current_version_number
+  const saved = await rpc(
+    'public.save_formation_board_editor($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12, $13)',
+    [
+      atomicBoardId,
+      beforeVersion,
+      'Atomic editor title',
+      'Atomic editor description',
+      '5v5',
+      '5v5-custom',
+      'portrait',
+      JSON.stringify([placement(IDS.playerA1, 0.4, 0.4, '7')]),
+      JSON.stringify([placement(IDS.playerA2, 0, 0, '9')]),
+      'Atomic notes',
+      'shared',
+      'editor save',
+      1,
+    ],
+  )
+
+  assert.equal(saved.rows[0].result.board.title, 'Atomic editor title')
+  assert.equal(saved.rows[0].result.board.description, 'Atomic editor description')
+  assert.equal(saved.rows[0].result.board.current_version_number, beforeVersion + 1)
+  assert.equal(saved.rows[0].result.currentVersion.notes, 'Atomic notes')
+
+  await assert.rejects(
+    rpc(
+      'public.save_formation_board_editor($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12, $13)',
+      [atomicBoardId, beforeVersion, 'Stale title', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 'stale editor save', 1],
+    ),
+    /formation_board_version_conflict/,
+  )
+
+  const afterConflict = await db.query(
+    'select title, current_version_number from public.formation_boards where id = $1',
+    [atomicBoardId],
+  )
+  assert.deepEqual(afterConflict.rows[0], {
+    current_version_number: beforeVersion + 1,
+    title: 'Atomic editor title',
+  })
+
+  await assert.rejects(
+    rpc(
+      'public.save_formation_board_editor($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12, $13)',
+      [atomicBoardId, beforeVersion + 1, '', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 'invalid title rollback', 1],
+    ),
+    /formation_board_title_invalid/,
+  )
+
+  const afterInvalidTitle = await db.query(
+    'select title, current_version_number from public.formation_boards where id = $1',
+    [atomicBoardId],
+  )
+  assert.deepEqual(afterInvalidTitle.rows[0], afterConflict.rows[0])
+
+  await rpc('public.delete_formation_board($1, $2)', [atomicBoardId, 'Atomic editor title'])
 })
 
 test('duplicate, archive, restore, and restore version preserve immutable history', async () => {

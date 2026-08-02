@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useMatches } from 'react-router-dom'
-import { canCreateEvaluation, canManagePolls, isAdultPlayerUser, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
+import { canCreateEvaluation, canCreateFormationBoard, canManagePolls, isAdultPlayerUser, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import {
   assignPlayerStaffNote,
   createAuditLog,
@@ -405,6 +405,7 @@ export function Layout() {
 }
 
 function QuickActionHotbar({ user }) {
+  const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
   const [isVoiceNoteOpen, setIsVoiceNoteOpen] = useState(false)
   const [hasActiveOverlay, setHasActiveOverlay] = useState(false)
@@ -415,15 +416,19 @@ function QuickActionHotbar({ user }) {
   const dragStateRef = useRef(null)
   const suppressNextQuickActionClickRef = useRef(false)
   const canUseEvaluationQuickActions = canCreateEvaluation(user)
+  const canUseFormationBoardQuickAction = canCreateFormationBoard(user)
   const canUseClubCalendarQuickAction =
     isClubAdmin(user) && canUseUiFeature(user, CAPABILITIES.clubWideEvents) && isRecoveryPathVisible('/calendar', { user })
   const canUsePollQuickAction = canManagePolls(user) && isRecoveryPathVisible('/polls', { user })
+  const isFormationBoardEditor = location.pathname === '/resources/formation-boards'
+    && Boolean(new URLSearchParams(location.search).get('board'))
   const canShowQuickActions =
     Boolean(user?.clubId)
     && !isSuperAdmin(user)
     && !isParentPortalUser(user)
     && Number(user?.roleRank ?? 0) >= 20
-    && (canUseEvaluationQuickActions || canUseClubCalendarQuickAction || canUsePollQuickAction)
+    && !isFormationBoardEditor
+    && (canUseEvaluationQuickActions || canUseClubCalendarQuickAction || canUsePollQuickAction || canUseFormationBoardQuickAction)
 
   useEffect(() => {
     const handleCoachModeChange = () => {
@@ -594,6 +599,7 @@ function QuickActionHotbar({ user }) {
     { label: 'Add Match', href: '/calendar?action=add-event&type=match', isVisible: canUseEvaluationQuickActions || canUseClubCalendarQuickAction, coachModeVisible: true },
     { label: 'Game Day', href: '/match-day', isVisible: canUseEvaluationQuickActions, coachModeVisible: true },
     { label: 'Create Poll', href: '/polls?action=create-poll', isVisible: canUsePollQuickAction },
+    { label: 'Formation Board', href: '/resources/formation-boards?action=create', isVisible: canUseFormationBoardQuickAction, coachModeVisible: true },
     { label: 'Add Voice Note', type: 'voice-note', isVisible: canUseEvaluationQuickActions, coachModeVisible: true },
   ]
   actions[2].coachModeVisible = true
