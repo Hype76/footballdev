@@ -15,10 +15,11 @@ export function PlayersListSection({
   filteredPlayers,
   focusedPlayer,
   isLoading,
-  onArchivePlayer,
   onFilterChange,
   onFocusedPlayerChange,
   onMovePlayerToTrial,
+  onRemoveFromTeam,
+  showTeamRemovalAction = false,
   onPageChange,
   onSearchChange,
   pageSize,
@@ -209,15 +210,17 @@ export function PlayersListSection({
                       {actionLoadingKey === `${player.playerId}:move-to-trial` ? 'Moving...' : 'Move to trial'}
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    disabled={actionLoadingKey === `${player.playerId}:archive`}
-                    title={actionLoadingKey === `${player.playerId}:archive` ? 'Please wait while this player is being archived.' : undefined}
-                    onClick={(event) => onArchivePlayer(event, player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {actionLoadingKey === `${player.playerId}:archive` ? 'Archiving...' : 'Archive'}
-                  </button>
+                  {showTeamRemovalAction ? (
+                    <button
+                      type="button"
+                      disabled={actionLoadingKey === `${player.playerId}:remove-team`}
+                      title={actionLoadingKey === `${player.playerId}:remove-team` ? 'Please wait while this Team removal is being completed.' : undefined}
+                      onClick={(event) => onRemoveFromTeam(event, player)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {actionLoadingKey === `${player.playerId}:remove-team` ? 'Removing...' : 'Remove from Team'}
+                    </button>
+                  ) : null}
                   <Link
                     to={playerProfilePath}
                     data-player-profile-href={playerProfilePath}

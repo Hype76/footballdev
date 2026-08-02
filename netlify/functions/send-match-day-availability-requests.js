@@ -240,7 +240,6 @@ async function prepareCalendarEditInvitations({
       .from('players')
       .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
       .eq('club_id', profile.club_id)
-      .eq('team_id', match.team_id)
       .in('id', authoritativePlayerIds),
     adminSupabase
       .from('parent_player_links')

@@ -3,10 +3,10 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
-import { ArchivePlayerModal } from '../components/players/ArchivePlayerModal.jsx'
+import { TeamRemovalModal } from '../components/players/TeamRemovalModal.jsx'
 import { PlayersListSection } from '../components/players/PlayersListSection.jsx'
 import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
-import { canCreateEvaluation, useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, canManageTeamSettings, useAuth } from '../lib/auth.js'
 import {
   PLAYER_PAGE_SIZE,
   getAverageScore,
@@ -14,10 +14,11 @@ import {
 } from '../hooks/players/playersPageUtils.js'
 import {
   EVALUATION_SECTIONS,
-  archivePlayer,
   getEvaluations,
   getPlayers,
   movePlayerToTrial,
+  previewPlayerTeamRemoval,
+  removePlayerFromTeam,
   readViewCache,
   readViewCacheValue,
   withRequestTimeout,
@@ -69,7 +70,10 @@ export function PlayersPage({
   const [searchTerm, setSearchTerm] = useState('')
   const [playerPage, setPlayerPage] = useState(1)
   const [actionLoadingKey, setActionLoadingKey] = useState('')
-  const [archiveTarget, setArchiveTarget] = useState(null)
+  const [teamRemovalTarget, setTeamRemovalTarget] = useState(null)
+  const [teamRemovalPreview, setTeamRemovalPreview] = useState(null)
+  const [teamRemovalError, setTeamRemovalError] = useState('')
+  const [isLoadingTeamRemovalPreview, setIsLoadingTeamRemovalPreview] = useState(false)
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
@@ -347,39 +351,63 @@ export function PlayersPage({
     }
   }
 
-  const handleArchivePlayer = (event, player) => {
-    event.stopPropagation()
-
-    if (!player.playerId) {
-      setErrorMessage('Open the player profile first so this player can be archived correctly.')
-      return
-    }
-
-    setArchiveTarget(player)
-  }
-
-  const confirmArchivePlayer = async (reason) => {
-    if (!archiveTarget?.playerId) {
-      return
-    }
-
-    setActionLoadingKey(`${archiveTarget.playerId}:archive`)
-    setErrorMessage('')
-    setMessage('')
-
+  const loadTeamRemovalPreview = async (scope, player = teamRemovalTarget) => {
+    if (!player?.playerId || !user?.activeTeamId) return
+    setIsLoadingTeamRemovalPreview(true)
+    setTeamRemovalError('')
+    setTeamRemovalPreview(null)
     try {
-      await archivePlayer({
+      const preview = await previewPlayerTeamRemoval({
         user,
-        playerId: archiveTarget.playerId,
-        reason,
+        playerId: player.playerId,
+        teamId: user.activeTeamId,
+        scope,
       })
-      setPlayers((current) => current.filter((player) => player.id !== archiveTarget.playerId))
-      setMessage(`${archiveTarget.playerName} was moved to archived players.`)
-      showToast({ title: 'Player archived', message: `${archiveTarget.playerName} was moved to archived players.` })
-      setArchiveTarget(null)
+      setTeamRemovalPreview(preview)
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not archive this player.')
+      setTeamRemovalError(error.message || 'Could not calculate the Team removal impact.')
+    } finally {
+      setIsLoadingTeamRemovalPreview(false)
+    }
+  }
+
+  const handleRemoveFromTeam = (event, player) => {
+    event.stopPropagation()
+    if (!player.playerId || !user?.activeTeamId) {
+      setErrorMessage('Choose a Team and a saved Player before removing Team membership.')
+      return
+    }
+    setTeamRemovalTarget(player)
+    void loadTeamRemovalPreview('team_only', player)
+  }
+
+  const confirmRemoveFromTeam = async (scope) => {
+    if (!teamRemovalTarget?.playerId || !user?.activeTeamId) return
+    const player = teamRemovalTarget
+    setActionLoadingKey(`${player.playerId}:remove-team`)
+    setTeamRemovalError('')
+    try {
+      const result = await removePlayerFromTeam({
+        user,
+        playerId: player.playerId,
+        teamId: user.activeTeamId,
+        scope,
+        requestToken: crypto.randomUUID(),
+      })
+      const nextPlayers = players.filter((savedPlayer) => savedPlayer.id !== player.playerId)
+      setPlayers(nextPlayers)
+      writeViewCache(cacheKey, { players: nextPlayers, evaluations })
+      const eventCopy = scope === 'team_only'
+        ? 'Existing event participation remains unchanged.'
+        : `${result.affectedOccurrenceCount || 0} upcoming event occurrence${result.affectedOccurrenceCount === 1 ? '' : 's'} removed.`
+      setMessage(`${player.playerName} was removed from this Team. ${eventCopy}`)
+      showToast({ title: 'Player removed from Team', message: `${player.playerName} was removed from this Team. The Player record and history were preserved.` })
+      setTeamRemovalTarget(null)
+      setTeamRemovalPreview(null)
+    } catch (error) {
+      console.error(error)
+      setTeamRemovalError(error.message || 'Could not remove this Player from the Team.')
     } finally {
       setActionLoadingKey('')
     }
@@ -466,10 +494,10 @@ export function PlayersPage({
         filteredPlayers={filteredPlayers}
         focusedPlayer={focusedPlayer}
         isLoading={isLoading}
-        onArchivePlayer={handleArchivePlayer}
         onFilterChange={updateListFilter}
         onFocusedPlayerChange={handleFocusedPlayerChange}
         onMovePlayerToTrial={handleMovePlayerToTrial}
+        onRemoveFromTeam={handleRemoveFromTeam}
         onPageChange={setPlayerPage}
         onSearchChange={(nextSearchTerm) => {
           setSearchTerm(nextSearchTerm)
@@ -479,16 +507,25 @@ export function PlayersPage({
         paginatedPlayers={visiblePaginatedPlayers}
         playerPage={playerPage}
         searchTerm={searchTerm}
+        showTeamRemovalAction={canManageTeamSettings(user)}
         urlSection={urlSection}
         viewFilter={viewFilter}
       />
 
-      <ArchivePlayerModal
-        isOpen={Boolean(archiveTarget)}
-        isBusy={actionLoadingKey.endsWith(':archive')}
-        player={archiveTarget}
-        onCancel={() => setArchiveTarget(null)}
-        onConfirm={(reason) => void confirmArchivePlayer(reason)}
+      <TeamRemovalModal
+        errorMessage={teamRemovalError}
+        isBusy={actionLoadingKey.endsWith(':remove-team')}
+        isLoadingPreview={isLoadingTeamRemovalPreview}
+        isOpen={Boolean(teamRemovalTarget)}
+        onCancel={() => {
+          setTeamRemovalTarget(null)
+          setTeamRemovalPreview(null)
+          setTeamRemovalError('')
+        }}
+        onConfirm={(scope) => void confirmRemoveFromTeam(scope)}
+        onScopeChange={(scope) => void loadTeamRemovalPreview(scope)}
+        player={teamRemovalTarget}
+        preview={teamRemovalPreview}
       />
     </div>
   )

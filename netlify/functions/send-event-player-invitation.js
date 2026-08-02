@@ -140,7 +140,6 @@ async function loadRecipientPreview({
     .select(playerSelect)
     .eq('id', playerId)
     .eq('club_id', scopedEvent.club_id)
-    .eq('team_id', scopedEvent.team_id)
     .neq('status', 'archived')
   const inviteQuery = sourceType === 'match-day'
     ? adminSupabase
@@ -352,7 +351,6 @@ async function sendTrainingInvitation({
       .select('id, club_id, team_id, player_name, status, parent_email, contact_type')
       .eq('id', playerId)
       .eq('club_id', scopedEvent.club_id)
-      .eq('team_id', scopedEvent.team_id)
       .neq('status', 'archived')
       .maybeSingle(),
     adminSupabase

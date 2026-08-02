@@ -1117,6 +1117,27 @@ export async function getPlayers({ user, section, playerId, playerName, teamId, 
   const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerCacheScope}:${teamCacheScope}:${status || 'current'}:${includeArchived ? 'with-archived' : 'without-archived'}`
 
   return getCachedResource(cacheKey, async () => {
+    const activeMembershipTeamId = normalizedTeamId || (!normalizedPlayerId ? user.activeTeamId : '')
+
+    if (activeMembershipTeamId && !includeArchived && status !== 'archived') {
+      const { data: membershipPlayers, error: membershipPlayersError } = await supabase.rpc('get_team_players', {
+        team_id_value: activeMembershipTeamId,
+      })
+
+      if (!membershipPlayersError) {
+        return (membershipPlayers ?? [])
+          .map(normalizePlayerRow)
+          .filter((player) => !section || player.section === section)
+          .filter((player) => !status || player.status === status)
+          .filter((player) => !playerName || player.playerName === playerName)
+      }
+
+      if (!['42883', 'PGRST202'].includes(membershipPlayersError.code)) {
+        console.error(membershipPlayersError)
+        throw membershipPlayersError
+      }
+    }
+
     let query = supabase
       .from('players')
       .select('*')
@@ -1308,6 +1329,51 @@ export async function archivePlayer({ user, playerId, reason }) {
   })
 
   return normalizePlayerRow(data)
+}
+
+export async function previewPlayerTeamRemoval({ user, playerId, teamId, scope = 'team_only' }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || user.role === 'super_admin' || Number(user.roleRank ?? 0) < 50) {
+    throw new Error('Team Admin or Manager access is required to remove a Player from a Team.')
+  }
+
+  const { data, error } = await supabase.rpc('preview_player_team_removal', {
+    player_id_value: playerId,
+    team_id_value: teamId || user.activeTeamId,
+    scope_value: scope,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return data
+}
+
+export async function removePlayerFromTeam({ user, playerId, teamId, scope = 'team_only', requestToken }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || user.role === 'super_admin' || Number(user.roleRank ?? 0) < 50) {
+    throw new Error('Team Admin or Manager access is required to remove a Player from a Team.')
+  }
+
+  const { data, error } = await supabase.rpc('remove_player_from_team', {
+    player_id_value: playerId,
+    team_id_value: teamId || user.activeTeamId,
+    scope_value: scope,
+    request_token_value: requestToken,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
+  return data
 }
 
 export async function restorePlayer({ user, playerId }) {

@@ -17,7 +17,9 @@ export {
   getUnassignedStaffVoiceNotes,
   getPlayers,
   movePlayerToTrial,
+  previewPlayerTeamRemoval,
   promotePlayerToSquad,
+  removePlayerFromTeam,
   restorePlayer,
   updatePlayer,
 } from './core.js'

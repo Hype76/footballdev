@@ -930,7 +930,6 @@ export async function prepareScheduledTrainingInvitationRow(row, {
       && event.club_id === request.club_id
       && event.team_id === request.team_id
       && player.club_id === request.club_id
-      && player.team_id === request.team_id
       && player.status !== 'archived'
       && invite.invite_status !== 'cancelled'
       && !invite.cancelled_at
@@ -1435,7 +1434,6 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
     .from('players')
     .select('id, club_id, team_id, player_name, parent_name, parent_email, contact_type, status')
     .eq('club_id', request.club_id)
-    .eq('team_id', request.team_id)
     .neq('status', 'archived')
     .in('id', scopedPlayerIds)
 
