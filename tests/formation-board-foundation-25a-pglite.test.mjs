@@ -12,6 +12,7 @@ const editorSaveMigrationUrl = new URL('../supabase/migrations/20260802155000_fo
 const conflictErrorCodeMigrationUrl = new URL('../supabase/migrations/20260802161500_formation_board_conflict_error_code_25b.sql', import.meta.url)
 const publishExportMigrationUrl = new URL('../supabase/migrations/20260802170000_formation_board_publish_export_25c.sql', import.meta.url)
 const resourceMimeMigrationUrl = new URL('../supabase/migrations/20260802173000_formation_board_resource_mime_25c.sql', import.meta.url)
+const thumbnailAccessMigrationUrl = new URL('../supabase/migrations/20260802174500_formation_board_thumbnail_access_25c.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -244,6 +245,15 @@ before(async () => {
   await db.exec(publishExportMigration)
   const resourceMimeMigration = await readFile(resourceMimeMigrationUrl, 'utf8')
   await db.exec(resourceMimeMigration)
+  await db.exec(`
+    create function public.current_user_can_view_resource_library(uuid, uuid)
+    returns boolean
+    language sql
+    stable
+    as $$ select false $$;
+  `)
+  const thumbnailAccessMigration = await readFile(thumbnailAccessMigrationUrl, 'utf8')
+  await db.exec(thumbnailAccessMigration)
 
   await db.exec(`
     insert into public.clubs (id, name) values
@@ -614,6 +624,14 @@ test('publication accepts only the deterministic private thumbnail for the exact
   )
   assert.equal(published.rows[0].result.publication.publication_state, 'published')
   assert.equal(published.rows[0].result.publication.thumbnail_path, thumbnailPath)
+  assert.equal((await rpc('public.current_user_can_read_resource_file($1)', [thumbnailPath])).rows[0].result, true)
+  assert.equal((await rpc('public.current_user_can_read_resource_file($1)', [`${IDS.clubA}/${IDS.teamA}/formation-boards/not-linked/thumbnail.png`])).rows[0].result, false)
+
+  await setActor(IDS.parent)
+  assert.equal((await rpc('public.current_user_can_read_resource_file($1)', [thumbnailPath])).rows[0].result, false)
+  await setActor(IDS.coachB)
+  assert.equal((await rpc('public.current_user_can_read_resource_file($1)', [thumbnailPath])).rows[0].result, false)
+  await setActor(IDS.manager)
 
   const secondCreated = await rpc(
     'public.create_formation_board($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)',

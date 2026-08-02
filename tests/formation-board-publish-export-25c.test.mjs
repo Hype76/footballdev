@@ -238,3 +238,12 @@ test('successful publication invalidates the existing club-scoped Resource Libra
   assert.match(formationBoardDomain, /invalidateMemoryCacheByPrefix\(`resource-library:\$\{normalizeText\(user\?\.clubId\)\}:`\)/)
   assert.match(formationBoardDomain, /clearViewCaches\(\)/)
 })
+
+test('append-only thumbnail policy repair authorises only linked Formation Board publications', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/20260802174500_formation_board_thumbnail_access_25c.sql', import.meta.url), 'utf8')
+
+  assert.match(migration, /publication\.thumbnail_path = target_storage_path/)
+  assert.match(migration, /current_user_can_view_formation_board\(publication\.board_id\)/)
+  assert.match(migration, /item\.archived_at is null/)
+  assert.doesNotMatch(migration, /bucket_id\s*=\s*'[^']*public/i)
+})
