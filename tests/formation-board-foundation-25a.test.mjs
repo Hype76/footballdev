@@ -12,6 +12,8 @@ import {
 
 const migrationUrl = new URL('../supabase/migrations/20260802130700_formation_board_foundation_25a.sql', import.meta.url)
 const auditSourceRepairUrl = new URL('../supabase/migrations/20260802132311_formation_board_audit_source_25a.sql', import.meta.url)
+const indexesMigrationUrl = new URL('../supabase/migrations/20260802133210_formation_board_indexes_25a.sql', import.meta.url)
+const compositeIndexesMigrationUrl = new URL('../supabase/migrations/20260802133419_formation_board_composite_indexes_25a.sql', import.meta.url)
 const rollbackUrl = new URL('../supabase/repairs/FP-V1-FORMATION-BOARD-FOUNDATION-25A-rollback.sql', import.meta.url)
 const supabaseFacadeUrl = new URL('../src/lib/supabase.js', import.meta.url)
 
@@ -104,6 +106,23 @@ test('audit source repair preserves the production source registry', async () =>
 
   assert.match(repair, /'application'/)
   assert.doesNotMatch(repair, /'formation_board'\s*\)\s*returning id into audit_id/i)
+})
+
+test('index migration covers Formation Board foreign keys and optimizes export RLS', async () => {
+  const migration = await readFile(indexesMigrationUrl, 'utf8')
+
+  assert.equal((migration.match(/create index if not exists/gi) ?? []).length, 15)
+  assert.match(migration, /requested_by_profile_id = \(select auth\.uid\(\)\)/i)
+  assert.doesNotMatch(migration, /drop table|truncate|delete from/i)
+})
+
+test('composite index repair covers complete version foreign keys', async () => {
+  const migration = await readFile(compositeIndexesMigrationUrl, 'utf8')
+
+  assert.equal((migration.match(/drop index if exists/gi) ?? []).length, 3)
+  assert.equal((migration.match(/create index/gi) ?? []).length, 3)
+  assert.match(migration, /board_version_id, board_id, club_id, team_id/)
+  assert.match(migration, /current_version_id, id, club_id, team_id/)
 })
 
 test('prepared rollback is fail-closed and preserves Formation Board data', async () => {

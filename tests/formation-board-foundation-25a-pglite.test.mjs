@@ -6,6 +6,8 @@ import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260802130700_formation_board_foundation_25a.sql', import.meta.url)
 const auditSourceRepairUrl = new URL('../supabase/migrations/20260802132311_formation_board_audit_source_25a.sql', import.meta.url)
+const indexesMigrationUrl = new URL('../supabase/migrations/20260802133210_formation_board_indexes_25a.sql', import.meta.url)
+const compositeIndexesMigrationUrl = new URL('../supabase/migrations/20260802133419_formation_board_composite_indexes_25a.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -190,6 +192,10 @@ before(async () => {
   await db.exec(migration)
   const auditSourceRepair = await readFile(auditSourceRepairUrl, 'utf8')
   await db.exec(auditSourceRepair)
+  const indexesMigration = await readFile(indexesMigrationUrl, 'utf8')
+  await db.exec(indexesMigration)
+  const compositeIndexesMigration = await readFile(compositeIndexesMigrationUrl, 'utf8')
+  await db.exec(compositeIndexesMigration)
 
   await db.exec(`
     insert into public.clubs (id, name) values
@@ -483,6 +489,58 @@ test('RLS and grants expose only authorised rows and deny direct mutation', asyn
   await setActor(IDS.coachB)
   const crossClubRows = await db.query('select id from public.formation_boards where id = $1', [sharedBoard.board.id])
   assert.equal(crossClubRows.rows.length, 0)
+})
+
+test('foreign keys have covering indexes and export RLS caches the actor lookup', async () => {
+  await resetActor()
+  const indexes = await db.query(`
+    select indexname
+    from pg_indexes
+    where schemaname = 'public'
+      and indexname in (
+        'formation_board_exports_requester_idx',
+        'formation_board_exports_version_idx',
+        'formation_board_publications_previous_idx',
+        'formation_board_publications_publisher_idx',
+        'formation_board_publications_version_idx',
+        'formation_board_versions_board_scope_idx',
+        'formation_board_versions_creator_idx',
+        'formation_board_versions_preset_idx',
+        'formation_board_versions_source_idx',
+        'formation_boards_archived_by_idx',
+        'formation_boards_club_idx',
+        'formation_boards_current_publication_idx',
+        'formation_boards_current_version_idx',
+        'formation_boards_deleted_by_idx',
+        'formation_boards_preset_idx'
+      )
+  `)
+  assert.equal(indexes.rows.length, 15)
+
+  const compositeIndexes = await db.query(`
+    select indexname, indexdef
+    from pg_indexes
+    where schemaname = 'public'
+      and indexname in (
+        'formation_board_exports_version_idx',
+        'formation_board_publications_version_idx',
+        'formation_boards_current_version_idx'
+      )
+    order by indexname
+  `)
+  assert.equal(compositeIndexes.rows.length, 3)
+  for (const index of compositeIndexes.rows) {
+    assert.match(index.indexdef, /club_id, team_id\)/)
+  }
+
+  const policy = await db.query(`
+    select qual
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'formation_board_export_requests'
+      and policyname = 'formation_board_export_requests_select_authorised'
+  `)
+  assert.match(policy.rows[0].qual, /SELECT auth\.uid\(\)/i)
 })
 
 test('audit history records every successful action class', async () => {
