@@ -5,6 +5,7 @@ import { PGlite } from '@electric-sql/pglite'
 
 const migration = await readFile(new URL('../supabase/migrations/20260802214626_team_removal_event_scope_26c.sql', import.meta.url), 'utf8')
 const matchCountMigration = await readFile(new URL('../supabase/migrations/20260802222819_team_removal_match_count_alignment_26c.sql', import.meta.url), 'utf8')
+const advisorHardeningMigration = await readFile(new URL('../supabase/migrations/20260802224439_team_membership_advisor_hardening_26c.sql', import.meta.url), 'utf8')
 
 const IDS = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -116,6 +117,7 @@ async function createDatabase() {
 
   await db.exec(migration)
   await db.exec(matchCountMigration)
+  await db.exec(advisorHardeningMigration)
 
   await db.query(`insert into public.clubs values ($1), ($2)`, [IDS.club, IDS.otherClub])
   await db.query(`insert into public.teams values ($1,$4,'FP TEST Team'),($2,$4,'FP TEST Other Team'),($3,$5,'Foreign Team')`, [IDS.team, IDS.otherTeam, IDS.foreignTeam, IDS.club, IDS.otherClub])
