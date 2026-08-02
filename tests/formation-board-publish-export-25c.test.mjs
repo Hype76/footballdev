@@ -194,9 +194,10 @@ test('denied payload resolution does not mutate another export request', async (
 })
 
 test('editor and Team Resource Library expose publication, immutable history, and safe mobile export controls', async () => {
-  const [editor, library, clientExport, serverExport] = await Promise.all([
+  const [editor, library, resourceDomain, clientExport, serverExport] = await Promise.all([
     readFile(new URL('../src/pages/FormationBoardsPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/ResourceLibraryPage.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/lib/domain/resource-library.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/lib/formation-board-export.js', import.meta.url), 'utf8'),
     readFile(new URL('../netlify/functions/formation-board-export.js', import.meta.url), 'utf8'),
   ])
@@ -214,6 +215,8 @@ test('editor and Team Resource Library expose publication, immutable history, an
   assert.match(library, />PDF</)
   assert.match(library, /Team staff only/)
   assert.match(library, /filter\(\(resource\) => !resource\.currentFormationBoardPublication\)/)
+  assert.match(resourceDomain, /formation_board_versions!formation_board_publications_version_fkey/)
+  assert.doesNotMatch(resourceDomain, /formation_board_versions:board_version_id/)
   assert.match(clientExport, /navigator\.canShare/)
   assert.match(clientExport, /downloadFormationBoardExport/)
   assert.match(serverExport, /get_formation_board_export_payload/)

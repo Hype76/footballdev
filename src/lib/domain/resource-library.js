@@ -336,7 +336,7 @@ export async function getResourceLibraryItems({ category = '', searchTerm = '', 
   return getCachedResource(getResourceLibraryCacheKey(user, `${normalizedCategory || 'all'}:${normalizedTeamId || 'all'}:${normalizedSearchTerm || 'searchless'}`), async () => {
     let query = supabase
       .from('resource_library_items')
-      .select('*, teams:team_id(id, name), resource_library_links(*), resource_library_external_links(external_url), formation_board_publications(*, formation_board_versions:board_version_id(version_number, game_format, formation_preset_key, pitch_orientation))')
+      .select('*, teams:team_id(id, name), resource_library_links(*), resource_library_external_links(external_url), formation_board_publications(*, formation_board_versions!formation_board_publications_version_fkey(version_number, game_format, formation_preset_key, pitch_orientation))')
       .eq('club_id', user.clubId)
       .is('archived_at', null)
       .order('updated_at', { ascending: false })
