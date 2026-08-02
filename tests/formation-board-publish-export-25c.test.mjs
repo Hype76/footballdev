@@ -228,3 +228,10 @@ test('append-only repair extends the existing Resource Library MIME allowlist fo
   assert.match(migration, /application\/vnd\.footballplayer\.formation-board\+json/)
   assert.match(migration, /validate constraint resource_library_items_mime_check/)
 })
+
+test('successful publication invalidates the existing club-scoped Resource Library cache', async () => {
+  const formationBoardDomain = await readFile(new URL('../src/lib/domain/formation-board.js', import.meta.url), 'utf8')
+
+  assert.match(formationBoardDomain, /invalidateMemoryCacheByPrefix\(`resource-library:\$\{normalizeText\(user\?\.clubId\)\}:`\)/)
+  assert.match(formationBoardDomain, /clearViewCaches\(\)/)
+})

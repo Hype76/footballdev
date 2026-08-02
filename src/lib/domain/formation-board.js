@@ -1,4 +1,5 @@
 import { supabase } from '../supabase-client.js'
+import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
 
 export const FORMATION_BOARD_REGISTRY_VERSION = 1
@@ -389,6 +390,9 @@ export async function publishFormationBoardVersion({
     thumbnail_failed_value: Boolean(thumbnailFailed),
     thumbnail_path_value: thumbnailPath,
   })
+
+  invalidateMemoryCacheByPrefix(`resource-library:${normalizeText(user?.clubId)}:`)
+  clearViewCaches()
 
   return {
     protectedUrl: normalizeText(data?.protectedUrl),
