@@ -208,7 +208,8 @@ test('single-player invitation endpoint resolves recipients server-side and uses
   assert.match(matchSendFunction, /target exactly one player/)
   assert.match(matchSendFunction, /eventPlayerInvitationAction/)
   assert.doesNotMatch(matchSendFunction, /invitationAction === 'resend' && \(existingQueues \?\? \[\]\)\.length === 0/)
-  assert.match(matchSendFunction, /existingRequest\?\.id && targetedInvitationAction[\s\S]*\.update\(\{[\s\S]*token_hash: tokenHash/)
+  assert.match(matchSendFunction, /existingRequest\?\.id && targetedInvitationAction[\s\S]*getReusableMatchDayResponseToken\(existingRequest, existingQueues \|\| \[\]\)/)
+  assert.match(matchSendFunction, /const createdToken = reusableToken \? null : createInvitationToken\(\)/)
   assert.doesNotMatch(
     matchSendFunction.slice(
       matchSendFunction.indexOf('existingRequest?.id && targetedInvitationAction'),

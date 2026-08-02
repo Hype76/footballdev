@@ -73,6 +73,22 @@ function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
 }
 
+export function getReusableTrainingResponseToken(existing, existingQueue) {
+  const token = normalizeText(existingQueue?.payload?.trainingInvitation?.rawToken).toLowerCase()
+  const expectedHash = normalizeText(existing?.token_hash).toLowerCase()
+
+  if (
+    existing?.token_revoked_at
+    || !/^[a-f0-9]{64}$/.test(token)
+    || !/^[a-f0-9]{64}$/.test(expectedHash)
+    || hashToken(token) !== expectedHash
+  ) {
+    return ''
+  }
+
+  return token
+}
+
 function createDeterministicUuid(value) {
   const hash = createHash('sha256').update(String(value ?? '')).digest('hex')
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
@@ -630,9 +646,26 @@ export async function queueTrainingInvitationRecipient({
     }
   }
 
-  const reusableToken = action === 'automatic'
-    ? normalizeText(existingQueue?.payload?.trainingInvitation?.rawToken)
-    : ''
+  const reusableToken = getReusableTrainingResponseToken(existing, existingQueue)
+
+  if (existing?.id && !reusableToken) {
+    if (action === 'automatic') {
+      return {
+        status: 'failed',
+        mutation: 'no-op',
+        terminal: true,
+        requestPlayer: existing,
+        queue: existingQueue,
+        errorCode: 'TRAINING_RESPONSE_TOKEN_NOT_REUSABLE',
+      }
+    }
+
+    throw Object.assign(new Error('The existing Training availability link cannot be reused safely. Revoke it explicitly before issuing a security replacement.'), {
+      code: 'TRAINING_RESPONSE_TOKEN_NOT_REUSABLE',
+      statusCode: 409,
+    })
+  }
+
   const deliveryAttempt = reusableToken
     ? Number(existing?.delivery_attempt || 1)
     : Number(existing?.delivery_attempt || 0) + 1

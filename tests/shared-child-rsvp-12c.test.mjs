@@ -7,9 +7,14 @@ const migration = await readFile(
   new URL('../supabase/migrations/20260731091334_shared_child_rsvp_12c.sql', import.meta.url),
   'utf8',
 )
+const reusableMigration = await readFile(
+  new URL('../supabase/migrations/20260802194024_reusable_availability_links_26a.sql', import.meta.url),
+  'utf8',
+)
 
 const ids = {
   adultUser: '90000000-0000-4000-8000-000000000001',
+  adultLink: '92000000-0000-4000-8000-000000000001',
   club: '10000000-0000-4000-8000-000000000001',
   event: '50000000-0000-4000-8000-000000000001',
   linkA: '40000000-0000-4000-8000-000000000001',
@@ -71,7 +76,10 @@ async function createDatabase() {
       club_id uuid not null references public.clubs(id),
       team_id uuid not null references public.teams(id),
       player_name text not null,
-      status text
+      status text,
+      contact_type text,
+      parent_email text,
+      parent_contacts jsonb not null default '[]'::jsonb
     );
     create table public.parent_player_links (
       id uuid primary key,
@@ -81,6 +89,16 @@ async function createDatabase() {
       auth_user_id uuid,
       email text,
       status text
+    );
+    create table public.adult_player_account_links (
+      id uuid primary key,
+      user_id uuid not null references auth.users(id),
+      player_id uuid not null references public.players(id),
+      club_id uuid not null references public.clubs(id),
+      team_id uuid not null references public.teams(id),
+      status text not null,
+      verified_at timestamptz,
+      revoked_at timestamptz
     );
     create table public.calendar_events (
       id uuid primary key,
@@ -117,6 +135,7 @@ async function createDatabase() {
       token_hash text unique,
       status text,
       responded_at timestamptz,
+      response_deadline_at timestamptz,
       updated_at timestamptz default now()
     );
     create table public.training_availability_responses (
@@ -139,7 +158,19 @@ async function createDatabase() {
     create table public.match_days (
       id uuid primary key,
       club_id uuid not null references public.clubs(id),
-      team_id uuid not null references public.teams(id)
+      team_id uuid not null references public.teams(id),
+      opponent text,
+      match_date date,
+      kickoff_time time,
+      kickoff_time_tbc boolean not null default false,
+      arrival_time time,
+      venue_name text,
+      venue_address text,
+      request_scorer boolean not null default false,
+      request_linesman boolean not null default false,
+      request_referee boolean not null default false,
+      status text not null default 'scheduled',
+      deleted_at timestamptz
     );
     create table public.match_day_availability_requests (
       id uuid primary key,
@@ -319,12 +350,17 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(reusableMigration)
 
   await db.exec(`
     insert into public.clubs values ('${ids.club}');
     insert into public.teams values ('${ids.team}', '${ids.club}', 'FP TEST');
-    insert into public.players values (
-      '${ids.player}', '${ids.club}', '${ids.team}', 'Shared Child', 'active'
+    insert into public.players (
+      id, club_id, team_id, player_name, status, contact_type, parent_email, parent_contacts
+    ) values (
+      '${ids.player}', '${ids.club}', '${ids.team}', 'Shared Child', 'active', 'both',
+      'adult@example.test',
+      '[{"email":"parent-a@example.test","type":"parent"},{"email":"parent-b@example.test","type":"parent"},{"email":"adult@example.test","type":"self"}]'::jsonb
     );
     insert into public.parent_player_links values
       ('${ids.linkA}', '${ids.club}', '${ids.team}', '${ids.player}', null, 'parent-a@example.test', 'active'),
@@ -339,19 +375,21 @@ async function createDatabase() {
     );
     insert into public.training_availability_request_players (
       id, request_id, calendar_event_id, club_id, team_id, player_id, player_name,
-      parent_link_id, recipient_type, recipient_name, recipient_email, token_hash, status
+      parent_link_id, recipient_type, recipient_name, recipient_email, token_hash, status,
+      response_deadline_at
     ) values
       (
         '${ids.requestPlayerA}', '${ids.request}', '${ids.event}', '${ids.club}',
         '${ids.team}', '${ids.player}', 'Shared Child', '${ids.linkA}', 'parent',
-        'Parent A', 'parent-a@example.test', '${tokens.parentA}', 'sent'
+        'Parent A', 'parent-a@example.test', '${tokens.parentA}', 'sent', now() + interval '3 days'
       ),
       (
         '${ids.requestPlayerB}', '${ids.request}', '${ids.event}', '${ids.club}',
         '${ids.team}', '${ids.player}', 'Shared Child', '${ids.linkB}', 'parent',
-        'Parent B', 'parent-b@example.test', '${tokens.parentB}', 'sent'
+        'Parent B', 'parent-b@example.test', '${tokens.parentB}', 'sent', now() + interval '3 days'
       );
-    insert into public.match_days values ('${ids.match}', '${ids.club}', '${ids.team}');
+    insert into public.match_days (id, club_id, team_id, opponent, match_date)
+    values ('${ids.match}', '${ids.club}', '${ids.team}', 'Opposition', current_date + 3);
     insert into public.match_day_availability_requests (
       id, match_day_id, club_id, team_id, player_id, player_name, parent_link_id,
       recipient_type, recipient_name, recipient_email, token_hash, status, expires_at
@@ -494,13 +532,20 @@ test('adult-player and staff-on-behalf updates reuse the shared Training current
         '${ids.staffUser}', 'active', 'manager', 50, 'FP TEST Manager', 'fp-test-manager',
         'manager@example.test', '${ids.club}'
       );
+    insert into public.adult_player_account_links (
+      id, user_id, player_id, club_id, team_id, status, verified_at
+    ) values (
+      '${ids.adultLink}', '${ids.adultUser}', '${ids.player}', '${ids.club}', '${ids.team}',
+      'active', now()
+    );
     insert into public.training_availability_request_players (
       id, request_id, calendar_event_id, club_id, team_id, player_id, player_name,
-      parent_link_id, recipient_type, recipient_name, recipient_email, token_hash, status
+      parent_link_id, recipient_type, recipient_name, recipient_email, token_hash, status,
+      response_deadline_at
     ) values (
       '${ids.requestPlayerAdult}', '${ids.request}', '${ids.event}', '${ids.club}',
       '${ids.team}', '${ids.player}', 'Shared Child', null, 'player',
-      'Adult Player', 'adult@example.test', '${tokens.adult}', 'sent'
+      'Adult Player', 'adult@example.test', '${tokens.adult}', 'sent', now() + interval '3 days'
     );
   `)
 
@@ -608,6 +653,90 @@ test('Match Day updates stay on the approved shared model with serialized audit'
   await db.close()
 })
 
+test('Phase 26A repeated submissions are no-ops and revoked or closed links fail closed', async () => {
+  const db = await createDatabase()
+
+  await db.query(
+    'select * from public.submit_training_availability_response($1, $2, $3)',
+    [tokens.parentA, 'available', 'Same answer'],
+  )
+  await db.query(
+    'select * from public.submit_training_availability_response($1, $2, $3)',
+    [tokens.parentA, 'available', 'Same answer'],
+  )
+
+  let evidence = await db.query(`
+    select
+      (select count(*)::int from public.training_availability_responses
+        where request_id = '${ids.request}' and player_id = '${ids.player}') as current_count,
+      (select count(*)::int from public.training_availability_response_history
+        where request_id = '${ids.request}' and player_id = '${ids.player}') as history_count
+  `)
+  assert.deepEqual(evidence.rows, [{ current_count: 1, history_count: 1 }])
+
+  const parentBView = await db.query(
+    'select response_status, recipient_name, recipient_email from public.get_training_availability_response($1)',
+    [tokens.parentB],
+  )
+  assert.deepEqual(parentBView.rows, [{
+    response_status: 'available',
+    recipient_name: 'another authorised Parent',
+    recipient_email: '',
+  }])
+
+  await db.query(
+    'select * from public.submit_match_day_availability_response($1, $2)',
+    [tokens.matchA, 'available'],
+  )
+  await db.query(
+    'select * from public.submit_match_day_availability_response($1, $2)',
+    [tokens.matchA, 'available'],
+  )
+
+  evidence = await db.query(`
+    select
+      (select count(*)::int from public.match_day_player_availability
+        where match_day_id = '${ids.match}' and player_id = '${ids.player}') as current_count,
+      (select count(*)::int from public.match_day_player_availability_history
+        where match_day_id = '${ids.match}' and player_id = '${ids.player}') as history_count
+  `)
+  assert.deepEqual(evidence.rows, [{ current_count: 1, history_count: 1 }])
+
+  const parentBMatchView = await db.query(
+    'select current_availability_status, current_availability_selected_by_name, current_availability_selected_by_email from public.get_match_day_availability_response_v2($1)',
+    [tokens.matchB],
+  )
+  assert.deepEqual(parentBMatchView.rows, [{
+    current_availability_status: 'available',
+    current_availability_selected_by_name: 'another authorised Parent',
+    current_availability_selected_by_email: '',
+  }])
+
+  await db.query(`
+    update public.match_day_availability_requests
+    set token_revoked_at = now(), token_revoked_reason = 'security_test'
+    where id = '${ids.matchRequestB}'
+  `)
+  const revokedMatch = await db.query(
+    'select * from public.get_match_day_availability_response_v2($1)',
+    [tokens.matchB],
+  )
+  assert.equal(revokedMatch.rows.length, 0)
+
+  await db.query(`
+    update public.training_availability_request_players
+    set response_deadline_at = now() - interval '1 minute'
+    where id = '${ids.requestPlayerA}'
+  `)
+  const closedTraining = await db.query(
+    'select * from public.get_training_availability_response($1)',
+    [tokens.parentA],
+  )
+  assert.equal(closedTraining.rows.length, 0)
+
+  await db.close()
+})
+
 test('Phase 3 migration keeps tenant scope implicit in token lookup and records all response sources', () => {
   assert.match(
     migration,
@@ -622,4 +751,19 @@ test('Phase 3 migration keeps tenant scope implicit in token lookup and records 
     migration,
     /submit_training_availability_response\([\s\S]*player_id_value uuid/,
   )
+})
+
+test('Phase 26A migration records explicit token lifecycle and protects scoped authority', () => {
+  assert.match(reusableMigration, /token_version integer not null default 1/)
+  assert.match(reusableMigration, /token_revoked_at timestamptz/)
+  assert.match(reusableMigration, /token_revoked_reason text/)
+  assert.match(reusableMigration, /request_player\.response_deadline_at, request\.occurrence_starts_at/)
+  assert.match(reusableMigration, /from public\.adult_player_account_links adult_link/)
+  assert.match(reusableMigration, /adult_link\.status = 'active'/)
+  assert.match(reusableMigration, /reusable_rsvp:match:/)
+  assert.match(reusableMigration, /reusable_rsvp:training:/)
+  assert.match(reusableMigration, /if not availability_changed and not volunteer_changed and not transport_changed/)
+  assert.match(reusableMigration, /response_row\.status is distinct from normalized_status/)
+  assert.match(reusableMigration, /another authorised Parent/)
+  assert.match(reusableMigration, /revoke all on function public\.is_match_day_action_token_current_internal\(text\)[\s\S]*from public, anon, authenticated/)
 })

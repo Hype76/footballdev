@@ -221,11 +221,10 @@ function detailRows(response) {
 
 function currentAvailabilityAttribution(response, currentStatus) {
   const selectedBy = normalizeText(response.current_availability_selected_by_name)
-    || normalizeText(response.current_availability_selected_by_email)
-    || 'the latest responder'
+    || 'an authorised responder'
   const selectedAt = formatReadableTimestamp(response.current_availability_selected_at)
 
-  return `<p class="availability-summary">Current availability: ${escapeHtml(sentenceStatusLabel(currentStatus))}, submitted by ${escapeHtml(selectedBy)} at ${escapeHtml(selectedAt)}. If this has changed, you can update it below.</p>`
+  return `<p class="availability-summary">Current availability: ${escapeHtml(sentenceStatusLabel(currentStatus))}. Last updated at ${escapeHtml(selectedAt)} by ${escapeHtml(selectedBy)}. If this has changed, you can update it below.</p>`
 }
 
 function availabilityFieldset(response) {
@@ -429,6 +428,11 @@ async function createAvailabilityEventLogEntry(event, { previousResponse, respon
 
     const previousStatus = normalizeText(previousResponse?.current_availability_status || previousResponse?.response_status || '').toLowerCase()
     const nextStatus = normalizeText(response.response_status || request.status).toLowerCase()
+
+    if (previousStatus === nextStatus) {
+      return
+    }
+
     const parentLink = Array.isArray(request.parent_player_links)
       ? request.parent_player_links[0]
       : request.parent_player_links
@@ -474,7 +478,14 @@ async function createAvailabilityEventLogEntry(event, { previousResponse, respon
 function invalidTokenPage() {
   return htmlResponse(400, page({
     title: 'This response link is not valid',
-    message: 'Ask the club to send a new fixture availability request.',
+    message: 'This link cannot be used for an availability response.',
+  }))
+}
+
+function inactiveTokenPage() {
+  return htmlResponse(410, page({
+    title: 'This response link is no longer active',
+    message: 'This link is no longer active for this event. No other Player or event details have been shown.',
   }))
 }
 
@@ -511,17 +522,11 @@ export async function handler(event) {
         const response = await submitTokenResponse(supabase, token, new URLSearchParams({ status: legacyStatus }))
 
         if (!response?.request_id) {
-          return htmlResponse(404, page({
-            title: 'This response link was not found',
-            message: 'Ask the club to send a new fixture availability request.',
-          }))
+          return inactiveTokenPage()
         }
 
         if (normalizeText(response.response_status).toLowerCase() === 'expired') {
-          return htmlResponse(410, page({
-            title: 'This response link has expired',
-            message: 'Ask the club to send a new fixture availability request.',
-          }))
+          return inactiveTokenPage()
         }
 
         await createAvailabilityEventLogEntry(event, { previousResponse, response })
@@ -535,17 +540,11 @@ export async function handler(event) {
       const response = await getTokenResponse(supabase, token)
 
       if (!response?.request_id) {
-        return htmlResponse(404, page({
-          title: 'This response link was not found',
-          message: 'Ask the club to send a new fixture availability request.',
-        }))
+        return inactiveTokenPage()
       }
 
       if (normalizeText(response.response_status).toLowerCase() === 'expired') {
-        return htmlResponse(410, page({
-          title: 'This response link has expired',
-          message: 'Ask the club to send a new fixture availability request.',
-        }))
+        return inactiveTokenPage()
       }
 
       return htmlResponse(200, page({
@@ -567,17 +566,11 @@ export async function handler(event) {
     const response = await submitTokenResponse(supabase, token, params)
 
     if (!response?.request_id) {
-      return htmlResponse(404, page({
-        title: 'This response could not be saved',
-        message: 'Choose an availability response or ask the club to resend the request.',
-      }))
+      return inactiveTokenPage()
     }
 
     if (normalizeText(response.response_status).toLowerCase() === 'expired') {
-      return htmlResponse(410, page({
-        title: 'This response link has expired',
-        message: 'Ask the club to send a new fixture availability request.',
-      }))
+      return inactiveTokenPage()
     }
 
     if (VALID_STATUSES.has(submittedStatus)) {

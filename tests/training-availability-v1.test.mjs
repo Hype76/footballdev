@@ -400,7 +400,8 @@ test('parent response handler returns controlled stale response before submit wh
   }, { supabaseClient })
 
   assert.equal(response.statusCode, 410)
-  assert.match(response.body, /This response link has expired/)
+  assert.match(response.body, /This response link is no longer active/)
+  assert.match(response.body, /No other Player or event details have been shown/)
   assert.deepEqual(calls, ['get_training_availability_response'])
 })
 
@@ -508,7 +509,8 @@ test('parent response handler converts missing calendar event FK race to control
   }, { supabaseClient })
 
   assert.equal(response.statusCode, 410)
-  assert.match(response.body, /This response link has expired/)
+  assert.match(response.body, /This response link is no longer active/)
+  assert.match(response.body, /No other Player or event details have been shown/)
   assert.deepEqual(calls, ['get_training_availability_response', 'submit_training_availability_response'])
 })
 

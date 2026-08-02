@@ -104,6 +104,7 @@ function page({ title, message, content = '' }) {
           .details { margin-top: 16px; display: grid; gap: 8px; border: 1px solid #d7e5dc; border-radius: 10px; background: #f7faf8; padding: 14px; }
           .detail { display: flex; justify-content: space-between; gap: 14px; color: #4b5f55; font-size: 14px; font-weight: 800; }
           .detail strong { color: #101828; text-align: right; }
+          .availability-summary { margin: 10px 0 2px; color: #101828; font-size: 14px; line-height: 1.5; font-weight: 800; }
         </style>
       </head>
       <body>
@@ -135,6 +136,10 @@ function detailRows(response) {
 
 function availabilityFieldset(response) {
   const currentStatus = normalizeText(response.response_status).toLowerCase()
+  const selectedBy = normalizeText(response.recipient_name) || 'an authorised responder'
+  const currentSummary = VALID_STATUSES.has(currentStatus)
+    ? `<p class="availability-summary">Current availability: ${escapeHtml(statusLabel(currentStatus))}. Last updated ${escapeHtml(formatReadableDateTime(response.responded_at))} by ${escapeHtml(selectedBy)}. The latest valid response is shared by every eligible responder for this Player.</p>`
+    : ''
   const choices = [
     ['available', 'Attending'],
     ['unavailable', 'Not attending'],
@@ -143,6 +148,7 @@ function availabilityFieldset(response) {
 
   return `<fieldset>
     <legend>Player availability</legend>
+    ${currentSummary}
     ${choices.map(([value, label]) => `
       <label>
         <input type="radio" name="status" value="${value}" ${currentStatus === value ? 'checked' : ''} required>
@@ -171,14 +177,14 @@ function responseForm({ token, response }) {
 function invalidTokenPage() {
   return htmlResponse(400, page({
     title: 'This response link is not valid',
-    message: 'Ask the club to send a new training availability request.',
+    message: 'This link cannot be used for an availability response.',
   }))
 }
 
 function staleLinkPage() {
   return htmlResponse(410, page({
-    title: 'This response link has expired',
-    message: 'This training session is no longer available or has been removed. Ask the club to send a new training availability request if they still need a reply.',
+    title: 'This response link is no longer active',
+    message: 'This link is no longer active for this event. No other Player or event details have been shown.',
   }))
 }
 

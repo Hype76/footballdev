@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { createHash } from 'node:crypto'
 import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
@@ -29,6 +30,42 @@ function normalizeEmail(value) {
 
 function isValidEmail(value) {
   return isValidInvitationEmail(value)
+}
+
+function hashResponseToken(token) {
+  return createHash('sha256').update(String(token || '')).digest('hex')
+}
+
+function tokenFromResponseContent(value) {
+  const match = String(value || '').match(/[?&]token=([a-f0-9]{64})(?:[&#"'\s]|$)/i)
+  return normalizeText(match?.[1]).toLowerCase()
+}
+
+export function getReusableMatchDayResponseToken(request, queues = []) {
+  const expectedHash = normalizeText(request?.token_hash).toLowerCase()
+
+  if (!/^[a-f0-9]{64}$/.test(expectedHash) || request?.token_revoked_at) {
+    return ''
+  }
+
+  for (const queue of queues || []) {
+    const payload = queue?.payload || {}
+    const candidates = [
+      payload.matchDayAvailability?.rawToken,
+      tokenFromResponseContent(payload.resendPayload?.html),
+      tokenFromResponseContent(payload.resendPayload?.text),
+    ]
+
+    for (const candidate of candidates) {
+      const token = normalizeText(candidate).toLowerCase()
+
+      if (/^[a-f0-9]{64}$/.test(token) && hashResponseToken(token) === expectedHash) {
+        return token
+      }
+    }
+  }
+
+  return ''
 }
 
 async function getVolunteerRequestTemplates(adminSupabase, match) {
@@ -288,12 +325,18 @@ async function prepareCalendarEditInvitations({
       continue
     }
 
-    const { token, tokenHash } = createInvitationToken()
+    const token = getReusableMatchDayResponseToken(request, queue ? [queue] : [])
+
+    if (!token) {
+      failedCount += 1
+      continue
+    }
+
+    const tokenHash = request.token_hash
     const expiry = getInvitationExpiry(match)
     const { error: requestUpdateError } = await adminSupabase
       .from('match_day_availability_requests')
       .update({
-        token_hash: tokenHash,
         expires_at: expiry,
         parent_link_id: parentLink.id,
         recipient_email: recipientEmail,
@@ -336,6 +379,8 @@ async function prepareCalendarEditInvitations({
         playerId: player.id,
         parentLinkId: parentLink.id,
         purpose: 'availability_request_notification',
+        rawToken: token,
+        tokenHash,
       },
       matchDayActionableInvitation: {
         prepared: true,
@@ -420,10 +465,16 @@ async function prepareCalendarEditInvitations({
     request.parent_link_id
     && !activeScopeKeys.has(`${request.player_id}:${normalizeEmail(request.recipient_email)}`))
   for (const staleRequest of staleRequests) {
-    const { tokenHash } = createInvitationToken()
     await adminSupabase
       .from('match_day_availability_requests')
-      .update({ token_hash: tokenHash, expires_at: new Date(0).toISOString(), updated_at: new Date().toISOString() })
+      .update({
+        token_revoked_at: new Date().toISOString(),
+        token_revoked_reason: 'recipient_authority_removed',
+        token_revoked_by: profile.id,
+        token_revoked_source: 'calendar_edit_actionable_invitation',
+        expires_at: new Date(0).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', staleRequest.id)
       .eq('match_day_id', matchDayId)
       .eq('club_id', profile.club_id)
@@ -641,7 +692,7 @@ export async function handler(event) {
         const parentLink = findParentLinkForContact(parentLinks ?? [], player, contact)
         const { data: existingRequest, error: existingRequestError } = await adminSupabase
           .from('match_day_availability_requests')
-          .select('id, status')
+          .select('id, status, token_hash, token_revoked_at, token_version')
           .eq('match_day_id', match.id)
           .eq('player_id', player.id)
           .eq('recipient_email', contact.email)
@@ -653,10 +704,12 @@ export async function handler(event) {
           throw existingRequestError
         }
 
+        let existingQueues = []
+
         if (existingRequest?.id) {
-          const { data: existingQueues, error: existingQueueError } = await adminSupabase
+          const { data: loadedQueues, error: existingQueueError } = await adminSupabase
             .from('scheduled_email_queue')
-            .select('id, status')
+            .select('id, status, payload')
             .eq('club_id', match.club_id)
             .contains('payload', { matchDayAvailability: { requestId: existingRequest.id } })
             .order('created_at', { ascending: false })
@@ -666,7 +719,14 @@ export async function handler(event) {
             throw existingQueueError
           }
 
+          existingQueues = loadedQueues || []
+
           if (!targetedInvitationAction && (existingQueues ?? []).some((queue) => ['scheduled', 'sending', 'sent'].includes(queue.status))) {
+            duplicateQueueCount += 1
+            continue
+          }
+
+          if (!targetedInvitationAction) {
             duplicateQueueCount += 1
             continue
           }
@@ -682,14 +742,23 @@ export async function handler(event) {
           throw Object.assign(new Error('There is no existing invitation for this action.'), { statusCode: 409 })
         }
 
-        const { token, tokenHash } = createInvitationToken()
+        const reusableToken = existingRequest?.id && targetedInvitationAction
+          ? getReusableMatchDayResponseToken(existingRequest, existingQueues || [])
+          : ''
+
+        if (existingRequest?.id && targetedInvitationAction && !reusableToken) {
+          throw Object.assign(new Error('The existing availability link cannot be reused safely. Revoke it explicitly before issuing a security replacement.'), { statusCode: 409 })
+        }
+
+        const createdToken = reusableToken ? null : createInvitationToken()
+        const token = reusableToken || createdToken.token
+        const tokenHash = reusableToken ? existingRequest.token_hash : createdToken.tokenHash
         const requestMutation = existingRequest?.id && targetedInvitationAction
           ? supabase
               .from('match_day_availability_requests')
               .update({
                 parent_link_id: parentLink?.id || null,
                 recipient_name: contact.name,
-                token_hash: tokenHash,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existingRequest.id)
@@ -793,6 +862,8 @@ export async function handler(event) {
             playerId: player.id,
             parentLinkId: parentLink?.id || '',
             purpose: 'availability_request_notification',
+            rawToken: token,
+            tokenHash,
           },
           ...(targetedInvitationAction ? {
             eventPlayerInvitationAction: {

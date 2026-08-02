@@ -322,7 +322,7 @@ test('claim preparation reconstructs the current RSVP and rejects cancelled or c
   assert.match(changedRecipient.skipReason, /recipient authority changed/)
 })
 
-test('manual Send, Resend and Retry share one invitation and replacement-token queue model', async () => {
+test('manual Send, Resend and Retry share one invitation and reusable-token queue model', async () => {
   const [manualInvitation, processor] = await Promise.all([
     readFile(manualInvitationUrl, 'utf8'),
     readFile(processorUrl, 'utf8'),
