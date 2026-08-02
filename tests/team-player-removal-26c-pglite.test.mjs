@@ -4,6 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migration = await readFile(new URL('../supabase/migrations/20260802214626_team_removal_event_scope_26c.sql', import.meta.url), 'utf8')
+const matchCountMigration = await readFile(new URL('../supabase/migrations/20260802222819_team_removal_match_count_alignment_26c.sql', import.meta.url), 'utf8')
 
 const IDS = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -94,6 +95,9 @@ async function createDatabase() {
     returns jsonb language plpgsql security definer set search_path = '' as $$
     declare affected integer := 1; suppressed integer := 0; revoked integer := 0;
     begin
+      if lower(source_type_value) = 'match-day' then
+        affected := 0;
+      end if;
       insert into public.event_removal_calls values (source_type_value, event_id_value, player_id_value, scope_value, occurrence_date_value);
       update public.calendar_event_invites set invite_status = case when scope_value = 'event' then 'cancelled' else invite_status end, cancelled_at = case when scope_value = 'event' then now() else cancelled_at end
       where player_id = player_id_value and ((source_type_value = 'calendar' and calendar_event_id = event_id_value) or (source_type_value = 'match-day' and match_day_id = event_id_value));
@@ -111,6 +115,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(matchCountMigration)
 
   await db.query(`insert into public.clubs values ($1), ($2)`, [IDS.club, IDS.otherClub])
   await db.query(`insert into public.teams values ($1,$4,'FP TEST Team'),($2,$4,'FP TEST Other Team'),($3,$5,'Foreign Team')`, [IDS.team, IDS.otherTeam, IDS.foreignTeam, IDS.club, IDS.otherClub])
