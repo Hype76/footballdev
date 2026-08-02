@@ -222,6 +222,31 @@ export function normalizeResourceLibraryItem(row) {
   const externalLink = normalizeExternalLink(row.resource_library_external_links ?? row.externalLink)
   const externalUrl = normalizeText(row.external_url ?? row.externalUrl ?? externalLink?.external_url)
   const resourceType = normalizeText(row.resource_type ?? row.resourceType) || (externalUrl ? 'external_link' : 'file')
+  const formationBoardPublications = (row.formation_board_publications ?? row.formationBoardPublications ?? [])
+    .map((publication) => {
+      const version = Array.isArray(publication.formation_board_versions)
+        ? publication.formation_board_versions[0]
+        : publication.formation_board_versions
+
+      return {
+        id: publication.id ?? '',
+        boardId: publication.board_id ?? '',
+        boardVersionId: publication.board_version_id ?? '',
+        publicationNumber: Number(publication.publication_number ?? 0),
+        publishedAt: publication.published_at ?? '',
+        publishedByName: normalizeText(publication.published_by_name),
+        boardTitle: normalizeText(publication.board_title_snapshot),
+        boardDescription: normalizeText(publication.board_description_snapshot),
+        thumbnailBucket: normalizeText(publication.thumbnail_bucket),
+        thumbnailPath: normalizeText(publication.thumbnail_path),
+        publicationState: normalizeText(publication.publication_state),
+        versionNumber: Number(version?.version_number ?? 0),
+        gameFormat: normalizeText(version?.game_format),
+        formation: normalizeText(version?.formation_preset_key),
+        orientation: normalizeText(version?.pitch_orientation),
+      }
+    })
+    .sort((left, right) => right.publicationNumber - left.publicationNumber)
 
   return {
     id: row.id ?? '',
@@ -244,6 +269,8 @@ export function normalizeResourceLibraryItem(row) {
     archivedAt: row.archived_at ?? row.archivedAt ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
+    formationBoardPublications,
+    currentFormationBoardPublication: formationBoardPublications[0] ?? null,
     links: links.filter((link) => !link.removedAt),
   }
 }
@@ -260,6 +287,8 @@ function normalizeParentPortalResourceItem(row) {
   delete item.uploadedBy
   delete item.uploadedByEmail
   delete item.uploadedByName
+  delete item.formationBoardPublications
+  delete item.currentFormationBoardPublication
 
   return item
 }
@@ -307,7 +336,7 @@ export async function getResourceLibraryItems({ category = '', searchTerm = '', 
   return getCachedResource(getResourceLibraryCacheKey(user, `${normalizedCategory || 'all'}:${normalizedTeamId || 'all'}:${normalizedSearchTerm || 'searchless'}`), async () => {
     let query = supabase
       .from('resource_library_items')
-      .select('*, teams:team_id(id, name), resource_library_links(*), resource_library_external_links(external_url)')
+      .select('*, teams:team_id(id, name), resource_library_links(*), resource_library_external_links(external_url), formation_board_publications(*, formation_board_versions:board_version_id(version_number, game_format, formation_preset_key, pitch_orientation))')
       .eq('club_id', user.clubId)
       .is('archived_at', null)
       .order('updated_at', { ascending: false })
@@ -930,4 +959,31 @@ export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {
   }
 
   return signedUrlData?.signedUrl || ''
+}
+
+export async function getFormationBoardThumbnailUrl({ resourceId, user } = {}) {
+  assertResourceLibraryAccess(user)
+  const activeTeamId = getActiveResourceTeamId(user)
+  const normalizedResourceId = normalizeText(resourceId)
+
+  if (!normalizedResourceId) return ''
+
+  const { data, error } = await supabase
+    .from('formation_board_publications')
+    .select('thumbnail_bucket, thumbnail_path')
+    .eq('resource_id', normalizedResourceId)
+    .eq('club_id', user.clubId)
+    .eq('team_id', activeTeamId)
+    .not('thumbnail_path', 'is', null)
+    .order('publication_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data?.thumbnail_path) return ''
+
+  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    .from(data.thumbnail_bucket || RESOURCE_LIBRARY_BUCKET)
+    .createSignedUrl(data.thumbnail_path, 60)
+
+  return signedUrlError ? '' : signedUrlData?.signedUrl || ''
 }

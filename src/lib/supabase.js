@@ -322,6 +322,7 @@ export {
   formatResourceLibraryFileSize,
   getAssignedResourcesForPlayer,
   getCalendarEventResources,
+  getFormationBoardThumbnailUrl,
   getParentPortalPlayerResources,
   getParentPortalResourceAccessUrl,
   getResourceLibraryDownloadUrl,

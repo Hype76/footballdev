@@ -3,7 +3,8 @@ import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canManageResourceLibrary, canUseFormationBoards, canUseResourceLibrary, useAuth } from '../lib/auth.js'
+import { canCreateFormationBoard, canManageResourceLibrary, canUseFormationBoards, canUseResourceLibrary, useAuth } from '../lib/auth.js'
+import { generateFormationBoardExport, shareFormationBoardExport } from '../lib/formation-board-export.js'
 import {
   RESOURCE_LIBRARY_CATEGORIES,
   RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH,
@@ -11,6 +12,7 @@ import {
   assignResourceLibraryItem,
   createExternalResourceLibraryItem,
   formatResourceLibraryFileSize,
+  getFormationBoardThumbnailUrl,
   getResourceLibraryDownloadUrl,
   getResourceLibraryItems,
   getResourceLibraryPlayers,
@@ -92,11 +94,42 @@ function getCategoryLabel(value) {
 
 function getResourceMeta(resource) {
   const scope = resource.teamName || 'Active team'
-  const size = resource.resourceType === 'external_link' ? 'External link' : formatResourceLibraryFileSize(resource.fileSizeBytes)
+  const size = resource.currentFormationBoardPublication
+    ? 'Formation Board'
+    : resource.resourceType === 'external_link' ? 'External link' : formatResourceLibraryFileSize(resource.fileSizeBytes)
   return `${scope} | ${getCategoryLabel(resource.category)} | ${size}`
 }
 
-function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownload, onEditAssignment, resources }) {
+function FormationResourcePreview({ resource }) {
+  const { user } = useAuth()
+  const [thumbnailUrl, setThumbnailUrl] = useState('')
+  const publication = resource.currentFormationBoardPublication
+
+  useEffect(() => {
+    if (!publication?.thumbnailPath) return undefined
+    let active = true
+
+    void getFormationBoardThumbnailUrl({ resourceId: resource.id, user })
+      .then((url) => { if (active) setThumbnailUrl(url) })
+      .catch(() => { if (active) setThumbnailUrl('') })
+
+    return () => { active = false }
+  }, [publication?.thumbnailPath, resource.id, user])
+
+  if (!publication) return null
+
+  return (
+    <div className="w-full overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#edf7f0] lg:w-56">
+      {thumbnailUrl ? (
+        <img src={thumbnailUrl} alt={`${resource.title} Formation Board preview`} className="aspect-[4/3] w-full object-cover" loading="lazy" />
+      ) : (
+        <div className="flex aspect-[4/3] items-center justify-center bg-[#237a45] p-5 text-center text-sm font-black text-white">Formation Board preview</div>
+      )}
+    </div>
+  )
+}
+
+function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSaving, onArchive, onDownload, onEditAssignment, onFormationExport, resources }) {
   if (resources.length === 0) {
     return (
       <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-6 text-sm font-semibold leading-6 text-[#4b5f55] shadow-sm shadow-[#047857]/10">
@@ -110,7 +143,8 @@ function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownloa
       {resources.map((resource) => (
         <article key={resource.id} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
+            <FormationResourcePreview resource={resource} />
+            <div className="min-w-0 flex-1">
               <p className="text-lg font-black text-[#101828]">{resource.title}</p>
               <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getResourceMeta(resource)}</p>
               <p className="mt-1 break-words text-xs font-semibold text-[#66756c]">{resource.externalUrl || resource.originalFilename}</p>
@@ -120,16 +154,37 @@ function ResourceList({ canManage, downloadingId, isSaving, onArchive, onDownloa
               <p className="mt-3 text-xs font-semibold text-[#66756c]">
                 {resource.links.length} assignment{resource.links.length === 1 ? '' : 's'} | Uploaded {resource.createdAt ? new Date(resource.createdAt).toLocaleString('en-GB') : 'Unknown'}
               </p>
+              {resource.currentFormationBoardPublication ? (
+                <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+                  <p className="text-sm font-black text-[#101828]">{resource.currentFormationBoardPublication.gameFormat} | {resource.currentFormationBoardPublication.formation.split('-').slice(1).join('-') || resource.currentFormationBoardPublication.formation} | Version {resource.currentFormationBoardPublication.versionNumber}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#66756c]">Published by {resource.currentFormationBoardPublication.publishedByName || 'Team staff'} on {resource.currentFormationBoardPublication.publishedAt ? new Date(resource.currentFormationBoardPublication.publishedAt).toLocaleString('en-GB') : 'Unknown'}.</p>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs font-black text-[#047857]">Version history ({resource.formationBoardPublications.length})</summary>
+                    <div className="mt-2 space-y-1">
+                      {resource.formationBoardPublications.map((publication) => (
+                        <div key={publication.id} className="flex flex-col gap-1 rounded-md border border-[#d7e5dc] bg-white p-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-xs font-semibold text-[#66756c]">Version {publication.versionNumber} | {publication.formation.split('-').slice(1).join('-') || publication.formation} | {publication.publishedByName || 'Team staff'} | {publication.publishedAt ? new Date(publication.publishedAt).toLocaleString('en-GB') : 'Unknown'}</p>
+                          <Link to={`/resources/formation-boards?board=${publication.boardId}&version=${publication.boardVersionId}`} className="text-xs font-black text-[#047857]">Open version</Link>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button type="button" onClick={() => onDownload(resource)} disabled={downloadingId === resource.id} className={secondaryButtonClass}>
                 {downloadingId === resource.id ? 'Preparing...' : resource.resourceType === 'external_link' ? 'Open' : 'Download'}
               </button>
+              {resource.currentFormationBoardPublication && canExportFormationBoards ? <button type="button" onClick={() => onFormationExport(resource, 'png')} disabled={Boolean(downloadingId)} className={secondaryButtonClass}>PNG</button> : null}
+              {resource.currentFormationBoardPublication && canExportFormationBoards ? <button type="button" onClick={() => onFormationExport(resource, 'pdf')} disabled={Boolean(downloadingId)} className={secondaryButtonClass}>PDF</button> : null}
               {canManage ? (
                 <>
-                  <button type="button" onClick={() => onEditAssignment(resource)} disabled={isSaving} className={secondaryButtonClass}>
-                    Edit player assignments
-                  </button>
+                  {!resource.currentFormationBoardPublication ? (
+                    <button type="button" onClick={() => onEditAssignment(resource)} disabled={isSaving} className={secondaryButtonClass}>
+                      Edit player assignments
+                    </button>
+                  ) : <span className="inline-flex min-h-11 items-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 text-xs font-black text-[#4b5f55]">Team staff only</span>}
                   <button type="button" onClick={() => onArchive(resource)} disabled={isSaving} className={dangerButtonClass}>
                     Archive
                   </button>
@@ -149,6 +204,7 @@ export function ResourceLibraryPage() {
   const canOpenResourceLibrary = canUseResourceLibrary(user)
   const canManage = canManageResourceLibrary(user)
   const canOpenFormationBoards = canUseFormationBoards(user)
+  const canExportFormationBoards = canCreateFormationBoard(user)
   const activeTeamId = String(user?.activeTeamId ?? '').trim()
   const activeTeamName = String(user?.activeTeamName ?? '').trim() || 'Selected team'
   const [resources, setResources] = useState([])
@@ -433,6 +489,37 @@ export function ResourceLibraryPage() {
     }
   }
 
+  const handleFormationExport = async (resource, format) => {
+    const publication = resource.currentFormationBoardPublication
+
+    if (!publication) return
+
+    setDownloadingId(`${resource.id}:${format}`)
+    setErrorMessage('')
+
+    try {
+      const result = await generateFormationBoardExport({
+        boardId: publication.boardId,
+        format,
+        user,
+        versionId: publication.boardVersionId,
+      })
+      const outcome = await shareFormationBoardExport(result)
+
+      if (!outcome.cancelled) {
+        showToast({
+          title: `${format.toUpperCase()} ready`,
+          message: outcome.shared ? 'The secure device share sheet was opened.' : 'The Formation Board was downloaded to this device.',
+        })
+      }
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || `Could not prepare the ${format.toUpperCase()} export.`)
+    } finally {
+      setDownloadingId('')
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -595,7 +682,7 @@ export function ResourceLibraryPage() {
                   className={fieldClass}
                 >
                   <option value="">Choose resource</option>
-                  {resources.map((resource) => (
+                  {resources.filter((resource) => !resource.currentFormationBoardPublication).map((resource) => (
                     <option key={resource.id} value={resource.id}>{resource.title}</option>
                   ))}
                 </select>
@@ -730,12 +817,14 @@ export function ResourceLibraryPage() {
           {isLoading ? <p className="text-sm font-bold text-[#4b5f55]">Loading resources...</p> : null}
         </div>
         <ResourceList
+          canExportFormationBoards={canExportFormationBoards}
           canManage={canManage}
           downloadingId={downloadingId}
           isSaving={isSaving}
           onArchive={(resource) => void handleArchive(resource)}
           onDownload={(resource) => void handleDownload(resource)}
           onEditAssignment={openAssignmentEditor}
+          onFormationExport={(resource, format) => void handleFormationExport(resource, format)}
           resources={resources}
         />
       </section>

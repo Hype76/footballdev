@@ -42,6 +42,8 @@ const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
   formation_board_shirt_number_invalid: 'Use a shirt number from 0 to 999, or leave it blank.',
   formation_board_snapshot_invalid: 'Check the Player positions and bench, then try again.',
   formation_board_snapshot_must_be_arrays: 'The saved pitch and bench data is not valid.',
+  formation_board_thumbnail_invalid: 'The Formation Board preview is not valid for this saved version.',
+  formation_board_thumbnail_required: 'Prepare a preview before publishing, or use the safe fallback.',
   formation_board_title_invalid: 'Enter a Formation Board title between 1 and 120 characters.',
   formation_board_version_conflict: 'A newer saved version is available. Reload it before saving your changes.',
   formation_board_version_not_found: 'That Formation Board version is no longer available.',
@@ -93,7 +95,10 @@ function normalizeFormationBoardPublication(row) {
     publicationAction: normalizeText(row.publication_action ?? row.publicationAction),
     previousPublicationId: row.previous_publication_id ?? row.previousPublicationId ?? '',
     publishedByProfileId: row.published_by_profile_id ?? row.publishedByProfileId ?? '',
+    publishedByName: normalizeText(row.published_by_name ?? row.publishedByName),
     publishedAt: row.published_at ?? row.publishedAt ?? '',
+    boardTitleSnapshot: normalizeText(row.board_title_snapshot ?? row.boardTitleSnapshot),
+    boardDescriptionSnapshot: normalizeText(row.board_description_snapshot ?? row.boardDescriptionSnapshot),
     thumbnailBucket: normalizeText(row.thumbnail_bucket ?? row.thumbnailBucket),
     thumbnailPath: normalizeText(row.thumbnail_path ?? row.thumbnailPath),
     publicationState: normalizeText(row.publication_state ?? row.publicationState),
@@ -369,6 +374,8 @@ export async function publishFormationBoardVersion({
   category,
   publicationAction = 'new_resource',
   resourceId = null,
+  thumbnailFailed = false,
+  thumbnailPath = null,
   user,
   versionId,
 } = {}) {
@@ -379,6 +386,8 @@ export async function publishFormationBoardVersion({
     target_board_id: boardId,
     target_resource_id: resourceId,
     target_version_id: versionId,
+    thumbnail_failed_value: Boolean(thumbnailFailed),
+    thumbnail_path_value: thumbnailPath,
   })
 
   return {

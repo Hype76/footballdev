@@ -10,6 +10,7 @@ const indexesMigrationUrl = new URL('../supabase/migrations/20260802133210_forma
 const compositeIndexesMigrationUrl = new URL('../supabase/migrations/20260802133419_formation_board_composite_indexes_25a.sql', import.meta.url)
 const editorSaveMigrationUrl = new URL('../supabase/migrations/20260802155000_formation_board_editor_save_25b.sql', import.meta.url)
 const conflictErrorCodeMigrationUrl = new URL('../supabase/migrations/20260802161500_formation_board_conflict_error_code_25b.sql', import.meta.url)
+const publishExportMigrationUrl = new URL('../supabase/migrations/20260802170000_formation_board_publish_export_25c.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -69,6 +70,7 @@ before(async () => {
     create role service_role bypassrls;
     create schema auth;
     create schema app_private;
+    create schema storage;
 
     create function auth.uid()
     returns uuid
@@ -80,7 +82,17 @@ before(async () => {
 
     create table public.clubs (
       id uuid primary key,
-      name text not null
+      name text not null,
+      logo_url text,
+      theme_accent text,
+      status text not null default 'active'
+    );
+
+    create table storage.objects (
+      id uuid primary key default gen_random_uuid(),
+      bucket_id text not null,
+      name text not null,
+      unique (bucket_id, name)
     );
 
     create table public.teams (
@@ -168,6 +180,18 @@ before(async () => {
       foreign key (resource_id, club_id) references public.resource_library_items(id, club_id) on delete cascade
     );
 
+    create table public.resource_library_links (
+      id uuid primary key default gen_random_uuid(),
+      resource_id uuid not null references public.resource_library_items(id) on delete cascade,
+      club_id uuid not null references public.clubs(id),
+      team_id uuid not null references public.teams(id) on delete cascade,
+      linked_type text not null,
+      linked_id uuid not null,
+      assigned_by_profile_id uuid not null references public.users(id),
+      parent_visible boolean not null default false,
+      removed_at timestamptz
+    );
+
     create table public.audit_logs (
       id uuid primary key default gen_random_uuid(),
       club_id uuid references public.clubs(id),
@@ -202,6 +226,8 @@ before(async () => {
   await db.exec(editorSaveMigration)
   const conflictErrorCodeMigration = await readFile(conflictErrorCodeMigrationUrl, 'utf8')
   await db.exec(conflictErrorCodeMigration)
+  const publishExportMigration = await readFile(publishExportMigrationUrl, 'utf8')
+  await db.exec(publishExportMigration)
 
   await db.exec(`
     insert into public.clubs (id, name) values
@@ -483,21 +509,30 @@ test('publication uses fixed categories, immutable versions, linked Resource his
   await setActor(IDS.manager)
   const board = (await rpc('public.get_formation_board($1)', [sharedBoard.board.id])).rows[0].result
   const firstVersion = await db.query('select id from public.formation_board_versions where board_id = $1 and version_number = 1', [sharedBoard.board.id])
-  const firstPublish = await rpc('public.publish_formation_board_version($1, $2, $3, $4, $5)', [sharedBoard.board.id, firstVersion.rows[0].id, 'training', 'new_resource', null])
+  const firstPublish = await rpc('public.publish_formation_board_version($1, $2, $3, $4, $5, $6, $7)', [sharedBoard.board.id, firstVersion.rows[0].id, 'training', 'new_resource', null, null, true])
   const resourceId = firstPublish.rows[0].result.resource.id
   assert.equal(firstPublish.rows[0].result.publication.board_version_id, firstVersion.rows[0].id)
-  assert.match(firstPublish.rows[0].result.protectedUrl, /^https:\/\/footballplayer\.online\/formation-boards\//)
+  assert.match(firstPublish.rows[0].result.protectedUrl, /^https:\/\/footballplayer\.online\/resources\/formation-boards\?board=/)
+  assert.equal(firstPublish.rows[0].result.publication.publication_state, 'export_failed')
+  assert.equal(firstPublish.rows[0].result.publication.board_title_snapshot, sharedBoard.board.title)
+  assert.equal(firstPublish.rows[0].result.publication.published_by_name, 'Manager')
+
+  await rpc('public.rename_formation_board($1, $2, $3, $4)', [sharedBoard.board.id, board.board.current_version_number, 'Renamed after publication', 'New working description'])
+  const oldExport = await rpc('public.request_formation_board_export($1, $2, $3)', [sharedBoard.board.id, firstVersion.rows[0].id, 'png'])
+  const oldPayload = await rpc('public.get_formation_board_export_payload($1)', [oldExport.rows[0].result.request.id])
+  assert.equal(oldPayload.rows[0].result.board.title, sharedBoard.board.title)
+  assert.equal(oldPayload.rows[0].result.board.description, sharedBoard.board.description)
 
   await assert.rejects(
-    rpc('public.publish_formation_board_version($1, $2, $3, $4, $5)', [sharedBoard.board.id, firstVersion.rows[0].id, 'training', 'new_resource', null]),
+    rpc('public.publish_formation_board_version($1, $2, $3, $4, $5, $6, $7)', [sharedBoard.board.id, firstVersion.rows[0].id, 'training', 'new_resource', null, null, true]),
     /formation_board_duplicate_publication/,
   )
   await assert.rejects(
-    rpc('public.publish_formation_board_version($1, $2, $3, $4, $5)', [sharedBoard.board.id, board.currentVersion.id, 'another_team', 'new_resource', null]),
+    rpc('public.publish_formation_board_version($1, $2, $3, $4, $5, $6, $7)', [sharedBoard.board.id, board.currentVersion.id, 'another_team', 'new_resource', null, null, true]),
     /formation_board_resource_category_invalid/,
   )
 
-  const secondPublish = await rpc('public.publish_formation_board_version($1, $2, $3, $4, $5)', [sharedBoard.board.id, board.currentVersion.id, 'match_day', 'update_resource', resourceId])
+  const secondPublish = await rpc('public.publish_formation_board_version($1, $2, $3, $4, $5, $6, $7)', [sharedBoard.board.id, board.currentVersion.id, 'match_day', 'update_resource', resourceId, null, true])
   assert.equal(secondPublish.rows[0].result.publication.resource_id, resourceId)
   assert.equal(secondPublish.rows[0].result.publication.previous_publication_id, firstPublish.rows[0].result.publication.id)
 
@@ -508,6 +543,13 @@ test('publication uses fixed categories, immutable versions, linked Resource his
   ])
 
   await resetActor()
+  await assert.rejects(
+    db.query(
+      "insert into public.resource_library_links (resource_id, club_id, team_id, linked_type, linked_id, assigned_by_profile_id, parent_visible) values ($1, $2, $3, 'player', $4, $5, true)",
+      [resourceId, IDS.clubA, IDS.teamA, IDS.playerA1, IDS.manager],
+    ),
+    /formation_board_resource_assignment_forbidden/,
+  )
   await assert.rejects(
     db.query("update public.formation_board_publications set resource_category = 'general' where id = $1", [firstPublish.rows[0].result.publication.id]),
     /formation_board_snapshot_immutable/,
@@ -520,8 +562,9 @@ test('publication uses fixed categories, immutable versions, linked Resource his
 
 test('published boards cannot be deleted while unshared boards require exact confirmation', async () => {
   await setActor(IDS.manager)
+  const currentPublishedBoard = (await rpc('public.get_formation_board($1)', [sharedBoard.board.id])).rows[0].result
   await assert.rejects(
-    rpc('public.delete_formation_board($1, $2)', [sharedBoard.board.id, sharedBoard.board.title]),
+    rpc('public.delete_formation_board($1, $2)', [sharedBoard.board.id, currentPublishedBoard.board.title]),
     /formation_board_published_delete_forbidden/,
   )
 
@@ -535,16 +578,59 @@ test('published boards cannot be deleted while unshared boards require exact con
   assert.equal(deleted.rows[0].result.deleted, true)
 })
 
+test('publication accepts only the deterministic private thumbnail for the exact board version', async () => {
+  await setActor(IDS.manager)
+  const created = await rpc(
+    'public.create_formation_board($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)',
+    [IDS.teamA, 'Thumbnail board', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 1],
+  )
+  const board = created.rows[0].result.board
+  const version = created.rows[0].result.currentVersion
+  const thumbnailPath = `${IDS.clubA}/${IDS.teamA}/formation-boards/${board.id}/versions/${version.id}/thumbnail.png`
+
+  await resetActor()
+  await db.query('insert into storage.objects (bucket_id, name) values ($1, $2)', ['resource-library', thumbnailPath])
+  await setActor(IDS.manager)
+
+  const published = await rpc(
+    'public.publish_formation_board_version($1, $2, $3, $4, $5, $6, $7)',
+    [board.id, version.id, 'training', 'new_resource', null, thumbnailPath, false],
+  )
+  assert.equal(published.rows[0].result.publication.publication_state, 'published')
+  assert.equal(published.rows[0].result.publication.thumbnail_path, thumbnailPath)
+
+  const secondCreated = await rpc(
+    'public.create_formation_board($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)',
+    [IDS.teamA, 'Wrong thumbnail board', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 1],
+  )
+  await assert.rejects(
+    rpc(
+      'public.publish_formation_board_version($1, $2, $3, $4, $5, $6, $7)',
+      [secondCreated.rows[0].result.board.id, secondCreated.rows[0].result.currentVersion.id, 'general', 'new_resource', null, thumbnailPath, false],
+    ),
+    /formation_board_thumbnail_invalid/,
+  )
+})
+
 test('export request evidence is Team scoped and Assistant Coach is denied', async () => {
   await setActor(IDS.manager)
   const current = (await rpc('public.get_formation_board($1)', [sharedBoard.board.id])).rows[0].result
   const request = await rpc('public.request_formation_board_export($1, $2, $3)', [sharedBoard.board.id, current.currentVersion.id, 'pdf'])
   assert.equal(request.rows[0].result.request.export_state, 'pending')
   assert.equal(request.rows[0].result.snapshot.id, current.currentVersion.id)
+  const payload = await rpc('public.get_formation_board_export_payload($1)', [request.rows[0].result.request.id])
+  assert.equal(payload.rows[0].result.board.id, sharedBoard.board.id)
+  assert.equal(payload.rows[0].result.version.id, current.currentVersion.id)
+  assert.equal(payload.rows[0].result.team.id, IDS.teamA)
+  assert.equal(payload.rows[0].result.club.id, IDS.clubA)
 
   await setActor(IDS.assistant)
   await assert.rejects(
     rpc('public.request_formation_board_export($1, $2, $3)', [sharedBoard.board.id, current.currentVersion.id, 'png']),
+    /formation_board_export_forbidden/,
+  )
+  await assert.rejects(
+    rpc('public.get_formation_board_export_payload($1)', [request.rows[0].result.request.id]),
     /formation_board_export_forbidden/,
   )
 })
@@ -671,8 +757,8 @@ test('Team deletion can cascade a published Formation Board graph without weaken
   const boardId = created.rows[0].result.board.id
   const versionId = created.rows[0].result.currentVersion.id
   const published = await rpc(
-    'public.publish_formation_board_version($1, $2, $3, $4, $5)',
-    [boardId, versionId, 'general', 'new_resource', null],
+    'public.publish_formation_board_version($1, $2, $3, $4, $5, $6, $7)',
+    [boardId, versionId, 'general', 'new_resource', null, null, true],
   )
   const resourceId = published.rows[0].result.resource.id
 

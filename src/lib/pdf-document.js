@@ -13,6 +13,7 @@ export const PDF_DOCUMENT_VERSION = 1
 
 export const PDF_REPORT_TYPES = Object.freeze({
   assessment: 'assessment',
+  formationBoard: 'formation-board',
   parentMessage: 'parent-message',
   progressionChart: 'progression-chart',
 })
@@ -25,6 +26,7 @@ export const PDF_DOCUMENT_LIMITS = Object.freeze({
   maxResponseItems: 60,
   maxEmailSections: 8,
   maxChartPoints: 24,
+  maxFormationPlayers: 32,
 })
 
 export class PdfDocumentError extends Error {
@@ -310,6 +312,124 @@ function validateProgressionChartDocument(value) {
   }
 }
 
+function normalizeFormationBoardContext(value) {
+  assertAllowedKeys(value, ['clubName', 'teamName', 'reportDate'], 'Formation Board context')
+
+  return {
+    clubName: normalizeText(value.clubName, {
+      label: 'Club name',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+      required: true,
+    }),
+    teamName: normalizeText(value.teamName, {
+      label: 'Team name',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+      required: true,
+    }),
+    reportDate: normalizeText(value.reportDate, {
+      label: 'Board date',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+    }),
+  }
+}
+
+function normalizeFormationPlayer(item, { placement = false } = {}) {
+  assertAllowedKeys(
+    item,
+    placement
+      ? ['displayName', 'playerId', 'shirtNumber', 'x', 'y']
+      : ['displayName', 'playerId', 'shirtNumber'],
+    placement ? 'Formation Board placement' : 'Formation Board bench Player',
+  )
+
+  const normalized = {
+    displayName: normalizeText(item.displayName, {
+      label: 'Player name',
+      maxLength: PDF_DOCUMENT_LIMITS.maxLabelLength,
+      required: true,
+    }),
+    playerId: normalizeText(item.playerId, {
+      label: 'Player reference',
+      maxLength: 80,
+      required: true,
+    }),
+    shirtNumber: normalizeText(item.shirtNumber, {
+      label: 'Shirt number',
+      maxLength: 3,
+    }),
+  }
+
+  if (!placement) return normalized
+
+  const x = Number(item.x)
+  const y = Number(item.y)
+
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1) {
+    invalid('Formation Board marker positions must stay within the pitch.')
+  }
+
+  return { ...normalized, x, y }
+}
+
+function validateFormationBoardDocument(value) {
+  assertAllowedKeys(value, [
+    'version',
+    'reportType',
+    'context',
+    'title',
+    'description',
+    'gameFormat',
+    'formation',
+    'orientation',
+    'placements',
+    'bench',
+    'notes',
+  ], 'PDF document')
+
+  const placements = Array.isArray(value.placements)
+    ? value.placements.map((item) => normalizeFormationPlayer(item, { placement: true }))
+    : invalid('Formation Board placements must be a list.')
+  const bench = Array.isArray(value.bench)
+    ? value.bench.map((item) => normalizeFormationPlayer(item))
+    : invalid('Formation Board bench must be a list.')
+
+  if (placements.length + bench.length > PDF_DOCUMENT_LIMITS.maxFormationPlayers) {
+    invalid('The Formation Board contains too many Players.', 'PDF_LIMIT_EXCEEDED')
+  }
+
+  return {
+    version: PDF_DOCUMENT_VERSION,
+    reportType: PDF_REPORT_TYPES.formationBoard,
+    context: normalizeFormationBoardContext(value.context),
+    title: normalizeText(value.title, {
+      label: 'Board title',
+      maxLength: PDF_DOCUMENT_LIMITS.maxTitleLength,
+      required: true,
+    }),
+    description: normalizeText(value.description, {
+      label: 'Board description',
+      maxLength: 1_000,
+    }),
+    gameFormat: normalizeText(value.gameFormat, {
+      label: 'Game format',
+      maxLength: 20,
+      required: true,
+    }),
+    formation: normalizeText(value.formation, {
+      label: 'Formation',
+      maxLength: 80,
+      required: true,
+    }),
+    orientation: ['portrait', 'landscape'].includes(value.orientation) ? value.orientation : 'portrait',
+    placements,
+    bench,
+    notes: normalizeText(value.notes, {
+      label: 'Board notes',
+      maxLength: 2_000,
+    }),
+  }
+}
+
 export function validatePdfDocument(value) {
   if (!isPlainObject(value)) {
     invalid()
@@ -327,6 +447,8 @@ export function validatePdfDocument(value) {
     document = validateParentMessageDocument(value)
   } else if (value.reportType === PDF_REPORT_TYPES.progressionChart) {
     document = validateProgressionChartDocument(value)
+  } else if (value.reportType === PDF_REPORT_TYPES.formationBoard) {
+    document = validateFormationBoardDocument(value)
   } else {
     invalid('The PDF report type is not supported.')
   }
@@ -434,6 +556,44 @@ export function buildProgressionChartDocument(points = []) {
   })
 }
 
+export function buildFormationBoardDocument({
+  clubName = '',
+  teamName = '',
+  reportDate = '',
+  title = '',
+  description = '',
+  gameFormat = '',
+  formation = '',
+  orientation = 'portrait',
+  placements = [],
+  bench = [],
+  notes = '',
+} = {}) {
+  return validatePdfDocument({
+    version: PDF_DOCUMENT_VERSION,
+    reportType: PDF_REPORT_TYPES.formationBoard,
+    context: { clubName, teamName, reportDate },
+    title,
+    description,
+    gameFormat,
+    formation,
+    orientation,
+    placements: placements.map((item) => ({
+      displayName: item.displayName,
+      playerId: item.playerId,
+      shirtNumber: item.shirtNumber,
+      x: item.x,
+      y: item.y,
+    })),
+    bench: bench.map((item) => ({
+      displayName: item.displayName,
+      playerId: item.playerId,
+      shirtNumber: item.shirtNumber,
+    })),
+    notes,
+  })
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -448,7 +608,9 @@ function getReportTitle(reportType) {
     ? 'Parent Message Report'
     : reportType === PDF_REPORT_TYPES.assessment
       ? 'Development Report'
-      : 'Progression Chart'
+      : reportType === PDF_REPORT_TYPES.formationBoard
+        ? 'Formation Board'
+        : 'Progression Chart'
 }
 
 function renderBrandMark(branding) {
@@ -619,6 +781,67 @@ function renderProgressionChartDocument(document) {
   return `<main class="chart-page">${buildProgressionChartMarkup(document.points)}</main>`
 }
 
+function renderFormationBoardDocument(document, branding) {
+  const formationLabel = document.formation.split('-').slice(1).join('-') || document.formation
+  const markerMarkup = document.placements.map((player) => `
+    <div class="formation-marker" style="left:${player.x * 100}%;top:${player.y * 100}%;">
+      <span class="formation-number">${escapeHtml(player.shirtNumber || '?')}</span>
+      <span class="formation-name">${escapeHtml(player.displayName)}</span>
+    </div>
+  `).join('')
+  const benchMarkup = document.bench.length > 0
+    ? document.bench.map((player) => `<li><strong>${escapeHtml(player.shirtNumber || '?')}</strong><span>${escapeHtml(player.displayName)}</span></li>`).join('')
+    : '<li class="formation-empty">No Players on the bench</li>'
+
+  return `
+    <main class="formation-page" style="--club-accent:${branding.primaryColour};--club-accent-soft:${branding.secondaryColour};--club-accent-text:${branding.accentTextColour};">
+      <header class="formation-header">
+        <div class="formation-club">
+          ${renderBrandMark(branding)}
+          <div>
+            <p class="formation-kicker">Formation Board</p>
+            <p class="formation-club-name">${escapeHtml(branding.clubName)}</p>
+            <p class="formation-team-name">${escapeHtml(document.context.teamName || branding.teamName)}</p>
+          </div>
+        </div>
+        <div class="formation-heading">
+          <h1>${escapeHtml(document.title)}</h1>
+          <p>${escapeHtml(document.gameFormat)} | ${escapeHtml(formationLabel)} | Updated ${escapeHtml(document.context.reportDate || 'Unknown')}</p>
+        </div>
+      </header>
+      <div class="formation-layout">
+        <section class="formation-pitch-panel" aria-label="Formation pitch">
+          <div class="formation-pitch formation-pitch-${escapeHtml(document.orientation)}">
+            <div class="pitch-outline"></div>
+            <div class="pitch-halfway"></div>
+            <div class="pitch-centre-circle"></div>
+            <div class="pitch-box pitch-box-top"></div>
+            <div class="pitch-box pitch-box-bottom"></div>
+            ${markerMarkup}
+          </div>
+        </section>
+        <aside class="formation-sidebar">
+          <section>
+            <h2>Board details</h2>
+            <dl>
+              <div><dt>Game format</dt><dd>${escapeHtml(document.gameFormat)}</dd></div>
+              <div><dt>Formation</dt><dd>${escapeHtml(formationLabel)}</dd></div>
+              <div><dt>Pitch Players</dt><dd>${document.placements.length}</dd></div>
+            </dl>
+            ${document.description ? `<p class="formation-description">${escapeHtml(document.description)}</p>` : ''}
+          </section>
+          <section>
+            <h2>Bench</h2>
+            <ul class="formation-bench">${benchMarkup}</ul>
+          </section>
+          ${document.notes ? `<section><h2>Notes</h2><p class="formation-notes">${escapeHtml(document.notes)}</p></section>` : ''}
+        </aside>
+      </div>
+      <footer class="formation-footer">Footballplayer.online | Team staff resource</footer>
+    </main>
+  `
+}
+
 export function renderPdfFooterTemplate(brandingValue, context = {}) {
   const branding = validatePdfBranding(brandingValue, { context })
 
@@ -638,7 +861,12 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
     ? renderAssessmentDocument(document, branding)
     : document.reportType === PDF_REPORT_TYPES.parentMessage
       ? renderParentMessageDocument(document, branding)
-      : renderProgressionChartDocument(document)
+      : document.reportType === PDF_REPORT_TYPES.formationBoard
+        ? renderFormationBoardDocument(document, branding)
+        : renderProgressionChartDocument(document)
+  const pageRule = document.reportType === PDF_REPORT_TYPES.formationBoard
+    ? '@page { size: A4 landscape; margin: 8mm; }'
+    : '@page { size: A4; margin: 14mm 14mm 23mm; }'
 
   return `<!doctype html>
     <html lang="en">
@@ -647,7 +875,7 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <style>
-          @page { size: A4; margin: 14mm 14mm 23mm; }
+          ${pageRule}
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; background: #ffffff; color: #101828; font-family: Arial, Helvetica, sans-serif; }
           body { font-size: 12px; line-height: 1.45; }
@@ -686,8 +914,45 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           .scoring-guide p { margin: 5px 0 0; color: #334155; font-size: 10px; line-height: 1.35; }
           .empty { margin: 10px 0 0; color: #66756c; }
           .chart-page { width: 760px; min-height: 240px; margin: 0; padding: 20px; }
+          .formation-page { width: 100%; min-height: 100vh; margin: 0; padding: 18px; background: #f7faf8; color: #101828; display: flex; flex-direction: column; }
+          .formation-header { display: grid; grid-template-columns: minmax(300px,.8fr) minmax(0,1.2fr); align-items: center; gap: 22px; border-bottom: 4px solid var(--club-accent); padding-bottom: 13px; }
+          .formation-club { display: flex; align-items: center; gap: 12px; }
+          .formation-club .club-logo, .formation-club .club-initials { width: 58px; height: 58px; flex-basis: 58px; }
+          .formation-kicker { margin: 0; color: var(--club-accent-text); font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
+          .formation-club-name { margin: 4px 0 0; font-size: 17px; font-weight: 900; line-height: 1.1; }
+          .formation-team-name { margin: 4px 0 0; color: #475467; font-size: 11px; font-weight: 800; }
+          .formation-heading { min-width: 0; text-align: right; }
+          .formation-heading h1 { margin: 0; font-size: 25px; line-height: 1.08; overflow-wrap: anywhere; }
+          .formation-heading p { margin: 7px 0 0; color: #475467; font-size: 11px; font-weight: 800; }
+          .formation-layout { display: grid; grid-template-columns: minmax(0, 1fr) 245px; flex: 1; min-height: 0; gap: 16px; margin-top: 15px; }
+          .formation-pitch-panel { min-height: 0; border: 1px solid #176a3a; border-radius: 14px; background: #237a45; padding: 12px; overflow: hidden; }
+          .formation-pitch { position: relative; width: 100%; height: 100%; min-height: 520px; border-radius: 10px; background: linear-gradient(90deg,#237a45 0 12.5%,#2b834c 12.5% 25%,#237a45 25% 37.5%,#2b834c 37.5% 50%,#237a45 50% 62.5%,#2b834c 62.5% 75%,#237a45 75% 87.5%,#2b834c 87.5%); }
+          .pitch-outline { position: absolute; inset: 18px; border: 3px solid rgba(255,255,255,.92); }
+          .pitch-halfway { position: absolute; left: 18px; right: 18px; top: 50%; border-top: 3px solid rgba(255,255,255,.92); }
+          .pitch-centre-circle { position: absolute; left: 50%; top: 50%; width: 100px; height: 100px; transform: translate(-50%,-50%); border: 3px solid rgba(255,255,255,.92); border-radius: 50%; }
+          .pitch-box { position: absolute; left: 50%; width: 42%; height: 18%; transform: translateX(-50%); border: 3px solid rgba(255,255,255,.92); }
+          .pitch-box-top { top: 18px; border-top: 0; }
+          .pitch-box-bottom { bottom: 18px; border-bottom: 0; }
+          .formation-marker { position: absolute; z-index: 3; width: 106px; transform: translate(-50%,-50%); text-align: center; }
+          .formation-number { display: flex; width: 44px; height: 44px; margin: 0 auto; align-items: center; justify-content: center; border: 3px solid #ffffff; border-radius: 50%; background: #101828; color: #ffffff; box-shadow: 0 3px 7px rgba(16,24,40,.25); font-size: 17px; font-weight: 900; }
+          .formation-name { display: block; max-width: 106px; margin: 4px auto 0; padding: 3px 6px; border-radius: 6px; background: rgba(255,255,255,.95); color: #101828; font-size: 9px; font-weight: 900; line-height: 1.15; overflow-wrap: anywhere; }
+          .formation-sidebar { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+          .formation-sidebar section { border: 1px solid #d7e5dc; border-radius: 11px; background: #ffffff; padding: 11px; }
+          .formation-sidebar h2 { margin: 0; color: var(--club-accent-text); font-size: 12px; }
+          .formation-sidebar dl { margin: 8px 0 0; }
+          .formation-sidebar dl div { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid #eef2ef; padding: 6px 0; }
+          .formation-sidebar dl div:first-child { border-top: 0; }
+          .formation-sidebar dt { font-size: 8px; }
+          .formation-sidebar dd { margin: 0; font-size: 10px; text-align: right; }
+          .formation-description, .formation-notes { margin: 8px 0 0; color: #344054; font-size: 9px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+          .formation-bench { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
+          .formation-bench li { display: flex; min-width: 0; align-items: center; gap: 5px; border: 1px solid #e2e8f0; border-radius: 7px; padding: 5px; font-size: 8px; font-weight: 800; }
+          .formation-bench strong { display: flex; width: 22px; height: 22px; flex: 0 0 22px; align-items: center; justify-content: center; border-radius: 50%; background: #101828; color: #ffffff; }
+          .formation-bench span { min-width: 0; overflow-wrap: anywhere; }
+          .formation-bench .formation-empty { grid-column: 1 / -1; color: #667085; }
+          .formation-footer { margin-top: 8px; color: #667085; font-size: 8px; font-weight: 700; text-align: right; }
           @media print {
-            .report-header, .context-grid { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .report-header, .context-grid, .formation-page, .formation-pitch { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
           }
         </style>
       </head>

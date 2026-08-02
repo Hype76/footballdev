@@ -30,15 +30,23 @@ import {
   updateFormationPlayerNumber,
 } from '../lib/formation-board-editor.js'
 import {
+  createFormationBoardThumbnail,
+  generateFormationBoardExport,
+  shareFormationBoardExport,
+} from '../lib/formation-board-export.js'
+import {
   FORMATION_BOARD_GAME_FORMATS,
   archiveFormationBoard,
   createFormationBoard,
   duplicateFormationBoard,
   getFormationBoard,
   getFormationBoardPresets,
+  getFormationBoardPublications,
   getFormationBoardVersions,
   getFormationBoards,
   getPlayers,
+  publishFormationBoardVersion,
+  RESOURCE_LIBRARY_CATEGORIES,
   restoreFormationBoard,
   restoreFormationBoardVersion,
   saveFormationBoardEditor,
@@ -66,6 +74,7 @@ function getBoardActionFromLocation(search) {
   return {
     action: parameters.get('action') || '',
     boardId: parameters.get('board') || '',
+    versionId: parameters.get('version') || '',
   }
 }
 
@@ -335,6 +344,59 @@ function MobileRosterSheet({ children, isOpen, onClose }) {
   )
 }
 
+function FormationBoardDialog({ children, isOpen, onClose, title }) {
+  const panelRef = useRef(null)
+  const closeRef = useRef(null)
+
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const previousFocus = document.activeElement
+    closeRef.current?.focus()
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+
+      if (event.key !== 'Tab') return
+      const focusable = [...panelRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]')]
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previousFocus?.focus?.()
+    }
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#101828]/55 p-0 sm:items-center sm:p-5" onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section ref={panelRef} role="dialog" aria-modal="true" aria-label={title} className="max-h-[88dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-black">{title}</h2>
+          <button ref={closeRef} type="button" onClick={onClose} className={secondaryButtonClass}>Close</button>
+        </div>
+        {children}
+      </section>
+    </div>
+  )
+}
+
 function VersionHistory({ canEdit, currentVersionNumber, isBusy, onRestoreVersion, versions }) {
   return (
     <details className={panelClass}>
@@ -370,7 +432,9 @@ export function FormationBoardsPage() {
   const [presets, setPresets] = useState([])
   const [players, setPlayers] = useState([])
   const [versions, setVersions] = useState([])
+  const [publications, setPublications] = useState([])
   const [currentBoard, setCurrentBoard] = useState(null)
+  const [publishedSnapshotVersion, setPublishedSnapshotVersion] = useState(null)
   const [snapshot, setSnapshot] = useState(null)
   const [savedSnapshot, setSavedSnapshot] = useState(null)
   const [history, setHistory] = useState([])
@@ -379,6 +443,13 @@ export function FormationBoardsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isRosterOpen, setIsRosterOpen] = useState(false)
+  const [isActionsOpen, setIsActionsOpen] = useState(false)
+  const [isPublishOpen, setIsPublishOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publicationCategory, setPublicationCategory] = useState('general')
+  const [publicationAction, setPublicationAction] = useState('new_resource')
+  const [publicationResourceId, setPublicationResourceId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [saveState, setSaveState] = useState('saved')
   const [draftCandidate, setDraftCandidate] = useState(null)
@@ -389,12 +460,18 @@ export function FormationBoardsPage() {
   const activeTeamName = String(user?.activeTeamName ?? '').trim() || 'Selected Team'
   const canOpen = canUseFormationBoards(user)
   const canCreate = canCreateFormationBoard(user)
-  const canEdit = currentBoard ? canEditFormationBoard(user, currentBoard) : canCreate
+  const canEdit = publishedSnapshotVersion ? false : currentBoard ? canEditFormationBoard(user, currentBoard) : canCreate
   const isNewBoard = currentBoard?.id === 'new'
   const hasUnsavedChanges = Boolean(snapshot && savedSnapshot && !snapshotsMatch(snapshot, savedSnapshot))
   const blocker = useBlocker(() => hasUnsavedChanges && !allowNavigationRef.current)
   const selectedMarker = snapshot?.placements.find((item) => item.playerId === selectedMarkerId) || null
   const currentPreset = presets.find((preset) => preset.key === snapshot?.presetKey) || null
+  const viewedPublication = publishedSnapshotVersion
+    ? publications.find((publication) => publication.boardVersionId === publishedSnapshotVersion.id) || null
+    : null
+  const linkedPublicationResources = [...new Map(
+    publications.map((publication) => [publication.resourceId, publication]),
+  ).values()]
   const draftKey = snapshot ? createFormationBoardDraftKey({
     boardId: currentBoard?.id || 'new',
     clubId: user?.clubId,
@@ -442,14 +519,40 @@ export function FormationBoardsPage() {
     setDraftCandidate(candidate && !snapshotsMatch(candidate.snapshot, nextSnapshot) ? candidate : null)
   }, [activeTeamId, user?.clubId, user?.id])
 
-  const openBoard = useCallback(async (board) => {
+  const openBoard = useCallback(async (board, { versionId = '' } = {}) => {
     setErrorMessage('')
     try {
       const freshBoard = board.id === 'new' ? board : await getFormationBoard(board.id)
+      let nextVersions = []
+      let nextPublications = []
+      let snapshotVersion = null
+
+      if (board.id !== 'new') {
+        [nextVersions, nextPublications] = await Promise.all([
+          getFormationBoardVersions(board.id),
+          getFormationBoardPublications(board.id),
+        ])
+        snapshotVersion = versionId ? nextVersions.find((version) => version.id === versionId) || null : null
+        if (versionId && !snapshotVersion) throw new Error('That published Formation Board version is no longer available.')
+      }
+
+      const matchingPublication = snapshotVersion
+        ? nextPublications.find((publication) => publication.boardVersionId === snapshotVersion.id)
+        : null
+      const displayBoard = snapshotVersion
+        ? {
+            ...freshBoard,
+            title: matchingPublication?.boardTitleSnapshot || freshBoard.title,
+            description: matchingPublication?.boardDescriptionSnapshot || freshBoard.description,
+            currentVersion: snapshotVersion,
+            currentVersionNumber: snapshotVersion.versionNumber,
+          }
+        : freshBoard
       const nextSnapshot = board.id === 'new'
         ? createNewEditorSnapshot(presets.find((preset) => preset.gameFormat === '7v7' && !preset.key.endsWith('-custom')) || presets[0])
-        : createEditorSnapshot({ board: freshBoard })
-      setCurrentBoard(freshBoard)
+        : createEditorSnapshot({ board: displayBoard })
+      setCurrentBoard(displayBoard)
+      setPublishedSnapshotVersion(snapshotVersion)
       setSnapshot(nextSnapshot)
       setSavedSnapshot(nextSnapshot)
       setHistory([])
@@ -457,10 +560,12 @@ export function FormationBoardsPage() {
       setSelectedMarkerId('')
       setSaveState('saved')
       setConflict(null)
-      if (board.id !== 'new') setVersions(await getFormationBoardVersions(board.id))
-      else setVersions([])
-      loadDraftCandidate(freshBoard, nextSnapshot)
-      navigate(`/resources/formation-boards?board=${board.id}`, { replace: true })
+      setVersions(nextVersions)
+      setPublications(nextPublications)
+      if (!snapshotVersion) loadDraftCandidate(freshBoard, nextSnapshot)
+      else setDraftCandidate(null)
+      const versionQuery = snapshotVersion ? `&version=${snapshotVersion.id}` : ''
+      navigate(`/resources/formation-boards?board=${board.id}${versionQuery}`, { replace: true })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'The Formation Board could not be opened.')
@@ -484,7 +589,7 @@ export function FormationBoardsPage() {
       const matchingBoard = boards.find((board) => board.id === routeAction.boardId)
       if (matchingBoard) {
         quickCreateHandledRef.current = true
-        void openBoard(matchingBoard)
+        void openBoard(matchingBoard, { versionId: routeAction.versionId })
       }
     }
   }, [boards, canCreate, isLoading, location.search, openBoard, presets.length, startNewBoard])
@@ -550,10 +655,12 @@ export function FormationBoardsPage() {
   const closeEditor = () => {
     allowNavigationRef.current = true
     setCurrentBoard(null)
+    setPublishedSnapshotVersion(null)
     setSnapshot(null)
     setSavedSnapshot(null)
     setDraftCandidate(null)
     setHistory([])
+    setPublications([])
     navigate('/resources/formation-boards', { replace: true })
     window.setTimeout(() => { allowNavigationRef.current = false }, 0)
   }
@@ -655,6 +762,111 @@ export function FormationBoardsPage() {
       else setErrorMessage(error.message || 'The Formation Board could not be saved. Retry when ready.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const exportBoard = async (format) => {
+    if (!currentBoard || isNewBoard || hasUnsavedChanges) {
+      setErrorMessage('Save the Formation Board before exporting it.')
+      return
+    }
+
+    const versionId = publishedSnapshotVersion?.id || currentBoard.currentVersionId
+
+    if (!versionId) {
+      setErrorMessage('The saved Formation Board version could not be resolved.')
+      return
+    }
+
+    setIsExporting(true)
+    setErrorMessage('')
+
+    try {
+      const result = await generateFormationBoardExport({
+        boardId: currentBoard.id,
+        format,
+        user,
+        versionId,
+      })
+      const outcome = await shareFormationBoardExport(result)
+      setIsActionsOpen(false)
+
+      if (!outcome.cancelled) {
+        showToast({
+          title: `${format.toUpperCase()} ready`,
+          message: outcome.shared ? 'The secure device share sheet was opened.' : 'The Formation Board was downloaded to this device.',
+        })
+      }
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || `The ${format.toUpperCase()} export could not be created.`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const publishBoard = async () => {
+    if (!currentBoard || isNewBoard || hasUnsavedChanges || publishedSnapshotVersion) {
+      setErrorMessage('Save the current Formation Board before publishing it.')
+      return
+    }
+
+    if (publicationAction === 'update_resource' && !publicationResourceId) {
+      setErrorMessage('Choose the linked Team Resource to update.')
+      return
+    }
+
+    setIsPublishing(true)
+    setErrorMessage('')
+    let thumbnailPath = null
+    let thumbnailFailed = false
+
+    try {
+      try {
+        const thumbnail = await createFormationBoardThumbnail({
+          boardId: currentBoard.id,
+          user,
+          versionId: currentBoard.currentVersionId,
+        })
+        thumbnailPath = thumbnail.thumbnailPath
+      } catch (thumbnailError) {
+        thumbnailFailed = true
+        console.warn('Formation Board thumbnail generation failed. Publishing with the safe preview fallback.', thumbnailError)
+      }
+
+      const result = await publishFormationBoardVersion({
+        boardId: currentBoard.id,
+        category: publicationCategory,
+        publicationAction,
+        resourceId: publicationAction === 'update_resource' ? publicationResourceId : null,
+        thumbnailFailed,
+        thumbnailPath,
+        user,
+        versionId: currentBoard.currentVersionId,
+      })
+      const [nextPublications, nextBoards, freshBoard] = await Promise.all([
+        getFormationBoardPublications(currentBoard.id),
+        refreshBoards(),
+        getFormationBoard(currentBoard.id),
+      ])
+      setPublications(nextPublications)
+      setBoards(nextBoards)
+      setCurrentBoard(freshBoard)
+      setIsPublishOpen(false)
+      setIsActionsOpen(false)
+      setPublicationAction('update_resource')
+      setPublicationResourceId(result.publication.resourceId)
+      showToast({
+        title: 'Published to Team Resources',
+        message: thumbnailFailed
+          ? 'The immutable version is published with a safe preview fallback.'
+          : `Version ${snapshot.baseVersionNumber} is published with its protected preview.`,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The Formation Board could not be published.')
+    } finally {
+      setIsPublishing(false)
     }
   }
 
@@ -806,7 +1018,13 @@ export function FormationBoardsPage() {
             </section>
           ) : null}
 
-          {!canEdit ? <NoticeBanner tone="info" title="Read-only Team board" message="Your current Team role can view this shared board but cannot change or save it." /> : null}
+          {publishedSnapshotVersion ? (
+            <NoticeBanner
+              tone="info"
+              title={`Published snapshot, version ${publishedSnapshotVersion.versionNumber}`}
+              message={`This immutable Team Resource was published ${formatDateTime(viewedPublication?.publishedAt)}${viewedPublication?.publishedByName ? ` by ${viewedPublication.publishedByName}` : ''}. Later board edits do not change it.`}
+            />
+          ) : !canEdit ? <NoticeBanner tone="info" title="Read-only Team board" message="Your current Team role can view this shared board but cannot change or save it." /> : null}
 
           <section className={panelClass}>
             <div className="grid gap-4 lg:grid-cols-2">
@@ -827,6 +1045,26 @@ export function FormationBoardsPage() {
               </label>
             </div>
           </section>
+
+          {!isNewBoard ? (
+            <section className={panelClass} aria-label="Formation Board publication and exports">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-black">Publish and export</h2>
+                  <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">
+                    {publishedSnapshotVersion
+                      ? 'Export this exact immutable resource snapshot.'
+                      : 'Publish the saved version to Team Resources, or create a secure PNG or PDF.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {!publishedSnapshotVersion && canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => setIsPublishOpen(true)} className={primaryButtonClass}>Publish to Team Resources</button> : null}
+                  {canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => void exportBoard('png')} className={secondaryButtonClass}>Export PNG</button> : null}
+                  {canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => void exportBoard('pdf')} className={secondaryButtonClass}>Export PDF</button> : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className={panelClass}>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -918,8 +1156,8 @@ export function FormationBoardsPage() {
           <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-color)] bg-[var(--panel-bg)]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl backdrop-blur lg:static lg:flex lg:justify-end lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <div className="mx-auto grid max-w-3xl grid-cols-4 gap-2 lg:mx-0 lg:flex">
               <button type="button" onClick={() => setIsRosterOpen(true)} className={`${secondaryButtonClass} lg:hidden`}>Players</button>
-              <button type="button" onClick={() => setIsRosterOpen(true)} className={`${secondaryButtonClass} lg:hidden`}>Bench</button>
               <button type="button" onClick={undo} disabled={!canEdit || history.length === 0} className={`${secondaryButtonClass} lg:hidden`}>Undo</button>
+              <button type="button" onClick={() => setIsActionsOpen(true)} disabled={isNewBoard} className={`${secondaryButtonClass} lg:hidden`}>Actions</button>
               <button type="button" onClick={() => void saveBoard()} disabled={!canEdit || isSaving || !hasUnsavedChanges} className={primaryButtonClass}>{isSaving ? 'Saving...' : saveState === 'failed' ? 'Retry' : 'Save'}</button>
             </div>
           </div>
@@ -927,6 +1165,66 @@ export function FormationBoardsPage() {
           <MobileRosterSheet isOpen={isRosterOpen} onClose={() => setIsRosterOpen(false)}>{roster}</MobileRosterSheet>
         </>
       )}
+
+      <FormationBoardDialog isOpen={isActionsOpen} onClose={() => setIsActionsOpen(false)} title="Formation Board actions">
+        <div className="space-y-3">
+          {hasUnsavedChanges ? <NoticeBanner tone="info" title="Save before continuing" message="Publishing and exports always use a protected saved version." /> : null}
+          {!publishedSnapshotVersion && canCreate ? (
+            <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => { setIsActionsOpen(false); setIsPublishOpen(true) }} className={`${primaryButtonClass} w-full`}>Publish to Team Resources</button>
+          ) : null}
+          {canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => void exportBoard('png')} className={`${secondaryButtonClass} w-full`}>{isExporting ? 'Preparing export...' : 'Export PNG'}</button> : null}
+          {canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => void exportBoard('pdf')} className={`${secondaryButtonClass} w-full`}>{isExporting ? 'Preparing export...' : 'Export PDF'}</button> : null}
+          <p className="text-xs font-semibold leading-5 text-[var(--text-muted)]">On supported mobile devices, the secure share sheet opens. Other devices download the file. Nothing is sent automatically.</p>
+        </div>
+      </FormationBoardDialog>
+
+      <FormationBoardDialog isOpen={isPublishOpen} onClose={() => !isPublishing && setIsPublishOpen(false)} title="Publish to Team Resources">
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center">
+            <BoardThumbnail board={{ ...currentBoard, currentVersion: currentBoard?.currentVersion || publishedSnapshotVersion }} />
+            <div>
+              <p className="text-lg font-black">{snapshot?.title}</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{snapshot?.gameFormat} | {currentPreset?.displayName || snapshot?.presetKey} | Version {snapshot?.baseVersionNumber}</p>
+              <p className="mt-2 text-xs font-semibold text-[var(--text-muted)]">Review this preview before publishing. This saved version stays immutable in Team Resource history.</p>
+            </div>
+          </div>
+          <label>
+            <span className="mb-2 block text-sm font-black">Team Resource category</span>
+            <select value={publicationCategory} disabled={isPublishing} onChange={(event) => setPublicationCategory(event.target.value)} className={fieldClass}>
+              {RESOURCE_LIBRARY_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span className="mb-2 block text-sm font-black">Publication action</span>
+            <select value={publicationAction} disabled={isPublishing} onChange={(event) => { setPublicationAction(event.target.value); if (event.target.value === 'new_resource') setPublicationResourceId('') }} className={fieldClass}>
+              <option value="new_resource">Publish as new resource</option>
+              <option value="update_resource" disabled={linkedPublicationResources.length === 0}>Update existing linked resource</option>
+            </select>
+          </label>
+          {publicationAction === 'update_resource' ? (
+            <label>
+              <span className="mb-2 block text-sm font-black">Linked Team Resource</span>
+              <select value={publicationResourceId} disabled={isPublishing} onChange={(event) => setPublicationResourceId(event.target.value)} className={fieldClass}>
+                <option value="">Choose linked resource</option>
+                {linkedPublicationResources.map((publication) => <option key={publication.resourceId} value={publication.resourceId}>{publication.boardTitleSnapshot || snapshot?.title} | last publication {publication.publicationNumber}</option>)}
+              </select>
+            </label>
+          ) : null}
+          {publications.length > 0 ? (
+            <details className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] p-3">
+              <summary className="cursor-pointer text-sm font-black">Resource history ({publications.length})</summary>
+              <div className="mt-3 space-y-2">
+                {publications.map((publication) => {
+                  const version = versions.find((item) => item.id === publication.boardVersionId)
+                  return <p key={publication.id} className="text-xs font-semibold text-[var(--text-muted)]">Publication {publication.publicationNumber} | Version {version?.versionNumber || 'Unknown'} | {version?.formationPresetKey || 'Unknown'} | {publication.publishedByName || 'Team staff'} | {formatDateTime(publication.publishedAt)}</p>
+                })}
+              </div>
+            </details>
+          ) : null}
+          <button type="button" disabled={isPublishing || hasUnsavedChanges || (publicationAction === 'update_resource' && !publicationResourceId)} onClick={() => void publishBoard()} className={`${primaryButtonClass} w-full`}>{isPublishing ? 'Publishing...' : 'Publish immutable version'}</button>
+          <p className="text-xs font-semibold leading-5 text-[var(--text-muted)]">A preview thumbnail is prepared securely. If preview generation fails, publication continues with a safe fallback and the saved board remains unchanged.</p>
+        </div>
+      </FormationBoardDialog>
 
       {dragPreview ? (
         <div aria-hidden="true" className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-[calc(100%+1rem)] rounded-full bg-[#101828] px-3 py-2 text-xs font-black text-white shadow-xl" style={{ left: dragPreview.x, top: dragPreview.y }}>{dragPreview.label}</div>

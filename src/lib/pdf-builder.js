@@ -4,6 +4,7 @@ import chromium from '@sparticuz/chromium'
 import puppeteer from 'puppeteer-core'
 import {
   PDF_REPORT_TYPES,
+  buildFormationBoardDocument,
   buildProgressionChartDocument,
   renderPdfDocumentHtml,
   renderPdfFooterTemplate,
@@ -267,7 +268,11 @@ async function renderInIsolatedBrowser(document, {
       installIsolationHandlers(page, diagnostics)
 
       if (outputType === 'png') {
-        await page.setViewport({ width: 760, height: 240, deviceScaleFactor: 2 })
+        await page.setViewport(
+          validatedDocument.reportType === PDF_REPORT_TYPES.formationBoard
+            ? { width: 1600, height: 1100, deviceScaleFactor: 1 }
+            : { width: 760, height: 240, deviceScaleFactor: 2 },
+        )
       }
 
       if (diagnostics) {
@@ -318,7 +323,10 @@ async function renderInIsolatedBrowser(document, {
           format: 'A4',
           printBackground: true,
           preferCSSPageSize: true,
-          displayHeaderFooter: validatedDocument.reportType !== PDF_REPORT_TYPES.progressionChart,
+          displayHeaderFooter: ![
+            PDF_REPORT_TYPES.formationBoard,
+            PDF_REPORT_TYPES.progressionChart,
+          ].includes(validatedDocument.reportType),
           headerTemplate: '<div></div>',
           footerTemplate: validatedDocument.reportType === PDF_REPORT_TYPES.progressionChart
             ? '<div></div>'
@@ -372,6 +380,11 @@ export function buildPdfBuffer(document, options) {
 
 export function buildProgressionChartPngBuffer(points, options) {
   const document = buildProgressionChartDocument(points)
+  return renderInIsolatedBrowser(document, { ...options, outputType: 'png' })
+}
+
+export function buildFormationBoardPngBuffer(payload, options) {
+  const document = buildFormationBoardDocument(payload)
   return renderInIsolatedBrowser(document, { ...options, outputType: 'png' })
 }
 

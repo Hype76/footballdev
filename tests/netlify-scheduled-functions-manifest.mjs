@@ -17,7 +17,7 @@ const functions = Array.isArray(manifest.functions) ? manifest.functions : []
 const scheduledFunctions = functions.filter((entry) => entry.schedule)
 const discoveredSchedules = new Map(scheduledFunctions.map((entry) => [entry.name, entry.schedule]))
 
-assert.equal(functions.length, 63, 'all 63 Netlify functions must remain packaged')
+assert.equal(functions.length, 64, 'all 64 Netlify functions must remain packaged')
 assert.equal(scheduledFunctions.length, 6, 'exactly six scheduled functions must be generated')
 assert.equal(discoveredSchedules.size, 6, 'scheduled function names must be unique')
 assert.deepEqual(discoveredSchedules, expectedSchedules)
@@ -27,4 +27,4 @@ assert.equal(
   'cleanup-expired-retention must be packaged exactly once',
 )
 
-console.log(`Verified 63 packaged functions and 6 unique schedules in ${manifestPath}`)
+console.log(`Verified 64 packaged functions and 6 unique schedules in ${manifestPath}`)
