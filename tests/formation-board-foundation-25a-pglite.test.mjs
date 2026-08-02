@@ -9,6 +9,7 @@ const auditSourceRepairUrl = new URL('../supabase/migrations/20260802132311_form
 const indexesMigrationUrl = new URL('../supabase/migrations/20260802133210_formation_board_indexes_25a.sql', import.meta.url)
 const compositeIndexesMigrationUrl = new URL('../supabase/migrations/20260802133419_formation_board_composite_indexes_25a.sql', import.meta.url)
 const editorSaveMigrationUrl = new URL('../supabase/migrations/20260802155000_formation_board_editor_save_25b.sql', import.meta.url)
+const conflictErrorCodeMigrationUrl = new URL('../supabase/migrations/20260802161500_formation_board_conflict_error_code_25b.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -199,6 +200,8 @@ before(async () => {
   await db.exec(compositeIndexesMigration)
   const editorSaveMigration = await readFile(editorSaveMigrationUrl, 'utf8')
   await db.exec(editorSaveMigration)
+  const conflictErrorCodeMigration = await readFile(conflictErrorCodeMigrationUrl, 'utf8')
+  await db.exec(conflictErrorCodeMigration)
 
   await db.exec(`
     insert into public.clubs (id, name) values
@@ -425,7 +428,11 @@ test('editor save commits metadata and one immutable version atomically', async 
       'public.save_formation_board_editor($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12, $13)',
       [atomicBoardId, beforeVersion, 'Stale title', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 'stale editor save', 1],
     ),
-    /formation_board_version_conflict/,
+    (error) => {
+      assert.equal(error.code, 'P0001')
+      assert.match(error.message, /formation_board_version_conflict/)
+      return true
+    },
   )
 
   const afterConflict = await db.query(

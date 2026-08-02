@@ -185,7 +185,8 @@ test('editor includes Pointer Events, tap positioning, keyboard movement, local 
 })
 
 test('editor metadata and immutable version use one atomic server transaction', async () => {
-  const [domain, migration, page] = await Promise.all([
+  const [conflictRepair, domain, migration, page] = await Promise.all([
+    readFile(new URL('../supabase/migrations/20260802161500_formation_board_conflict_error_code_25b.sql', import.meta.url), 'utf8'),
     readFile(new URL('../src/lib/domain/formation-board.js', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/20260802155000_formation_board_editor_save_25b.sql', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/FormationBoardsPage.jsx', import.meta.url), 'utf8'),
@@ -199,4 +200,6 @@ test('editor metadata and immutable version use one atomic server transaction', 
   assert.match(migration, /return public\.rename_formation_board/)
   assert.match(migration, /revoke all[\s\S]*from public, anon/)
   assert.match(migration, /grant execute[\s\S]*to authenticated/)
+  assert.doesNotMatch(conflictRepair, /40001/)
+  assert.equal(conflictRepair.match(/errcode = 'P0001'/g)?.length, 4)
 })
