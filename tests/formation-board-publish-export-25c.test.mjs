@@ -220,3 +220,11 @@ test('editor and Team Resource Library expose publication, immutable history, an
   assert.match(serverExport, /Cache-Control': 'no-store'/)
   assert.doesNotMatch(serverExport, /send-email|send-sms|send-push|create-chat/i)
 })
+
+test('append-only repair extends the existing Resource Library MIME allowlist for Formation Boards', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/20260802173000_formation_board_resource_mime_25c.sql', import.meta.url), 'utf8')
+
+  assert.match(migration, /drop constraint if exists resource_library_items_mime_check/)
+  assert.match(migration, /application\/vnd\.footballplayer\.formation-board\+json/)
+  assert.match(migration, /validate constraint resource_library_items_mime_check/)
+})

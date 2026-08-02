@@ -11,6 +11,7 @@ const compositeIndexesMigrationUrl = new URL('../supabase/migrations/20260802133
 const editorSaveMigrationUrl = new URL('../supabase/migrations/20260802155000_formation_board_editor_save_25b.sql', import.meta.url)
 const conflictErrorCodeMigrationUrl = new URL('../supabase/migrations/20260802161500_formation_board_conflict_error_code_25b.sql', import.meta.url)
 const publishExportMigrationUrl = new URL('../supabase/migrations/20260802170000_formation_board_publish_export_25c.sql', import.meta.url)
+const resourceMimeMigrationUrl = new URL('../supabase/migrations/20260802173000_formation_board_resource_mime_25c.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -165,6 +166,19 @@ before(async () => {
       archived_by_email text not null default '',
       created_at timestamptz not null default timezone('utc', now()),
       updated_at timestamptz not null default timezone('utc', now()),
+      constraint resource_library_items_mime_check check (
+        mime_type in (
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'text/csv',
+          'text/plain',
+          'image/png',
+          'image/jpeg',
+          'image/webp'
+        )
+      ),
       unique (id, club_id),
       unique (storage_bucket, storage_path)
     );
@@ -228,6 +242,8 @@ before(async () => {
   await db.exec(conflictErrorCodeMigration)
   const publishExportMigration = await readFile(publishExportMigrationUrl, 'utf8')
   await db.exec(publishExportMigration)
+  const resourceMimeMigration = await readFile(resourceMimeMigrationUrl, 'utf8')
+  await db.exec(resourceMimeMigration)
 
   await db.exec(`
     insert into public.clubs (id, name) values
