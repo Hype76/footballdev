@@ -31,6 +31,22 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+function isOccurrenceExcluded(exclusions = [], occurrenceDate = '', playerId = '') {
+  const normalizedOccurrenceDate = normalizeText(occurrenceDate)
+  const normalizedPlayerId = normalizeText(playerId)
+
+  return (exclusions ?? []).some((exclusion) => {
+    if (normalizeText(exclusion.player_id) !== normalizedPlayerId) {
+      return false
+    }
+
+    const effectiveFromDate = normalizeText(exclusion.effective_from_date)
+    return exclusion.scope === 'occurrence'
+      ? effectiveFromDate === normalizedOccurrenceDate
+      : exclusion.scope === 'this_and_future' && effectiveFromDate <= normalizedOccurrenceDate
+  })
+}
+
 function normalizeSafeCode(value, fallback = 'TRAINING_AVAILABILITY_PROCESSOR_FAILED') {
   const code = normalizeText(value || fallback)
     .toUpperCase()
@@ -849,6 +865,7 @@ export async function prepareScheduledTrainingInvitationRow(row, {
     { data: player, error: playerError },
     { data: invite, error: inviteError },
     { data: setting, error: settingError },
+    { data: exclusions, error: exclusionsError },
   ] = await Promise.all([
     supabaseClient
       .from('training_availability_request_players')
@@ -881,9 +898,14 @@ export async function prepareScheduledTrainingInvitationRow(row, {
       .select('id, enabled')
       .eq('calendar_event_id', eventId)
       .maybeSingle(),
+    supabaseClient
+      .from('event_player_occurrence_exclusions')
+      .select('player_id, scope, effective_from_date')
+      .eq('calendar_event_id', eventId)
+      .eq('player_id', playerId),
   ])
 
-  const loadError = requestPlayerError || requestError || eventError || playerError || inviteError || settingError
+  const loadError = requestPlayerError || requestError || eventError || playerError || inviteError || settingError || exclusionsError
 
   if (loadError) {
     throw loadError
@@ -916,6 +938,7 @@ export async function prepareScheduledTrainingInvitationRow(row, {
       && invite.training_availability_requested === true
       && normalizeText(invite.response_requirement) === 'response_required'
       && occurrence
+      && !isOccurrenceExcluded(exclusions, invitation.occurrenceDate, playerId)
       && occurrence.occurrenceStartsAt.getTime() > Date.now()
   )
 
@@ -1375,16 +1398,27 @@ async function executeTrainingAvailabilityProcessorWork({ appOrigin, now, supaba
 }
 
 async function processDueRequest({ appOrigin, event, occurrence, occurrences, request, supabase }) {
-  const { data: scopedInvites, error: scopedInvitesError } = await supabase
-    .from('calendar_event_invites')
-    .select('player_id, notify_requested, response_requirement, training_availability_requested')
-    .eq('club_id', request.club_id)
-    .eq('team_id', request.team_id)
-    .eq('calendar_event_id', request.calendar_event_id)
-    .neq('invite_status', 'cancelled')
+  const [
+    { data: scopedInvites, error: scopedInvitesError },
+    { data: exclusions, error: exclusionsError },
+  ] = await Promise.all([
+    supabase
+      .from('calendar_event_invites')
+      .select('player_id, notify_requested, response_requirement, training_availability_requested')
+      .eq('club_id', request.club_id)
+      .eq('team_id', request.team_id)
+      .eq('calendar_event_id', request.calendar_event_id)
+      .neq('invite_status', 'cancelled'),
+    supabase
+      .from('event_player_occurrence_exclusions')
+      .select('player_id, scope, effective_from_date')
+      .eq('club_id', request.club_id)
+      .eq('team_id', request.team_id)
+      .eq('calendar_event_id', request.calendar_event_id),
+  ])
 
-  if (scopedInvitesError) {
-    throw scopedInvitesError
+  if (scopedInvitesError || exclusionsError) {
+    throw scopedInvitesError || exclusionsError
   }
 
   const scopedPlayerIds = [...new Set(
@@ -1396,7 +1430,7 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
       ))
       .map((invite) => String(invite.player_id ?? '').trim())
       .filter(Boolean),
-  )]
+  )].filter((playerId) => !isOccurrenceExcluded(exclusions, occurrence.occurrenceDate, playerId))
   const playersQuery = supabase
     .from('players')
     .select('id, club_id, team_id, player_name, parent_name, parent_email, contact_type, status')

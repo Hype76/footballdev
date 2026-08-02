@@ -141,6 +141,7 @@ function ResponseManagerRow({
   onInvitationAction,
   onMarkUnavailable,
   onOpenPlayerProfile,
+  onRemoveFromEvent,
   onSelectForSquad,
   row,
 }) {
@@ -153,6 +154,7 @@ function ResponseManagerRow({
     || row.canMarkUnavailable
     || row.canSelectForSquad
     || Boolean(row.invitationAction)
+    || Boolean(onRemoveFromEvent)
 
   return (
     <>
@@ -306,6 +308,20 @@ function ResponseManagerRow({
                           Select for squad
                         </button>
                       ) : null}
+                      {onRemoveFromEvent ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={isBusy}
+                          onClick={() => {
+                            onActionMenuChange('')
+                            onRemoveFromEvent(row)
+                          }}
+                          className="inline-flex min-h-11 w-full items-center justify-start rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-left text-sm font-black text-red-700 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Remove from event
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </>
@@ -332,6 +348,7 @@ export function EventResponseManagerDialog({
   onInvitationAction,
   onMarkUnavailable,
   onOpenPlayerProfile,
+  onRemoveFromEvent,
   onSelectForSquad,
 }) {
   const [activeFilter, setActiveFilter] = useState(EVENT_RESPONSE_FILTERS.all)
@@ -482,6 +499,7 @@ export function EventResponseManagerDialog({
                       onInvitationAction={onInvitationAction}
                       onMarkUnavailable={onMarkUnavailable}
                       onOpenPlayerProfile={onOpenPlayerProfile}
+                      onRemoveFromEvent={onRemoveFromEvent}
                       onSelectForSquad={onSelectForSquad}
                       row={row}
                     />

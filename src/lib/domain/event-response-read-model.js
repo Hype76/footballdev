@@ -358,12 +358,14 @@ export function buildEventResponseReadModel({
   deliveryEvents = [],
   event = {},
   occurrenceDate = '',
+  participationRemovals = [],
   sessionParticipants = [],
   trainingAvailabilitySummary = null,
 } = {}) {
   const source = getEventSource(event)
   const eventType = source.eventType
   const participantsByPlayerId = new Map()
+  const requestedOccurrenceDate = normalizeDateOnly(occurrenceDate || event?.occurrenceDate || event?.date)
   const relevantInvites = (Array.isArray(calendarInvites) ? calendarInvites : [])
     .filter((invite) => inviteMatchesEvent(invite, source))
 
@@ -507,7 +509,6 @@ export function buildEventResponseReadModel({
   }
 
   if (eventType === 'training') {
-    const requestedOccurrenceDate = normalizeDateOnly(occurrenceDate)
     const details = Array.isArray(trainingAvailabilitySummary?.details)
       ? trainingAvailabilitySummary.details.filter((detail) => (
           !requestedOccurrenceDate
@@ -569,7 +570,42 @@ export function buildEventResponseReadModel({
     })
   }
 
+  const effectiveRemovedPlayerIds = new Set(
+    (Array.isArray(participationRemovals) ? participationRemovals : [])
+      .filter((removal) => {
+        if (normalizeText(removal.sourceId) !== source.sourceId) {
+          return false
+        }
+
+        const scope = normalizeStatus(removal.scope)
+        const effectiveFromDate = normalizeDateOnly(removal.effectiveFromDate || removal.occurrenceDate)
+
+        if (source.sourceType === 'match-day') {
+          return normalizeStatus(removal.sourceType) === 'match-day' && scope === 'event'
+        }
+
+        if (source.sourceType !== 'calendar' || normalizeStatus(removal.sourceType) !== 'calendar') {
+          return false
+        }
+
+        if (scope === 'event') {
+          return true
+        }
+
+        if (!requestedOccurrenceDate || !effectiveFromDate) {
+          return false
+        }
+
+        return scope === 'occurrence'
+          ? effectiveFromDate === requestedOccurrenceDate
+          : scope === 'this_and_future' && effectiveFromDate <= requestedOccurrenceDate
+      })
+      .map((removal) => normalizeText(removal.playerId))
+      .filter(Boolean),
+  )
+
   const participants = [...participantsByPlayerId.values()]
+    .filter((row) => !effectiveRemovedPlayerIds.has(normalizeText(row.playerId)))
     .map((row) => {
       const withDelivery = applyDeliveryEvidence(row, deliveryEvents)
       const display = getEventResponseDisplayState(withDelivery)
@@ -649,6 +685,7 @@ export function buildEventResponseReadModel({
       sourceId: source.sourceId,
       sourceType: source.sourceType,
     },
+    participationRemovals: (Array.isArray(participationRemovals) ? participationRemovals : []),
     participants,
     responseManager: buildEventResponseManagerModel({
       eventType,
@@ -698,6 +735,23 @@ function normalizeSessionParticipant(row = {}) {
   }
 }
 
+function normalizeParticipationRemoval(row = {}) {
+  const sourceType = normalizeStatus(row.source_type || (row.calendar_event_id ? 'calendar' : 'match-day'))
+
+  return {
+    id: row.id ?? '',
+    affectedOccurrenceCount: Number(row.affected_occurrence_count ?? 0),
+    createdAt: row.created_at ?? '',
+    effectiveFromDate: normalizeDateOnly(row.effective_from_date),
+    occurrenceDate: normalizeDateOnly(row.occurrence_date),
+    playerId: row.player_id ?? '',
+    scope: normalizeStatus(row.scope),
+    sourceId: row.calendar_event_id ?? row.match_day_id ?? '',
+    sourceType,
+    suppressedInvitationCount: Number(row.suppressed_invitation_count ?? 0),
+  }
+}
+
 function applyEventFilter(query, sourceType, sourceId) {
   if (sourceType === 'calendar') {
     return query.eq('calendar_event_id', sourceId)
@@ -729,6 +783,7 @@ export async function getEventResponseEvidenceForEvent({ event, user } = {}) {
       auditEvents: [],
       calendarInvites: [],
       deliveryEvents: [],
+      participationRemovals: [],
       sessionParticipants: [],
     }
   }
@@ -778,17 +833,46 @@ export async function getEventResponseEvidenceForEvent({ event, user } = {}) {
       .order('player_name', { ascending: true })
     : Promise.resolve({ data: [], error: null })
 
+  const exclusionQuery = source.sourceType === 'calendar'
+    ? supabase
+      .from('event_player_occurrence_exclusions')
+      .select('id, calendar_event_id, player_id, scope, effective_from_date, created_at')
+      .eq('club_id', user.clubId)
+      .eq('calendar_event_id', source.sourceId)
+      .order('created_at', { ascending: false })
+    : Promise.resolve({ data: [], error: null })
+
+  let removalCommandQuery = ['calendar', 'match-day'].includes(source.sourceType)
+    ? supabase
+      .from('event_player_removal_commands')
+      .select('id, source_type, calendar_event_id, match_day_id, player_id, scope, occurrence_date, affected_occurrence_count, suppressed_invitation_count, created_at')
+      .eq('club_id', user.clubId)
+      .eq('source_type', source.sourceType)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    : null
+
+  if (removalCommandQuery) {
+    removalCommandQuery = source.sourceType === 'calendar'
+      ? removalCommandQuery.eq('calendar_event_id', source.sourceId)
+      : removalCommandQuery.eq('match_day_id', source.sourceId)
+  }
+
   const [
     inviteResult,
     auditResult,
     commandResult,
     calendarDeliveryResult,
+    exclusionResult,
+    removalCommandResult,
     sessionParticipantResult,
   ] = await Promise.all([
     inviteQuery,
     auditQuery,
     eventPlayerCommandQuery,
     calendarDeliveryQuery || Promise.resolve({ data: [], error: null }),
+    exclusionQuery,
+    removalCommandQuery || Promise.resolve({ data: [], error: null }),
     sessionParticipantQuery,
   ])
 
@@ -819,6 +903,14 @@ export async function getEventResponseEvidenceForEvent({ event, user } = {}) {
     console.error(commandResult.error)
   }
 
+  if (exclusionResult.error) {
+    console.error(exclusionResult.error)
+  }
+
+  if (removalCommandResult.error) {
+    console.error(removalCommandResult.error)
+  }
+
   const commandIds = commandResult.error
     ? []
     : (commandResult.data ?? []).map((command) => command.id).filter(Boolean)
@@ -843,6 +935,10 @@ export async function getEventResponseEvidenceForEvent({ event, user } = {}) {
     auditEvents,
     calendarInvites: (inviteResult.data ?? []).map(normalizeCalendarEventInvite),
     deliveryEvents,
+    participationRemovals: [
+      ...(exclusionResult.error ? [] : exclusionResult.data ?? []),
+      ...(removalCommandResult.error ? [] : removalCommandResult.data ?? []),
+    ].map(normalizeParticipationRemoval),
     sessionParticipants: (sessionParticipantResult.data ?? []).map(normalizeSessionParticipant),
   }
 }

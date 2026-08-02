@@ -207,6 +207,12 @@ export {
 } from './domain/event-player-management.js'
 
 export {
+  EVENT_PLAYER_REMOVAL_SCOPES,
+  previewEventPlayerRemoval,
+  removePlayerFromEvent,
+} from './domain/event-player-removal.js'
+
+export {
   acceptEventPlayerAvailabilityOnBehalf,
   markEventPlayerUnavailableOnBehalf,
 } from './domain/event-availability-staff-actions.js'

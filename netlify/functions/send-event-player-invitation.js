@@ -19,6 +19,17 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+function isOccurrenceExcluded(exclusions = [], occurrenceDate = '') {
+  const normalizedOccurrenceDate = normalizeText(occurrenceDate)
+
+  return (exclusions ?? []).some((exclusion) => {
+    const effectiveFromDate = normalizeText(exclusion.effective_from_date)
+    return exclusion.scope === 'occurrence'
+      ? effectiveFromDate === normalizedOccurrenceDate
+      : exclusion.scope === 'this_and_future' && effectiveFromDate <= normalizedOccurrenceDate
+  })
+}
+
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
   const [scheme, token] = String(header).split(' ')
@@ -140,11 +151,19 @@ async function loadRecipientPreview({
         .from('calendar_event_invites')
         .select('id')
         .eq('calendar_event_id', scopedEvent.id)
+  const exclusionQuery = sourceType === 'calendar'
+    ? adminSupabase
+      .from('event_player_occurrence_exclusions')
+      .select('scope, effective_from_date')
+      .eq('calendar_event_id', scopedEvent.id)
+      .eq('player_id', playerId)
+    : Promise.resolve({ data: [], error: null })
 
   const [
     { data: player, error: playerError },
     { data: invite, error: inviteError },
     { data: parentLinks, error: parentLinksError },
+    { data: exclusions, error: exclusionsError },
   ] = await Promise.all([
     playerQuery.maybeSingle(),
     inviteQuery
@@ -161,10 +180,11 @@ async function loadRecipientPreview({
       .eq('team_id', scopedEvent.team_id)
       .eq('player_id', playerId)
       .eq('status', 'active'),
+    exclusionQuery,
   ])
 
-  if (playerError || inviteError || parentLinksError) {
-    throw playerError || inviteError || parentLinksError
+  if (playerError || inviteError || parentLinksError || exclusionsError) {
+    throw playerError || inviteError || parentLinksError || exclusionsError
   }
 
   if (!player?.id || !invite?.id) {
@@ -173,6 +193,10 @@ async function loadRecipientPreview({
 
   if (sourceType === 'calendar' && !/^\d{4}-\d{2}-\d{2}$/.test(normalizeText(occurrenceDate))) {
     throw Object.assign(new Error('Choose a training occurrence before previewing this invitation.'), { statusCode: 409 })
+  }
+
+  if (sourceType === 'calendar' && isOccurrenceExcluded(exclusions, occurrenceDate)) {
+    throw Object.assign(new Error('This Player has been removed from the selected event occurrence.'), { statusCode: 409 })
   }
 
   const contacts = sourceType === 'match-day'
@@ -308,7 +332,12 @@ async function sendTrainingInvitation({
   profile,
   scopedEvent,
 }) {
-  const [{ data: event, error: eventError }, { data: player, error: playerError }, { data: invite, error: inviteError }] = await Promise.all([
+  const [
+    { data: event, error: eventError },
+    { data: player, error: playerError },
+    { data: invite, error: inviteError },
+    { data: exclusions, error: exclusionsError },
+  ] = await Promise.all([
     adminSupabase
       .from('calendar_events')
       .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url)')
@@ -336,10 +365,15 @@ async function sendTrainingInvitation({
       .neq('invite_status', 'cancelled')
       .is('cancelled_at', null)
       .maybeSingle(),
+    adminSupabase
+      .from('event_player_occurrence_exclusions')
+      .select('scope, effective_from_date')
+      .eq('calendar_event_id', eventId)
+      .eq('player_id', playerId),
   ])
 
-  if (eventError || playerError || inviteError) {
-    throw eventError || playerError || inviteError
+  if (eventError || playerError || inviteError || exclusionsError) {
+    throw eventError || playerError || inviteError || exclusionsError
   }
 
   if (!event?.id || !player?.id || !invite?.id) {
@@ -351,6 +385,11 @@ async function sendTrainingInvitation({
 
   if (!occurrence || occurrence.occurrenceStartsAt.getTime() <= Date.now()) {
     throw Object.assign(new Error('Choose a future training occurrence before sending an invitation.'), { statusCode: 409 })
+  }
+
+
+  if (isOccurrenceExcluded(exclusions, occurrenceDate)) {
+    throw Object.assign(new Error('This Player has been removed from the selected event occurrence.'), { statusCode: 409 })
   }
 
   const { data: setting, error: settingError } = await adminSupabase

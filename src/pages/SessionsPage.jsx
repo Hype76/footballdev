@@ -92,6 +92,9 @@ import {
   readViewCacheValue,
   applyEventPlayerChanges,
   EVENT_PLAYER_COMMUNICATION_MODES,
+  EVENT_PLAYER_REMOVAL_SCOPES,
+  previewEventPlayerRemoval,
+  removePlayerFromEvent,
   saveCalendarEventInvites,
   saveTrainingAvailabilitySettings,
   sendEventPlayerInvitationAction,
@@ -733,6 +736,7 @@ function getInvitesForCalendarEvent(event, invites = [], {
   auditEvents = [],
   deliveryEvents = [],
   occurrenceDate = '',
+  participationRemovals = [],
   sessionParticipants = [],
   trainingAvailabilitySummary = null,
 } = {}) {
@@ -742,6 +746,7 @@ function getInvitesForCalendarEvent(event, invites = [], {
     deliveryEvents,
     event,
     occurrenceDate,
+    participationRemovals,
     sessionParticipants,
     trainingAvailabilitySummary,
   }).participants
@@ -1064,6 +1069,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       deliveryEvents: evidenceMatches ? eventResponseEvidence.deliveryEvents : [],
       event: calendarModal?.event,
       occurrenceDate: calendarForm.date,
+      participationRemovals: evidenceMatches ? eventResponseEvidence.participationRemovals : [],
       sessionParticipants: evidenceMatches ? eventResponseEvidence.sessionParticipants : [],
       trainingAvailabilitySummary: currentTrainingAvailabilitySummary,
     })
@@ -2218,6 +2224,99 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         message: error.message || 'Event players could not be updated.',
         tone: 'error',
       })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleEventPlayerRemovalAction = async ({
+    confirmInProgress = false,
+    playerId,
+    preview = false,
+    requestToken,
+    scope,
+  } = {}) => {
+    const event = calendarModal?.event
+    const sourceId = String(event?.sourceId ?? '').trim()
+    const normalizedPlayerId = String(playerId ?? '').trim()
+    const occurrenceDate = event?.sourceType === 'calendar'
+      ? formatDateInput(event?.occurrenceDate || event?.data?.recurrenceOccurrenceDate || calendarForm.date)
+      : null
+
+    if (!sourceId || !normalizedPlayerId || !['calendar', 'match-day'].includes(event?.sourceType)) {
+      throw new Error('Choose one supported saved event and Player before removing participation.')
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const values = {
+        eventId: sourceId,
+        occurrenceDate,
+        playerId: normalizedPlayerId,
+        scope,
+        sourceType: event.sourceType,
+        user,
+      }
+      const result = preview
+        ? await previewEventPlayerRemoval(values)
+        : await removePlayerFromEvent({
+            ...values,
+            confirmInProgress,
+            requestToken,
+          })
+
+      if (preview) {
+        return result
+      }
+
+      let refreshedEvent = event
+
+      if (event.sourceType === 'match-day') {
+        const refreshedMatch = await getMatchDay({ user, matchDayId: sourceId })
+        refreshedEvent = { ...event, data: refreshedMatch }
+        setMatchDays((current) => current.map((match) => match.id === refreshedMatch.id ? refreshedMatch : match))
+        setCalendarModal((current) => (
+          String(current?.event?.sourceId ?? '').trim() === sourceId
+            ? { ...current, event: { ...current.event, data: refreshedMatch } }
+            : current
+        ))
+      } else if (calendarForm.eventType === 'training') {
+        const summaries = await getTrainingAvailabilitySummaryForEvents({ user, eventIds: [sourceId] })
+        setTrainingAvailabilitySummaryByEventId((current) => ({
+          ...current,
+          [sourceId]: summaries[sourceId] || null,
+        }))
+      }
+
+      const [refreshedInvites, refreshedEvidence] = await Promise.all([
+        getCalendarEventInvites({ user }),
+        getEventResponseEvidenceForEvent({ event: refreshedEvent, user }),
+      ])
+      setCalendarInvites(refreshedInvites)
+      writeCalendarAwareCache({ calendarInvites: refreshedInvites })
+      setEventResponseEvidence({
+        ...refreshedEvidence,
+        loaded: true,
+        sourceId,
+        sourceType: event.sourceType,
+      })
+
+      showToast({
+        title: result.duplicate ? 'Event removal already completed' : 'Player removed from event',
+        message: `${result.affectedOccurrenceCount} occurrence${result.affectedOccurrenceCount === 1 ? '' : 's'} removed. ${result.suppressedInvitationCount} unsent invitation${result.suppressedInvitationCount === 1 ? '' : 's'} suppressed. Team membership is unchanged.`,
+      })
+      return result
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The Player could not be removed from the event.')
+      showToast({
+        title: preview ? 'Removal impact unavailable' : 'Player not removed',
+        message: error.message || 'The Player could not be removed from the event.',
+        tone: 'error',
+      })
+      throw error
     } finally {
       setIsSaving(false)
     }
@@ -3871,6 +3970,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           }}
           onManagePlayers={handleOpenCalendarPlayerManagement}
           onOpenPlayerProfile={handleOpenEventResponsePlayer}
+          onRemovePlayerFromEvent={handleEventPlayerRemovalAction}
           onPlayerCommunicationModeChange={(mode) => {
             setCalendarPlayerCommunicationMode(mode)
           }}
@@ -4225,6 +4325,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         }}
         onManagePlayers={handleOpenCalendarPlayerManagement}
         onOpenPlayerProfile={handleOpenEventResponsePlayer}
+        onRemovePlayerFromEvent={handleEventPlayerRemovalAction}
         onPlayerCommunicationModeChange={(mode) => {
           setCalendarPlayerCommunicationMode(mode)
         }}
@@ -4961,6 +5062,112 @@ function PlayerCommunicationChoice({
   )
 }
 
+function EventPlayerRemovalModal({
+  action,
+  isBusy,
+  onCancel,
+  onConfirm,
+  onScopeChange,
+}) {
+  const [confirmInProgress, setConfirmInProgress] = useState(false)
+
+  if (!action) {
+    return null
+  }
+
+  const preview = action.preview || {}
+  const recurring = preview.recurring === true
+  const requiresInProgressConfirmation = preview.requiresInProgressConfirmation === true
+  const canConfirm = !isBusy && (!requiresInProgressConfirmation || confirmInProgress)
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[#101828]/55 p-0 sm:items-center sm:p-5">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-player-removal-title"
+        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-6"
+      >
+        <h2 id="event-player-removal-title" className="text-xl font-black text-[#101828]">Remove from event</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+          Remove {action.playerName || 'this Player'} from this event participation. The Player remains on the Team and the Player record stays intact.
+        </p>
+
+        {recurring ? (
+          <fieldset className="mt-5 grid gap-3">
+            <legend className="text-sm font-black text-[#101828]">Removal scope</legend>
+            <label className={`flex items-start gap-3 rounded-lg border p-4 ${action.scope === EVENT_PLAYER_REMOVAL_SCOPES.occurrence ? 'border-[#047857] bg-[#ecfdf5]' : 'border-[#d7e5dc] bg-white'}`}>
+              <input
+                type="radio"
+                name="eventPlayerRemovalScope"
+                checked={action.scope === EVENT_PLAYER_REMOVAL_SCOPES.occurrence}
+                disabled={isBusy}
+                onChange={() => onScopeChange(EVENT_PLAYER_REMOVAL_SCOPES.occurrence)}
+                className="mt-1 h-5 w-5 accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Remove from this occurrence</span>
+                <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">Earlier and later occurrences remain unchanged.</span>
+              </span>
+            </label>
+            <label className={`flex items-start gap-3 rounded-lg border p-4 ${action.scope === EVENT_PLAYER_REMOVAL_SCOPES.thisAndFuture ? 'border-[#047857] bg-[#ecfdf5]' : 'border-[#d7e5dc] bg-white'}`}>
+              <input
+                type="radio"
+                name="eventPlayerRemovalScope"
+                checked={action.scope === EVENT_PLAYER_REMOVAL_SCOPES.thisAndFuture}
+                disabled={isBusy}
+                onChange={() => onScopeChange(EVENT_PLAYER_REMOVAL_SCOPES.thisAndFuture)}
+                className="mt-1 h-5 w-5 accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Remove from this and future occurrences</span>
+                <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">Earlier occurrences and another recurring series remain unchanged.</span>
+              </span>
+            </label>
+          </fieldset>
+        ) : null}
+
+        <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+          <p className="text-sm font-black text-[#101828]">Server-calculated impact</p>
+          <ul className="mt-2 grid gap-2 text-sm font-semibold text-[#4b5f55]">
+            <li>Effective occurrences: {preview.affectedOccurrenceCount ?? 0}</li>
+            <li>Unsent invitations and reminders suppressed: {preview.suppressedInvitationCount ?? 0}</li>
+            <li>Active response links revoked: {preview.revokedTokenCount ?? 0}</li>
+            <li>Team membership unchanged</li>
+            <li>Previous responses and delivered communication evidence preserved</li>
+            <li>No removal notification will be sent</li>
+          </ul>
+        </div>
+
+        {requiresInProgressConfirmation ? (
+          <label className="mt-4 flex items-start gap-3 rounded-lg border border-[#fdb022] bg-[#fffaeb] p-4 text-sm font-bold text-[#7a2e0e]">
+            <input
+              type="checkbox"
+              checked={confirmInProgress}
+              disabled={isBusy}
+              onChange={(changeEvent) => setConfirmInProgress(changeEvent.currentTarget.checked)}
+              className="mt-1 h-5 w-5 accent-[#b54708]"
+            />
+            <span>This event is currently in progress. I understand that recorded Match or attendance history will be preserved.</span>
+          </label>
+        ) : null}
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" disabled={isBusy} onClick={onCancel} className={secondaryButtonClass}>Cancel</button>
+          <button
+            type="button"
+            disabled={!canConfirm}
+            onClick={() => onConfirm({ confirmInProgress })}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-red-700 px-4 py-2.5 text-sm font-black text-white transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Remove from event
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function CalendarEventModal({
   attachedResources = [],
   clubWideOnly = false,
@@ -4989,6 +5196,7 @@ function CalendarEventModal({
   onManagePlayers,
   onOpenPlayerProfile,
   onOpenWorkflow,
+  onRemovePlayerFromEvent,
   onPlayerCommunicationModeChange,
   onPlayerReviewBack,
   onResourceIdsChange,
@@ -5002,6 +5210,8 @@ function CalendarEventModal({
   variant = '',
 }) {
   const [availabilityAction, setAvailabilityAction] = useState(null)
+  const [playerRemovalAction, setPlayerRemovalAction] = useState(null)
+  const [playerRemovalResult, setPlayerRemovalResult] = useState(null)
   const [isMobileActionMenuOpen, setIsMobileActionMenuOpen] = useState(false)
   const [isResponseManagerOpen, setIsResponseManagerOpen] = useState(
     () => openResponseManagerOnMount && eventResponseManager?.counts?.total > 0,
@@ -5019,6 +5229,7 @@ function CalendarEventModal({
 
   const handleModalCancel = useCallback(() => {
     setAvailabilityAction(null)
+    setPlayerRemovalAction(null)
     setIsMobileActionMenuOpen(false)
     setIsResponseManagerOpen(false)
     onCancel()
@@ -5056,6 +5267,11 @@ function CalendarEventModal({
       if (event.key === 'Escape') {
         event.preventDefault()
 
+        if (playerRemovalAction) {
+          setPlayerRemovalAction(null)
+          return
+        }
+
         if (availabilityAction) {
           setAvailabilityAction(null)
           return
@@ -5083,10 +5299,10 @@ function CalendarEventModal({
         return
       }
 
-      const confirmationDialogs = availabilityAction
+      const confirmationDialogs = availabilityAction || playerRemovalAction
         ? [...document.querySelectorAll('[role="dialog"]')]
         : []
-      const activeRoot = availabilityAction
+      const activeRoot = availabilityAction || playerRemovalAction
         ? confirmationDialogs.at(-1)
         : isResponseManagerOpen
           ? responseManagerDialogRef.current
@@ -5121,10 +5337,11 @@ function CalendarEventModal({
     isMobileActionMenuOpen,
     isOpen,
     isResponseManagerOpen,
+    playerRemovalAction,
   ])
 
   useEffect(() => {
-    if (!isOpen || !availabilityAction) {
+    if (!isOpen || (!availabilityAction && !playerRemovalAction)) {
       return undefined
     }
 
@@ -5134,7 +5351,7 @@ function CalendarEventModal({
     })
 
     return () => window.cancelAnimationFrame(focusFrame)
-  }, [availabilityAction, isOpen])
+  }, [availabilityAction, isOpen, playerRemovalAction])
 
   useEffect(() => {
     if (!isOpen || !isMobileActionMenuOpen) {
@@ -5345,6 +5562,21 @@ function CalendarEventModal({
                     <p className="mt-1 text-sm font-black text-[#101828]">{form.location}</p>
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+            {playerRemovalResult ? (
+              <div role="status" className="mt-4 rounded-lg border border-[#86efac] bg-[#ecfdf5] p-4 text-sm font-semibold text-[#065f46]">
+                <p className="font-black">Player removed</p>
+                <p className="mt-1">
+                  Scope: {playerRemovalResult.scope === EVENT_PLAYER_REMOVAL_SCOPES.thisAndFuture
+                    ? 'This and future occurrences'
+                    : playerRemovalResult.scope === EVENT_PLAYER_REMOVAL_SCOPES.occurrence
+                      ? 'This occurrence'
+                      : 'This event'}
+                </p>
+                <p className="mt-1">Effective occurrences: {playerRemovalResult.affectedOccurrenceCount ?? 0}</p>
+                <p className="mt-1">Communication suppressed: {playerRemovalResult.suppressedInvitationCount ?? 0}</p>
+                <p className="mt-1">Team membership unchanged. Previous responses and delivered evidence are preserved.</p>
               </div>
             ) : null}
             {eventResponseManager?.counts?.total > 0 ? (
@@ -6050,7 +6282,7 @@ function CalendarEventModal({
       </div>
       {isResponseManagerOpen && eventResponseManager ? (
         <EventResponseManagerDialog
-          ariaHidden={Boolean(availabilityAction)}
+          ariaHidden={Boolean(availabilityAction || playerRemovalAction)}
           dialogRef={responseManagerDialogRef}
           eventContext={selectedSummary}
           eventTitle={event?.title || form.title || 'Event responses'}
@@ -6093,6 +6325,31 @@ function CalendarEventModal({
             })
           }}
           onOpenPlayerProfile={onOpenPlayerProfile}
+          onRemoveFromEvent={onRemovePlayerFromEvent && ['calendar', 'match-day'].includes(event?.sourceType)
+            ? async (row) => {
+                const requestToken = crypto.randomUUID()
+                const scope = event.sourceType === 'calendar' && isRecurringCalendarEdit
+                  ? EVENT_PLAYER_REMOVAL_SCOPES.occurrence
+                  : EVENT_PLAYER_REMOVAL_SCOPES.event
+
+                try {
+                  const preview = await onRemovePlayerFromEvent({
+                    playerId: row.playerId,
+                    preview: true,
+                    scope,
+                  })
+                  setPlayerRemovalAction({
+                    playerId: row.playerId,
+                    playerName: row?.player?.playerName || 'Player',
+                    preview,
+                    requestToken,
+                    scope,
+                  })
+                } catch {
+                  setPlayerRemovalAction(null)
+                }
+              }
+            : undefined}
           onSelectForSquad={(row) => {
             setAvailabilityAction({
               action: 'select',
@@ -6106,6 +6363,47 @@ function CalendarEventModal({
           }}
         />
       ) : null}
+      <EventPlayerRemovalModal
+        key={playerRemovalAction?.requestToken || 'event-player-removal'}
+        action={playerRemovalAction}
+        isBusy={isBusy}
+        onCancel={() => setPlayerRemovalAction(null)}
+        onScopeChange={async (scope) => {
+          const current = playerRemovalAction
+
+          if (!current) {
+            return
+          }
+
+          try {
+            const preview = await onRemovePlayerFromEvent({
+              playerId: current.playerId,
+              preview: true,
+              scope,
+            })
+            setPlayerRemovalAction((value) => value ? { ...value, preview, scope } : null)
+          } catch {
+            setPlayerRemovalAction(current)
+          }
+        }}
+        onConfirm={async ({ confirmInProgress }) => {
+          const current = playerRemovalAction
+
+          if (!current) {
+            return
+          }
+
+          const result = await onRemovePlayerFromEvent({
+            confirmInProgress,
+            playerId: current.playerId,
+            requestToken: current.requestToken,
+            scope: current.scope,
+          })
+          setPlayerRemovalResult({ ...result, scope: current.scope })
+          setPlayerRemovalAction(null)
+          setIsResponseManagerOpen(false)
+        }}
+      />
       <ConfirmModal
         isOpen={Boolean(availabilityAction)}
         isBusy={isBusy}
