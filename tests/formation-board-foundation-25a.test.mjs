@@ -11,6 +11,7 @@ import {
 } from '../src/lib/domain/formation-board.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260802130700_formation_board_foundation_25a.sql', import.meta.url)
+const auditSourceRepairUrl = new URL('../supabase/migrations/20260802132311_formation_board_audit_source_25a.sql', import.meta.url)
 const rollbackUrl = new URL('../supabase/repairs/FP-V1-FORMATION-BOARD-FOUNDATION-25A-rollback.sql', import.meta.url)
 const supabaseFacadeUrl = new URL('../src/lib/supabase.js', import.meta.url)
 
@@ -96,6 +97,13 @@ test('foundation stays out of normal navigation and exposes only the domain faca
 
   assert.match(supabaseFacade, /from '\.\/domain\/formation-board\.js'/)
   assert.doesNotMatch(migration, /insert\s+into\s+public\.(navigation|sidebar|feature_flags)/i)
+})
+
+test('audit source repair preserves the production source registry', async () => {
+  const repair = await readFile(auditSourceRepairUrl, 'utf8')
+
+  assert.match(repair, /'application'/)
+  assert.doesNotMatch(repair, /'formation_board'\s*\)\s*returning id into audit_id/i)
 })
 
 test('prepared rollback is fail-closed and preserves Formation Board data', async () => {

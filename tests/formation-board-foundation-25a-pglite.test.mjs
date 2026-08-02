@@ -5,6 +5,7 @@ import { after, before, test } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260802130700_formation_board_foundation_25a.sql', import.meta.url)
+const auditSourceRepairUrl = new URL('../supabase/migrations/20260802132311_formation_board_audit_source_25a.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -178,7 +179,7 @@ before(async () => {
       event_category text not null default 'operational',
       severity text not null default 'info',
       outcome text not null default 'success',
-      source text not null default 'app',
+      source text not null default 'application' check (source in ('application', 'database', 'netlify_function', 'scheduled_monitor')),
       created_at timestamptz not null default timezone('utc', now())
     );
 
@@ -187,6 +188,8 @@ before(async () => {
 
   const migration = await readFile(migrationUrl, 'utf8')
   await db.exec(migration)
+  const auditSourceRepair = await readFile(auditSourceRepairUrl, 'utf8')
+  await db.exec(auditSourceRepair)
 
   await db.exec(`
     insert into public.clubs (id, name) values
@@ -504,6 +507,13 @@ test('audit history records every successful action class', async () => {
   ]) {
     assert.equal(actions.has(action), true, `${action} must be audited`)
   }
+
+  const sources = await db.query(`
+    select distinct source
+    from public.audit_logs
+    where entity_type = 'formation_board'
+  `)
+  assert.deepEqual(sources.rows, [{ source: 'application' }])
 })
 
 test('Team deletion can cascade a published Formation Board graph without weakening direct immutability', async () => {
