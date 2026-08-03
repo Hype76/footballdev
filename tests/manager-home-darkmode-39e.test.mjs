@@ -33,14 +33,16 @@ test('Manager header is compact and preserves the segmented Coach and Full contr
   assert.match(source, /saveCoachModePreference\(value\)/)
 })
 
-test('Next Session and compact quick actions preserve destinations and permissions', async () => {
+test('Next Up and compact quick actions preserve canonical destinations and permissions', async () => {
   const source = await readFile(coachHomeUrl, 'utf8')
   const actionsStart = source.indexOf('const secondaryActions =')
   const actionsEnd = source.indexOf('const loadCoachHome', actionsStart)
   const actions = source.slice(actionsStart, actionsEnd)
 
   assert.match(source, /data-testid="manager-home-next-session"/)
-  assert.match(source, /to=\{activeSession \? '\/sessions\/start' : '\/calendar\?action=add-event'\}/)
+  assert.match(source, /to=\{getManagerHomeNextUpHref\(nextUpEvent\)\}/)
+  assert.match(source, /getCalendarEvents\(\{ user \}\)/)
+  assert.match(source, /getMatchDays\(\{ user \}\)/)
   assert.match(source, /data-testid="manager-home-quick-actions"/)
   assert.match(actions, /label: 'View squad'[\s\S]*path: '\/players\/current'/)
   assert.match(actions, /label: 'Add player note'[\s\S]*path: '\/assess-player\/new\?choosePlayer=1'/)

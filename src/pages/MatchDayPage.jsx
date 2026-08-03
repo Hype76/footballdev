@@ -426,6 +426,8 @@ function getRoleResponseRows(match, role) {
       requestId: request.id,
       parentLinkId: request.parentLinkId,
       authUserId: request.authUserId,
+      eligible: role.key === 'scorer' ? request.scorerEligible === true : true,
+      eligibilityReason: role.key === 'scorer' ? request.scorerEligibilityReason : '',
       playerName: request.playerName || 'Player',
       parentName: request.recipientName,
       parentEmail: request.recipientEmail,
@@ -582,6 +584,10 @@ function getVolunteerSelectionReason(row) {
 
   if (!row?.requestId) {
     return 'This response cannot be assigned because the request record is missing.'
+  }
+
+  if (row?.eligible === false) {
+    return row.eligibilityReason || 'This parent is not currently eligible to score this fixture.'
   }
 
   return ''
@@ -3059,7 +3065,6 @@ export function MatchDayPage() {
     try {
       const result = await selectMatchDayVolunteer({ user, match, volunteer, role, selected })
       let refreshWarning = ''
-      const targetParentLinkId = result?.parentLinkId || volunteer.parentLinkId
       const savedAt = new Date().toISOString()
       const reconcileSavedSelection = (currentMatches) => reconcileMatchDayVolunteerSelectionInList(currentMatches, {
         matchId: match.id,
@@ -3079,13 +3084,6 @@ export function MatchDayPage() {
         message: selected ? `${roleLabel} selected.` : `${roleLabel} deselected.`,
       })
 
-      if (selected && role === 'scorer' && targetParentLinkId) {
-        void sendMatchDayPushNotification({
-          matchDayId: match.id,
-          type: 'scorer_selected',
-          targetParentLinkIds: [targetParentLinkId],
-        })
-      }
       try {
         await loadData()
         setMatches(reconcileSavedSelection)

@@ -6,8 +6,10 @@ import {
   deletePlayerStaffNote,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
+  getCalendarEvents,
   getClubUserInvites,
   getEvaluations,
+  getMatchDays,
   getPlayers,
   getTeams,
   getVisibleClubUsers,
@@ -17,8 +19,11 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 import {
-  formatSessionDate,
-  formatSessionType,
+  getManagerHomeNextUp,
+  getManagerHomeNextUpContext,
+  getManagerHomeNextUpHref,
+} from '../lib/manager-home-next-up.js'
+import {
   getCompletedPlayerNamesFromEvaluations,
   normalizeProgressName,
 } from '../lib/session-page-utils.js'
@@ -119,14 +124,6 @@ function getEvaluationSummary(evaluation) {
   }
 
   return 'No summary added yet.'
-}
-
-function getSessionContextLabel(session) {
-  if (!session) {
-    return 'Create or open a session to start coach work.'
-  }
-
-  return `Type: ${formatSessionType(session.sessionType)}, Date: ${formatSessionDate(session.sessionDate)}`
 }
 
 function getEvaluationContextLabel(evaluation, user) {
@@ -316,6 +313,8 @@ export function CoachHomePage() {
   const cacheKey = user?.clubId ? `coach-home:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const cachedValue = useMemo(() => readViewCache(cacheKey), [cacheKey])
   const [sessions, setSessions] = useState(() => cachedValue?.sessions || [])
+  const [calendarEvents, setCalendarEvents] = useState(() => cachedValue?.calendarEvents || [])
+  const [matchDays, setMatchDays] = useState(() => cachedValue?.matchDays || [])
   const [players, setPlayers] = useState(() => cachedValue?.players || [])
   const [clubTeams, setClubTeams] = useState(() => cachedValue?.clubTeams || [])
   const [clubStaffUsers, setClubStaffUsers] = useState(() => cachedValue?.clubStaffUsers || [])
@@ -336,6 +335,11 @@ export function CoachHomePage() {
   const [isCoachMode, setIsCoachMode] = useState(getStoredCoachModePreference)
   const isClubWideAdminHome = isClubAdmin(user) && !user?.activeTeamId
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
+  const nextUpEvent = useMemo(() => getManagerHomeNextUp({
+    calendarEvents,
+    matchDays,
+    activeTeamId: user?.activeTeamId,
+  }), [calendarEvents, matchDays, user?.activeTeamId])
   const greeting = getCoachGreeting(user)
   const homeCopy = getWorkspaceHomeCopy(user)
   const recentEvaluations = useMemo(() => getRecentEvaluations(evaluations), [evaluations])
@@ -526,11 +530,13 @@ export function CoachHomePage() {
           return
         }
 
-        const [sessionsResult, playersResult, evaluationsResult, voiceNotesResult] = await Promise.allSettled([
+        const [sessionsResult, playersResult, evaluationsResult, voiceNotesResult, calendarEventsResult, matchDaysResult] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.'),
           withRequestTimeout(() => getUnassignedStaffVoiceNotes({ user, limit: 5 }), 'Could not load voice notes.'),
+          withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
+          withRequestTimeout(() => getMatchDays({ user }), 'Could not load fixtures.'),
         ])
 
         if (!isMounted) {
@@ -543,6 +549,9 @@ export function CoachHomePage() {
           evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
         const nextUnassignedVoiceNotes =
           voiceNotesResult.status === 'fulfilled' ? voiceNotesResult.value : cachedValue?.unassignedVoiceNotes || []
+        const nextCalendarEvents =
+          calendarEventsResult.status === 'fulfilled' ? calendarEventsResult.value : cachedValue?.calendarEvents || []
+        const nextMatchDays = matchDaysResult.status === 'fulfilled' ? matchDaysResult.value : cachedValue?.matchDays || []
         const nextActiveSession = getActiveSession(nextSessions)
         const nextSessionPlayers = nextActiveSession?.id
           ? await withRequestTimeout(
@@ -563,15 +572,19 @@ export function CoachHomePage() {
         setEvaluations(nextEvaluations)
         setSessionPlayers(nextSessionPlayers)
         setUnassignedVoiceNotes(nextUnassignedVoiceNotes)
+        setCalendarEvents(nextCalendarEvents)
+        setMatchDays(nextMatchDays)
         writeViewCache(cacheKey, {
           sessions: nextSessions,
           players: nextPlayers,
           evaluations: nextEvaluations,
           sessionPlayers: nextSessionPlayers,
           unassignedVoiceNotes: nextUnassignedVoiceNotes,
+          calendarEvents: nextCalendarEvents,
+          matchDays: nextMatchDays,
         })
 
-        if ([sessionsResult, playersResult, evaluationsResult, voiceNotesResult].some((result) => result.status === 'rejected')) {
+        if ([sessionsResult, playersResult, evaluationsResult, voiceNotesResult, calendarEventsResult, matchDaysResult].some((result) => result.status === 'rejected')) {
           setErrorMessage('Some coach data could not be refreshed. Cached data is shown where available.')
         }
       } finally {
@@ -651,17 +664,17 @@ export function CoachHomePage() {
             <div>
               <p className={eyebrowClass}>Next up</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--text-primary)]">
-                {activeSession?.title || activeSession?.team || (isLoading ? 'Loading next item' : 'No session scheduled yet')}
+                {nextUpEvent?.title || (isLoading ? 'Loading next item' : 'No upcoming event scheduled')}
               </h2>
               <p className={`mt-2 ${bodyTextClass}`}>
-                {activeSession ? getSessionContextLabel(activeSession) : 'Add a session or open the calendar when the next team activity is ready.'}
+                {getManagerHomeNextUpContext(nextUpEvent)}
               </p>
             </div>
             <Link
-              to={activeSession ? '/sessions/start' : '/calendar?action=add-event'}
+              to={getManagerHomeNextUpHref(nextUpEvent)}
               className={primaryButtonClass}
             >
-              {activeSession ? 'Open next session' : 'Add event'}
+              {nextUpEvent ? 'Open next event' : 'Add event'}
             </Link>
           </div>
         </div>

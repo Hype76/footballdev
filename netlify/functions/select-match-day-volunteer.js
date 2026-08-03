@@ -406,6 +406,42 @@ async function resolveParentLink(adminSupabase, { match, request }) {
   return parentLink
 }
 
+async function resolveEligibleScorerParentLink(adminSupabase, { match, request }) {
+  const { data, error } = await adminSupabase.rpc('resolve_match_day_scorer_eligibility', {
+    match_day_id_value: match.id,
+    request_id_value: request.id,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  const eligibility = Array.isArray(data) ? data[0] : data
+
+  if (!eligibility?.eligible || !eligibility?.parent_link_id) {
+    throw Object.assign(
+      new Error(eligibility?.reason || 'This parent is not currently eligible to score this fixture.'),
+      { statusCode: 409 },
+    )
+  }
+
+  const { data: parentLink, error: parentLinkError } = await adminSupabase
+    .from('parent_player_links')
+    .select('id, club_id, team_id, player_id, email, auth_user_id, status, players:player_id (player_name, team_id, status)')
+    .eq('id', eligibility.parent_link_id)
+    .maybeSingle()
+
+  if (parentLinkError) {
+    throw parentLinkError
+  }
+
+  if (!parentLink?.id) {
+    throw Object.assign(new Error('This parent is not currently eligible to score this fixture.'), { statusCode: 409 })
+  }
+
+  return parentLink
+}
+
 async function resolveRequestScopedParentLink(adminSupabase, { baseSelect, match, request }) {
   const requestEmail = normalizeEmail(request.recipient_email)
   const requestParentLinkId = normalizeText(request.parent_link_id)
@@ -680,7 +716,9 @@ export async function handler(event) {
       throw Object.assign(new Error('Only parents who replied Yes can be selected for this role.'), { statusCode: 400 })
     }
 
-    const parentLink = await resolveParentLink(adminSupabase, { match, request })
+    const parentLink = role === 'scorer' && selected
+      ? await resolveEligibleScorerParentLink(adminSupabase, { match, request })
+      : await resolveParentLink(adminSupabase, { match, request })
     const previousAssignment = await getCurrentAssignment(adminSupabase, match.id, role)
     const previousParentLinkId = previousAssignment?.parent_link_id || ''
     const isSameSelection = String(previousParentLinkId || '') === String(parentLink.id)
@@ -739,7 +777,7 @@ export async function handler(event) {
     }
 
     try {
-      if (selected && !isSameSelection) {
+      if (role !== 'scorer' && selected && !isSameSelection) {
         const queued = await queueRoleNotification(adminSupabase, {
           match,
           appOrigin,
@@ -753,7 +791,7 @@ export async function handler(event) {
         queuedNotifications.push(queued.id)
       }
 
-      if (previousAssignment?.id && (!selected || !isSameSelection)) {
+      if (role !== 'scorer' && previousAssignment?.id && (!selected || !isSameSelection)) {
         const previousEmail = getAssignmentParentEmail(previousAssignment)
         const previousName = getAssignmentParentLabel(previousAssignment)
         if (previousEmail && previousEmail !== normalizeEmail(parentLink.email || request.recipient_email)) {

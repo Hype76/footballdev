@@ -376,6 +376,8 @@ function normalizeAvailabilityRequest(row) {
     matchDayId: row.match_day_id ?? row.matchDayId ?? '',
     parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
     authUserId: row.auth_user_id ?? parentLink?.auth_user_id ?? '',
+    scorerEligible: row.scorer_eligible === true || row.scorerEligible === true,
+    scorerEligibilityReason: normalizeText(row.scorer_eligibility_reason ?? row.scorerEligibilityReason),
     playerId: row.player_id ?? row.playerId ?? '',
     playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name ?? parentPlayer?.player_name),
     recipientName: normalizeText(row.recipient_name ?? row.recipientName),
@@ -1152,7 +1154,34 @@ export async function getMatchDay({ user, matchDayId } = {}) {
     throw new Error('This match day is not linked to your active team.')
   }
 
-  const [match] = await attachMatchDayPresentationStates([normalizeMatchDay(data)])
+  const { data: scorerEligibility, error: scorerEligibilityError } = await supabase.rpc(
+    'get_match_day_scorer_eligibility',
+    { match_day_id_value: normalizedMatchDayId },
+  )
+
+  if (scorerEligibilityError) {
+    console.error(scorerEligibilityError)
+    throw scorerEligibilityError
+  }
+
+  const scorerEligibilityByRequestId = new Map((scorerEligibility ?? []).map((eligibility) => [
+    String(eligibility.request_id || ''),
+    eligibility,
+  ]))
+  const matchWithEligibility = {
+    ...data,
+    match_day_availability_requests: (data.match_day_availability_requests ?? []).map((request) => {
+      const eligibility = scorerEligibilityByRequestId.get(String(request.id || ''))
+      return {
+        ...request,
+        scorer_eligible: eligibility?.eligible === true,
+        scorer_eligibility_reason: eligibility?.reason || '',
+        parent_link_id: eligibility?.parent_link_id || request.parent_link_id,
+        auth_user_id: eligibility?.auth_user_id || request.auth_user_id,
+      }
+    }),
+  }
+  const [match] = await attachMatchDayPresentationStates([normalizeMatchDay(matchWithEligibility)])
   return match
 }
 
