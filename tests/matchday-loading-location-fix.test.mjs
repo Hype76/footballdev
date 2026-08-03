@@ -59,7 +59,7 @@ test('refresh is single flight and replaces live hydrated detail from the canoni
   assert.match(refreshSource, /liveRefreshStateRef\.current\.inFlight = false/)
   assert.match(refreshSource, /getMatchDays\(\{ user \}\)/)
   assert.match(refreshSource, /mergeMatchDaySummaries\(currentMatches, nextMatches\)/)
-  assert.match(refreshSource, /getMatchDay\(\{ user, matchDayId: match\.id \}\)/)
+  assert.match(refreshSource, /getMatchDay\(\{ user, matchDayId: match\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/)
   assert.match(refreshSource, /refreshedDetailsById/)
   assert.doesNotMatch(refreshSource, /retry|setTimeout/)
 })
@@ -77,7 +77,7 @@ test('fixture dependencies settle independently from Match Day list loading', as
   assert.match(loadSource, /setLocations\(locationsResult\.value\)/)
   assert.match(loadSource, /setIsFixtureDataLoading\(false\)/)
   assert.ok(loadSource.indexOf('setLocations(locationsResult.value)') < loadSource.indexOf("matchesResult.status === 'rejected'"))
-  assert.match(loadSource, /getMatchDay\(\{ user, matchDayId: priorityMatch\.id \}\)/)
+  assert.match(loadSource, /getMatchDay\(\{ user, matchDayId: priorityMatch\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/)
 })
 
 test('saved locations are scoped through prior team fixtures and normalized safely', async () => {

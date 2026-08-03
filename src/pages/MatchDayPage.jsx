@@ -348,16 +348,16 @@ const volunteerRoleConfigs = [
     responseKey: 'volunteerScorerResponse',
   },
   {
-    key: 'linesman',
-    label: 'Linesman',
-    requestKey: 'requestLinesman',
-    responseKey: 'volunteerLinesmanResponse',
-  },
-  {
     key: 'referee',
     label: 'Referee',
     requestKey: 'requestReferee',
     responseKey: 'volunteerRefereeResponse',
+  },
+  {
+    key: 'linesman',
+    label: 'Linesman',
+    requestKey: 'requestLinesman',
+    responseKey: 'volunteerLinesmanResponse',
   },
 ]
 
@@ -1547,6 +1547,36 @@ function getAvailabilityStats(match) {
   }
 }
 
+function getAvailabilityDisclosureGroups(match, rows = []) {
+  const conflictKeys = getAvailabilityConflictKeys(Array.isArray(match.availabilityRequests) ? match.availabilityRequests : [])
+  const groups = [
+    { key: 'no_response', label: 'No response', rows: [] },
+    { key: 'maybe', label: 'Maybe', rows: [] },
+    { key: 'unavailable', label: 'Unavailable', rows: [] },
+    { key: 'conflicts', label: 'Conflicts', rows: [] },
+    { key: 'available', label: 'Available or selected', rows: [] },
+  ]
+  const groupsByKey = new Map(groups.map((group) => [group.key, group]))
+
+  rows.forEach((row) => {
+    const playerKey = getAvailabilityPlayerKey(row)
+    const status = String(row.status || 'pending').toLowerCase()
+    const groupKey = playerKey && conflictKeys.has(playerKey)
+      ? 'conflicts'
+      : status === 'maybe'
+        ? 'maybe'
+        : status === 'unavailable'
+          ? 'unavailable'
+          : status === 'available'
+            ? 'available'
+            : 'no_response'
+
+    groupsByKey.get(groupKey)?.rows.push(row)
+  })
+
+  return groups
+}
+
 async function logFixtureAvailabilityRecipientEvents({
   match,
   players,
@@ -1610,7 +1640,7 @@ function getRoleStatus(match, roleKey) {
     return `${yesReplies.length} volunteered`
   }
 
-  return 'Needed'
+  return 'Requested'
 }
 
 function getRoleWarningSummary(match) {
@@ -1746,7 +1776,7 @@ function getMatchDayRoleReadiness(match) {
     status: getRoleStatus(match, role.key),
   }))
   const requestedRoles = roleStatuses.filter((role) => role.status !== 'Not requested')
-  const neededRoles = roleStatuses.filter((role) => role.status === 'Needed')
+  const neededRoles = roleStatuses.filter((role) => role.status === 'Requested')
   const pendingRoles = roleStatuses.filter((role) => role.status.includes('volunteered'))
 
   if (requestedRoles.length === 0) {
@@ -1828,17 +1858,17 @@ function getNeedsAttentionItems(activeMatches) {
   return [
     {
       label: 'Needs scorer',
-      value: activeMatches.filter((match) => getRoleStatus(match, 'scorer') === 'Needed').length,
+      value: activeMatches.filter((match) => getRoleStatus(match, 'scorer') === 'Requested').length,
       caption: 'Fixtures waiting for a scorer reply or selection.',
     },
     {
       label: 'Needs referee',
-      value: activeMatches.filter((match) => getRoleStatus(match, 'referee') === 'Needed').length,
+      value: activeMatches.filter((match) => getRoleStatus(match, 'referee') === 'Requested').length,
       caption: 'Referee requests without an assigned volunteer.',
     },
     {
       label: 'Needs linesman',
-      value: activeMatches.filter((match) => getRoleStatus(match, 'linesman') === 'Needed').length,
+      value: activeMatches.filter((match) => getRoleStatus(match, 'linesman') === 'Requested').length,
       caption: 'Linesman requests without an assigned volunteer.',
     },
     {
@@ -2350,10 +2380,10 @@ export function MatchDayPage() {
 
     if (hydratedMatch) {
       setExpandedMatchId(match.id)
-      setWorkspaceSection('overview')
+      setWorkspaceSection('roles')
       const nextParams = new URLSearchParams(searchParams)
       nextParams.set('fixture', String(match.id))
-      nextParams.set('section', 'overview')
+      nextParams.set('section', 'roles')
       setSearchParams(nextParams)
     }
   }
@@ -4390,11 +4420,16 @@ function MatchDayCard({
   onWorkspaceSectionChange,
 }) {
   const [isFinalReportOpen, setIsFinalReportOpen] = useState(false)
+  const [availabilityDisclosureState, setAvailabilityDisclosureState] = useState({ groups: {}, matchId: '' })
   const isBusy = activeMatchId === match.id
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
   const liveClockLabel = formatLiveMatchClock(match, now)
   const availabilityStats = getAvailabilityStats(match)
+  const availabilityGroups = getAvailabilityDisclosureGroups(match, currentAvailabilityRows)
+  const expandedAvailabilityGroups = availabilityDisclosureState.matchId === match.id
+    ? availabilityDisclosureState.groups
+    : {}
   const transportRiskRows = getTransportRiskRows(match)
   const transportRiskSummary = getTransportRiskSummary(transportRiskRows)
   const transportCoordination = getTransportCoordinationSummary(currentAvailabilityRows)
@@ -4444,9 +4479,23 @@ function MatchDayCard({
     }
   }
 
+  const toggleAvailabilityGroup = (groupKey) => {
+    setAvailabilityDisclosureState((current) => {
+      const groups = current.matchId === match.id ? current.groups : {}
+
+      return {
+        groups: {
+          ...groups,
+          [groupKey]: !groups[groupKey],
+        },
+        matchId: match.id,
+      }
+    })
+  }
+
   return (
     <article className={`overflow-hidden rounded-lg border shadow-sm shadow-[#047857]/10 ${isLiveConsole ? 'border-[#047857] bg-[#f8fffb]' : 'border-[#d7e5dc] bg-white'}`}>
-      <div className={`grid gap-4 px-4 py-3 sm:px-5 sm:py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${isLiveConsole ? 'bg-[#ecfdf5]' : ''}`}>
+      <div data-testid="game-day-match-controls" className={`grid gap-3 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${isLiveConsole ? 'bg-[#ecfdf5]' : ''}`}>
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
@@ -4668,12 +4717,13 @@ function MatchDayCard({
             </div>
           ) : null}
 
-          {workspaceSection === 'squad' ? <section className={panelClass}>
+          {workspaceSection === 'squad' ? <section data-testid="game-day-availability-section" className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Availability and final squad</h5>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
               Availability answers whether a player can play. The squad decision is a separate staff action and never changes the parent response.
             </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-5">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <AvailabilityCount label="Needs follow-up" value={transportRiskSummary.needsFollowUp} />
               <AvailabilityCount label="Available" value={availabilityStats.available} />
               <AvailabilityCount label="No response" value={availabilityStats.pending} />
               <AvailabilityCount label="Maybe" value={availabilityStats.maybe} />
@@ -4682,12 +4732,33 @@ function MatchDayCard({
             </div>
             {currentAvailabilityRows.length > 0 ? (
               <div
-                className="mt-3 grid max-h-[32rem] gap-2 overflow-y-auto pr-1 lg:grid-cols-2"
+                className="mt-3 grid gap-2"
                 role="region"
                 aria-label="Player availability and squad decisions"
-                tabIndex={0}
               >
-                {currentAvailabilityRows.map((row) => {
+                {availabilityGroups.map((group) => {
+                  const isGroupExpanded = Boolean(expandedAvailabilityGroups[group.key])
+                  const groupPanelId = `match-day-availability-${match.id}-${group.key}`
+
+                  return (
+                    <section key={group.key} data-testid={`game-day-availability-${group.key}`} className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white">
+                      <button
+                        type="button"
+                        className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left transition hover:bg-[#f7faf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#047857] disabled:cursor-default"
+                        aria-expanded={isGroupExpanded}
+                        aria-controls={groupPanelId}
+                        disabled={group.rows.length === 0}
+                        onClick={() => toggleAvailabilityGroup(group.key)}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-black text-[#101828]">{group.label}</span>
+                          <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{group.rows.length} {group.rows.length === 1 ? 'Player' : 'Players'}</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-black text-[#047857]">{group.rows.length === 0 ? 'None' : isGroupExpanded ? 'Collapse' : 'Expand'}</span>
+                      </button>
+                      {isGroupExpanded ? (
+                        <div id={groupPanelId} className="grid gap-2 border-t border-[#d7e5dc] bg-[#f7faf8] p-2 lg:grid-cols-2">
+                          {group.rows.map((row) => {
                   const historyRows = getAvailabilityHistoryForPlayer(match, row)
                   const squadDecision = getPlayerSquadDecision(match, row)
                   const automaticSelectionFailure = getAutomaticSelectionFailure(match, row)
@@ -4787,6 +4858,11 @@ function MatchDayCard({
                       ) : null}
                     </div>
                   )
+                          })}
+                        </div>
+                      ) : null}
+                    </section>
+                  )
                 })}
               </div>
             ) : (
@@ -4797,19 +4873,24 @@ function MatchDayCard({
                 </p>
               </div>
             )}
+            <section aria-label="Lift coordination snapshot" className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h6 className="text-sm font-black text-[#101828]">Lift coordination snapshot</h6>
+                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Parent evidence remains unchanged. Open Transport for the staff chase list and coordination detail.</p>
+                </div>
+                <span className="rounded-lg border border-[#d7e5dc] bg-white px-2.5 py-1 text-xs font-black text-[#4b5f55]">Staff only</span>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <AvailabilityCount label="Needs lift" value={transportCoordination.liftNeeds} />
+                <AvailabilityCount label="Can offer seats" value={transportCoordination.seatsOffered} />
+                <AvailabilityCount label="Balance" value={transportCoordination.seatBalance} />
+              </div>
+            </section>
           </section> : null}
 
-          {workspaceSection === 'roles' ? <>
-          <div>
-            <TransportRiskPanel rows={transportRiskRows} summary={transportRiskSummary} />
-          </div>
-
-          <div>
-            <TransportCoordinationPanel summary={transportCoordination} />
-          </div>
-
-          <section className={panelClass}>
-            <h5 className="text-sm font-black text-[#101828]">Roles</h5>
+          {workspaceSection === 'roles' ? <section data-testid="game-day-roles-section" aria-label="Scorer and Match roles" className={panelClass}>
+            <h5 className="text-sm font-black text-[#101828]">Scorer and Match roles</h5>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
               <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
@@ -4822,7 +4903,7 @@ function MatchDayCard({
                   const selectedAssignment = getSelectedRoleAssignment(match, role.key)
 
                   return (
-                    <div key={role.key} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+                    <div key={role.key} data-testid={`game-day-role-${role.key}`} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                         <p className="text-sm font-black text-[#101828]">{role.label}</p>
                         {selectedAssignment ? (
@@ -4911,8 +4992,14 @@ function MatchDayCard({
                 </p>
               </div>
             )}
-          </section>
-          </> : null}
+          </section> : null}
+
+          {workspaceSection === 'transport' ? (
+            <section data-testid="game-day-transport-section" aria-label="Transport coordination" className="grid gap-4">
+              <TransportRiskPanel rows={transportRiskRows} summary={transportRiskSummary} />
+              <TransportCoordinationPanel summary={transportCoordination} />
+            </section>
+          ) : null}
 
           {workspaceSection === 'overview' ? <section className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Score</h5>

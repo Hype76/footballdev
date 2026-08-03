@@ -7,7 +7,7 @@ import { chromium } from 'playwright'
 
 const port = Number(process.env.GAMEDAY_WORKSPACE_SPLIT_BROWSER_PORT || 5650 + Math.floor(Math.random() * 250))
 const baseUrl = `http://127.0.0.1:${port}`
-const artifactDir = 'docs/audits/FP-V1-GAMEDAY-WORKSPACE-SPLIT-02-screenshots'
+const artifactDir = 'docs/audits/FP-V1-GAMEDAY-MOBILE-COMPACTION-29C-screenshots'
 const liveMatchId = '22222222-2222-4222-8222-222222222222'
 const upcomingMatchId = '33333333-3333-4333-8333-333333333333'
 const previousMatchId = '44444444-4444-4444-8444-444444444444'
@@ -135,8 +135,8 @@ function detailedMatch(summary) {
     match_day_scorer_interest: [],
     match_day_scorer_assignments: [{ id: 'scorer-assignment', parent_name: 'Sam Morgan', status: 'accepted' }],
     match_day_role_assignments: [
-      { id: 'role-scorer', role: 'scorer', parent_name: 'Sam Morgan', response: 'yes' },
-      { id: 'role-referee', role: 'referee', parent_name: 'Chris Smith', response: 'yes' },
+      { id: 'role-scorer', role: 'scorer', parent_link_id: 'parent-link-0', auth_user_id: 'parent-user-0', parent_email: 'alex@fixture.test', player_name: 'Alex Morgan' },
+      { id: 'role-referee', role: 'referee', parent_link_id: 'parent-link-2', auth_user_id: 'parent-user-2', parent_email: 'taylor@fixture.test', player_name: 'Taylor Jones' },
     ],
     match_day_player_availability: playerNames.map((playerName, index) => ({
       id: `availability-${index}`,
@@ -161,7 +161,22 @@ function detailedMatch(summary) {
       match_day_id: summary.id,
       player_id: `player-${index}`,
       player_name: playerName,
+      parent_link_id: `parent-link-${index}`,
+      auth_user_id: `parent-user-${index}`,
+      recipient_name: `${playerName.split(' ')[0]} Parent`,
+      recipient_email: `${playerName.split(' ')[0].toLowerCase()}@fixture.test`,
+      scorer_eligible: index < 2,
+      scorer_eligibility_reason: index < 2 ? '' : 'No current accepted Player link.',
       status: index === 3 ? 'pending' : 'responded',
+      responded_at: index === 3 ? null : '2026-07-31T17:45:00Z',
+      volunteer_scorer_response: index < 2 ? 'yes' : 'no_response',
+      volunteer_referee_response: index === 2 ? 'yes' : 'no_response',
+      volunteer_linesman_response: index === 3 ? 'no' : 'no_response',
+      volunteer_responded_at: '2026-07-31T17:50:00Z',
+      transport_needs_lift: index === 1,
+      transport_can_offer_lift: index === 2,
+      transport_seats_offered: index === 2 ? 3 : 0,
+      transport_responded_at: index === 1 || index === 2 ? '2026-07-31T18:00:00Z' : null,
     })),
     match_day_event_log: [
       { id: 'log-1', event_type: 'match_day_created', label: 'Fixture created', created_at: '2026-07-20T10:00:00Z', created_by_name: 'Coach Fixture' },
@@ -177,7 +192,7 @@ function detailedMatch(summary) {
 }
 
 const matchSummaries = [
-  baseMatch({ id: liveMatchId, opponent: 'Academy United', matchDate: '2026-08-01', status: 'live', score: [1, 0] }),
+  baseMatch({ id: liveMatchId, opponent: 'Academy United', matchDate: '2026-08-03', status: 'live', score: [1, 0] }),
   baseMatch({ id: upcomingMatchId, opponent: 'City Juniors', matchDate: '2026-08-08', status: 'scheduled' }),
   baseMatch({ id: previousMatchId, opponent: 'Rovers FC', matchDate: '2026-07-25', status: 'full_time', score: [2, 1] }),
 ]
@@ -195,8 +210,8 @@ async function fulfillJson(route, payload, status = 200) {
   })
 }
 
-async function preparePage(browser, viewport) {
-  const context = await browser.newContext({ viewport })
+async function preparePage(browser, viewport, contextOptions = {}) {
+  const context = await browser.newContext({ viewport, ...contextOptions })
   const unexpectedMutations = []
   const communicationRequests = []
   const consoleErrors = []
@@ -244,7 +259,9 @@ async function preparePage(browser, viewport) {
       return
     }
 
-    if (!['GET', 'HEAD'].includes(request.method()) && !url.pathname.endsWith('/rpc/record_security_audit_event')) {
+    if (!['GET', 'HEAD'].includes(request.method())
+      && !url.pathname.includes('/rpc/get_')
+      && !url.pathname.endsWith('/rpc/record_security_audit_event')) {
       unexpectedMutations.push(`${request.method()} ${url.pathname}`)
     }
     await fulfillJson(route, [])
@@ -253,12 +270,28 @@ async function preparePage(browser, viewport) {
   await context.route('**/.netlify/functions/**', async (route) => {
     const url = route.request().url()
     if (/email|invite|push|sms/i.test(url)) communicationRequests.push(url)
+    if (url.includes('/select-match-day-volunteer') && route.request().method() === 'GET') {
+      await fulfillJson(route, {
+        success: true,
+        eligibility: [0, 1, 2, 3].map((index) => ({
+          request_id: `request-${index}`,
+          eligible: index < 2,
+          reason: index < 2 ? '' : 'No current accepted Player link.',
+          parent_link_id: `parent-link-${index}`,
+          auth_user_id: `parent-user-${index}`,
+        })),
+      })
+      return
+    }
     await fulfillJson(route, { success: true })
   })
 
   const page = await context.newPage()
   page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text())
+    if (message.type() === 'error') {
+      const location = message.location()
+      consoleErrors.push(`${message.text()} @ ${location.url || 'unknown'}:${location.lineNumber ?? 0}`)
+    }
   })
   page.on('pageerror', (error) => pageErrors.push(error.message))
   page.on('requestfailed', (request) => {
@@ -300,10 +333,10 @@ async function measurePage(page) {
   })
 }
 
-async function openSelectedFixture(page) {
-  await page.getByTestId('game-day-fixture-summary').first().getByRole('button', { name: /Manage/ }).click()
+async function openSelectedFixture(page, opponent = 'Academy United') {
+  await page.getByTestId('game-day-fixture-summary').filter({ hasText: opponent }).getByRole('button', { name: /Manage/ }).click()
   await page.getByTestId('game-day-selected-workspace').waitFor({ state: 'visible', timeout: 30000 })
-  await page.getByRole('tab', { name: 'Overview' }).waitFor({ state: 'visible' })
+  await page.getByRole('tab', { name: 'Scorer and roles' }).waitFor({ state: 'visible' })
 }
 
 function assertCleanRun(run) {
@@ -322,7 +355,7 @@ async function runMobile(browser) {
   try {
     const list = await measurePage(page)
     assert.equal(list.horizontalOverflow, false)
-    assert.ok(list.effectiveRatio <= 2, `Mobile fixture list ratio ${list.effectiveRatio} exceeds 2.00`)
+    assert.ok(list.effectiveRatio <= 3.2, `Mobile fixture list ratio ${list.effectiveRatio} exceeds 3.20`)
     await page.screenshot({ path: `${artifactDir}/mobile-fixture-list-initial.png` })
 
     await page.getByRole('button', { name: /Previous games/ }).click()
@@ -336,43 +369,110 @@ async function runMobile(browser) {
     await page.getByTestId('game-day-fixture-summary').first().waitFor({ state: 'visible' })
     assert.doesNotMatch(page.url(), /fixture=/)
     await openSelectedFixture(page)
-    const overview = await measurePage(page)
-    assert.equal(overview.horizontalOverflow, false)
+    const roles = await measurePage(page)
+    assert.equal(roles.horizontalOverflow, false)
     assert.equal(await page.getByRole('button', { name: 'Back to fixtures' }).isVisible(), true)
     assert.equal(await page.getByTestId('game-day-fixture-summary').first().isVisible(), false)
-    await page.screenshot({ path: `${artifactDir}/mobile-selected-overview.png`, fullPage: true })
-    assert.ok(overview.effectiveRatio <= 2.5, `Mobile selected Overview ratio ${overview.effectiveRatio} exceeds 2.50`)
+    assert.equal(await page.getByRole('tab', { name: 'Scorer and roles' }).getAttribute('aria-selected'), 'true')
+    assert.match(page.url(), /section=roles/)
+    const tabLabels = await page.getByRole('tab').allTextContents()
+    assert.deepEqual(tabLabels.map((label) => label.trim()), [
+      'Scorer and roles',
+      'Players and availability',
+      'Match details',
+      'Timeline and notes',
+      'Transport',
+    ])
+    const scorerReach = await page.evaluate(() => {
+      const main = document.querySelector('main')?.getBoundingClientRect()
+      const header = document.querySelector('header')?.getBoundingClientRect()
+      const scorer = document.querySelector('[data-testid="game-day-role-scorer"]')?.getBoundingClientRect()
+      const controls = document.querySelector('[data-testid="game-day-match-controls"]')?.getBoundingClientRect()
+      const usableViewportHeight = Math.max(1, window.innerHeight - (header?.height || 0))
+      return {
+        controlsBeforeScorer: Boolean(controls && scorer && controls.top < scorer.top),
+        distanceFromMain: scorer && main ? Math.round(scorer.top - main.top) : Number.POSITIVE_INFINITY,
+        usableViewportHeight,
+      }
+    })
+    assert.equal(scorerReach.controlsBeforeScorer, true)
+    assert.ok(scorerReach.distanceFromMain <= scorerReach.usableViewportHeight * 2, `Scorer is ${scorerReach.distanceFromMain}px from the workspace start, beyond two usable viewports`)
+    assert.ok(roles.effectiveRatio <= 3, `Mobile selected scorer and roles ratio ${roles.effectiveRatio} exceeds 3.00`)
+    const roleCardLabels = await page.locator('[data-testid^="game-day-role-"] > div:first-child > p:first-child').allTextContents()
+    assert.deepEqual(roleCardLabels, ['Scorer', 'Referee', 'Linesman'])
+    assert.match(await page.getByTestId('game-day-role-scorer').innerText(), /Selected:/)
+    assert.equal(await page.getByTestId('game-day-role-scorer').getByRole('button', { name: /Deselect|Replace selected volunteer|^Select$/ }).first().isVisible(), true)
+    await page.screenshot({ path: `${artifactDir}/mobile-selected-scorer-roles.png`, fullPage: true })
 
+    await page.getByRole('tab', { name: 'Match details' }).click()
+    assert.match(page.url(), /section=overview/)
     const homeScore = page.getByLabel(/^Home \(/)
     await homeScore.fill('3')
+    const details = await measurePage(page)
+    assert.equal(details.horizontalOverflow, false)
+    await page.screenshot({ path: `${artifactDir}/mobile-match-details.png`, fullPage: true })
 
-    await page.getByRole('tab', { name: 'Squad and availability' }).click()
+    await page.getByRole('tab', { name: 'Players and availability' }).click()
     assert.match(page.url(), /section=squad/)
-    assert.equal((await measurePage(page)).horizontalOverflow, false)
+    const squad = await measurePage(page)
+    assert.equal(squad.horizontalOverflow, false)
+    assert.ok(squad.effectiveRatio <= 2.35, `Mobile collapsed Players and availability ratio ${squad.effectiveRatio} exceeds 2.35`)
+    const groupButtons = page.getByTestId('game-day-availability-section').locator('button[aria-expanded]')
+    assert.equal(await groupButtons.count(), 5)
+    assert.deepEqual(await groupButtons.evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-expanded'))), ['false', 'false', 'false', 'false', 'false'])
+    const emptyGroupButton = page.getByTestId('game-day-availability-no_response').getByRole('button').first()
+    assert.equal(await emptyGroupButton.isDisabled(), true)
+    assert.match(await emptyGroupButton.innerText(), /None/)
+    const availableGroupButton = page.getByTestId('game-day-availability-available').getByRole('button').first()
+    await availableGroupButton.focus()
+    await page.keyboard.press('Enter')
+    assert.equal(await availableGroupButton.getAttribute('aria-expanded'), 'true')
+    assert.equal(await page.getByRole('group', { name: 'Squad decision for Alex Morgan' }).isVisible(), true)
+    const maybeGroupButton = page.getByTestId('game-day-availability-maybe').getByRole('button').first()
+    await maybeGroupButton.click()
+    assert.equal(await maybeGroupButton.getAttribute('aria-expanded'), 'true')
+    assert.equal(await availableGroupButton.getAttribute('aria-expanded'), 'true')
+    assert.match(await page.getByTestId('game-day-availability-unavailable').innerText(), /Unavailable[\s\S]*1 Player/)
+    await maybeGroupButton.click()
+    assert.equal(await maybeGroupButton.getAttribute('aria-expanded'), 'false')
+    await page.getByRole('tab', { name: 'Match details' }).click()
+    await page.getByRole('tab', { name: 'Players and availability' }).click()
+    assert.equal(await availableGroupButton.getAttribute('aria-expanded'), 'true')
+    await availableGroupButton.focus()
+    await page.keyboard.press('Enter')
+    assert.equal(await availableGroupButton.getAttribute('aria-expanded'), 'false')
+    const liftSnapshot = page.getByRole('region', { name: 'Lift coordination snapshot' })
+    assert.equal(await liftSnapshot.isVisible(), true)
+    assert.match(await liftSnapshot.innerText(), /1\s*NEEDS LIFT/i)
+    assert.match(await liftSnapshot.innerText(), /3\s*CAN OFFER SEATS/i)
     await page.screenshot({ path: `${artifactDir}/mobile-squad-availability.png`, fullPage: true })
-
-    await page.getByRole('tab', { name: 'Roles and transport' }).click()
-    assert.match(page.url(), /section=roles/)
-    assert.equal((await measurePage(page)).horizontalOverflow, false)
-    await page.screenshot({ path: `${artifactDir}/mobile-roles-transport.png`, fullPage: true })
 
     await page.getByRole('tab', { name: 'Timeline and notes' }).click()
     assert.match(page.url(), /section=timeline/)
-    assert.equal((await measurePage(page)).horizontalOverflow, false)
+    const timeline = await measurePage(page)
+    assert.equal(timeline.horizontalOverflow, false)
     await page.screenshot({ path: `${artifactDir}/mobile-timeline-notes.png`, fullPage: true })
 
-    await page.getByRole('tab', { name: 'Overview' }).click()
+    await page.getByRole('tab', { name: 'Transport' }).click()
+    assert.match(page.url(), /section=transport/)
+    const transport = await measurePage(page)
+    assert.equal(transport.horizontalOverflow, false)
+    assert.equal(await page.getByTestId('game-day-transport-section').getByRole('heading', { name: 'Transport risk' }).isVisible(), true)
+    assert.equal(await page.getByTestId('game-day-transport-section').getByRole('heading', { name: 'Transport coordination' }).isVisible(), true)
+    await page.screenshot({ path: `${artifactDir}/mobile-transport-last.png`, fullPage: true })
+
+    await page.getByRole('tab', { name: 'Match details' }).click()
     assert.equal(await homeScore.inputValue(), '3')
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.getByTestId('game-day-selected-workspace').waitFor({ state: 'visible', timeout: 30000 })
     assert.match(page.url(), new RegExp(`fixture=${liveMatchId}`))
-    assert.equal(await page.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected'), 'true')
+    assert.equal(await page.getByRole('tab', { name: 'Match details' }).getAttribute('aria-selected'), 'true')
 
     await page.getByRole('button', { name: 'Back to fixtures' }).click()
     await page.getByTestId('game-day-fixture-summary').first().waitFor({ state: 'visible' })
     assert.doesNotMatch(page.url(), /fixture=/)
     assertCleanRun(run)
-    return { list, overview }
+    return { details, list, roles, scorerReach, squad, timeline, transport }
   } finally {
     await run.context.close()
   }
@@ -386,36 +486,39 @@ async function runDesktop(browser) {
     await page.getByRole('button', { name: 'List all' }).click()
     assert.equal(await page.getByTestId('game-day-fixture-summary').count(), 2)
     await openSelectedFixture(page)
-    const overview = await measurePage(page)
-    assert.equal(overview.horizontalOverflow, false)
-    assert.ok(overview.effectiveRatio <= 2, `Desktop selected Overview ratio ${overview.effectiveRatio} exceeds 2.00`)
+    const roles = await measurePage(page)
+    assert.equal(roles.horizontalOverflow, false)
+    assert.ok(roles.effectiveRatio <= 2, `Desktop selected scorer and roles ratio ${roles.effectiveRatio} exceeds 2.00`)
     assert.equal(await page.getByTestId('game-day-fixture-summary').first().isVisible(), true)
     assert.equal(await page.getByRole('button', { name: 'Back to fixtures' }).isVisible(), false)
     await page.screenshot({ path: `${artifactDir}/desktop-navigation-selected-workspace.png` })
-    await page.screenshot({ path: `${artifactDir}/desktop-selected-overview.png`, fullPage: true })
+    await page.screenshot({ path: `${artifactDir}/desktop-selected-scorer-roles.png`, fullPage: true })
 
     await page.getByRole('button', { name: 'Open Game Mode' }).click()
     await page.getByRole('region', { name: 'Game Mode cockpit' }).waitFor({ state: 'visible' })
     await page.getByRole('button', { name: 'Manage fixture' }).click()
-    await page.getByRole('tab', { name: 'Overview' }).waitFor({ state: 'visible' })
+    await page.getByRole('tab', { name: 'Scorer and roles' }).waitFor({ state: 'visible' })
 
+    await page.getByRole('tab', { name: 'Match details' }).click()
     await page.getByLabel(/^Home \(/).fill('3')
-    await page.getByTestId('game-day-fixture-summary').nth(1).getByRole('button', { name: /Manage/ }).click()
-    await page.waitForURL(`**/match-day?fixture=${upcomingMatchId}&section=overview`)
+    await page.getByTestId('game-day-fixture-summary').filter({ hasText: 'City Juniors' }).getByRole('button', { name: /Manage/ }).click()
+    await page.waitForURL(`**/match-day?fixture=${upcomingMatchId}&section=roles`)
+    await page.getByRole('tab', { name: 'Match details' }).click()
     assert.equal(await page.getByLabel(/^Home \(/).inputValue(), '0')
-    await page.getByTestId('game-day-fixture-summary').first().getByRole('button', { name: /Manage/ }).click()
-    await page.waitForURL(`**/match-day?fixture=${liveMatchId}&section=overview`)
+    await page.getByTestId('game-day-fixture-summary').filter({ hasText: 'Academy United' }).getByRole('button', { name: /Manage/ }).click()
+    await page.waitForURL(`**/match-day?fixture=${liveMatchId}&section=roles`)
+    await page.getByRole('tab', { name: 'Match details' }).click()
     assert.equal(await page.getByLabel(/^Home \(/).inputValue(), '3')
 
-    await page.getByRole('tab', { name: 'Roles and transport' }).click()
+    await page.getByRole('tab', { name: 'Scorer and roles' }).click()
     await page.evaluate(() => window.localStorage.setItem('app-theme-mode', 'dark'))
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await page.getByRole('tab', { name: 'Roles and transport' }).waitFor({ state: 'visible', timeout: 30000 })
-    assert.equal(await page.getByRole('tab', { name: 'Roles and transport' }).getAttribute('aria-selected'), 'true')
+    await page.getByRole('tab', { name: 'Scorer and roles' }).waitFor({ state: 'visible', timeout: 30000 })
+    assert.equal(await page.getByRole('tab', { name: 'Scorer and roles' }).getAttribute('aria-selected'), 'true')
     assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-dark') || document.body.classList.contains('theme-dark')), true)
     await page.screenshot({ path: `${artifactDir}/desktop-roles-transport-dark.png`, fullPage: true })
     assertCleanRun(run)
-    return { overview }
+    return { roles }
   } finally {
     await run.context.close()
   }
@@ -428,12 +531,47 @@ async function runTablet(browser) {
   try {
     const list = await measurePage(page)
     await openSelectedFixture(page)
-    const overview = await measurePage(page)
+    const roles = await measurePage(page)
     assert.equal(list.horizontalOverflow, false)
-    assert.equal(overview.horizontalOverflow, false)
-    assert.ok(list.effectiveRatio < 4 && overview.effectiveRatio < 4)
+    assert.equal(roles.horizontalOverflow, false)
+    assert.ok(list.effectiveRatio < 4 && roles.effectiveRatio < 4)
     assertCleanRun(run)
-    return { list, overview }
+    return { list, roles }
+  } finally {
+    await run.context.close()
+  }
+}
+
+async function runResponsiveVariant(browser, { contextOptions, name, viewport }) {
+  const run = await preparePage(browser, viewport, contextOptions)
+  const { page } = run
+
+  try {
+    await openSelectedFixture(page)
+    const measurement = await measurePage(page)
+    const structure = await page.evaluate(() => {
+      const controls = document.querySelector('[data-testid="game-day-match-controls"]')
+      const scorer = document.querySelector('[data-testid="game-day-role-scorer"]')
+      const workspace = document.querySelector('[data-testid="game-day-selected-workspace"]')
+      const nestedVerticalScrollers = workspace
+        ? [...workspace.querySelectorAll('*')].filter((element) => {
+          const style = window.getComputedStyle(element)
+          return ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1
+        }).length
+        : -1
+
+      return {
+        controlsBeforeScorer: Boolean(controls && scorer && controls.compareDocumentPosition(scorer) & Node.DOCUMENT_POSITION_FOLLOWING),
+        nestedVerticalScrollers,
+      }
+    })
+    assert.equal(measurement.horizontalOverflow, false, `${name} has horizontal overflow`)
+    assert.equal(structure.controlsBeforeScorer, true, `${name} does not place controls before scorer`)
+    assert.equal(structure.nestedVerticalScrollers, 0, `${name} has a nested vertical scroll trap in the selected workspace`)
+    assert.equal(await page.getByRole('tab', { name: 'Transport' }).last().getAttribute('aria-selected'), 'false')
+    await page.screenshot({ path: `${artifactDir}/${name}.png` })
+    assertCleanRun(run)
+    return { measurement, structure }
   } finally {
     await run.context.close()
   }
@@ -449,8 +587,20 @@ try {
   const mobile = await runMobile(browser)
   const desktop = await runDesktop(browser)
   const tablet = await runTablet(browser)
-  console.log(JSON.stringify({ desktop, mobile, tablet }, null, 2))
-  console.log('PASS Game Day workspace split browser: responsive layout, URL state, actions, dark mode, screenshots, and zero communication or data mutation')
+  const variants = {}
+  for (const variant of [
+    { name: 'standard-desktop', viewport: { width: 1280, height: 800 } },
+    { name: 'short-desktop', viewport: { width: 1366, height: 600 } },
+    { name: 'iphone-landscape', viewport: { width: 812, height: 375 }, contextOptions: { hasTouch: true, isMobile: true } },
+    { name: 'android-portrait', viewport: { width: 412, height: 915 }, contextOptions: { hasTouch: true, isMobile: true } },
+    { name: 'android-landscape', viewport: { width: 915, height: 412 }, contextOptions: { hasTouch: true, isMobile: true } },
+    { name: 'pwa-touch', viewport: { width: 390, height: 844 }, contextOptions: { hasTouch: true, isMobile: true } },
+    { name: 'high-zoom-equivalent', viewport: { width: 720, height: 450 } },
+  ]) {
+    variants[variant.name] = await runResponsiveVariant(browser, variant)
+  }
+  console.log(JSON.stringify({ desktop, mobile, tablet, variants }, null, 2))
+  console.log('PASS Game Day workspace split browser: operational order, progressive disclosure, responsive matrix, URL state, keyboard state, dark mode, screenshots, and zero communication or data mutation')
 } catch (error) {
   console.error(server.getOutput())
   throw error

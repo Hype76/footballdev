@@ -151,7 +151,7 @@ test('02A clients use transactional RPCs and live staff polling refreshes full d
   assert.match(domain, /supabase\.rpc\('get_parent_scorer_game_mode_match_ids'/)
   assert.doesNotMatch(domain, /\.from\('match_day_events'\)[\s\S]{0,180}\.insert\(/)
   assert.match(page, /MATCH_DAY_LIVE_DETAIL_STATUSES/)
-  assert.match(page, /Promise\.allSettled\([\s\S]*getMatchDay\(\{ user, matchDayId: match\.id \}\)/)
+  assert.match(page, /Promise\.allSettled\([\s\S]*getMatchDay\(\{ user, matchDayId: match\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/)
   assert.match(page, /refreshedDetailsById/)
 })
 

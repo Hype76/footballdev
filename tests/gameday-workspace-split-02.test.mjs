@@ -13,14 +13,15 @@ const tabsUrl = new URL('../src/components/match-day/MatchDayWorkspaceTabs.jsx',
 
 test('workspace sections normalize invalid and missing deep links safely', () => {
   assert.deepEqual(MATCH_DAY_WORKSPACE_SECTIONS.map((section) => section.id), [
-    'overview',
-    'squad',
     'roles',
+    'squad',
+    'overview',
     'timeline',
+    'transport',
   ])
   assert.equal(normalizeMatchDayWorkspaceSection('roles'), 'roles')
-  assert.equal(normalizeMatchDayWorkspaceSection('unknown'), 'overview')
-  assert.equal(normalizeMatchDayWorkspaceSection(), 'overview')
+  assert.equal(normalizeMatchDayWorkspaceSection('unknown'), 'roles')
+  assert.equal(normalizeMatchDayWorkspaceSection(), 'roles')
 })
 
 test('Game Day uses compact fixture navigation and one selected detail workspace', async () => {
@@ -62,8 +63,25 @@ test('selected fixture sections and URL state preserve direct access on refresh'
   assert.match(page, /workspaceSection === 'squad'/)
   assert.match(page, /workspaceSection === 'roles'/)
   assert.match(page, /workspaceSection === 'timeline'/)
+  assert.match(page, /workspaceSection === 'transport'/)
   assert.match(tabs, /role="tablist"/)
   assert.match(tabs, /aria-selected=\{isActive\}/)
+})
+
+test('mobile Game Day prioritizes scorer, compact availability groups, lift context, and transport last', async () => {
+  const page = await readFile(pageUrl, 'utf8')
+
+  assert.match(page, /data-testid="game-day-match-controls"/)
+  assert.match(page, /data-testid="game-day-roles-section"/)
+  assert.match(page, /aria-label="Scorer and Match roles"/)
+  assert.match(page, /const volunteerRoleConfigs = \[[\s\S]*key: 'scorer'[\s\S]*key: 'referee'[\s\S]*key: 'linesman'/)
+  assert.match(page, /function getAvailabilityDisclosureGroups/)
+  assert.match(page, /aria-expanded=\{isGroupExpanded\}/)
+  assert.match(page, /aria-controls=\{groupPanelId\}/)
+  assert.match(page, /disabled=\{group\.rows\.length === 0\}/)
+  assert.match(page, /data-testid="game-day-availability-section"/)
+  assert.match(page, /Lift coordination snapshot/)
+  assert.match(page, /data-testid="game-day-transport-section"/)
 })
 
 test('selected workspace retains core fixture and match operations', async () => {
