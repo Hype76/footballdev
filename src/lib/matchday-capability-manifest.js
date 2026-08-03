@@ -123,6 +123,57 @@ export const MATCH_DAY_LIVE_EVENT_ACTIONS = Object.freeze([
   }),
 ])
 
+export const MATCH_DAY_CANONICAL_EXPERIENCE_MANIFEST = Object.freeze({
+  componentKeys: Object.freeze([
+    'fixture_identity',
+    'score',
+    'timer',
+    'period',
+    'match_controls',
+    'player_selection',
+    'live_event_actions',
+    'timeline',
+    'notes',
+    'scorer_and_roles',
+    'availability',
+    'transport',
+    'responsive_fixture_list',
+    'confirmations',
+    'corrections',
+  ]),
+  matchStates: Object.freeze([
+    'not_started',
+    'playing',
+    'paused',
+    'half_time',
+    'second_half',
+    'full_time',
+    'concluded',
+  ]),
+  actionKeys: Object.freeze(MATCH_DAY_LIVE_EVENT_ACTIONS.map((action) => action.key)),
+  timelineEventTypes: Object.freeze(MATCH_DAY_LIVE_EVENT_ACTIONS.map((action) => action.eventType)),
+  confirmationKeys: Object.freeze([
+    'start_match',
+    'match_state_change',
+    'goal',
+    'yellow_card',
+    'red_card',
+    'substitution',
+    'water_break',
+    'goal_correction',
+    'undo_event',
+  ]),
+  accessibilityNames: Object.freeze({
+    gameMode: 'Game Mode',
+    matchEventDialog: 'Add match event',
+    startMatchDialog: 'Start this match?',
+    timeline: 'Match timeline',
+  }),
+  desktop: true,
+  mobile: true,
+  pwa: true,
+})
+
 const CURRENT_PAGE = 'src/pages/MatchDayPage.jsx'
 const DOMAIN = 'src/lib/domain/match-day.js'
 const TIMER_RPC = 'set_match_day_timer_state'

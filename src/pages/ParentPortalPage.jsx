@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
-import { PracticeMatchEntryCard, PracticeMatchScoring } from '../components/match-day/PracticeMatchScoring.jsx'
+import { DemoGameDayEntryCard } from '../components/match-day/DemoGameDayEntryCard.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import {
   ParentPortalRouteShell,
@@ -12,6 +12,7 @@ import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
+import { MatchDayPage } from './MatchDayPage.jsx'
 import { buildMainAppUrl } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import { recordAnalyticsEvent } from '../lib/domain/platform-analytics.js'
@@ -106,6 +107,7 @@ const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'development', 'resources', 'settings'])
+const PARENT_DEMO_GAME_DAY_OPEN_KEY = 'footballplayer.online:parent-demo-game-day:open:v1'
 const parentSettingsAreas = [
   { id: 'account', label: 'Account' },
   { id: 'security', label: 'Security' },
@@ -493,30 +495,50 @@ function orderPlayersWithRecentScorers(players, match) {
   })
 }
 
-export function ParentPortalPage() {
-  const { authUser, session } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const practiceParentIdentity = String(authUser?.id || session?.user?.id || '').trim()
-  const isPracticeMatchOpen = searchParams.get('practice') === 'match-scoring' && Boolean(practiceParentIdentity)
+export function ParentPortalPage({ demoGameDay = false } = {}) {
+  const { authUser, session, user } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const practiceParentIdentity = String(authUser?.id || session?.user?.id || user?.id || user?.email || 'parent-demo-session').trim()
+  const [isDemoGameDayOpen, setIsDemoGameDayOpen] = useState(() => (
+    demoGameDay
+    || searchParams.get('practice') === 'match-scoring'
+    || window.sessionStorage.getItem(PARENT_DEMO_GAME_DAY_OPEN_KEY) === 'true'
+  ))
+  const isPracticeMatchOpen = isDemoGameDayOpen && Boolean(practiceParentIdentity)
+
+  useEffect(() => {
+    const closeDemoForHistoryNavigation = () => {
+      window.sessionStorage.removeItem(PARENT_DEMO_GAME_DAY_OPEN_KEY)
+      setIsDemoGameDayOpen(false)
+    }
+    window.addEventListener('popstate', closeDemoForHistoryNavigation)
+    return () => window.removeEventListener('popstate', closeDemoForHistoryNavigation)
+  }, [])
 
   if (isPracticeMatchOpen) {
     return (
-      <PracticeMatchScoring
+      <MatchDayPage
+        demoStorageScope={practiceParentIdentity}
+        experienceMode="demo"
         key={practiceParentIdentity}
         onExit={() => {
-          const nextParams = new URLSearchParams(searchParams)
-          nextParams.delete('practice')
-          setSearchParams(nextParams)
+          window.sessionStorage.removeItem(PARENT_DEMO_GAME_DAY_OPEN_KEY)
+          setIsDemoGameDayOpen(false)
+          navigate('/parent-portal')
         }}
-        parentIdentity={practiceParentIdentity}
       />
     )
   }
 
-  return <ParentPortalExperience />
+  return <ParentPortalExperience onOpenDemoGameDay={() => {
+    window.sessionStorage.setItem(PARENT_DEMO_GAME_DAY_OPEN_KEY, 'true')
+    setIsDemoGameDayOpen(true)
+    navigate('/parent-portal?practice=match-scoring')
+  }} />
 }
 
-function ParentPortalExperience() {
+function ParentPortalExperience({ onOpenDemoGameDay }) {
   const { authUser, resetPassword, session, signOut, user } = useAuth()
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1470,6 +1492,10 @@ function ParentPortalExperience() {
     openParentMatchActionModal({ type: 'voidShootoutKick', match, kickId })
   }
 
+  const handleOpenPracticeMatch = () => {
+    onOpenDemoGameDay()
+  }
+
   const handleCorrectGoal = (match, goalEvent) => {
     if (!selectedLink?.id || !match.isScorer) {
       return
@@ -1477,12 +1503,6 @@ function ParentPortalExperience() {
 
     setGoalCorrectionForm(getGoalCorrectionFormFromEvent(goalEvent))
     openParentMatchActionModal({ type: 'correctGoal', match, goalEvent })
-  }
-
-  const handleOpenPracticeMatch = () => {
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.set('practice', 'match-scoring')
-    setSearchParams(nextParams)
   }
 
   const handleParentMatchActionConfirm = async () => {
@@ -1567,7 +1587,7 @@ function ParentPortalExperience() {
       ) : null}
 
       {activeSection === 'overview' ? (
-        <PracticeMatchEntryCard
+        <DemoGameDayEntryCard
           hasTodayMatch={todayMatches.length > 0}
           onOpen={handleOpenPracticeMatch}
         />

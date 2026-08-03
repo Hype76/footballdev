@@ -24,40 +24,46 @@ import {
   resolveMatchDayVolunteerRequestMessages,
 } from '../lib/email-templates.js'
 import {
-  addStaffMatchDayEvent,
-  addStaffMatchDayGoal,
+  addStaffMatchDayEvent as liveAddStaffMatchDayEvent,
+  addStaffMatchDayGoal as liveAddStaffMatchDayGoal,
   calculateArrivalTime,
-  correctStaffMatchDayGoal,
-  createMatchDay,
-  createMatchDayEventLogEntry,
-  deletePreviousMatchDay,
+  correctStaffMatchDayGoal as liveCorrectStaffMatchDayGoal,
+  createMatchDay as liveCreateMatchDay,
+  createMatchDayEventLogEntry as liveCreateMatchDayEventLogEntry,
+  deletePreviousMatchDay as liveDeletePreviousMatchDay,
   getTodayMatchDayDateValue,
-  getMatchDay,
-  getMatchDays,
-  getMatchLocations,
-  getParentEmailTemplates,
-  getPlayers,
-  getTeams,
+  getMatchDay as liveGetMatchDay,
+  getMatchDays as liveGetMatchDays,
+  getMatchLocations as liveGetMatchLocations,
+  getParentEmailTemplates as liveGetParentEmailTemplates,
+  getPlayers as liveGetPlayers,
+  getTeams as liveGetTeams,
   isPastMatchDayDateTime,
   MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_ARRIVAL_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
-  resetPreviousMatchDayResults,
-  recordMatchDayShootoutKick,
-  saveMatchDayFinalReport,
-  selectMatchDayVolunteer,
-  setMatchDayPlayerSquadDecision,
-  setMatchDayExtendedState,
-  setMatchDayTimerState,
+  resetPreviousMatchDayResults as liveResetPreviousMatchDayResults,
+  recordMatchDayShootoutKick as liveRecordMatchDayShootoutKick,
+  saveMatchDayFinalReport as liveSaveMatchDayFinalReport,
+  selectMatchDayVolunteer as liveSelectMatchDayVolunteer,
+  setMatchDayPlayerSquadDecision as liveSetMatchDayPlayerSquadDecision,
+  setMatchDayExtendedState as liveSetMatchDayExtendedState,
+  setMatchDayTimerState as liveSetMatchDayTimerState,
   sortMatchDayPresentation,
-  startMatchDay,
-  updateMatchDay,
-  updateStaffMatchDayScore,
-  voidMatchDayShootoutKick,
-  voidStaffMatchDayEvent,
+  startMatchDay as liveStartMatchDay,
+  updateMatchDay as liveUpdateMatchDay,
+  updateStaffMatchDayScore as liveUpdateStaffMatchDayScore,
+  voidMatchDayShootoutKick as liveVoidMatchDayShootoutKick,
+  voidStaffMatchDayEvent as liveVoidStaffMatchDayEvent,
   withRequestTimeout,
 } from '../lib/supabase.js'
+import {
+  DEMO_MATCH_DAY_CLUB_ID,
+  DEMO_MATCH_DAY_TEAM_ID,
+} from '../lib/demo-matchday-adapter.js'
+import { DEMO_EMAIL } from '../lib/demo.js'
+import { createMatchDayExperienceAdapter } from '../lib/matchday-experience-adapter.js'
 import {
   consumeFixtureSetupIntent,
   FIXTURE_SETUP_EVENT,
@@ -131,6 +137,52 @@ import {
   matchUsesExtraTime,
 } from '../lib/matchday-extended-ops.js'
 import { MATCH_DAY_LIVE_EVENT_ACTIONS } from '../lib/matchday-capability-manifest.js'
+
+const LIVE_MATCH_DAY_ADAPTER = Object.freeze({
+  addStaffMatchDayEvent: liveAddStaffMatchDayEvent,
+  addStaffMatchDayGoal: liveAddStaffMatchDayGoal,
+  correctStaffMatchDayGoal: liveCorrectStaffMatchDayGoal,
+  createMatchDay: liveCreateMatchDay,
+  createMatchDayEventLogEntry: liveCreateMatchDayEventLogEntry,
+  deletePreviousMatchDay: liveDeletePreviousMatchDay,
+  getMatchDay: liveGetMatchDay,
+  getMatchDays: liveGetMatchDays,
+  getMatchLocations: liveGetMatchLocations,
+  getParentEmailTemplates: liveGetParentEmailTemplates,
+  getPlayers: liveGetPlayers,
+  getTeams: liveGetTeams,
+  recordMatchDayShootoutKick: liveRecordMatchDayShootoutKick,
+  resetPreviousMatchDayResults: liveResetPreviousMatchDayResults,
+  saveMatchDayFinalReport: liveSaveMatchDayFinalReport,
+  selectMatchDayVolunteer: liveSelectMatchDayVolunteer,
+  setMatchDayExtendedState: liveSetMatchDayExtendedState,
+  setMatchDayPlayerSquadDecision: liveSetMatchDayPlayerSquadDecision,
+  setMatchDayTimerState: liveSetMatchDayTimerState,
+  startMatchDay: liveStartMatchDay,
+  updateMatchDay: liveUpdateMatchDay,
+  updateStaffMatchDayScore: liveUpdateStaffMatchDayScore,
+  voidMatchDayShootoutKick: liveVoidMatchDayShootoutKick,
+  voidStaffMatchDayEvent: liveVoidStaffMatchDayEvent,
+})
+
+function createDemoExperienceUser(user = {}) {
+  return {
+    ...user,
+    id: user.id || 'demo-gameday-user',
+    email: DEMO_EMAIL,
+    clubId: DEMO_MATCH_DAY_CLUB_ID,
+    clubName: 'Demo Academy',
+    activeTeamId: DEMO_MATCH_DAY_TEAM_ID,
+    activeTeamName: 'Demo Academy U16',
+    role: 'manager',
+    roleLabel: 'Manager',
+    roleRank: 50,
+    planKey: 'pilot',
+    planStatus: 'active',
+    isPlanComped: true,
+    isDemoAccount: true,
+  }
+}
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -1607,6 +1659,7 @@ function getAvailabilityDisclosureGroups(match, rows = []) {
 }
 
 async function logFixtureAvailabilityRecipientEvents({
+  createEventLogEntry,
   match,
   players,
   selectedPlayerIds,
@@ -1625,7 +1678,7 @@ async function logFixtureAvailabilityRecipientEvents({
   }))
 
   for (const logEvent of logEvents) {
-    await createMatchDayEventLogEntry({
+    await createEventLogEntry({
       user,
       match,
       eventType: logEvent.eventType,
@@ -1978,8 +2031,45 @@ function mergeMatchDaySummaries(currentMatches = [], nextSummaries = []) {
   })
 }
 
-export function MatchDayPage() {
-  const { session, user } = useAuth()
+export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExit = null } = {}) {
+  const { session, user: authenticatedUser } = useAuth()
+  const user = useMemo(
+    () => experienceMode === 'demo' ? createDemoExperienceUser(authenticatedUser) : authenticatedUser,
+    [authenticatedUser, experienceMode],
+  )
+  const matchDayExperience = useMemo(
+    () => createMatchDayExperienceAdapter({ demoScope: demoStorageScope, user, live: LIVE_MATCH_DAY_ADAPTER }),
+    [demoStorageScope, user],
+  )
+  const {
+    addStaffMatchDayEvent,
+    addStaffMatchDayGoal,
+    correctStaffMatchDayGoal,
+    createMatchDay,
+    createMatchDayEventLogEntry,
+    deletePreviousMatchDay,
+    getMatchDay,
+    getMatchDays,
+    getMatchLocations,
+    getParentEmailTemplates,
+    getPlayers,
+    getTeams,
+    recordMatchDayShootoutKick,
+    reset: resetDemoMatchDay,
+    resetPreviousMatchDayResults,
+    saveMatchDayFinalReport,
+    selectMatchDayVolunteer,
+    setMatchDayExtendedState,
+    setMatchDayPlayerSquadDecision,
+    setMatchDayTimerState,
+    startMatchDay,
+    updateMatchDay,
+    updateStaffMatchDayScore,
+    voidMatchDayShootoutKick,
+    voidStaffMatchDayEvent,
+  } = matchDayExperience
+  const isDemoExperience = matchDayExperience.mode === 'demo'
+  const allowsCommunication = matchDayExperience.allowsCommunication === true
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -2023,6 +2113,7 @@ export function MatchDayPage() {
   const [undoEventError, setUndoEventError] = useState('')
   const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
   const [selectedLocationId, setSelectedLocationId] = useState('')
+  const [isDemoResetPromptOpen, setIsDemoResetPromptOpen] = useState(false)
   const liveRefreshStateRef = useRef({ inFlight: false, scopeKey: '' })
   const deepLinkHydrationRef = useRef('')
   const liveClockNow = useServerSyncedClock({
@@ -2078,9 +2169,11 @@ export function MatchDayPage() {
         .sort((left, right) => String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))),
     [players],
   )
-  const selectedFixtureTeamId = form.teamId || user.activeTeamId || ''
+  const selectedFixtureTeamId = isDemoExperience ? DEMO_MATCH_DAY_TEAM_ID : form.teamId || user.activeTeamId || ''
   const isTeamScopedFixture = Boolean(user.activeTeamId) || Number(user.roleRank ?? 0) < 50
-  const selectedFixtureTeamName = user.activeTeamName || teams.find((team) => String(team.id) === String(selectedFixtureTeamId))?.name || ''
+  const selectedFixtureTeamName = isDemoExperience
+    ? teams.find((team) => String(team.id) === DEMO_MATCH_DAY_TEAM_ID)?.name || 'Demo Academy U16'
+    : user.activeTeamName || teams.find((team) => String(team.id) === String(selectedFixtureTeamId))?.name || ''
   const fixturePlayers = useMemo(
     () =>
       squadPlayers.filter((player) => {
@@ -2247,7 +2340,7 @@ export function MatchDayPage() {
     return () => {
       isMounted = false
     }
-  }, [session?.access_token, user])
+  }, [getMatchDay, getMatchDays, getMatchLocations, getPlayers, getTeams, session?.access_token, user])
 
   useEffect(() => {
     let isCurrent = true
@@ -2294,13 +2387,13 @@ export function MatchDayPage() {
     return () => {
       isCurrent = false
     }
-  }, [matches, requestedFixtureId, requestedWorkspaceSection, session?.access_token, user])
+  }, [getMatchDay, matches, requestedFixtureId, requestedWorkspaceSection, session?.access_token, user])
 
   useEffect(() => {
     let isCurrent = true
     const scopeKey = `${user.clubId || ''}:${user.activeTeamId || ''}`
 
-    if (isLoading || !canManageMatchDay(user)) {
+    if (isDemoExperience || isLoading || !canManageMatchDay(user)) {
       return undefined
     }
 
@@ -2363,7 +2456,7 @@ export function MatchDayPage() {
       isCurrent = false
       window.clearInterval(intervalId)
     }
-  }, [isLoading, session?.access_token, user])
+  }, [getMatchDay, getMatchDays, isDemoExperience, isLoading, session?.access_token, user])
 
   if (!canManageMatchDay(user)) {
     return <Navigate to="/" replace />
@@ -2423,6 +2516,38 @@ export function MatchDayPage() {
     nextParams.delete('section')
     setGameModeMatchId('')
     setSearchParams(nextParams)
+  }
+
+  const handleDemoReset = async () => {
+    if (!isDemoExperience) return
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const resetMatches = await resetDemoMatchDay()
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('fixture')
+      nextParams.delete('section')
+      setMatches(resetMatches)
+      setGameModeMatchId('')
+      setExpandedMatchId('')
+      setWorkspaceSection('roles')
+      setGoalForms({})
+      setMatchEventForms({})
+      setScoreDrafts({})
+      setPendingMatchAction(null)
+      setPendingStatusAction(null)
+      setLiveEntryModal(null)
+      setIsDemoResetPromptOpen(false)
+      setSearchParams(nextParams)
+      showToast({ title: 'Demo Game Day reset', message: 'The synthetic fixture, score, timer, Players, and timeline are back at the starting state.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Demo Game Day could not be reset.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleWorkspaceSectionChange = (section) => {
@@ -2590,6 +2715,7 @@ export function MatchDayPage() {
 
       setMatches(reconcileCreatedMatch)
       await logFixtureAvailabilityRecipientEvents({
+        createEventLogEntry: createMatchDayEventLogEntry,
         match: createdMatch,
         players: fixturePlayers,
         selectedPlayerIds,
@@ -2603,7 +2729,7 @@ export function MatchDayPage() {
       const canSendAvailabilityRequests = shouldSendMatchdayAvailabilityRequests({
         parentVisible: form.parentVisible,
         runtime: communicationRuntime,
-      })
+      }) && allowsCommunication
       let result = {
         missingContactCount: 0,
         sentCount: 0,
@@ -2629,7 +2755,7 @@ export function MatchDayPage() {
         }
       }
 
-      if (shouldSendMatchdayPushNotification({
+      if (allowsCommunication && shouldSendMatchdayPushNotification({
         parentVisible: form.parentVisible,
         runtime: communicationRuntime,
       })) {
@@ -2730,7 +2856,7 @@ export function MatchDayPage() {
 
     try {
       const savedMatch = await saveTimerAction({ user, match, action })
-      if (pushType) {
+      if (allowsCommunication && pushType) {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
           type: pushType,
@@ -2801,7 +2927,7 @@ export function MatchDayPage() {
 
     try {
       const savedMatch = await updateMatchDay({ user, matchId: match.id, updates: { status } })
-      if (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time') {
+      if (allowsCommunication && (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time')) {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
           type: status,
@@ -3360,11 +3486,13 @@ export function MatchDayPage() {
       })
 
       setMatches(reconcileSavedGoal)
-      void sendMatchDayPushNotification({
-        matchDayId: match.id,
-        type: 'goal',
-        eventId: savedEvent.id,
-      })
+      if (allowsCommunication) {
+        void sendMatchDayPushNotification({
+          matchDayId: match.id,
+          type: 'goal',
+          eventId: savedEvent.id,
+        })
+      }
       setGoalForms((currentForms) => ({
         ...currentForms,
         [match.id]: EMPTY_GOAL_FORM,
@@ -4008,7 +4136,36 @@ export function MatchDayPage() {
   )
 
   return (
-    <div className="space-y-5 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pr-16 xl:pr-20">
+    <div
+      className="space-y-5 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pr-16 xl:pr-20"
+      data-match-day-experience={matchDayExperience.mode}
+    >
+      {isDemoExperience ? (
+        <section
+          className="flex flex-col gap-3 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-3 text-[var(--text-primary)] sm:flex-row sm:items-center sm:justify-between"
+          aria-label="Demo Game Day"
+          data-testid="demo-game-day-context"
+        >
+          <div className="min-w-0">
+            <p className={eyebrowClass}>Demo Game Day</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text-muted)]">
+              Practise the live workflow with isolated synthetic data. Communication and customer mutations are blocked.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setIsDemoResetPromptOpen(true)}
+              className={secondaryButtonClass}
+            >
+              Reset Demo Game Day
+            </button>
+            {typeof onExit === 'function' ? (
+              <button type="button" onClick={onExit} className={secondaryButtonClass}>Exit Demo</button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       {!selectedMatch && !isGameModeActive ? <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10" aria-labelledby="game-day-title">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] lg:items-center">
           <div>
@@ -4235,6 +4392,18 @@ export function MatchDayPage() {
           ))}
         </div>
       </section> : null}
+
+      <ConfirmModal
+        confirmLabel="Reset Demo Game Day"
+        isBusy={isSaving}
+        isOpen={isDemoExperience && isDemoResetPromptOpen}
+        items={['Synthetic score, timer, Match state, Players, cards, substitutions, and timeline']}
+        itemsTitle="Reset scope"
+        message="Restore the known synthetic starting fixture. This does not touch customer data or send communication."
+        title="Reset Demo Game Day?"
+        onCancel={() => setIsDemoResetPromptOpen(false)}
+        onConfirm={handleDemoReset}
+      />
 
       <ConfirmModal
         confirmLabel={pendingStatusAction?.confirmLabel || 'Confirm'}
