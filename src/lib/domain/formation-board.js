@@ -11,7 +11,7 @@ export const FORMATION_BOARD_GAME_FORMATS = Object.freeze([
   { label: '11v11', playerCount: 11, value: '11v11' },
 ])
 
-export const FORMATION_BOARD_ORIENTATIONS = Object.freeze(['portrait', 'landscape'])
+export const FORMATION_BOARD_ORIENTATIONS = Object.freeze(['portrait'])
 export const FORMATION_BOARD_VISIBILITY_STATES = Object.freeze(['draft', 'shared'])
 export const FORMATION_BOARD_EXPORT_FORMATS = Object.freeze(['png', 'pdf'])
 
@@ -43,6 +43,7 @@ const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
   formation_board_shirt_number_invalid: 'Use a shirt number from 0 to 999, or leave it blank.',
   formation_board_snapshot_invalid: 'Check the Player positions and bench, then try again.',
   formation_board_snapshot_must_be_arrays: 'The saved pitch and bench data is not valid.',
+  formation_board_roster_state_invalid: 'One or more Formation Board Player states are not valid.',
   formation_board_thumbnail_invalid: 'The Formation Board preview is not valid for this saved version.',
   formation_board_thumbnail_required: 'Prepare a preview before publishing, or use the safe fallback.',
   formation_board_title_invalid: 'Enter a Formation Board title between 1 and 120 characters.',
@@ -61,6 +62,8 @@ function normalizeArray(value) {
 function normalizeFormationBoardVersion(row) {
   if (!row) return null
 
+  const roster = normalizeArray(row.bench)
+
   return {
     id: row.id ?? '',
     boardId: row.board_id ?? row.boardId ?? '',
@@ -72,13 +75,28 @@ function normalizeFormationBoardVersion(row) {
     presetRegistryVersion: Number(row.preset_registry_version ?? row.presetRegistryVersion ?? FORMATION_BOARD_REGISTRY_VERSION),
     pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
     placements: normalizeArray(row.placements),
-    bench: normalizeArray(row.bench),
+    bench: roster.filter((item) => item?.state !== 'unplaced'),
+    unplaced: roster.filter((item) => item?.state === 'unplaced'),
     notes: normalizeText(row.notes),
     createdByProfileId: row.created_by_profile_id ?? row.createdByProfileId ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
     versionReason: normalizeText(row.version_reason ?? row.versionReason),
     sourceVersionId: row.source_version_id ?? row.sourceVersionId ?? '',
   }
+}
+
+function serializeFormationBoardRoster(bench, unplaced) {
+  return [
+    ...normalizeArray(bench).map((item) => ({ ...item, state: 'bench' })),
+    ...normalizeArray(unplaced).map((item) => {
+      const player = { ...item }
+      delete player.x
+      delete player.y
+      delete player.slotId
+      delete player.positionGroup
+      return { ...player, state: 'unplaced' }
+    }),
+  ]
 }
 
 function normalizeFormationBoardPublication(row) {
@@ -216,22 +234,22 @@ export async function createFormationBoard({
   description = '',
   gameFormat,
   notes = '',
-  pitchOrientation = 'portrait',
   placements = [],
   presetKey,
   registryVersion = FORMATION_BOARD_REGISTRY_VERSION,
   teamId = '',
   title,
+  unplaced = [],
   user,
   visibility = 'draft',
 } = {}) {
   await prepareFormationBoardMutation(user)
   const data = await callFormationBoardRpc('create_formation_board', {
-    bench_value: bench,
+    bench_value: serializeFormationBoardRoster(bench, unplaced),
     description_value: description,
     game_format_value: gameFormat,
     notes_value: notes,
-    pitch_orientation_value: pitchOrientation,
+    pitch_orientation_value: 'portrait',
     placements_value: placements,
     preset_key_value: presetKey,
     registry_version_value: registryVersion,
@@ -249,21 +267,21 @@ export async function saveFormationBoardVersion({
   expectedVersionNumber,
   gameFormat,
   notes = '',
-  pitchOrientation = 'portrait',
   placements = [],
   presetKey,
   registryVersion = FORMATION_BOARD_REGISTRY_VERSION,
   user,
+  unplaced = [],
   versionReason = 'save',
   visibility = null,
 } = {}) {
   await prepareFormationBoardMutation(user)
   const data = await callFormationBoardRpc('save_formation_board_version', {
-    bench_value: bench,
+    bench_value: serializeFormationBoardRoster(bench, unplaced),
     expected_version_number: expectedVersionNumber,
     game_format_value: gameFormat,
     notes_value: notes,
-    pitch_orientation_value: pitchOrientation,
+    pitch_orientation_value: 'portrait',
     placements_value: placements,
     preset_key_value: presetKey,
     registry_version_value: registryVersion,
@@ -282,23 +300,23 @@ export async function saveFormationBoardEditor({
   expectedVersionNumber,
   gameFormat,
   notes = '',
-  pitchOrientation = 'portrait',
   placements = [],
   presetKey,
   registryVersion = FORMATION_BOARD_REGISTRY_VERSION,
   title,
+  unplaced = [],
   user,
   versionReason = 'editor_save',
   visibility,
 } = {}) {
   await prepareFormationBoardMutation(user)
   const data = await callFormationBoardRpc('save_formation_board_editor', {
-    bench_value: bench,
+    bench_value: serializeFormationBoardRoster(bench, unplaced),
     description_value: description,
     expected_version_number: expectedVersionNumber,
     game_format_value: gameFormat,
     notes_value: notes,
-    pitch_orientation_value: pitchOrientation,
+    pitch_orientation_value: 'portrait',
     placements_value: placements,
     preset_key_value: presetKey,
     registry_version_value: registryVersion,

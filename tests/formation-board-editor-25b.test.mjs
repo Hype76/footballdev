@@ -9,12 +9,16 @@ import {
   canUseFormationBoards,
 } from '../src/lib/auth-permissions.js'
 import {
+  addPlayersToUnplaced,
   applyFormationPreset,
   assignPlayerToPitch,
   benchFormationPlayer,
   createEditorSnapshot,
   createFormationBoardDraftKey,
   moveFormationPlayer,
+  movePitchPlayerToUnplaced,
+  moveUnplacedPlayerToBench,
+  moveUnplacedPlayerToPitch,
   parseFormationDraft,
   replaceFormationPlayer,
   serializeFormationDraft,
@@ -116,7 +120,7 @@ test('assignment, duplicate prevention, movement, number change, replacement, an
   assert.equal(benched.bench[0].playerId, playerTwo.id)
 })
 
-test('formation changes preserve goalkeeper mapping and bench every unmatched Player', () => {
+test('formation changes preserve goalkeeper mapping and move every unmatched Player to Unplaced', () => {
   const elevenPlayers = Array.from({ length: 11 }, (_, index) => ({
     displayName: `Player ${index + 1}`,
     playerId: `player-${index + 1}`,
@@ -129,10 +133,29 @@ test('formation changes preserve goalkeeper mapping and bench every unmatched Pl
   const changed = applyFormationPreset({ ...emptySnapshot(), placements: elevenPlayers }, sevenPreset)
 
   assert.equal(changed.placements.length, 7)
-  assert.equal(changed.bench.length, 4)
+  assert.equal(changed.bench.length, 0)
+  assert.equal(changed.unplaced.length, 4)
   assert.equal(changed.placements[0].playerId, 'player-1')
   assert.equal(changed.placements[0].slotId, 'gk')
-  assert.equal(new Set([...changed.placements, ...changed.bench].map((item) => item.playerId)).size, 11)
+  assert.equal(new Set([...changed.placements, ...changed.bench, ...changed.unplaced].map((item) => item.playerId)).size, 11)
+})
+
+test('Unplaced Player transitions are atomic, unique, and preserve displayed numbers', () => {
+  const playerOne = { id: 'player-1', playerName: 'Alex One', shirtNumber: '7' }
+  const playerTwo = { id: 'player-2', playerName: 'Casey Two', shirtNumber: '9' }
+  const added = addPlayersToUnplaced(emptySnapshot(), [playerOne, playerTwo, playerOne])
+  const pitched = moveUnplacedPlayerToPitch(added, playerOne.id, { x: 0.25, y: 0.75 })
+  const returned = movePitchPlayerToUnplaced(pitched, playerOne.id)
+  const benched = moveUnplacedPlayerToBench(returned, playerOne.id)
+
+  assert.equal(added.unplaced.length, 2)
+  assert.equal(pitched.unplaced.length, 1)
+  assert.equal(pitched.placements[0].shirtNumber, '7')
+  assert.equal(returned.unplaced.length, 2)
+  assert.equal(returned.placements.length, 0)
+  assert.equal(benched.bench[0].playerId, playerOne.id)
+  assert.equal(benched.bench[0].shirtNumber, '7')
+  assert.equal(new Set([...benched.placements, ...benched.unplaced, ...benched.bench].map((item) => item.playerId)).size, 2)
 })
 
 test('local drafts are scoped and reject invalid payloads', () => {

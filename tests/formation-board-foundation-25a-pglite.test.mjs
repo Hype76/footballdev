@@ -13,6 +13,7 @@ const conflictErrorCodeMigrationUrl = new URL('../supabase/migrations/2026080216
 const publishExportMigrationUrl = new URL('../supabase/migrations/20260802170000_formation_board_publish_export_25c.sql', import.meta.url)
 const resourceMimeMigrationUrl = new URL('../supabase/migrations/20260802173000_formation_board_resource_mime_25c.sql', import.meta.url)
 const thumbnailAccessMigrationUrl = new URL('../supabase/migrations/20260802174500_formation_board_thumbnail_access_25c.sql', import.meta.url)
+const mobileSelectionPortraitMigrationUrl = new URL('../supabase/migrations/20260803045754_formation_board_mobile_selection_portrait_27.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -254,6 +255,8 @@ before(async () => {
   `)
   const thumbnailAccessMigration = await readFile(thumbnailAccessMigrationUrl, 'utf8')
   await db.exec(thumbnailAccessMigration)
+  const mobileSelectionPortraitMigration = await readFile(mobileSelectionPortraitMigrationUrl, 'utf8')
+  await db.exec(mobileSelectionPortraitMigration)
 
   await db.exec(`
     insert into public.clubs (id, name) values
@@ -418,6 +421,45 @@ test('snapshot validation rejects duplicate Players, bad coordinates, bad preset
   )
 })
 
+test('Unplaced roster state persists, remains unique, and rejects unsupported states', async () => {
+  await setActor(IDS.manager)
+  const roster = [
+    { playerId: IDS.playerA1, displayedShirtNumber: '17', state: 'unplaced' },
+    { playerId: IDS.playerA2, displayedShirtNumber: '19', state: 'bench' },
+  ]
+  const created = await rpc(
+    'public.create_formation_board($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)',
+    [IDS.teamA, 'Unplaced state', '', '5v5', '5v5-custom', 'landscape', '[]', JSON.stringify(roster), '', 'draft', 1],
+  )
+
+  assert.equal(created.rows[0].result.currentVersion.pitch_orientation, 'portrait')
+  assert.deepEqual(created.rows[0].result.currentVersion.bench.map((item) => item.state), ['unplaced', 'bench'])
+  assert.deepEqual(created.rows[0].result.currentVersion.bench.map((item) => item.shirtNumber), ['17', '19'])
+
+  await assert.rejects(
+    rpc(
+      'public.save_formation_board_version($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11)',
+      [created.rows[0].result.board.id, 1, '5v5', '5v5-custom', 'portrait', '[]', JSON.stringify([{ playerId: IDS.playerA1, state: 'reserve' }]), '', 'draft', 'invalid state', 1],
+    ),
+    /formation_board_roster_state_invalid/,
+  )
+
+  await assert.rejects(
+    rpc(
+      'public.save_formation_board_version($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11)',
+      [created.rows[0].result.board.id, 1, '5v5', '5v5-custom', 'portrait', JSON.stringify([placement(IDS.playerA1, 0.5, 0.5)]), JSON.stringify([{ playerId: IDS.playerA1, state: 'unplaced' }]), '', 'draft', 'duplicate state', 1],
+    ),
+    /formation_board_player_duplicate/,
+  )
+
+  const duplicated = await rpc('public.duplicate_formation_board($1, $2)', [created.rows[0].result.board.id, 'Unplaced state copy'])
+  assert.equal(duplicated.rows[0].result.currentVersion.pitch_orientation, 'portrait')
+  assert.deepEqual(duplicated.rows[0].result.currentVersion.bench.map((item) => item.state), ['unplaced', 'bench'])
+
+  await rpc('public.delete_formation_board($1, $2)', [duplicated.rows[0].result.board.id, 'Unplaced state copy'])
+  await rpc('public.delete_formation_board($1, $2)', [created.rows[0].result.board.id, 'Unplaced state'])
+})
+
 test('save creates immutable versions and optimistic conflicts fail visibly', async () => {
   await setActor(IDS.manager)
   const saved = await rpc(
@@ -427,6 +469,8 @@ test('save creates immutable versions and optimistic conflicts fail visibly', as
   assert.equal(saved.rows[0].result.board.current_version_number, 2)
   assert.equal(saved.rows[0].result.currentVersion.placements[0].shirtNumber, '17')
   assert.equal(saved.rows[0].result.currentVersion.placements[0].displayName, 'Alex')
+  assert.equal(saved.rows[0].result.currentVersion.pitch_orientation, 'portrait')
+  assert.match(saved.rows[0].result.currentVersion.version_reason, /portrait adaptation/)
 
   await assert.rejects(
     rpc(
@@ -518,6 +562,7 @@ test('duplicate, archive, restore, and restore version preserve immutable histor
   const duplicate = await rpc('public.duplicate_formation_board($1, $2)', [sharedBoard.board.id, 'Coach copy'])
   const duplicateId = duplicate.rows[0].result.board.id
   assert.equal(duplicate.rows[0].result.board.current_version_number, 1)
+  assert.equal(duplicate.rows[0].result.currentVersion.pitch_orientation, 'portrait')
 
   const archived = await rpc('public.archive_formation_board($1)', [duplicateId])
   assert.ok(archived.rows[0].result.board.archived_at)

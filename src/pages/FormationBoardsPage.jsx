@@ -13,22 +13,30 @@ import {
   useAuth,
 } from '../lib/auth.js'
 import {
+  addPlayersToUnplaced,
   applyFormationPreset,
-  assignPlayerToPitch,
   benchFormationPlayer,
   createEditorSnapshot,
   createFormationBoardDraftKey,
   createNewEditorSnapshot,
+  getFormationPlayerState,
   moveBenchPlayerToPitch,
+  moveBenchPlayerToUnplaced,
   moveFormationPlayer,
+  movePitchPlayerToUnplaced,
+  moveUnplacedPlayerToBench,
+  moveUnplacedPlayerToPitch,
   parseFormationDraft,
   pushFormationHistory,
   removeFormationPlayer,
-  replaceFormationPlayer,
   serializeFormationDraft,
   snapshotsMatch,
   updateFormationPlayerNumber,
 } from '../lib/formation-board-editor.js'
+import {
+  adaptFormationVersionToPortrait,
+  getFormationBoardOrientation,
+} from '../lib/formation-board-orientation.js'
 import {
   createFormationBoardThumbnail,
   generateFormationBoardExport,
@@ -79,10 +87,11 @@ function getBoardActionFromLocation(search) {
 }
 
 function BoardThumbnail({ board }) {
-  const placements = board.currentVersion?.placements ?? []
+  const version = adaptFormationVersionToPortrait(board.currentVersion)
+  const placements = version?.placements ?? []
 
   return (
-    <div aria-label={`${board.title} formation preview`} className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border-2 border-white bg-[#237a45] shadow-inner sm:w-44">
+    <div aria-label={`${board.title} portrait formation preview`} className="relative aspect-[3/4] w-full max-w-44 overflow-hidden rounded-lg border-2 border-white bg-[#237a45] shadow-inner sm:w-36">
       <div aria-hidden="true" className="absolute inset-2 rounded-md border border-white/80">
         <div className="absolute inset-x-0 top-1/2 border-t border-white/80" />
         <div className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80" />
@@ -178,45 +187,106 @@ function FormationBoardList({ boards, canCreate, onArchive, onCreate, onDuplicat
   )
 }
 
+function UnplacedPlayersTray({ canEdit, onDragStart, onSelect, players, selectedPlayerId }) {
+  return (
+    <section className="mt-5 min-w-0 border-t border-[var(--border-color)] pt-4" aria-label="Unplaced Players">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-black">Unplaced Players</h3>
+          <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Tap a Player then tap the pitch, or drag the Player onto the pitch.</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-black" aria-label={`${players.length} unplaced Players`}>{players.length}</span>
+      </div>
+      {players.length > 0 ? (
+        <div className="max-w-full overflow-x-auto overscroll-x-contain pb-2" data-unplaced-tray="true">
+          <div className="flex w-max min-w-full gap-2 lg:w-auto lg:flex-wrap">
+            {players.map((player) => {
+              const isSelected = selectedPlayerId === player.playerId
+
+              return (
+                <button
+                  key={player.playerId}
+                  type="button"
+                  disabled={!canEdit}
+                  aria-pressed={isSelected}
+                  aria-label={`${player.displayName}, shirt ${player.shirtNumber || 'number missing'}, Unplaced`}
+                  onClick={() => onSelect(player)}
+                  onPointerDown={(event) => onDragStart(event, player, 'unplaced')}
+                  className={`flex min-h-14 min-w-36 max-w-44 touch-pan-x items-center gap-2 rounded-xl border-2 px-3 py-2 text-left shadow-sm focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-60 ${isSelected ? 'border-amber-300 bg-[#101828] text-white' : 'border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-primary)]'}`}
+                >
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-black ${isSelected ? 'border-amber-300' : 'border-[var(--border-color)] bg-[var(--panel-bg)]'}`}>{player.shirtNumber || '?'}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black" title={player.displayName}>{player.displayName}</span>
+                    <span className="block text-[0.68rem] font-bold">{isSelected ? 'Selected, Unplaced' : 'Unplaced'}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="rounded-lg bg-[var(--panel-soft)] p-3 text-sm font-semibold text-[var(--text-muted)]">No unplaced Players. Use Players to add several squad members together.</p>
+      )}
+    </section>
+  )
+}
+
 function PlayerRoster({
   canEdit,
-  onBench,
+  onAddPlayers,
   onDragStart,
+  onMoveToBench,
+  onMoveToUnplaced,
   onNumberChange,
   onRemove,
-  onSelectBench,
-  onSelectPlayer,
+  onSelectBoardPlayer,
   players,
-  selectedMarker,
+  selectedBoardPlayer,
+  selectedBoardPlayerState,
   selectedSource,
   snapshot,
 }) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState(() => new Set())
   const filteredPlayers = players.filter((player) => player.playerName.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+  const eligibleSelectedPlayers = players.filter((player) => selectedPlayerIds.has(player.id) && getFormationPlayerState(snapshot, player.id) === 'available')
+  const selectedCount = eligibleSelectedPlayers.length
+
+  const togglePlayer = (playerId) => {
+    if (!canEdit || getFormationPlayerState(snapshot, playerId) !== 'available') return
+    setSelectedPlayerIds((current) => {
+      const next = new Set(current)
+      if (next.has(playerId)) next.delete(playerId)
+      else next.add(playerId)
+      return next
+    })
+  }
 
   return (
     <div className="space-y-4">
-      {selectedMarker && canEdit ? (
+      {selectedBoardPlayer && canEdit ? (
         <section className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-[#101828]">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Selected Player</p>
-          <p className="mt-1 truncate text-sm font-black" title={selectedMarker.displayName}>{selectedMarker.displayName}</p>
+          <p className="mt-1 truncate text-sm font-black" title={selectedBoardPlayer.displayName}>{selectedBoardPlayer.displayName}</p>
+          <p className="mt-1 text-xs font-bold text-amber-900">{selectedBoardPlayerState === 'pitch' ? 'On pitch' : selectedBoardPlayerState === 'bench' ? 'Bench' : 'Unplaced'}</p>
           <label className="mt-3 block">
             <span className="mb-1 block text-xs font-black">Displayed shirt number</span>
             <input
-              value={selectedMarker.shirtNumber}
+              value={selectedBoardPlayer.shirtNumber}
               inputMode="numeric"
               maxLength={3}
               onChange={(event) => {
                 const value = event.target.value.replace(/\D/g, '').slice(0, 3)
-                onNumberChange(selectedMarker.playerId, value)
+                onNumberChange(selectedBoardPlayer.playerId, value)
               }}
               className={fieldClass}
-              aria-label={`Displayed shirt number for ${selectedMarker.displayName}`}
+              aria-label={`Displayed shirt number for ${selectedBoardPlayer.displayName}`}
             />
           </label>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => onBench(selectedMarker.playerId)} className={secondaryButtonClass}>Move to bench</button>
-            <button type="button" onClick={() => onRemove(selectedMarker.playerId)} className={dangerButtonClass}>Remove</button>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {selectedBoardPlayerState !== 'unplaced' ? <button type="button" onClick={() => onMoveToUnplaced(selectedBoardPlayer.playerId, selectedBoardPlayerState)} className={secondaryButtonClass}>Move to Unplaced</button> : null}
+            {selectedBoardPlayerState !== 'bench' ? <button type="button" onClick={() => onMoveToBench(selectedBoardPlayer.playerId, selectedBoardPlayerState)} className={secondaryButtonClass}>Move to bench</button> : null}
+            <button type="button" onClick={() => onRemove(selectedBoardPlayer.playerId)} className={dangerButtonClass}>Remove from board</button>
           </div>
         </section>
       ) : null}
@@ -229,14 +299,14 @@ function PlayerRoster({
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-black">Squad</h3>
-          <span className="text-xs font-bold text-[var(--text-muted)]">{snapshot.placements.length} placed</span>
+          <span className="text-xs font-bold text-[var(--text-muted)]" aria-live="polite">{selectedCount} selected</span>
         </div>
         <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
           {filteredPlayers.map((player) => {
-            const placement = snapshot.placements.find((item) => item.playerId === player.id)
-            const benchPlayer = snapshot.bench.find((item) => item.playerId === player.id)
-            const assignedState = placement ? 'Placed' : benchPlayer ? 'Bench' : ''
+            const playerState = getFormationPlayerState(snapshot, player.id)
+            const assignedState = playerState === 'pitch' ? 'On pitch' : playerState === 'bench' ? 'Bench' : playerState === 'unplaced' ? 'Unplaced' : ''
             const isAvailable = !assignedState
+            const isSelected = isAvailable && selectedPlayerIds.has(player.id)
             const isTrial = String(player.section).toLowerCase() === 'trial'
 
             return (
@@ -244,15 +314,14 @@ function PlayerRoster({
                 key={player.id}
                 type="button"
                 disabled={!canEdit || !isAvailable}
-                aria-pressed={selectedSource?.type === 'available' && selectedSource.playerId === player.id}
-                onClick={() => onSelectPlayer(player)}
-                onPointerDown={(event) => isAvailable && onDragStart(event, player, 'available')}
-                className={`flex min-h-12 w-full touch-pan-y items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed ${selectedSource?.type === 'available' && selectedSource.playerId === player.id ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)]'}`}
+                aria-pressed={isSelected}
+                onClick={() => togglePlayer(player.id)}
+                className={`flex min-h-12 w-full touch-pan-y items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed ${isSelected ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)]'}`}
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-black" title={player.playerName}>{player.playerName}</span>
                   <span className="mt-0.5 flex flex-wrap gap-1 text-[0.68rem] font-bold text-[var(--text-muted)]">
-                    <span>{assignedState || 'Available'}</span>
+                    <span>{isSelected ? 'Selected' : assignedState || 'Available'}</span>
                     {isTrial ? <span>| Trial</span> : null}
                     {!player.shirtNumber ? <span>| Missing number</span> : null}
                   </span>
@@ -262,6 +331,34 @@ function PlayerRoster({
             )
           })}
           {filteredPlayers.length === 0 ? <p className="rounded-lg bg-[var(--panel-soft)] p-3 text-sm font-semibold text-[var(--text-muted)]">No Players match this search.</p> : null}
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)]">
+          <button type="button" disabled={selectedCount === 0} onClick={() => { onAddPlayers(eligibleSelectedPlayers); setSelectedPlayerIds(new Set()) }} className={primaryButtonClass} aria-label={`Add ${selectedCount} ${selectedCount === 1 ? 'Player' : 'Players'}`}>Add {selectedCount} {selectedCount === 1 ? 'Player' : 'Players'}</button>
+          <button type="button" disabled={selectedCount === 0} onClick={() => setSelectedPlayerIds(new Set())} className={secondaryButtonClass}>Clear selection</button>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-black">Unplaced</h3>
+          <span className="text-xs font-bold text-[var(--text-muted)]">{snapshot.unplaced.length}</span>
+        </div>
+        <div className="space-y-2">
+          {snapshot.unplaced.map((player) => (
+            <button
+              key={player.playerId}
+              type="button"
+              disabled={!canEdit}
+              aria-pressed={selectedSource?.type === 'unplaced' && selectedSource.playerId === player.playerId}
+              onClick={() => onSelectBoardPlayer(player, 'unplaced')}
+              onPointerDown={(event) => onDragStart(event, player, 'unplaced')}
+              className={`flex min-h-12 w-full touch-pan-y items-center justify-between rounded-lg border px-3 py-2 text-left text-sm font-black ${selectedSource?.type === 'unplaced' && selectedSource.playerId === player.playerId ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)]'}`}
+            >
+              <span className="truncate">{player.displayName}</span>
+              <span>{player.shirtNumber || '?'}</span>
+            </button>
+          ))}
+          {snapshot.unplaced.length === 0 ? <p className="rounded-lg bg-[var(--panel-soft)] p-3 text-sm font-semibold text-[var(--text-muted)]">No unplaced Players.</p> : null}
         </div>
       </section>
 
@@ -277,7 +374,7 @@ function PlayerRoster({
               type="button"
               disabled={!canEdit}
               aria-pressed={selectedSource?.type === 'bench' && selectedSource.playerId === player.playerId}
-              onClick={() => onSelectBench(player)}
+              onClick={() => onSelectBoardPlayer(player, 'bench')}
               onPointerDown={(event) => onDragStart(event, player, 'bench')}
               className={`flex min-h-12 w-full touch-pan-y items-center justify-between rounded-lg border px-3 py-2 text-left text-sm font-black ${selectedSource?.type === 'bench' && selectedSource.playerId === player.playerId ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)]'}`}
             >
@@ -406,7 +503,7 @@ function VersionHistory({ canEdit, currentVersionNumber, isBusy, onRestoreVersio
           <div key={version.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black">Version {version.versionNumber}{version.versionNumber === currentVersionNumber ? ' (current)' : ''}</p>
-              <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{formatDateTime(version.createdAt)} | {version.gameFormat} | {version.formationPresetKey}</p>
+              <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{formatDateTime(version.createdAt)} | {version.gameFormat} | {version.formationPresetKey} | {version.pitchOrientation === 'landscape' ? 'Historical landscape' : 'Portrait'}</p>
             </div>
             {canEdit && version.versionNumber !== currentVersionNumber ? (
               <button type="button" disabled={isBusy} onClick={() => onRestoreVersion(version)} className={secondaryButtonClass}>Restore as new version</button>
@@ -428,6 +525,7 @@ export function FormationBoardsPage() {
   const quickCreateHandledRef = useRef(false)
   const dragRef = useRef(null)
   const dragCleanupRef = useRef(null)
+  const suppressSourceClickRef = useRef('')
   const [boards, setBoards] = useState([])
   const [presets, setPresets] = useState([])
   const [players, setPlayers] = useState([])
@@ -456,6 +554,7 @@ export function FormationBoardsPage() {
   const [pendingPreset, setPendingPreset] = useState(null)
   const [conflict, setConflict] = useState(null)
   const [dragPreview, setDragPreview] = useState(null)
+  const [portraitCompatibility, setPortraitCompatibility] = useState(null)
   const activeTeamId = String(user?.activeTeamId ?? '').trim()
   const activeTeamName = String(user?.activeTeamName ?? '').trim() || 'Selected Team'
   const canOpen = canUseFormationBoards(user)
@@ -465,6 +564,15 @@ export function FormationBoardsPage() {
   const hasUnsavedChanges = Boolean(snapshot && savedSnapshot && !snapshotsMatch(snapshot, savedSnapshot))
   const blocker = useBlocker(() => hasUnsavedChanges && !allowNavigationRef.current)
   const selectedMarker = snapshot?.placements.find((item) => item.playerId === selectedMarkerId) || null
+  const selectedBoardPlayerId = selectedSource?.playerId || selectedMarkerId
+  const selectedBoardPlayerState = snapshot && selectedBoardPlayerId ? getFormationPlayerState(snapshot, selectedBoardPlayerId) : 'available'
+  const selectedBoardPlayer = selectedBoardPlayerState === 'pitch'
+    ? snapshot?.placements.find((item) => item.playerId === selectedBoardPlayerId) || null
+    : selectedBoardPlayerState === 'bench'
+      ? snapshot?.bench.find((item) => item.playerId === selectedBoardPlayerId) || null
+      : selectedBoardPlayerState === 'unplaced'
+        ? snapshot?.unplaced.find((item) => item.playerId === selectedBoardPlayerId) || null
+        : null
   const currentPreset = presets.find((preset) => preset.key === snapshot?.presetKey) || null
   const viewedPublication = publishedSnapshotVersion
     ? publications.find((publication) => publication.boardVersionId === publishedSnapshotVersion.id) || null
@@ -551,15 +659,25 @@ export function FormationBoardsPage() {
       const nextSnapshot = board.id === 'new'
         ? createNewEditorSnapshot(presets.find((preset) => preset.gameFormat === '7v7' && !preset.key.endsWith('-custom')) || presets[0])
         : createEditorSnapshot({ board: displayBoard })
+      const sourceOrientation = getFormationBoardOrientation(displayBoard.currentVersion?.pitchOrientation)
+      const isLandscapeCompatibility = board.id !== 'new' && sourceOrientation === 'landscape'
+      const savedBaseline = isLandscapeCompatibility && !snapshotVersion
+        ? { ...nextSnapshot, pitchOrientation: 'landscape' }
+        : nextSnapshot
       setCurrentBoard(displayBoard)
       setPublishedSnapshotVersion(snapshotVersion)
       setSnapshot(nextSnapshot)
-      setSavedSnapshot(nextSnapshot)
+      setSavedSnapshot(savedBaseline)
       setHistory([])
       setSelectedSource(null)
       setSelectedMarkerId('')
-      setSaveState('saved')
+      setSaveState(isLandscapeCompatibility && !snapshotVersion ? 'unsaved' : 'saved')
       setConflict(null)
+      setPortraitCompatibility(isLandscapeCompatibility ? {
+        isHistoricalSnapshot: Boolean(snapshotVersion),
+        sourceVersionId: displayBoard.currentVersion?.id || '',
+        sourceVersionNumber: displayBoard.currentVersion?.versionNumber || 0,
+      } : null)
       setVersions(nextVersions)
       setPublications(nextPublications)
       if (!snapshotVersion) loadDraftCandidate(freshBoard, nextSnapshot)
@@ -661,6 +779,7 @@ export function FormationBoardsPage() {
     setDraftCandidate(null)
     setHistory([])
     setPublications([])
+    setPortraitCompatibility(null)
     navigate('/resources/formation-boards', { replace: true })
     window.setTimeout(() => { allowNavigationRef.current = false }, 0)
   }
@@ -669,13 +788,19 @@ export function FormationBoardsPage() {
     if (!currentBoard || isNewBoard) return
     const freshBoard = await getFormationBoard(currentBoard.id)
     const nextSnapshot = createEditorSnapshot({ board: freshBoard })
+    const isLandscapeCompatibility = getFormationBoardOrientation(freshBoard.currentVersion?.pitchOrientation) === 'landscape'
     setCurrentBoard(freshBoard)
     setSnapshot(nextSnapshot)
-    setSavedSnapshot(nextSnapshot)
+    setSavedSnapshot(isLandscapeCompatibility ? { ...nextSnapshot, pitchOrientation: 'landscape' } : nextSnapshot)
     setVersions(await getFormationBoardVersions(currentBoard.id))
     setHistory([])
     setConflict(null)
-    setSaveState('saved')
+    setSaveState(isLandscapeCompatibility ? 'unsaved' : 'saved')
+    setPortraitCompatibility(isLandscapeCompatibility ? {
+      isHistoricalSnapshot: false,
+      sourceVersionId: freshBoard.currentVersion?.id || '',
+      sourceVersionNumber: freshBoard.currentVersion?.versionNumber || 0,
+    } : null)
     if (draftKey) window.localStorage.removeItem(draftKey)
   }
 
@@ -730,7 +855,9 @@ export function FormationBoardsPage() {
           presetKey: snapshot.presetKey,
           title: snapshot.title,
           user,
-          versionReason: 'Formation Board editor save',
+          versionReason: portraitCompatibility
+            ? `Portrait adaptation from version ${portraitCompatibility.sourceVersionNumber || snapshot.baseVersionNumber}`
+            : 'Formation Board editor save',
         })
       }
       const nextSnapshot = createEditorSnapshot({ board: savedBoard })
@@ -739,6 +866,7 @@ export function FormationBoardsPage() {
       setSavedSnapshot(nextSnapshot)
       setHistory([])
       setSaveState('saved')
+      setPortraitCompatibility(null)
       if (draftKey) window.localStorage.removeItem(draftKey)
       if (isNewBoard) {
         allowNavigationRef.current = true
@@ -876,28 +1004,23 @@ export function FormationBoardsPage() {
       commitSnapshot(moveFormationPlayer(snapshot, selectedSource.playerId, coordinates))
     } else if (selectedSource.type === 'bench') {
       commitSnapshot(moveBenchPlayerToPitch(snapshot, selectedSource.playerId, coordinates))
-    } else {
-      const player = players.find((item) => item.id === selectedSource.playerId)
-      if (player) commitSnapshot(assignPlayerToPitch(snapshot, player, coordinates))
+    } else if (selectedSource.type === 'unplaced') {
+      commitSnapshot(moveUnplacedPlayerToPitch(snapshot, selectedSource.playerId, coordinates))
+      setSelectedMarkerId(selectedSource.playerId)
     }
     setSelectedSource(null)
   }
 
   const handleMarkerSelect = (playerId) => {
-    if (selectedSource?.type === 'available') {
-      const player = players.find((item) => item.id === selectedSource.playerId)
-      if (player) {
-        const next = replaceFormationPlayer(snapshot, playerId, player)
-        if (!snapshotsMatch(next, snapshot)) {
-          commitSnapshot(next)
-          setSelectedMarkerId(player.id)
-        }
-      }
-      setSelectedSource(null)
-      return
-    }
     setSelectedMarkerId(playerId)
     setSelectedSource({ playerId, type: 'marker' })
+  }
+
+  const handleBoardPlayerSelect = (player, sourceType) => {
+    const playerId = player.playerId || player.id
+    if (suppressSourceClickRef.current === playerId) return
+    setSelectedMarkerId(sourceType === 'marker' ? playerId : '')
+    setSelectedSource({ playerId, type: sourceType })
   }
 
   const handlePlayerDragStart = (event, player, sourceType) => {
@@ -922,10 +1045,14 @@ export function FormationBoardsPage() {
           const coordinates = { x: (upEvent.clientX - bounds.left) / bounds.width, y: (upEvent.clientY - bounds.top) / bounds.height }
           const next = sourceType === 'bench'
             ? moveBenchPlayerToPitch(snapshot, player.playerId, coordinates)
-            : assignPlayerToPitch(snapshot, player, coordinates)
+            : moveUnplacedPlayerToPitch(snapshot, player.playerId, coordinates)
           commitSnapshot(next)
-          setIsRosterOpen(false)
+          setSelectedSource(null)
+          setSelectedMarkerId(player.playerId)
+          if (sourceType === 'bench') setIsRosterOpen(false)
         }
+        suppressSourceClickRef.current = player.playerId || player.id
+        window.setTimeout(() => { suppressSourceClickRef.current = '' }, 0)
       }
       dragCleanupRef.current?.()
     }
@@ -946,14 +1073,33 @@ export function FormationBoardsPage() {
   const roster = snapshot ? (
     <PlayerRoster
       canEdit={canEdit}
-      onBench={(playerId) => { commitSnapshot(benchFormationPlayer(snapshot, playerId)); setSelectedMarkerId('') }}
+      onAddPlayers={(selectedPlayers) => {
+        commitSnapshot(addPlayersToUnplaced(snapshot, selectedPlayers))
+        setSelectedSource(null)
+        setSelectedMarkerId('')
+        setIsRosterOpen(false)
+      }}
       onDragStart={handlePlayerDragStart}
+      onMoveToBench={(playerId, state) => {
+        commitSnapshot(state === 'unplaced'
+          ? moveUnplacedPlayerToBench(snapshot, playerId)
+          : benchFormationPlayer(snapshot, playerId))
+        setSelectedSource(null)
+        setSelectedMarkerId('')
+      }}
+      onMoveToUnplaced={(playerId, state) => {
+        commitSnapshot(state === 'bench'
+          ? moveBenchPlayerToUnplaced(snapshot, playerId)
+          : movePitchPlayerToUnplaced(snapshot, playerId))
+        setSelectedSource({ playerId, type: 'unplaced' })
+        setSelectedMarkerId('')
+      }}
       onNumberChange={(playerId, number) => commitSnapshot(updateFormationPlayerNumber(snapshot, playerId, number))}
-      onRemove={(playerId) => { commitSnapshot(removeFormationPlayer(snapshot, playerId)); setSelectedMarkerId('') }}
-      onSelectBench={(player) => setSelectedSource({ playerId: player.playerId, type: 'bench' })}
-      onSelectPlayer={(player) => setSelectedSource({ playerId: player.id, type: 'available' })}
+      onRemove={(playerId) => { commitSnapshot(removeFormationPlayer(snapshot, playerId)); setSelectedSource(null); setSelectedMarkerId('') }}
+      onSelectBoardPlayer={handleBoardPlayerSelect}
       players={players}
-      selectedMarker={selectedMarker}
+      selectedBoardPlayer={selectedBoardPlayer}
+      selectedBoardPlayerState={selectedBoardPlayerState}
       selectedSource={selectedSource}
       snapshot={snapshot}
     />
@@ -1026,6 +1172,16 @@ export function FormationBoardsPage() {
             />
           ) : !canEdit ? <NoticeBanner tone="info" title="Read-only Team board" message="Your current Team role can view this shared board but cannot change or save it." /> : null}
 
+          {portraitCompatibility ? (
+            <NoticeBanner
+              tone="info"
+              title={portraitCompatibility.isHistoricalSnapshot ? 'Historical landscape snapshot' : 'Portrait pitch adaptation ready'}
+              message={portraitCompatibility.isHistoricalSnapshot
+                ? 'This immutable historical version is displayed on the supported portrait pitch. The saved snapshot remains unchanged.'
+                : 'This board has been adapted to the supported portrait pitch. Review Player positions before saving.'}
+            />
+          ) : null}
+
           <section className={panelClass}>
             <div className="grid gap-4 lg:grid-cols-2">
               <label>
@@ -1067,7 +1223,7 @@ export function FormationBoardsPage() {
           ) : null}
 
           <section className={panelClass}>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <label>
                 <span className="mb-2 block text-sm font-black">Game format</span>
                 <select
@@ -1093,15 +1249,8 @@ export function FormationBoardsPage() {
                   {presets.filter((preset) => preset.gameFormat === snapshot.gameFormat).map((preset) => <option key={preset.key} value={preset.key}>{preset.displayName}</option>)}
                 </select>
               </label>
-              <label>
-                <span className="mb-2 block text-sm font-black">Pitch orientation</span>
-                <select value={snapshot.pitchOrientation} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, pitchOrientation: event.target.value })} className={fieldClass}>
-                  <option value="portrait">Portrait</option>
-                  <option value="landscape">Landscape</option>
-                </select>
-              </label>
             </div>
-            <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">Changing formation keeps Player assignments where possible, keeps the goalkeeper in goal, and moves unmatched Players to the bench.</p>
+            <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">Formation Boards use one portrait pitch. Changing formation keeps Player assignments where possible, keeps the goalkeeper in goal, and moves unmatched Players to Unplaced.</p>
           </section>
 
           <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
@@ -1116,15 +1265,23 @@ export function FormationBoardsPage() {
               <FormationBoardPitch
                 ref={pitchRef}
                 canEdit={canEdit}
+                hasPlacementSource={['bench', 'marker', 'unplaced'].includes(selectedSource?.type)}
                 onMove={(playerId, coordinates) => commitSnapshot(moveFormationPlayer(snapshot, playerId, coordinates))}
                 onPitchPress={handlePitchPress}
                 onRemove={(playerId) => commitSnapshot(removeFormationPlayer(snapshot, playerId))}
                 onSelectMarker={handleMarkerSelect}
-                orientation={snapshot.pitchOrientation}
                 placements={snapshot.placements}
+                selectedPlayerName={selectedBoardPlayer?.displayName || ''}
                 selectedMarkerId={selectedMarkerId}
               />
-              {selectedSource ? <p className="mt-4 rounded-lg bg-[var(--accent-soft)] px-4 py-3 text-sm font-black">Selected: {players.find((item) => item.id === selectedSource.playerId)?.playerName || snapshot.bench.find((item) => item.playerId === selectedSource.playerId)?.displayName || selectedMarker?.displayName}. Tap the pitch to position.</p> : null}
+              {selectedSource ? <p className="mt-4 rounded-lg bg-[var(--accent-soft)] px-4 py-3 text-sm font-black">Selected: {selectedBoardPlayer?.displayName || selectedMarker?.displayName}. Tap the pitch to position.</p> : null}
+              <UnplacedPlayersTray
+                canEdit={canEdit}
+                onDragStart={handlePlayerDragStart}
+                onSelect={(player) => handleBoardPlayerSelect(player, 'unplaced')}
+                players={snapshot.unplaced}
+                selectedPlayerId={selectedSource?.type === 'unplaced' ? selectedSource.playerId : ''}
+              />
             </section>
             <aside className={`${panelClass} hidden lg:block lg:sticky lg:top-4`} aria-label="Player assignment controls">{roster}</aside>
           </div>
@@ -1145,7 +1302,7 @@ export function FormationBoardsPage() {
                 try {
                   const restored = await restoreFormationBoardVersion({ boardId: currentBoard.id, expectedVersionNumber: snapshot.baseVersionNumber, user, versionId: version.id })
                   const next = createEditorSnapshot({ board: restored })
-                  setCurrentBoard(restored); setSnapshot(next); setSavedSnapshot(next); setHistory([]); setVersions(await getFormationBoardVersions(restored.id)); await refreshBoards()
+                  setCurrentBoard(restored); setSnapshot(next); setSavedSnapshot(next); setHistory([]); setPortraitCompatibility(null); setVersions(await getFormationBoardVersions(restored.id)); await refreshBoards()
                   showToast({ title: 'Version restored', message: `Version ${restored.currentVersionNumber} now preserves the selected layout.` })
                 } catch (error) { setErrorMessage(error.message || 'That version could not be restored.') }
               }}
@@ -1233,7 +1390,7 @@ export function FormationBoardsPage() {
       <ConfirmModal
         isOpen={Boolean(pendingPreset)}
         title="Change formation?"
-        message="Player assignments will be mapped to matching position groups. Any unmatched Players will move to the bench, and you can Undo the change."
+        message="Player assignments will be mapped to matching position groups. Any unmatched Players will move to Unplaced, and you can Undo the change."
         confirmLabel="Change formation"
         onCancel={() => setPendingPreset(null)}
         onConfirm={() => {

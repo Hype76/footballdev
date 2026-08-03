@@ -38,7 +38,10 @@ function createPayload(format = 'png') {
         { displayName: 'Alexandra Very Long Player Name', playerId: 'player-private-1', shirtNumber: '99', x: 0.5, y: 0.86 },
         { displayName: 'Casey Two', playerId: 'player-private-2', shirtNumber: '7', x: 0.32, y: 0.58 },
       ],
-      bench: [{ displayName: 'Taylor Bench', playerId: 'player-private-3', shirtNumber: '12' }],
+      bench: [
+        { displayName: 'Taylor Bench', playerId: 'player-private-3', shirtNumber: '12', state: 'bench' },
+        { displayName: 'Morgan Unplaced', playerId: 'player-private-4', shirtNumber: '14', state: 'unplaced' },
+      ],
       notes: 'Press on the first touch, then recover centrally.',
       created_at: '2026-08-02T12:00:00.000Z',
     },
@@ -102,7 +105,8 @@ test('Formation Board document validates and renders only approved public fields
     formation: payload.version.formation_preset_key,
     orientation: payload.version.pitch_orientation,
     placements: payload.version.placements,
-    bench: payload.version.bench,
+    bench: payload.version.bench.filter((player) => player.state === 'bench'),
+    unplaced: payload.version.bench.filter((player) => player.state === 'unplaced'),
     notes: payload.version.notes,
   })
   const html = renderPdfDocumentHtml(document)
@@ -111,6 +115,7 @@ test('Formation Board document validates and renders only approved public fields
   assert.match(html, /FP TEST Team/)
   assert.match(html, /Alexandra Very Long Player Name/)
   assert.match(html, />99</)
+  assert.match(html, /Morgan Unplaced/)
   assert.match(html, /Press on the first touch/)
   assert.match(html, /A4 landscape/)
   assert.doesNotMatch(html, /player-private/)

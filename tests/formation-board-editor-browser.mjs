@@ -7,7 +7,7 @@ import { chromium, devices } from 'playwright'
 
 const port = Number(process.env.FORMATION_BOARD_BROWSER_PORT || 4850 + Math.floor(Math.random() * 100))
 const baseUrl = `http://127.0.0.1:${port}`
-const screenshotDirectory = 'outputs/fp-v1-formation-board-editor-25b'
+const screenshotDirectory = 'outputs/fp-v1-formation-board-mobile-selection-portrait-27'
 await mkdir(screenshotDirectory, { recursive: true })
 
 function wait(milliseconds) {
@@ -138,7 +138,7 @@ const players = Array.from({ length: 14 }, (_, index) => ({
   status: 'active',
 }))
 
-function createMockState({ seedSharedBoard = false } = {}) {
+function createMockState({ seedLandscapeBoard = false, seedSharedBoard = false } = {}) {
   let versionNumber = 1
   let shouldConflict = false
   let shouldFailVersionRefresh = false
@@ -189,8 +189,21 @@ function createMockState({ seedSharedBoard = false } = {}) {
     return { board, currentVersion, currentPublication: null }
   }
 
-  if (seedSharedBoard) {
-    const seededBoard = payloadFrom({ title_value: 'Shared fixture board', visibility_value: 'shared' })
+  if (seedSharedBoard || seedLandscapeBoard) {
+    const seededBoard = payloadFrom({
+      title_value: seedLandscapeBoard ? 'Legacy landscape fixture board' : 'Shared fixture board',
+      visibility_value: 'shared',
+      pitch_orientation_value: seedLandscapeBoard ? 'landscape' : 'portrait',
+      placements_value: seedLandscapeBoard ? [{
+        playerId: players[0].id,
+        displayName: players[0].player_name,
+        shirtNumber: players[0].shirt_number,
+        slotId: 'gk',
+        x: 0.5,
+        y: 0.9,
+        state: 'pitch',
+      }] : [],
+    })
     boards.push(seededBoard)
     versionHistory.push(seededBoard.currentVersion)
   }
@@ -198,6 +211,7 @@ function createMockState({ seedSharedBoard = false } = {}) {
   return {
     boards,
     publications,
+    versionHistory,
     setConflict() { shouldConflict = true },
     failNextVersionRefresh() { shouldFailVersionRefresh = true },
     async handle(route) {
@@ -211,6 +225,9 @@ function createMockState({ seedSharedBoard = false } = {}) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(presets) })
       }
       if (path.endsWith('/players')) {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(players) })
+      }
+      if (path.endsWith('/rpc/get_team_players')) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(players) })
       }
       if (path.endsWith('/resource_library_items')) {
@@ -395,13 +412,46 @@ try {
     await desktopPage.getByRole('button', { name: 'Change formation', exact: true }).click()
     assert.equal(await desktopPage.getByLabel('Game format').inputValue(), gameFormat)
   }
-  await desktopPage.getByLabel('Formation').selectOption('7v7-custom')
+  const formationSelect = desktopPage.locator('label').filter({ has: desktopPage.getByText('Formation', { exact: true }) }).locator('select')
+  await formationSelect.selectOption('7v7-custom')
   await desktopPage.getByRole('button', { name: 'Change formation', exact: true }).click()
-  assert.equal(await desktopPage.getByLabel('Formation').inputValue(), '7v7-custom')
-  await desktopPage.getByLabel('Formation').selectOption('7v7-2-3-1')
+  assert.equal(await formationSelect.inputValue(), '7v7-custom')
+  await formationSelect.selectOption('7v7-2-3-1')
   await desktopPage.getByRole('button', { name: 'Change formation', exact: true }).click()
+  assert.equal(await desktopPage.getByLabel('Pitch orientation').count(), 0)
+  await desktopPage.screenshot({ path: `${screenshotDirectory}/desktop-multi-select.png`, fullPage: true })
+
   await desktopPage.getByRole('button', { name: /Synthetic One/ }).click()
+  await desktopPage.getByRole('button', { name: /Synthetic Player 2/ }).click()
+  await desktopPage.getByText('2 selected', { exact: true }).waitFor()
+  await desktopPage.getByPlaceholder('Search squad').fill('Synthetic Player 3')
+  await desktopPage.getByRole('button', { name: /Synthetic Player 3/ }).click()
+  await desktopPage.getByText('3 selected', { exact: true }).waitFor()
+  await desktopPage.getByPlaceholder('Search squad').fill('')
+  await desktopPage.getByRole('button', { name: /Synthetic Player 2/ }).click()
+  await desktopPage.getByText('2 selected', { exact: true }).waitFor()
+  await desktopPage.getByRole('button', { name: /Synthetic Player 2/ }).click()
+  await desktopPage.getByText('3 selected', { exact: true }).waitFor()
+  await desktopPage.getByRole('button', { name: 'Add 3 Players', exact: true }).click()
+  await desktopPage.getByRole('heading', { name: 'Unplaced Players' }).waitFor()
+  assert.equal(await desktopPage.getByRole('button', { name: /Synthetic One, shirt 1, Unplaced/ }).count(), 1)
+  assert.equal(await desktopPage.getByRole('button', { name: /Synthetic Player 2, shirt number missing, Unplaced/ }).count(), 1)
+
+  await desktopPage.getByRole('button', { name: /Synthetic One, shirt 1, Unplaced/ }).click()
   await desktopPage.locator('[data-formation-pitch]').click({ position: { x: 220, y: 260 } })
+  await desktopPage.getByRole('button', { name: /Synthetic Player 2, shirt number missing, Unplaced/ }).click()
+  await desktopPage.locator('[data-formation-pitch]').focus()
+  await desktopPage.keyboard.press('Enter')
+
+  const dragSource = desktopPage.getByRole('button', { name: /Synthetic Player 3, shirt 3, Unplaced/ })
+  const dragSourceBounds = await dragSource.boundingBox()
+  const desktopPitchBounds = await desktopPage.locator('[data-formation-pitch]').boundingBox()
+  assert.ok(dragSourceBounds && desktopPitchBounds)
+  await desktopPage.mouse.move(dragSourceBounds.x + dragSourceBounds.width / 2, dragSourceBounds.y + dragSourceBounds.height / 2)
+  await desktopPage.mouse.down()
+  await desktopPage.mouse.move(desktopPitchBounds.x + desktopPitchBounds.width * 0.72, desktopPitchBounds.y + desktopPitchBounds.height * 0.44, { steps: 5 })
+  await desktopPage.mouse.up()
+
   const desktopMarker = desktopPage.getByRole('button', { name: /Synthetic One, shirt 1/ })
   const markerBounds = await desktopMarker.boundingBox()
   assert.ok(markerBounds)
@@ -414,7 +464,8 @@ try {
   await desktopPage.getByRole('button', { name: 'Save', exact: true }).click()
   await desktopPage.getByText('Saved', { exact: true }).waitFor()
   assert.equal(desktopFixture.state.boards.length, 1)
-  assert.equal(desktopFixture.state.boards[0].currentVersion.placements.length, 1)
+  assert.equal(desktopFixture.state.boards[0].currentVersion.placements.length, 3)
+  assert.equal(desktopFixture.state.boards[0].currentVersion.pitch_orientation, 'portrait')
   const firstPublishedVersionId = desktopFixture.state.boards[0].currentVersion.id
 
   await desktopPage.getByRole('button', { name: 'Publish to Team Resources', exact: true }).click()
@@ -439,12 +490,16 @@ try {
   await desktopPage.getByRole('button', { name: /Synthetic One, shirt 1/ }).click()
   await desktopPage.getByRole('button', { name: 'Move to bench' }).click()
   await desktopPage.getByText('No Players on the bench.').waitFor({ state: 'detached' })
+  await desktopPage.getByRole('button', { name: /Synthetic Player 2, shirt number missing/ }).click()
+  await desktopPage.getByRole('button', { name: 'Move to Unplaced' }).click()
+  await desktopPage.getByRole('button', { name: /Synthetic Player 2, shirt number missing, Unplaced/ }).waitFor()
   await desktopPage.getByLabel('Staff notes').fill('Protected local draft')
   await wait(700)
   await desktopPage.reload({ waitUntil: 'networkidle' })
   await desktopPage.getByRole('button', { name: 'Restore draft' }).waitFor()
   await desktopPage.getByRole('button', { name: 'Restore draft' }).click()
   assert.equal(await desktopPage.getByLabel('Staff notes').inputValue(), 'Protected local draft')
+  await desktopPage.getByRole('button', { name: /Synthetic Player 2, shirt number missing, Unplaced/ }).waitFor()
 
   desktopFixture.state.failNextVersionRefresh()
   await desktopPage.getByRole('button', { name: 'Save', exact: true }).click()
@@ -495,8 +550,32 @@ try {
   await mobileActions.getByRole('button', { name: 'Export PDF', exact: true }).waitFor()
   await mobileActions.getByRole('button', { name: 'Close', exact: true }).click()
   await mobilePage.getByRole('button', { name: 'Players', exact: true }).click()
-  await mobilePage.getByRole('dialog', { name: 'Formation Board Players and bench' }).waitFor()
-  const touchPlayer = mobilePage.getByRole('button', { name: /Synthetic One/ })
+  const mobilePlayersSheet = mobilePage.getByRole('dialog', { name: 'Formation Board Players and bench' })
+  await mobilePlayersSheet.waitFor()
+  await mobilePlayersSheet.getByRole('button', { name: /Synthetic One/ }).click()
+  await mobilePlayersSheet.getByText('1 selected', { exact: true }).waitFor()
+  await mobilePlayersSheet.getByRole('button', { name: 'Close', exact: true }).click()
+  await mobilePlayersSheet.waitFor({ state: 'detached' })
+  await mobilePage.getByRole('button', { name: 'Players', exact: true }).click()
+  await mobilePlayersSheet.waitFor()
+  await mobilePlayersSheet.getByText('0 selected', { exact: true }).waitFor()
+  await mobilePlayersSheet.getByRole('button', { name: /Synthetic One/ }).click()
+  await mobilePlayersSheet.getByRole('button', { name: /Synthetic Player 2/ }).click()
+  await mobilePlayersSheet.getByRole('button', { name: /Synthetic Player 3/ }).click()
+  await mobilePlayersSheet.getByText('3 selected', { exact: true }).waitFor()
+  await mobilePlayersSheet.getByPlaceholder('Search squad').fill('Synthetic Player 4')
+  await mobilePlayersSheet.getByRole('button', { name: /Synthetic Player 4/ }).click()
+  await mobilePlayersSheet.getByText('4 selected', { exact: true }).waitFor()
+  await mobilePlayersSheet.getByPlaceholder('Search squad').fill('')
+  await mobilePlayersSheet.getByRole('button', { name: 'Add 4 Players', exact: true }).click()
+  await mobilePlayersSheet.waitFor({ state: 'detached' })
+  const mobileTray = mobilePage.getByRole('region', { name: 'Unplaced Players' })
+  await mobileTray.waitFor()
+  const trayScroll = await mobileTray.locator('.overflow-x-auto').evaluate((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth }))
+  assert.ok(trayScroll.scrollWidth >= trayScroll.clientWidth)
+  await mobilePage.screenshot({ path: `${screenshotDirectory}/iphone-portrait.png`, fullPage: true })
+
+  const touchPlayer = mobilePage.getByRole('button', { name: /Synthetic One, shirt 1, Unplaced/ })
   const touchPlayerBounds = await touchPlayer.boundingBox()
   const touchPitchBounds = await mobilePage.locator('[data-formation-pitch]').boundingBox()
   assert.ok(touchPlayerBounds && touchPitchBounds)
@@ -515,6 +594,10 @@ try {
   }, { x: touchPitchBounds.x + touchPitchBounds.width / 2, y: touchPitchBounds.y + touchPitchBounds.height / 2 })
   const mobileMarker = mobilePage.getByRole('button', { name: /Synthetic One, shirt 1/ })
   await mobileMarker.waitFor()
+  await mobilePage.getByRole('button', { name: /Synthetic Player 2, shirt number missing, Unplaced/ }).click()
+  await mobilePage.locator('[data-formation-pitch]').click({ position: { x: touchPitchBounds.width * 0.35, y: touchPitchBounds.height * 0.35 } })
+  await mobilePage.getByRole('button', { name: /Synthetic Player 2, shirt number missing/ }).waitFor()
+  await mobilePage.getByRole('button', { name: /Synthetic Player 3, shirt 3, Unplaced/ }).waitFor()
   await mobileMarker.scrollIntoViewIfNeeded()
   const scrollBeforeMarkerDrag = await mobilePage.evaluate(() => window.scrollY)
   const mobileMarkerBounds = await mobileMarker.boundingBox()
@@ -573,8 +656,28 @@ try {
     await page.getByRole('heading', { name: 'Pitch' }).waitFor()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     assert.ok(overflow <= 1, `${profile.label} overflowed by ${overflow}px`)
+    const pitchBounds = await page.locator('[data-formation-pitch]').boundingBox()
+    assert.ok(pitchBounds && pitchBounds.height > pitchBounds.width, `${profile.label} did not keep a portrait pitch`)
+    await page.screenshot({ path: `${screenshotDirectory}/${profile.label}.png`, fullPage: true })
     await fixture.context.close()
   }
+
+  const legacyFixture = await createFixtureContext(browser, 'manager.fixture@footballplayer.test', { viewport: { width: 1280, height: 800 } }, { seedLandscapeBoard: true })
+  const legacyPage = await legacyFixture.context.newPage()
+  await legacyPage.goto(`${baseUrl}/resources/formation-boards?board=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`, { waitUntil: 'networkidle' })
+  await legacyPage.getByText('This board has been adapted to the supported portrait pitch. Review Player positions before saving.', { exact: true }).waitFor()
+  await legacyPage.getByText('Unsaved changes', { exact: true }).waitFor()
+  assert.equal(legacyFixture.state.versionHistory.length, 1)
+  assert.equal(legacyFixture.state.versionHistory[0].pitch_orientation, 'landscape')
+  assert.equal(await legacyPage.getByLabel('Pitch orientation').count(), 0)
+  const legacyPitchBounds = await legacyPage.locator('[data-formation-pitch]').boundingBox()
+  assert.ok(legacyPitchBounds && legacyPitchBounds.height > legacyPitchBounds.width)
+  await legacyPage.getByRole('button', { name: 'Save', exact: true }).click()
+  await legacyPage.getByText('Saved', { exact: true }).waitFor()
+  assert.equal(legacyFixture.state.versionHistory.length, 2)
+  assert.equal(legacyFixture.state.versionHistory[0].pitch_orientation, 'landscape')
+  assert.equal(legacyFixture.state.versionHistory[1].pitch_orientation, 'portrait')
+  await legacyFixture.context.close()
 
   const assistantFixture = await createFixtureContext(browser, 'assistant.fixture@footballplayer.test', {}, { seedSharedBoard: true })
   const assistantPage = await assistantFixture.context.newPage()

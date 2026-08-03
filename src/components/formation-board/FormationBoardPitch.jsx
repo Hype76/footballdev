@@ -177,12 +177,13 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
 
 export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
   canEdit,
+  hasPlacementSource,
   onMove,
   onPitchPress,
   onRemove,
   onSelectMarker,
-  orientation,
   placements,
+  selectedPlayerName,
   selectedMarkerId,
 }, ref) {
   const [announcement, setAnnouncement] = useState('')
@@ -193,11 +194,21 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
       <div
         ref={ref}
         data-formation-pitch="true"
-        className={`formation-board-pitch relative isolate w-full overflow-hidden rounded-[1.6rem] border-4 border-white bg-[#237a45] shadow-xl shadow-[#101828]/20 ${orientation === 'landscape' ? 'aspect-[4/3]' : 'aspect-[3/4]'}`}
+        aria-label={hasPlacementSource
+          ? `Formation pitch. ${selectedPlayerName || 'Selected Player'} is ready to place. Press Enter to place at the centre, then use the Player marker arrow keys to adjust.`
+          : 'Portrait Formation pitch'}
+        className="formation-board-pitch relative isolate aspect-[3/4] w-full overflow-hidden rounded-[1.6rem] border-4 border-white bg-[#237a45] shadow-xl shadow-[#101828]/20 focus:outline-none focus:ring-4 focus:ring-amber-300"
         onClick={(event) => {
           if (!canEdit || event.target !== event.currentTarget) return
           onPitchPress(coordinatesFromPointer(event.currentTarget, event.clientX, event.clientY))
         }}
+        onKeyDown={(event) => {
+          if (!canEdit || !hasPlacementSource || !['Enter', ' '].includes(event.key)) return
+          event.preventDefault()
+          onPitchPress({ x: 0.5, y: 0.5 })
+        }}
+        role="group"
+        tabIndex={canEdit && hasPlacementSource ? 0 : undefined}
       >
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.035)_0,rgba(255,255,255,0.035)_12.5%,rgba(0,0,0,0.035)_12.5%,rgba(0,0,0,0.035)_25%)]" />
         <PitchLines />
@@ -217,7 +228,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
         ))}
         {markerIds.size === 0 ? (
           <p className="pointer-events-none absolute inset-x-8 top-1/2 -translate-y-1/2 rounded-lg bg-[#101828]/75 px-4 py-3 text-center text-sm font-black text-white">
-            Select a Player, then tap the pitch. You can also drag a Player here.
+            Add Players to the Unplaced Players tray, then tap or drag them onto the pitch.
           </p>
         ) : null}
       </div>

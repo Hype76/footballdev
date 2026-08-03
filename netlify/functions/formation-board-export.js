@@ -6,6 +6,7 @@ import {
   countPdfPages,
 } from '../../src/lib/pdf-builder.js'
 import { buildFormationBoardDocument } from '../../src/lib/pdf-document.js'
+import { adaptFormationVersionToPortrait } from '../../src/lib/formation-board-orientation.js'
 import { buildPdfBrandingForAuthorisedScope } from './lib/_pdf-branding.js'
 import {
   createPublicSupabaseClient,
@@ -123,7 +124,10 @@ async function resolvePayload(request, requestId) {
 
 function createDocument(payload) {
   const board = payload.board
-  const version = payload.version
+  const version = adaptFormationVersionToPortrait(payload.version)
+  const roster = Array.isArray(payload.version.bench) ? payload.version.bench : []
+  const bench = roster.filter((player) => player?.state !== 'unplaced')
+  const unplaced = roster.filter((player) => player?.state === 'unplaced')
 
   return buildFormationBoardDocument({
     clubName: payload.club.name,
@@ -140,7 +144,8 @@ function createDocument(payload) {
     formation: version.formation_preset_key,
     orientation: version.pitch_orientation,
     placements: version.placements,
-    bench: version.bench,
+    bench,
+    unplaced,
     notes: version.notes,
   })
 }

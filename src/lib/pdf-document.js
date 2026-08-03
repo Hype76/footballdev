@@ -8,6 +8,11 @@ import {
 import { validatePdfBranding } from './pdf-branding.js'
 import { buildDevelopmentParentReportContent } from './development-parent-report-content.js'
 import { normalizeDevelopmentScorePresentation } from './development-score-contract.js'
+import {
+  FORMATION_BOARD_CANONICAL_ORIENTATION,
+  convertFormationPlacementsToPortrait,
+  getFormationBoardOrientation,
+} from './formation-board-orientation.js'
 
 export const PDF_DOCUMENT_VERSION = 1
 
@@ -383,17 +388,25 @@ function validateFormationBoardDocument(value) {
     'orientation',
     'placements',
     'bench',
+    'unplaced',
     'notes',
   ], 'PDF document')
 
-  const placements = Array.isArray(value.placements)
-    ? value.placements.map((item) => normalizeFormationPlayer(item, { placement: true }))
+  const sourceOrientation = getFormationBoardOrientation(value.orientation)
+  const portraitPlacements = convertFormationPlacementsToPortrait(value.placements, sourceOrientation)
+  const placements = Array.isArray(portraitPlacements)
+    ? portraitPlacements.map((item) => normalizeFormationPlayer(item, { placement: true }))
     : invalid('Formation Board placements must be a list.')
   const bench = Array.isArray(value.bench)
     ? value.bench.map((item) => normalizeFormationPlayer(item))
     : invalid('Formation Board bench must be a list.')
+  const unplaced = value.unplaced == null
+    ? []
+    : Array.isArray(value.unplaced)
+      ? value.unplaced.map((item) => normalizeFormationPlayer(item))
+      : invalid('Formation Board unplaced Players must be a list.')
 
-  if (placements.length + bench.length > PDF_DOCUMENT_LIMITS.maxFormationPlayers) {
+  if (placements.length + bench.length + unplaced.length > PDF_DOCUMENT_LIMITS.maxFormationPlayers) {
     invalid('The Formation Board contains too many Players.', 'PDF_LIMIT_EXCEEDED')
   }
 
@@ -420,9 +433,10 @@ function validateFormationBoardDocument(value) {
       maxLength: 80,
       required: true,
     }),
-    orientation: ['portrait', 'landscape'].includes(value.orientation) ? value.orientation : 'portrait',
+    orientation: FORMATION_BOARD_CANONICAL_ORIENTATION,
     placements,
     bench,
+    unplaced,
     notes: normalizeText(value.notes, {
       label: 'Board notes',
       maxLength: 2_000,
@@ -567,6 +581,7 @@ export function buildFormationBoardDocument({
   orientation = 'portrait',
   placements = [],
   bench = [],
+  unplaced = [],
   notes = '',
 } = {}) {
   return validatePdfDocument({
@@ -586,6 +601,11 @@ export function buildFormationBoardDocument({
       y: item.y,
     })),
     bench: bench.map((item) => ({
+      displayName: item.displayName,
+      playerId: item.playerId,
+      shirtNumber: item.shirtNumber,
+    })),
+    unplaced: unplaced.map((item) => ({
       displayName: item.displayName,
       playerId: item.playerId,
       shirtNumber: item.shirtNumber,
@@ -792,6 +812,9 @@ function renderFormationBoardDocument(document, branding) {
   const benchMarkup = document.bench.length > 0
     ? document.bench.map((player) => `<li><strong>${escapeHtml(player.shirtNumber || '?')}</strong><span>${escapeHtml(player.displayName)}</span></li>`).join('')
     : '<li class="formation-empty">No Players on the bench</li>'
+  const unplacedMarkup = document.unplaced.length > 0
+    ? document.unplaced.map((player) => `<li><strong>${escapeHtml(player.shirtNumber || '?')}</strong><span>${escapeHtml(player.displayName)}</span></li>`).join('')
+    : '<li class="formation-empty">No unplaced Players</li>'
 
   return `
     <main class="formation-page" style="--club-accent:${branding.primaryColour};--club-accent-soft:${branding.secondaryColour};--club-accent-text:${branding.accentTextColour};">
@@ -827,8 +850,13 @@ function renderFormationBoardDocument(document, branding) {
               <div><dt>Game format</dt><dd>${escapeHtml(document.gameFormat)}</dd></div>
               <div><dt>Formation</dt><dd>${escapeHtml(formationLabel)}</dd></div>
               <div><dt>Pitch Players</dt><dd>${document.placements.length}</dd></div>
+              <div><dt>Unplaced Players</dt><dd>${document.unplaced.length}</dd></div>
             </dl>
             ${document.description ? `<p class="formation-description">${escapeHtml(document.description)}</p>` : ''}
+          </section>
+          <section>
+            <h2>Unplaced Players</h2>
+            <ul class="formation-bench">${unplacedMarkup}</ul>
           </section>
           <section>
             <h2>Bench</h2>
