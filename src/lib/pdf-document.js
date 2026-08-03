@@ -893,7 +893,7 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
         ? renderFormationBoardDocument(document, branding)
         : renderProgressionChartDocument(document)
   const pageRule = document.reportType === PDF_REPORT_TYPES.formationBoard
-    ? '@page { size: A4 landscape; margin: 8mm; }'
+    ? '@page { size: A4 portrait; margin: 8mm; }'
     : '@page { size: A4; margin: 14mm 14mm 23mm; }'
 
   return `<!doctype html>
@@ -952,7 +952,7 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           .formation-heading { min-width: 0; text-align: right; }
           .formation-heading h1 { margin: 0; font-size: 25px; line-height: 1.08; overflow-wrap: anywhere; }
           .formation-heading p { margin: 7px 0 0; color: #475467; font-size: 11px; font-weight: 800; }
-          .formation-layout { display: grid; grid-template-columns: minmax(0, 1fr) 245px; flex: 1; min-height: 0; gap: 16px; margin-top: 15px; }
+          .formation-layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; flex: 1; min-height: 0; gap: 16px; margin-top: 15px; }
           .formation-pitch-panel { min-height: 0; border: 1px solid #176a3a; border-radius: 14px; background: #237a45; padding: 12px; overflow: hidden; }
           .formation-pitch { position: relative; width: 100%; height: 100%; min-height: 520px; border-radius: 10px; background: linear-gradient(90deg,#237a45 0 12.5%,#2b834c 12.5% 25%,#237a45 25% 37.5%,#2b834c 37.5% 50%,#237a45 50% 62.5%,#2b834c 62.5% 75%,#237a45 75% 87.5%,#2b834c 87.5%); }
           .pitch-outline { position: absolute; inset: 18px; border: 3px solid rgba(255,255,255,.92); }

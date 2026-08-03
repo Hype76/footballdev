@@ -270,7 +270,7 @@ async function renderInIsolatedBrowser(document, {
       if (outputType === 'png') {
         await page.setViewport(
           validatedDocument.reportType === PDF_REPORT_TYPES.formationBoard
-            ? { width: 1600, height: 1100, deviceScaleFactor: 1 }
+            ? { width: 1100, height: 1600, deviceScaleFactor: 1 }
             : { width: 760, height: 240, deviceScaleFactor: 2 },
         )
       }

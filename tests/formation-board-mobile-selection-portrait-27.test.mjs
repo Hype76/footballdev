@@ -208,9 +208,11 @@ test('Players sheet and tray expose required mobile multi-selection and accessib
 })
 
 test('server, export, and immutable history paths use explicit state and canonical portrait compatibility', async () => {
-  const [domain, migration, serverExport] = await Promise.all([
+  const [domain, migration, pdfBuilder, pdfDocument, serverExport] = await Promise.all([
     readFile(new URL('../src/lib/domain/formation-board.js', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/20260803045754_formation_board_mobile_selection_portrait_27.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../src/lib/pdf-builder.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/lib/pdf-document.js', import.meta.url), 'utf8'),
     readFile(new URL('../netlify/functions/formation-board-export.js', import.meta.url), 'utf8'),
   ])
 
@@ -221,6 +223,8 @@ test('server, export, and immutable history paths use explicit state and canonic
   assert.match(migration, /before insert on public\.formation_board_versions/)
   assert.match(migration, /new\.pitch_orientation := 'portrait'/)
   assert.doesNotMatch(migration, /update\s+public\.formation_board_versions/i)
+  assert.match(pdfBuilder, /width: 1100, height: 1600/)
+  assert.match(pdfDocument, /A4 portrait/)
   assert.match(serverExport, /adaptFormationVersionToPortrait/)
   assert.match(serverExport, /player\?\.state === 'unplaced'/)
   assert.doesNotMatch(serverExport, /send-email|send-sms|send-push|create-chat/i)

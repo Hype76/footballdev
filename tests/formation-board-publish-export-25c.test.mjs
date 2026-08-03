@@ -117,7 +117,7 @@ test('Formation Board document validates and renders only approved public fields
   assert.match(html, />99</)
   assert.match(html, /Morgan Unplaced/)
   assert.match(html, /Press on the first touch/)
-  assert.match(html, /A4 landscape/)
+  assert.match(html, /A4 portrait/)
   assert.doesNotMatch(html, /player-private/)
   assert.doesNotMatch(html, /@example/)
   assert.throws(
