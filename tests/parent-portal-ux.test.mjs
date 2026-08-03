@@ -206,7 +206,7 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
   assert.match(source, /onSignOut=\{handleParentSignOut\}/)
   assert.match(source, /isSigningOut=\{isSigningOut\}/)
   assert.doesNotMatch(source, /showAccountActions=\{false\}/)
-  assert.match(shellSource, /pb-44/)
+  assert.match(shellSource, /pb-\[var\(--parent-portal-mobile-nav-content-padding,18rem\)\]/)
   assert.match(source, /activeSection === 'settings'/)
   assert.match(messagesSource, /activeSection="chat"/)
   assert.match(pollsSource, /<ParentPortalRouteShell[\s\S]*activeSection="polls"/)
