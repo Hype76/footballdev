@@ -4,7 +4,7 @@ import test from 'node:test'
 
 const manifestUrl = new URL('../src/lib/matchday-capability-manifest.js', import.meta.url)
 const pageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
-const migrationUrl = new URL('../supabase/migrations/20260803172717_fp_v1_gameday_capability_restoration_31a.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260803170012_fp_v1_gameday_capability_restoration_31a.sql', import.meta.url)
 
 test('31A keeps one complete canonical Game Day capability matrix', async () => {
   const manifest = await import(`${manifestUrl.href}?31a=${Date.now()}`)
