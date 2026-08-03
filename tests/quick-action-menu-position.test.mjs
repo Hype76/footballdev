@@ -9,7 +9,8 @@ test('Quick Add menu is positioned with viewport clamping and mobile safe margin
 
   assert.match(source, /const QUICK_ACTION_MENU_WIDTH = 288/)
   assert.match(source, /const QUICK_ACTION_MENU_BREAKPOINT = 640/)
-  assert.match(source, /const QUICK_ACTION_MOBILE_BOTTOM_CLEARANCE = 112/)
+  assert.match(source, /getMobileFloatingBottomClearance/)
+  assert.match(source, /MOBILE_ACTION_DOCK_LAYOUT_EVENT/)
   assert.match(source, /const quickActionMenuStyle = getQuickActionMenuStyle\(quickActionPosition, visibleActions\.length\)/)
   assert.match(source, /className="fixed rounded-lg border border-\[#d7e5dc\] bg-white p-2 shadow-2xl shadow-\[#047857\]\/20"/)
   assert.match(source, /style=\{quickActionMenuStyle\}/)
@@ -19,6 +20,7 @@ test('Quick Add menu is positioned with viewport clamping and mobile safe margin
   assert.match(source, /width: 'auto'/)
   assert.match(source, /function isMobileQuickActionViewport\(\)/)
   assert.match(source, /function getQuickActionBottomClearance\(\)/)
+  assert.match(source, /getMobileFloatingBottomClearance\(\{ fallback: 112 \}\)/)
   assert.match(source, /const bottomClearance = getQuickActionBottomClearance\(\)/)
   assert.match(source, /window\.innerHeight - QUICK_ACTION_BUTTON_SIZE - bottomClearance/)
   assert.match(source, /window\.innerWidth < 768/)

@@ -5,6 +5,7 @@ import { FormationPlayerMarkerVisual } from '../components/formation-board/Forma
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { MobileActionDock } from '../components/ui/MobileActionDock.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import {
   canCreateFormationBoard,
@@ -563,6 +564,7 @@ export function FormationBoardsPage() {
   const dragRef = useRef(null)
   const dragCleanupRef = useRef(null)
   const suppressSourceClickRef = useRef('')
+  const errorSummaryRef = useRef(null)
   const [boards, setBoards] = useState([])
   const [presets, setPresets] = useState([])
   const [players, setPlayers] = useState([])
@@ -627,6 +629,14 @@ export function FormationBoardsPage() {
     teamId: activeTeamId,
     userId: user?.id,
   }) : ''
+  const dockHasError = Boolean(errorMessage || conflict || saveState === 'failed' || saveState === 'conflict')
+  const dockAttentionKey = dockHasError
+    ? `${saveState}:${errorMessage || conflict?.message || 'Formation Board action failed'}`
+    : ''
+  const focusFormationError = useCallback(() => {
+    errorSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    errorSummaryRef.current?.focus({ preventScroll: true })
+  }, [])
 
   const refreshBoards = useCallback(async (includeArchived = true) => {
     const nextBoards = await getFormationBoards({ includeArchived, teamId: activeTeamId, user })
@@ -1182,14 +1192,18 @@ export function FormationBoardsPage() {
   }
 
   return (
-    <div className="space-y-5 pb-28 lg:pb-6">
+    <div className="formation-board-dock-safe-content space-y-5 pb-[var(--mobile-action-content-padding)] lg:pb-6">
       <PageHeader
         eyebrow="Team Resources"
         title="Formation Boards"
         description={`Plan shapes and Player positions for ${activeTeamName}. Boards remain inside the selected Team.`}
       />
 
-      {errorMessage ? <NoticeBanner title="Formation Board action failed" message={errorMessage} /> : null}
+      {errorMessage ? (
+        <div ref={errorSummaryRef} tabIndex={-1} aria-live="assertive">
+          <NoticeBanner title="Formation Board action failed" message={errorMessage} />
+        </div>
+      ) : null}
 
       {!snapshot ? (
         <FormationBoardList
@@ -1389,14 +1403,21 @@ export function FormationBoardsPage() {
             />
           ) : null}
 
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-color)] bg-[var(--panel-bg)]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl backdrop-blur lg:static lg:flex lg:justify-end lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-            <div className="mx-auto grid max-w-3xl grid-cols-4 gap-2 lg:mx-0 lg:flex">
+          <MobileActionDock
+            actionsClassName="grid grid-cols-2 gap-2"
+            attentionKey={dockAttentionKey}
+            desktopClassName="justify-end gap-3"
+            hasError={dockHasError}
+            hasUnsavedChanges={hasUnsavedChanges}
+            label="Formation Board actions"
+            onAttentionFocus={focusFormationError}
+            testId="formation-mobile-action-dock"
+          >
               <button type="button" onClick={() => setIsRosterOpen(true)} className={`${secondaryButtonClass} lg:hidden`}>Players</button>
               <button type="button" onClick={undo} disabled={!canEdit || history.length === 0} className={`${secondaryButtonClass} lg:hidden`}>Undo</button>
               <button type="button" onClick={() => setIsActionsOpen(true)} disabled={isNewBoard} className={`${secondaryButtonClass} lg:hidden`}>Actions</button>
               <button type="button" onClick={() => void saveBoard()} disabled={!canEdit || isSaving || !hasUnsavedChanges || pitchCapacity.isOverCapacity} className={primaryButtonClass}>{isSaving ? 'Saving...' : saveState === 'failed' ? 'Retry' : 'Save'}</button>
-            </div>
-          </div>
+          </MobileActionDock>
 
           <MobileRosterSheet isOpen={isRosterOpen} onClose={() => setIsRosterOpen(false)}>{roster}</MobileRosterSheet>
         </>

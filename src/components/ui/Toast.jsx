@@ -36,7 +36,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3">
+      <div className="fixed bottom-[var(--mobile-floating-bottom-clearance)] right-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3 transition-[bottom] duration-150 motion-reduce:transition-none">
         {toasts.map((toast) => (
           <ToastMessage key={toast.id} toast={toast} onDismiss={() => dismissToast(toast.id)} />
         ))}

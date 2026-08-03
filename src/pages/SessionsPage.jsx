@@ -12,6 +12,7 @@ import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.
 import { PreviousSessionsWorkspace } from '../components/sessions/PreviousSessionsWorkspace.jsx'
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { MobileActionDock } from '../components/ui/MobileActionDock.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { canCreateEvaluation, canManageResourceLibrary, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
@@ -5223,7 +5224,26 @@ function CalendarEventModal({
   const responseManagerButtonRef = useRef(null)
   const responseManagerDialogRef = useRef(null)
   const returnFocusRef = useRef(null)
+  const editingIdentityRef = useRef('')
+  const [editingBaseline, setEditingBaseline] = useState('')
   const calendarModalViewportStyle = useCalendarModalViewportStyle(isOpen)
+  const isEditingMode = mode !== 'view' && mode !== 'manage-players'
+
+  useEffect(() => {
+    if (!isOpen || !isEditingMode) {
+      editingIdentityRef.current = ''
+      const resetFrame = window.requestAnimationFrame(() => setEditingBaseline(''))
+      return () => window.cancelAnimationFrame(resetFrame)
+    }
+
+    const identity = `${variant}:${mode}:${event?.sourceType || 'new'}:${event?.sourceId || event?.id || 'new'}`
+    if (editingIdentityRef.current !== identity) {
+      editingIdentityRef.current = identity
+      const baselineFrame = window.requestAnimationFrame(() => setEditingBaseline(JSON.stringify(form)))
+      return () => window.cancelAnimationFrame(baselineFrame)
+    }
+    return undefined
+  }, [event?.id, event?.sourceId, event?.sourceType, form, isEditingMode, isOpen, mode, variant])
 
   useCalendarModalPageScrollLock(isOpen)
 
@@ -5394,7 +5414,12 @@ function CalendarEventModal({
   }
 
   const isManagingPlayers = mode === 'manage-players'
-  const isEditing = mode !== 'view' && !isManagingPlayers
+  const isEditing = isEditingMode
+  const hasUnsavedEditorChanges = Boolean(
+    isEditing
+      && editingBaseline
+      && JSON.stringify(form) !== editingBaseline,
+  )
   const editableSource = !event || event.editable !== false
   const isInheritedClubEvent = Boolean(event?.isInheritedClubEvent || event?.data?.isInheritedClubEvent)
   const showOpponent = form.eventType === 'match'
@@ -6101,8 +6126,17 @@ function CalendarEventModal({
             </div>
             </div>
 
-            <div data-testid="calendar-mobile-action-bar" className="shrink-0 border-t border-[#d7e5dc] bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
-              <div className={`grid gap-2 ${hasMobileSecondaryActions ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <MobileActionDock
+              actionsClassName={`grid gap-2 ${hasMobileSecondaryActions ? 'grid-cols-3' : 'grid-cols-2'}`}
+              attentionKey={validationError?.message || ''}
+              breakpoint="sm"
+              hasError={Boolean(validationError)}
+              hasUnsavedChanges={hasUnsavedEditorChanges}
+              label="Calendar editor actions"
+              mode="contained"
+              renderDesktop={false}
+              testId="calendar-mobile-action-bar"
+            >
                 <button type="button" onClick={handleModalCancel} disabled={isBusy} className={compactSecondaryButtonClass}>Cancel</button>
                 <button type="submit" disabled={isBusy} className={compactPrimaryButtonClass}>{isBusy ? 'Saving...' : 'Save'}</button>
                 {hasMobileSecondaryActions ? (
@@ -6117,8 +6151,7 @@ function CalendarEventModal({
                     More
                   </button>
                 ) : null}
-              </div>
-            </div>
+            </MobileActionDock>
             <div className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
               <div>
                 {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
@@ -6142,8 +6175,14 @@ function CalendarEventModal({
         ) : !isManagingPlayers ? (
           <>
             {(event?.href || hasMobileSecondaryActions) ? (
-              <div data-testid="calendar-mobile-action-bar" className="shrink-0 border-t border-[#d7e5dc] bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
-                <div className={`grid gap-2 ${event?.href && hasMobileSecondaryActions ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <MobileActionDock
+                actionsClassName={`grid gap-2 ${event?.href && hasMobileSecondaryActions ? 'grid-cols-2' : 'grid-cols-1'}`}
+                breakpoint="sm"
+                label="Calendar event actions"
+                mode="contained"
+                renderDesktop={false}
+                testId="calendar-mobile-action-bar"
+              >
                   {event?.href ? (
                     <button type="button" onClick={onOpenWorkflow} className={compactPrimaryButtonClass}>Open item</button>
                   ) : null}
@@ -6159,8 +6198,7 @@ function CalendarEventModal({
                       More actions
                     </button>
                   ) : null}
-                </div>
-              </div>
+              </MobileActionDock>
             ) : null}
             <div data-testid="calendar-desktop-action-bar" className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
               {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : <span />}

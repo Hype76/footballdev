@@ -17,6 +17,9 @@
 
 @layer base {
   :root {
+    --mobile-action-dock-edge-gap: 1rem;
+    --mobile-action-content-padding: 1.5rem;
+    --mobile-floating-bottom-clearance: 16px;
     --app-bg: #0b1110;
     --shell-card: #101916;
     --panel-bg: #14201c;
@@ -52,6 +55,29 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     color-scheme: dark;
+  }
+
+  @media (max-width: 1023px) {
+    :root[data-mobile-action-dock-state='expanded'] {
+      --mobile-action-content-padding: calc(8.5rem + env(safe-area-inset-bottom));
+      --mobile-floating-bottom-clearance: 144px;
+    }
+
+    :root[data-mobile-action-dock-state='collapsed'] {
+      --mobile-action-content-padding: calc(4.75rem + env(safe-area-inset-bottom));
+      --mobile-floating-bottom-clearance: 80px;
+    }
+
+    :root[data-mobile-action-dock-state='collapsed'] .formation-board-dock-safe-content {
+      padding-right: calc(6.5rem + env(safe-area-inset-right));
+      transition: padding-right 150ms ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      :root[data-mobile-action-dock-state='collapsed'] .formation-board-dock-safe-content {
+        transition: none;
+      }
+    }
   }
 
   html.theme-light,

@@ -31,7 +31,8 @@ test('Calendar modal reserves most of the mobile viewport for independently scro
   assert.match(modalSource, /data-testid="calendar-event-modal-content"[\s\S]*min-h-0 flex-1 overflow-y-auto overscroll-contain/)
   assert.match(modalSource, /\[-webkit-overflow-scrolling:touch\]/)
   assert.match(modalSource, /shrink-0 border-b/)
-  assert.match(modalSource, /shrink-0 border-t/)
+  assert.match(modalSource, /<MobileActionDock/)
+  assert.match(modalSource, /mode="contained"/)
 })
 
 test('Mobile view mode has compact Open item and More actions controls without a footer Close button', () => {
@@ -41,8 +42,8 @@ test('Mobile view mode has compact Open item and More actions controls without a
   assert.notEqual(desktopFooterStart, -1)
 
   const mobileViewFooter = modalSource.slice(viewFooterStart, desktopFooterStart)
-  assert.match(mobileViewFooter, /data-testid="calendar-mobile-action-bar"/)
-  assert.match(mobileViewFooter, /sm:hidden/)
+  assert.match(mobileViewFooter, /testId="calendar-mobile-action-bar"/)
+  assert.match(mobileViewFooter, /breakpoint="sm"/)
   assert.match(mobileViewFooter, />Open item</)
   assert.match(mobileViewFooter, />\s*More actions\s*</)
   assert.doesNotMatch(mobileViewFooter, />Close</)

@@ -30,6 +30,10 @@ import { isParentIntentPath } from '../../lib/parent-auth-intent.js'
 import { CAPABILITIES } from '../../lib/paywall-access.js'
 import { canUseUiFeature } from '../../lib/paywall-ui.js'
 import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
+import {
+  MOBILE_ACTION_DOCK_LAYOUT_EVENT,
+  getMobileFloatingBottomClearance,
+} from '../../lib/mobile-action-dock.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
@@ -46,7 +50,6 @@ const QUICK_ACTION_BUTTON_SIZE = 56
 const QUICK_ACTION_MENU_WIDTH = 288
 const QUICK_ACTION_MENU_GAP = 12
 const QUICK_ACTION_MENU_BREAKPOINT = 640
-const QUICK_ACTION_MOBILE_BOTTOM_CLEARANCE = 112
 const COACH_MODE_STORAGE_KEY = 'football-player:coach-mode'
 const COACH_MODE_CHANGED_EVENT = 'football-player:coach-mode-changed'
 
@@ -506,8 +509,10 @@ function QuickActionHotbar({ user }) {
     }
 
     window.addEventListener('resize', handleResize)
+    window.addEventListener(MOBILE_ACTION_DOCK_LAYOUT_EVENT, handleResize)
     return () => {
       window.removeEventListener('resize', handleResize)
+      window.removeEventListener(MOBILE_ACTION_DOCK_LAYOUT_EVENT, handleResize)
     }
   }, [])
 
@@ -725,7 +730,9 @@ function isMobileQuickActionViewport() {
 }
 
 function getQuickActionBottomClearance() {
-  return isMobileQuickActionViewport() ? QUICK_ACTION_MOBILE_BOTTOM_CLEARANCE : QUICK_ACTION_EDGE_GAP
+  return isMobileQuickActionViewport()
+    ? getMobileFloatingBottomClearance({ fallback: 112 })
+    : QUICK_ACTION_EDGE_GAP
 }
 
 function clampQuickActionPosition(position) {

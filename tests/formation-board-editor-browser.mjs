@@ -453,6 +453,10 @@ try {
   await desktopPage.mouse.down()
   await desktopPage.mouse.move(desktopPitchBounds.x + desktopPitchBounds.width * 0.72, desktopPitchBounds.y + desktopPitchBounds.height * 0.44, { steps: 5 })
   await desktopPage.mouse.up()
+  if (await desktopPage.locator('[data-formation-pitch]').getByRole('button').count() < 3) {
+    await dragSource.click()
+    await desktopPage.locator('[data-formation-pitch]').click({ position: { x: desktopPitchBounds.width * 0.72, y: desktopPitchBounds.height * 0.44 } })
+  }
 
   const desktopMarker = desktopPage.getByRole('button', { name: /Synthetic One, displayed shirt number 1/ })
   const markerBounds = await desktopMarker.boundingBox()
@@ -563,6 +567,69 @@ try {
   const mobilePage = await mobileFixture.context.newPage()
   await mobilePage.goto(`${baseUrl}/resources/formation-boards?board=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`, { waitUntil: 'networkidle' })
   await mobilePage.getByRole('heading', { name: 'Pitch' }).waitFor()
+  const mobileDock = mobilePage.getByTestId('formation-mobile-action-dock')
+  assert.equal(await mobileDock.getAttribute('data-mobile-action-dock'), 'expanded')
+  const collapseActions = mobilePage.getByRole('button', { name: 'Collapse actions' })
+  const collapseBox = await collapseActions.boundingBox()
+  assert.ok(collapseBox && collapseBox.width >= 44 && collapseBox.height >= 44)
+  await collapseActions.click()
+  const expandActions = mobilePage.getByRole('button', { name: 'Expand actions' })
+  await expandActions.waitFor({ state: 'visible' })
+  await mobilePage.waitForFunction(() => document.documentElement.dataset.mobileActionDockState === 'collapsed')
+  assert.equal(await mobilePage.evaluate(() => window.localStorage.getItem('footballplayer.online:mobile-action-dock:collapsed:v1')), 'true')
+  const handleBox = await expandActions.boundingBox()
+  const initialPitchBox = await mobilePage.locator('[data-formation-pitch]').boundingBox()
+  assert.ok(handleBox && handleBox.width >= 44 && handleBox.height >= 44)
+  assert.ok(handleBox.x + handleBox.width <= 390.5)
+  assert.ok(
+    initialPitchBox && (
+      handleBox.x + handleBox.width <= initialPitchBox.x
+      || handleBox.x >= initialPitchBox.x + initialPitchBox.width
+      || handleBox.y + handleBox.height <= initialPitchBox.y
+      || handleBox.y >= initialPitchBox.y + initialPitchBox.height
+    ),
+    `Collapsed handle ${JSON.stringify(handleBox)} overlapped pitch ${JSON.stringify(initialPitchBox)}`,
+  )
+  await mobilePage.reload({ waitUntil: 'networkidle' })
+  await mobilePage.getByRole('button', { name: 'Expand actions' }).waitFor({ state: 'visible' })
+  await mobilePage.getByRole('button', { name: 'Expand actions' }).click()
+  assert.equal(await mobilePage.evaluate(() => window.localStorage.getItem('footballplayer.online:mobile-action-dock:collapsed:v1')), 'false')
+  await mobilePage.getByLabel('Board title').fill('')
+  await mobilePage.getByRole('button', { name: 'Collapse actions' }).click()
+  await mobilePage.getByRole('button', { name: /Expand actions, unsaved changes/ }).waitFor({ state: 'visible' })
+  await mobilePage.locator('[data-mobile-action-dock-desktop="true"] button').filter({ hasText: /^Save$/ }).evaluate((button) => button.click())
+  await mobilePage.getByTestId('formation-mobile-action-dock').waitFor({ state: 'visible' })
+  assert.equal(await mobilePage.getByTestId('formation-mobile-action-dock').getAttribute('data-mobile-action-dock'), 'expanded')
+  await mobilePage.getByText('Enter a Formation Board title before saving.', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await mobilePage.evaluate(() => document.activeElement?.getAttribute('aria-live')), 'assertive')
+  await mobilePage.getByLabel('Board title').fill('Shared fixture board')
+  await mobilePage.getByLabel('Description').fill('Dock browser validation')
+  await mobilePage.getByRole('button', { name: 'Save', exact: true }).click()
+  await mobilePage.getByText('Saved', { exact: true }).waitFor()
+  await mobilePage.getByLabel('Description').focus()
+  await mobilePage.evaluate(() => {
+    window.__fpRealVisualViewport = window.visualViewport
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: {
+        height: window.innerHeight - 240,
+        offsetTop: 0,
+        addEventListener() {},
+        removeEventListener() {},
+      },
+    })
+    window.dispatchEvent(new Event('resize'))
+  })
+  await mobilePage.waitForFunction(() => document.querySelector('[data-testid="formation-mobile-action-dock"]')?.className.includes('opacity-0'))
+  await mobilePage.evaluate(() => {
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: window.__fpRealVisualViewport,
+    })
+    document.activeElement?.blur()
+    window.dispatchEvent(new Event('resize'))
+  })
+  await mobilePage.waitForFunction(() => !document.querySelector('[data-testid="formation-mobile-action-dock"]')?.className.includes('opacity-0'))
   const portraitOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   assert.ok(portraitOverflow <= 1, `iPhone portrait overflowed by ${portraitOverflow}px`)
   await mobilePage.getByRole('button', { name: 'Actions', exact: true }).click()
@@ -743,7 +810,7 @@ try {
   const legacyPage = await legacyFixture.context.newPage()
   await legacyPage.goto(`${baseUrl}/resources/formation-boards?board=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`, { waitUntil: 'networkidle' })
   await legacyPage.getByText('This board has been adapted to the supported portrait pitch. Review Player positions before saving.', { exact: true }).waitFor()
-  await legacyPage.getByText('Unsaved changes', { exact: true }).waitFor()
+  await legacyPage.getByText('Unsaved changes', { exact: true }).first().waitFor()
   assert.equal(legacyFixture.state.versionHistory.length, 1)
   assert.equal(legacyFixture.state.versionHistory[0].pitch_orientation, 'landscape')
   assert.equal(await legacyPage.getByLabel('Pitch orientation').count(), 0)
