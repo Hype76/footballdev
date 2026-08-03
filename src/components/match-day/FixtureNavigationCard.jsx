@@ -23,7 +23,7 @@ export function FixtureNavigationCard({
       }`}
       data-testid="game-day-fixture-summary"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-1.5">
             <span className="inline-flex rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[var(--text-secondary)]">
@@ -36,9 +36,9 @@ export function FixtureNavigationCard({
               {fixtureTypeLabel}
             </span>
           </div>
-          <h3 className="mt-2 text-sm font-black leading-5 text-[var(--text-primary)]">{matchName}</h3>
+          <h3 className="mt-2 break-words text-sm font-black leading-5 text-[var(--text-primary)] [overflow-wrap:anywhere]">{matchName}</h3>
           <p className="mt-1 text-xs font-semibold leading-5 text-[var(--text-muted)]">{dateLabel}</p>
-          {venueLabel ? <p className="text-xs font-semibold leading-5 text-[var(--text-muted)]">{venueLabel}</p> : null}
+          {venueLabel ? <p className="break-words text-xs font-semibold leading-5 text-[var(--text-muted)] [overflow-wrap:anywhere]">{venueLabel}</p> : null}
         </div>
         <div className={`shrink-0 rounded-lg px-3 py-2 text-center ${isLive ? 'bg-[var(--accent-soft)]' : 'bg-[var(--panel-alt)]'}`}>
           <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Score</p>
@@ -57,8 +57,8 @@ export function FixtureNavigationCard({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[var(--text-muted)]">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="min-w-0 break-words text-[10px] font-black uppercase tracking-[0.1em] text-[var(--text-muted)] [overflow-wrap:anywhere]">
           {teamName || 'Team fixture'}
         </span>
         <button

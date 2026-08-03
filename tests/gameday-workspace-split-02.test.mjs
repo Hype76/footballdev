@@ -39,13 +39,16 @@ test('Game Day uses compact fixture navigation and one selected detail workspace
   assert.match(navigationCard, /\{isSelected \? 'Close' : 'Manage'\}/)
 })
 
-test('Game Day mobile replaces the list and desktop uses a bounded split view', async () => {
+test('Game Day mobile replaces the list and desktop uses a natural-flow responsive split view', async () => {
   const page = await readFile(pageUrl, 'utf8')
 
-  assert.match(page, /selectedMatch \? 'hidden xl:block' : ''/)
+  assert.match(page, /selectedMatch \? 'hidden xl:block xl:basis-\[22rem\] xl:flex-grow' : ''/)
   assert.match(page, />\s*Back to fixtures\s*</)
-  assert.match(page, /xl:grid xl:grid-cols-\[20rem_minmax\(0,1fr\)\]/)
-  assert.match(page, /xl:max-h-\[calc\(100vh-9rem\)\] xl:overflow-y-auto/)
+  assert.match(page, /xl:flex xl:flex-wrap xl:items-start/)
+  assert.match(page, /xl:basis-\[22rem\] xl:flex-grow/)
+  assert.match(page, /xl:basis-\[32rem\] xl:flex-grow-\[2\]/)
+  assert.doesNotMatch(page, /sm:grid-cols-\[minmax\(0,1fr\)_auto\] sm:items-end/)
+  assert.doesNotMatch(page, /xl:max-h-\[calc\(100vh-9rem\)\] xl:overflow-y-auto/)
   assert.doesNotMatch(page, /function PitchsideCockpitPanel/)
 })
 

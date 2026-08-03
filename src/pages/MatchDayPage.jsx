@@ -3938,7 +3938,7 @@ export function MatchDayPage() {
   }
 
   const renderSelectedMatchWorkspace = (match) => (
-    <div className="min-w-0 space-y-2" data-testid="game-day-selected-workspace">
+    <div className="min-w-0 space-y-2 xl:basis-[32rem] xl:flex-grow-[2]" data-testid="game-day-selected-workspace">
       <div className="xl:hidden">
         <button
           type="button"
@@ -4120,12 +4120,12 @@ export function MatchDayPage() {
       ) : null}
 
       <div
-        className={`${selectedMatch && !isGameModeActive ? 'xl:grid xl:grid-cols-[20rem_minmax(0,1fr)] xl:items-start' : ''} gap-4`}
+        className={`${selectedMatch && !isGameModeActive ? 'xl:flex xl:flex-wrap xl:items-start' : ''} gap-4`}
         data-testid="game-day-workspace"
       >
-      <section className={`overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10 ${selectedMatch ? 'hidden xl:block' : ''} ${isGameModeActive ? 'hidden' : ''}`}>
-        <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-4 border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:px-6`}>
-          <div>
+      <section className={`min-w-0 overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10 ${selectedMatch ? 'hidden xl:block xl:basis-[22rem] xl:flex-grow' : ''} ${isGameModeActive ? 'hidden' : ''}`}>
+        <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-4 border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-5 sm:px-6`}>
+          <div className="min-w-0">
             <p className={eyebrowClass}>Fixture list</p>
             <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--text-primary)]">Active fixtures</h2>
             {!selectedMatch ? (
@@ -4134,7 +4134,7 @@ export function MatchDayPage() {
               </p>
             ) : null}
           </div>
-          <div className="grid gap-2 sm:min-w-64">
+          <div className="grid min-w-0 w-full gap-2">
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--panel-bg)] p-1" role="group" aria-label="Fixture list view">
               {[
                 { label: 'Next game', value: 'next' },
@@ -4164,7 +4164,7 @@ export function MatchDayPage() {
             </button>
           </div>
         </div>
-        <div className={`px-5 py-5 sm:px-6 ${selectedMatch ? 'xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto xl:px-4 xl:py-4' : ''}`}>
+        <div className={`px-5 py-5 sm:px-6 ${selectedMatch ? 'xl:px-4 xl:py-4' : ''}`}>
         {isLoading ? (
           <p className="rounded-lg bg-[var(--panel-alt)] px-4 py-5 text-sm font-bold text-[var(--text-muted)]">
             Loading match day...
@@ -4179,7 +4179,7 @@ export function MatchDayPage() {
             ) : null}
           </div>
         ) : (
-          <div className="rounded-lg bg-[var(--panel-alt)] px-4 py-5">
+          <div className="rounded-lg bg-[var(--panel-alt)] px-4 py-5" data-testid="game-day-empty-fixtures">
             <p className="text-base font-black text-[var(--text-primary)]">No live or upcoming matches yet.</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
               Create the fixture above before requesting a scorer or publishing parent updates.

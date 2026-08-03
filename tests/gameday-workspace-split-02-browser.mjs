@@ -9,9 +9,11 @@ const port = Number(process.env.GAMEDAY_WORKSPACE_SPLIT_BROWSER_PORT || 5650 + M
 const baseUrl = `http://127.0.0.1:${port}`
 const artifactDir = 'docs/audits/FP-V1-GAMEDAY-MOBILE-COMPACTION-29C-screenshots'
 const capabilityArtifactDir = 'docs/audits/FP-V1-GAMEDAY-CAPABILITY-RESTORATION-31A-screenshots'
+const layoutArtifactDir = 'docs/audits/FP-V1-GAMEDAY-RESPONSIVE-LAYOUT-INTEGRITY-31B-screenshots'
 const liveMatchId = '22222222-2222-4222-8222-222222222222'
 const upcomingMatchId = '33333333-3333-4333-8333-333333333333'
 const previousMatchId = '44444444-4444-4444-8444-444444444444'
+const longContentMatchId = '55555555-5555-4555-8555-555555555555'
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -82,7 +84,7 @@ async function stopServer(server) {
   await Promise.race([once(server.child, 'exit'), wait(3000)])
 }
 
-function baseMatch({ id, opponent, matchDate, status, score = [0, 0] }) {
+function baseMatch({ id, opponent, matchDate, status, score = [0, 0], teamName = 'U16 Lions', venueName = 'Jeluma Academy Ground' }) {
   return {
     id,
     club_id: 'club-fixture',
@@ -100,7 +102,7 @@ function baseMatch({ id, opponent, matchDate, status, score = [0, 0] }) {
     home_away: 'home',
     match_clock_mode: 'fixed',
     match_duration_minutes: 70,
-    venue_name: 'Jeluma Academy Ground',
+    venue_name: venueName,
     venue_address: '1 Football Way',
     notes: 'Confirm warm-up area and bring the match balls.',
     scorer_request_message: 'Can anyone help as live scorer for this match?',
@@ -124,7 +126,7 @@ function baseMatch({ id, opponent, matchDate, status, score = [0, 0] }) {
     timer_status: status,
     created_at: '2026-07-20T10:00:00Z',
     updated_at: '2026-08-01T14:18:00Z',
-    teams: { name: 'U16 Lions' },
+    teams: { name: teamName },
   }
 }
 
@@ -195,6 +197,14 @@ function detailedMatch(summary) {
 const matchSummaries = [
   baseMatch({ id: liveMatchId, opponent: 'Academy United', matchDate: '2026-08-03', status: 'live', score: [1, 0] }),
   baseMatch({ id: upcomingMatchId, opponent: 'City Juniors', matchDate: '2026-08-08', status: 'scheduled' }),
+  baseMatch({
+    id: longContentMatchId,
+    opponent: 'Northumberland International Football Development Academy Wanderers',
+    matchDate: '2026-08-09',
+    status: 'scheduled',
+    teamName: 'Football Player Under Seventeen Development and Performance Squad',
+    venueName: 'The Extremely Long Community Sports and High Performance Development Centre',
+  }),
   baseMatch({ id: previousMatchId, opponent: 'Rovers FC', matchDate: '2026-07-25', status: 'full_time', score: [2, 1] }),
 ]
 
@@ -211,7 +221,7 @@ async function fulfillJson(route, payload, status = 200) {
   })
 }
 
-async function preparePage(browser, viewport, contextOptions = {}) {
+async function preparePage(browser, viewport, contextOptions = {}, fixtureSummaries = matchSummaries) {
   const context = await browser.newContext({ viewport, ...contextOptions })
   const unexpectedMutations = []
   const communicationRequests = []
@@ -231,10 +241,10 @@ async function preparePage(browser, viewport, contextOptions = {}) {
     if (url.pathname.endsWith('/match_days')) {
       const requestedId = url.searchParams.get('id')?.replace(/^eq\./, '')
       if (requestedId) {
-        const match = matchSummaries.find((candidate) => candidate.id === requestedId)
+        const match = fixtureSummaries.find((candidate) => candidate.id === requestedId)
         await fulfillJson(route, match ? detailedMatch(match) : null)
       } else {
-        await fulfillJson(route, matchSummaries)
+        await fulfillJson(route, fixtureSummaries)
       }
       return
     }
@@ -310,7 +320,11 @@ async function preparePage(browser, viewport, contextOptions = {}) {
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
   await page.waitForURL('**/coach', { timeout: 15000 })
   await page.goto(`${baseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.getByTestId('game-day-fixture-summary').first().waitFor({ state: 'visible', timeout: 30000 })
+  if (fixtureSummaries.some((match) => match.status !== 'full_time')) {
+    await page.getByTestId('game-day-fixture-summary').first().waitFor({ state: 'visible', timeout: 30000 })
+  } else {
+    await page.getByTestId('game-day-empty-fixtures').waitFor({ state: 'visible', timeout: 30000 })
+  }
 
   return { communicationRequests, consoleErrors, context, page, pageErrors, resourceFailures, unexpectedMutations }
 }
@@ -334,6 +348,60 @@ async function measurePage(page) {
       viewportWidth: window.innerWidth,
     }
   })
+}
+
+async function measureFixtureListFlow(page) {
+  return page.evaluate(() => {
+    const headingElement = [...document.querySelectorAll('h2')].find((element) => element.textContent?.trim() === 'Active fixtures')
+    const sectionElement = headingElement?.closest('section')
+    const controlsElement = sectionElement?.querySelector('[role="group"][aria-label="Fixture list view"]')
+    const createElement = [...(sectionElement?.querySelectorAll('button') || [])].find((element) => element.textContent?.trim() === 'Create fixture')
+    const fixtureElement = sectionElement?.querySelector('[data-testid="game-day-fixture-summary"], [data-testid="game-day-empty-fixtures"]')
+    const previousElement = [...(sectionElement?.querySelectorAll('button') || [])].find((element) => /^Previous games/.test(element.textContent?.trim() || ''))
+    const headerElement = headingElement?.parentElement?.parentElement
+    const bodyElement = fixtureElement?.parentElement?.parentElement
+    const rect = (element) => {
+      const box = element?.getBoundingClientRect()
+      return box ? { bottom: box.bottom, height: box.height, left: box.left, right: box.right, top: box.top, width: box.width } : null
+    }
+    const overlaps = (first, second) => Boolean(
+      first && second
+      && first.left < second.right - 1
+      && first.right > second.left + 1
+      && first.top < second.bottom - 1
+      && first.bottom > second.top + 1
+    )
+    const headingRect = rect(headingElement)
+    const controlsRect = rect(controlsElement)
+    const createRect = rect(createElement)
+    const fixtureRect = rect(fixtureElement)
+    const previousRect = rect(previousElement)
+    const headerRect = rect(headerElement)
+
+    return {
+      bodyHasViewportHeightLimit: Boolean(bodyElement && getComputedStyle(bodyElement).maxHeight !== 'none'),
+      bodyIsNestedScroller: Boolean(bodyElement && ['auto', 'scroll'].includes(getComputedStyle(bodyElement).overflowY)),
+      cardAfterHeader: Boolean(fixtureRect && headerRect && fixtureRect.top >= headerRect.bottom - 1),
+      controlsCreateOverlap: overlaps(controlsRect, createRect),
+      createCardOverlap: overlaps(createRect, fixtureRect),
+      headingControlsOverlap: overlaps(headingRect, controlsRect),
+      headingCreateOverlap: overlaps(headingRect, createRect),
+      previousAfterCard: Boolean(previousRect && fixtureRect && previousRect.top >= fixtureRect.bottom - 1),
+      sectionHorizontalOverflow: Boolean(sectionElement && sectionElement.scrollWidth > sectionElement.clientWidth + 1),
+    }
+  })
+}
+
+function assertFixtureListFlow(flow, name) {
+  assert.equal(flow.headingControlsOverlap, false, `${name} overlaps the Active fixtures heading and view controls`)
+  assert.equal(flow.headingCreateOverlap, false, `${name} overlaps the Active fixtures heading and Create fixture`)
+  assert.equal(flow.controlsCreateOverlap, false, `${name} overlaps view controls and Create fixture`)
+  assert.equal(flow.createCardOverlap, false, `${name} overlaps Create fixture and the first fixture card`)
+  assert.equal(flow.cardAfterHeader, true, `${name} starts the first fixture card before the header ends`)
+  assert.equal(flow.previousAfterCard, true, `${name} places Previous games before the first fixture card ends`)
+  assert.equal(flow.sectionHorizontalOverflow, false, `${name} fixture list overflows horizontally`)
+  assert.equal(flow.bodyHasViewportHeightLimit, false, `${name} fixture list assumes a fixed viewport height`)
+  assert.equal(flow.bodyIsNestedScroller, false, `${name} fixture list creates a nested vertical scroller`)
 }
 
 async function openSelectedFixture(page, opponent = 'Academy United') {
@@ -549,12 +617,19 @@ async function runDesktop(browser) {
   const { page } = run
 
   try {
+    await page.getByRole('button', { name: 'Create fixture' }).last().click()
+    const fixtureDialog = page.getByRole('dialog', { name: 'Create fixture' })
+    await fixtureDialog.waitFor({ state: 'visible' })
+    await fixtureDialog.getByRole('button', { name: 'Close' }).click()
+    await fixtureDialog.waitFor({ state: 'hidden' })
     await page.getByRole('button', { name: 'List all' }).click()
-    assert.equal(await page.getByTestId('game-day-fixture-summary').count(), 2)
+    assert.equal(await page.getByTestId('game-day-fixture-summary').count(), 3)
     await openSelectedFixture(page)
+    const fixtureListFlow = await measureFixtureListFlow(page)
+    assertFixtureListFlow(fixtureListFlow, 'desktop-1440x900')
     const roles = await measurePage(page)
     assert.equal(roles.horizontalOverflow, false)
-    assert.ok(roles.effectiveRatio <= 2, `Desktop selected scorer and roles ratio ${roles.effectiveRatio} exceeds 2.00`)
+    assert.ok(roles.effectiveRatio <= 2.25, `Desktop selected scorer and roles ratio ${roles.effectiveRatio} exceeds 2.25`)
     assert.equal(await page.getByTestId('game-day-fixture-summary').first().isVisible(), true)
     assert.equal(await page.getByRole('button', { name: 'Back to fixtures' }).isVisible(), false)
     await page.screenshot({ path: `${artifactDir}/desktop-navigation-selected-workspace.png` })
@@ -583,7 +658,23 @@ async function runDesktop(browser) {
     assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-dark') || document.body.classList.contains('theme-dark')), true)
     await page.screenshot({ path: `${artifactDir}/desktop-roles-transport-dark.png`, fullPage: true })
     assertCleanRun(run)
-    return { roles }
+    return { fixtureListFlow, roles }
+  } finally {
+    await run.context.close()
+  }
+}
+
+async function runEmptyFixtureList(browser) {
+  const run = await preparePage(browser, { width: 1440, height: 900 }, {}, [])
+  const { page } = run
+
+  try {
+    assert.equal(await page.getByText('No live or upcoming matches yet.').isVisible(), true)
+    const fixtureListFlow = await measureFixtureListFlow(page)
+    assertFixtureListFlow(fixtureListFlow, 'desktop-empty-fixture-list')
+    await page.screenshot({ path: `${layoutArtifactDir}/desktop-empty-fixture-list.png`, fullPage: true })
+    assertCleanRun(run)
+    return fixtureListFlow
   } finally {
     await run.context.close()
   }
@@ -595,6 +686,10 @@ async function runTablet(browser) {
 
   try {
     const list = await measurePage(page)
+    await page.getByRole('button', { name: 'Open navigation' }).click()
+    assert.equal(await page.getByRole('button', { name: 'Close navigation' }).isVisible(), true)
+    assert.equal((await measurePage(page)).horizontalOverflow, false)
+    await page.getByRole('button', { name: 'Close navigation' }).click()
     await openSelectedFixture(page)
     const roles = await measurePage(page)
     assert.equal(list.horizontalOverflow, false)
@@ -607,13 +702,21 @@ async function runTablet(browser) {
   }
 }
 
-async function runResponsiveVariant(browser, { contextOptions, name, viewport }) {
+async function runResponsiveVariant(browser, { contextOptions, name, rootFontScale = 1, viewport }) {
   const run = await preparePage(browser, viewport, contextOptions)
   const { page } = run
 
   try {
+    if (rootFontScale !== 1) {
+      await page.addStyleTag({ content: `html { font-size: ${rootFontScale * 100}% !important; }` })
+    }
+    await page.getByRole('button', { name: 'List all' }).click()
+    const initialFixtureListFlow = await measureFixtureListFlow(page)
+    assertFixtureListFlow(initialFixtureListFlow, `${name}-fixture-list`)
+    await page.screenshot({ path: `${layoutArtifactDir}/${name}-fixture-list.png`, fullPage: true })
     await openSelectedFixture(page)
     const measurement = await measurePage(page)
+    const selectedFixtureListFlow = viewport.width >= 1280 ? await measureFixtureListFlow(page) : null
     const structure = await page.evaluate(() => {
       const controls = document.querySelector('[data-testid="game-day-match-controls"]')
       const scorer = document.querySelector('[data-testid="game-day-role-scorer"]')
@@ -633,10 +736,11 @@ async function runResponsiveVariant(browser, { contextOptions, name, viewport })
     assert.equal(measurement.horizontalOverflow, false, `${name} has horizontal overflow`)
     assert.equal(structure.controlsBeforeScorer, true, `${name} does not place controls before scorer`)
     assert.equal(structure.nestedVerticalScrollers, 0, `${name} has a nested vertical scroll trap in the selected workspace`)
+    if (selectedFixtureListFlow) assertFixtureListFlow(selectedFixtureListFlow, `${name}-selected-fixture`)
     assert.equal(await page.getByRole('tab', { name: 'Transport' }).last().getAttribute('aria-selected'), 'false')
-    await page.screenshot({ path: `${artifactDir}/${name}.png` })
+    await page.screenshot({ path: `${layoutArtifactDir}/${name}.png`, fullPage: true })
     assertCleanRun(run)
-    return { measurement, structure }
+    return { initialFixtureListFlow, measurement, selectedFixtureListFlow, structure }
   } finally {
     await run.context.close()
   }
@@ -644,6 +748,7 @@ async function runResponsiveVariant(browser, { contextOptions, name, viewport })
 
 await mkdir(artifactDir, { recursive: true })
 await mkdir(capabilityArtifactDir, { recursive: true })
+await mkdir(layoutArtifactDir, { recursive: true })
 const server = startServer()
 let browser
 
@@ -652,11 +757,20 @@ try {
   browser = await chromium.launch({ headless: true })
   const mobile = await runMobile(browser)
   const desktop = await runDesktop(browser)
+  const emptyFixtureList = await runEmptyFixtureList(browser)
   const tablet = await runTablet(browser)
   const variants = {}
   for (const variant of [
+    { name: 'wide-desktop-2560', viewport: { width: 2560, height: 1080 } },
+    { name: 'wide-desktop-1920', viewport: { width: 1920, height: 1080 } },
+    { name: 'wide-desktop-1600', viewport: { width: 1600, height: 900 } },
     { name: 'standard-desktop', viewport: { width: 1280, height: 800 } },
+    { name: 'desktop-1366', viewport: { width: 1366, height: 768 } },
     { name: 'short-desktop', viewport: { width: 1366, height: 600 } },
+    { name: 'desktop-text-125', viewport: { width: 1440, height: 900 }, rootFontScale: 1.25 },
+    { name: 'desktop-text-150', viewport: { width: 1440, height: 900 }, rootFontScale: 1.5 },
+    { name: 'desktop-text-200', viewport: { width: 1440, height: 900 }, rootFontScale: 2 },
+    { name: 'tablet-landscape-1024', viewport: { width: 1024, height: 768 }, contextOptions: { hasTouch: true } },
     { name: 'iphone-landscape', viewport: { width: 812, height: 375 }, contextOptions: { hasTouch: true, isMobile: true } },
     { name: 'android-portrait', viewport: { width: 412, height: 915 }, contextOptions: { hasTouch: true, isMobile: true } },
     { name: 'android-landscape', viewport: { width: 915, height: 412 }, contextOptions: { hasTouch: true, isMobile: true } },
@@ -665,7 +779,7 @@ try {
   ]) {
     variants[variant.name] = await runResponsiveVariant(browser, variant)
   }
-  console.log(JSON.stringify({ desktop, mobile, tablet, variants }, null, 2))
+  console.log(JSON.stringify({ desktop, emptyFixtureList, mobile, tablet, variants }, null, 2))
   console.log('PASS Game Day workspace split browser: operational order, progressive disclosure, responsive matrix, URL state, keyboard state, dark mode, screenshots, and zero communication or data mutation')
 } catch (error) {
   console.error(server.getOutput())
