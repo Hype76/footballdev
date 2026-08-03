@@ -11,6 +11,7 @@ import {
 } from '../src/lib/manager-home-next-up.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260803091136_fp_v1_scorer_eligibility_consistency_29a.sql', import.meta.url)
+const serviceBoundaryMigrationUrl = new URL('../supabase/migrations/20260803094112_fp_v1_scorer_eligibility_service_boundary_29a.sql', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const coachHomeUrl = new URL('../src/pages/CoachHomePage.jsx', import.meta.url)
@@ -106,6 +107,7 @@ async function createEligibilityDatabase() {
     returns boolean language sql stable as $$ select true; $$;
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(serviceBoundaryMigrationUrl, 'utf8'))
   await db.query(
     'insert into public.match_days(id, club_id, team_id) values ($1, $2, $3)',
     [ids.match, ids.club, ids.team],
@@ -224,14 +226,25 @@ test('29A candidate UI and API consume eligibility before selection and scorer a
     readFile(volunteerFunctionUrl, 'utf8'),
   ])
 
-  assert.match(domain, /supabase\.rpc\([\s\S]*'get_match_day_scorer_eligibility'/)
+  assert.match(domain, /select-match-day-volunteer\?matchDayId=/)
+  assert.match(domain, /includeScorerEligibility = false/)
+  assert.match(page, /includeScorerEligibility: true, accessToken: session\?\.access_token/)
   assert.match(domain, /scorer_eligible: eligibility\?\.eligible === true/)
   assert.match(page, /eligible: role\.key === 'scorer' \? request\.scorerEligible === true : true/)
   assert.match(page, /row\?\.eligible === false/)
   assert.doesNotMatch(page, /type: 'scorer_selected'/)
   assert.match(volunteerFunction, /rpc\('resolve_match_day_scorer_eligibility'/)
+  assert.match(volunteerFunction, /event\.httpMethod === 'GET'[\s\S]*rpc\([\s\S]*'get_match_day_scorer_eligibility'/)
   assert.match(volunteerFunction, /role !== 'scorer' && selected/)
   assert.match(volunteerFunction, /role !== 'scorer' && previousAssignment/)
+})
+
+test('29A exposes scorer eligibility only through the authenticated service boundary', async () => {
+  const migration = await readFile(serviceBoundaryMigrationUrl, 'utf8')
+
+  assert.match(migration, /revoke all on function public\.get_match_day_scorer_eligibility\(uuid\) from public, anon, authenticated/)
+  assert.match(migration, /grant execute on function public\.get_match_day_scorer_eligibility\(uuid\) to service_role/)
+  assert.doesNotMatch(migration, /can_manage_match_day/)
 })
 
 test('29A Manager Home chooses the first future canonical team event and excludes stale data', () => {

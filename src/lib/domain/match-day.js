@@ -1125,7 +1125,7 @@ export async function getMatchDays({ user } = {}) {
   return attachMatchDayPresentationStates((data ?? []).map(normalizeMatchDay))
 }
 
-export async function getMatchDay({ user, matchDayId } = {}) {
+export async function getMatchDay({ user, matchDayId, includeScorerEligibility = false, accessToken = '' } = {}) {
   assertStaffMatchDayAccess(user)
 
   const normalizedMatchDayId = normalizeText(matchDayId)
@@ -1154,15 +1154,33 @@ export async function getMatchDay({ user, matchDayId } = {}) {
     throw new Error('This match day is not linked to your active team.')
   }
 
-  const { data: scorerEligibility, error: scorerEligibilityError } = await supabase.rpc(
-    'get_match_day_scorer_eligibility',
-    { match_day_id_value: normalizedMatchDayId },
-  )
-
-  if (scorerEligibilityError) {
-    console.error(scorerEligibilityError)
-    throw scorerEligibilityError
+  if (!includeScorerEligibility) {
+    const [match] = await attachMatchDayPresentationStates([normalizeMatchDay(data)])
+    return match
   }
+
+  let resolvedAccessToken = normalizeText(accessToken || user?.accessToken)
+
+  if (!resolvedAccessToken) {
+    const { data: sessionData } = await supabase.auth.getSession()
+    resolvedAccessToken = sessionData?.session?.access_token || ''
+  }
+
+  if (!resolvedAccessToken) {
+    throw new Error('Login is required.')
+  }
+
+  const eligibilityResponse = await fetch(
+    `/.netlify/functions/select-match-day-volunteer?matchDayId=${encodeURIComponent(normalizedMatchDayId)}`,
+    { headers: { Authorization: `Bearer ${resolvedAccessToken}` } },
+  )
+  const eligibilityResult = await eligibilityResponse.json().catch(() => ({}))
+
+  if (!eligibilityResponse.ok || eligibilityResult?.success !== true) {
+    throw new Error(eligibilityResult?.message || 'Scorer eligibility could not be loaded.')
+  }
+
+  const scorerEligibility = Array.isArray(eligibilityResult.eligibility) ? eligibilityResult.eligibility : []
 
   const scorerEligibilityByRequestId = new Map((scorerEligibility ?? []).map((eligibility) => [
     String(eligibility.request_id || ''),

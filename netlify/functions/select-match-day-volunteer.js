@@ -647,7 +647,7 @@ async function createMatchDayEventLogEntry(adminSupabase, {
 }
 
 export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
+  if (!['GET', 'POST'].includes(event.httpMethod)) {
     return json(405, { success: false, message: 'Method not allowed.' })
   }
 
@@ -657,18 +657,20 @@ export async function handler(event) {
     const adminSupabase = createSupabaseAdminClient(event)
     const appOrigin = getAppOrigin(event)
     const profile = await getAuthenticatedProfile(event, supabase, adminSupabase)
-    const body = JSON.parse(event.body || '{}')
-    const matchDayId = normalizeText(body.matchDayId)
+    const body = event.httpMethod === 'POST' ? JSON.parse(event.body || '{}') : {}
+    const matchDayId = event.httpMethod === 'GET'
+      ? normalizeText(event.queryStringParameters?.matchDayId)
+      : normalizeText(body.matchDayId)
     const requestId = normalizeText(body.requestId)
     const role = normalizeText(body.role).toLowerCase()
     const selected = body.selected !== false
     const roleConfig = ROLE_CONFIG[role]
 
-    if (!matchDayId || !requestId) {
+    if (!matchDayId || (event.httpMethod === 'POST' && !requestId)) {
       throw Object.assign(new Error('Choose a volunteer response first.'), { statusCode: 400 })
     }
 
-    if (!roleConfig) {
+    if (event.httpMethod === 'POST' && !roleConfig) {
       throw Object.assign(new Error('Choose a valid volunteer role.'), { statusCode: 400 })
     }
 
@@ -686,6 +688,19 @@ export async function handler(event) {
 
     if (!match?.id) {
       throw Object.assign(new Error('Fixture was not found.'), { statusCode: 404 })
+    }
+
+    if (event.httpMethod === 'GET') {
+      const { data: eligibility, error: eligibilityError } = await adminSupabase.rpc(
+        'get_match_day_scorer_eligibility',
+        { match_day_id_value: match.id },
+      )
+
+      if (eligibilityError) {
+        throw eligibilityError
+      }
+
+      return json(200, { success: true, eligibility: eligibility || [] })
     }
 
     const { data: request, error: requestError } = await adminSupabase

@@ -2165,7 +2165,7 @@ export function MatchDayPage() {
 
       try {
         const hydratedMatch = await withRequestTimeout(
-          () => getMatchDay({ user, matchDayId: priorityMatch.id }),
+          () => getMatchDay({ user, matchDayId: priorityMatch.id, includeScorerEligibility: true, accessToken: session?.access_token }),
           'Match Day detail could not be loaded.',
         )
 
@@ -2188,7 +2188,7 @@ export function MatchDayPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [session?.access_token, user])
 
   useEffect(() => {
     let isCurrent = true
@@ -2213,7 +2213,7 @@ export function MatchDayPage() {
     deepLinkHydrationRef.current = requestedFixtureId
 
     void withRequestTimeout(
-      () => getMatchDay({ user, matchDayId: requestedMatch.id }),
+      () => getMatchDay({ user, matchDayId: requestedMatch.id, includeScorerEligibility: true, accessToken: session?.access_token }),
       'Match Day detail could not be loaded.',
     ).then((hydratedMatch) => {
       if (!isCurrent) {
@@ -2235,7 +2235,7 @@ export function MatchDayPage() {
     return () => {
       isCurrent = false
     }
-  }, [matches, requestedFixtureId, requestedWorkspaceSection, user])
+  }, [matches, requestedFixtureId, requestedWorkspaceSection, session?.access_token, user])
 
   useEffect(() => {
     let isCurrent = true
@@ -2266,7 +2266,7 @@ export function MatchDayPage() {
           nextMatches
             .filter((match) => MATCH_DAY_LIVE_DETAIL_STATUSES.has(match.status))
             .map((match) => withRequestTimeout(
-              () => getMatchDay({ user, matchDayId: match.id }),
+              () => getMatchDay({ user, matchDayId: match.id, includeScorerEligibility: true, accessToken: session?.access_token }),
               'Match Day live detail could not be refreshed.',
             )),
         )
@@ -2304,7 +2304,7 @@ export function MatchDayPage() {
       isCurrent = false
       window.clearInterval(intervalId)
     }
-  }, [isLoading, user])
+  }, [isLoading, session?.access_token, user])
 
   if (!canManageMatchDay(user)) {
     return <Navigate to="/" replace />
@@ -2320,7 +2320,7 @@ export function MatchDayPage() {
 
     try {
       const hydratedMatch = await withRequestTimeout(
-        () => getMatchDay({ user, matchDayId: match.id }),
+        () => getMatchDay({ user, matchDayId: match.id, includeScorerEligibility: true, accessToken: session?.access_token }),
         'Match Day detail could not be loaded.',
       )
 
