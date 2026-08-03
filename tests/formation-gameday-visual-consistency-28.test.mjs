@@ -30,7 +30,7 @@ test('Formation Board keeps one bounded responsive inspector scroll area and res
   assert.match(source, /max-h-\[82dvh\][\s\S]*overscroll-contain/)
   assert.doesNotMatch(source, /max-h-72 space-y-2 overflow-y-auto/)
   assert.match(source, /runPlayerStateAction[\s\S]*requestAnimationFrame\(\(\) => \(selectedPlayerPanelRef\.current \|\| searchInputRef\.current\)\?\.focus\(\)\)/)
-  assert.match(source, /removeSelectedPlayer[\s\S]*requestAnimationFrame\(\(\) => searchInputRef\.current\?\.focus\(\)\)/)
+  assert.match(source, /Remove Player from this board\?[\s\S]*Remove from board[\s\S]*requestAnimationFrame\(\(\) => pitchRef\.current\?\.focus\(\)\)/)
 })
 
 test('Game Day landing uses shared V1 tokens without its former isolated theme', async () => {

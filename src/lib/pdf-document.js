@@ -13,6 +13,7 @@ import {
   convertFormationPlacementsToPortrait,
   getFormationBoardOrientation,
 } from './formation-board-orientation.js'
+import { renderFormationPlayerSilhouetteSvg } from './formation-player-marker.js'
 
 export const PDF_DOCUMENT_VERSION = 1
 
@@ -803,17 +804,22 @@ function renderProgressionChartDocument(document) {
 
 function renderFormationBoardDocument(document, branding) {
   const formationLabel = document.formation.split('-').slice(1).join('-') || document.formation
+  const renderPlayerVisual = (player, compact = false) => `
+    <span class="formation-player-visual${compact ? ' formation-player-visual-compact' : ''}">
+      ${renderFormationPlayerSilhouetteSvg()}
+      ${player.shirtNumber ? `<span class="formation-shirt-badge">${escapeHtml(player.shirtNumber)}</span>` : ''}
+    </span>`
   const markerMarkup = document.placements.map((player) => `
     <div class="formation-marker" style="left:${player.x * 100}%;top:${player.y * 100}%;">
-      <span class="formation-number">${escapeHtml(player.shirtNumber || '?')}</span>
+      ${renderPlayerVisual(player)}
       <span class="formation-name">${escapeHtml(player.displayName)}</span>
     </div>
   `).join('')
   const benchMarkup = document.bench.length > 0
-    ? document.bench.map((player) => `<li><strong>${escapeHtml(player.shirtNumber || '?')}</strong><span>${escapeHtml(player.displayName)}</span></li>`).join('')
+    ? document.bench.map((player) => `<li>${renderPlayerVisual(player, true)}<span>${escapeHtml(player.displayName)}</span></li>`).join('')
     : '<li class="formation-empty">No Players on the bench</li>'
   const unplacedMarkup = document.unplaced.length > 0
-    ? document.unplaced.map((player) => `<li><strong>${escapeHtml(player.shirtNumber || '?')}</strong><span>${escapeHtml(player.displayName)}</span></li>`).join('')
+    ? document.unplaced.map((player) => `<li>${renderPlayerVisual(player, true)}<span>${escapeHtml(player.displayName)}</span></li>`).join('')
     : '<li class="formation-empty">No unplaced Players</li>'
 
   return `
@@ -962,7 +968,11 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           .pitch-box-top { top: 18px; border-top: 0; }
           .pitch-box-bottom { bottom: 18px; border-bottom: 0; }
           .formation-marker { position: absolute; z-index: 3; width: 106px; transform: translate(-50%,-50%); text-align: center; }
-          .formation-number { display: flex; width: 44px; height: 44px; margin: 0 auto; align-items: center; justify-content: center; border: 3px solid #ffffff; border-radius: 50%; background: #101828; color: #ffffff; box-shadow: 0 3px 7px rgba(16,24,40,.25); font-size: 17px; font-weight: 900; }
+          .formation-player-visual { position: relative; display: flex; width: 44px; height: 44px; margin: 0 auto; align-items: center; justify-content: center; border: 3px solid #ffffff; border-radius: 50%; background: #f7faf8; color: #344054; box-shadow: 0 3px 7px rgba(16,24,40,.25); }
+          .formation-player-visual svg { width: 72%; height: 72%; fill: currentColor; }
+          .formation-shirt-badge { position: absolute; right: -7px; top: -4px; display: flex; min-width: 19px; height: 19px; padding: 0 4px; align-items: center; justify-content: center; border: 1px solid #ffffff; border-radius: 999px; background: #101828; color: #ffffff; font-size: 8px; font-weight: 900; line-height: 1; }
+          .formation-player-visual-compact { width: 22px; height: 22px; flex: 0 0 22px; border-width: 1px; box-shadow: none; }
+          .formation-player-visual-compact .formation-shirt-badge { right: -5px; top: -4px; min-width: 12px; height: 12px; padding: 0 2px; font-size: 5px; }
           .formation-name { display: block; max-width: 106px; margin: 4px auto 0; padding: 3px 6px; border-radius: 6px; background: rgba(255,255,255,.95); color: #101828; font-size: 9px; font-weight: 900; line-height: 1.15; overflow-wrap: anywhere; }
           .formation-sidebar { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
           .formation-sidebar section { border: 1px solid #d7e5dc; border-radius: 11px; background: #ffffff; padding: 11px; }
@@ -975,8 +985,7 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           .formation-description, .formation-notes { margin: 8px 0 0; color: #344054; font-size: 9px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
           .formation-bench { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
           .formation-bench li { display: flex; min-width: 0; align-items: center; gap: 5px; border: 1px solid #e2e8f0; border-radius: 7px; padding: 5px; font-size: 8px; font-weight: 800; }
-          .formation-bench strong { display: flex; width: 22px; height: 22px; flex: 0 0 22px; align-items: center; justify-content: center; border-radius: 50%; background: #101828; color: #ffffff; }
-          .formation-bench span { min-width: 0; overflow-wrap: anywhere; }
+          .formation-bench > li > span:last-child { min-width: 0; overflow-wrap: anywhere; }
           .formation-bench .formation-empty { grid-column: 1 / -1; color: #667085; }
           .formation-footer { margin-top: 8px; color: #667085; font-size: 8px; font-weight: 700; text-align: right; }
           @media print {

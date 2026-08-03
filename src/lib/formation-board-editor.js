@@ -4,6 +4,10 @@ import {
   getFormationBoardOrientation,
   normalizeFormationCoordinate,
 } from './formation-board-orientation.js'
+import {
+  getFormationBoardCapacityMessage,
+  getFormationBoardPlayerCapacity,
+} from './formation-board-registry.js'
 
 const UNDO_LIMIT = 30
 
@@ -146,7 +150,7 @@ export function addPlayersToUnplaced(snapshot, players) {
 export function assignPlayerToPitch(snapshot, player, coordinates, slot = null) {
   const formationPlayer = createFormationPlayer(player)
 
-  if (!formationPlayer.playerId || isPlayerAssigned(snapshot, formationPlayer.playerId)) {
+  if (!formationPlayer.playerId || isPlayerAssigned(snapshot, formationPlayer.playerId) || !canPlaceFormationPlayer(snapshot)) {
     return snapshot
   }
 
@@ -230,7 +234,7 @@ export function moveBenchPlayerToPitch(snapshot, playerId, coordinates, slot = n
   const targetId = normalizeText(playerId)
   const player = snapshot.bench.find((item) => item.playerId === targetId)
 
-  if (!player) {
+  if (!player || !canPlaceFormationPlayer(snapshot)) {
     return snapshot
   }
 
@@ -267,7 +271,7 @@ export function moveUnplacedPlayerToPitch(snapshot, playerId, coordinates, slot 
   const targetId = normalizeText(playerId)
   const player = snapshot.unplaced.find((item) => item.playerId === targetId)
 
-  if (!player) return snapshot
+  if (!player || !canPlaceFormationPlayer(snapshot)) return snapshot
 
   return {
     ...snapshot,
@@ -336,11 +340,36 @@ export function updateFormationPlayerNumber(snapshot, playerId, shirtNumber) {
   }
 }
 
+export function getFormationPitchCapacityState(snapshot) {
+  const gameFormat = normalizeText(snapshot?.gameFormat)
+  const capacity = getFormationBoardPlayerCapacity(gameFormat)
+  const pitchPlayerCount = Array.isArray(snapshot?.placements) ? snapshot.placements.length : 0
+
+  return {
+    capacity,
+    gameFormat,
+    isAtCapacity: capacity > 0 && pitchPlayerCount >= capacity,
+    isOverCapacity: capacity > 0 && pitchPlayerCount > capacity,
+    message: getFormationBoardCapacityMessage(gameFormat),
+    pitchPlayerCount,
+  }
+}
+
+export function canPlaceFormationPlayer(snapshot) {
+  const state = getFormationPitchCapacityState(snapshot)
+  return state.capacity > 0 && state.pitchPlayerCount < state.capacity
+}
+
 export function applyFormationPreset(snapshot, nextPreset) {
+  const orderedPlayers = [
+    ...snapshot.placements.filter((item) => item.positionGroup === 'goalkeeper'),
+    ...snapshot.placements.filter((item) => item.positionGroup !== 'goalkeeper'),
+  ]
+
   if (nextPreset.key.endsWith('-custom')) {
     const placementLimit = Number(nextPreset.playerCount || 0)
-    const keptPlacements = snapshot.placements.slice(0, placementLimit)
-    const overflowUnplaced = snapshot.placements.slice(placementLimit).map(normalizeUnplacedPlayer)
+    const keptPlacements = orderedPlayers.slice(0, placementLimit)
+    const overflowUnplaced = orderedPlayers.slice(placementLimit).map(normalizeUnplacedPlayer)
 
     return {
       ...snapshot,
@@ -355,11 +384,6 @@ export function applyFormationPreset(snapshot, nextPreset) {
   const availableSlots = [...(nextPreset?.slots ?? [])]
   const unmatchedPlayers = []
   const nextPlacements = []
-  const orderedPlayers = [
-    ...snapshot.placements.filter((item) => item.positionGroup === 'goalkeeper'),
-    ...snapshot.placements.filter((item) => item.positionGroup !== 'goalkeeper'),
-  ]
-
   for (const player of orderedPlayers) {
     const sameGroupIndex = availableSlots.findIndex((slot) => slot.group === player.positionGroup)
     const slotIndex = sameGroupIndex >= 0 ? sameGroupIndex : (availableSlots.length > 0 ? 0 : -1)

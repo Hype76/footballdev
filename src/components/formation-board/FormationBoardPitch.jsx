@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { clampFormationCoordinate } from '../../lib/formation-board-editor.js'
+import { FormationPlayerMarkerVisual } from './FormationPlayerMarkerVisual.jsx'
 
 function coordinatesFromPointer(element, clientX, clientY) {
   const bounds = element.getBoundingClientRect()
@@ -33,6 +34,7 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
   const dragRef = useRef(null)
   const suppressClickRef = useRef(false)
   const position = livePosition || marker
+  const isDragging = Boolean(livePosition)
 
   useEffect(() => {
     const cancelDrag = () => {
@@ -155,8 +157,9 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
     <button
       type="button"
       aria-pressed={isSelected}
-      aria-label={`${marker.displayName}, shirt ${marker.shirtNumber || 'number missing'}, ${formatPosition(marker.x)} across, ${formatPosition(marker.y)} down`}
-      className={`absolute z-10 flex min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 touch-none flex-col items-center justify-center rounded-full border-2 px-1 text-center shadow-lg motion-reduce:transition-none focus:outline-none focus:ring-4 focus:ring-amber-300 ${isSelected ? 'border-amber-300 bg-[#101828] text-white' : 'border-white bg-[#f7faf8] text-[#101828]'}`}
+      aria-label={`${marker.displayName}, ${marker.shirtNumber ? `displayed shirt number ${marker.shirtNumber}` : 'no displayed shirt number'}, ${formatPosition(marker.x)} across, ${formatPosition(marker.y)} down`}
+      data-dragging={isDragging ? 'true' : 'false'}
+      className={`absolute z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full border-[3px] text-center shadow-lg transition motion-reduce:transition-none focus:outline-none focus:ring-4 focus:ring-amber-300 ${isDragging ? 'scale-110 border-sky-200 bg-sky-50 ring-4 ring-sky-300/70' : isSelected ? 'border-amber-300 bg-[#101828]' : 'border-white bg-[#f7faf8]'}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
       onClick={() => {
         if (!suppressClickRef.current) onSelect(marker.playerId)
@@ -167,7 +170,7 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
       onPointerMove={handlePointerMove}
       onPointerUp={finishPointer}
     >
-      <span className="text-sm font-black leading-none">{marker.shirtNumber || '?'}</span>
+      <FormationPlayerMarkerVisual shirtNumber={marker.shirtNumber} className="border-0" />
       <span className="pointer-events-none absolute left-1/2 top-full mt-1 max-w-24 -translate-x-1/2 truncate rounded bg-[#101828]/90 px-1.5 py-0.5 text-[0.65rem] font-black text-white" title={marker.displayName}>
         {marker.displayName}
       </span>
@@ -208,7 +211,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
           onPitchPress({ x: 0.5, y: 0.5 })
         }}
         role="group"
-        tabIndex={canEdit && hasPlacementSource ? 0 : undefined}
+        tabIndex={canEdit ? 0 : undefined}
       >
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.035)_0,rgba(255,255,255,0.035)_12.5%,rgba(0,0,0,0.035)_12.5%,rgba(0,0,0,0.035)_25%)]" />
         <PitchLines />

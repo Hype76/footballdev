@@ -227,7 +227,10 @@ test('staff live match console polls match state without full page reload', () =
   assert.match(source, /const LIVE_MATCH_CLOCK_INTERVAL_MS = 1000/)
   assert.match(refreshSource, /getMatchDays\(\{ user \}\)/)
   assert.match(refreshSource, /mergeMatchDaySummaries\(currentMatches, nextMatches\)\.map/)
-  assert.match(refreshSource, /getMatchDay\(\{ user, matchDayId: match\.id \}\)/)
+  assert.match(
+    refreshSource,
+    /getMatchDay\(\{ user, matchDayId: match\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/,
+  )
   assert.match(refreshSource, /refreshedDetailsById/)
   assert.match(refreshSource, /refreshState\.inFlight/)
   assert.match(refreshSource, /setLiveRefreshStatus\(detailRefreshFailed \? 'warning' : 'ok'\)/)
