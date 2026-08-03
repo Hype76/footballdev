@@ -37,7 +37,7 @@ test('Game Mode owns live goal and event entry through app modals', async () => 
   assert.match(source, /function LiveMatchEntryModal/)
   assert.match(source, /function GoalCorrectionModal/)
   assert.match(gameModeSlice, /onOpenGoalModal\(match\)/)
-  assert.match(gameModeSlice, /onOpenEventModal\(match\)/)
+  assert.match(gameModeSlice, /onOpenEventModal\(match, action\.eventType\)/)
   assert.doesNotMatch(gameModeSlice, /activeFlow/)
   assert.doesNotMatch(cardSlice, /onAddGoal/)
   assert.doesNotMatch(cardSlice, /onAddMatchEvent/)

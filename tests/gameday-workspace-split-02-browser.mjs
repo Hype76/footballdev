@@ -8,6 +8,7 @@ import { chromium } from 'playwright'
 const port = Number(process.env.GAMEDAY_WORKSPACE_SPLIT_BROWSER_PORT || 5650 + Math.floor(Math.random() * 250))
 const baseUrl = `http://127.0.0.1:${port}`
 const artifactDir = 'docs/audits/FP-V1-GAMEDAY-MOBILE-COMPACTION-29C-screenshots'
+const capabilityArtifactDir = 'docs/audits/FP-V1-GAMEDAY-CAPABILITY-RESTORATION-31A-screenshots'
 const liveMatchId = '22222222-2222-4222-8222-222222222222'
 const upcomingMatchId = '33333333-3333-4333-8333-333333333333'
 const previousMatchId = '44444444-4444-4444-8444-444444444444'
@@ -153,7 +154,7 @@ function detailedMatch(summary) {
       team_id: 'team-u12',
       player_id: `player-${index}`,
       player_name: playerName,
-      status: index === 0 ? 'selected' : 'standby',
+      status: 'selected',
     })),
     match_day_player_availability_history: [],
     match_day_availability_requests: playerNames.map((playerName, index) => ({
@@ -243,12 +244,14 @@ async function preparePage(browser, viewport, contextOptions = {}) {
       return
     }
 
-    if (url.pathname.endsWith('/players')) {
+    if (url.pathname.includes('/rpc/get_team_players') || url.pathname.endsWith('/players')) {
       await fulfillJson(route, ['Alex Morgan', 'Jamie Smith', 'Taylor Jones', 'Riley Brown'].map((playerName, index) => ({
         id: `player-${index}`,
         club_id: 'club-fixture',
         team_id: 'team-u12',
+        section: 'Squad',
         player_name: playerName,
+        shirt_number: String(index + 7),
         status: 'active',
       })))
       return
@@ -348,6 +351,64 @@ function assertCleanRun(run) {
   assert.deepEqual(unexpectedConsoleErrors, [])
 }
 
+async function assertRestoredLiveActions(page, viewportName) {
+  await page.getByRole('button', { name: 'Open Game Mode' }).click()
+  const cockpit = page.getByRole('region', { name: 'Game Mode cockpit' })
+  await cockpit.waitFor({ state: 'visible' })
+
+  const actionKeys = await page
+    .getByTestId('game-day-live-actions')
+    .locator('[data-match-day-action]')
+    .evaluateAll((actions) => actions.map((action) => action.getAttribute('data-match-day-action')))
+  assert.deepEqual(actionKeys, ['goal', 'yellow_card', 'red_card', 'substitution', 'water_break'])
+
+  for (const actionKey of actionKeys) {
+    assert.equal(await page.locator(`[data-match-day-action="${actionKey}"]`).isEnabled(), true)
+  }
+
+  await cockpit.screenshot({ path: `${capabilityArtifactDir}/${viewportName}-direct-live-actions.png` })
+
+  for (const [actionKey, eventType] of [
+    ['yellow_card', 'yellow_card'],
+    ['red_card', 'red_card'],
+    ['substitution', 'substitution'],
+    ['water_break', 'water_break'],
+  ]) {
+    await page.locator(`[data-match-day-action="${actionKey}"]`).click()
+    const dialog = page.getByRole('dialog', { name: 'Add match event' })
+    await dialog.waitFor({ state: 'visible' })
+    assert.equal(await dialog.getByRole('combobox', { name: 'Event type' }).inputValue(), eventType)
+
+    if (actionKey === 'yellow_card' || actionKey === 'red_card') {
+      const playerOptions = await dialog.getByRole('combobox', { name: 'Player' }).locator('option').allTextContents()
+      assert.deepEqual(playerOptions.map((option) => option.trim()), ['Choose player', 'Alex Morgan #7', 'Jamie Smith #8'])
+      assert.equal(await dialog.getByRole('button', { name: 'Save event' }).isDisabled(), true)
+    }
+
+    if (actionKey === 'substitution') {
+      assert.equal(await dialog.getByRole('combobox', { name: 'Player Off' }).count(), 1)
+      assert.equal(await dialog.getByRole('combobox', { name: 'Player On' }).count(), 1)
+      assert.equal(await dialog.getByRole('button', { name: 'Save event' }).isDisabled(), true)
+    }
+
+    if (actionKey === 'water_break') {
+      assert.equal(await dialog.getByRole('combobox', { name: 'Player' }).count(), 0)
+      assert.equal(await dialog.getByRole('button', { name: 'Save event' }).isEnabled(), true)
+    }
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await dialog.waitFor({ state: 'hidden' })
+  }
+
+  await page.locator('[data-match-day-action="goal"]').click()
+  const goalDialog = page.getByRole('dialog', { name: 'Add goal' })
+  await goalDialog.waitFor({ state: 'visible' })
+  await goalDialog.getByRole('button', { name: 'Cancel' }).click()
+  await goalDialog.waitFor({ state: 'hidden' })
+
+  return cockpit
+}
+
 async function runMobile(browser) {
   const run = await preparePage(browser, { width: 375, height: 812 })
   const { page } = run
@@ -403,6 +464,11 @@ async function runMobile(browser) {
     assert.match(await page.getByTestId('game-day-role-scorer').innerText(), /Selected:/)
     assert.equal(await page.getByTestId('game-day-role-scorer').getByRole('button', { name: /Deselect|Replace selected volunteer|^Select$/ }).first().isVisible(), true)
     await page.screenshot({ path: `${artifactDir}/mobile-selected-scorer-roles.png`, fullPage: true })
+
+    const mobileCockpit = await assertRestoredLiveActions(page, 'mobile-375x812')
+    assert.equal(await mobileCockpit.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), true)
+    await page.getByRole('button', { name: 'Manage fixture' }).click()
+    await page.getByRole('tab', { name: 'Scorer and roles' }).waitFor({ state: 'visible' })
 
     await page.getByRole('tab', { name: 'Match details' }).click()
     assert.match(page.url(), /section=overview/)
@@ -494,8 +560,7 @@ async function runDesktop(browser) {
     await page.screenshot({ path: `${artifactDir}/desktop-navigation-selected-workspace.png` })
     await page.screenshot({ path: `${artifactDir}/desktop-selected-scorer-roles.png`, fullPage: true })
 
-    await page.getByRole('button', { name: 'Open Game Mode' }).click()
-    await page.getByRole('region', { name: 'Game Mode cockpit' }).waitFor({ state: 'visible' })
+    await assertRestoredLiveActions(page, 'desktop-1440x900')
     await page.getByRole('button', { name: 'Manage fixture' }).click()
     await page.getByRole('tab', { name: 'Scorer and roles' }).waitFor({ state: 'visible' })
 
@@ -578,6 +643,7 @@ async function runResponsiveVariant(browser, { contextOptions, name, viewport })
 }
 
 await mkdir(artifactDir, { recursive: true })
+await mkdir(capabilityArtifactDir, { recursive: true })
 const server = startServer()
 let browser
 

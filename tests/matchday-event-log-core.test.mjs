@@ -11,6 +11,7 @@ const matchEventTypesMigrationUrl = migrationSourceUrl('20260705074811_matchday_
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const goalStateUrl = new URL('../src/lib/matchday-goal-state.js', import.meta.url)
 const staffPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
+const capabilityManifestUrl = new URL('../src/lib/matchday-capability-manifest.js', import.meta.url)
 const selectVolunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)
 const availabilityConfirmFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 const sendAvailabilityFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
@@ -258,9 +259,10 @@ test('staff Match Day event model accepts and logs cards substitutions and water
 })
 
 test('staff Match Day page renders compact cards substitutions and water break controls and badges', async () => {
-  const [source, domain] = await Promise.all([
+  const [source, domain, capabilityManifest] = await Promise.all([
     readFile(staffPageUrl, 'utf8'),
     readFile(domainUrl, 'utf8'),
+    readFile(capabilityManifestUrl, 'utf8'),
   ])
   const timelineStart = source.indexOf('function MatchTimelinePanel')
   const timelineEnd = source.indexOf('function MatchDayReadinessPanel', timelineStart)
@@ -268,7 +270,8 @@ test('staff Match Day page renders compact cards substitutions and water break c
 
   assert.match(source, /const EMPTY_MATCH_EVENT_FORM = \{[\s\S]*eventType: 'yellow_card'/)
   assert.match(source, /const EMPTY_MATCH_EVENT_FORM = \{[\s\S]*teamSide: 'club'/)
-  assert.match(source, /const MATCH_EVENT_TYPE_OPTIONS = \[[\s\S]*yellow_card[\s\S]*red_card[\s\S]*substitution[\s\S]*water_break/)
+  assert.match(source, /const MATCH_EVENT_TYPE_OPTIONS = MATCH_DAY_LIVE_EVENT_ACTIONS/)
+  assert.match(capabilityManifest, /MATCH_DAY_LIVE_EVENT_ACTIONS[\s\S]*yellow_card[\s\S]*red_card[\s\S]*substitution[\s\S]*water_break/)
   assert.match(source, /const handleAddMatchEvent = async \(event, match\) =>/)
   assert.match(source, /const savedEvent = await addStaffMatchDayEvent\(\{ user, match, event: matchEvent \}\)/)
   assert.match(source, /reconcileMatchDayEventInList/)

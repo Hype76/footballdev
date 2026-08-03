@@ -10,6 +10,7 @@ import {
 } from '../src/lib/match-location.js'
 
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
+const capabilityManifestUrl = new URL('../src/lib/matchday-capability-manifest.js', import.meta.url)
 const matchDayTimerMigrationUrl = new URL('../supabase/migrations/20260708165903_match_day_timer_state.sql', import.meta.url)
 const calendarEventsUrl = new URL('../src/lib/football-calendar-events.js', import.meta.url)
 const parentPortalUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
@@ -48,17 +49,22 @@ test('Match Day active fixture toggle persists locally and never reads previous 
   assert.doesNotMatch(source, /activeFixtureMode[\s\S]{0,220}previousMatches\.map/)
 })
 
-test('Game Mode exposes minimal live controls and keeps full management separate', async () => {
-  const [source, timerMigration] = await Promise.all([
+test('Game Mode exposes compact registered live controls and keeps full management separate', async () => {
+  const [source, timerMigration, capabilityManifest] = await Promise.all([
     readFile(matchDayPageUrl, 'utf8'),
     readFile(matchDayTimerMigrationUrl, 'utf8'),
+    readFile(capabilityManifestUrl, 'utf8'),
   ])
 
   assert.match(source, /function MatchDayGameModePanel/)
   assert.match(source, /Open Game Mode/)
-  for (const label of ['Goal', 'Event', 'HT', 'FT', 'Exit Game Mode']) {
+  for (const label of ['HT', 'FT', 'Exit Game Mode']) {
     assert.match(source, new RegExp(`>${label}<`))
   }
+  for (const label of ['Goal', 'Yellow card', 'Red card', 'Substitution', 'Water break']) {
+    assert.match(capabilityManifest, new RegExp(`label: '${label}'`))
+  }
+  assert.match(source, /MATCH_DAY_LIVE_EVENT_ACTIONS\.map/)
   assert.match(source, /Assist player/)
   assert.match(source, /Assist name/)
   assert.match(source, /Assist shirt/)
