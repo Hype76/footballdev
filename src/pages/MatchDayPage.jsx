@@ -180,16 +180,16 @@ const EMPTY_SQUAD_SELECTION = {
   mode: 'full',
 }
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const smallLabelClass = 'mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
-const compactInputClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
-const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
-const modalValidationClass = 'mx-4 mb-3 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold leading-6 text-[#92400e] sm:mx-6'
+const labelClass = 'mb-2 block text-sm font-black text-[var(--text-primary)]'
+const smallLabelClass = 'mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--panel-bg)] focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60'
+const compactInputClass = 'min-h-10 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--panel-bg)] focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-black text-[var(--button-primary-text)] shadow-sm transition hover:bg-[var(--button-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--panel-bg)] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-black text-[var(--text-primary)] shadow-sm shadow-black/10 transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60'
+const panelClass = 'rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-[var(--text-primary)] shadow-sm shadow-black/10'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[var(--text-muted)]'
+const modalValidationClass = 'mx-4 mb-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-bold leading-6 text-[var(--danger-text)] sm:mx-6'
 const fixtureModalViewportBaseStyle = {
   '--fixture-modal-viewport-height': '100dvh',
   '--fixture-modal-viewport-top': '0px',
@@ -1996,29 +1996,16 @@ export function MatchDayPage() {
     [matches],
   )
   const needsAttentionItems = useMemo(() => getNeedsAttentionItems(activeMatches), [activeMatches])
-  const matchDaySummary = [
-    {
-      label: 'Live now',
-      value: liveMatches,
-      caption: 'Matches currently being updated for parents.',
-    },
-    {
-      label: 'Scorer requests',
-      value: scorerRequests,
-      caption: 'Fixtures waiting for parent volunteers.',
-    },
-    {
-      label: 'Upcoming',
-      value: upcomingMatches,
-      caption: 'Fixtures created but not live yet.',
-    },
-    {
-      label: 'Previous games',
-      value: previousMatches.length,
-      caption: 'Completed results retained for review.',
-    },
-  ]
   const nextMatch = activeMatches[0] || null
+  const gameDayDateLabel = useMemo(
+    () => new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      weekday: 'long',
+      year: 'numeric',
+    }).format(new Date()),
+    [],
+  )
   const squadPlayers = useMemo(
     () =>
       players
@@ -3941,36 +3928,34 @@ export function MatchDayPage() {
   )
 
   return (
-    <div className="space-y-5">
-      {!selectedMatch && !isGameModeActive ? <section className="matchday-control-panel hidden overflow-hidden rounded-lg border shadow-sm xl:block">
-        <div className="grid gap-5 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+    <div className="space-y-5 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pr-16 xl:pr-20">
+      {!selectedMatch && !isGameModeActive ? <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10" aria-labelledby="game-day-title">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] lg:items-center">
           <div>
-            <p className="matchday-control-eyebrow text-xs font-black uppercase tracking-[0.18em]">Game day control</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Game Day</h1>
-            <p className="matchday-control-copy mt-2 max-w-3xl text-sm font-semibold leading-6">
+            <p className={eyebrowClass}>{user.clubName || 'Football Player'} | {gameDayDateLabel}</p>
+            <h1 id="game-day-title" data-testid="staff-match-day-hero-heading" className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Game Day</h1>
+            <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[var(--text-muted)] sm:text-base sm:leading-7">
               Scan fixtures, open one when needed, and keep scorer, score, availability, roles, and notes attached to the same record.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:min-w-[26rem] lg:grid-cols-1">
-            <div className="matchday-control-next rounded-lg border px-4 py-3">
-              <p className="matchday-control-eyebrow text-xs font-black uppercase tracking-[0.16em]">Next fixture</p>
-              <p className="mt-1 text-lg font-black tracking-tight">
+          <div className="rounded-lg bg-[var(--panel-alt)] p-4 sm:p-5">
+            <p className={eyebrowClass}>Next fixture</p>
+            <p className="mt-2 text-xl font-black tracking-tight">
                 {nextMatch ? getMatchDayDisplayName(nextMatch) : 'No fixture created'}
-              </p>
-              <p className="matchday-control-copy mt-1 text-sm font-semibold leading-6">
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
                 {nextMatch ? formatMatchDate(nextMatch) : 'Create a fixture to request volunteers and prepare the live board.'}
-              </p>
-            </div>
+            </p>
             <button
               type="button"
               onClick={() => setIsFixtureFormOpen(true)}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#86efac] px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#bbf7d0]"
+              className={`${primaryButtonClass} mt-4 w-full sm:w-auto`}
             >
               Create fixture
             </button>
           </div>
         </div>
-        <div className="matchday-control-metrics grid gap-2 border-t px-5 py-4 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
+        <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4 sm:gap-3 lg:grid-cols-4 lg:px-6">
           <MatchMetric label="Live" value={liveMatches} isLoading={isLoading} tone="control" />
           <MatchMetric label="Requests" value={scorerRequests} isLoading={isLoading} tone="control" />
           <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} tone="control" />
@@ -4058,19 +4043,19 @@ export function MatchDayPage() {
         className={`${selectedMatch && !isGameModeActive ? 'xl:grid xl:grid-cols-[20rem_minmax(0,1fr)] xl:items-start' : ''} gap-4`}
         data-testid="game-day-workspace"
       >
-      <section className={`overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 ${selectedMatch ? 'hidden xl:block' : ''} ${isGameModeActive ? 'hidden' : ''}`}>
-        <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-3 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6`}>
+      <section className={`overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10 ${selectedMatch ? 'hidden xl:block' : ''} ${isGameModeActive ? 'hidden' : ''}`}>
+        <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-4 border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:px-6`}>
           <div>
             <p className={eyebrowClass}>Fixture list</p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Active fixtures</h2>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--text-primary)]">Active fixtures</h2>
             {!selectedMatch ? (
               <p className={`mt-1 max-w-3xl ${bodyTextClass}`}>
                 Keep the list compact. Open one fixture to manage score, roles, availability detail, and notes.
               </p>
             ) : null}
           </div>
-          <div className="grid gap-2">
-            <div className="grid grid-cols-2 gap-2 rounded-lg border border-[#d7e5dc] bg-white p-1">
+          <div className="grid gap-2 sm:min-w-64">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--panel-bg)] p-1" role="group" aria-label="Fixture list view">
               {[
                 { label: 'Next game', value: 'next' },
                 { label: 'List all', value: 'all' },
@@ -4080,10 +4065,10 @@ export function MatchDayPage() {
                   type="button"
                   onClick={() => setActiveFixtureMode(option.value)}
                   aria-pressed={activeFixtureMode === option.value}
-                  className={`min-h-10 rounded-md px-3 py-2 text-sm font-black transition ${
+                  className={`min-h-11 rounded-md px-3 py-2 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                     activeFixtureMode === option.value
-                      ? 'bg-[#047857] text-white'
-                      : 'bg-white text-[#101828] hover:bg-[#ecfdf5]'
+                      ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                      : 'bg-transparent text-[var(--text-primary)] hover:bg-[var(--accent-soft)]'
                   }`}
                 >
                   {option.label}
@@ -4101,27 +4086,27 @@ export function MatchDayPage() {
         </div>
         <div className={`px-5 py-5 sm:px-6 ${selectedMatch ? 'xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto xl:px-4 xl:py-4' : ''}`}>
         {isLoading ? (
-          <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
+          <p className="rounded-lg bg-[var(--panel-alt)] px-4 py-5 text-sm font-bold text-[var(--text-muted)]">
             Loading match day...
           </p>
         ) : activeMatches.length > 0 ? (
           <div className="space-y-3">
             {displayedActiveMatches.map(renderFixtureNavigationCard)}
             {activeFixtureMode === 'next' && activeMatches.length > 1 ? (
-              <p className={`rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55] ${isGameModeActive ? 'hidden xl:block' : ''}`}>
+              <p className={`rounded-lg bg-[var(--panel-alt)] px-4 py-3 text-sm font-bold text-[var(--text-muted)] ${isGameModeActive ? 'hidden xl:block' : ''}`}>
                 Showing the next upcoming fixture only. Use List all to show the rest of the active fixtures.
               </p>
             ) : null}
           </div>
         ) : (
-          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 shadow-sm shadow-[#047857]/10">
-            <p className="text-base font-black text-[#101828]">No live or upcoming matches yet.</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+          <div className="rounded-lg bg-[var(--panel-alt)] px-4 py-5">
+            <p className="text-base font-black text-[var(--text-primary)]">No live or upcoming matches yet.</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
               Create the fixture above before requesting a scorer or publishing parent updates.
             </p>
           </div>
         )}
-          <div className="mt-4 border-t border-[#d7e5dc] pt-4">
+          <div className="mt-4 border-t border-[var(--border-color)] pt-4">
             <button
               type="button"
               onClick={() => setIsPreviousGamesOpen((isOpen) => !isOpen)}
@@ -4137,13 +4122,13 @@ export function MatchDayPage() {
                     type="button"
                     onClick={handleResetPrevious}
                     disabled={isSaving || previousMatches.length === 0}
-                    className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#fdba74] bg-white px-4 py-2 text-xs font-black text-[#9a3412] transition hover:bg-[#ffedd5] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2 text-xs font-black text-[var(--danger-text)] transition hover:border-[var(--danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Reset previous games
                   </button>
                 ) : null}
                 {previousMatches.length > 0 ? previousMatches.map(renderFixtureNavigationCard) : (
-                  <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-4 text-sm font-bold text-[#4b5f55]">
+                  <p className="rounded-lg bg-[var(--panel-alt)] px-3 py-4 text-sm font-bold text-[var(--text-muted)]">
                     No previous games are showing.
                   </p>
                 )}
@@ -4156,57 +4141,16 @@ export function MatchDayPage() {
       {selectedMatch ? renderSelectedMatchWorkspace(selectedMatch) : null}
       </div>
 
-      {!selectedMatch && !isGameModeActive ? <section className="xl:hidden">
-        <details className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-          <summary className="cursor-pointer bg-[#f7faf8] px-5 py-4 text-sm font-black text-[#101828]">
-            Game Day overview and needs attention
-          </summary>
-          <div className="grid gap-3 px-5 py-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {matchDaySummary.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-                  <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
-                </article>
-              ))}
-            </div>
-            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
-              <p className={eyebrowClass}>Needs attention</p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {needsAttentionItems.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
-                    <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-        </details>
-      </section> : null}
-
-      {!selectedMatch && !isGameModeActive ? <section className="hidden gap-3 xl:grid xl:grid-cols-4">
-        {matchDaySummary.map((item) => (
-          <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.caption}</p>
-          </article>
-        ))}
-      </section> : null}
-
-      {!selectedMatch && !isGameModeActive ? <section className="hidden overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 xl:block">
-        <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-4 sm:px-6">
-          <p className={eyebrowClass}>Needs attention</p>
+      {!selectedMatch && !isGameModeActive ? <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10" aria-labelledby="game-day-needs-attention">
+        <div className="border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4 sm:px-6">
+          <h2 id="game-day-needs-attention" className={eyebrowClass}>Needs attention</h2>
         </div>
         <div className="grid gap-2 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5 lg:px-6">
           {needsAttentionItems.map((item) => (
-            <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
-              <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">{item.caption}</p>
+            <article key={item.label} className="rounded-lg bg-[var(--panel-alt)] px-3 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--text-secondary)]">{item.label}</p>
+              <p className="mt-2 text-2xl font-black text-[var(--text-primary)]">{isLoading ? '...' : item.value}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[var(--text-muted)]">{item.caption}</p>
             </article>
           ))}
         </div>
@@ -6215,9 +6159,9 @@ function AvailabilityCount({ label, value }) {
 function MatchMetric({ isLoading, label, tone = 'light', value }) {
   if (tone === 'control') {
     return (
-      <div className="matchday-control-metric rounded-lg border px-3 py-3 shadow-sm">
-        <p className="matchday-control-metric-label text-[11px] font-black uppercase tracking-[0.14em]">{label}</p>
-        <p className="matchday-control-metric-value mt-2 text-2xl font-black">{isLoading ? '...' : value}</p>
+      <div className="rounded-lg bg-[var(--panel-bg)] px-3 py-3 shadow-sm shadow-black/5">
+        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">{label}</p>
+        <p className="mt-1 text-2xl font-black text-[var(--text-primary)]">{isLoading ? '...' : value}</p>
       </div>
     )
   }

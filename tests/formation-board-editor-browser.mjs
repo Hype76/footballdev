@@ -8,7 +8,9 @@ import { chromium, devices } from 'playwright'
 const port = Number(process.env.FORMATION_BOARD_BROWSER_PORT || 4850 + Math.floor(Math.random() * 100))
 const baseUrl = `http://127.0.0.1:${port}`
 const screenshotDirectory = 'outputs/fp-v1-formation-board-mobile-selection-portrait-27'
+const visualConsistencyScreenshotDirectory = 'outputs/fp-v1-formation-gameday-visual-consistency-28'
 await mkdir(screenshotDirectory, { recursive: true })
+await mkdir(visualConsistencyScreenshotDirectory, { recursive: true })
 
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
@@ -488,7 +490,23 @@ try {
   assert.match(pdfDownload.suggestedFilename(), /browser-test-board-v1\.pdf/)
 
   await desktopPage.getByRole('button', { name: /Synthetic One, shirt 1/ }).click()
+  const selectedPlayerInspector = desktopPage.getByTestId('formation-board-player-inspector')
+  await selectedPlayerInspector.waitFor({ state: 'visible' })
+  await selectedPlayerInspector.screenshot({ path: `${visualConsistencyScreenshotDirectory}/formation-selected-inspector-light.png` })
+  await desktopPage.evaluate(() => {
+    window.localStorage.setItem('app-theme-mode', 'dark')
+    window.dispatchEvent(new CustomEvent('app-theme-changed', { detail: { mode: 'dark' } }))
+  })
+  await desktopPage.locator('html.theme-dark').waitFor()
+  await selectedPlayerInspector.screenshot({ path: `${visualConsistencyScreenshotDirectory}/formation-selected-inspector-dark.png` })
+  await desktopPage.evaluate(() => {
+    window.localStorage.setItem('app-theme-mode', 'light')
+    window.dispatchEvent(new CustomEvent('app-theme-changed', { detail: { mode: 'light' } }))
+  })
+  await desktopPage.locator('html.theme-light').waitFor()
+  await desktopPage.screenshot({ path: `${visualConsistencyScreenshotDirectory}/formation-desktop-selected-inspector-light.png`, fullPage: true })
   await desktopPage.getByRole('button', { name: 'Move to bench' }).click()
+  assert.equal(await desktopPage.getByPlaceholder('Search squad').evaluate((element) => document.activeElement === element), true)
   await desktopPage.getByText('No Players on the bench.').waitFor({ state: 'detached' })
   await desktopPage.getByRole('button', { name: /Synthetic Player 2, shirt number missing/ }).click()
   await desktopPage.getByRole('button', { name: 'Move to Unplaced' }).click()

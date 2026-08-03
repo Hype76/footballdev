@@ -121,7 +121,7 @@ test('every reachable Parent surface enters the shared theme scope', () => {
 
 test('Parent fixed palette is completely mapped inside the scoped token layer', () => {
   const scopeStart = indexCss.indexOf('.parent-portal-theme-scope')
-  const scopeEnd = indexCss.indexOf('.matchday-control-panel', scopeStart)
+  const scopeEnd = indexCss.indexOf('#root {', scopeStart)
   const scopeCss = indexCss.slice(scopeStart, scopeEnd)
   assert.ok(scopeStart >= 0)
   assert.ok(scopeEnd > scopeStart)
@@ -165,7 +165,7 @@ test('Parent fixed palette is completely mapped inside the scoped token layer', 
 
 test('Parent interactions keep accessible token-aware state styling', () => {
   const scopeStart = indexCss.indexOf('.parent-portal-theme-scope')
-  const scopeEnd = indexCss.indexOf('.matchday-control-panel', scopeStart)
+  const scopeEnd = indexCss.indexOf('#root {', scopeStart)
   const scopeCss = indexCss.slice(scopeStart, scopeEnd)
 
   for (const state of [

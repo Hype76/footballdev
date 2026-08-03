@@ -212,9 +212,9 @@ function UnplacedPlayersTray({ canEdit, onDragStart, onSelect, players, selected
                   aria-label={`${player.displayName}, shirt ${player.shirtNumber || 'number missing'}, Unplaced`}
                   onClick={() => onSelect(player)}
                   onPointerDown={(event) => onDragStart(event, player, 'unplaced')}
-                  className={`flex min-h-14 min-w-36 max-w-44 touch-pan-x items-center gap-2 rounded-xl border-2 px-3 py-2 text-left shadow-sm focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-60 ${isSelected ? 'border-amber-300 bg-[#101828] text-white' : 'border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-primary)]'}`}
+                  className={`flex min-h-14 min-w-36 max-w-44 touch-pan-x items-center gap-2 rounded-xl border-2 px-3 py-2 text-left shadow-sm focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 ${isSelected ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text-primary)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-primary)]'}`}
                 >
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-black ${isSelected ? 'border-amber-300' : 'border-[var(--border-color)] bg-[var(--panel-bg)]'}`}>{player.shirtNumber || '?'}</span>
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-black ${isSelected ? 'border-[var(--accent)] bg-[var(--panel-bg)]' : 'border-[var(--border-color)] bg-[var(--panel-bg)]'}`}>{player.shirtNumber || '?'}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black" title={player.displayName}>{player.displayName}</span>
                     <span className="block text-[0.68rem] font-bold">{isSelected ? 'Selected, Unplaced' : 'Unplaced'}</span>
@@ -248,6 +248,8 @@ function PlayerRoster({
 }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPlayerIds, setSelectedPlayerIds] = useState(() => new Set())
+  const selectedPlayerPanelRef = useRef(null)
+  const searchInputRef = useRef(null)
   const filteredPlayers = players.filter((player) => player.playerName.toLowerCase().includes(searchTerm.trim().toLowerCase()))
   const eligibleSelectedPlayers = players.filter((player) => selectedPlayerIds.has(player.id) && getFormationPlayerState(snapshot, player.id) === 'available')
   const selectedCount = eligibleSelectedPlayers.length
@@ -262,15 +264,39 @@ function PlayerRoster({
     })
   }
 
+  const runPlayerStateAction = (action) => {
+    action()
+    window.requestAnimationFrame(() => (selectedPlayerPanelRef.current || searchInputRef.current)?.focus())
+  }
+
+  const removeSelectedPlayer = () => {
+    onRemove(selectedBoardPlayer.playerId)
+    window.requestAnimationFrame(() => searchInputRef.current?.focus())
+  }
+
   return (
     <div className="space-y-4">
       {selectedBoardPlayer && canEdit ? (
-        <section className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-[#101828]">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Selected Player</p>
-          <p className="mt-1 truncate text-sm font-black" title={selectedBoardPlayer.displayName}>{selectedBoardPlayer.displayName}</p>
-          <p className="mt-1 text-xs font-bold text-amber-900">{selectedBoardPlayerState === 'pitch' ? 'On pitch' : selectedBoardPlayerState === 'bench' ? 'Bench' : 'Unplaced'}</p>
-          <label className="mt-3 block">
-            <span className="mb-1 block text-xs font-black">Displayed shirt number</span>
+        <section
+          ref={selectedPlayerPanelRef}
+          tabIndex="-1"
+          data-testid="formation-board-player-inspector"
+          className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-[var(--text-primary)] shadow-sm shadow-black/10 outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">Selected Player</h3>
+              <p className="mt-1 truncate text-lg font-black tracking-tight" title={selectedBoardPlayer.displayName}>{selectedBoardPlayer.displayName}</p>
+            </div>
+            <span
+              data-player-state={selectedBoardPlayerState}
+              className="shrink-0 rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-2.5 py-1 text-xs font-black text-[var(--text-primary)]"
+            >
+              {selectedBoardPlayerState === 'pitch' ? 'On pitch' : selectedBoardPlayerState === 'bench' ? 'Bench' : 'Unplaced'}
+            </span>
+          </div>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-sm font-black">Displayed shirt number</span>
             <input
               value={selectedBoardPlayer.shirtNumber}
               inputMode="numeric"
@@ -283,25 +309,31 @@ function PlayerRoster({
               aria-label={`Displayed shirt number for ${selectedBoardPlayer.displayName}`}
             />
           </label>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {selectedBoardPlayerState !== 'unplaced' ? <button type="button" onClick={() => onMoveToUnplaced(selectedBoardPlayer.playerId, selectedBoardPlayerState)} className={secondaryButtonClass}>Move to Unplaced</button> : null}
-            {selectedBoardPlayerState !== 'bench' ? <button type="button" onClick={() => onMoveToBench(selectedBoardPlayer.playerId, selectedBoardPlayerState)} className={secondaryButtonClass}>Move to bench</button> : null}
-            <button type="button" onClick={() => onRemove(selectedBoardPlayer.playerId)} className={dangerButtonClass}>Remove from board</button>
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Player state</p>
+            <div className="grid gap-2">
+              {selectedBoardPlayerState !== 'unplaced' ? <button type="button" onClick={() => runPlayerStateAction(() => onMoveToUnplaced(selectedBoardPlayer.playerId, selectedBoardPlayerState))} className={`${secondaryButtonClass} w-full`}>Move to Unplaced</button> : null}
+              {selectedBoardPlayerState !== 'bench' ? <button type="button" onClick={() => runPlayerStateAction(() => onMoveToBench(selectedBoardPlayer.playerId, selectedBoardPlayerState))} className={`${secondaryButtonClass} w-full`}>Move to bench</button> : null}
+            </div>
+          </div>
+          <div className="mt-4 border-t border-[var(--border-color)] pt-4">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Board action</p>
+            <button type="button" onClick={removeSelectedPlayer} className={`${dangerButtonClass} w-full`}>Remove from board</button>
           </div>
         </section>
       ) : null}
 
       <label className="block">
         <span className="mb-2 block text-sm font-black">Search Players</span>
-        <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className={fieldClass} placeholder="Search squad" />
+        <input ref={searchInputRef} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className={fieldClass} placeholder="Search squad" />
       </label>
 
-      <section>
+      <section aria-labelledby="formation-board-squad-heading">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-black">Squad</h3>
-          <span className="text-xs font-bold text-[var(--text-muted)]" aria-live="polite">{selectedCount} selected</span>
+          <h3 id="formation-board-squad-heading" className="text-sm font-black">Squad</h3>
+          <span className="rounded-full bg-[var(--panel-alt)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]" aria-live="polite">{selectedCount} selected</span>
         </div>
-        <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+        <div className="space-y-2">
           {filteredPlayers.map((player) => {
             const playerState = getFormationPlayerState(snapshot, player.id)
             const assignedState = playerState === 'pitch' ? 'On pitch' : playerState === 'bench' ? 'Bench' : playerState === 'unplaced' ? 'Unplaced' : ''
@@ -316,14 +348,14 @@ function PlayerRoster({
                 disabled={!canEdit || !isAvailable}
                 aria-pressed={isSelected}
                 onClick={() => togglePlayer(player.id)}
-                className={`flex min-h-12 w-full touch-pan-y items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed ${isSelected ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)]'}`}
+                className={`flex min-h-14 w-full touch-pan-y items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed ${isSelected ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)]'}`}
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-black" title={player.playerName}>{player.playerName}</span>
-                  <span className="mt-0.5 flex flex-wrap gap-1 text-[0.68rem] font-bold text-[var(--text-muted)]">
-                    <span>{isSelected ? 'Selected' : assignedState || 'Available'}</span>
-                    {isTrial ? <span>| Trial</span> : null}
-                    {!player.shirtNumber ? <span>| Missing number</span> : null}
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[0.68rem] font-bold text-[var(--text-muted)]">
+                    <span className="rounded-full bg-[var(--panel-bg)] px-2 py-0.5 text-[var(--text-primary)]">{isSelected ? 'Selected' : assignedState || 'Available'}</span>
+                    {isTrial ? <span>Trial</span> : null}
+                    {!player.shirtNumber ? <span>Missing number</span> : null}
                   </span>
                 </span>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] text-xs font-black">{player.shirtNumber || '?'}</span>
@@ -430,7 +462,7 @@ function MobileRosterSheet({ children, isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end bg-[#101828]/55 lg:hidden" onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section ref={panelRef} role="dialog" aria-modal="true" aria-label="Formation Board Players and bench" className="max-h-[82dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] shadow-2xl">
+      <section ref={panelRef} role="dialog" aria-modal="true" aria-label="Formation Board Players and bench" className="max-h-[82dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-black">Players and bench</h2>
           <button ref={closeRef} type="button" onClick={onClose} className={secondaryButtonClass}>Close</button>
@@ -1253,7 +1285,7 @@ export function FormationBoardsPage() {
             <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">Formation Boards use one portrait pitch. Changing formation keeps Player assignments where possible, keeps the goalkeeper in goal, and moves unmatched Players to Unplaced.</p>
           </section>
 
-          <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start">
             <section className={`${panelClass} min-w-0`}>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -1283,7 +1315,7 @@ export function FormationBoardsPage() {
                 selectedPlayerId={selectedSource?.type === 'unplaced' ? selectedSource.playerId : ''}
               />
             </section>
-            <aside className={`${panelClass} hidden lg:block lg:sticky lg:top-4`} aria-label="Player assignment controls">{roster}</aside>
+            <aside className={`${panelClass} hidden lg:sticky lg:top-4 lg:block lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:overscroll-contain`} aria-label="Player assignment controls">{roster}</aside>
           </div>
 
           <section className={panelClass}>

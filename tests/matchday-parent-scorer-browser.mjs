@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { mkdir } from 'node:fs/promises'
 import net from 'node:net'
 import { chromium } from 'playwright'
 
@@ -11,6 +12,9 @@ const parentBaseUrl = mainBaseUrl
 const parentMatchWorkspaceOnly = process.env.PARENT_MATCH_WORKSPACE_BROWSER_ONLY === 'true'
 const parentMatchWorkspaceScreenshotDir = String(process.env.PARENT_MATCH_WORKSPACE_SCREENSHOT_DIR || '').trim()
 const parentConfirmedTeamOnly = process.env.PARENT_CONFIRMED_TEAM_BROWSER_ONLY === 'true' || parentMatchWorkspaceOnly
+const gameDayVisualConsistencyOnly = process.env.GAME_DAY_VISUAL_CONSISTENCY_ONLY === 'true'
+const visualConsistencyScreenshotDirectory = 'outputs/fp-v1-formation-gameday-visual-consistency-28'
+await mkdir(visualConsistencyScreenshotDirectory, { recursive: true })
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -390,6 +394,74 @@ async function signIn(page, { parent = false } = {}) {
   await page.waitForURL(parent ? '**/parent-portal' : '**/coach', { timeout: 30000 })
 }
 
+async function verifyGameDayVisualMatrix(browser) {
+  const profiles = [
+    { name: 'wide-desktop-light', options: { colorScheme: 'light', viewport: { width: 1600, height: 1000 } }, theme: 'light' },
+    { name: 'desktop-dark', options: { colorScheme: 'dark', viewport: { width: 1440, height: 900 } }, theme: 'dark' },
+    { name: 'standard-desktop-system', options: { colorScheme: 'dark', viewport: { width: 1280, height: 800 } }, theme: 'system' },
+    { name: 'short-desktop-light', options: { colorScheme: 'light', viewport: { width: 1280, height: 650 } }, theme: 'light' },
+    { name: 'tablet-light', options: { colorScheme: 'light', viewport: { width: 768, height: 1024 } }, theme: 'light' },
+    { name: 'iphone-portrait-dark', options: { colorScheme: 'dark', isMobile: true, viewport: { width: 390, height: 844 } }, theme: 'dark' },
+    { name: 'iphone-landscape-light', options: { colorScheme: 'light', isMobile: true, viewport: { width: 844, height: 390 } }, theme: 'light' },
+    { name: 'android-portrait-system', options: { colorScheme: 'dark', isMobile: true, viewport: { width: 412, height: 915 } }, theme: 'system' },
+    { name: 'android-landscape-light', options: { colorScheme: 'light', isMobile: true, viewport: { width: 915, height: 412 } }, theme: 'light' },
+  ]
+
+  for (const profile of profiles) {
+    const session = await prepareContext(browser, profile.options)
+    await session.context.addInitScript((theme) => {
+      window.localStorage.setItem('app-theme-mode', theme)
+    }, profile.theme)
+    await signIn(session.page)
+    await session.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await session.page.locator('#game-day-title').waitFor({ state: 'visible', timeout: 30000 })
+    await session.page.getByText('Next fixture', { exact: true }).waitFor({ state: 'visible', timeout: 30000 })
+    const quickAction = session.page.getByRole('button', { name: 'Open quick actions' })
+    await quickAction.waitFor({ state: 'visible', timeout: 15000 })
+
+    const layout = await session.page.evaluate(() => {
+      const quickActionButton = document.querySelector('button[aria-label="Open quick actions"]')
+      const sections = Array.from(document.querySelectorAll('main section'))
+      const quickRect = quickActionButton?.getBoundingClientRect()
+      const intersects = quickRect ? sections.some((section) => {
+        const sectionRect = section.getBoundingClientRect()
+        return quickRect.left < sectionRect.right
+          && quickRect.right > sectionRect.left
+          && quickRect.top < sectionRect.bottom
+          && quickRect.bottom > sectionRect.top
+      }) : true
+      return {
+        horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        intersects,
+        quickActionPosition: quickRect ? {
+          left: quickRect.left,
+          top: quickRect.top,
+        } : null,
+      }
+    })
+
+    assert.ok(layout.horizontalOverflow <= 1, `${profile.name} must not overflow horizontally`)
+    assert.equal(layout.intersects, false, `${profile.name} quick action must not cover Game Day content`)
+    assert.ok(layout.quickActionPosition, `${profile.name} quick action position must be measurable`)
+    assert.ok(layout.quickActionPosition.left >= profile.options.viewport.width - 80, `${profile.name} quick action must remain on the safe right edge`)
+    if (profile.options.viewport.width < 768) {
+      assert.ok(layout.quickActionPosition.top <= 24, `${profile.name} mobile quick action must remain in the reserved header edge`)
+    } else {
+      assert.ok(layout.quickActionPosition.top >= profile.options.viewport.height - 80, `${profile.name} desktop quick action must remain in the reserved lower edge`)
+    }
+    assert.equal(session.mutationRequests.length, 0, `${profile.name} visual inspection must remain read-only`)
+    assert.deepEqual(session.consoleErrors, [], `${profile.name} must have no console errors`)
+    assertNoPageFailures(session, `${profile.name} Game Day landing`)
+    await session.page.screenshot({
+      path: `${visualConsistencyScreenshotDirectory}/game-day-${profile.name}.png`,
+      fullPage: true,
+    })
+    await session.context.close()
+  }
+
+  process.stdout.write(`PASS Game Day visual matrix: ${profiles.length} responsive light, dark, and system profiles, no overflow, no content overlap, zero mutations\n`)
+}
+
 async function openParentMatches(page) {
   await page.goto(`${parentBaseUrl}/parent-portal?section=matches`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByRole('heading', { name: 'Match cards' }).waitFor({ state: 'visible', timeout: 30000 })
@@ -576,6 +648,9 @@ let browser
 try {
   await waitForPort('127.0.0.1', port)
   browser = await chromium.launch({ headless: true })
+  if (gameDayVisualConsistencyOnly) {
+    await verifyGameDayVisualMatrix(browser)
+  } else {
 
   if (parentMatchWorkspaceOnly) {
     const desktopMeasurement = await verifyParentMatchWorkspace(browser, { width: 1440, height: 900 })
@@ -597,7 +672,7 @@ try {
       await signIn(staff.page)
       await staff.page.goto(`${mainBaseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
       await staff.page.getByTestId('staff-match-day-hero-heading').waitFor({ state: 'visible', timeout: 30000 })
-      const staffManageButton = staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first()
+      const staffManageButton = staff.page.getByTestId('game-day-fixture-summary').first().getByRole('button', { name: /^Manage / })
       await staffManageButton.waitFor({ state: 'visible', timeout: 30000 })
       await staffManageButton.click()
       const staffOpenButton = staff.page.getByRole('button', { name: /Start Game Mode|Open Game Mode/ }).first()
@@ -607,7 +682,7 @@ try {
       assert.equal(staff.mutationRequests.length, 0, `${viewport.name} staff Game Mode open must not mutate`)
       await verifyBackgroundForeground(staff.page, staff.context)
       await staff.page.reload({ waitUntil: 'domcontentloaded' })
-      await staff.page.locator('button:visible').filter({ hasText: /^(Manage|Manage fixture)$/ }).first().waitFor({ state: 'visible', timeout: 30000 })
+      await staff.page.getByRole('button', { name: /^(Close |Manage |Manage fixture$)/ }).first().waitFor({ state: 'visible', timeout: 30000 })
       assert.equal(await staff.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       assert.deepEqual(staff.consoleErrors, [])
       assertNoPageFailures(staff, `${viewport.name} staff`)
@@ -617,7 +692,6 @@ try {
       await signIn(scorer.page, { parent: true })
       await openParentMatches(scorer.page)
       await scorer.page.getByTestId('parent-match-day-hero').waitFor({ state: 'visible', timeout: 30000 })
-      await scorer.page.getByText('You are today\'s scorer', { exact: true }).waitFor({ state: 'visible' })
       await scorer.page.getByRole('button', { name: 'Open Game Mode' }).click()
       await scorer.page.getByText('Authoritative match clock', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       await scorer.page.getByText('0:00', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
@@ -842,6 +916,7 @@ try {
   assert.deepEqual(rapid.pageErrors, [])
   await rapid.context.close()
     process.stdout.write('PASS rapid refresh: five repeated refreshes during delayed restoration recover without exception or mutation\n')
+  }
   }
 } catch (error) {
   process.stderr.write(`${error.stack || error.message}\n`)

@@ -511,6 +511,20 @@ function QuickActionHotbar({ user }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (location.pathname !== '/match-day') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const nextPosition = getDefaultQuickActionPosition()
+      setQuickActionPosition(nextPosition)
+      saveQuickActionPosition(nextPosition)
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [location.pathname])
+
   if (!canShowQuickActions) {
     return null
   }
