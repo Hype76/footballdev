@@ -227,5 +227,6 @@ test('server, export, and immutable history paths use explicit state and canonic
   assert.match(pdfDocument, /A4 portrait/)
   assert.match(serverExport, /adaptFormationVersionToPortrait/)
   assert.match(serverExport, /player\?\.state === 'unplaced'/)
+  assert.match(serverExport, /unplaced: document\.unplaced/)
   assert.doesNotMatch(serverExport, /send-email|send-sms|send-push|create-chat/i)
 })

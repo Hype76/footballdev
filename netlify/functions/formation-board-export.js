@@ -221,6 +221,7 @@ export function createFormationBoardExportHandler({
           orientation: document.orientation,
           placements: document.placements,
           bench: document.bench,
+          unplaced: document.unplaced,
           notes: document.notes,
         }, { branding, diagnostics: rendererDiagnostics })
 

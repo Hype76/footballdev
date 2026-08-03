@@ -135,10 +135,14 @@ test('Formation Board document validates and renders only approved public fields
 
 test('protected export handler returns PNG bytes and completes the audited request', async () => {
   const database = createDatabase()
+  let renderedPayload = null
   const handler = createFormationBoardExportHandler({
     adminFactory: () => database,
     payloadResolver: async () => createPayload('png'),
-    pngRenderer: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+    pngRenderer: async (payload) => {
+      renderedPayload = payload
+      return Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    },
     brandingBuilder: async () => ({}),
   })
   const response = await handler(new Request('https://footballplayer.online/.netlify/functions/formation-board-export', {
@@ -150,6 +154,8 @@ test('protected export handler returns PNG bytes and completes the audited reque
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('content-type'), 'image/png')
   assert.match(response.headers.get('content-disposition'), /fp-test-match-shape-v4\.png/)
+  assert.equal(renderedPayload.unplaced.length, 1)
+  assert.equal(renderedPayload.unplaced[0].displayName, 'Morgan Unplaced')
   assert.equal(database.updates.length, 1)
   assert.equal(database.updates[0].values.export_state, 'ready')
   assert.equal(database.updates[0].values.output_path, null)
