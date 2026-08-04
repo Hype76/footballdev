@@ -84,7 +84,7 @@ test('fixture dependencies settle independently from Match Day list loading', as
 
 test('deep-linked fixture hydration can recover after a later summary refresh', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
-  const start = source.indexOf('const requestedMatch = matches.find')
+  const start = source.indexOf('const requestedMatch = useMemo')
   const end = source.indexOf('}, [getMatchDay, isDemoExperience', start)
   const hydrationSource = source.slice(start, end)
 
@@ -93,6 +93,8 @@ test('deep-linked fixture hydration can recover after a later summary refresh', 
   assert.match(hydrationSource, /deepLinkHydrationRef\.current = requestedFixtureId/)
   assert.match(hydrationSource, /setMatches\(\(currentMatches\) => currentMatches\.map/)
   assert.match(hydrationSource, /deepLinkHydrationRef\.current = ''/)
+  assert.match(hydrationSource, /deepLinkHydrationRef\.current === requestedFixtureId/)
+  assert.doesNotMatch(hydrationSource, /, matches, requestedFixtureId/)
 })
 
 test('saved locations are scoped through prior team fixtures and normalized safely', async () => {

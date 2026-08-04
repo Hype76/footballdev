@@ -2227,6 +2227,12 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     () => matches.find((match) => String(match.id) === String(expandedMatchId)) || null,
     [expandedMatchId, matches],
   )
+  const requestedMatch = useMemo(
+    () => matches.find((match) => String(match.id) === String(requestedFixtureId)) || null,
+    [matches, requestedFixtureId],
+  )
+  const requestedMatchId = requestedMatch?.id || ''
+  const requestedMatchIsHydrated = requestedMatch?.isHydrated === true
   const canDeletePreviousGames = allowsFixtureManagement && Number(user.roleRank ?? 0) >= 50
   const liveMatches = useMemo(
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
@@ -2460,16 +2466,14 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       setGameModeMatchId(requestedFixtureId)
     }
 
-    const requestedMatch = matches.find((match) => String(match.id) === String(requestedFixtureId))
-
-    if (!requestedMatch || requestedMatch.isHydrated || deepLinkHydrationRef.current === requestedFixtureId) {
+    if (!requestedMatchId || requestedMatchIsHydrated || deepLinkHydrationRef.current === requestedFixtureId) {
       return undefined
     }
 
     deepLinkHydrationRef.current = requestedFixtureId
 
     void withRequestTimeout(
-      () => getMatchDay({ user, matchDayId: requestedMatch.id, includeScorerEligibility: true, accessToken: session?.access_token }),
+      () => getMatchDay({ user, matchDayId: requestedMatchId, includeScorerEligibility: true, accessToken: session?.access_token }),
       'Match Day detail could not be loaded.',
     ).then((hydratedMatch) => {
       if (!isCurrent) {
@@ -2491,8 +2495,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
     return () => {
       isCurrent = false
+      if (deepLinkHydrationRef.current === requestedFixtureId) {
+        deepLinkHydrationRef.current = ''
+      }
     }
-  }, [getMatchDay, isDemoExperience, matches, requestedFixtureId, requestedWorkspaceSection, session?.access_token, user])
+  }, [getMatchDay, isDemoExperience, requestedFixtureId, requestedMatchId, requestedMatchIsHydrated, requestedWorkspaceSection, session?.access_token, user])
 
   useEffect(() => {
     let isCurrent = true
