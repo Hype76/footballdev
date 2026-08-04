@@ -1613,7 +1613,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const requestKey = `${requestedAction}:${requestedSource}:${requestedEventId}`
 
     if (
-      !['manage-players', 'view-responses'].includes(requestedAction)
+      !['manage-players', 'view-responses', 'view'].includes(requestedAction)
       || !requestedEventId
       || isLoading
       || calendarDeepLinkRequestRef.current === requestKey

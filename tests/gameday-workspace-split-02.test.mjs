@@ -33,7 +33,7 @@ test('Game Day uses compact fixture navigation and one selected detail workspace
   assert.equal((page.match(/<MatchDayCard/g) || []).length, 1)
   assert.match(page, /displayedActiveMatches\.map\(renderFixtureNavigationCard\)/)
   assert.match(page, /previousMatches\.map\(renderFixtureNavigationCard\)/)
-  assert.match(page, /selectedMatch \? renderSelectedMatchWorkspace\(selectedMatch\) : null/)
+  assert.match(page, /selectedMatch && \(!isDemoExperience \|\| isGameModeActive\) \? renderSelectedMatchWorkspace\(selectedMatch\) : null/)
   assert.match(navigationCard, /data-testid="game-day-fixture-summary"/)
   assert.match(navigationCard, /aria-current=\{isSelected \? 'true' : undefined\}/)
   assert.match(navigationCard, /\{isSelected \? 'Close' : 'Manage'\}/)

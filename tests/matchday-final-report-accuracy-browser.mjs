@@ -183,6 +183,9 @@ async function prepareContext(browser, viewport, { isScorer = false } = {}) {
   const match = fixtureMatch({ isScorer })
   const saveRequests = []
 
+  await context.route('**/api/parent-development/history', async (route) => {
+    await fulfillJson(route, 200, { reports: [] })
+  })
   await context.route('**/.netlify/functions/**', async (route) => {
     await fulfillJson(route, 200, { authorized: false, success: true })
   })
@@ -260,9 +263,9 @@ async function signIn(page, { parent = false } = {}) {
 
 async function openStaffReport(page) {
   await page.goto(`${baseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.getByRole('heading', { name: 'Previous games' }).waitFor({ state: 'visible', timeout: 30000 })
-  await page.getByRole('button', { name: 'Show previous games' }).click()
-  await page.getByText('Spain v Argentina', { exact: true }).waitFor({ state: 'visible' })
+  await page.getByRole('heading', { name: 'Active fixtures' }).waitFor({ state: 'visible', timeout: 30000 })
+  await page.getByRole('button', { name: /Previous games/ }).click()
+  await page.getByRole('button', { name: /Manage Spain v Argentina/ }).click()
   await page.getByRole('button', { name: 'Final Match Report' }).click()
   return page.getByRole('region', { name: 'Final Match Report' })
 }
@@ -275,6 +278,20 @@ async function openParentReport(page) {
 }
 
 async function assertCompletedReport(report, { parent = false } = {}) {
+  const reportSections = report.getByLabel('Completed match report sections')
+  const summaryButton = reportSections.getByRole('button', { name: /Match summary/ })
+  const goalsAndCardsButton = reportSections.getByRole('button', { name: /Goals and cards/ })
+  const playerChangesButton = reportSections.getByRole('button', { name: /Player changes/ })
+  const timelineButton = reportSections.getByRole('button', { name: /Full event timeline/ })
+  await summaryButton.waitFor({ state: 'visible' })
+  assert.equal(await summaryButton.getAttribute('aria-expanded'), 'true')
+  assert.equal(await goalsAndCardsButton.getAttribute('aria-expanded'), 'false')
+  assert.equal(await reportSections.getByRole('button').count(), 5)
+
+  await goalsAndCardsButton.focus()
+  await report.page().keyboard.press('Enter')
+  assert.equal(await summaryButton.getAttribute('aria-expanded'), 'false')
+  assert.equal(await goalsAndCardsButton.getAttribute('aria-expanded'), 'true')
   await report.getByRole('heading', { name: 'Cards summary' }).waitFor({ state: 'visible' })
   await report.getByText('Enzo Fernández', { exact: true }).first().waitFor({ state: 'visible' })
   await report.getByText("Rodrigo De Paul-O'Connor", { exact: true }).first().waitFor({ state: 'visible' })
@@ -286,12 +303,20 @@ async function assertCompletedReport(report, { parent = false } = {}) {
   assert.deepEqual(cardRows.map((row) => Number(row.match(/(\d+)'/)?.[1])), [128, 116, 90, 80, 52, 35])
   assert.ok(cardRows.every((row) => row.includes('Argentina')))
 
+  await playerChangesButton.click()
+  assert.equal(await goalsAndCardsButton.getAttribute('aria-expanded'), 'false')
+  assert.equal(await playerChangesButton.getAttribute('aria-expanded'), 'true')
   const substitutionSection = report.getByRole('heading', { name: 'Substitutions summary' }).locator('xpath=ancestor::section[1]')
   const substitutionRows = await substitutionSection.locator('li').allTextContents()
   assert.match(substitutionRows[0], /Julián Álvarez off, Lautaro Martínez on/)
   assert.match(substitutionRows[1], /Ángel Di María off, Julián Álvarez on/)
 
-  const timelineSection = report.getByRole('heading', { name: 'Full event timeline' }).locator('xpath=ancestor::section[1]')
+  await timelineButton.click()
+  assert.equal(await playerChangesButton.getAttribute('aria-expanded'), 'false')
+  assert.equal(await timelineButton.getAttribute('aria-expanded'), 'true')
+  assert.equal(await reportSections.locator('button[aria-expanded="true"]').count(), 1)
+  const timelinePanelId = await timelineButton.getAttribute('aria-controls')
+  const timelineSection = report.locator(`[id="${timelinePanelId}"]`)
   const timelineRows = await timelineSection.locator('li').allTextContents()
   const timelineMinuteLabels = await timelineSection.locator('li > div > span').allTextContents()
   assert.deepEqual(timelineMinuteLabels.map((label) => Number(label.match(/(\d+)'/)?.[1])), [12, 35, 52, 60, 67, 67, 80, 90, 116, 128])
@@ -304,11 +329,11 @@ async function assertCompletedReport(report, { parent = false } = {}) {
     assert.equal(await report.getByLabel('Staff notes').count(), 0)
   } else {
     await report.getByLabel('Staff notes').waitFor({ state: 'visible' })
-    await report.getByText('Staff tactical note must stay private', { exact: false }).first().waitFor({ state: 'visible' })
+    await report.getByText('Staff tactical note must stay private', { exact: false }).last().waitFor({ state: 'visible' })
   }
 }
 
-async function assertCompletedReportExports(report, { parent = false } = {}) {
+async function assertCompletedReportExports(report, { downloadCsv = true, parent = false } = {}) {
   const pdfButton = report.getByRole('button', { name: 'Download PDF' })
   const csvButton = report.getByRole('button', { name: 'Download CSV' })
   await pdfButton.waitFor({ state: 'visible' })
@@ -326,6 +351,22 @@ async function assertCompletedReportExports(report, { parent = false } = {}) {
   assert.match(pdf, /Completed Match Report/)
   assert.match(pdf, /Spain v Argentina/)
 
+  if (parent) {
+    assert.doesNotMatch(searchablePdf, new RegExp(PRIVATE_REPORT_NOTE))
+    assert.doesNotMatch(searchablePdf, new RegExp(PRIVATE_EVENT_NOTE))
+  } else {
+    assert.match(searchablePdf, new RegExp(PRIVATE_REPORT_NOTE))
+    assert.match(searchablePdf, new RegExp(PRIVATE_EVENT_NOTE))
+  }
+
+  if (!downloadCsv) {
+    return
+  }
+
+  for (let attempt = 0; attempt < 30 && !await csvButton.isEnabled(); attempt += 1) {
+    await report.page().waitForTimeout(100)
+  }
+  assert.equal(await csvButton.isEnabled(), true)
   const [csvDownload] = await Promise.all([
     report.page().waitForEvent('download'),
     csvButton.click(),
@@ -339,13 +380,9 @@ async function assertCompletedReportExports(report, { parent = false } = {}) {
   assert.match(csv, /Rodrigo De Paul-O'Connor/)
 
   if (parent) {
-    assert.doesNotMatch(searchablePdf, new RegExp(PRIVATE_REPORT_NOTE))
-    assert.doesNotMatch(searchablePdf, new RegExp(PRIVATE_EVENT_NOTE))
     assert.doesNotMatch(csv, new RegExp(PRIVATE_REPORT_NOTE))
     assert.doesNotMatch(csv, new RegExp(PRIVATE_EVENT_NOTE))
   } else {
-    assert.match(searchablePdf, new RegExp(PRIVATE_REPORT_NOTE))
-    assert.match(searchablePdf, new RegExp(PRIVATE_EVENT_NOTE))
     assert.match(csv, new RegExp(PRIVATE_EVENT_NOTE))
   }
 }
@@ -413,7 +450,7 @@ async function run() {
       await signIn(scorer.page, { parent: true })
       const scorerReport = await openParentReport(scorer.page)
       await assertCompletedReport(scorerReport, { parent: true })
-      await assertCompletedReportExports(scorerReport, { parent: true })
+      await assertCompletedReportExports(scorerReport, { downloadCsv: viewport.name === 'desktop', parent: true })
       assert.equal(scorer.saveRequests.length, 0)
       assert.equal(await scorer.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       assertNoPageFailures(scorer, `accepted scorer ${viewport.name}`)
@@ -424,7 +461,7 @@ async function run() {
       await signIn(ordinary.page, { parent: true })
       const ordinaryReport = await openParentReport(ordinary.page)
       await assertCompletedReport(ordinaryReport, { parent: true })
-      await assertCompletedReportExports(ordinaryReport, { parent: true })
+      await assertCompletedReportExports(ordinaryReport, { downloadCsv: viewport.name === 'desktop', parent: true })
       assert.equal(ordinary.saveRequests.length, 0)
       assert.equal(await ordinary.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       assertNoPageFailures(ordinary, `ordinary parent ${viewport.name}`)

@@ -15,6 +15,7 @@ const serviceBoundaryMigrationUrl = new URL('../supabase/migrations/202608030941
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const coachHomeUrl = new URL('../src/pages/CoachHomePage.jsx', import.meta.url)
+const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const volunteerFunctionUrl = new URL('../netlify/functions/select-match-day-volunteer.js', import.meta.url)
 
 const ids = {
@@ -249,7 +250,8 @@ test('29A exposes scorer eligibility only through the authenticated service boun
   assert.doesNotMatch(migration, /can_manage_match_day/)
 })
 
-test('29A Manager Home chooses the first future canonical team event and excludes stale data', () => {
+test('29A Manager Home chooses the first future canonical team event and excludes stale data', async () => {
+  const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
   const now = new Date('2026-08-03T09:00:00+01:00')
   const next = getManagerHomeNextUp({
     activeTeamId: ids.team,
@@ -305,7 +307,9 @@ test('29A Manager Home chooses the first future canonical team event and exclude
 
   assert.equal(next.sourceId, 'next-training')
   assert.equal(next.title, 'First future training')
-  assert.equal(getManagerHomeNextUpHref(next), '/calendar?eventId=next-training')
+  assert.equal(getManagerHomeNextUpHref(next), '/calendar?action=view&eventId=next-training&source=calendar')
+  assert.match(sessionsPage, /\['manage-players', 'view-responses', 'view'\]\.includes\(requestedAction\)/)
+  assert.match(sessionsPage, /mode: requestedAction === 'manage-players' \? 'manage-players' : 'view'/)
   assert.match(getManagerHomeNextUpContext(next), /Training/)
   assert.match(getManagerHomeNextUpContext(next), /11:00/)
 })

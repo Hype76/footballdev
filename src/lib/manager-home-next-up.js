@@ -191,5 +191,11 @@ export function getManagerHomeNextUpHref(event) {
     return `/match-day?fixture=${encodeURIComponent(event.sourceId)}`
   }
 
-  return `/calendar?eventId=${encodeURIComponent(event.sourceId)}`
+  const searchParams = new URLSearchParams({
+    action: 'view',
+    eventId: event.sourceId,
+    source: event.sourceType || 'calendar',
+  })
+
+  return `/calendar?${searchParams.toString()}`
 }
