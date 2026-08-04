@@ -87,6 +87,7 @@ import {
 } from '../lib/matchday-event-minute.js'
 import { useServerSyncedClock } from '../hooks/use-server-synced-clock.js'
 import { normalizeMatchDayWorkspaceSection } from '../lib/matchday-workspace.js'
+import { sendEventPlayerInvitationAction } from '../lib/domain/event-player-invitation-actions.js'
 import {
   formatMatchTimerClock,
   getMatchTimerDisplayLabel,
@@ -539,14 +540,40 @@ function mergeTransportResponse(match, row) {
 function getCurrentAvailabilityRows(match) {
   const latestByPlayer = new Map()
 
+  for (const invite of match.invitedPlayers || []) {
+    if (invite.cancelledAt || invite.inviteStatus === 'cancelled') {
+      continue
+    }
+
+    const key = invite.playerId || invite.playerName || invite.id
+    latestByPlayer.set(key, {
+      id: invite.id,
+      inviteId: invite.id,
+      playerId: invite.playerId,
+      playerName: invite.playerName,
+      status: 'pending',
+      hasAvailabilityRequest: false,
+      invitationRequestCount: 0,
+      lastSentAt: '',
+    })
+  }
+
   for (const request of match.availabilityRequests || []) {
     const key = request.playerId || request.playerName || request.id
     const current = latestByPlayer.get(key)
     const currentTime = current?.respondedAt || current?.createdAt || ''
     const requestTime = request.respondedAt || request.createdAt || ''
+    const latestSentAt = [current?.lastSentAt, request.sentAt].filter(Boolean).sort().at(-1) || ''
+    const requestSummary = {
+      ...(current || {}),
+      hasAvailabilityRequest: true,
+      invitationRequestCount: Number(current?.invitationRequestCount || 0) + 1,
+      lastSentAt: latestSentAt,
+    }
 
     if (!current || String(requestTime) > String(currentTime)) {
       latestByPlayer.set(key, {
+        ...requestSummary,
         id: request.id,
         playerId: request.playerId,
         playerName: request.playerName,
@@ -559,6 +586,8 @@ function getCurrentAvailabilityRows(match) {
         transportSeatsOffered: request.transportSeatsOffered,
         transportRespondedAt: request.transportRespondedAt,
       })
+    } else {
+      latestByPlayer.set(key, requestSummary)
     }
   }
 
@@ -587,6 +616,58 @@ function getPlayerSquadDecision(match, row) {
     decidedAt: decision?.decidedAt || '',
     decidedByName: decision?.decidedByName || '',
   }
+}
+
+function getPlayerAvailabilityInvitationAction(row) {
+  const availabilityStatus = String(row?.status || 'pending').toLowerCase()
+
+  if (['available', 'maybe', 'unavailable'].includes(availabilityStatus) && row?.selectedAt) {
+    return ''
+  }
+
+  return row?.hasAvailabilityRequest ? 'resend' : 'send'
+}
+
+function getPlayerAvailabilityLastSentAt(row) {
+  return row?.lastSentAt || ''
+}
+
+function getPlayerAvailabilityLastQueuedAt(match, row) {
+  return (match?.eventLog || [])
+    .filter((entry) => entry.eventType === 'invite_queued' && String(entry.playerId || '') === String(row?.playerId || ''))
+    .map((entry) => entry.createdAt || '')
+    .filter(Boolean)
+    .sort()
+    .at(-1) || ''
+}
+
+function getSquadDecisionStats(match, rows = []) {
+  return rows.reduce((stats, row) => {
+    const decision = getPlayerSquadDecision(match, row).status
+    const key = decision === 'not_selected' ? 'notSelected' : decision
+    stats[key] += 1
+    stats.total += 1
+    return stats
+  }, { selected: 0, waiting: 0, notSelected: 0, undecided: 0, total: 0 })
+}
+
+function getSquadAvailabilityConflict(match, row) {
+  const decision = getPlayerSquadDecision(match, row).status
+  const availability = String(row?.status || 'pending').toLowerCase()
+
+  if (decision === 'selected' && availability === 'unavailable') {
+    return 'Selected while the Player is Unavailable. Review both facts before match day.'
+  }
+
+  if (decision === 'selected' && !['available', 'maybe', 'unavailable'].includes(availability)) {
+    return 'Selected while availability is awaiting a response.'
+  }
+
+  if (decision === 'not_selected' && availability === 'available') {
+    return 'Available but marked Not selected.'
+  }
+
+  return ''
 }
 
 function getParticipatingMatchPlayers(match, players = []) {
@@ -1636,7 +1717,7 @@ function getAvailabilityDisclosureGroups(match, rows = []) {
     { key: 'maybe', label: 'Maybe', rows: [] },
     { key: 'unavailable', label: 'Unavailable', rows: [] },
     { key: 'conflicts', label: 'Conflicts', rows: [] },
-    { key: 'available', label: 'Available or selected', rows: [] },
+    { key: 'available', label: 'Available', rows: [] },
   ]
   const groupsByKey = new Map(groups.map((group) => [group.key, group]))
 
@@ -1656,7 +1737,14 @@ function getAvailabilityDisclosureGroups(match, rows = []) {
     groupsByKey.get(groupKey)?.rows.push(row)
   })
 
-  return groups
+  return groups.map((group) => ({
+    ...group,
+    rows: [...group.rows].sort((left, right) => String(left.playerName || '').localeCompare(
+      String(right.playerName || ''),
+      undefined,
+      { sensitivity: 'base' },
+    )),
+  }))
 }
 
 async function logFixtureAvailabilityRecipientEvents({
@@ -1993,6 +2081,7 @@ const MATCH_DAY_DETAIL_FIELDS = [
   'eventLog',
   'events',
   'finalReport',
+  'invitedPlayers',
   'playerAvailability',
   'roleAssignments',
   'scorerAssignments',
@@ -2103,6 +2192,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const [volunteerSelectionPrompt, setVolunteerSelectionPrompt] = useState(null)
   const [activeVolunteerSelectionKey, setActiveVolunteerSelectionKey] = useState('')
   const [activeSquadDecisionKey, setActiveSquadDecisionKey] = useState('')
+  const [activeAvailabilityInvitationKey, setActiveAvailabilityInvitationKey] = useState('')
+  const [availabilityInvitationPrompt, setAvailabilityInvitationPrompt] = useState(null)
   const [volunteerSelectionStatus, setVolunteerSelectionStatus] = useState(null)
   const [matchActionStatus, setMatchActionStatus] = useState(null)
   const [liveEntryModal, setLiveEntryModal] = useState(null)
@@ -3359,6 +3450,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const handleSquadDecisionChange = async (match, player, decision) => {
     const actionKey = `${match.id}:${player.playerId}:${decision}`
     const decisionLabel = getMatchDaySquadDecisionLabel(decision)
+    const currentDecision = getPlayerSquadDecision(match, player)
 
     setActiveMatchId(match.id)
     setActiveSquadDecisionKey(actionKey)
@@ -3374,6 +3466,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         matchDayId: match.id,
         playerId: player.playerId,
         decision,
+        expectedDecidedAt: currentDecision.decidedAt || null,
       })
       const reconcileSavedDecision = (currentMatches) => currentMatches.map((candidate) => {
         if (String(candidate.id) !== String(match.id)) {
@@ -3414,6 +3507,129 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     } finally {
       setActiveMatchId('')
       setActiveSquadDecisionKey('')
+    }
+  }
+
+  const restoreAvailabilityInvitationFocus = (buttonId) => {
+    if (!buttonId) {
+      return
+    }
+
+    window.requestAnimationFrame(() => document.getElementById(buttonId)?.focus())
+  }
+
+  const closeAvailabilityInvitationPrompt = () => {
+    const buttonId = availabilityInvitationPrompt?.buttonId || ''
+    setAvailabilityInvitationPrompt(null)
+    restoreAvailabilityInvitationFocus(buttonId)
+  }
+
+  const handleAvailabilityInvitationAction = async (match, player, action) => {
+    const actionKey = `${match.id}:availability-invite:${player.playerId}`
+    const buttonId = `match-day-availability-invite-${match.id}-${player.playerId}`
+    const requestToken = globalThis.crypto?.randomUUID?.()
+      || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const actionLabel = action === 'send' ? 'Send availability invite' : 'Resend availability invite'
+
+    setActiveAvailabilityInvitationKey(actionKey)
+    setErrorMessage('')
+    setMatchActionStatus({
+      key: actionKey,
+      tone: 'loading',
+      message: `Checking eligible recipients for ${player.playerName || 'Player'}...`,
+    })
+
+    try {
+      const preview = await sendEventPlayerInvitationAction({
+        accessToken: session?.access_token,
+        action,
+        eventId: match.id,
+        idempotencyKey: requestToken,
+        playerId: player.playerId,
+        preview: true,
+        sourceType: 'match-day',
+        user,
+      })
+
+      setAvailabilityInvitationPrompt({
+        action,
+        actionLabel,
+        buttonId,
+        match,
+        player,
+        preview,
+        requestToken,
+      })
+      setMatchActionStatus(null)
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'The availability invitation could not be prepared.'
+      setErrorMessage(message)
+      setMatchActionStatus({ key: actionKey, tone: 'error', message })
+      showToast({ title: 'Availability invitation not prepared', message, tone: 'error' })
+      restoreAvailabilityInvitationFocus(buttonId)
+    } finally {
+      setActiveAvailabilityInvitationKey('')
+    }
+  }
+
+  const handleConfirmAvailabilityInvitation = async () => {
+    const prompt = availabilityInvitationPrompt
+
+    if (!prompt) {
+      return
+    }
+
+    const actionKey = `${prompt.match.id}:availability-invite:${prompt.player.playerId}`
+    setActiveAvailabilityInvitationKey(actionKey)
+    setMatchActionStatus({
+      key: actionKey,
+      tone: 'loading',
+      message: `Queueing ${prompt.player.playerName || 'Player'} availability invitation...`,
+    })
+
+    try {
+      const result = await sendEventPlayerInvitationAction({
+        accessToken: session?.access_token,
+        action: prompt.action,
+        eventId: prompt.match.id,
+        idempotencyKey: prompt.requestToken,
+        playerId: prompt.player.playerId,
+        sourceType: 'match-day',
+        user,
+      })
+      const refreshedMatch = await getMatchDay({ user, matchDayId: prompt.match.id })
+
+      setMatches((currentMatches) => currentMatches.map((match) => (
+        String(match.id) === String(refreshedMatch.id) ? refreshedMatch : match
+      )))
+      setAvailabilityInvitationPrompt(null)
+      setMatchActionStatus({
+        key: actionKey,
+        tone: result.failedCount > 0 ? 'error' : 'success',
+        message: result.duplicate
+          ? 'This exact availability invitation action was already completed safely.'
+          : result.failedCount > 0
+            ? `${result.recipientCount - result.failedCount} invitation queued and ${result.failedCount} failed.`
+            : `${prompt.player.playerName || 'Player'} invitation queued for ${result.recipientCount} eligible recipient${result.recipientCount === 1 ? '' : 's'}.`,
+      })
+      showToast({
+        title: result.duplicate ? 'Invitation action already completed' : 'Availability invitation queued',
+        message: result.duplicate
+          ? 'The same action was not queued twice.'
+          : `${result.recipientCount} eligible recipient${result.recipientCount === 1 ? '' : 's'} queued. The current availability response was not changed.`,
+        tone: result.failedCount > 0 ? 'warning' : undefined,
+      })
+      restoreAvailabilityInvitationFocus(prompt.buttonId)
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'The availability invitation could not be queued.'
+      setErrorMessage(message)
+      setMatchActionStatus({ key: actionKey, tone: 'error', message })
+      showToast({ title: 'Availability invitation not queued', message, tone: 'error' })
+      throw error
+    } finally {
+      setActiveAvailabilityInvitationKey('')
     }
   }
 
@@ -4125,9 +4341,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         </button>
       </div>
       <MatchDayCard
+        activeAvailabilityInvitationKey={activeAvailabilityInvitationKey}
         activeMatchId={activeMatchId}
         activeSquadDecisionKey={activeSquadDecisionKey}
         activeVolunteerSelectionKey={activeVolunteerSelectionKey}
+        allowInvitationActions={allowsCommunication && allowsFixtureManagement}
         allowFixtureManagement={allowsFixtureManagement}
         clubIdentity={{
           clubLogoUrl: user?.clubLogoUrl || '',
@@ -4145,6 +4363,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         onGameModeTimerAction={handleGameModeTimerAction}
         onGameModeStart={handleGameModeOpen}
         onHydrate={hydrateMatchDay}
+        onAvailabilityInvitationAction={handleAvailabilityInvitationAction}
         onManageInvitedPlayers={(selectedMatch) => {
           navigate(`/calendar?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
         }}
@@ -4588,6 +4807,26 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         onCancel={() => setVolunteerSelectionPrompt(null)}
         onConfirm={handleVolunteerSelection}
       />
+
+      <ConfirmModal
+        confirmLabel={availabilityInvitationPrompt?.actionLabel || 'Confirm invitation'}
+        isBusy={Boolean(activeAvailabilityInvitationKey)}
+        isOpen={Boolean(availabilityInvitationPrompt)}
+        items={[
+          `Player: ${availabilityInvitationPrompt?.player?.playerName || 'Player'}`,
+          `Fixture: ${availabilityInvitationPrompt?.match ? getMatchDayDisplayName(availabilityInvitationPrompt.match) : 'Match Day'}`,
+          `Action: ${availabilityInvitationPrompt?.actionLabel || 'Availability invitation'}`,
+          `Current availability: ${getAvailabilityStatusLabel(availabilityInvitationPrompt?.player?.status)}`,
+          `Current request state: ${availabilityInvitationPrompt?.preview?.requestState || 'Unknown'}`,
+          `Last sent: ${availabilityInvitationPrompt?.preview?.lastSentAt ? formatResponseDateTime(availabilityInvitationPrompt.preview.lastSentAt) : 'Not sent yet'}`,
+          ...(availabilityInvitationPrompt?.preview?.recipients || []).map((recipient) => `${recipient.type || 'Recipient'}: ${recipient.address}`),
+        ]}
+        itemsTitle="Invitation confirmation"
+        message="This queues one availability invitation to the server-resolved eligible contacts shown below. A current request keeps its reusable response link, and any existing availability response remains unchanged."
+        title={`${availabilityInvitationPrompt?.actionLabel || 'Availability invitation'}?`}
+        onCancel={closeAvailabilityInvitationPrompt}
+        onConfirm={handleConfirmAvailabilityInvitation}
+      />
     </div>
   )
 }
@@ -4705,9 +4944,11 @@ function FullTimeLifecyclePanel({ isBusy, match, onConclude, onResume }) {
 }
 
 function MatchDayCard({
+  activeAvailabilityInvitationKey,
   activeMatchId,
   activeSquadDecisionKey,
   activeVolunteerSelectionKey,
+  allowInvitationActions,
   allowFixtureManagement,
   clubIdentity,
   isGameMode,
@@ -4723,6 +4964,7 @@ function MatchDayCard({
   onGameModeStart,
   onGameModeStatusChange,
   onHydrate,
+  onAvailabilityInvitationAction,
   onManageInvitedPlayers,
   onOpenEventModal,
   onOpenGoalModal,
@@ -4748,6 +4990,8 @@ function MatchDayCard({
   const liveClockLabel = formatLiveMatchClock(match, now)
   const availabilityStats = getAvailabilityStats(match)
   const availabilityGroups = getAvailabilityDisclosureGroups(match, currentAvailabilityRows)
+  const squadDecisionStats = getSquadDecisionStats(match, currentAvailabilityRows)
+  const squadConflictCount = currentAvailabilityRows.filter((row) => getSquadAvailabilityConflict(match, row)).length
   const expandedAvailabilityGroups = availabilityDisclosureState.matchId === match.id
     ? availabilityDisclosureState.groups
     : {}
@@ -5053,6 +5297,13 @@ function MatchDayCard({
               <AvailabilityCount label="Unavailable" value={availabilityStats.unavailable} />
               <AvailabilityCount label="Conflicts" value={availabilityStats.conflictCount} />
             </div>
+            <div className="mt-2 grid grid-cols-5 divide-x divide-[#d7e5dc] rounded-lg border border-[#d7e5dc] bg-white" aria-label="Squad decision counts">
+              <CompactSquadCount label="Selected" value={squadDecisionStats.selected} />
+              <CompactSquadCount label="Waiting" value={squadDecisionStats.waiting} />
+              <CompactSquadCount label="Not selected" value={squadDecisionStats.notSelected} />
+              <CompactSquadCount label="Undecided" value={squadDecisionStats.undecided} />
+              <CompactSquadCount label="Conflicts" value={squadConflictCount} />
+            </div>
             {currentAvailabilityRows.length > 0 ? (
               <div
                 className="mt-3 grid gap-2"
@@ -5085,6 +5336,14 @@ function MatchDayCard({
                   const historyRows = getAvailabilityHistoryForPlayer(match, row)
                   const squadDecision = getPlayerSquadDecision(match, row)
                   const automaticSelectionFailure = getAutomaticSelectionFailure(match, row)
+                  const availabilityInvitationAction = getPlayerAvailabilityInvitationAction(row)
+                  const availabilityInvitationKey = `${match.id}:availability-invite:${row.playerId}`
+                  const availabilityInvitationStatus = matchActionStatus?.key === availabilityInvitationKey
+                    ? matchActionStatus
+                    : null
+                  const availabilityLastSentAt = getPlayerAvailabilityLastSentAt(row)
+                  const availabilityLastQueuedAt = getPlayerAvailabilityLastQueuedAt(match, row)
+                  const squadAvailabilityConflict = getSquadAvailabilityConflict(match, row)
 
                   return (
                     <div key={row.id || row.playerId || row.playerName} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
@@ -5110,6 +5369,11 @@ function MatchDayCard({
                       {automaticSelectionFailure && squadDecision.status !== 'selected' ? (
                         <p className="mt-3 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-3 text-sm font-black leading-6 text-[#92400e]" role="status">
                           Player marked Available but could not be added to the match selection.
+                        </p>
+                      ) : null}
+                      {squadAvailabilityConflict ? (
+                        <p className="mt-3 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-3 text-sm font-black leading-6 text-[#92400e]" role="status">
+                          {squadAvailabilityConflict}
                         </p>
                       ) : null}
                       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={`Squad decision for ${row.playerName || 'player'}`}>
@@ -5149,6 +5413,44 @@ function MatchDayCard({
                       ) : (
                         <p className="mt-2 text-xs font-semibold text-[#4b5f55]">No staff squad decision has been saved yet.</p>
                       )}
+                      {allowInvitationActions && availabilityInvitationAction ? (
+                        <div className="mt-3 border-t border-[#d7e5dc] pt-3">
+                          <button
+                            id={`match-day-availability-invite-${match.id}-${row.playerId}`}
+                            type="button"
+                            onClick={() => onAvailabilityInvitationAction(match, row, availabilityInvitationAction)}
+                            disabled={Boolean(activeAvailabilityInvitationKey)}
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#047857] bg-white px-4 py-2 text-sm font-black text-[#047857] transition hover:bg-[#ecfdf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#047857] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                          >
+                            {activeAvailabilityInvitationKey === availabilityInvitationKey
+                              ? 'Preparing...'
+                              : availabilityInvitationAction === 'send'
+                                ? 'Send availability invite'
+                                : 'Resend availability invite'}
+                          </button>
+                          <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
+                            {availabilityLastSentAt
+                              ? `Last sent ${formatResponseDateTime(availabilityLastSentAt)}.`
+                              : availabilityLastQueuedAt
+                                ? `Last queued ${formatResponseDateTime(availabilityLastQueuedAt)}. Delivery is awaiting provider readback.`
+                                : 'No availability invitation has been sent yet.'}
+                          </p>
+                          {availabilityInvitationStatus ? (
+                            <p
+                              className={`mt-2 rounded-lg border px-3 py-2 text-sm font-black ${
+                                availabilityInvitationStatus.tone === 'error'
+                                  ? 'border-red-200 bg-red-50 text-red-700'
+                                  : availabilityInvitationStatus.tone === 'loading'
+                                    ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
+                                    : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+                              }`}
+                              role={availabilityInvitationStatus.tone === 'error' ? 'alert' : 'status'}
+                            >
+                              {availabilityInvitationStatus.message}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {hasTransportResponse(row) ? (
                         <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
                           <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Transport response</p>
@@ -6596,6 +6898,15 @@ function AvailabilityCount({ label, value }) {
     <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-center">
       <p className="text-xl font-black text-[#101828]">{value}</p>
       <p className="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#4b5f55]">{label}</p>
+    </div>
+  )
+}
+
+function CompactSquadCount({ label, value }) {
+  return (
+    <div className="min-w-0 px-1 py-2 text-center sm:px-2">
+      <p className="text-lg font-black leading-none text-[#101828]">{value}</p>
+      <p className="mt-1 break-words text-[9px] font-black uppercase leading-3 tracking-[0.05em] text-[#4b5f55] sm:text-[10px]">{label}</p>
     </div>
   )
 }

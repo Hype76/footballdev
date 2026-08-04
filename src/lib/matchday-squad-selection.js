@@ -51,19 +51,10 @@ export function getMatchDayAvailabilityLabel(value) {
 }
 
 export function getSquadDecisionChangeBlockReason({
-  availabilityStatus,
-  decision,
   matchStatus,
 } = {}) {
   if (!EDITABLE_MATCH_STATUSES.has(normalizeText(matchStatus))) {
     return 'Squad decisions are locked once the fixture is live, postponed, cancelled, Full Time, or concluded.'
-  }
-
-  if (
-    normalizeMatchDaySquadDecision(decision) === MATCH_DAY_SQUAD_DECISIONS.selected
-    && normalizeText(availabilityStatus) !== 'available'
-  ) {
-    return 'Only a player with an Available response can be selected.'
   }
 
   return ''

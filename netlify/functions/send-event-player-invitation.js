@@ -1,7 +1,6 @@
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import {
-  getPlayerInvitationContacts,
-  isValidInvitationEmail,
+  resolveEligibleMatchDayInvitationContacts,
 } from './lib/_match-day-actionable-invitation.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
@@ -126,6 +125,7 @@ async function loadRequestAuthority({ adminSupabase, event, sourceType, supabase
 }
 
 async function loadRecipientPreview({
+  action,
   adminSupabase,
   occurrenceDate,
   playerId,
@@ -140,6 +140,7 @@ async function loadRecipientPreview({
     .select(playerSelect)
     .eq('id', playerId)
     .eq('club_id', scopedEvent.club_id)
+    .eq('team_id', scopedEvent.team_id)
     .neq('status', 'archived')
   const inviteQuery = sourceType === 'match-day'
     ? adminSupabase
@@ -199,20 +200,81 @@ async function loadRecipientPreview({
   }
 
   const contacts = sourceType === 'match-day'
-    ? getPlayerInvitationContacts(player).filter((contact) => isValidInvitationEmail(contact.email))
+    ? await resolveEligibleMatchDayInvitationContacts(adminSupabase, {
+        clubId: scopedEvent.club_id,
+        playerIds: [playerId],
+        teamId: scopedEvent.team_id,
+      })
     : getPlayerContacts({ parentLinks: parentLinks ?? [], player })
 
   if (contacts.length === 0) {
-    throw Object.assign(new Error('No eligible parent or adult-player recipient is available.'), { statusCode: 409 })
+    throw Object.assign(new Error(
+      sourceType === 'match-day'
+        ? 'No active Parent, guardian, or adult Player recipient is linked for this fixture.'
+        : 'No eligible parent or adult-player recipient is available.',
+    ), { statusCode: 409 })
+  }
+
+  let lastSentAt = ''
+  let requestState = 'not_sent'
+
+  if (sourceType === 'match-day') {
+    const [requestResult, responseResult] = await Promise.all([
+      adminSupabase
+        .from('match_day_availability_requests')
+        .select('id, status, sent_at, created_at, token_revoked_at, recipient_email, recipient_type')
+        .eq('match_day_id', scopedEvent.id)
+        .eq('club_id', scopedEvent.club_id)
+        .eq('team_id', scopedEvent.team_id)
+        .eq('player_id', playerId),
+      adminSupabase
+        .from('match_day_player_availability')
+        .select('id, status, selected_at')
+        .eq('match_day_id', scopedEvent.id)
+        .eq('club_id', scopedEvent.club_id)
+        .eq('team_id', scopedEvent.team_id)
+        .eq('player_id', playerId)
+        .maybeSingle(),
+    ])
+
+    if (requestResult.error || responseResult.error) {
+      throw requestResult.error || responseResult.error
+    }
+
+    const requests = requestResult.data || []
+    const currentResponse = responseResult.data
+    const hasCurrentResponse = currentResponse?.id
+      && ['available', 'maybe', 'unavailable'].includes(normalizeText(currentResponse.status).toLowerCase())
+
+    if (hasCurrentResponse) {
+      throw Object.assign(new Error('This Player already has a valid availability response. The reusable response link remains available without another email.'), { statusCode: 409 })
+    }
+
+    if (action === 'send' && requests.length > 0) {
+      throw Object.assign(new Error('This Player already has an availability invitation. Use Resend availability invite.'), { statusCode: 409 })
+    }
+
+    if (['resend', 'retry'].includes(action) && requests.length === 0) {
+      throw Object.assign(new Error('There is no existing availability invitation for this action.'), { statusCode: 409 })
+    }
+
+    lastSentAt = requests
+      .map((request) => request.sent_at || '')
+      .filter(Boolean)
+      .sort()
+      .at(-1) || ''
+    requestState = requests.length > 0 ? 'awaiting_response' : 'not_sent'
   }
 
   return {
+    lastSentAt,
     playerId,
     recipientCount: contacts.length,
     recipients: contacts.map((contact) => ({
       address: maskEmail(contact.email),
       type: contact.type === 'player' ? 'Adult player' : 'Parent',
     })),
+    requestState,
   }
 }
 
@@ -651,6 +713,7 @@ export async function handler(event) {
       token,
     })
     const recipientPreview = await loadRecipientPreview({
+      action,
       adminSupabase,
       occurrenceDate,
       playerId,
@@ -709,9 +772,12 @@ export async function handler(event) {
 
       result = {
         failedCount: Number(delegatedResult.failedCount ?? 0),
+        lastSentAt: normalizeText(delegatedResult.lastSentAt),
         playerId,
+        queuedAt: normalizeText(delegatedResult.queuedAt),
         queuedCount: Number(delegatedResult.queuedCount ?? 0),
         recipientCount: Number(delegatedResult.recipientCount ?? delegatedResult.queuedCount ?? 0),
+        requestState: normalizeText(delegatedResult.requestState) || 'queued',
         sentCount: 0,
       }
 

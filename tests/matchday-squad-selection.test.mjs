@@ -18,14 +18,16 @@ import {
 } from '../src/lib/domain/parent-invitations.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260713192928_match_day_player_squad_decisions.sql', import.meta.url)
+const repairMigrationUrl = new URL('../supabase/migrations/20260804084949_fp_v1_gameday_squad_decisions_resend_33.sql', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const parentPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentDomainUrl = new URL('../src/lib/domain/parent-invitations.js', import.meta.url)
 const responseFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 
-const [migration, matchDayPage, parentPage, parentDomain, responseFunction, sendFunction] = await Promise.all([
+const [migration, repairMigration, matchDayPage, parentPage, parentDomain, responseFunction, sendFunction] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
+  readFile(repairMigrationUrl, 'utf8'),
   readFile(matchDayPageUrl, 'utf8'),
   readFile(parentPageUrl, 'utf8'),
   readFile(parentDomainUrl, 'utf8'),
@@ -78,7 +80,7 @@ test('4 Awaiting response does not create Selected', () => {
   assert.notEqual(getParentSquadDecisionStatus(item).label, 'Selected')
 })
 
-test('5 Authorised staff action permits Selected only for Available', () => {
+test('5 Authorised staff action permits Selected for Available', () => {
   assert.equal(getSquadDecisionChangeBlockReason({ availabilityStatus: 'available', decision: 'selected', matchStatus: 'scheduled' }), '')
 })
 
@@ -121,13 +123,15 @@ test('13 Inactive or unauthorised staff fail closed', () => {
   assert.match(migration, /coalesce\(actor_row\.role_rank, 0\) < 20/)
 })
 
-test('14 Unavailable player selection is blocked', () => {
-  assert.match(getSquadDecisionChangeBlockReason({ availabilityStatus: 'unavailable', decision: 'selected', matchStatus: 'scheduled' }), /Only a player with an Available response/)
-  assert.match(migration, /coalesce\(availability_row\.status, 'pending'\) <> 'available'/)
+test('14 Unavailable player can be selected as an explicit independent staff decision', () => {
+  assert.equal(getSquadDecisionChangeBlockReason({ availabilityStatus: 'unavailable', decision: 'selected', matchStatus: 'scheduled' }), '')
+  assert.doesNotMatch(repairMigration, /coalesce\(availability_row\.status, 'pending'\) <> 'available'/)
+  assert.match(matchDayPage, /Selected while the Player is Unavailable/)
 })
 
-test('15 Awaiting-response player is not silently selected', () => {
-  assert.match(getSquadDecisionChangeBlockReason({ availabilityStatus: 'pending', decision: 'selected', matchStatus: 'scheduled' }), /Available response/)
+test('15 Awaiting-response player can be selected with a visible conflict warning', () => {
+  assert.equal(getSquadDecisionChangeBlockReason({ availabilityStatus: 'pending', decision: 'selected', matchStatus: 'scheduled' }), '')
+  assert.match(matchDayPage, /Selected while availability is awaiting a response/)
 })
 
 test('16 Cancelled postponed live Full Time and concluded fixtures reject changes', () => {
@@ -244,4 +248,32 @@ test('36 Accessible labels distinguish availability from squad selection', () =>
   assert.match(matchDayPage, /aria-label=\{`Squad decision for/)
   assert.match(matchDayPage, /aria-label=\{`Set \$\{row\.playerName \|\| 'player'\} squad decision to/)
   assert.match(parentPage, /Player availability/)
+})
+
+test('37 repaired decision write is atomic, idempotent, stale-write protected, and communication silent', () => {
+  assert.match(repairMigration, /create or replace function public\.set_match_day_player_squad_decision_v2/)
+  assert.match(repairMigration, /pg_advisory_xact_lock/)
+  assert.match(repairMigration, /expected_decided_at/)
+  assert.match(repairMigration, /squad decision changed after you opened the fixture/)
+  assert.match(repairMigration, /current_row\.status = normalized_decision/)
+  assert.match(repairMigration, /drop trigger if exists zz_match_day_selection_parent_email/)
+  assert.doesNotMatch(repairMigration, /insert into public\.scheduled_email_queue/)
+})
+
+test('38 player cards expose safe Send and Resend availability invitation actions', () => {
+  assert.match(matchDayPage, /Send availability invite/)
+  assert.match(matchDayPage, /Resend availability invite/)
+  assert.match(matchDayPage, /sendEventPlayerInvitationAction/)
+  assert.match(matchDayPage, /preview: true/)
+  assert.match(matchDayPage, /current request keeps its reusable response link/)
+  assert.match(matchDayPage, /Squad decision counts/)
+})
+
+test('39 canonical recipient resolver is strict and no response suppresses another email', () => {
+  assert.match(repairMigration, /create or replace function public\.event_player_eligible_recipients/)
+  assert.match(repairMigration, /link\.status = 'active'/)
+  assert.match(repairMigration, /adult_link\.verified_at is not null/)
+  assert.match(repairMigration, /adult_auth\.deleted_at is null/)
+  assert.match(sendFunction, /This Player already has a valid availability response/)
+  assert.match(sendFunction, /getReusableMatchDayResponseToken/)
 })

@@ -30,7 +30,7 @@ test('29C availability groups are compact, mutually assigned, accessible, and se
   assert.match(page, /const groupsByKey = new Map/)
   assert.match(page, /groupsByKey\.get\(groupKey\)\?\.rows\.push\(row\)/)
   assert.match(page, /No response/)
-  assert.match(page, /Available or selected/)
+  assert.match(page, /label: 'Available'/)
   assert.match(page, /role="region"[\s\S]*aria-label="Player availability and squad decisions"/)
   assert.match(page, /min-h-11/)
   assert.match(page, /focus-visible:ring-2/)

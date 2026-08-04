@@ -90,8 +90,10 @@ export async function sendEventPlayerInvitationAction({
     action: normalizedAction,
     duplicate: result?.duplicate === true,
     failedCount: Number(result?.failedCount ?? 0),
+    lastSentAt: normalizeText(result?.lastSentAt),
     playerId: normalizeText(result?.playerId) || normalizedPlayerId,
     preview: result?.preview === true,
+    queuedAt: normalizeText(result?.queuedAt),
     recipientCount: Number(result?.recipientCount ?? result?.queuedCount ?? 0),
     recipients: Array.isArray(result?.recipients)
       ? result.recipients.map((recipient) => ({
@@ -99,6 +101,7 @@ export async function sendEventPlayerInvitationAction({
           type: normalizeText(recipient?.type),
         })).filter((recipient) => recipient.address)
       : [],
+    requestState: normalizeText(result?.requestState),
     sourceType: normalizedSourceType,
   }
 }

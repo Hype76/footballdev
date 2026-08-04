@@ -98,6 +98,37 @@ export function findInvitationParentLink(parentLinks, player, contact) {
   ) || null
 }
 
+export async function resolveEligibleMatchDayInvitationContacts(adminSupabase, {
+  clubId,
+  playerIds = [],
+  teamId,
+} = {}) {
+  const normalizedPlayerIds = [...new Set((playerIds || []).map(normalizeInvitationText).filter(Boolean))]
+
+  if (!adminSupabase || !normalizeInvitationText(clubId) || !normalizeInvitationText(teamId) || normalizedPlayerIds.length === 0) {
+    return []
+  }
+
+  const { data, error } = await adminSupabase.rpc('event_player_eligible_recipients', {
+    club_id_value: clubId,
+    player_ids_value: normalizedPlayerIds,
+    team_id_value: teamId,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return (data || []).map((row) => ({
+    email: normalizeInvitationEmail(row.recipient_email),
+    name: normalizeInvitationText(row.recipient_name),
+    parentLinkId: normalizeInvitationText(row.parent_link_id),
+    playerId: normalizeInvitationText(row.player_id),
+    playerName: normalizeInvitationText(row.player_name),
+    type: normalizeInvitationText(row.recipient_type) === 'player' ? 'player' : 'parent',
+  })).filter((contact) => contact.playerId && isValidInvitationEmail(contact.email))
+}
+
 export function buildMatchDayActionableInvitationEmail({
   appOrigin,
   match,

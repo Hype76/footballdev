@@ -401,6 +401,25 @@ function normalizeAvailabilityRequest(row) {
   }
 }
 
+function normalizeMatchDayInvite(row) {
+  const player = Array.isArray(row.players) ? row.players[0] : row.players
+
+  return {
+    id: row.id ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    playerName: normalizeText(row.player_name ?? row.playerName ?? player?.player_name),
+    inviteStatus: normalizeText(row.invite_status ?? row.inviteStatus) || 'active',
+    notifyRequested: row.notify_requested === true || row.notifyRequested === true,
+    responseRequirement: normalizeText(row.response_requirement ?? row.responseRequirement),
+    invitedAt: row.invited_at ?? row.invitedAt ?? '',
+    respondedAt: row.responded_at ?? row.respondedAt ?? '',
+    cancelledAt: row.cancelled_at ?? row.cancelledAt ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
 function normalizePlayerAvailability(row) {
   return {
     id: row.id ?? '',
@@ -506,6 +525,9 @@ export function normalizeMatchDay(row) {
   const availabilityRequests = Array.isArray(rawAvailabilityRequests)
     ? rawAvailabilityRequests.map(normalizeAvailabilityRequest)
     : []
+  const invitedPlayers = Array.isArray(row.calendar_event_invites)
+    ? row.calendar_event_invites.map(normalizeMatchDayInvite)
+    : []
   const playerAvailability = Array.isArray(row.match_day_player_availability)
     ? row.match_day_player_availability.map(normalizePlayerAvailability)
     : []
@@ -602,6 +624,7 @@ export function normalizeMatchDay(row) {
     scorerAssignments: assignments,
     roleAssignments,
     availabilityRequests,
+    invitedPlayers,
     playerAvailability,
     squadDecisionState: normalizeMatchDaySquadDecision(row.squad_decision_state ?? row.squadDecisionState),
     squadDecisionUpdatedAt: row.squad_decision_updated_at ?? row.squadDecisionUpdatedAt ?? '',
@@ -657,6 +680,7 @@ function normalizeParentPortalMatchDay(row) {
 
   delete match.availabilityHistory
   delete match.availabilityRequests
+  delete match.invitedPlayers
   delete match.createdByName
   delete match.eventLog
   delete match.finalReport
@@ -777,6 +801,7 @@ function buildMatchSelect() {
     match_day_player_squad_decisions (*),
     match_day_player_availability_history (*),
     match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
+    calendar_event_invites (*, players:player_id (player_name)),
     match_day_event_log (*, players:player_id (player_name)),
     match_day_events (*),
     match_day_shootout_kicks (*),
@@ -851,6 +876,7 @@ function hasMatchDayDetails(row) {
     'match_day_player_squad_decisions',
     'match_day_player_availability_history',
     'match_day_availability_requests',
+    'calendar_event_invites',
     'match_day_event_log',
     'match_day_events',
     'match_day_shootout_kicks',
@@ -1202,7 +1228,7 @@ export async function getMatchDay({ user, matchDayId, includeScorerEligibility =
   return match
 }
 
-export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, decision }) {
+export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, decision, expectedDecidedAt = null }) {
   const normalizedMatchDayId = normalizeText(matchDayId)
   const normalizedPlayerId = normalizeText(playerId)
   const normalizedDecision = normalizeMatchDaySquadDecision(decision)
@@ -1211,10 +1237,11 @@ export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, dec
     throw new Error('Choose a fixture and player before changing the squad decision.')
   }
 
-  const { data, error } = await supabase.rpc('set_match_day_player_squad_decision', {
+  const { data, error } = await supabase.rpc('set_match_day_player_squad_decision_v2', {
     match_day_id_value: normalizedMatchDayId,
     player_id_value: normalizedPlayerId,
     decision_value: normalizedDecision,
+    expected_decided_at_value: expectedDecidedAt || null,
   })
 
   if (error) {

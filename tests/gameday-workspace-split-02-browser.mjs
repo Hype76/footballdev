@@ -14,6 +14,7 @@ const liveMatchId = '22222222-2222-4222-8222-222222222222'
 const upcomingMatchId = '33333333-3333-4333-8333-333333333333'
 const previousMatchId = '44444444-4444-4444-8444-444444444444'
 const longContentMatchId = '55555555-5555-4555-8555-555555555555'
+const invitedPlayerId = '66666666-6666-4666-8666-666666666666'
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -231,9 +232,13 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
   const context = await browser.newContext({ viewport, ...contextOptions })
   const unexpectedMutations = []
   const communicationRequests = []
+  const invitationRequests = []
+  const squadDecisionMutations = []
   const consoleErrors = []
   const pageErrors = []
   const resourceFailures = []
+  let invitedPlayerLastSentAt = ''
+  let invitedPlayerSquadDecision = null
 
   await context.route('http://fixture.supabase.test/**', async (route) => {
     const request = route.request()
@@ -248,7 +253,38 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
       const requestedId = url.searchParams.get('id')?.replace(/^eq\./, '')
       if (requestedId) {
         const match = fixtureSummaries.find((candidate) => candidate.id === requestedId)
-        await fulfillJson(route, match ? detailedMatch(match) : null)
+        const details = match ? detailedMatch(match) : null
+
+        if (details && match.id === upcomingMatchId) {
+          details.calendar_event_invites = [{
+            id: 'invite-casey',
+            club_id: 'club-fixture',
+            team_id: 'team-u12',
+            match_day_id: match.id,
+            player_id: invitedPlayerId,
+            invite_status: 'active',
+            response_requirement: 'response_required',
+            players: { player_name: 'Casey Invite' },
+          }]
+          if (invitedPlayerLastSentAt) {
+            details.match_day_availability_requests.push({
+              id: 'request-casey',
+              match_day_id: match.id,
+              player_id: invitedPlayerId,
+              player_name: 'Casey Invite',
+              recipient_name: 'Casey Parent',
+              recipient_email: 'casey.parent@fixture.test',
+              status: 'pending',
+              sent_at: invitedPlayerLastSentAt,
+              created_at: invitedPlayerLastSentAt,
+            })
+          }
+          if (invitedPlayerSquadDecision) {
+            details.match_day_player_squad_decisions.push(invitedPlayerSquadDecision)
+          }
+        }
+
+        await fulfillJson(route, details)
       } else {
         await fulfillJson(route, fixtureSummaries)
       }
@@ -261,7 +297,7 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
     }
 
     if (url.pathname.includes('/rpc/get_team_players') || url.pathname.endsWith('/players')) {
-      await fulfillJson(route, ['Alex Morgan', 'Jamie Smith', 'Taylor Jones', 'Riley Brown'].map((playerName, index) => ({
+      const playerRows = ['Alex Morgan', 'Jamie Smith', 'Taylor Jones', 'Riley Brown'].map((playerName, index) => ({
         id: `player-${index}`,
         club_id: 'club-fixture',
         team_id: 'team-u12',
@@ -269,7 +305,39 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
         player_name: playerName,
         shirt_number: String(index + 7),
         status: 'active',
-      })))
+      }))
+      playerRows.push({
+        id: invitedPlayerId,
+        club_id: 'club-fixture',
+        team_id: 'team-u12',
+        section: 'Squad',
+        player_name: 'Casey Invite',
+        shirt_number: '18',
+        status: 'active',
+      })
+      await fulfillJson(route, playerRows)
+      return
+    }
+
+    if (url.pathname.endsWith('/rpc/set_match_day_player_squad_decision_v2')) {
+      const body = request.postDataJSON()
+      const decidedAt = new Date(Date.parse('2026-08-04T10:00:00.000Z') + (squadDecisionMutations.length * 1000)).toISOString()
+      invitedPlayerSquadDecision = {
+        id: 'decision-casey',
+        match_day_id: body.match_day_id_value,
+        club_id: 'club-fixture',
+        team_id: 'team-u12',
+        player_id: body.player_id_value,
+        player_name: 'Casey Invite',
+        status: body.decision_value,
+        decided_by: 'coach-fixture',
+        decided_by_name: 'Coach Fixture',
+        decided_at: decidedAt,
+        created_at: '2026-08-04T10:00:00.000Z',
+        updated_at: decidedAt,
+      }
+      squadDecisionMutations.push(body)
+      await fulfillJson(route, [invitedPlayerSquadDecision])
       return
     }
 
@@ -288,6 +356,33 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
 
   await context.route('**/.netlify/functions/**', async (route) => {
     const url = route.request().url()
+    if (url.includes('/send-event-player-invitation')) {
+      const body = route.request().postDataJSON()
+      invitationRequests.push(body)
+      if (body.preview === true) {
+        await fulfillJson(route, {
+          success: true,
+          preview: true,
+          playerId: invitedPlayerId,
+          recipientCount: 1,
+          recipients: [{ address: 'c***@fixture.test', type: 'Parent' }],
+          requestState: invitedPlayerLastSentAt ? 'awaiting_response' : 'not_sent',
+          lastSentAt: invitedPlayerLastSentAt,
+        })
+      } else {
+        invitedPlayerLastSentAt = '2026-08-04T10:15:00.000Z'
+        await fulfillJson(route, {
+          success: true,
+          playerId: invitedPlayerId,
+          recipientCount: 1,
+          failedCount: 0,
+          queuedCount: 1,
+          requestState: 'queued',
+          lastSentAt: invitedPlayerLastSentAt,
+        })
+      }
+      return
+    }
     if (/email|invite|push|sms/i.test(url)) communicationRequests.push(url)
     if (url.includes('/select-match-day-volunteer') && route.request().method() === 'GET') {
       await fulfillJson(route, {
@@ -332,7 +427,17 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
     await page.getByTestId('game-day-empty-fixtures').waitFor({ state: 'visible', timeout: 30000 })
   }
 
-  return { communicationRequests, consoleErrors, context, page, pageErrors, resourceFailures, unexpectedMutations }
+  return {
+    communicationRequests,
+    consoleErrors,
+    context,
+    invitationRequests,
+    page,
+    pageErrors,
+    resourceFailures,
+    squadDecisionMutations,
+    unexpectedMutations,
+  }
 }
 
 async function measurePage(page) {
@@ -702,6 +807,75 @@ async function runTablet(browser) {
   }
 }
 
+async function runInvitedPlayerWorkflow(browser, viewport, name) {
+  const run = await preparePage(browser, viewport)
+  const { page } = run
+
+  try {
+    await page.getByRole('button', { name: 'List all' }).click()
+    await openSelectedFixture(page, 'City Juniors')
+    await page.getByRole('tab', { name: 'Players and availability' }).click()
+    const noResponseGroup = page.getByTestId('game-day-availability-no_response')
+    const noResponseToggle = noResponseGroup.getByRole('button').first()
+    if (await noResponseToggle.getAttribute('aria-expanded') !== 'true') {
+      await noResponseToggle.click()
+    }
+    const playerCard = noResponseGroup.getByText('Casey Invite', { exact: true })
+      .locator('xpath=ancestor::div[contains(@class,"shadow-sm")][1]')
+    const sendButton = playerCard.getByRole('button', { name: 'Send availability invite' })
+
+    await sendButton.click()
+    const confirmation = page.getByRole('dialog', { name: 'Send availability invite?' })
+    await confirmation.waitFor({ state: 'visible' })
+    assert.match(await confirmation.innerText(), /CURRENT AVAILABILITY\s+No response/i)
+    assert.match(await confirmation.innerText(), /PARENT\s+c\*\*\*@fixture\.test/i)
+    await confirmation.getByRole('button', { name: 'Send availability invite' }).click()
+    await playerCard.getByRole('button', { name: 'Resend availability invite' }).waitFor({ state: 'visible' })
+    assert.match(await playerCard.innerText(), /Last sent/)
+
+    for (const decision of ['Selected', 'Waiting', 'Not selected', 'Undecided']) {
+      await playerCard.getByRole('button', { name: `Set Casey Invite squad decision to ${decision}` }).click()
+      await page.getByText(`Casey Invite is ${decision}.`, { exact: true }).last().waitFor({ state: 'visible' })
+    }
+
+    assert.equal(run.invitationRequests.length, 2, `${name} should preview and queue exactly once`)
+    assert.equal(run.invitationRequests[0].preview, true)
+    assert.equal(run.invitationRequests[1].preview, false)
+    assert.equal(run.invitationRequests[0].idempotencyKey, run.invitationRequests[1].idempotencyKey)
+    assert.deepEqual(run.squadDecisionMutations.map((body) => body.decision_value), [
+      'selected',
+      'waiting',
+      'not_selected',
+      'undecided',
+    ])
+    assert.equal(run.squadDecisionMutations[0].expected_decided_at_value, null)
+    assert.equal(run.squadDecisionMutations[1].expected_decided_at_value, '2026-08-04T10:00:00.000Z')
+
+    await page.goto(`${baseUrl}/match-day`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    })
+    await page.getByRole('button', { name: 'List all' }).click()
+    await openSelectedFixture(page, 'City Juniors')
+    await page.getByRole('tab', { name: 'Players and availability' }).click()
+    await page.getByTestId('game-day-availability-section').waitFor({ state: 'visible', timeout: 30000 })
+    const refreshedGroup = page.getByTestId('game-day-availability-no_response')
+    const refreshedToggle = refreshedGroup.getByRole('button').first()
+    if (await refreshedToggle.getAttribute('aria-expanded') !== 'true') {
+      await refreshedToggle.click()
+    }
+    const refreshedCard = refreshedGroup.getByText('Casey Invite', { exact: true })
+      .locator('xpath=ancestor::div[contains(@class,"shadow-sm")][1]')
+    await refreshedCard.waitFor({ state: 'visible' })
+    assert.match(await refreshedCard.innerText(), /Squad:\s*Undecided/)
+    assert.equal(await refreshedCard.getByRole('button', { name: 'Resend availability invite' }).isVisible(), true)
+    assert.equal((await measurePage(page)).horizontalOverflow, false, `${name} invitation workflow overflows horizontally`)
+    assertCleanRun(run)
+  } finally {
+    await run.context.close()
+  }
+}
+
 async function runResponsiveVariant(browser, { contextOptions, name, rootFontScale = 1, viewport }) {
   const run = await preparePage(browser, viewport, contextOptions)
   const { page } = run
@@ -755,32 +929,45 @@ let browser
 try {
   await waitForPort()
   browser = await chromium.launch({ headless: true })
-  const mobile = await runMobile(browser)
-  const desktop = await runDesktop(browser)
-  const emptyFixtureList = await runEmptyFixtureList(browser)
-  const tablet = await runTablet(browser)
-  const variants = {}
-  for (const variant of [
-    { name: 'wide-desktop-2560', viewport: { width: 2560, height: 1080 } },
-    { name: 'wide-desktop-1920', viewport: { width: 1920, height: 1080 } },
-    { name: 'wide-desktop-1600', viewport: { width: 1600, height: 900 } },
-    { name: 'standard-desktop', viewport: { width: 1280, height: 800 } },
-    { name: 'desktop-1366', viewport: { width: 1366, height: 768 } },
-    { name: 'short-desktop', viewport: { width: 1366, height: 600 } },
-    { name: 'desktop-text-125', viewport: { width: 1440, height: 900 }, rootFontScale: 1.25 },
-    { name: 'desktop-text-150', viewport: { width: 1440, height: 900 }, rootFontScale: 1.5 },
-    { name: 'desktop-text-200', viewport: { width: 1440, height: 900 }, rootFontScale: 2 },
-    { name: 'tablet-landscape-1024', viewport: { width: 1024, height: 768 }, contextOptions: { hasTouch: true } },
-    { name: 'iphone-landscape', viewport: { width: 812, height: 375 }, contextOptions: { hasTouch: true, isMobile: true } },
-    { name: 'android-portrait', viewport: { width: 412, height: 915 }, contextOptions: { hasTouch: true, isMobile: true } },
-    { name: 'android-landscape', viewport: { width: 915, height: 412 }, contextOptions: { hasTouch: true, isMobile: true } },
-    { name: 'pwa-touch', viewport: { width: 390, height: 844 }, contextOptions: { hasTouch: true, isMobile: true } },
-    { name: 'high-zoom-equivalent', viewport: { width: 720, height: 450 } },
-  ]) {
-    variants[variant.name] = await runResponsiveVariant(browser, variant)
+  if (process.env.GAMEDAY_INVITED_PLAYER_ONLY === 'true') {
+    const invitedViewport = process.env.GAMEDAY_INVITED_PLAYER_VIEWPORT || 'all'
+    if (invitedViewport !== 'desktop') {
+      await runInvitedPlayerWorkflow(browser, { width: 390, height: 844 }, 'phone-390x844')
+    }
+    if (invitedViewport !== 'phone') {
+      await runInvitedPlayerWorkflow(browser, { width: 1440, height: 900 }, 'desktop-1440x900')
+    }
+    console.log(`PASS Game Day invited-player workflow browser (${invitedViewport}): decision persistence, Send, Resend readback, confirmation, focus, and zero external communication`)
+  } else {
+    const mobile = await runMobile(browser)
+    const desktop = await runDesktop(browser)
+    const emptyFixtureList = await runEmptyFixtureList(browser)
+    const tablet = await runTablet(browser)
+    await runInvitedPlayerWorkflow(browser, { width: 390, height: 844 }, 'phone-390x844')
+    await runInvitedPlayerWorkflow(browser, { width: 1440, height: 900 }, 'desktop-1440x900')
+    const variants = {}
+    for (const variant of [
+      { name: 'wide-desktop-2560', viewport: { width: 2560, height: 1080 } },
+      { name: 'wide-desktop-1920', viewport: { width: 1920, height: 1080 } },
+      { name: 'wide-desktop-1600', viewport: { width: 1600, height: 900 } },
+      { name: 'standard-desktop', viewport: { width: 1280, height: 800 } },
+      { name: 'desktop-1366', viewport: { width: 1366, height: 768 } },
+      { name: 'short-desktop', viewport: { width: 1366, height: 600 } },
+      { name: 'desktop-text-125', viewport: { width: 1440, height: 900 }, rootFontScale: 1.25 },
+      { name: 'desktop-text-150', viewport: { width: 1440, height: 900 }, rootFontScale: 1.5 },
+      { name: 'desktop-text-200', viewport: { width: 1440, height: 900 }, rootFontScale: 2 },
+      { name: 'tablet-landscape-1024', viewport: { width: 1024, height: 768 }, contextOptions: { hasTouch: true } },
+      { name: 'iphone-landscape', viewport: { width: 812, height: 375 }, contextOptions: { hasTouch: true, isMobile: true } },
+      { name: 'android-portrait', viewport: { width: 412, height: 915 }, contextOptions: { hasTouch: true, isMobile: true } },
+      { name: 'android-landscape', viewport: { width: 915, height: 412 }, contextOptions: { hasTouch: true, isMobile: true } },
+      { name: 'pwa-touch', viewport: { width: 390, height: 844 }, contextOptions: { hasTouch: true, isMobile: true } },
+      { name: 'high-zoom-equivalent', viewport: { width: 720, height: 450 } },
+    ]) {
+      variants[variant.name] = await runResponsiveVariant(browser, variant)
+    }
+    console.log(JSON.stringify({ desktop, emptyFixtureList, mobile, tablet, variants }, null, 2))
+    console.log('PASS Game Day workspace split browser: operational order, progressive disclosure, responsive matrix, URL state, keyboard state, dark mode, screenshots, and zero communication or data mutation')
   }
-  console.log(JSON.stringify({ desktop, emptyFixtureList, mobile, tablet, variants }, null, 2))
-  console.log('PASS Game Day workspace split browser: operational order, progressive disclosure, responsive matrix, URL state, keyboard state, dark mode, screenshots, and zero communication or data mutation')
 } catch (error) {
   console.error(server.getOutput())
   throw error

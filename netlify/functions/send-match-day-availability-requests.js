@@ -7,11 +7,10 @@ import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_su
 import {
   buildMatchDayActionableInvitationEmail,
   createInvitationToken,
-  findInvitationParentLink,
-  getPlayerInvitationContacts,
   isValidInvitationEmail,
   normalizeInvitationEmail,
   normalizeInvitationText,
+  resolveEligibleMatchDayInvitationContacts,
 } from './lib/_match-day-actionable-invitation.js'
 
 function getBearerToken(event) {
@@ -98,10 +97,6 @@ function createRequestSupabaseClient(event, token) {
       },
     },
   })
-}
-
-function findParentLinkForContact(parentLinks, player, contact) {
-  return findInvitationParentLink(parentLinks, player, contact)
 }
 
 async function getAuthenticatedProfile(event, supabase, adminSupabase) {
@@ -664,44 +659,97 @@ export async function handler(event) {
     const queuedEmails = []
     const missingContacts = []
     let duplicateQueueCount = 0
-    const { data: parentLinks, error: parentLinksError } = await adminSupabase
-      .from('parent_player_links')
-      .select('id, player_id, email, status')
-      .eq('club_id', profile.club_id)
-      .in('player_id', playerIds)
-      .eq('status', 'active')
-
-    if (parentLinksError) {
-      throw parentLinksError
-    }
+    let lastQueuedAt = ''
+    const eligibleContacts = await resolveEligibleMatchDayInvitationContacts(adminSupabase, {
+      clubId: match.club_id,
+      playerIds,
+      teamId: match.team_id,
+    })
 
     for (const player of players ?? []) {
       if (match.team_id && player.team_id && String(player.team_id) !== String(match.team_id)) {
         continue
       }
 
-      const contacts = getPlayerInvitationContacts(player).filter((contact) => isValidEmail(contact.email))
+      const contacts = eligibleContacts
+        .filter((contact) => String(contact.playerId) === String(player.id))
+        .filter((contact) => isValidEmail(contact.email))
 
       if (contacts.length === 0) {
         missingContacts.push({ playerId: player.id, playerName: player.player_name })
         continue
       }
 
-      for (const contact of contacts) {
-        const parentLink = findParentLinkForContact(parentLinks ?? [], player, contact)
-        const { data: existingRequest, error: existingRequestError } = await adminSupabase
+      const [requestResult, responseResult] = await Promise.all([
+        adminSupabase
           .from('match_day_availability_requests')
-          .select('id, status, token_hash, token_revoked_at, token_version')
+          .select('id, status, token_hash, token_revoked_at, token_version, recipient_email, recipient_type, parent_link_id')
           .eq('match_day_id', match.id)
+          .eq('club_id', match.club_id)
+          .eq('team_id', match.team_id)
+          .eq('player_id', player.id),
+        adminSupabase
+          .from('match_day_player_availability')
+          .select('id, status')
+          .eq('match_day_id', match.id)
+          .eq('club_id', match.club_id)
+          .eq('team_id', match.team_id)
           .eq('player_id', player.id)
-          .eq('recipient_email', contact.email)
-          .eq('recipient_type', contact.type)
-          .eq('channel', 'email')
-          .maybeSingle()
+          .maybeSingle(),
+      ])
 
-        if (existingRequestError) {
-          throw existingRequestError
+      if (requestResult.error || responseResult.error) {
+        throw requestResult.error || responseResult.error
+      }
+
+      const playerRequests = requestResult.data || []
+      const hasCurrentResponse = responseResult.data?.id
+        && ['available', 'maybe', 'unavailable'].includes(normalizeText(responseResult.data.status).toLowerCase())
+
+      if (targetedInvitationAction && hasCurrentResponse) {
+        throw Object.assign(new Error('This Player already has a valid availability response. The reusable response link remains available without another email.'), { statusCode: 409 })
+      }
+
+      if (invitationAction === 'send' && playerRequests.length > 0) {
+        throw Object.assign(new Error('This Player already has an availability invitation. Use Resend availability invite.'), { statusCode: 409 })
+      }
+
+      if (['resend', 'retry'].includes(invitationAction) && playerRequests.length === 0) {
+        throw Object.assign(new Error('There is no existing availability invitation for this action.'), { statusCode: 409 })
+      }
+
+      const activeRecipientKeys = new Set(contacts.map((contact) => `${normalizeEmail(contact.email)}:${contact.type}`))
+      const staleRequests = playerRequests.filter((request) => (
+        !request.token_revoked_at
+        && !activeRecipientKeys.has(`${normalizeEmail(request.recipient_email)}:${request.recipient_type}`)
+      ))
+
+      for (const staleRequest of targetedInvitationAction ? staleRequests : []) {
+        const { error: revokeError } = await adminSupabase
+          .from('match_day_availability_requests')
+          .update({
+            token_revoked_at: new Date().toISOString(),
+            token_revoked_by: profile.id,
+            token_revoked_reason: 'recipient_authority_removed',
+            token_revoked_source: 'game_day_invited_player_manager',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', staleRequest.id)
+          .eq('match_day_id', match.id)
+          .eq('club_id', match.club_id)
+          .eq('team_id', match.team_id)
+
+        if (revokeError) {
+          throw revokeError
         }
+      }
+
+      for (const contact of contacts) {
+        const parentLinkId = contact.parentLinkId || null
+        const existingRequest = playerRequests.find((request) => (
+          normalizeEmail(request.recipient_email) === normalizeEmail(contact.email)
+          && request.recipient_type === contact.type
+        )) || null
 
         let existingQueues = []
 
@@ -730,22 +778,18 @@ export async function handler(event) {
             continue
           }
 
-          if (invitationAction === 'send') {
-            throw Object.assign(new Error('This player already has an invitation. Use Resend invitation.'), { statusCode: 409 })
-          }
-
           if (invitationAction === 'retry' && !(existingQueues ?? []).some((queue) => queue.status === 'failed')) {
             throw Object.assign(new Error('This invitation does not have a failed delivery to retry.'), { statusCode: 409 })
           }
-        } else if (invitationAction === 'resend' || invitationAction === 'retry') {
-          throw Object.assign(new Error('There is no existing invitation for this action.'), { statusCode: 409 })
+        } else if (invitationAction === 'retry') {
+          continue
         }
 
         const reusableToken = existingRequest?.id && targetedInvitationAction
           ? getReusableMatchDayResponseToken(existingRequest, existingQueues || [])
           : ''
 
-        if (existingRequest?.id && targetedInvitationAction && !reusableToken) {
+        if (existingRequest?.id && targetedInvitationAction && !existingRequest.token_revoked_at && !reusableToken) {
           throw Object.assign(new Error('The existing availability link cannot be reused safely. Revoke it explicitly before issuing a security replacement.'), { statusCode: 409 })
         }
 
@@ -756,8 +800,18 @@ export async function handler(event) {
           ? supabase
               .from('match_day_availability_requests')
               .update({
-                parent_link_id: parentLink?.id || null,
+                expires_at: getInvitationExpiry(match),
+                parent_link_id: parentLinkId,
                 recipient_name: contact.name,
+                status: existingRequest.status === 'expired' ? 'pending' : existingRequest.status,
+                ...(existingRequest.token_revoked_at ? {
+                  token_hash: tokenHash,
+                  token_revoked_at: null,
+                  token_revoked_by: null,
+                  token_revoked_reason: null,
+                  token_revoked_source: null,
+                  token_version: Number(existingRequest.token_version || 1) + 1,
+                } : {}),
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existingRequest.id)
@@ -772,8 +826,9 @@ export async function handler(event) {
                 recipient_email: contact.email,
                 recipient_name: contact.name,
                 recipient_type: contact.type,
-                parent_link_id: parentLink?.id || null,
+                parent_link_id: parentLinkId,
                 channel: 'email',
+                expires_at: getInvitationExpiry(match),
                 token_hash: tokenHash,
                 status: 'pending',
                 volunteer_scorer_response: 'no_response',
@@ -800,10 +855,12 @@ export async function handler(event) {
           match,
           metadata: {
             channel: 'email',
-            hasParentLink: Boolean(parentLink?.id),
+            hasParentLink: Boolean(parentLinkId),
             recipientType: contact.type,
             requestId: request.id,
-            source: 'send_match_day_availability_requests',
+            source: targetedInvitationAction
+              ? 'game_day_invited_player_manager'
+              : 'send_match_day_availability_requests',
           },
           newValue: {
             status: request.status,
@@ -859,7 +916,7 @@ export async function handler(event) {
             matchDayId: match.id,
             requestId: request.id,
             playerId: player.id,
-            parentLinkId: parentLink?.id || '',
+            parentLinkId: parentLinkId || '',
             purpose: 'availability_request_notification',
             rawToken: token,
             tokenHash,
@@ -873,6 +930,7 @@ export async function handler(event) {
             },
           } : {}),
         }
+        const queuedAt = new Date().toISOString()
         const { data: queuedEmail, error: queueError } = await adminSupabase
           .from('scheduled_email_queue')
           .insert({
@@ -883,7 +941,7 @@ export async function handler(event) {
             to_email: contact.email,
             subject: email.subject,
             status: 'scheduled',
-            scheduled_at: new Date().toISOString(),
+            scheduled_at: queuedAt,
             payload,
           })
           .select('id')
@@ -892,6 +950,8 @@ export async function handler(event) {
         if (queueError) {
           throw queueError
         }
+
+        lastQueuedAt = queuedAt
 
         await createMatchDayEventLogEntry(adminSupabase, {
           eventType: 'invite_queued',
@@ -928,6 +988,9 @@ export async function handler(event) {
       duplicate: false,
       playerId: targetedInvitationAction ? playerIds[0] : '',
       recipientCount: targetedInvitationAction ? queuedEmails.length : 0,
+      lastSentAt: '',
+      queuedAt: targetedInvitationAction ? lastQueuedAt : '',
+      requestState: targetedInvitationAction ? 'queued' : '',
       emailConfigured: true,
     })
   } catch (error) {
