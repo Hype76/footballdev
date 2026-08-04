@@ -194,18 +194,24 @@ function detailedMatch(summary) {
   }
 }
 
+function relativeMatchDate(dayOffset) {
+  const date = new Date()
+  date.setDate(date.getDate() + dayOffset)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 const matchSummaries = [
-  baseMatch({ id: liveMatchId, opponent: 'Academy United', matchDate: '2026-08-03', status: 'live', score: [1, 0] }),
-  baseMatch({ id: upcomingMatchId, opponent: 'City Juniors', matchDate: '2026-08-08', status: 'scheduled' }),
+  baseMatch({ id: liveMatchId, opponent: 'Academy United', matchDate: relativeMatchDate(0), status: 'live', score: [1, 0] }),
+  baseMatch({ id: upcomingMatchId, opponent: 'City Juniors', matchDate: relativeMatchDate(5), status: 'scheduled' }),
   baseMatch({
     id: longContentMatchId,
     opponent: 'Northumberland International Football Development Academy Wanderers',
-    matchDate: '2026-08-09',
+    matchDate: relativeMatchDate(6),
     status: 'scheduled',
     teamName: 'Football Player Under Seventeen Development and Performance Squad',
     venueName: 'The Extremely Long Community Sports and High Performance Development Centre',
   }),
-  baseMatch({ id: previousMatchId, opponent: 'Rovers FC', matchDate: '2026-07-25', status: 'full_time', score: [2, 1] }),
+  baseMatch({ id: previousMatchId, opponent: 'Rovers FC', matchDate: relativeMatchDate(-9), status: 'full_time', score: [2, 1] }),
 ]
 
 async function fulfillJson(route, payload, status = 200) {
@@ -428,7 +434,7 @@ async function assertRestoredLiveActions(page, viewportName) {
     .getByTestId('game-day-live-actions')
     .locator('[data-match-day-action]')
     .evaluateAll((actions) => actions.map((action) => action.getAttribute('data-match-day-action')))
-  assert.deepEqual(actionKeys, ['goal', 'yellow_card', 'red_card', 'substitution', 'water_break'])
+  assert.deepEqual(actionKeys, ['goal', 'yellow_card', 'red_card', 'substitution'])
 
   for (const actionKey of actionKeys) {
     assert.equal(await page.locator(`[data-match-day-action="${actionKey}"]`).isEnabled(), true)
@@ -440,7 +446,6 @@ async function assertRestoredLiveActions(page, viewportName) {
     ['yellow_card', 'yellow_card'],
     ['red_card', 'red_card'],
     ['substitution', 'substitution'],
-    ['water_break', 'water_break'],
   ]) {
     await page.locator(`[data-match-day-action="${actionKey}"]`).click()
     const dialog = page.getByRole('dialog', { name: 'Add match event' })
@@ -457,11 +462,6 @@ async function assertRestoredLiveActions(page, viewportName) {
       assert.equal(await dialog.getByRole('combobox', { name: 'Player Off' }).count(), 1)
       assert.equal(await dialog.getByRole('combobox', { name: 'Player On' }).count(), 1)
       assert.equal(await dialog.getByRole('button', { name: 'Save event' }).isDisabled(), true)
-    }
-
-    if (actionKey === 'water_break') {
-      assert.equal(await dialog.getByRole('combobox', { name: 'Player' }).count(), 0)
-      assert.equal(await dialog.getByRole('button', { name: 'Save event' }).isEnabled(), true)
     }
 
     await dialog.getByRole('button', { name: 'Cancel' }).click()

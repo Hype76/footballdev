@@ -13,7 +13,7 @@ const DEMO_PLAYERS = Object.freeze([
 ])
 
 const TIMER_ACTIONS = new Set(['start', 'pause', 'half_time', 'hydration', 'resume', 'full_time', 'conclude'])
-export const DEMO_MATCH_DAY_SUPPORTED_EVENT_TYPES = Object.freeze(['goal', 'yellow_card', 'red_card', 'substitution', 'water_break'])
+export const DEMO_MATCH_DAY_SUPPORTED_EVENT_TYPES = Object.freeze(['goal', 'yellow_card', 'red_card', 'substitution'])
 const STAFF_EVENT_TYPES = new Set(DEMO_MATCH_DAY_SUPPORTED_EVENT_TYPES.filter((eventType) => eventType !== 'goal'))
 
 function clone(value) {
@@ -349,6 +349,10 @@ export function createDemoMatchDayAdapter({ scopeKey = '', storage } = {}) {
   return Object.freeze({
     mode: 'demo',
     allowsCommunication: false,
+    capabilities: Object.freeze({
+      fixtureManagement: false,
+      preparedFixturePractice: true,
+    }),
     resetPolicy: 'isolated_session_state',
 
     async getMatchDays() {
@@ -379,51 +383,12 @@ export function createDemoMatchDayAdapter({ scopeKey = '', storage } = {}) {
       return store.reset().matches.map(clone)
     },
 
-    async createMatchDay({ match }) {
-      const state = store.read()
-      const suppliedTeamId = normalizeText(match?.teamId)
-      if (suppliedTeamId) assertDemoMatchDayId(suppliedTeamId, 'team', 'Team')
-      const sequence = ++state.sequence
-      const template = buildInitialMatch()
-      const created = {
-        ...template,
-        ...clone(match || {}),
-        id: nextSyntheticId('fixture', sequence),
-        clubId: DEMO_MATCH_DAY_CLUB_ID,
-        teamId: DEMO_MATCH_DAY_TEAM_ID,
-        teamName: 'Demo Academy U16',
-        parentVisible: false,
-        parentAudience: 'none',
-        requestScorer: false,
-        requestLinesman: false,
-        requestReferee: false,
-        scorerRequestMessage: '',
-        status: 'scheduled',
-        currentMatchPhase: 'pre_match',
-        timerStatus: 'not_started',
-        timerElapsedSeconds: 0,
-        homeScore: 0,
-        awayScore: 0,
-        events: [],
-        eventLog: [],
-        roleAssignments: [],
-        scorerAssignments: [],
-        concludedAt: '',
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-        isHydrated: true,
-      }
-      state.matches.push(created)
-      store.write(state)
-      return clone(created)
+    async createMatchDay() {
+      throw new Error('Demo Game Day uses the prepared synthetic fixture and does not allow fixture creation.')
     },
 
-    async updateMatchDay({ matchId, updates }) {
-      const state = store.read()
-      const match = getMatch(state, matchId)
-      if (updates?.teamId) assertDemoMatchDayId(updates.teamId, 'team', 'Team')
-      Object.assign(match, clone(updates || {}), { teamId: DEMO_MATCH_DAY_TEAM_ID, clubId: DEMO_MATCH_DAY_CLUB_ID })
-      return saveMatch(store, state, match)
+    async updateMatchDay() {
+      throw new Error('Demo Game Day fixture administration is not available. Reset the prepared fixture instead.')
     },
 
     async createMatchDayEventLogEntry({ match, eventType, eventLabel, playerId = '', metadata = {} }) {
@@ -497,14 +462,25 @@ export function createDemoMatchDayAdapter({ scopeKey = '', storage } = {}) {
         current.timerStatus = 'paused'
         current.timerPausedAt = timestamp
       } else if (action === 'hydration') {
+        if (current.timerStatus !== 'running') throw new Error('Hydration can only pause a running match clock.')
         current.timerStatus = 'hydration'
         current.timerPausedAt = timestamp
+        createEvent(current, state, {
+          eventType: 'water_break',
+          minute: null,
+          notes: 'Hydration break',
+          teamSide: 'club',
+        })
       } else if (action === 'half_time') {
+        if (current.timerStatus !== 'running') throw new Error('Half Time can only stop a running match clock.')
         current.status = 'half_time'
         current.currentMatchPhase = 'half_time'
         current.timerStatus = 'half_time'
         current.timerPausedAt = timestamp
       } else if (action === 'resume') {
+        if (!['paused', 'hydration', 'half_time', 'full_time'].includes(current.timerStatus)) {
+          throw new Error('Only an explicitly paused match clock can be resumed.')
+        }
         const wasFullTime = current.timerStatus === 'full_time'
         const wasHalfTime = current.timerStatus === 'half_time' || current.status === 'half_time'
         current.status = wasFullTime ? (current.fullTimeResumeStatus || 'second_half') : wasHalfTime ? 'second_half' : current.status
@@ -660,28 +636,8 @@ export function createDemoMatchDayAdapter({ scopeKey = '', storage } = {}) {
       return { matchDayId: current.id, kickId: target.id, voided: true }
     },
 
-    async selectMatchDayVolunteer({ match, volunteer, role = 'scorer', selected = true }) {
-      const state = store.read()
-      const current = getMatch(state, match?.id)
-      const requestId = assertDemoMatchDayId(volunteer?.requestId, 'request', 'volunteer response')
-      const request = current.availabilityRequests.find((item) => item.requestId === requestId)
-      if (!request) throw new Error('Choose a synthetic volunteer response.')
-      const assignment = {
-        id: nextSyntheticId('role', ++state.sequence),
-        matchDayId: current.id,
-        role,
-        parentLinkId: request.parentLinkId,
-        authUserId: request.authUserId,
-        parentEmail: request.recipientEmail,
-        playerName: request.playerName,
-        status: selected === false ? 'removed' : 'accepted',
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      }
-      current.roleAssignments = current.roleAssignments.filter((item) => item.role !== role)
-      if (selected !== false) current.roleAssignments.push(assignment)
-      saveMatch(store, state, current)
-      return { success: true, assignment: clone(assignment), communicationSuppressed: true }
+    async selectMatchDayVolunteer() {
+      throw new Error('Demo Game Day does not allow scorer requests or volunteer administration.')
     },
 
     async saveMatchDayFinalReport({ match, staffNotes = '' }) {
@@ -701,19 +657,11 @@ export function createDemoMatchDayAdapter({ scopeKey = '', storage } = {}) {
     },
 
     async resetPreviousMatchDayResults() {
-      const state = store.read()
-      state.matches.forEach((match) => {
-        if (match.concludedAt) match.previousHiddenAt = nowIso()
-      })
-      store.write(state)
+      throw new Error('Demo Game Day does not allow fixture administration. Reset the prepared fixture instead.')
     },
 
-    async deletePreviousMatchDay({ match }) {
-      const state = store.read()
-      const current = getMatch(state, match?.id)
-      current.deletedAt = nowIso()
-      saveMatch(store, state, current)
-      return { matchDayId: current.id, deleted: true, alreadyDeleted: false }
+    async deletePreviousMatchDay() {
+      throw new Error('Demo Game Day does not allow fixture deletion.')
     },
   })
 }

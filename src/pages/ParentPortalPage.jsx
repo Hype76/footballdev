@@ -165,7 +165,7 @@ function getParentMatchEventTitle(event) {
     yellow_card: 'Yellow card',
     red_card: 'Red card',
     substitution: 'Substitution',
-    water_break: 'Water break',
+    water_break: 'Hydration break',
   }
   const eventLabel = event.eventType === 'goal' && event.isPenaltyGoal === true
     ? 'Penalty goal'

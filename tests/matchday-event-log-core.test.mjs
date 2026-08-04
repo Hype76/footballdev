@@ -242,11 +242,12 @@ test('Match Day event type migration adds cards substitutions and water breaks n
   assert.doesNotMatch(migration, /update public\./i)
 })
 
-test('staff Match Day event model accepts and logs cards substitutions and water breaks only', async () => {
+test('staff Match Day event model accepts and logs cards and substitutions only', async () => {
   const domain = await readFile(domainUrl, 'utf8')
   const goalState = await readFile(goalStateUrl, 'utf8')
 
-  assert.match(domain, /const MATCH_DAY_STAFF_EVENT_TYPES = new Set\(\[[\s\S]*'yellow_card'[\s\S]*'red_card'[\s\S]*'substitution'[\s\S]*'water_break'/)
+  assert.match(domain, /const MATCH_DAY_STAFF_EVENT_TYPES = new Set\(\[[\s\S]*'yellow_card'[\s\S]*'red_card'[\s\S]*'substitution'/)
+  assert.doesNotMatch(domain.slice(domain.indexOf('const MATCH_DAY_STAFF_EVENT_TYPES'), domain.indexOf('const MATCH_DAY_TIMER_ACTIONS')), /water_break/)
   assert.match(domain, /export async function addStaffMatchDayEvent/)
   assert.match(domain, /supabase\.rpc\('record_match_day_staff_event_v2'/)
   assert.match(domain, /event_type_value: eventType/)
@@ -258,7 +259,7 @@ test('staff Match Day event model accepts and logs cards substitutions and water
   assert.match(goalState, /scorerName: normalizeText\(event\.scorerName \?\? event\.scorer_name\)/)
 })
 
-test('staff Match Day page renders compact cards substitutions and water break controls and badges', async () => {
+test('staff Match Day page renders compact cards and substitution controls with hydration readback', async () => {
   const [source, domain, capabilityManifest] = await Promise.all([
     readFile(staffPageUrl, 'utf8'),
     readFile(domainUrl, 'utf8'),
@@ -271,7 +272,12 @@ test('staff Match Day page renders compact cards substitutions and water break c
   assert.match(source, /const EMPTY_MATCH_EVENT_FORM = \{[\s\S]*eventType: 'yellow_card'/)
   assert.match(source, /const EMPTY_MATCH_EVENT_FORM = \{[\s\S]*teamSide: 'club'/)
   assert.match(source, /const MATCH_EVENT_TYPE_OPTIONS = MATCH_DAY_LIVE_EVENT_ACTIONS/)
-  assert.match(capabilityManifest, /MATCH_DAY_LIVE_EVENT_ACTIONS[\s\S]*yellow_card[\s\S]*red_card[\s\S]*substitution[\s\S]*water_break/)
+  const liveActions = capabilityManifest.slice(
+    capabilityManifest.indexOf('export const MATCH_DAY_LIVE_EVENT_ACTIONS'),
+    capabilityManifest.indexOf('export const MATCH_DAY_CANONICAL_EXPERIENCE_MANIFEST'),
+  )
+  assert.match(liveActions, /yellow_card[\s\S]*red_card[\s\S]*substitution/)
+  assert.doesNotMatch(liveActions, /water_break|Water break/)
   assert.match(source, /const handleAddMatchEvent = async \(event, match\) =>/)
   assert.match(source, /const savedEvent = await addStaffMatchDayEvent\(\{ user, match, event: matchEvent \}\)/)
   assert.match(source, /reconcileMatchDayEventInList/)
@@ -286,7 +292,7 @@ test('staff Match Day page renders compact cards substitutions and water break c
   assert.match(source, /yellow_card: \{ label: 'Yellow card'/)
   assert.match(source, /red_card: \{ label: 'Red card'/)
   assert.match(source, /substitution: \{ label: 'Substitution'/)
-  assert.match(source, /water_break: \{ label: 'Water break'/)
+  assert.match(source, /water_break: \{ label: 'Hydration break'/)
 })
 
 test('staff substitutions save Player Off and Player On as structured event person fields', async () => {

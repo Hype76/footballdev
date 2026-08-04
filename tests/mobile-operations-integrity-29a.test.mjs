@@ -219,7 +219,7 @@ test('29A eligibility accepts the canonical current player team and rejects inac
   }
 })
 
-test('29A candidate UI and API consume eligibility before selection and scorer assignment sends no automatic communication', async () => {
+test('29A eligibility remains authoritative while the selected scorer receives the 32A confirmation email', async () => {
   const [domain, page, volunteerFunction] = await Promise.all([
     readFile(domainUrl, 'utf8'),
     readFile(matchDayPageUrl, 'utf8'),
@@ -235,7 +235,9 @@ test('29A candidate UI and API consume eligibility before selection and scorer a
   assert.doesNotMatch(page, /type: 'scorer_selected'/)
   assert.match(volunteerFunction, /rpc\('resolve_match_day_scorer_eligibility'/)
   assert.match(volunteerFunction, /event\.httpMethod === 'GET'[\s\S]*rpc\([\s\S]*'get_match_day_scorer_eligibility'/)
-  assert.match(volunteerFunction, /role !== 'scorer' && selected/)
+  assert.match(volunteerFunction, /if \(selected && !isSameSelection\)/)
+  assert.match(volunteerFunction, /Open scorer Game Mode/)
+  assert.match(volunteerFunction, /parent-portal\?\$\{searchParams\.toString\(\)\}/)
   assert.match(volunteerFunction, /role !== 'scorer' && previousAssignment/)
 })
 

@@ -450,7 +450,7 @@ test('staff volunteer selection is resolved server side and queues notifications
   assert.match(source, /getNextGoogleDatePart/)
   assert.match(source, /View in Parent Portal/)
   assert.match(source, /Add to calendar/)
-  assert.match(source, /clubs:club_id \(name, logo_url\)/)
+  assert.match(source, /clubs:club_id \(name, logo_url, theme_accent\)/)
   assert.match(source, /requiredFeature: 'parentEmails'/)
   assert.match(source, /Volunteer selection was saved, but notification email could not be queued\./)
   assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY/)

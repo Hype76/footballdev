@@ -87,7 +87,6 @@ const MATCH_DAY_STAFF_EVENT_TYPES = new Set([
   'yellow_card',
   'red_card',
   'substitution',
-  'water_break',
 ])
 const MATCH_DAY_TIMER_ACTIONS = new Set(['start', 'pause', 'half_time', 'hydration', 'resume', 'full_time', 'conclude'])
 const MATCH_DAY_TIMER_STATUSES = new Set(['not_started', 'running', 'paused', 'half_time', 'hydration', 'full_time'])
@@ -915,7 +914,7 @@ function getMatchDayEventLogLabel(eventType, fallbackLabel = '') {
     case 'substitution':
       return 'Substitution'
     case 'water_break':
-      return 'Water break'
+      return 'Hydration break'
     case 'previous_game_deleted':
       return 'Previous game deleted'
     case 'match_day_updated':

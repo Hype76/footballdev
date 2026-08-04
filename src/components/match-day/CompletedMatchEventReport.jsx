@@ -143,7 +143,7 @@ export function CompletedMatchEventReport({ includeEventNotes = false, match }) 
         </section>
         <CompletedEventList emptyLabel="No active substitutions were recorded." events={summary.activeSubstitutions} includeEventNotes={includeEventNotes} match={match} title="Substitutions summary" />
         <CompletedEventList emptyLabel="No active injuries were recorded." events={summary.activeInjuries} includeEventNotes={includeEventNotes} match={match} title="Injuries summary" />
-        <CompletedEventList emptyLabel="No active water breaks were recorded." events={summary.activeWaterBreaks} includeEventNotes={includeEventNotes} match={match} title="Water breaks" />
+        <CompletedEventList emptyLabel="No hydration breaks were recorded." events={summary.activeHydrationBreaks} includeEventNotes={includeEventNotes} match={match} title="Hydration breaks" />
         <CompletedEventList emptyLabel="No other active match events were recorded." events={summary.activeOtherEvents} includeEventNotes={includeEventNotes} match={match} title="Other match events" />
       </div>
       <CompletedTimeline events={summary.timelineEvents} includeEventNotes={includeEventNotes} match={match} />

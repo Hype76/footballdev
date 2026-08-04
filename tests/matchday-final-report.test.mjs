@@ -50,7 +50,7 @@ test('final report summary uses authoritative score and excludes voided events f
   assert.deepEqual(summary.activeGoals.map((event) => event.id), ['goal-1'])
   assert.deepEqual(summary.activeCards.map((event) => event.id), ['card-1'])
   assert.equal(summary.activeSubstitutions.length, 0)
-  assert.deepEqual(summary.activeWaterBreaks.map((event) => event.id), ['water-1'])
+  assert.deepEqual(summary.activeHydrationBreaks.map((event) => event.id), ['water-1'])
   assert.deepEqual(summary.voidedEvents.map((event) => event.id), ['sub-void', 'goal-void'])
 })
 
@@ -159,7 +159,7 @@ test('completed game and Previous Games UI expose shared mobile-safe staff and p
   assert.match(completedEvents, /Goals summary/)
   assert.match(completedEvents, /Cards summary/)
   assert.match(completedEvents, /Substitutions summary/)
-  assert.match(completedEvents, /Water breaks/)
+  assert.match(completedEvents, /Hydration breaks/)
   assert.match(completedEvents, /Full event timeline/)
   assert.match(completedEvents, /presentation\.team\.name/)
   assert.match(reportSource, /w-full sm:w-auto/)

@@ -44,7 +44,7 @@ function getMatchEventLabel(eventType) {
     yellow_card: 'Yellow card',
     red_card: 'Red card',
     substitution: 'Substitution',
-    water_break: 'Water break',
+    water_break: 'Hydration break',
   }
 
   return labels[normalizeText(eventType)] || 'Match event'
@@ -363,7 +363,7 @@ function buildLocalMatchDayEventVoidLogEntry({ event, match = {}, now = new Date
     yellow_card: 'Yellow card voided',
     red_card: 'Red card voided',
     substitution: 'Substitution voided',
-    water_break: 'Water break voided',
+    water_break: 'Hydration break voided',
   }
 
   return {

@@ -53,7 +53,7 @@ test('31A keeps one complete canonical Game Day capability matrix', async () => 
     'card_note_undo',
     'card_edit_post_match',
     'substitution',
-    'water_break',
+    'hydration_break',
     'squad_selection',
     'bench_participation_minutes',
     'remove_from_match',
@@ -70,7 +70,7 @@ test('31A keeps one complete canonical Game Day capability matrix', async () => 
   for (const key of requiredInspectionKeys) assert.ok(rows.some((row) => row.key === key), `${key} is not inventoried`)
 
   const restoredKeys = rows.filter((row) => row.restorationRequired).map((row) => row.key).sort()
-  assert.deepEqual(restoredKeys, ['red_card', 'substitution', 'water_break', 'yellow_card'])
+  assert.deepEqual(restoredKeys, ['red_card', 'substitution', 'yellow_card'])
 })
 
 test('31A direct live actions come from the canonical registry on desktop and mobile', async () => {
@@ -80,7 +80,7 @@ test('31A direct live actions come from the canonical registry on desktop and mo
   ])
   const actions = manifest.MATCH_DAY_LIVE_EVENT_ACTIONS
 
-  assert.deepEqual(actions.map((action) => action.key), ['goal', 'yellow_card', 'red_card', 'substitution', 'water_break'])
+  assert.deepEqual(actions.map((action) => action.key), ['goal', 'yellow_card', 'red_card', 'substitution'])
   assert.ok(actions.every((action) => action.desktop && action.mobile && action.demoSupport))
   assert.equal(actions.find((action) => action.key === 'goal').scorerMode, true)
   assert.ok(actions.filter((action) => action.key !== 'goal').every((action) => action.scorerMode === false))

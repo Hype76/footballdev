@@ -61,9 +61,13 @@ test('Game Mode exposes compact registered live controls and keeps full manageme
   for (const label of ['HT', 'FT', 'Exit Game Mode']) {
     assert.match(source, new RegExp(`>${label}<`))
   }
-  for (const label of ['Goal', 'Yellow card', 'Red card', 'Substitution', 'Water break']) {
+  for (const label of ['Goal', 'Yellow card', 'Red card', 'Substitution']) {
     assert.match(capabilityManifest, new RegExp(`label: '${label}'`))
   }
+  assert.doesNotMatch(capabilityManifest.slice(
+    capabilityManifest.indexOf('export const MATCH_DAY_LIVE_EVENT_ACTIONS'),
+    capabilityManifest.indexOf('export const MATCH_DAY_CANONICAL_EXPERIENCE_MANIFEST'),
+  ), /Water break|water_break/)
   assert.match(source, /MATCH_DAY_LIVE_EVENT_ACTIONS\.map/)
   assert.match(source, /Assist player/)
   assert.match(source, /Assist name/)

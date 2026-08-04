@@ -136,7 +136,7 @@ test('all completed summary sections use newest-first while the narrative remain
   assert.deepEqual(summary.activeGoals.map((item) => item.minute), [70, 10])
   assert.deepEqual(summary.activeSubstitutions.map((item) => item.minute), [60, 20])
   assert.deepEqual(summary.activeInjuries.map((item) => item.minute), [30])
-  assert.deepEqual(summary.activeWaterBreaks.map((item) => item.minute), [40])
+  assert.deepEqual(summary.activeHydrationBreaks.map((item) => item.minute), [40])
   assert.deepEqual(summary.activeOtherEvents.map((item) => item.minute), [50])
   assert.deepEqual(summary.timelineEvents.map((item) => item.minute), [10, 20, 30, 40, 50, 60, 70])
 })

@@ -127,9 +127,7 @@ async function openDemo(context) {
 }
 
 async function startDemoMatch(page) {
-  await page.getByTestId('game-day-fixture-summary').getByRole('button', { name: /Manage/ }).click()
-  await page.getByTestId('game-day-selected-workspace').waitFor({ state: 'visible' })
-  await page.getByRole('button', { name: 'Open Game Mode' }).click()
+  await page.getByTestId('demo-game-day-practise').click()
   const cockpit = page.getByRole('region', { name: 'Game Mode cockpit' })
   await cockpit.waitFor({ state: 'visible' })
   await cockpit.getByRole('button', { name: 'Start match' }).click()
@@ -140,12 +138,6 @@ async function startDemoMatch(page) {
 }
 
 async function reopenDemoMatch(page) {
-  const summary = page.getByTestId('game-day-fixture-summary')
-  if (await summary.count()) {
-    await summary.getByRole('button', { name: /Manage/ }).click()
-  }
-  await page.getByTestId('game-day-selected-workspace').waitFor({ state: 'visible' })
-  await page.getByRole('button', { name: 'Open Game Mode' }).click()
   await page.getByRole('region', { name: 'Game Mode cockpit' }).waitFor({ state: 'visible' })
 }
 
@@ -183,7 +175,7 @@ async function verifyCanonicalTimeline(page) {
   await timeline.getByText('Yellow card', { exact: true }).first().waitFor({ state: 'visible' })
   await timeline.getByText('Red card', { exact: true }).first().waitFor({ state: 'visible' })
   await timeline.getByText('Substitution', { exact: true }).first().waitFor({ state: 'visible' })
-  await timeline.getByText('Water break', { exact: true }).first().waitFor({ state: 'visible' })
+  await timeline.getByText('Hydration break', { exact: true }).first().waitFor({ state: 'visible' })
 }
 
 async function runJourney(browser, name, options) {
@@ -193,19 +185,22 @@ async function runJourney(browser, name, options) {
   try {
     assert.equal(await page.locator('[data-match-day-experience="demo"]').count(), 1)
     assert.equal(await page.getByText('Communication and customer mutations are blocked.', { exact: false }).count(), 1)
+    assert.equal(await page.getByRole('button', { name: /Create fixture/i }).count(), 0)
+    assert.equal(await page.getByText(/Request scorer/i).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await startDemoMatch(page)
+    assert.equal(await page.getByRole('button', { name: 'Manage fixture' }).count(), 0)
 
     const actionKeys = await page.getByTestId('game-day-live-actions').locator('[data-match-day-action]').evaluateAll(
       (actions) => actions.map((action) => action.getAttribute('data-match-day-action')),
     )
-    assert.deepEqual(actionKeys, ['goal', 'yellow_card', 'red_card', 'substitution', 'water_break'])
+    assert.deepEqual(actionKeys, ['goal', 'yellow_card', 'red_card', 'substitution'])
 
     await saveGoal(page)
     await saveEvent(page, 'yellow_card')
     await saveEvent(page, 'red_card')
     await saveEvent(page, 'substitution')
-    await saveEvent(page, 'water_break')
+    await page.locator('[data-match-day-timer-action="hydration"]').click()
 
     await verifyCanonicalTimeline(page)
     await page.screenshot({ path: `${artifactDir}/${name}-canonical-actions.png`, fullPage: true })
@@ -217,8 +212,8 @@ async function runJourney(browser, name, options) {
     await page.getByRole('button', { name: 'Reset Demo Game Day' }).click()
     const resetDialog = page.getByRole('dialog', { name: 'Reset Demo Game Day?' })
     await resetDialog.getByRole('button', { name: 'Reset Demo Game Day' }).click()
-    await page.getByTestId('game-day-fixture-summary').waitFor({ state: 'visible' })
-    assert.match(await page.getByTestId('game-day-fixture-summary').innerText(), /0\s*-\s*0/)
+    await page.getByTestId('demo-game-day-prepared-fixture').waitFor({ state: 'visible' })
+    assert.match(await page.getByTestId('demo-game-day-prepared-fixture').innerText(), /Score\s+0\s*-\s*0/)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await page.screenshot({ path: `${artifactDir}/${name}-reset.png`, fullPage: true })
 
@@ -247,6 +242,7 @@ try {
   const browser = await chromium.launch({ headless: true })
   try {
     await runJourney(browser, 'desktop-1440', { viewport: { width: 1440, height: 1000 } })
+    await runJourney(browser, 'tablet-768', { viewport: { width: 768, height: 1024 } })
     await runJourney(browser, 'android-390', { isMobile: true, viewport: { width: 390, height: 844 } })
   } finally {
     await browser.close()

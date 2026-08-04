@@ -58,6 +58,9 @@ test('live and Demo resolve the same canonical component, action, state, timelin
 
   assert.equal(liveExperience.mode, 'live')
   assert.equal(demoExperience.mode, 'demo')
+  assert.equal(liveExperience.capabilities.fixtureManagement, true)
+  assert.equal(demoExperience.capabilities.fixtureManagement, false)
+  assert.equal(demoExperience.capabilities.preparedFixturePractice, true)
   assert.strictEqual(liveExperience.manifest, MATCH_DAY_CANONICAL_EXPERIENCE_MANIFEST)
   assert.strictEqual(demoExperience.manifest, MATCH_DAY_CANONICAL_EXPERIENCE_MANIFEST)
   assert.deepEqual(demoExperience.manifest.actionKeys, MATCH_DAY_LIVE_EVENT_ACTIONS.map((action) => action.key))
@@ -67,6 +70,7 @@ test('live and Demo resolve the same canonical component, action, state, timelin
     'data_provider',
     'mutation_boundary',
     'communication_policy',
+    'fixture_management',
     'reset_control',
     'demo_label',
   ])
@@ -97,15 +101,15 @@ test('Demo lifecycle and canonical actions persist only in session-isolated synt
   assert.equal(goal.eventType, 'goal')
   assert.equal(match.homeScore, 1)
 
-  for (const eventType of ['yellow_card', 'red_card', 'substitution', 'water_break']) {
+  for (const eventType of ['yellow_card', 'red_card', 'substitution']) {
     await adapter.addStaffMatchDayEvent({
       match,
       event: {
         eventType,
         teamSide: 'club',
         minute: 8,
-        playerName: eventType === 'water_break' ? '' : players[0].playerName,
-        playerShirtNumber: eventType === 'water_break' ? '' : players[0].shirtNumber,
+        playerName: players[0].playerName,
+        playerShirtNumber: players[0].shirtNumber,
         playerOnName: eventType === 'substitution' ? players[1].playerName : '',
         playerOnShirtNumber: eventType === 'substitution' ? players[1].shirtNumber : '',
       },
@@ -114,9 +118,11 @@ test('Demo lifecycle and canonical actions persist only in session-isolated synt
   }
 
   assert.deepEqual(match.events.map((event) => event.eventType), DEMO_MATCH_DAY_SUPPORTED_EVENT_TYPES)
-  await adapter.setMatchDayTimerState({ match, action: 'pause' })
+  await adapter.setMatchDayTimerState({ match, action: 'hydration' })
   match = await adapter.getMatchDay({ matchDayId: match.id })
-  assert.equal(match.timerStatus, 'paused')
+  assert.equal(match.timerStatus, 'hydration')
+  assert.equal(match.events.at(-1).eventType, 'water_break')
+  assert.equal(match.events.at(-1).notes, 'Hydration break')
   await adapter.setMatchDayTimerState({ match, action: 'resume' })
   await adapter.setMatchDayTimerState({ match, action: 'half_time' })
   match = await adapter.getMatchDay({ matchDayId: match.id })
@@ -176,10 +182,13 @@ test('Demo rejects production-shaped fixture, Team, Player, event, and volunteer
   const [match] = await adapter.getMatchDays()
 
   await assert.rejects(adapter.getMatchDay({ matchDayId: '6a8d2d62-2a18-4ee7-8bed-26bff4f58d84' }), /non-synthetic fixture identifier/)
-  await assert.rejects(adapter.createMatchDay({ match: { teamId: 'production-team-id' } }), /non-synthetic Team identifier/)
+  await assert.rejects(adapter.createMatchDay({ match: { teamId: 'production-team-id' } }), /prepared synthetic fixture/)
+  await assert.rejects(adapter.updateMatchDay({ user: {}, match }), /fixture administration is not available/)
   await assert.rejects(adapter.setMatchDayPlayerSquadDecision({ matchDayId: match.id, playerId: 'production-player-id', decision: 'selected' }), /non-synthetic Player identifier/)
   await assert.rejects(adapter.voidStaffMatchDayEvent({ match, event: { id: 'production-event-id' }, reasonCode: 'other', note: 'Not synthetic' }), /non-synthetic event identifier/)
-  await assert.rejects(adapter.selectMatchDayVolunteer({ match, volunteer: { requestId: 'production-request-id' } }), /non-synthetic volunteer response identifier/)
+  await assert.rejects(adapter.selectMatchDayVolunteer({ match, volunteer: { requestId: 'production-request-id' } }), /does not allow scorer requests or volunteer administration/)
+  await assert.rejects(adapter.resetPreviousMatchDayResults({ user: {} }), /fixture administration/)
+  await assert.rejects(adapter.deletePreviousMatchDay({ user: {}, match }), /fixture deletion/)
 })
 
 test('separate Demo sessions do not share mutations', async () => {

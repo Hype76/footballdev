@@ -60,6 +60,7 @@ import {
 } from '../lib/supabase.js'
 import {
   DEMO_MATCH_DAY_CLUB_ID,
+  DEMO_MATCH_DAY_FIXTURE_ID,
   DEMO_MATCH_DAY_TEAM_ID,
 } from '../lib/demo-matchday-adapter.js'
 import { DEMO_EMAIL } from '../lib/demo.js'
@@ -954,7 +955,7 @@ function getMatchEventTypeLabel(event, match = {}) {
   }
 
   if (event.eventType === 'water_break') {
-    return 'Water break'
+    return 'Hydration break'
   }
 
   return 'Match update'
@@ -1001,7 +1002,7 @@ function getMatchEventBadge(event) {
     yellow_card: { label: 'Yellow card', text: '', className: 'border-[#ca8a04] bg-[#facc15]' },
     red_card: { label: 'Red card', text: '', className: 'border-[#b91c1c] bg-[#dc2626]' },
     substitution: { label: 'Substitution', text: 'Swap', className: 'border-[#1d4ed8] bg-[#dbeafe] text-[#1d4ed8]' },
-    water_break: { label: 'Water break', text: 'Water', className: 'border-[#0284c7] bg-[#e0f2fe] text-[#0369a1]' },
+    water_break: { label: 'Hydration break', text: 'Hydration', className: 'border-[#0284c7] bg-[#e0f2fe] text-[#0369a1]' },
   }
 
   return badges[event.eventType] || null
@@ -1243,7 +1244,7 @@ function getEventLogTypeLabel(entry) {
     player_squad_decision_changed: 'squad decision changed',
     red_card: 'red card',
     substitution: 'substitution',
-    water_break: 'water break',
+    water_break: 'hydration break',
     yellow_card: 'yellow card',
   }
 
@@ -2070,6 +2071,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   } = matchDayExperience
   const isDemoExperience = matchDayExperience.mode === 'demo'
   const allowsCommunication = matchDayExperience.allowsCommunication === true
+  const allowsFixtureManagement = matchDayExperience.capabilities?.fixtureManagement === true
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -2134,7 +2136,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     () => matches.find((match) => String(match.id) === String(expandedMatchId)) || null,
     [expandedMatchId, matches],
   )
-  const canDeletePreviousGames = Number(user.roleRank ?? 0) >= 50
+  const canDeletePreviousGames = allowsFixtureManagement && Number(user.roleRank ?? 0) >= 50
   const liveMatches = useMemo(
     () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
     [activeMatches],
@@ -2153,6 +2155,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   )
   const needsAttentionItems = useMemo(() => getNeedsAttentionItems(activeMatches), [activeMatches])
   const nextMatch = activeMatches[0] || null
+  const preparedDemoMatch = isDemoExperience
+    ? activeMatches.find((match) => String(match.id) === DEMO_MATCH_DAY_FIXTURE_ID) || activeMatches[0] || null
+    : null
   const gameDayDateLabel = useMemo(
     () => new Intl.DateTimeFormat('en-GB', {
       day: 'numeric',
@@ -2202,6 +2207,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   }, [activeFixtureMode])
 
   useEffect(() => {
+    if (!allowsFixtureManagement) {
+      return undefined
+    }
+
     const openFixtureSetup = (setupIntent = consumeFixtureSetupIntent()) => {
       if (setupIntent) {
         setForm((currentForm) => ({
@@ -2231,7 +2240,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     return () => {
       window.removeEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
     }
-  }, [])
+  }, [allowsFixtureManagement])
 
   async function loadData() {
     const [nextMatches, nextTeams, nextPlayers, nextLocations, savedVolunteerTemplates] = await Promise.all([
@@ -2356,6 +2365,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
     setExpandedMatchId(requestedFixtureId)
 
+    if (isDemoExperience && requestedFixtureId === DEMO_MATCH_DAY_FIXTURE_ID) {
+      setGameModeMatchId(requestedFixtureId)
+    }
+
     const requestedMatch = matches.find((match) => String(match.id) === String(requestedFixtureId))
 
     if (!requestedMatch || requestedMatch.isHydrated || deepLinkHydrationRef.current === requestedFixtureId) {
@@ -2387,7 +2400,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     return () => {
       isCurrent = false
     }
-  }, [getMatchDay, matches, requestedFixtureId, requestedWorkspaceSection, session?.access_token, user])
+  }, [getMatchDay, isDemoExperience, matches, requestedFixtureId, requestedWorkspaceSection, session?.access_token, user])
 
   useEffect(() => {
     let isCurrent = true
@@ -2550,6 +2563,33 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     }
   }
 
+  const handleOpenPreparedDemoMatch = async () => {
+    if (!isDemoExperience || !preparedDemoMatch) return
+
+    const hydratedMatch = await hydrateMatchDay(preparedDemoMatch)
+
+    if (!hydratedMatch) return
+
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('fixture', String(hydratedMatch.id))
+    nextParams.delete('section')
+    setExpandedMatchId(hydratedMatch.id)
+    setGameModeMatchId(hydratedMatch.id)
+    setSearchParams(nextParams)
+  }
+
+  const handleExitGameMode = () => {
+    setGameModeMatchId('')
+
+    if (!isDemoExperience) return
+
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('fixture')
+    nextParams.delete('section')
+    setExpandedMatchId('')
+    setSearchParams(nextParams)
+  }
+
   const handleWorkspaceSectionChange = (section) => {
     const nextSection = normalizeMatchDayWorkspaceSection(section)
     setWorkspaceSection(nextSection)
@@ -2672,6 +2712,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const handleCreateMatch = async (event) => {
     event.preventDefault()
     blurActiveFixtureControl()
+
+    if (!allowsFixtureManagement) {
+      setErrorMessage('Demo Game Day uses the prepared synthetic fixture and does not allow fixture creation.')
+      return
+    }
 
     const availablePlayerIds = fixturePlayers.map((player) => player.id)
     const validationMessage = getFixtureSetupValidationMessage({ availablePlayerIds, form })
@@ -3092,9 +3137,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     await saveMatchStatus(match, status)
   }
 
-  const handleGameModeHydrationToggle = async (match, pauseAction = 'hydration') => {
-    if (isMatchTimerPaused(match)) {
-      await persistTimerAction(match, 'resume', {
+  const handleGameModeTimerAction = async (match, action) => {
+    if (action === 'resume') {
+      await persistTimerAction(match, action, {
         busyKey: 'timer',
         loadingMessage: 'Resume saving...',
         successMessage: 'Resume saved.',
@@ -3104,7 +3149,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       return
     }
 
-    const action = pauseAction === 'pause' ? 'pause' : 'hydration'
+    if (!['pause', 'hydration'].includes(action) || isMatchTimerPaused(match)) {
+      return
+    }
+
     await persistTimerAction(match, action, {
       busyKey: 'timer',
       loadingMessage: action === 'pause' ? 'Pause saving...' : 'Hydration saving...',
@@ -4080,6 +4128,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         activeMatchId={activeMatchId}
         activeSquadDecisionKey={activeSquadDecisionKey}
         activeVolunteerSelectionKey={activeVolunteerSelectionKey}
+        allowFixtureManagement={allowsFixtureManagement}
         isGameMode={gameModeMatchId === match.id}
         isExpanded
         liveRefreshStatus={liveRefreshStatus}
@@ -4088,8 +4137,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         now={liveClockNow}
         onCorrectGoal={handleCorrectGoal}
         onFinalReportSave={handleFinalReportSave}
-        onGameModeBack={() => setGameModeMatchId('')}
-        onGameModeHydrationToggle={handleGameModeHydrationToggle}
+        onGameModeBack={handleExitGameMode}
+        onGameModeTimerAction={handleGameModeTimerAction}
         onGameModeStart={handleGameModeOpen}
         onHydrate={hydrateMatchDay}
         onManageInvitedPlayers={(selectedMatch) => {
@@ -4152,12 +4201,52 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
               Practise the live workflow with isolated synthetic data. Communication and customer mutations are blocked.
             </p>
           </div>
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          {isGameModeActive ? (
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              <button type="button" onClick={() => setIsDemoResetPromptOpen(true)} className={secondaryButtonClass}>
+                Reset Demo Game Day
+              </button>
+              {typeof onExit === 'function' ? (
+                <button type="button" onClick={onExit} className={secondaryButtonClass}>Exit Demo</button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+      {isDemoExperience && !isGameModeActive ? (
+        <section
+          className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10"
+          aria-labelledby="demo-game-day-prepared-title"
+          data-testid="demo-game-day-prepared-fixture"
+        >
+          <div className="px-5 py-5 sm:px-6">
+            <p className={eyebrowClass}>Prepared synthetic fixture</p>
+            <h1 id="demo-game-day-prepared-title" className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+              {preparedDemoMatch ? getMatchDayDisplayName(preparedDemoMatch) : 'Demo practice fixture'}
+            </h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
+              {preparedDemoMatch ? formatMatchDate(preparedDemoMatch) : 'The practice fixture is loading.'}
+            </p>
+            {preparedDemoMatch ? (
+              <p className="mt-2 text-sm font-black text-[var(--text-primary)]">
+                Score {getMatchDayDisplayScore(preparedDemoMatch)} | {getMatchLifecycleLabel(preparedDemoMatch)}
+              </p>
+            ) : null}
+            <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[var(--text-muted)]">
+              Open the prepared fixture to practise the canonical Game Day controls. Fixture creation, invitations, availability, volunteer requests, cancellation, deletion, and administration are unavailable in Demo.
+            </p>
+          </div>
+          <div className="grid gap-2 border-t border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-6">
             <button
               type="button"
-              onClick={() => setIsDemoResetPromptOpen(true)}
-              className={secondaryButtonClass}
+              onClick={() => void handleOpenPreparedDemoMatch()}
+              disabled={isLoading || !preparedDemoMatch || Boolean(activeMatchId)}
+              className={`${primaryButtonClass} w-full`}
+              data-testid="demo-game-day-practise"
             >
+              {activeMatchId ? 'Opening...' : 'Practise Game Day'}
+            </button>
+            <button type="button" onClick={() => setIsDemoResetPromptOpen(true)} className={secondaryButtonClass}>
               Reset Demo Game Day
             </button>
             {typeof onExit === 'function' ? (
@@ -4166,7 +4255,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           </div>
         </section>
       ) : null}
-      {!selectedMatch && !isGameModeActive ? <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10" aria-labelledby="game-day-title">
+      {!isDemoExperience && !selectedMatch && !isGameModeActive ? <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10" aria-labelledby="game-day-title">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] lg:items-center">
           <div>
             <p className={eyebrowClass}>{user.clubName || 'Football Player'} | {gameDayDateLabel}</p>
@@ -4202,7 +4291,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
       {errorMessage ? <NoticeBanner title="Match Day action failed" message={errorMessage} /> : null}
 
-      {isFixtureFormOpen ? (
+      {allowsFixtureManagement && isFixtureFormOpen ? (
         <FixtureSetupModal
           applyLocation={applyLocation}
           form={form}
@@ -4228,7 +4317,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         />
       ) : null}
 
-      {squadSelection.isOpen ? (
+      {allowsFixtureManagement && squadSelection.isOpen ? (
         <FixtureSquadSelectionModal
           isSaving={isSaving}
           parentVisible={form.parentVisible}
@@ -4280,7 +4369,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         className={`${selectedMatch && !isGameModeActive ? 'xl:flex xl:flex-wrap xl:items-start' : ''} gap-4`}
         data-testid="game-day-workspace"
       >
-      <section className={`min-w-0 overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10 ${selectedMatch ? 'hidden xl:block xl:basis-[22rem] xl:flex-grow' : ''} ${isGameModeActive ? 'hidden' : ''}`}>
+      {!isDemoExperience ? <section className={`min-w-0 overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10 ${selectedMatch ? 'hidden xl:block xl:basis-[22rem] xl:flex-grow' : ''} ${isGameModeActive ? 'hidden' : ''}`}>
         <div className={`${isGameModeActive ? 'hidden xl:grid' : 'grid'} gap-4 border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-5 sm:px-6`}>
           <div className="min-w-0">
             <p className={eyebrowClass}>Fixture list</p>
@@ -4373,12 +4462,12 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
             ) : null}
           </div>
         </div>
-      </section>
+      </section> : null}
 
-      {selectedMatch ? renderSelectedMatchWorkspace(selectedMatch) : null}
+      {selectedMatch && (!isDemoExperience || isGameModeActive) ? renderSelectedMatchWorkspace(selectedMatch) : null}
       </div>
 
-      {!selectedMatch && !isGameModeActive ? <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10" aria-labelledby="game-day-needs-attention">
+      {!isDemoExperience && !selectedMatch && !isGameModeActive ? <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] shadow-sm shadow-black/10" aria-labelledby="game-day-needs-attention">
         <div className="border-b border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4 sm:px-6">
           <h2 id="game-day-needs-attention" className={eyebrowClass}>Needs attention</h2>
         </div>
@@ -4610,6 +4699,7 @@ function MatchDayCard({
   activeMatchId,
   activeSquadDecisionKey,
   activeVolunteerSelectionKey,
+  allowFixtureManagement,
   isGameMode,
   isExpanded,
   liveRefreshStatus,
@@ -4619,7 +4709,7 @@ function MatchDayCard({
   onCorrectGoal,
   onFinalReportSave,
   onGameModeBack,
-  onGameModeHydrationToggle,
+  onGameModeTimerAction,
   onGameModeStart,
   onGameModeStatusChange,
   onHydrate,
@@ -4810,7 +4900,7 @@ function MatchDayCard({
                 {isBusy ? 'Saving...' : primaryLiveAction.label}
               </button>
             ) : null}
-            {!isGameMode && ['scheduled', 'scorer_request'].includes(match.status) ? (
+            {allowFixtureManagement && !isGameMode && ['scheduled', 'scorer_request'].includes(match.status) ? (
               <button
                 type="button"
                 onClick={() => onManageInvitedPlayers(match)}
@@ -4870,12 +4960,13 @@ function MatchDayCard({
 
       {isGameMode ? (
         <MatchDayGameModePanel
+          allowFixtureManagement={allowFixtureManagement}
           isBusy={isBusy}
           events={events}
           match={match}
           now={now}
           onBack={onGameModeBack}
-          onHydrationToggle={onGameModeHydrationToggle}
+          onTimerAction={onGameModeTimerAction}
           onOpenEventModal={onOpenEventModal}
           onOpenGoalModal={onOpenGoalModal}
           onShootoutKick={onShootoutKick}
@@ -5296,12 +5387,13 @@ function MatchDayCard({
 }
 
 function MatchDayGameModePanel({
+  allowFixtureManagement,
   isBusy,
   events,
   match,
   onBack,
   onCorrectGoal,
-  onHydrationToggle,
+  onTimerAction,
   onManage,
   onOpenEventModal,
   onOpenGoalModal,
@@ -5336,8 +5428,10 @@ function MatchDayGameModePanel({
             <p className={eyebrowClass}>Game Mode</p>
             <h5 className="mt-2 text-xl font-black text-[#101828] sm:text-2xl">Live controller</h5>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[auto_auto]">
-            <button type="button" onClick={onManage} className={secondaryButtonClass}>Manage fixture</button>
+          <div className={`grid gap-2 ${allowFixtureManagement ? 'sm:grid-cols-[auto_auto]' : ''}`}>
+            {allowFixtureManagement ? (
+              <button type="button" onClick={onManage} className={secondaryButtonClass}>Manage fixture</button>
+            ) : null}
             <button type="button" onClick={onBack} className={secondaryButtonClass}>Exit Game Mode</button>
           </div>
         </div>
@@ -5408,10 +5502,14 @@ function MatchDayGameModePanel({
               </button>
             )
           })}
-          <button type="button" onClick={() => onHydrationToggle(match, 'pause')} disabled={normalEventsDisabled || isPaused} className={secondaryButtonClass}>Pause</button>
-          <button type="button" onClick={() => onHydrationToggle(match)} disabled={normalEventsDisabled} className={secondaryButtonClass}>
-            {isPaused ? 'Resume' : 'Hydration'}
-          </button>
+          {isPaused ? (
+            <button type="button" data-match-day-timer-action="resume" onClick={() => onTimerAction(match, 'resume')} disabled={liveControlsDisabled} className={primaryButtonClass}>Resume</button>
+          ) : (
+            <>
+              <button type="button" data-match-day-timer-action="pause" onClick={() => onTimerAction(match, 'pause')} disabled={normalEventsDisabled} className={secondaryButtonClass}>Pause</button>
+              <button type="button" data-match-day-timer-action="hydration" onClick={() => onTimerAction(match, 'hydration')} disabled={normalEventsDisabled} className={secondaryButtonClass}>Hydration</button>
+            </>
+          )}
           <button type="button" onClick={() => onStatusChange(match, 'half_time')} disabled={liveControlsDisabled || !canMoveToHalfTime} className={secondaryButtonClass}>HT</button>
           {showNormalTimeEnd ? (
             <button type="button" onClick={() => onStatusChange(match, normalTimeCompletionAction)} disabled={liveControlsDisabled} className={secondaryButtonClass}>

@@ -2,7 +2,11 @@ import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
-import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
+import {
+  buildEmailLogoMarkup,
+  buildEventMapLinksMarkup,
+  resolveReachableEmailLogo,
+} from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 
 const ROLE_CONFIG = {
@@ -19,6 +23,8 @@ const ROLE_CONFIG = {
     responseField: 'volunteer_referee_response',
   },
 }
+
+const PARENT_PORTAL_ORIGIN = 'https://parent.footballplayer.online'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -189,7 +195,31 @@ function getAssignmentParentLabel(assignment) {
   return normalizeText(parentLink?.email || player?.player_name || 'Parent')
 }
 
-function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail, recipientName, role, action }) {
+function buildParentMatchDayUrl({ matchDayId, parentLinkId }) {
+  const searchParams = new URLSearchParams({
+    section: 'matches',
+    matchDayId: normalizeText(matchDayId),
+  })
+
+  if (parentLinkId) {
+    searchParams.set('parentLinkId', normalizeText(parentLinkId))
+  }
+
+  return `${PARENT_PORTAL_ORIGIN}/parent-portal?${searchParams.toString()}`
+}
+
+export function buildRoleNotificationEmail({
+  appOrigin,
+  logoSource = '',
+  logoUrl = '',
+  match,
+  parentLinkId,
+  profile,
+  recipientEmail,
+  recipientName,
+  role,
+  action,
+}) {
   const roleLabel = ROLE_CONFIG[role]?.label || 'Volunteer'
   const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
   const opponent = normalizeText(match.opponent || 'Fixture')
@@ -197,18 +227,26 @@ function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail,
   const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
   const clubLogoUrl = normalizeText(match.clubs?.logo_url)
   const logoMarkup = buildEmailLogoMarkup({
-    altText: clubName,
-    clubLogoUrl,
+    altText: `${clubName} logo`,
+    clubLogoUrl: logoSource === 'club' ? logoUrl : clubLogoUrl,
+    fallbackLogoUrl: logoSource === 'football-player' ? logoUrl : '',
+    maxHeight: 72,
+    maxWidth: 200,
     origin: appOrigin,
   })
   const accentColor = normalizeHexColor(match.teams?.theme_accent || match.clubs?.theme_accent || '#047857')
-  const portalUrl = `${appOrigin}/parent-portal`
+  const portalUrl = buildParentMatchDayUrl({ matchDayId: match.id, parentLinkId })
   const calendarUrl = buildGoogleCalendarLink({ match, matchName, roleLabel, teamName, opponent, portalUrl })
   const mapLinksMarkup = buildEventMapLinksMarkup(normalizeText(match.venue_address || match.venue_name))
   const selectedCopy = action === 'selected'
     ? `You have been selected as ${roleLabel.toLowerCase()} for this fixture.`
     : `You are no longer selected as ${roleLabel.toLowerCase()} for this fixture.`
-  const subject = `${matchName} Match Day ${roleLabel.toLowerCase()} update`
+  const subject = action === 'selected' && role === 'scorer'
+    ? `${clubName}: ${matchName} scorer confirmed`
+    : `${clubName}: ${matchName} ${roleLabel.toLowerCase()} update`
+  const actionLabel = action === 'selected' && role === 'scorer'
+    ? 'Open scorer Game Mode'
+    : 'View in Parent Portal'
   const details = [
     ['Fixture', matchName],
     ['Date', formatDate(match.match_date)],
@@ -219,35 +257,48 @@ function buildRoleNotificationEmail({ appOrigin, match, profile, recipientEmail,
   ]
   const rows = details.map(([label, value]) => `
     <tr>
-      <td style="padding:8px 0;color:#4b5f55;font-weight:700;">${escapeHtml(label)}</td>
-      <td style="padding:8px 0;color:#101828;font-weight:800;">${escapeHtml(value)}</td>
+      <td style="padding:8px 12px 8px 0;color:#52635a;font-size:13px;font-weight:700;vertical-align:top;">${escapeHtml(label)}</td>
+      <td style="padding:8px 0;color:#142018;font-size:14px;font-weight:800;vertical-align:top;">${escapeHtml(value)}</td>
     </tr>
   `).join('')
+  const text = [
+    clubName,
+    `${roleLabel} update`,
+    '',
+    `Hi ${normalizeText(recipientName || 'there')},`,
+    selectedCopy,
+    '',
+    ...details.map(([label, value]) => `${label}: ${value}`),
+    '',
+    `${actionLabel}: ${portalUrl}`,
+    calendarUrl ? `Add to calendar: ${calendarUrl}` : '',
+    '',
+    `Updated by ${normalizeText(profile.display_name || profile.name || profile.email || 'team staff')}.`,
+    'Delivered securely through Footballplayer.online.',
+  ].filter((line) => line !== '').join('\n')
 
   return {
     subject,
+    text,
     html: `
-      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;background:#f7faf8;">
-        <div style="border:1px solid #d7e5dc;border-radius:12px;background:#ffffff;overflow:hidden;">
-          <div style="padding:20px 22px;background:${escapeHtml(accentColor)};color:#ffffff;">
-            ${logoMarkup}
-            <p style="margin:0;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">${escapeHtml(clubName)}</p>
-            <h1 style="margin:8px 0 0;font-size:26px;line-height:1.15;">${escapeHtml(roleLabel)} update</h1>
-          </div>
-          <div style="padding:22px;">
-        <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
-          Hi ${escapeHtml(recipientName || 'there')}, ${escapeHtml(selectedCopy)}
-        </p>
-        <table style="width:100%;border-collapse:collapse;margin:0 0 22px;">${rows}</table>
+      <div style="font-family:Arial,sans-serif;color:#142018;background:#ffffff;padding:24px;line-height:1.55;max-width:680px;margin:0 auto;color-scheme:light;">
+        ${logoMarkup}
+        <p style="margin:0 0 6px;color:${escapeHtml(accentColor)};font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(clubName)}</p>
+        <h1 style="margin:0 0 4px;color:#142018;font-size:25px;line-height:1.25;">${escapeHtml(roleLabel)} ${action === 'selected' ? 'confirmed' : 'updated'}</h1>
+        <p style="margin:0 0 22px;color:#52635a;font-size:15px;font-weight:700;">${escapeHtml(teamName)}</p>
+        <p style="margin:0 0 18px;color:#142018;font-size:16px;">Hi ${escapeHtml(recipientName || 'there')}, ${escapeHtml(selectedCopy)}</p>
+        <div style="margin:0 0 22px;padding:18px;border:1px solid #d8e5dc;border-radius:12px;background:#f7faf8;">
+          <p style="margin:0 0 8px;color:#52635a;font-size:12px;font-weight:800;text-transform:uppercase;">Match details</p>
+          <table style="width:100%;border-collapse:collapse;">${rows}</table>
+        </div>
         ${mapLinksMarkup}
         <div style="display:block;margin:22px 0;">
-          <a href="${escapeHtml(portalUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:${escapeHtml(accentColor)};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">View in Parent Portal</a>
-          ${calendarUrl ? `<a href="${escapeHtml(calendarUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 16px;background:#101828;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Add to calendar</a>` : ''}
+          <a href="${escapeHtml(portalUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 18px;background:${escapeHtml(accentColor)};color:#ffffff;text-decoration:none;border-radius:10px;font-weight:800;">${escapeHtml(actionLabel)}</a>
+          ${calendarUrl ? `<a href="${escapeHtml(calendarUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 18px;background:#142018;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:800;">Add to calendar</a>` : ''}
         </div>
-        <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
-          Updated by ${escapeHtml(profile.display_name || profile.name || profile.email || 'team staff')}.
-        </p>
-          </div>
+        <p style="margin:20px 0 0;color:#52635a;font-size:13px;line-height:1.5;">Updated by ${escapeHtml(profile.display_name || profile.name || profile.email || 'team staff')}.</p>
+        <div style="border-top:1px solid #e7ece3;margin-top:24px;padding-top:14px;">
+          <p style="margin:0;color:#64748b;font-size:11px;line-height:1.45;">Delivered securely through Footballplayer.online.</p>
         </div>
       </div>
     `,
@@ -262,9 +313,16 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
     throw new Error('Selected parent does not have a valid email address.')
   }
 
+  const resolvedLogo = await resolveReachableEmailLogo({
+    clubLogoUrl: normalizeText(match.clubs?.logo_url),
+    origin: appOrigin,
+  })
   const email = buildRoleNotificationEmail({
     appOrigin,
+    logoSource: resolvedLogo.source,
+    logoUrl: resolvedLogo.url,
     match,
+    parentLinkId,
     profile,
     recipientEmail: normalizedEmail,
     recipientName,
@@ -275,12 +333,13 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
   const payload = {
     visibleInEmailQueue: false,
     resendPayload: {
-      from: createFromAddress('Football Player'),
+      from: createFromAddress(`${normalizeText(match.clubs?.name) || 'Football Player'} via Football Player`),
       to: email.to,
       subject: email.subject,
       html: email.html,
+      text: email.text,
     },
-    displayName: 'Football Player',
+    displayName: `${normalizeText(match.clubs?.name) || 'Football Player'} via Football Player`,
     teamName: normalizeText(match.teams?.name || match.team_name),
     clubName: normalizeText(match.clubs?.name),
     playerName: '',
@@ -676,7 +735,7 @@ export async function handler(event) {
 
     const { data: match, error: matchError } = await supabase
       .from('match_days')
-      .select('*, teams:team_id (name, theme_accent), clubs:club_id (name, logo_url)')
+      .select('*, teams:team_id (name, theme_accent), clubs:club_id (name, logo_url, theme_accent)')
       .eq('id', matchDayId)
       .eq('club_id', profile.club_id)
       .is('deleted_at', null)
@@ -792,7 +851,7 @@ export async function handler(event) {
     }
 
     try {
-      if (role !== 'scorer' && selected && !isSameSelection) {
+      if (selected && !isSameSelection) {
         const queued = await queueRoleNotification(adminSupabase, {
           match,
           appOrigin,

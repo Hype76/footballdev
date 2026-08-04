@@ -32,7 +32,7 @@ const EVENT_TYPE_LABELS = {
   red_card: 'Red card',
   substitution: 'Substitution',
   injury: 'Injury',
-  water_break: 'Water break',
+  water_break: 'Hydration break',
 }
 
 function normalizeText(value) {
@@ -410,7 +410,7 @@ export function buildFinalMatchReportSummary(match = {}) {
     activeCards: newestFirst(activeEvents.filter((event) => ['yellow_card', 'red_card'].includes(normalizeEventType(event)))),
     activeSubstitutions: newestFirst(activeEvents.filter((event) => normalizeEventType(event) === 'substitution')),
     activeInjuries: newestFirst(activeEvents.filter((event) => normalizeEventType(event) === 'injury')),
-    activeWaterBreaks: newestFirst(activeEvents.filter((event) => normalizeEventType(event) === 'water_break')),
+    activeHydrationBreaks: newestFirst(activeEvents.filter((event) => normalizeEventType(event) === 'water_break')),
     activeOtherEvents: newestFirst(activeEvents.filter((event) => !COMPLETED_REPORT_SUMMARY_TYPES.has(normalizeEventType(event)))),
     timelineEvents: sortCompletedMatchEvents(events),
     voidedEvents: newestFirst(voidedEvents),
