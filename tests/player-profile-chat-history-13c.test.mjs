@@ -85,7 +85,7 @@ test('response player name is a keyboard button while Expand and Actions remain 
 test('Sessions Back deep link reloads authoritative evidence and reopens responses', async () => {
   const source = await readFile(sessionsUrl, 'utf8')
 
-  assert.match(source, /\['manage-players', 'view-responses'\]\.includes\(requestedAction\)/)
+  assert.match(source, /\['manage-players', 'view-responses', 'view'\]\.includes\(requestedAction\)/)
   assert.match(source, /getEventResponseEvidenceForEvent\(\{ event, user \}\)/)
   assert.match(source, /openResponseManager: requestedAction === 'view-responses'/)
   assert.match(source, /window\.history\.replaceState\(window\.history\.state, '', returnUrl\)/)

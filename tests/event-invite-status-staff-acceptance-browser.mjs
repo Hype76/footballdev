@@ -135,6 +135,7 @@ let trainingAccepted = false
 let invitationActionCount = 0
 let invitationPreviewCount = 0
 let calendarMutationCount = 0
+let matchDayDetailReadCount = 0
 
 function matchRow() {
   return {
@@ -433,6 +434,9 @@ async function preparePage(context, { standalone = false } = {}) {
     }
 
     if (path.endsWith('/match_days')) {
+      if (url.searchParams.has('id')) {
+        matchDayDetailReadCount += 1
+      }
       return json(route, url.searchParams.has('id') ? matchRow() : [matchRow()])
     }
     if (path.endsWith('/players')) return json(route, playerRows)
@@ -488,6 +492,48 @@ async function signIn(page) {
   await page.getByRole('heading', { name: /Calendar$/ }).waitFor({ state: 'visible', timeout: 15000 })
 }
 
+async function verifyMatchDayManagePlayersDeepLink(page) {
+  await page.goto(`${baseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.getByRole('heading', { name: 'Game Day' }).waitFor({ state: 'visible', timeout: 15000 })
+  await page.evaluate(() => {
+    window.sessionStorage.setItem(
+      'view-cache:sessions:club-fixture:user-manager.fixture@footballplayer.test:50:team-u12',
+      JSON.stringify({
+        matchDays: [],
+        players: [{ id: 'stale-player' }],
+        sessions: [{ id: 'stale-session' }],
+        teams: [{ id: 'team-u12', name: 'U12 Fixture Team' }],
+      }),
+    )
+  })
+  const detailReadsBeforeOpen = matchDayDetailReadCount
+  const managePlayersButton = page.getByRole('button', { name: 'Manage invited players' })
+  if (!await managePlayersButton.count()) {
+    await page.getByRole('button', { name: /^Manage U12 Fixture Team v FP TEST Match Invite$/ }).click()
+  }
+  try {
+    await managePlayersButton.waitFor({ state: 'visible', timeout: 15000 })
+  } catch (error) {
+    console.error(await page.locator('body').innerText())
+    throw error
+  }
+  await managePlayersButton.click()
+  const modal = page.getByTestId('calendar-event-modal')
+  try {
+    await modal.getByRole('heading', { name: 'Manage invited players' }).waitFor({ state: 'visible', timeout: 15000 })
+  } catch (error) {
+    console.error(await page.locator('body').innerText())
+    throw error
+  }
+  await modal.getByText('FP TEST Match Invite', { exact: false }).first().waitFor({ state: 'visible' })
+  assert.ok(matchDayDetailReadCount > detailReadsBeforeOpen)
+  assert.equal(await page.getByText('The requested event could not be opened in the saved event context.').count(), 0)
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await page.getByRole('button', { name: 'Close calendar event' }).click()
+  await page.goto(`${baseUrl}/calendar`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.getByRole('heading', { name: /Calendar$/ }).waitFor({ state: 'visible', timeout: 15000 })
+}
+
 async function openEvent(page, title) {
   const eventTitle = page.getByText(title, { exact: false }).first()
 
@@ -512,6 +558,7 @@ try {
   const desktopContext = await browser.newContext({ colorScheme: 'dark', viewport: { width: 1440, height: 1000 } })
   const desktop = await preparePage(desktopContext)
   await signIn(desktop.page)
+  await verifyMatchDayManagePlayersDeepLink(desktop.page)
   await desktop.page.goto(`${baseUrl}/calendar?action=view&eventId=training-event&source=calendar`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   const managerHomeDeepLinkModal = desktop.page.getByTestId('calendar-event-modal')
   await managerHomeDeepLinkModal.getByRole('heading', { name: 'Calendar event' }).waitFor({ state: 'visible', timeout: 15000 })
@@ -688,6 +735,7 @@ try {
   const mobileContext = await browser.newContext({ colorScheme: 'light', isMobile: true, viewport: { width: 390, height: 844 } })
   const mobile = await preparePage(mobileContext)
   await signIn(mobile.page)
+  await verifyMatchDayManagePlayersDeepLink(mobile.page)
   await openEvent(mobile.page, 'FP TEST Match Invite')
   const mobileModal = mobile.page.getByTestId('calendar-event-modal')
   const mobileContent = mobile.page.getByTestId('calendar-event-modal-content')

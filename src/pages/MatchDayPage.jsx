@@ -4146,7 +4146,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         onGameModeStart={handleGameModeOpen}
         onHydrate={hydrateMatchDay}
         onManageInvitedPlayers={(selectedMatch) => {
-          navigate(`/sessions?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
+          navigate(`/calendar?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
         }}
         onOpenEventModal={(selectedMatch, eventType) => openLiveEntryModal(selectedMatch, 'event', eventType)}
         onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}

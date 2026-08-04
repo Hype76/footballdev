@@ -1626,7 +1626,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       && (!requestedSource || event.sourceType === requestedSource)
     ))
 
-    if (!requestedEvent) {
+    const canResolveAuthoritativeMatchDay = requestedSource === 'match-day'
+
+    if (!requestedEvent && !canResolveAuthoritativeMatchDay) {
       setErrorMessage('The requested event could not be opened in the saved event context.')
       const nextSearchParams = new URLSearchParams(searchParams)
       nextSearchParams.delete('action')
@@ -1640,15 +1642,20 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
     const openAuthoritativePlayerManagement = async () => {
       try {
-        const event = requestedEvent.sourceType === 'match-day'
-          ? {
-              ...requestedEvent,
-              data: await getMatchDay({
-                matchDayId: requestedEvent.sourceId,
-                user,
-              }),
-            }
-          : requestedEvent
+        let event = requestedEvent
+
+        if (canResolveAuthoritativeMatchDay) {
+          const matchDay = await getMatchDay({
+            matchDayId: requestedEventId,
+            user,
+          })
+          event = buildFootballCalendarEvents({ matchDays: [matchDay] })[0] || null
+        }
+
+        if (!event) {
+          throw new Error('The requested event could not be opened in the saved event context.')
+        }
+
         const evidence = await getEventResponseEvidenceForEvent({ event, user })
         const trainingSummary = event?.data?.eventType === 'training'
           ? (

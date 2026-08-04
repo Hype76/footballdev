@@ -527,6 +527,6 @@ test('the Calendar modal refreshes authoritative event evidence after mutations'
   assert.match(source, /No players have been added to this event\./)
   assert.match(
     source,
-    /openAuthoritativePlayerManagement[\s\S]*data: await getMatchDay[\s\S]*await getEventResponseEvidenceForEvent[\s\S]*setCalendarModal\(\{[\s\S]*mode: requestedAction === 'manage-players' \? 'manage-players' : 'view',[\s\S]*event/,
+    /canResolveAuthoritativeMatchDay = requestedSource === 'match-day'[\s\S]*if \(!requestedEvent && !canResolveAuthoritativeMatchDay\)[\s\S]*openAuthoritativePlayerManagement[\s\S]*matchDayId: requestedEventId[\s\S]*buildFootballCalendarEvents\(\{ matchDays: \[matchDay\] \}\)[\s\S]*await getEventResponseEvidenceForEvent[\s\S]*setCalendarModal\(\{[\s\S]*mode: requestedAction === 'manage-players' \? 'manage-players' : 'view',[\s\S]*event/,
   )
 })

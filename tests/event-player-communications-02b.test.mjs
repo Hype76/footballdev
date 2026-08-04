@@ -108,7 +108,7 @@ test('player management review is exposed in Calendar and Match Day', () => {
   assert.match(sessionsPage, /Invitation not sent/)
   assert.match(sessionsPage, /Selected-player confirmation required/)
   assert.match(matchDayPage, /Manage invited players/)
-  assert.match(matchDayPage, /action=manage-players&source=match-day/)
+  assert.match(matchDayPage, /navigate\(`\/calendar\?action=manage-players&source=match-day&eventId=/)
 })
 
 test('training communication defaults off for new events', () => {
