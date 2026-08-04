@@ -19,15 +19,17 @@ import {
 
 const migrationUrl = new URL('../supabase/migrations/20260713192928_match_day_player_squad_decisions.sql', import.meta.url)
 const repairMigrationUrl = new URL('../supabase/migrations/20260804084949_fp_v1_gameday_squad_decisions_resend_33.sql', import.meta.url)
+const recipientIdempotencyMigrationUrl = new URL('../supabase/migrations/20260804100614_fp_v1_gameday_invitation_recipient_idempotency_33b.sql', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const parentPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentDomainUrl = new URL('../src/lib/domain/parent-invitations.js', import.meta.url)
 const responseFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 
-const [migration, repairMigration, matchDayPage, parentPage, parentDomain, responseFunction, sendFunction] = await Promise.all([
+const [migration, repairMigration, recipientIdempotencyMigration, matchDayPage, parentPage, parentDomain, responseFunction, sendFunction] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(repairMigrationUrl, 'utf8'),
+  readFile(recipientIdempotencyMigrationUrl, 'utf8'),
   readFile(matchDayPageUrl, 'utf8'),
   readFile(parentPageUrl, 'utf8'),
   readFile(parentDomainUrl, 'utf8'),
@@ -276,4 +278,7 @@ test('39 canonical recipient resolver is strict and no response suppresses anoth
   assert.match(repairMigration, /adult_auth\.deleted_at is null/)
   assert.match(sendFunction, /This Player already has a valid availability response/)
   assert.match(sendFunction, /getReusableMatchDayResponseToken/)
+  assert.match(recipientIdempotencyMigration, /eventPlayerInvitationAction,idempotencyKey/)
+  assert.match(recipientIdempotencyMigration, /lower\(btrim\(to_email\)\)/)
+  assert.match(recipientIdempotencyMigration, /create unique index scheduled_email_queue_single_player_invitation_action_key/)
 })

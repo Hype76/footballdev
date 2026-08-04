@@ -2,6 +2,8 @@
 -- Run only after the application has been rolled back to the recorded production commit.
 -- The strict recipient resolver and removal of automatic squad-decision email are
 -- intentionally retained because reverting either would weaken communication safety.
+-- The recipient-scoped queue idempotency index is also retained so a rollback
+-- cannot reintroduce Parent B suppression.
 
 begin;
 
