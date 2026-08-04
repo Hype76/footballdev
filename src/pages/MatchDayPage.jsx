@@ -559,10 +559,6 @@ function getCurrentAvailabilityRows(match) {
   }
 
   for (const request of match.availabilityRequests || []) {
-    if (request.tokenRevokedAt) {
-      continue
-    }
-
     const key = request.playerId || request.playerName || request.id
     const current = latestByPlayer.get(key)
     const currentTime = current?.respondedAt || current?.createdAt || ''
