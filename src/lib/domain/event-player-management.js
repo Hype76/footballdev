@@ -11,6 +11,11 @@ export const EVENT_PLAYER_COMMUNICATION_MODES = Object.freeze({
 
 const SUPPORTED_COMMUNICATION_MODES = new Set(Object.values(EVENT_PLAYER_COMMUNICATION_MODES))
 const SUPPORTED_SOURCE_TYPES = new Set(['calendar', 'match-day', 'session'])
+const EVENT_PLAYER_ERROR_REFERENCES = Object.freeze({
+  apply: 'CAL-PLAYER-APPLY',
+  communication: 'CAL-PLAYER-COMMS',
+  preview: 'CAL-PLAYER-REVIEW',
+})
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -22,6 +27,24 @@ function normalizeIdList(values) {
       .map((value) => normalizeText(value))
       .filter(Boolean),
   )]
+}
+
+function createControlledEventPlayerError({ message, reference }) {
+  const error = new Error(`${message} Reference: ${reference}.`)
+  error.code = reference
+  error.isControlledEventPlayerError = true
+  return error
+}
+
+function createCommunicationFailure(failedCount = 0) {
+  const failedSummary = failedCount > 0
+    ? `${failedCount} invitation${failedCount === 1 ? '' : 's'} could not be queued.`
+    : 'the invitations could not be queued.'
+
+  return {
+    code: EVENT_PLAYER_ERROR_REFERENCES.communication,
+    message: `Players were updated, but ${failedSummary} No duplicate messages were sent. Retry from this window. Reference: ${EVENT_PLAYER_ERROR_REFERENCES.communication}.`,
+  }
 }
 
 function assertStaffAccess(user) {
@@ -187,7 +210,10 @@ export async function previewEventPlayerChanges({
 
   if (error) {
     console.error(error)
-    throw error
+    throw createControlledEventPlayerError({
+      message: 'We could not review the invited Players. Please try again.',
+      reference: EVENT_PLAYER_ERROR_REFERENCES.preview,
+    })
   }
 
   return normalizePreview(data)
@@ -229,7 +255,10 @@ export async function applyEventPlayerChanges({
 
   if (error) {
     console.error(error)
-    throw error
+    throw createControlledEventPlayerError({
+      message: 'We could not update the invited Players. Your selection has been kept. Please try again.',
+      reference: EVENT_PLAYER_ERROR_REFERENCES.apply,
+    })
   }
 
   const result = {
@@ -240,21 +269,32 @@ export async function applyEventPlayerChanges({
     failedCount: Number(data?.failedCount ?? 0),
     missingContactCount: Number(data?.missingContactCount ?? 0),
     queuedCount: Number(data?.queuedCount ?? 0),
+    communicationFailure: Number(data?.failedCount ?? 0) > 0
+      ? createCommunicationFailure(Number(data.failedCount))
+      : null,
   }
 
   if (source.sourceType === 'match-day') {
-    const matchDelivery = await sendMatchCommunication({
-      addedPlayerIds: result.addedPlayerIds,
-      eventId: source.eventId,
-      mode: normalizedMode,
-      requestToken: normalizedRequestToken,
-    })
+    try {
+      const matchDelivery = await sendMatchCommunication({
+        addedPlayerIds: result.addedPlayerIds,
+        eventId: source.eventId,
+        mode: normalizedMode,
+        requestToken: normalizedRequestToken,
+      })
 
-    if (matchDelivery) {
-      result.duplicateCount = matchDelivery.duplicateCount
-      result.failedCount += matchDelivery.failedCount
-      result.missingContactCount = Math.max(result.missingContactCount, matchDelivery.missingContactCount)
-      result.queuedCount += matchDelivery.queuedCount
+      if (matchDelivery) {
+        result.duplicateCount = matchDelivery.duplicateCount
+        result.failedCount += matchDelivery.failedCount
+        result.missingContactCount = Math.max(result.missingContactCount, matchDelivery.missingContactCount)
+        result.queuedCount += matchDelivery.queuedCount
+        if (matchDelivery.failedCount > 0) {
+          result.communicationFailure = createCommunicationFailure(matchDelivery.failedCount)
+        }
+      }
+    } catch (communicationError) {
+      console.error(communicationError)
+      result.communicationFailure = createCommunicationFailure()
     }
   }
 

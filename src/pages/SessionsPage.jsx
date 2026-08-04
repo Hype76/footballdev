@@ -939,6 +939,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const [calendarValidation, setCalendarValidation] = useState(null)
   const [calendarPlayerCommunicationMode, setCalendarPlayerCommunicationMode] = useState(EVENT_PLAYER_COMMUNICATION_MODES.none)
   const [calendarPlayerReview, setCalendarPlayerReview] = useState(null)
+  const [calendarPlayerActionError, setCalendarPlayerActionError] = useState('')
   const [calendarEventResourcesById, setCalendarEventResourcesById] = useState({})
   const [calendarResourceOptions, setCalendarResourceOptions] = useState([])
   const [isCalendarResourcesLoading, setIsCalendarResourcesLoading] = useState(false)
@@ -2029,6 +2030,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     setCalendarForm(getDefaultCalendarForm())
     setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
     setCalendarPlayerReview(null)
+    setCalendarPlayerActionError('')
     setEventResponseEvidence({
       auditEvents: [],
       calendarInvites: [],
@@ -2116,6 +2118,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
     setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
     setCalendarPlayerReview(null)
+    setCalendarPlayerActionError('')
     setCalendarForm((current) => ({
       ...current,
       invitedPlayerIds: currentCalendarEventInvites.map((invite) => invite.playerId).filter(Boolean),
@@ -2143,6 +2146,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
     setIsSaving(true)
     setErrorMessage('')
+    setCalendarPlayerActionError('')
 
     try {
       const review = await previewEventPlayerChanges({
@@ -2154,10 +2158,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       setCalendarPlayerReview(review)
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Player changes could not be reviewed.')
+      const message = error.message || 'We could not review the invited Players. Please try again. Reference: CAL-PLAYER-REVIEW.'
+      setCalendarPlayerActionError(message)
       showToast({
         title: 'Review unavailable',
-        message: error.message || 'Player changes could not be reviewed.',
+        message,
         tone: 'error',
       })
     } finally {
@@ -2178,6 +2183,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
     setIsSaving(true)
     setErrorMessage('')
+    setCalendarPlayerActionError('')
 
     try {
       const result = await applyEventPlayerChanges({
@@ -2203,14 +2209,23 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             ...current.event,
             data: refreshedMatch,
           },
-          mode: 'view',
         }))
-      } else {
-        setCalendarModal((current) => ({ ...current, mode: 'view' }))
       }
 
+      if (result.communicationFailure) {
+        setCalendarPlayerActionError(result.communicationFailure.message)
+        showToast({
+          title: 'Players updated, invitations not queued',
+          message: result.communicationFailure.message,
+          tone: 'warning',
+        })
+        return
+      }
+
+      setCalendarModal((current) => ({ ...current, mode: 'view' }))
       setCalendarPlayerReview(null)
       setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
+      setCalendarPlayerActionError('')
       setCalendarForm((current) => ({
         ...current,
         invitedPlayerIds: result.selectedPlayerIds,
@@ -2226,10 +2241,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Event players could not be updated.')
+      const message = error.message || 'We could not update the invited Players. Your selection has been kept. Please try again. Reference: CAL-PLAYER-APPLY.'
+      setCalendarPlayerActionError(message)
       showToast({
         title: 'Players not updated',
-        message: error.message || 'Event players could not be updated.',
+        message,
         tone: 'error',
       })
     } finally {
@@ -2675,6 +2691,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     setCalendarValidation(null)
     if (['invitedPlayerIds', 'inviteWholeSquad', 'inviteTrialPlayers'].includes(name)) {
       setCalendarPlayerReview(null)
+      setCalendarPlayerActionError('')
     }
 
     if (name === 'eventType' && value === 'match' && calendarModal?.mode === 'create' && !calendarModal?.event) {
@@ -3965,6 +3982,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           isOpen={Boolean(calendarModal)}
           mode={calendarModal?.mode || 'create'}
           openResponseManagerOnMount={calendarModal?.openResponseManager === true}
+          playerActionError={calendarPlayerActionError}
           playerCommunicationMode={calendarPlayerCommunicationMode}
           playerReview={calendarPlayerReview}
           onCancel={handleCalendarModalClose}
@@ -3981,9 +3999,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           onRemovePlayerFromEvent={handleEventPlayerRemovalAction}
           onPlayerCommunicationModeChange={(mode) => {
             setCalendarPlayerCommunicationMode(mode)
+            setCalendarPlayerActionError('')
           }}
           onPlayerReviewBack={() => {
             setCalendarPlayerReview(null)
+            setCalendarPlayerActionError('')
             setCalendarForm((current) => ({
               ...current,
               notificationRequestToken: createNotificationRequestToken(),
@@ -4320,6 +4340,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         isOpen={Boolean(calendarModal)}
         mode={calendarModal?.mode || 'create'}
         openResponseManagerOnMount={calendarModal?.openResponseManager === true}
+        playerActionError={calendarPlayerActionError}
         playerCommunicationMode={calendarPlayerCommunicationMode}
         playerReview={calendarPlayerReview}
         onCancel={handleCalendarModalClose}
@@ -4336,9 +4357,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         onRemovePlayerFromEvent={handleEventPlayerRemovalAction}
         onPlayerCommunicationModeChange={(mode) => {
           setCalendarPlayerCommunicationMode(mode)
+          setCalendarPlayerActionError('')
         }}
         onPlayerReviewBack={() => {
           setCalendarPlayerReview(null)
+          setCalendarPlayerActionError('')
           setCalendarForm((current) => ({
             ...current,
             notificationRequestToken: createNotificationRequestToken(),
@@ -4727,6 +4750,7 @@ function TrainingAvailabilitySettings({ form, isBusy, onChange, validationError 
 }
 
 function EventPlayerManagementPanel({
+  actionError = '',
   communicationMode,
   currentInvites = [],
   event,
@@ -4742,6 +4766,7 @@ function EventPlayerManagementPanel({
   review,
 }) {
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
+  const errorSummaryRef = useRef(null)
   const currentInviteByPlayerId = new Map(
     currentInvites.map((invite) => [String(invite.playerId ?? ''), invite]),
   )
@@ -4802,10 +4827,32 @@ function EventPlayerManagementPanel({
       : []),
   ]
 
+  useEffect(() => {
+    if (!actionError) {
+      return undefined
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => errorSummaryRef.current?.focus())
+    return () => window.cancelAnimationFrame(focusFrame)
+  }, [actionError])
+
   return (
     <>
       <div data-testid="event-player-management" className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch] sm:px-6 sm:py-5">
+          {actionError ? (
+            <div
+              ref={errorSummaryRef}
+              id="event-player-management-error"
+              role="alert"
+              aria-live="assertive"
+              tabIndex={-1}
+              className="mb-4 rounded-lg border border-[#fda29b] bg-[#fff1f0] px-4 py-3 text-[#b42318] focus:outline-none focus:ring-2 focus:ring-[#fda29b]"
+            >
+              <p className="text-sm font-black">Player changes need attention</p>
+              <p className="mt-1 text-sm font-semibold leading-6">{actionError}</p>
+            </div>
+          ) : null}
           {!review ? (
             <div className="space-y-4">
               <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3">
@@ -5190,6 +5237,7 @@ function CalendarEventModal({
   isOpen,
   mode,
   openResponseManagerOnMount = false,
+  playerActionError = '',
   playerCommunicationMode = EVENT_PLAYER_COMMUNICATION_MODES.none,
   playerReview = null,
   onCancel,
@@ -5547,6 +5595,7 @@ function CalendarEventModal({
         {!isEditing ? (
           isManagingPlayers ? (
             <EventPlayerManagementPanel
+              actionError={playerActionError}
               communicationMode={playerCommunicationMode}
               currentInvites={currentInvites}
               event={event}
