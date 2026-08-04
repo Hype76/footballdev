@@ -5,10 +5,14 @@ import {
   resolveCompletedMatchEventTeam,
   resolveCompletedMatchPlayerName,
 } from './matchday-final-report.js'
+import { createPdfBrandingFallback } from './pdf-branding.js'
 
 const CSV_HEADINGS = [
+  'Club',
   'Fixture',
   'Match date',
+  'Half-time score',
+  'Full-time score',
   'Match phase',
   'Match minute',
   'Stoppage minute',
@@ -102,8 +106,11 @@ function makeEventCsvRow(event, match, displayOrder, options) {
   const eventType = firstText(event.eventType, event.event_type)
 
   return {
+    Club: getClubName(match),
     Fixture: getFixtureName(match),
     'Match date': getMatchDate(match),
+    'Half-time score': options.result.halfTimeScore,
+    'Full-time score': options.result.fullTimeScore,
     'Match phase': getMatchPhase(event),
     'Match minute': minute.minute,
     'Stoppage minute': minute.stoppageMinute,
@@ -120,7 +127,7 @@ function makeEventCsvRow(event, match, displayOrder, options) {
   }
 }
 
-function makeShootoutCsvRow(kick, match, displayOrder) {
+function makeShootoutCsvRow(kick, match, displayOrder, result = buildFinalMatchReportSummary(match).result) {
   const teamSide = firstText(kick.teamSide, kick.team_side) === 'opponent' ? 'opponent' : 'club'
   const team = teamSide === 'opponent'
     ? firstText(match.opponent, match.opponentName, match.opponent_name) || 'Opponent'
@@ -130,8 +137,11 @@ function makeShootoutCsvRow(kick, match, displayOrder) {
     : firstText(kick.outcome) === 'scored' ? 'Scored' : 'Missed or saved'
 
   return {
+    Club: getClubName(match),
     Fixture: getFixtureName(match),
     'Match date': getMatchDate(match),
+    'Half-time score': result.halfTimeScore,
+    'Full-time score': result.fullTimeScore,
     'Match phase': 'Penalty shootout',
     'Match minute': '',
     'Stoppage minute': '',
@@ -149,9 +159,28 @@ function makeShootoutCsvRow(kick, match, displayOrder) {
 export function buildCompletedReportCsvRows(match = {}, { audience = 'parent' } = {}) {
   const safeAudience = audience === 'staff' ? 'staff' : 'parent'
   const summary = buildFinalMatchReportSummary(match)
-  const eventRows = summary.timelineEvents.map((event, index) => makeEventCsvRow(event, match, index + 1, { audience: safeAudience }))
-  const shootoutRows = summary.result.shootoutEvents.map((kick, index) => makeShootoutCsvRow(kick, match, eventRows.length + index + 1))
-  return [...eventRows, ...shootoutRows]
+  const result = summary.result
+  const summaryRow = {
+    Club: getClubName(match),
+    Fixture: getFixtureName(match),
+    'Match date': getMatchDate(match),
+    'Half-time score': result.halfTimeScore,
+    'Full-time score': result.fullTimeScore,
+    'Match phase': 'Full time',
+    'Match minute': '',
+    'Stoppage minute': '',
+    Team: firstText(match.teamName, match.team_name, match.teams?.name) || 'Our team',
+    'Event type': 'Match summary',
+    Player: '',
+    'Related player': '',
+    'Penalty goal': 'No',
+    'Shootout result': '',
+    'Event detail': `Half time ${result.halfTimeScore}. Full time ${result.fullTimeScore}.`,
+    'Display order': '0',
+  }
+  const eventRows = summary.timelineEvents.map((event, index) => makeEventCsvRow(event, match, index + 1, { audience: safeAudience, result }))
+  const shootoutRows = result.shootoutEvents.map((kick, index) => makeShootoutCsvRow(kick, match, eventRows.length + index + 1, result))
+  return [summaryRow, ...eventRows, ...shootoutRows]
 }
 
 export function protectSpreadsheetFormulaValue(value) {
@@ -184,14 +213,13 @@ function buildPdfLines(match = {}, { audience = 'parent' } = {}) {
   const summary = buildFinalMatchReportSummary(match)
   const result = summary.result
   const lines = [
-    { text: 'Completed Match Report', bold: true, size: 18 },
-    { text: getClubName(match), bold: true, size: 12 },
     { text: `Fixture: ${getFixtureName(match)}` },
     { text: `Match date: ${getMatchDate(match)}` },
-    { text: `Final score: ${result.finalScore}` },
-    { text: `Normal time: ${result.regulationScore}` },
+    { text: `Half time score: ${result.halfTimeScore}`, bold: true, size: 12 },
+    { text: `Full time score: ${result.fullTimeScore}`, bold: true, size: 12 },
   ]
 
+  if (result.hasExtraTime) lines.push({ text: `Normal time score: ${result.regulationScore}` })
   if (result.extraTimeScore) lines.push({ text: `After extra time: ${result.extraTimeScore}` })
   if (result.shootoutScore) lines.push({ text: `Penalty shootout: ${result.shootoutScore}` })
   if (result.shootoutWinner) lines.push({ text: `Shootout winner: ${result.shootoutWinner}` })
@@ -208,7 +236,7 @@ function buildPdfLines(match = {}, { audience = 'parent' } = {}) {
   if (result.shootoutEvents.length > 0) {
     lines.push({ text: '' }, { text: 'Penalty shootout kicks', bold: true, size: 12 })
     for (const kick of result.shootoutEvents) {
-      const row = makeShootoutCsvRow(kick, match, 0)
+      const row = makeShootoutCsvRow(kick, match, 0, result)
       lines.push({ text: `${row.Team}${row.Player ? `, ${row.Player}` : ''} | ${row['Event detail']}` })
     }
   }
@@ -276,8 +304,42 @@ function textBytes(value) {
   return encodeWinAnsi(value)
 }
 
-function buildPdfPageStream(lines) {
-  const commands = ['BT', '44 798 Td']
+export function buildCompletedReportBranding(match = {}) {
+  return createPdfBrandingFallback({
+    clubName: getClubName(match),
+    teamName: firstText(match.teamName, match.team_name, match.teams?.name),
+  }, getMatchDate(match))
+}
+
+function buildPdfPageStream(lines, { branding, pageCount, pageNumber }) {
+  const commands = [
+    'q',
+    '0.016 0.471 0.341 rg',
+    '0 750 595 92 re f',
+    'Q',
+    'q',
+    '1 1 1 rg',
+    '44 772 52 52 re f',
+    'Q',
+    'BT',
+    '/F2 16 Tf',
+    '0.016 0.471 0.341 rg',
+    '1 0 0 1 54 790 Tm',
+    `(${escapePdfLiteral(branding.clubInitials)}) Tj`,
+    'ET',
+    'BT',
+    '/F2 15 Tf',
+    '1 1 1 rg',
+    '1 0 0 1 112 804 Tm',
+    `(${escapePdfLiteral(branding.clubName)}) Tj`,
+    '/F1 10 Tf',
+    '1 0 0 1 112 783 Tm',
+    '(Completed Match Report) Tj',
+    'ET',
+    'BT',
+    '44 724 Td',
+    '0.063 0.157 0.216 rg',
+  ]
   let currentSize = 10
   let currentBold = false
   commands.push('/F1 10 Tf')
@@ -292,19 +354,35 @@ function buildPdfPageStream(lines) {
     commands.push(`(${escapePdfLiteral(line.text)}) Tj`)
     commands.push(`0 -${size >= 16 ? 24 : size >= 12 ? 18 : 14} Td`)
   }
-  commands.push('ET')
+  commands.push(
+    'ET',
+    'q',
+    '0.016 0.471 0.341 RG',
+    '0.8 w',
+    '44 38 m 551 38 l S',
+    'Q',
+    'BT',
+    '/F1 8 Tf',
+    '0.294 0.373 0.333 rg',
+    '1 0 0 1 44 24 Tm',
+    `(${escapePdfLiteral(branding.platformAttribution)}) Tj`,
+    '1 0 0 1 500 24 Tm',
+    `(Page ${pageNumber} of ${pageCount}) Tj`,
+    'ET',
+  )
   return textBytes(commands.join('\n'))
 }
 
 export function buildCompletedReportPdf(match = {}, options = {}) {
   const sourceLines = buildPdfLines(match, options)
+  const branding = buildCompletedReportBranding(match)
   const visualLines = sourceLines.flatMap((line) => wrapText(line.text, line.size >= 16 ? 60 : line.size >= 12 ? 76 : 92).map((text) => ({ ...line, text })))
   const pages = []
   let page = []
   let usedHeight = 0
   for (const line of visualLines) {
     const lineHeight = line.size >= 16 ? 24 : line.size >= 12 ? 18 : 14
-    if (page.length > 0 && usedHeight + lineHeight > 720) {
+    if (page.length > 0 && usedHeight + lineHeight > 660) {
       pages.push(page)
       page = []
       usedHeight = 0
@@ -313,7 +391,7 @@ export function buildCompletedReportPdf(match = {}, options = {}) {
     usedHeight += lineHeight
   }
   if (page.length > 0) pages.push(page)
-  if (pages.length === 0) pages.push([{ text: 'Completed Match Report', bold: true, size: 18 }])
+  if (pages.length === 0) pages.push([{ text: 'No report content was recorded.' }])
 
   const fontRegularId = 3 + pages.length * 2
   const fontBoldId = fontRegularId + 1
@@ -324,7 +402,7 @@ export function buildCompletedReportPdf(match = {}, options = {}) {
   pages.forEach((pageLines, index) => {
     const pageId = 3 + index * 2
     const contentId = pageId + 1
-    const stream = buildPdfPageStream(pageLines)
+    const stream = buildPdfPageStream(pageLines, { branding, pageCount: pages.length, pageNumber: index + 1 })
     objectBodies.set(pageId, textBytes(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`))
     objectBodies.set(contentId, concatBytes([textBytes(`<< /Length ${stream.length} >>\nstream\n`), stream, textBytes('\nendstream')]))
   })

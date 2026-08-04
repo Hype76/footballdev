@@ -179,7 +179,7 @@ test('staff and parent pages use the shared completed-report component with priv
     readFile(new URL('../src/components/match-day/CompletedMatchEventReport.jsx', import.meta.url), 'utf8'),
   ])
 
-  assert.match(staffPage, /<CompletedMatchEventReport includeEventNotes match=\{match\} \/>/)
+  assert.match(staffPage, /<CompletedMatchEventReport includeEventNotes match=\{reportMatch\} \/>/)
   assert.match(parentPage, /<CompletedMatchEventReport match=\{match\} \/>/)
   assert.match(parentDomain, /delete match\.finalReport/)
   assert.match(parentDomain, /delete parentEvent\.correctionMetadata/)

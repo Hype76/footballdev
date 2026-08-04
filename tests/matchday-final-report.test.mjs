@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { normalizeMatchDay } from '../src/lib/domain/match-day.js'
 import {
+  buildCompletedMatchResult,
   buildFinalMatchReportSummary,
   isFinalMatchReportAvailable,
   validateFinalMatchReportNotes,
@@ -43,6 +44,7 @@ test('final report summary uses authoritative score and excludes voided events f
     ],
   })
   const summary = buildFinalMatchReportSummary(match)
+  const result = buildCompletedMatchResult(match)
 
   assert.equal(getMatchDayDisplayScore(match), '1 - 2')
   assert.equal(match.matchDurationMinutes, 70)
@@ -52,6 +54,32 @@ test('final report summary uses authoritative score and excludes voided events f
   assert.equal(summary.activeSubstitutions.length, 0)
   assert.deepEqual(summary.activeHydrationBreaks.map((event) => event.id), ['water-1'])
   assert.deepEqual(summary.voidedEvents.map((event) => event.id), ['sub-void', 'goal-void'])
+  assert.equal(result.halfTimeScore, '0 - 0')
+  assert.equal(result.fullTimeScore, '1 - 2')
+  assert.equal(result.hasExtraTime, false)
+})
+
+test('completed result derives half time from active first-half events and honours explicit safe score fields', () => {
+  const result = buildCompletedMatchResult({
+    homeScore: 3,
+    awayScore: 2,
+    events: [
+      { id: 'first-goal', eventStatus: 'active', matchPhase: 'first_half', phaseOrder: 10, minute: 14, homeScore: 1, awayScore: 0 },
+      { id: 'voided-goal', eventStatus: 'voided', matchPhase: 'first_half', phaseOrder: 10, minute: 40, homeScore: 1, awayScore: 1 },
+      { id: 'second-goal', eventStatus: 'active', matchPhase: 'second_half', phaseOrder: 30, minute: 68, homeScore: 2, awayScore: 0 },
+    ],
+  })
+  const explicitResult = buildCompletedMatchResult({
+    homeScore: 4,
+    awayScore: 3,
+    halfTimeHomeScore: 2,
+    halfTimeAwayScore: 1,
+  })
+
+  assert.equal(result.halfTimeScore, '1 - 0')
+  assert.equal(result.fullTimeScore, '3 - 2')
+  assert.equal(explicitResult.halfTimeScore, '2 - 1')
+  assert.equal(explicitResult.fullTimeScore, '4 - 3')
 })
 
 test('match normalization attaches one report to the correct game and preserves safe empty state', () => {
@@ -155,12 +183,14 @@ test('completed game and Previous Games UI expose shared mobile-safe staff and p
   assert.match(reportSource, /Continuous clock/)
   assert.match(reportSource, /Home or away/)
   assert.match(reportSource, /getMatchDayDisplayScore\(match\)/)
-  assert.match(reportSource, /<CompletedMatchEventReport includeEventNotes match=\{match\} \/>/)
+  assert.match(reportSource, /<CompletedMatchEventReport includeEventNotes match=\{reportMatch\} \/>/)
   assert.match(completedEvents, /Goals summary/)
   assert.match(completedEvents, /Cards summary/)
   assert.match(completedEvents, /Substitutions summary/)
   assert.match(completedEvents, /Hydration breaks/)
   assert.match(completedEvents, /Full event timeline/)
+  assert.match(completedEvents, />Half time</)
+  assert.match(completedEvents, />Full time</)
   assert.match(completedEvents, /useState\('summary'\)/)
   assert.match(completedEvents, /aria-controls=\{id\}/)
   assert.match(completedEvents, /aria-expanded=\{isOpen\}/)

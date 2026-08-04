@@ -93,6 +93,8 @@ async function fulfillJson(route, status, payload) {
 }
 
 function rawEvent(id, eventType, teamSide, minute, scorerName, overrides = {}) {
+  const isFirstHalf = Number(minute) <= 65
+
   return {
     id,
     match_day_id: fixtureMatchId,
@@ -102,8 +104,10 @@ function rawEvent(id, eventType, teamSide, minute, scorerName, overrides = {}) {
     minute,
     scorer_name: scorerName,
     scorer_initials: scorerName ? scorerName.slice(0, 1) : '',
-    home_score: 2,
-    away_score: 1,
+    home_score: isFirstHalf ? 1 : 2,
+    away_score: isFirstHalf ? 0 : 1,
+    match_phase: isFirstHalf ? 'first_half' : 'second_half',
+    phase_order: isFirstHalf ? 10 : 30,
     created_at: `2026-07-08T19:${String(Number(minute) % 60).padStart(2, '0')}:00Z`,
     ...overrides,
   }
@@ -278,12 +282,17 @@ async function openParentReport(page) {
 }
 
 async function assertCompletedReport(report, { parent = false } = {}) {
+  const result = report.getByRole('region', { name: 'Completed match result' })
   const reportSections = report.getByLabel('Completed match report sections')
   const summaryButton = reportSections.getByRole('button', { name: /Match summary/ })
   const goalsAndCardsButton = reportSections.getByRole('button', { name: /Goals and cards/ })
   const playerChangesButton = reportSections.getByRole('button', { name: /Player changes/ })
   const timelineButton = reportSections.getByRole('button', { name: /Full event timeline/ })
   await summaryButton.waitFor({ state: 'visible' })
+  await result.getByText('Half time', { exact: true }).waitFor({ state: 'visible' })
+  await result.getByText('1 - 0', { exact: true }).waitFor({ state: 'visible' })
+  await result.getByText('Full time', { exact: true }).waitFor({ state: 'visible' })
+  await result.getByText('2 - 1', { exact: true }).waitFor({ state: 'visible' })
   assert.equal(await summaryButton.getAttribute('aria-expanded'), 'true')
   assert.equal(await goalsAndCardsButton.getAttribute('aria-expanded'), 'false')
   assert.equal(await reportSections.getByRole('button').count(), 5)
@@ -333,7 +342,7 @@ async function assertCompletedReport(report, { parent = false } = {}) {
   }
 }
 
-async function assertCompletedReportExports(report, { downloadCsv = true, parent = false } = {}) {
+async function assertCompletedReportExports(report, { clubName, downloadCsv = true, parent = false } = {}) {
   const pdfButton = report.getByRole('button', { name: 'Download PDF' })
   const csvButton = report.getByRole('button', { name: 'Download CSV' })
   await pdfButton.waitFor({ state: 'visible' })
@@ -349,7 +358,11 @@ async function assertCompletedReportExports(report, { downloadCsv = true, parent
   assert.equal(pdfDownload.suggestedFilename(), '2026-07-08-spain-v-argentina-completed-report.pdf')
   assert.ok(pdf.startsWith('%PDF-1.4'))
   assert.match(pdf, /Completed Match Report/)
+  assert.match(pdf, new RegExp(clubName))
   assert.match(pdf, /Spain v Argentina/)
+  assert.match(pdf, /Half time score: 1 - 0/)
+  assert.match(pdf, /Full time score: 2 - 1/)
+  assert.match(pdf, /Generated securely by Footballplayer\.online/)
 
   if (parent) {
     assert.doesNotMatch(searchablePdf, new RegExp(PRIVATE_REPORT_NOTE))
@@ -375,8 +388,10 @@ async function assertCompletedReportExports(report, { downloadCsv = true, parent
   const csv = await readFile(csvPath, 'utf8')
   assert.equal(csvDownload.suggestedFilename(), '2026-07-08-spain-v-argentina-completed-report.csv')
   assert.equal(csv.charCodeAt(0), 0xfeff)
-  assert.match(csv, /"Fixture","Match date","Match phase"/)
+  assert.match(csv, /"Club","Fixture","Match date","Half-time score","Full-time score","Match phase"/)
+  assert.match(csv, new RegExp(clubName))
   assert.match(csv, /Spain v Argentina/)
+  assert.match(csv, /"1 - 0","2 - 1"/)
   assert.match(csv, /Rodrigo De Paul-O'Connor/)
 
   if (parent) {
@@ -438,7 +453,7 @@ async function run() {
       await signIn(staff.page)
       const staffReport = await openStaffReport(staff.page)
       await assertCompletedReport(staffReport)
-      await assertCompletedReportExports(staffReport)
+      await assertCompletedReportExports(staffReport, { clubName: 'Fixture United' })
       assert.equal(await staff.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       await staff.page.screenshot({ path: `${artifactDir}/staff-${viewport.name}.png`, fullPage: true })
       await assertAddPlayerFormPolish(staff.page)
@@ -450,7 +465,7 @@ async function run() {
       await signIn(scorer.page, { parent: true })
       const scorerReport = await openParentReport(scorer.page)
       await assertCompletedReport(scorerReport, { parent: true })
-      await assertCompletedReportExports(scorerReport, { downloadCsv: viewport.name === 'desktop', parent: true })
+      await assertCompletedReportExports(scorerReport, { clubName: 'Fixture United', downloadCsv: viewport.name === 'desktop', parent: true })
       assert.equal(scorer.saveRequests.length, 0)
       assert.equal(await scorer.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       assertNoPageFailures(scorer, `accepted scorer ${viewport.name}`)
@@ -461,7 +476,7 @@ async function run() {
       await signIn(ordinary.page, { parent: true })
       const ordinaryReport = await openParentReport(ordinary.page)
       await assertCompletedReport(ordinaryReport, { parent: true })
-      await assertCompletedReportExports(ordinaryReport, { downloadCsv: viewport.name === 'desktop', parent: true })
+      await assertCompletedReportExports(ordinaryReport, { clubName: 'Fixture United', downloadCsv: viewport.name === 'desktop', parent: true })
       assert.equal(ordinary.saveRequests.length, 0)
       assert.equal(await ordinary.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
       assertNoPageFailures(ordinary, `ordinary parent ${viewport.name}`)

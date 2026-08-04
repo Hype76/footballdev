@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   buildCompletedReportCsv,
   buildCompletedReportCsvRows,
+  buildCompletedReportBranding,
   buildCompletedReportPdf,
   getCompletedReportFilename,
   protectSpreadsheetFormulaValue,
@@ -123,8 +124,9 @@ test('completed report CSV is structured, ordered, UTF-8, formula-safe, and perm
 
   assert.equal(parentCsv.charCodeAt(0), 0xfeff)
   assert.match(parentCsv, /\r\n/)
-  assert.equal(parentRows.length, 6)
+  assert.equal(parentRows.length, 7)
   assert.deepEqual(parentRows.map((row) => row['Match phase']), [
+    'Full time',
     'Normal time, first half',
     'Normal time, second half',
     'Extra time, first period',
@@ -132,12 +134,15 @@ test('completed report CSV is structured, ordered, UTF-8, formula-safe, and perm
     'Penalty shootout',
     'Penalty shootout',
   ])
-  assert.equal(parentRows[0]['Match minute'], '45')
-  assert.equal(parentRows[0]['Stoppage minute'], '2')
-  assert.equal(parentRows[0]['Penalty goal'], 'Yes')
-  assert.equal(parentRows[2]['Penalty goal'], 'Yes')
-  assert.equal(parentRows[4]['Shootout result'], 'Scored')
-  assert.equal(parentRows[5]['Shootout result'], 'Voided')
+  assert.equal(parentRows[0].Club, 'Atlético Test Club')
+  assert.equal(parentRows[0]['Half-time score'], '1 - 0')
+  assert.equal(parentRows[0]['Full-time score'], '2 - 2')
+  assert.equal(parentRows[1]['Match minute'], '45')
+  assert.equal(parentRows[1]['Stoppage minute'], '2')
+  assert.equal(parentRows[1]['Penalty goal'], 'Yes')
+  assert.equal(parentRows[3]['Penalty goal'], 'Yes')
+  assert.equal(parentRows[5]['Shootout result'], 'Scored')
+  assert.equal(parentRows[6]['Shootout result'], 'Voided')
   assert.match(parentCsv, /María O'Connor-Smith/)
   assert.match(parentCsv, /José Núñez/)
   assert.match(parentCsv, /"'=HYPERLINK\(""https:\/\/invalid\.test""\)"/)
@@ -157,18 +162,32 @@ test('completed report PDF contains accurate visible report data and excludes pr
 
   assert.ok(parentPdf.startsWith('%PDF-1.4'))
   assert.match(parentPdf, /Completed Match Report/)
-  assert.match(parentPdf, /Normal time: 1 - 1/)
+  assert.match(parentPdf, /Atlético Test Club/)
+  assert.match(parentPdf, /Half time score: 1 - 0/)
+  assert.match(parentPdf, /Full time score: 2 - 2/)
+  assert.match(parentPdf, /Normal time score: 1 - 1/)
   assert.match(parentPdf, /After extra time: 2 - 2/)
   assert.match(parentPdf, /Penalty shootout: 5 - 4/)
   assert.match(parentPdf, /Shootout winner: Atlético Test/)
   assert.match(parentPdf, /Penalty goal/)
   assert.match(parentPdf, /María O'Connor-Smith/)
   assert.match(parentPdf, /Penalty shootout kicks/)
+  assert.match(parentPdf, /Generated securely by Footballplayer\.online/)
+  assert.match(parentPdf, /Page 1 of 1/)
   assert.doesNotMatch(parentPdf, new RegExp(PRIVATE_EVENT_NOTE))
   assert.doesNotMatch(parentPdf, new RegExp(PRIVATE_REPORT_NOTE))
   assert.doesNotMatch(parentPdf, /match-internal-id|team-internal-id|private\.parent@example\.test/)
   assert.match(staffPdf, new RegExp(PRIVATE_EVENT_NOTE))
   assert.match(staffPdf, new RegExp(PRIVATE_REPORT_NOTE))
+})
+
+test('completed report branding uses the approved safe club-initial fallback', () => {
+  const branding = buildCompletedReportBranding(completedMatch())
+
+  assert.equal(branding.clubName, 'Atlético Test Club')
+  assert.equal(branding.clubInitials, 'ATC')
+  assert.equal(branding.brandingSource, 'club-initials')
+  assert.equal(branding.platformAttribution, 'Generated securely by Footballplayer.online')
 })
 
 test('completed report filenames and spreadsheet formula protection are stable', () => {

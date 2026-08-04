@@ -4129,6 +4129,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         activeSquadDecisionKey={activeSquadDecisionKey}
         activeVolunteerSelectionKey={activeVolunteerSelectionKey}
         allowFixtureManagement={allowsFixtureManagement}
+        clubIdentity={{
+          clubLogoUrl: user?.clubLogoUrl || '',
+          clubName: user?.clubName || '',
+        }}
         isGameMode={gameModeMatchId === match.id}
         isExpanded
         liveRefreshStatus={liveRefreshStatus}
@@ -4588,10 +4592,15 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   )
 }
 
-function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
+function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, status }) {
   const report = match.finalReport
   const [staffNotes, setStaffNotes] = useState(report?.staffNotes || '')
-  const summary = buildFinalMatchReportSummary(match)
+  const reportMatch = {
+    ...match,
+    clubLogoUrl: clubIdentity?.clubLogoUrl || match.clubLogoUrl || '',
+    clubName: clubIdentity?.clubName || match.clubName || '',
+  }
+  const summary = buildFinalMatchReportSummary(reportMatch)
   const hasChanges = staffNotes.trim() !== (report?.staffNotes || '')
 
   return (
@@ -4619,9 +4628,9 @@ function FinalMatchReportPanel({ isBusy, match, onClose, onSave, status }) {
       </dl>
 
       <div className="mt-5">
-        <CompletedMatchEventReport includeEventNotes match={match} />
+        <CompletedMatchEventReport includeEventNotes match={reportMatch} />
 
-        <CompletedMatchReportExportActions audience="staff" match={match} />
+        <CompletedMatchReportExportActions audience="staff" match={reportMatch} />
       </div>
 
       <section className="mt-5 border-t border-[#d7e5dc] pt-4">
@@ -4700,6 +4709,7 @@ function MatchDayCard({
   activeSquadDecisionKey,
   activeVolunteerSelectionKey,
   allowFixtureManagement,
+  clubIdentity,
   isGameMode,
   isExpanded,
   liveRefreshStatus,
@@ -4940,6 +4950,7 @@ function MatchDayCard({
 
       {isFinalReportAvailable && isFinalReportOpen ? (
         <FinalMatchReportPanel
+          clubIdentity={clubIdentity}
           isBusy={isBusy}
           match={match}
           onClose={() => setIsFinalReportOpen(false)}

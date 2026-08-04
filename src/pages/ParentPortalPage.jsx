@@ -1721,7 +1721,14 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
           </section>
         </div>
       </ParentPortalRouteShell>
-      <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
+      <PreviousGameDetailModal
+        match={selectedPreviousMatch ? {
+          ...selectedPreviousMatch,
+          clubLogoUrl: selectedLink?.clubLogoUrl || '',
+          clubName: selectedLink?.clubName || '',
+        } : null}
+        onClose={() => setSelectedPreviousMatch(null)}
+      />
       <ParentCalendarEventModal
         activeInvitationId={activeInvitationId}
         event={selectedCalendarEvent}

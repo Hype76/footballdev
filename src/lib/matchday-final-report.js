@@ -91,6 +91,16 @@ function getEventPhaseOrder(event) {
   return MATCH_PHASE_ORDER.get(phase) ?? 0
 }
 
+function getEventPhase(event) {
+  return normalizeText(
+    event?.matchPhase
+    ?? event?.match_phase
+    ?? event?.eventPhase
+    ?? event?.event_phase
+    ?? event?.phase,
+  ).toLowerCase()
+}
+
 function getEventMinuteParts(event) {
   const rawMinute = event?.displayMinute
     ?? event?.display_minute
@@ -373,16 +383,41 @@ export function buildCompletedMatchResult(match = {}) {
   const awayShootoutScore = Math.max(Number(match.awayShootoutScore ?? match.away_shootout_score ?? 0), 0)
   const winnerSide = normalizeText(match.shootoutWinner ?? match.shootout_winner)
   const clubIsAway = normalizeText(match.homeAway ?? match.home_away) === 'away'
+  const explicitHalfTimeHomeScore = normalizeOptionalNumber(match.halfTimeHomeScore ?? match.half_time_home_score)
+  const explicitHalfTimeAwayScore = normalizeOptionalNumber(match.halfTimeAwayScore ?? match.half_time_away_score)
+  const matchDurationMinutes = Math.max(Number(match.matchDurationMinutes ?? match.match_duration_minutes ?? 90), 1)
+  const normalTimeHalfMinutes = Math.max(Math.floor(matchDurationMinutes / 2), 1)
+  const halfTimeEvents = (Array.isArray(match.events) ? match.events : [])
+    .filter((event) => normalizeEventStatus(event) !== 'voided')
+    .filter((event) => {
+      const phase = getEventPhase(event)
+
+      if (phase === 'first_half') return true
+      if (phase && phase !== 'pre_match') return false
+
+      const { minute } = getEventMinuteParts(event)
+      return minute >= 0 && minute <= normalTimeHalfMinutes
+    })
+    .filter((event) => (
+      normalizeOptionalNumber(event?.homeScore ?? event?.home_score) !== null
+      && normalizeOptionalNumber(event?.awayScore ?? event?.away_score) !== null
+    ))
+  const latestHalfTimeEvent = sortCompletedMatchEvents(halfTimeEvents).at(-1)
+  const derivedHalfTimeHomeScore = normalizeOptionalNumber(latestHalfTimeEvent?.homeScore ?? latestHalfTimeEvent?.home_score) ?? 0
+  const derivedHalfTimeAwayScore = normalizeOptionalNumber(latestHalfTimeEvent?.awayScore ?? latestHalfTimeEvent?.away_score) ?? 0
   const shootoutWinner = winnerSide
     ? ((winnerSide === 'away') === clubIsAway ? getClubTeamName(match) : getOpponentTeamName(match))
     : ''
 
   return {
+    halfTimeScore: `${explicitHalfTimeHomeScore ?? derivedHalfTimeHomeScore} - ${explicitHalfTimeAwayScore ?? derivedHalfTimeAwayScore}`,
     regulationScore: `${normalTimeHomeScore ?? homeScore} - ${normalTimeAwayScore ?? awayScore}`,
     extraTimeScore: hasExtraTime && extraTimeHomeScore !== null && extraTimeAwayScore !== null
       ? `${extraTimeHomeScore} - ${extraTimeAwayScore}`
       : '',
     finalScore: `${homeScore} - ${awayScore}`,
+    fullTimeScore: `${homeScore} - ${awayScore}`,
+    hasExtraTime,
     homeShootoutScore,
     awayShootoutScore,
     shootoutScore: shootoutEvents.length > 0 || winnerSide ? `${homeShootoutScore} - ${awayShootoutScore}` : '',

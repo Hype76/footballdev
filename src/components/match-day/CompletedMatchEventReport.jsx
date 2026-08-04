@@ -110,15 +110,25 @@ function CompletedMatchResult({ match, result }) {
     <section className="mb-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" aria-label="Completed match result">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Normal time</p>
-          <p className="mt-1 text-xl font-black text-[#101828]">{result.regulationScore}</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Half time</p>
+          <p className="mt-1 text-xl font-black text-[#101828]">{result.halfTimeScore}</p>
         </div>
+        {result.hasExtraTime ? (
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Normal time</p>
+            <p className="mt-1 text-xl font-black text-[#101828]">{result.regulationScore}</p>
+          </div>
+        ) : null}
         {result.extraTimeScore ? (
           <div>
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">After extra time</p>
             <p className="mt-1 text-xl font-black text-[#101828]">{result.extraTimeScore}</p>
           </div>
         ) : null}
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Full time</p>
+          <p className="mt-1 text-xl font-black text-[#101828]">{result.fullTimeScore}</p>
+        </div>
         {result.shootoutScore ? (
           <div>
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Penalty shootout</p>
