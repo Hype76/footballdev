@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260804114357_fp_v1_calendar_invite_recipient_integrity_34.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260804120936_fp_v1_calendar_invite_recipient_integrity_34.sql', import.meta.url)
 const migration = await readFile(migrationUrl, 'utf8')
 
 const ids = {

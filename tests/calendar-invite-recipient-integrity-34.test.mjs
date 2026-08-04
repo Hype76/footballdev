@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260804114357_fp_v1_calendar_invite_recipient_integrity_34.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260804120936_fp_v1_calendar_invite_recipient_integrity_34.sql', import.meta.url)
 const fp33MigrationUrl = new URL('../supabase/migrations/20260804084949_fp_v1_gameday_squad_decisions_resend_33.sql', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/event-player-management.js', import.meta.url)
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
