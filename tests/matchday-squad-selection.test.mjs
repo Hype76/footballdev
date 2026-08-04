@@ -20,15 +20,17 @@ import {
 const migrationUrl = new URL('../supabase/migrations/20260713192928_match_day_player_squad_decisions.sql', import.meta.url)
 const repairMigrationUrl = new URL('../supabase/migrations/20260804084949_fp_v1_gameday_squad_decisions_resend_33.sql', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
+const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const parentPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentDomainUrl = new URL('../src/lib/domain/parent-invitations.js', import.meta.url)
 const responseFunctionUrl = new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url)
 const sendFunctionUrl = new URL('../netlify/functions/send-match-day-availability-requests.js', import.meta.url)
 
-const [migration, repairMigration, matchDayPage, parentPage, parentDomain, responseFunction, sendFunction] = await Promise.all([
+const [migration, repairMigration, matchDayPage, matchDayDomain, parentPage, parentDomain, responseFunction, sendFunction] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(repairMigrationUrl, 'utf8'),
   readFile(matchDayPageUrl, 'utf8'),
+  readFile(matchDayDomainUrl, 'utf8'),
   readFile(parentPageUrl, 'utf8'),
   readFile(parentDomainUrl, 'utf8'),
   readFile(responseFunctionUrl, 'utf8'),
@@ -267,6 +269,8 @@ test('38 player cards expose safe Send and Resend availability invitation action
   assert.match(matchDayPage, /preview: true/)
   assert.match(matchDayPage, /current request keeps its reusable response link/)
   assert.match(matchDayPage, /Squad decision counts/)
+  assert.match(matchDayDomain, /tokenRevokedAt: row\.token_revoked_at \?\? row\.tokenRevokedAt \?\? ''/)
+  assert.match(matchDayPage, /if \(request\.tokenRevokedAt\) \{[\s\S]*?continue/)
 })
 
 test('39 canonical recipient resolver is strict and no response suppresses another email', () => {

@@ -386,6 +386,7 @@ function normalizeAvailabilityRequest(row) {
     respondedAt: row.responded_at ?? row.respondedAt ?? '',
     expiresAt: row.expires_at ?? row.expiresAt ?? '',
     sentAt: row.sent_at ?? row.sentAt ?? '',
+    tokenRevokedAt: row.token_revoked_at ?? row.tokenRevokedAt ?? '',
     volunteerScorerResponse: normalizeVolunteerResponse(row.volunteer_scorer_response ?? row.volunteerScorerResponse),
     volunteerLinesmanResponse: normalizeVolunteerResponse(row.volunteer_linesman_response ?? row.volunteerLinesmanResponse),
     volunteerRefereeResponse: normalizeVolunteerResponse(row.volunteer_referee_response ?? row.volunteerRefereeResponse),
