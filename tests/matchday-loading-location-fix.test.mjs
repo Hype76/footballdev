@@ -77,6 +77,8 @@ test('fixture dependencies settle independently from Match Day list loading', as
   assert.match(loadSource, /setLocations\(locationsResult\.value\)/)
   assert.match(loadSource, /setIsFixtureDataLoading\(false\)/)
   assert.ok(loadSource.indexOf('setLocations(locationsResult.value)') < loadSource.indexOf("matchesResult.status === 'rejected'"))
+  assert.match(loadSource, /setMatches\(\(currentMatches\) => mergeMatchDaySummaries\(currentMatches, nextMatches\)\)/)
+  assert.doesNotMatch(loadSource, /setMatches\(nextMatches\)/)
   assert.match(loadSource, /getMatchDay\(\{ user, matchDayId: priorityMatch\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/)
 })
 

@@ -2406,7 +2406,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       }
 
       const nextMatches = matchesResult.value
-      setMatches(nextMatches)
+      setMatches((currentMatches) => mergeMatchDaySummaries(currentMatches, nextMatches))
       setIsLoading(false)
 
       const priorityMatch = sortMatches(nextMatches.filter((match) => !isPreviousMatch(match)))[0]
