@@ -2479,6 +2479,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       setMatches((currentMatches) => currentMatches.map((match) => (
         match.id === hydratedMatch.id ? hydratedMatch : match
       )))
+      deepLinkHydrationRef.current = ''
     }).catch((error) => {
       console.error(error)
 
