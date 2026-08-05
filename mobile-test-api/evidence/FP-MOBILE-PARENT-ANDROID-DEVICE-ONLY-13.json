@@ -10,7 +10,7 @@
   "baseCommit": "244317f3919f3f600b19348ec3012bc1c3cace50",
   "runtimeBuildSourceCommit": "6dd9ab95b2c4a8f29539e63c069dbfdfff3fea63",
   "sourceEvidenceCommit": "244317f3919f3f600b19348ec3012bc1c3cace50",
-  "initialEvidenceCommit": "pending until this record is committed",
+  "initialEvidenceCommit": "4843a7cee45830b710c3f2ec10f99aaaa226d064",
   "finalEvidenceCommit": "self-referential commit reported after the final record is committed",
   "originalDirtyCheckoutEntriesBefore": 65,
   "sourceGate": {
@@ -198,9 +198,9 @@
   },
   "activityLog": {
     "spreadsheet": "Jeluma Labs - Activity Log",
-    "range": "pending",
-    "evidenceCommitRecorded": "pending",
-    "readBack": "pending"
+    "range": "Sheet1!A1188:L1188",
+    "evidenceCommitRecorded": "4843a7cee45830b710c3f2ec10f99aaaa226d064",
+    "readBack": "passed for all 12 values and inherited TOP alignment with WRAP formatting"
   },
   "outcomeReason": "The exact existing Parent Android test APK passed installation, Parent-only authority, linked synthetic context, lifecycle restoration, biometric separation, reboot, logout, and uninstall/reinstall checks on Steve's Samsung. No production system was contacted and no runtime defect was found. The result remains Amber because token refresh and remote revocation were not safely provable within the no-mutation boundary.",
   "remainingRisk": "An independently observed physical token refresh and a safely orchestrated remote revocation journey remain outstanding. Both require a separately bounded method that cannot affect live Auth or overclaim immediate token invalidation.",
