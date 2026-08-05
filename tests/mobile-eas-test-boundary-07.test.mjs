@@ -1,0 +1,146 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+
+import {
+  APPROVED_MOBILE_TEST,
+  MOBILE_EAS_PROJECT_IDS,
+  validateResolvedMobileEnvironment,
+} from '../apps/mobile-core/src/environmentBoundary.js'
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+function makePublicClientKey(ref = APPROVED_MOBILE_TEST.supabaseRef) {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ ref, role: 'anon' })}.test-signature`
+}
+
+function approvedFixture(appRole, buildProfile) {
+  return {
+    allowLiveSupabase: 'false',
+    apiBaseUrl: APPROVED_MOBILE_TEST.apiOrigin,
+    appRole,
+    buildProfile,
+    easProjectId: MOBILE_EAS_PROJECT_IDS[appRole],
+    supabaseEnvironment: 'test',
+    supabasePublishableKey: makePublicClientKey(),
+    supabaseUrl: APPROVED_MOBILE_TEST.supabaseOrigin,
+  }
+}
+
+for (const appRole of ['coach', 'parent']) {
+  for (const profile of ['development', 'internal', 'store-test']) {
+    test(`${appRole} ${profile} resolves only to the approved test boundary`, () => {
+      const result = validateResolvedMobileEnvironment(approvedFixture(appRole, profile))
+      assert.equal(result.pass, true)
+      assert.deepEqual(result.reasonCodes, [
+        'approved_test_supabase',
+        'approved_test_api',
+        'approved_test_key_pair',
+      ])
+    })
+  }
+}
+
+const hostileCases = [
+  ['missing environment', { supabaseEnvironment: '' }, 'missing_required_variable'],
+  ['missing Supabase URL', { supabaseUrl: '' }, 'missing_required_variable'],
+  ['missing API URL', { apiBaseUrl: '' }, 'missing_required_variable'],
+  ['missing public key', { supabasePublishableKey: '' }, 'missing_required_variable'],
+  ['missing EAS project ID', { easProjectId: '' }, 'wrong_eas_project'],
+  ['live classification', { supabaseEnvironment: 'live' }, 'invalid_environment_classification'],
+  ['live access enabled', { allowLiveSupabase: 'true' }, 'live_access_enabled'],
+  ['production Supabase', { supabaseUrl: 'https://hvapkizujvsahvgspser.supabase.co' }, 'forbidden_live_supabase'],
+  ['retired Supabase', { supabaseUrl: 'https://llpufwzvgxyczxcjwupu.supabase.co' }, 'forbidden_retired_supabase'],
+  ['unknown Supabase', { supabaseUrl: 'https://unknown-project.supabase.co' }, 'unknown_supabase'],
+  ['production API', { apiBaseUrl: 'https://footballplayer.online' }, 'forbidden_live_api'],
+  ['unknown API', { apiBaseUrl: 'https://mobile-test.example.invalid' }, 'unknown_api'],
+  ['HTTP API', { apiBaseUrl: 'http://footballplayer-mobile-test-api.netlify.app' }, 'insecure_api'],
+  ['mismatched public key', { supabasePublishableKey: makePublicClientKey('another-project-ref') }, 'mismatched_supabase_key'],
+  ['unknown profile', { buildProfile: 'other' }, 'invalid_build_profile'],
+]
+
+for (const [name, changes, reason] of hostileCases) {
+  test(`validator rejects ${name} without returning environment values`, () => {
+    const fixture = { ...approvedFixture('coach', 'internal'), ...changes }
+    const result = validateResolvedMobileEnvironment(fixture)
+    assert.equal(result.pass, false)
+    assert.ok(result.reasonCodes.includes(reason))
+    const safeOutput = JSON.stringify(result)
+    for (const value of [fixture.supabasePublishableKey, fixture.supabaseUrl, fixture.apiBaseUrl]) {
+      if (value) assert.equal(safeOutput.includes(value), false)
+    }
+  })
+}
+
+test('store-live is blocked before any resolved environment is required', () => {
+  for (const appRole of ['coach', 'parent']) {
+    const result = validateResolvedMobileEnvironment({ appRole, buildProfile: 'store-live' })
+    assert.equal(result.pass, false)
+    assert.ok(result.reasonCodes.includes('production_build_not_authorised'))
+  }
+})
+
+test('Coach and Parent EAS profiles use supported tester scopes and omit store-live', async () => {
+  for (const appRole of ['coach', 'parent']) {
+    const eas = JSON.parse(await readFile(path.join(repositoryRoot, 'apps', `${appRole}-mobile`, 'eas.json'), 'utf8'))
+    assert.equal(eas.build.development.environment, 'development')
+    assert.equal(eas.build.internal.environment, 'preview')
+    assert.equal(eas.build['store-test'].environment, 'preview')
+    assert.equal(eas.build.development.env.EXPO_PUBLIC_BUILD_PROFILE, 'development')
+    assert.equal(eas.build.internal.env.EXPO_PUBLIC_BUILD_PROFILE, 'internal')
+    assert.equal(eas.build['store-test'].env.EXPO_PUBLIC_BUILD_PROFILE, 'store-test')
+    assert.equal(eas.build['store-live'], undefined)
+    assert.equal(eas.submit['store-live'], undefined)
+  }
+})
+
+test('repository profile guard passes without resolving remote values', () => {
+  const result = spawnSync(process.execPath, ['apps/scripts/mobile-eas-profile-check.mjs'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+  })
+  assert.equal(result.status, 0, result.stderr)
+})
+
+test('Coach and Parent store-live build guards cannot be bypassed by generic build confirmation', () => {
+  for (const appRole of ['coach', 'parent']) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, 'store-live', 'android'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_NATIVE_BUILD_CONFIRMED: 'true' },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /Production mobile build not authorised\./)
+    assert.match(result.stderr, /named production-promotion reference is required/)
+    assert.match(result.stderr, /production_build_not_authorised/)
+    assert.doesNotMatch(result.stderr, /EXPO_PUBLIC_|supabase\.co|netlify\.app/)
+  }
+})
+
+test('Coach and Parent store-live submission guards fail before EAS invocation', () => {
+  for (const appRole of ['coach', 'parent']) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', appRole, 'android', 'store-live'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_SUBMISSION_CONFIRMED: 'true' },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /Production mobile build not authorised\./)
+    assert.match(result.stderr, /production_build_not_authorised/)
+  }
+})
+
+test('mobile source contains no runtime backend selector', async () => {
+  const files = [
+    'apps/mobile-core/src/config.js',
+    'apps/mobile-core/src/environmentBoundary.js',
+    'apps/coach-mobile/App.js',
+    'apps/parent-mobile/App.js',
+  ]
+  const source = (await Promise.all(files.map((file) => readFile(path.join(repositoryRoot, file), 'utf8')))).join('\n')
+  assert.doesNotMatch(source, /setBackend|selectBackend|backendSelector|userEnteredUrl|AsyncStorage[^\n]*(?:supabase|apiBase)/i)
+})

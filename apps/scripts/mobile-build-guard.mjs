@@ -8,7 +8,7 @@ import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const [appRole, profile, platform] = process.argv.slice(2)
 
-const allowedBuilds = new Set(['internal:android', 'store-test:android', 'store-test:ios', 'store-live:android', 'store-live:ios'])
+const allowedBuilds = new Set(['internal:android', 'store-test:android', 'store-test:ios'])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
 
@@ -17,8 +17,15 @@ if (!app) {
   process.exit(1)
 }
 
+if (profile === 'store-live') {
+  console.error('Production mobile build not authorised.')
+  console.error('A named production-promotion reference is required.')
+  console.error('Reason: production_build_not_authorised')
+  process.exit(1)
+}
+
 if (!allowedBuilds.has(`${profile}:${platform}`)) {
-  console.error('Unknown mobile build. Expected internal android, store-test android, store-test ios, store-live android, or store-live ios.')
+  console.error('Unknown mobile build. Expected internal android, store-test android, or store-test ios.')
   process.exit(1)
 }
 

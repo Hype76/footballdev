@@ -40,6 +40,16 @@ function assertStoreSafeApiBaseUrl(value, label) {
 }
 
 for (const app of mobileApps) {
+  process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE = 'false'
+  process.env.EXPO_PUBLIC_API_BASE_URL = 'https://footballplayer-mobile-test-api.netlify.app'
+  process.env.EXPO_PUBLIC_BUILD_PROFILE = 'internal'
+  process.env.EXPO_PUBLIC_EAS_PROJECT_ID = app.appRole === 'coach'
+    ? '347965b1-f32f-47b1-8c86-7aa910fe2cb5'
+    : '7e0906f3-64f4-42d9-b45d-0ee68f599baa'
+  process.env.EXPO_PUBLIC_SUPABASE_ENV = 'test'
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'config-check-placeholder'
+  process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://ndohkecigwlwayghsopw.supabase.co'
+
   const config = require(join(repoRoot, app.appConfig))
   const expo = config?.expo
 
@@ -62,8 +72,11 @@ for (const app of mobileApps) {
   assertEqual(expo.android?.package, app.packageName, `${app.name} resolved Android package`)
   assertEqual(expo.android?.versionCode, 1, `${app.name} resolved Android version code`)
   assertEqual(expo.extra?.appRole, app.appRole, `${app.name} resolved app role`)
+  assertEqual(expo.extra?.buildProfile, 'internal', `${app.name} resolved build profile`)
   assertEqual(expo.extra?.supabaseEnvironment, 'test', `${app.name} resolved Supabase environment`)
   assertEqual(expo.extra?.allowLiveSupabase, 'false', `${app.name} resolved live Supabase gate`)
+  assertEqual(expo.extra?.supabaseUrl, 'https://ndohkecigwlwayghsopw.supabase.co', `${app.name} resolved Supabase URL`)
+  assertEqual(expo.extra?.apiBaseUrl, 'https://footballplayer-mobile-test-api.netlify.app', `${app.name} resolved API base URL`)
   assertStoreSafeApiBaseUrl(expo.extra?.apiBaseUrl, `${app.name} resolved API base URL`)
   assertEqual(expo.plugins?.[0]?.[0], 'expo-notifications', `${app.name} notification plugin`)
   assertEqual(expo.plugins?.[0]?.[1]?.defaultChannel, 'matchday', `${app.name} notification channel`)

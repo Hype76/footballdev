@@ -9,7 +9,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const [appRole, platform, profile = 'store-test'] = process.argv.slice(2)
 
 const allowedPlatforms = new Set(['android', 'ios'])
-const allowedProfiles = new Set(['store-test', 'store-live'])
+const allowedProfiles = new Set(['store-test'])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
 
@@ -23,8 +23,15 @@ if (!allowedPlatforms.has(platform)) {
   process.exit(1)
 }
 
+if (profile === 'store-live') {
+  console.error('Production mobile build not authorised.')
+  console.error('A named production-promotion reference is required.')
+  console.error('Reason: production_build_not_authorised')
+  process.exit(1)
+}
+
 if (!allowedProfiles.has(profile)) {
-  console.error('Unknown submit profile. Expected store-test or store-live.')
+  console.error('Unknown submit profile. Expected store-test.')
   process.exit(1)
 }
 
