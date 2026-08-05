@@ -1,0 +1,170 @@
+{
+  "reference": "FP-MOBILE-EXPO54-PATCH-ALIGN-11",
+  "recordedAt": "2026-08-05T13:25:33+01:00",
+  "status": "Green",
+  "canonicalRepository": "E:/Project Manager/Footbal_Development",
+  "worktree": "E:/Project Manager/FP-MOBILE-EXPO54-PATCH-ALIGN-11",
+  "branch": "codex/fp-mobile-expo54-patch-align-11",
+  "baseCommit": "e253b1c8f21c38bea1f59b55780b7a84db6fd909",
+  "implementationCommit": "6dd9ab95b2c4a8f29539e63c069dbfdfff3fea63",
+  "finalCommit": "commit containing this record",
+  "parentReferences": [
+    "FP-MOBILE-PRESTORE-PUSH-HELPER-REPAIR-10",
+    "FP-MOBILE-SECURE-SESSION-DEVICE-VALIDATE-09",
+    "FP-MOBILE-SECURE-SESSION-IMPLEMENT-08",
+    "FP-MOBILE-EAS-TEST-BOUNDARY-REPAIR-07",
+    "FP-MOBILE-TEST-AUTH-LIMITATION-CLOSURE-06",
+    "FP-MOBILE-TEST-ENV-FOUNDATION-04"
+  ],
+  "runtime": {
+    "node": "v22.21.0",
+    "npm": "11.7.0",
+    "expoCliBefore": "54.0.25",
+    "expoCliAfter": "54.0.26",
+    "expoDoctor": "1.20.1"
+  },
+  "packageBaseline": {
+    "coach": {
+      "expo": "54.0.35",
+      "react": "19.1.0",
+      "reactNative": "0.81.5",
+      "expoSecureStore": "15.0.8",
+      "expoLocalAuthentication": "17.0.8",
+      "supabaseJs": "2.102.1",
+      "asyncStorage": "2.2.0",
+      "lockfileVersion": 3
+    },
+    "parent": {
+      "expo": "54.0.35",
+      "react": "19.1.0",
+      "reactNative": "0.81.5",
+      "expoSecureStore": "15.0.8",
+      "expoLocalAuthentication": "17.0.8",
+      "supabaseJs": "2.102.1",
+      "asyncStorage": "2.2.0",
+      "lockfileVersion": 3
+    }
+  },
+  "packageFinal": {
+    "coach": {
+      "expo": "54.0.36",
+      "react": "19.1.0",
+      "reactNative": "0.81.5",
+      "expoSecureStore": "15.0.8",
+      "expoLocalAuthentication": "17.0.8",
+      "supabaseJs": "2.102.1",
+      "asyncStorage": "2.2.0",
+      "lockfileVersion": 3
+    },
+    "parent": {
+      "expo": "54.0.36",
+      "react": "19.1.0",
+      "reactNative": "0.81.5",
+      "expoSecureStore": "15.0.8",
+      "expoLocalAuthentication": "17.0.8",
+      "supabaseJs": "2.102.1",
+      "asyncStorage": "2.2.0",
+      "lockfileVersion": 3
+    }
+  },
+  "dependencyAlignment": {
+    "method": "npx expo install expo@~54.0.36 in each app",
+    "expoInstallCompatibilityBefore": "Both apps required expo ~54.0.36 and no other direct dependency change",
+    "expoInstallCompatibilityAfter": "Dependencies are up to date for both apps",
+    "packageFiles": [
+      "apps/coach-mobile/package.json",
+      "apps/parent-mobile/package.json"
+    ],
+    "lockfiles": [
+      "apps/coach-mobile/package-lock.json",
+      "apps/parent-mobile/package-lock.json"
+    ],
+    "directDependencyChanges": "Expo ~54.0.35 to ~54.0.36 only",
+    "transitiveChanges": "Identical SDK 54 Expo dependency-subtree lockfile resolution in both apps, including Expo CLI 54.0.26, Metro and Babel support packages",
+    "newPackageSources": "None outside https://registry.npmjs.org/",
+    "newInstallScripts": "None",
+    "duplicateExpoInstallations": "None",
+    "packageManagerChanged": false
+  },
+  "cleanInstall": {
+    "coachBaseline": "npm ci passed, 685 packages",
+    "parentBaseline": "npm ci passed, 685 packages",
+    "coachFinal": "npm ci passed, 686 packages",
+    "parentFinal": "npm ci passed, 686 packages",
+    "rootFinal": "npm ci passed, 1571 packages",
+    "dependencyTree": "npm ls --depth=0 passed for Coach and Parent",
+    "auditNotes": "Existing audit findings recorded without remediation: each mobile app 17 vulnerabilities after alignment; root 24 vulnerabilities. No npm audit fix or broad update was run."
+  },
+  "validation": {
+    "coachExpoDoctorBefore": "17/18, expo 54.0.35 expected ~54.0.36",
+    "parentExpoDoctorBefore": "17/18, expo 54.0.35 expected ~54.0.36",
+    "coachExpoDoctorAfter": "18/18 passed",
+    "parentExpoDoctorAfter": "18/18 passed",
+    "mobilePrestore": "passed",
+    "mobileReleaseCheck": "passed through the complete normal repository path",
+    "rootLint": "passed through mobile:release-check",
+    "webBuild": "passed through mobile:release-check",
+    "mobileWebExport": "Coach and Parent passed through mobile:release-check",
+    "mobileEvidenceCheck": "passed through mobile:release-check",
+    "buildGuardPreEas": "Green by the permitted fallback: complete normal mobile:release-check plus focused test proving release-check precedes the EAS command and no skip or bypass path exists. EAS was not invoked.",
+    "pushHelperTests": "8/8 passed with synthetic tokens and mocked fetch only",
+    "secureSessionTests": "28/28 passed",
+    "authBoundaryTests": "18/18 passed after generated web-export directories were removed",
+    "easBoundaryTests": "27/27 passed",
+    "testEnvironmentTests": "4/4 passed",
+    "authSourceGuard": "passed, 32 files",
+    "easProfileGuard": "passed",
+    "mobileConfigGuard": "passed",
+    "coachExpoConfig": "passed through mobile config and export checks with identity and test-only boundaries unchanged",
+    "parentExpoConfig": "passed through mobile config and export checks with identity and test-only boundaries unchanged",
+    "secretScan": "passed for 1512 tracked files including this evidence record",
+    "diffCheck": "passed",
+    "protectedFileDiff": "No diff in secure-session source, Auth source, EAS profiles, app config, build guard, push-helper runtime, Netlify functions or Supabase files",
+    "buildOutput": "Generated root dist and both dist-web-check directories removed after validation"
+  },
+  "transientEvents": [
+    "The first final Parent expo install --check received an empty registry JSON response. One safe retry passed with Dependencies are up to date.",
+    "The first Auth regression run scanned ignored generated web-export bundles. Removing only the generated dist-web-check outputs restored the intended source-only 18/18 result without a source change."
+  ],
+  "prohibitedActions": {
+    "easChanged": false,
+    "easInvoked": false,
+    "mobileBuild": false,
+    "physicalDeviceValidation": false,
+    "signingCredentialsChanged": false,
+    "pushCredentialsChanged": false,
+    "storeCredentialsChanged": false,
+    "secureSessionChanged": false,
+    "authSourceChanged": false,
+    "pushHelperRuntimeChanged": false,
+    "offlineCommandImplementation": false,
+    "supabaseMigration": false,
+    "supabaseProductionChange": false,
+    "netlifyDeployment": false,
+    "storeSubmission": false,
+    "productionEndpointContacted": false,
+    "productionCustomerDataContacted": false,
+    "productionMutation": false,
+    "emailSent": false,
+    "invitationsSent": false,
+    "recoveryEmailsSent": false,
+    "magicLinksEmailed": false,
+    "pushSent": false,
+    "smsSent": false,
+    "inAppBrowserUsed": false
+  },
+  "activityLog": {
+    "spreadsheet": "Jeluma Labs - Activity Log",
+    "range": "Sheet1!A1186:L1186",
+    "readBack": "passed",
+    "status": "Green"
+  },
+  "originalDirtyCheckout": "Untouched with 65 pre-existing status entries",
+  "knownLimitations": [
+    "No EAS build or physical-device validation was performed.",
+    "SecureStore native behavior, on-device legacy migration, token refresh, logout and biometric behavior remain unproven on physical devices.",
+    "Existing npm audit findings remain outside this bounded Expo patch-alignment phase."
+  ],
+  "remainingRisk": "The non-build release gate is Green, but device-specific secure-session behavior remains unvalidated until the separately controlled device phase is resumed.",
+  "recommendedNextAction": "Resume FP-MOBILE-SECURE-SESSION-DEVICE-VALIDATE-09 only from implementation commit 6dd9ab95b2c4a8f29539e63c069dbfdfff3fea63, rechecking EAS cost, device and test-only environment gates before any build."
+}
