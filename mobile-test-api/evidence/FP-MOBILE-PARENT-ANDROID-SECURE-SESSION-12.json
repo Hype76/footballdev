@@ -1,6 +1,6 @@
 {
   "reference": "FP-MOBILE-PARENT-ANDROID-SECURE-SESSION-12",
-  "recordedAt": "2026-08-05T16:15:00+01:00",
+  "recordedAt": "2026-08-05T16:26:00+01:00",
   "status": "Amber",
   "group": "FP-MOBILE-FOUNDATION",
   "batch": "Parent Android secure-session test build and physical-device validation",
@@ -11,7 +11,8 @@
   "runtimeBuildSourceCommit": "6dd9ab95b2c4a8f29539e63c069dbfdfff3fea63",
   "finalAcceptedRuntimeCommit": "6dd9ab95b2c4a8f29539e63c069dbfdfff3fea63",
   "runtimeFixCommit": null,
-  "finalEvidenceCommit": "commit containing the final form of this record",
+  "initialEvidenceCommit": "c9afd4a13c3a09163e3926144f82ff73bc68abec",
+  "finalEvidenceCommit": "self-referential commit reported in the completion report after this record is committed",
   "originalDirtyCheckoutEntries": 65,
   "runtime": {
     "node": "v22.21.0",
@@ -270,8 +271,9 @@
   },
   "activityLog": {
     "spreadsheet": "Jeluma Labs - Activity Log",
-    "range": "Pending initial evidence commit",
-    "readBack": "Pending initial evidence commit"
+    "range": "Sheet1!A1187:L1187",
+    "evidenceCommitRecorded": "c9afd4a13c3a09163e3926144f82ff73bc68abec",
+    "readBack": "Passed for all 12 values and inherited formatting"
   },
   "outcomeReason": "The Parent Android test-only APK built successfully from the accepted runtime commit at zero cost and all automated and test-boundary checks passed. The outcome is Amber because no approved Android device channel was available, so all physical secure-session journeys remain unproven.",
   "knownLimitations": [
