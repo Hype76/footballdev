@@ -1,8 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createClient } from '@supabase/supabase-js'
 import { getMobileRuntimeConfig } from './config'
+import { createMobileSessionStorage, MOBILE_SUPABASE_AUTH_STORAGE_KEY } from './sessionStorage'
 
 const config = getMobileRuntimeConfig('shared')
+export const mobileSessionStorage = createMobileSessionStorage(config)
 
 export const mobileConfigError = config.configError
 export const isSupabaseConfigured = config.isUsable
@@ -15,10 +16,15 @@ export const supabase = createClient(
       autoRefreshToken: true,
       detectSessionInUrl: false,
       persistSession: true,
-      storage: AsyncStorage,
+      storage: mobileSessionStorage,
+      storageKey: MOBILE_SUPABASE_AUTH_STORAGE_KEY,
     },
   },
 )
+
+export async function clearMobileSessionStorage() {
+  await mobileSessionStorage.clearSessionStorage()
+}
 
 export async function getAccessToken() {
   const { data } = await supabase.auth.getSession()

@@ -4,7 +4,7 @@ import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } 
 import { getMobileRuntimeConfig } from './config'
 import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
-import { getAccessToken, isSupabaseConfigured, mobileConfigError, supabase } from './supabase'
+import { clearMobileSessionStorage, getAccessToken, isSupabaseConfigured, mobileConfigError, supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
@@ -147,11 +147,23 @@ export function AuthProvider({ appRole, children }) {
       console.warn(error)
     }
 
-    const { error } = await supabase.auth.signOut()
+    let signOutError = null
 
-    if (error) {
-      setAuthError(error.message || 'Sign out failed.')
-      throw error
+    try {
+      const { error } = await supabase.auth.signOut()
+      signOutError = error
+    } finally {
+      try {
+        await clearMobileSessionStorage()
+      } finally {
+        setSession(null)
+        setUser(null)
+      }
+    }
+
+    if (signOutError) {
+      setAuthError(signOutError.message || 'Sign out failed.')
+      throw signOutError
     }
   }, [appRole])
 
