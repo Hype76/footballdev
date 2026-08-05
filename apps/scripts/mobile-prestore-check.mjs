@@ -3,6 +3,11 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mobileApps } from './mobile-apps.mjs'
+import {
+  expoPushCallerPaths,
+  expoPushHelperPath,
+  validateExpoPushHelperContract,
+} from './mobile-push-helper-contract.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -74,7 +79,7 @@ const mobileLocalEnvPath = 'apps/scripts/mobile-local-env.mjs'
 const mobileEvidenceInitPath = 'apps/scripts/mobile-evidence-init.mjs'
 
 function read(relativePath) {
-  return readFileSync(join(repoRoot, relativePath), 'utf8')
+  return readFileSync(join(repoRoot, relativePath), 'utf8').replace(/\r\n/g, '\n')
 }
 
 function assertFile(relativePath, label) {
@@ -577,10 +582,18 @@ const mobileSupabase = read('apps/mobile-core/src/supabase.js')
 const mobileSessionStorage = read('apps/mobile-core/src/sessionStorage.js')
 const mobileSecureSessionStorageCore = read('apps/mobile-core/src/secureSessionStorageCore.js')
 const mobileUi = read('apps/mobile-core/src/ui.js')
-const expoPushFunction = read('netlify/functions/_expo-push.js')
-const sendCoachMobilePushFunction = read('netlify/functions/send-coach-mobile-push.js')
-const sendMatchDayPushFunction = read('netlify/functions/send-match-day-push.js')
-const sendParentMobilePushFunction = read('netlify/functions/send-parent-mobile-push.js')
+assertFile(expoPushHelperPath, 'Expo push helper')
+const expoPushFunction = existsSync(join(repoRoot, expoPushHelperPath)) ? read(expoPushHelperPath) : ''
+const expoPushCallerSources = Object.fromEntries(
+  expoPushCallerPaths.map((callerPath) => [callerPath, read(callerPath)]),
+)
+const sendCoachMobilePushFunction = expoPushCallerSources['netlify/functions/send-coach-mobile-push.js']
+const sendMatchDayPushFunction = expoPushCallerSources['netlify/functions/send-match-day-push.js']
+const sendParentMobilePushFunction = expoPushCallerSources['netlify/functions/send-parent-mobile-push.js']
+failures.push(...validateExpoPushHelperContract({
+  helperSource: expoPushFunction,
+  callerSources: expoPushCallerSources,
+}))
 assertIncludes(mobileConfig, 'isUsable: boundary.pass', 'Mobile runtime config')
 assertIncludes(mobileConfig, 'validateResolvedMobileEnvironment', 'Mobile runtime config')
 assertIncludes(mobileConfig, 'EXPO_PUBLIC_BUILD_PROFILE', 'Mobile runtime config')
@@ -665,8 +678,6 @@ assertIncludes(mobileNotifications, 'setStoredDeviceContext({', 'Mobile notifica
 assertNotIncludes(mobileNotifications, 'mobile API base URL', 'Mobile notifications')
 assertNotIncludes(mobileNotifications, 'Expo push token could not be created', 'Mobile notifications')
 assertNotIncludes(mobileNotifications, 'Mobile notifications could not be', 'Mobile notifications')
-assertIncludes(expoPushFunction, 'DeviceNotRegistered', 'Expo push helper')
-assertIncludes(expoPushFunction, 'invalidTokens', 'Expo push helper')
 assertIncludes(sendCoachMobilePushFunction, 'revokeMobileDeviceTokens', 'Coach mobile push function')
 assertIncludes(sendCoachMobilePushFunction, "status: 'revoked'", 'Coach mobile push function')
 assertIncludes(sendMatchDayPushFunction, 'revokeMobileDeviceTokens', 'Matchday mobile push function')
