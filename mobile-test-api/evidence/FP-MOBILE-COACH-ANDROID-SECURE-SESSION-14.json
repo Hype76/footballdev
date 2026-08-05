@@ -11,7 +11,7 @@
   "runtimeBuildSourceCommit": "6dd9ab95b2c4a8f29539e63c069dbfdfff3fea63",
   "finalAcceptedRuntimeCommit": "6dd9ab95b2c4a8f29539e63c069dbfdfff3fea63",
   "runtimeFixCommit": null,
-  "initialEvidenceCommit": "pending",
+  "initialEvidenceCommit": "4d75b291c7b02987874f6a947006e6e2a891b914",
   "finalEvidenceCommit": "self-referential commit reported in the completion report after this record is committed",
   "originalDirtyCheckoutEntries": 65,
   "runtime": {
@@ -307,9 +307,9 @@
   },
   "activityLog": {
     "spreadsheet": "Jeluma Labs - Activity Log",
-    "range": "pending",
-    "evidenceCommitRecorded": "pending",
-    "readBack": "pending"
+    "range": "Sheet1!A1189:L1189",
+    "evidenceCommitRecorded": "4d75b291c7b02987874f6a947006e6e2a891b914",
+    "readBack": "Passed for all 12 values, inherited TOP and WRAP formatting, and exactly one FP14 row"
   },
   "blocker": {
     "category": "physical_device_and_existing_installation_safety_gate",
