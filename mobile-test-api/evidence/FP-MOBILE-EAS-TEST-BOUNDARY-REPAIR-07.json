@@ -1,0 +1,87 @@
+{
+  "reference": "FP-MOBILE-EAS-TEST-BOUNDARY-REPAIR-07",
+  "recordedAt": "2026-08-05T11:01:27+01:00",
+  "status": "Amber",
+  "lineage": {
+    "base": "5b6c5c25f4b7c0ac63031253bb0d5871f95439e2",
+    "branch": "codex/fp-mobile-eas-test-boundary-repair-07",
+    "implementationCommit": "4b5ba56afffaca2c7a66c7578c93471852a3e9f1",
+    "implementationPush": "passed"
+  },
+  "remoteEas": {
+    "authenticatedAccount": "stevehellion",
+    "coach": {
+      "project": "@stevehellion/football-player-coach",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5"
+    },
+    "parent": {
+      "project": "@stevehellion/football-player-parents",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa"
+    },
+    "testerScopes": {
+      "development": "development",
+      "internal": "preview",
+      "store-test": "preview"
+    },
+    "variableSets": 24,
+    "resolvedChecks": {
+      "passed": 6,
+      "failed": 0,
+      "approvedTestSupabase": true,
+      "matchedAnonymousPublicClientKey": true,
+      "approvedHttpsTestApi": true,
+      "classificationTest": true,
+      "liveAccessFalse": true,
+      "projectIdsMatched": true
+    },
+    "productionScopeRead": false,
+    "productionScopeChanged": false,
+    "storeLiveAuthorised": false
+  },
+  "testBoundary": {
+    "supabaseProjectRef": "ndohkecigwlwayghsopw",
+    "apiOrigin": "https://footballplayer-mobile-test-api.netlify.app",
+    "apiHealth": {
+      "ok": true,
+      "environment": "test",
+      "projectRefMatched": true,
+      "productionAccess": false,
+      "communicationsEnabled": false,
+      "schedulesEnabled": false
+    }
+  },
+  "validation": {
+    "mobileEasBoundaryTests": "27/27 passed",
+    "mobileAuthBoundaryTests": "18/18 passed",
+    "mobileTestApiFoundationTests": "4/4 passed",
+    "mobileAuthSourceGuard": "passed, 30 files",
+    "mobileEasProfileGuard": "passed",
+    "mobileConfigCheck": "passed",
+    "syntax": "passed",
+    "easJson": "passed",
+    "emDashCheck": "passed",
+    "stagedSecretScan": "passed",
+    "gitDiffCheck": "passed",
+    "prestore": "blocked by inherited missing netlify/functions/_expo-push.js",
+    "eslint": "unavailable in the isolated worktree"
+  },
+  "prohibitedActions": {
+    "mobileBuild": false,
+    "mobileSubmission": false,
+    "supabaseMutation": false,
+    "netlifyChange": false,
+    "productionAccess": false,
+    "productionCustomerDataRead": false,
+    "customerCommunication": false
+  },
+  "activityLog": {
+    "spreadsheet": "Jeluma Labs - Activity Log",
+    "range": "Sheet1!A1182:L1182",
+    "readBack": "passed"
+  },
+  "notes": [
+    "The EAS production environment was not read or changed.",
+    "Remote values and public client key material are intentionally absent from this evidence.",
+    "The original dirty checkout was not changed."
+  ]
+}
