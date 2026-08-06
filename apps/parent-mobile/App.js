@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -886,10 +887,10 @@ function PollsScreen({ activeActionId, drafts, link, onDraftChange, onRetry, onS
 }
 
 function SettingsScreen({ activeActionId, biometricAvailable, biometricEnabled, lastUpdatedAt, links, onBiometricChange, onSignOut, user }) {
-  const appVersion = Constants.expoConfig?.version || '1.0.1'
-  const buildNumber = Platform.OS === 'ios'
+  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.1'
+  const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
-    : Constants.expoConfig?.android?.versionCode || '1'
+    : Constants.expoConfig?.android?.versionCode || '1')
 
   return (
     <View style={styles.screenStack}>

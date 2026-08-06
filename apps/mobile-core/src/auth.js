@@ -58,11 +58,16 @@ export function AuthProvider({ appRole, children }) {
           return
         }
 
-        setSession(data?.session || null)
-        if (data?.session?.user && await getBiometricEnabled()) {
-          setIsLocked(true)
+        const nextSession = data?.session || null
+        const biometricEnabled = Boolean(nextSession?.user && await getBiometricEnabled())
+
+        if (!isMounted) {
+          return
         }
-        await loadProfile(data?.session)
+
+        setIsLocked(biometricEnabled)
+        setSession(nextSession)
+        await loadProfile(nextSession)
       } catch (error) {
         console.error(error)
 
@@ -78,7 +83,11 @@ export function AuthProvider({ appRole, children }) {
 
     void bootstrap()
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'INITIAL_SESSION') {
+        return
+      }
+
       setSession(nextSession)
       void loadProfile(nextSession)
     })
