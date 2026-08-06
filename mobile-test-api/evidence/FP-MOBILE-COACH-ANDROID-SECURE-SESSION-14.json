@@ -1,6 +1,6 @@
 {
   "reference": "FP-MOBILE-COACH-ANDROID-SECURE-SESSION-14",
-  "recordedAt": "2026-08-06T07:20:33.4015764+01:00",
+  "recordedAt": "2026-08-06T07:22:57.8785647+01:00",
   "status": "Green",
   "group": "FP-MOBILE-FOUNDATION",
   "batch": "Coach Android secure-session build, physical-device assurance and cross-app isolation",
@@ -327,9 +327,11 @@
   },
   "activityLog": {
     "spreadsheet": "Jeluma Labs - Activity Log",
-    "range": "Sheet1!A1189:L1189",
-    "evidenceCommitRecorded": "4d75b291c7b02987874f6a947006e6e2a891b914",
-    "readBack": "Passed for all 12 values, inherited TOP and WRAP formatting, and exactly one FP14 row"
+    "priorBlockerRange": "Sheet1!A1189:L1189",
+    "completionRange": "Sheet1!A1190:L1190",
+    "evidenceCommitRecorded": "edc5440ee55549304f2bfa667b98e9deed60c9f2",
+    "readBack": "Passed for all 12 completion values with inherited TOP and WRAP formatting; row search returned exactly the historical Red blocker and the new Green closure without truncation",
+    "visualVerification": "API formatting inspection passed; the appended row preserved the established row height, column widths, TOP vertical alignment, and WRAP strategy"
   },
   "resolvedBlocker": {
     "category": "physical_device_and_existing_installation_safety_gate",
