@@ -1,7 +1,7 @@
 {
   "reference": "FP-MOBILE-COACH-ANDROID-SECURE-SESSION-14",
-  "recordedAt": "2026-08-05T22:19:04.2598836+01:00",
-  "status": "Red",
+  "recordedAt": "2026-08-06T07:20:33.4015764+01:00",
+  "status": "Green",
   "group": "FP-MOBILE-FOUNDATION",
   "batch": "Coach Android secure-session build, physical-device assurance and cross-app isolation",
   "canonicalRepository": "E:/Project Manager/Footbal_Development",
@@ -187,47 +187,67 @@
     },
     "initialParentInstallation": false,
     "deviceAtPhysicalTestGate": {
-      "connectedDeviceCount": 0,
-      "adbState": "absent"
+      "connectedDeviceCount": 1,
+      "adbState": "device"
     },
-    "safeReplacementConfirmationReceived": false,
+    "safeReplacementConfirmationReceived": true,
+    "existingCoachUpdateResult": "Android rejected the update because the Play-installed app and internal test APK used different signing certificates",
+    "replacementAction": "Steve explicitly authorised replacement; only com.footballplayer.coach was uninstalled before the verified test APK was installed cleanly",
+    "finalCoachInstallation": {
+      "installed": true,
+      "versionName": "1.0.1",
+      "versionCode": 11,
+      "signedOut": true
+    },
+    "finalParentInstallation": {
+      "installed": true,
+      "versionName": "1.0.1",
+      "versionCode": 7,
+      "signedOut": true
+    },
+    "finalDeviceCleanup": {
+      "adbServerStopped": true,
+      "temporaryUiCapturesRetained": false,
+      "deviceLogsRetained": false,
+      "appsLeftInstalledAndSignedOut": true
+    },
     "deviceSerialRecorded": false,
     "unrelatedDeviceDataInspected": false
   },
   "physicalJourneys": {
-    "coachInstallation": "not performed because the USB device channel disconnected and the existing Coach installation was not confirmed safe to replace",
-    "coachPasswordSignIn": "not performed",
-    "coachAuthority": "not performed",
-    "teamFixture": "not performed",
-    "playerReads": "not performed",
-    "matchDayRead": "not performed",
-    "sessionRead": "not performed",
-    "quickAssessmentRead": "not performed",
-    "warmBackgroundForeground": "not performed",
-    "processSwipeAway": "not performed",
-    "forceStopColdStart": "not performed",
-    "deviceLockUnlock": "not performed",
-    "deviceReboot": "not performed",
-    "biometricDisabled": "not performed",
-    "biometricEnabled": "not performed",
-    "biometricCancellation": "not performed",
-    "biometricFailure": "not performed",
-    "coachLogoutCleanup": "not performed",
+    "coachInstallation": "passed, verified SHA-256 APK clean-installed after user-authorised removal of the incompatible Play-signed package; package com.footballplayer.coach version 1.0.1 code 11",
+    "coachPasswordSignIn": "passed using the approved Windows Credential Manager test record; exact field focus and lengths were validated without printing or storing credentials",
+    "coachAuthority": "passed, synthetic Coach identity and FP TEST Mobile U12 only",
+    "teamFixture": "passed, existing synthetic scheduled fixture loaded read-only",
+    "playerReads": "passed, one synthetic Player loaded read-only",
+    "matchDayRead": "passed, fixture and score loaded; no Start, Goal For, Goal Against, score, or other write control was used",
+    "sessionRead": "passed, existing synthetic assessment session loaded read-only",
+    "quickAssessmentRead": "passed, structure and synthetic Player loaded; no score adjustment or assessment submission occurred",
+    "warmBackgroundForeground": "passed, HOT restoration measured at 36 ms with the same Coach session",
+    "processSwipeAway": "passed, Steve removed the exact Coach card from Android Recents, process was absent, and COLD relaunch restored the same Coach session in 149 ms",
+    "forceStopColdStart": "passed, process absent after exact package force-stop and COLD relaunch restored the same Coach session in 121 ms",
+    "deviceLockUnlock": "passed, protected content stayed hidden behind the local lock after device unlock and the same Coach session returned after registered-finger unlock",
+    "deviceReboot": "passed, Android boot completed, Parent restored its own session, and Coach restored its own session behind the local biometric lock after Steve unlocked the device",
+    "biometricDisabled": "passed, sign-in plus warm, process-kill, force-stop, and cold restoration worked independently of local biometric authority",
+    "biometricEnabled": "passed using existing enrolled biometrics only; protected content stayed hidden and the same Coach session returned without server sign-in",
+    "biometricCancellation": "passed using Android Back; prompt closed, local lock remained, synthetic content stayed hidden, and retry succeeded",
+    "biometricFailure": "passed after one Steve-confirmed unregistered-finger attempt; prompt remained, content stayed hidden, no lockout occurred, and registered-finger recovery succeeded",
+    "coachLogoutCleanup": "passed twice, including final cleanup; login form shown, Team and Player content hidden, no biometric bypass, and force-stop relaunch remained signed out",
     "parentApkReverified": "passed, build 1340b50d-1a18-4cca-b7e4-ed20d507ca53, SHA-256 71b6f8e709b1c91c9d4cf5e8d8ba7eae45b47a4a41b3f26c266e440bcc7ff254",
-    "parentInstallation": "not performed",
-    "parentSignIn": "not performed",
-    "crossAppSessionIsolation": "not performed",
-    "parentLogoutIndependence": "not performed",
-    "coachLogoutIndependence": "not performed",
-    "roleContextIsolation": "not performed",
-    "dataContextIsolation": "not performed",
+    "parentInstallation": "passed without rebuild, package com.footballplayer.parents version 1.0.1 code 7",
+    "parentSignIn": "passed using the approved Windows Credential Manager test record; one linked synthetic Player and Parent-only navigation loaded",
+    "crossAppSessionIsolation": "passed before and after force-stop and device reboot; each app restored only its own namespaced session",
+    "parentLogoutIndependence": "passed, Parent remained signed out after force-stop while Coach remained signed in behind its own local lock",
+    "coachLogoutIndependence": "passed, Coach remained signed out after force-stop and Parent remained signed out without inheriting Coach state",
+    "roleContextIsolation": "passed, Coach Team and staff controls never appeared in Parent and Parent child context never appeared in Coach",
+    "dataContextIsolation": "passed, synthetic Team context remained Coach-only and the one linked synthetic Player context remained Parent-only",
     "physicalTokenRefresh": "not observed",
     "remoteRevocation": "not performed",
     "legacyMigration": "not performed because no independently safe eligible build was proven",
     "physicalCorruptionManipulation": "not performed",
-    "runtimeCrashes": "not observed because the candidate APK was not launched",
-    "authLoops": "not observed because the candidate APK was not launched",
-    "safeDeviceLogScan": "not applicable because physical testing did not start"
+    "runtimeCrashes": 0,
+    "authLoops": 0,
+    "safeDeviceLogScan": "passed in memory for 638 narrow Coach and Parent process log lines; zero secret, email-like, fatal crash, or Auth-loop markers; logs not retained"
   },
   "automatedRegression": {
     "secureSessionTests": "28/28 passed",
@@ -242,16 +262,16 @@
     "parentExpoDoctor": "18/18 passed",
     "mobilePrestore": "passed",
     "mobileReleaseCheck": "passed",
-    "secretScan": "passed for 1511 tracked files",
+    "secretScan": "passed for 1512 tracked files",
     "gitDiffCheck": "passed",
     "generatedOutputCleanup": "passed for root dist and both mobile dist-web-check directories"
   },
   "runtimeAssessment": {
-    "runtimeDefectFound": "unproven physically; no defect found by automated or artifact checks",
+    "runtimeDefectFound": false,
     "runtimeFix": "none",
     "replacementBuild": false,
-    "physicalAcceptance": "blocked",
-    "statusReason": "Red because the critical device and safe-replacement gates prevented all required physical Coach and cross-app journeys. The completed build itself is zero-cost, exact-runtime, test-only, and independently verified."
+    "physicalAcceptance": "passed",
+    "statusReason": "Green because the exact-runtime zero-cost Coach build passed installation, authority, secure-session lifecycle, reboot, biometric, logout, and Coach/Parent isolation checks on the authorised Samsung with no runtime defect."
   },
   "securityReview": {
     "accessTokenStored": false,
@@ -311,19 +331,16 @@
     "evidenceCommitRecorded": "4d75b291c7b02987874f6a947006e6e2a891b914",
     "readBack": "Passed for all 12 values, inherited TOP and WRAP formatting, and exactly one FP14 row"
   },
-  "blocker": {
+  "resolvedBlocker": {
     "category": "physical_device_and_existing_installation_safety_gate",
     "firstObserved": "The Samsung USB channel disconnected during the EAS queue and the existing Coach installation was not confirmed safe to replace.",
-    "consecutiveGoalTurnsConfirmed": 3,
-    "safeProgressExhausted": true,
-    "requiredUserAction": "Reconnect and unlock the authorised Samsung with USB debugging approved, and confirm the existing Coach app contains only synthetic test data and may be replaced."
+    "resolution": "Steve reconnected and unlocked the authorised Samsung, then explicitly authorised replacement of the existing Coach installation.",
+    "resolved": true
   },
-  "outcomeReason": "The exact-runtime Coach APK was built once at zero cost and independently verified, but all physical Coach and Coach/Parent isolation journeys remain unproven because the authorised Samsung is absent and overwriting the existing Coach installation is not safely authorised.",
+  "outcomeReason": "The exact-runtime Coach APK was built once at zero cost, independently verified, installed on the authorised Samsung, and passed every required physical Coach and Coach/Parent session-isolation journey without a runtime defect or production contact.",
   "knownLimitations": [
-    "No candidate Coach APK installation or launch occurred.",
-    "Coach authentication, authority, session lifecycle, biometrics, logout, and cross-app isolation remain unproven physically.",
     "Physical token refresh, remote revocation, legacy migration, and corruption manipulation were not performed."
   ],
-  "remainingRisk": "The verified APK may still contain a physical-device lifecycle or role-isolation defect that automated and artifact checks cannot prove absent.",
-  "recommendedNextAction": "After Steve reconnects and unlocks the authorised Samsung and confirms the installed Coach app is synthetic and replaceable, resume this exact branch and APK without rebuilding, then perform the complete Coach and Parent isolation sequence."
+  "remainingRisk": "Physical token refresh, remote revocation, legacy migration, and deliberate app-private corruption remain unproven by design; none is required for Green under the authorised safety boundary.",
+  "recommendedNextAction": "Accept the exact Coach Android internal APK as device-assured for the completed test-only journeys, keep both test apps installed and signed out, and schedule any token-refresh or remote-revocation proof as a separately authorised test-only Auth phase."
 }
