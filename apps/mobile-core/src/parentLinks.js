@@ -1,5 +1,18 @@
 export function getParentPortalLinks(user) {
-  return Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
+  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
+  const seenPlayers = new Set()
+
+  return links.filter((link) => {
+    const playerId = String(link?.playerId ?? '').trim()
+    const linkId = String(link?.id ?? '').trim()
+
+    if (!playerId || !linkId || seenPlayers.has(playerId)) {
+      return false
+    }
+
+    seenPlayers.add(playerId)
+    return true
+  })
 }
 
 export function getSelectedParentLink(user, selectedLinkId = '') {

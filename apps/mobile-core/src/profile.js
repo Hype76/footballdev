@@ -137,6 +137,7 @@ function normalizeParentProfile(authUser, links) {
     clubName: selectedLink?.clubName || 'Parent Portal',
     displayName: normalizeText(authUser.user_metadata?.display_name || authUser.user_metadata?.name || authUser.email),
     email: normalizeEmail(authUser.email),
+    hasParentAccess: Boolean(selectedLink?.id),
     hasActivePlanAccess: true,
     id: authUser.id,
     name: normalizeText(authUser.user_metadata?.name || authUser.email),
@@ -193,10 +194,6 @@ async function fetchParentProfile(authUser) {
   }
 
   const links = (data || []).map(normalizeParentLink)
-
-  if (links.length === 0) {
-    throw new Error('This login is not linked to a parent account.')
-  }
 
   return normalizeParentProfile(authUser, links)
 }
