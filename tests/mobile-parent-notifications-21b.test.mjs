@@ -94,6 +94,22 @@ test('permission is requested only by the explicit enable path', () => {
   assert.match(enable, /app remains fully usable/i)
 })
 
+test('restored Auth reloads notification state without duplicate focus registration', () => {
+  assert.match(app, /if \(!selectedMobileUser\?\.id\) return undefined/)
+  assert.match(
+    app,
+    /loadParentNotificationState\(\{ apiBaseUrl: config\.apiBaseUrl \}\)[\s\S]*setNotificationState/,
+  )
+
+  const appStateEffectStart = app.indexOf("AppState.addEventListener('change'")
+  const appStateEffect = app.slice(
+    appStateEffectStart,
+    app.indexOf('addParentPushTokenListener', appStateEffectStart),
+  )
+  assert.match(appStateEffect, /loadParentNotificationState/)
+  assert.doesNotMatch(appStateEffect, /enableParentNotifications/)
+})
+
 test('Minimal is the default and Detailed requires an explicit selection', () => {
   assert.equal(normalizeParentNotificationDetail(undefined), 'minimal')
   assert.equal(normalizeParentNotificationDetail('detailed'), 'detailed')

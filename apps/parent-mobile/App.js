@@ -332,13 +332,12 @@ function ParentHome() {
     void Promise.all([
       getBiometricAvailability(),
       getBiometricEnabled(),
-      initializeParentNotifications().then(() => loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })),
+      initializeParentNotifications(),
     ])
-      .then(([availability, enabled, notificationsState]) => {
+      .then(([availability, enabled]) => {
         if (mounted) {
           setBiometricAvailableState(availability.available)
           setBiometricEnabledState(enabled)
-          setNotificationState(notificationsState)
         }
       })
       .catch(() => {
@@ -353,20 +352,31 @@ function ParentHome() {
   }, [])
 
   useEffect(() => {
+    if (!selectedMobileUser?.id) return undefined
+
+    let mounted = true
+    void loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
+      .then((notificationsState) => {
+        if (mounted) setNotificationState(notificationsState)
+      })
+      .catch(() => {})
+
+    return () => {
+      mounted = false
+    }
+  }, [selectedMobileUser?.id])
+
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && selectedLink?.id) {
         void runParentSync().then(() => loadParentData())
-        if (notificationState.enabled) {
-          void enableParentNotifications({
-            apiBaseUrl: config.apiBaseUrl,
-            easProjectId: config.easProjectId,
-            parentLinkId: selectedLink.id,
-          }).then(setNotificationState).catch(() => {})
-        }
+        void loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
+          .then(setNotificationState)
+          .catch(() => {})
       }
     })
     return () => subscription.remove()
-  }, [loadParentData, notificationState.enabled, runParentSync, selectedLink?.id])
+  }, [loadParentData, runParentSync, selectedLink?.id])
 
   useEffect(() => {
     if (!notificationState.enabled || !selectedLink?.id) return undefined
