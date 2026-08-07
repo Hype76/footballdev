@@ -46,6 +46,18 @@ The Parent app uses one user-scoped encrypted document for cached profile, child
 - The 256-bit encryption key is protected by SecureStore. AsyncStorage contains only versioned nonce and ciphertext envelopes.
 - Message read and poll response replay use the existing server-authoritative Parent RPCs. No mobile permission or role claim is trusted.
 
+## Parent notifications
+
+The Parent app uses one random, test-environment installation ID protected by SecureStore. It does not use a device name, email address, hardware identifier, or advertising identifier as device identity.
+
+- Notification permission is requested only after the Parent turns notifications on in Settings.
+- Minimal content is the default. Detailed content requires an explicit selection.
+- Push copy is server-owned and never includes a full Player name, message body, assessment, or staff note.
+- Expo push tokens are not persisted in client AsyncStorage. Registration is refreshed when the token changes.
+- Logout unbinds the server association and unregisters the native notification token while keeping only the non-account-specific local detail preference.
+- The mobile test API can target only the one allowlisted Android slot and one allowlisted iOS slot for the synthetic FP TEST Parent.
+- Production and retired Supabase projects remain rejected by the shared mobile environment boundary.
+
 From the repo root:
 
 ```bash

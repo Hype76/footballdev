@@ -8,7 +8,7 @@ import { clearMobileSessionStorage, getAccessToken, isSupabaseConfigured, mobile
 
 const AuthContext = createContext(null)
 
-export function AuthProvider({ appRole, children, offlineProfileStore = null }) {
+export function AuthProvider({ appRole, children, offlineProfileStore = null, onBeforeSignOut = null }) {
   const [authError, setAuthError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
@@ -160,7 +160,12 @@ export function AuthProvider({ appRole, children, offlineProfileStore = null }) 
       const accessToken = await getAccessToken()
       const config = getMobileRuntimeConfig(appRole)
 
-      if (accessToken && config.apiBaseUrl) {
+      if (accessToken && config.apiBaseUrl && onBeforeSignOut) {
+        await onBeforeSignOut({
+          accessToken,
+          apiBaseUrl: config.apiBaseUrl,
+        })
+      } else if (accessToken && config.apiBaseUrl) {
         await revokeNativePushDevice({
           accessToken,
           apiBaseUrl: config.apiBaseUrl,
@@ -202,7 +207,7 @@ export function AuthProvider({ appRole, children, offlineProfileStore = null }) 
       setAuthError(signOutError.message || 'Sign out failed.')
       throw signOutError
     }
-  }, [appRole, offlineProfileStore])
+  }, [appRole, offlineProfileStore, onBeforeSignOut])
 
   const unlockWithBiometrics = useCallback(async () => {
     setAuthError('')

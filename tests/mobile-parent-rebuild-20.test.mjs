@@ -19,8 +19,9 @@ import {
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
-const [appSource, authSource, experienceSource, dataSource, profileSource, parentLinksSource, prestoreSource, parentConfig, coachConfig] = await Promise.all([
+const [appSource, notificationSource, authSource, experienceSource, dataSource, profileSource, parentLinksSource, prestoreSource, parentConfig, coachConfig] = await Promise.all([
   fs.readFile(`${root}/apps/parent-mobile/App.js`, 'utf8'),
+  fs.readFile(`${root}/apps/parent-mobile/src/notifications.js`, 'utf8'),
   fs.readFile(`${root}/apps/mobile-core/src/auth.js`, 'utf8'),
   fs.readFile(`${root}/apps/parent-mobile/src/parentExperience.js`, 'utf8'),
   fs.readFile(`${root}/apps/mobile-core/src/data.js`, 'utf8'),
@@ -96,8 +97,19 @@ test('Parent shell exposes only approved mobile areas with Android back and deta
   assert.doesNotMatch(appSource, /Coach|Staff tactics|Admin controls|staff-only/i)
 })
 
-test('Parent rebuild does not request notification permission or expose scorer mutation controls', () => {
-  assert.doesNotMatch(appSource, /expo-notifications|useMobileDeviceControls|enableNotifications|requestPermissionsAsync/)
+test('Parent notifications request permission only from Settings and expose no scorer mutation controls', () => {
+  const initialize = notificationSource.slice(
+    notificationSource.indexOf('export async function initializeParentNotifications'),
+    notificationSource.indexOf('export function addParentPushTokenListener'),
+  )
+  const enable = notificationSource.slice(
+    notificationSource.indexOf('export async function enableParentNotifications'),
+    notificationSource.indexOf('export async function updateParentNotificationPreference'),
+  )
+  assert.doesNotMatch(initialize, /requestPermissionsAsync/)
+  assert.match(enable, /requestPermissionsAsync/)
+  assert.match(appSource, /onValueChange=\{onNotificationEnabledChange\}/)
+  assert.doesNotMatch(appSource, /useMobileDeviceControls|enableNotifications/)
   assert.doesNotMatch(appSource, /volunteerAsMatchScorer|updateCoachMatchStatus|addCoachMatchGoal|undoCoachLastMatchGoal/)
   assert.doesNotMatch(appSource, /match\.events/)
 })
@@ -208,7 +220,8 @@ test('Settings contain local biometric explanation, identity, child summary and 
   assert.equal(getBuildClassification('store-test'), 'TestFlight test build')
   assert.match(appSource, /Application\.nativeApplicationVersion/)
   assert.match(appSource, /Application\.nativeBuildVersion/)
-  assert.doesNotMatch(appSource, /supabaseUrl|supabasePublishableKey|easProjectId|project ref|access token/i)
+  assert.doesNotMatch(appSource, /<InfoRow[^>]*(supabase|eas|project ref|access token)/i)
+  assert.doesNotMatch(appSource, /Supabase:|API:|Access token:/i)
 })
 
 test('cold session restoration resolves biometric lock before exposing the authenticated session', () => {

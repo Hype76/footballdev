@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto'
 import NetInfo from '@react-native-community/netinfo'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
+import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -30,6 +31,10 @@ import {
   getParentPolls,
 } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
+import {
+  getParentNotificationStatusLabel,
+  resolveParentNotificationOpen,
+} from '../mobile-core/src/parentNotificationsCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import {
   canSubmitParentPoll,
@@ -47,6 +52,15 @@ import {
   saveParentOfflineSelection,
   syncParentOfflineCommands,
 } from './src/offline'
+import {
+  addParentPushTokenListener,
+  enableParentNotifications,
+  initializeParentNotifications,
+  loadParentNotificationState,
+  sendParentTestNotification,
+  unbindParentNotifications,
+  updateParentNotificationPreference,
+} from './src/notifications'
 
 const config = getMobileRuntimeConfig('parent')
 const resourceNames = ['calendar', 'matches', 'messages', 'polls']
@@ -135,6 +149,7 @@ function LoginScreen() {
 
 function ParentHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
   const [activeActionId, setActiveActionId] = useState('')
   const [biometricAvailable, setBiometricAvailableState] = useState(false)
@@ -146,6 +161,15 @@ function ParentHome() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [offlineCacheState, setOfflineCacheState] = useState({ source: '', stale: false })
   const [notice, setNotice] = useState(null)
+  const [notificationState, setNotificationState] = useState({
+    canAskAgain: true,
+    detailLevel: 'minimal',
+    enabled: false,
+    message: '',
+    permissionGranted: false,
+    permissionStatus: 'undetermined',
+    registered: false,
+  })
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
   const [selectedLinkId, setSelectedLinkId] = useState('')
@@ -153,6 +177,7 @@ function ParentHome() {
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [syncSummary, setSyncSummary] = useState({ needsAttention: 0, state: 'synced', waiting: 0 })
   const requestIdRef = useRef(0)
+  const notificationResponseIdRef = useRef('')
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
   const selectedLink = useMemo(
     () => getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
@@ -304,11 +329,16 @@ function ParentHome() {
 
   useEffect(() => {
     let mounted = true
-    void Promise.all([getBiometricAvailability(), getBiometricEnabled()])
-      .then(([availability, enabled]) => {
+    void Promise.all([
+      getBiometricAvailability(),
+      getBiometricEnabled(),
+      initializeParentNotifications().then(() => loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })),
+    ])
+      .then(([availability, enabled, notificationsState]) => {
         if (mounted) {
           setBiometricAvailableState(availability.available)
           setBiometricEnabledState(enabled)
+          setNotificationState(notificationsState)
         }
       })
       .catch(() => {
@@ -326,10 +356,49 @@ function ParentHome() {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && selectedLink?.id) {
         void runParentSync().then(() => loadParentData())
+        if (notificationState.enabled) {
+          void enableParentNotifications({
+            apiBaseUrl: config.apiBaseUrl,
+            easProjectId: config.easProjectId,
+            parentLinkId: selectedLink.id,
+          }).then(setNotificationState).catch(() => {})
+        }
       }
     })
     return () => subscription.remove()
-  }, [loadParentData, runParentSync, selectedLink?.id])
+  }, [loadParentData, notificationState.enabled, runParentSync, selectedLink?.id])
+
+  useEffect(() => {
+    if (!notificationState.enabled || !selectedLink?.id) return undefined
+    const subscription = addParentPushTokenListener(() => {
+      void enableParentNotifications({
+        apiBaseUrl: config.apiBaseUrl,
+        easProjectId: config.easProjectId,
+        parentLinkId: selectedLink.id,
+      }).then(setNotificationState).catch(() => {})
+    })
+    return () => subscription.remove()
+  }, [notificationState.enabled, selectedLink?.id])
+
+  useEffect(() => {
+    const request = lastNotificationResponse?.notification?.request
+    const responseId = normalizeText(request?.identifier)
+    if (!responseId || notificationResponseIdRef.current === responseId) return
+    notificationResponseIdRef.current = responseId
+
+    const destination = resolveParentNotificationOpen(request.content?.data, {
+      matchday: resources.matches.items.map((item) => item.id),
+      messages: resources.messages.items.map((item) => item.id),
+      polls: resources.polls.items.map((item) => item.id),
+    })
+    if (!destination) return
+
+    void loadParentData().then(() => {
+      setSelectedMatchId(destination.tab === 'home' ? destination.targetId : '')
+      setSelectedMessageId(destination.tab === 'messages' ? destination.targetId : '')
+      setActiveTab(destination.tab)
+    })
+  }, [lastNotificationResponse, loadParentData, resources.matches.items, resources.messages.items, resources.polls.items])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
@@ -493,6 +562,81 @@ function ParentHome() {
     }
   }
 
+  async function handleNotificationEnabledChange(enabled) {
+    if (activeActionId || !selectedLink?.id) return
+    setActiveActionId('notifications')
+    setNotice(null)
+    try {
+      const nextState = enabled
+        ? await enableParentNotifications({
+            apiBaseUrl: config.apiBaseUrl,
+            easProjectId: config.easProjectId,
+            parentLinkId: selectedLink.id,
+          })
+        : await updateParentNotificationPreference({
+            apiBaseUrl: config.apiBaseUrl,
+            detailLevel: notificationState.detailLevel,
+            enabled: false,
+          })
+      setNotificationState(nextState)
+      setNotice({
+        message: nextState.enabled
+          ? `Notifications are on with ${nextState.detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} content.`
+          : nextState.message || 'Notifications are off. The rest of the app is unchanged.',
+        tone: nextState.enabled ? 'success' : 'warning',
+      })
+    } catch (error) {
+      setNotice({
+        message: getParentFriendlyError(error, 'Notification settings could not be changed.'),
+        tone: 'warning',
+      })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleNotificationDetailChange(detailLevel) {
+    if (activeActionId || detailLevel === notificationState.detailLevel) return
+    setActiveActionId('notifications')
+    setNotice(null)
+    try {
+      const nextState = await updateParentNotificationPreference({
+        apiBaseUrl: config.apiBaseUrl,
+        detailLevel,
+        enabled: notificationState.enabled,
+      })
+      setNotificationState(nextState)
+      setNotice({
+        message: `${detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} notification content selected. Full Player names are never included.`,
+        tone: 'success',
+      })
+    } catch (error) {
+      setNotice({
+        message: getParentFriendlyError(error, 'Notification detail could not be changed.'),
+        tone: 'warning',
+      })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleTestNotification(intentType) {
+    if (activeActionId || !notificationState.enabled) return
+    setActiveActionId('notification-test')
+    setNotice(null)
+    try {
+      await sendParentTestNotification({ apiBaseUrl: config.apiBaseUrl, intentType })
+      setNotice({ message: 'A controlled test notification was sent to this installation.', tone: 'success' })
+    } catch (error) {
+      setNotice({
+        message: getParentFriendlyError(error, 'The test notification could not be sent.'),
+        tone: 'warning',
+      })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   if (isProfileLoading) {
     return <LoadingScreen message="Opening your family account..." />
   }
@@ -600,6 +744,10 @@ function ParentHome() {
                 lastUpdatedAt={lastUpdatedAt}
                 links={parentLinks}
                 onBiometricChange={handleBiometricChange}
+                notificationState={notificationState}
+                onNotificationDetailChange={handleNotificationDetailChange}
+                onNotificationEnabledChange={handleNotificationEnabledChange}
+                onSendTestNotification={handleTestNotification}
                 onRetrySync={async () => {
                   const result = await runParentSync({ explicitRetry: true })
                   await loadParentData()
@@ -1060,8 +1208,12 @@ function SettingsScreen({
   isSyncing,
   lastUpdatedAt,
   links,
+  notificationState,
   onBiometricChange,
+  onNotificationDetailChange,
+  onNotificationEnabledChange,
   onRetrySync,
+  onSendTestNotification,
   onSignOut,
   syncSummary,
   user,
@@ -1116,6 +1268,60 @@ function SettingsScreen({
           )}
         </View>
       </View>
+
+      <InfoPanel title="Notifications">
+        <InfoRow label="Status" value={getParentNotificationStatusLabel(notificationState)} />
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.cardTitle}>Parent updates</Text>
+            <Text style={styles.bodyText}>Receive Parent messages, polls and Matchday updates. You can turn this off at any time.</Text>
+            <Text style={styles.helperText}>Permission is requested only when you turn notifications on. Full Player names, message text, assessments and staff notes are never included.</Text>
+            {!notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
+              <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
+            ) : null}
+          </View>
+          {activeActionId === 'notifications' ? <ActivityIndicator color={palette.accent} /> : (
+            <Switch
+              accessibilityLabel="Parent notifications"
+              onValueChange={onNotificationEnabledChange}
+              trackColor={{ false: palette.borderStrong, true: palette.accentMuted }}
+              thumbColor={notificationState.enabled ? palette.accent : palette.textMuted}
+              value={notificationState.enabled}
+            />
+          )}
+        </View>
+
+        <View style={styles.notificationChoices}>
+          {[
+            { copy: 'General alerts with the least detail.', key: 'minimal', label: 'Minimal' },
+            { copy: 'A little more context, without Player names.', key: 'detailed', label: 'Detailed' },
+          ].map((choice) => {
+            const selected = notificationState.detailLevel === choice.key
+            return (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                disabled={activeActionId === 'notifications'}
+                key={choice.key}
+                onPress={() => onNotificationDetailChange(choice.key)}
+                style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
+              >
+                <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{choice.label}</Text>
+                <Text style={styles.helperText}>{choice.copy}</Text>
+              </Pressable>
+            )
+          })}
+        </View>
+
+        {notificationState.enabled ? (
+          <View style={styles.notificationTestActions}>
+            <Text style={styles.helperText}>Controlled tests send only to this authorised test installation.</Text>
+            <PrimaryAction label="Try message alert" loading={activeActionId === 'notification-test'} onPress={() => onSendTestNotification('parent_message')} secondary />
+            <PrimaryAction label="Try poll alert" loading={activeActionId === 'notification-test'} onPress={() => onSendTestNotification('parent_poll')} secondary />
+            <PrimaryAction label="Try Matchday alert" loading={activeActionId === 'notification-test'} onPress={() => onSendTestNotification('matchday_update')} secondary />
+          </View>
+        ) : null}
+      </InfoPanel>
 
       <InfoPanel title="App information">
         <InfoRow label="Build" value={getBuildClassification(config.buildProfile)} />
@@ -1300,7 +1506,11 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider appRole="parent" offlineProfileStore={parentOfflineProfileStore}>
+      <AuthProvider
+        appRole="parent"
+        offlineProfileStore={parentOfflineProfileStore}
+        onBeforeSignOut={unbindParentNotifications}
+      >
         <AppContent />
       </AuthProvider>
     </SafeAreaProvider>
@@ -1390,6 +1600,12 @@ const styles = StyleSheet.create({
   noticeError: { backgroundColor: palette.dangerBackground, borderColor: palette.danger },
   noticeText: { color: palette.text, fontSize: 14, fontWeight: '800', lineHeight: 20 },
   noticeWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
+  notificationChoice: { backgroundColor: palette.cardRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flex: 1, gap: 5, minHeight: 82, padding: 12 },
+  notificationChoiceSelected: { backgroundColor: '#26360c', borderColor: palette.accent },
+  notificationChoices: { flexDirection: 'row', gap: 10 },
+  notificationChoiceTitle: { color: palette.text, fontSize: 15, fontWeight: '900' },
+  notificationChoiceTitleSelected: { color: palette.accent },
+  notificationTestActions: { gap: 9 },
   optionButton: { alignItems: 'center', backgroundColor: '#111e13', borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, minHeight: 52, paddingHorizontal: 14, paddingVertical: 10 },
   optionButtonDisabled: { opacity: 0.55 },
   optionButtonSelected: { backgroundColor: '#26360c', borderColor: palette.accent },
