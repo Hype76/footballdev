@@ -7,7 +7,7 @@ export const parentNotificationIntentTypes = Object.freeze([
   'matchday_update',
 ])
 
-const parentPushFailureStages = new Set(['device', 'expo'])
+const parentPushFailureStages = new Set(['api', 'device', 'expo', 'local', 'permission'])
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -56,6 +56,12 @@ export function getParentPushSetupFailureCode(error, stage = 'expo') {
     category = 'device_unavailable'
   } else if (normalizedStage === 'expo' && signal.includes('server_error')) {
     category = 'service'
+  } else if (normalizedStage === 'permission') {
+    category = 'permission_unavailable'
+  } else if (normalizedStage === 'local') {
+    category = 'storage_unavailable'
+  } else if (normalizedStage === 'api') {
+    category = 'request_unavailable'
   }
 
   return `PARENT_PUSH_${normalizedStage.toUpperCase()}_${category.toUpperCase()}`

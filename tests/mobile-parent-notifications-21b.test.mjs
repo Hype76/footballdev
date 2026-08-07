@@ -58,8 +58,23 @@ test('push setup failures are categorised without exposing provider payloads', (
     getParentPushSetupFailureCode({ code: 'ERR_NOTIFICATIONS_SERVER_ERROR' }, 'expo'),
     'PARENT_PUSH_EXPO_SERVICE',
   )
+  assert.equal(
+    getParentPushSetupFailureCode({ message: 'storage failed' }, 'local'),
+    'PARENT_PUSH_LOCAL_STORAGE_UNAVAILABLE',
+  )
+  assert.equal(
+    getParentPushSetupFailureCode({ message: 'request failed' }, 'api'),
+    'PARENT_PUSH_API_REQUEST_UNAVAILABLE',
+  )
+  assert.equal(
+    getParentPushSetupFailureCode({ message: 'permission failed' }, 'permission'),
+    'PARENT_PUSH_PERMISSION_PERMISSION_UNAVAILABLE',
+  )
   assert.match(app, /Parent notification setup failed\.', normalizeText\(error\?\.code\)/)
   assert.doesNotMatch(app, /Parent notification setup failed\.', error(?:\?\.message)?/)
+  assert.match(client, /createSafePushSetupError\(error, 'local'\)/)
+  assert.match(client, /createSafePushSetupError\(error, 'api'\)/)
+  assert.match(client, /createSafePushSetupError\(error, 'permission'\)/)
 })
 
 test('permission is requested only by the explicit enable path', () => {

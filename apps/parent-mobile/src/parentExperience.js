@@ -40,6 +40,18 @@ export function getParentFriendlyError(error, fallback = 'This information could
     return 'The notification service could not be reached. Try again.'
   }
 
+  if (code.includes('parent_push_permission_') || message.includes('parent_push_permission_')) {
+    return 'Notification permission could not be checked. Try again.'
+  }
+
+  if (code.includes('parent_push_local_') || message.includes('parent_push_local_')) {
+    return 'Notification settings could not be saved on this device. Try again.'
+  }
+
+  if (code.includes('parent_push_api_') || message.includes('parent_push_api_')) {
+    return 'Notification settings could not reach the test service. Try again.'
+  }
+
   if (
     message.includes('network request failed')
     || message.includes('failed to fetch')

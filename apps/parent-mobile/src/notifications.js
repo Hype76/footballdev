@@ -196,12 +196,19 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
 }
 
 export async function enableParentNotifications({ apiBaseUrl, easProjectId, parentLinkId }) {
-  if (!Device.isDevice) throw new Error('Use a real device to enable notifications.')
+  if (!Device.isDevice) {
+    throw createSafePushSetupError({ message: 'device unavailable' }, 'device')
+  }
 
-  const currentPermission = await Notifications.getPermissionsAsync()
-  const permission = currentPermission.granted
-    ? currentPermission
-    : await Notifications.requestPermissionsAsync()
+  let permission
+  try {
+    const currentPermission = await Notifications.getPermissionsAsync()
+    permission = currentPermission.granted
+      ? currentPermission
+      : await Notifications.requestPermissionsAsync()
+  } catch (error) {
+    throw createSafePushSetupError(error, 'permission')
+  }
   const permissionGranted = permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
 
   if (!permissionGranted) {
@@ -229,24 +236,38 @@ export async function enableParentNotifications({ apiBaseUrl, easProjectId, pare
 
   const tokenResult = await getParentExpoPushToken(easProjectId)
   const expoPushToken = normalize(tokenResult.data)
-  if (!expoPushToken) throw new Error('A notification token could not be created on this device.')
+  if (!expoPushToken) {
+    throw createSafePushSetupError({ message: 'token unavailable' }, 'expo')
+  }
 
-  const installationId = await getInstallationId()
-  const detailLevel = await getLocalDetailLevel()
-  const result = await request({
-    apiBaseUrl,
-    method: 'POST',
-    path: '/api/mobile-test/parent-push-installation',
-    body: {
-      appVersion: Application.nativeApplicationVersion || '',
-      buildNumber: Application.nativeBuildVersion || '',
-      detailLevel,
-      expoPushToken,
-      installationId,
-      parentLinkId,
-      platform: Platform.OS,
-    },
-  })
+  let installationId
+  let detailLevel
+  try {
+    installationId = await getInstallationId()
+    detailLevel = await getLocalDetailLevel()
+  } catch (error) {
+    throw createSafePushSetupError(error, 'local')
+  }
+
+  let result
+  try {
+    result = await request({
+      apiBaseUrl,
+      method: 'POST',
+      path: '/api/mobile-test/parent-push-installation',
+      body: {
+        appVersion: Application.nativeApplicationVersion || '',
+        buildNumber: Application.nativeBuildVersion || '',
+        detailLevel,
+        expoPushToken,
+        installationId,
+        parentLinkId,
+        platform: Platform.OS,
+      },
+    })
+  } catch (error) {
+    throw createSafePushSetupError(error, 'api')
+  }
 
   return normalizeParentNotificationState({
     ...(result.installation || {}),
