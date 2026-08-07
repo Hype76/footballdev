@@ -17,7 +17,7 @@ test('current and completed player routes use the compact focused-player workspa
   assert.match(pageSource, /params\.set\('player', nextPlayerKey\)/)
   assert.match(pageSource, /compactMode[\s\S]*focusedPlayer \? \[focusedPlayer\] : \[\]/)
   assert.match(listSource, /Player in focus/)
-  assert.match(listSource, /onArchivePlayer\(event, player\)/)
+  assert.match(listSource, /onRemoveFromTeam\(event, player\)/)
   assert.match(listSource, /onMovePlayerToTrial\(event, player\)/)
   assert.match(listSource, /Open profile/)
 })

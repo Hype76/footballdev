@@ -18,9 +18,13 @@ export function digestInvitationValue(value) {
   return createHash('sha256').update(normalizedValue).digest('hex')
 }
 
-export function buildClubOwnerInviteUrl(baseUrl, invitationValue) {
+export function buildWorkspaceOwnerInviteUrl(baseUrl, invitationValue) {
   const origin = String(baseUrl ?? '').trim().replace(/\/$/, '')
-  return `${origin}/club-invite#token=${encodeURIComponent(invitationValue)}`
+  return `${origin}/workspace-invite?token=${encodeURIComponent(invitationValue)}`
+}
+
+export function buildClubOwnerInviteUrl(baseUrl, invitationValue) {
+  return buildWorkspaceOwnerInviteUrl(baseUrl, invitationValue)
 }
 
 export function getBearerToken(event = {}) {

@@ -15,6 +15,7 @@ import {
   getPublicFreeSignupPlanKey,
   PUBLIC_SIGNUP_ACCEPTED_MESSAGE,
 } from '../lib/public-signup.js'
+import { getWorkspaceScope } from '../lib/workspace-scope.js'
 
 const initialFormData = {
   email: '',
@@ -119,7 +120,7 @@ export function LoginPage() {
         ...current,
         planKey: publicFreePlanKey,
       }))
-      setLocalMessage('Individual Coach free access selected. Create your club account to continue.')
+      setLocalMessage('Individual Coach free access selected. Create your individual workspace to continue.')
     }
 
     if (checkoutStatus === 'success') {
@@ -130,7 +131,8 @@ export function LoginPage() {
           planKey: selectedPlanKey,
         }))
       }
-      setLocalMessage('Checkout completed. Create your club account to continue.')
+      const selectedScope = getWorkspaceScope(selectedPlanKey)
+      setLocalMessage(`Checkout completed. Create your ${selectedScope.workspaceLabel} to continue.`)
     }
 
     if (checkoutStatus === 'cancelled') {

@@ -3,6 +3,7 @@ import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
 import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getPublicFreeSignupPlanKey, hasPublicFreeSignupIntent } from './lib/_signup-policy.js'
 import { normalizePlanKey, PLAN_KEYS, PLAN_KEY_SET } from '../../src/lib/plans.js'
+import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 
 const USER_PROFILE_SELECT = [
   'id',
@@ -27,8 +28,8 @@ const USER_PROFILE_SELECT = [
   'onboarding_dismissed_at',
 ].join(', ')
 
-const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
-const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
+const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, workspace_owner_user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
+const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, workspace_owner_user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
 const FREE_PLAN_KEY = PLAN_KEYS.individual
 const TEST_SIGNUP_PLAN_KEY = PLAN_KEYS.smallClub
 const TEST_SIGNUP_PLAN_KEYS = PLAN_KEY_SET
@@ -38,12 +39,6 @@ const TEAM_MANAGER_ROLE = {
   roleLabel: 'Team Admin',
   roleRank: 70,
 }
-const CLUB_ADMIN_ROLE = {
-  role: 'admin',
-  roleLabel: 'Club Admin',
-  roleRank: 90,
-}
-
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
   const [scheme, token] = String(header).split(' ')
@@ -272,8 +267,107 @@ async function getLatestCheckoutRecord(authUser, clubId = '') {
   return data
 }
 
-function getSignupRole(planKey) {
-  return planKey === FREE_PLAN_KEY ? TEAM_MANAGER_ROLE : CLUB_ADMIN_ROLE
+export function getSignupRole(planKey) {
+  const scope = getWorkspaceScope(planKey)
+
+  if (!scope.supported) {
+    throw new Error('This signup plan is not supported.')
+  }
+
+  return {
+    role: scope.ownerRole.key,
+    roleLabel: scope.ownerRole.label,
+    roleRank: scope.ownerRole.rank,
+  }
+}
+
+async function ensureWorkspaceOwnerProvisioning({ club, profile }) {
+  const scope = getWorkspaceScope(club?.plan_key)
+
+  if (!scope.supported || !club?.id || !profile?.id) {
+    throw new Error('Workspace scope could not be provisioned safely.')
+  }
+
+  const isTopLevelOwner = profile.role === scope.ownerRole.key
+    && Number(profile.role_rank ?? profile.roleRank ?? 0) >= scope.ownerRole.rank
+
+  if (!isTopLevelOwner) {
+    return club
+  }
+
+  const { error: ownerError } = await supabaseAdmin
+    .from('clubs')
+    .update({ workspace_owner_user_id: profile.id })
+    .eq('id', club.id)
+    .is('workspace_owner_user_id', null)
+
+  if (ownerError) {
+    throw ownerError
+  }
+
+  if (!scope.createInitialTeam) {
+    return { ...club, workspace_owner_user_id: club.workspace_owner_user_id || profile.id }
+  }
+
+  const { data: existingTeams, error: teamsError } = await supabaseAdmin
+    .from('teams')
+    .select('id, club_id, name, created_at')
+    .eq('club_id', club.id)
+    .order('created_at', { ascending: true })
+
+  if (teamsError) {
+    throw teamsError
+  }
+
+  if ((existingTeams ?? []).length > 1) {
+    throw new Error('This one-team workspace needs Platform Admin review before access can continue.')
+  }
+
+  let team = existingTeams?.[0] || null
+
+  if (!team) {
+    const { data: createdTeam, error: teamError } = await supabaseAdmin
+      .from('teams')
+      .insert({
+        club_id: club.id,
+        name: club.name,
+        created_by: profile.id,
+        created_by_email: profile.email,
+        created_by_name: profile.name || profile.email,
+        updated_by: profile.id,
+        updated_by_email: profile.email,
+        updated_by_name: profile.name || profile.email,
+      })
+      .select('id, club_id, name, created_at')
+      .single()
+
+    if (teamError || !createdTeam?.id) {
+      throw teamError || new Error('Initial team could not be created.')
+    }
+
+    team = createdTeam
+  }
+
+  const { error: assignmentError } = await supabaseAdmin
+    .from('team_staff')
+    .upsert({
+      team_id: team.id,
+      user_id: profile.id,
+      role_key: TEAM_MANAGER_ROLE.role,
+      updated_by: profile.id,
+    }, {
+      onConflict: 'team_id,user_id',
+    })
+
+  if (assignmentError) {
+    throw assignmentError
+  }
+
+  return {
+    ...club,
+    workspace_owner_user_id: club.workspace_owner_user_id || profile.id,
+    initial_team_id: team.id,
+  }
 }
 
 async function getFirstMembership(authUser) {
@@ -590,7 +684,7 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
     FREE_PLAN_KEY
   const planStatus = checkoutRecord?.plan_status || 'active'
   const signupRole = getSignupRole(planKey)
-  const club = await insertClubWithUniqueName(clubName, {
+  let club = await insertClubWithUniqueName(clubName, {
     plan_key: planKey,
     plan_status: planStatus,
     is_plan_comped: Boolean(testerAccessCode || testSignupWithoutPayment),
@@ -667,6 +761,8 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
 
   await seedDefaultClubRoles(club.id, authUser.id)
 
+  club = await ensureWorkspaceOwnerProvisioning({ club, profile })
+
   return { profile, club }
 }
 
@@ -727,13 +823,13 @@ async function repairExistingSignupWorkspace(authUser, existingProfile) {
 
     club = repairedClub
 
-    const clubAdminRole = getClubAdminRole()
+    const repairedRole = getSignupRole(repairedClub.plan_key)
     const { data: repairedProfile, error: profileError } = await supabaseAdmin
       .from('users')
       .update({
-        role: clubAdminRole.role,
-        role_label: clubAdminRole.roleLabel,
-        role_rank: clubAdminRole.roleRank,
+        role: repairedRole.role,
+        role_label: repairedRole.roleLabel,
+        role_rank: repairedRole.roleRank,
       })
       .eq('id', existingProfile.id)
       .select(USER_PROFILE_SELECT)
@@ -768,7 +864,7 @@ async function repairExistingSignupWorkspace(authUser, existingProfile) {
       .from('users')
       .update({
         role: TEAM_MANAGER_ROLE.role,
-        role_label: TEAM_MANAGER_ROLE.roleLabel,
+        role_label: getWorkspaceScope(FREE_PLAN_KEY).ownerRole.label,
         role_rank: TEAM_MANAGER_ROLE.roleRank,
       })
       .eq('id', existingProfile.id)
@@ -781,6 +877,8 @@ async function repairExistingSignupWorkspace(authUser, existingProfile) {
 
     profile = repairedProfile
   }
+
+  club = await ensureWorkspaceOwnerProvisioning({ club, profile })
 
   return { profile, club }
 }

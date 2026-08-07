@@ -1,4 +1,5 @@
 import { createLimitUpgradeMessage, getPlanLimit } from '../../src/lib/plans.js'
+import { getWorkspaceScope, WORKSPACE_SCOPES } from '../../src/lib/workspace-scope.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { assertPlanFeature, getAuthenticatedPlanProfile } from './lib/_plan-gate.js'
 
@@ -34,13 +35,45 @@ function isComped(profile) {
   return Boolean(profile?.isPlanComped)
 }
 
-function assertClubAdmin(profile) {
+async function assertWorkspaceTeamAuthority(profile, action, teamId) {
   if (profile.role === 'super_admin') {
     return
   }
 
-  if (profile.role !== 'admin' || Number(profile.roleRank ?? 0) < 90) {
-    throw Object.assign(new Error('Only club admins can manage club teams.'), { statusCode: 403 })
+  const workspaceScope = getWorkspaceScope(profile)
+
+  if (!workspaceScope.supported) {
+    throw Object.assign(new Error('This workspace plan does not permit Team management.'), { statusCode: 403 })
+  }
+
+  if (workspaceScope.key === WORKSPACE_SCOPES.club) {
+    if (profile.role !== 'admin' || Number(profile.roleRank ?? 0) < 90) {
+      throw Object.assign(new Error('Only Club Admins can manage Club teams.'), { statusCode: 403 })
+    }
+
+    return
+  }
+
+  if (!['update', 'replace-staff'].includes(action)) {
+    throw Object.assign(new Error('This workspace owns one Team and cannot create or delete additional Teams.'), { statusCode: 403 })
+  }
+
+  const currentTeam = await getTeamForClub(teamId, profile.clubId)
+  const { data: assignment, error } = await supabaseAdmin
+    .from('team_staff')
+    .select('id, role_key, role_rank')
+    .eq('team_id', currentTeam.id)
+    .eq('user_id', profile.id)
+    .eq('role_key', workspaceScope.ownerRole.key)
+    .gte('role_rank', workspaceScope.ownerRole.rank)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  if (!assignment?.id) {
+    throw Object.assign(new Error(`Only the ${workspaceScope.ownerRole.label} can manage this Team.`), { statusCode: 403 })
   }
 }
 
@@ -222,6 +255,7 @@ function normalizeInviteAssignment(invite) {
 
 async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [] }) {
   const currentTeam = await getTeamForClub(teamId, profile.clubId)
+  const workspaceScope = getWorkspaceScope(profile)
   assertPlanFeature({ ...profile, teamId: currentTeam.id, activeTeamId: currentTeam.id }, 'teamStaffRoles')
   const normalizedUserIds = [...new Set((Array.isArray(userIds) ? userIds : [])
     .map((userId) => normalizeText(userId))
@@ -229,6 +263,10 @@ async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [
   const normalizedInviteIds = [...new Set((Array.isArray(inviteIds) ? inviteIds : [])
     .map((inviteId) => normalizeText(inviteId).replace(/^invite:/, ''))
     .filter(Boolean))]
+
+  if (workspaceScope.key !== WORKSPACE_SCOPES.club && !normalizedUserIds.includes(profile.id)) {
+    throw Object.assign(new Error(`${workspaceScope.ownerRole.label} access cannot be removed from its owned Team.`), { statusCode: 403 })
+  }
 
   if (normalizedUserIds.length > 0) {
     const { data: userRows, error: usersError } = await supabaseAdmin
@@ -341,7 +379,7 @@ export async function handler(event) {
     }
 
     const profile = await getAuthenticatedPlanProfile(event, { clubId })
-    assertClubAdmin(profile)
+    await assertWorkspaceTeamAuthority(profile, action, body.teamId)
 
     let team = null
 

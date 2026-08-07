@@ -29,8 +29,9 @@ const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm sh
 
 export function TeamStaffAllocationsSection({
   availableStaff,
+  canDeleteTeam,
   canManageStaffAllocations,
-  canManageStructure,
+  canRenameTeam,
   isLoading,
   isSaving,
   onAddExistingStaff,
@@ -96,8 +97,9 @@ export function TeamStaffAllocationsSection({
           {selectedTeam ? (
             <SelectedTeamPanel
               availableStaff={availableStaff}
+              canDeleteTeam={canDeleteTeam}
               canManageStaffAllocations={canManageStaffAllocations}
-              canManageStructure={canManageStructure}
+              canRenameTeam={canRenameTeam}
               isSaving={isSaving}
               onAddExistingStaff={onAddExistingStaff}
               onDeleteTeam={onDeleteTeam}
@@ -139,7 +141,7 @@ function TeamList({
   return (
     <div className={`${panelClass} p-4`}>
       <p className="text-sm font-black text-[#101828]">Club teams</p>
-      <p className={`mt-1 ${bodyTextClass}`}>Choose a team to manage its staff access.</p>
+      <p className={`mt-1 ${bodyTextClass}`}>Choose a Team to manage its staff access.</p>
       <div className="mt-4 space-y-2">
         {paginatedTeams.items.map((team) => {
           const stats = teamStats?.[team.id] ?? { playerCount: 0, assessmentCount: 0 }
@@ -180,8 +182,9 @@ function TeamList({
 
 function SelectedTeamPanel({
   availableStaff,
+  canDeleteTeam,
   canManageStaffAllocations,
-  canManageStructure,
+  canRenameTeam,
   isSaving,
   onAddExistingStaff,
   onDeleteTeam,
@@ -207,7 +210,7 @@ function SelectedTeamPanel({
     <div className={`${panelClass} p-4`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
-          {canManageStructure ? (
+          {canRenameTeam ? (
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#101828]">Team name</span>
@@ -247,7 +250,7 @@ function SelectedTeamPanel({
             {selectedTeamStaff.length} staff allocated to this team.
           </p>
         </div>
-        {canManageStructure ? (
+        {canDeleteTeam ? (
           <button
           type="button"
           disabled={isSaving}

@@ -18,6 +18,7 @@ import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessInten
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 import { STAFF_SWITCH_PENDING_STORAGE_KEY } from './workspace-routes.js'
 import { recordAnalyticsEvent, recordSuccessfulLoginAnalytics } from './domain/platform-analytics.js'
+import { getWorkspaceScope } from './workspace-scope.js'
 
 export {
   canAssignRole,
@@ -100,6 +101,17 @@ function applyContextualTeamRole(profile, team) {
 
   if (!role || !roleLabel || roleRank <= 0) {
     return contextualProfile
+  }
+
+  const workspaceScope = getWorkspaceScope(profile)
+
+  if (workspaceScope.supported && profile.isWorkspaceOwner && role === workspaceScope.ownerRole.key) {
+    return {
+      ...contextualProfile,
+      role: workspaceScope.ownerRole.key,
+      roleLabel: workspaceScope.ownerRole.label,
+      roleRank: workspaceScope.ownerRole.rank,
+    }
   }
 
   return {
@@ -1050,7 +1062,7 @@ function RuntimeAuthProvider({ children }) {
     assertPasswordPolicy(password)
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
-    const normalizedPlanKey = normalizePlanKey(planKey) || PLAN_KEYS.smallClub
+    const normalizedPlanKey = normalizePlanKey(planKey) || PLAN_KEYS.individual
 
     if (testSignupWithoutPayment) {
       const prepareResponse = await fetch('/.netlify/functions/prepare-staging-test-signup', {
@@ -1243,7 +1255,7 @@ function RuntimeAuthProvider({ children }) {
       }
     } catch (profileError) {
       console.error(profileError)
-      setAuthError(profileError.message || 'Could not create your club.')
+      setAuthError(profileError.message || 'Could not create your workspace.')
       throw profileError
     }
   }

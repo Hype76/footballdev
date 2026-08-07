@@ -5,7 +5,8 @@ process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
 process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||= 'test-publishable-key'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 
-const { createPlatformClubResult } = await import('../netlify/functions/platform-create-club.js')
+const { buildWorkspaceOwnerInviteEmailContent, createPlatformClubResult } = await import('../netlify/functions/platform-create-club.js')
+const { getWorkspaceScope } = await import('../src/lib/workspace-scope.js')
 
 const originalEnv = {
   BRANCH: process.env.BRANCH,
@@ -90,6 +91,11 @@ function createMockSupabase({
     id: '22222222-2222-4222-8222-222222222222',
     expiresAt: '2026-07-03T09:00:00.000Z',
   }
+  const team = {
+    id: '33333333-3333-4333-8333-333333333333',
+    club_id: club.id,
+    name: club.name,
+  }
 
   class Query {
     constructor(table) {
@@ -153,6 +159,10 @@ function createMockSupabase({
         return Promise.resolve(inviteError ? { data: null, error: inviteError } : { data: invite, error: null })
       }
 
+      if (this.table === 'teams') {
+        return Promise.resolve({ data: team, error: null })
+      }
+
       return Promise.resolve({ data: null, error: null })
     }
 
@@ -175,7 +185,7 @@ function createMockSupabase({
       rpc: async (name, payload) => {
         calls.push({ action: 'rpc', name, payload })
 
-        if (name === 'create_club_owner_invite_v2') {
+        if (name === 'create_workspace_owner_invite_v3') {
           return inviteError ? { data: null, error: inviteError } : { data: invite, error: null }
         }
 
@@ -442,10 +452,10 @@ test('createPlatformClubResult reports configuration error and keeps invite link
   assert.equal(parsed.body.invite.deliveryPolicy, 'production')
   assert.equal(parsed.body.invite.deliveryReason, 'missing_email_configuration')
   assert.match(parsed.body.invite.deliveryMessage, /production email is not configured/)
-  assert.match(parsed.body.invite.url, /\/club-invite#token=/)
+  assert.match(parsed.body.invite.url, /\/workspace-invite\?token=/)
   assert.match(parsed.body.warning, /production email is not configured/)
   assert.equal(mock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), true)
-  assert.equal(mock.calls.some((call) => call.name === 'create_club_owner_invite_v2'), true)
+  assert.equal(mock.calls.some((call) => call.name === 'create_workspace_owner_invite_v3'), true)
 })
 
 test('createPlatformClubResult preserves manual invite link when email provider rejects the send', async () => {
@@ -470,7 +480,7 @@ test('createPlatformClubResult preserves manual invite link when email provider 
   assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
   assert.equal(parsed.body.invite.deliveryReason, 'provider_rejected')
-  assert.match(parsed.body.invite.url, /\/club-invite#token=/)
+  assert.match(parsed.body.invite.url, /\/workspace-invite\?token=/)
   assert.match(parsed.body.warning, /could not be sent/)
 })
 
@@ -496,7 +506,7 @@ test('createPlatformClubResult represents provider timeouts as failed delivery w
   assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
   assert.equal(parsed.body.invite.deliveryReason, 'provider_timeout')
-  assert.match(parsed.body.invite.url, /\/club-invite#token=/)
+  assert.match(parsed.body.invite.url, /\/workspace-invite\?token=/)
   assert.match(parsed.body.warning, /could not be sent/)
 })
 
@@ -515,7 +525,7 @@ test('createPlatformClubResult rejects missing required form data before creatin
   const parsed = parseResponse(response)
 
   assert.equal(parsed.statusCode, 400)
-  assert.equal(parsed.body.message, 'Club name is required.')
+  assert.equal(parsed.body.message, 'Workspace name is required.')
   assert.equal(mock.calls.some((call) => call.table === 'clubs'), false)
 })
 
@@ -602,4 +612,73 @@ test('createPlatformClubResult ignores stale cached stats and uses authoritative
   assert.equal(parsed.statusCode, 200)
   assert.equal(parsed.body.success, true)
   assert.equal(mock.calls.find((call) => call.table === 'clubs')?.payload.name, 'Fresh Club FC')
+})
+
+test('Platform Admin provisioning derives Team Admin scope and target from Single Team plan', async () => {
+  setEnv({ CONTEXT: 'production', NODE_ENV: 'production', RESEND_API_KEY: 'resend-fixture-key' })
+  const mock = createMockSupabase()
+  const emailCalls = []
+  const response = await createPlatformClubResult(createEvent({
+    name: 'FP TEST Team',
+    planKey: 'single_team',
+  }), {
+    supabaseAdmin: mock.supabaseAdmin,
+    sendOwnerInviteEmailImpl: async (payload) => {
+      emailCalls.push(payload)
+      return { data: { id: 'email-1' } }
+    },
+  })
+  const parsed = parseResponse(response)
+  const teamInsert = mock.calls.find((call) => call.table === 'teams' && call.action === 'insert')
+  const inviteRpc = mock.calls.find((call) => call.name === 'create_workspace_owner_invite_v3')
+
+  assert.equal(parsed.statusCode, 200)
+  assert.equal(parsed.body.invite.scope, 'team')
+  assert.equal(parsed.body.invite.roleKey, 'head_manager')
+  assert.equal(parsed.body.invite.roleLabel, 'Team Admin')
+  assert.equal(parsed.body.invite.teamId, '33333333-3333-4333-8333-333333333333')
+  assert.equal(teamInsert.payload.name, 'FP TEST Team')
+  assert.equal(inviteRpc.payload.p_team_id, parsed.body.invite.teamId)
+  assert.equal(emailCalls[0].workspaceScope.key, 'team')
+})
+
+test('Platform Admin provisioning keeps Individual and Club owner authority distinct', async () => {
+  setEnv({ CONTEXT: 'production', NODE_ENV: 'production', RESEND_API_KEY: 'resend-fixture-key' })
+
+  for (const fixture of [
+    { planKey: 'individual', scope: 'individual', roleLabel: 'Coach Owner', createsTeam: true, billingMode: 'unpaid' },
+    { planKey: 'small_club', scope: 'club', roleLabel: 'Club Admin', createsTeam: false, billingMode: 'paid' },
+    { planKey: 'development_club', scope: 'club', roleLabel: 'Club Admin', createsTeam: false, billingMode: 'paid' },
+  ]) {
+    const mock = createMockSupabase()
+    const response = await createPlatformClubResult(createEvent({
+      planKey: fixture.planKey,
+      billingMode: fixture.billingMode,
+    }), {
+      supabaseAdmin: mock.supabaseAdmin,
+      sendOwnerInviteEmailImpl: async () => ({ data: { id: 'email-1' } }),
+    })
+    const parsed = parseResponse(response)
+
+    assert.equal(parsed.statusCode, 200)
+    assert.equal(parsed.body.invite.scope, fixture.scope)
+    assert.equal(parsed.body.invite.roleLabel, fixture.roleLabel)
+    assert.equal(mock.calls.some((call) => call.table === 'teams' && call.action === 'insert'), fixture.createsTeam)
+  }
+})
+
+test('Single Team owner email uses only Team customer terminology', () => {
+  const content = buildWorkspaceOwnerInviteEmailContent({
+    billingMode: 'paid',
+    clubName: 'FP TEST Team',
+    inviteUrl: 'https://footballplayer.online/workspace-invite?token=fixture',
+    planKey: 'single_team',
+    workspaceScope: getWorkspaceScope('single_team'),
+  })
+
+  assert.equal(content.subject, 'Set up FP TEST Team in Football Player')
+  assert.match(content.html, /team workspace has been created for your team/)
+  assert.match(content.html, /Create team admin account/)
+  assert.doesNotMatch(content.html, /club admin/i)
+  assert.doesNotMatch(content.html, /your club/i)
 })

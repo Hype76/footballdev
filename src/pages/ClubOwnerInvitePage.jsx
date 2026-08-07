@@ -12,14 +12,16 @@ const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-cen
 export function ClubOwnerInvitePage() {
   const { token: legacyToken } = useParams()
   const [token] = useState(() => {
+    const queryParameters = new URLSearchParams(window.location.search)
+    const queryToken = queryParameters.get('token') || ''
     const hashParameters = new URLSearchParams(window.location.hash.replace(/^#/, ''))
     const fragmentToken = hashParameters.get('token') || ''
 
-    if (fragmentToken) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    if (queryToken || fragmentToken) {
+      window.history.replaceState(null, '', window.location.pathname)
     }
 
-    return fragmentToken || legacyToken || ''
+    return queryToken || fragmentToken || legacyToken || ''
   })
   const navigate = useNavigate()
   const [invite, setInvite] = useState(null)
@@ -48,7 +50,7 @@ export function ClubOwnerInvitePage() {
         const result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false) {
-          throw new Error(result.message || 'Club invite could not be loaded.')
+          throw new Error(result.message || 'Workspace invite could not be loaded.')
         }
 
         if (isCurrent) {
@@ -59,7 +61,7 @@ export function ClubOwnerInvitePage() {
 
         if (isCurrent) {
           setInvite(null)
-          setErrorMessage(error.message || 'Club invite could not be loaded.')
+          setErrorMessage(error.message || 'Workspace invite could not be loaded.')
         }
       } finally {
         if (isCurrent) {
@@ -81,7 +83,7 @@ export function ClubOwnerInvitePage() {
     setSuccessMessage('')
 
     if (!invite) {
-      setErrorMessage('Club invite could not be loaded.')
+      setErrorMessage('Workspace invite could not be loaded.')
       return
     }
 
@@ -133,7 +135,7 @@ export function ClubOwnerInvitePage() {
       }
 
       if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Club admin account could not be created.')
+        throw new Error(result.message || `${invite.roleLabel || 'Workspace'} access could not be created.`)
       }
 
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -143,7 +145,7 @@ export function ClubOwnerInvitePage() {
 
       if (signInError) {
         setSignInEmail(result.email || invite.invitedEmail)
-        setSuccessMessage('Club admin access created. Sign in to continue setup.')
+        setSuccessMessage(`${invite.roleLabel || 'Workspace'} access created. Sign in to continue setup.`)
       } else {
         void recordSuccessfulLoginAnalytics(signInData)
         navigate(result.redirectPath || '/club-settings', { replace: true })
@@ -153,7 +155,7 @@ export function ClubOwnerInvitePage() {
       setConfirmPassword('')
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Club admin account could not be created.')
+      setErrorMessage(error.message || `${invite.roleLabel || 'Workspace'} access could not be created.`)
     } finally {
       setIsSaving(false)
     }
@@ -171,31 +173,37 @@ export function ClubOwnerInvitePage() {
             alt=""
             className="mb-6 h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10"
           />
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Club setup invite</p>
-          <h1 className="text-2xl font-black text-[#101828]">Create club admin access</h1>
+          <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">
+            {invite?.setupEyebrow || 'Workspace setup invite'}
+          </p>
+          <h1 className="text-2xl font-black text-[#101828]">
+            {invite?.setupTitle || 'Create workspace access'}
+          </h1>
           <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Confirm the invited account and create secure club admin access.
+            {invite?.setupDescription || 'Confirm the invited account to continue.'}
           </p>
 
           {isLoading ? (
             <p className="mt-6 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold text-[#4b5f55]">
-              Opening club invite...
+              Opening workspace invite...
             </p>
           ) : errorMessage && !invite ? (
             <div className="mt-6">
-              <NoticeBanner title="Club invite not opened" message={errorMessage} />
+              <NoticeBanner title="Workspace invite not opened" message={errorMessage} />
             </div>
           ) : (
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
               <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Workspace</p>
-                <p className="text-sm font-black text-[#101828]">{invite.clubName || 'Football Player'}</p>
+                <p className="text-sm font-black text-[#101828]">{invite.workspaceName || 'Football Player'}</p>
                 <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
                   Plan: {invite.planName || 'Small Club'}
                 </p>
               </div>
 
-              {errorMessage ? <NoticeBanner title="Club access not created" message={errorMessage} /> : null}
+              {errorMessage ? (
+                <NoticeBanner title={`${invite.roleLabel || 'Workspace'} access not created`} message={errorMessage} />
+              ) : null}
               {successMessage ? (
                 <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46]">
                   {successMessage}
@@ -255,7 +263,7 @@ export function ClubOwnerInvitePage() {
                     disabled={isSaving}
                     className={primaryButtonClass}
                   >
-                    {isSaving ? 'Creating access...' : 'Create Club Admin Access'}
+                    {isSaving ? 'Creating access...' : `Create ${invite.roleLabel || 'workspace'} access`}
                   </button>
                 </>
               ) : (
@@ -275,11 +283,11 @@ export function ClubOwnerInvitePage() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Setup rules</p>
             <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-[#4b5f55]">
               <p>The invitation is locked to the intended account email.</p>
-              <p>The account created here becomes the club admin for settings, staff access, teams, and onboarding.</p>
+              <p>The account created here receives {invite.roleLabel} access for this {invite.scope === 'club' ? 'club' : invite.scope === 'team' ? 'team' : 'individual'} workspace.</p>
               {isPaidInvite ? (
                 <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                   <p className="font-black text-[#101828]">Payments shown</p>
-                  <p className="mt-1">After login, the club admin will be sent to billing before the workspace is fully active.</p>
+                  <p className="mt-1">After login, the workspace owner will be sent to billing before the workspace is fully active.</p>
                 </div>
               ) : (
                 <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4">

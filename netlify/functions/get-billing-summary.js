@@ -54,7 +54,7 @@ export async function handler(event) {
 
     const { data: club, error: clubError } = await supabaseAdmin
       .from('clubs')
-      .select('id, name, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_expires_at')
+      .select('id, name, plan_key, plan_status, is_plan_comped, workspace_owner_user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_expires_at')
       .eq('id', clubId)
       .single()
 
@@ -63,10 +63,12 @@ export async function handler(event) {
     }
 
     const callerRank = Number(caller.role_rank ?? 0)
-    const canAccessBilling = caller.role === 'super_admin' || callerRank >= 90
+    const canAccessBilling = caller.role === 'super_admin'
+      || callerRank >= 90
+      || String(club.workspace_owner_user_id ?? '') === String(caller.id ?? '')
 
     if (!canAccessBilling) {
-      return json(403, { success: false, message: 'Billing is only available to Club Admin users.' })
+      return json(403, { success: false, message: 'Billing is only available to the workspace owner or a Club Admin.' })
     }
 
     let invoices = []

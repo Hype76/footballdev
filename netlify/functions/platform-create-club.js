@@ -8,6 +8,7 @@ import {
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createSupabaseAdminClient, isStagingRequest } from './lib/_supabase.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
+import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 
 const VALID_BILLING_MODES = new Set(['paid', 'unpaid'])
 
@@ -239,8 +240,7 @@ async function getPlatformAdminProfile(supabaseAdmin, event) {
   }
 }
 
-async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteId, inviteToken, ownerEmail, planKey }) {
-  const inviteUrl = buildClubOwnerInviteUrl(baseUrl, inviteToken)
+export function buildWorkspaceOwnerInviteEmailContent({ billingMode, clubName, inviteUrl, planKey, workspaceScope }) {
   const safeClubName = cleanHeaderPart(clubName, 'Football Player')
   const planName = getPlanName(planKey)
   const paymentLine = billingMode === 'paid'
@@ -249,28 +249,43 @@ async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteId, 
   const html = `
     <div style="font-family:Arial,sans-serif;color:#101828;line-height:1.5">
       <h1 style="font-size:22px;margin:0 0 12px">Set up ${safeClubName}</h1>
-      <p>A Football Player workspace has been created for your club.</p>
+      <p>A Football Player ${workspaceScope.workspaceLabel} has been created for your ${workspaceScope.entityLabelLower}.</p>
       <p>${paymentLine}</p>
-      <p><a href="${inviteUrl}" style="display:inline-block;background:#047857;color:#ffffff;padding:12px 16px;border-radius:8px;text-decoration:none;font-weight:700">Create club admin account</a></p>
+      <p><a href="${inviteUrl}" style="display:inline-block;background:#047857;color:#ffffff;padding:12px 16px;border-radius:8px;text-decoration:none;font-weight:700">${workspaceScope.inviteButtonLabel}</a></p>
       <p>If the button does not work, open this link:</p>
       <p><a href="${inviteUrl}">${inviteUrl}</a></p>
       <p>This invite expires in 14 days.</p>
     </div>
   `
 
+  return {
+    subject: `Set up ${safeClubName} in Football Player`,
+    html,
+  }
+}
+
+async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteId, inviteToken, ownerEmail, planKey, workspaceScope }) {
+  const inviteUrl = buildClubOwnerInviteUrl(baseUrl, inviteToken)
+  const content = buildWorkspaceOwnerInviteEmailContent({
+    billingMode,
+    clubName,
+    inviteUrl,
+    planKey,
+    workspaceScope,
+  })
+
   return sendEmail({
     from: createFromAddress('Football Player'),
     to: [ownerEmail],
-    subject: `Set up ${safeClubName} in Football Player`,
-    html,
+    ...content,
   }, {
     context: {
-      emailType: 'club_owner_invite',
+      emailType: 'workspace_owner_invite',
       actorEmail: ownerEmail,
-      targetEntityType: 'club_owner_invite',
+      targetEntityType: 'workspace_owner_invite',
       targetEntityId: inviteId,
     },
-    publicMessage: 'Club invite email could not be sent. Please try again in a moment.',
+    publicMessage: 'Workspace invite email could not be sent. Please try again in a moment.',
   })
 }
 
@@ -366,10 +381,11 @@ export async function createPlatformClubResult(event, {
   const contactPhone = normalizeText(body.contactPhone)
   const ownerEmail = normalizeEmail(body.ownerEmail || body.contactEmail)
   const planKey = normalizePlanKey(body.planKey)
+  const workspaceScope = getWorkspaceScope(planKey)
   const billingMode = VALID_BILLING_MODES.has(body.billingMode) ? body.billingMode : 'paid'
 
   if (!name) {
-    return failureResponse(400, 'Club name is required.')
+    return failureResponse(400, 'Workspace name is required.')
   }
 
   if (!isValidEmail(ownerEmail)) {
@@ -380,12 +396,16 @@ export async function createPlatformClubResult(event, {
     return failureResponse(400, 'Choose a valid billing plan.')
   }
 
+  if (!workspaceScope.supported) {
+    return failureResponse(400, 'Choose a supported workspace plan.')
+  }
+
   if (contactEmail && !isValidEmail(contactEmail)) {
     return failureResponse(400, 'Contact email must be a valid email address.')
   }
 
   if (billingMode === 'paid' && planKey === 'individual') {
-    return failureResponse(400, 'Paid club setup needs a paid club plan.')
+    return failureResponse(400, 'Paid workspace setup needs a paid plan.')
   }
 
   if (billingMode === 'paid' && planKey === 'pilot') {
@@ -490,11 +510,40 @@ export async function createPlatformClubResult(event, {
     status: 'success',
   })
 
-  const { data: invite, error: inviteError } = await supabaseAdmin.rpc('create_club_owner_invite_v2', {
+  let initialTeam = null
+
+  if (workspaceScope.createInitialTeam) {
+    const { data: createdTeam, error: teamError } = await supabaseAdmin
+      .from('teams')
+      .insert({
+        club_id: club.id,
+        name,
+        created_by: platformAdmin.id,
+        created_by_email: platformAdmin.email,
+        created_by_name: platformAdmin.name,
+        updated_by: platformAdmin.id,
+        updated_by_email: platformAdmin.email,
+        updated_by_name: platformAdmin.name,
+      })
+      .select('id, club_id, name')
+      .single()
+
+    if (teamError || !createdTeam?.id) {
+      const error = createStepError('initial_team_insert', teamError || new Error('Initial team could not be created.'), {
+        club,
+        publicMessage: `${workspaceScope.entityLabel} workspace was created, but its initial team could not be created. Open the workspace in Platform Admin and retry setup.`,
+      })
+      throw error
+    }
+
+    initialTeam = createdTeam
+  }
+
+  const { data: invite, error: inviteError } = await supabaseAdmin.rpc('create_workspace_owner_invite_v3', {
     p_club_id: club.id,
+    p_team_id: initialTeam?.id || null,
     p_invited_email: ownerEmail,
     p_billing_mode: billingMode,
-    p_plan_key: planKey,
     p_token_digest: inviteTokenDigest,
     p_created_by: platformAdmin.id,
   })
@@ -562,6 +611,7 @@ export async function createPlatformClubResult(event, {
           inviteToken,
           ownerEmail,
           planKey,
+          workspaceScope,
         })
         deliveryStatus = 'accepted'
         deliveryReason = 'production_delivery_accepted'
@@ -623,6 +673,7 @@ export async function createPlatformClubResult(event, {
         ownerEmail,
         billingMode,
         planKey,
+        workspaceScope: workspaceScope.key,
         inviteId: invite.id,
         inviteEmailSent: deliveryStatus === 'accepted',
         inviteEmailFailed: deliveryStatus === 'failed' || deliveryStatus === 'configuration_error',
@@ -641,6 +692,11 @@ export async function createPlatformClubResult(event, {
       email: ownerEmail,
       billingMode,
       planKey,
+      scope: workspaceScope.key,
+      roleKey: workspaceScope.ownerRole.key,
+      roleLabel: workspaceScope.ownerRole.label,
+      roleRank: workspaceScope.ownerRole.rank,
+      teamId: initialTeam?.id || '',
       sent: deliveryStatus === 'accepted',
       emailFailed: deliveryStatus === 'failed' || deliveryStatus === 'configuration_error',
       deliveryAttempted: deliveryStatus === 'accepted' || deliveryStatus === 'failed',

@@ -43,7 +43,7 @@ function processorEvent({
   }
 }
 
-test('club-owner invitation values are random, digest-only at rest and fragment-delivered', () => {
+test('workspace-owner invitation values are random, digest-only at rest and query-delivered', () => {
   const firstValue = generateInvitationValue()
   const secondValue = generateInvitationValue()
   const digest = digestInvitationValue(firstValue)
@@ -54,8 +54,8 @@ test('club-owner invitation values are random, digest-only at rest and fragment-
   assert.match(firstValue, /^[A-Za-z0-9_-]+$/)
   assert.match(digest, /^[0-9a-f]{64}$/)
   assert.notEqual(digest, firstValue)
-  assert.equal(url, `https://footballplayer.online/club-invite#token=${encodeURIComponent(firstValue)}`)
-  assert.doesNotMatch(url, /\?token=/)
+  assert.equal(url, `https://footballplayer.online/workspace-invite?token=${encodeURIComponent(firstValue)}`)
+  assert.doesNotMatch(url, /#token=/)
 })
 
 test('club-owner migration transforms legacy values and removes plaintext authority', async () => {
@@ -85,13 +85,17 @@ test('club-owner application authority is server-derived and never resets an exi
   assert.doesNotMatch(createAccount, /updateUserById/)
   assert.match(createAccount, /existing_account_authentication_required/)
   assert.match(createAccount, /supabaseAdmin\.auth\.getUser\(bearerToken\)/)
-  assert.match(createAccount, /rpc\('accept_club_owner_invite_v2'/)
+  assert.match(createAccount, /rpc\('accept_workspace_owner_invite_v3'/)
   assert.match(createAccount, /isDefinitiveDatabaseRejection/)
   assert.match(createAccount, /auth\.admin\.deleteUser\(createdAuthUserId\)/)
+  assert.match(createAccount, /invite_scope, intended_role_key, intended_role_label, intended_role_rank/)
+  assert.match(createAccount, /workspaceScope\.key !== invite\.invite_scope/)
   assert.match(getInvite, /event\.httpMethod !== 'POST'/)
   assert.match(getInvite, /\.eq\('token_digest', digestInvitationValue\(token\)\)/)
   assert.doesNotMatch(getInvite, /queryStringParameters/)
   assert.doesNotMatch(getInvite, /token: data\./)
+  assert.match(getInvite, /'Cache-Control': 'no-store'/)
+  assert.match(getInvite, /'Referrer-Policy': 'no-referrer'/)
   assert.match(platformCreate, /generateInvitationValue\(\)/)
   assert.match(platformCreate, /p_token_digest: inviteTokenDigest/)
   assert.match(platformCreate, /targetEntityId: inviteId/)

@@ -15,6 +15,12 @@ import {
   hasPublicFreeSignupIntent,
 } from '../netlify/functions/lib/_signup-policy.js'
 
+process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
+process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||= 'test-publishable-key'
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
+
+const { getSignupRole } = await import('../netlify/functions/ensure-signup-club-profile.js')
+
 const testDirectory = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(testDirectory, '..')
 
@@ -121,4 +127,23 @@ test('every public Start free route uses the canonical signup entry point', asyn
   assert.match(auth, /planKey = PLAN_KEYS\.individual/)
   assert.match(auth, /signup_plan_key: normalizedPlanKey === PLAN_KEYS\.individual/)
   assert.match(signupFunction, /hasPublicFreeSignupIntent\(authUser, body\)/)
+})
+
+test('signup provisioning derives owner role from the selected commercial scope', () => {
+  assert.deepEqual(getSignupRole('individual'), {
+    role: 'head_manager',
+    roleLabel: 'Coach Owner',
+    roleRank: 70,
+  })
+  assert.deepEqual(getSignupRole('single_team'), {
+    role: 'head_manager',
+    roleLabel: 'Team Admin',
+    roleRank: 70,
+  })
+  assert.deepEqual(getSignupRole('small_club'), {
+    role: 'admin',
+    roleLabel: 'Club Admin',
+    roleRank: 90,
+  })
+  assert.throws(() => getSignupRole('unknown_future_plan'), /not supported/)
 })

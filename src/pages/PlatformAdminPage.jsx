@@ -875,17 +875,19 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             deliveryStatus: ownerInvite?.deliveryStatus || (ownerInvite?.sent ? 'accepted' : 'skipped'),
             deliveryReason: ownerInvite?.deliveryReason || '',
             deliveryMessage: ownerInvite?.deliveryMessage || '',
+            roleLabel: ownerInvite?.roleLabel || '',
+            scope: ownerInvite?.scope || '',
           }
         : null)
-      setSuccessMessage(ownerInvite?.sent ? 'Club created and invite accepted for delivery.' : 'Club created. Review the invite delivery status below.')
+      setSuccessMessage(ownerInvite?.sent ? 'Workspace created and invite accepted for delivery.' : 'Workspace created. Review the invite delivery status below.')
       showToast({
-        title: 'Club saved',
-        message: ownerInvite?.sent ? 'The club admin invite was accepted for delivery.' : 'The invite link is ready.',
+        title: 'Workspace saved',
+        message: ownerInvite?.sent ? `The ${ownerInvite?.roleLabel || 'owner'} invite was accepted for delivery.` : 'The invite link is ready.',
       })
       refreshStats()
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Club could not be created.')
+      setErrorMessage(error.message || 'Workspace could not be created.')
     } finally {
       setIsSavingClub(false)
     }
@@ -1254,6 +1256,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       {showClubManagement ? (
         <ManageClubsSection
+          accessToken={session?.access_token || ''}
           createdInvite={createdClubInvite}
           form={newClubForm}
           isSaving={isSavingClub}

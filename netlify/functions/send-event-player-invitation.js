@@ -140,7 +140,6 @@ async function loadRecipientPreview({
     .select(playerSelect)
     .eq('id', playerId)
     .eq('club_id', scopedEvent.club_id)
-    .eq('team_id', scopedEvent.team_id)
     .neq('status', 'archived')
   const inviteQuery = sourceType === 'match-day'
     ? adminSupabase

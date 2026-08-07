@@ -70,6 +70,7 @@ const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx')
 const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
 const ClubOwnerInvitePage = lazyRoute(() => import('../pages/ClubOwnerInvitePage.jsx'), 'ClubOwnerInvitePage')
+const WorkspaceTeamTransferPage = lazyRoute(() => import('../pages/WorkspaceTeamTransferPage.jsx'), 'WorkspaceTeamTransferPage')
 const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'AssessmentsMenuPage')
 const PlayersMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'PlayersMenuPage')
 const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'SessionsMenuPage')
@@ -1551,6 +1552,30 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={null}>
         <StaffInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/workspace-invite',
+    element: (
+      <Suspense fallback={null}>
+        <ClubOwnerInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/workspace-invite/:token',
+    element: (
+      <Suspense fallback={null}>
+        <ClubOwnerInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/team-transfer/:requestId',
+    element: (
+      <Suspense fallback={null}>
+        <WorkspaceTeamTransferPage />
       </Suspense>
     ),
   },

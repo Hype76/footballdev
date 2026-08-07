@@ -2,6 +2,7 @@ import process from 'node:process'
 import { arePaymentsDisabled, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json } from './lib/_stripe-billing.js'
 import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
+import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim().slice(0, 120) : ''
@@ -36,7 +37,7 @@ async function getValidatedLivePromotionCodeId(stripe, promotionCodeId) {
   }
 }
 
-async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
+export async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
   const checkoutParams = {
     mode: 'subscription',
     line_items: [{ price: params.priceId, quantity: 1 }],
@@ -50,6 +51,7 @@ async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
         planName: params.planName,
         billingCycle: params.billingCycle,
         clubName: params.clubName,
+        workspaceScope: params.workspaceScope,
       },
     },
     metadata: {
@@ -57,6 +59,7 @@ async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
       planName: params.planName,
       billingCycle: params.billingCycle,
       clubName: params.clubName,
+      workspaceScope: params.workspaceScope,
     },
   }
 
@@ -98,6 +101,11 @@ export async function handler(event) {
     }
 
     const planName = getPlanName({ planKey })
+    const workspaceScope = getWorkspaceScope(planKey)
+
+    if (!workspaceScope.supported) {
+      return json(400, { success: false, message: 'Choose a supported billing plan.' })
+    }
     const priceId = getCheckoutPriceId(planKey, billingCycle)
 
     if (!priceId) {
@@ -116,6 +124,7 @@ export async function handler(event) {
       planKey,
       planName,
       priceId,
+      workspaceScope: workspaceScope.key,
     }
     let session
     let promotionApplied = Boolean(livePromotionCodeId)

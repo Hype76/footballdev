@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom'
+import { getWorkspaceScope, WORKSPACE_SCOPES } from '../../lib/workspace-scope.js'
+
 export function LoginAuthPanel({
   authError,
   formData,
@@ -17,10 +20,25 @@ export function LoginAuthPanel({
   paymentsDisabled = false,
   signupBoxRef,
 }) {
+  const signupScope = getWorkspaceScope(formData.planKey)
+  const signupCopy = signupScope.key === WORKSPACE_SCOPES.team
+    ? {
+        title: 'Create your team account',
+        body: 'Set up access to the Single Team plan you selected on Pricing.',
+      }
+    : signupScope.key === WORKSPACE_SCOPES.club
+      ? {
+          title: 'Create your club account',
+          body: 'Set up access to the club plan you selected on Pricing.',
+        }
+      : {
+          title: 'Start free as an individual coach',
+          body: 'Create your individual workspace for one small personal squad.',
+        }
   const modeCopy = {
     login: {
-      title: 'Sign in to your club workspace',
-      body: 'For club admins, team admins, coaches, and staff.',
+      title: 'Sign in to Football Player',
+      body: 'For Club Admins, Team Admins, coaches, and staff.',
       submitLabel: 'Log in',
     },
     'parent-login': {
@@ -29,10 +47,10 @@ export function LoginAuthPanel({
       submitLabel: 'Log in',
     },
     signup: {
-      title: parentInviteMode ? 'Create your parent account' : 'Create your club account',
+      title: parentInviteMode ? 'Create your parent account' : signupCopy.title,
       body: parentInviteMode
         ? 'Create a parent account to accept your child link.'
-        : 'Create a club workspace and start with one team.',
+        : signupCopy.body,
       submitLabel: 'Create account',
     },
   }
@@ -60,7 +78,7 @@ export function LoginAuthPanel({
 
         <div className="mt-5 grid grid-cols-3 gap-1 rounded-lg border border-white/12 bg-white/[0.055] p-1">
           {[
-            ['login', 'Club'],
+            ['login', 'Staff'],
             ['parent-login', 'Parent'],
             ['signup', 'Sign Up'],
           ].map(([nextMode, label]) => (
@@ -83,17 +101,27 @@ export function LoginAuthPanel({
         <form className="mt-5 space-y-3" onSubmit={onSubmit}>
           {mode === 'signup' && !parentInviteMode ? (
             <label className="block">
-              <span className="mb-1.5 block text-sm font-bold text-white">Club Name</span>
+              <span className="mb-1.5 block text-sm font-bold text-white">{signupScope.entityLabel} name</span>
               <input
                 type="text"
                 name="clubName"
                 value={formData.clubName}
                 onChange={onChange}
                 required
-                placeholder="Your club or team name"
+                placeholder={`Your ${signupScope.entityLabelLower} name`}
                 className="min-h-11 w-full rounded-lg border border-white/12 bg-white/[0.055] px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/40 focus:border-[#c6ff1a]/70 focus:bg-white/[0.08] focus:ring-2 focus:ring-[#c6ff1a]/20"
               />
             </label>
+          ) : null}
+
+          {mode === 'signup' && !parentInviteMode ? (
+            <div className="rounded-lg border border-white/12 bg-white/[0.04] px-4 py-3 text-sm font-semibold leading-5 text-white/72">
+              Need a team or club plan?{' '}
+              <Link to="/pricing" className="font-black text-[#c6ff1a] transition hover:text-[#dbff66]">
+                Choose a plan on Pricing
+              </Link>
+              .
+            </div>
           ) : null}
 
           {mode === 'signup' && !parentInviteMode ? (
