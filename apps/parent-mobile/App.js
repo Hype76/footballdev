@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import NetInfo from '@react-native-community/netinfo'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import { StatusBar } from 'expo-status-bar'
@@ -27,8 +28,6 @@ import {
   getParentMatchDays,
   getParentMessages,
   getParentPolls,
-  markParentMessageRead,
-  submitParentPollVote,
 } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
@@ -39,6 +38,15 @@ import {
   getParentHomeModel,
   getPollDraftOption,
 } from './src/parentExperience'
+import {
+  parentOfflineProfileStore,
+  queueParentMessageRead,
+  queueParentPollVote,
+  readParentOfflineView,
+  saveParentOfflineResources,
+  saveParentOfflineSelection,
+  syncParentOfflineCommands,
+} from './src/offline'
 
 const config = getMobileRuntimeConfig('parent')
 const resourceNames = ['calendar', 'matches', 'messages', 'polls']
@@ -133,13 +141,17 @@ function ParentHome() {
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [childSwitcherOpen, setChildSwitcherOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isOffline, setIsOffline] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [offlineCacheState, setOfflineCacheState] = useState({ source: '', stale: false })
   const [notice, setNotice] = useState(null)
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [selectedMessageId, setSelectedMessageId] = useState('')
+  const [syncSummary, setSyncSummary] = useState({ needsAttention: 0, state: 'synced', waiting: 0 })
   const requestIdRef = useRef(0)
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
   const selectedLink = useMemo(
@@ -167,14 +179,37 @@ function ParentHome() {
         loading: false,
       }])))
       setLastUpdatedAt('')
+      setOfflineCacheState({ source: '', stale: false })
       return { failed: 0 }
     }
 
-    setResources((current) => Object.fromEntries(resourceNames.map((name) => [name, {
-      error: '',
-      items: reset ? [] : current[name].items,
-      loading: true,
-    }])))
+    let cachedView = null
+    try {
+      cachedView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id)
+    } catch (error) {
+      console.warn(error)
+    }
+    if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
+
+    if (cachedView?.cache) {
+      setResources(Object.fromEntries(resourceNames.map((name) => [name, {
+        error: '',
+        items: cachedView.cache.resources[name],
+        loading: !isOffline,
+      }])))
+      setLastUpdatedAt(cachedView.cache.retrievedAt)
+      setOfflineCacheState({ source: 'cache', stale: cachedView.cache.stale })
+    } else {
+      setResources((current) => Object.fromEntries(resourceNames.map((name) => [name, {
+        error: isOffline ? 'No saved information is available for this section yet.' : '',
+        items: reset ? [] : current[name].items,
+        loading: !isOffline,
+      }])))
+      setOfflineCacheState({ source: '', stale: false })
+    }
+
+    if (cachedView?.sync) setSyncSummary(cachedView.sync)
+    if (isOffline) return { cached: Boolean(cachedView?.cache), failed: cachedView?.cache ? 0 : resourceNames.length }
 
     const loaders = {
       calendar: () => getParentCalendarEvents(selectedMobileUser),
@@ -184,9 +219,7 @@ function ParentHome() {
     }
     const results = await Promise.allSettled(resourceNames.map((name) => loaders[name]()))
 
-    if (requestId !== requestIdRef.current) {
-      return { failed: 0, stale: true }
-    }
+    if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
 
     const failed = results.filter((result) => result.status === 'rejected').length
     setResources((current) => {
@@ -205,9 +238,41 @@ function ParentHome() {
       })
       return next
     })
-    setLastUpdatedAt(new Date().toISOString())
+
+    if (failed < resourceNames.length) {
+      setLastUpdatedAt(new Date().toISOString())
+      setOfflineCacheState({ source: failed === 0 ? 'online' : cachedView?.cache ? 'cache' : 'online', stale: false })
+    }
+    if (failed === 0) {
+      try {
+        await saveParentOfflineResources(selectedMobileUser, selectedLink.id, Object.fromEntries(
+          resourceNames.map((name, index) => [name, results[index].value]),
+        ))
+      } catch (error) {
+        console.warn(error)
+      }
+    }
     return { failed }
-  }, [selectedLink?.id, selectedMobileUser])
+  }, [isOffline, selectedLink?.id, selectedMobileUser])
+
+  const runParentSync = useCallback(async ({ explicitRetry = false } = {}) => {
+    if (isOffline || !selectedMobileUser?.id) return null
+    setIsSyncing(true)
+    try {
+      const result = await syncParentOfflineCommands(selectedMobileUser, { explicitRetry })
+      setSyncSummary({
+        needsAttention: result.needsAttention,
+        state: result.state,
+        waiting: result.waiting,
+      })
+      return result
+    } catch (error) {
+      console.warn(error)
+      return null
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [isOffline, selectedMobileUser])
 
   useEffect(() => {
     const nextSelectedLinkId = selectedLink?.id || ''
@@ -217,12 +282,25 @@ function ParentHome() {
   }, [selectedLink?.id, selectedLinkId])
 
   useEffect(() => {
+    const subscription = NetInfo.addEventListener((state) => {
+      const offline = state.isConnected === false || state.isInternetReachable === false
+      setIsOffline((current) => {
+        if (current && !offline && selectedMobileUser?.id) {
+          void runParentSync().then(() => loadParentData())
+        }
+        return offline
+      })
+    })
+    return () => subscription()
+  }, [loadParentData, runParentSync, selectedMobileUser?.id])
+
+  useEffect(() => {
     setSelectedMatchId('')
     setSelectedMessageId('')
     setPollDrafts({})
     setNotice(null)
-    void loadParentData({ reset: true })
-  }, [loadParentData, selectedLink?.id])
+    void loadParentData({ reset: true }).then(() => runParentSync())
+  }, [loadParentData, runParentSync, selectedLink?.id])
 
   useEffect(() => {
     let mounted = true
@@ -247,11 +325,11 @@ function ParentHome() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && selectedLink?.id) {
-        void loadParentData()
+        void runParentSync().then(() => loadParentData())
       }
     })
     return () => subscription.remove()
-  }, [loadParentData, selectedLink?.id])
+  }, [loadParentData, runParentSync, selectedLink?.id])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
@@ -284,8 +362,11 @@ function ParentHome() {
     setIsRefreshing(true)
     setNotice(null)
     try {
+      await runParentSync({ explicitRetry: true })
       const result = await loadParentData()
-      setNotice(result.failed > 0
+      setNotice(isOffline
+        ? { message: result.cached ? 'Offline. Showing your last saved information.' : 'Offline. No saved information is available yet.', tone: 'warning' }
+        : result.failed > 0
         ? { message: 'Some information could not be refreshed. Your previous view is still available.', tone: 'warning' }
         : { message: 'You are up to date.', tone: 'success' })
     } finally {
@@ -303,6 +384,7 @@ function ParentHome() {
   function handleChildChange(linkId) {
     if (!parentLinks.some((link) => link.id === linkId)) return
     setSelectedLinkId(linkId)
+    void saveParentOfflineSelection(selectedMobileUser, linkId).catch((error) => console.warn(error))
     setChildSwitcherOpen(false)
     setActiveTab('home')
   }
@@ -313,7 +395,8 @@ function ParentHome() {
 
     setActiveActionId(`message:${message.id}`)
     try {
-      const readAt = await markParentMessageRead(selectedMobileUser, message.id)
+      const command = await queueParentMessageRead(selectedMobileUser, selectedLink.id, message)
+      const readAt = command.createdAt
       setResources((current) => ({
         ...current,
         messages: {
@@ -321,6 +404,17 @@ function ParentHome() {
           items: current.messages.items.map((item) => item.id === message.id ? { ...item, readAt } : item),
         },
       }))
+      const pendingView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id)
+      setSyncSummary(pendingView.sync)
+      if (isOffline) {
+        setNotice({ message: 'Read status is saved on this device and will sync when you are online.', tone: 'warning' })
+      } else {
+        const result = await runParentSync()
+        if (result?.results?.some((entry) => entry.commandId === command.commandId && entry.status !== 'succeeded')) {
+          await loadParentData()
+          setNotice({ message: 'The server could not apply this read update. Your current information has been restored.', tone: 'warning' })
+        }
+      }
     } catch (error) {
       setNotice({
         message: getParentFriendlyError(error, 'This message could not be marked as read.'),
@@ -338,9 +432,36 @@ function ParentHome() {
     setActiveActionId(`poll:${poll.id}`)
     setNotice(null)
     try {
-      await submitParentPollVote(selectedMobileUser, poll.id, optionId)
-      setNotice({ message: 'Your response has been saved.', tone: 'success' })
-      await loadParentData()
+      const command = await queueParentPollVote(selectedMobileUser, selectedLink.id, poll, optionId)
+      setResources((current) => ({
+        ...current,
+        polls: {
+          ...current.polls,
+          items: current.polls.items.map((item) => item.id === poll.id
+            ? {
+                ...item,
+                currentOptionId: item.allowMultiple ? item.currentOptionId : optionId,
+                currentOptionIds: item.allowMultiple
+                  ? [...new Set([...(item.currentOptionIds || []), optionId])]
+                  : [optionId],
+              }
+            : item),
+        },
+      }))
+      const pendingView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id)
+      setSyncSummary(pendingView.sync)
+      if (isOffline) {
+        setNotice({ message: 'Your response is saved on this device and will sync when you are online.', tone: 'warning' })
+      } else {
+        const result = await runParentSync()
+        const commandResult = result?.results?.find((entry) => entry.commandId === command.commandId)
+        if (commandResult?.status === 'succeeded') {
+          setNotice({ message: 'Your response has been saved.', tone: 'success' })
+        } else if (commandResult) {
+          setNotice({ message: 'This response could not be applied. The current server response has been restored.', tone: 'warning' })
+        }
+        await loadParentData()
+      }
     } catch (error) {
       setNotice({
         message: getParentFriendlyError(error, 'Your poll response could not be saved.'),
@@ -424,6 +545,12 @@ function ParentHome() {
           )}
         >
           <View style={styles.contentColumn}>
+            <SyncStatus
+              cacheState={offlineCacheState}
+              isOffline={isOffline}
+              isSyncing={isSyncing}
+              summary={syncSummary}
+            />
             {notice ? <Notice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
 
             {activeTab === 'home' ? (
@@ -467,10 +594,21 @@ function ParentHome() {
                 activeActionId={activeActionId}
                 biometricAvailable={biometricAvailable}
                 biometricEnabled={biometricEnabled}
+                cacheState={offlineCacheState}
+                isOffline={isOffline}
+                isSyncing={isSyncing}
                 lastUpdatedAt={lastUpdatedAt}
                 links={parentLinks}
                 onBiometricChange={handleBiometricChange}
+                onRetrySync={async () => {
+                  const result = await runParentSync({ explicitRetry: true })
+                  await loadParentData()
+                  setNotice(result?.needsAttention > 0
+                    ? { message: 'An action still needs attention.', tone: 'warning' }
+                    : { message: 'Sync is up to date.', tone: 'success' })
+                }}
                 onSignOut={signOut}
+                syncSummary={syncSummary}
                 user={user}
               />
             ) : null}
@@ -886,7 +1024,48 @@ function PollsScreen({ activeActionId, drafts, link, onDraftChange, onRetry, onS
   )
 }
 
-function SettingsScreen({ activeActionId, biometricAvailable, biometricEnabled, lastUpdatedAt, links, onBiometricChange, onSignOut, user }) {
+function SyncStatus({ cacheState, isOffline, isSyncing, summary }) {
+  let message = ''
+  let tone = 'neutral'
+  if (isOffline) {
+    message = cacheState.source === 'cache'
+      ? `Offline. Showing your last saved information.${cacheState.stale ? ' It may be out of date.' : ''}`
+      : 'Offline. Connect to load information that has not been saved on this device.'
+    tone = 'warning'
+  } else if (isSyncing) {
+    message = 'Syncing your saved actions.'
+  } else if (summary.needsAttention > 0) {
+    message = `${summary.needsAttention} ${summary.needsAttention === 1 ? 'action needs' : 'actions need'} attention.`
+    tone = 'warning'
+  } else if (summary.waiting > 0) {
+    message = `${summary.waiting} ${summary.waiting === 1 ? 'action is' : 'actions are'} waiting to sync.`
+  } else if (cacheState.source === 'cache') {
+    message = 'Showing saved information while the latest update is checked.'
+  }
+
+  return message ? (
+    <View accessibilityLiveRegion="polite" style={[styles.syncStatus, tone === 'warning' && styles.syncStatusWarning]}>
+      {isSyncing ? <ActivityIndicator color={palette.accent} size="small" /> : null}
+      <Text style={styles.syncStatusText}>{message}</Text>
+    </View>
+  ) : null
+}
+
+function SettingsScreen({
+  activeActionId,
+  biometricAvailable,
+  biometricEnabled,
+  cacheState,
+  isOffline,
+  isSyncing,
+  lastUpdatedAt,
+  links,
+  onBiometricChange,
+  onRetrySync,
+  onSignOut,
+  syncSummary,
+  user,
+}) {
   const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.1'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
@@ -944,6 +1123,17 @@ function SettingsScreen({ activeActionId, biometricAvailable, biometricEnabled, 
         <InfoRow label="Version" value={`${appVersion} (${buildNumber})`} />
         {lastUpdatedAt ? <InfoRow label="Last refreshed" value={formatDateTime(lastUpdatedAt)} /> : null}
         <Text style={styles.helperText}>This test build cannot connect to the live Football Player service.</Text>
+      </InfoPanel>
+
+      <InfoPanel title="Offline and sync">
+        <InfoRow label="Connection" value={isOffline ? 'Offline' : 'Online'} />
+        <InfoRow label="Saved information" value={cacheState.source === 'cache' ? cacheState.stale ? 'Saved, may be out of date' : 'Saved on this device' : 'Up to date'} />
+        <InfoRow label="Actions waiting" value={String(syncSummary.waiting)} />
+        <InfoRow label="Needs attention" value={String(syncSummary.needsAttention)} />
+        <Text style={styles.helperText}>Saved family information and waiting actions are encrypted on this device and removed when you sign out.</Text>
+        {!isOffline && (syncSummary.waiting > 0 || syncSummary.needsAttention > 0) ? (
+          <PrimaryAction label="Retry sync" loading={isSyncing} onPress={onRetrySync} secondary />
+        ) : null}
       </InfoPanel>
 
       <PrimaryAction label="Sign out" onPress={onSignOut} secondary />
@@ -1110,7 +1300,7 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider appRole="parent">
+      <AuthProvider appRole="parent" offlineProfileStore={parentOfflineProfileStore}>
         <AppContent />
       </AuthProvider>
     </SafeAreaProvider>
@@ -1231,6 +1421,9 @@ const styles = StyleSheet.create({
   summaryDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   summaryLabel: { color: palette.text, fontSize: 14, fontWeight: '900' },
+  syncStatus: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.borderStrong, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 12, minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
+  syncStatusText: { color: palette.text, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
+  syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
   tabBar: { backgroundColor: '#071009', borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 8, paddingTop: 8 },
   tabButton: { alignItems: 'center', borderColor: 'transparent', borderRadius: 12, borderWidth: 1, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, paddingHorizontal: 4, paddingVertical: 7 },
   tabButtonActive: { backgroundColor: '#1a2b0c', borderColor: palette.accentMuted },

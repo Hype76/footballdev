@@ -21,11 +21,14 @@
     "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs parent ios store-live"
   },
   "dependencies": {
+    "@noble/ciphers": "2.2.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "11.4.1",
     "@supabase/supabase-js": "2.102.1",
     "expo": "~54.0.36",
     "expo-application": "~7.0.8",
     "expo-constants": "~18.0.13",
+    "expo-crypto": "15.0.9",
     "expo-device": "~8.0.10",
     "expo-font": "~14.0.12",
     "expo-local-authentication": "~17.0.8",

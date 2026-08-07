@@ -8,7 +8,7 @@ import { clearMobileSessionStorage, getAccessToken, isSupabaseConfigured, mobile
 
 const AuthContext = createContext(null)
 
-export function AuthProvider({ appRole, children }) {
+export function AuthProvider({ appRole, children, offlineProfileStore = null }) {
   const [authError, setAuthError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
@@ -25,17 +25,37 @@ export function AuthProvider({ appRole, children }) {
     setIsProfileLoading(true)
     setAuthError('')
 
+    let cachedProfile = null
+
+    if (appRole === 'parent' && offlineProfileStore?.read) {
+      try {
+        cachedProfile = await offlineProfileStore.read(nextSession.user.id)
+        if (cachedProfile) setUser({ ...cachedProfile, isOfflineProfile: true })
+      } catch (error) {
+        console.warn(error)
+      }
+    }
+
     try {
       const profile = await fetchMobileProfile(nextSession.user, appRole)
       setUser(profile)
+      if (appRole === 'parent' && offlineProfileStore?.write) {
+        try {
+          await offlineProfileStore.write(profile)
+        } catch (error) {
+          console.warn(error)
+        }
+      }
     } catch (error) {
       console.error(error)
-      setUser(null)
-      setAuthError(error.message || 'Account details could not be loaded.')
+      if (!cachedProfile) {
+        setUser(null)
+        setAuthError(error.message || 'Account details could not be loaded.')
+      }
     } finally {
       setIsProfileLoading(false)
     }
-  }, [appRole])
+  }, [appRole, offlineProfileStore])
 
   useEffect(() => {
     let isMounted = true
@@ -156,6 +176,14 @@ export function AuthProvider({ appRole, children }) {
       console.warn(error)
     }
 
+    if (appRole === 'parent' && offlineProfileStore?.clear) {
+      try {
+        await offlineProfileStore.clear()
+      } catch (error) {
+        console.warn(error)
+      }
+    }
+
     let signOutError = null
 
     try {
@@ -174,7 +202,7 @@ export function AuthProvider({ appRole, children }) {
       setAuthError(signOutError.message || 'Sign out failed.')
       throw signOutError
     }
-  }, [appRole])
+  }, [appRole, offlineProfileStore])
 
   const unlockWithBiometrics = useCallback(async () => {
     setAuthError('')

@@ -12,6 +12,7 @@ This app is locked to test Supabase by default.
 - Native push notifications
 - Polls and messages
 - Biometric unlock
+- Encrypted offline family information and durable action sync
 
 Not included:
 
@@ -34,6 +35,16 @@ npm run start
 npm run mobile:release-check
 npm run mobile:config
 ```
+
+## Offline storage
+
+The Parent app uses one user-scoped encrypted document for cached profile, child, Matchday, calendar, message, poll, and pending action data.
+
+- `expo-crypto` supplies operating-system random bytes and command UUIDs.
+- `@noble/ciphers` supplies maintained XChaCha20-Poly1305 authenticated encryption without adding a native module.
+- `@react-native-community/netinfo` supplies Expo-compatible connectivity state and restoration events.
+- The 256-bit encryption key is protected by SecureStore. AsyncStorage contains only versioned nonce and ciphertext envelopes.
+- Message read and poll response replay use the existing server-authoritative Parent RPCs. No mobile permission or role claim is trusted.
 
 From the repo root:
 
