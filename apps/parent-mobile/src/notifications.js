@@ -7,6 +7,7 @@ import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import {
+  getParentPushSetupFailureCode,
   normalizeParentNotificationDetail,
   normalizeParentNotificationState,
 } from '../../mobile-core/src/parentNotificationsCore'
@@ -15,6 +16,8 @@ import { getAccessToken } from '../../mobile-core/src/supabase'
 const INSTALLATION_KEY = 'football-player:parent:test:push-installation-id:v1'
 const DETAIL_KEY = 'football-player:parent:test:push-detail:v1'
 const CHANNEL_ID = 'parent-updates'
+const PUSH_TOKEN_ATTEMPTS = 2
+const PUSH_TOKEN_RETRY_DELAY_MS = 750
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -27,6 +30,46 @@ Notifications.setNotificationHandler({
 
 function normalize(value) {
   return String(value ?? '').trim()
+}
+
+function createSafePushSetupError(error, stage) {
+  const code = getParentPushSetupFailureCode(error, stage)
+  const safeError = new Error(code.toLowerCase())
+  safeError.code = code
+  return safeError
+}
+
+function waitForPushRetry() {
+  return new Promise((resolve) => setTimeout(resolve, PUSH_TOKEN_RETRY_DELAY_MS))
+}
+
+async function getParentExpoPushToken(easProjectId) {
+  let devicePushToken
+
+  try {
+    devicePushToken = await Notifications.getDevicePushTokenAsync()
+  } catch (error) {
+    throw createSafePushSetupError(error, 'device')
+  }
+
+  let lastError
+
+  for (let attempt = 1; attempt <= PUSH_TOKEN_ATTEMPTS; attempt += 1) {
+    try {
+      return await Notifications.getExpoPushTokenAsync({
+        devicePushToken,
+        ...(easProjectId ? { projectId: easProjectId } : {}),
+      })
+    } catch (error) {
+      lastError = error
+      const safeCode = getParentPushSetupFailureCode(error, 'expo')
+      const shouldRetry = safeCode.endsWith('_NETWORK') && attempt < PUSH_TOKEN_ATTEMPTS
+      if (!shouldRetry) break
+      await waitForPushRetry()
+    }
+  }
+
+  throw createSafePushSetupError(lastError, 'expo')
 }
 
 async function getInstallationId() {
@@ -184,9 +227,7 @@ export async function enableParentNotifications({ apiBaseUrl, easProjectId, pare
     })
   }
 
-  const tokenResult = await Notifications.getExpoPushTokenAsync(
-    easProjectId ? { projectId: easProjectId } : undefined,
-  )
+  const tokenResult = await getParentExpoPushToken(easProjectId)
   const expoPushToken = normalize(tokenResult.data)
   if (!expoPushToken) throw new Error('A notification token could not be created on this device.')
 

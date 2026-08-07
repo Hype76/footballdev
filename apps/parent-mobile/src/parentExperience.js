@@ -24,6 +24,23 @@ export function getParentFriendlyError(error, fallback = 'This information could
   const status = Number(error?.status || error?.statusCode || 0)
 
   if (
+    code.includes('parent_push_device_firebase_configuration')
+    || code.includes('parent_push_expo_app_configuration')
+    || message.includes('parent_push_device_firebase_configuration')
+    || message.includes('parent_push_expo_app_configuration')
+  ) {
+    return 'Notifications are not ready for this test build.'
+  }
+
+  if (code.includes('parent_push_device_') || message.includes('parent_push_device_')) {
+    return 'This device could not create a notification token. Try again.'
+  }
+
+  if (code.includes('parent_push_expo_') || message.includes('parent_push_expo_')) {
+    return 'The notification service could not be reached. Try again.'
+  }
+
+  if (
     message.includes('network request failed')
     || message.includes('failed to fetch')
     || message.includes('networkerror')

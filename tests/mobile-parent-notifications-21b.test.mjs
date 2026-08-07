@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   containsForbiddenParentNotificationContent,
   getParentNotificationStatusLabel,
+  getParentPushSetupFailureCode,
   isParentInstallationId,
   normalizeParentNotificationDetail,
   normalizeParentNotificationState,
@@ -36,9 +37,29 @@ test('push token is never persisted in AsyncStorage and rotation refresh is wire
   assert.doesNotMatch(client, /AsyncStorage\.(setItem|getItem)\([^\n]*(token|push)/i)
   assert.match(client, /Notifications\.addPushTokenListener/)
   assert.match(client, /getExpoPushTokenAsync/)
+  assert.match(client, /getDevicePushTokenAsync/)
+  assert.match(client, /devicePushToken/)
+  assert.match(client, /PUSH_TOKEN_ATTEMPTS = 2/)
   assert.match(app, /addParentPushTokenListener/)
   assert.match(migration, /unique \(expo_push_token\)/i)
   assert.match(migration, /where expo_push_token = p_expo_push_token[\s\S]*installation_id <> p_installation_id/i)
+})
+
+test('push setup failures are categorised without exposing provider payloads', () => {
+  assert.equal(
+    getParentPushSetupFailureCode({ message: 'FIS_AUTH_ERROR' }, 'device'),
+    'PARENT_PUSH_DEVICE_FIREBASE_CONFIGURATION',
+  )
+  assert.equal(
+    getParentPushSetupFailureCode({ code: 'ERR_NOTIFICATIONS_NETWORK_ERROR' }, 'expo'),
+    'PARENT_PUSH_EXPO_NETWORK',
+  )
+  assert.equal(
+    getParentPushSetupFailureCode({ code: 'ERR_NOTIFICATIONS_SERVER_ERROR' }, 'expo'),
+    'PARENT_PUSH_EXPO_SERVICE',
+  )
+  assert.match(app, /Parent notification setup failed\.', normalizeText\(error\?\.code\)/)
+  assert.doesNotMatch(app, /Parent notification setup failed\.', error(?:\?\.message)?/)
 })
 
 test('permission is requested only by the explicit enable path', () => {

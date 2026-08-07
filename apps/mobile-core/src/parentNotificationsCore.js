@@ -7,6 +7,8 @@ export const parentNotificationIntentTypes = Object.freeze([
   'matchday_update',
 ])
 
+const parentPushFailureStages = new Set(['device', 'expo'])
+
 function normalize(value) {
   return String(value ?? '').trim()
 }
@@ -17,6 +19,46 @@ export function isParentInstallationId(value) {
 
 export function normalizeParentNotificationDetail(value) {
   return normalize(value).toLowerCase() === 'detailed' ? 'detailed' : 'minimal'
+}
+
+export function getParentPushSetupFailureCode(error, stage = 'expo') {
+  const requestedStage = normalize(stage).toLowerCase()
+  const normalizedStage = parentPushFailureStages.has(requestedStage) ? requestedStage : 'expo'
+  const code = normalize(error?.code).toLowerCase()
+  const message = normalize(error?.message || error).toLowerCase()
+  const signal = `${code} ${message}`
+  let category = 'token_unavailable'
+
+  if (
+    signal.includes('fis_auth_error')
+    || signal.includes('firebase configuration')
+    || signal.includes('firebaseapp')
+    || signal.includes('permission_denied')
+    || signal.includes('requests from this android client application are blocked')
+  ) {
+    category = 'firebase_configuration'
+  } else if (
+    signal.includes('network')
+    || signal.includes('timed out')
+    || signal.includes('timeout')
+    || signal.includes('service_not_available')
+    || signal.includes('failed to fetch')
+  ) {
+    category = 'network'
+  } else if (
+    signal.includes('no_experience_id')
+    || signal.includes('no_application_id')
+    || signal.includes('projectid')
+    || signal.includes('applicationid')
+  ) {
+    category = 'app_configuration'
+  } else if (normalizedStage === 'device' && signal.includes('unavailable')) {
+    category = 'device_unavailable'
+  } else if (normalizedStage === 'expo' && signal.includes('server_error')) {
+    category = 'service'
+  }
+
+  return `PARENT_PUSH_${normalizedStage.toUpperCase()}_${category.toUpperCase()}`
 }
 
 export function normalizeParentNotificationState(value = {}) {

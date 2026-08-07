@@ -586,6 +586,7 @@ function ParentHome() {
         tone: nextState.enabled ? 'success' : 'warning',
       })
     } catch (error) {
+      console.warn('Parent notification setup failed.', normalizeText(error?.code) || 'unknown')
       setNotice({
         message: getParentFriendlyError(error, 'Notification settings could not be changed.'),
         tone: 'warning',
