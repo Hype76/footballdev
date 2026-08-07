@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import {
   PUBLIC_FREE_SIGNUP_PATH,
+  PUBLIC_SIGNUP_ACCEPTED_MESSAGE,
   getPublicFreeSignupPlanKey as getClientPublicFreeSignupPlanKey,
   hasPublicFreeSignupMetadata,
 } from '../src/lib/public-signup.js'
@@ -25,6 +26,17 @@ test('public free signup opens the signup mode with the Individual plan', () => 
   assert.equal(PUBLIC_FREE_SIGNUP_PATH, '/sign-in?mode=signup&plan=individual')
   assert.equal(getClientPublicFreeSignupPlanKey('Individual Coach - Free'), 'individual')
   assert.equal(getClientPublicFreeSignupPlanKey('single_team'), '')
+})
+
+test('public signup response stays truthful without revealing whether an account exists', async () => {
+  assert.equal(
+    PUBLIC_SIGNUP_ACCEPTED_MESSAGE,
+    'If this is a new account, check your email for a verification link. If you already have an account, sign in or use Forgot password.',
+  )
+
+  const loginPage = await readRepoFile('src/pages/LoginPage.jsx')
+  assert.match(loginPage, /PUBLIC_SIGNUP_ACCEPTED_MESSAGE/)
+  assert.doesNotMatch(loginPage, /Account created\. Please check your email to verify your account before logging in\./)
 })
 
 test('production policy authorises only explicit own-club free signup without checkout', () => {

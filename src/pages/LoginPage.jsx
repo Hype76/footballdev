@@ -11,7 +11,10 @@ import {
   getParentInviteToken,
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
-import { getPublicFreeSignupPlanKey } from '../lib/public-signup.js'
+import {
+  getPublicFreeSignupPlanKey,
+  PUBLIC_SIGNUP_ACCEPTED_MESSAGE,
+} from '../lib/public-signup.js'
 
 const initialFormData = {
   email: '',
@@ -224,7 +227,7 @@ export function LoginPage() {
           }))
           setLocalMessage(parentInviteToken
             ? 'Parent account created. Please check your email to verify it, then open the parent invite link again.'
-            : 'Account created. Please check your email to verify your account before logging in.')
+            : PUBLIC_SIGNUP_ACCEPTED_MESSAGE)
         } else if (signupResult?.message) {
           setLocalMessage(signupResult.message)
         } else if (parentInviteToken) {
