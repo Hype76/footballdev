@@ -13,6 +13,7 @@ import {
 } from '../components/login/PublicSiteComponents.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../lib/login-pricing.js'
+import { PUBLIC_FREE_SIGNUP_PATH } from '../lib/public-signup.js'
 
 const initialDemoFormData = {
   name: '',
@@ -119,7 +120,7 @@ export function PublicPricingPage() {
     }
 
     if (plan.purchaseMode === 'free') {
-      window.location.assign(`/sign-in?plan=${encodeURIComponent(plan.name)}`)
+      window.location.assign(PUBLIC_FREE_SIGNUP_PATH)
       return
     }
 

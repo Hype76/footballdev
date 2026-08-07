@@ -1043,7 +1043,7 @@ function RuntimeAuthProvider({ children }) {
     setUser(applyDemoRolePreview(profileWithTeam))
   }
 
-  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.smallClub }) => {
+  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.individual }) => {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const normalizedEmail = String(email ?? '').trim()
@@ -1132,6 +1132,7 @@ function RuntimeAuthProvider({ children }) {
           name: signupDisplayName,
           display_name: signupDisplayName,
           club_name: normalizedClubName,
+          signup_plan_key: normalizedPlanKey === PLAN_KEYS.individual ? PLAN_KEYS.individual : undefined,
           tester_access_code: String(accessCode ?? '').trim().toUpperCase(),
           test_signup_plan_key: testSignupWithoutPayment ? normalizedPlanKey : undefined,
         },

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './lib/_supabase.js'
 import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
 import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
+import { getPublicFreeSignupPlanKey, hasPublicFreeSignupIntent } from './lib/_signup-policy.js'
 import { normalizePlanKey, PLAN_KEYS, PLAN_KEY_SET } from '../../src/lib/plans.js'
 
 const USER_PROFILE_SELECT = [
@@ -186,7 +187,7 @@ function hasExplicitSignupIntent(authUser, body, testerAccessCode, checkoutRecor
     )
   }
 
-  return hasFormSignupIntent && Boolean(checkoutRecord?.id)
+  return hasPublicFreeSignupIntent(authUser, body)
 }
 
 function getClubFromMembership(membership) {
@@ -580,7 +581,13 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
     throw new Error(ORPHAN_STAGING_ACCOUNT_MESSAGE)
   }
 
-  const planKey = testerAccessCode?.plan_key || (testSignupWithoutPayment ? getTestSignupPlanKey(authUser, requestedPlanKey) : checkoutRecord?.plan_key) || FREE_PLAN_KEY
+  const publicFreePlanKey = testSignupWithoutPayment
+    ? ''
+    : getPublicFreeSignupPlanKey(authUser, requestedPlanKey)
+  const planKey = testerAccessCode?.plan_key ||
+    (testSignupWithoutPayment ? getTestSignupPlanKey(authUser, requestedPlanKey) : checkoutRecord?.plan_key) ||
+    publicFreePlanKey ||
+    FREE_PLAN_KEY
   const planStatus = checkoutRecord?.plan_status || 'active'
   const signupRole = getSignupRole(planKey)
   const club = await insertClubWithUniqueName(clubName, {

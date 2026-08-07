@@ -1,5 +1,6 @@
 import coachHomeImage from '../../assets/marketing/coach-home.png'
 import playerProgressionImage from '../../assets/marketing/player-progression.png'
+import { PUBLIC_FREE_SIGNUP_PATH } from '../../lib/public-signup.js'
 
 const weeklyActions = [
   ['Plan the week', 'Sessions, fixtures, and parent response cut offs stay visible.'],
@@ -30,7 +31,7 @@ export function LoginHeroContent() {
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <a
-            href="/sign-in"
+            href={PUBLIC_FREE_SIGNUP_PATH}
             className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#c6ff1a] px-5 py-3 text-sm font-black text-[#06110a] shadow-sm shadow-[#c6ff1a]/20 transition hover:bg-[#dbff66]"
           >
             Start free

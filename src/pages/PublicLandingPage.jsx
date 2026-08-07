@@ -17,6 +17,7 @@ import {
   publicSubheadingClass,
 } from '../components/login/PublicSiteComponents.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
+import { PUBLIC_FREE_SIGNUP_PATH } from '../lib/public-signup.js'
 
 const benefits = [
   ['Less chasing', 'Sessions, players, parents, and match day actions stay connected to the same team record.'],
@@ -80,7 +81,7 @@ export function PublicLandingPage() {
                 Football Player helps grassroots clubs keep sessions, fixtures, availability, parent updates, and player records connected in one simple place.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a href="/sign-in" className={publicPrimaryButtonClass}>Start free</a>
+                <a href={PUBLIC_FREE_SIGNUP_PATH} className={publicPrimaryButtonClass}>Start free</a>
                 <a href="/features" className={publicSecondaryButtonClass}>See features</a>
               </div>
             </div>
@@ -144,7 +145,7 @@ export function PublicLandingPage() {
             </p>
           </div>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:mt-0">
-            <a href="/sign-in" className={publicPrimaryButtonClass}>Start free</a>
+            <a href={PUBLIC_FREE_SIGNUP_PATH} className={publicPrimaryButtonClass}>Start free</a>
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('football-player:open-contact'))}

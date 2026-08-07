@@ -11,13 +11,14 @@ import {
   getParentInviteToken,
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
+import { getPublicFreeSignupPlanKey } from '../lib/public-signup.js'
 
 const initialFormData = {
   email: '',
   password: '',
   clubName: '',
   accessCode: '',
-  planKey: 'small_club',
+  planKey: 'individual',
 }
 
 const testPlanByName = {
@@ -87,6 +88,9 @@ export function LoginPage() {
     const checkoutStatus = params.get('checkout')
     const nextParentInviteToken = getParentInviteToken(window.location.search)
     const requestedLoginMode = getRequestedLoginMode(params)
+    const publicFreePlanKey = getPublicFreeSignupPlanKey(params.get('plan'))
+    const selectedPlanName = String(params.get('plan') ?? '').trim()
+    const selectedPlanKey = testPlanByName[selectedPlanName]
 
     if (requestedLoginMode === 'parent-login') {
       rememberParentAccessIntent()
@@ -106,8 +110,23 @@ export function LoginPage() {
       setMode(requestedLoginMode)
     }
 
+    if (publicFreePlanKey) {
+      setMode('signup')
+      setFormData((current) => ({
+        ...current,
+        planKey: publicFreePlanKey,
+      }))
+      setLocalMessage('Individual Coach free access selected. Create your club account to continue.')
+    }
+
     if (checkoutStatus === 'success') {
       setMode('signup')
+      if (selectedPlanKey) {
+        setFormData((current) => ({
+          ...current,
+          planKey: selectedPlanKey,
+        }))
+      }
       setLocalMessage('Checkout completed. Create your club account to continue.')
     }
 
@@ -116,9 +135,6 @@ export function LoginPage() {
     }
 
     if (paymentsDisabled) {
-      const selectedPlanName = String(params.get('plan') ?? '').trim()
-      const selectedPlanKey = testPlanByName[selectedPlanName]
-
       if (selectedPlanKey) {
         setMode('signup')
         setFormData((current) => ({
