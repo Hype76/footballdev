@@ -18,6 +18,9 @@ export function normalizePlatformClubRow(row) {
     planUpdatedAt: row.plan_updated_at ?? '',
     status: String(row.status ?? 'active').trim() || 'active',
     suspendedAt: row.suspended_at ?? '',
+    archivedAt: row.archived_at ?? row.archivedAt ?? '',
+    archivedBy: row.archived_by ?? row.archivedBy ?? '',
+    archivedPreviousStatus: String(row.archived_previous_status ?? row.archivedPreviousStatus ?? '').trim(),
     createdAt: row.created_at ?? '',
   }
 }
@@ -71,10 +74,14 @@ export function normalizePlatformStatsPayload(stats) {
       teamLimitOverrideUpdatedAt: club.teamLimitOverrideUpdatedAt ?? '',
       status: String(club.status ?? 'active').trim() || 'active',
       suspendedAt: club.suspendedAt ?? '',
+      archivedAt: club.archivedAt ?? '',
+      archivedBy: club.archivedBy ?? '',
+      archivedPreviousStatus: String(club.archivedPreviousStatus ?? '').trim(),
       createdAt: club.createdAt ?? '',
       latestActivityAt: club.latestActivityAt ?? '',
       userCount: normalizeNumber(club.userCount),
       teamCount: normalizeNumber(club.teamCount),
+      archivedTeamCount: normalizeNumber(club.archivedTeamCount),
       playerCount: normalizeNumber(club.playerCount),
       archivedPlayerCount: normalizeNumber(club.archivedPlayerCount),
       evaluationCount: normalizeNumber(club.evaluationCount),
@@ -120,6 +127,10 @@ export function normalizePlatformStatsPayload(stats) {
           ...team,
           id: String(team.id ?? '').trim(),
           name: String(team.name ?? '').trim() || 'Unnamed team',
+          status: String(team.status ?? 'active').trim() || 'active',
+          archivedAt: team.archivedAt ?? '',
+          archivedBy: team.archivedBy ?? '',
+          archivedPreviousStatus: String(team.archivedPreviousStatus ?? '').trim(),
         })),
       roleCounts: normalizeArray(club.roleCounts)
         .filter((role) => String(role.label ?? '').trim())
@@ -132,12 +143,14 @@ export function normalizePlatformStatsPayload(stats) {
   return {
     totals: {
       clubs: normalizeNumber(sourceTotals.clubs),
+      archivedClubs: normalizeNumber(sourceTotals.archivedClubs),
       users: normalizeNumber(sourceTotals.users),
       staffAccounts: normalizeNumber(sourceTotals.staffAccounts),
       parentAccounts: normalizeNumber(sourceTotals.parentAccounts),
       clubUsers: normalizeNumber(sourceTotals.clubUsers),
       platformAdmins: normalizeNumber(sourceTotals.platformAdmins),
       teams: normalizeNumber(sourceTotals.teams),
+      archivedTeams: normalizeNumber(sourceTotals.archivedTeams),
       players: normalizeNumber(sourceTotals.players),
       playerRecords: normalizeNumber(sourceTotals.playerRecords),
       archivedPlayers: normalizeNumber(sourceTotals.archivedPlayers),

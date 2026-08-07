@@ -23,11 +23,14 @@ const disposableClub = {
   is_plan_comped: false,
   status: 'active',
   suspended_at: null,
+  archived_at: null,
+  archived_by: null,
+  archived_previous_status: null,
   created_at: '2026-06-24T09:00:00.000Z',
 }
 const disposableTeams = [
-  { id: '22222222-2222-4222-8222-222222222222', name: 'U12 Tigers Fixture', club_id: disposableClub.id },
-  { id: '33333333-3333-4333-8333-333333333333', name: 'U13 Lions Fixture', club_id: disposableClub.id },
+  { id: '22222222-2222-4222-8222-222222222222', name: 'U12 Tigers Fixture', club_id: disposableClub.id, status: 'active', archived_at: null, archived_by: null, archived_previous_status: null },
+  { id: '33333333-3333-4333-8333-333333333333', name: 'U13 Lions Fixture', club_id: disposableClub.id, status: 'active', archived_at: null, archived_by: null, archived_previous_status: null },
 ]
 
 function wait(ms) {
@@ -189,6 +192,7 @@ async function prepareContext(
 ) {
   const context = await browser.newContext(viewport ? { ...contextOptions, viewport } : contextOptions)
   const requests = {
+    archiveTeam: [],
     createClub: [],
     deleteTeam: [],
     platformAccess: [],
@@ -197,7 +201,8 @@ async function prepareContext(
   }
   const consoleMessages = []
   let createClubResponseIndex = 0
-  let teamDeleted = false
+  const archivedTeamIds = new Set()
+  const deletedTeamIds = new Set()
   let deleteResponseIndex = 0
 
   const handlePlatformAdminAccessRoute = async (route) => {
@@ -281,7 +286,7 @@ async function prepareContext(
     }
 
     if (nextResponse.status >= 200 && nextResponse.status < 300) {
-      teamDeleted = body.teamId === disposableTeams[0].id
+      deletedTeamIds.add(body.teamId)
     }
 
     await fulfillJson(route, nextResponse.status, nextResponse.body)
@@ -289,7 +294,7 @@ async function prepareContext(
 
   const handlePlatformClubAccessRoute = async (route) => {
     const request = route.request()
-    const currentTeams = teamDeleted ? disposableTeams.slice(1) : disposableTeams
+    const currentTeams = disposableTeams.filter((team) => !deletedTeamIds.has(team.id))
     requests.platformAccess.push({ method: request.method(), url: request.url(), body: request.postData() })
     await fulfillJson(route, 200, {
       success: true,
@@ -408,6 +413,29 @@ async function prepareContext(
     const url = new URL(request.url())
     const tableName = getTableName(request.url())
 
+    if (url.pathname.includes('/rest/v1/rpc/set_platform_team_archive_state')) {
+      const body = request.postDataJSON()
+      requests.archiveTeam.push({ method: request.method(), body })
+
+      if (body.p_archived) {
+        archivedTeamIds.add(body.p_team_id)
+      } else {
+        archivedTeamIds.delete(body.p_team_id)
+      }
+
+      const team = disposableTeams.find((candidate) => candidate.id === body.p_team_id)
+      await fulfillJson(route, 200, {
+        id: body.p_team_id,
+        name: team?.name || 'Fixture Team',
+        clubId: body.p_club_id,
+        status: body.p_archived ? 'inactive' : 'active',
+        archivedAt: body.p_archived ? '2026-08-07T17:00:00.000Z' : null,
+        archivedBy: body.p_archived ? fixtureUserId : null,
+        archivedPreviousStatus: body.p_archived ? 'active' : null,
+      })
+      return
+    }
+
     if (tableName === 'users' && url.searchParams.get('id')?.startsWith('eq.')) {
       await fulfillJson(route, 200, fixtureProfile())
       return
@@ -428,7 +456,17 @@ async function prepareContext(
         status: 'active',
         suspended_at: null,
       }],
-      teams: teamDeleted ? disposableTeams.slice(1) : disposableTeams,
+      teams: disposableTeams
+        .filter((team) => !deletedTeamIds.has(team.id))
+        .map((team) => archivedTeamIds.has(team.id)
+          ? {
+              ...team,
+              status: 'inactive',
+              archived_at: '2026-08-07T17:00:00.000Z',
+              archived_by: fixtureUserId,
+              archived_previous_status: 'active',
+            }
+          : team),
       players: [],
       evaluations: [],
       communication_logs: [],
@@ -482,14 +520,21 @@ async function prepareContext(
 }
 
 function dialog(page) {
-  return page.locator('[role="dialog"]').filter({ hasText: 'Delete team' })
+  return page.locator('[role="dialog"]').filter({ hasText: 'Permanently delete archived Team' })
 }
 
 function teamDeleteButton(page, teamName) {
   return page
     .getByText(teamName, { exact: true })
+    .locator('xpath=../..')
+    .getByRole('button', { name: 'Permanently delete' })
+}
+
+function teamArchiveButton(page, teamName) {
+  return page
+    .getByText(teamName, { exact: true })
     .locator('xpath=..')
-    .getByRole('button', { name: 'Delete team' })
+    .getByRole('button', { name: 'Archive Team' })
 }
 
 async function waitForReadonlyInputValue(page, value) {
@@ -503,8 +548,22 @@ async function waitForReadonlyInputValue(page, value) {
 }
 
 async function signIn(page) {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
-  await page.getByLabel('Email').fill(fixtureEmail)
+  const emailField = page.getByLabel('Email')
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
+
+    try {
+      await emailField.waitFor({ state: 'visible', timeout: 15000 })
+      break
+    } catch (error) {
+      if (attempt === 1) {
+        throw error
+      }
+    }
+  }
+
+  await emailField.fill(fixtureEmail)
   await page.getByLabel('Password').fill(fixturePassword)
   const authResponse = page.waitForResponse((response) =>
     response.url().includes('/auth/v1/token') &&
@@ -520,7 +579,18 @@ async function signIn(page) {
   await wait(300)
 }
 
-async function openTeamDeleteModal(page, teamName) {
+async function archiveTeamAndOpenDeleteModal(page, requests, teamName) {
+  await teamArchiveButton(page, teamName).click()
+  const archiveDialog = page.locator('[role="dialog"]').filter({ hasText: 'Archive Team' })
+  await archiveDialog.waitFor({ state: 'visible', timeout: 15000 })
+  await archiveDialog.getByRole('button', { name: 'Archive Team' }).click()
+  await waitForCondition(
+    () => requests.archiveTeam.some((request) => request.body.p_team_id === disposableTeams.find((team) => team.name === teamName)?.id),
+    'Archive Team request was not sent.',
+  )
+  await archiveDialog.waitFor({ state: 'detached', timeout: 15000 })
+  await page.getByRole('button', { name: /^Archive \(/ }).click()
+  await page.getByText(teamName, { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await teamDeleteButton(page, teamName).click()
   await dialog(page).waitFor({ state: 'visible', timeout: 15000 })
 }
@@ -559,9 +629,10 @@ try {
   browser = await chromium.launch()
 
   await runScenario('team delete modal shows the exact disposable team and club', async () => {
-    const { context, page } = await prepareContext(browser)
+    const { context, page, requests } = await prepareContext(browser)
     await openPlatformClubs(page)
-    await openTeamDeleteModal(page, 'U12 Tigers Fixture')
+    assert.equal(await page.getByRole('button', { name: 'Permanently delete' }).count(), 0)
+    await archiveTeamAndOpenDeleteModal(page, requests, 'U12 Tigers Fixture')
 
     await dialog(page).getByText('Team', { exact: true }).waitFor({ state: 'visible' })
     await dialog(page).getByText('U12 Tigers Fixture', { exact: true }).waitFor({ state: 'visible' })
@@ -574,8 +645,8 @@ try {
   await runScenario('empty password stays inside the modal and sends no delete request', async () => {
     const { context, page, requests } = await prepareContext(browser)
     await openPlatformClubs(page)
-    await openTeamDeleteModal(page, 'U12 Tigers Fixture')
-    await dialog(page).getByRole('button', { name: 'Delete team' }).click()
+    await archiveTeamAndOpenDeleteModal(page, requests, 'U12 Tigers Fixture')
+    await dialog(page).getByRole('button', { name: 'Permanently delete Team' }).click()
 
     await dialog(page).getByText('Enter your password to confirm this action.', { exact: true }).waitFor({ state: 'visible' })
     assert.equal(requests.deleteTeam.length, 0)
@@ -586,10 +657,10 @@ try {
   await runScenario('successful submit sends the team id, club id, and unchanged password once, then removes the row', async () => {
     const { context, page, requests, consoleMessages } = await prepareContext(browser)
     await openPlatformClubs(page)
-    await openTeamDeleteModal(page, 'U12 Tigers Fixture')
+    await archiveTeamAndOpenDeleteModal(page, requests, 'U12 Tigers Fixture')
 
     await dialog(page).getByLabel('Enter your password to confirm').fill(`  ${fixturePassword}  `)
-    await dialog(page).getByRole('button', { name: 'Delete team' }).click()
+    await dialog(page).getByRole('button', { name: 'Permanently delete Team' }).click()
     try {
       await waitForCondition(() => requests.deleteTeam.length === 1, 'Delete team request was not sent once.')
     } catch (error) {
@@ -610,9 +681,8 @@ try {
     assert.equal(requests.deleteTeam[0].body.password, `  ${fixturePassword}  `)
     assert.match(requests.deleteTeam[0].headers.authorization || '', /^Bearer fixture-token-/)
     await dialog(page).waitFor({ state: 'detached', timeout: 15000 })
-    await page.getByText('Team deleted.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
-    await page.locator('span').filter({ hasText: 'U12 Tigers Fixture' }).first().waitFor({ state: 'detached', timeout: 15000 })
-    await page.locator('span').filter({ hasText: 'U13 Lions Fixture' }).first().waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByText('Archived Team permanently deleted.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByText('U12 Tigers Fixture', { exact: true }).first().waitFor({ state: 'detached', timeout: 15000 })
 
     await context.close()
   })
@@ -620,7 +690,7 @@ try {
   await runScenario('Enter key submit targets the selected team', async () => {
     const { context, page, requests } = await prepareContext(browser)
     await openPlatformClubs(page)
-    await openTeamDeleteModal(page, 'U13 Lions Fixture')
+    await archiveTeamAndOpenDeleteModal(page, requests, 'U13 Lions Fixture')
 
     await dialog(page).getByLabel('Enter your password to confirm').fill(fixturePassword)
     await dialog(page).getByLabel('Enter your password to confirm').press('Enter')
@@ -744,11 +814,11 @@ try {
     ]
 
     for (const nextCase of cases) {
-      const { context, page } = await prepareContext(browser, { deleteResponses: [nextCase] })
+      const { context, page, requests } = await prepareContext(browser, { deleteResponses: [nextCase] })
       await openPlatformClubs(page)
-      await openTeamDeleteModal(page, 'U12 Tigers Fixture')
+      await archiveTeamAndOpenDeleteModal(page, requests, 'U12 Tigers Fixture')
       await dialog(page).getByLabel('Enter your password to confirm').fill(nextCase.password || fixturePassword)
-      await dialog(page).getByRole('button', { name: 'Delete team' }).click()
+      await dialog(page).getByRole('button', { name: 'Permanently delete Team' }).click()
 
       await dialog(page).getByText(nextCase.expected, { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       await dialog(page).getByText('U12 Tigers Fixture', { exact: true }).waitFor({ state: 'visible' })
@@ -758,11 +828,11 @@ try {
   })
 
   await runScenario('network failure stays visible in the modal', async () => {
-    const { context, page } = await prepareContext(browser, { deleteResponses: [{ abort: true }] })
+    const { context, page, requests } = await prepareContext(browser, { deleteResponses: [{ abort: true }] })
     await openPlatformClubs(page)
-    await openTeamDeleteModal(page, 'U12 Tigers Fixture')
+    await archiveTeamAndOpenDeleteModal(page, requests, 'U12 Tigers Fixture')
     await dialog(page).getByLabel('Enter your password to confirm').fill(fixturePassword)
-    await dialog(page).getByRole('button', { name: 'Delete team' }).click()
+    await dialog(page).getByRole('button', { name: 'Permanently delete Team' }).click()
 
     await dialog(page).getByText('Network failure. Check your connection and try again.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     await dialog(page).getByText('U12 Tigers Fixture', { exact: true }).waitFor({ state: 'visible' })

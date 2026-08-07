@@ -46,6 +46,8 @@ import {
   getPlatformAnalytics,
   getPlatformStats,
   readViewCacheValue,
+  setPlatformClubArchived,
+  setPlatformTeamArchived,
   updatePlatformFeedback,
   updatePlatformFeedbackReportStatus,
   updatePlatformBanner,
@@ -134,6 +136,14 @@ function getPlatformActionErrorMessage(error, fallbackMessage) {
 
   if (code === 'team_club_mismatch') {
     return 'This team belongs to a different club than expected.'
+  }
+
+  if (code === 'team_must_be_archived_before_delete') {
+    return 'Move this Team to the archive before permanently deleting it.'
+  }
+
+  if (code === 'club_must_be_archived_before_delete') {
+    return 'Move this Club to the archive before permanently deleting it.'
   }
 
   if (code === 'deletion_conflict' || code === '409') {
@@ -231,12 +241,15 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [feedbackDrafts, setFeedbackDrafts] = useState({})
   const [selectedClubId, setSelectedClubId] = useState('All')
   const [clubSearchTerm, setClubSearchTerm] = useState('')
+  const [clubRecordView, setClubRecordView] = useState('active')
   const [feedbackPage, setFeedbackPage] = useState(1)
   const [clubPage, setClubPage] = useState(1)
   const [feedbackDeleteTarget, setFeedbackDeleteTarget] = useState(null)
   const [platformAdminDeleteTarget, setPlatformAdminDeleteTarget] = useState(null)
   const [clubDeleteTarget, setClubDeleteTarget] = useState(null)
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
+  const [clubArchiveTarget, setClubArchiveTarget] = useState(null)
+  const [teamArchiveTarget, setTeamArchiveTarget] = useState(null)
   const [accountActionTarget, setAccountActionTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => !stats)
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0 && feedbackReports.length === 0)
@@ -475,9 +488,40 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     }
   }, [user])
 
+  const workspaceArchiveCount = useMemo(() => {
+    const clubs = stats?.clubs ?? []
+    const archivedClubCount = clubs.filter((club) => Boolean(club.archivedAt)).length
+    const archivedTeamCount = clubs
+      .filter((club) => !club.archivedAt)
+      .reduce((total, club) => total + (club.teams ?? []).filter((team) => Boolean(team.archivedAt)).length, 0)
+
+    return archivedClubCount + archivedTeamCount
+  }, [stats])
+
   const visibleClubs = useMemo(() => {
     const clubs = stats?.clubs ?? []
-    const selectedClubs = selectedClubId === 'All' ? clubs : clubs.filter((club) => club.id === selectedClubId)
+    const scopedClubs = clubs.flatMap((club) => {
+      const teams = Array.isArray(club.teams) ? club.teams : []
+
+      if (clubRecordView === 'archived') {
+        if (club.archivedAt) {
+          return [{ ...club, teamCount: teams.length, teams }]
+        }
+
+        const archivedTeams = teams.filter((team) => Boolean(team.archivedAt))
+        return archivedTeams.length > 0 ? [{ ...club, teams: archivedTeams }] : []
+      }
+
+      if (club.archivedAt) {
+        return []
+      }
+
+      const activeTeams = teams.filter((team) => !team.archivedAt)
+      return [{ ...club, teamCount: activeTeams.length, teams: activeTeams }]
+    })
+    const selectedClubs = selectedClubId === 'All'
+      ? scopedClubs
+      : scopedClubs.filter((club) => club.id === selectedClubId)
     const normalizedSearchTerm = clubSearchTerm.trim().toLowerCase()
 
     if (!normalizedSearchTerm) {
@@ -500,7 +544,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       return searchableText.includes(normalizedSearchTerm)
     })
-  }, [clubSearchTerm, selectedClubId, stats])
+  }, [clubRecordView, clubSearchTerm, selectedClubId, stats])
   const paginatedFeedbackItems = useMemo(
     () => getPaginatedItems(feedbackItems, feedbackPage, PLATFORM_FEEDBACK_PAGE_SIZE),
     [feedbackItems, feedbackPage],
@@ -976,9 +1020,144 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     }
   }
 
+  const handleArchiveClub = (club) => {
+    if (!club?.id || club.archivedAt) {
+      setErrorMessage('This Club record cannot be archived. Refresh the platform data and try again.')
+      return
+    }
+
+    setClubArchiveTarget(club)
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const confirmArchiveClub = async () => {
+    if (!clubArchiveTarget?.id || updatingClubId) {
+      return
+    }
+
+    setUpdatingClubId(clubArchiveTarget.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await setPlatformClubArchived({
+        user,
+        clubId: clubArchiveTarget.id,
+        archived: true,
+      })
+      if (selectedClubId === clubArchiveTarget.id) {
+        setSelectedClubId('All')
+      }
+      setSuccessMessage('Club moved to the archive.')
+      showToast({ title: 'Club archived', message: `${clubArchiveTarget.name} can be restored from the archive.` })
+      setClubArchiveTarget(null)
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Club could not be archived.')
+    } finally {
+      setUpdatingClubId('')
+    }
+  }
+
+  const handleRestoreClub = async (club) => {
+    if (!club?.id || !club.archivedAt || updatingClubId) {
+      setErrorMessage('This archived Club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
+    setUpdatingClubId(club.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await setPlatformClubArchived({ user, clubId: club.id, archived: false })
+      setSuccessMessage('Club restored from the archive.')
+      showToast({ title: 'Club restored', message: `${club.name} is available in active workspaces again.` })
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Club could not be restored.')
+    } finally {
+      setUpdatingClubId('')
+    }
+  }
+
+  const handleArchiveTeam = (club, team) => {
+    if (!club?.id || !team?.id || team.archivedAt) {
+      setErrorMessage('This Team record cannot be archived. Refresh the platform data and try again.')
+      return
+    }
+
+    setTeamArchiveTarget({
+      ...team,
+      clubName: club.name,
+      clubId: club.id,
+    })
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const confirmArchiveTeam = async () => {
+    if (!teamArchiveTarget?.id || !teamArchiveTarget?.clubId || updatingTeamId) {
+      return
+    }
+
+    setUpdatingTeamId(teamArchiveTarget.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await setPlatformTeamArchived({
+        user,
+        teamId: teamArchiveTarget.id,
+        clubId: teamArchiveTarget.clubId,
+        archived: true,
+      })
+      setSuccessMessage('Team moved to the archive.')
+      showToast({ title: 'Team archived', message: `${teamArchiveTarget.name} can be restored from the archive.` })
+      setTeamArchiveTarget(null)
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Team could not be archived.')
+    } finally {
+      setUpdatingTeamId('')
+    }
+  }
+
+  const handleRestoreTeam = async (club, team) => {
+    if (!club?.id || !team?.id || !team.archivedAt || updatingTeamId) {
+      setErrorMessage('This archived Team record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
+    setUpdatingTeamId(team.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await setPlatformTeamArchived({ user, teamId: team.id, clubId: club.id, archived: false })
+      setSuccessMessage('Team restored from the archive.')
+      showToast({ title: 'Team restored', message: `${team.name} is available in active workspaces again.` })
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Team could not be restored.')
+    } finally {
+      setUpdatingTeamId('')
+    }
+  }
+
   const handleDeleteClub = async (club) => {
     if (!club?.id) {
       setErrorMessage('This club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
+    if (!club.archivedAt) {
+      setErrorMessage('Move this Club to the archive before permanently deleting it.')
       return
     }
 
@@ -991,6 +1170,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const handleDeleteTeam = async (club, team) => {
     if (!club?.id || !team?.id) {
       setErrorMessage('This team record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
+    if (!team.archivedAt) {
+      setErrorMessage('Move this Team to the archive before permanently deleting it.')
       return
     }
 
@@ -1027,7 +1211,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         password,
         accessToken: session?.access_token || '',
       })
-      setSuccessMessage('Team deleted.')
+      setSuccessMessage('Archived Team permanently deleted.')
       setTeamDeleteTarget(null)
       refreshStats()
     } catch (error) {
@@ -1110,6 +1294,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
     setUpdatingClubId(clubDeleteTarget.id)
     setErrorMessage('')
+    setConfirmErrorMessage('')
     setSuccessMessage('')
 
     try {
@@ -1121,14 +1306,14 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       if (selectedClubId === clubDeleteTarget.id) {
         setSelectedClubId('All')
       }
-      setSuccessMessage('Club deleted.')
+      setSuccessMessage('Archived Club permanently deleted.')
+      setClubDeleteTarget(null)
       refreshStats()
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Club could not be deleted.')
+      setConfirmErrorMessage(getPlatformActionErrorMessage(error, 'Club could not be deleted.'))
     } finally {
       setUpdatingClubId('')
-      setClubDeleteTarget(null)
     }
   }
 
@@ -1303,13 +1488,23 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       {showClubManagement ? (
         <PlatformAccountManagementSection
           accessToken={session?.access_token || ''}
+          archiveCount={workspaceArchiveCount}
           clubPage={clubPage}
           isLoading={isLoading}
           onAccountAction={handleAccountAction}
+          onArchiveClub={handleArchiveClub}
+          onArchiveTeam={handleArchiveTeam}
           onClubPageChange={setClubPage}
           onClubPlanChange={handleClubPlanChange}
           onDeleteClub={handleDeleteClub}
           onDeleteTeam={handleDeleteTeam}
+          onRecordViewChange={(nextView) => {
+            setClubRecordView(nextView === 'archived' ? 'archived' : 'active')
+            setSelectedClubId('All')
+            setClubPage(1)
+          }}
+          onRestoreClub={handleRestoreClub}
+          onRestoreTeam={handleRestoreTeam}
           onSelectedClubChange={(nextClubId) => {
             setSelectedClubId(nextClubId)
             setClubPage(1)
@@ -1321,6 +1516,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           onToggleClubStatus={handleToggleClubStatus}
           paginatedClubs={paginatedVisibleClubs}
           pageSize={CLUB_PAGE_SIZE}
+          recordView={clubRecordView}
           clubSearchTerm={clubSearchTerm}
           selectedClubId={selectedClubId}
           stats={stats}
@@ -1368,10 +1564,41 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       />
 
       <ConfirmModal
+        isOpen={Boolean(clubArchiveTarget)}
+        isBusy={Boolean(updatingClubId)}
+        title="Archive Club workspace"
+        message="This removes the workspace from active access while retaining its Club, Team, user, player, development, fixture, and communication records."
+        items={[
+          `Club: ${clubArchiveTarget?.name || 'Selected Club'}`,
+          `${clubArchiveTarget?.teamCount ?? 0} Teams retained`,
+          `${clubArchiveTarget?.playerCount ?? 0} player records retained`,
+          'The workspace can be restored from the archive.',
+        ]}
+        confirmLabel="Archive Club"
+        onCancel={() => setClubArchiveTarget(null)}
+        onConfirm={confirmArchiveClub}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(teamArchiveTarget)}
+        isBusy={Boolean(updatingTeamId)}
+        title="Archive Team"
+        message="This removes the Team from active access while retaining its linked records and identifiers."
+        items={[
+          `Team: ${teamArchiveTarget?.name || 'Selected Team'}`,
+          `Club: ${teamArchiveTarget?.clubName || 'No Club entered'}`,
+          'The Team can be restored from the archive.',
+        ]}
+        confirmLabel="Archive Team"
+        onCancel={() => setTeamArchiveTarget(null)}
+        onConfirm={confirmArchiveTeam}
+      />
+
+      <ConfirmModal
         isOpen={Boolean(clubDeleteTarget)}
         isBusy={Boolean(updatingClubId)}
-        title="Delete club workspace"
-        message="This is a platform admin action and cannot be undone from the app."
+        title="Permanently delete archived Club"
+        message="This permanently deletes an archived Club workspace and cannot be undone from the app."
         items={[
           `Club: ${clubDeleteTarget?.name || 'Selected club'}`,
           `${clubDeleteTarget?.userCount ?? 0} adult users`,
@@ -1380,8 +1607,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           `${clubDeleteTarget?.evaluationCount ?? 0} development records`,
           'Club settings and related workspace data',
         ]}
-        confirmLabel="Delete Club"
-        onCancel={() => setClubDeleteTarget(null)}
+        confirmLabel="Permanently delete Club"
+        errorMessage={confirmErrorMessage}
+        onCancel={() => {
+          setClubDeleteTarget(null)
+          setConfirmErrorMessage('')
+        }}
         requirePassword
         onConfirm={(password) => void confirmDeleteClub(password)}
       />
@@ -1389,8 +1620,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       <ConfirmModal
         isOpen={Boolean(teamDeleteTarget)}
         isBusy={Boolean(updatingTeamId)}
-        title="Delete team"
-        message="This is a platform admin action and cannot be undone from the app."
+        title="Permanently delete archived Team"
+        message="This permanently deletes an archived Team and cannot be undone from the app."
         items={[
           `Team: ${teamDeleteTarget?.name || 'Selected team'}`,
           `Club: ${teamDeleteTarget?.clubName || 'No club entered'}`,
@@ -1398,7 +1629,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           'Team links on sessions will be cleared by the database where required',
           'Other team links follow database delete rules and may be cleared or block deletion',
         ]}
-        confirmLabel="Delete team"
+        confirmLabel="Permanently delete Team"
         errorMessage={confirmErrorMessage}
         onCancel={() => {
           setTeamDeleteTarget(null)

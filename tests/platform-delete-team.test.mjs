@@ -10,6 +10,10 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
 const { deletePlatformTeamResult } = await import('../netlify/functions/platform-delete-team.js')
 const deleteTeamFunctionSource = readFileSync('netlify/functions/platform-delete-team.js', 'utf8')
 const deleteTeamMigrationSource = readFileSync(migrationSourceUrl('20260624110232_platform_delete_team_transaction.sql', 'active'), 'utf8')
+const archiveLifecycleMigrationSource = readFileSync(
+  migrationSourceUrl('20260807165233_platform_workspace_archive_lifecycle.sql', 'active'),
+  'utf8',
+)
 const playerNameIndexMigrationSource = readFileSync(
   migrationSourceUrl('20260624111916_allow_team_delete_with_unassigned_duplicate_player_names.sql', 'active'),
   'utf8',
@@ -58,6 +62,8 @@ function createMockSupabase({
     id: teamId,
     name: 'Disposable Team',
     club_id: clubId,
+    status: 'inactive',
+    archived_at: '2026-08-07T16:52:33.000Z',
   },
   deleteError = null,
   teamError = null,
@@ -282,6 +288,28 @@ test('deletePlatformTeamResult rejects auth, role, password, not found, and club
   }
 })
 
+test('deletePlatformTeamResult rejects a Team that has not been archived', async () => {
+  const mock = createMockSupabase({
+    team: {
+      id: teamId,
+      name: 'Active Team',
+      club_id: clubId,
+      status: 'active',
+      archived_at: null,
+    },
+  })
+  const response = await deletePlatformTeamResult(createEvent(), {
+    supabaseAdmin: mock.supabaseAdmin,
+    supabasePublic: mock.supabasePublic,
+  })
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 409)
+  assert.equal(parsed.body.code, 'team_must_be_archived_before_delete')
+  assert.equal(parsed.body.message, 'Move this Team to the archive before permanently deleting it.')
+  assert.equal(mock.calls.some((call) => call.service === 'rpc' && call.action === 'delete_platform_team_transaction'), false)
+})
+
 test('deletePlatformTeamResult maps thrown password auth errors to controlled invalid_password', async () => {
   const mock = createMockSupabase({
     passwordThrows: Object.assign(new Error('Invalid login credentials'), {
@@ -438,6 +466,9 @@ test('deletePlatformTeamResult uses the transactional RPC and migration audit in
   assert.doesNotMatch(deleteTeamMigrationSource, /^\s+actor_role,\s*$/m)
   assert.match(deleteTeamMigrationSource, /'actorRole'/)
   assert.match(deleteTeamMigrationSource, /grant execute on function public\.delete_platform_team_transaction/)
+  assert.match(archiveLifecycleMigrationSource, /target_team\.archived_at is null/)
+  assert.match(archiveLifecycleMigrationSource, /team_must_be_archived_before_delete/)
+  assert.match(archiveLifecycleMigrationSource, /grant execute on function public\.delete_platform_team_transaction/)
   assert.match(playerNameIndexMigrationSource, /drop index if exists public\.players_club_team_section_player_name_key/)
   assert.match(playerNameIndexMigrationSource, /create unique index players_club_team_section_player_name_key/)
   assert.doesNotMatch(playerNameIndexMigrationSource, /NULLS NOT DISTINCT/i)

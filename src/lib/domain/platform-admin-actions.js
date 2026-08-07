@@ -101,6 +101,75 @@ export async function updatePlatformClubStatus({ user, clubId, status }) {
   return normalizePlatformClubRow(data)
 }
 
+export async function setPlatformClubArchived({ user, clubId, archived }) {
+  await blockDemoMutation(user)
+
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can archive or restore clubs.')
+  }
+
+  const normalizedClubId = String(clubId ?? '').trim()
+
+  if (!normalizedClubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const { data, error } = await supabase.rpc('set_platform_club_archive_state', {
+    p_club_id: normalizedClubId,
+    p_archived: Boolean(archived),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`club:${normalizedClubId}`)
+  invalidateMemoryCacheByPrefix('user-profile:')
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  clearViewCaches()
+
+  return data || null
+}
+
+export async function setPlatformTeamArchived({ user, teamId, clubId, archived }) {
+  await blockDemoMutation(user)
+
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can archive or restore teams.')
+  }
+
+  const normalizedTeamId = String(teamId ?? '').trim()
+  const normalizedClubId = String(clubId ?? '').trim()
+
+  if (!normalizedTeamId || !normalizedClubId) {
+    throw new Error('Team and Club details are required.')
+  }
+
+  const { data, error } = await supabase.rpc('set_platform_team_archive_state', {
+    p_team_id: normalizedTeamId,
+    p_club_id: normalizedClubId,
+    p_archived: Boolean(archived),
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`teams:${normalizedClubId}`)
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  clearViewCaches()
+
+  return data || null
+}
+
 export async function updatePlatformClubPlan({ user, clubId, planKey, planStatus = 'active', isPlanComped = false }) {
   await blockDemoMutation(user)
 
@@ -163,13 +232,19 @@ export async function deletePlatformClub({ user, clubId }) {
 
   const { data: clubRow, error: clubError } = await supabase
     .from('clubs')
-    .select('id, name')
+    .select('id, name, archived_at')
     .eq('id', clubId)
     .single()
 
   if (clubError) {
     console.error(clubError)
     throw clubError
+  }
+
+  if (!clubRow.archived_at) {
+    const archiveRequiredError = new Error('Move this Club to the archive before permanently deleting it.')
+    archiveRequiredError.code = 'club_must_be_archived_before_delete'
+    throw archiveRequiredError
   }
 
   const { data: deleteClubData, error: deleteClubError } = await supabase.rpc('delete_platform_club_cascade', {
@@ -419,7 +494,10 @@ export async function getPlatformStats(user) {
       supabase.from('users').select('id, email, username, name, role, role_label, role_rank, club_id, status, suspended_at').order('email', { ascending: true }),
       supabase.from('user_club_memberships').select('id, auth_user_id, club_id, role, role_label, role_rank'),
       supabase.from('club_roles').select('id, club_id, role_key, role_label, role_rank, is_system'),
-      supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
+      supabase
+        .from('teams')
+        .select('id, name, club_id, status, archived_at, archived_by, archived_previous_status')
+        .order('name', { ascending: true }),
       supabase.from('players').select('id, club_id, section, status, created_at'),
       supabase.from('evaluations').select('id, club_id, section, status, created_at'),
       supabase.from('communication_logs').select('id, club_id, channel, action, created_at'),
@@ -476,6 +554,8 @@ export async function getPlatformStats(user) {
       return !Number.isNaN(timestamp) && timestamp >= sevenDaysAgo
     }
     const isArchivedPlayer = (player) => String(player.status ?? '').toLowerCase() === 'archived'
+    const isArchivedClub = (club) => Boolean(club.archived_at)
+    const isArchivedTeam = (team) => Boolean(team.archived_at)
     const isSharedExport = (log) => {
       const channel = String(log.channel ?? '').toLowerCase()
       const action = String(log.action ?? '').toLowerCase()
@@ -488,7 +568,10 @@ export async function getPlatformStats(user) {
         action.includes('export')
       )
     }
-    const activePlayers = players.filter((player) => !isArchivedPlayer(player))
+    const activeClubs = clubs.filter((club) => !isArchivedClub(club))
+    const activeClubIds = new Set(activeClubs.map((club) => club.id))
+    const activeTeams = teams.filter((team) => !isArchivedTeam(team) && activeClubIds.has(team.club_id))
+    const activePlayers = players.filter((player) => !isArchivedPlayer(player) && activeClubIds.has(player.club_id))
     const archivedPlayers = players.filter(isArchivedPlayer)
     const sharedExports = communicationLogs.filter(isSharedExport)
     const platformAdmins = users.filter((member) => member.role === 'super_admin')
@@ -507,13 +590,15 @@ export async function getPlatformStats(user) {
 
     const nextStats = {
       totals: {
-        clubs: clubs.length,
+        clubs: activeClubs.length,
+        archivedClubs: clubs.filter(isArchivedClub).length,
         users: users.length,
         staffAccounts: staffAccounts.length,
         parentAccounts: parentAccounts.length,
         clubUsers: clubUsers.length,
         platformAdmins: platformAdmins.length,
-        teams: teams.length,
+        teams: activeTeams.length,
+        archivedTeams: teams.filter(isArchivedTeam).length,
         players: activePlayers.length,
         playerRecords: players.length,
         archivedPlayers: archivedPlayers.length,
@@ -571,9 +656,13 @@ export async function getPlatformStats(user) {
           teamLimitOverrideUpdatedAt: teamLimitOverride?.updated_at ?? '',
           status: String(club.status ?? 'active').trim() || 'active',
           suspendedAt: club.suspended_at,
+          archivedAt: club.archived_at ?? '',
+          archivedBy: club.archived_by ?? '',
+          archivedPreviousStatus: String(club.archived_previous_status ?? '').trim(),
           createdAt: club.created_at,
           userCount: clubUsers.length,
-          teamCount: clubTeams.length,
+          teamCount: clubTeams.filter((team) => !isArchivedTeam(team)).length,
+          archivedTeamCount: clubTeams.filter(isArchivedTeam).length,
           playerCount: activeClubPlayers.length,
           archivedPlayerCount: clubPlayers.filter(isArchivedPlayer).length,
           evaluationCount: clubEvaluations.length,
@@ -617,6 +706,10 @@ export async function getPlatformStats(user) {
           teams: clubTeams.map((team) => ({
             id: team.id,
             name: String(team.name ?? '').trim() || 'Unnamed team',
+            status: String(team.status ?? 'active').trim() || 'active',
+            archivedAt: team.archived_at ?? '',
+            archivedBy: team.archived_by ?? '',
+            archivedPreviousStatus: String(team.archived_previous_status ?? '').trim(),
           })),
         }
       }),

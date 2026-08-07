@@ -454,6 +454,20 @@ function ClubSuspendedState() {
   )
 }
 
+function ClubArchivedState() {
+  return (
+    <RouteGateState
+      eyebrow="Club access"
+      title="Club workspace archived"
+      message="This Club workspace has been archived by the Platform Admin. Its records are retained, but active access is paused until it is restored."
+      rules={[
+        { title: 'Data is retained', body: 'Archiving keeps the Club, Teams, users, players, development records, fixtures, and history.' },
+        { title: 'Platform controlled', body: 'Only a Platform Admin can restore or permanently delete the archived workspace.' },
+      ]}
+    />
+  )
+}
+
 function AccountSuspendedState() {
   return (
     <RouteGateState
@@ -674,6 +688,10 @@ function isClubSuspended(user) {
   return user?.clubStatus === 'suspended'
 }
 
+function isClubArchived(user) {
+  return Boolean(user?.clubArchivedAt)
+}
+
 function isAccountSuspended(user) {
   return user?.accountStatus === 'suspended'
 }
@@ -695,7 +713,7 @@ function getDefaultWorkspacePath(user) {
     return '/player'
   }
 
-  if (isAccountSuspended(user) || isClubSuspended(user)) {
+  if (isAccountSuspended(user) || isClubSuspended(user) || isClubArchived(user)) {
     return '/'
   }
 
@@ -853,6 +871,10 @@ function useWorkspaceRouteGate({
     return { element: <AccountSuspendedState />, user }
   }
 
+  if (isClubArchived(user)) {
+    return { element: <ClubArchivedState />, user }
+  }
+
   if (isClubSuspended(user)) {
     return { element: <ClubSuspendedState />, user }
   }
@@ -993,6 +1015,10 @@ function WorkspaceHome() {
 
   if (isAccountSuspended(user)) {
     return <AccountSuspendedState />
+  }
+
+  if (isClubArchived(user)) {
+    return <ClubArchivedState />
   }
 
   if (isClubSuspended(user)) {

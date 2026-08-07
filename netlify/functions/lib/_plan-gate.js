@@ -39,6 +39,7 @@ function normalizePlanProfile(profile, authEmail, context = {}) {
     clubId: String(profile.club_id ?? '').trim(),
     accountStatus: String(profile.status ?? 'active').trim() || 'active',
     clubStatus: String(club?.status ?? 'active').trim() || 'active',
+    clubArchivedAt: club?.archived_at ?? '',
     planKey: normalizePlanKey(club?.plan_key ?? profile.plan_key, { mapMissingToFree: true }),
     planStatus: String(club?.plan_status ?? profile.plan_status ?? 'active').trim() || 'active',
     isPlanComped: testerAccessExpired ? false : Boolean(club?.is_plan_comped ?? profile.is_plan_comped),
@@ -77,7 +78,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
 
   const authorityProfile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
     clubId: normalizedClubId,
-    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)',
+    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, tester_access_expires_at)',
   })
   const profile = {
     ...authorityProfile,
@@ -92,6 +93,10 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
 
   if (planProfile.accountStatus === 'suspended') {
     throw Object.assign(new Error('This account is suspended.'), { statusCode: 403 })
+  }
+
+  if (planProfile.clubArchivedAt) {
+    throw Object.assign(new Error('This Club workspace is archived.'), { statusCode: 403 })
   }
 
   if (planProfile.clubStatus === 'suspended') {
@@ -129,7 +134,7 @@ export async function getClubPlanProfile(clubId) {
 
   const { data: club, error } = await supabaseAdmin
     .from('clubs')
-    .select('id, name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at')
+    .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, tester_access_expires_at')
     .eq('id', normalizedClubId)
     .maybeSingle()
 
@@ -152,6 +157,10 @@ export async function getClubPlanProfile(clubId) {
 }
 
 export function assertPlanAccess(planProfile) {
+  if (planProfile?.clubArchivedAt) {
+    throw Object.assign(new Error('This Club workspace is archived.'), { statusCode: 403 })
+  }
+
   const access = getFeatureAccess(planProfile, 'parentEmails')
 
   if (access.reason === 'invalid_payment_state' || String(access.reason ?? '').startsWith('invalid_payment_state') || access.reason === 'no_subscription') {

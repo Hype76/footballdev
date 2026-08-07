@@ -16,7 +16,7 @@ export function formatPlatformDate(value) {
 }
 
 export function getPlanBreakdown(clubs = []) {
-  return clubs.reduce((items, club) => {
+  return clubs.filter((club) => !club.archivedAt).reduce((items, club) => {
     const planName = getPlanName(club.planKey)
     items[planName] = (items[planName] ?? 0) + 1
     return items
@@ -98,14 +98,15 @@ export function getPlatformDashboardStats(stats, { openIssueCount = 0 } = {}) {
 export function getClubManagementStats(stats) {
   const platformTotals = stats?.totals ?? {}
   const clubs = stats?.clubs ?? []
-  const suspendedClubs = clubs.filter((club) => club.status === 'suspended').length
-  const compedClubs = clubs.filter((club) => club.isPlanComped).length
+  const activeClubs = clubs.filter((club) => !club.archivedAt)
+  const suspendedClubs = activeClubs.filter((club) => club.status === 'suspended').length
+  const compedClubs = activeClubs.filter((club) => club.isPlanComped).length
 
   return [
     {
       label: 'Club workspaces',
       value: platformTotals.clubs ?? 0,
-      caption: `${suspendedClubs} suspended`,
+      caption: `${suspendedClubs} suspended, ${platformTotals.archivedClubs ?? 0} archived`,
     },
     {
       label: 'Adult users',
@@ -115,7 +116,7 @@ export function getClubManagementStats(stats) {
     {
       label: 'Teams',
       value: platformTotals.teams ?? 0,
-      caption: 'Created across clubs',
+      caption: `${platformTotals.archivedTeams ?? 0} archived`,
     },
     {
       label: 'Free access',
