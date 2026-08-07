@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import {
   PUBLIC_FREE_SIGNUP_PATH,
   getPublicFreeSignupPlanKey as getClientPublicFreeSignupPlanKey,
+  hasPublicFreeSignupMetadata,
 } from '../src/lib/public-signup.js'
 import {
   getPublicFreeSignupPlanKey as getServerPublicFreeSignupPlanKey,
@@ -41,6 +42,31 @@ test('production policy authorises only explicit own-club free signup without ch
     planKey: 'individual',
     signupIntent: true,
   }), true)
+  assert.equal(hasPublicFreeSignupMetadata(authUser), true)
+})
+
+test('first confirmed Club login completes only an explicit public free signup', async () => {
+  assert.equal(hasPublicFreeSignupMetadata({
+    user_metadata: {
+      club_name: 'FP TEST Signup Club',
+      signup_plan_key: 'individual',
+    },
+  }), true)
+  assert.equal(hasPublicFreeSignupMetadata({
+    user_metadata: {
+      club_name: 'FP TEST Signup Club',
+      signup_plan_key: 'small_club',
+    },
+  }), false)
+  assert.equal(hasPublicFreeSignupMetadata({
+    user_metadata: {
+      signup_plan_key: 'individual',
+    },
+  }), false)
+
+  const profileSource = await readRepoFile('src/lib/domain/core.js')
+  assert.match(profileSource, /normalizedLoginAccessIntent === 'team'[\s\S]*hasPublicFreeSignupMetadata\(authUser\)/)
+  assert.match(profileSource, /shouldCompleteSignupClubProfile\(\{[\s\S]*authUser,[\s\S]*loginAccessIntent/)
 })
 
 test('paid and internal plans remain fail closed without checkout or tester authority', () => {

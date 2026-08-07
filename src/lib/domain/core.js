@@ -38,6 +38,7 @@ import {
   PLAN_KEYS,
 } from '../plans.js'
 import { normalizeLegacyThemeButtonStyle } from '../theme.js'
+import { hasPublicFreeSignupMetadata } from '../public-signup.js'
 import {
   assertPlayerLimitForUpsert,
   findExistingPlayer,
@@ -410,11 +411,15 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '', { all
   return applyActiveMembership(authUser, selectedMembership)
 }
 
-export function shouldCompleteSignupClubProfile({ selectedAccessMode = '', loginAccessIntent = '' } = {}) {
+export function shouldCompleteSignupClubProfile({ authUser, selectedAccessMode = '', loginAccessIntent = '' } = {}) {
   const normalizedSelectedAccessMode = String(selectedAccessMode ?? '').trim()
   const normalizedLoginAccessIntent = String(loginAccessIntent ?? '').trim()
 
-  if (['team', 'parent', 'platform_admin'].includes(normalizedLoginAccessIntent)) {
+  if (normalizedLoginAccessIntent === 'team') {
+    return hasPublicFreeSignupMetadata(authUser)
+  }
+
+  if (['parent', 'platform_admin'].includes(normalizedLoginAccessIntent)) {
     return false
   }
 
@@ -574,6 +579,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       return requireExistingStaffAccess ? getActiveStaffMemberships(memberships) : memberships
     }
     const allowSignupClubProfileCompletion = shouldCompleteSignupClubProfile({
+      authUser,
       selectedAccessMode,
       loginAccessIntent,
     })
