@@ -13,7 +13,7 @@ import {
 } from '../../mobile-core/src/parentNotificationsCore'
 import { getAccessToken } from '../../mobile-core/src/supabase'
 
-const INSTALLATION_KEY = 'football-player:parent:test:push-installation-id:v1'
+const INSTALLATION_KEY = 'football-player.parent.test.push-installation-id.v1'
 const DETAIL_KEY = 'football-player:parent:test:push-detail:v1'
 const CHANNEL_ID = 'parent-updates'
 const PUSH_TOKEN_ATTEMPTS = 2
