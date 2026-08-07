@@ -1,0 +1,77 @@
+{
+  "reference": "FP-MOBILE-PARENT-OFFLINE-SYNC-21A",
+  "recordedAt": "2026-08-07T06:50:45.9540237+01:00",
+  "source": {
+    "initialRuntimeCommit": "dbd2d8ba47e627435157d90e62fa5cf731865336",
+    "runtimeCommit": "094ec124204302c70b305ff18391da79d9ea705b",
+    "branch": "codex/fp-mobile-parent-offline-sync-21a",
+    "originMatched": true,
+    "runtimeWorktreeCleanBeforeEvidence": true,
+    "originalDirtyCheckoutTouched": false
+  },
+  "environment": {
+    "api": "https://footballplayer-mobile-test-api.netlify.app",
+    "supabaseProjectRef": "ndohkecigwlwayghsopw",
+    "healthOk": true,
+    "productionAccess": false,
+    "communicationsEnabled": false,
+    "schedulesEnabled": false,
+    "productionEndpointContacted": false,
+    "productionDatabaseContacted": false,
+    "productionMutation": false,
+    "productionDeployment": false,
+    "testApiDeployment": false,
+    "testMigrationApplied": false
+  },
+  "implementation": {
+    "cacheCipher": "XChaCha20-Poly1305",
+    "keyProtection": "Expo SecureStore with AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY",
+    "ciphertextStorage": "AsyncStorage with authenticated versioned atomic generations",
+    "cacheScopes": [
+      "Parent profile summary",
+      "linked children",
+      "selected child",
+      "Team context",
+      "Home source resources",
+      "Matchday",
+      "calendar",
+      "messages",
+      "polls"
+    ],
+    "offlineCommands": [
+      "message_read",
+      "poll_vote"
+    ],
+    "serverIdempotency": "Existing message read and poll vote RPC semantics converge identical replay and revalidate Parent authority",
+    "serverChangeRequired": false,
+    "logoutClearsUserCacheAndJournal": true,
+    "removedLinkPurgesChildCache": true,
+    "multipleChildIsolation": true,
+    "automaticRetryLimit": 5
+  },
+  "validation": {
+    "offlineFocused": "20/20 passed",
+    "combinedMobileRegression": "120/120 passed",
+    "parentExpoDoctor": "18/18 passed",
+    "coachExpoDoctor": "18/18 passed",
+    "repositoryLint": "passed",
+    "repositoryBuild": "passed",
+    "mobileConfig": "passed",
+    "mobilePrestore": "passed",
+    "mobileReleaseCheck": "passed",
+    "mobileWebExports": "Coach and Parent passed",
+    "trackedSecretScan": "passed for 1517 tracked files",
+    "gitDiffCheck": "passed",
+    "newDependencyAudit": "No advisory named expo-crypto, @noble/ciphers, or @react-native-community/netinfo",
+    "physicalOfflineValidation": "Deferred to the combined Phase 21C physical hostile journey"
+  },
+  "boundaries": {
+    "customerDataUsed": false,
+    "customerCommunicationSent": false,
+    "storeLiveProfilePresent": false,
+    "publicRelease": false,
+    "coachRebuildStarted": false,
+    "inAppBrowserUsed": false
+  },
+  "outcome": "Green"
+}
