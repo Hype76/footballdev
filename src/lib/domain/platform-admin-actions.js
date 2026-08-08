@@ -43,7 +43,7 @@ export async function createPlatformClub({
       ownerEmail,
       planKey,
       billingArrangement,
-      billingStartDate,
+      billingStartDate: billingArrangement === 'deferred' ? billingStartDate : null,
     }),
   })
   const result = await response.json().catch(() => ({}))

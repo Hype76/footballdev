@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { PLAN_KEYS, getAdminAssignablePlanOptions } from '../../lib/plans.js'
+import { getUkCalendarDate } from '../../lib/billing-date.js'
 import { getWorkspaceScope } from '../../lib/workspace-scope.js'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -151,8 +152,8 @@ export function ManageClubsSection({
             onChange={(event) => onChange('billingArrangement', event.target.value)}
             className={fieldClass}
           >
-            <option value="immediate" disabled={[PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(form.planKey)}>Payment starts immediately</option>
-            <option value="deferred" disabled={[PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(form.planKey)}>Payment starts on a future date</option>
+            <option value="immediate" disabled={form.planKey === PLAN_KEYS.individual || form.planKey === PLAN_KEYS.pilot}>Payment starts immediately</option>
+            <option value="deferred" disabled={form.planKey === PLAN_KEYS.individual || form.planKey === PLAN_KEYS.pilot}>Payment starts on a future date</option>
             <option value="complimentary">Complimentary access</option>
           </select>
         </label>
@@ -162,6 +163,7 @@ export function ManageClubsSection({
             <input
               required
               type="date"
+              min={getUkCalendarDate()}
               value={form.billingStartDate}
               onChange={(event) => onChange('billingStartDate', event.target.value)}
               className={fieldClass}

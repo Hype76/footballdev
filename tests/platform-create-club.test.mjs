@@ -682,3 +682,53 @@ test('Single Team owner email uses only Team customer terminology', () => {
   assert.doesNotMatch(content.html, /club admin/i)
   assert.doesNotMatch(content.html, /your club/i)
 })
+
+test('new Team and Club provisioning persists the canonical billing arrangement and date', async () => {
+  setEnv({ CONTEXT: '', NODE_ENV: 'test', RESEND_API_KEY: '' })
+
+  for (const planKey of ['single_team', 'small_club']) {
+    for (const billingArrangement of ['immediate', 'deferred', 'complimentary']) {
+      const mock = createMockSupabase()
+      const billingStartDate = billingArrangement === 'deferred' ? '2027-01-15' : 'not-a-date'
+      const response = await createPlatformClubResult(createEvent({
+        billingArrangement,
+        billingStartDate,
+        planKey,
+      }, { host: 'fixture.test' }), {
+        supabaseAdmin: mock.supabaseAdmin,
+      })
+      const parsed = parseResponse(response)
+      const clubInsert = mock.calls.find((call) => call.table === 'clubs' && call.action === 'insert')
+
+      assert.equal(parsed.statusCode, 200, `${planKey} ${billingArrangement}`)
+      assert.equal(parsed.body.invite.sent, false)
+      assert.equal(clubInsert.payload.billing_arrangement, billingArrangement)
+      assert.equal(
+        clubInsert.payload.billing_start_at,
+        billingArrangement === 'deferred' ? '2027-01-15T00:00:00.000Z' : null,
+      )
+    }
+  }
+})
+
+test('new Team and Club provisioning rejects Deferred billing without a valid date before persistence', async () => {
+  setEnv({ CONTEXT: '', NODE_ENV: 'test', RESEND_API_KEY: '' })
+
+  for (const planKey of ['single_team', 'small_club']) {
+    for (const billingStartDate of ['', 'not-a-date', '2027-02-30']) {
+      const mock = createMockSupabase()
+      const response = await createPlatformClubResult(createEvent({
+        billingArrangement: 'deferred',
+        billingStartDate,
+        planKey,
+      }, { host: 'fixture.test' }), {
+        supabaseAdmin: mock.supabaseAdmin,
+      })
+      const parsed = parseResponse(response)
+
+      assert.equal(parsed.statusCode, 400, `${planKey} ${billingStartDate}`)
+      assert.match(parsed.body.message, /valid UK billing start date/)
+      assert.equal(mock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), false)
+    }
+  }
+})

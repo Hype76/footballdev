@@ -3,7 +3,7 @@ import { supabaseAdmin } from './lib/_supabase.js'
 import { json, normalizePlanStatus } from './lib/_stripe-billing.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getPlanDefaultLimit, getPlanLimit, normalizePlanKey, normalizeTeamLimitOverride } from '../../src/lib/plans.js'
-import { validateBillingArrangement } from '../../src/lib/billing-date.js'
+import { resolveBillingConfigurationUpdate } from '../../src/lib/billing-configuration.js'
 import { resolveBillingAccess } from '../../src/lib/billing-access.js'
 import { createStripeServerClient } from './lib/_stripe-runtime.js'
 
@@ -157,18 +157,11 @@ export async function handler(event) {
     const requestedPlanStatus = hasRequestedPlanStatus
       ? normalizePlanStatus(body.planStatus || 'active')
       : normalizePlanStatus(currentClub.plan_status || 'active')
-    const requestedArrangement = hasRequestedBillingArrangement
-      ? body.billingArrangement
-      : hasRequestedIsPlanComped
-        ? (body.isPlanComped ? 'complimentary' : 'immediate')
-        : currentClub.billing_arrangement || (currentClub.is_plan_comped ? 'complimentary' : 'immediate')
     let billingConfiguration
     try {
-      billingConfiguration = validateBillingArrangement({
-        arrangement: requestedArrangement,
-        startDate: hasRequestedBillingStartDate
-          ? body.billingStartDate
-          : String(currentClub.billing_start_at || '').slice(0, 10),
+      billingConfiguration = resolveBillingConfigurationUpdate({
+        request: body,
+        currentClub,
         planKey: nextPlanKey,
       })
     } catch (error) {
@@ -176,10 +169,10 @@ export async function handler(event) {
     }
     const nextBillingArrangement = billingConfiguration.arrangement
     const nextBillingStartAt = billingConfiguration.billingStartAt
-    const nextIsPlanComped = nextBillingArrangement === 'complimentary'
+    const nextIsPlanComped = nextPlanKey === 'pilot' ? true : nextBillingArrangement === 'complimentary'
     const keepsValidStripeSubscription = Boolean(currentClub.stripe_subscription_id)
       && ['active', 'trialing'].includes(normalizePlanStatus(currentClub.plan_status))
-    const nextPlanStatus = nextPlanKey === 'pilot' || nextIsPlanComped
+    const nextPlanStatus = nextPlanKey === 'pilot' ? 'active' : nextIsPlanComped
       ? 'active'
       : keepsValidStripeSubscription
         ? normalizePlanStatus(currentClub.plan_status)

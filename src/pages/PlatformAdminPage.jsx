@@ -998,8 +998,15 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
               ? {
                   clubId: club.id,
                   planKey: value,
+                  billingMode: 'unpaid',
                   isPlanComped: true,
                   planStatus: 'active',
+                }
+            : fieldName === 'billingConfiguration'
+              ? {
+                  clubId: club.id,
+                  billingArrangement: value.billingArrangement,
+                  billingStartDate: value.billingStartDate,
                 }
             : {
                 clubId: club.id,
@@ -1013,14 +1020,21 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         throw new Error(result.message || 'Club plan could not be updated.')
       }
 
-      const successTitle = fieldName === 'teamLimitOverride' ? 'Team allowance saved' : 'Club plan saved'
+      const successTitle = fieldName === 'teamLimitOverride'
+        ? 'Team allowance saved'
+        : fieldName === 'billingConfiguration'
+          ? 'Billing access saved'
+          : 'Club plan saved'
       setSuccessMessage(result.message || 'Club settings updated.')
       showToast({ title: successTitle, message: result.message || 'Club settings have been updated.' })
       patchClubStats(result.club)
       refreshStats()
+      return { success: true, result }
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Club plan could not be updated.')
+      const message = error.message || 'Club plan could not be updated.'
+      setErrorMessage(message)
+      return { success: false, message }
     } finally {
       setUpdatingClubId('')
     }

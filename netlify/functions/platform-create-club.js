@@ -393,10 +393,13 @@ export async function createPlatformClubResult(event, {
   if (body.billingMode === 'paid' && planKey === 'pilot') {
     return failureResponse(400, 'Pilot workspaces must use unpaid billing access.')
   }
+  const fallbackBillingArrangement = body.billingMode === 'unpaid' || planKey === 'pilot'
+    ? 'complimentary'
+    : 'immediate'
   let billingConfiguration
   try {
     billingConfiguration = validateBillingArrangement({
-      arrangement: body.billingArrangement || (VALID_BILLING_MODES.has(body.billingMode) && body.billingMode === 'unpaid' ? 'complimentary' : 'immediate'),
+      arrangement: body.billingArrangement || (VALID_BILLING_MODES.has(body.billingMode) ? fallbackBillingArrangement : 'immediate'),
       startDate: body.billingStartDate,
       planKey,
     })

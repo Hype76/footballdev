@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getUkCalendarDate, validateBillingArrangement } from '../../lib/billing-date.js'
 import { PLAN_KEYS, getAdminAssignablePlanOptions, getPlanDefaultLimit, getPlanLimit, getPlanName } from '../../lib/plans.js'
 import { formatPlatformDate } from '../../lib/platform-admin-stats.js'
 import { Pagination } from '../ui/Pagination.jsx'
@@ -222,7 +223,6 @@ function ClubSummary({
   updatingClubId,
 }) {
   const clubId = String(club?.id ?? '')
-  const isPilotPlan = club?.planKey === PLAN_KEYS.pilot
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
@@ -258,31 +258,13 @@ function ClubSummary({
             ))}
           </select>
         </label>
-        <label className="block">
-          <span className={eyebrowClass}>Billing arrangement</span>
-          <select
-            value={club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')}
-            disabled={updatingClubId === clubId}
-            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
-            onChange={(event) => void onClubPlanChange(club, 'billingArrangement', event.target.value)}
-            className={fieldClass}
-          >
-            <option value="immediate" disabled={isPilotPlan || club.planKey === PLAN_KEYS.individual}>Immediate</option>
-            <option value="deferred" disabled={isPilotPlan || club.planKey === PLAN_KEYS.individual}>Deferred</option>
-            <option value="complimentary">Complimentary</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className={eyebrowClass}>Billing start date</span>
-          <input
-            type="date"
-            value={String(club.billingStartAt || '').slice(0, 10)}
-            disabled={(club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')) !== 'deferred' || updatingClubId === clubId}
-            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
-            onChange={(event) => void onClubPlanChange(club, 'billingStartDate', event.target.value)}
-            className={fieldClass}
-          />
-        </label>
+        <BillingConfigurationControl
+          key={`${clubId}:${club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')}:${String(club.billingStartAt || '').slice(0, 10)}`}
+          club={club}
+          clubId={clubId}
+          onClubPlanChange={onClubPlanChange}
+          updatingClubId={updatingClubId}
+        />
       </div>
       <TeamAllowanceControl
         key={`${clubId}:${club.teamLimitOverride ?? 'default'}`}
@@ -317,6 +299,107 @@ function ClubSummary({
           Archive Club
         </button>
       </div>
+    </div>
+  )
+}
+
+function BillingConfigurationControl({ club, clubId, onClubPlanChange, updatingClubId }) {
+  const savedArrangement = club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')
+  const savedStartDate = String(club.billingStartAt || '').slice(0, 10)
+  const [arrangementDraft, setArrangementDraft] = useState(savedArrangement)
+  const [startDateDraft, setStartDateDraft] = useState(savedStartDate)
+  const [validationMessage, setValidationMessage] = useState('')
+  const isComplimentaryOnlyPlan = [PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(club.planKey)
+  const isUpdating = updatingClubId === clubId
+  const hasChanges = arrangementDraft !== savedArrangement
+    || (arrangementDraft === 'deferred' ? startDateDraft !== savedStartDate : Boolean(savedStartDate))
+
+  const handleArrangementChange = (value) => {
+    setArrangementDraft(value)
+    setStartDateDraft('')
+    setValidationMessage('')
+  }
+
+  const handleSave = async () => {
+    if (arrangementDraft === 'deferred' && !startDateDraft) {
+      setValidationMessage('Choose a billing start date before saving Deferred access.')
+      return
+    }
+
+    try {
+      validateBillingArrangement({
+        arrangement: arrangementDraft,
+        startDate: startDateDraft,
+        planKey: club.planKey,
+      })
+    } catch (error) {
+      setValidationMessage(error.message)
+      return
+    }
+
+    setValidationMessage('')
+    const outcome = await onClubPlanChange(club, 'billingConfiguration', {
+      billingArrangement: arrangementDraft,
+      billingStartDate: arrangementDraft === 'deferred' ? startDateDraft : null,
+    })
+
+    if (outcome?.success === false) {
+      setValidationMessage(outcome.message)
+    }
+  }
+
+  return (
+    <div className="md:col-span-2">
+      <div className="grid gap-3 md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_auto] md:items-end">
+        <label className="block">
+          <span className={eyebrowClass}>Billing arrangement</span>
+          <select
+            value={arrangementDraft}
+            disabled={isUpdating}
+            title={isUpdating ? 'Please wait while this club is being updated.' : undefined}
+            onChange={(event) => handleArrangementChange(event.target.value)}
+            className={fieldClass}
+          >
+            <option value="immediate" disabled={isComplimentaryOnlyPlan}>Immediate</option>
+            <option value="deferred" disabled={isComplimentaryOnlyPlan}>Deferred</option>
+            <option value="complimentary">Complimentary</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className={eyebrowClass}>Billing start date</span>
+          <input
+            required={arrangementDraft === 'deferred'}
+            type="date"
+            min={getUkCalendarDate()}
+            value={startDateDraft}
+            disabled={arrangementDraft !== 'deferred' || isUpdating}
+            title={isUpdating ? 'Please wait while this club is being updated.' : undefined}
+            onChange={(event) => {
+              setStartDateDraft(event.target.value)
+              setValidationMessage('')
+            }}
+            className={fieldClass}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!hasChanges || isUpdating}
+          title={isUpdating ? 'Please wait while this club is being updated.' : undefined}
+          onClick={() => void handleSave()}
+          className={secondaryButtonClass}
+        >
+          Save billing access
+        </button>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+        A start date is required only for Deferred access. Immediate and Complimentary access clear any saved date.
+      </p>
+      {club.planKey === PLAN_KEYS.pilot ? (
+        <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Pilot access is always free.</p>
+      ) : null}
+      {validationMessage ? (
+        <p role="alert" className="mt-2 text-sm font-bold text-[#b42318]">{validationMessage}</p>
+      ) : null}
     </div>
   )
 }
