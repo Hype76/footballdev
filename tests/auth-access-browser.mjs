@@ -812,7 +812,7 @@ async function signIn(page, email, baseUrl = mainBaseUrl, access = 'club') {
   if (access === 'parent') {
     await page.getByRole('button', { name: 'Parent' }).click()
   } else {
-    await page.getByRole('button', { name: 'Club' }).click()
+    await page.getByRole('button', { name: 'Staff' }).click()
   }
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
@@ -1307,9 +1307,31 @@ try {
 
   await runScenario('platform admin login opens platform admin view', async () => {
     const context = await browser.newContext()
+    await context.addInitScript(() => {
+      window.__quickActionFlashDetected = false
+      const detectQuickActions = () => {
+        if (document.querySelector('[aria-label="Open quick actions"], [aria-label="Close quick actions"]')) {
+          window.__quickActionFlashDetected = true
+        }
+      }
+      const startObserver = () => {
+        detectQuickActions()
+        new MutationObserver(detectQuickActions).observe(document.documentElement, { childList: true, subtree: true })
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true })
+      } else {
+        startObserver()
+      }
+    })
     const { page } = await preparePage(context)
+    const pageErrors = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
     await signIn(page, 'platform.fixture@footballplayer.test')
     await page.waitForURL('**/platform-admin', { timeout: 15000 })
+    await page.goto(`${mainBaseUrl}/platform-admin`)
+    await page.getByText('Platform control', { exact: true }).waitFor({ state: 'visible' })
+    assert.equal(await page.evaluate(() => window.__quickActionFlashDetected), false)
     await assertVisibleText(page, 'Platform control')
     await assertVisibleText(page, 'Platform tools')
     assert.equal(await page.locator('a[href="/platform-analytics"]').count() > 0, true)
@@ -1338,6 +1360,8 @@ try {
     await assertHeaderContextPanelRemoved(page)
     await assertSidebarWorkspaceControls(page)
     await assertSidebarFooterContract(page)
+    assert.deepEqual(pageErrors, [])
+    assert.equal(await page.evaluate(() => window.__quickActionFlashDetected), false)
     await context.close()
   })
 

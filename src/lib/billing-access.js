@@ -37,6 +37,10 @@ function normalizeRole(value) {
   return normalizeText(value).toLowerCase()
 }
 
+function normalizeBillingContext(context) {
+  return context && typeof context === 'object' && !Array.isArray(context) ? context : {}
+}
+
 function normalizeSubscriptionStatus(value) {
   const status = normalizeText(value).toLowerCase()
   return status === 'cancelled' ? 'canceled' : status
@@ -127,27 +131,28 @@ export function isValidBillingSubscriptionStatus(value) {
 }
 
 export function resolveBillingAccess(context = {}, { now = null } = {}) {
-  const scope = getWorkspaceScope(context.planKey ?? context.plan_key)
-  const role = normalizeRole(context.role ?? context.clubRole ?? context.club_role)
+  const safeContext = normalizeBillingContext(context)
+  const scope = getWorkspaceScope(safeContext.planKey ?? safeContext.plan_key)
+  const role = normalizeRole(safeContext.role ?? safeContext.clubRole ?? safeContext.club_role)
   const subscriptionStatus = normalizeSubscriptionStatus(
-    context.subscriptionStatus
-    ?? context.subscription_status
-    ?? context.planStatus
-    ?? context.plan_status,
+    safeContext.subscriptionStatus
+    ?? safeContext.subscription_status
+    ?? safeContext.planStatus
+    ?? safeContext.plan_status,
   )
   const arrangement = normalizeArrangement(
-    context.billingArrangement ?? context.billing_arrangement,
-    Boolean(context.isPlanComped ?? context.is_plan_comped),
+    safeContext.billingArrangement ?? safeContext.billing_arrangement,
+    Boolean(safeContext.isPlanComped ?? safeContext.is_plan_comped),
   )
-  const billingStartAt = normalizeTimestamp(context.billingStartAt ?? context.billing_start_at)
-  const payerAuthorized = isPayerAuthorized({ context, role, scope })
+  const billingStartAt = normalizeTimestamp(safeContext.billingStartAt ?? safeContext.billing_start_at)
+  const payerAuthorized = isPayerAuthorized({ context: safeContext, role, scope })
 
-  if (isArchivedWorkspace(context)) {
+  if (isArchivedWorkspace(safeContext)) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.archived,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: false,
       payerAuthorized: false,
       reason: 'workspace_archived',
@@ -161,7 +166,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.paymentRequired,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: false,
       payerAuthorized: false,
       reason: 'unknown_commercial_scope',
@@ -176,7 +181,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.full,
       arrangement: arrangement || BILLING_ARRANGEMENTS.complimentary,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: true,
       payerAuthorized: false,
       reason: 'individual_free_access',
@@ -190,7 +195,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.full,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: true,
       payerAuthorized,
       reason: 'valid_subscription',
@@ -204,7 +209,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.full,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: true,
       payerAuthorized,
       reason: 'complimentary_access',
@@ -218,7 +223,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.full,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: true,
       payerAuthorized,
       reason: 'legacy_billing_review_required',
@@ -233,7 +238,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.paymentRequired,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: false,
       payerAuthorized,
       reason: 'immediate_payment_required',
@@ -247,7 +252,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.paymentRequired,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: false,
       payerAuthorized,
       reason: 'deferred_date_invalid',
@@ -264,7 +269,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       accessState: BILLING_ACCESS_STATES.paymentRequired,
       arrangement,
       billingStartAt,
-      context,
+      context: safeContext,
       operationalMutationsAllowed: false,
       payerAuthorized,
       reason: 'deferred_access_expired',
@@ -279,7 +284,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
       : BILLING_ACCESS_STATES.full,
     arrangement,
     billingStartAt,
-    context,
+    context: safeContext,
     operationalMutationsAllowed: true,
     payerAuthorized,
     reason: remainingMs <= DUE_SOON_WINDOW_MS ? 'payment_due_soon' : 'deferred_access_active',
@@ -289,11 +294,16 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
 }
 
 export function isBillingActionAllowed(context = {}, actionCategory, options = {}) {
-  const decision = resolveBillingAccess(context, options)
+  const safeContext = normalizeBillingContext(context)
+  const decision = resolveBillingAccess(safeContext, options)
   const category = normalizeText(actionCategory).toUpperCase()
-  const role = normalizeRole(context.role ?? context.clubRole ?? context.club_role)
+  const role = normalizeRole(safeContext.role ?? safeContext.clubRole ?? safeContext.club_role)
 
-  if (category === BILLING_ACTION_CATEGORIES.platformAdmin || role === 'super_admin') {
+  if (category === BILLING_ACTION_CATEGORIES.platformAdmin) {
+    return role === 'super_admin'
+  }
+
+  if (role === 'super_admin') {
     return true
   }
 

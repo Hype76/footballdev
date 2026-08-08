@@ -428,7 +428,9 @@ function QuickActionHotbar({ user }) {
   const canUsePollQuickAction = canManagePolls(user) && isRecoveryPathVisible('/polls', { user })
   const isFormationBoardEditor = location.pathname === '/resources/formation-boards'
     && Boolean(new URLSearchParams(location.search).get('board'))
-  const canShowQuickActions = resolveBillingAccess(user).operationalMutationsAllowed
+  const hasAuthenticatedQuickActionContext = Boolean(user?.id)
+  const canShowQuickActions = hasAuthenticatedQuickActionContext
+    && resolveBillingAccess(user).operationalMutationsAllowed
     &&
     Boolean(user?.clubId)
     && !isSuperAdmin(user)

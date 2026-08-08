@@ -5,6 +5,7 @@ import {
   assertBillingActionAllowed,
   BILLING_ACCESS_STATES,
   BILLING_ACTION_CATEGORIES,
+  isBillingActionAllowed,
   resolveBillingAccess,
 } from '../src/lib/billing-access.js'
 import { getUkCalendarDate, ukCalendarDateToInstant, validateBillingArrangement } from '../src/lib/billing-date.js'
@@ -46,6 +47,41 @@ test('archived and unknown workspaces fail closed while Individual stays free', 
   assert.equal(resolveBillingAccess({ ...clubAdmin, archivedAt: '2026-08-01T00:00:00Z' }).accessState, BILLING_ACCESS_STATES.archived)
   assert.equal(resolveBillingAccess({ ...clubAdmin, planKey: 'unknown-plan' }).accessState, BILLING_ACCESS_STATES.paymentRequired)
   assert.equal(resolveBillingAccess({ planKey: 'individual', role: 'head_manager', roleRank: 70 }).operationalMutationsAllowed, true)
+})
+
+test('null, undefined, malformed, and unknown billing contexts fail closed during authentication hydration', () => {
+  for (const context of [null, undefined, '', 'single_team', 1, true, [], { planKey: 'unknown-plan' }]) {
+    const decision = resolveBillingAccess(context)
+    assert.equal(decision.accessState, BILLING_ACCESS_STATES.paymentRequired)
+    assert.equal(decision.operationalMutationsAllowed, false)
+    assert.equal(decision.payerAuthorized, false)
+    assert.equal(decision.reason, 'unknown_commercial_scope')
+    assert.equal(decision.reviewRequired, true)
+  }
+
+  assert.equal(isBillingActionAllowed(null, BILLING_ACTION_CATEGORIES.staffMutation), false)
+  assert.equal(isBillingActionAllowed(null, BILLING_ACTION_CATEGORIES.platformAdmin), false)
+  assert.equal(isBillingActionAllowed('single_team', BILLING_ACTION_CATEGORIES.staffMutation), false)
+  assert.equal(isBillingActionAllowed({ role: 'super_admin' }, BILLING_ACTION_CATEGORIES.platformAdmin), true)
+})
+
+test('valid commercial and role contexts retain their established billing decisions', () => {
+  const validContexts = [
+    { label: 'Individual', context: { id: 'individual-1', planKey: 'individual', role: 'head_manager', roleRank: 70 } },
+    { label: 'Single Team', context: { id: 'team-1', planKey: 'single_team', planStatus: 'active', role: 'head_manager', roleRank: 70 } },
+    { label: 'Club', context: { id: 'club-1', planKey: 'small_club', planStatus: 'active', role: 'admin', roleRank: 90 } },
+    { label: 'Platform Admin', context: { id: 'platform-1', planKey: 'small_club', planStatus: 'active', role: 'super_admin', roleRank: 100 } },
+    { label: 'Parent', context: { id: 'parent-1', planKey: 'small_club', planStatus: 'active', role: 'parent', roleRank: 0 } },
+    { label: 'Coach', context: { id: 'coach-1', planKey: 'small_club', planStatus: 'active', role: 'coach', roleRank: 30 } },
+    { label: 'Team Admin', context: { id: 'team-admin-1', planKey: 'single_team', planStatus: 'active', role: 'head_manager', roleRank: 70 } },
+    { label: 'Club Admin', context: { id: 'club-admin-1', planKey: 'small_club', planStatus: 'active', role: 'admin', roleRank: 90 } },
+  ]
+
+  for (const { context, label } of validContexts) {
+    const decision = resolveBillingAccess(context)
+    assert.equal(decision.accessState, BILLING_ACCESS_STATES.full, label)
+    assert.equal(decision.operationalMutationsAllowed, true, label)
+  }
 })
 
 test('UK calendar dates convert correctly across daylight saving boundaries', () => {
