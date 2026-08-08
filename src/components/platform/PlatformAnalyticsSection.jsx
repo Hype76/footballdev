@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const PRESET_OPTIONS = [
@@ -16,16 +16,16 @@ const METRIC_OPTIONS = [
 ]
 
 const ACCOUNT_ESTATE_CARDS = [
-  ['clubs', 'Clubs', 'Current active clubs in the selected commercial scope.', 'clubs'],
-  ['teams', 'Teams', 'Current active teams belonging to counted clubs.', 'teams'],
-  ['activePlayers', 'Active players', 'Current active players with a valid active team and club.', 'activePlayers'],
-  ['authenticatedStaffAccounts', 'Authenticated staff accounts', 'Distinct active authenticated staff users with at least one current team assignment.', 'staffAccounts'],
-  ['authenticatedParentAccounts', 'Authenticated parent accounts', 'Distinct active authenticated users with at least one accepted current parent relationship.', 'parentAccounts'],
-  ['parentContacts', 'Parent and guardian contacts', 'Distinct non-revoked parent or guardian contact relationships, whether or not authenticated.', 'parentContacts'],
-  ['activeParentChildLinks', 'Active parent-child links', 'Distinct accepted authenticated parent-to-player relationships.', 'activeParentChildLinks'],
-  ['parentOnlyAccounts', 'Parent-only accounts', 'Authenticated parent accounts with no current staff assignment.', 'parentOnlyAccounts'],
-  ['staffWithParentAccess', 'Staff with parent access', 'Authenticated parent accounts that also have a current staff assignment.', 'staffWithParentAccess'],
-  ['developmentRecords', 'Development records', 'Current saved development records in the selected club scope.', 'developmentRecords'],
+  ['customerClubs', 'Customer clubs', 'Active, non-test customer workspaces whose commercial scope is Club.', 'customerClubs'],
+  ['customerWorkspaces', 'Customer workspaces', 'Active, non-test customer storage containers across all commercial scopes.', 'customerWorkspaces'],
+  ['teams', 'Teams', 'Active football teams in counted customer workspaces.', 'teams'],
+  ['activePlayers', 'Active players', 'Players with active status attached to an active team in a counted workspace.', 'activePlayers'],
+  ['staffAccounts', 'Staff accounts', 'Distinct active customer staff profiles, whether or not they currently have a team assignment.', 'staffAccounts'],
+  ['staffAssignments', 'Staff assignments', 'Current team-role assignments. One staff account can have several assignments.', 'staffAssignments'],
+  ['usersWithParentAccess', 'Users with Parent access', 'Distinct active authenticated users with an accepted active Parent relationship.', 'parentAccess'],
+  ['parentContacts', 'Parent and guardian contacts', 'Distinct current, non-revoked contact relationships. Authentication is not required.', 'parentContacts'],
+  ['activeParentChildLinks', 'Active Parent-child links', 'Distinct accepted authenticated Parent-to-player relationships.', 'activeParentChildLinks'],
+  ['developmentRecords', 'Development records', 'Saved customer Development history, including records whose player lifecycle later changed.', 'developmentRecords'],
 ]
 
 const PRODUCT_ACTIVITY_CARDS = [
@@ -59,23 +59,93 @@ function formatMetricValue(value) {
   return Number(value).toLocaleString()
 }
 
-function OverviewCard({ label, value, detail = '', definition = '', refreshedAt = '', drilldown = [] }) {
+function displayCellValue(key, value) {
+  if (value === null || value === undefined || value === '') return 'Not observed'
+  if (key.toLowerCase().endsWith('at') && !Number.isNaN(new Date(value).getTime())) return new Date(value).toLocaleString('en-GB')
+  if (typeof value === 'number') return value.toLocaleString()
+  return labelValue(value)
+}
+
+function HumanBreakdown({ label, rows = [], total = 0 }) {
+  const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+  const columns = useMemo(() => [...new Set(rows.flatMap((row) => Object.keys(row)))].filter((key) => key !== 'count'), [rows])
+  const filteredRows = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return rows
+    return rows.filter((row) => Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(needle)))
+  }, [query, rows])
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const visibleRows = filteredRows.slice((page - 1) * pageSize, page * pageSize)
+  const breakdownTotal = rows.reduce((sum, row) => sum + Number(row.count ?? 0), 0)
+
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500" title={definition}>{label}{definition ? ' ⓘ' : ''}</p>
-      <p className="mt-2 text-3xl font-black text-slate-950">{formatMetricValue(value)}</p>
-      {detail ? <p className="mt-1 text-xs font-bold text-slate-500">{detail}</p> : null}
-      {refreshedAt ? <p className="mt-2 text-xs font-semibold text-slate-500">Refreshed {new Date(refreshedAt).toLocaleString('en-GB')}</p> : null}
-      {Array.isArray(drilldown) ? (
-        <details className="mt-2 text-xs">
-          <summary className="cursor-pointer font-black text-teal-800">Reconciliation detail</summary>
-          {drilldown.length ? (
-            <ul className="mt-2 max-h-40 space-y-1 overflow-auto font-mono text-slate-600">
-              {drilldown.slice(0, 50).map((row) => <li key={`${row.id}-${row.clubId || ''}`}>{row.id}{row.clubId ? ` · club ${row.clubId}` : ''}{row.eventCount !== undefined ? ` · ${row.eventCount} events` : ''}{row.firstQualifyingAt ? ` · first ${row.firstQualifyingAt}` : ''}{row.lastQualifyingAt ? ` · last ${row.lastQualifyingAt}` : ''}</li>)}
-            </ul>
-          ) : <p className="mt-2 font-semibold text-slate-500">No counted records for this scope.</p>}
-        </details>
-      ) : null}
+    <div className="mt-3 space-y-3">
+      <label className="grid gap-1 text-xs font-black uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        Search this breakdown
+        <input
+          className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 text-sm font-semibold normal-case tracking-normal text-[var(--text-primary)]"
+          type="search"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setPage(1)
+          }}
+          placeholder={`Search ${label.toLowerCase()}`}
+        />
+      </label>
+      {visibleRows.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-left text-xs">
+            <caption className="sr-only">{label} breakdown. Row counts total {breakdownTotal.toLocaleString()} against a headline of {Number(total ?? 0).toLocaleString()}.</caption>
+            <thead><tr>{columns.map((column) => <th key={column} className="border-b border-[var(--border-color)] px-2 py-2 font-black text-[var(--text-muted)]">{labelValue(column)}</th>)}<th className="border-b border-[var(--border-color)] px-2 py-2 text-right font-black text-[var(--text-muted)]">Count</th></tr></thead>
+            <tbody>{visibleRows.map((row, index) => <tr key={`${page}-${index}-${JSON.stringify(row)}`} className="border-b border-[var(--border-color)]">{columns.map((column) => <td key={column} className="px-2 py-2 font-semibold text-[var(--text-primary)]">{displayCellValue(column, row[column])}</td>)}<td className="px-2 py-2 text-right font-black text-[var(--text-primary)]">{Number(row.count ?? 0).toLocaleString()}</td></tr>)}</tbody>
+          </table>
+        </div>
+      ) : <p className="font-semibold text-[var(--text-muted)]" role="status">No counted records match this search.</p>}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[var(--text-muted)]">
+        <p>Breakdown total: {breakdownTotal.toLocaleString()}. Headline: {Number(total ?? 0).toLocaleString()}.</p>
+        {pageCount > 1 ? <div className="flex items-center gap-2"><button className="min-h-9 rounded-md border border-[var(--border-color)] px-3" type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Previous</button><span>Page {page} of {pageCount}</span><button className="min-h-9 rounded-md border border-[var(--border-color)] px-3" type="button" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>Next</button></div> : null}
+      </div>
+    </div>
+  )
+}
+
+function OverviewCard({ focusKey = '', label, value, detail = '', definition = '', refreshedAt = '', drilldown }) {
+  return (
+    <article id={focusKey ? `metric-${focusKey}` : undefined} tabIndex={focusKey ? -1 : undefined} className="scroll-mt-28 rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 shadow-sm focus-within:ring-2 focus-within:ring-[var(--accent)]">
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]" title={definition}>{label}{definition ? ' [?]' : ''}</p>
+      <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{formatMetricValue(value)}</p>
+      {detail ? <p className="mt-1 text-xs font-bold text-[var(--text-muted)]">{detail}</p> : null}
+      {refreshedAt ? <p className="mt-2 text-xs font-semibold text-[var(--text-muted)]">Refreshed {new Date(refreshedAt).toLocaleString('en-GB')}</p> : null}
+      {Array.isArray(drilldown) ? <details className="mt-2 text-xs"><summary className="min-h-9 cursor-pointer py-2 font-black text-[var(--accent)]">View human-readable breakdown</summary><HumanBreakdown label={label} rows={drilldown} total={value} /></details> : null}
+    </article>
+  )
+}
+
+function BarComparison({ title, description = '', rows = [], totalKey = 'count', activeKey = '', emptyMessage = 'No data is available for this scope.' }) {
+  const maximum = Math.max(1, ...rows.map((row) => Number(row[totalKey] ?? 0)))
+  return (
+    <article className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+      <h3 className="text-lg font-black text-[var(--text-primary)]">{title}</h3>
+      {description ? <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{description}</p> : null}
+      {rows.length ? <div className="mt-4 space-y-3">{rows.map((row) => { const label = row.label || row.role || labelValue(row.state); const total = Number(row[totalKey] ?? 0); const active = activeKey ? Number(row[activeKey] ?? 0) : 0; return <div key={`${label}-${total}`}><div className="flex items-baseline justify-between gap-3 text-sm"><span className="font-black text-[var(--text-primary)]">{label}</span><span className="font-bold text-[var(--text-muted)]">{activeKey ? `${active.toLocaleString()} active of ` : ''}{total.toLocaleString()}</span></div><div className="mt-1 h-3 overflow-hidden rounded-full bg-[var(--panel-alt)]"><div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(total ? 2 : 0, (total / maximum) * 100)}%` }}>{activeKey ? <div className="h-full rounded-full bg-emerald-300" style={{ width: `${total ? (active / total) * 100 : 0}%` }} /> : null}</div></div></div> })}</div> : <p className="mt-3 text-sm font-semibold text-[var(--text-muted)]">{emptyMessage}</p>}
+      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs"><caption className="sr-only">Tabular values for {title}</caption><thead><tr><th className="py-2 font-black text-[var(--text-muted)]">Group</th>{activeKey ? <th className="py-2 text-right font-black text-[var(--text-muted)]">Active</th> : null}<th className="py-2 text-right font-black text-[var(--text-muted)]">Total</th></tr></thead><tbody>{rows.map((row) => { const label = row.label || row.role || labelValue(row.state); return <tr key={`table-${label}`} className="border-t border-[var(--border-color)]"><th className="py-2 font-bold text-[var(--text-primary)]">{label}</th>{activeKey ? <td className="py-2 text-right font-semibold">{Number(row[activeKey] ?? 0).toLocaleString()}</td> : null}<td className="py-2 text-right font-semibold">{Number(row[totalKey] ?? 0).toLocaleString()}</td></tr> })}</tbody></table></div>
+    </article>
+  )
+}
+
+function TrendChart({ title, description, rows = [], series = [] }) {
+  const width = 720
+  const height = 180
+  const values = rows.flatMap((row) => series.map((item) => Number(row[item.key] ?? 0)))
+  const maximum = Math.max(1, ...values)
+  const pointsFor = (key) => rows.map((row, index) => `${rows.length <= 1 ? width / 2 : (index / (rows.length - 1)) * width},${height - (Number(row[key] ?? 0) / maximum) * (height - 20)}`).join(' ')
+  return (
+    <article className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+      <h3 className="text-lg font-black text-[var(--text-primary)]">{title}</h3><p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{description}</p>
+      {rows.length ? <><div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-[var(--text-muted)]">{series.map((item) => <span key={item.key} className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />{item.label}</span>)}</div><div className="mt-3 overflow-x-auto"><svg className="h-48 min-w-[40rem] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}. ${description}`}><line x1="0" y1={height} x2={width} y2={height} stroke="var(--border-color)" />{series.map((item) => <polyline key={item.key} fill="none" stroke={item.color} strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={pointsFor(item.key)} />)}</svg></div><details className="mt-2 text-xs"><summary className="min-h-9 cursor-pointer py-2 font-black text-[var(--accent)]">View daily values</summary><div className="overflow-x-auto"><table className="w-full min-w-[36rem] text-left"><thead><tr><th className="py-2 font-black">Date</th>{series.map((item) => <th key={item.key} className="py-2 text-right font-black">{item.label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.date} className="border-t border-[var(--border-color)]"><th className="py-2 font-bold">{new Date(`${row.date}T12:00:00Z`).toLocaleDateString('en-GB')}</th>{series.map((item) => <td key={item.key} className="py-2 text-right font-semibold">{Number(row[item.key] ?? 0).toLocaleString()}</td>)}</tr>)}</tbody></table></div></details></> : <p className="mt-3 text-sm font-semibold text-[var(--text-muted)]">No trend data matches these filters.</p>}
     </article>
   )
 }
@@ -140,7 +210,7 @@ function OverallHeatmap({ heatmap }) {
           {METRIC_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
-      <p className="text-sm font-black text-slate-700">Visible cells: {visibleTotal.toLocaleString()}. Source total: {sourceTotal.toLocaleString()}. Result: {visibleTotal === sourceTotal ? 'Reconciled' : 'Mismatch'}.</p>
+      <p className="text-sm font-black text-slate-700">Displayed events: {visibleTotal.toLocaleString()}. Selected-period total: {sourceTotal.toLocaleString()}{visibleTotal === sourceTotal ? '.' : '. Some selected events are not shown in the grid.'}</p>
 
       <div className="overflow-x-auto">
         <table className="w-full border-separate border-spacing-0 text-left">
@@ -163,7 +233,7 @@ function OverallHeatmap({ heatmap }) {
       </div>
       {selectedCell ? (
         <div className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-950" role="status">
-          <p className="font-black">Cell reconciliation</p>
+          <p className="font-black">Selected hour details</p>
           <p className="mt-1 font-semibold">
             {selectedCell.day}, {String(selectedCell.hour).padStart(2, '0')}:00 Europe/London. Metric: {labelValue(metric)}. Event count: {selectedCell[metric] ?? 0}. Distinct users: {selectedCell.distinctUsers}. Distinct clubs: {selectedCell.distinctClubs}. Internal events: {selectedCell.internalEvents}. FP TEST events: {selectedCell.fpTestEvents}.
           </p>
@@ -251,6 +321,23 @@ export function PlatformAnalyticsSection({
   const processor = report?.processor ?? {}
   const maintenance = report?.maintenanceWindow
   const parentStages = report?.parentAdoption?.stages ?? []
+  const trend = report?.trend ?? []
+  const staffRoleAdoption = report?.staffRoleAdoption ?? []
+  const workspaceActivity = report?.workspaceActivity ?? {}
+  const requestedFocus = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('focus') || ''
+
+  useEffect(() => {
+    if (!report || typeof window === 'undefined') return undefined
+    const focus = requestedFocus
+    if (!focus) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(`metric-${focus}`) || document.getElementById(`analytics-${focus}`)
+      target?.querySelector('details')?.setAttribute('open', '')
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [report, requestedFocus])
 
   return (
     <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="platform-analytics-title">
@@ -304,6 +391,7 @@ export function PlatformAnalyticsSection({
               {ACCOUNT_ESTATE_CARDS.map(([key, label, definition, drillKey]) => (
                 <OverviewCard
                   key={key}
+                  focusKey={key}
                   label={label}
                   value={accountEstate[key]}
                   definition={definition}
@@ -323,6 +411,18 @@ export function PlatformAnalyticsSection({
               <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First successful parent login</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstParentLoginAt ? new Date(authentication.firstParentLoginAt).toLocaleString('en-GB') : 'Not observed'}</p></article>
               <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First successful staff login</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstStaffLoginAt ? new Date(authentication.firstStaffLoginAt).toLocaleString('en-GB') : 'Not observed'}</p></article>
             </div>
+            <div className="mt-5">
+              <TrendChart
+                title="Authentication trend"
+                description="Daily successful logins, distinct users who logged in, and privacy-safe failed-login telemetry."
+                rows={trend}
+                series={[
+                  { key: 'successfulLogins', label: 'Successful logins', color: 'var(--accent)' },
+                  { key: 'uniqueLoginUsers', label: 'Users logging in', color: '#38bdf8' },
+                  { key: 'failedLogins', label: 'Failed logins', color: '#f97316' },
+                ]}
+              />
+            </div>
           </SectionCard>
 
           <SectionCard title="Product activity" description="Qualifying product activity is distinct from login and page navigation." storageKey="platform-analytics-product-activity">
@@ -341,6 +441,27 @@ export function PlatformAnalyticsSection({
                   returningActiveUsers: overview.returningUsers,
                 })[key]} definition={definition} refreshedAt={report.generatedAt} drilldown={key === 'pageViews' ? productActivity.pageDrilldown : productActivity.drilldown} />
               ))}
+            </div>
+            <div id="analytics-productActivity" tabIndex="-1" className="mt-5 grid scroll-mt-28 gap-5 xl:grid-cols-2">
+              <TrendChart
+                title="Product activity trend"
+                description="Daily meaningful actions, active users, and page views using the selected filters."
+                rows={trend}
+                series={[
+                  { key: 'meaningfulActions', label: 'Meaningful actions', color: 'var(--accent)' },
+                  { key: 'activeUsers', label: 'Active users', color: '#38bdf8' },
+                  { key: 'pageViews', label: 'Page views', color: '#a78bfa' },
+                ]}
+              />
+              <TrendChart
+                title="New and returning activity"
+                description="Daily active users grouped by whether their first observed meaningful action happened that day."
+                rows={trend}
+                series={[
+                  { key: 'newActiveUsers', label: 'New active users', color: '#34d399' },
+                  { key: 'returningActiveUsers', label: 'Returning active users', color: '#f59e0b' },
+                ]}
+              />
             </div>
           </SectionCard>
 
@@ -386,7 +507,7 @@ export function PlatformAnalyticsSection({
 
           <SectionCard
             title="Activity heatmap"
-            description="Choose one event basis. Every cell reconciles to the same shared filters and Europe/London time."
+            description="Choose one event basis. Every cell uses the same filters and Europe/London time."
             defaultCollapsed
             storageKey="platform-analytics-overall-heatmap"
           >
@@ -410,19 +531,29 @@ export function PlatformAnalyticsSection({
                 ))}
               </ol>
             </article>
+            <div className="mt-5">
+              <BarComparison title="Parent adoption stages" description="Each stage is a distinct population and is not presented as a conversion rate." rows={parentStages.filter((stage) => stage.available)} />
+            </div>
           </SectionCard>
 
-          <SectionCard title="Staff activity" description="Current accounts and assignments are separate from selected-period staff activity." defaultCollapsed storageKey="platform-analytics-staff-activity">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <OverviewCard label="Staff accounts" value={report.staffAccounts?.authenticatedStaffAccounts} definition="Distinct current authenticated staff accounts with a valid assignment." refreshedAt={report.generatedAt} />
+          <SectionCard title="Staff activity" description="Current accounts and assignments are separate from selected-period staff activity." defaultCollapsed forceOpen={requestedFocus === 'staffAccounts'} storageKey="platform-analytics-staff-activity">
+            <div id="analytics-staffAccounts" tabIndex="-1" className="grid scroll-mt-28 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <OverviewCard label="Staff accounts" value={report.staffAccounts?.authenticatedStaffAccounts} definition="Distinct active customer staff profiles, whether or not they currently have a team assignment." refreshedAt={report.generatedAt} />
               <OverviewCard label="Staff assignments" value={report.staffAccounts?.assignmentCount} definition="Current team-role assignments. One account may have several assignments." refreshedAt={report.generatedAt} />
               <OverviewCard label="Multi-team staff" value={report.staffAccounts?.multiTeamAccounts} definition="Current staff accounts assigned to more than one team." refreshedAt={report.generatedAt} />
               <OverviewCard label="Active staff" value={report.staffAccounts?.activeStaffAccounts} definition="Current staff accounts with qualifying activity in the selected period." refreshedAt={report.generatedAt} />
+            </div>
+            <div className="mt-5">
+              <BarComparison title="Staff accounts by role" description="Total current customer staff accounts compared with accounts that had meaningful activity in the selected period." rows={staffRoleAdoption} totalKey="totalAccounts" activeKey="activeAccounts" />
             </div>
           </SectionCard>
 
           <SectionCard title="Club adoption and dormancy" description="Current club estate, lifecycle evidence, and operationally honest dormancy states." defaultCollapsed storageKey="platform-analytics-club-adoption">
             <div className="grid gap-5 xl:grid-cols-2">
+              <div id="analytics-workspaceActivity" tabIndex="-1" className="scroll-mt-28">
+                <BarComparison title="Customer workspace activity" description={workspaceActivity.definition} rows={workspaceActivity.states ?? []} />
+                <details className="mt-3 rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-xs"><summary className="min-h-9 cursor-pointer py-2 font-black text-[var(--accent)]">View workspace status breakdown</summary><HumanBreakdown label="Customer workspace activity" rows={workspaceActivity.drilldown ?? []} total={accountEstate.customerWorkspaces ?? 0} /></details>
+              </div>
               <article className="rounded-xl border border-slate-200 p-4">
                 <h3 className="text-lg font-black text-slate-950">Club activity</h3>
                 <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">

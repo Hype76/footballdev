@@ -352,6 +352,13 @@ async function prepareContext(
   await context.route('**/.netlify/functions/platform-create-club**', handlePlatformCreateClubRoute)
   await context.route('**/.netlify/functions/platform-delete-team**', handlePlatformDeleteTeamRoute)
   await context.route('**/.netlify/functions/platform-club-access**', handlePlatformClubAccessRoute)
+  await context.route('**/.netlify/functions/platform-analytics**', async (route) => {
+    if (route.request().method() === 'POST') {
+      await fulfillJson(route, 202, { success: true, accepted: true })
+      return
+    }
+    await fulfillJson(route, 200, { success: true, report: platformAnalyticsFixture() })
+  })
 
   await context.route('**/.netlify/functions/**', async (route) => {
     const url = route.request().url()
@@ -373,6 +380,15 @@ async function prepareContext(
 
     if (url.includes('/.netlify/functions/platform-club-access')) {
       await handlePlatformClubAccessRoute(route)
+      return
+    }
+
+    if (url.includes('/.netlify/functions/platform-analytics')) {
+      if (route.request().method() === 'POST') {
+        await fulfillJson(route, 202, { success: true, accepted: true })
+      } else {
+        await fulfillJson(route, 200, { success: true, report: platformAnalyticsFixture() })
+      }
       return
     }
 
@@ -579,6 +595,13 @@ async function signIn(page) {
   await wait(300)
 }
 
+async function navigateInApp(page, path) {
+  await page.evaluate((nextPath) => {
+    window.history.pushState({}, '', nextPath)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+}
+
 async function archiveTeamAndOpenDeleteModal(page, requests, teamName) {
   await teamArchiveButton(page, teamName).click()
   const archiveDialog = page.locator('[role="dialog"]').filter({ hasText: 'Archive Team' })
@@ -597,14 +620,90 @@ async function archiveTeamAndOpenDeleteModal(page, requests, teamName) {
 
 async function openPlatformClubs(page) {
   await signIn(page)
-  await page.goto(`${baseUrl}/platform-clubs`, { waitUntil: 'domcontentloaded' })
-  await page.locator('p').filter({ hasText: disposableClub.name }).first().waitFor({ state: 'visible', timeout: 15000 })
+  await navigateInApp(page, '/platform-clubs')
+  try {
+    await page.locator('p').filter({ hasText: disposableClub.name }).first().waitFor({ state: 'visible', timeout: 15000 })
+  } catch (error) {
+    const visibleText = (await page.locator('body').innerText().catch(() => '')).slice(0, 2000)
+    throw new Error(`${error.message}\nCurrent URL: ${page.url()}\nVisible page text: ${visibleText}`)
+  }
   await page.locator('span').filter({ hasText: 'U12 Tigers Fixture' }).first().waitFor({ state: 'visible', timeout: 15000 })
+}
+
+function platformAnalyticsFixture() {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const hours = Array.from({ length: 24 }, (_, hour) => hour)
+  const emptyGrid = Array.from({ length: 24 }, () => Array(7).fill(0))
+  const cells = Array.from({ length: 24 }, (_, hour) => Array.from({ length: 7 }, (_, dayIndex) => ({
+    dayIndex,
+    day: days[dayIndex],
+    hour,
+    pageViews: 0,
+    meaningfulActions: 0,
+    successfulLogins: 0,
+    distinctUsers: 0,
+    distinctClubs: 0,
+    internalEvents: 0,
+    fpTestEvents: 0,
+  })))
+  const today = new Date().toISOString().slice(0, 10)
+
+  return {
+    generatedAt: new Date().toISOString(),
+    timezone: 'Europe/London',
+    filters: { preset: '30_days', startDate: today, endDate: today, role: 'all', platform: 'all', clubId: 'all', plan: 'all', activityType: 'all', environment: 'production', pageFamily: 'all', includeInternal: false, includeFpTest: false },
+    dataState: 'available',
+    accountEstate: {
+      customerClubs: 7,
+      customerWorkspaces: 11,
+      workspaceScopeBreakdown: { club: 7, team: 4, individual: 0, unknown: 0 },
+      teams: 28,
+      activePlayers: 89,
+      staffAccounts: 37,
+      staffAssignments: 33,
+      usersWithParentAccess: 5,
+      staffWithParentAccess: 4,
+      platformAdminsWithParentAccess: 1,
+      parentOnlyAccounts: 0,
+      parentContacts: 53,
+      activeParentChildLinks: 5,
+      developmentRecords: 85,
+      drilldown: {
+        customerClubs: [{ name: 'Fixture Customer Club', scope: 'Club', plan: 'small_club', status: 'Active', count: 7 }],
+        customerWorkspaces: [{ name: 'Fixture customer workspaces', scope: 'All scopes', status: 'Active', count: 11 }],
+        teams: [{ name: 'Fixture teams', workspace: 'Customer workspaces', activePlayers: 89, count: 28 }],
+        activePlayers: [{ team: 'Fixture teams', workspace: 'Customer workspaces', count: 89 }],
+        staffAccounts: [{ role: 'Coach', activeInPeriod: 8, count: 37 }],
+        staffAssignments: [{ role: 'Coach', count: 33 }],
+        parentAccess: [{ accessType: 'Staff and Parent', count: 4 }, { accessType: 'Platform Admin and Parent', count: 1 }, { accessType: 'Parent only', count: 0 }],
+        parentContacts: [{ workspace: 'Customer workspaces', count: 53 }],
+        activeParentChildLinks: [{ workspace: 'Customer workspaces', count: 5 }],
+        developmentRecords: [{ workspace: 'Customer workspaces', count: 85 }],
+      },
+    },
+    authentication: { successfulLoginsToday: 5, successfulLoginsSelected: 222, distinctUsersLoggingIn: 13, failedLogins: 0, failedLoginsAvailable: true },
+    productActivity: { activeUsersToday: 2, activeUsers7Days: 8, activeUsers30Days: 16, selectedActiveUsers: 16, activeParents: 0, activeStaff: 8, activeClubs: 5, pageViews: 3102, meaningfulActions: 1541, newActiveUsers: 7, returningActiveUsers: 9 },
+    overview: { activeUsersToday: 2, activeUsers7Days: 8, activeUsers30Days: 16, selectedActiveUsers: { current: 16 }, selectedSuccessfulLogins: { current: 222 }, distinctUsersLoggingIn: 13, activeParents: 0, activeStaff: 8, activeClubs: 5, pageViews: { current: 3102 }, meaningfulActions: 1541, newUsers: 7, returningUsers: 9 },
+    trend: [{ date: today, successfulLogins: 5, uniqueLoginUsers: 4, failedLogins: 0, pageViews: 120, meaningfulActions: 60, activeUsers: 8, newActiveUsers: 1, returningActiveUsers: 7 }],
+    topPages: [],
+    roleActivity: [],
+    overallHeatmap: { days, hours, metrics: { meaningfulActions: emptyGrid, successfulLogins: emptyGrid, pageViews: emptyGrid }, cells, totals: { meaningfulActions: 0, successfulLogins: 0, pageViews: 0 } },
+    parentAdoption: { stages: [{ key: 'contacts', label: 'Parent contacts', count: 53, available: true }, { key: 'accounts', label: 'Authenticated Parent access', count: 5, available: true }] },
+    staffAccounts: { authenticatedStaffAccounts: 37, assignmentCount: 33, multiTeamAccounts: 2, activeStaffAccounts: 8 },
+    staffRoleAdoption: [{ role: 'Coach', totalAccounts: 37, activeAccounts: 8 }],
+    workspaceActivity: { definition: 'Selected-period customer activity.', states: [{ state: 'active', label: 'Active in selected period', count: 5 }, { state: 'quiet', label: 'Quiet', count: 6 }], drilldown: [{ name: 'Fixture customer workspaces', scope: 'All scopes', state: 'Mixed', count: 11 }] },
+    clubActivity: { active: 5, neverActivated: 0, dormancy: { '30Days': 0, insufficientHistory: 0 } },
+    maintenanceWindow: { available: false, message: 'Insufficient data.' },
+    dataQuality: {},
+    processor: {},
+    definitions: { activeUser: 'A distinct authenticated user with at least one approved meaningful action.' },
+    options: { roles: [], platforms: [], clubs: [], plans: [], activityTypes: [], environments: ['production'], pageFamilies: [] },
+  }
 }
 
 async function openPlatformRoute(page, path, title) {
   await signIn(page)
-  await page.goto(`${baseUrl}${path}`, { waitUntil: 'domcontentloaded' })
+  await navigateInApp(page, path)
   await page.getByRole('heading', { name: title, exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
 }
 
@@ -897,13 +996,13 @@ try {
     await openPlatformRoute(page, '/platform-admin', 'Platform dashboard')
 
     const expectedCardLabels = [
-      'Clubs: View clubs',
-      'Teams: View teams',
-      'Active players: View player records',
-      'Staff accounts: View platform staff',
-      'Parent accounts: View parent adoption',
-      'Development records: View development analytics',
-      'Recent admin activity: View activity context',
+      'Customer clubs: View customer clubs',
+      'Teams: View counted teams',
+      'Active players: View active-player breakdown',
+      'Staff accounts: View staff breakdown',
+      'Users with Parent access: View Parent access breakdown',
+      'Development records: View Development breakdown',
+      'Active this week: View product activity',
       'Open platform issues: View platform feedback',
     ]
 
@@ -917,13 +1016,19 @@ try {
     assert.equal(await page.getByText('Shared exports', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Audit events', { exact: true }).count(), 0)
 
-    const staffCard = page.getByRole('link', { name: 'Staff accounts: View platform staff', exact: true })
+    const staffCard = page.getByRole('link', { name: 'Staff accounts: View staff breakdown', exact: true })
     await staffCard.focus()
     await Promise.all([
-      page.waitForURL('**/platform-staff'),
+      page.waitForURL('**/platform-analytics?focus=staffAccounts'),
       page.keyboard.press('Enter'),
     ])
-    await page.getByRole('heading', { name: 'Platform Staff', exact: true }).first().waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Platform Analytics', exact: true }).first().waitFor({ state: 'visible' })
+    const staffMetric = page.locator('#metric-staffAccounts')
+    await staffMetric.waitFor({ state: 'visible' })
+    await staffMetric.locator('details[open]').waitFor({ state: 'attached' })
+    await staffMetric.getByText('Coach', { exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Staff accounts by role', exact: true }).waitFor({ state: 'visible' })
+    assert.equal(/[0-9a-f]{8}-[0-9a-f-]{27}/i.test(await staffMetric.innerText()), false)
     await context.close()
   })
 
@@ -947,19 +1052,19 @@ try {
     await openPlatformRoute(page, '/platform-analytics', 'Platform Analytics')
     await page.getByRole('heading', { name: 'Platform analytics', exact: true }).waitFor({ state: 'visible' })
 
-    await page.goto(`${baseUrl}/platform-banners`, { waitUntil: 'domcontentloaded' })
+    await navigateInApp(page, '/platform-banners')
     await page.getByRole('heading', { name: 'Platform Banners', exact: true }).first().waitFor({ state: 'visible' })
     await page.getByRole('heading', { name: 'Banner controls', exact: true }).waitFor({ state: 'visible' })
     for (const audience of ['Landing pages', 'Logged-in users', 'Parent Portal']) {
       await page.getByRole('button', { name: new RegExp(audience, 'i') }).first().waitFor({ state: 'visible' })
     }
 
-    await page.goto(`${baseUrl}/platform-staff`, { waitUntil: 'domcontentloaded' })
+    await navigateInApp(page, '/platform-staff')
     await page.getByRole('heading', { name: 'Platform Staff', exact: true }).first().waitFor({ state: 'visible' })
     await page.getByRole('heading', { name: 'Staff access context', exact: true }).waitFor({ state: 'visible' })
     await page.getByRole('heading', { name: 'Platform admin staff', exact: true }).waitFor({ state: 'visible' })
 
-    await page.goto(`${baseUrl}/platform-data-hygiene`, { waitUntil: 'domcontentloaded' })
+    await navigateInApp(page, '/platform-data-hygiene')
     await page.getByRole('heading', { name: 'Data Hygiene', exact: true }).first().waitFor({ state: 'visible' })
     await page.getByRole('heading', { name: 'Data hygiene', exact: true }).waitFor({ state: 'visible' })
     assert.equal(await page.getByRole('button', { name: /delete|clean up|purge/i }).count(), 0)
@@ -986,7 +1091,7 @@ try {
       }, fixture.mode)
       await page.waitForTimeout(50)
 
-      const card = page.getByRole('link', { name: 'Clubs: View clubs', exact: true })
+      const card = page.getByRole('link', { name: 'Customer clubs: View customer clubs', exact: true })
       const themeState = await card.evaluate((element) => {
         const styles = getComputedStyle(element)
         const reference = document.createElement('div')

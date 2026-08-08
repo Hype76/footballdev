@@ -56,11 +56,12 @@ export function SectionCard({
   actions,
   tourId,
   defaultCollapsed = false,
+  forceOpen = false,
   storageKey,
 }) {
   const contentId = useId()
   const cardStorageKey = useMemo(() => getSectionStorageKey(storageKey, title, tourId), [storageKey, title, tourId])
-  const [isOpen, setIsOpen] = useState(() => readStoredOpenState(cardStorageKey, !defaultCollapsed))
+  const [isOpen, setIsOpen] = useState(() => forceOpen || readStoredOpenState(cardStorageKey, !defaultCollapsed))
 
   function handleToggle() {
     setIsOpen((currentValue) => {

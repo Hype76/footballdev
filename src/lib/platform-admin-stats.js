@@ -23,66 +23,67 @@ export function getPlanBreakdown(clubs = []) {
   }, {})
 }
 
-export function getPlatformDashboardStats(stats, { openIssueCount = 0 } = {}) {
-  const platformTotals = stats?.totals ?? {}
-  const planBreakdown = getPlanBreakdown(stats?.clubs ?? [])
+export function getPlatformDashboardStats(analyticsReport, { openIssueCount = 0 } = {}) {
+  const estate = analyticsReport?.accountEstate ?? {}
+  const activity = analyticsReport?.productActivity ?? {}
+  const scope = estate.workspaceScopeBreakdown ?? {}
 
   return [
     {
-      label: 'Clubs',
-      value: platformTotals.clubs ?? 0,
-      caption: 'Live club workspaces',
-      detail: `${Object.keys(planBreakdown).length} plan types active`,
-      path: '/platform-clubs',
-      actionLabel: 'View clubs',
+      label: 'Customer clubs',
+      value: estate.customerClubs ?? 0,
+      caption: 'Active Club-scope customers',
+      detail: `${estate.customerWorkspaces ?? 0} customer workspaces in total`,
+      path: '/platform-analytics?focus=customerClubs',
+      actionLabel: 'View customer clubs',
     },
     {
       label: 'Teams',
-      value: platformTotals.teams ?? 0,
-      caption: 'Operational team spaces',
-      detail: 'Across all clubs',
-      path: '/platform-clubs',
-      actionLabel: 'View teams',
+      value: estate.teams ?? 0,
+      caption: 'Active football teams',
+      detail: `${scope.team ?? 0} Team-scope workspaces`,
+      path: '/platform-analytics?focus=teams',
+      actionLabel: 'View counted teams',
     },
     {
       label: 'Active players',
-      value: platformTotals.players ?? 0,
-      caption: 'Visible player records',
-      detail: `${platformTotals.archivedPlayers ?? 0} archived`,
-      path: '/platform-data-hygiene',
-      actionLabel: 'View player records',
+      value: estate.activePlayers ?? 0,
+      caption: 'Active players on active teams',
+      detail: 'Test and promoted records excluded',
+      path: '/platform-analytics?focus=activePlayers',
+      actionLabel: 'View active-player breakdown',
     },
     {
       label: 'Staff accounts',
-      value: platformTotals.staffAccounts ?? 0,
-      caption: 'Staff and platform operators',
-      detail: `${platformTotals.clubUsers ?? 0} linked to clubs`,
-      path: '/platform-staff',
-      actionLabel: 'View platform staff',
+      value: estate.staffAccounts ?? 0,
+      caption: 'Active customer staff accounts',
+      detail: `${estate.staffAssignments ?? 0} team-role assignments`,
+      path: '/platform-analytics?focus=staffAccounts',
+      actionLabel: 'View staff breakdown',
     },
     {
-      label: 'Parent accounts',
-      value: platformTotals.parentAccounts ?? 0,
-      caption: 'Authenticated parent users',
-      detail: 'Separate from staff accounts',
-      path: '/platform-analytics?focus=parents',
-      actionLabel: 'View parent adoption',
+      label: 'Users with Parent access',
+      value: estate.usersWithParentAccess ?? 0,
+      caption: 'Accepted authenticated access',
+      detail: `${estate.staffWithParentAccess ?? 0} also have staff access`,
+      path: '/platform-analytics?focus=parentAccess',
+      actionLabel: 'View Parent access breakdown',
     },
     {
       label: 'Development records',
-      value: platformTotals.evaluations ?? 0,
-      caption: 'Saved player reports',
-      detail: `${platformTotals.recentEvaluations ?? 0} in the last 7 days`,
-      path: '/platform-analytics?focus=development',
-      actionLabel: 'View development analytics',
+      value: estate.developmentRecords ?? 0,
+      caption: 'Saved customer Development history',
+      detail: 'Historical player lifecycle retained',
+      path: '/platform-analytics?focus=developmentRecords',
+      actionLabel: 'View Development breakdown',
     },
     {
-      label: 'Recent admin activity',
-      value: platformTotals.recentAdminActions ?? 0,
-      caption: 'Admin actions in the last 7 days',
-      detail: 'Recent measure, not a capped lifetime total',
-      path: '/platform-data-hygiene#recent-activity',
-      actionLabel: 'View activity context',
+      label: 'Active this week',
+      value: activity.activeUsers7Days ?? 0,
+      caption: 'Users with meaningful activity',
+      detail: 'Rolling seven-day customer view',
+      path: '/platform-analytics?focus=productActivity',
+      actionLabel: 'View product activity',
     },
     {
       label: 'Open platform issues',

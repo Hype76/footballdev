@@ -1341,7 +1341,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const planBreakdown = getPlanBreakdown(stats?.clubs ?? [])
   const feedbackStats = getFeedbackStats(feedbackItems, feedbackReports)
   const openIssueCount = feedbackStats.find((item) => item.label === 'Open items')?.value ?? 0
-  const dashboardStats = getPlatformDashboardStats(stats, { openIssueCount })
+  const dashboardStats = getPlatformDashboardStats(analyticsReport, { openIssueCount })
   const platformAdmins = stats?.platformAdmins ?? []
   const clubManagementStats = getClubManagementStats(stats)
 
