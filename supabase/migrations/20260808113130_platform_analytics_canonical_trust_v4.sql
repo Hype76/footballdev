@@ -344,7 +344,10 @@ workspace_rollup as (
     count(distinct assignment.id)::integer as staff_assignment_count,
     count(distinct development.id)::integer as development_record_count,
     count(distinct contact.contact_key)::integer as parent_contact_count,
-    count(distinct (parent_link.auth_user_id, parent_link.player_id))::integer as active_parent_link_count
+    count(distinct (parent_link.auth_user_id, parent_link.player_id)) filter (
+      where parent_link.auth_user_id is not null
+        and parent_link.player_id is not null
+    )::integer as active_parent_link_count
   from eligible_workspaces workspace
   left join eligible_teams team on team.club_id = workspace.id
   left join eligible_players player on player.team_id = team.id

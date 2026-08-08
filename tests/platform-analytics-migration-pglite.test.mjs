@@ -32,7 +32,11 @@ const dashboardHeatmapsMigration = await readFile(
   'utf8',
 )
 const canonicalTrustMigration = await readFile(
-  new URL('../supabase/migrations/20260808105209_platform_analytics_canonical_trust_v4.sql', import.meta.url),
+  new URL('../supabase/migrations/20260808113130_platform_analytics_canonical_trust_v4.sql', import.meta.url),
+  'utf8',
+)
+const parentLinkRollupFixMigration = await readFile(
+  new URL('../supabase/migrations/20260808113748_platform_analytics_parent_link_rollup_fix.sql', import.meta.url),
   'utf8',
 )
 
@@ -44,6 +48,7 @@ const IDS = Object.freeze({
   teamTwo: '20000000-0000-4000-8000-000000000002',
   player: '40000000-0000-4000-8000-000000000001',
   playerTwo: '40000000-0000-4000-8000-000000000002',
+  emptyClub: '10000000-0000-4000-8000-000000000002',
 })
 
 async function createDatabase() {
@@ -154,6 +159,7 @@ async function createDatabase() {
   await db.exec(identityAdoptionMigration)
   await db.exec(dashboardHeatmapsMigration)
   await db.exec(canonicalTrustMigration)
+  await db.exec(parentLinkRollupFixMigration)
   return db
 }
 
@@ -489,6 +495,8 @@ test('canonical v4 report aligns headlines with human breakdowns and keeps ident
   try {
     await insertFixtureEvents(db)
     await db.exec(`
+      insert into public.clubs (id, name)
+      values ('${IDS.emptyClub}', 'Empty Analytics Club');
       insert into public.players (id, club_id, team_id, status, created_at)
       values ('${IDS.player}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-01T00:00:00Z');
       insert into public.parent_player_links (club_id, team_id, player_id, auth_user_id, status, accepted_at)
@@ -521,13 +529,14 @@ test('canonical v4 report aligns headlines with human breakdowns and keeps ident
     const sumCounts = (rows) => rows.reduce((sum, row) => sum + Number(row.count || 0), 0)
 
     assert.equal(report.definitionVersion, 4)
-    assert.equal(report.accountEstate.customerClubs, 1)
-    assert.equal(report.accountEstate.customerWorkspaces, 1)
+    assert.equal(report.accountEstate.customerClubs, 2)
+    assert.equal(report.accountEstate.customerWorkspaces, 2)
     assert.equal(report.accountEstate.teams, 2)
     assert.equal(report.accountEstate.activePlayers, 1)
     assert.equal(report.accountEstate.staffAccounts, 1)
     assert.equal(report.accountEstate.staffAssignments, 1)
     assert.equal(report.accountEstate.usersWithParentAccess, 1)
+    assert.equal(report.accountEstate.activeParentChildLinks, 1)
     assert.equal(report.accountEstate.developmentRecords, 1)
     assert.equal(sumCounts(report.accountEstate.drilldown.customerClubs), report.accountEstate.customerClubs)
     assert.equal(sumCounts(report.accountEstate.drilldown.teams), report.accountEstate.teams)
@@ -535,6 +544,7 @@ test('canonical v4 report aligns headlines with human breakdowns and keeps ident
     assert.equal(sumCounts(report.accountEstate.drilldown.staffAccounts), report.accountEstate.staffAccounts)
     assert.equal(sumCounts(report.accountEstate.drilldown.staffAssignments), report.accountEstate.staffAssignments)
     assert.equal(sumCounts(report.accountEstate.drilldown.parentAccess), report.accountEstate.usersWithParentAccess)
+    assert.equal(sumCounts(report.accountEstate.drilldown.activeParentChildLinks), report.accountEstate.activeParentChildLinks)
     assert.equal(sumCounts(report.accountEstate.drilldown.developmentRecords), report.accountEstate.developmentRecords)
     assert.equal(/[0-9a-f]{8}-[0-9a-f-]{27}/i.test(JSON.stringify(report.accountEstate.drilldown)), false)
     assert.equal(report.trend.reduce((sum, row) => sum + row.pageViews, 0), report.productActivity.pageViews)
