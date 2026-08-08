@@ -153,7 +153,9 @@ export async function handler(event) {
   const authorization = authorizeProcessorRequest(event)
   if (!authorization.ok) return authorization.response
   try {
-    return json(200, { success: true, ...(await processBillingAccessReminders()) })
+    const result = await processBillingAccessReminders()
+    console.info('billing_access_reminder_processing_complete', result)
+    return json(200, { success: true, ...result })
   } catch (error) {
     console.error('billing_access_reminder_processing_failed', { code: String(error.code || error.name || 'unknown') })
     return json(500, { success: false, message: 'Billing reminders could not be processed' })
@@ -166,7 +168,9 @@ export default async function scheduledHandler(request) {
   const authorization = await authorizeNativeScheduledRequest(request)
   if (!authorization.ok) return authorization.response
   try {
-    return Response.json({ success: true, ...(await processBillingAccessReminders()) }, { status: 200 })
+    const result = await processBillingAccessReminders()
+    console.info('billing_access_reminder_processing_complete', result)
+    return Response.json({ success: true, ...result }, { status: 200 })
   } catch (error) {
     console.error('billing_access_reminder_processing_failed', { code: String(error.code || error.name || 'unknown') })
     return Response.json({ success: false, message: 'Billing reminders could not be processed' }, { status: 500 })
