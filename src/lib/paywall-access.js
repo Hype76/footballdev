@@ -1,6 +1,5 @@
 import {
   CAPABILITIES,
-  ACCESS_PLAN_KEYS,
   ACCESS_READINESS,
   getCapabilityDefinition,
   getLimitDefinition,
@@ -18,9 +17,6 @@ import {
 } from './plans.js'
 
 export { CAPABILITIES, normalizePlanKey }
-
-const VALID_PAID_STATUSES = new Set(['active', 'trialing'])
-const INVALID_STATUSES = new Set(['past_due', 'incomplete', 'cancelled', 'canceled', 'expired', 'unpaid', 'incomplete_expired'])
 
 function normalizeRole(value) {
   return String(value ?? '').trim()
@@ -66,41 +62,6 @@ function isReadinessActive(capabilityDefinition) {
   return capabilityDefinition.readiness === ACCESS_READINESS.active
 }
 
-function isPaymentValid(accessContext, capabilityDefinition) {
-  if (accessContext.plan?.requiresPayment === false) {
-    return true
-  }
-
-  if (!capabilityDefinition.requiresPayment) {
-    return true
-  }
-
-  if (accessContext.isPlanComped) {
-    return true
-  }
-
-  if (accessContext.planKey === ACCESS_PLAN_KEYS.individual) {
-    return false
-  }
-
-  if (VALID_PAID_STATUSES.has(accessContext.paymentStatus)) {
-    return true
-  }
-
-  return false
-}
-
-function getPaymentReason(accessContext) {
-  if (!accessContext.paymentStatus) {
-    return 'no_subscription'
-  }
-
-  if (INVALID_STATUSES.has(accessContext.paymentStatus)) {
-    return `invalid_payment_state:${accessContext.paymentStatus}`
-  }
-
-  return `unsupported_payment_state:${accessContext.paymentStatus}`
-}
 
 function isRoleAllowed(accessContext, rolePolicy = {}) {
   const blockedRoles = new Set(rolePolicy.blockedRoles ?? [])
@@ -230,10 +191,6 @@ export function getFeatureAccess(context, capabilityKey) {
 
   if (!isCapabilityIncludedForPlan(accessContext.planKey, capabilityDefinition.key)) {
     return deniedAccess({ capabilityDefinition, accessContext, reason: 'plan_not_included' })
-  }
-
-  if (!isPaymentValid(accessContext, capabilityDefinition)) {
-    return deniedAccess({ capabilityDefinition, accessContext, reason: getPaymentReason(accessContext) })
   }
 
   if (!isRoleAllowed(accessContext, capabilityDefinition.rolePolicy)) {

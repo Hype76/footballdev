@@ -4,7 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migration = await readFile(
-  new URL('../supabase/migrations/20260807165233_platform_workspace_archive_lifecycle.sql', import.meta.url),
+  new URL('../supabase/migrations/20260807200526_platform_workspace_archive_lifecycle.sql', import.meta.url),
   'utf8',
 )
 

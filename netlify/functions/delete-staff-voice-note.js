@@ -2,6 +2,7 @@ import { STAFF_VOICE_NOTES_BUCKET } from '../../src/lib/domain/core-constants.js
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
+import { assertWorkspaceBillingAction, billingErrorBody } from './lib/_billing-access.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -40,6 +41,7 @@ export async function handler(event) {
 
   try {
     const user = await getAuthenticatedUser(event)
+    await assertWorkspaceBillingAction({ clubId: user.club_id, profile: user })
     const body = JSON.parse(event.body || '{}')
     const noteId = String(body.noteId ?? '').trim()
 
@@ -103,6 +105,8 @@ export async function handler(event) {
     return json(200, { success: true, noteId: note.id })
   } catch (error) {
     console.error(error)
+    const billingError = billingErrorBody(error)
+    if (billingError) return json(402, billingError)
     return json(error.message === 'Login is required.' ? 401 : 400, {
       success: false,
       message: error.message || 'Voice note could not be deleted.',

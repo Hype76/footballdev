@@ -4,6 +4,7 @@ import {
 } from './lib/_match-day-actionable-invitation.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import {
   buildOccurrences,
   getPlayerContacts,
@@ -727,6 +728,8 @@ export async function handler(event) {
         success: true,
       })
     }
+
+    await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
 
     const actionCommand = await beginAction({
       action,

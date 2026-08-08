@@ -1,5 +1,9 @@
 import { isDemoEmail } from '../demo.js'
 import { supabase } from '../supabase-client.js'
+import {
+  assertBillingActionAllowed,
+  BILLING_ACTION_CATEGORIES,
+} from '../billing-access.js'
 import { DEMO_MUTATION_ERROR_MESSAGE } from './core-constants.js'
 
 export function isDemoAccountValue(account) {
@@ -22,5 +26,9 @@ export async function blockDemoMutation(account) {
 
   if (isDemoAccountValue(account) || (!hasDemoIdentity && await isCurrentSessionDemoUser())) {
     throw new Error(DEMO_MUTATION_ERROR_MESSAGE)
+  }
+
+  if (account) {
+    assertBillingActionAllowed(account, BILLING_ACTION_CATEGORIES.staffMutation)
   }
 }

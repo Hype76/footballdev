@@ -8,8 +8,8 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const adminAssignablePlanOptions = getAdminAssignablePlanOptions()
 
-function isPlanUnavailableForBillingMode(plan, billingMode) {
-  return billingMode === 'paid' && plan.key === PLAN_KEYS.individual
+function isPlanUnavailableForBillingMode(plan, billingArrangement) {
+  return billingArrangement !== 'complimentary' && plan.key === PLAN_KEYS.individual
 }
 
 export function ManageClubsSection({
@@ -138,7 +138,7 @@ export function ManageClubsSection({
             className={fieldClass}
           >
             {adminAssignablePlanOptions.map((plan) => (
-              <option key={plan.key} value={plan.key} disabled={isPlanUnavailableForBillingMode(plan, form.billingMode)}>
+              <option key={plan.key} value={plan.key} disabled={isPlanUnavailableForBillingMode(plan, form.billingArrangement)}>
                 {plan.name}
               </option>
             ))}
@@ -147,14 +147,27 @@ export function ManageClubsSection({
         <label className="block">
           <span className={labelClass}>Billing access</span>
           <select
-            value={form.billingMode}
-            onChange={(event) => onChange('billingMode', event.target.value)}
+            value={form.billingArrangement}
+            onChange={(event) => onChange('billingArrangement', event.target.value)}
             className={fieldClass}
           >
-            <option value="paid" disabled={form.planKey === PLAN_KEYS.pilot}>Paid, show payments</option>
-            <option value="unpaid">Unpaid, hide payments</option>
+            <option value="immediate" disabled={[PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(form.planKey)}>Payment starts immediately</option>
+            <option value="deferred" disabled={[PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(form.planKey)}>Payment starts on a future date</option>
+            <option value="complimentary">Complimentary access</option>
           </select>
         </label>
+        {form.billingArrangement === 'deferred' ? (
+          <label className="block">
+            <span className={labelClass}>Billing start date</span>
+            <input
+              required
+              type="date"
+              value={form.billingStartDate}
+              onChange={(event) => onChange('billingStartDate', event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+        ) : null}
         <button
           type="submit"
           disabled={isSaving}

@@ -11,7 +11,7 @@ const { deletePlatformTeamResult } = await import('../netlify/functions/platform
 const deleteTeamFunctionSource = readFileSync('netlify/functions/platform-delete-team.js', 'utf8')
 const deleteTeamMigrationSource = readFileSync(migrationSourceUrl('20260624110232_platform_delete_team_transaction.sql', 'active'), 'utf8')
 const archiveLifecycleMigrationSource = readFileSync(
-  migrationSourceUrl('20260807165233_platform_workspace_archive_lifecycle.sql', 'active'),
+  migrationSourceUrl('20260807200526_platform_workspace_archive_lifecycle.sql', 'active'),
   'utf8',
 )
 const playerNameIndexMigrationSource = readFileSync(

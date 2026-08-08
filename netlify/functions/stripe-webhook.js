@@ -11,6 +11,8 @@ import {
 } from './lib/_stripe-billing.js'
 import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
+import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
+import { resolveBillingAccess } from '../../src/lib/billing-access.js'
 
 function getRawBody(event) {
   return event.isBase64Encoded
@@ -48,7 +50,7 @@ async function updateClubFromBillingRecord(record, { preserveComped = false } = 
 
   const { data: currentClub, error: currentClubError } = await supabaseAdmin
     .from('clubs')
-    .select('plan_key, is_plan_comped')
+    .select('id, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, archived_at')
     .eq('id', record.club_id)
     .maybeSingle()
 
@@ -56,7 +58,20 @@ async function updateClubFromBillingRecord(record, { preserveComped = false } = 
     throw currentClubError
   }
 
+  if (currentClub?.archived_at) {
+    return
+  }
+
   const isPlanComped = preserveComped ? Boolean(currentClub?.is_plan_comped) : false
+  const previousAccess = resolveBillingAccess({
+    workspaceId: record.club_id,
+    planKey: currentClub?.plan_key,
+    planStatus: currentClub?.plan_status,
+    isPlanComped: currentClub?.is_plan_comped,
+    billingArrangement: currentClub?.billing_arrangement,
+    billingStartAt: currentClub?.billing_start_at,
+    archivedAt: currentClub?.archived_at,
+  })
 
   const { error } = await supabaseAdmin
     .from('clubs')
@@ -74,6 +89,25 @@ async function updateClubFromBillingRecord(record, { preserveComped = false } = 
 
   if (error) {
     throw error
+  }
+
+  if (previousAccess.paymentRequired && ['active', 'trialing'].includes(record.plan_status)) {
+    const stateKey = currentClub?.billing_start_at || 'legacy'
+    await supabaseAdmin.from('billing_access_state_events').upsert({
+      club_id: record.club_id,
+      billing_start_at: currentClub?.billing_start_at || null,
+      billing_state_key: stateKey,
+      access_state: 'restored',
+      last_observed_at: new Date().toISOString(),
+    }, { onConflict: 'club_id,billing_state_key,access_state' })
+    await supabaseAdmin.from('audit_logs').insert({
+      club_id: record.club_id,
+      action: 'billing_access_restored_by_stripe',
+      entity_type: 'club',
+      entity_id: record.club_id,
+      event_category: 'billing',
+      metadata: { planKey: record.plan_key, planStatus: record.plan_status },
+    })
   }
 
   if (shouldPromoteBillPayer(currentClub?.plan_key, record.plan_key)) {
@@ -127,7 +161,27 @@ async function upsertCheckoutRecord({
     throw new Error('Stripe checkout did not include a customer email')
   }
 
-  const existingClubId = await findExistingClubId(customerEmail)
+  const requestedClubId = String(checkoutSession.metadata?.clubId || '').trim()
+  const isExistingWorkspace = String(checkoutSession.metadata?.existingWorkspace || '').trim() === 'true'
+  let existingClubId = ''
+
+  if (isExistingWorkspace) {
+    if (!requestedClubId) throw new Error('Existing workspace checkout did not include a workspace ID')
+    const { data: workspace, error: workspaceError } = await supabaseAdmin
+      .from('clubs')
+      .select('id, plan_key, archived_at')
+      .eq('id', requestedClubId)
+      .maybeSingle()
+    if (workspaceError || !workspace) throw new Error('Existing workspace checkout referenced an unknown workspace')
+    if (workspace.archived_at) throw new Error('Archived workspaces cannot be reactivated by payment')
+    if (normalizePlanKey(workspace.plan_key) !== planKey) throw new Error('Existing workspace checkout plan did not match the workspace')
+    if (getWorkspaceScope(workspace.plan_key).key !== String(checkoutSession.metadata?.workspaceScope || '')) {
+      throw new Error('Existing workspace checkout scope did not match the workspace')
+    }
+    existingClubId = workspace.id
+  } else {
+    existingClubId = await findExistingClubId(customerEmail)
+  }
   const recordPayload = {
     checkout_session_id: checkoutSession.id,
     customer_email: customerEmail,
@@ -295,6 +349,9 @@ export async function handler(event) {
     return json(200, { success: true })
   } catch (error) {
     logStripeFailure('Stripe webhook processing failed', error)
+    if (stripeEvent?.id) {
+      await supabaseAdmin.from('stripe_webhook_events').delete().eq('id', stripeEvent.id)
+    }
     return json(500, { success: false, message: 'Webhook could not be processed' })
   }
 }

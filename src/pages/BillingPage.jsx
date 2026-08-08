@@ -84,6 +84,7 @@ export function BillingPage() {
   const [billing, setBilling] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [isStartingCheckout, setIsStartingCheckout] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -141,6 +142,8 @@ export function BillingPage() {
       stripeSubscriptionId: user?.stripeSubscriptionId,
       currentPeriodEnd: user?.currentPeriodEnd,
       planUpdatedAt: user?.planUpdatedAt,
+      billingArrangement: user?.billingArrangement,
+      billingStartAt: user?.billingStartAt,
     }),
     [user],
   )
@@ -168,6 +171,27 @@ export function BillingPage() {
       caption: 'Shown when subscription data is available.',
     },
   ]
+
+  const startCheckout = async () => {
+    setIsStartingCheckout(true)
+    setErrorMessage('')
+    try {
+      const response = await fetch('/.netlify/functions/create-workspace-checkout-session', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ billingCycle: 'monthly' }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result.url) throw new Error(result.message || 'Checkout could not be started.')
+      window.location.assign(result.url)
+    } catch (error) {
+      setErrorMessage(error.message || 'Checkout could not be started.')
+      setIsStartingCheckout(false)
+    }
+  }
 
   if (!canViewBilling(user)) {
     return <Navigate to="/" replace />
@@ -224,6 +248,29 @@ export function BillingPage() {
           title="Billing details are not fully available"
           message={errorMessage}
         />
+      ) : null}
+
+      {!isLoading && visibleClub?.billingAccessState === 'payment_required' ? (
+        <SectionCard
+          title="Restore staff editing"
+          description="Payment restores operational access only after Stripe confirms the subscription through the signed webhook."
+        >
+          <div className="flex flex-col gap-3 rounded-lg border border-[#f3c98b] bg-[#fff8e8] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold leading-6 text-[#5b3a00]">
+              Your information remains available to view and export while editing is paused.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/data-transfer" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#c58a2b] bg-white px-5 py-3 text-sm font-black text-[#5b3a00]">
+                Export data
+              </Link>
+              {visibleClub?.payerAuthorized !== false ? (
+                <button type="button" disabled={isStartingCheckout} onClick={() => void startCheckout()} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+                  {isStartingCheckout ? 'Opening Stripe...' : 'Continue with Stripe'}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </SectionCard>
       ) : null}
 
       {!isLoading && isManagedBilling ? (

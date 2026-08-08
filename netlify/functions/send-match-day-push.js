@@ -4,6 +4,7 @@ import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../src/lib/matchday-display.js'
+import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -404,7 +405,7 @@ export async function handler(event) {
     const webPushConfigured = configureWebPush()
 
     const authUser = await getAuthUser(event)
-    await getProfile(authUser)
+    const profile = await getProfile(authUser)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const type = normalizeText(body.type)
@@ -416,6 +417,7 @@ export async function handler(event) {
     }
 
     const match = await getMatch(matchDayId)
+    await assertWorkspaceBillingAction({ clubId: match.club_id, profile })
     const authorization = await authorizePush({ authUser, match, parentLinkId, type, eventId })
 
     if (authorization.allowed !== true) {

@@ -241,7 +241,10 @@ export function canViewBilling(user) {
     return true
   }
 
-  return Boolean(user.clubId) && (isClubAdmin(user) || Boolean(user.isWorkspaceOwner))
+  const scope = getWorkspaceScope(user.planKey)
+  return Boolean(user.clubId)
+    && user.role === scope.ownerRole.key
+    && Number(user.roleRank ?? 0) >= scope.ownerRole.rank
 }
 
 export function canDeletePlayer(user) {

@@ -39,6 +39,8 @@ import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
 import { shouldRecordAnalyticsPageView } from '../../lib/analytics/registry.js'
 import { PlatformBannerNotice } from '../platform/PlatformBannerNotice.jsx'
+import { BillingAccessNotice } from '../billing/BillingAccessNotice.jsx'
+import { resolveBillingAccess } from '../../lib/billing-access.js'
 import {
   LOGGED_IN_USERS_BANNER_KEY,
   PARENT_PORTAL_BANNER_KEY,
@@ -346,6 +348,7 @@ export function Layout() {
               bannerKey={LOGGED_IN_USERS_BANNER_KEY}
             />
           ) : null}
+          <BillingAccessNotice user={user} />
 
           <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
             <div className="mx-auto w-full max-w-[108rem]">
@@ -425,7 +428,8 @@ function QuickActionHotbar({ user }) {
   const canUsePollQuickAction = canManagePolls(user) && isRecoveryPathVisible('/polls', { user })
   const isFormationBoardEditor = location.pathname === '/resources/formation-boards'
     && Boolean(new URLSearchParams(location.search).get('board'))
-  const canShowQuickActions =
+  const canShowQuickActions = resolveBillingAccess(user).operationalMutationsAllowed
+    &&
     Boolean(user?.clubId)
     && !isSuperAdmin(user)
     && !isParentPortalUser(user)

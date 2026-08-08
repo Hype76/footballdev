@@ -259,30 +259,29 @@ function ClubSummary({
           </select>
         </label>
         <label className="block">
-          <span className={eyebrowClass}>Billing status</span>
+          <span className={eyebrowClass}>Billing arrangement</span>
           <select
-            value={club.planStatus || 'active'}
+            value={club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')}
             disabled={updatingClubId === clubId}
             title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
-            onChange={(event) => void onClubPlanChange(club, 'planStatus', event.target.value)}
+            onChange={(event) => void onClubPlanChange(club, 'billingArrangement', event.target.value)}
             className={fieldClass}
           >
-            <option value="active">Active</option>
-            <option value="trialing">Trialing</option>
-            <option value="past_due">Past due</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="immediate" disabled={isPilotPlan || club.planKey === PLAN_KEYS.individual}>Immediate</option>
+            <option value="deferred" disabled={isPilotPlan || club.planKey === PLAN_KEYS.individual}>Deferred</option>
+            <option value="complimentary">Complimentary</option>
           </select>
         </label>
-        <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 md:mt-7">
+        <label className="block">
+          <span className={eyebrowClass}>Billing start date</span>
           <input
-            type="checkbox"
-            checked={isPilotPlan || Boolean(club.isPlanComped)}
-            disabled={isPilotPlan || updatingClubId === clubId}
-            title={isPilotPlan ? 'Pilot access is always free.' : updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
-            onChange={(event) => void onClubPlanChange(club, 'isPlanComped', event.target.checked)}
-            className="h-4 w-4 accent-[#047857]"
+            type="date"
+            value={String(club.billingStartAt || '').slice(0, 10)}
+            disabled={(club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')) !== 'deferred' || updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
+            onChange={(event) => void onClubPlanChange(club, 'billingStartDate', event.target.value)}
+            className={fieldClass}
           />
-          <span>Free access</span>
         </label>
       </div>
       <TeamAllowanceControl
@@ -293,7 +292,7 @@ function ClubSummary({
         updatingClubId={updatingClubId}
       />
       <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
-        Current plan: {getPlanName(club)}{isPilotPlan || club.isPlanComped ? ', Billing override: free access' : ''}
+        Current plan: {getPlanName(club)}, provider status: {club.planStatus || 'unknown'}, access: {club.billingAccessState || 'pending calculation'}
       </p>
       {club.suspendedAt ? (
         <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>

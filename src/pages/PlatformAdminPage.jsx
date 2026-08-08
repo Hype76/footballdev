@@ -277,7 +277,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     contactPhone: '',
     ownerEmail: '',
     planKey: 'small_club',
-    billingMode: 'paid',
+    billingArrangement: 'immediate',
+    billingStartDate: '',
   })
   const [platformAdminForm, setPlatformAdminForm] = useState({
     name: '',
@@ -728,11 +729,14 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setNewClubForm((current) => ({
       ...current,
       [fieldName]: value,
-      ...(fieldName === 'billingMode' && value === 'paid' && current.planKey === 'individual'
+      ...(fieldName === 'billingArrangement' && value !== 'complimentary' && current.planKey === 'individual'
         ? { planKey: 'single_team' }
         : {}),
-      ...(fieldName === 'planKey' && value === PLAN_KEYS.pilot
-        ? { billingMode: 'unpaid' }
+      ...(fieldName === 'planKey' && [PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(value)
+        ? { billingArrangement: 'complimentary', billingStartDate: '' }
+        : {}),
+      ...(fieldName === 'billingArrangement' && value !== 'deferred'
+        ? { billingStartDate: '' }
         : {}),
     }))
     setErrorMessage('')
@@ -898,7 +902,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         contactPhone: newClubForm.contactPhone,
         ownerEmail: newClubForm.ownerEmail,
         planKey: newClubForm.planKey,
-        billingMode: newClubForm.billingMode,
+        billingArrangement: newClubForm.billingArrangement,
+        billingStartDate: newClubForm.billingStartDate,
         accessToken: session?.access_token || '',
       })
       const inviteUrl = String(createdClub?.ownerInvite?.url ?? '').trim()
@@ -909,7 +914,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         contactPhone: '',
         ownerEmail: '',
         planKey: 'small_club',
-        billingMode: 'paid',
+        billingArrangement: 'immediate',
+        billingStartDate: '',
       })
       setCreatedClubInvite(inviteUrl
         ? {

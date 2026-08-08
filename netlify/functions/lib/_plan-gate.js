@@ -1,4 +1,8 @@
 import { getFeatureAccess, normalizePlanKey } from '../../../src/lib/paywall-access.js'
+import {
+  assertBillingActionAllowed,
+  BILLING_ACTION_CATEGORIES,
+} from '../../../src/lib/billing-access.js'
 import { loadActiveAuthorityProfile } from './_authority-profile.js'
 import { supabaseAdmin } from './_supabase.js'
 
@@ -43,6 +47,11 @@ function normalizePlanProfile(profile, authEmail, context = {}) {
     planKey: normalizePlanKey(club?.plan_key ?? profile.plan_key, { mapMissingToFree: true }),
     planStatus: String(club?.plan_status ?? profile.plan_status ?? 'active').trim() || 'active',
     isPlanComped: testerAccessExpired ? false : Boolean(club?.is_plan_comped ?? profile.is_plan_comped),
+    billingArrangement: String(club?.billing_arrangement ?? profile.billing_arrangement ?? '').trim(),
+    billingStartAt: club?.billing_start_at ?? profile.billing_start_at ?? '',
+    workspaceOwnerUserId: String(club?.workspace_owner_user_id ?? profile.workspace_owner_user_id ?? '').trim(),
+    isWorkspaceOwner: String(club?.workspace_owner_user_id ?? profile.workspace_owner_user_id ?? '').trim()
+      === String(profile.id ?? '').trim(),
     testerAccessExpired,
     clubName: String(club?.name ?? '').trim(),
     clubContactEmail: String(club?.contact_email ?? '').trim(),
@@ -78,7 +87,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
 
   const authorityProfile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
     clubId: normalizedClubId,
-    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, tester_access_expires_at)',
+    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, workspace_owner_user_id, tester_access_expires_at)',
   })
   const profile = {
     ...authorityProfile,
@@ -134,7 +143,7 @@ export async function getClubPlanProfile(clubId) {
 
   const { data: club, error } = await supabaseAdmin
     .from('clubs')
-    .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, tester_access_expires_at')
+    .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, workspace_owner_user_id, tester_access_expires_at')
     .eq('id', normalizedClubId)
     .maybeSingle()
 
@@ -166,6 +175,8 @@ export function assertPlanAccess(planProfile) {
   if (access.reason === 'invalid_payment_state' || String(access.reason ?? '').startsWith('invalid_payment_state') || access.reason === 'no_subscription') {
     throw Object.assign(new Error('Your billing plan needs to be active before you can use this feature.'), { statusCode: 403 })
   }
+
+  assertBillingActionAllowed(planProfile, BILLING_ACTION_CATEGORIES.staffMutation)
 }
 
 function createCapabilityDeniedMessage(access) {
@@ -196,12 +207,16 @@ function createCapabilityDeniedMessage(access) {
   return `${access.label} is not available.`
 }
 
-export function assertPlanFeature(planProfile, featureName) {
+export function assertPlanFeature(planProfile, featureName, {
+  actionCategory = BILLING_ACTION_CATEGORIES.staffMutation,
+} = {}) {
   const access = getFeatureAccess(planProfile, featureName)
 
   if (!access.allowed) {
     throw Object.assign(new Error(createCapabilityDeniedMessage(access)), { statusCode: 403, access })
   }
+
+  assertBillingActionAllowed(planProfile, actionCategory)
 }
 
 export function canUsePlanFeature(planProfile, featureName) {

@@ -14,7 +14,8 @@ export async function createPlatformClub({
   contactPhone = '',
   ownerEmail = '',
   planKey = 'small_club',
-  billingMode = 'paid',
+  billingArrangement = 'immediate',
+  billingStartDate = '',
   accessToken = '',
 }) {
   await blockDemoMutation(user)
@@ -41,7 +42,8 @@ export async function createPlatformClub({
       contactPhone,
       ownerEmail,
       planKey,
-      billingMode,
+      billingArrangement,
+      billingStartDate,
     }),
   })
   const result = await response.json().catch(() => ({}))
@@ -652,6 +654,10 @@ export async function getPlatformStats(user) {
           planKey: normalizePlanKey(club.plan_key, { mapMissingToFree: true }),
           planStatus: String(club.plan_status ?? 'active').trim() || 'active',
           isPlanComped: Boolean(club.is_plan_comped ?? false),
+          billingArrangement: String(club.billing_arrangement ?? '').trim(),
+          billingStartAt: club.billing_start_at ?? '',
+          billingConfigurationUpdatedAt: club.billing_configuration_updated_at ?? '',
+          billingConfigurationUpdatedBy: club.billing_configuration_updated_by ?? '',
           teamLimitOverride: teamLimitOverride?.team_limit_override ?? null,
           teamLimitOverrideUpdatedAt: teamLimitOverride?.updated_at ?? '',
           status: String(club.status ?? 'active').trim() || 'active',

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-const migration = readFileSync('supabase/migrations/20260807165233_platform_workspace_archive_lifecycle.sql', 'utf8')
+const migration = readFileSync('supabase/migrations/20260807200526_platform_workspace_archive_lifecycle.sql', 'utf8')
 const platformActions = readFileSync('src/lib/domain/platform-admin-actions.js', 'utf8')
 const platformPage = readFileSync('src/pages/PlatformAdminPage.jsx', 'utf8')
 const accountSection = readFileSync('src/components/platform/PlatformAccountManagementSection.jsx', 'utf8')
