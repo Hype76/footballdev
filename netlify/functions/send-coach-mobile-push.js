@@ -58,23 +58,21 @@ async function getProfile(authUser) {
 async function getMatch(matchDayId) {
   const { data, error } = await supabaseAdmin
     .from('match_days')
-    .select('id, club_id, team_id, opponent, teams:team_id (name)')
+    .select('id, club_id, team_id, opponent, teams:team_id (id, name, status, archived_at)')
     .eq('id', matchDayId)
     .is('deleted_at', null)
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('Match Day could not be found.'), { statusCode: 404 })
+    throw Object.assign(new Error('Match Day could not be found.'), {
+      statusCode: 404,
+    })
   }
 
   return data
 }
 
 async function canNotifyCoaches({ authUser, match, profile, type }) {
-  if (profile.role !== 'parent_portal' && profile.clubId === match.club_id && profile.roleRank >= 20) {
-    return true
-  }
-
   if (type === 'scorer_volunteer' && profile.role === 'parent_portal') {
     const { data, error } = await supabaseAdmin
       .from('match_day_scorer_interest')
@@ -90,7 +88,20 @@ async function canNotifyCoaches({ authUser, match, profile, type }) {
     return Boolean(data?.id)
   }
 
-  return false
+  if (profile.clubId !== match.club_id || profile.role === 'parent_portal' || profile.role === 'super_admin') return false
+  const team = Array.isArray(match.teams) ? match.teams[0] : match.teams
+  if (!match.team_id) return profile.role === 'admin' && profile.roleRank >= 90
+  if (!team?.id || normalizeText(team.status || 'active') !== 'active' || team.archived_at) return false
+  if (profile.role === 'admin' && profile.roleRank >= 90) return true
+
+  const { data: assignment, error } = await supabaseAdmin
+    .from('team_staff')
+    .select('id, role_rank')
+    .eq('team_id', match.team_id)
+    .eq('user_id', profile.id)
+    .maybeSingle()
+  if (error) throw error
+  return Boolean(assignment?.id && Number(assignment.role_rank ?? 0) >= 20)
 }
 
 function getTeamName(match) {
@@ -98,13 +109,16 @@ function getTeamName(match) {
   return normalizeText(team?.name) || 'Your team'
 }
 
-function buildPayload({ match, profile, type }) {
+function buildPayload({ detailLevel, match, type }) {
   const teamName = getTeamName(match)
   const matchName = getMatchDayDisplayName({ ...match, teamName })
+  const detailed = detailLevel === 'detailed'
 
   if (type === 'scorer_volunteer') {
     return {
-      body: `${profile.email} volunteered for ${matchName}.`,
+      body: detailed
+        ? `A scorer volunteer is ready to review for ${matchName}.`
+        : 'A scorer volunteer is ready to review.',
       data: {
         app: 'coach',
         matchDayId: match.id,
@@ -117,7 +131,7 @@ function buildPayload({ match, profile, type }) {
   }
 
   return {
-    body: matchName,
+    body: detailed ? matchName : 'You have a new Coach update.',
     data: {
       app: 'coach',
       matchDayId: match.id,
@@ -131,12 +145,14 @@ function buildPayload({ match, profile, type }) {
 
 async function getCoachDevices(match) {
   let query = supabaseAdmin
-    .from('mobile_push_devices')
-    .select('id, auth_user_id, device_token, team_id')
+    .from('coach_mobile_push_installations')
+    .select(
+      'installation_id, auth_user_id, user_profile_id, club_id, team_id, context_id, expo_push_token, detail_level',
+    )
     .eq('club_id', match.club_id)
-    .eq('app_role', 'coach')
     .eq('status', 'active')
-    .eq('notification_enabled', true)
+    .eq('enabled', true)
+    .neq('detail_level', 'off')
 
   if (match.team_id) {
     query = query.or(`team_id.is.null,team_id.eq.${match.team_id}`)
@@ -148,30 +164,84 @@ async function getCoachDevices(match) {
     throw error
   }
 
-  return data ?? []
+  const current = await Promise.all(
+    (data ?? []).map(async (device) => {
+      try {
+        const profile = await loadActiveAuthorityProfile(
+          supabaseAdmin,
+          { id: device.auth_user_id },
+          {
+            select: 'id, club_id, role, role_rank, status',
+          },
+        )
+        const role = normalizeText(profile.role)
+        const roleRank = Number(profile.role_rank ?? 0)
+        if (
+          profile.id !== device.user_profile_id ||
+          profile.club_id !== match.club_id ||
+          role === 'parent_portal' ||
+          role === 'super_admin' ||
+          roleRank < 20
+        )
+          return null
+
+        if (!device.team_id) {
+          return role === 'admin' && roleRank >= 90 && device.context_id === `club:${match.club_id}` ? device : null
+        }
+
+        const { data: team, error: teamError } = await supabaseAdmin
+          .from('teams')
+          .select('id, club_id, status, archived_at')
+          .eq('id', device.team_id)
+          .eq('club_id', match.club_id)
+          .maybeSingle()
+        if (teamError) throw teamError
+        if (!team?.id || normalizeText(team.status || 'active') !== 'active' || team.archived_at) return null
+        if (device.context_id !== `team:${team.id}`) return null
+        if (role === 'admin' && roleRank >= 90) return device
+
+        const { data: assignment, error: assignmentError } = await supabaseAdmin
+          .from('team_staff')
+          .select('id, role_rank')
+          .eq('team_id', team.id)
+          .eq('user_id', profile.id)
+          .maybeSingle()
+        if (assignmentError) throw assignmentError
+        return assignment?.id && Number(assignment.role_rank ?? 0) >= 20 ? device : null
+      } catch (error) {
+        console.warn('Coach mobile installation authority refresh failed', {
+          errorName: normalizeText(error?.name || 'Error'),
+          installationId: device.installation_id,
+        })
+        return null
+      }
+    }),
+  )
+
+  return current.filter(Boolean)
 }
 
-async function logNotificationEvents({ devices, match, payload, status }) {
-  if (devices.length === 0) {
+async function logNotificationEvents({ deliveries, match, status }) {
+  if (deliveries.length === 0) {
     return
   }
 
   const now = new Date().toISOString()
-  const { error } = await supabaseAdmin
-    .from('notification_events')
-    .insert(devices.map((device) => ({
-      body: payload.body,
-      channel: 'mobile_push',
+  const { error } = await supabaseAdmin.from('coach_mobile_notification_events').insert(
+    deliveries.map(({ device, payload }) => ({
+      installation_id: device.installation_id,
+      auth_user_id: device.auth_user_id,
+      user_profile_id: device.user_profile_id,
       club_id: match.club_id,
       data: payload.data,
-      notification_type: payload.type,
-      parent_link_id: null,
+      intent_type: payload.type,
+      title: payload.title,
+      body: payload.body,
       sent_at: status === 'sent' ? now : null,
       status,
-      target_auth_user_id: device.auth_user_id,
       team_id: match.team_id || null,
-      title: payload.title,
-    })))
+    })),
+  )
 
   if (error) {
     console.error('Coach notification event log failed', error)
@@ -186,13 +256,14 @@ async function revokeMobileDeviceTokens(deviceTokens) {
   }
 
   const { error } = await supabaseAdmin
-    .from('mobile_push_devices')
+    .from('coach_mobile_push_installations')
     .update({
-      notification_enabled: false,
+      expo_push_token: null,
+      enabled: false,
       status: 'revoked',
       updated_at: new Date().toISOString(),
     })
-    .in('device_token', tokens)
+    .in('expo_push_token', tokens)
 
   if (error) {
     console.error('Coach mobile push device revoke failed', error)
@@ -212,32 +283,41 @@ export async function handler(event) {
     const matchDayId = normalizeText(body.matchDayId)
     const type = normalizeText(body.type) || 'coach_update'
 
-    if (!matchDayId) {
+    if (!matchDayId || !['coach_update', 'scorer_volunteer'].includes(type)) {
       return failureResponse(400, 'Match Day is required.')
     }
 
     const match = await getMatch(matchDayId)
-    const isAllowed = await canNotifyCoaches({ authUser, match, profile, type })
+    const isAllowed = await canNotifyCoaches({
+      authUser,
+      match,
+      profile,
+      type,
+    })
 
     if (!isAllowed) {
       return failureResponse(403, 'You cannot send coach notifications for this match.')
     }
 
     const devices = await getCoachDevices(match)
-    const payload = buildPayload({ match, profile, type })
-    const pushResult = await sendExpoPushMessages(devices.map((device) => ({
-      body: payload.body,
-      data: payload.data,
-      sound: 'default',
-      title: payload.title,
-      to: device.device_token,
-    })))
+    const deliveries = devices.map((device) => ({
+      device,
+      payload: buildPayload({ detailLevel: device.detail_level, match, type }),
+    }))
+    const pushResult = await sendExpoPushMessages(
+      deliveries.map(({ device, payload }) => ({
+        body: payload.body,
+        data: payload.data,
+        sound: 'default',
+        title: payload.title,
+        to: device.expo_push_token,
+      })),
+    )
     await revokeMobileDeviceTokens(pushResult.invalidTokens || [])
 
     await logNotificationEvents({
-      devices,
+      deliveries,
       match,
-      payload,
       status: pushResult.failed > 0 && pushResult.sent === 0 ? 'failed' : 'sent',
     })
 
