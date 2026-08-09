@@ -122,7 +122,7 @@ function DomainState({ error, loading, onRetry, stale, styles }) {
   return null
 }
 
-export function CoachCalendarScreen({ context, palette, user }) {
+export function CoachCalendarScreen({ context, onNavigate, palette, user }) {
   const styles = useDomainStyles(palette)
   const [events, setEvents] = useState([])
   const [error, setError] = useState('')
@@ -224,7 +224,7 @@ export function CoachCalendarScreen({ context, palette, user }) {
               <Text style={styles.meta}>{formatCoachCalendarDateTime(event.startsAt)} | {event.eventType} | {event.teamName || 'Club-wide'}</Text>
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : <Text style={styles.meta}>Edit this item in its authoritative {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Session' : 'web'} workflow.</Text>}</> : null}
+              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /> : null}{getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : <Text style={styles.meta}>Edit this item in its authoritative {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Session' : 'web'} workflow.</Text>}</> : null}
             </Pressable>
           ))}
         </View>
@@ -233,7 +233,7 @@ export function CoachCalendarScreen({ context, palette, user }) {
   )
 }
 
-export function CoachPlayersScreen({ context, palette, user }) {
+export function CoachPlayersScreen({ context, onNavigate, palette, user }) {
   const styles = useDomainStyles(palette)
   const [players, setPlayers] = useState([])
   const [detail, setDetail] = useState(null)
@@ -307,6 +307,7 @@ export function CoachPlayersScreen({ context, palette, user }) {
           <Text style={styles.cardTitle}>Session history</Text>
           {detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{session.sessionDate} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}
           {policy.canEdit ? <Button label="Edit Player" onPress={() => setForm(coachPlayerFormFromPlayer(detail.player))} styles={styles} /> : null}
+          <View style={styles.filterRow}><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></View>
           <Button label="Close" onPress={() => setDetail(null)} secondary styles={styles} />
           <Text style={styles.meta}>Archive, restore, hard delete, and Team transfer remain in the governed web workflow.</Text>
         </View>
@@ -317,7 +318,7 @@ export function CoachPlayersScreen({ context, palette, user }) {
   )
 }
 
-export function CoachSessionsScreen({ context, palette, user }) {
+export function CoachSessionsScreen({ context, onNavigate, palette, user }) {
   const styles = useDomainStyles(palette)
   const [sessions, setSessions] = useState([])
   const [players, setPlayers] = useState([])
@@ -404,6 +405,7 @@ export function CoachSessionsScreen({ context, palette, user }) {
           {policy.canAddPlayers ? <><Text style={styles.cardTitle}>Add Players</Text>{players.filter((player) => !detail.players.some((row) => row.playerId === player.id)).map((player) => <Button disabled={saving} key={player.id} label={`Add ${player.playerName}`} onPress={() => addPlayer(player)} secondary styles={styles} />)}</> : null}
           {policy.canEdit ? <Button label="Edit Session" onPress={() => setForm(coachSessionFormFromSession(detail.session))} styles={styles} /> : null}
           {policy.canComplete ? <Button disabled={saving} label="Complete Session" onPress={complete} styles={styles} /> : null}
+          <View style={styles.filterRow}><Button label="Open Players" onPress={() => onNavigate('players')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View>
           <Button label="Close" onPress={() => setDetail(null)} secondary styles={styles} />
           <Text style={styles.meta}>The authoritative model records inclusion and notes. It does not define separate present, absent, or late attendance states.</Text>
         </View>

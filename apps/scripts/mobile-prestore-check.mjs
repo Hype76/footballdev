@@ -849,6 +849,15 @@ assertIncludes(coachNotificationClientSource, 'coach_notification_test_environme
 assertIncludes(coachNotificationClientSource, 'Notifications.addPushTokenListener', 'Coach Phase 31F token rotation')
 assertIncludes(coachNotificationApiSource, 'requireAuthenticatedFixture', 'Coach Phase 31F authenticated installation API')
 assertNotIncludes(coachNotificationApiSource, 'exp.host/--/api/v2/push/send', 'Coach Phase 31F sends no real push')
+const coachPhase31GCoreSource = read('apps/mobile-core/src/coachPhase31GCore.js')
+const coachPhase31GDataSource = read('apps/mobile-core/src/coachPhase31GData.js')
+const coachPhase31GParitySource = read('apps/coach-mobile/src/coachPhase31GParity.js')
+assertIncludes(coachPhase31GDataSource, 'Promise.allSettled', 'Coach Phase 31G resilient Home aggregation')
+assertIncludes(coachPhase31GCoreSource, 'COACH_PHASE_31G_BACKEND_INVENTORY', 'Coach Phase 31G production promotion inventory')
+assertIncludes(coachPhase31GParitySource, 'COACH_PHASE_31G_PARITY_MATRIX', 'Coach Phase 31G final parity matrix')
+assertIncludes(coachAppSource, 'Operational attention', 'Coach Phase 31G final Home')
+assertIncludes(coachAppSource, 'Encrypted cache', 'Coach Phase 31G final Settings')
+assertNotIncludes(coachAppSource, 'Full feature parity is completed in the next domain phase', 'Coach Phase 31G removes active placeholder routes')
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))

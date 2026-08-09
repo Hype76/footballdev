@@ -22,8 +22,8 @@ import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { getCoachNotificationStatusLabel, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
-import { getCoachHomeSummary, getCoachMatchDays, getCoachSessions } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
+import { getCoachPhase31GHomeSnapshot } from '../mobile-core/src/coachPhase31GData'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import {
@@ -44,7 +44,7 @@ import { prepareCoachMobileStartup } from './src/startup'
 import { CoachCalendarScreen, CoachPlayersScreen, CoachSessionsScreen } from './src/CoachOperationalScreens'
 import { CoachMatchDayScreen } from './src/CoachMatchDayScreen'
 import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
-import { readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
+import { inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
 import {
   addCoachPushTokenListener,
   enableCoachNotifications,
@@ -111,7 +111,7 @@ function CoachHome() {
   const [contextReady, setContextReady] = useState(false)
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
   const [displayTheme, setDisplayTheme] = useState('dark')
-  const [homeState, setHomeState] = useState({ error: '', loading: true, matches: [], savedAt: '', sessions: [], stale: false, summary: null })
+  const [homeState, setHomeState] = useState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [moreRoute, setMoreRoute] = useState('')
@@ -157,7 +157,7 @@ function CoachHome() {
 
   const resetContextDomainState = useCallback(() => {
     requestIdRef.current += 1
-    setHomeState({ error: '', loading: true, matches: [], savedAt: '', sessions: [], stale: false, summary: null })
+    setHomeState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
     setLastUpdatedAt('')
     setMoreRoute('')
     setNotice('')
@@ -217,23 +217,19 @@ function CoachHome() {
     setHomeState((current) => ({ ...current, error: '', loading: !refresh }))
 
     try {
-      const [summary, matches, sessions] = await Promise.all([
-        getCoachHomeSummary(selectedMobileUser),
-        selectedMobileUser.activeTeamId ? getCoachMatchDays(selectedMobileUser) : Promise.resolve([]),
-        selectedMobileUser.activeTeamId ? getCoachSessions(selectedMobileUser) : Promise.resolve([]),
-      ])
+      const snapshot = await getCoachPhase31GHomeSnapshot(selectedMobileUser)
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
-      setHomeState({ error: '', loading: false, matches, savedAt, sessions, stale: false, summary })
+      setHomeState({ ...snapshot, error: '', loading: false, savedAt, stale: false })
       setLastUpdatedAt(savedAt)
-      await saveCoachOfflineResources(user.id, activeContext, { home: { matches, savedAt, sessions, summary } }).catch(() => {})
+      await saveCoachOfflineResources(user.id, activeContext, { home: { ...snapshot, savedAt } }).catch(() => {})
       if (refresh) setNotice('Latest Coach overview loaded.')
     } catch (error) {
       if (requestId !== requestIdRef.current) return
       const cached = await readCoachOfflineResources(user.id, activeContext).catch(() => null)
       const home = cached?.resources?.home
       if (home) {
-        setHomeState({ error: '', loading: false, matches: home.matches || [], savedAt: home.savedAt || cached.savedAt, sessions: home.sessions || [], stale: true, summary: home.summary || null })
+        setHomeState({ ...home, error: '', loading: false, savedAt: home.savedAt || cached.savedAt, stale: true })
         setLastUpdatedAt(home.savedAt || cached.savedAt)
         setNotice('Offline. Showing the last encrypted Coach overview. Refresh when online.')
       } else {
@@ -383,9 +379,13 @@ function CoachHome() {
     }
     const transition = createCoachContextTransition(activeContext, nextContext)
     if (transition.clearDomainState) resetContextDomainState()
-    setActiveRoute('home')
+    const currentDestination = moreRoute || activeRoute
+    const preserved = resolveCoachRoute(currentDestination, nextContext)
+    const container = preserved ? getCoachRouteContainer(preserved) : 'home'
+    setActiveRoute(container)
+    setMoreRoute(container === 'more' ? preserved : '')
     setSelectedContextId(nextContext.id)
-  }, [activeContext, contextResolution.contexts, resetContextDomainState])
+  }, [activeContext, activeRoute, contextResolution.contexts, moreRoute, resetContextDomainState])
 
   const toggleTheme = useCallback(async () => {
     const next = displayTheme === 'dark' ? 'light' : 'dark'
@@ -497,8 +497,9 @@ function CoachRoute(props) {
 
 function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
   const { styles } = useCoachTheme()
-  const nextMatch = homeState.matches[0]
-  const nextSession = homeState.sessions[0]
+  const nextMatch = homeState.nextMatch || homeState.matches[0]
+  const nextSession = homeState.nextSession || homeState.sessions[0]
+  const nextCalendar = homeState.nextCalendar
 
   return (
     <View style={styles.stack}>
@@ -518,6 +519,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
       ) : null}
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
+      {homeState.partial && !homeState.stale ? <StatePanel actionLabel="Refresh" message="The main overview is available, but one or more supporting summaries could not be refreshed." onAction={() => reloadHome({ refresh: true })} title="Some summaries are unavailable" tone="warning" /> : null}
       {!homeState.loading ? (
         <View style={styles.statGrid}>
           <StatCard label="Players" value={homeState.summary?.activePlayers || 0} />
@@ -527,6 +529,12 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
         </View>
       ) : null}
       <Section title="Coming up">
+        <PreviewCard
+          actionLabel="Open Calendar"
+          detail={nextCalendar ? `${formatDateTime(nextCalendar.startsAt)} | ${nextCalendar.title || 'Calendar item'}` : 'No upcoming Calendar item is available.'}
+          onAction={() => onNavigate('calendar')}
+          title="Next Calendar item"
+        />
         {context.teamId ? (
           <>
             <PreviewCard
@@ -544,6 +552,21 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
           </>
         ) : <EmptyPanel message="Choose a Team context to see Team fixtures, Players, and Sessions." title="Club overview" />}
       </Section>
+      <Section title="Operational attention">
+        <View style={styles.statGrid}>
+          <StatCard label="Availability pending" value={homeState.pendingAvailability || 0} />
+          <StatCard label="Active Polls" value={homeState.activePolls || 0} />
+          <StatCard label="Unread Chat" value={homeState.unreadChat || 0} />
+          <StatCard label="Development records" value={homeState.developmentRecords || 0} />
+        </View>
+        <View style={styles.quickGrid}>
+          <SecondaryAction label="Availability" onPress={() => onNavigate('invites')} />
+          <SecondaryAction label="Chat" onPress={() => onNavigate('chat')} />
+          <SecondaryAction label="Polls" onPress={() => onNavigate('polls')} />
+          <SecondaryAction label="Development" onPress={() => onNavigate('development')} />
+        </View>
+        <Text style={styles.helperText}>Communication history unread: {homeState.unreadCommunication || 0}. Counts come from the completed canonical domain adapters.</Text>
+      </Section>
       <Section title="Quick access">
         <View style={styles.quickGrid}>
           {['calendar', 'players', 'matchday', 'development'].map((route) => (
@@ -556,17 +579,71 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
 }
 
 function FoundationRoute({ context, route, ...props }) {
+  const { styles } = useCoachTheme()
   const titles = {
     calendar: 'Calendar', chat: 'Chat', club: 'Club', development: 'Development', matchday: 'Match Day', payment: 'Plan access',
     invites: 'Invites and availability', messages: 'Messages', players: 'Players', polls: 'Polls', resources: 'Resources', sessions: 'Sessions', settings: 'Settings', team: 'Team',
   }
   if (route === 'settings') return <SettingsScreen context={context} {...props} />
+  if (route === 'team') {
+    return (
+      <ScreenIntro copy="Canonical Team identity, operational scope, branding, and governed administration boundary." title="Team">
+        <Section title="Current Team">
+          <InfoRow label="Team" value={context.teamName || 'Team'} />
+          <InfoRow label="Club" value={context.clubName} />
+          <InfoRow label="Role" value={context.roleLabel} />
+          <InfoRow label="Plan access" value={context.paymentAccess.state} />
+          <InfoRow label="Branding" value={context.teamAccent ? 'Team accent' : context.clubAccent ? 'Club accent' : 'Football Player fallback'} />
+        </Section>
+        <Section title="Operational Team tools">
+          <View style={styles.quickGrid}>
+            <SecondaryAction label="Players" onPress={() => props.onNavigate('players')} />
+            <SecondaryAction label="Sessions" onPress={() => props.onNavigate('sessions')} />
+            <SecondaryAction label="Resources" onPress={() => props.onNavigate('resources')} />
+          </View>
+          <Text style={styles.helperText}>Staff assignment, squad governance, Team transfer, archive, and destructive administration remain in the authoritative web workflow.</Text>
+        </Section>
+      </ScreenIntro>
+    )
+  }
+  if (route === 'club') {
+    return (
+      <ScreenIntro copy="Canonical Club identity, branding, operational scope, and governed administration boundary." title="Club">
+        <Section title="Current Club">
+          <InfoRow label="Club" value={context.clubName} />
+          <InfoRow label="Role" value={context.roleLabel} />
+          <InfoRow label="Workspace" value={context.workspaceScope} />
+          <InfoRow label="Plan access" value={context.paymentAccess.state} />
+          <InfoRow label="Branding" value={context.clubAccent ? 'Club accent' : 'Football Player fallback'} />
+        </Section>
+        <Section title="Operational Club tools">
+          <SecondaryAction label="Club Calendar" onPress={() => props.onNavigate('calendar')} />
+          <SecondaryAction label="Resources" onPress={() => props.onNavigate('resources')} />
+          <SecondaryAction label="Chat" onPress={() => props.onNavigate('chat')} />
+          <Text style={styles.helperText}>Club-wide staff, plan ownership, archive, and settings administration remain in the authoritative web workflow.</Text>
+        </Section>
+      </ScreenIntro>
+    )
+  }
+  if (route === 'payment') {
+    return (
+      <ScreenIntro copy="Read-only plan state and exact payer authority. Financial changes remain on the authoritative web flow." title="Plan access">
+        <Section title="Current access">
+          <InfoRow label="Status" value={context.paymentAccess.state} />
+          <InfoRow label="Plan" value={context.planKey || 'No active plan key'} />
+          <InfoRow label="Payer authority" value={context.paymentAccess.payerAuthority} />
+          <InfoRow label="Operational changes" value={context.paymentAccess.canMutate ? 'Allowed' : 'Blocked'} />
+          <Text style={styles.helperText}>Ordinary Coaches cannot gain plan purchase control. Payment methods, coupons, and ownership changes remain web-only.</Text>
+        </Section>
+      </ScreenIntro>
+    )
+  }
   return (
-    <ScreenIntro copy="The canonical route and permission boundary are ready. Full feature parity is completed in the next domain phase." title={titles[route] || 'Coach'}>
+    <ScreenIntro copy="This route is not part of the final authorised Coach mobile navigation contract." title={titles[route] || 'Coach'}>
       <StatePanel
-        message={context.paymentAccess.canMutate ? 'This route is ready for its authoritative data adapter.' : 'Read-only access only while payment is required.'}
-        title={context.teamId ? context.teamName : context.clubName}
-        tone={context.paymentAccess.canMutate ? 'neutral' : 'warning'}
+        message="Return to Home and use the visible role-scoped navigation. No hidden route is available."
+        title="Route unavailable"
+        tone="warning"
       />
     </ScreenIntro>
   )
@@ -602,6 +679,12 @@ function SettingsScreen({
 }) {
   const { styles } = useCoachTheme()
   const build = Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || 'development'
+  const [cacheState, setCacheState] = useState(null)
+  useEffect(() => {
+    let mounted = true
+    void inspectCoachOfflineState(user.id).then((state) => { if (mounted) setCacheState(state) }).catch(() => { if (mounted) setCacheState({ hasDocument: false, status: 'unavailable' }) })
+    return () => { mounted = false }
+  }, [lastUpdatedAt, user.id])
   return (
     <ScreenIntro copy="Account, device security, notifications, sync, and app information." title="Settings">
       <Section title="Account">
@@ -637,11 +720,15 @@ function SettingsScreen({
       </Section>
       <Section title="Sync and environment">
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
+        <InfoRow label="Encrypted cache" value={cacheState?.hasDocument ? `Ready, schema ${cacheState.schemaVersion}` : cacheState?.status || 'Checking'} />
+        <InfoRow label="Cache ownership" value="Coach, user, environment, Club, Team, context, and resource isolated" />
         <InfoRow label="Environment" value="Test only" />
         <InfoRow label="Production access" value="False" />
         <InfoRow label="Offline changes" value="High-risk changes require an online authority check" />
       </Section>
       <Section title="App">
+        <InfoRow label="Branding" value={`${context.clubName}${context.teamName ? ` | ${context.teamName}` : ''}`} />
+        <InfoRow label="Accent source" value={context.teamAccent ? 'Team accent' : context.clubAccent ? 'Club accent' : 'Football Player fallback'} />
         <InfoRow label="Version" value={Constants.expoConfig?.version || 'development'} />
         <InfoRow label="Build" value={String(build)} />
       </Section>

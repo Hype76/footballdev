@@ -142,7 +142,7 @@ function ReportPanel({ busy, match, onSave, styles }) {
   return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Result and FA submission helper</Text><Text selectable style={styles.score}>{report.result.finalScore}</Text><Text style={styles.meta}>Deferred. Current approved source has no canonical FA SMS, deep-link message format, or authorised direct integration. The Coach app will not invent or automatically send one.</Text></View><View style={styles.card}><Text style={styles.cardTitle}>Final Match Report</Text><Text style={styles.body}>Active events {report.activeEvents.length} | Voided {report.voidedEvents.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text><Field label="Staff notes" multiline onChangeText={setNotes} styles={styles} value={notes} /><Button disabled={busy || match.status !== 'full_time'} label="Save final report" onPress={() => onSave(notes)} styles={styles} /></View></View>
 }
 
-export function CoachMatchDayScreen({ context, palette, user }) {
+export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -187,6 +187,7 @@ export function CoachMatchDayScreen({ context, palette, user }) {
 
   return <View style={styles.stack}>
     <Text accessibilityRole="header" style={styles.title}>Match Day</Text><Text style={styles.body}>Server-authoritative fixture execution, squad, clock, events, volunteers, shootout, corrections, and final report.</Text>
+    <View style={styles.tabs}><Button label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View>
     {loading ? <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading authoritative test Match Day data...</Text></View> : null}
     {error ? <View style={styles.warning}><Text style={styles.dangerText}>{error}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
     {stale ? <View style={styles.warning}><Text style={styles.cardTitle}>Offline read</Text><Text style={styles.body}>Showing encrypted cached Match Day data. Every change is disabled until a successful refresh.</Text></View> : null}

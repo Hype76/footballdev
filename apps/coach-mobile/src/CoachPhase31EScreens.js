@@ -14,8 +14,10 @@ import {
   getCoachResources,
   markCoachChatRead,
   recordCoachInviteIntent,
+  removeCoachResourceSharing,
   saveCoachDevelopmentDraft,
   sendCoachChatMessage,
+  setCoachResourceSharing,
   setCoachPollStatus,
 } from '../../mobile-core/src/coachPhase31EData'
 import {
@@ -76,7 +78,7 @@ function Empty({ copy, styles }) {
   return <View style={styles.panel}><Text style={styles.body}>{copy}</Text></View>
 }
 
-export function CoachPhase31EScreen({ domain, context, palette, user }) {
+export function CoachPhase31EScreen({ domain, context, onNavigate, palette, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -112,7 +114,7 @@ export function CoachPhase31EScreen({ domain, context, palette, user }) {
 
   useEffect(() => { void load() }, [load])
 
-  const common = { data, load, notice, setNotice, stale, styles, user }
+  const common = { data, load, notice, onNavigate, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       <View style={styles.panel}>
@@ -207,21 +209,30 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
 function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   const [title, setTitle] = useState('FP TEST resource')
   const [url, setUrl] = useState('https://example.com/fp-test-resource')
+  const [selectedId, setSelectedId] = useState(data[0]?.id || '')
+  const selected = data.find((resource) => resource.id === selectedId)
   const open = async (resource) => {
     try { await Linking.openURL(await getCoachResourceAccessUrl(user, resource)) } catch (error) { setNotice(error.message) }
   }
   const create = async () => {
     try { await createCoachExternalResource(user, { title, externalUrl: url, category: 'general' }); setNotice('Synthetic external Resource created.'); await load() } catch (error) { setNotice(error.message) }
   }
+  const shareWithTeam = async () => {
+    try { await setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], 'Shared from Coach mobile FP TEST'); setNotice('Resource shared with the active FP TEST Team.'); await load() } catch (error) { setNotice(error.message) }
+  }
+  const removeSharing = async (linkId) => {
+    try { await removeCoachResourceSharing(user, selected, linkId); setNotice('Resource assignment removed.'); await load() } catch (error) { setNotice(error.message) }
+  }
   return (
     <View style={styles.stack}>
-      {data.length ? data.map((resource) => <Pressable accessibilityRole="button" key={resource.id} onPress={() => void open(resource)} style={styles.panel}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{resource.category} | {resource.type} | {resource.links.length} assignments</Text><Text style={styles.body}>{resource.description || 'No description'}</Text></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
+      {data.length ? data.map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{resource.category} | {resource.type} | {resource.links.length} assignments</Text><Text style={styles.body}>{resource.description || 'No description'}</Text></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
+      {selected ? <View style={styles.panel}><Text style={styles.heading}>Selected Resource</Text><Button label="Open Resource" onPress={() => void open(selected)} styles={styles} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />{selected.links.map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Staff only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}</View> : null}
       <View style={styles.panel}><Text style={styles.heading}>Add secure external link</Text><TextInput accessibilityLabel="Resource title" onChangeText={setTitle} style={styles.input} value={title} /><TextInput accessibilityLabel="HTTPS Resource URL" autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Create FP TEST Resource" onPress={create} styles={styles} /><Text style={styles.body}>File upload, bulk governance, archive, and retention stay in the web workflow.</Text></View>
     </View>
   )
 }
 
-function ChatDomain({ data, setNotice, stale, styles, user }) {
+function ChatDomain({ data, onNavigate, setNotice, stale, styles, user }) {
   const rooms = [...(data.staff || []), ...(data.parent || [])]
   const [roomId, setRoomId] = useState(rooms[0]?.id || '')
   const [messages, setMessages] = useState([])
@@ -237,6 +248,7 @@ function ChatDomain({ data, setNotice, stale, styles, user }) {
   if (!rooms.length) return <Empty copy="No Staff Chat or Parent Chat membership is available in this Team." styles={styles} />
   return (
     <View style={styles.stack}>
+      <View style={styles.row}><Button label="Team Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View>
       <View style={styles.row}>{rooms.map((item) => <Button key={`${item.kind}:${item.id}`} label={`${item.kind === 'staff' ? 'Staff' : 'Parent'} | ${item.title}`} onPress={() => void open(item)} secondary={item.id !== roomId} styles={styles} />)}</View>
       <View style={styles.panel}><Text style={styles.heading}>{room?.title}</Text><Text style={styles.body}>{room?.kind === 'staff' ? 'Staff-only membership authority' : 'Parent Chat staff authority'} | {room?.unreadCount || 0} unread</Text>{messages.length ? messages.map((message) => <View key={message.id} style={styles.stack}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>) : <Text style={styles.body}>No messages loaded yet.</Text>}<TextInput accessibilityLabel="Chat message" multiline onChangeText={setBody} style={[styles.input, styles.inputMultiline]} value={body} /><Button disabled={stale || !room?.canPost || !isSyntheticCoachTarget(room?.title)} label="Send to FP TEST channel" onPress={send} styles={styles} /><Text style={styles.body}>Sending is online-only and restricted to rooms marked FP TEST. No customer delivery is permitted.</Text></View>
     </View>
@@ -260,15 +272,16 @@ function PollsDomain({ data, load, setNotice, stale, styles, user }) {
     try { await createCoachPoll(user, { title: `FP TEST availability ${Date.now()}`, audience: 'staff', options: [{ label: 'Available' }, { label: 'Unavailable' }], anonymous: true }); setNotice('Synthetic Poll created without external delivery.'); await load() } catch (error) { setNotice(error.message) }
   }
   const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice('Poll closed.'); await load() } catch (error) { setNotice(error.message) } } }])
+  const reopen = async () => { try { await setCoachPollStatus(user, selected, 'open'); setNotice('Poll reopened.'); await load() } catch (error) { setNotice(error.message) } }
   return (
     <View style={styles.stack}>
       {data.length ? data.map((poll) => <Pressable accessibilityRole="button" key={poll.id} onPress={() => setSelectedId(poll.id)} style={[styles.panel, poll.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{poll.title}</Text><Text style={styles.body}>{poll.audience} | {poll.status} | {poll.anonymous ? 'Anonymous' : 'Named responses'}</Text>{summarizeCoachPoll(poll).map((option) => <Text key={option.id} style={styles.body}>{option.label}: {option.count}</Text>)}</Pressable>) : <Empty copy="No Team or Club Polls are available." styles={styles} />}
-      <View style={styles.row}><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Create FP TEST Poll" onPress={create} styles={styles} /><Button disabled={stale || !selected || selected.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close selected Poll" onPress={close} secondary styles={styles} /></View>
+      <View style={styles.row}><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Create FP TEST Poll" onPress={create} styles={styles} /><Button disabled={stale || !selected || selected.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close selected Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || !selected || selected.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen selected Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
     </View>
   )
 }
 
-function InvitesDomain({ data, setNotice, stale, styles, user }) {
+function InvitesDomain({ data, onNavigate, setNotice, stale, styles, user }) {
   const [selectedId, setSelectedId] = useState(data.all?.[0]?.id || '')
   const selected = data.all?.find((invite) => invite.id === selectedId)
   const summary = summarizeCoachInvites(data.all)
@@ -280,6 +293,7 @@ function InvitesDomain({ data, setNotice, stale, styles, user }) {
       <View style={styles.panel}><Text style={styles.heading}>Response overview</Text><Text style={styles.body}>Awaiting {summary.awaiting} | Available {summary.available} | Unavailable {summary.unavailable} | Maybe {summary.maybe} | Selected {summary.selected} | Not selected {summary.notSelected} | Stale {summary.stale}</Text></View>
       {(data.all || []).length ? data.all.map((invite) => <Pressable accessibilityRole="button" key={`${invite.kind}:${invite.id}`} onPress={() => setSelectedId(invite.id)} style={[styles.panel, invite.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{invite.title}</Text><Text style={styles.body}>{invite.kind} | {invite.playerName} | {invite.status}</Text></Pressable>) : <Empty copy="No Match, training, or Calendar invitation responses are available." styles={styles} />}
       <View style={styles.row}><Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label="Record resend intent" onPress={() => void record('resend')} styles={styles} /><Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label="Record close intent" onPress={() => void record('close')} secondary styles={styles} /></View>
+      <View style={styles.row}><Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />{selected?.kind === 'match' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{selected?.kind === 'training' ? <Button label="Open Sessions" onPress={() => onNavigate('sessions')} secondary styles={styles} /> : null}</View>
       <Text style={styles.body}>Intent proof only. No email, push, SMS, schedule, or real customer communication is generated.</Text>
     </View>
   )

@@ -26,6 +26,7 @@ const cryptoProvider = {
 function unavailableStore() {
   return {
     async clear() {},
+    async inspect() { return { hasDocument: false, status: 'blocked' } },
     async read() { return { document: null, status: 'blocked' } },
     async write() { throw new Error('offline_storage_boundary_rejected') },
   }
@@ -62,6 +63,10 @@ export async function quarantineIncompatibleCoachOfflineState() {
 
 export async function clearCoachOfflineState() {
   await store.clear()
+}
+
+export async function inspectCoachOfflineState(userId) {
+  return store.inspect(userId)
 }
 
 export async function readCoachOfflineResources(userId, contextId) {
