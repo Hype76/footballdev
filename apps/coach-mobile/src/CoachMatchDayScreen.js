@@ -121,9 +121,11 @@ function TimelinePanel({ busy, match, onCorrectGoal, onPrepare, onUndo, styles }
   const [correctionReason, setCorrectionReason] = useState('')
   const [reasonCode, setReasonCode] = useState('')
   const [note, setNote] = useState('')
+  const visibleEvents = (match.events || []).slice(-200)
   return <View style={styles.stack}>
     {(match.events || []).length === 0 ? <Text style={styles.body}>No Match Day events have been recorded.</Text> : null}
-    {(match.events || []).map((event) => { const undo = getCoachMatchDayUndoModel(event); return <View key={event.id} style={styles.card}><Text style={styles.cardTitle}>{event.eventType.replaceAll('_', ' ')} {event.minute === null ? '' : `${event.minute}'`}</Text><Text style={styles.body}>{event.scorerName || event.playerName || event.notes || event.teamSide}</Text><Text style={styles.meta}>{event.homeScore} - {event.awayScore} | {event.eventStatus}</Text>{event.eventType === 'goal' && event.eventStatus !== 'voided' ? <Button disabled={busy} label="Correct goal details" onPress={() => { setCorrectEvent(event); setCorrectionReason(''); setGoalDraft({ assistName: event.assistName, assistShirtNumber: event.assistShirtNumber, minute: String(event.minute ?? ''), notes: event.notes, scorerName: event.scorerName, scorerShirtNumber: event.scorerShirtNumber, teamSide: event.teamSide }) }} secondary styles={styles} /> : null}{undo.canUndo ? <Button disabled={busy} label="Undo event" onPress={() => { setUndoEvent(event); setReasonCode(''); setNote('') }} secondary styles={styles} /> : null}</View> })}
+    {(match.events || []).length > visibleEvents.length ? <Text accessibilityLiveRegion="polite" style={styles.meta}>Showing the latest {visibleEvents.length} timeline events.</Text> : null}
+    {visibleEvents.map((event) => { const undo = getCoachMatchDayUndoModel(event); return <View key={event.id} style={styles.card}><Text style={styles.cardTitle}>{event.eventType.replaceAll('_', ' ')} {event.minute === null ? '' : `${event.minute}'`}</Text><Text style={styles.body}>{event.scorerName || event.playerName || event.notes || event.teamSide}</Text><Text style={styles.meta}>{event.homeScore} - {event.awayScore} | {event.eventStatus}</Text>{event.eventType === 'goal' && event.eventStatus !== 'voided' ? <Button disabled={busy} label="Correct goal details" onPress={() => { setCorrectEvent(event); setCorrectionReason(''); setGoalDraft({ assistName: event.assistName, assistShirtNumber: event.assistShirtNumber, minute: String(event.minute ?? ''), notes: event.notes, scorerName: event.scorerName, scorerShirtNumber: event.scorerShirtNumber, teamSide: event.teamSide }) }} secondary styles={styles} /> : null}{undo.canUndo ? <Button disabled={busy} label="Undo event" onPress={() => { setUndoEvent(event); setReasonCode(''); setNote('') }} secondary styles={styles} /> : null}</View> })}
     {correctEvent && goalDraft ? <View style={styles.warning}><Text style={styles.cardTitle}>Correct goal details</Text><Chips onChange={(value) => setGoalDraft({ ...goalDraft, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={goalDraft.teamSide} /><Field label="Minute" onChangeText={(value) => setGoalDraft({ ...goalDraft, minute: value })} styles={styles} value={goalDraft.minute} /><Field label="Scorer" onChangeText={(value) => setGoalDraft({ ...goalDraft, scorerName: value })} styles={styles} value={goalDraft.scorerName} /><Field label="Scorer shirt number" onChangeText={(value) => setGoalDraft({ ...goalDraft, scorerShirtNumber: value })} styles={styles} value={goalDraft.scorerShirtNumber} /><Field label="Assist" onChangeText={(value) => setGoalDraft({ ...goalDraft, assistName: value })} styles={styles} value={goalDraft.assistName} /><Field label="Correction reason" onChangeText={setCorrectionReason} styles={styles} value={correctionReason} /><Button disabled={busy || !correctionReason} label="Review goal correction" onPress={() => onPrepare({ kind: 'correct-goal', label: 'Correct goal and retain audit history', run: async () => { const validated = validateCoachMatchDayEventForm({ ...goalDraft, eventType: 'goal' }); await onCorrectGoal(correctEvent, validated, correctionReason); setCorrectEvent(null); setGoalDraft(null) } })} styles={styles} /><Button label="Cancel" onPress={() => { setCorrectEvent(null); setGoalDraft(null) }} secondary styles={styles} /></View> : null}
     {undoEvent ? <View style={styles.warning}><Text style={styles.cardTitle}>Confirm timeline correction</Text><Chips onChange={setReasonCode} options={getCoachMatchDayUndoModel(undoEvent).options} styles={styles} value={reasonCode} /><Field label="Correction note" multiline onChangeText={setNote} styles={styles} value={note} /><Button disabled={busy || !reasonCode} danger label="Review undo" onPress={() => onPrepare({ kind: 'undo', label: 'Void timeline event', run: async () => { await onUndo(undoEvent, { note, reasonCode }); setUndoEvent(null) } })} styles={styles} /><Button label="Cancel" onPress={() => setUndoEvent(null)} secondary styles={styles} /></View> : null}
   </View>
@@ -155,7 +157,7 @@ export function CoachMatchDayScreen({ context, palette, user }) {
   const [scoreDraft, setScoreDraft] = useState({ away: '0', home: '0' })
   const [stale, setStale] = useState(false)
 
-  const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(user.id, context.id, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [context.id, user.id])
+  const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(user.id, context, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [context, user.id])
   const load = useCallback(async () => {
     setError(''); setLoading(true)
     try {
@@ -165,11 +167,11 @@ export function CoachMatchDayScreen({ context, palette, user }) {
       if (nextMatch) { setMatch(nextMatch); setScoreDraft({ away: String(nextMatch.awayScore), home: String(nextMatch.homeScore) }) }
       await cache(nextMatches, nextMatch, nextPlayers)
     } catch (loadError) {
-      const saved = await readCoachOfflineResources(user.id, context.id).catch(() => null)
+      const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
       if (saved?.resources?.matchDayList) { setMatches(saved.resources.matchDayList); setPlayers(saved.resources.matchDayPlayers || []); setMatch(saved.resources.matchDayDetail || null); setStale(true) }
       else setError(errorMessage(loadError, 'Match Day could not be loaded.'))
     } finally { setLoading(false) }
-  }, [cache, context.id, match?.id, user])
+  }, [cache, context, match?.id, user])
   useEffect(() => { void load() }, [load])
 
   const open = async (summary) => {

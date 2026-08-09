@@ -3,15 +3,15 @@ import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } fr
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from './notifications'
 import { getAccessToken } from './supabase'
 
-async function readDeviceControlState({ appRole = '', parentLinkId = '', teamId = '' } = {}) {
+async function readDeviceControlState({ appRole = '', manageNotifications = true, parentLinkId = '', teamId = '' } = {}) {
   const [availability, enabled, notificationState] = await Promise.all([
     getBiometricAvailability(),
     getBiometricEnabled(appRole),
-    getNativeNotificationDeviceState({
+    manageNotifications ? getNativeNotificationDeviceState({
       appRole,
       parentLinkId,
       teamId,
-    }),
+    }) : Promise.resolve(null),
   ])
 
   return {
@@ -27,6 +27,7 @@ export function useMobileDeviceControls({
   easProjectId,
   notificationDisabledMessage,
   notificationEnabledMessage,
+  manageNotifications = true,
   onStatusMessage,
   parentLinkId = '',
   teamId = '',
@@ -46,6 +47,7 @@ export function useMobileDeviceControls({
   const refreshDeviceState = useCallback(async () => {
     const nextDeviceState = await readDeviceControlState({
       appRole,
+      manageNotifications,
       parentLinkId,
       teamId,
     })
@@ -53,13 +55,15 @@ export function useMobileDeviceControls({
     setBiometricAvailable(nextDeviceState.biometricAvailable)
     setBiometricEnabledState(nextDeviceState.biometricEnabled)
     setNotificationState(nextDeviceState.notificationState)
-  }, [appRole, parentLinkId, teamId])
+  }, [appRole, manageNotifications, parentLinkId, teamId])
 
   useEffect(() => {
+    if (!manageNotifications) return undefined
     void initializeMobileNotifications().catch((error) => {
       console.error(error)
     })
-  }, [])
+    return undefined
+  }, [manageNotifications])
 
   useEffect(() => {
     let isMounted = true
@@ -68,6 +72,7 @@ export function useMobileDeviceControls({
       try {
           const nextDeviceState = await readDeviceControlState({
             appRole,
+            manageNotifications,
             parentLinkId,
             teamId,
           })
@@ -87,9 +92,10 @@ export function useMobileDeviceControls({
     return () => {
       isMounted = false
     }
-  }, [appRole, parentLinkId, teamId])
+  }, [appRole, manageNotifications, parentLinkId, teamId])
 
   const enableNotifications = useCallback(async () => {
+    if (!manageNotifications) return
     setIsRegisteringPush(true)
     setMessage('')
 
@@ -111,9 +117,10 @@ export function useMobileDeviceControls({
     } finally {
       setIsRegisteringPush(false)
     }
-  }, [apiBaseUrl, appRole, easProjectId, notificationEnabledMessage, parentLinkId, refreshDeviceState, setMessage, teamId])
+  }, [apiBaseUrl, appRole, easProjectId, manageNotifications, notificationEnabledMessage, parentLinkId, refreshDeviceState, setMessage, teamId])
 
   const disableNotifications = useCallback(async () => {
+    if (!manageNotifications) return
     setIsRegisteringPush(true)
     setMessage('')
 
@@ -132,7 +139,7 @@ export function useMobileDeviceControls({
     } finally {
       setIsRegisteringPush(false)
     }
-  }, [apiBaseUrl, appRole, notificationDisabledMessage, refreshDeviceState, setMessage])
+  }, [apiBaseUrl, appRole, manageNotifications, notificationDisabledMessage, refreshDeviceState, setMessage])
 
   const toggleBiometrics = useCallback(async () => {
     setIsUpdatingBiometrics(true)

@@ -66,7 +66,7 @@ function phaseStyles(palette) {
 
 function Button({ disabled = false, label, onPress, secondary = false, styles }) {
   return (
-    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[secondary ? styles.secondary : styles.primary, disabled && styles.disabled]}>
+    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[secondary ? styles.secondary : styles.primary, disabled && styles.disabled]}>
       <Text style={secondary ? styles.secondaryText : styles.primaryText}>{label}</Text>
     </Pressable>
   )
@@ -94,9 +94,9 @@ export function CoachPhase31EScreen({ domain, context, palette, user }) {
       const next = await loader(user)
       setData(next)
       setStale(false)
-      await saveCoachOfflineResources(user.id, context.id, { [`phase31e:${domain}`]: next })
+      await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: next })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context.id).catch(() => null)
+      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
       const offlineValue = cached?.resources?.[`phase31e:${domain}`]
       if (offlinePolicy.cache && offlineValue) {
         setData(offlineValue)
@@ -108,7 +108,7 @@ export function CoachPhase31EScreen({ domain, context, palette, user }) {
     } finally {
       setLoading(false)
     }
-  }, [context.id, domain, offlinePolicy.cache, user])
+  }, [context, domain, offlinePolicy.cache, user])
 
   useEffect(() => { void load() }, [load])
 

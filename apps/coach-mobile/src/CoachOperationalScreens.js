@@ -146,9 +146,9 @@ export function CoachCalendarScreen({ context, palette, user }) {
       setEvents(rows)
       setPlayers(playerRows)
       setStale(false)
-      await saveCoachOfflineResources(user.id, context.id, { calendar: rows, calendarPlayers: playerRows })
+      await saveCoachOfflineResources(user.id, context, { calendar: rows, calendarPlayers: playerRows })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context.id).catch(() => null)
+      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
       if (cached?.resources?.calendar) {
         setEvents(cached.resources.calendar)
         setPlayers(cached.resources.calendarPlayers || [])
@@ -157,7 +157,7 @@ export function CoachCalendarScreen({ context, palette, user }) {
     } finally {
       setLoading(false)
     }
-  }, [context.id, user])
+  }, [context, user])
 
   useEffect(() => { void load() }, [load])
   const groups = groupCoachCalendarEvents(filterCoachCalendarEvents(events, filter))
@@ -250,13 +250,13 @@ export function CoachPlayersScreen({ context, palette, user }) {
     try {
       const rows = await getCoachPlayerList(user)
       setPlayers(rows); setStale(false)
-      await saveCoachOfflineResources(user.id, context.id, { players: rows })
+      await saveCoachOfflineResources(user.id, context, { players: rows })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context.id).catch(() => null)
+      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
       if (cached?.resources?.players) { setPlayers(cached.resources.players); setStale(true) }
       else setError(message(loadError, 'Players could not be loaded.'))
     } finally { setLoading(false) }
-  }, [context.id, user])
+  }, [context, user])
   useEffect(() => { void load() }, [load])
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
   const openPlayer = async (player) => {
@@ -334,13 +334,13 @@ export function CoachSessionsScreen({ context, palette, user }) {
     try {
       const [rows, playerRows] = await Promise.all([getCoachSessionList(user), getCoachPlayerList(user)])
       setSessions(rows); setPlayers(playerRows); setStale(false)
-      await saveCoachOfflineResources(user.id, context.id, { sessionPlayers: playerRows, sessions: rows })
+      await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context.id).catch(() => null)
+      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
       if (cached?.resources?.sessions) { setSessions(cached.resources.sessions); setPlayers(cached.resources.sessionPlayers || []); setStale(true) }
       else setError(message(loadError, 'Sessions could not be loaded.'))
     } finally { setLoading(false) }
-  }, [context.id, user])
+  }, [context, user])
   useEffect(() => { void load() }, [load])
   const visible = filterCoachSessions(sessions, filter)
   const openSession = async (session) => {

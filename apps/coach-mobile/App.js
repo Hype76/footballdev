@@ -20,11 +20,10 @@ import {
 } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
+import { getCoachNotificationStatusLabel, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { getCoachHomeSummary, getCoachMatchDays, getCoachSessions } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
-import { revokeNativePushDevice } from '../mobile-core/src/notifications'
-import { getTabForNotificationRoute } from '../mobile-core/src/routes'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import {
@@ -45,6 +44,15 @@ import { prepareCoachMobileStartup } from './src/startup'
 import { CoachCalendarScreen, CoachPlayersScreen, CoachSessionsScreen } from './src/CoachOperationalScreens'
 import { CoachMatchDayScreen } from './src/CoachMatchDayScreen'
 import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
+import { readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
+import {
+  addCoachPushTokenListener,
+  enableCoachNotifications,
+  initializeCoachNotifications,
+  loadCoachNotificationState,
+  unbindCoachNotifications,
+  updateCoachNotificationPreference,
+} from './src/notifications'
 
 const config = getMobileRuntimeConfig('coach')
 const defaultThemeContext = createCoachThemeContext(DEFAULT_COACH_THEME)
@@ -103,11 +111,13 @@ function CoachHome() {
   const [contextReady, setContextReady] = useState(false)
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
   const [displayTheme, setDisplayTheme] = useState('dark')
-  const [homeState, setHomeState] = useState({ error: '', loading: true, matches: [], sessions: [], summary: null })
+  const [homeState, setHomeState] = useState({ error: '', loading: true, matches: [], savedAt: '', sessions: [], stale: false, summary: null })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [moreRoute, setMoreRoute] = useState('')
   const [notice, setNotice] = useState('')
+  const [notificationState, setNotificationState] = useState(null)
+  const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const requestIdRef = useRef(0)
 
@@ -132,16 +142,13 @@ function CoachHome() {
   const {
     biometricAvailable,
     biometricEnabled,
-    disableNotifications,
-    enableNotifications,
-    isRegisteringPush,
     isUpdatingBiometrics,
-    notificationState,
     toggleBiometrics,
   } = useMobileDeviceControls({
     apiBaseUrl: config.apiBaseUrl,
     appRole: 'coach',
     easProjectId: config.easProjectId,
+    manageNotifications: false,
     notificationDisabledMessage: 'Coach notifications are disabled on this device.',
     notificationEnabledMessage: 'Coach notifications are enabled for this context.',
     onStatusMessage: setNotice,
@@ -150,11 +157,58 @@ function CoachHome() {
 
   const resetContextDomainState = useCallback(() => {
     requestIdRef.current += 1
-    setHomeState({ error: '', loading: true, matches: [], sessions: [], summary: null })
+    setHomeState({ error: '', loading: true, matches: [], savedAt: '', sessions: [], stale: false, summary: null })
     setLastUpdatedAt('')
     setMoreRoute('')
     setNotice('')
   }, [])
+
+  const refreshNotifications = useCallback(async () => {
+    if (!activeContext?.id) return null
+    try {
+      const next = await loadCoachNotificationState({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id })
+      setNotificationState(next)
+      return next
+    } catch (error) {
+      setNotificationState((current) => ({ ...(current || {}), enabled: false, message: error?.code || 'Coach notifications could not be refreshed.' }))
+      return null
+    }
+  }, [activeContext?.id])
+
+  const enableNotifications = useCallback(async () => {
+    if (!activeContext?.id) return
+    setIsRegisteringPush(true)
+    setNotice('')
+    try {
+      const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, easProjectId: config.easProjectId })
+      setNotificationState(next)
+      setNotice(next.enabled ? 'Coach notifications are enabled for this staff context.' : next.message)
+    } catch (error) {
+      setNotice(error?.code || 'Coach notifications could not be enabled.')
+    } finally { setIsRegisteringPush(false) }
+  }, [activeContext?.id])
+
+  const disableNotifications = useCallback(async () => {
+    if (!activeContext?.id) return
+    setIsRegisteringPush(true)
+    try {
+      const next = await updateCoachNotificationPreference({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel: 'off' })
+      setNotificationState(next)
+      setNotice('Coach notifications are off.')
+    } catch (error) { setNotice(error?.code || 'Coach notifications could not be disabled.') }
+    finally { setIsRegisteringPush(false) }
+  }, [activeContext?.id])
+
+  const updateNotificationLevel = useCallback(async (detailLevel) => {
+    if (!activeContext?.id) return
+    setIsRegisteringPush(true)
+    try {
+      const next = await updateCoachNotificationPreference({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel })
+      setNotificationState(next)
+      setNotice(`Coach notifications set to ${detailLevel}.`)
+    } catch (error) { setNotice(error?.code || 'Coach notification preference could not be saved.') }
+    finally { setIsRegisteringPush(false) }
+  }, [activeContext?.id])
 
   const loadHome = useCallback(async ({ refresh = false } = {}) => {
     if (!selectedMobileUser?.clubId) return
@@ -169,20 +223,26 @@ function CoachHome() {
         selectedMobileUser.activeTeamId ? getCoachSessions(selectedMobileUser) : Promise.resolve([]),
       ])
       if (requestId !== requestIdRef.current) return
-      setHomeState({ error: '', loading: false, matches, sessions, summary })
-      setLastUpdatedAt(new Date().toISOString())
+      const savedAt = new Date().toISOString()
+      setHomeState({ error: '', loading: false, matches, savedAt, sessions, stale: false, summary })
+      setLastUpdatedAt(savedAt)
+      await saveCoachOfflineResources(user.id, activeContext, { home: { matches, savedAt, sessions, summary } }).catch(() => {})
       if (refresh) setNotice('Latest Coach overview loaded.')
     } catch (error) {
       if (requestId !== requestIdRef.current) return
-      setHomeState((current) => ({
-        ...current,
-        error: error?.message || 'Coach overview could not be loaded.',
-        loading: false,
-      }))
+      const cached = await readCoachOfflineResources(user.id, activeContext).catch(() => null)
+      const home = cached?.resources?.home
+      if (home) {
+        setHomeState({ error: '', loading: false, matches: home.matches || [], savedAt: home.savedAt || cached.savedAt, sessions: home.sessions || [], stale: true, summary: home.summary || null })
+        setLastUpdatedAt(home.savedAt || cached.savedAt)
+        setNotice('Offline. Showing the last encrypted Coach overview. Refresh when online.')
+      } else {
+        setHomeState((current) => ({ ...current, error: error?.message || 'Coach overview could not be loaded.', loading: false }))
+      }
     } finally {
       if (requestId === requestIdRef.current) setIsRefreshing(false)
     }
-  }, [selectedMobileUser])
+  }, [activeContext, selectedMobileUser, user?.id])
 
   const navigate = useCallback((route) => {
     const resolved = resolveCoachRoute(route, activeContext)
@@ -195,6 +255,35 @@ function CoachHome() {
     setMoreRoute(container === 'more' ? resolved : '')
     return true
   }, [activeContext])
+
+  const openCoachTarget = useCallback((data) => {
+    const result = resolveCoachNotificationOpen(data, {
+      activeContextId: activeContext?.id,
+      availableTargets: {
+        matchday: (homeState.matches || []).map((item) => item.id),
+        sessions: (homeState.sessions || []).map((item) => item.id),
+      },
+      contexts: contextResolution.contexts,
+    })
+    if (!result.allowed) {
+      setNotice('This Coach destination is stale or no longer authorised.')
+      return false
+    }
+    const targetContext = contextResolution.contexts.find((context) => context.id === result.contextId)
+    const resolved = resolveCoachRoute(result.route, targetContext)
+    if (!targetContext || !resolved) {
+      setNotice('This Coach destination is not available in the current staff role.')
+      return false
+    }
+    if (targetContext.id !== activeContext?.id) {
+      resetContextDomainState()
+      setSelectedContextId(targetContext.id)
+    }
+    const container = getCoachRouteContainer(resolved)
+    setActiveRoute(container)
+    setMoreRoute(container === 'more' ? resolved : '')
+    return true
+  }, [activeContext?.id, contextResolution.contexts, homeState.matches, homeState.sessions, resetContextDomainState])
 
   useEffect(() => {
     let mounted = true
@@ -229,26 +318,43 @@ function CoachHome() {
   }, [activeContext, contextOwnedByCurrentUser, loadHome, user?.id])
 
   useEffect(() => {
+    void initializeCoachNotifications().catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!activeContext?.id || !contextOwnedByCurrentUser) return undefined
+    void refreshNotifications()
+    const subscription = addCoachPushTokenListener(() => {
+      if (notificationState?.registered) void enableNotifications()
+    })
+    return () => subscription.remove()
+  }, [activeContext?.id, contextOwnedByCurrentUser, enableNotifications, notificationState?.registered, refreshNotifications])
+
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && contextOwnedByCurrentUser && selectedMobileUser?.clubId) {
         void loadHome({ refresh: true })
+        void refreshNotifications()
       }
     })
     return () => subscription.remove()
-  }, [contextOwnedByCurrentUser, loadHome, selectedMobileUser?.clubId])
+  }, [contextOwnedByCurrentUser, loadHome, refreshNotifications, selectedMobileUser?.clubId])
 
   useEffect(() => {
-    const route = lastNotificationResponse?.notification?.request?.content?.data?.route
-    const target = getTabForNotificationRoute('coach', route)
-    if (target) navigate(target)
-  }, [lastNotificationResponse, navigate])
+    const data = lastNotificationResponse?.notification?.request?.content?.data
+    if (data) openCoachTarget(data)
+  }, [lastNotificationResponse, openCoachTarget])
 
   useEffect(() => {
     const openUrl = ({ url }) => {
       try {
         const parsed = new URL(url)
-        const route = parsed.searchParams.get('route') || parsed.pathname.split('/').filter(Boolean).at(-1) || ''
-        navigate(route)
+        openCoachTarget({
+          app: 'coach',
+          contextId: parsed.searchParams.get('contextId') || '',
+          route: parsed.searchParams.get('route') || parsed.pathname.split('/').filter(Boolean).at(-1) || '',
+          targetId: parsed.searchParams.get('targetId') || '',
+        })
       } catch {
         setNotice('This Coach link could not be opened safely.')
       }
@@ -256,7 +362,7 @@ function CoachHome() {
     const subscription = Linking.addEventListener('url', openUrl)
     void Linking.getInitialURL().then((url) => { if (url) openUrl({ url }) }).catch(() => {})
     return () => subscription.remove()
-  }, [navigate])
+  }, [openCoachTarget])
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -360,6 +466,7 @@ function CoachHome() {
             onSignOut={signOut}
             onToggleBiometrics={toggleBiometrics}
             onToggleTheme={toggleTheme}
+            onUpdateNotificationLevel={updateNotificationLevel}
             reloadHome={loadHome}
             themeMode={displayTheme}
             user={selectedMobileUser}
@@ -400,6 +507,15 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
         <Text accessibilityRole="header" style={styles.heroTitle}>Hi {user.displayName || user.name}.</Text>
         <Text style={styles.bodyText}>{context.teamId ? `${context.teamName} is ready.` : `${context.clubName} overview.`}</Text>
       </View>
+      {homeState.stale ? (
+        <StatePanel
+          actionLabel="Refresh when online"
+          message={`Last updated ${formatDateTime(homeState.savedAt, 'time unavailable')}. Match and availability information may have changed.`}
+          onAction={() => reloadHome({ refresh: true })}
+          title="Offline, stale data"
+          tone="warning"
+        />
+      ) : null}
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {!homeState.loading ? (
@@ -480,6 +596,7 @@ function SettingsScreen({
   onSignOut,
   onToggleBiometrics,
   onToggleTheme,
+  onUpdateNotificationLevel,
   themeMode,
   user,
 }) {
@@ -504,16 +621,25 @@ function SettingsScreen({
         </SettingRow>
       </Section>
       <Section title="Notifications">
-        <Text style={styles.bodyText}>{notificationState?.isRegistered ? 'Enabled for this context.' : notificationState?.message || 'Not enabled on this device.'}</Text>
-        {notificationState?.isRegistered
+        <InfoRow label="Status" value={getCoachNotificationStatusLabel(notificationState || {})} />
+        <Text style={styles.bodyText}>{notificationState?.registered ? 'Registered to this Coach installation and staff context.' : notificationState?.message || 'Not enabled on this device.'}</Text>
+        {notificationState?.registered ? (
+          <View style={styles.quickGrid}>
+            {['minimal', 'detailed'].map((level) => (
+              <SecondaryAction disabled={isRegisteringPush} key={level} label={level === 'minimal' ? 'Minimal privacy' : 'Detailed'} onPress={() => onUpdateNotificationLevel(level)} />
+            ))}
+          </View>
+        ) : null}
+        {notificationState?.enabled
           ? <SecondaryAction disabled={isRegisteringPush} label="Disable notifications" onPress={disableNotifications} />
           : <PrimaryAction disabled={isRegisteringPush} label="Enable notifications" onPress={enableNotifications} />}
+        <Text style={styles.helperText}>Minimal is the conservative default. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
       </Section>
       <Section title="Sync and environment">
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
         <InfoRow label="Environment" value="Test only" />
         <InfoRow label="Production access" value="False" />
-        <InfoRow label="Offline changes" value="Not allowed in foundation phase" />
+        <InfoRow label="Offline changes" value="High-risk changes require an online authority check" />
       </Section>
       <Section title="App">
         <InfoRow label="Version" value={Constants.expoConfig?.version || 'development'} />
@@ -550,6 +676,8 @@ function ContextSwitcher({ contexts, onSelect, selectedContextId }) {
           const selected = context.id === selectedContextId
           return (
             <Pressable
+              accessibilityHint="Changes the active staff Team or Club context"
+              accessibilityLabel={`${context.teamName || context.clubName}, ${context.roleLabel}`}
               accessibilityRole="button"
               accessibilityState={{ selected }}
               key={context.id}
@@ -574,6 +702,7 @@ function PrimaryNavigation({ activeRoute, navigation, onNavigate }) {
         const selected = route.key === activeRoute
         return (
           <Pressable
+            accessibilityLabel={`${route.label} tab`}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             key={route.key}
@@ -630,7 +759,7 @@ function PreviewCard({ actionLabel, detail, onAction, title }) {
 function MenuRow({ label, onPress }) {
   const { styles } = useCoachTheme()
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
+    <Pressable accessibilityHint={`Open ${label}`} accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
       <Text style={styles.menuText}>{label}</Text><Text style={styles.menuArrow}>›</Text>
     </Pressable>
   )
@@ -766,7 +895,7 @@ function AppContent() {
 }
 
 async function clearCoachBeforeSignOut({ accessToken, apiBaseUrl }) {
-  await revokeNativePushDevice({ accessToken, apiBaseUrl, appRole: 'coach' }).catch(() => {})
+  await unbindCoachNotifications({ accessToken, apiBaseUrl }).catch(() => {})
   await clearCoachAllLocalState()
 }
 

@@ -76,6 +76,7 @@ export async function saveCoachOfflineResources(userId, contextId, resources) {
     ...(cached?.resources || {}),
     ...(resources || {}),
   })
+  if (JSON.stringify(next.contexts) === JSON.stringify(current.contexts)) return cached
   await store.write(userId, next)
   return getCoachOfflineResources(next, contextId)
 }
