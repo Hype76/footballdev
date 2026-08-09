@@ -107,7 +107,7 @@ test('Platform Admin team delete failures keep the modal target open', () => {
 })
 
 test('Platform Admin delete team confirmation passes the async handler and in-modal error to ConfirmModal', () => {
-  const teamModalIndex = platformAdminPageSource.indexOf('title="Delete team"')
+  const teamModalIndex = platformAdminPageSource.indexOf('title="Permanently delete archived Team"')
   const teamModalSource = platformAdminPageSource.slice(teamModalIndex, platformAdminPageSource.indexOf('</ConfirmModal>', teamModalIndex))
 
   assert.match(teamModalSource, /errorMessage=\{confirmErrorMessage\}/)
@@ -133,6 +133,31 @@ test('Platform Admin modal error mapping covers password, session, permission, n
   assert.match(platformAdminPageSource, /The team could not be deleted because the audit log could not be written\./)
   assert.match(platformAdminPageSource, /The server could not complete this action\. Please contact support with reference FPO-V1-TEAMDELETE-SERVERERR-007\./)
   assert.match(platformAdminPageSource, /Network failure\. Check your connection and try again\./)
+  assert.match(platformAdminPageSource, /Move this Team to the archive before permanently deleting it\./)
+  assert.match(platformAdminPageSource, /Move this Club to the archive before permanently deleting it\./)
+})
+
+test('Platform Admin keeps permanent deletion inside the archive view', () => {
+  assert.match(platformAccountSectionSource, /Active workspaces/)
+  assert.match(platformAccountSectionSource, /Archive \(\{archiveCount \?\? 0\}\)/)
+  assert.match(platformAccountSectionSource, /Archive Club/)
+  assert.match(platformAccountSectionSource, /Archive Team/)
+  assert.match(platformAccountSectionSource, /function ArchivedWorkspaceCard/)
+  assert.match(platformAccountSectionSource, /Restore Club/)
+  assert.match(platformAccountSectionSource, /Restore Team/)
+  assert.match(platformAccountSectionSource, /Permanently delete/)
+
+  const activeCardStart = platformAccountSectionSource.indexOf('function ClubAccountCard')
+  const activeCardEnd = platformAccountSectionSource.indexOf('function ClubSummary', activeCardStart)
+  const activeCardSource = platformAccountSectionSource.slice(activeCardStart, activeCardEnd)
+  assert.notEqual(activeCardStart, -1)
+  assert.notEqual(activeCardEnd, -1)
+  assert.doesNotMatch(activeCardSource, /onDeleteClub|onDeleteTeam|Permanently delete/)
+
+  assert.match(platformAdminPageSource, /title="Archive Club workspace"/)
+  assert.match(platformAdminPageSource, /title="Archive Team"/)
+  assert.match(platformAdminPageSource, /title="Permanently delete archived Club"/)
+  assert.match(platformAdminPageSource, /title="Permanently delete archived Team"/)
 })
 
 test('Platform clubs search no longer binds browser datalist suggestions', () => {

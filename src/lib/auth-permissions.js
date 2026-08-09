@@ -1,6 +1,12 @@
 import { isDemoUser } from './demo.js'
 import { CAPABILITIES, canUseFeature } from './paywall-access.js'
 import { isPlanAccessActive } from './plans.js'
+import {
+  getWorkspaceScope,
+  isClubWorkspace,
+  isIndividualWorkspace,
+  WORKSPACE_SCOPES,
+} from './workspace-scope.js'
 
 function normalizeName(value) {
   return String(value ?? '')
@@ -13,12 +19,10 @@ export function getRoleLabel(user) {
     return 'Unknown'
   }
 
-  if (user.role === 'admin') {
-    return 'Club Admin'
-  }
+  const scope = getWorkspaceScope(user)
 
-  if (user.role === 'head_manager') {
-    return 'Team Admin'
+  if (scope.supported && user.role === scope.ownerRole.key) {
+    return scope.ownerRole.label
   }
 
   if (isAdultPlayerUser(user)) {
@@ -36,10 +40,26 @@ export function getWorkspaceHomeCopy(user) {
     }
   }
 
-  if (isClubAdmin(user)) {
+  const scope = getWorkspaceScope(user)
+
+  if (scope.key === WORKSPACE_SCOPES.club && isClubAdmin(user)) {
     return {
       title: 'Club Home',
       description: 'Manage the club workspace, teams, staff, players, and settings.',
+    }
+  }
+
+  if (scope.key === WORKSPACE_SCOPES.team && user.role === scope.ownerRole.key) {
+    return {
+      title: 'Team Home',
+      description: 'Manage your team, staff, players, parent updates, and match day.',
+    }
+  }
+
+  if (scope.key === WORKSPACE_SCOPES.individual && user.role === scope.ownerRole.key) {
+    return {
+      title: 'Coach Home',
+      description: 'Manage your squad, sessions, players, and development records.',
     }
   }
 
@@ -76,7 +96,7 @@ export function canViewPlatformFeedback(user) {
 }
 
 export function isClubAdmin(user) {
-  return user?.role === 'admin'
+  return user?.role === 'admin' && isClubWorkspace(user)
 }
 
 export function isParentPortalUser(user) {
@@ -100,7 +120,7 @@ export function canManageUsers(user) {
     return false
   }
 
-  if (user.planKey === 'individual' && !user.isPlanComped) {
+  if (isIndividualWorkspace(user)) {
     return isSuperAdmin(user)
   }
 
@@ -221,7 +241,10 @@ export function canViewBilling(user) {
     return true
   }
 
-  return Boolean(user.clubId) && isClubAdmin(user)
+  const scope = getWorkspaceScope(user.planKey)
+  return Boolean(user.clubId)
+    && user.role === scope.ownerRole.key
+    && Number(user.roleRank ?? 0) >= scope.ownerRole.rank
 }
 
 export function canDeletePlayer(user) {
@@ -277,7 +300,7 @@ export function canUseStaffChat(user) {
 }
 
 export function canUseClubStaffChat(user) {
-  return canUseStaffChat(user) && Number(user?.roleRank ?? 0) >= 70
+  return canUseStaffChat(user) && isClubWorkspace(user) && Number(user?.roleRank ?? 0) >= 70
 }
 
 export function canUseResourceLibrary(user) {

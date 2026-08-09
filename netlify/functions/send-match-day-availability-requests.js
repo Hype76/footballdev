@@ -4,6 +4,7 @@ import { createFromAddress } from './lib/_email-provider.js'
 import { json } from './lib/_stripe-billing.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
+import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import {
   buildMatchDayActionableInvitationEmail,
   createInvitationToken,
@@ -556,6 +557,7 @@ export async function handler(event) {
     const supabase = createRequestSupabaseClient(event, token)
     const adminSupabase = createSupabaseAdminClient(event)
     const profile = await getAuthenticatedProfile(event, supabase, adminSupabase)
+    await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const playerIds = Array.isArray(body.playerIds) ? body.playerIds.map(normalizeText).filter(Boolean) : []

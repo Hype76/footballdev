@@ -15,6 +15,7 @@ import {
   publicSubheadingClass,
 } from '../components/login/PublicSiteComponents.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
+import { PUBLIC_FREE_SIGNUP_PATH } from '../lib/public-signup.js'
 
 const featureGroups = [
   {
@@ -111,7 +112,7 @@ export function PublicFeaturesPage() {
               Bring training, fixtures, availability, parent updates, player records, and development history into one workspace your staff can actually use.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <a href="/sign-in" className={publicPrimaryButtonClass}>Start free</a>
+              <a href={PUBLIC_FREE_SIGNUP_PATH} className={publicPrimaryButtonClass}>Start free</a>
               <button type="button" onClick={openContactModal} className={publicSecondaryButtonClass}>Contact us</button>
             </div>
           </div>
@@ -170,7 +171,7 @@ export function PublicFeaturesPage() {
             </p>
           </div>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-0">
-            <a href="/sign-in" className={publicPrimaryButtonClass}>Start free</a>
+            <a href={PUBLIC_FREE_SIGNUP_PATH} className={publicPrimaryButtonClass}>Start free</a>
             <button type="button" onClick={openContactModal} className={publicSecondaryButtonClass}>Contact us</button>
           </div>
         </div>

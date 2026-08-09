@@ -11,13 +11,18 @@ import {
   getParentInviteToken,
   rememberParentAccessIntent,
 } from '../lib/parent-auth-intent.js'
+import {
+  getPublicFreeSignupPlanKey,
+  PUBLIC_SIGNUP_ACCEPTED_MESSAGE,
+} from '../lib/public-signup.js'
+import { getWorkspaceScope } from '../lib/workspace-scope.js'
 
 const initialFormData = {
   email: '',
   password: '',
   clubName: '',
   accessCode: '',
-  planKey: 'small_club',
+  planKey: 'individual',
 }
 
 const testPlanByName = {
@@ -87,6 +92,9 @@ export function LoginPage() {
     const checkoutStatus = params.get('checkout')
     const nextParentInviteToken = getParentInviteToken(window.location.search)
     const requestedLoginMode = getRequestedLoginMode(params)
+    const publicFreePlanKey = getPublicFreeSignupPlanKey(params.get('plan'))
+    const selectedPlanName = String(params.get('plan') ?? '').trim()
+    const selectedPlanKey = testPlanByName[selectedPlanName]
 
     if (requestedLoginMode === 'parent-login') {
       rememberParentAccessIntent()
@@ -106,9 +114,25 @@ export function LoginPage() {
       setMode(requestedLoginMode)
     }
 
+    if (publicFreePlanKey) {
+      setMode('signup')
+      setFormData((current) => ({
+        ...current,
+        planKey: publicFreePlanKey,
+      }))
+      setLocalMessage('Individual Coach free access selected. Create your individual workspace to continue.')
+    }
+
     if (checkoutStatus === 'success') {
       setMode('signup')
-      setLocalMessage('Checkout completed. Create your club account to continue.')
+      if (selectedPlanKey) {
+        setFormData((current) => ({
+          ...current,
+          planKey: selectedPlanKey,
+        }))
+      }
+      const selectedScope = getWorkspaceScope(selectedPlanKey)
+      setLocalMessage(`Checkout completed. Create your ${selectedScope.workspaceLabel} to continue.`)
     }
 
     if (checkoutStatus === 'cancelled') {
@@ -116,9 +140,6 @@ export function LoginPage() {
     }
 
     if (paymentsDisabled) {
-      const selectedPlanName = String(params.get('plan') ?? '').trim()
-      const selectedPlanKey = testPlanByName[selectedPlanName]
-
       if (selectedPlanKey) {
         setMode('signup')
         setFormData((current) => ({
@@ -208,7 +229,7 @@ export function LoginPage() {
           }))
           setLocalMessage(parentInviteToken
             ? 'Parent account created. Please check your email to verify it, then open the parent invite link again.'
-            : 'Account created. Please check your email to verify your account before logging in.')
+            : PUBLIC_SIGNUP_ACCEPTED_MESSAGE)
         } else if (signupResult?.message) {
           setLocalMessage(signupResult.message)
         } else if (parentInviteToken) {

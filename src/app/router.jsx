@@ -70,6 +70,7 @@ const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx')
 const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
 const ClubOwnerInvitePage = lazyRoute(() => import('../pages/ClubOwnerInvitePage.jsx'), 'ClubOwnerInvitePage')
+const WorkspaceTeamTransferPage = lazyRoute(() => import('../pages/WorkspaceTeamTransferPage.jsx'), 'WorkspaceTeamTransferPage')
 const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'AssessmentsMenuPage')
 const PlayersMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'PlayersMenuPage')
 const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'SessionsMenuPage')
@@ -453,6 +454,20 @@ function ClubSuspendedState() {
   )
 }
 
+function ClubArchivedState() {
+  return (
+    <RouteGateState
+      eyebrow="Club access"
+      title="Club workspace archived"
+      message="This Club workspace has been archived by the Platform Admin. Its records are retained, but active access is paused until it is restored."
+      rules={[
+        { title: 'Data is retained', body: 'Archiving keeps the Club, Teams, users, players, development records, fixtures, and history.' },
+        { title: 'Platform controlled', body: 'Only a Platform Admin can restore or permanently delete the archived workspace.' },
+      ]}
+    />
+  )
+}
+
 function AccountSuspendedState() {
   return (
     <RouteGateState
@@ -673,6 +688,10 @@ function isClubSuspended(user) {
   return user?.clubStatus === 'suspended'
 }
 
+function isClubArchived(user) {
+  return Boolean(user?.clubArchivedAt)
+}
+
 function isAccountSuspended(user) {
   return user?.accountStatus === 'suspended'
 }
@@ -694,7 +713,7 @@ function getDefaultWorkspacePath(user) {
     return '/player'
   }
 
-  if (isAccountSuspended(user) || isClubSuspended(user)) {
+  if (isAccountSuspended(user) || isClubSuspended(user) || isClubArchived(user)) {
     return '/'
   }
 
@@ -852,6 +871,10 @@ function useWorkspaceRouteGate({
     return { element: <AccountSuspendedState />, user }
   }
 
+  if (isClubArchived(user)) {
+    return { element: <ClubArchivedState />, user }
+  }
+
   if (isClubSuspended(user)) {
     return { element: <ClubSuspendedState />, user }
   }
@@ -992,6 +1015,10 @@ function WorkspaceHome() {
 
   if (isAccountSuspended(user)) {
     return <AccountSuspendedState />
+  }
+
+  if (isClubArchived(user)) {
+    return <ClubArchivedState />
   }
 
   if (isClubSuspended(user)) {
@@ -1551,6 +1578,30 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={null}>
         <StaffInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/workspace-invite',
+    element: (
+      <Suspense fallback={null}>
+        <ClubOwnerInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/workspace-invite/:token',
+    element: (
+      <Suspense fallback={null}>
+        <ClubOwnerInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/team-transfer/:requestId',
+    element: (
+      <Suspense fallback={null}>
+        <WorkspaceTeamTransferPage />
       </Suspense>
     ),
   },

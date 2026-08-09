@@ -31,6 +31,14 @@ const dashboardHeatmapsMigration = await readFile(
   new URL('../supabase/migrations/20260801012822_analytics_dashboard_heatmaps_14c.sql', import.meta.url),
   'utf8',
 )
+const canonicalTrustMigration = await readFile(
+  new URL('../supabase/migrations/20260808113130_platform_analytics_canonical_trust_v4.sql', import.meta.url),
+  'utf8',
+)
+const parentLinkRollupFixMigration = await readFile(
+  new URL('../supabase/migrations/20260808113748_platform_analytics_parent_link_rollup_fix.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
@@ -40,6 +48,7 @@ const IDS = Object.freeze({
   teamTwo: '20000000-0000-4000-8000-000000000002',
   player: '40000000-0000-4000-8000-000000000001',
   playerTwo: '40000000-0000-4000-8000-000000000002',
+  emptyClub: '10000000-0000-4000-8000-000000000002',
 })
 
 async function createDatabase() {
@@ -54,7 +63,8 @@ async function createDatabase() {
       name text not null,
       plan_key text not null default 'small_club',
       created_at timestamptz not null default now(),
-      status text not null default 'active'
+      status text not null default 'active',
+      archived_at timestamptz
     );
 
     create table public.teams (
@@ -62,7 +72,8 @@ async function createDatabase() {
       club_id uuid not null references public.clubs(id),
       name text not null,
       created_at timestamptz not null default now(),
-      status text not null default 'active'
+      status text not null default 'active',
+      archived_at timestamptz
     );
 
     create table public.users (
@@ -81,7 +92,8 @@ async function createDatabase() {
       club_id uuid not null references public.clubs(id),
       team_id uuid not null references public.teams(id),
       status text not null default 'active',
-      created_at timestamptz not null default now()
+      created_at timestamptz not null default now(),
+      archived_at timestamptz
     );
 
     create table public.parent_player_links (
@@ -114,8 +126,23 @@ async function createDatabase() {
     create table public.evaluations (
       id uuid primary key default gen_random_uuid(),
       club_id uuid not null references public.clubs(id),
+      team_id uuid references public.teams(id),
+      status text not null default 'Submitted',
       created_at timestamptz not null default now()
     );
+
+    create function public.workspace_scope_for_plan_key(plan_key_value text)
+    returns text
+    language sql
+    immutable
+    as $$
+      select case
+        when plan_key_value = 'individual' then 'individual'
+        when plan_key_value = 'single_team' then 'team'
+        when plan_key_value in ('small_club', 'development_club', 'large_club', 'pilot') then 'club'
+        else 'unknown'
+      end;
+    $$;
 
     insert into public.clubs (id, name) values ('${IDS.club}', 'Analytics Test Club');
     insert into public.teams (id, club_id, name) values ('${IDS.team}', '${IDS.club}', 'Analytics Test Team');
@@ -131,6 +158,8 @@ async function createDatabase() {
   await db.exec(atomicProcessorCompletionMigration)
   await db.exec(identityAdoptionMigration)
   await db.exec(dashboardHeatmapsMigration)
+  await db.exec(canonicalTrustMigration)
+  await db.exec(parentLinkRollupFixMigration)
   return db
 }
 
@@ -453,6 +482,81 @@ test('dashboard read model reconciles estate, event-time roles, friendly page fa
       select
         has_function_privilege('authenticated', 'public.get_platform_analytics_dashboard_14c(date,date,uuid,text,text,text,text,text,text,boolean,boolean)', 'execute') as authenticated_execute,
         has_function_privilege('service_role', 'public.get_platform_analytics_dashboard_14c(date,date,uuid,text,text,text,text,text,text,boolean,boolean)', 'execute') as service_execute
+    `)
+    assert.deepEqual(privileges.rows[0], { authenticated_execute: false, service_execute: true })
+  } finally {
+    await db.close()
+  }
+})
+
+test('canonical v4 report aligns headlines with human breakdowns and keeps identifiers out of normal drilldowns', async () => {
+  const db = await createDatabase()
+
+  try {
+    await insertFixtureEvents(db)
+    await db.exec(`
+      insert into public.clubs (id, name)
+      values ('${IDS.emptyClub}', 'Empty Analytics Club');
+      insert into public.players (id, club_id, team_id, status, created_at)
+      values ('${IDS.player}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-01T00:00:00Z');
+      insert into public.parent_player_links (club_id, team_id, player_id, auth_user_id, status, accepted_at)
+      values ('${IDS.club}', '${IDS.team}', '${IDS.player}', '${IDS.parent}', 'active', '2026-03-10T00:00:00Z');
+      insert into public.team_staff (team_id, user_id, role_key)
+      values ('${IDS.team}', '${IDS.staff}', 'coach');
+      insert into public.evaluations (club_id, team_id, status, created_at)
+      values ('${IDS.club}', '${IDS.team}', 'Submitted', '2026-03-15T00:00:00Z');
+      update public.analytics_events
+      set
+        actor_auth_user_id = user_id,
+        actor_profile_id = user_id,
+        actor_role_at_event = role,
+        actor_role_family = case when role = 'parent_portal' then 'parent' else 'staff' end,
+        event_category = case when event_name like 'auth.%' then 'authentication' when event_name like 'page.%' then 'navigation' else 'meaningful_action' end,
+        page_view = event_name = 'page.viewed',
+        production_state = 'production',
+        internal_state = false,
+        fp_test_state = false,
+        schema_version = 2;
+    `)
+
+    const result = await db.query(`
+      select public.get_platform_analytics_canonical_v4(
+        '2026-03-01', '2026-07-27', null, null, null, null, null,
+        'production', null, false, false
+      ) as report
+    `)
+    const report = result.rows[0].report
+    const sumCounts = (rows) => rows.reduce((sum, row) => sum + Number(row.count || 0), 0)
+
+    assert.equal(report.definitionVersion, 4)
+    assert.equal(report.accountEstate.customerClubs, 2)
+    assert.equal(report.accountEstate.customerWorkspaces, 2)
+    assert.equal(report.accountEstate.teams, 2)
+    assert.equal(report.accountEstate.activePlayers, 1)
+    assert.equal(report.accountEstate.staffAccounts, 1)
+    assert.equal(report.accountEstate.staffAssignments, 1)
+    assert.equal(report.accountEstate.usersWithParentAccess, 1)
+    assert.equal(report.accountEstate.activeParentChildLinks, 1)
+    assert.equal(report.accountEstate.developmentRecords, 1)
+    assert.equal(sumCounts(report.accountEstate.drilldown.customerClubs), report.accountEstate.customerClubs)
+    assert.equal(sumCounts(report.accountEstate.drilldown.teams), report.accountEstate.teams)
+    assert.equal(sumCounts(report.accountEstate.drilldown.activePlayers), report.accountEstate.activePlayers)
+    assert.equal(sumCounts(report.accountEstate.drilldown.staffAccounts), report.accountEstate.staffAccounts)
+    assert.equal(sumCounts(report.accountEstate.drilldown.staffAssignments), report.accountEstate.staffAssignments)
+    assert.equal(sumCounts(report.accountEstate.drilldown.parentAccess), report.accountEstate.usersWithParentAccess)
+    assert.equal(sumCounts(report.accountEstate.drilldown.activeParentChildLinks), report.accountEstate.activeParentChildLinks)
+    assert.equal(sumCounts(report.accountEstate.drilldown.developmentRecords), report.accountEstate.developmentRecords)
+    assert.equal(/[0-9a-f]{8}-[0-9a-f-]{27}/i.test(JSON.stringify(report.accountEstate.drilldown)), false)
+    assert.equal(report.trend.reduce((sum, row) => sum + row.pageViews, 0), report.productActivity.pageViews)
+    assert.equal(report.trend.reduce((sum, row) => sum + row.meaningfulActions, 0), report.productActivity.meaningfulActions)
+    assert.equal(report.trend.reduce((sum, row) => sum + row.successfulLogins, 0), report.authentication.successfulLoginsSelected)
+    assert.equal(Object.hasOwn(report.authentication, 'drilldown'), false)
+    assert.equal(Object.hasOwn(report.productActivity, 'drilldown'), false)
+
+    const privileges = await db.query(`
+      select
+        has_function_privilege('authenticated', 'public.get_platform_analytics_canonical_v4(date,date,uuid,text,text,text,text,text,text,boolean,boolean)', 'execute') as authenticated_execute,
+        has_function_privilege('service_role', 'public.get_platform_analytics_canonical_v4(date,date,uuid,text,text,text,text,text,text,boolean,boolean)', 'execute') as service_execute
     `)
     assert.deepEqual(privileges.rows[0], { authenticated_execute: false, service_execute: true })
   } finally {

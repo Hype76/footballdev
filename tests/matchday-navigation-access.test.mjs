@@ -73,10 +73,12 @@ test('match day access fails closed for parent portal users and inactive plans',
 test('club admin without a selected team is blocked from the team workflow path', () => {
   const clubAdmin = staffUser({
     activeTeamId: '',
+    planKey: 'small_club',
     role: 'admin',
     roleRank: 100,
   })
   const clubAdminWithTeamContext = staffUser({
+    planKey: 'small_club',
     role: 'admin',
     roleRank: 100,
   })

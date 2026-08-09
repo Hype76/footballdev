@@ -195,7 +195,7 @@ export function createRenderPdfHandler({
         planProfile = createTargetPlanProfile(actorProfile, targetClubPlan)
       }
 
-      assertPlanFeature(planProfile, 'pdfReports')
+      assertPlanFeature(planProfile, 'pdfReports', { actionCategory: 'EXPORT' })
       diagnostics.rendererStage = 'resource_resolution'
 
       const report = await loadReport({

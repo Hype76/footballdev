@@ -165,6 +165,14 @@ function normalizeDeleteError(error, stage = 'unknown') {
     return httpError('team_club_mismatch', 'Selected team is not linked to the selected club.', 409)
   }
 
+  if (message.includes('team_must_be_archived_before_delete') || details.includes('team_must_be_archived_before_delete')) {
+    return httpError(
+      'team_must_be_archived_before_delete',
+      'Move this Team to the archive before permanently deleting it.',
+      409,
+    )
+  }
+
   if (message.includes('audit_failed') || details.includes('audit_failed') || hint.includes('audit_failed')) {
     return httpError(
       'audit_failed',
@@ -224,7 +232,7 @@ export async function deletePlatformTeamResult(event, {
     failureStage = 'team_fetch'
     const { data: team, error: teamError } = await supabaseAdmin
       .from('teams')
-      .select('id, name, club_id')
+      .select('id, name, club_id, status, archived_at')
       .eq('id', teamId)
       .maybeSingle()
 
@@ -238,6 +246,14 @@ export async function deletePlatformTeamResult(event, {
 
     if (String(team.club_id) !== String(clubId)) {
       throw httpError('team_club_mismatch', 'Selected team is not linked to the selected club.', 409)
+    }
+
+    if (!team.archived_at) {
+      throw httpError(
+        'team_must_be_archived_before_delete',
+        'Move this Team to the archive before permanently deleting it.',
+        409,
+      )
     }
 
     failureStage = 'team_delete_transaction'

@@ -182,6 +182,14 @@ export function getDataTransferEntitlementDecision({ actor = {}, club = null, no
     return entitlementDenied('PLAN_EXPIRED', 'The temporary Data Transfer entitlement has expired.', 'tester_access_expired')
   }
 
+  const planStatus = normalizeText(club.plan_status).toLowerCase()
+  if (!club.is_plan_comped && ['expired', 'incomplete_expired'].includes(planStatus)) {
+    return entitlementDenied('PLAN_EXPIRED', 'The Data Transfer plan entitlement has expired.', `invalid_payment_state:${planStatus}`)
+  }
+  if (!club.is_plan_comped && !['active', 'trialing'].includes(planStatus)) {
+    return entitlementDenied('PLAN_INACTIVE', 'An active plan is required to use Data Transfer.', planStatus ? `invalid_payment_state:${planStatus}` : 'no_subscription')
+  }
+
   const access = getFeatureAccess({
     clubId,
     isPlanComped: Boolean(club.is_plan_comped),

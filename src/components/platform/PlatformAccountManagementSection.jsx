@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getUkCalendarDate, validateBillingArrangement } from '../../lib/billing-date.js'
 import { PLAN_KEYS, getAdminAssignablePlanOptions, getPlanDefaultLimit, getPlanLimit, getPlanName } from '../../lib/plans.js'
 import { formatPlatformDate } from '../../lib/platform-admin-stats.js'
 import { Pagination } from '../ui/Pagination.jsx'
@@ -11,6 +12,7 @@ const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#4b5f
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
+const viewButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60'
 const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const adminAssignablePlanOptions = getAdminAssignablePlanOptions()
 
@@ -24,19 +26,26 @@ function formatLimit(value) {
 
 export function PlatformAccountManagementSection({
   accessToken,
+  archiveCount,
   clubPage,
   clubSearchTerm,
   isLoading,
   onAccountAction,
+  onArchiveClub,
+  onArchiveTeam,
   onClubSearchChange,
   onClubPageChange,
   onClubPlanChange,
   onDeleteClub,
   onDeleteTeam,
+  onRecordViewChange,
+  onRestoreClub,
+  onRestoreTeam,
   onSelectedClubChange,
   onToggleClubStatus,
   paginatedClubs,
   pageSize,
+  recordView,
   selectedClubId,
   stats,
   updatingClubId,
@@ -57,6 +66,31 @@ export function PlatformAccountManagementSection({
       title="Account management"
       description="Manage clubs, teams, and adult user access. Player names and child contact details are intentionally excluded."
     >
+      <div className="mb-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3 shadow-sm shadow-[#047857]/10">
+        <div className="flex flex-col gap-2 sm:flex-row" aria-label="Workspace record view">
+          <button
+            type="button"
+            aria-pressed={recordView === 'active'}
+            onClick={() => onRecordViewChange('active')}
+            className={`${viewButtonClass} ${recordView === 'active' ? 'border-[#047857] bg-[#047857] text-white' : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857]'}`}
+          >
+            Active workspaces
+          </button>
+          <button
+            type="button"
+            aria-pressed={recordView === 'archived'}
+            onClick={() => onRecordViewChange('archived')}
+            className={`${viewButtonClass} ${recordView === 'archived' ? 'border-[#047857] bg-[#047857] text-white' : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857]'}`}
+          >
+            Archive ({archiveCount ?? 0})
+          </button>
+        </div>
+        <p className="mt-3 text-sm font-semibold text-[#4b5f55]">
+          {recordView === 'archived'
+            ? 'Restore retained workspaces or permanently delete them after reviewing the archived record.'
+            : 'Archive a Club or Team to retain its records and remove it from active access.'}
+        </p>
+      </div>
       <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(220px,360px)_minmax(260px,1fr)]">
         <label className="block">
           <span className={labelClass}>Club filter</span>
@@ -91,24 +125,41 @@ export function PlatformAccountManagementSection({
         </div>
       ) : safeVisibleClubs.length === 0 ? (
         <div className={emptyStateClass}>
-          {searchValue.trim() ? 'No clubs match that search.' : 'No clubs found yet.'}
+          {searchValue.trim()
+            ? 'No workspaces match that search.'
+            : recordView === 'archived'
+              ? 'No archived Clubs or Teams.'
+              : 'No active Clubs found yet.'}
         </div>
       ) : (
         <div className="space-y-4">
           {safePaginatedClubs.items.map((club) => (
-            <ClubAccountCard
-              accessToken={accessToken}
-              key={club.id}
-              club={club}
-              onAccountAction={onAccountAction}
-              onClubPlanChange={onClubPlanChange}
-              onDeleteClub={onDeleteClub}
-              onDeleteTeam={onDeleteTeam}
-              onToggleClubStatus={onToggleClubStatus}
-              updatingClubId={updatingClubId}
-              updatingTeamId={updatingTeamId}
-              updatingUserId={updatingUserId}
-            />
+            recordView === 'archived' ? (
+              <ArchivedWorkspaceCard
+                key={club.id}
+                club={club}
+                onDeleteClub={onDeleteClub}
+                onDeleteTeam={onDeleteTeam}
+                onRestoreClub={onRestoreClub}
+                onRestoreTeam={onRestoreTeam}
+                updatingClubId={updatingClubId}
+                updatingTeamId={updatingTeamId}
+              />
+            ) : (
+              <ClubAccountCard
+                accessToken={accessToken}
+                key={club.id}
+                club={club}
+                onAccountAction={onAccountAction}
+                onArchiveClub={onArchiveClub}
+                onArchiveTeam={onArchiveTeam}
+                onClubPlanChange={onClubPlanChange}
+                onToggleClubStatus={onToggleClubStatus}
+                updatingClubId={updatingClubId}
+                updatingTeamId={updatingTeamId}
+                updatingUserId={updatingUserId}
+              />
+            )
           ))}
           <Pagination
             currentPage={clubPage}
@@ -127,8 +178,8 @@ function ClubAccountCard({
   club,
   onAccountAction,
   onClubPlanChange,
-  onDeleteClub,
-  onDeleteTeam,
+  onArchiveClub,
+  onArchiveTeam,
   onToggleClubStatus,
   updatingClubId,
   updatingTeamId,
@@ -140,7 +191,7 @@ function ClubAccountCard({
         <ClubSummary
           club={club}
           onClubPlanChange={onClubPlanChange}
-          onDeleteClub={onDeleteClub}
+          onArchiveClub={onArchiveClub}
           onToggleClubStatus={onToggleClubStatus}
           updatingClubId={updatingClubId}
         />
@@ -155,7 +206,7 @@ function ClubAccountCard({
         />
         <ClubTeamsList
           club={club}
-          onDeleteTeam={onDeleteTeam}
+          onArchiveTeam={onArchiveTeam}
           updatingTeamId={updatingTeamId}
         />
       </div>
@@ -166,13 +217,12 @@ function ClubAccountCard({
 
 function ClubSummary({
   club,
+  onArchiveClub,
   onClubPlanChange,
-  onDeleteClub,
   onToggleClubStatus,
   updatingClubId,
 }) {
   const clubId = String(club?.id ?? '')
-  const isPilotPlan = club?.planKey === PLAN_KEYS.pilot
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
@@ -208,32 +258,13 @@ function ClubSummary({
             ))}
           </select>
         </label>
-        <label className="block">
-          <span className={eyebrowClass}>Billing status</span>
-          <select
-            value={club.planStatus || 'active'}
-            disabled={updatingClubId === clubId}
-            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
-            onChange={(event) => void onClubPlanChange(club, 'planStatus', event.target.value)}
-            className={fieldClass}
-          >
-            <option value="active">Active</option>
-            <option value="trialing">Trialing</option>
-            <option value="past_due">Past due</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </label>
-        <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 md:mt-7">
-          <input
-            type="checkbox"
-            checked={isPilotPlan || Boolean(club.isPlanComped)}
-            disabled={isPilotPlan || updatingClubId === clubId}
-            title={isPilotPlan ? 'Pilot access is always free.' : updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
-            onChange={(event) => void onClubPlanChange(club, 'isPlanComped', event.target.checked)}
-            className="h-4 w-4 accent-[#047857]"
-          />
-          <span>Free access</span>
-        </label>
+        <BillingConfigurationControl
+          key={`${clubId}:${club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')}:${String(club.billingStartAt || '').slice(0, 10)}`}
+          club={club}
+          clubId={clubId}
+          onClubPlanChange={onClubPlanChange}
+          updatingClubId={updatingClubId}
+        />
       </div>
       <TeamAllowanceControl
         key={`${clubId}:${club.teamLimitOverride ?? 'default'}`}
@@ -243,7 +274,7 @@ function ClubSummary({
         updatingClubId={updatingClubId}
       />
       <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
-        Current plan: {getPlanName(club)}{isPilotPlan || club.isPlanComped ? ', Billing override: free access' : ''}
+        Current plan: {getPlanName(club)}, provider status: {club.planStatus || 'unknown'}, access: {club.billingAccessState || 'pending calculation'}
       </p>
       {club.suspendedAt ? (
         <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>
@@ -262,12 +293,113 @@ function ClubSummary({
           type="button"
           disabled={updatingClubId === clubId}
           title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
-          onClick={() => void onDeleteClub(club)}
-          className={dangerButtonClass}
+          onClick={() => void onArchiveClub(club)}
+          className={secondaryButtonClass}
         >
-          Delete
+          Archive Club
         </button>
       </div>
+    </div>
+  )
+}
+
+function BillingConfigurationControl({ club, clubId, onClubPlanChange, updatingClubId }) {
+  const savedArrangement = club.billingArrangement || (club.isPlanComped ? 'complimentary' : 'immediate')
+  const savedStartDate = String(club.billingStartAt || '').slice(0, 10)
+  const [arrangementDraft, setArrangementDraft] = useState(savedArrangement)
+  const [startDateDraft, setStartDateDraft] = useState(savedStartDate)
+  const [validationMessage, setValidationMessage] = useState('')
+  const isComplimentaryOnlyPlan = [PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(club.planKey)
+  const isUpdating = updatingClubId === clubId
+  const hasChanges = arrangementDraft !== savedArrangement
+    || (arrangementDraft === 'deferred' ? startDateDraft !== savedStartDate : Boolean(savedStartDate))
+
+  const handleArrangementChange = (value) => {
+    setArrangementDraft(value)
+    setStartDateDraft('')
+    setValidationMessage('')
+  }
+
+  const handleSave = async () => {
+    if (arrangementDraft === 'deferred' && !startDateDraft) {
+      setValidationMessage('Choose a billing start date before saving Deferred access.')
+      return
+    }
+
+    try {
+      validateBillingArrangement({
+        arrangement: arrangementDraft,
+        startDate: startDateDraft,
+        planKey: club.planKey,
+      })
+    } catch (error) {
+      setValidationMessage(error.message)
+      return
+    }
+
+    setValidationMessage('')
+    const outcome = await onClubPlanChange(club, 'billingConfiguration', {
+      billingArrangement: arrangementDraft,
+      billingStartDate: arrangementDraft === 'deferred' ? startDateDraft : null,
+    })
+
+    if (outcome?.success === false) {
+      setValidationMessage(outcome.message)
+    }
+  }
+
+  return (
+    <div className="md:col-span-2">
+      <div className="grid gap-3 md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_auto] md:items-end">
+        <label className="block">
+          <span className={eyebrowClass}>Billing arrangement</span>
+          <select
+            value={arrangementDraft}
+            disabled={isUpdating}
+            title={isUpdating ? 'Please wait while this club is being updated.' : undefined}
+            onChange={(event) => handleArrangementChange(event.target.value)}
+            className={fieldClass}
+          >
+            <option value="immediate" disabled={isComplimentaryOnlyPlan}>Immediate</option>
+            <option value="deferred" disabled={isComplimentaryOnlyPlan}>Deferred</option>
+            <option value="complimentary">Complimentary</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className={eyebrowClass}>Billing start date</span>
+          <input
+            required={arrangementDraft === 'deferred'}
+            type="date"
+            min={getUkCalendarDate()}
+            value={startDateDraft}
+            disabled={arrangementDraft !== 'deferred' || isUpdating}
+            title={isUpdating ? 'Please wait while this club is being updated.' : undefined}
+            onChange={(event) => {
+              setStartDateDraft(event.target.value)
+              setValidationMessage('')
+            }}
+            className={fieldClass}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!hasChanges || isUpdating}
+          title={isUpdating ? 'Please wait while this club is being updated.' : undefined}
+          onClick={() => void handleSave()}
+          className={secondaryButtonClass}
+        >
+          Save billing access
+        </button>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+        A start date is required only for Deferred access. Immediate and Complimentary access clear any saved date.
+      </p>
+      {club.planKey === PLAN_KEYS.pilot ? (
+        <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Pilot access is always free.</p>
+      ) : null}
+      {validationMessage ? (
+        <p role="alert" className="mt-2 text-sm font-bold text-[#b42318]">{validationMessage}</p>
+      ) : null}
     </div>
   )
 }
@@ -454,7 +586,7 @@ function RoleChangeControl({ club, member, onAccountAction, roles, updatingUserI
   )
 }
 
-function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
+function ClubTeamsList({ club, onArchiveTeam, updatingTeamId }) {
   const teams = Array.isArray(club?.teams) ? club.teams.filter((team) => team?.id) : []
   const roleCounts = Array.isArray(club?.roleCounts) ? club.roleCounts.filter((role) => role?.label) : []
   return (
@@ -473,11 +605,11 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
               <button
                 type="button"
                 disabled={updatingTeamId === team.id}
-                title={updatingTeamId === team.id ? 'Please wait while this team is being deleted.' : undefined}
-                onClick={() => void onDeleteTeam(club, team)}
-                className={dangerButtonClass}
+                title={updatingTeamId === team.id ? 'Please wait while this Team is being archived.' : undefined}
+                onClick={() => void onArchiveTeam(club, team)}
+                className={secondaryButtonClass}
               >
-                Delete team
+                Archive Team
               </button>
             </div>
           ))
@@ -497,6 +629,98 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
           ))
         )}
       </div>
+    </div>
+  )
+}
+
+function ArchivedWorkspaceCard({
+  club,
+  onDeleteClub,
+  onDeleteTeam,
+  onRestoreClub,
+  onRestoreTeam,
+  updatingClubId,
+  updatingTeamId,
+}) {
+  const clubId = String(club?.id ?? '')
+  const isClubArchived = Boolean(club?.archivedAt)
+  const teams = Array.isArray(club?.teams) ? club.teams.filter((team) => team?.id) : []
+
+  return (
+    <div className="rounded-lg border border-[#fecdca] bg-white p-5 shadow-sm shadow-[#b42318]/10">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-lg font-black text-[#101828]">{club.name}</p>
+            <StatusPill status={isClubArchived ? 'archived' : club.status} />
+          </div>
+          <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+            {isClubArchived
+              ? `Club archived: ${formatPlatformDate(club.archivedAt)}`
+              : `${teams.length} archived Team${teams.length === 1 ? '' : 's'} retained under this Club.`}
+          </p>
+          {isClubArchived ? (
+            <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+              {club.userCount ?? 0} adult users, {club.teamCount ?? 0} Teams, {club.playerCount ?? 0} player records retained.
+            </p>
+          ) : null}
+        </div>
+
+        {isClubArchived ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              disabled={updatingClubId === clubId}
+              onClick={() => void onRestoreClub(club)}
+              className={secondaryButtonClass}
+            >
+              Restore Club
+            </button>
+            <button
+              type="button"
+              disabled={updatingClubId === clubId}
+              onClick={() => void onDeleteClub(club)}
+              className={dangerButtonClass}
+            >
+              Permanently delete
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {!isClubArchived ? (
+        <div className="mt-5 space-y-2">
+          {teams.map((team) => (
+            <div
+              key={team.id}
+              className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p className="text-sm font-black text-[#101828]">{team.name}</p>
+                <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Archived: {formatPlatformDate(team.archivedAt)}</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  disabled={updatingTeamId === team.id}
+                  onClick={() => void onRestoreTeam(club, team)}
+                  className={secondaryButtonClass}
+                >
+                  Restore Team
+                </button>
+                <button
+                  type="button"
+                  disabled={updatingTeamId === team.id}
+                  onClick={() => void onDeleteTeam(club, team)}
+                  className={dangerButtonClass}
+                >
+                  Permanently delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -5,6 +5,8 @@ import {
   normalizeInvitationValue,
 } from './lib/_club-owner-invitation.js'
 import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
+import { normalizePlanKey } from '../../src/lib/plans.js'
+import { getWorkspaceInviteRedirect, getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -12,6 +14,7 @@ function jsonResponse(statusCode, payload) {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
     },
     body: JSON.stringify(payload),
   }
@@ -25,8 +28,8 @@ function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
-function getDisplayName(email) {
-  return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Club Admin'
+function getDisplayName(email, fallback = 'Workspace owner') {
+  return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || fallback
 }
 
 function isExistingUserError(error) {
@@ -63,12 +66,12 @@ async function findAuthUserByEmail(supabaseAdmin, email) {
 async function getInvite(supabaseAdmin, tokenDigest) {
   const { data, error } = await supabaseAdmin
     .from('club_owner_invites')
-    .select('id, club_id, invited_email, billing_mode, plan_key, expires_at, accepted_at, accepted_user_id, revoked_at, replaced_at, status')
+    .select('id, club_id, team_id, invited_email, billing_mode, plan_key, invite_scope, intended_role_key, intended_role_label, intended_role_rank, expires_at, accepted_at, accepted_user_id, revoked_at, replaced_at, status, clubs:club_id (plan_key), teams:team_id (id, club_id)')
     .eq('token_digest', tokenDigest)
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('Club invite could not be accepted.'), { statusCode: 404 })
+    throw Object.assign(new Error('Workspace invite could not be accepted.'), { statusCode: 404 })
   }
 
   return data
@@ -94,19 +97,21 @@ async function proveBearerIdentity(supabaseAdmin, event) {
 }
 
 async function acceptInviteTransaction(supabaseAdmin, tokenDigest, authUserId) {
-  const { data, error } = await supabaseAdmin.rpc('accept_club_owner_invite_v2', {
+  const { data, error } = await supabaseAdmin.rpc('accept_workspace_owner_invite_v3', {
     p_token_digest: tokenDigest,
     p_auth_user_id: authUserId,
   })
 
   if (error || !data?.completed) {
-    throw error || new Error('Club owner invitation acceptance failed.')
+    throw error || new Error('Workspace owner invitation acceptance failed.')
   }
 
   return data
 }
 
-export async function handler(event) {
+export async function createWorkspaceOwnerAccountResult(event, {
+  supabaseAdmin = createSupabaseAdminClient(event),
+} = {}) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed', 'method_not_allowed')
   }
@@ -118,7 +123,6 @@ export async function handler(event) {
   }
 
   let createdAuthUserId = ''
-  let supabaseAdmin = null
 
   try {
     const body = JSON.parse(event.body || '{}')
@@ -126,18 +130,33 @@ export async function handler(event) {
     const password = String(body.password ?? '')
 
     if (!token) {
-      return failureResponse(400, 'Club invite could not be accepted.')
+      return failureResponse(400, 'Workspace invite could not be accepted.')
     }
 
-    supabaseAdmin = createSupabaseAdminClient(event)
     const tokenDigest = digestInvitationValue(token)
     const invite = await getInvite(supabaseAdmin, tokenDigest)
+    const workspaceScope = getWorkspaceScope(invite.plan_key)
+    const planKey = normalizePlanKey(invite.plan_key)
+    const club = Array.isArray(invite.clubs) ? invite.clubs[0] : invite.clubs
+    const team = Array.isArray(invite.teams) ? invite.teams[0] : invite.teams
     const invitedEmail = normalizeEmail(invite.invited_email)
     const provenUser = await proveBearerIdentity(supabaseAdmin, event)
 
+    if (!workspaceScope.supported
+      || normalizePlanKey(club?.plan_key) !== planKey
+      || workspaceScope.key !== invite.invite_scope
+      || workspaceScope.ownerRole.key !== invite.intended_role_key
+      || workspaceScope.ownerRole.label !== invite.intended_role_label
+      || workspaceScope.ownerRole.rank !== Number(invite.intended_role_rank)
+      || (workspaceScope.createInitialTeam
+        ? !(team?.id && String(team.id) === String(invite.team_id) && String(team.club_id) === String(invite.club_id))
+        : Boolean(invite.team_id))) {
+      return failureResponse(403, 'Workspace invite could not be accepted.')
+    }
+
     if (invite.status === 'accepted' && invite.accepted_user_id) {
       if (!provenUser || provenUser.id !== invite.accepted_user_id || normalizeEmail(provenUser.email) !== invitedEmail) {
-        return failureResponse(409, 'Club invite is no longer available.', 'invitation_not_available')
+        return failureResponse(409, `${workspaceScope.errorSubject} is no longer available.`, 'invitation_not_available')
       }
 
       const accepted = await acceptInviteTransaction(supabaseAdmin, tokenDigest, provenUser.id)
@@ -145,13 +164,15 @@ export async function handler(event) {
         success: true,
         idempotent: Boolean(accepted.idempotent),
         email: invitedEmail,
+        scope: workspaceScope.key,
+        roleLabel: workspaceScope.ownerRole.label,
         billingMode: invite.billing_mode === 'unpaid' ? 'unpaid' : 'paid',
-        redirectPath: invite.billing_mode === 'paid' ? '/billing' : '/club-settings',
+        redirectPath: getWorkspaceInviteRedirect(invite.plan_key, invite.billing_mode),
       })
     }
 
     if (!isActiveInvite(invite)) {
-      return failureResponse(410, 'Club invite is no longer available.', 'invitation_not_available')
+      return failureResponse(410, `${workspaceScope.errorSubject} is no longer available.`, 'invitation_not_available')
     }
 
     const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, invitedEmail)
@@ -171,7 +192,7 @@ export async function handler(event) {
       ownerUserId = existingAuthUser.id
     } else {
       if (provenUser) {
-        return failureResponse(403, 'Club invite could not be accepted.')
+        return failureResponse(403, 'Workspace invite could not be accepted.')
       }
 
       try {
@@ -180,7 +201,7 @@ export async function handler(event) {
         return failureResponse(400, error.message, 'invalid_password')
       }
 
-      const displayName = getDisplayName(invitedEmail)
+      const displayName = getDisplayName(invitedEmail, workspaceScope.ownerRole.label)
       const { data: createdAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
         email: invitedEmail,
         password,
@@ -189,7 +210,7 @@ export async function handler(event) {
           username: displayName,
           name: displayName,
           display_name: displayName,
-          account_type: 'club_admin',
+          account_type: workspaceScope.accountType,
         },
       })
 
@@ -202,7 +223,7 @@ export async function handler(event) {
           )
         }
 
-        return failureResponse(400, 'Club admin account could not be created.', 'account_creation_failed')
+        return failureResponse(400, `${workspaceScope.ownerRole.label} account could not be created.`, 'account_creation_failed')
       }
 
       createdAuthUserId = createdAuthUser?.user?.id || ''
@@ -210,7 +231,7 @@ export async function handler(event) {
     }
 
     if (!ownerUserId) {
-      return failureResponse(400, 'Club admin account could not be created.', 'account_creation_failed')
+      return failureResponse(400, `${workspaceScope.ownerRole.label} account could not be created.`, 'account_creation_failed')
     }
 
     const accepted = await acceptInviteTransaction(supabaseAdmin, tokenDigest, ownerUserId)
@@ -220,8 +241,10 @@ export async function handler(event) {
       success: true,
       idempotent: Boolean(accepted.idempotent),
       email: invitedEmail,
+      scope: workspaceScope.key,
+      roleLabel: workspaceScope.ownerRole.label,
       billingMode: invite.billing_mode === 'unpaid' ? 'unpaid' : 'paid',
-      redirectPath: invite.billing_mode === 'paid' ? '/billing' : '/club-settings',
+      redirectPath: getWorkspaceInviteRedirect(invite.plan_key, invite.billing_mode),
     })
   } catch (error) {
     const isDefinitiveDatabaseRejection = /^[0-9A-Z]{5}$/.test(String(error?.code || ''))
@@ -234,10 +257,14 @@ export async function handler(event) {
       }
     }
 
-    console.error('Club owner invitation acceptance failed', {
+    console.error('Workspace owner invitation acceptance failed', {
       code: error?.code || 'unknown',
       statusCode: error?.statusCode || 500,
     })
-    return failureResponse(error?.statusCode || 400, 'Club invite could not be accepted.')
+    return failureResponse(error?.statusCode || 400, 'Workspace invite could not be accepted.')
   }
+}
+
+export async function handler(event) {
+  return createWorkspaceOwnerAccountResult(event)
 }

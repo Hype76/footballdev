@@ -3,7 +3,6 @@ import {
   canonicalizeAnalyticsRoute,
   getAnalyticsEventDefinition,
   getMeaningfulRouteEvent,
-  isClearlyExcludedAnalyticsProfile,
   mapAuditActionToAnalyticsEvent,
   normalizeAnalyticsEventInput,
 } from '../../../src/lib/analytics/registry.js'
@@ -365,9 +364,7 @@ export async function loadPlatformAnalyticsReport({
     hourlyPlatform,
     lifetimes,
     clubs,
-    users,
-    identityAdoptionResult,
-    dashboardEvidenceResult,
+    canonicalReportResult,
   ] = await Promise.all([
     selectReportTable(
       supabaseAdmin,
@@ -410,17 +407,7 @@ export async function loadPlatformAnalyticsReport({
       'user_id,first_login_at,first_meaningful_at,first_parent_action_at,last_login_at,last_meaningful_at',
     ),
     selectReferenceTable(supabaseAdmin, 'clubs', 'id,name,plan_key,created_at,status'),
-    selectReferenceTable(supabaseAdmin, 'users', 'id,role,role_rank,club_id,created_at,status,email,username,name,display_name'),
-    supabaseAdmin.rpc('get_platform_analytics_identity_adoption', {
-      start_date_value: filters.startDate,
-      end_date_value: filters.endDate,
-      club_id_value: filters.clubId === 'all' ? null : filters.clubId,
-      plan_key_value: filters.plan === 'all' ? null : filters.plan,
-      include_excluded_value: filters.includeExcluded || filters.includeFpTest,
-      role_value: filters.role === 'all' ? null : filters.role,
-      platform_value: filters.platform === 'all' ? null : filters.platform,
-    }),
-    supabaseAdmin.rpc('get_platform_analytics_dashboard_14c', {
+    supabaseAdmin.rpc('get_platform_analytics_canonical_v4', {
       start_date_value: filters.startDate,
       end_date_value: filters.endDate,
       club_id_value: filters.clubId === 'all' ? null : filters.clubId,
@@ -434,18 +421,8 @@ export async function loadPlatformAnalyticsReport({
       include_fp_test_value: filters.includeFpTest,
     }),
   ])
-  if (identityAdoptionResult.error) throw identityAdoptionResult.error
-  if (dashboardEvidenceResult.error) throw dashboardEvidenceResult.error
-  const environment = resolveAnalyticsEnvironment(event)
-  const safeUsers = users.map((user) => ({
-    id: user.id,
-    role: user.role,
-    role_rank: user.role_rank,
-    club_id: user.club_id,
-    created_at: user.created_at,
-    status: user.status,
-    isExcluded: isClearlyExcludedAnalyticsProfile(user, environment),
-  }))
+  if (canonicalReportResult.error) throw canonicalReportResult.error
+  const canonicalReport = canonicalReportResult.data || {}
 
   return buildPlatformAnalyticsReport({
     dailyUsers,
@@ -455,9 +432,8 @@ export async function loadPlatformAnalyticsReport({
     hourlyPlatform,
     lifetimes,
     clubs,
-    users: safeUsers,
-    identityAdoption: identityAdoptionResult.data || {},
-    dashboardEvidence: dashboardEvidenceResult.data || {},
+    identityAdoption: canonicalReport.identityAdoption || {},
+    dashboardEvidence: canonicalReport,
     filters,
     now,
   })

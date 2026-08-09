@@ -15,6 +15,7 @@ import {
   publicSubheadingClass,
 } from '../components/login/PublicSiteComponents.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
+import { PUBLIC_FREE_SIGNUP_PATH } from '../lib/public-signup.js'
 
 const parentGets = [
   ['Clear updates', 'Simple club messages connected to the right player.'],
@@ -188,7 +189,7 @@ export function PublicParentsPage() {
             </p>
           </div>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-0">
-            <a href="/sign-in" className={publicPrimaryButtonClass}>Start free</a>
+            <a href={PUBLIC_FREE_SIGNUP_PATH} className={publicPrimaryButtonClass}>Start free</a>
             <button type="button" onClick={openContactModal} className={publicSecondaryButtonClass}>Contact us</button>
           </div>
         </div>

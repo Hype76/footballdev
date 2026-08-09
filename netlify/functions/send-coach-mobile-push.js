@@ -2,6 +2,7 @@ import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
+import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -206,6 +207,7 @@ export async function handler(event) {
   try {
     const authUser = await getAuthUser(event)
     const profile = await getProfile(authUser)
+    await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const type = normalizeText(body.type) || 'coach_update'

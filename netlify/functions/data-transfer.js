@@ -36,6 +36,7 @@ import {
   resolveDataTransferTeamSelection,
   safeDataTransferRequestId,
 } from './lib/_data-transfer-access.js'
+import { assertWorkspaceBillingAction, BILLING_ACTION_CATEGORIES } from './lib/_billing-access.js'
 
 const PRIVATE_BUCKET = 'data-transfer-private'
 
@@ -149,7 +150,7 @@ async function authenticate(event) {
   }
 }
 
-async function assertDataTransferEntitlement(actor) {
+async function assertDataTransferEntitlement(actor, body, operation) {
   const preliminary = getDataTransferEntitlementDecision({ actor, club: null })
   if (
     preliminary.allowed
@@ -163,12 +164,17 @@ async function assertDataTransferEntitlement(actor) {
 
   const { data: club, error } = await supabaseAdmin
     .from('clubs')
-    .select('id, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at')
+    .select('id, status, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, tester_access_expires_at')
     .eq('id', actor.clubId)
     .maybeSingle()
   if (error) throw error
   const decision = getDataTransferEntitlementDecision({ actor, club })
-  if (!decision.allowed) throw statusError(decision.message, 403, decision.code)
+  if (!decision.allowed) {
+    if (BILLING_EXPORT_OPERATIONS.has(operation) && ['PLAN_INACTIVE', 'PLAN_EXPIRED'].includes(decision.code)) {
+      return { ...decision, allowed: true, accessReason: 'billing_read_export_preserved', code: '', message: '' }
+    }
+    throw statusError(decision.message, 403, decision.code)
+  }
   return decision
 }
 
@@ -893,10 +899,46 @@ const DEFAULT_OPERATION_HANDLERS = Object.freeze({
   'source-inspect': handleSourceInspect,
 })
 
+const BILLING_EXPORT_OPERATIONS = new Set([
+  'blank',
+  'details',
+  'error-report',
+  'export',
+  'history',
+  'ordinary-export',
+  'raw-workbook',
+  'scope',
+  'simple-template',
+])
+
+async function assertDataTransferBillingAccess(actor, operation) {
+  try {
+    await assertWorkspaceBillingAction({
+      actionCategory: BILLING_EXPORT_OPERATIONS.has(operation)
+        ? BILLING_ACTION_CATEGORIES.export
+        : BILLING_ACTION_CATEGORIES.staffMutation,
+      clubId: actor.clubId,
+      profile: {
+        id: actor.id,
+        email: actor.email,
+        role: actor.role,
+        roleRank: actor.roleRank,
+        clubId: actor.clubId,
+      },
+    })
+  } catch (error) {
+    if (error?.code === 'payment_required') {
+      throw statusError(error.message, 402, 'payment_required')
+    }
+    throw error
+  }
+}
+
 export function createDataTransferHandler({
   auditDeniedRequest = recordDeniedRequest,
   authenticateRequest = authenticate,
   authorizeRequest = assertDataTransferEntitlement,
+  authorizeBillingRequest = async () => {},
   logger = console,
   operationHandlers = DEFAULT_OPERATION_HANDLERS,
 } = {}) {
@@ -920,6 +962,7 @@ export function createDataTransferHandler({
         throw statusError('Unknown Data Transfer operation.', 400, 'UNKNOWN_OPERATION')
       }
       await authorizeRequest(actor, body, operation)
+      await authorizeBillingRequest(actor, operation)
       return await operationHandler(actor, body)
     } catch (error) {
       const expected = error?.expose === true
@@ -958,7 +1001,9 @@ export function createDataTransferHandler({
   }
 }
 
-const dataTransferHandler = createDataTransferHandler()
+const dataTransferHandler = createDataTransferHandler({
+  authorizeBillingRequest: assertDataTransferBillingAccess,
+})
 
 export async function handler(event) {
   return await dataTransferHandler(event)

@@ -1,15 +1,27 @@
-import process from 'node:process'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json, normalizePlanStatus } from './lib/_stripe-billing.js'
-import { createStripeServerClient } from './lib/_stripe-runtime.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getPlanDefaultLimit, getPlanLimit, normalizePlanKey, normalizeTeamLimitOverride } from '../../src/lib/plans.js'
+import { resolveBillingConfigurationUpdate } from '../../src/lib/billing-configuration.js'
+import { resolveBillingAccess } from '../../src/lib/billing-access.js'
+import { createStripeServerClient } from './lib/_stripe-runtime.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
   const [scheme, token] = String(header).split(' ')
   return scheme?.toLowerCase() === 'bearer' ? token : ''
+}
+
+async function setSubscriptionPause(subscriptionId, isPaused) {
+  if (!subscriptionId || !process.env.STRIPE_SECRET_KEY) {
+    return { changed: false, message: subscriptionId ? 'Billing provider is not configured' : 'No subscription linked' }
+  }
+  const stripe = createStripeServerClient()
+  await stripe.subscriptions.update(subscriptionId, {
+    pause_collection: isPaused ? { behavior: 'void' } : null,
+  })
+  return { changed: true, message: isPaused ? 'Subscription billing paused' : 'Subscription billing resumed' }
 }
 
 async function getPlatformAdmin(event) {
@@ -34,26 +46,6 @@ async function getPlatformAdmin(event) {
   }
 
   return profile
-}
-
-async function setSubscriptionPause(subscriptionId, isPaused) {
-  if (!subscriptionId || !process.env.STRIPE_SECRET_KEY) {
-    return {
-      changed: false,
-      message: subscriptionId ? 'Billing provider is not configured' : 'No subscription linked',
-    }
-  }
-
-  const stripe = createStripeServerClient()
-
-  await stripe.subscriptions.update(subscriptionId, {
-    pause_collection: isPaused ? { behavior: 'void' } : null,
-  })
-
-  return {
-    changed: true,
-    message: isPaused ? 'Subscription billing paused' : 'Subscription billing resumed',
-  }
 }
 
 async function getLatestBillingCustomerEmail(clubId) {
@@ -140,7 +132,7 @@ export async function handler(event) {
 
     const { data: currentClub, error: clubError } = await supabaseAdmin
       .from('clubs')
-      .select('id, name, plan_key, plan_status, is_plan_comped, stripe_subscription_id, current_period_end, plan_updated_at')
+      .select('id, name, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, billing_configuration_updated_at, billing_configuration_updated_by, workspace_owner_user_id, archived_at, stripe_subscription_id, current_period_end, plan_updated_at')
       .eq('id', clubId)
       .single()
 
@@ -151,6 +143,8 @@ export async function handler(event) {
     const hasRequestedPlanKey = Object.prototype.hasOwnProperty.call(body, 'planKey')
     const hasRequestedPlanStatus = Object.prototype.hasOwnProperty.call(body, 'planStatus')
     const hasRequestedIsPlanComped = Object.prototype.hasOwnProperty.call(body, 'isPlanComped')
+    const hasRequestedBillingArrangement = Object.prototype.hasOwnProperty.call(body, 'billingArrangement')
+    const hasRequestedBillingStartDate = Object.prototype.hasOwnProperty.call(body, 'billingStartDate')
     const hasRequestedTeamLimitOverride = Object.prototype.hasOwnProperty.call(body, 'teamLimitOverride')
     const nextPlanKey = hasRequestedPlanKey
       ? normalizePlanKey(body.planKey)
@@ -163,11 +157,29 @@ export async function handler(event) {
     const requestedPlanStatus = hasRequestedPlanStatus
       ? normalizePlanStatus(body.planStatus || 'active')
       : normalizePlanStatus(currentClub.plan_status || 'active')
-    const nextPlanStatus = nextPlanKey === 'pilot' ? 'active' : requestedPlanStatus
-    const nextIsPlanComped = nextPlanKey === 'pilot'
-      ? true
-      : hasRequestedIsPlanComped ? Boolean(body.isPlanComped) : Boolean(currentClub.is_plan_comped)
-    const shouldUpdateBilling = hasRequestedPlanKey || hasRequestedPlanStatus || hasRequestedIsPlanComped
+    let billingConfiguration
+    try {
+      billingConfiguration = resolveBillingConfigurationUpdate({
+        request: body,
+        currentClub,
+        planKey: nextPlanKey,
+      })
+    } catch (error) {
+      throw publicError(error.message, 400)
+    }
+    const nextBillingArrangement = billingConfiguration.arrangement
+    const nextBillingStartAt = billingConfiguration.billingStartAt
+    const nextIsPlanComped = nextPlanKey === 'pilot' ? true : nextBillingArrangement === 'complimentary'
+    const keepsValidStripeSubscription = Boolean(currentClub.stripe_subscription_id)
+      && ['active', 'trialing'].includes(normalizePlanStatus(currentClub.plan_status))
+    const nextPlanStatus = nextPlanKey === 'pilot' ? 'active' : nextIsPlanComped
+      ? 'active'
+      : keepsValidStripeSubscription
+        ? normalizePlanStatus(currentClub.plan_status)
+        : hasRequestedPlanStatus && !hasRequestedBillingArrangement && !hasRequestedIsPlanComped
+          ? requestedPlanStatus
+          : 'past_due'
+    const shouldUpdateBilling = hasRequestedPlanKey || hasRequestedPlanStatus || hasRequestedIsPlanComped || hasRequestedBillingArrangement || hasRequestedBillingStartDate
     const shouldChangePause = shouldUpdateBilling && Boolean(currentClub.is_plan_comped) !== nextIsPlanComped
     const pauseResult = shouldChangePause
       ? await setSubscriptionPause(currentClub.stripe_subscription_id, nextIsPlanComped)
@@ -183,6 +195,12 @@ export async function handler(event) {
       stripe_subscription_id: currentClub.stripe_subscription_id,
       current_period_end: currentClub.current_period_end,
       plan_updated_at: currentClub.plan_updated_at,
+      billing_arrangement: currentClub.billing_arrangement,
+      billing_start_at: currentClub.billing_start_at,
+      billing_configuration_updated_at: currentClub.billing_configuration_updated_at,
+      billing_configuration_updated_by: currentClub.billing_configuration_updated_by,
+      workspace_owner_user_id: currentClub.workspace_owner_user_id,
+      archived_at: currentClub.archived_at,
     }
 
     if (shouldUpdateBilling) {
@@ -192,10 +210,14 @@ export async function handler(event) {
           plan_key: nextPlanKey,
           plan_status: nextPlanStatus,
           is_plan_comped: nextIsPlanComped,
+          billing_arrangement: nextBillingArrangement,
+          billing_start_at: nextBillingStartAt,
+          billing_configuration_updated_at: now,
+          billing_configuration_updated_by: admin.id,
           plan_updated_at: now,
         })
         .eq('id', clubId)
-        .select('id, name, plan_key, plan_status, is_plan_comped, stripe_subscription_id, current_period_end, plan_updated_at')
+        .select('id, name, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, billing_configuration_updated_at, billing_configuration_updated_by, workspace_owner_user_id, archived_at, stripe_subscription_id, current_period_end, plan_updated_at')
         .single()
 
       if (updateError) {
@@ -257,6 +279,10 @@ export async function handler(event) {
         isPlanComped: nextIsPlanComped,
         teamLimitOverride: teamLimitOverrideResult.teamLimitOverride,
         changedTeamLimitOverride: hasRequestedTeamLimitOverride,
+        previousBillingArrangement: currentClub.billing_arrangement,
+        previousBillingStartAt: currentClub.billing_start_at,
+        billingArrangement: nextBillingArrangement,
+        billingStartAt: nextBillingStartAt,
         pauseResult,
         promotedUserId: promotion?.userId || null,
         promotedUserEmail: promotion?.email || null,
@@ -271,7 +297,16 @@ export async function handler(event) {
     }
     const responseMessage = hasRequestedTeamLimitOverride && !shouldUpdateBilling
       ? 'Club team allowance updated.'
-      : pauseResult.message
+      : 'Billing access arrangement updated.'
+    const billingAccess = resolveBillingAccess({
+      workspaceId: updatedClub.id,
+      planKey: updatedClub.plan_key,
+      planStatus: updatedClub.plan_status,
+      isPlanComped: updatedClub.is_plan_comped,
+      billingArrangement: updatedClub.billing_arrangement,
+      billingStartAt: updatedClub.billing_start_at,
+      archivedAt: updatedClub.archived_at,
+    })
 
     return json(200, {
       success: true,
@@ -282,6 +317,11 @@ export async function handler(event) {
         planKey: updatedClub.plan_key,
         planStatus: updatedClub.plan_status,
         isPlanComped: updatedClub.is_plan_comped,
+        billingArrangement: updatedClub.billing_arrangement,
+        billingStartAt: updatedClub.billing_start_at,
+        billingConfigurationUpdatedAt: updatedClub.billing_configuration_updated_at,
+        billingConfigurationUpdatedBy: updatedClub.billing_configuration_updated_by,
+        billingAccessState: billingAccess.accessState,
         teamLimitOverride: teamLimitOverrideResult.teamLimitOverride,
         teamLimitOverrideUpdatedAt: teamLimitOverrideResult.teamLimitOverrideUpdatedAt,
         planTeamLimit: getPlanDefaultLimit(planProfile, 'teams'),
@@ -300,3 +340,4 @@ export async function handler(event) {
     return json(statusCode, { success: false, message })
   }
 }
+import process from 'node:process'

@@ -8,6 +8,7 @@ import {
   resolveReachableEmailLogo,
 } from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
+import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 
 const ROLE_CONFIG = {
   scorer: {
@@ -761,6 +762,8 @@ export async function handler(event) {
 
       return json(200, { success: true, eligibility: eligibility || [] })
     }
+
+    await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
 
     const { data: request, error: requestError } = await adminSupabase
       .from('match_day_availability_requests')

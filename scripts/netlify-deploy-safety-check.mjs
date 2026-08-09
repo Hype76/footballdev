@@ -146,7 +146,7 @@ function scanPilotPreservation() {
     {
       label: 'Pilot update-club free guard preserved',
       path: 'netlify/functions/update-platform-club-billing.js',
-      pattern: /const nextPlanStatus = nextPlanKey === 'pilot' \? 'active' : requestedPlanStatus[\s\S]*const nextIsPlanComped = nextPlanKey === 'pilot'/,
+      pattern: /const nextIsPlanComped = nextPlanKey === 'pilot'[\s\S]*const nextPlanStatus = nextPlanKey === 'pilot' \? 'active' : nextIsPlanComped/,
     },
   ]
 

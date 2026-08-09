@@ -10,6 +10,7 @@ import {
   normalizeWords,
 } from './core-normalizers.js'
 import { normalizePlanKey } from '../plans.js'
+import { getWorkspaceScope } from '../workspace-scope.js'
 import { normalizeLegacyThemeButtonStyle, normalizeThemeButtonStyle } from '../theme.js'
 
 function normalizeHydratedClubButtonStyle(clubValue, legacyValue) {
@@ -44,6 +45,13 @@ export function normalizeClubMembershipRow(row) {
   const clubRow = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
   const roleKey = normalizeRoleKey(row.role ?? row.roleKey)
 
+  const planKey = normalizePlanKey(clubRow?.plan_key ?? row.planKey, { mapMissingToFree: true })
+  const workspaceScope = getWorkspaceScope(planKey)
+  const workspaceOwnerUserId = String(clubRow?.workspace_owner_user_id ?? row.workspaceOwnerUserId ?? '').trim()
+  const roleLabel = roleKey === workspaceScope.ownerRole.key
+    ? workspaceScope.ownerRole.label
+    : normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey)
+
   return {
     id: row.id,
     authUserId: row.auth_user_id ?? row.authUserId ?? '',
@@ -51,7 +59,7 @@ export function normalizeClubMembershipRow(row) {
     username: String(row.username ?? '').trim(),
     name: String(row.name ?? '').trim(),
     role: roleKey,
-    roleLabel: normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey),
+    roleLabel,
     roleRank: normalizeRoleRank(row.role_rank ?? row.roleRank, roleKey),
     clubId: row.club_id ?? row.clubId ?? '',
     clubName: String(clubRow?.name ?? row.clubName ?? '').trim(),
@@ -65,9 +73,17 @@ export function normalizeClubMembershipRow(row) {
     ),
     clubStatus: String(clubRow?.status ?? row.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: clubRow?.suspended_at ?? row.clubSuspendedAt ?? '',
-    planKey: normalizePlanKey(clubRow?.plan_key ?? row.planKey, { mapMissingToFree: true }),
+    clubArchivedAt: clubRow?.archived_at ?? row.clubArchivedAt ?? '',
+    planKey,
+    workspaceScope: workspaceScope.key,
+    workspaceOwnerUserId,
+    isWorkspaceOwner: Boolean(workspaceOwnerUserId && workspaceOwnerUserId === String(row.auth_user_id ?? row.authUserId ?? '')),
     planStatus: String(clubRow?.plan_status ?? row.planStatus ?? 'active').trim() || 'active',
     isPlanComped: Boolean(clubRow?.is_plan_comped ?? row.isPlanComped ?? false),
+    billingArrangement: String(clubRow?.billing_arrangement ?? row.billingArrangement ?? '').trim(),
+    billingStartAt: clubRow?.billing_start_at ?? row.billingStartAt ?? '',
+    billingConfigurationUpdatedAt: clubRow?.billing_configuration_updated_at ?? row.billingConfigurationUpdatedAt ?? '',
+    billingConfigurationUpdatedBy: clubRow?.billing_configuration_updated_by ?? row.billingConfigurationUpdatedBy ?? '',
     requireApproval: Boolean(clubRow?.require_approval ?? row.requireApproval ?? true),
     userOnboardingEnabled: Boolean(row.onboarding_enabled ?? row.userOnboardingEnabled ?? true),
     userOnboardingCompletedSteps: Array.isArray(row.onboarding_completed_steps) ? row.onboarding_completed_steps : [],
@@ -85,7 +101,11 @@ export function normalizeClubMembershipRow(row) {
 export function normalizeUserProfile(profile) {
   const baseRole = getLegacyRoleDefaults(profile.role)
   const roleKey = normalizeRoleKey(profile.role ?? baseRole.key)
-  const roleLabel = normalizeRoleLabel(profile.role_label ?? profile.roleLabel, roleKey)
+  const planKey = normalizePlanKey(getClubValue(profile.clubs, 'plan_key') ?? profile.planKey, { mapMissingToFree: true })
+  const workspaceScope = getWorkspaceScope(planKey)
+  const roleLabel = roleKey === workspaceScope.ownerRole.key
+    ? workspaceScope.ownerRole.label
+    : normalizeRoleLabel(profile.role_label ?? profile.roleLabel, roleKey)
   const roleRank = normalizeRoleRank(profile.role_rank ?? profile.roleRank, roleKey)
   const clubName =
     getClubName(profile.clubs) ||
@@ -94,6 +114,7 @@ export function normalizeUserProfile(profile) {
   const testerAccessExpiresAt = getClubValue(profile.clubs, 'tester_access_expires_at') ?? profile.testerAccessExpiresAt ?? ''
   const testerAccessExpired = isPastDate(testerAccessExpiresAt)
   const isPlanComped = Boolean(getClubValue(profile.clubs, 'is_plan_comped') ?? profile.isPlanComped ?? false)
+  const workspaceOwnerUserId = String(getClubValue(profile.clubs, 'workspace_owner_user_id') ?? profile.workspaceOwnerUserId ?? '').trim()
 
   return {
     id: profile.id,
@@ -117,9 +138,17 @@ export function normalizeUserProfile(profile) {
     clubContactPhone: String(getClubValue(profile.clubs, 'contact_phone') ?? profile.clubContactPhone ?? '').trim(),
     clubStatus: String(getClubValue(profile.clubs, 'status') ?? profile.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
-    planKey: normalizePlanKey(getClubValue(profile.clubs, 'plan_key') ?? profile.planKey, { mapMissingToFree: true }),
+    clubArchivedAt: getClubValue(profile.clubs, 'archived_at') ?? profile.clubArchivedAt ?? '',
+    planKey,
+    workspaceScope: workspaceScope.key,
+    workspaceOwnerUserId,
+    isWorkspaceOwner: Boolean(workspaceOwnerUserId && workspaceOwnerUserId === String(profile.id ?? '')),
     planStatus: String(getClubValue(profile.clubs, 'plan_status') ?? profile.planStatus ?? 'active').trim() || 'active',
     isPlanComped: testerAccessExpired ? false : isPlanComped,
+    billingArrangement: String(getClubValue(profile.clubs, 'billing_arrangement') ?? profile.billingArrangement ?? '').trim(),
+    billingStartAt: getClubValue(profile.clubs, 'billing_start_at') ?? profile.billingStartAt ?? '',
+    billingConfigurationUpdatedAt: getClubValue(profile.clubs, 'billing_configuration_updated_at') ?? profile.billingConfigurationUpdatedAt ?? '',
+    billingConfigurationUpdatedBy: getClubValue(profile.clubs, 'billing_configuration_updated_by') ?? profile.billingConfigurationUpdatedBy ?? '',
     stripeCustomerId: String(getClubValue(profile.clubs, 'stripe_customer_id') ?? profile.stripeCustomerId ?? '').trim(),
     stripeSubscriptionId: String(getClubValue(profile.clubs, 'stripe_subscription_id') ?? profile.stripeSubscriptionId ?? '').trim(),
     stripePriceId: String(getClubValue(profile.clubs, 'stripe_price_id') ?? profile.stripePriceId ?? '').trim(),

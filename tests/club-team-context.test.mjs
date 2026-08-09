@@ -61,9 +61,12 @@ test('manual team switching remains available through explicit team selectors', 
   assert.match(layoutSource, /await selectTeam\(teamId\)/)
 })
 
-test('team management remains club admin guarded server side', async () => {
+test('team management remains workspace-scope guarded server side', async () => {
   const source = await readFile(manageTeamFunctionUrl, 'utf8')
 
   assert.match(source, /const profile = await getAuthenticatedPlanProfile\(event, \{ clubId \}\)/)
-  assert.match(source, /assertClubAdmin\(profile\)/)
+  assert.match(source, /await assertWorkspaceTeamAuthority\(profile, action, body\.teamId\)/)
+  assert.match(source, /workspaceScope\.key === WORKSPACE_SCOPES\.club/)
+  assert.match(source, /!\['update', 'replace-staff'\]\.includes\(action\)/)
+  assert.match(source, /\.eq\('role_key', workspaceScope\.ownerRole\.key\)/)
 })

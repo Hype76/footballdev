@@ -164,7 +164,7 @@ test('production auth success copy avoids staging workspace wording', async () =
   assert.doesNotMatch(source, /Continue into your test workspace/i)
 })
 
-test('club login intent does not run create-club completion fallback', async () => {
+test('club login intent only runs create-club completion for explicit public free signup metadata', async () => {
   const profileSource = await readFile(parentProfileSourceUrl, 'utf8')
   const authSource = await readFile(authSourceUrl, 'utf8')
   const routerSource = await readFile(routerUrl, 'utf8')
@@ -176,7 +176,8 @@ test('club login intent does not run create-club completion fallback', async () 
   const signInSection = authSource.slice(signInStart, signInEnd)
 
   assert.match(profileSource, /export function shouldCompleteSignupClubProfile/)
-  assert.match(profileSource, /if \(\['team', 'parent', 'platform_admin'\]\.includes\(normalizedLoginAccessIntent\)\) \{\s*return false\s*\}/)
+  assert.match(profileSource, /if \(normalizedLoginAccessIntent === 'team'\) \{\s*return hasPublicFreeSignupMetadata\(authUser\)\s*\}/)
+  assert.match(profileSource, /if \(\['parent', 'platform_admin'\]\.includes\(normalizedLoginAccessIntent\)\) \{\s*return false\s*\}/)
   assert.match(profileSection, /allowSignupClubProfileCompletion/)
   assert.match(profileSection, /allowSignupClubProfileCompletion && data\?\.role === 'admin' && data\?\.club_id/)
   assert.match(profileSection, /allowClubCreation: allowSignupClubProfileCompletion/)

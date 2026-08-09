@@ -488,7 +488,7 @@ function buildCanonicalHeatmap(evidence = {}) {
 }
 
 function canonicalDashboardSections(dashboardEvidence = {}, identity = {}) {
-  if (numberValue(dashboardEvidence.definitionVersion) < 3) return null
+  if (numberValue(dashboardEvidence.definitionVersion) < 4) return null
   const product = dashboardEvidence.productActivity || {}
   const authentication = dashboardEvidence.authentication || {}
   const rawPages = Array.isArray(dashboardEvidence.topPages) ? dashboardEvidence.topPages : []
@@ -521,6 +521,9 @@ function canonicalDashboardSections(dashboardEvidence = {}, identity = {}) {
     dataQuality: dashboardEvidence.quality || {},
     processor: dashboardEvidence.processor || {},
     reconciliation: dashboardEvidence.reconciliation || {},
+    trend: Array.isArray(dashboardEvidence.trend) ? dashboardEvidence.trend : [],
+    staffRoleAdoption: Array.isArray(dashboardEvidence.staffRoleAdoption) ? dashboardEvidence.staffRoleAdoption : [],
+    workspaceActivity: dashboardEvidence.workspaceActivity || {},
   }
 }
 
@@ -662,6 +665,9 @@ export function buildPlatformAnalyticsReport({
     },
     identityReconciliation: identity.reconciliation,
     identityCaptureStartDate: identity.captureStartDate,
+    trend: canonicalDashboard?.trend || [],
+    staffRoleAdoption: canonicalDashboard?.staffRoleAdoption || [],
+    workspaceActivity: canonicalDashboard?.workspaceActivity || {},
     options: {
       roles: [...new Set(dailyUsers.map((row) => String(row.role ?? '')).filter(Boolean))].sort(),
       platforms: [...new Set(dailyUsers.map((row) => String(row.platform ?? '')).filter(Boolean))].sort(),

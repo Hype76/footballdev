@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { loadActiveAuthorityProfile } from '../netlify/functions/lib/_authority-profile.js'
+import { BILLING_ACTION_CATEGORIES, isBillingActionAllowed, resolveBillingAccess } from '../src/lib/billing-access.js'
 
 function createSupabase(fixtures) {
   return {
@@ -96,4 +97,25 @@ test('server authority loader never falls back from identity id to email', async
     loadActiveAuthorityProfile(supabase, { id: 'missing-user', email: member.email }),
     /active access/i,
   )
+})
+
+test('client-reported Platform Admin fields cannot replace canonical customer staff authority', async () => {
+  const supabase = createSupabase({
+    users: [member],
+    user_club_memberships: [{ auth_user_id: 'user-1', club_id: 'club-1', role: 'manager', role_rank: 50 }],
+    clubs: [{ id: 'club-1', status: 'active' }],
+  })
+  const reported = { id: 'user-1', role: 'super_admin', roleRank: 100, clubId: 'selected-customer' }
+  const canonical = await loadActiveAuthorityProfile(supabase, reported)
+  const context = {
+    planKey: 'small_club',
+    planStatus: 'past_due',
+    billingArrangement: 'immediate',
+    role: canonical.role,
+    roleRank: canonical.role_rank,
+  }
+
+  assert.equal(canonical.role, 'manager')
+  assert.equal(resolveBillingAccess(context).accessState, 'payment_required')
+  assert.equal(isBillingActionAllowed(context, BILLING_ACTION_CATEGORIES.staffMutation), false)
 })

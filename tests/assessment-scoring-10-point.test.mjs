@@ -338,7 +338,7 @@ test('edit permissions fail closed for parents, cross-club users, and club admin
   assert.equal(canEditEvaluation(manager, evaluation), true)
   assert.equal(canEditEvaluation({ ...manager, clubId: 'club-2' }, evaluation), false)
   assert.equal(canEditEvaluation({ ...manager, role: 'parent_portal', roleRank: 0 }, evaluation), false)
-  assert.equal(canEditEvaluation({ ...manager, role: 'admin', roleRank: 90, activeTeamId: '' }, evaluation), false)
+  assert.equal(canEditEvaluation({ ...manager, planKey: 'small_club', role: 'admin', roleRank: 90, activeTeamId: '' }, evaluation), false)
   assert.equal(canEditEvaluation({ ...manager, activeTeamId: 'team-2' }, evaluation), false)
 })
 

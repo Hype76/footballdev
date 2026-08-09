@@ -8,36 +8,35 @@ const readSource = async (path) => readFile(new URL(`../${path}`, import.meta.ur
 
 test('Platform Admin overview cards are useful, separate parents, and link to focused routes', () => {
   const cards = getPlatformDashboardStats({
-    totals: {
-      clubs: 3,
-      teams: 7,
-      players: 82,
-      archivedPlayers: 4,
-      staffAccounts: 11,
-      parentAccounts: 29,
-      clubUsers: 9,
-      evaluations: 48,
-      recentEvaluations: 5,
-      recentAdminActions: 6,
-      auditEvents: 1000,
-      communications: 22,
+    accountEstate: {
+      customerClubs: 7,
+      customerWorkspaces: 11,
+      workspaceScopeBreakdown: { club: 7, team: 4, individual: 0 },
+      teams: 28,
+      activePlayers: 89,
+      staffAccounts: 37,
+      staffAssignments: 33,
+      usersWithParentAccess: 5,
+      staffWithParentAccess: 4,
+      developmentRecords: 85,
     },
-    clubs: [{ planKey: 'small_club' }, { planKey: 'small_club' }, { planKey: 'professional' }],
+    productActivity: { activeUsers7Days: 8 },
   }, { openIssueCount: 2 })
 
   assert.deepEqual(cards.map((card) => card.label), [
-    'Clubs',
+    'Customer clubs',
     'Teams',
     'Active players',
     'Staff accounts',
-    'Parent accounts',
+    'Users with Parent access',
     'Development records',
-    'Recent admin activity',
+    'Active this week',
     'Open platform issues',
   ])
-  assert.equal(cards.find((card) => card.label === 'Staff accounts')?.value, 11)
-  assert.equal(cards.find((card) => card.label === 'Parent accounts')?.value, 29)
-  assert.equal(cards.find((card) => card.label === 'Recent admin activity')?.value, 6)
+  assert.equal(cards.find((card) => card.label === 'Customer clubs')?.value, 7)
+  assert.equal(cards.find((card) => card.label === 'Staff accounts')?.value, 37)
+  assert.equal(cards.find((card) => card.label === 'Users with Parent access')?.value, 5)
+  assert.equal(cards.find((card) => card.label === 'Active this week')?.value, 8)
   assert.equal(cards.find((card) => card.label === 'Open platform issues')?.value, 2)
   assert.ok(cards.every((card) => card.path && card.actionLabel))
   assert.ok(!cards.some((card) => ['Adult users', 'Shared exports', 'Audit events', 'Platform admins'].includes(card.label)))
@@ -81,19 +80,17 @@ test('overview no longer stacks full management systems and feedback remains aut
   assert.match(pageSource, /const showLegacyFeedback = section === 'feedback-legacy'/)
 })
 
-test('staff and parent totals are derived separately with a role breakdown', async () => {
-  const [actionsSource, normalizerSource] = await Promise.all([
-    readSource('src/lib/domain/platform-admin-actions.js'),
-    readSource('src/lib/domain/platform-normalizers.js'),
+test('overview uses the canonical analytics report while operational management keeps its existing model', async () => {
+  const [pageSource, serviceSource] = await Promise.all([
+    readSource('src/pages/PlatformAdminPage.jsx'),
+    readSource('netlify/functions/lib/_platform-analytics.js'),
   ])
 
-  assert.match(actionsSource, /const parentAccounts = users\.filter/)
-  assert.match(actionsSource, /const staffAccounts = users\.filter/)
-  assert.match(actionsSource, /staffRoleBreakdown/)
-  assert.match(actionsSource, /recentAdminActions: auditLogs\.filter\(isRecent\)\.length/)
-  assert.match(normalizerSource, /parentAccounts: normalizeNumber/)
-  assert.match(normalizerSource, /staffAccounts: normalizeNumber/)
-  assert.match(normalizerSource, /staffRoleBreakdown: normalizeArray/)
+  assert.match(pageSource, /getPlatformDashboardStats\(analyticsReport/)
+  assert.doesNotMatch(pageSource, /getPlatformDashboardStats\(stats/)
+  assert.match(serviceSource, /get_platform_analytics_canonical_v4/)
+  assert.doesNotMatch(serviceSource, /supabaseAdmin\.rpc\('get_platform_analytics_dashboard_14c'/)
+  assert.doesNotMatch(serviceSource, /supabaseAdmin\.rpc\('get_platform_analytics_identity_adoption'/)
 })
 
 test('theme and collapse state use shared tokens and current-session storage', async () => {

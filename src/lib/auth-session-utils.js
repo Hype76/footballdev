@@ -80,6 +80,7 @@ export function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.clubContactPhone ?? '') === String(rightUser.clubContactPhone ?? '') &&
     String(leftUser.clubStatus ?? '') === String(rightUser.clubStatus ?? '') &&
     String(leftUser.clubSuspendedAt ?? '') === String(rightUser.clubSuspendedAt ?? '') &&
+    String(leftUser.clubArchivedAt ?? '') === String(rightUser.clubArchivedAt ?? '') &&
     String(leftUser.planKey ?? '') === String(rightUser.planKey ?? '') &&
     String(leftUser.planStatus ?? '') === String(rightUser.planStatus ?? '') &&
     Boolean(leftUser.isPlanComped) === Boolean(rightUser.isPlanComped) &&

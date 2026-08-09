@@ -8,7 +8,10 @@ import {
   normalizePlanStatus,
   SELF_SERVICE_CHECKOUT_PLAN_KEYS,
 } from '../netlify/functions/lib/_stripe-billing.js'
-import { handler as createCheckoutSession } from '../netlify/functions/create-checkout-session.js'
+import {
+  createCheckoutSession as createStripeCheckoutSession,
+  handler as createCheckoutSession,
+} from '../netlify/functions/create-checkout-session.js'
 import { formatPrice, formatPriceLabel, pricingPlans } from '../src/lib/login-pricing.js'
 import { PLAN_KEYS, PLAN_PURCHASE_MODES } from '../src/lib/plans.js'
 
@@ -155,4 +158,49 @@ test('billing status normalization keeps canceled and expired subscriptions inac
   assert.equal(normalizePlanStatus('cancelled'), 'cancelled')
   assert.equal(normalizePlanStatus('incomplete_expired'), 'past_due')
   assert.equal(normalizePlanStatus('unpaid'), 'past_due')
+})
+
+test('checkout metadata preserves authoritative Team and Club workspace scope', async () => {
+  const captured = []
+  const stripe = {
+    checkout: {
+      sessions: {
+        create: async (payload) => {
+          captured.push(payload)
+          return { id: 'cs_test', url: 'https://checkout.stripe.test/session' }
+        },
+      },
+    },
+  }
+
+  for (const fixture of [
+    { planKey: PLAN_KEYS.singleTeam, scope: 'team' },
+    { planKey: PLAN_KEYS.smallClub, scope: 'club' },
+    { planKey: PLAN_KEYS.developmentClub, scope: 'club' },
+  ]) {
+    await createStripeCheckoutSession(stripe, {
+      appUrl: 'https://footballplayer.online',
+      billingCycle: 'monthly',
+      clubName: 'FP TEST Workspace',
+      customerEmail: 'owner@example.test',
+      planKey: fixture.planKey,
+      planName: fixture.planKey,
+      priceId: `price_${fixture.planKey}`,
+      workspaceScope: fixture.scope,
+    })
+    const payload = captured.at(-1)
+
+    assert.equal(payload.metadata.planKey, fixture.planKey)
+    assert.equal(payload.metadata.workspaceScope, fixture.scope)
+    assert.equal(payload.subscription_data.metadata.workspaceScope, fixture.scope)
+  }
+})
+
+test('generic sign-up keeps Individual direct and routes paid customers to Pricing', () => {
+  const loginSource = readFileSync('src/components/login/LoginAuthPanel.jsx', 'utf8')
+
+  assert.match(loginSource, /Start free as an individual coach/)
+  assert.match(loginSource, /Need a team or club plan\?[\s\S]*Choose a plan on Pricing/)
+  assert.match(loginSource, /: \{[\s\S]*title: 'Start free as an individual coach'/)
+  assert.doesNotMatch(loginSource, /Create a club workspace and start with one team/)
 })

@@ -46,7 +46,7 @@ test('staff navigation surfaces Polls with role and recovery gates', async () =>
 test('quick actions expose Create Poll only to permitted staff', async () => {
   const source = await readFile(layoutUrl, 'utf8')
 
-  assert.match(source, /import \{ canCreateEvaluation, canManagePolls,/)
+  assert.match(source, /import \{ canCreateEvaluation, canCreateFormationBoard, canManagePolls,/)
   assert.match(source, /const canUsePollQuickAction = canManagePolls\(user\) && isRecoveryPathVisible\('\/polls', \{ user \}\)/)
   assert.match(source, /label: 'Create Poll', href: '\/polls\?action=create-poll', isVisible: canUsePollQuickAction/)
   assert.match(source, /const visibleActions = actions\.filter\(\(action\) => action\.isVisible !== false/)
@@ -172,7 +172,7 @@ test('calendar event modal uses mobile keyboard-safe flex scroll layout', async 
   assert.match(modalSection, /h-screen min-h-0[\s\S]*flex-col[\s\S]*overflow-hidden/)
   assert.match(modalSection, /className="flex min-h-0 flex-1 flex-col overflow-hidden"/)
   assert.match(modalSection, /data-testid="calendar-event-modal-content"[\s\S]*min-h-0 flex-1 overflow-y-auto overscroll-contain/)
-  assert.match(modalSection, /data-testid="calendar-mobile-action-bar"[\s\S]*sm:hidden/)
+  assert.match(modalSection, /testId="calendar-mobile-action-bar"/)
   assert.match(modalSection, /data-testid="calendar-desktop-action-bar"[\s\S]*sm:flex/)
   assert.match(modalSection, /role="menu"[\s\S]*aria-labelledby="calendar-mobile-actions-title"/)
 })

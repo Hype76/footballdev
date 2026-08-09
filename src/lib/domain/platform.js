@@ -4,6 +4,8 @@ export {
   deletePlatformTeam,
   deletePlatformUser,
   getPlatformStats,
+  setPlatformClubArchived,
+  setPlatformTeamArchived,
   updatePlatformClubPlan,
   updatePlatformClubStatus,
   updatePlatformUserStatus,

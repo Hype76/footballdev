@@ -61,7 +61,11 @@ export async function getTeams(user) {
   const cacheKey = user.role === 'super_admin' ? 'teams:super-admin' : `teams:${user.clubId}`
 
   return getCachedResource(cacheKey, async () => {
-    let query = supabase.from('teams').select('*').order('name', { ascending: true })
+    let query = supabase
+      .from('teams')
+      .select('*')
+      .is('archived_at', null)
+      .order('name', { ascending: true })
 
     if (user.role !== 'super_admin') {
       query = query.eq('club_id', user.clubId)

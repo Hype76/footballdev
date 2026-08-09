@@ -103,6 +103,12 @@ export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
   const { showToast } = useToast()
   const isClubAdminUser = user?.role === 'admin' || user?.role === 'super_admin'
+  const isWorkspaceTeamOwner = Boolean(
+    user?.isWorkspaceOwner
+      && user?.workspaceScope === 'team'
+      && user?.activeTeamId,
+  )
+  const canManageOwnedTeam = isClubAdminUser || isWorkspaceTeamOwner
   const cacheKey = user?.clubId
     ? `team-management:${user.clubId}:${isClubAdminUser ? 'club' : `${user.id}:${user.activeTeamId || 'team'}`}`
     : ''
@@ -834,7 +840,7 @@ export function TeamManagementPage() {
 
           <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Club setup</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Workspace setup</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{teams.length} teams configured</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 {allocatedStaffCount} staff accounts are allocated to at least one team.
@@ -878,7 +884,7 @@ export function TeamManagementPage() {
         />
       ) : null}
 
-      {isClubAdminUser ? (
+      {canManageOwnedTeam ? (
         <CreateStaffLoginSection
           assignableRoles={assignableRoles}
           canCreateMoreStaff={canCreateMoreStaff}
@@ -893,8 +899,9 @@ export function TeamManagementPage() {
 
       <TeamStaffAllocationsSection
         availableStaff={filteredAvailableStaffForSelectedTeam}
-        canManageStaffAllocations={isClubAdminUser}
-        canManageStructure={isClubAdminUser}
+        canDeleteTeam={isClubAdminUser}
+        canManageStaffAllocations={canManageOwnedTeam}
+        canRenameTeam={canManageOwnedTeam}
         isLoading={isLoading}
         isSaving={isSaving}
         onAddExistingStaff={handleAddExistingStaffToTeam}

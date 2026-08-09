@@ -1,15 +1,9 @@
+import { shouldPromoteWorkspaceOwnerToClubAdmin } from '../../../src/lib/workspace-scope.js'
+
 const CLUB_ADMIN_ROLE = {
   role: 'admin',
   roleLabel: 'Club Admin',
   roleRank: 90,
-}
-
-const PLAN_RANKS = {
-  individual: 0,
-  single_team: 1,
-  small_club: 2,
-  development_club: 3,
-  large_club: 4,
 }
 
 function normalizeEmail(value) {
@@ -17,14 +11,7 @@ function normalizeEmail(value) {
 }
 
 export function shouldPromoteBillPayer(previousPlanKey, nextPlanKey) {
-  const previousRank = PLAN_RANKS[String(previousPlanKey ?? '').trim()]
-  const nextRank = PLAN_RANKS[String(nextPlanKey ?? '').trim()]
-
-  if (previousRank === undefined || nextRank === undefined) {
-    return false
-  }
-
-  return previousRank <= PLAN_RANKS.single_team && nextRank > previousRank
+  return shouldPromoteWorkspaceOwnerToClubAdmin(previousPlanKey, nextPlanKey)
 }
 
 export function getClubAdminRole() {
@@ -71,6 +58,15 @@ export async function promoteClubBillPayerToAdmin(
 
   if (!billPayer?.id) {
     return null
+  }
+
+  const { error: workspaceOwnerError } = await supabaseAdmin
+    .from('clubs')
+    .update({ workspace_owner_user_id: billPayer.id })
+    .eq('id', normalizedClubId)
+
+  if (workspaceOwnerError) {
+    throw workspaceOwnerError
   }
 
   if (Number(billPayer.role_rank ?? 0) >= CLUB_ADMIN_ROLE.roleRank && billPayer.role === CLUB_ADMIN_ROLE.role) {

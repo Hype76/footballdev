@@ -434,6 +434,8 @@ export {
   getPlatformBanners,
   getPublicPlatformBanner,
   getPlatformStats,
+  setPlatformClubArchived,
+  setPlatformTeamArchived,
   updateClubAccentColour,
   updateClubDisplaySettings,
   updateClubSettings,
