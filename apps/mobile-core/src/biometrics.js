@@ -1,7 +1,13 @@
 import * as LocalAuthentication from 'expo-local-authentication'
 import * as SecureStore from 'expo-secure-store'
 
-const BIOMETRIC_ENABLED_KEY = 'football-player-biometric-enabled'
+const LEGACY_BIOMETRIC_ENABLED_KEY = 'football-player-biometric-enabled'
+
+export function getBiometricPreferenceKey(appRole = 'parent') {
+  const app = String(appRole || '').trim().toLowerCase()
+  if (!['coach', 'parent'].includes(app)) throw new Error('biometric_app_role_invalid')
+  return `fp.mobile.biometric.v1.${app}.enabled`
+}
 
 export async function getBiometricAvailability() {
   const hasHardware = await LocalAuthentication.hasHardwareAsync()
@@ -16,16 +22,24 @@ export async function getBiometricAvailability() {
   }
 }
 
-export async function getBiometricEnabled() {
-  const value = await SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY)
+export async function getBiometricEnabled(appRole = 'parent') {
+  const key = getBiometricPreferenceKey(appRole)
+  let value = await SecureStore.getItemAsync(key)
+  if (value === null && appRole === 'parent') {
+    value = await SecureStore.getItemAsync(LEGACY_BIOMETRIC_ENABLED_KEY)
+    if (value !== null) {
+      await SecureStore.setItemAsync(key, value)
+      await SecureStore.deleteItemAsync(LEGACY_BIOMETRIC_ENABLED_KEY)
+    }
+  }
   return value === 'true'
 }
 
-export async function clearBiometricPreference() {
-  await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY)
+export async function clearBiometricPreference(appRole = 'parent') {
+  await SecureStore.deleteItemAsync(getBiometricPreferenceKey(appRole))
 }
 
-export async function setBiometricEnabled(enabled) {
+export async function setBiometricEnabled(enabled, appRole = 'parent') {
   if (enabled) {
     const availability = await getBiometricAvailability()
 
@@ -44,7 +58,7 @@ export async function setBiometricEnabled(enabled) {
     }
   }
 
-  await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, enabled ? 'true' : 'false')
+  await SecureStore.setItemAsync(getBiometricPreferenceKey(appRole), enabled ? 'true' : 'false')
   return enabled
 }
 

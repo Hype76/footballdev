@@ -16,11 +16,20 @@ import {
 
 const AuthContext = createContext(null)
 
+async function disableBiometricsForApp(appRole) {
+  if (appRole === 'parent') {
+    await setBiometricEnabled(false)
+    return
+  }
+  await setBiometricEnabled(false, appRole)
+}
+
 export function AuthProvider({
   appRole,
   children,
   offlineProfileStore = null,
   onBeforeSignOut = null,
+  onResetLocalData = null,
   prepareStartup = null,
 }) {
   const [authError, setAuthError] = useState('')
@@ -91,7 +100,7 @@ export function AuthProvider({
           ...config,
           isUsable: isSupabaseConfigured && !mobileSessionStorageError,
         },
-        getBiometricEnabled,
+        getBiometricEnabled: () => getBiometricEnabled(appRole),
         getSession: () => supabase.auth.getSession(),
         loadProfile,
         onLock: (locked) => {
@@ -104,6 +113,9 @@ export function AuthProvider({
           if (isMounted) setStartupState(nextState)
         },
         prepare: () => prepareStartup?.(config),
+        resolvingProfileState: appRole === 'coach'
+          ? MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT
+          : MOBILE_STARTUP_STATES.RESTORING_SESSION,
       })
 
       if (!isMounted) return
@@ -134,7 +146,9 @@ export function AuthProvider({
         return
       }
 
-      setStartupState(MOBILE_STARTUP_STATES.RESTORING_SESSION)
+      setStartupState(appRole === 'coach'
+        ? MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT
+        : MOBILE_STARTUP_STATES.RESTORING_SESSION)
       void loadProfile(nextSession).finally(() => {
         if (isMounted) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
       })
@@ -152,7 +166,7 @@ export function AuthProvider({
         return
       }
 
-      void getBiometricEnabled().then((biometricEnabled) => {
+      void getBiometricEnabled(appRole).then((biometricEnabled) => {
         if (biometricEnabled && session?.user) {
           setIsLocked(true)
         }
@@ -164,7 +178,7 @@ export function AuthProvider({
     return () => {
       subscription.remove()
     }
-  }, [session?.user])
+  }, [appRole, session?.user])
 
   const signIn = useCallback(async (email, password) => {
     setAuthError('')
@@ -197,17 +211,18 @@ export function AuthProvider({
         await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
         await clearMobileSessionStorage()
         if (appRole === 'parent' && offlineProfileStore?.clear) await offlineProfileStore.clear()
-        await setBiometricEnabled(false)
+        await onResetLocalData?.()
+        await disableBiometricsForApp(appRole)
       })
 
       setSession(null)
       setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_OUT)
     } catch (error) {
       setAuthError('Saved app information could not be reset safely.')
-      setStartupDiagnosticCode(error?.code || 'PARENT_LOCAL_RESET_FAILED')
+      setStartupDiagnosticCode(error?.code || `${String(appRole || 'mobile').toUpperCase()}_LOCAL_RESET_FAILED`)
       setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
     }
-  }, [appRole, offlineProfileStore])
+  }, [appRole, offlineProfileStore, onResetLocalData])
 
   const signOut = useCallback(async () => {
     setIsLocked(false)
@@ -226,6 +241,7 @@ export function AuthProvider({
         await revokeNativePushDevice({
           accessToken,
           apiBaseUrl: config.apiBaseUrl,
+          appRole,
         })
       }
     } catch (error) {
@@ -233,7 +249,7 @@ export function AuthProvider({
     }
 
     try {
-      await setBiometricEnabled(false)
+      await disableBiometricsForApp(appRole)
     } catch (error) {
       console.warn(error)
     }
@@ -275,7 +291,11 @@ export function AuthProvider({
   const value = useMemo(() => ({
     appRole,
     authError,
-    isLoading: startupState === MOBILE_STARTUP_STATES.BOOTING || startupState === MOBILE_STARTUP_STATES.RESTORING_SESSION,
+    isLoading: [
+      MOBILE_STARTUP_STATES.BOOTING,
+      MOBILE_STARTUP_STATES.RESTORING_SESSION,
+      MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT,
+    ].includes(startupState),
     isLocked,
     isProfileLoading,
     resetLocalAppData,

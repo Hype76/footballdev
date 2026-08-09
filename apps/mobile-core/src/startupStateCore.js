@@ -3,6 +3,7 @@ export const MOBILE_STARTUP_STATES = Object.freeze({
   RECOVERABLE_ERROR: 'RECOVERABLE_ERROR',
   READY_SIGNED_IN: 'READY_SIGNED_IN',
   READY_SIGNED_OUT: 'READY_SIGNED_OUT',
+  RESOLVING_STAFF_CONTEXT: 'RESOLVING_STAFF_CONTEXT',
   RESTORING_SESSION: 'RESTORING_SESSION',
 })
 
@@ -39,6 +40,7 @@ export async function runMobileStartup({
   onSession,
   onTransition,
   prepare,
+  resolvingProfileState = MOBILE_STARTUP_STATES.RESTORING_SESSION,
   timeoutMs = DEFAULT_MOBILE_STARTUP_TIMEOUT_MS,
 }) {
   onTransition?.(MOBILE_STARTUP_STATES.BOOTING)
@@ -66,6 +68,7 @@ export async function runMobileStartup({
     const biometricEnabled = await withStartupTimeout(() => getBiometricEnabled(), timeoutMs)
     onLock?.(Boolean(biometricEnabled))
     await onSession?.(session)
+    onTransition?.(resolvingProfileState)
     await withStartupTimeout(() => loadProfile(session), timeoutMs)
     return { diagnosticCode: '', session, state: MOBILE_STARTUP_STATES.READY_SIGNED_IN }
   } catch (error) {

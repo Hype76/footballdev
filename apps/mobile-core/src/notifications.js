@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 
-const MOBILE_PUSH_TOKEN_KEY = 'football-player:mobile-push-token'
-const MOBILE_PUSH_CONTEXT_KEY = 'football-player:mobile-push-context'
+const LEGACY_MOBILE_PUSH_TOKEN_KEY = 'football-player:mobile-push-token'
+const LEGACY_MOBILE_PUSH_CONTEXT_KEY = 'football-player:mobile-push-context'
 const MATCHDAY_CHANNEL_ID = 'matchday'
 
 Notifications.setNotificationHandler({
@@ -19,6 +19,15 @@ Notifications.setNotificationHandler({
 
 function normalize(value) {
   return String(value ?? '').trim()
+}
+
+export function getMobilePushStorageKeys(appRole = 'parent') {
+  const app = normalize(appRole).toLowerCase()
+  if (!['coach', 'parent'].includes(app)) throw new Error('push_app_role_invalid')
+  return Object.freeze({
+    context: `fp.mobile.push.v1.${app}.context`,
+    token: `fp.mobile.push.v1.${app}.token`,
+  })
 }
 
 function getPushTokenErrorMessage(error) {
@@ -51,25 +60,50 @@ export async function initializeMobileNotifications() {
   await Notifications.setBadgeCountAsync(0).catch(() => {})
 }
 
-async function getStoredDeviceToken() {
-  return normalize(await AsyncStorage.getItem(MOBILE_PUSH_TOKEN_KEY))
+async function migrateLegacyPushState(appRole) {
+  if (normalize(appRole).toLowerCase() !== 'parent') return
+  const keys = getMobilePushStorageKeys(appRole)
+  const [currentToken, currentContext, legacyToken, legacyContext] = await Promise.all([
+    AsyncStorage.getItem(keys.token),
+    AsyncStorage.getItem(keys.context),
+    AsyncStorage.getItem(LEGACY_MOBILE_PUSH_TOKEN_KEY),
+    AsyncStorage.getItem(LEGACY_MOBILE_PUSH_CONTEXT_KEY),
+  ])
+  if (currentToken === null && legacyToken !== null) await AsyncStorage.setItem(keys.token, legacyToken)
+  if (currentContext === null && legacyContext !== null) await AsyncStorage.setItem(keys.context, legacyContext)
+  await Promise.all([
+    AsyncStorage.removeItem(LEGACY_MOBILE_PUSH_TOKEN_KEY),
+    AsyncStorage.removeItem(LEGACY_MOBILE_PUSH_CONTEXT_KEY),
+  ])
 }
 
-async function setStoredDeviceToken(deviceToken) {
+export async function clearNativeNotificationLocalState(appRole) {
+  const keys = getMobilePushStorageKeys(appRole)
+  await AsyncStorage.multiRemove([keys.token, keys.context])
+}
+
+async function getStoredDeviceToken(appRole) {
+  await migrateLegacyPushState(appRole)
+  return normalize(await AsyncStorage.getItem(getMobilePushStorageKeys(appRole).token))
+}
+
+async function setStoredDeviceToken(deviceToken, appRole) {
   const normalizedToken = normalize(deviceToken)
+  const keys = getMobilePushStorageKeys(appRole)
 
   if (!normalizedToken) {
-    await AsyncStorage.removeItem(MOBILE_PUSH_TOKEN_KEY)
-    await AsyncStorage.removeItem(MOBILE_PUSH_CONTEXT_KEY)
+    await AsyncStorage.removeItem(keys.token)
+    await AsyncStorage.removeItem(keys.context)
     return ''
   }
 
-  await AsyncStorage.setItem(MOBILE_PUSH_TOKEN_KEY, normalizedToken)
+  await AsyncStorage.setItem(keys.token, normalizedToken)
   return normalizedToken
 }
 
-async function getStoredDeviceContext() {
-  const rawValue = await AsyncStorage.getItem(MOBILE_PUSH_CONTEXT_KEY)
+async function getStoredDeviceContext(appRole) {
+  await migrateLegacyPushState(appRole)
+  const rawValue = await AsyncStorage.getItem(getMobilePushStorageKeys(appRole).context)
 
   if (!rawValue) {
     return null
@@ -91,7 +125,7 @@ async function setStoredDeviceContext({ appRole, parentLinkId = '', teamId = '' 
     teamId: normalize(teamId),
   }
 
-  await AsyncStorage.setItem(MOBILE_PUSH_CONTEXT_KEY, JSON.stringify(context))
+  await AsyncStorage.setItem(getMobilePushStorageKeys(appRole).context, JSON.stringify(context))
   return context
 }
 
@@ -126,8 +160,8 @@ export async function getNativeNotificationPermissionState() {
 
 export async function getNativeNotificationDeviceState({ appRole = '', parentLinkId = '', teamId = '' } = {}) {
   const permission = await getNativeNotificationPermissionState()
-  const deviceToken = await getStoredDeviceToken()
-  const deviceContext = await getStoredDeviceContext()
+  const deviceToken = await getStoredDeviceToken(appRole)
+  const deviceContext = await getStoredDeviceContext(appRole)
   const expectedContext = {
     appRole,
     parentLinkId,
@@ -212,7 +246,7 @@ export async function registerNativePushDevice({
     throw new Error(result.message || 'Notifications could not be enabled.')
   }
 
-  await setStoredDeviceToken(deviceToken)
+  await setStoredDeviceToken(deviceToken, appRole)
   await setStoredDeviceContext({
     appRole,
     parentLinkId,
@@ -225,7 +259,7 @@ export async function registerNativePushDevice({
   }
 }
 
-export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
+export async function revokeNativePushDevice({ accessToken, apiBaseUrl, appRole = 'parent' }) {
   if (!accessToken) {
     throw new Error('Login is required before changing notifications.')
   }
@@ -234,7 +268,7 @@ export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
     throw new Error('Notifications are not ready for this build.')
   }
 
-  const deviceToken = await getStoredDeviceToken()
+  const deviceToken = await getStoredDeviceToken(appRole)
 
   if (!deviceToken) {
     return {
@@ -256,7 +290,7 @@ export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
     throw new Error(result.message || 'Notifications could not be disabled.')
   }
 
-  await setStoredDeviceToken('')
+  await setStoredDeviceToken('', appRole)
 
   return {
     success: true,

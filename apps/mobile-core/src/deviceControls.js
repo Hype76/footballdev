@@ -6,7 +6,7 @@ import { getAccessToken } from './supabase'
 async function readDeviceControlState({ appRole = '', parentLinkId = '', teamId = '' } = {}) {
   const [availability, enabled, notificationState] = await Promise.all([
     getBiometricAvailability(),
-    getBiometricEnabled(),
+    getBiometricEnabled(appRole),
     getNativeNotificationDeviceState({
       appRole,
       parentLinkId,
@@ -122,6 +122,7 @@ export function useMobileDeviceControls({
       await revokeNativePushDevice({
         accessToken,
         apiBaseUrl,
+        appRole,
       })
       await refreshDeviceState()
       setMessage(notificationDisabledMessage)
@@ -131,14 +132,14 @@ export function useMobileDeviceControls({
     } finally {
       setIsRegisteringPush(false)
     }
-  }, [apiBaseUrl, notificationDisabledMessage, refreshDeviceState, setMessage])
+  }, [apiBaseUrl, appRole, notificationDisabledMessage, refreshDeviceState, setMessage])
 
   const toggleBiometrics = useCallback(async () => {
     setIsUpdatingBiometrics(true)
     setMessage('')
 
     try {
-      const nextEnabled = await setBiometricEnabled(!biometricEnabled)
+      const nextEnabled = await setBiometricEnabled(!biometricEnabled, appRole)
       setBiometricEnabledState(nextEnabled)
       setMessage(nextEnabled ? 'Biometric unlock is enabled.' : 'Biometric unlock is disabled.')
     } catch (error) {
@@ -147,7 +148,7 @@ export function useMobileDeviceControls({
     } finally {
       setIsUpdatingBiometrics(false)
     }
-  }, [biometricEnabled, setMessage])
+  }, [appRole, biometricEnabled, setMessage])
 
   return {
     biometricAvailable,
