@@ -194,7 +194,6 @@ export function createSecureSessionStorage({
   if (
     !NAMESPACE_ENVIRONMENTS.has(environmentName)
     || projectRef !== expectedProjectRef
-    || (environmentName === 'live' && app !== 'parent')
   ) {
     throw storageError('secure_session_environment_mismatch')
   }

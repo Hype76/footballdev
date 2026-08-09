@@ -285,8 +285,12 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
   const cancelled = Boolean(row.cancelled_at ?? row.cancelledAt) || rawStatus === 'cancelled'
   const deleted = Boolean(row.deleted_at ?? row.deletedAt)
   const status = deleted ? 'stale' : cancelled ? 'cancelled' : INVITE_STATUSES.has(rawStatus) ? rawStatus : 'awaiting'
+  const eventId = kind === 'match'
+    ? normalize(row.match_day_id ?? row.eventId ?? row.calendar_event_id)
+    : normalize(row.calendar_event_id ?? row.eventId ?? row.session_id)
   return Object.freeze({
-    id: normalize(row.id), kind, eventId: normalize(row.calendar_event_id ?? row.eventId ?? row.match_day_id ?? row.session_id),
+    id: normalize(row.id), kind, eventId,
+    occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate),
     teamId: normalize(row.team_id ?? row.teamId), playerId: normalize(row.player_id ?? row.playerId), playerName: normalize(row.player_name ?? row.playerName) || 'Player',
     title: normalize(row.title ?? row.event_title ?? row.session_title ?? row.opponent) || 'Invitation', status,
     response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt: normalize(row.sent_at ?? row.sentAt), respondedAt: normalize(row.responded_at ?? row.respondedAt),

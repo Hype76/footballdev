@@ -13,6 +13,7 @@ const allowedProfiles = new Set(['store-test', 'store-live'])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
+const submissionBuildId = (process.env.MOBILE_SUBMISSION_BUILD_ID || '').trim()
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -29,12 +30,20 @@ if (!allowedProfiles.has(profile)) {
   process.exit(1)
 }
 
-if (profile === 'store-live'
-  && (appRole !== 'parent'
-    || platform !== 'ios'
-    || promotionReference !== 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')) {
-  console.error('Production Parent iOS submission not authorised for this reference.')
+const authorisedProductionSubmission = platform === 'ios' && (
+  (appRole === 'parent' && promotionReference === 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')
+  || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32')
+)
+
+if (profile === 'store-live' && !authorisedProductionSubmission) {
+  console.error('Production iOS submission not authorised for this app and reference.')
   console.error('Reason: production_build_not_authorised')
+  process.exit(1)
+}
+
+if (profile === 'store-live' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionBuildId)) {
+  console.error('Production iOS submission requires the exact completed EAS build ID in MOBILE_SUBMISSION_BUILD_ID.')
+  console.error('Reason: production_submission_build_id_required')
   process.exit(1)
 }
 
@@ -47,6 +56,20 @@ if (!submissionConfirmed) {
 
 assertEasLogin()
 
+const easEnvironment = profile === 'store-live' ? 'production' : 'preview'
+console.log(`Validating the resolved ${appRole} ${profile} EAS environment without printing values.`)
+const resolvedEnvironmentCommand = `node ../scripts/mobile-resolved-environment-check.mjs ${appRole} ${profile}`
+const resolvedEnvironmentArgument = process.platform === 'win32' ? `"${resolvedEnvironmentCommand}"` : resolvedEnvironmentCommand
+execFileSync('npx', ['eas-cli', 'env:exec', easEnvironment, resolvedEnvironmentArgument, '--non-interactive'], {
+  cwd: resolve(repoRoot, app.path),
+  env: {
+    ...process.env,
+    ...loadMobileLocalEnv(repoRoot, app.path),
+  },
+  stdio: 'inherit',
+  shell: process.platform === 'win32',
+})
+
 console.log(`Running mobile release gate before ${app.expectedName} ${profile} ${platform} submit.`)
 execFileSync('npm', ['run', 'mobile:release-check'], {
   cwd: repoRoot,
@@ -55,7 +78,11 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 })
 
 console.log(`Release gate passed. Starting EAS submit for ${app.expectedName} ${profile} ${platform}.`)
-execFileSync('npx', ['eas-cli', 'submit', '--profile', profile, '--platform', platform], {
+const submitArgs = ['eas-cli', 'submit', '--profile', profile, '--platform', platform]
+if (profile === 'store-live') {
+  submitArgs.push('--id', submissionBuildId, '--groups', 'Internal Testers', '--non-interactive', '--no-wait')
+}
+execFileSync('npx', submitArgs, {
   cwd: resolve(repoRoot, app.path),
   env: {
     ...process.env,

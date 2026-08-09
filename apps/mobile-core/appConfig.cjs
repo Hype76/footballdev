@@ -34,6 +34,7 @@ function createMobileExpoConfig({
   appRole,
   bundleIdentifier,
   description,
+  easProjectId = '',
   name,
   packageName,
   scheme,
@@ -41,6 +42,7 @@ function createMobileExpoConfig({
   version,
 }) {
   const environment = getMobileEnvironment()
+  const resolvedEasProjectId = environment.easProjectId || easProjectId
   const faceIdPermission = `${name} uses Face ID to unlock your saved session when biometric login is enabled.`
   const googleServicesFile = getAndroidGoogleServicesFile()
 
@@ -119,8 +121,9 @@ function createMobileExpoConfig({
       extra: {
         ...environment,
         appRole,
+        easProjectId: resolvedEasProjectId,
         eas: {
-          projectId: environment.easProjectId,
+          projectId: resolvedEasProjectId,
         },
       },
     },

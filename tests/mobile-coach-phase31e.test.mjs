@@ -147,6 +147,8 @@ test('Invite normalization preserves distinct statuses and stale protection', ()
   assert.equal(normalizeCoachInvite({ response_state: 'maybe' }, 'calendar').status, 'maybe')
   assert.equal(normalizeCoachInvite({ deleted_at: 'now' }, 'training').status, 'stale')
   assert.equal(normalizeCoachInvite({ cancelled_at: 'now' }, 'calendar').status, 'cancelled')
+  assert.equal(normalizeCoachInvite({ calendar_event_id: 'calendar-1', match_day_id: 'match-1' }, 'match').eventId, 'match-1')
+  assert.equal(normalizeCoachInvite({ calendar_event_id: 'calendar-1', match_day_id: 'match-1' }, 'training').eventId, 'calendar-1')
 })
 
 test('Invite summary does not merge selected, not selected, maybe, or stale meaning', () => {
@@ -200,9 +202,10 @@ test('Development data uses dynamic forms, governed drafts, versioning, and no p
   assert.doesNotMatch(legacy, /submitCoachAssessment|getCoachAssessmentFields/)
 })
 
-test('Phase 31E mutation adapters fail closed outside approved test environment', async () => {
+test('Phase 31E mutation adapters accept only approved resolved TEST or production environments', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
-  assert.match(source, /config\.isProduction \|\| config\.supabaseEnvironment !== 'test'/)
+  assert.match(source, /!config\.isUsable \|\| !\['test', 'production'\]\.includes\(config\.supabaseEnvironment\)/)
+  assert.match(source, /if \(!config\.isProduction\) assertSyntheticCoachCommunicationTarget\(target\)/)
   assert.doesNotMatch(source, /hvapkizujvsahvgspser/)
   assert.doesNotMatch(source, /productionAccess:\s*true/)
 })
@@ -216,7 +219,7 @@ test('Resource adapter reuses canonical RPCs and signed URLs', async () => {
 test('Chat adapter keeps Staff Chat and Parent Chat authority separate', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
   for (const marker of ['staff_chat_conversations', 'staff_chat_messages', 'get_parent_chat_rooms', 'get_parent_chat_messages', 'send_parent_chat_message', 'mark_parent_chat_room_read']) assert.match(source, new RegExp(marker))
-  assert.match(source, /assertSyntheticCoachCommunicationTarget\(room\)/)
+  assert.match(source, /assertSyntheticTargetInTest\(room\)/)
 })
 
 test('Poll adapter uses canonical idempotent RPCs without push side effects', async () => {
@@ -227,12 +230,14 @@ test('Poll adapter uses canonical idempotent RPCs without push side effects', as
   assert.doesNotMatch(source, /sendParentMobilePushNotification|sendCoachMobilePushNotification/)
 })
 
-test('Invite intent is audit-only and cannot generate external delivery', async () => {
+test('Invite TEST intent remains audit-only while production resend uses the canonical recipient service', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
   assert.match(source, /invite_\$\{action\}_intent/)
   assert.match(source, /communicationDelivery: 'disabled'/)
   assert.match(source, /schedules: 'disabled'/)
-  assert.doesNotMatch(source, /send.*email|send.*push|schedule.*email/i)
+  assert.match(source, /send-event-player-invitation/)
+  assert.match(source, /idempotencyKey: requestId\('coach-invite-resend'\)/)
+  assert.doesNotMatch(source, /sendEmail|sendSms|exp\.host\/--\/api\/v2\/push\/send/i)
 })
 
 test('native screen routes every Phase 31E domain through semantic palette styles', async () => {

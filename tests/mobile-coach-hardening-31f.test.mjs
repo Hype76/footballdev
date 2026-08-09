@@ -255,10 +255,11 @@ test('production-shape helpers tolerate null, empty, and malformed optional coll
   })
 })
 
-test('Phase 31F source keeps production, communication, EAS, and Parent feature boundaries closed', () => {
+test('Phase 31F notification source keeps direct delivery and EAS boundaries closed after production routing', () => {
   const combined = `${core}\n${notificationCore}\n${notifications}\n${endpoint}`
   assert.doesNotMatch(combined, /eas build|eas submit|sendEmail|sendSms|exp\.host\/--\/api\/v2\/push\/send/i)
   assert.match(notifications, /TEST_API_ORIGIN/)
-  assert.match(notifications, /coach_notification_test_environment_required/)
-  assert.doesNotMatch(combined, /hvapkizujvsahvgspser|productionAccess\s*:\s*true/)
+  assert.match(notifications, /PRODUCTION_API_ORIGIN/)
+  assert.match(notifications, /coach_notification_environment_boundary_required/)
+  assert.doesNotMatch(combined, /productionAccess\s*:\s*true/)
 })

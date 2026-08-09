@@ -14,6 +14,7 @@ import {
   getCoachPlayerMutationPolicy,
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
+import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import {
   coachSessionFormFromSession,
   filterCoachSessions,
@@ -28,6 +29,8 @@ import {
   updateCoachSessionPlayerNotes,
 } from '../../mobile-core/src/coachSessionsData'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+
+const config = getMobileRuntimeConfig('coach')
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -209,7 +212,7 @@ export function CoachCalendarScreen({ context, onNavigate, palette, user }) {
               {players.length === 0 ? <Text style={styles.body}>No active Players are available in this Team context.</Text> : null}
             </View>
           ) : null}
-          <View style={styles.warning}><Text style={styles.body}>External communications and schedules are disabled in the test environment.</Text></View>
+          <View style={styles.warning}><Text style={styles.body}>{config.isProduction ? 'This save updates canonical Calendar state. Any recipient communication requires its separate confirmed action.' : 'External communications and schedules are disabled in the test environment.'}</Text></View>
           <Button disabled={saving} label={saving ? 'Saving...' : 'Save event'} onPress={save} styles={styles} />
           <Button label="Cancel" onPress={() => { setForm(null); setSelected(null) }} secondary styles={styles} />
         </View>

@@ -59,6 +59,7 @@
     "mobile:evidence:init": "node apps/scripts/mobile-evidence-init.mjs",
     "mobile:evidence:check": "node apps/scripts/mobile-evidence-init.mjs --check",
     "mobile:build:coach:android:internal": "npm --prefix apps/coach-mobile run build:android:internal",
+    "mobile:build:coach:android:internal-live": "npm --prefix apps/coach-mobile run build:android:internal-live",
     "mobile:build:coach:android:store-test": "npm --prefix apps/coach-mobile run build:android:store-test",
     "mobile:build:coach:android:store-live": "npm --prefix apps/coach-mobile run build:android:store-live",
     "mobile:build:coach:ios:store-test": "npm --prefix apps/coach-mobile run build:ios:store-test",

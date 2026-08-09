@@ -138,7 +138,8 @@ export function resolveCoachNotificationOpen(data, authority = {}) {
 
 export function getCoachInstallationOwnerKey({ appRole = 'coach', environment = 'test', installationId, userId }) {
   if (normalizeLower(appRole) !== 'coach') throw new Error('coach_installation_app_mismatch')
-  if (normalizeLower(environment) !== 'test') throw new Error('coach_installation_environment_mismatch')
+  const scope = normalizeLower(environment)
+  if (!['test', 'production'].includes(scope)) throw new Error('coach_installation_environment_mismatch')
   if (!isCoachInstallationId(installationId) || !normalize(userId)) throw new Error('coach_installation_owner_invalid')
-  return `coach:test:${normalize(userId)}:${normalizeLower(installationId)}`
+  return `coach:${scope}:${normalize(userId)}:${normalizeLower(installationId)}`
 }

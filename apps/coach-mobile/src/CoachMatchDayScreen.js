@@ -25,7 +25,10 @@ import {
   voidCoachMatchDayShootoutKick,
 } from '../../mobile-core/src/coachMatchDayData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
+import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+
+const config = getMobileRuntimeConfig('coach')
 
 function normalize(value) { return String(value ?? '').trim() }
 function errorMessage(error, fallback) { return normalize(error?.message) || fallback }
@@ -95,7 +98,7 @@ function SquadPanel({ actions, busy, match, onSetDecision, players, styles }) {
 function VolunteerPanel({ actions, busy, match, onSelect, styles }) {
   const assignmentByRole = new Map((match.roleAssignments || []).map((item) => [item.role, item]))
   return <View style={styles.stack}>
-    <View style={styles.warning}><Text style={styles.cardTitle}>Communications disabled</Text><Text style={styles.body}>This test app does not send scorer requests, availability reminders, email, or push notifications. It can only select from existing server-authoritative responses.</Text></View>
+    <View style={styles.warning}><Text style={styles.cardTitle}>{config.isProduction ? 'Canonical recipient action' : 'Communications disabled'}</Text><Text style={styles.body}>{config.isProduction ? 'Volunteer assignment is online-only. A confirmed change uses canonical production authority and may queue the approved recipient notification.' : 'This test app does not send scorer requests, availability reminders, email, or push notifications. It can only select from existing server-authoritative responses.'}</Text></View>
     {match.volunteerEligibilityError ? <Text style={styles.dangerText}>{match.volunteerEligibilityError}</Text> : null}
     {['scorer', 'linesman', 'referee'].map((role) => { const assignment = assignmentByRole.get(role); const assignmentRequest = (match.availabilityRequests || []).find((request) => request.parentLinkId === assignment?.parentLinkId); return <View key={role} style={styles.card}><Text style={styles.cardTitle}>{role.charAt(0).toUpperCase() + role.slice(1)}</Text><Text style={styles.body}>{assignment?.playerName || (assignment ? 'Assigned Parent' : 'Not assigned')}</Text>{assignment && assignmentRequest ? <Button disabled={busy || !actions.canSelectVolunteers} label="Remove assignment" onPress={() => onSelect(assignmentRequest, role, false)} secondary styles={styles} /> : null}{(match.availabilityRequests || []).filter((request) => role !== 'scorer' || request.scorerEligible).filter((request) => request[`volunteer${role.charAt(0).toUpperCase() + role.slice(1)}Response`] === 'yes').map((request) => <Button disabled={busy || !actions.canSelectVolunteers} key={`${role}-${request.id}`} label={`Select ${request.recipientName || request.playerName || 'eligible Parent'}`} onPress={() => onSelect(request, role, true)} secondary styles={styles} />)}</View> })}
   </View>

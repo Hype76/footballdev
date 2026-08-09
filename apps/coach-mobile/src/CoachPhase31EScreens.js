@@ -28,7 +28,10 @@ import {
   summarizeCoachInvites,
   summarizeCoachPoll,
 } from '../../mobile-core/src/coachPhase31ECore'
+import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+
+const config = getMobileRuntimeConfig('coach')
 
 const LOADERS = {
   development: getCoachDevelopmentWorkspace,
@@ -133,7 +136,7 @@ export function CoachPhase31EScreen({ domain, context, onNavigate, palette, user
       {!loading && !error && domain === 'invites' ? <InvitesDomain {...common} /> : null}
       <View style={styles.panel}>
         <Text style={styles.heading}>Safety boundary</Text>
-        <Text style={styles.body}>Real email {COACH_PHASE_31E_COMMUNICATION_POLICY.realEmail}. Real push {COACH_PHASE_31E_COMMUNICATION_POLICY.realPush}. SMS {COACH_PHASE_31E_COMMUNICATION_POLICY.sms}. Unsafe offline replay is disabled.</Text>
+        <Text style={styles.body}>{config.isProduction ? 'Production mutations are online-only and use canonical server authority. Recipient communication requires an explicit confirmed action. Unsafe offline replay is disabled.' : `Real email ${COACH_PHASE_31E_COMMUNICATION_POLICY.realEmail}. Real push ${COACH_PHASE_31E_COMMUNICATION_POLICY.realPush}. SMS ${COACH_PHASE_31E_COMMUNICATION_POLICY.sms}. Unsafe offline replay is disabled.`}</Text>
       </View>
     </View>
   )
@@ -207,18 +210,18 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
 }
 
 function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
-  const [title, setTitle] = useState('FP TEST resource')
-  const [url, setUrl] = useState('https://example.com/fp-test-resource')
+  const [title, setTitle] = useState(config.isProduction ? '' : 'FP TEST resource')
+  const [url, setUrl] = useState(config.isProduction ? '' : 'https://example.com/fp-test-resource')
   const [selectedId, setSelectedId] = useState(data[0]?.id || '')
   const selected = data.find((resource) => resource.id === selectedId)
   const open = async (resource) => {
     try { await Linking.openURL(await getCoachResourceAccessUrl(user, resource)) } catch (error) { setNotice(error.message) }
   }
   const create = async () => {
-    try { await createCoachExternalResource(user, { title, externalUrl: url, category: 'general' }); setNotice('Synthetic external Resource created.'); await load() } catch (error) { setNotice(error.message) }
+    try { await createCoachExternalResource(user, { title, externalUrl: url, category: 'general' }); setNotice(config.isProduction ? 'External Resource created.' : 'Synthetic external Resource created.'); await load() } catch (error) { setNotice(error.message) }
   }
   const shareWithTeam = async () => {
-    try { await setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], 'Shared from Coach mobile FP TEST'); setNotice('Resource shared with the active FP TEST Team.'); await load() } catch (error) { setNotice(error.message) }
+    try { await setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], config.isProduction ? 'Shared from Football Player Coach' : 'Shared from Coach mobile FP TEST'); setNotice(config.isProduction ? 'Resource shared with the active Team.' : 'Resource shared with the active FP TEST Team.'); await load() } catch (error) { setNotice(error.message) }
   }
   const removeSharing = async (linkId) => {
     try { await removeCoachResourceSharing(user, selected, linkId); setNotice('Resource assignment removed.'); await load() } catch (error) { setNotice(error.message) }
@@ -227,7 +230,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
     <View style={styles.stack}>
       {data.length ? data.map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{resource.category} | {resource.type} | {resource.links.length} assignments</Text><Text style={styles.body}>{resource.description || 'No description'}</Text></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
       {selected ? <View style={styles.panel}><Text style={styles.heading}>Selected Resource</Text><Button label="Open Resource" onPress={() => void open(selected)} styles={styles} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />{selected.links.map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Staff only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}</View> : null}
-      <View style={styles.panel}><Text style={styles.heading}>Add secure external link</Text><TextInput accessibilityLabel="Resource title" onChangeText={setTitle} style={styles.input} value={title} /><TextInput accessibilityLabel="HTTPS Resource URL" autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Create FP TEST Resource" onPress={create} styles={styles} /><Text style={styles.body}>File upload, bulk governance, archive, and retention stay in the web workflow.</Text></View>
+      <View style={styles.panel}><Text style={styles.heading}>Add secure external link</Text><TextInput accessibilityLabel="Resource title" onChangeText={setTitle} style={styles.input} value={title} /><TextInput accessibilityLabel="HTTPS Resource URL" autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Create Resource' : 'Create FP TEST Resource'} onPress={create} styles={styles} /><Text style={styles.body}>File upload, bulk governance, archive, and retention stay in the web workflow.</Text></View>
     </View>
   )
 }
@@ -243,14 +246,14 @@ function ChatDomain({ data, onNavigate, setNotice, stale, styles, user }) {
     try { const next = await getCoachChatMessages(user, nextRoom); setMessages(next); await markCoachChatRead(user, nextRoom) } catch (error) { setNotice(error.message) }
   }
   const send = async () => {
-    try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice('Synthetic Chat message saved inside FP TEST only.') } catch (error) { setNotice(error.message) }
+    try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice(config.isProduction ? 'Message sent through the canonical Chat.' : 'Synthetic Chat message saved inside FP TEST only.') } catch (error) { setNotice(error.message) }
   }
   if (!rooms.length) return <Empty copy="No Staff Chat or Parent Chat membership is available in this Team." styles={styles} />
   return (
     <View style={styles.stack}>
       <View style={styles.row}><Button label="Team Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View>
       <View style={styles.row}>{rooms.map((item) => <Button key={`${item.kind}:${item.id}`} label={`${item.kind === 'staff' ? 'Staff' : 'Parent'} | ${item.title}`} onPress={() => void open(item)} secondary={item.id !== roomId} styles={styles} />)}</View>
-      <View style={styles.panel}><Text style={styles.heading}>{room?.title}</Text><Text style={styles.body}>{room?.kind === 'staff' ? 'Staff-only membership authority' : 'Parent Chat staff authority'} | {room?.unreadCount || 0} unread</Text>{messages.length ? messages.map((message) => <View key={message.id} style={styles.stack}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>) : <Text style={styles.body}>No messages loaded yet.</Text>}<TextInput accessibilityLabel="Chat message" multiline onChangeText={setBody} style={[styles.input, styles.inputMultiline]} value={body} /><Button disabled={stale || !room?.canPost || !isSyntheticCoachTarget(room?.title)} label="Send to FP TEST channel" onPress={send} styles={styles} /><Text style={styles.body}>Sending is online-only and restricted to rooms marked FP TEST. No customer delivery is permitted.</Text></View>
+      <View style={styles.panel}><Text style={styles.heading}>{room?.title}</Text><Text style={styles.body}>{room?.kind === 'staff' ? 'Staff-only membership authority' : 'Parent Chat staff authority'} | {room?.unreadCount || 0} unread</Text>{messages.length ? messages.map((message) => <View key={message.id} style={styles.stack}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>) : <Text style={styles.body}>No messages loaded yet.</Text>}<TextInput accessibilityLabel="Chat message" multiline onChangeText={setBody} style={[styles.input, styles.inputMultiline]} value={body} /><Button disabled={stale || !room?.canPost || (!config.isProduction && !isSyntheticCoachTarget(room?.title))} label={config.isProduction ? 'Send message' : 'Send to FP TEST channel'} onPress={send} styles={styles} /><Text style={styles.body}>{config.isProduction ? 'Sending is online-only and the server revalidates current room membership.' : 'Sending is online-only and restricted to rooms marked FP TEST. No customer delivery is permitted.'}</Text></View>
     </View>
   )
 }
@@ -269,14 +272,14 @@ function PollsDomain({ data, load, setNotice, stale, styles, user }) {
   const [selectedId, setSelectedId] = useState(data[0]?.id || '')
   const selected = data.find((poll) => poll.id === selectedId)
   const create = async () => {
-    try { await createCoachPoll(user, { title: `FP TEST availability ${Date.now()}`, audience: 'staff', options: [{ label: 'Available' }, { label: 'Unavailable' }], anonymous: true }); setNotice('Synthetic Poll created without external delivery.'); await load() } catch (error) { setNotice(error.message) }
+    try { await createCoachPoll(user, { title: `${config.isProduction ? 'Team' : 'FP TEST'} availability ${new Date().toISOString().slice(0, 10)}`, audience: 'staff', options: [{ label: 'Available' }, { label: 'Unavailable' }], anonymous: true }); setNotice(config.isProduction ? 'Team Poll created.' : 'Synthetic Poll created without external delivery.'); await load() } catch (error) { setNotice(error.message) }
   }
   const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice('Poll closed.'); await load() } catch (error) { setNotice(error.message) } } }])
   const reopen = async () => { try { await setCoachPollStatus(user, selected, 'open'); setNotice('Poll reopened.'); await load() } catch (error) { setNotice(error.message) } }
   return (
     <View style={styles.stack}>
       {data.length ? data.map((poll) => <Pressable accessibilityRole="button" key={poll.id} onPress={() => setSelectedId(poll.id)} style={[styles.panel, poll.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{poll.title}</Text><Text style={styles.body}>{poll.audience} | {poll.status} | {poll.anonymous ? 'Anonymous' : 'Named responses'}</Text>{summarizeCoachPoll(poll).map((option) => <Text key={option.id} style={styles.body}>{option.label}: {option.count}</Text>)}</Pressable>) : <Empty copy="No Team or Club Polls are available." styles={styles} />}
-      <View style={styles.row}><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Create FP TEST Poll" onPress={create} styles={styles} /><Button disabled={stale || !selected || selected.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close selected Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || !selected || selected.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen selected Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
+      <View style={styles.row}><Button disabled={stale || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Create availability Poll' : 'Create FP TEST Poll'} onPress={create} styles={styles} /><Button disabled={stale || !selected || selected.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close selected Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || !selected || selected.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen selected Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
     </View>
   )
 }
@@ -286,15 +289,25 @@ function InvitesDomain({ data, onNavigate, setNotice, stale, styles, user }) {
   const selected = data.all?.find((invite) => invite.id === selectedId)
   const summary = summarizeCoachInvites(data.all)
   const record = async (action) => {
-    try { await recordCoachInviteIntent(user, selected, action); setNotice(`${action} intent recorded. External delivery remains disabled.`) } catch (error) { setNotice(error.message) }
+    try {
+      const result = await recordCoachInviteIntent(user, selected, action)
+      setNotice(config.isProduction ? `Invitation resent to ${result.recipientCount} server-resolved recipient${result.recipientCount === 1 ? '' : 's'}.` : `${action} intent recorded. External delivery remains disabled.`)
+    } catch (error) { setNotice(error.message) }
+  }
+  const resend = () => {
+    if (!config.isProduction) return void record('resend')
+    Alert.alert('Resend this Invitation?', 'This queues the approved Invitation to the server-resolved eligible contacts. The existing response identity and any saved response are preserved.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Resend', onPress: () => void record('resend') },
+    ])
   }
   return (
     <View style={styles.stack}>
       <View style={styles.panel}><Text style={styles.heading}>Response overview</Text><Text style={styles.body}>Awaiting {summary.awaiting} | Available {summary.available} | Unavailable {summary.unavailable} | Maybe {summary.maybe} | Selected {summary.selected} | Not selected {summary.notSelected} | Stale {summary.stale}</Text></View>
       {(data.all || []).length ? data.all.map((invite) => <Pressable accessibilityRole="button" key={`${invite.kind}:${invite.id}`} onPress={() => setSelectedId(invite.id)} style={[styles.panel, invite.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{invite.title}</Text><Text style={styles.body}>{invite.kind} | {invite.playerName} | {invite.status}</Text></Pressable>) : <Empty copy="No Match, training, or Calendar invitation responses are available." styles={styles} />}
-      <View style={styles.row}><Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label="Record resend intent" onPress={() => void record('resend')} styles={styles} /><Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label="Record close intent" onPress={() => void record('close')} secondary styles={styles} /></View>
+      <View style={styles.row}><Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Resend Invitation' : 'Record resend intent'} onPress={resend} styles={styles} />{config.isProduction ? null : <Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label="Record close intent" onPress={() => void record('close')} secondary styles={styles} />}</View>
       <View style={styles.row}><Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />{selected?.kind === 'match' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{selected?.kind === 'training' ? <Button label="Open Sessions" onPress={() => onNavigate('sessions')} secondary styles={styles} /> : null}</View>
-      <Text style={styles.body}>Intent proof only. No email, push, SMS, schedule, or real customer communication is generated.</Text>
+      <Text style={styles.body}>{config.isProduction ? 'Resend is online-only, explicitly confirmed, recipient-scoped, and handled by the canonical production Invitation service. Close or cancel remains in the authoritative web workflow.' : 'Intent proof only. No email, push, SMS, schedule, or real customer communication is generated.'}</Text>
     </View>
   )
 }

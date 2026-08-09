@@ -8,7 +8,8 @@ import {
   getCoachEntryIdentity,
   recordCoachOperationalAudit,
 } from './coachOperationalData'
-import { supabase } from './supabase'
+import { fetchJsonWithTimeout, joinApiPath } from './http'
+import { getAccessToken, supabase } from './supabase'
 import {
   assertSyntheticCoachCommunicationTarget,
   normalizeCoachChatMessage,
@@ -36,11 +37,15 @@ function requestId(prefix) {
   return Crypto.randomUUID()
 }
 
-function assertTestMutation(user, options = {}) {
+function assertCanonicalMutation(user, options = {}) {
   assertCoachOperationalMutation(user, options)
-  if (config.isProduction || config.supabaseEnvironment !== 'test') {
-    throw new Error('Coach Phase 31E mutations are restricted to the approved test environment.')
+  if (!config.isUsable || !['test', 'production'].includes(config.supabaseEnvironment)) {
+    throw new Error('Coach mutation environment is not approved.')
   }
+}
+
+function assertSyntheticTargetInTest(target) {
+  if (!config.isProduction) assertSyntheticCoachCommunicationTarget(target)
 }
 
 function assertTeamEntity(user, entity, label) {
@@ -88,7 +93,7 @@ export async function getCoachDevelopmentWorkspace(user) {
 }
 
 export async function saveCoachDevelopmentDraft(user, { draftId = '', form, player, values = {}, clientSaveVersion = 0 } = {}) {
-  assertTestMutation(user, { requiresTeam: true })
+  assertCanonicalMutation(user, { requiresTeam: true })
   assertCoachCapability(user, CAPABILITIES.assessments)
   assertTeamEntity(user, player, 'Player')
   if (!form?.id || !player?.id) throw new Error('Choose a Player and Development form before saving a draft.')
@@ -127,7 +132,7 @@ export async function saveCoachDevelopmentDraft(user, { draftId = '', form, play
 }
 
 export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form, player, sessionId = '', values = {}, notes = '', shareWithParent = false } = {}) {
-  assertTestMutation(user, { requiresTeam: true })
+  assertCanonicalMutation(user, { requiresTeam: true })
   assertCoachCapability(user, CAPABILITIES.assessments)
   assertTeamEntity(user, player, 'Player')
   if (!form?.id || !player?.id) throw new Error('Choose a Player and Development form before finalising.')
@@ -206,7 +211,7 @@ export async function getCoachResources(user) {
 }
 
 export async function createCoachExternalResource(user, { title = '', description = '', category = 'general', externalUrl = '' } = {}) {
-  assertTestMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
   const safeUrl = validateCoachResourceUrl(externalUrl)
   if (!normalize(title)) throw new Error('Add a resource title.')
   if (!safeUrl.safe) throw new Error(safeUrl.reason)
@@ -217,7 +222,7 @@ export async function createCoachExternalResource(user, { title = '', descriptio
 }
 
 export async function setCoachResourceSharing(user, resource, targets = [], shareDescription = '') {
-  assertTestMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
   assertTeamEntity(user, resource, 'Resource')
   const safeTargets = (targets || []).filter((target) => target?.linkedId && ['player', 'team'].includes(target.linkedType) && (!target.teamId || target.teamId === user.activeTeamId))
   if (!resource?.id || safeTargets.length === 0) throw new Error('Choose an in-scope Resource and sharing target.')
@@ -232,7 +237,7 @@ export async function setCoachResourceSharing(user, resource, targets = [], shar
 }
 
 export async function removeCoachResourceSharing(user, resource, linkId) {
-  assertTestMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
   assertTeamEntity(user, resource, 'Resource')
   await rpc('remove_resource_library_link', { target_link_id: linkId, target_club_id: user.clubId, target_team_id: user.activeTeamId })
 }
@@ -287,9 +292,9 @@ export async function getCoachChatMessages(user, room) {
 }
 
 export async function sendCoachChatMessage(user, room, body) {
-  assertTestMutation(user, { requiresTeam: true })
+  assertCanonicalMutation(user, { requiresTeam: true })
   assertTeamEntity(user, room, 'Chat')
-  assertSyntheticCoachCommunicationTarget(room)
+  assertSyntheticTargetInTest(room)
   const message = normalize(body)
   if (!message || message.length > 2000) throw new Error('Add a Chat message of 2000 characters or fewer.')
   if (room.kind === 'parent') {
@@ -326,10 +331,10 @@ export async function getCoachPolls(user) {
 }
 
 export async function createCoachPoll(user, poll) {
-  assertTestMutation(user, { minimumRank: 50, requiresTeam: true })
-  assertSyntheticCoachCommunicationTarget({ title: poll?.title })
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertSyntheticTargetInTest({ title: poll?.title })
   const options = (poll?.options || []).map((option, index) => ({ id: normalize(option.id) || `option-${index + 1}`, label: normalize(option.label || option), value: normalize(option.value), playerId: normalize(option.playerId) })).filter((option) => option.label)
-  if (!normalize(poll?.title) || options.length < 2) throw new Error('Add an FP TEST title and at least two Poll options.')
+  if (!normalize(poll?.title) || options.length < 2) throw new Error(`Add ${config.isProduction ? 'a title' : 'an FP TEST title'} and at least two Poll options.`)
   const data = await rpc('create_team_poll', {
     p_team_id: user.activeTeamId, p_title: normalize(poll.title), p_description: normalize(poll.description), p_audience: poll.audience === 'staff' ? 'staff' : 'parents', p_poll_type: ['time', 'awards'].includes(poll.pollType) ? poll.pollType : 'text',
     p_options: options, p_closes_at: normalize(poll.closesAt) || null, p_allow_multiple: poll.allowMultiple === true, p_max_choices: poll.allowMultiple ? Number(poll.maxChoices || 0) || null : null,
@@ -339,7 +344,7 @@ export async function createCoachPoll(user, poll) {
 }
 
 export async function setCoachPollStatus(user, poll, status) {
-  assertTestMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
   assertTeamEntity(user, poll, 'Poll')
   if (!poll?.id) throw new Error('Choose a Poll.')
   const data = await rpc('set_team_poll_status', { p_poll_id: poll.id, p_status: status === 'closed' ? 'closed' : 'open' })
@@ -360,7 +365,7 @@ export async function getCoachInvitesAndAvailability(user) {
     const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
     const event = Array.isArray(request?.calendar_events) ? request.calendar_events[0] : request?.calendar_events
     const response = Array.isArray(row.training_availability_responses) ? row.training_availability_responses[0] : row.training_availability_responses
-    return normalizeCoachInvite({ ...row, ...response, title: event?.title, cancelled_at: event?.cancelled_at, deleted_at: event?.deleted_at }, 'training')
+    return normalizeCoachInvite({ ...row, ...response, occurrence_date: request?.occurrence_date, title: event?.title, cancelled_at: event?.cancelled_at, deleted_at: event?.deleted_at }, 'training')
   })
   const match = (matchResult.data || []).map((row) => {
     const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days
@@ -370,10 +375,42 @@ export async function getCoachInvitesAndAvailability(user) {
 }
 
 export async function recordCoachInviteIntent(user, invite, action) {
-  assertTestMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
   assertTeamEntity(user, invite, 'Invitation')
   if (!['create', 'resend', 'cancel', 'close'].includes(action)) throw new Error('Choose a supported Invitation action.')
   if (invite?.stale || invite?.cancelled) throw new Error('This Invitation target is stale or cancelled.')
+
+  if (config.isProduction) {
+    if (action !== 'resend') throw new Error('Use the authoritative web workflow to close or cancel an Invitation.')
+    const accessToken = await getAccessToken()
+    if (!accessToken) throw new Error('Sign in again before resending an Invitation.')
+    const sourceType = invite.kind === 'match' ? 'match-day' : 'calendar'
+    const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-event-player-invitation'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'resend',
+        eventId: invite.eventId,
+        idempotencyKey: requestId('coach-invite-resend'),
+        occurrenceDate: invite.occurrenceDate || '',
+        playerId: invite.playerId,
+        preview: false,
+        sourceType,
+      }),
+    })
+    if (!ok || result?.success === false) {
+      throw Object.assign(new Error(normalize(result?.message) || 'The Invitation could not be resent.'), { status: response.status })
+    }
+    return Object.freeze({
+      action: 'resend',
+      communicationDelivery: 'canonical_production_queue',
+      duplicate: result?.duplicate === true,
+      recorded: true,
+      recipientCount: Number(result?.recipientCount ?? result?.queuedCount ?? 0),
+      requestId: normalize(result?.requestId),
+    })
+  }
+
   await recordCoachOperationalAudit({ user, action: `invite_${action}_intent`, entityType: `${invite.kind}_invite`, entityId: invite.id || invite.eventId, metadata: { teamId: user.activeTeamId, communicationDelivery: 'disabled', schedules: 'disabled', syntheticOnly: true } })
   return Object.freeze({ action, communicationDelivery: 'disabled', recorded: true, requestId: requestId('coach-invite-intent') })
 }

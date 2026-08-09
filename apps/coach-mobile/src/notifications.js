@@ -15,18 +15,42 @@ import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import { getAccessToken } from '../../mobile-core/src/supabase'
 
 const TEST_API_ORIGIN = 'https://footballplayer-mobile-test-api.netlify.app'
-const INSTALLATION_PATH = '/api/mobile-test/coach-push-installation'
+const PRODUCTION_API_ORIGIN = 'https://footballplayer.online'
+const TEST_INSTALLATION_PATH = '/api/mobile-test/coach-push-installation'
+const PRODUCTION_INSTALLATION_PATH = '/api/mobile/coach-push-installation'
 const CHANNEL_ID = 'coach-updates'
 const TOKEN_ATTEMPTS = 2
 const TOKEN_RETRY_MS = 750
 
 const normalize = (value) => String(value ?? '').trim()
 
-function requireTestApi(apiBaseUrl) {
+function getNotificationEnvironment(apiBaseUrl) {
   let origin = ''
   try { origin = new URL(normalize(apiBaseUrl)).origin } catch { origin = '' }
-  if (origin !== TEST_API_ORIGIN) throw new Error('coach_notification_test_environment_required')
-  return origin
+  if (origin === TEST_API_ORIGIN) return 'test'
+  if (origin === PRODUCTION_API_ORIGIN) return 'production'
+  throw new Error('coach_notification_environment_boundary_required')
+}
+
+function getInstallationPath(apiBaseUrl) {
+  return getNotificationEnvironment(apiBaseUrl) === 'production'
+    ? PRODUCTION_INSTALLATION_PATH
+    : TEST_INSTALLATION_PATH
+}
+
+function getStorageKeys(apiBaseUrl) {
+  return getCoachNotificationStorageKeys(getNotificationEnvironment(apiBaseUrl))
+}
+
+export async function clearIncompatibleCoachNotificationState(apiBaseUrl) {
+  const currentEnvironment = getNotificationEnvironment(apiBaseUrl)
+  const previousEnvironment = currentEnvironment === 'production' ? 'test' : 'production'
+  const keys = getCoachNotificationStorageKeys(previousEnvironment)
+  await Promise.all([
+    SecureStore.deleteItemAsync(keys.installationId),
+    AsyncStorage.removeItem(keys.detailLevel),
+  ])
+  return { previousEnvironment, quarantined: true }
 }
 
 function safeError(error, stage) {
@@ -35,8 +59,8 @@ function safeError(error, stage) {
   return next
 }
 
-async function getInstallationId() {
-  const key = getCoachNotificationStorageKeys('test').installationId
+async function getInstallationId(apiBaseUrl) {
+  const key = getStorageKeys(apiBaseUrl).installationId
   const current = normalize(await SecureStore.getItemAsync(key))
   if (current) return current
   const installationId = Crypto.randomUUID()
@@ -46,13 +70,13 @@ async function getInstallationId() {
   return installationId
 }
 
-async function getDetailLevel() {
-  return normalizeCoachNotificationLevel(await AsyncStorage.getItem(getCoachNotificationStorageKeys('test').detailLevel))
+async function getDetailLevel(apiBaseUrl) {
+  return normalizeCoachNotificationLevel(await AsyncStorage.getItem(getStorageKeys(apiBaseUrl).detailLevel))
 }
 
-async function setDetailLevel(value) {
+async function setDetailLevel(value, apiBaseUrl) {
   const detailLevel = normalizeCoachNotificationLevel(value)
-  await AsyncStorage.setItem(getCoachNotificationStorageKeys('test').detailLevel, detailLevel)
+  await AsyncStorage.setItem(getStorageKeys(apiBaseUrl).detailLevel, detailLevel)
   return detailLevel
 }
 
@@ -66,8 +90,8 @@ async function getPermissionState() {
   }
 }
 
-async function request({ apiBaseUrl, body, method, path = INSTALLATION_PATH }) {
-  requireTestApi(apiBaseUrl)
+async function request({ apiBaseUrl, body, method, path = getInstallationPath(apiBaseUrl) }) {
+  getNotificationEnvironment(apiBaseUrl)
   const accessToken = await getAccessToken()
   if (!accessToken) throw Object.assign(new Error('sign_in_required'), { status: 401 })
   const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, path), {
@@ -113,11 +137,11 @@ export function addCoachPushTokenListener(listener) {
 }
 
 export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
-  requireTestApi(apiBaseUrl)
-  const [detailLevel, installationId, permission] = await Promise.all([getDetailLevel(), getInstallationId(), getPermissionState()])
+  const installationPath = getInstallationPath(apiBaseUrl)
+  const [detailLevel, installationId, permission] = await Promise.all([getDetailLevel(apiBaseUrl), getInstallationId(apiBaseUrl), getPermissionState()])
   let server = { contextId: '', detailLevel, enabled: false, registered: false }
   try {
-    const result = await request({ apiBaseUrl, method: 'GET', path: `${INSTALLATION_PATH}?installationId=${encodeURIComponent(installationId)}` })
+    const result = await request({ apiBaseUrl, method: 'GET', path: `${installationPath}?installationId=${encodeURIComponent(installationId)}` })
     server = result.installation || server
   } catch (error) {
     if (error.status !== 401) throw safeError(error, 'api')
@@ -134,7 +158,7 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
 }
 
 export async function enableCoachNotifications({ apiBaseUrl, contextId, easProjectId }) {
-  requireTestApi(apiBaseUrl)
+  getNotificationEnvironment(apiBaseUrl)
   if (!Device.isDevice) throw safeError({ message: 'device unavailable' }, 'device')
   let permission
   try {
@@ -142,10 +166,10 @@ export async function enableCoachNotifications({ apiBaseUrl, contextId, easProje
     permission = current.granted ? current : await Notifications.requestPermissionsAsync()
   } catch (error) { throw safeError(error, 'permission') }
   const granted = permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
-  if (!granted) return normalizeCoachNotificationState({ canAskAgain: permission.canAskAgain !== false, detailLevel: await getDetailLevel(), message: 'Notification permission is off. The Coach app remains fully usable.', permissionGranted: false, permissionStatus: normalize(permission.status).toLowerCase() || 'denied' })
+  if (!granted) return normalizeCoachNotificationState({ canAskAgain: permission.canAskAgain !== false, detailLevel: await getDetailLevel(apiBaseUrl), message: 'Notification permission is off. The Coach app remains fully usable.', permissionGranted: false, permissionStatus: normalize(permission.status).toLowerCase() || 'denied' })
   const token = normalize((await getExpoPushToken(easProjectId)).data)
   if (!token) throw safeError({ message: 'token unavailable' }, 'expo')
-  const [detailLevel, installationId] = await Promise.all([getDetailLevel(), getInstallationId()])
+  const [detailLevel, installationId] = await Promise.all([getDetailLevel(apiBaseUrl), getInstallationId(apiBaseUrl)])
   let result
   try {
     result = await request({
@@ -166,8 +190,8 @@ export async function enableCoachNotifications({ apiBaseUrl, contextId, easProje
 }
 
 export async function updateCoachNotificationPreference({ apiBaseUrl, contextId, detailLevel }) {
-  const normalizedLevel = await setDetailLevel(detailLevel)
-  const installationId = await getInstallationId()
+  const normalizedLevel = await setDetailLevel(detailLevel, apiBaseUrl)
+  const installationId = await getInstallationId(apiBaseUrl)
   const permission = await getPermissionState()
   let server = { contextId, detailLevel: normalizedLevel, enabled: false, registered: false }
   try {
@@ -180,12 +204,12 @@ export async function updateCoachNotificationPreference({ apiBaseUrl, contextId,
 }
 
 export async function unbindCoachNotifications({ accessToken, apiBaseUrl }) {
-  const installationId = await getInstallationId()
+  const installationPath = getInstallationPath(apiBaseUrl)
+  const installationId = await getInstallationId(apiBaseUrl)
   let serverUnbound = false
   if (accessToken && apiBaseUrl) {
     try {
-      requireTestApi(apiBaseUrl)
-      const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, INSTALLATION_PATH), {
+      const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, installationPath), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ installationId }),

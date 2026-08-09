@@ -20,9 +20,13 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
   'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
 ])
+const authorisedCoachProductionReferences = new Set([
+  'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
+])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
+const easEnvironment = productionBuilds.has(`${profile}:${platform}`) ? 'production' : profile === 'development' ? 'development' : 'preview'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -34,9 +38,12 @@ if (!allowedBuilds.has(`${profile}:${platform}`)) {
   process.exit(1)
 }
 
-if (productionBuilds.has(`${profile}:${platform}`)
-  && (appRole !== 'parent' || !authorisedParentProductionReferences.has(promotionReference))) {
-  console.error('Production Parent mobile build not authorised for this reference.')
+const productionReferenceAuthorised = appRole === 'parent'
+  ? authorisedParentProductionReferences.has(promotionReference)
+  : authorisedCoachProductionReferences.has(promotionReference)
+
+if (productionBuilds.has(`${profile}:${platform}`) && !productionReferenceAuthorised) {
+  console.error('Production mobile build not authorised for this app and reference.')
   console.error('Reason: production_build_not_authorised')
   process.exit(1)
 }
@@ -49,6 +56,19 @@ if (!buildConfirmed) {
 }
 
 assertEasLogin()
+
+console.log(`Validating the resolved ${appRole} ${profile} EAS environment without printing values.`)
+const resolvedEnvironmentCommand = `node ../scripts/mobile-resolved-environment-check.mjs ${appRole} ${profile}`
+const resolvedEnvironmentArgument = process.platform === 'win32' ? `"${resolvedEnvironmentCommand}"` : resolvedEnvironmentCommand
+execFileSync('npx', ['eas-cli', 'env:exec', easEnvironment, resolvedEnvironmentArgument, '--non-interactive'], {
+  cwd: resolve(repoRoot, app.path),
+  env: {
+    ...process.env,
+    ...loadMobileLocalEnv(repoRoot, app.path),
+  },
+  stdio: 'inherit',
+  shell: process.platform === 'win32',
+})
 
 console.log(`Running mobile release gate before ${app.expectedName} ${profile} ${platform} build.`)
 execFileSync('npm', ['run', 'mobile:release-check'], {

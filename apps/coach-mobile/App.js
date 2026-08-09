@@ -722,8 +722,8 @@ function SettingsScreen({
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
         <InfoRow label="Encrypted cache" value={cacheState?.hasDocument ? `Ready, schema ${cacheState.schemaVersion}` : cacheState?.status || 'Checking'} />
         <InfoRow label="Cache ownership" value="Coach, user, environment, Club, Team, context, and resource isolated" />
-        <InfoRow label="Environment" value="Test only" />
-        <InfoRow label="Production access" value="False" />
+        <InfoRow label="Environment" value={config.isProduction ? 'Production' : 'Test only'} />
+        <InfoRow label="Production access" value={config.isProduction ? 'True' : 'False'} />
         <InfoRow label="Offline changes" value="High-risk changes require an online authority check" />
       </Section>
       <Section title="App">
@@ -747,7 +747,7 @@ function CoachHeader({ context, user }) {
         <Text numberOfLines={1} style={styles.headerTitle}>{context.clubName}</Text>
         <Text numberOfLines={1} style={styles.headerMeta}>{context.teamName || 'Club context'} | {user.roleLabel}</Text>
       </View>
-      <View style={styles.testBadge}><Text style={styles.testBadgeText}>TEST</Text></View>
+      <View style={styles.testBadge}><Text style={styles.testBadgeText}>{config.isProduction ? 'LIVE' : 'TEST'}</Text></View>
     </View>
   )
 }

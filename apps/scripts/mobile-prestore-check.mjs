@@ -277,18 +277,11 @@ for (const app of apps) {
     assertIncludes(easConfig, '"distribution": "store"', `${app.name} EAS store-test profile`)
     assertIncludes(easConfig, '"autoIncrement": true', `${app.name} EAS config`)
     assertNotIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS tester configuration`)
-    if (app.appRole === 'parent') {
-      assertIncludes(easConfig, '"internal-live"', `${app.name} authorised live internal profile`)
-      assertIncludes(easConfig, '"store-live"', `${app.name} authorised live store profile`)
-      assertIncludes(easConfig, '"environment": "production"', `${app.name} production environment`)
-      assertIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "production"', `${app.name} production classification`)
-      assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} production access`)
-    } else {
-      assertNotIncludes(easConfig, '"environment": "production"', `${app.name} EAS tester configuration`)
-      assertNotIncludes(easConfig, '"internal-live"', `${app.name} unauthorised live internal profile`)
-      assertNotIncludes(easConfig, '"store-live"', `${app.name} unauthorised live store profile`)
-      assertNotIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS tester configuration`)
-    }
+    assertIncludes(easConfig, '"internal-live"', `${app.name} authorised live internal profile`)
+    assertIncludes(easConfig, '"store-live"', `${app.name} authorised live store profile`)
+    assertIncludes(easConfig, '"environment": "production"', `${app.name} production environment`)
+    assertIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "production"', `${app.name} production classification`)
+    assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} production access`)
   }
 
   if (existsSync(join(repoRoot, app.packageJson))) {
@@ -301,8 +294,7 @@ for (const app of apps) {
     if (appPackage.scripts?.['build:android:internal'] !== `node ../scripts/mobile-build-guard.mjs ${app.appRole} internal android`) {
       failures.push(`${app.name} package must include guarded Android internal build script`)
     }
-    if (app.appRole === 'parent'
-      && appPackage.scripts?.['build:android:internal-live'] !== 'node ../scripts/mobile-build-guard.mjs parent internal-live android') {
+    if (appPackage.scripts?.['build:android:internal-live'] !== `node ../scripts/mobile-build-guard.mjs ${app.appRole} internal-live android`) {
       failures.push(`${app.name} package must include guarded Android production internal build script`)
     }
     if (appPackage.scripts?.['build:android:store-test'] !== `node ../scripts/mobile-build-guard.mjs ${app.appRole} store-test android`) {
@@ -544,7 +536,7 @@ assertIncludes(mobileEasEnvListGuard, "['development', 'preview', 'production']"
 assertIncludes(mobileEasEnvListGuard, "'--scope', 'project'", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'This command does not request sensitive values.', 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'Required profile values before native builds:', 'Mobile EAS env list guard')
-assertIncludes(mobileEasEnvListGuard, 'Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until internal and store-test match those values.', 'Mobile EAS env list guard')
+assertIncludes(mobileEasEnvListGuard, 'Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until the selected test or production profile matches every required value.', 'Mobile EAS env list guard')
 assertIncludes(mobileEasAuth, 'Expo EAS login is required before this mobile external command can run.', 'Mobile EAS auth helper')
 assertIncludes(mobileEasAuth, 'npx eas-cli login', 'Mobile EAS auth helper')
 assertIncludes(mobileEasAuthCheck, 'Expo EAS login check passed.', 'Mobile EAS auth check')
@@ -830,7 +822,7 @@ const coachPhase31EScreenSource = read('apps/coach-mobile/src/CoachPhase31EScree
 assertIncludes(coachAppSource, 'CoachPhase31EScreen', 'Coach Phase 31E native routes')
 assertIncludes(coachPhase31ECoreSource, "communications: 'disabled'", 'Coach Phase 31E communication boundary')
 assertIncludes(coachPhase31ECoreSource, "mutations: 'online_required'", 'Coach Phase 31E offline mutation boundary')
-assertIncludes(coachPhase31EDataSource, "config.supabaseEnvironment !== 'test'", 'Coach Phase 31E test-only mutations')
+assertIncludes(coachPhase31EDataSource, "!['test', 'production'].includes(config.supabaseEnvironment)", 'Coach Phase 31E approved mutation environments')
 assertIncludes(coachPhase31EDataSource, "rpc('create_team_poll'", 'Coach Phase 31E canonical Poll creation')
 assertIncludes(coachPhase31EDataSource, "rpc('get_parent_chat_rooms'", 'Coach Phase 31E canonical Parent Chat authority')
 assertIncludes(coachPhase31EDataSource, "rpc('create_external_resource_library_item'", 'Coach Phase 31E canonical Resource authority')
@@ -845,7 +837,7 @@ const coachNotificationApiSource = read('mobile-test-api/netlify/functions/coach
 assertIncludes(coachPhase31FCoreSource, "replay: 'disabled'", 'Coach Phase 31F unsafe replay disabled')
 assertIncludes(coachPhase31FCoreSource, 'COACH_PHASE_31F_MAX_CACHE_BYTES', 'Coach Phase 31F bounded encrypted cache')
 assertIncludes(coachNotificationCoreSource, 'notification_target_stale', 'Coach Phase 31F stale deep-link rejection')
-assertIncludes(coachNotificationClientSource, 'coach_notification_test_environment_required', 'Coach Phase 31F notification test boundary')
+assertIncludes(coachNotificationClientSource, 'coach_notification_environment_boundary_required', 'Coach notification environment boundary')
 assertIncludes(coachNotificationClientSource, 'Notifications.addPushTokenListener', 'Coach Phase 31F token rotation')
 assertIncludes(coachNotificationApiSource, 'requireAuthenticatedFixture', 'Coach Phase 31F authenticated installation API')
 assertNotIncludes(coachNotificationApiSource, 'exp.host/--/api/v2/push/send', 'Coach Phase 31F sends no real push')

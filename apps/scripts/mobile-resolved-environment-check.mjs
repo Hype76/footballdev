@@ -1,0 +1,22 @@
+import { validateResolvedMobileEnvironment } from '../mobile-core/src/environmentBoundary.js'
+
+const [appRole, buildProfile] = process.argv.slice(2)
+
+const result = validateResolvedMobileEnvironment({
+  allowLiveSupabase: process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE,
+  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
+  appRole,
+  buildProfile,
+  easProjectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+  supabaseEnvironment: process.env.EXPO_PUBLIC_SUPABASE_ENV,
+  supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+})
+
+if (!result.pass) {
+  console.error(`Resolved ${appRole || 'unknown'} ${buildProfile || 'unknown'} environment failed closed.`)
+  for (const reason of result.reasonCodes) console.error(reason)
+  process.exit(1)
+}
+
+console.log(`Resolved ${appRole} ${buildProfile} environment passed: ${result.category}.`)

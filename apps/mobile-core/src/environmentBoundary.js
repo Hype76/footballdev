@@ -117,7 +117,7 @@ export function validateResolvedMobileEnvironment({
   const expected = isProductionProfile ? APPROVED_MOBILE_PRODUCTION : APPROVED_MOBILE_TEST
 
   if (!isTestProfile && !isProductionProfile) failures.push('invalid_build_profile')
-  if (isProductionProfile && app !== 'parent') failures.push('production_build_not_authorised')
+  if (isProductionProfile && !['coach', 'parent'].includes(app)) failures.push('production_build_not_authorised')
 
   if (!classification) failures.push('missing_required_variable')
   else if (isTestProfile && classification !== 'test') failures.push('invalid_environment_classification')
