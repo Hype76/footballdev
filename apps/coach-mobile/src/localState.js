@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createCoachContextMarker, parseCoachContextMarker } from '../../mobile-core/src/coachContextCore'
 import { clearNativeNotificationLocalState } from '../../mobile-core/src/notifications'
 import { getCoachLocalStateKeys } from './coachLocalStateCore'
+import { clearCoachOfflineState } from './offline'
 
 export async function readCoachThemeMode() {
   const value = await AsyncStorage.getItem(getCoachLocalStateKeys().theme)
@@ -36,6 +37,7 @@ export async function clearCoachAllLocalState(userId = '') {
     await Promise.all([
       AsyncStorage.multiRemove(Object.values(keys)),
       clearNativeNotificationLocalState('coach'),
+      clearCoachOfflineState(),
     ])
     return
   }
@@ -43,5 +45,6 @@ export async function clearCoachAllLocalState(userId = '') {
   await Promise.all([
     AsyncStorage.multiRemove(keys.filter((key) => key.startsWith('fp.mobile.local.v1.coach.'))),
     clearNativeNotificationLocalState('coach'),
+    clearCoachOfflineState(),
   ])
 }

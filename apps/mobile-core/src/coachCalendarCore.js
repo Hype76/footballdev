@@ -1,0 +1,267 @@
+import {
+  buildRequiredLocalDateTime,
+  normalizeRequiredDate,
+  normalizeRequiredTime,
+  validateOrdinaryEventDateTime,
+} from '../../../src/lib/calendar-datetime-integrity.js'
+import { getDateInTimeZone } from './parentCalendarCore.js'
+
+export const COACH_CALENDAR_EVENT_TYPES = Object.freeze([
+  'general',
+  'training',
+  'match',
+  'meeting',
+  'tournament',
+  'social',
+  'other',
+])
+
+export const COACH_CALENDAR_RECURRENCE = Object.freeze(['none', 'weekly', 'fortnightly', 'monthly'])
+export const COACH_CALENDAR_PARENT_AUDIENCES = Object.freeze(['none', 'involved_players', 'all_team_parents', 'all_club_parents'])
+
+function normalize(value) {
+  return String(value ?? '').trim()
+}
+
+function normalizeKey(value) {
+  return normalize(value).toLowerCase().replaceAll('-', '_').replaceAll(' ', '_')
+}
+
+function related(row, key) {
+  const value = row?.[key]
+  return Array.isArray(value) ? value[0] : value
+}
+
+function londonParts(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+    minute: '2-digit',
+    month: '2-digit',
+    timeZone: 'Europe/London',
+    year: 'numeric',
+  }).formatToParts(date)
+  const part = (type) => parts.find((entry) => entry.type === type)?.value || ''
+  return {
+    date: `${part('year')}-${part('month')}-${part('day')}`,
+    time: `${part('hour')}:${part('minute')}`,
+  }
+}
+
+function offsetMinutesAt(timestamp) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    timeZoneName: 'longOffset',
+  }).formatToParts(new Date(timestamp))
+  const label = parts.find((entry) => entry.type === 'timeZoneName')?.value || 'GMT'
+  const match = label.match(/GMT([+-])(\d{2}):(\d{2})/)
+  if (!match) return 0
+  const minutes = (Number(match[2]) * 60) + Number(match[3])
+  return match[1] === '-' ? -minutes : minutes
+}
+
+export function londonLocalToUtcIso(dateValue, timeValue) {
+  const date = normalizeRequiredDate(dateValue)
+  const time = normalizeRequiredTime(timeValue)
+  if (!date || !time) throw new Error('Enter a valid Europe/London date and time.')
+  const [year, month, day] = date.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
+  const desiredUtc = Date.UTC(year, month - 1, day, hour, minute, 0)
+  const first = desiredUtc - (offsetMinutesAt(desiredUtc) * 60000)
+  const corrected = desiredUtc - (offsetMinutesAt(first) * 60000)
+  const parts = londonParts(corrected)
+  if (parts?.date !== date || parts?.time !== time) {
+    throw new Error('That Europe/London time does not exist because the clocks change.')
+  }
+  return new Date(corrected).toISOString()
+}
+
+export function formatCoachCalendarDateTime(value) {
+  const date = new Date(value || 0)
+  if (Number.isNaN(date.getTime())) return 'Time not set'
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    timeZone: 'Europe/London',
+    weekday: 'short',
+  }).format(date)
+}
+
+export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') {
+  const team = related(row, 'teams')
+  const source = normalizeKey(sourceType)
+  const isMatchDay = source === 'match_day'
+  const isSession = source === 'assessment_session'
+  const matchDate = normalize(row.match_date ?? row.matchDate)
+  const kickoffTime = normalize(row.kickoff_time ?? row.kickoffTime)
+  const sessionDate = normalize(row.session_date ?? row.sessionDate)
+  const startTime = normalize(row.start_time ?? row.startTime)
+  const startsAt = isMatchDay
+    ? (matchDate ? londonLocalToUtcIso(matchDate, kickoffTime || '23:59') : '')
+    : isSession
+      ? (sessionDate && startTime ? londonLocalToUtcIso(sessionDate, startTime) : sessionDate)
+      : normalize(row.starts_at ?? row.startsAt)
+  const endTime = normalize(row.end_time ?? row.endTime)
+  const endsAt = isSession && sessionDate && endTime
+    ? londonLocalToUtcIso(sessionDate, endTime)
+    : normalize(row.ends_at ?? row.endsAt)
+  const teamId = normalize(row.team_id ?? row.teamId)
+  const status = normalizeKey(row.status || (row.cancelled_at || row.cancelledAt ? 'cancelled' : 'scheduled')) || 'scheduled'
+  const eventType = isMatchDay
+    ? 'fixture'
+    : isSession
+      ? normalizeKey(row.session_type ?? row.sessionType) || 'training'
+      : normalizeKey(row.event_type ?? row.eventType) || 'general'
+  const title = isMatchDay
+    ? `${normalize(team?.name ?? row.team_name ?? row.teamName) || 'Team'} v ${normalize(row.opponent) || 'Opponent'}`
+    : normalize(row.title) || (isSession ? 'Training session' : 'Calendar event')
+  const dateParts = londonParts(startsAt)
+
+  return Object.freeze({
+    availabilitySummary: row.availabilitySummary || null,
+    calendarDate: dateParts?.date || normalize(startsAt).slice(0, 10),
+    calendarTime: dateParts?.time || '',
+    cancelledAt: normalize(row.cancelled_at ?? row.cancelledAt) || (status === 'cancelled' ? normalize(row.updated_at ?? row.updatedAt) : ''),
+    canEdit: source === 'calendar_event' && row.canEdit !== false,
+    endsAt,
+    eventType,
+    id: `${source}:${normalize(row.id)}`,
+    isClubWide: !teamId,
+    isInheritedClubEvent: Boolean(row.isInheritedClubEvent),
+    kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
+    location: normalize(row.location || row.venue_address || row.venueAddress || row.venue_name || row.venueName),
+    notes: normalize(row.notes),
+    parentAudience: normalizeKey(row.parent_audience ?? row.parentAudience) || 'none',
+    parentVisible: row.parent_visible === true || row.parentVisible === true,
+    recurrenceFrequency: normalizeKey(row.recurrence_frequency ?? row.recurrenceFrequency) || 'none',
+    recurrenceUntil: normalize(row.recurrence_until ?? row.recurrenceUntil),
+    sourceId: normalize(row.id),
+    sourceType: source,
+    startsAt,
+    status,
+    teamId,
+    teamName: normalize(team?.name ?? row.team ?? row.team_name ?? row.teamName),
+    title,
+    updatedAt: normalize(row.updated_at ?? row.updatedAt),
+  })
+}
+
+export function buildCoachCalendarEvents({ calendarEvents = [], matches = [], sessions = [], availabilityByEventId = {} } = {}) {
+  const ordinary = calendarEvents.map((row) => normalizeCoachCalendarEvent({
+    ...row,
+    availabilitySummary: availabilityByEventId[normalize(row.id)] || null,
+  }))
+  const combined = [
+    ...ordinary,
+    ...matches.map((row) => normalizeCoachCalendarEvent(row, 'match_day')),
+    ...sessions.map((row) => normalizeCoachCalendarEvent(row, 'assessment_session')),
+  ]
+  return combined
+    .filter((event) => event.sourceId && event.calendarDate)
+    .sort((left, right) => (
+      `${left.calendarDate}T${left.calendarTime || '23:59'}`.localeCompare(`${right.calendarDate}T${right.calendarTime || '23:59'}`)
+      || left.title.localeCompare(right.title)
+    ))
+}
+
+export function filterCoachCalendarEvents(events = [], windowKey = 'upcoming', now = new Date()) {
+  const today = getDateInTimeZone(now)
+  if (windowKey === 'all') return [...events]
+  if (windowKey === 'cancelled') return events.filter((event) => event.status === 'cancelled' || event.cancelledAt)
+  if (windowKey === 'history') return events.filter((event) => event.calendarDate < today)
+  return events.filter((event) => event.calendarDate >= today && event.status !== 'cancelled')
+}
+
+export function groupCoachCalendarEvents(events = []) {
+  const groups = []
+  for (const event of events) {
+    const existing = groups.at(-1)
+    if (existing?.date === event.calendarDate) existing.events.push(event)
+    else groups.push({ date: event.calendarDate, events: [event] })
+  }
+  return groups
+}
+
+export function getCoachCalendarMutationPolicy({ context, event = null } = {}) {
+  const roleRank = Number(context?.roleRank || 0)
+  const canMutate = context?.paymentAccess?.canMutate === true && roleRank >= 20
+  const inherited = Boolean(event?.isInheritedClubEvent)
+  return Object.freeze({
+    canCreate: canMutate && Boolean(context?.teamId || context?.role === 'admin'),
+    canEdit: canMutate && (!inherited || context?.role === 'admin') && event?.sourceType !== 'match_day' && event?.sourceType !== 'assessment_session',
+    communicationsMode: 'disabled_test_sink',
+    onlineRequired: true,
+  })
+}
+
+export function buildCoachCalendarPayload({ context, form }) {
+  const eventType = normalizeKey(form?.eventType)
+  if (!COACH_CALENDAR_EVENT_TYPES.includes(eventType)) throw new Error('Choose a supported Calendar event type.')
+  const title = normalize(form?.title)
+  if (!title) throw new Error('Add an event title.')
+  const dateTime = validateOrdinaryEventDateTime({
+    date: form?.date,
+    endTime: form?.endTime,
+    startTime: form?.startTime,
+  })
+  const recurrenceFrequency = COACH_CALENDAR_RECURRENCE.includes(normalizeKey(form?.recurrenceFrequency))
+    ? normalizeKey(form.recurrenceFrequency)
+    : 'none'
+  const recurrenceUntil = recurrenceFrequency === 'none' ? '' : normalizeRequiredDate(form?.recurrenceUntil)
+  if (recurrenceFrequency !== 'none' && !recurrenceUntil) throw new Error('Add a repeat until date.')
+  const activeTeamId = normalize(context?.teamId || context?.activeTeamId)
+  const teamId = context?.role === 'admin' ? normalize(form?.teamId || activeTeamId) : activeTeamId
+  if (context?.role !== 'admin' && !teamId) throw new Error('Choose an assigned Team before saving.')
+  const parentVisible = form?.parentVisible === true
+  const parentAudience = COACH_CALENDAR_PARENT_AUDIENCES.includes(normalizeKey(form?.parentAudience))
+    ? normalizeKey(form.parentAudience)
+    : 'none'
+  if (parentVisible && parentAudience === 'none') throw new Error('Choose who can see this event.')
+  if (parentVisible && parentAudience === 'all_team_parents' && !teamId) throw new Error('Choose a Team before sharing with Team parents.')
+  if (parentVisible && parentAudience === 'all_club_parents' && context?.role !== 'admin') {
+    throw new Error('Club parent sharing is only available to Club Admins.')
+  }
+  return Object.freeze({
+    club_id: normalize(context?.clubId),
+    ends_at: londonLocalToUtcIso(dateTime.date, dateTime.endTime),
+    event_type: eventType,
+    location: normalize(form?.location),
+    notes: normalize(form?.notes),
+    parent_audience: parentVisible ? parentAudience : 'none',
+    parent_visible: parentVisible,
+    recurrence_frequency: recurrenceFrequency,
+    recurrence_until: recurrenceUntil || null,
+    starts_at: londonLocalToUtcIso(dateTime.date, dateTime.startTime),
+    team_id: teamId || null,
+    title,
+  })
+}
+
+export function coachCalendarFormFromEvent(event = null, context = null) {
+  const start = londonParts(event?.startsAt)
+  const end = londonParts(event?.endsAt)
+  return {
+    date: start?.date || getDateInTimeZone(),
+    endTime: end?.time || '19:00',
+    eventType: COACH_CALENDAR_EVENT_TYPES.includes(event?.eventType) ? event.eventType : 'training',
+    involvedPlayerIds: [],
+    location: normalize(event?.location),
+    notes: normalize(event?.notes),
+    parentAudience: event?.parentAudience || 'none',
+    parentVisible: event?.parentVisible === true,
+    recurrenceFrequency: event?.recurrenceFrequency || 'none',
+    recurrenceUntil: event?.recurrenceUntil || '',
+    startTime: start?.time || '18:00',
+    teamId: normalize(event?.teamId || context?.teamId || context?.activeTeamId),
+    title: normalize(event?.title),
+  }
+}
+
+export function getCanonicalCalendarLocalDateTime(date, time) {
+  return buildRequiredLocalDateTime(date, time)
+}

@@ -42,6 +42,7 @@ import {
   writeCoachThemeMode,
 } from './src/localState'
 import { prepareCoachMobileStartup } from './src/startup'
+import { CoachCalendarScreen, CoachPlayersScreen, CoachSessionsScreen } from './src/CoachOperationalScreens'
 
 const config = getMobileRuntimeConfig('coach')
 const defaultThemeContext = createCoachThemeContext(DEFAULT_COACH_THEME)
@@ -370,7 +371,11 @@ function CoachHome() {
 
 function CoachRoute(props) {
   const { activeRoute, moreRoute } = props
+  const { palette } = useCoachTheme()
   if (activeRoute === 'home') return <HomeScreen {...props} />
+  if (activeRoute === 'calendar') return <CoachCalendarScreen {...props} key={props.context.id} palette={palette} />
+  if (activeRoute === 'players') return <CoachPlayersScreen {...props} key={props.context.id} palette={palette} />
+  if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {
     return moreRoute ? <FoundationRoute route={moreRoute} {...props} /> : <MoreScreen {...props} />
   }

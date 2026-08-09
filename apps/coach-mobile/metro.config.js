@@ -5,7 +5,10 @@ const projectRoot = __dirname
 const workspaceRoot = path.resolve(projectRoot, '../..')
 const config = getDefaultConfig(projectRoot)
 
-config.watchFolders = [path.resolve(workspaceRoot, 'apps/mobile-core')]
+config.watchFolders = [
+  path.resolve(workspaceRoot, 'apps/mobile-core'),
+  path.resolve(workspaceRoot, 'src'),
+]
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
