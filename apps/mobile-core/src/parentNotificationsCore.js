@@ -95,9 +95,16 @@ export function resolveParentNotificationOpen(data, available = {}) {
 
   const route = normalize(data?.route).toLowerCase()
   const routeMap = {
-    matchday: 'home',
+    calendar: 'calendar',
+    chat: 'chat',
+    development: 'development',
+    invites: 'invites',
+    matchday: 'matchday',
     messages: 'messages',
     polls: 'polls',
+    resources: 'resources',
+    results: 'results',
+    settings: 'settings',
   }
   const tab = routeMap[route]
   if (!tab) return null

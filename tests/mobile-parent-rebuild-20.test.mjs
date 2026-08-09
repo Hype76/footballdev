@@ -31,6 +31,10 @@ const [appSource, notificationSource, authSource, experienceSource, dataSource, 
   fs.readFile(`${root}/apps/parent-mobile/app.config.js`, 'utf8'),
   fs.readFile(`${root}/apps/coach-mobile/app.config.js`, 'utf8'),
 ])
+const [portalDataSource, portalScreensSource] = await Promise.all([
+  fs.readFile(`${root}/apps/parent-mobile/src/parentPortalData.js`, 'utf8'),
+  fs.readFile(`${root}/apps/parent-mobile/src/ParentPortalScreens.js`, 'utf8'),
+])
 
 function makeLink(overrides = {}) {
   return {
@@ -86,18 +90,20 @@ test('multiple genuine children render as separate contexts and switch by Parent
 })
 
 test('Parent shell exposes only approved mobile areas with Android back and detail handling', () => {
-  for (const label of ['Home', 'Messages', 'Polls', 'Settings']) {
+  for (const label of ['Home', 'Calendar', 'Matchday', 'Chat', 'More']) {
     assert.match(appSource, new RegExp(`label: '${label}'`))
   }
 
   assert.match(appSource, /BackHandler\.addEventListener\('hardwareBackPress'/)
   assert.match(appSource, /setSelectedMessageId\(''\)/)
   assert.match(appSource, /setSelectedMatchId\(''\)/)
+  assert.match(appSource, /setSelectedRoomId\(''\)/)
+  assert.match(appSource, /setMoreSection\(''\)/)
   assert.match(appSource, /if \(activeTab !== 'home'\)/)
-  assert.doesNotMatch(appSource, /Coach|Staff tactics|Admin controls|staff-only/i)
+  assert.doesNotMatch(`${appSource}\n${portalScreensSource}`, /Staff tactics|Admin controls|staff-only/i)
 })
 
-test('Parent notifications request permission only from Settings and expose no scorer mutation controls', () => {
+test('Parent notifications request permission only from Settings and scorer controls use Parent RPC authority', () => {
   const initialize = notificationSource.slice(
     notificationSource.indexOf('export async function initializeParentNotifications'),
     notificationSource.indexOf('export function addParentPushTokenListener'),
@@ -111,7 +117,9 @@ test('Parent notifications request permission only from Settings and expose no s
   assert.match(appSource, /onValueChange=\{onNotificationEnabledChange\}/)
   assert.doesNotMatch(appSource, /useMobileDeviceControls|enableNotifications/)
   assert.doesNotMatch(appSource, /volunteerAsMatchScorer|updateCoachMatchStatus|addCoachMatchGoal|undoCoachLastMatchGoal/)
-  assert.doesNotMatch(appSource, /match\.events/)
+  assert.match(portalDataSource, /express_match_day_scorer_interest/)
+  assert.match(portalDataSource, /record_match_day_goal_v2/)
+  assert.match(portalScreensSource, /selectedMatch\.events/)
 })
 
 test('Home model remains child-scoped and distinguishes upcoming, recent, unread and polls', () => {

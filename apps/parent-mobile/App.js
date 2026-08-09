@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import NetInfo from '@react-native-community/netinfo'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
@@ -18,18 +19,14 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
-import {
-  getParentCalendarEvents,
-  getParentMatchDays,
-  getParentMessages,
-  getParentPolls,
-} from '../mobile-core/src/data'
+import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import {
   getParentNotificationStatusLabel,
@@ -43,6 +40,43 @@ import {
   getParentHomeModel,
   getPollDraftOption,
 } from './src/parentExperience'
+import {
+  addParentScorerGoal,
+  correctParentScorerGoal,
+  deleteParentChatMessage,
+  expressParentScorerInterest,
+  getParentChatMessages,
+  getParentChatHistory,
+  getParentChatRooms,
+  getParentDevelopmentHistory,
+  getParentInvitations,
+  getParentPortalMatchDays,
+  getParentResources,
+  markParentChatRoomRead,
+  openParentDevelopmentReport,
+  openParentResource,
+  recordParentScorerShootoutKick,
+  respondToParentInvitation,
+  sendParentChatMessage,
+  setParentScorerExtendedState,
+  setParentScorerTimer,
+  startParentScorerMatch,
+  updateParentPassword,
+  updateParentScorerScore,
+  voidParentScorerGoal,
+  voidParentScorerShootoutKick,
+} from './src/parentPortalData'
+import {
+  CalendarScreen,
+  ChatScreen,
+  DevelopmentScreen,
+  InvitationsScreen,
+  MatchdayScreen,
+  MoreScreen,
+  openExternalParentUrl,
+  ResourcesScreen,
+  ResultsScreen,
+} from './src/ParentPortalScreens'
 import {
   parentOfflineProfileStore,
   queueParentMessageRead,
@@ -63,13 +97,20 @@ import {
 } from './src/notifications'
 
 const config = getMobileRuntimeConfig('parent')
-const resourceNames = ['calendar', 'matches', 'messages', 'polls']
+const resourceNames = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'polls', 'resources']
 const resourceFallbacks = {
   calendar: 'Calendar information could not be loaded.',
+  chatHistory: 'Saved Parent Chat history could not be loaded.',
+  chatRooms: 'Parent Chat could not be loaded.',
+  development: 'Development history could not be loaded.',
+  invitations: 'Invitations could not be loaded.',
   matches: 'Matchday information could not be loaded.',
   messages: 'Messages could not be loaded.',
   polls: 'Polls could not be loaded.',
+  resources: 'Resources could not be loaded.',
 }
+
+const PARENT_THEME_STORAGE_KEY = 'fp.parent.display-theme.v1'
 
 function createResourceState() {
   return Object.fromEntries(resourceNames.map((name) => [name, {
@@ -170,11 +211,15 @@ function ParentHome() {
     permissionStatus: 'undetermined',
     registered: false,
   })
+  const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
+  const [displayTheme, setDisplayTheme] = useState('dark')
+  const [moreSection, setMoreSection] = useState('')
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [selectedMessageId, setSelectedMessageId] = useState('')
+  const [selectedRoomId, setSelectedRoomId] = useState('')
   const [syncSummary, setSyncSummary] = useState({ needsAttention: 0, state: 'synced', waiting: 0 })
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
@@ -193,6 +238,7 @@ function ParentHome() {
     messages: resources.messages.items,
     polls: resources.polls.items,
   }), [resources])
+  const selectedRoom = resources.chatRooms.items.find((room) => room.id === selectedRoomId) || null
 
   const loadParentData = useCallback(async ({ reset = false } = {}) => {
     const requestId = ++requestIdRef.current
@@ -238,9 +284,14 @@ function ParentHome() {
 
     const loaders = {
       calendar: () => getParentCalendarEvents(selectedMobileUser),
-      matches: () => getParentMatchDays(selectedMobileUser),
+      chatHistory: () => getParentChatHistory(selectedMobileUser),
+      chatRooms: () => getParentChatRooms(selectedMobileUser),
+      development: () => getParentDevelopmentHistory(selectedMobileUser),
+      invitations: () => getParentInvitations(selectedMobileUser),
+      matches: () => getParentPortalMatchDays(selectedMobileUser),
       messages: () => getParentMessages(selectedMobileUser),
       polls: () => getParentPolls(selectedMobileUser),
+      resources: () => getParentResources(selectedMobileUser),
     }
     const results = await Promise.allSettled(resourceNames.map((name) => loaders[name]()))
 
@@ -322,10 +373,23 @@ function ParentHome() {
   useEffect(() => {
     setSelectedMatchId('')
     setSelectedMessageId('')
+    setSelectedRoomId('')
+    setMoreSection('')
+    setChatMessages({ error: '', items: [], loading: false })
     setPollDrafts({})
     setNotice(null)
     void loadParentData({ reset: true }).then(() => runParentSync())
   }, [loadParentData, runParentSync, selectedLink?.id])
+
+  useEffect(() => {
+    let mounted = true
+    void AsyncStorage.getItem(PARENT_THEME_STORAGE_KEY)
+      .then((value) => {
+        if (mounted && ['dark', 'light'].includes(value)) setDisplayTheme(value)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -397,18 +461,29 @@ function ParentHome() {
     notificationResponseIdRef.current = responseId
 
     const destination = resolveParentNotificationOpen(request.content?.data, {
+      calendar: resources.calendar.items.map((item) => item.id),
+      chat: resources.chatRooms.items.map((item) => item.id),
+      development: resources.development.items.map((item) => item.id),
+      invites: resources.invitations.items.map((item) => item.invitationId),
       matchday: resources.matches.items.map((item) => item.id),
       messages: resources.messages.items.map((item) => item.id),
       polls: resources.polls.items.map((item) => item.id),
+      resources: resources.resources.items.map((item) => item.id),
+      results: resources.matches.items.filter((item) => item.status === 'full_time').map((item) => item.id),
     })
     if (!destination) return
 
     void loadParentData().then(() => {
-      setSelectedMatchId(destination.tab === 'home' ? destination.targetId : '')
+      const nestedSection = ['development', 'invites', 'messages', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
+        ? destination.tab
+        : ''
+      setSelectedMatchId(destination.tab === 'matchday' ? destination.targetId : '')
       setSelectedMessageId(destination.tab === 'messages' ? destination.targetId : '')
-      setActiveTab(destination.tab)
+      setSelectedRoomId(destination.tab === 'chat' ? destination.targetId : '')
+      setMoreSection(nestedSection)
+      setActiveTab(nestedSection ? 'more' : destination.tab)
     })
-  }, [lastNotificationResponse, loadParentData, resources.matches.items, resources.messages.items, resources.polls.items])
+  }, [lastNotificationResponse, loadParentData, resources])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
@@ -420,6 +495,14 @@ function ParentHome() {
       }
       if (selectedMatchId) {
         setSelectedMatchId('')
+        return true
+      }
+      if (selectedRoomId) {
+        setSelectedRoomId('')
+        return true
+      }
+      if (moreSection) {
+        setMoreSection('')
         return true
       }
       if (childSwitcherOpen) {
@@ -434,7 +517,7 @@ function ParentHome() {
     })
 
     return () => subscription.remove()
-  }, [activeTab, childSwitcherOpen, selectedMatchId, selectedMessageId])
+  }, [activeTab, childSwitcherOpen, moreSection, selectedMatchId, selectedMessageId, selectedRoomId])
 
   async function handleRefresh() {
     if (!selectedLink?.id || isRefreshing) return
@@ -456,6 +539,8 @@ function ParentHome() {
   function handleTabChange(tab) {
     setSelectedMatchId('')
     setSelectedMessageId('')
+    setSelectedRoomId('')
+    setMoreSection('')
     setChildSwitcherOpen(false)
     setActiveTab(tab)
   }
@@ -546,6 +631,157 @@ function ParentHome() {
         message: getParentFriendlyError(error, 'Your poll response could not be saved.'),
         tone: 'error',
       })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleInvitationResponse(invitation, responseState) {
+    if (isOffline || activeActionId) return
+    setActiveActionId(`invite:${invitation.invitationId}`)
+    setNotice(null)
+    try {
+      await respondToParentInvitation(selectedMobileUser, invitation, responseState)
+      await loadParentData()
+      setNotice({ message: 'Your invitation response has been saved.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Your invitation response could not be saved.'), tone: 'error' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleOpenParentItem(type, item) {
+    if (isOffline || activeActionId) return
+    setActiveActionId(`${type}:${item.id}`)
+    setNotice(null)
+    try {
+      const result = type === 'development'
+        ? await openParentDevelopmentReport(selectedMobileUser, item.id)
+        : await openParentResource(selectedMobileUser, item.id)
+      if (result.externalUrl) await openExternalParentUrl(result.externalUrl)
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, `This ${type === 'development' ? 'Development report' : 'resource'} could not be opened.`), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleOpenChatRoom(room) {
+    setSelectedRoomId(room.id)
+    if (isOffline) {
+      setChatMessages({
+        error: resources.chatHistory.error,
+        items: resources.chatHistory.items.filter((message) => message.roomId === room.id),
+        loading: false,
+      })
+      return
+    }
+    setChatMessages({ error: '', items: [], loading: true })
+    try {
+      const items = await getParentChatMessages(selectedMobileUser, room.id)
+      setChatMessages({ error: '', items, loading: false })
+      if (!isOffline && room.unreadCount > 0) {
+        await markParentChatRoomRead(selectedMobileUser, room.id)
+        setResources((current) => ({
+          ...current,
+          chatRooms: { ...current.chatRooms, items: current.chatRooms.items.map((item) => item.id === room.id ? { ...item, unreadCount: 0 } : item) },
+        }))
+      }
+    } catch (error) {
+      setChatMessages({ error: getParentFriendlyError(error, 'Chat messages could not be loaded.'), items: [], loading: false })
+    }
+  }
+
+  async function reloadSelectedChatRoom() {
+    if (!selectedRoomId) return
+    const items = await getParentChatMessages(selectedMobileUser, selectedRoomId)
+    setChatMessages({ error: '', items, loading: false })
+  }
+
+  async function handleSendChatMessage(body) {
+    if (isOffline || activeActionId || !selectedRoomId) return
+    setActiveActionId('chat-send')
+    setNotice(null)
+    try {
+      await sendParentChatMessage(selectedMobileUser, selectedRoomId, body)
+      await reloadSelectedChatRoom()
+      setNotice({ message: 'Your Chat message has been sent.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Your Chat message could not be sent.'), tone: 'error' })
+      throw error
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleDeleteChatMessage(message) {
+    if (isOffline || activeActionId) return
+    setActiveActionId(`chat-delete:${message.id}`)
+    try {
+      await deleteParentChatMessage(selectedMobileUser, message.id)
+      await reloadSelectedChatRoom()
+      setNotice({ message: 'The Chat message has been deleted.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'This Chat message could not be deleted.'), tone: 'error' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleScorerInterest(match) {
+    if (isOffline || activeActionId) return
+    setActiveActionId(`scorer:${match.id}:interest`)
+    try {
+      await expressParentScorerInterest(selectedMobileUser, match.id)
+      await loadParentData()
+      setNotice({ message: 'Your scorer interest has been registered with staff.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Scorer interest could not be registered.'), tone: 'error' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleScorerAction(match, action, value) {
+    if (isOffline || activeActionId || !match.isScorer) return
+    setActiveActionId(`scorer:${match.id}:${action}`)
+    setNotice(null)
+    try {
+      if (action === 'start') await startParentScorerMatch(match.id)
+      if (action === 'timer') await setParentScorerTimer(match.id, value)
+      if (action === 'extended') await setParentScorerExtendedState(match.id, value)
+      if (action === 'score') await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore)
+      if (action === 'goal') await addParentScorerGoal(selectedMobileUser, match.id, value)
+      if (action === 'correct-goal') await correctParentScorerGoal(selectedMobileUser, match, value.event, value.goal, value.reason)
+      if (action === 'void-goal') await voidParentScorerGoal(selectedMobileUser, match.id, value.eventId, value.reason)
+      if (action === 'shootout') await recordParentScorerShootoutKick(match.id, value)
+      if (action === 'void-shootout') await voidParentScorerShootoutKick(match.id, value.kickId, value.reason)
+      await loadParentData()
+      setNotice({ message: 'Game Day has been updated.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'This Game Day change could not be saved.'), tone: 'error' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleDisplayThemeChange(theme) {
+    if (!['dark', 'light'].includes(theme)) return
+    setDisplayTheme(theme)
+    await AsyncStorage.setItem(PARENT_THEME_STORAGE_KEY, theme)
+  }
+
+  async function handlePasswordChange(currentPassword, nextPassword) {
+    if (activeActionId) return
+    setActiveActionId('password')
+    setNotice(null)
+    try {
+      await updateParentPassword(selectedMobileUser, currentPassword, nextPassword)
+      setNotice({ message: 'Your password has been updated.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, error.message || 'Your password could not be updated.'), tone: 'error' })
+      throw error
     } finally {
       setActiveActionId('')
     }
@@ -664,16 +900,19 @@ function ParentHome() {
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
   const selectedMatch = resources.matches.items.find((match) => match.id === selectedMatchId)
+  const unansweredInvites = resources.invitations.items.filter((invitation) => invitation.canRespond && ['awaiting_response', 'no_response'].includes(invitation.responseState)).length
+  const unreadChat = resources.chatRooms.items.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
   const tabs = [
     { key: 'home', label: 'Home' },
-    { count: homeModel.unreadMessages, key: 'messages', label: 'Messages' },
-    { count: homeModel.unansweredPolls, key: 'polls', label: 'Polls' },
-    { key: 'settings', label: 'Settings' },
+    { key: 'calendar', label: 'Calendar' },
+    { key: 'matchday', label: 'Matchday' },
+    { count: unreadChat, key: 'chat', label: 'Chat' },
+    { count: homeModel.unreadMessages + homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
   ]
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
+    <SafeAreaView style={[styles.safeArea, displayTheme === 'light' && styles.safeAreaLight]}>
+      <StatusBar style={displayTheme === 'light' ? 'dark' : 'light'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardShell}
@@ -685,6 +924,7 @@ function ParentHome() {
           onChildChange={handleChildChange}
           onToggleChildSwitcher={() => setChildSwitcherOpen((open) => !open)}
           selectedLink={selectedLink}
+          theme={displayTheme}
         />
 
         <ScrollView
@@ -716,13 +956,59 @@ function ParentHome() {
                 matches={resources.matches}
                 messages={resources.messages}
                 onOpenMatch={(match) => setSelectedMatchId(match.id)}
-                onOpenMessages={() => handleTabChange('messages')}
-                onOpenPolls={() => handleTabChange('polls')}
+                onOpenMessages={() => { setMoreSection('messages'); setActiveTab('more') }}
+                onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
                 onRetry={handleRefresh}
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'messages' ? (
+            {activeTab === 'calendar' ? <CalendarScreen link={selectedLink} resource={resources.calendar} theme={displayTheme} /> : null}
+            {activeTab === 'matchday' ? (
+              <MatchdayScreen
+                activeActionId={activeActionId}
+                isOffline={isOffline}
+                link={selectedLink}
+                onBack={() => setSelectedMatchId('')}
+                onOpen={(match) => setSelectedMatchId(match.id)}
+                onScorerAction={handleScorerAction}
+                onVolunteer={handleScorerInterest}
+                resource={resources.matches}
+                selectedMatch={selectedMatch}
+                theme={displayTheme}
+              />
+            ) : null}
+            {activeTab === 'chat' ? (
+              <ChatScreen
+                activeActionId={activeActionId}
+                isOffline={isOffline}
+                link={selectedLink}
+                messages={chatMessages}
+                onBack={() => setSelectedRoomId('')}
+                onDelete={handleDeleteChatMessage}
+                onOpenRoom={handleOpenChatRoom}
+                onSend={handleSendChatMessage}
+                rooms={resources.chatRooms}
+                selectedRoom={selectedRoom}
+                theme={displayTheme}
+              />
+            ) : null}
+            {activeTab === 'more' && !moreSection ? (
+              <MoreScreen
+                onOpen={setMoreSection}
+                theme={displayTheme}
+                unansweredInvites={unansweredInvites}
+                unansweredPolls={homeModel.unansweredPolls}
+                unreadMessages={homeModel.unreadMessages}
+              />
+            ) : null}
+            {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedMessageId('') }} /> : null}
+            {activeTab === 'more' && moreSection === 'invites' ? (
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onRespond={handleInvitationResponse} resource={resources.invitations} theme={displayTheme} />
+            ) : null}
+            {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={resources.matches} theme={displayTheme} /> : null}
+            {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onOpen={(report) => handleOpenParentItem('development', report)} resource={resources.development} theme={displayTheme} /> : null}
+            {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen isOffline={isOffline} onOpen={(item) => handleOpenParentItem('resource', item)} resource={resources.resources} theme={displayTheme} /> : null}
+            {activeTab === 'more' && moreSection === 'messages' ? (
               <MessagesScreen
                 activeActionId={activeActionId}
                 link={selectedLink}
@@ -733,7 +1019,7 @@ function ParentHome() {
                 selectedMessage={selectedMessage}
               />
             ) : null}
-            {activeTab === 'polls' ? (
+            {activeTab === 'more' && moreSection === 'polls' ? (
               <PollsScreen
                 activeActionId={activeActionId}
                 drafts={pollDrafts}
@@ -744,7 +1030,7 @@ function ParentHome() {
                 resource={resources.polls}
               />
             ) : null}
-            {activeTab === 'settings' ? (
+            {activeTab === 'more' && moreSection === 'settings' ? (
               <SettingsScreen
                 activeActionId={activeActionId}
                 biometricAvailable={biometricAvailable}
@@ -755,9 +1041,12 @@ function ParentHome() {
                 lastUpdatedAt={lastUpdatedAt}
                 links={parentLinks}
                 onBiometricChange={handleBiometricChange}
+                displayTheme={displayTheme}
                 notificationState={notificationState}
                 onNotificationDetailChange={handleNotificationDetailChange}
                 onNotificationEnabledChange={handleNotificationEnabledChange}
+                onDisplayThemeChange={handleDisplayThemeChange}
+                onPasswordChange={handlePasswordChange}
                 onSendTestNotification={handleTestNotification}
                 onRetrySync={async () => {
                   const result = await runParentSync({ explicitRetry: true })
@@ -774,15 +1063,16 @@ function ParentHome() {
           </View>
         </ScrollView>
 
-        <BottomTabs activeTab={activeTab} onChange={handleTabChange} tabs={tabs} />
+        <BottomTabs activeTab={activeTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
 
-function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onToggleChildSwitcher, selectedLink }) {
+function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onToggleChildSwitcher, selectedLink, theme }) {
+  const isLight = theme === 'light'
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, isLight && styles.headerLight]}>
       <View style={styles.brandRow}>
         <Image
           accessibilityIgnoresInvertColors
@@ -791,8 +1081,8 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
           style={styles.headerLogo}
         />
         <View style={styles.brandCopy}>
-          <Text style={styles.brandName}>Football Player Parents</Text>
-          <Text numberOfLines={1} style={styles.brandMeta}>
+          <Text style={[styles.brandName, isLight && styles.textLight]}>Football Player Parents</Text>
+          <Text numberOfLines={1} style={[styles.brandMeta, isLight && styles.textMutedLight]}>
             {selectedLink?.clubName || 'Private family view'}
           </Text>
         </View>
@@ -805,12 +1095,12 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
             accessibilityLabel={`Active child ${selectedLink?.playerName || 'not selected'}`}
             accessibilityRole="button"
             onPress={onToggleChildSwitcher}
-            style={({ pressed }) => [styles.childButton, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.childButton, isLight && styles.surfaceLight, pressed && styles.pressed]}
           >
             <View style={styles.childButtonCopy}>
-              <Text style={styles.childButtonEyebrow}>Active child</Text>
-              <Text numberOfLines={1} style={styles.childButtonName}>{selectedLink?.playerName || 'Choose a child'}</Text>
-              <Text numberOfLines={1} style={styles.childButtonTeam}>{selectedLink?.teamName || 'No Team assigned'}</Text>
+              <Text style={[styles.childButtonEyebrow, isLight && styles.textMutedLight]}>Active child</Text>
+              <Text numberOfLines={1} style={[styles.childButtonName, isLight && styles.textLight]}>{selectedLink?.playerName || 'Choose a child'}</Text>
+              <Text numberOfLines={1} style={[styles.childButtonTeam, isLight && styles.textMutedLight]}>{selectedLink?.teamName || 'No Team assigned'}</Text>
             </View>
             <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Switch'}</Text>
           </Pressable>
@@ -829,10 +1119,10 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
                     accessibilityState={{ selected: active }}
                     key={link.id}
                     onPress={() => onChildChange(link.id)}
-                    style={[styles.childOption, active && styles.childOptionActive]}
+                    style={[styles.childOption, isLight && styles.surfaceLight, active && styles.childOptionActive]}
                   >
-                    <Text style={[styles.childOptionName, active && styles.childOptionNameActive]}>{link.playerName}</Text>
-                    <Text style={[styles.childOptionTeam, active && styles.childOptionTeamActive]}>{link.teamName || 'No Team assigned'}</Text>
+                    <Text style={[styles.childOptionName, isLight && styles.textLight, active && styles.childOptionNameActive]}>{link.playerName}</Text>
+                    <Text style={[styles.childOptionTeam, isLight && styles.textMutedLight, active && styles.childOptionTeamActive]}>{link.teamName || 'No Team assigned'}</Text>
                   </Pressable>
                 )
               })}
@@ -844,9 +1134,10 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
   )
 }
 
-function BottomTabs({ activeTab, onChange, tabs }) {
+function BottomTabs({ activeTab, onChange, tabs, theme }) {
+  const isLight = theme === 'light'
   return (
-    <View accessibilityLabel="Parent app navigation" style={styles.tabBar}>
+    <View accessibilityLabel="Parent app navigation" style={[styles.tabBar, isLight && styles.tabBarLight]}>
       {tabs.map((tab) => {
         const active = activeTab === tab.key
         return (
@@ -856,9 +1147,9 @@ function BottomTabs({ activeTab, onChange, tabs }) {
             accessibilityState={{ selected: active }}
             key={tab.key}
             onPress={() => onChange(tab.key)}
-            style={({ pressed }) => [styles.tabButton, active && styles.tabButtonActive, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.tabButton, active && styles.tabButtonActive, isLight && active && styles.tabButtonActiveLight, pressed && styles.pressed]}
           >
-            <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
+            <Text style={[styles.tabLabel, isLight && styles.textMutedLight, active && styles.tabLabelActive]}>{tab.label}</Text>
             {tab.count > 0 ? <Text style={[styles.tabCount, active && styles.tabCountActive]}>{tab.count}</Text> : null}
           </Pressable>
         )
@@ -1215,20 +1506,25 @@ function SettingsScreen({
   biometricAvailable,
   biometricEnabled,
   cacheState,
+  displayTheme,
   isOffline,
   isSyncing,
   lastUpdatedAt,
   links,
   notificationState,
   onBiometricChange,
+  onDisplayThemeChange,
   onNotificationDetailChange,
   onNotificationEnabledChange,
+  onPasswordChange,
   onRetrySync,
   onSendTestNotification,
   onSignOut,
   syncSummary,
   user,
 }) {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [nextPassword, setNextPassword] = useState('')
   const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.1'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
@@ -1256,6 +1552,65 @@ function SettingsScreen({
             </View>
           </View>
         )) : <Text style={styles.bodyText}>No active child links are available.</Text>}
+      </InfoPanel>
+
+      <InfoPanel title="Display">
+        <Text style={styles.bodyText}>Choose the app appearance on this device.</Text>
+        <View style={styles.notificationChoices}>
+          {['dark', 'light'].map((theme) => {
+            const selected = displayTheme === theme
+            return (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                key={theme}
+                onPress={() => onDisplayThemeChange(theme)}
+                style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
+              >
+                <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{labelize(theme)}</Text>
+              </Pressable>
+            )
+          })}
+        </View>
+      </InfoPanel>
+
+      <InfoPanel title="Password security">
+        <Text style={styles.bodyText}>Confirm your current password before choosing a new one.</Text>
+        <TextInput
+          accessibilityLabel="Current password"
+          autoCapitalize="none"
+          autoComplete="current-password"
+          editable={activeActionId !== 'password'}
+          onChangeText={setCurrentPassword}
+          placeholder="Current password"
+          placeholderTextColor={palette.textMuted}
+          secureTextEntry
+          style={styles.settingsInput}
+          value={currentPassword}
+        />
+        <TextInput
+          accessibilityLabel="New password"
+          autoCapitalize="none"
+          autoComplete="new-password"
+          editable={activeActionId !== 'password'}
+          onChangeText={setNextPassword}
+          placeholder="New password, at least 8 characters"
+          placeholderTextColor={palette.textMuted}
+          secureTextEntry
+          style={styles.settingsInput}
+          value={nextPassword}
+        />
+        <PrimaryAction
+          disabled={!currentPassword || nextPassword.length < 8}
+          label="Update password"
+          loading={activeActionId === 'password'}
+          onPress={() => {
+            void onPasswordChange(currentPassword, nextPassword)
+              .then(() => { setCurrentPassword(''); setNextPassword('') })
+              .catch(() => {})
+          }}
+          secondary
+        />
       </InfoPanel>
 
       <View style={styles.card}>
@@ -1589,6 +1944,7 @@ const styles = StyleSheet.create({
   errorTitle: { color: palette.danger, fontSize: 15, fontWeight: '900' },
   eyebrow: { color: palette.accent, fontSize: 12, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
   header: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingBottom: 12, paddingHorizontal: 16, paddingTop: 10 },
+  headerLight: { backgroundColor: '#ffffff', borderBottomColor: '#cad8d4' },
   headerLogo: { height: 42, width: 42 },
   helperText: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
   heroCard: { backgroundColor: palette.cardRaised, borderColor: palette.borderStrong, borderRadius: 22, borderWidth: 1, gap: 10, padding: 20 },
@@ -1629,6 +1985,7 @@ const styles = StyleSheet.create({
   radio: { borderColor: palette.borderStrong, borderRadius: 999, borderWidth: 2, height: 20, width: 20 },
   radioSelected: { backgroundColor: palette.accent, borderColor: palette.accent, borderWidth: 5 },
   safeArea: { backgroundColor: palette.background, flex: 1 },
+  safeAreaLight: { backgroundColor: '#f3f7f6' },
   score: { color: palette.accent, fontSize: 28, fontWeight: '900' },
   screenCopy: { color: palette.textMuted, fontSize: 15, lineHeight: 22 },
   screenIntro: { gap: 4 },
@@ -1643,6 +2000,7 @@ const styles = StyleSheet.create({
   sectionTitle: { color: palette.text, fontSize: 21, fontWeight: '900' },
   settingCopy: { flex: 1, gap: 6 },
   settingRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
+  settingsInput: { backgroundColor: palette.background, borderColor: palette.borderStrong, borderRadius: 12, borderWidth: 1, color: palette.text, fontSize: 16, minHeight: 50, paddingHorizontal: 14, paddingVertical: 11 },
   summaryCard: { backgroundColor: palette.card, borderColor: palette.border, borderRadius: 18, borderWidth: 1, flex: 1, gap: 4, minHeight: 132, minWidth: 145, padding: 16 },
   summaryCount: { color: palette.accent, fontSize: 32, fontWeight: '900' },
   summaryDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
@@ -1652,11 +2010,16 @@ const styles = StyleSheet.create({
   syncStatusText: { color: palette.text, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
   syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
   tabBar: { backgroundColor: '#071009', borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 8, paddingTop: 8 },
+  tabBarLight: { backgroundColor: '#ffffff', borderTopColor: '#cad8d4' },
   tabButton: { alignItems: 'center', borderColor: 'transparent', borderRadius: 12, borderWidth: 1, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, paddingHorizontal: 4, paddingVertical: 7 },
   tabButtonActive: { backgroundColor: '#1a2b0c', borderColor: palette.accentMuted },
+  tabButtonActiveLight: { backgroundColor: '#e9f3c9', borderColor: '#718c16' },
   tabCount: { backgroundColor: palette.accent, borderRadius: 999, color: palette.ink, fontSize: 10, fontWeight: '900', minWidth: 19, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 2, textAlign: 'center' },
   tabCountActive: { backgroundColor: palette.text },
   tabLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '800' },
   tabLabelActive: { color: palette.accent },
+  surfaceLight: { backgroundColor: '#ffffff', borderColor: '#cad8d4' },
+  textLight: { color: '#13231f' },
+  textMutedLight: { color: '#536461' },
   unreadCard: { borderColor: palette.accentMuted },
 })

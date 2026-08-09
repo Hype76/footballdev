@@ -1,4 +1,5 @@
 [build]
+  command = "node -e \"process.exit(0)\""
   publish = "public"
   functions = "netlify/functions"
 

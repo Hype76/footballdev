@@ -91,5 +91,5 @@ export async function requireAuthenticatedFixture(request) {
     return { response: jsonResponse({ error: 'fixture_profile_unavailable' }, 403) }
   }
 
-  return { environment, headers, profile }
+  return { authUser, environment, headers, profile }
 }
