@@ -629,7 +629,7 @@ assertIncludes(mobileAuth, 'await revokeNativePushDevice({', 'Mobile sign out cl
 assertIncludes(mobileAuth, 'await setBiometricEnabled(false)', 'Mobile sign out cleanup')
 assertIncludes(mobileAuth, 'await clearMobileSessionStorage()', 'Mobile secure sign out cleanup')
 assertIncludes(mobileSupabase, 'storage: mobileSessionStorage', 'Mobile secure Supabase storage')
-assertIncludes(mobileSupabase, 'storageKey: MOBILE_SUPABASE_AUTH_STORAGE_KEY', 'Mobile secure Supabase storage')
+assertIncludes(mobileSupabase, "storageKey: mobileSupabaseAuthStorageKey || 'blocked-mobile-auth-token'", 'Mobile environment-scoped secure Supabase storage')
 assertNotIncludes(mobileSupabase, 'storage: AsyncStorage', 'Mobile plaintext Supabase storage')
 assertIncludes(mobileSessionStorage, 'AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY', 'Mobile secure session accessibility')
 assertIncludes(mobileSessionStorage, 'requireAuthentication: false', 'Mobile background Auth refresh')

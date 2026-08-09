@@ -5,6 +5,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import {
+  APPROVED_MOBILE_PRODUCTION_SUPABASE_REF,
   APPROVED_MOBILE_TEST_SUPABASE_REF,
   createSecureSessionStorage,
   deriveMobileSessionNamespace,
@@ -250,7 +251,7 @@ test('Coach cannot restore Parent and Parent cannot restore Coach', async () => 
   assert.equal((await coach.storage.getItem(sessionKey)) === value, true)
 })
 
-test('unknown app, unknown environment, live environment and wrong project fail closed', () => {
+test('unknown app, unknown environment and wrong project fail closed while approved production storage is supported', () => {
   const base = {
     legacyStorage: new MockLegacyStorage(),
     secureStore: new MockSecureStore(),
@@ -259,8 +260,21 @@ test('unknown app, unknown environment, live environment and wrong project fail 
   }
   assert.throws(() => createSecureSessionStorage({ ...base, appRole: 'unknown', environment: 'test' }), /secure_session_app_mismatch/)
   assert.throws(() => createSecureSessionStorage({ ...base, appRole: 'coach', environment: 'unknown' }), /secure_session_environment_mismatch/)
-  assert.throws(() => createSecureSessionStorage({ ...base, appRole: 'coach', environment: 'live' }), /secure_session_environment_mismatch/)
   assert.throws(() => createSecureSessionStorage({ ...base, appRole: 'coach', environment: 'test', supabaseProjectRef: 'unknown' }), /secure_session_environment_mismatch/)
+  assert.throws(() => createSecureSessionStorage({
+    ...base,
+    appRole: 'coach',
+    environment: 'production',
+    sessionStorageKey: `sb-${APPROVED_MOBILE_PRODUCTION_SUPABASE_REF}-auth-token`,
+    supabaseProjectRef: APPROVED_MOBILE_PRODUCTION_SUPABASE_REF,
+  }), /secure_session_environment_mismatch/)
+  assert.doesNotThrow(() => createSecureSessionStorage({
+    ...base,
+    appRole: 'parent',
+    environment: 'production',
+    sessionStorageKey: `sb-${APPROVED_MOBILE_PRODUCTION_SUPABASE_REF}-auth-token`,
+    supabaseProjectRef: APPROVED_MOBILE_PRODUCTION_SUPABASE_REF,
+  }))
 })
 
 test('valid plaintext session migrates once and is deleted only after secure readback', async () => {
@@ -415,7 +429,7 @@ test('shared Supabase and Auth integration use secure storage and canonical logo
   ])
 
   assert.match(supabaseSource, /storage: mobileSessionStorage/)
-  assert.match(supabaseSource, /storageKey: MOBILE_SUPABASE_AUTH_STORAGE_KEY/)
+  assert.match(supabaseSource, /storageKey: mobileSupabaseAuthStorageKey/)
   assert.match(supabaseSource, /autoRefreshToken: true/)
   assert.match(supabaseSource, /persistSession: true/)
   assert.match(supabaseSource, /detectSessionInUrl: false/)

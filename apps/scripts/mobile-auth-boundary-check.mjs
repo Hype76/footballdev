@@ -6,7 +6,7 @@ export const SECURITY_PHASE_REQUIREMENT =
   'A new named mobile Auth security phase is required before implementation.'
 
 const SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.json', '.jsx', '.mjs', '.ts', '.tsx'])
-const SKIPPED_NAMES = new Set(['node_modules', 'package-lock.json'])
+const SKIPPED_NAMES = new Set(['dist', 'dist-web-check', 'node_modules', 'package-lock.json'])
 
 const PROHIBITED_RULES = [
   { category: 'redirect-based Auth options', pattern: /\b(?:redirectTo|emailRedirectTo)\s*:/g },

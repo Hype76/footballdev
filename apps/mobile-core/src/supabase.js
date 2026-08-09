@@ -1,9 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { getMobileRuntimeConfig } from './config'
-import { createMobileSessionStorage, MOBILE_SUPABASE_AUTH_STORAGE_KEY } from './sessionStorage'
+import { createMobileSessionStorage, getMobileSupabaseAuthStorageKey } from './sessionStorage'
 
 const config = getMobileRuntimeConfig('shared')
 export const mobileSessionStorage = createMobileSessionStorage(config)
+export const mobileSessionStorageError = mobileSessionStorage.initializationError || ''
+export const mobileSupabaseAuthStorageKey = getMobileSupabaseAuthStorageKey(config)
 
 export const mobileConfigError = config.configError
 export const isSupabaseConfigured = config.isUsable
@@ -17,7 +19,7 @@ export const supabase = createClient(
       detectSessionInUrl: false,
       persistSession: true,
       storage: mobileSessionStorage,
-      storageKey: MOBILE_SUPABASE_AUTH_STORAGE_KEY,
+      storageKey: mobileSupabaseAuthStorageKey || 'blocked-mobile-auth-token',
     },
   },
 )

@@ -32,7 +32,7 @@ if (!allowedProfiles.has(profile)) {
 if (profile === 'store-live'
   && (appRole !== 'parent'
     || platform !== 'ios'
-    || promotionReference !== 'FP-MOBILE-PARENT-PRODUCTION-PROMOTION-MASTER-26')) {
+    || promotionReference !== 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')) {
   console.error('Production Parent iOS submission not authorised for this reference.')
   console.error('Reason: production_build_not_authorised')
   process.exit(1)

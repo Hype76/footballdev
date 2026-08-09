@@ -5,7 +5,7 @@ import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { markParentMessageRead, submitParentPollVote } from '../../mobile-core/src/data'
-import { APPROVED_MOBILE_TEST } from '../../mobile-core/src/environmentBoundary'
+import { APPROVED_MOBILE_PRODUCTION, APPROVED_MOBILE_TEST } from '../../mobile-core/src/environmentBoundary'
 import { createEncryptedOfflineStore } from '../../mobile-core/src/offlineStorageCore'
 import {
   createParentOfflineDocument,
@@ -50,20 +50,34 @@ const cryptoProvider = {
   },
 }
 
-const store = config.isUsable && projectRef === APPROVED_MOBILE_TEST.supabaseRef
-  ? createEncryptedOfflineStore({
-      appRole: 'parent',
-      cryptoProvider,
-      environment: 'test',
-      keyStore: SecureStore,
-      keyStoreOptions: {
-        keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
-        requireAuthentication: false,
-      },
-      projectRef,
-      storage: AsyncStorage,
-    })
+function createStore({ environment, ref }) {
+  return createEncryptedOfflineStore({
+    appRole: 'parent',
+    cryptoProvider,
+    environment,
+    keyStore: SecureStore,
+    keyStoreOptions: {
+      keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+      requireAuthentication: false,
+    },
+    projectRef: ref,
+    storage: AsyncStorage,
+  })
+}
+
+const expectedRef = config.isProduction ? APPROVED_MOBILE_PRODUCTION.supabaseRef : APPROVED_MOBILE_TEST.supabaseRef
+const store = config.isUsable && projectRef === expectedRef
+  ? createStore({ environment: config.isProduction ? 'live' : 'test', ref: projectRef })
   : unavailableStore()
+const incompatibleTestStore = config.isProduction
+  ? createStore({ environment: 'test', ref: APPROVED_MOBILE_TEST.supabaseRef })
+  : null
+
+export async function quarantineIncompatibleParentOfflineState() {
+  if (!incompatibleTestStore) return { quarantined: false }
+  await incompatibleTestStore.clear()
+  return { previousEnvironment: 'test', quarantined: true }
+}
 
 function normalize(value) {
   return String(value ?? '').trim()

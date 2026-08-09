@@ -5,7 +5,7 @@ import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   AppState,
@@ -33,6 +33,7 @@ import {
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
+import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import {
   canSubmitParentPoll,
   getBuildClassification,
@@ -95,6 +96,7 @@ import {
   unbindParentNotifications,
   updateParentNotificationPreference,
 } from './src/notifications'
+import { prepareParentMobileStartup } from './src/startup'
 
 const config = getMobileRuntimeConfig('parent')
 const resourceNames = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'polls', 'resources']
@@ -1857,9 +1859,30 @@ function BackButton({ label, onPress }) {
 }
 
 function AppContent() {
-  const { authError, isLoading, isLocked, session, unlockWithBiometrics } = useMobileAuth()
+  const {
+    authError,
+    isLocked,
+    resetLocalAppData,
+    retryStartup,
+    session,
+    startupDiagnosticCode,
+    startupState,
+    unlockWithBiometrics,
+  } = useMobileAuth()
 
-  if (isLoading) return <LoadingScreen message="Loading Football Player Parents..." />
+  if ([MOBILE_STARTUP_STATES.BOOTING, MOBILE_STARTUP_STATES.RESTORING_SESSION].includes(startupState)) {
+    return <LoadingScreen message="Loading Football Player Parents..." />
+  }
+  if (startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {
+    return (
+      <StartupRecoveryScreen
+        diagnosticCode={startupDiagnosticCode}
+        message={authError}
+        onReset={resetLocalAppData}
+        onRetry={retryStartup}
+      />
+    )
+  }
   if (!session?.user) return <LoginScreen />
   if (isLocked) {
     return (
@@ -1873,16 +1896,64 @@ function AppContent() {
   return <ParentHome />
 }
 
+function StartupRecoveryScreen({ diagnosticCode, message, onReset, onRetry, showReset = true }) {
+  const version = Constants.expoConfig?.version || Application.nativeApplicationVersion || 'unknown'
+  const buildNumber = Application.nativeBuildVersion || 'unknown'
+  return (
+    <SafeAreaView style={styles.startupRecovery}>
+      <View accessibilityLiveRegion="assertive" style={styles.startupRecoveryCard}>
+        <Text style={styles.startupRecoveryKicker}>Football Player Parents</Text>
+        <Text style={styles.startupRecoveryTitle}>Something went wrong</Text>
+        <Text style={styles.bodyText}>{message || 'The app could not finish starting safely.'}</Text>
+        <Text style={styles.startupDiagnostic}>Code {diagnosticCode || 'PARENT_STARTUP_FAILED'} | Version {version} ({buildNumber})</Text>
+        <PrimaryAction label="Try again" onPress={onRetry} />
+        {showReset ? <PrimaryAction label="Reset local app data" onPress={onReset} secondary /> : null}
+        {showReset ? <Text style={styles.helperText}>This reset affects only saved information on this device. It does not change Football Player records.</Text> : null}
+      </View>
+    </SafeAreaView>
+  )
+}
+
+class ParentRootErrorBoundary extends Component {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error) {
+    console.error('Parent root render failed.', error?.name || 'unknown')
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <StartupRecoveryScreen
+          diagnosticCode="PARENT_ROOT_RENDER_FAILED"
+          message="The app could not display its first screen safely."
+          onReset={() => this.setState({ hasError: false })}
+          onRetry={() => this.setState({ hasError: false })}
+          showReset={false}
+        />
+      )
+    }
+    return this.props.children
+  }
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider
-        appRole="parent"
-        offlineProfileStore={parentOfflineProfileStore}
-        onBeforeSignOut={unbindParentNotifications}
-      >
-        <AppContent />
-      </AuthProvider>
+      <ParentRootErrorBoundary>
+        <AuthProvider
+          appRole="parent"
+          offlineProfileStore={parentOfflineProfileStore}
+          onBeforeSignOut={unbindParentNotifications}
+          prepareStartup={prepareParentMobileStartup}
+        >
+          <AppContent />
+        </AuthProvider>
+      </ParentRootErrorBoundary>
     </SafeAreaProvider>
   )
 }
@@ -2002,6 +2073,11 @@ const styles = StyleSheet.create({
   sectionHeading: { gap: 2, marginTop: 4 },
   sectionStack: { gap: 10 },
   sectionTitle: { color: palette.text, fontSize: 21, fontWeight: '900' },
+  startupDiagnostic: { color: palette.textMuted, fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }), fontSize: 12 },
+  startupRecovery: { alignItems: 'center', backgroundColor: palette.background, flex: 1, justifyContent: 'center', padding: 20 },
+  startupRecoveryCard: { backgroundColor: palette.card, borderColor: palette.border, borderRadius: 20, borderWidth: 1, gap: 14, maxWidth: 520, padding: 22, width: '100%' },
+  startupRecoveryKicker: { color: palette.accent, fontSize: 13, fontWeight: '900', letterSpacing: 1, textTransform: 'uppercase' },
+  startupRecoveryTitle: { color: palette.text, fontSize: 28, fontWeight: '900' },
   settingCopy: { flex: 1, gap: 6 },
   settingRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
   settingsInput: { backgroundColor: palette.background, borderColor: palette.borderStrong, borderRadius: 12, borderWidth: 1, color: palette.text, fontSize: 16, minHeight: 50, paddingHorizontal: 14, paddingVertical: 11 },

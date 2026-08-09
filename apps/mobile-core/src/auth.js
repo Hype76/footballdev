@@ -4,16 +4,32 @@ import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } 
 import { getMobileRuntimeConfig } from './config'
 import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
-import { clearMobileSessionStorage, getAccessToken, isSupabaseConfigured, mobileConfigError, supabase } from './supabase'
+import { MOBILE_STARTUP_STATES, runMobileStartup, withStartupTimeout } from './startupStateCore'
+import {
+  clearMobileSessionStorage,
+  getAccessToken,
+  isSupabaseConfigured,
+  mobileConfigError,
+  mobileSessionStorageError,
+  supabase,
+} from './supabase'
 
 const AuthContext = createContext(null)
 
-export function AuthProvider({ appRole, children, offlineProfileStore = null, onBeforeSignOut = null }) {
+export function AuthProvider({
+  appRole,
+  children,
+  offlineProfileStore = null,
+  onBeforeSignOut = null,
+  prepareStartup = null,
+}) {
   const [authError, setAuthError] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0)
   const [isLocked, setIsLocked] = useState(false)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [session, setSession] = useState(null)
+  const [startupDiagnosticCode, setStartupDiagnosticCode] = useState('')
+  const [startupState, setStartupState] = useState(MOBILE_STARTUP_STATES.BOOTING)
   const [user, setUser] = useState(null)
 
   const loadProfile = useCallback(async (nextSession) => {
@@ -61,43 +77,45 @@ export function AuthProvider({ appRole, children, offlineProfileStore = null, on
     let isMounted = true
 
     async function bootstrap() {
-      if (!isSupabaseConfigured) {
-        setAuthError(mobileConfigError || 'This app build is missing its connection setup.')
-        setIsLoading(false)
-        return
-      }
+      setAuthError('')
+      setStartupDiagnosticCode('')
 
-      try {
-        const { data, error } = await supabase.auth.getSession()
+      const config = getMobileRuntimeConfig(appRole)
+      const result = await runMobileStartup({
+        clearInvalidSession: async () => {
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+          await clearMobileSessionStorage()
+          setUser(null)
+        },
+        config: {
+          ...config,
+          isUsable: isSupabaseConfigured && !mobileSessionStorageError,
+        },
+        getBiometricEnabled,
+        getSession: () => supabase.auth.getSession(),
+        loadProfile,
+        onLock: (locked) => {
+          if (isMounted) setIsLocked(locked)
+        },
+        onSession: (nextSession) => {
+          if (isMounted) setSession(nextSession)
+        },
+        onTransition: (nextState) => {
+          if (isMounted) setStartupState(nextState)
+        },
+        prepare: () => prepareStartup?.(config),
+      })
 
-        if (error) {
-          throw error
-        }
-
-        if (!isMounted) {
-          return
-        }
-
-        const nextSession = data?.session || null
-        const biometricEnabled = Boolean(nextSession?.user && await getBiometricEnabled())
-
-        if (!isMounted) {
-          return
-        }
-
-        setIsLocked(biometricEnabled)
-        setSession(nextSession)
-        await loadProfile(nextSession)
-      } catch (error) {
-        console.error(error)
-
-        if (isMounted) {
-          setAuthError(error.message || 'Login session could not be restored.')
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
+      if (!isMounted) return
+      setStartupState(result.state)
+      setStartupDiagnosticCode(result.diagnosticCode || '')
+      if (result.state === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {
+        const message = !isSupabaseConfigured
+          ? mobileConfigError || 'This app build is missing its connection setup.'
+          : mobileSessionStorageError
+            ? 'Secure session storage could not be prepared.'
+            : 'Login session could not be restored.'
+        setAuthError(message)
       }
     }
 
@@ -109,14 +127,24 @@ export function AuthProvider({ appRole, children, offlineProfileStore = null, on
       }
 
       setSession(nextSession)
-      void loadProfile(nextSession)
+      if (!nextSession?.user) {
+        setUser(null)
+        setIsLocked(false)
+        setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_OUT)
+        return
+      }
+
+      setStartupState(MOBILE_STARTUP_STATES.RESTORING_SESSION)
+      void loadProfile(nextSession).finally(() => {
+        if (isMounted) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
+      })
     })
 
     return () => {
       isMounted = false
       data.subscription.unsubscribe()
     }
-  }, [appRole, loadProfile])
+  }, [appRole, bootstrapAttempt, loadProfile, prepareStartup])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -151,6 +179,35 @@ export function AuthProvider({ appRole, children, offlineProfileStore = null, on
       throw error
     }
   }, [])
+
+  const retryStartup = useCallback(() => {
+    setStartupState(MOBILE_STARTUP_STATES.BOOTING)
+    setBootstrapAttempt((attempt) => attempt + 1)
+  }, [])
+
+  const resetLocalAppData = useCallback(async () => {
+    setStartupState(MOBILE_STARTUP_STATES.BOOTING)
+    setStartupDiagnosticCode('')
+    setAuthError('')
+    setIsLocked(false)
+    setUser(null)
+
+    try {
+      await withStartupTimeout(async () => {
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+        await clearMobileSessionStorage()
+        if (appRole === 'parent' && offlineProfileStore?.clear) await offlineProfileStore.clear()
+        await setBiometricEnabled(false)
+      })
+
+      setSession(null)
+      setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_OUT)
+    } catch (error) {
+      setAuthError('Saved app information could not be reset safely.')
+      setStartupDiagnosticCode(error?.code || 'PARENT_LOCAL_RESET_FAILED')
+      setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+    }
+  }, [appRole, offlineProfileStore])
 
   const signOut = useCallback(async () => {
     setIsLocked(false)
@@ -218,15 +275,33 @@ export function AuthProvider({ appRole, children, offlineProfileStore = null, on
   const value = useMemo(() => ({
     appRole,
     authError,
-    isLoading,
+    isLoading: startupState === MOBILE_STARTUP_STATES.BOOTING || startupState === MOBILE_STARTUP_STATES.RESTORING_SESSION,
     isLocked,
     isProfileLoading,
+    resetLocalAppData,
+    retryStartup,
     session,
     signIn,
     signOut,
+    startupDiagnosticCode,
+    startupState,
     unlockWithBiometrics,
     user,
-  }), [appRole, authError, isLoading, isLocked, isProfileLoading, session, signIn, signOut, unlockWithBiometrics, user])
+  }), [
+    appRole,
+    authError,
+    isLocked,
+    isProfileLoading,
+    resetLocalAppData,
+    retryStartup,
+    session,
+    signIn,
+    signOut,
+    startupDiagnosticCode,
+    startupState,
+    unlockWithBiometrics,
+    user,
+  ])
 
   return createElement(AuthContext.Provider, { value }, children)
 }

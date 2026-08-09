@@ -19,10 +19,11 @@ import {
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
-const [appSource, notificationSource, authSource, experienceSource, dataSource, profileSource, parentLinksSource, prestoreSource, parentConfig, coachConfig] = await Promise.all([
+const [appSource, notificationSource, authSource, startupStateSource, experienceSource, dataSource, profileSource, parentLinksSource, prestoreSource, parentConfig, coachConfig] = await Promise.all([
   fs.readFile(`${root}/apps/parent-mobile/App.js`, 'utf8'),
   fs.readFile(`${root}/apps/parent-mobile/src/notifications.js`, 'utf8'),
   fs.readFile(`${root}/apps/mobile-core/src/auth.js`, 'utf8'),
+  fs.readFile(`${root}/apps/mobile-core/src/startupStateCore.js`, 'utf8'),
   fs.readFile(`${root}/apps/parent-mobile/src/parentExperience.js`, 'utf8'),
   fs.readFile(`${root}/apps/mobile-core/src/data.js`, 'utf8'),
   fs.readFile(`${root}/apps/mobile-core/src/profile.js`, 'utf8'),
@@ -233,12 +234,13 @@ test('Settings contain local biometric explanation, identity, child summary and 
 })
 
 test('cold session restoration resolves biometric lock before exposing the authenticated session', () => {
-  const biometricRead = authSource.indexOf('await getBiometricEnabled()')
-  const restoredSessionWrite = authSource.indexOf('setSession(nextSession)')
+  const biometricRead = startupStateSource.indexOf('getBiometricEnabled()')
+  const restoredSessionWrite = startupStateSource.indexOf('onSession?.(session)')
 
   assert.ok(biometricRead >= 0)
   assert.ok(restoredSessionWrite > biometricRead)
-  assert.match(authSource, /setIsLocked\(biometricEnabled\)/)
+  assert.match(startupStateSource, /onLock\?\.\(Boolean\(biometricEnabled\)\)/)
+  assert.match(authSource, /setStartupState\(nextState\)/)
   assert.match(authSource, /event === 'INITIAL_SESSION'/)
 })
 

@@ -2,8 +2,8 @@ export const MOBILE_SESSION_STORAGE_SCHEMA_VERSION = 1
 export const MOBILE_SESSION_CHUNK_BYTES = 1500
 export const MOBILE_SESSION_MAX_BYTES = 64 * 1024
 export const APPROVED_MOBILE_TEST_SUPABASE_REF = 'ndohkecigwlwayghsopw'
+export const APPROVED_MOBILE_PRODUCTION_SUPABASE_REF = 'hvapkizujvsahvgspser'
 
-const LIVE_SUPABASE_REF = 'hvapkizujvsahvgspser'
 const RETIRED_SUPABASE_REF = 'llpufwzvgxyczxcjwupu'
 const APP_ROLES = new Set(['coach', 'parent'])
 const NAMESPACE_ENVIRONMENTS = new Set(['test', 'live'])
@@ -14,6 +14,11 @@ const namespaceQueues = new Map()
 
 function normalize(value) {
   return String(value ?? '').trim()
+}
+
+function normalizeStorageEnvironment(value) {
+  const environment = normalize(value).toLowerCase()
+  return environment === 'production' ? 'live' : environment
 }
 
 function storageError(code) {
@@ -119,9 +124,6 @@ export function inspectSupabaseSessionValue(value, expectedProjectRef = APPROVED
     }
 
     const projectRef = getSessionProjectRef(session.access_token)
-    if (projectRef === LIVE_SUPABASE_REF) {
-      return { category: 'secure_session_environment_mismatch', valid: false }
-    }
     if (projectRef === RETIRED_SUPABASE_REF) {
       return { category: 'secure_session_environment_mismatch', valid: false }
     }
@@ -129,7 +131,12 @@ export function inspectSupabaseSessionValue(value, expectedProjectRef = APPROVED
       return { category: 'secure_session_environment_mismatch', valid: false }
     }
 
-    return { category: 'approved_test_session', valid: true }
+    return {
+      category: projectRef === APPROVED_MOBILE_PRODUCTION_SUPABASE_REF
+        ? 'approved_production_session'
+        : 'approved_test_session',
+      valid: true,
+    }
   } catch {
     return { category: 'secure_session_corrupt', valid: false }
   }
@@ -143,7 +150,7 @@ function normalizeLogicalKey(value) {
 
 export function deriveMobileSessionNamespace({ appRole, environment, logicalKey }) {
   const app = normalize(appRole).toLowerCase()
-  const environmentName = normalize(environment).toLowerCase()
+  const environmentName = normalizeStorageEnvironment(environment)
   if (!APP_ROLES.has(app)) throw storageError('secure_session_app_mismatch')
   if (!NAMESPACE_ENVIRONMENTS.has(environmentName)) throw storageError('secure_session_environment_mismatch')
   return `fp.mobile.auth.v${MOBILE_SESSION_STORAGE_SCHEMA_VERSION}.${app}.${environmentName}.${normalizeLogicalKey(logicalKey)}`
@@ -176,13 +183,21 @@ export function createSecureSessionStorage({
   supabaseProjectRef,
 }) {
   const app = normalize(appRole).toLowerCase()
-  const environmentName = normalize(environment).toLowerCase()
+  const environmentName = normalizeStorageEnvironment(environment)
   const projectRef = normalize(supabaseProjectRef)
   const mainKey = normalizeLogicalKey(sessionStorageKey)
 
   if (!APP_ROLES.has(app)) throw storageError('secure_session_app_mismatch')
-  if (environmentName !== 'test') throw storageError('secure_session_environment_mismatch')
-  if (projectRef !== APPROVED_MOBILE_TEST_SUPABASE_REF) throw storageError('secure_session_environment_mismatch')
+  const expectedProjectRef = environmentName === 'live'
+    ? APPROVED_MOBILE_PRODUCTION_SUPABASE_REF
+    : APPROVED_MOBILE_TEST_SUPABASE_REF
+  if (
+    !NAMESPACE_ENVIRONMENTS.has(environmentName)
+    || projectRef !== expectedProjectRef
+    || (environmentName === 'live' && app !== 'parent')
+  ) {
+    throw storageError('secure_session_environment_mismatch')
+  }
   if (!secureStore?.getItemAsync || !secureStore?.setItemAsync || !secureStore?.deleteItemAsync) {
     throw storageError('secure_storage_unavailable')
   }

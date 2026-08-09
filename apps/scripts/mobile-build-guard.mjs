@@ -31,7 +31,7 @@ if (!allowedBuilds.has(`${profile}:${platform}`)) {
 }
 
 if (productionBuilds.has(`${profile}:${platform}`)
-  && (appRole !== 'parent' || promotionReference !== 'FP-MOBILE-PARENT-PRODUCTION-PROMOTION-MASTER-26')) {
+  && (appRole !== 'parent' || promotionReference !== 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')) {
   console.error('Production Parent mobile build not authorised for this reference.')
   console.error('Reason: production_build_not_authorised')
   process.exit(1)

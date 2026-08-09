@@ -16,7 +16,7 @@ test('current Coach, Parent and mobile-core source preserves password-only Auth'
   const result = await scanMobileAuthBoundary({ repositoryRoot })
   assert.deepEqual(result.failures, [])
   assert.ok(result.filesScanned > 0)
-  assert.equal(result.passwordSignInCalls, 1)
+  assert.equal(result.passwordSignInCalls, 2)
   assert.equal(result.detectSessionInUrlFalse, 1)
 })
 

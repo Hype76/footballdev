@@ -45,6 +45,15 @@ function getEnvironmentStorageKey(prefix, apiBaseUrl) {
   return `${prefix}:${isProductionApi(apiBaseUrl) ? 'production' : 'test'}`
 }
 
+export async function clearIncompatibleParentNotificationState(apiBaseUrl) {
+  const incompatibleEnvironment = isProductionApi(apiBaseUrl) ? 'test' : 'production'
+  await Promise.all([
+    SecureStore.deleteItemAsync(`${INSTALLATION_KEY_PREFIX}:${incompatibleEnvironment}`),
+    AsyncStorage.removeItem(`${DETAIL_KEY_PREFIX}:${incompatibleEnvironment}`),
+  ])
+  return { previousEnvironment: incompatibleEnvironment, quarantined: true }
+}
+
 function getInstallationPath(apiBaseUrl) {
   return isProductionApi(apiBaseUrl)
     ? '/.netlify/functions/parent-mobile-push-installation'
