@@ -79,12 +79,6 @@ async function getMessagePayload({ id, profile }) {
     throw Object.assign(new Error('Parent message could not be found.'), { statusCode: 404 })
   }
 
-  const metadata = log.metadata && typeof log.metadata === 'object' ? log.metadata : {}
-  const title = normalizeText(metadata.subject) || 'New club message'
-  const body = normalizeText(metadata.playerName)
-    ? `${normalizeText(metadata.playerName)} has a new message.`
-    : 'A new club message is available.'
-
   return {
     clubId: log.club_id,
     data: {
@@ -93,10 +87,11 @@ async function getMessagePayload({ id, profile }) {
       route: 'messages',
       type: 'parent_message',
     },
+    detailedBody: 'Your club has shared a new Parent message.',
+    minimalBody: 'You have a new update in Football Player Parents.',
     parentLinkQuery: (query) => query.eq('player_id', log.player_id),
     teamId: null,
-    title,
-    body,
+    title: 'Football Player Parents',
     type: 'parent_message',
   }
 }
@@ -123,10 +118,11 @@ async function getPollPayload({ id, profile }) {
       route: 'polls',
       type: 'parent_poll',
     },
+    detailedBody: 'A Parent poll is ready to view.',
+    minimalBody: 'A new poll is available.',
     parentLinkQuery: (query) => poll.team_id ? query.eq('team_id', poll.team_id) : query,
     teamId: poll.team_id || null,
-    title: 'New parent poll',
-    body: normalizeText(poll.title) || 'A new club poll is open.',
+    title: 'Football Player Parents',
     type: 'parent_poll',
   }
 }
@@ -159,12 +155,11 @@ async function getMobileDevices({ clubId, parentLinkIds, teamId }) {
   }
 
   let query = supabaseAdmin
-    .from('mobile_push_devices')
-    .select('id, auth_user_id, device_token, parent_link_id')
+    .from('parent_mobile_push_installations')
+    .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level')
     .eq('club_id', clubId)
-    .eq('app_role', 'parent')
     .eq('status', 'active')
-    .eq('notification_enabled', true)
+    .eq('enabled', true)
     .in('parent_link_id', parentLinkIds)
 
   if (teamId) {
@@ -192,17 +187,17 @@ async function logNotificationEvents({ devices, payload, status }) {
 
   const now = new Date().toISOString()
   const { error } = await supabaseAdmin
-    .from('notification_events')
+    .from('parent_mobile_notification_events')
     .insert(devices.map((device) => ({
-      body: payload.body,
-      channel: 'mobile_push',
+      installation_id: device.installation_id,
+      auth_user_id: device.auth_user_id,
+      body: device.detail_level === 'detailed' ? payload.detailedBody : payload.minimalBody,
       club_id: payload.clubId,
       data: payload.data,
-      notification_type: payload.type,
+      intent_type: payload.type,
       parent_link_id: device.parent_link_id || null,
       sent_at: status === 'sent' ? now : null,
       status,
-      target_auth_user_id: device.auth_user_id,
       team_id: payload.teamId || null,
       title: payload.title,
     })))
@@ -225,13 +220,18 @@ async function revokeMobileDeviceTokens(deviceTokens) {
   }
 
   const { error } = await supabaseAdmin
-    .from('mobile_push_devices')
+    .from('parent_mobile_push_installations')
     .update({
-      notification_enabled: false,
+      auth_user_id: null,
+      parent_link_id: null,
+      club_id: null,
+      team_id: null,
+      expo_push_token: null,
+      enabled: false,
       status: 'revoked',
       updated_at: new Date().toISOString(),
     })
-    .in('device_token', tokens)
+    .in('expo_push_token', tokens)
 
   if (error) {
     if (isMissingTableError(error)) {
@@ -254,11 +254,11 @@ export async function sendParentMobilePushById({ id, profile, type }) {
     teamId: payload.teamId,
   })
   const pushResult = await sendExpoPushMessages(devices.map((device) => ({
-    body: payload.body,
+    body: device.detail_level === 'detailed' ? payload.detailedBody : payload.minimalBody,
     data: payload.data,
     sound: 'default',
     title: payload.title,
-    to: device.device_token,
+    to: device.expo_push_token,
   })))
   await revokeMobileDeviceTokens(pushResult.invalidTokens || [])
 

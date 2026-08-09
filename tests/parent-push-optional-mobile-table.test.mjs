@@ -74,7 +74,11 @@ test('parent message delivery stays successful when the optional mobile table is
     }
 
     if (table === 'clubs') {
-      return queryResult({ data: { id: 'club-1', status: 'active' }, error: null })
+      return queryResult({ data: { id: 'club-1', is_plan_comped: true, plan_key: 'single_team', plan_status: 'active', status: 'active' }, error: null })
+    }
+
+    if (table === 'billing_access_state_events') {
+      return queryResult({ data: null, error: null })
     }
 
     if (table === 'communication_logs') {
@@ -106,12 +110,12 @@ test('parent message delivery stays successful when the optional mobile table is
       })
     }
 
-    if (table === 'mobile_push_devices') {
+    if (table === 'parent_mobile_push_installations') {
       return queryResult({
         data: null,
         error: {
           code: 'PGRST205',
-          message: "Could not find the table 'public.mobile_push_devices' in the schema cache",
+          message: "Could not find the table 'public.parent_mobile_push_installations' in the schema cache",
         },
       })
     }
