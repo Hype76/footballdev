@@ -430,7 +430,7 @@ function QuickActionHotbar({ user }) {
     && Boolean(new URLSearchParams(location.search).get('board'))
   const hasAuthenticatedQuickActionContext = Boolean(user?.id)
   const canShowQuickActions = hasAuthenticatedQuickActionContext
-    && resolveBillingAccess(user).operationalMutationsAllowed
+    && resolveBillingAccess(user, { actorRequired: true }).operationalMutationsAllowed
     &&
     Boolean(user?.clubId)
     && !isSuperAdmin(user)

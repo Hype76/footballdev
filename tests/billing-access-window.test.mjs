@@ -5,6 +5,7 @@ import {
   assertBillingActionAllowed,
   BILLING_ACCESS_STATES,
   BILLING_ACTION_CATEGORIES,
+  BILLING_ACTOR_CATEGORIES,
   isBillingActionAllowed,
   resolveBillingAccess,
 } from '../src/lib/billing-access.js'
@@ -81,6 +82,144 @@ test('valid commercial and role contexts retain their established billing decisi
     const decision = resolveBillingAccess(context)
     assert.equal(decision.accessState, BILLING_ACCESS_STATES.full, label)
     assert.equal(decision.operationalMutationsAllowed, true, label)
+  }
+})
+
+test('Platform Admin bypass is actor-first across customer plans, payment states, and archive state', () => {
+  const platformAdmin = { id: 'platform-1', role: 'super_admin', roleRank: 100 }
+  const customerStates = [
+    { label: 'Team payment required', planKey: 'single_team', planStatus: 'past_due', billingArrangement: 'immediate' },
+    { label: 'Club payment required', planKey: 'small_club', planStatus: 'past_due', billingArrangement: 'immediate' },
+    { label: 'Complimentary', planKey: 'development_club', planStatus: 'past_due', billingArrangement: 'complimentary', isPlanComped: true },
+    { label: 'Deferred future', planKey: 'large_club', planStatus: 'past_due', billingArrangement: 'deferred', billingStartAt: '2030-01-01T00:00:00Z' },
+    { label: 'Active subscription', planKey: 'small_club', planStatus: 'active', billingArrangement: 'immediate' },
+    { label: 'Archived customer', planKey: 'small_club', planStatus: 'past_due', billingArrangement: 'immediate', archivedAt: '2026-08-01T00:00:00Z' },
+  ]
+
+  for (const state of customerStates) {
+    const decision = resolveBillingAccess({ ...state, ...platformAdmin, workspaceId: 'selected-customer' })
+    assert.equal(decision.actorCategory, BILLING_ACTOR_CATEGORIES.platformAdmin, state.label)
+    assert.equal(decision.accessState, BILLING_ACCESS_STATES.full, state.label)
+    assert.equal(decision.operationalMutationsAllowed, true, state.label)
+    assert.equal(decision.paymentRequired, false, state.label)
+    assert.equal(decision.payerAuthorized, false, state.label)
+    assert.equal(decision.reason, 'platform_admin_customer_billing_bypass', state.label)
+    assert.equal(decision.workspaceId, 'selected-customer', state.label)
+  }
+
+  assert.equal(isBillingActionAllowed({ ...platformAdmin }, BILLING_ACTION_CATEGORIES.platformAdmin), true)
+  assert.equal(isBillingActionAllowed({ ...platformAdmin }, BILLING_ACTION_CATEGORIES.staffMutation), true)
+})
+
+test('Parent and player bypass is actor-first for Team-scope and Club-scope customer billing', () => {
+  for (const role of ['parent', 'parent_portal', 'player', 'adult_player']) {
+    for (const planKey of ['single_team', 'small_club']) {
+      const decision = resolveBillingAccess({
+        id: `${role}-${planKey}`,
+        role,
+        roleRank: 0,
+        planKey,
+        planStatus: 'past_due',
+        billingArrangement: 'immediate',
+      })
+      assert.equal(decision.actorCategory, BILLING_ACTOR_CATEGORIES.parentOrPlayer, `${role}: ${planKey}`)
+      assert.equal(decision.accessState, BILLING_ACCESS_STATES.full, `${role}: ${planKey}`)
+      assert.equal(decision.operationalMutationsAllowed, true, `${role}: ${planKey}`)
+      assert.equal(decision.paymentRequired, false, `${role}: ${planKey}`)
+      assert.equal(decision.payerAuthorized, false, `${role}: ${planKey}`)
+      assert.equal(decision.nextPaymentAction, 'none', `${role}: ${planKey}`)
+      assert.equal(isBillingActionAllowed({ role, planKey }, BILLING_ACTION_CATEGORIES.billing), false, `${role}: ${planKey} billing`)
+    }
+  }
+})
+
+test('ordinary staff restrictions and exact commercial payer ownership are unchanged', () => {
+  const cases = [
+    { label: 'Team Admin owns Team billing', context: { ...teamAdmin, billingArrangement: 'immediate' }, payerAuthorized: true },
+    { label: 'Club Admin owns Club billing', context: { ...clubAdmin, billingArrangement: 'immediate' }, payerAuthorized: true },
+    { label: 'Coach is restricted', context: { ...clubAdmin, role: 'coach', roleRank: 30, billingArrangement: 'immediate' }, payerAuthorized: false },
+    { label: 'Team Admin cannot control Club billing', context: { ...clubAdmin, role: 'head_manager', roleRank: 70, billingArrangement: 'immediate' }, payerAuthorized: false },
+  ]
+
+  for (const entry of cases) {
+    const decision = resolveBillingAccess(entry.context)
+    assert.equal(decision.actorCategory, BILLING_ACTOR_CATEGORIES.customerStaff, entry.label)
+    assert.equal(decision.accessState, BILLING_ACCESS_STATES.paymentRequired, entry.label)
+    assert.equal(decision.operationalMutationsAllowed, false, entry.label)
+    assert.equal(decision.payerAuthorized, entry.payerAuthorized, entry.label)
+    assert.equal(isBillingActionAllowed(entry.context, BILLING_ACTION_CATEGORIES.staffMutation), false, entry.label)
+  }
+})
+
+test('unknown roles and missing actors fail closed even when customer billing is active', () => {
+  const activeWorkspace = { planKey: 'small_club', planStatus: 'active', billingArrangement: 'immediate' }
+  const unknown = resolveBillingAccess({ ...activeWorkspace, role: 'unknown_role', roleRank: 100 })
+  const missing = resolveBillingAccess(activeWorkspace, { actorRequired: true })
+
+  for (const decision of [unknown, missing]) {
+    assert.equal(decision.actorCategory, BILLING_ACTOR_CATEGORIES.unknown)
+    assert.equal(decision.accessState, BILLING_ACCESS_STATES.paymentRequired)
+    assert.equal(decision.operationalMutationsAllowed, false)
+    assert.equal(decision.payerAuthorized, false)
+    assert.equal(decision.reason, 'unknown_actor')
+  }
+
+  assert.equal(isBillingActionAllowed({ ...activeWorkspace, role: 'unknown_role' }, BILLING_ACTION_CATEGORIES.read), false)
+  assert.equal(isBillingActionAllowed(activeWorkspace, BILLING_ACTION_CATEGORIES.parentOperation), false)
+})
+
+test('actorless billing bookkeeping still calculates customer state without granting an action', () => {
+  const context = { planKey: 'small_club', planStatus: 'past_due', billingArrangement: 'immediate' }
+  const decision = resolveBillingAccess(context)
+
+  assert.equal(decision.actorCategory, BILLING_ACTOR_CATEGORIES.system)
+  assert.equal(decision.accessState, BILLING_ACCESS_STATES.paymentRequired)
+  assert.equal(isBillingActionAllowed(context, BILLING_ACTION_CATEGORIES.staffMutation), false)
+})
+
+test('actor by billing-state matrix preserves banner, read, export, mutation, and billing authority', () => {
+  const actors = [
+    { label: 'Platform Admin', kind: 'platform', context: { role: 'super_admin', roleRank: 100, planKey: 'small_club' } },
+    { label: 'Club Admin', kind: 'owner', context: { role: 'admin', roleRank: 90, planKey: 'small_club' } },
+    { label: 'Team Admin', kind: 'owner', context: { role: 'head_manager', roleRank: 70, planKey: 'single_team' } },
+    { label: 'Coach', kind: 'coach', context: { role: 'coach', roleRank: 30, planKey: 'single_team' } },
+    { label: 'Parent', kind: 'parent', context: { role: 'parent_portal', roleRank: 0, planKey: 'small_club' } },
+  ]
+  const states = [
+    { label: 'immediate payment required', values: { planStatus: 'past_due', billingArrangement: 'immediate' }, customerAccess: BILLING_ACCESS_STATES.paymentRequired, customerMutation: false, banner: true },
+    { label: 'deferred future', values: { planStatus: 'past_due', billingArrangement: 'deferred', billingStartAt: '2030-01-01T00:00:00Z' }, customerAccess: BILLING_ACCESS_STATES.full, customerMutation: true, banner: false },
+    { label: 'deferred due', values: { planStatus: 'past_due', billingArrangement: 'deferred', billingStartAt: '2020-01-01T00:00:00Z' }, customerAccess: BILLING_ACCESS_STATES.paymentRequired, customerMutation: false, banner: true },
+    { label: 'complimentary', values: { planStatus: 'past_due', billingArrangement: 'complimentary', isPlanComped: true }, customerAccess: BILLING_ACCESS_STATES.full, customerMutation: true, banner: false },
+    { label: 'active subscription', values: { planStatus: 'active', billingArrangement: 'immediate' }, customerAccess: BILLING_ACCESS_STATES.full, customerMutation: true, banner: false },
+    { label: 'trialing subscription', values: { planStatus: 'trialing', billingArrangement: 'immediate' }, customerAccess: BILLING_ACCESS_STATES.full, customerMutation: true, banner: false },
+    { label: 'archived', values: { planStatus: 'past_due', billingArrangement: 'immediate', archivedAt: '2026-08-01T00:00:00Z' }, customerAccess: BILLING_ACCESS_STATES.archived, customerMutation: false, banner: false },
+  ]
+
+  for (const actor of actors) {
+    for (const state of states) {
+      const label = `${actor.label}: ${state.label}`
+      const context = { ...actor.context, ...state.values }
+      const decision = resolveBillingAccess(context)
+      const expectedAccess = actor.kind === 'platform'
+        ? BILLING_ACCESS_STATES.full
+        : actor.kind === 'parent' && state.label !== 'archived'
+          ? BILLING_ACCESS_STATES.full
+          : state.customerAccess
+      const bannerVisible = [BILLING_ACCESS_STATES.paymentDueSoon, BILLING_ACCESS_STATES.paymentRequired].includes(decision.accessState)
+      const expectedMutation = actor.kind === 'platform' || actor.kind === 'parent' ? true : state.customerMutation
+      const expectedBilling = actor.kind === 'platform'
+        ? true
+        : actor.kind === 'parent' || actor.kind === 'coach' || state.label === 'archived'
+          ? false
+          : true
+
+      assert.equal(decision.accessState, expectedAccess, `${label} access`)
+      assert.equal(bannerVisible, actor.kind === 'platform' || actor.kind === 'parent' ? false : state.banner, `${label} banner`)
+      assert.equal(isBillingActionAllowed(context, BILLING_ACTION_CATEGORIES.read), true, `${label} read`)
+      assert.equal(isBillingActionAllowed(context, BILLING_ACTION_CATEGORIES.export), true, `${label} export`)
+      assert.equal(isBillingActionAllowed(context, BILLING_ACTION_CATEGORIES.staffMutation), expectedMutation, `${label} mutation`)
+      assert.equal(isBillingActionAllowed(context, BILLING_ACTION_CATEGORIES.billing), expectedBilling, `${label} billing`)
+    }
   }
 })
 

@@ -90,6 +90,19 @@ test('database backstop blocks expired staff writes but leaves Parent writes una
   await parentDb.close()
 })
 
+test('database backstop exempts only the canonical Platform Admin role, not a tampered membership role', async () => {
+  const platformDb = await createDatabase()
+  await insertWorkspace(platformDb, { arrangement: 'immediate' })
+  await platformDb.query(`update public.users set role = 'super_admin', role_rank = 100 where id = $1`, [actorId])
+  await assert.doesNotReject(() => platformDb.query(`insert into public.evaluations(club_id, player_name) values ($1, 'Platform Operation')`, [clubId]))
+  await platformDb.close()
+
+  const tamperedDb = await createDatabase()
+  await insertWorkspace(tamperedDb, { arrangement: 'immediate', role: 'super_admin', roleRank: 100 })
+  await assert.rejects(() => tamperedDb.query(`insert into public.evaluations(club_id, player_name) values ($1, 'Tampered Operation')`, [clubId]), /payment_required/)
+  await tamperedDb.close()
+})
+
 test('active Stripe status and complimentary access override an expired date', async () => {
   for (const values of [
     { arrangement: 'deferred', startAt: '2020-01-01T00:00:00Z', planStatus: 'active' },

@@ -23,10 +23,19 @@ export const BILLING_ACTION_CATEGORIES = Object.freeze({
   platformAdmin: 'PLATFORM_ADMIN',
 })
 
+export const BILLING_ACTOR_CATEGORIES = Object.freeze({
+  platformAdmin: 'PLATFORM_ADMIN',
+  parentOrPlayer: 'PARENT_OR_PLAYER',
+  customerStaff: 'CUSTOMER_STAFF',
+  system: 'SYSTEM_CONTEXT',
+  unknown: 'UNKNOWN',
+})
+
 export const PAYMENT_REQUIRED_ERROR_CODE = 'payment_required'
 
 const VALID_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing'])
 const PARENT_OR_PLAYER_ROLES = new Set(['parent', 'parent_portal', 'player', 'adult_player'])
+const CUSTOMER_STAFF_ROLES = new Set(['admin', 'head_manager', 'manager', 'coach', 'assistant_coach'])
 const DUE_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 function normalizeText(value) {
@@ -79,10 +88,6 @@ function isArchivedWorkspace(context) {
 }
 
 function isPayerAuthorized({ context, role, scope }) {
-  if (role === 'super_admin') {
-    return true
-  }
-
   if (scope.key === WORKSPACE_SCOPES.team) {
     return role === scope.ownerRole.key
       && Number(context.roleRank ?? context.role_rank ?? 0) >= scope.ownerRole.rank
@@ -96,11 +101,29 @@ function isPayerAuthorized({ context, role, scope }) {
   return false
 }
 
+function resolveBillingActorCategory(role) {
+  if (role === 'super_admin') {
+    return BILLING_ACTOR_CATEGORIES.platformAdmin
+  }
+
+  if (PARENT_OR_PLAYER_ROLES.has(role)) {
+    return BILLING_ACTOR_CATEGORIES.parentOrPlayer
+  }
+
+  if (CUSTOMER_STAFF_ROLES.has(role)) {
+    return BILLING_ACTOR_CATEGORIES.customerStaff
+  }
+
+  return role ? BILLING_ACTOR_CATEGORIES.unknown : BILLING_ACTOR_CATEGORIES.system
+}
+
 function buildDecision({
   accessState,
+  actorCategory,
   arrangement,
   billingStartAt,
   context,
+  nextPaymentAction = '',
   operationalMutationsAllowed,
   payerAuthorized,
   reason,
@@ -110,12 +133,13 @@ function buildDecision({
 }) {
   return {
     accessState,
+    actorCategory,
     arrangement,
     billingStartAt: billingStartAt ? new Date(billingStartAt).toISOString() : '',
     commercialScope: scope.key,
     dueSoon: accessState === BILLING_ACCESS_STATES.paymentDueSoon,
     exportAllowed: true,
-    nextPaymentAction: payerAuthorized ? 'continue_with_stripe' : 'contact_billing_owner',
+    nextPaymentAction: nextPaymentAction || (payerAuthorized ? 'continue_with_stripe' : 'contact_billing_owner'),
     operationalMutationsAllowed,
     payerAuthorized,
     paymentRequired: accessState === BILLING_ACCESS_STATES.paymentRequired,
@@ -130,10 +154,79 @@ export function isValidBillingSubscriptionStatus(value) {
   return VALID_SUBSCRIPTION_STATUSES.has(normalizeSubscriptionStatus(value))
 }
 
-export function resolveBillingAccess(context = {}, { now = null } = {}) {
+export function resolveBillingAccess(context = {}, { actorRequired = false, now = null } = {}) {
   const safeContext = normalizeBillingContext(context)
-  const scope = getWorkspaceScope(safeContext.planKey ?? safeContext.plan_key)
   const role = normalizeRole(safeContext.role ?? safeContext.clubRole ?? safeContext.club_role)
+  const actorCategory = resolveBillingActorCategory(role)
+  const scope = getWorkspaceScope(safeContext.planKey ?? safeContext.plan_key)
+
+  if (actorCategory === BILLING_ACTOR_CATEGORIES.platformAdmin) {
+    return buildDecision({
+      accessState: BILLING_ACCESS_STATES.full,
+      actorCategory,
+      arrangement: '',
+      billingStartAt: null,
+      context: safeContext,
+      nextPaymentAction: 'none',
+      operationalMutationsAllowed: true,
+      payerAuthorized: false,
+      reason: 'platform_admin_customer_billing_bypass',
+      scope,
+      subscriptionStatus: '',
+    })
+  }
+
+  if (actorCategory === BILLING_ACTOR_CATEGORIES.parentOrPlayer && isArchivedWorkspace(safeContext)) {
+    return buildDecision({
+      accessState: BILLING_ACCESS_STATES.archived,
+      actorCategory,
+      arrangement: '',
+      billingStartAt: null,
+      context: safeContext,
+      nextPaymentAction: 'none',
+      operationalMutationsAllowed: false,
+      payerAuthorized: false,
+      reason: 'workspace_archived',
+      scope,
+      subscriptionStatus: '',
+    })
+  }
+
+  if (actorCategory === BILLING_ACTOR_CATEGORIES.parentOrPlayer) {
+    return buildDecision({
+      accessState: BILLING_ACCESS_STATES.full,
+      actorCategory,
+      arrangement: '',
+      billingStartAt: null,
+      context: safeContext,
+      nextPaymentAction: 'none',
+      operationalMutationsAllowed: true,
+      payerAuthorized: false,
+      reason: 'parent_or_player_customer_billing_bypass',
+      scope,
+      subscriptionStatus: '',
+    })
+  }
+
+  if (
+    actorCategory === BILLING_ACTOR_CATEGORIES.unknown
+    || (actorRequired && actorCategory === BILLING_ACTOR_CATEGORIES.system)
+  ) {
+    return buildDecision({
+      accessState: BILLING_ACCESS_STATES.paymentRequired,
+      actorCategory: BILLING_ACTOR_CATEGORIES.unknown,
+      arrangement: '',
+      billingStartAt: null,
+      context: safeContext,
+      operationalMutationsAllowed: false,
+      payerAuthorized: false,
+      reason: 'unknown_actor',
+      reviewRequired: true,
+      scope,
+      subscriptionStatus: '',
+    })
+  }
+
   const subscriptionStatus = normalizeSubscriptionStatus(
     safeContext.subscriptionStatus
     ?? safeContext.subscription_status
@@ -150,6 +243,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (isArchivedWorkspace(safeContext)) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.archived,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -164,6 +258,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (!scope.supported) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.paymentRequired,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -179,6 +274,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (scope.key === WORKSPACE_SCOPES.individual) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.full,
+      actorCategory,
       arrangement: arrangement || BILLING_ARRANGEMENTS.complimentary,
       billingStartAt,
       context: safeContext,
@@ -193,6 +289,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (isValidBillingSubscriptionStatus(subscriptionStatus)) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.full,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -207,6 +304,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (arrangement === BILLING_ARRANGEMENTS.complimentary) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.full,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -221,6 +319,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (!arrangement) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.full,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -236,6 +335,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (arrangement === BILLING_ARRANGEMENTS.immediate) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.paymentRequired,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -250,6 +350,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (!billingStartAt) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.paymentRequired,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -267,6 +368,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
   if (remainingMs <= 0) {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.paymentRequired,
+      actorCategory,
       arrangement,
       billingStartAt,
       context: safeContext,
@@ -282,6 +384,7 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
     accessState: remainingMs <= DUE_SOON_WINDOW_MS
       ? BILLING_ACCESS_STATES.paymentDueSoon
       : BILLING_ACCESS_STATES.full,
+    actorCategory,
     arrangement,
     billingStartAt,
     context: safeContext,
@@ -295,21 +398,31 @@ export function resolveBillingAccess(context = {}, { now = null } = {}) {
 
 export function isBillingActionAllowed(context = {}, actionCategory, options = {}) {
   const safeContext = normalizeBillingContext(context)
-  const decision = resolveBillingAccess(safeContext, options)
   const category = normalizeText(actionCategory).toUpperCase()
   const role = normalizeRole(safeContext.role ?? safeContext.clubRole ?? safeContext.club_role)
+  const actorCategory = resolveBillingActorCategory(role)
+
+  if (
+    actorCategory === BILLING_ACTOR_CATEGORIES.system
+    || actorCategory === BILLING_ACTOR_CATEGORIES.unknown
+  ) {
+    return false
+  }
 
   if (category === BILLING_ACTION_CATEGORIES.platformAdmin) {
-    return role === 'super_admin'
+    return actorCategory === BILLING_ACTOR_CATEGORIES.platformAdmin
   }
 
-  if (role === 'super_admin') {
+  if (actorCategory === BILLING_ACTOR_CATEGORIES.platformAdmin) {
     return true
   }
 
-  if (category === BILLING_ACTION_CATEGORIES.parentOperation || PARENT_OR_PLAYER_ROLES.has(role)) {
-    return true
+  if (actorCategory === BILLING_ACTOR_CATEGORIES.parentOrPlayer) {
+    return category !== BILLING_ACTION_CATEGORIES.billing
+      && category !== BILLING_ACTION_CATEGORIES.platformAdmin
   }
+
+  const decision = resolveBillingAccess(safeContext, { ...options, actorRequired: true })
 
   if (
     category === BILLING_ACTION_CATEGORIES.read
@@ -344,7 +457,7 @@ export function assertBillingActionAllowed(context = {}, actionCategory, options
     throw createPaymentRequiredError()
   }
 
-  return resolveBillingAccess(context, options)
+  return resolveBillingAccess(context, { ...options, actorRequired: true })
 }
 
 export function isParentOrPlayerBillingBypassRole(value) {

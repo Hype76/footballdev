@@ -837,6 +837,22 @@ async function assertVisibleTextContaining(page, text) {
   await page.getByText(text).filter({ visible: true }).first().waitFor({ state: 'visible', timeout: 15000 })
 }
 
+async function assertNoCustomerBillingNotice(page) {
+  assert.equal(await page.locator('[aria-label="Billing access notice"]').count(), 0)
+  assert.equal(await page.getByText('Payment required', { exact: true }).count(), 0)
+  assert.equal(await page.evaluate(() => window.__billingNoticeFlashDetected), false)
+}
+
+async function setFixtureBillingState(page, email, patch) {
+  await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
+  await page.evaluate(({ fixtureEmail, fixturePatch }) => {
+    window.localStorage.setItem(
+      `auth-access-browser-fixture-profile-patch:${fixtureEmail}`,
+      JSON.stringify(fixturePatch),
+    )
+  }, { fixtureEmail: email.toLowerCase(), fixturePatch: patch })
+}
+
 async function assertLoginAccessStateCleared(page) {
   const accessState = await page.evaluate(() => ({
     selectedAccessMode: window.sessionStorage.getItem('selected-access-mode'),
@@ -1309,14 +1325,18 @@ try {
     const context = await browser.newContext()
     await context.addInitScript(() => {
       window.__quickActionFlashDetected = false
-      const detectQuickActions = () => {
+      window.__billingNoticeFlashDetected = false
+      const detectRestrictedShellContent = () => {
         if (document.querySelector('[aria-label="Open quick actions"], [aria-label="Close quick actions"]')) {
           window.__quickActionFlashDetected = true
         }
+        if (document.querySelector('[aria-label="Billing access notice"]')) {
+          window.__billingNoticeFlashDetected = true
+        }
       }
       const startObserver = () => {
-        detectQuickActions()
-        new MutationObserver(detectQuickActions).observe(document.documentElement, { childList: true, subtree: true })
+        detectRestrictedShellContent()
+        new MutationObserver(detectRestrictedShellContent).observe(document.documentElement, { childList: true, subtree: true })
       }
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', startObserver, { once: true })
@@ -1332,6 +1352,7 @@ try {
     await page.goto(`${mainBaseUrl}/platform-admin`)
     await page.getByText('Platform control', { exact: true }).waitFor({ state: 'visible' })
     assert.equal(await page.evaluate(() => window.__quickActionFlashDetected), false)
+    await assertNoCustomerBillingNotice(page)
     await assertVisibleText(page, 'Platform control')
     await assertVisibleText(page, 'Platform tools')
     assert.equal(await page.locator('a[href="/platform-analytics"]').count() > 0, true)
@@ -1362,6 +1383,23 @@ try {
     await assertSidebarFooterContract(page)
     assert.deepEqual(pageErrors, [])
     assert.equal(await page.evaluate(() => window.__quickActionFlashDetected), false)
+    await assertNoCustomerBillingNotice(page)
+
+    for (const route of [
+      { path: '/platform-clubs', heading: 'Club and Team Management' },
+      { path: '/platform-staff', heading: 'Platform Staff' },
+      { path: '/platform-data-hygiene', heading: 'Data Hygiene' },
+      { path: '/platform-billing-options', heading: 'Billing Options' },
+      { path: '/platform-banners', heading: 'Platform Banners' },
+      { path: '/platform-feedback', heading: 'Turn tester feedback into a clear product queue.' },
+      { path: '/data-transfer', heading: 'Data Transfer' },
+    ]) {
+      await page.goto(`${mainBaseUrl}${route.path}`)
+      await page.waitForURL(`**${route.path}`, { timeout: 15000 })
+      await page.getByRole('heading', { name: route.heading, exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
+      await assertNoCustomerBillingNotice(page)
+      assert.deepEqual(pageErrors, [], route.path)
+    }
     await context.close()
   })
 
@@ -1380,6 +1418,61 @@ try {
   })
 
   if (!platformAnalyticsOnly) {
+  await runScenario('billing restriction remains visible and correctly owned for customer staff', async () => {
+    const cases = [
+      { email: 'team-admin.fixture@footballplayer.test', planKey: 'single_team', roleRank: 70, stripeExpected: true },
+      { email: 'club.fixture@footballplayer.test', planKey: 'small_club', roleRank: 90, stripeExpected: true },
+      { email: 'coach.fixture@footballplayer.test', planKey: 'single_team', roleRank: 30, stripeExpected: false },
+    ]
+
+    for (const entry of cases) {
+      const context = await browser.newContext()
+      const { page } = await preparePage(context)
+      await setFixtureBillingState(page, entry.email, {
+        billingArrangement: 'immediate',
+        isPlanComped: false,
+        planKey: entry.planKey,
+        planStatus: 'past_due',
+        roleRank: entry.roleRank,
+      })
+      await signIn(page, entry.email)
+      if (entry.stripeExpected) {
+        try {
+          await page.locator('[aria-label="Billing access notice"]').waitFor({ state: 'visible', timeout: 15000 })
+        } catch (error) {
+          throw new Error(`${entry.email} did not show the customer billing notice at ${page.url()}`, { cause: error })
+        }
+        await assertVisibleText(page, 'Payment required')
+        await assertVisibleText(page, 'Export data')
+      } else {
+        await page.getByRole('heading', { name: 'Plan access needs attention', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+      }
+      assert.notEqual(new URL(page.url()).pathname, '/sign-in', `${entry.email} remains logged in`)
+      assert.equal(await page.getByRole('link', { name: 'Continue with Stripe', exact: true }).count() > 0, entry.stripeExpected, entry.email)
+      await context.close()
+    }
+  })
+
+  await runScenario('billing restriction and financial actions stay absent from Parent routes', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    const email = 'parent.fixture@footballplayer.test'
+    await setFixtureBillingState(page, email, {
+      billingArrangement: 'immediate',
+      isPlanComped: false,
+      planKey: 'small_club',
+      planStatus: 'past_due',
+    })
+    await parentSignIn(page, email, mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+    await assertVisibleTextContaining(page, 'Fixture Child')
+    assert.equal(await page.locator('[aria-label="Billing access notice"]').count(), 0)
+    assert.equal(await page.getByText('Payment required', { exact: true }).count(), 0)
+    assert.equal(await page.getByRole('link', { name: 'Continue with Stripe', exact: true }).count(), 0)
+    assert.equal(await page.getByRole('link', { name: 'Export data', exact: true }).count(), 0)
+    await context.close()
+  })
+
   await runScenario('club admin login opens club-wide view', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)

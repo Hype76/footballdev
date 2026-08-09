@@ -4,7 +4,7 @@ import { BILLING_ACCESS_STATES, resolveBillingAccess } from '../../lib/billing-a
 export function BillingAccessNotice({ user }) {
   if (!user?.id) return null
 
-  const decision = resolveBillingAccess(user)
+  const decision = resolveBillingAccess(user, { actorRequired: true })
   if (![BILLING_ACCESS_STATES.paymentDueSoon, BILLING_ACCESS_STATES.paymentRequired].includes(decision.accessState)) {
     return null
   }
