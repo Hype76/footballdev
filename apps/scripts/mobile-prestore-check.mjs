@@ -664,9 +664,10 @@ assertNotIncludes(mobileData, 'undoCoachLastMatchGoal', 'Coach Match Day retired
 assertNotIncludes(coachMatchDayData, ".from('match_day_events').insert", 'Coach Match Day direct event write')
 assertNotIncludes(coachMatchDayData, ".from('match_days').update", 'Coach Match Day direct status write')
 assertIncludes(mobileData, "throw new Error('Choose a message before marking it as read.')", 'Mobile parent message validation')
-assertIncludes(mobileData, 'throw new Error(`${field.label} is required.`)', 'Mobile assessment validation')
-assertIncludes(mobileData, 'throw new Error(`${field.label} must be a number.`)', 'Mobile assessment validation')
-assertIncludes(mobileData, 'Math.min(Math.round(numericValue), maxScore)', 'Mobile assessment validation')
+const coachPhase31EValidationSource = read('apps/mobile-core/src/coachPhase31ECore.js')
+assertIncludes(coachPhase31EValidationSource, 'errors.push(`${field.label} is required.`)', 'Mobile Development required-field validation')
+assertIncludes(coachPhase31EValidationSource, 'errors.push(`${field.label} must be a number.`)', 'Mobile Development numeric validation')
+assertIncludes(coachPhase31EValidationSource, 'value < 0 || value > max', 'Mobile Development canonical score-range validation')
 const parentPollVoteSource = mobileData.slice(
   mobileData.indexOf('export async function submitParentPollVote'),
   mobileData.indexOf('export async function volunteerAsMatchScorer'),
@@ -823,6 +824,20 @@ assertIncludes(coachAppSource, "BackHandler.addEventListener('hardwareBackPress'
 assertNotIncludes(coachAppSource, 'updateCoachMatchStatus', 'Coach Phase 31B removes pilot Match Day direct writes')
 assertNotIncludes(coachAppSource, 'addCoachMatchGoal', 'Coach Phase 31B removes pilot goal direct writes')
 assertNotIncludes(coachAppSource, 'submitCoachAssessment', 'Coach Phase 31B removes pilot assessment direct writes')
+const coachPhase31ECoreSource = read('apps/mobile-core/src/coachPhase31ECore.js')
+const coachPhase31EDataSource = read('apps/mobile-core/src/coachPhase31EData.js')
+const coachPhase31EScreenSource = read('apps/coach-mobile/src/CoachPhase31EScreens.js')
+assertIncludes(coachAppSource, 'CoachPhase31EScreen', 'Coach Phase 31E native routes')
+assertIncludes(coachPhase31ECoreSource, "communications: 'disabled'", 'Coach Phase 31E communication boundary')
+assertIncludes(coachPhase31ECoreSource, "mutations: 'online_required'", 'Coach Phase 31E offline mutation boundary')
+assertIncludes(coachPhase31EDataSource, "config.supabaseEnvironment !== 'test'", 'Coach Phase 31E test-only mutations')
+assertIncludes(coachPhase31EDataSource, "rpc('create_team_poll'", 'Coach Phase 31E canonical Poll creation')
+assertIncludes(coachPhase31EDataSource, "rpc('get_parent_chat_rooms'", 'Coach Phase 31E canonical Parent Chat authority')
+assertIncludes(coachPhase31EDataSource, "rpc('create_external_resource_library_item'", 'Coach Phase 31E canonical Resource authority')
+assertIncludes(coachPhase31EDataSource, "from('evaluation_drafts')", 'Coach Phase 31E canonical private Development drafts')
+assertIncludes(coachPhase31EScreenSource, 'Send to FP TEST channel', 'Coach Phase 31E synthetic communication UI')
+assertNotIncludes(coachPhase31EDataSource, 'sendParentMobilePushNotification', 'Coach Phase 31E blocks external Poll push')
+assertNotIncludes(coachPhase31EDataSource, 'sendEmail', 'Coach Phase 31E blocks real email delivery')
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))

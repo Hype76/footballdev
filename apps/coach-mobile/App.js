@@ -44,6 +44,7 @@ import {
 import { prepareCoachMobileStartup } from './src/startup'
 import { CoachCalendarScreen, CoachPlayersScreen, CoachSessionsScreen } from './src/CoachOperationalScreens'
 import { CoachMatchDayScreen } from './src/CoachMatchDayScreen'
+import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 
 const config = getMobileRuntimeConfig('coach')
 const defaultThemeContext = createCoachThemeContext(DEFAULT_COACH_THEME)
@@ -379,6 +380,9 @@ function CoachRoute(props) {
   if (activeRoute === 'matchday') return <CoachMatchDayScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {
+    if (['development', 'resources', 'chat', 'messages', 'polls', 'invites'].includes(moreRoute)) {
+      return <CoachPhase31EScreen {...props} domain={moreRoute} key={`${props.context.id}:${moreRoute}`} palette={palette} />
+    }
     return moreRoute ? <FoundationRoute route={moreRoute} {...props} /> : <MoreScreen {...props} />
   }
   return <FoundationRoute route={activeRoute} {...props} />
@@ -438,7 +442,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
 function FoundationRoute({ context, route, ...props }) {
   const titles = {
     calendar: 'Calendar', chat: 'Chat', club: 'Club', development: 'Development', matchday: 'Match Day', payment: 'Plan access',
-    messages: 'Messages', players: 'Players', polls: 'Polls', resources: 'Resources', sessions: 'Sessions', settings: 'Settings', team: 'Team',
+    invites: 'Invites and availability', messages: 'Messages', players: 'Players', polls: 'Polls', resources: 'Resources', sessions: 'Sessions', settings: 'Settings', team: 'Team',
   }
   if (route === 'settings') return <SettingsScreen context={context} {...props} />
   return (

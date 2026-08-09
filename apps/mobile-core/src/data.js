@@ -1,5 +1,4 @@
 import { getMobileRuntimeConfig } from './config'
-import { isAssessmentScoreField } from './assessment'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getParentPortalLinks, getSelectedParentLink } from './parentLinks'
 import { getAccessToken, supabase } from './supabase'
@@ -160,18 +159,6 @@ function normalizeSession(row) {
     team: normalizeText(row.team),
     teamId: row.team_id || '',
     title: normalizeText(row.title || row.team || 'Session'),
-  }
-}
-
-function normalizeFormField(row) {
-  return {
-    id: row.id || '',
-    isEnabled: row.is_enabled !== false,
-    label: normalizeText(row.label || 'Field'),
-    options: Array.isArray(row.options) ? row.options.map(normalizeText).filter(Boolean) : [],
-    orderIndex: Number(row.order_index || 0),
-    required: Boolean(row.required),
-    type: normalizeText(row.type || 'text'),
   }
 }
 
@@ -372,131 +359,6 @@ export async function getCoachSessions(user) {
   }
 
   return (data || []).map(normalizeSession)
-}
-
-export async function getCoachAssessmentFields(user) {
-  if (!user?.clubId) {
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from('form_fields')
-    .select('id, label, type, options, required, is_enabled, order_index')
-    .eq('club_id', user.clubId)
-    .eq('is_enabled', true)
-    .order('order_index', { ascending: true })
-    .order('label', { ascending: true })
-
-  if (error) {
-    throw error
-  }
-
-  const fields = (data || []).map(normalizeFormField)
-
-  if (fields.length > 0) {
-    return fields
-  }
-
-  return [
-    { id: 'technical', label: 'Technical', type: 'score_1_10', options: [], required: true, orderIndex: 1 },
-    { id: 'tactical', label: 'Tactical', type: 'score_1_10', options: [], required: true, orderIndex: 2 },
-    { id: 'attitude', label: 'Attitude', type: 'score_1_10', options: [], required: true, orderIndex: 3 },
-    { id: 'overall-comments', label: 'Overall Comments', type: 'textarea', options: [], required: false, orderIndex: 4 },
-  ]
-}
-
-export async function submitCoachAssessment(user, player, assessment, fields = []) {
-  if (!user?.clubId || !player?.id) {
-    throw new Error('Choose a player before saving an assessment.')
-  }
-
-  const configuredFields = Array.isArray(fields) && fields.length > 0 ? fields : await getCoachAssessmentFields(user)
-  const fieldValues = assessment.fieldValues && typeof assessment.fieldValues === 'object' ? assessment.fieldValues : {}
-  const formResponses = {}
-  const scores = {}
-
-  configuredFields.forEach((field) => {
-    const value = fieldValues[field.id] ?? ''
-
-    if (isAssessmentScoreField(field.type)) {
-      const numericValue = Number(value)
-      const maxScore = field.type === 'score_1_10' ? 10 : 5
-
-      if (!Number.isFinite(numericValue)) {
-        throw new Error(`${field.label} must be a number.`)
-      }
-
-      if (field.required && numericValue <= 0) {
-        throw new Error(`${field.label} is required.`)
-      }
-
-      const boundedValue = Math.max(Math.min(Math.round(numericValue), maxScore), 0)
-      formResponses[field.label] = boundedValue
-      if (boundedValue > 0) {
-        scores[field.label] = boundedValue
-      }
-      return
-    }
-
-    const textValue = normalizeText(value)
-
-    if (field.required && !textValue) {
-      throw new Error(`${field.label} is required.`)
-    }
-
-    formResponses[field.label] = textValue
-  })
-
-  const scoreValues = Object.values(scores)
-  const averageScore = scoreValues.length > 0
-    ? Number((scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length).toFixed(1))
-    : null
-  const notes = normalizeText(
-    assessment.notes ||
-      formResponses['Overall Comments'] ||
-      formResponses.Comments ||
-      formResponses.Summary,
-  )
-
-  const { data, error } = await supabase
-    .from('evaluations')
-    .insert({
-      average_score: averageScore,
-      club_id: user.clubId,
-      coach: user.displayName || user.name || user.email,
-      coach_id: user.id,
-      comments: {
-        improvements: '',
-        overall: notes,
-        selectedStrengths: [],
-        strengths: '',
-      },
-      contact_type: 'parent',
-      created_by_email: user.email,
-      created_by_name: user.displayName || user.name || user.email,
-      date: new Date().toISOString().slice(0, 10),
-      form_responses: formResponses,
-      parent_email: player.parentEmail || null,
-      player_id: player.id,
-      player_name: player.playerName,
-      scores,
-      section: player.section || 'Trial',
-      session: 'Mobile assessment',
-      status: 'Submitted',
-      team: player.team || '',
-      team_id: player.teamId || null,
-      updated_by: user.id,
-      updated_by_email: user.email,
-      updated_by_name: user.displayName || user.name || user.email,
-    })
-    .select('id, player_name, average_score, status, date')
-    .single()
-
-  if (error) {
-    throw error
-  }
-
-  return data
 }
 
 export async function getParentMatchDays(user) {
