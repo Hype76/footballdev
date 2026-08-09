@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
+import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
 import { getInvitationResponseOptions } from './parentPortalData'
 
 function normalizeText(value) {
@@ -15,25 +17,49 @@ function formatDate(value, fallback = 'Date to be confirmed') {
   if (!value) return fallback
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: value.includes?.('T') ? '2-digit' : undefined, minute: value.includes?.('T') ? '2-digit' : undefined })
+  return date.toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: value.includes?.('T') ? '2-digit' : undefined, minute: value.includes?.('T') ? '2-digit' : undefined, timeZone: 'Europe/London' })
 }
 
-function colorsFor(theme) {
-  return theme === 'light'
-    ? { accent: '#0d9488', background: '#f3f7f6', border: '#cbd8d5', card: '#ffffff', danger: '#b42318', muted: '#536461', text: '#132522', warning: '#8a5800' }
-    : { accent: '#39d6bf', background: '#061412', border: '#24423d', card: '#10231f', danger: '#ff8f84', muted: '#9fb8b3', text: '#f3fbf9', warning: '#f2c96d' }
+function formatCalendarDay(value) {
+  if (!value) return 'Date to be confirmed'
+  const date = new Date(`${value}T12:00:00Z`)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString([], {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Europe/London',
+    weekday: 'long',
+    year: 'numeric',
+  })
 }
 
-function usePortalStyles(theme) {
+function colorsFor(themeTokens) {
+  const tokens = themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens
+  return {
+    accent: tokens.buttonPrimary,
+    accentForeground: tokens.accentForeground,
+    accentSoft: tokens.accentSoft,
+    accentText: tokens.accentText,
+    background: tokens.portalBackground,
+    border: tokens.border,
+    card: tokens.portalSurface,
+    danger: tokens.danger,
+    muted: tokens.textSecondary,
+    text: tokens.textPrimary,
+    warning: tokens.warning,
+  }
+}
+
+function usePortalStyles(themeTokens) {
   return useMemo(() => {
-    const colors = colorsFor(theme)
+    const colors = colorsFor(themeTokens)
     return { colors, styles: StyleSheet.create({
       action: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 12, minHeight: 46, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10 },
       actionDanger: { backgroundColor: colors.danger },
       actionDisabled: { opacity: 0.45 },
       actionOutline: { backgroundColor: 'transparent', borderColor: colors.border, borderWidth: 1 },
       actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-      actionText: { color: theme === 'light' ? '#ffffff' : '#041411', fontSize: 14, fontWeight: '800' },
+      actionText: { color: colors.accentForeground, fontSize: 14, fontWeight: '800' },
       actionTextOutline: { color: colors.text },
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
       card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
@@ -45,7 +71,8 @@ function usePortalStyles(theme) {
       header: { color: colors.text, fontSize: 28, fontWeight: '900' },
       helper: { color: colors.muted, fontSize: 13, lineHeight: 19 },
       meta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
-      pill: { alignSelf: 'flex-start', backgroundColor: theme === 'light' ? '#e1f5f1' : '#183a34', borderRadius: 999, color: colors.accent, fontSize: 12, fontWeight: '800', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5 },
+      dateHeading: { color: colors.text, fontSize: 16, fontWeight: '900', marginTop: 4 },
+      pill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderRadius: 999, color: colors.accentText, fontSize: 12, fontWeight: '800', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5 },
       row: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
       score: { color: colors.text, fontSize: 32, fontWeight: '900', textAlign: 'center' },
       section: { gap: 12 },
@@ -53,7 +80,7 @@ function usePortalStyles(theme) {
       stat: { color: colors.text, fontSize: 16, fontWeight: '700' },
       warning: { color: colors.warning, fontSize: 14, lineHeight: 20 },
     }) }
-  }, [theme])
+  }, [themeTokens])
 }
 
 function Button({ danger = false, disabled = false, label, onPress, outline = false, styles }) {
@@ -77,26 +104,53 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
 }
 
-export function CalendarScreen({ link, resource, theme }) {
-  const { styles } = usePortalStyles(theme)
+export function CalendarScreen({ isRefreshing, link, onRefresh, resource, themeTokens }) {
+  const { styles } = usePortalStyles(themeTokens)
+  const [windowKey, setWindowKey] = useState('upcoming')
+  const visibleEvents = useMemo(
+    () => getParentCalendarWindow(resource.items, windowKey),
+    [resource.items, windowKey],
+  )
+  const groups = useMemo(() => groupParentCalendarEvents(visibleEvents), [visibleEvents])
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your child'}.</Text></View>
+      <View accessibilityLabel="Calendar date filter" style={styles.actionRow}>
+        {[
+          { key: 'upcoming', label: 'Upcoming' },
+          { key: '30-days', label: 'Next 30 days' },
+          { key: 'all', label: 'All dates' },
+        ].map((option) => (
+          <Button key={option.key} label={option.label} onPress={() => setWindowKey(option.key)} outline={windowKey !== option.key} styles={styles} />
+        ))}
+      </View>
+      {onRefresh ? <Button disabled={isRefreshing} label={isRefreshing ? 'Refreshing Calendar...' : 'Refresh Calendar'} onPress={onRefresh} outline styles={styles} /> : null}
       <ResourceState emptyCopy="There are no shared calendar events for this child." {...resource} styles={styles} />
-      {resource.items.map((event) => (
-        <View key={event.id} style={styles.card}>
-          <View style={styles.row}><Text style={styles.pill}>{labelize(event.status === 'cancelled' ? 'cancelled' : event.eventType)}</Text><Text style={styles.meta}>{formatDate(event.startsAt)}</Text></View>
-          <Text style={styles.cardTitle}>{event.title}</Text>
-          {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
-          {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
+      {!resource.loading && resource.items.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
+      {groups.map((group) => (
+        <View key={group.date} style={styles.section}>
+          <Text accessibilityRole="header" style={styles.dateHeading}>{formatCalendarDay(group.date)}</Text>
+          {group.events.map((event) => (
+            <View key={event.id} style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.pill}>{labelize(event.status === 'cancelled' ? 'cancelled' : event.eventType)}</Text>
+                <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
+              </View>
+              <Text style={styles.cardTitle}>{event.title}</Text>
+              {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
+              {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
+              {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
+              {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
+            </View>
+          ))}
         </View>
       ))}
     </View>
   )
 }
 
-export function InvitationsScreen({ activeActionId, isOffline, link, onRespond, resource, theme }) {
-  const { styles } = usePortalStyles(theme)
+export function InvitationsScreen({ activeActionId, isOffline, link, onRespond, resource, themeTokens }) {
+  const { styles } = usePortalStyles(themeTokens)
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Invites</Text><Text style={styles.helper}>Attendance and volunteer responses for {link?.playerName || 'your child'}.</Text></View>
@@ -260,8 +314,8 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onOpen, onScorerAction, onVolunteer, resource, selectedMatch, theme }) {
-  const { colors, styles } = usePortalStyles(theme)
+export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onOpen, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
+  const { colors, styles } = usePortalStyles(themeTokens)
   if (selectedMatch) {
     return (
       <View style={styles.stack}>
@@ -294,8 +348,8 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onOpen
   )
 }
 
-export function ResultsScreen({ link, resource, theme }) {
-  const { styles } = usePortalStyles(theme)
+export function ResultsScreen({ link, resource, themeTokens }) {
+  const { styles } = usePortalStyles(themeTokens)
   const results = resource.items.filter((match) => match.status === 'full_time')
   return (
     <View style={styles.stack}>
@@ -306,8 +360,8 @@ export function ResultsScreen({ link, resource, theme }) {
   )
 }
 
-export function DevelopmentScreen({ isOffline, onOpen, resource, theme }) {
-  const { styles } = usePortalStyles(theme)
+export function DevelopmentScreen({ isOffline, onOpen, resource, themeTokens }) {
+  const { styles } = usePortalStyles(themeTokens)
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history previously shared with this Parent link.</Text></View>
@@ -318,8 +372,8 @@ export function DevelopmentScreen({ isOffline, onOpen, resource, theme }) {
   )
 }
 
-export function ResourcesScreen({ isOffline, onOpen, resource, theme }) {
-  const { styles } = usePortalStyles(theme)
+export function ResourcesScreen({ isOffline, onOpen, resource, themeTokens }) {
+  const { styles } = usePortalStyles(themeTokens)
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected child.</Text></View>
@@ -330,8 +384,8 @@ export function ResourcesScreen({ isOffline, onOpen, resource, theme }) {
   )
 }
 
-export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onOpenRoom, onSend, rooms, selectedRoom, theme }) {
-  const { colors, styles } = usePortalStyles(theme)
+export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onOpenRoom, onSend, rooms, selectedRoom, themeTokens }) {
+  const { colors, styles } = usePortalStyles(themeTokens)
   const [draft, setDraft] = useState('')
   if (selectedRoom) {
     return (
@@ -356,8 +410,8 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
   )
 }
 
-export function MoreScreen({ onOpen, theme, unreadMessages, unansweredInvites, unansweredPolls }) {
-  const { styles } = usePortalStyles(theme)
+export function MoreScreen({ onOpen, themeTokens, unreadMessages, unansweredInvites, unansweredPolls }) {
+  const { styles } = usePortalStyles(themeTokens)
   const items = [
     ['invites', 'Invites', unansweredInvites ? `${unansweredInvites} need a response` : 'Attendance and volunteer requests'],
     ['results', 'Results', 'Completed fixtures'],

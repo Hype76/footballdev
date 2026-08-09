@@ -1,4 +1,7 @@
 const INSTALLATION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const INSTALLATION_STORAGE_PREFIX = 'football-player.parent.push-installation-id.v2'
+const DETAIL_STORAGE_PREFIX = 'football-player:parent:push-detail:v2'
+const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/
 
 export const parentNotificationDetailLevels = Object.freeze(['minimal', 'detailed'])
 export const parentNotificationIntentTypes = Object.freeze([
@@ -15,6 +18,18 @@ function normalize(value) {
 
 export function isParentInstallationId(value) {
   return INSTALLATION_ID_PATTERN.test(normalize(value))
+}
+
+export function getParentNotificationStorageKeys(environment = 'test') {
+  const scope = normalize(environment).toLowerCase() === 'production' ? 'production' : 'test'
+  const installationId = `${INSTALLATION_STORAGE_PREFIX}.${scope}`
+  if (!SECURE_STORE_KEY_PATTERN.test(installationId)) {
+    throw new Error('parent_notification_secure_key_invalid')
+  }
+  return {
+    detailLevel: `${DETAIL_STORAGE_PREFIX}:${scope}`,
+    installationId,
+  }
 }
 
 export function normalizeParentNotificationDetail(value) {
@@ -61,7 +76,22 @@ export function getParentPushSetupFailureCode(error, stage = 'expo') {
   } else if (normalizedStage === 'local') {
     category = 'storage_unavailable'
   } else if (normalizedStage === 'api') {
-    category = 'request_unavailable'
+    const status = Number(error?.status || error?.statusCode || 0)
+    if (status === 401 || signal.includes('sign_in_required') || signal.includes('sign in again')) {
+      category = 'signed_out'
+    } else if (status === 403 && (signal.includes('link_required') || signal.includes('family portal link'))) {
+      category = 'parent_authority'
+    } else if (status === 403) {
+      category = 'forbidden'
+    } else if (status >= 500) {
+      category = 'service'
+    } else if (signal.includes('network') || signal.includes('timed out') || signal.includes('failed to fetch')) {
+      category = 'network'
+    } else if (status >= 400) {
+      category = 'preference_save'
+    } else {
+      category = 'request_unavailable'
+    }
   }
 
   return `PARENT_PUSH_${normalizedStage.toUpperCase()}_${category.toUpperCase()}`

@@ -235,35 +235,15 @@ async function buildParentDevelopmentPdf({
 }
 
 export default async (request) => {
-  if (request.method !== 'POST') {
+  if (!['GET', 'POST'].includes(request.method)) {
     return json(
       405,
       { success: false, message: 'Method not allowed.' },
-      { Allow: 'POST' },
+      { Allow: 'GET, POST' },
     )
   }
 
   try {
-    const contentType = normalizeText(request.headers.get('content-type')).toLowerCase()
-
-    if (!contentType.startsWith('application/json')) {
-      throw new ParentDevelopmentHistoryError(
-        'Content-Type must be application/json.',
-        415,
-        'PARENT_DEVELOPMENT_CONTENT_TYPE_REQUIRED',
-      )
-    }
-
-    const declaredLength = Number(request.headers.get('content-length') || 0)
-
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
-      throw new ParentDevelopmentHistoryError(
-        'The Development history request is not valid.',
-        413,
-        'PARENT_DEVELOPMENT_REQUEST_TOO_LARGE',
-      )
-    }
-
     const accessToken = getBearerToken(request)
 
     if (!accessToken) {
@@ -274,26 +254,55 @@ export default async (request) => {
       )
     }
 
-    const bodyBytes = new Uint8Array(await request.arrayBuffer())
-
-    if (bodyBytes.byteLength > MAX_REQUEST_BYTES) {
-      throw new ParentDevelopmentHistoryError(
-        'The Development history request is not valid.',
-        413,
-        'PARENT_DEVELOPMENT_REQUEST_TOO_LARGE',
-      )
-    }
-
     let body
 
-    try {
-      body = JSON.parse(new TextDecoder().decode(bodyBytes))
-    } catch {
-      throw new ParentDevelopmentHistoryError(
-        'The Development history request is not valid.',
-        400,
-        'PARENT_DEVELOPMENT_REQUEST_INVALID',
-      )
+    if (request.method === 'GET') {
+      const url = new URL(request.url)
+      body = {
+        action: 'download_pdf',
+        parentLinkId: url.searchParams.get('parentLinkId'),
+        reportId: url.searchParams.get('reportId'),
+      }
+    } else {
+      const contentType = normalizeText(request.headers.get('content-type')).toLowerCase()
+
+      if (!contentType.startsWith('application/json')) {
+        throw new ParentDevelopmentHistoryError(
+          'Content-Type must be application/json.',
+          415,
+          'PARENT_DEVELOPMENT_CONTENT_TYPE_REQUIRED',
+        )
+      }
+
+      const declaredLength = Number(request.headers.get('content-length') || 0)
+
+      if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+        throw new ParentDevelopmentHistoryError(
+          'The Development history request is not valid.',
+          413,
+          'PARENT_DEVELOPMENT_REQUEST_TOO_LARGE',
+        )
+      }
+
+      const bodyBytes = new Uint8Array(await request.arrayBuffer())
+
+      if (bodyBytes.byteLength > MAX_REQUEST_BYTES) {
+        throw new ParentDevelopmentHistoryError(
+          'The Development history request is not valid.',
+          413,
+          'PARENT_DEVELOPMENT_REQUEST_TOO_LARGE',
+        )
+      }
+
+      try {
+        body = JSON.parse(new TextDecoder().decode(bodyBytes))
+      } catch {
+        throw new ParentDevelopmentHistoryError(
+          'The Development history request is not valid.',
+          400,
+          'PARENT_DEVELOPMENT_REQUEST_INVALID',
+        )
+      }
     }
 
     if (!body || typeof body !== 'object' || Array.isArray(body)) {

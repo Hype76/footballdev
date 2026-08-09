@@ -48,8 +48,28 @@ export function getParentFriendlyError(error, fallback = 'This information could
     return 'Notification settings could not be saved on this device. Try again.'
   }
 
+  if (code.includes('parent_push_api_signed_out') || message.includes('parent_push_api_signed_out')) {
+    return 'Your session has expired. Sign in again before changing notifications.'
+  }
+
+  if (code.includes('parent_push_api_parent_authority') || message.includes('parent_push_api_parent_authority')) {
+    return 'Choose a linked child before changing notifications.'
+  }
+
+  if (code.includes('parent_push_api_forbidden') || message.includes('parent_push_api_forbidden')) {
+    return 'This Parent account cannot register notifications for the selected child.'
+  }
+
+  if (code.includes('parent_push_api_network') || message.includes('parent_push_api_network')) {
+    return 'No connection. Notification settings were not changed.'
+  }
+
+  if (code.includes('parent_push_api_service') || message.includes('parent_push_api_service')) {
+    return 'The notification service is temporarily unavailable. Try again.'
+  }
+
   if (code.includes('parent_push_api_') || message.includes('parent_push_api_')) {
-    return 'Notification settings could not reach the test service. Try again.'
+    return 'Notification preferences could not be saved. Try again.'
   }
 
   if (
@@ -189,6 +209,14 @@ export function canSubmitParentPoll(poll, draftOptionId) {
 
 export function getBuildClassification(buildProfile) {
   const profile = normalizeText(buildProfile).toLowerCase()
+
+  if (profile === 'store-live') {
+    return 'Production TestFlight build'
+  }
+
+  if (profile === 'internal-live') {
+    return 'Production internal build'
+  }
 
   if (profile === 'store-test') {
     return 'TestFlight test build'

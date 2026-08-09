@@ -5,7 +5,7 @@ import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
-import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   AppState,
@@ -28,12 +28,14 @@ import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } fr
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
+import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
 import {
   getParentNotificationStatusLabel,
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
+import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import {
   canSubmitParentPoll,
   getBuildClassification,
@@ -113,6 +115,16 @@ const resourceFallbacks = {
 }
 
 const PARENT_THEME_STORAGE_KEY = 'fp.parent.display-theme.v1'
+const defaultParentThemeContext = {
+  ...DEFAULT_PARENT_MOBILE_THEME,
+  palette: createParentAppPalette(DEFAULT_PARENT_MOBILE_THEME.tokens),
+  styles: createParentAppStyles(DEFAULT_PARENT_MOBILE_THEME.tokens),
+}
+const ParentThemeContext = createContext(defaultParentThemeContext)
+
+function useParentTheme() {
+  return useContext(ParentThemeContext)
+}
 
 function createResourceState() {
   return Object.fromEntries(resourceNames.map((name) => [name, {
@@ -134,12 +146,13 @@ function labelize(value) {
 function formatDateOnly(value, fallback = 'Date to be confirmed') {
   const normalizedValue = normalizeText(value)
   if (!normalizedValue) return fallback
-  const date = new Date(`${normalizedValue.slice(0, 10)}T12:00:00`)
+  const date = new Date(`${normalizedValue.slice(0, 10)}T12:00:00Z`)
   if (Number.isNaN(date.getTime())) return fallback
 
   return date.toLocaleDateString([], {
     day: 'numeric',
     month: 'short',
+    timeZone: 'Europe/London',
     weekday: 'short',
   })
 }
@@ -155,6 +168,7 @@ function formatDateTime(value, fallback = 'Time to be confirmed') {
     hour: '2-digit',
     minute: '2-digit',
     month: 'short',
+    timeZone: 'Europe/London',
     weekday: 'short',
   })
 }
@@ -241,6 +255,16 @@ function ParentHome() {
     polls: resources.polls.items,
   }), [resources])
   const selectedRoom = resources.chatRooms.items.find((room) => room.id === selectedRoomId) || null
+  const themeModel = useMemo(
+    () => createParentMobileTheme({ mode: displayTheme, selectedLink }),
+    [displayTheme, selectedLink],
+  )
+  const themeContext = useMemo(() => ({
+    ...themeModel,
+    palette: createParentAppPalette(themeModel.tokens),
+    styles: createParentAppStyles(themeModel.tokens),
+  }), [themeModel])
+  const { palette, styles } = themeContext
 
   const loadParentData = useCallback(async ({ reset = false } = {}) => {
     const requestId = ++requestIdRef.current
@@ -300,12 +324,27 @@ function ParentHome() {
     if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
 
     const failed = results.filter((result) => result.status === 'rejected').length
+    const resultByName = Object.fromEntries(resourceNames.map((name, index) => [name, results[index]]))
+    const valueFor = (name) => resultByName[name]?.status === 'fulfilled' ? resultByName[name].value : []
+    const combinedCalendar = buildParentCalendarEvents({
+      calendarEvents: valueFor('calendar'),
+      invitations: valueFor('invitations'),
+      matches: valueFor('matches'),
+    })
+    const calendarDependencyFailed = ['calendar', 'invitations', 'matches']
+      .some((name) => resultByName[name]?.status === 'rejected')
     setResources((current) => {
       const next = { ...current }
       results.forEach((result, index) => {
         const name = resourceNames[index]
         if (result.status === 'fulfilled') {
-          next[name] = { error: '', items: result.value, loading: false }
+          next[name] = {
+            error: name === 'calendar' && calendarDependencyFailed
+              ? 'Some Calendar items could not be refreshed.'
+              : '',
+            items: name === 'calendar' ? combinedCalendar : result.value,
+            loading: false,
+          }
         } else {
           next[name] = {
             error: getParentFriendlyError(result.reason, resourceFallbacks[name]),
@@ -314,6 +353,13 @@ function ParentHome() {
           }
         }
       })
+      next.calendar = {
+        error: calendarDependencyFailed ? 'Some Calendar items could not be refreshed.' : '',
+        items: calendarDependencyFailed && combinedCalendar.length === 0
+          ? current.calendar.items
+          : combinedCalendar,
+        loading: false,
+      }
       return next
     })
 
@@ -324,7 +370,7 @@ function ParentHome() {
     if (failed === 0) {
       try {
         await saveParentOfflineResources(selectedMobileUser, selectedLink.id, Object.fromEntries(
-          resourceNames.map((name, index) => [name, results[index].value]),
+          resourceNames.map((name, index) => [name, name === 'calendar' ? combinedCalendar : results[index].value]),
         ))
       } catch (error) {
         console.warn(error)
@@ -913,6 +959,7 @@ function ParentHome() {
   ]
 
   return (
+    <ParentThemeContext.Provider value={themeContext}>
     <SafeAreaView style={[styles.safeArea, displayTheme === 'light' && styles.safeAreaLight]}>
       <StatusBar style={displayTheme === 'light' ? 'dark' : 'light'} />
       <KeyboardAvoidingView
@@ -964,7 +1011,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen link={selectedLink} resource={resources.calendar} theme={displayTheme} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen isRefreshing={isRefreshing} link={selectedLink} onRefresh={handleRefresh} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -977,6 +1024,7 @@ function ParentHome() {
                 resource={resources.matches}
                 selectedMatch={selectedMatch}
                 theme={displayTheme}
+                themeTokens={themeModel.tokens}
               />
             ) : null}
             {activeTab === 'chat' ? (
@@ -992,12 +1040,14 @@ function ParentHome() {
                 rooms={resources.chatRooms}
                 selectedRoom={selectedRoom}
                 theme={displayTheme}
+                themeTokens={themeModel.tokens}
               />
             ) : null}
             {activeTab === 'more' && !moreSection ? (
               <MoreScreen
                 onOpen={setMoreSection}
                 theme={displayTheme}
+                themeTokens={themeModel.tokens}
                 unansweredInvites={unansweredInvites}
                 unansweredPolls={homeModel.unansweredPolls}
                 unreadMessages={homeModel.unreadMessages}
@@ -1005,11 +1055,11 @@ function ParentHome() {
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedMessageId('') }} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onRespond={handleInvitationResponse} resource={resources.invitations} theme={displayTheme} />
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onRespond={handleInvitationResponse} resource={resources.invitations} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
-            {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={resources.matches} theme={displayTheme} /> : null}
-            {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onOpen={(report) => handleOpenParentItem('development', report)} resource={resources.development} theme={displayTheme} /> : null}
-            {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen isOffline={isOffline} onOpen={(item) => handleOpenParentItem('resource', item)} resource={resources.resources} theme={displayTheme} /> : null}
+            {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={resources.matches} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onOpen={(report) => handleOpenParentItem('development', report)} resource={resources.development} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen isOffline={isOffline} onOpen={(item) => handleOpenParentItem('resource', item)} resource={resources.resources} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'messages' ? (
               <MessagesScreen
                 activeActionId={activeActionId}
@@ -1068,20 +1118,34 @@ function ParentHome() {
         <BottomTabs activeTab={activeTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} />
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </ParentThemeContext.Provider>
+  )
+}
+
+function ClubBrandLogo({ link }) {
+  const { branding, styles } = useParentTheme()
+  const [remoteFailed, setRemoteFailed] = useState(false)
+  const remoteUrl = branding.clubLogoUrl
+
+  return (
+    <Image
+      accessibilityIgnoresInvertColors
+      accessibilityLabel={remoteUrl && !remoteFailed ? `${link?.clubName || 'Club'} logo` : 'Football Player Parents'}
+      onError={() => setRemoteFailed(true)}
+      resizeMode="contain"
+      source={remoteUrl && !remoteFailed ? { uri: remoteUrl } : require('./assets/football-player-logo.png')}
+      style={styles.headerLogo}
+    />
   )
 }
 
 function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onToggleChildSwitcher, selectedLink, theme }) {
+  const { styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
     <View style={[styles.header, isLight && styles.headerLight]}>
       <View style={styles.brandRow}>
-        <Image
-          accessibilityIgnoresInvertColors
-          accessibilityLabel="Football Player Parents"
-          source={require('./assets/football-player-logo.png')}
-          style={styles.headerLogo}
-        />
+        <ClubBrandLogo key={`${selectedLink?.id || 'default'}:${selectedLink?.clubLogoUrl || ''}`} link={selectedLink} />
         <View style={styles.brandCopy}>
           <Text style={[styles.brandName, isLight && styles.textLight]}>Football Player Parents</Text>
           <Text numberOfLines={1} style={[styles.brandMeta, isLight && styles.textMutedLight]}>
@@ -1137,6 +1201,7 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
 }
 
 function BottomTabs({ activeTab, onChange, tabs, theme }) {
+  const { styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
     <View accessibilityLabel="Parent app navigation" style={[styles.tabBar, isLight && styles.tabBarLight]}>
@@ -1161,6 +1226,7 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
 }
 
 function HomeScreen({ calendar, homeModel, link, matches, messages, onOpenMatch, onOpenMessages, onOpenPolls, onRetry, selectedMatch }) {
+  const { styles } = useParentTheme()
   if (!link?.id) {
     return (
       <EmptyPanel
@@ -1254,6 +1320,7 @@ function HomeScreen({ calendar, homeModel, link, matches, messages, onOpenMatch,
 }
 
 function MatchPreviewCard({ match, onPress, prominent = false }) {
+  const { styles } = useParentTheme()
   const status = labelize(match.status || 'scheduled')
   const isFinished = match.status === 'full_time'
   const score = isFinished || ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)
@@ -1287,6 +1354,7 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
 }
 
 function MatchDetail({ match, onBack }) {
+  const { styles } = useParentTheme()
   const selectionLabel = match.squadDecisionState && match.squadDecisionState !== 'undecided'
     ? labelize(match.squadDecisionState)
     : 'Not confirmed'
@@ -1324,6 +1392,7 @@ function MatchDetail({ match, onBack }) {
 }
 
 function CalendarCard({ event, prominent = false }) {
+  const { styles } = useParentTheme()
   const cancelled = event.status === 'cancelled' || Boolean(event.cancelledAt)
   return (
     <View style={[styles.card, prominent && styles.cardProminent]}>
@@ -1339,6 +1408,7 @@ function CalendarCard({ event, prominent = false }) {
 }
 
 function MessagesScreen({ activeActionId, link, onBack, onOpen, onRetry, resource, selectedMessage }) {
+  const { styles } = useParentTheme()
   if (!link?.id) return <EmptyPanel message="No active child link is available for messages." title="Messages unavailable" />
   if (selectedMessage) {
     return (
@@ -1392,6 +1462,7 @@ function MessagesScreen({ activeActionId, link, onBack, onOpen, onRetry, resourc
 }
 
 function PollsScreen({ activeActionId, drafts, link, onDraftChange, onRetry, onSubmit, resource }) {
+  const { styles } = useParentTheme()
   if (!link?.id) return <EmptyPanel message="No active child link is available for polls." title="Polls unavailable" />
 
   return (
@@ -1477,6 +1548,7 @@ function PollsScreen({ activeActionId, drafts, link, onDraftChange, onRetry, onS
 }
 
 function SyncStatus({ cacheState, isOffline, isSyncing, summary }) {
+  const { palette, styles } = useParentTheme()
   let message = ''
   let tone = 'neutral'
   if (isOffline) {
@@ -1525,6 +1597,7 @@ function SettingsScreen({
   syncSummary,
   user,
 }) {
+  const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
   const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.1'
@@ -1721,6 +1794,7 @@ function SettingsScreen({
 }
 
 function ScreenIntro({ copy, title }) {
+  const { styles } = useParentTheme()
   return (
     <View style={styles.screenIntro}>
       <Text accessibilityRole="header" style={styles.screenTitle}>{title}</Text>
@@ -1730,6 +1804,7 @@ function ScreenIntro({ copy, title }) {
 }
 
 function SectionHeading({ copy, title }) {
+  const { styles } = useParentTheme()
   return (
     <View style={styles.sectionHeading}>
       <Text accessibilityRole="header" style={styles.sectionTitle}>{title}</Text>
@@ -1739,6 +1814,7 @@ function SectionHeading({ copy, title }) {
 }
 
 function SummaryButton({ count, detail, label, onPress }) {
+  const { styles } = useParentTheme()
   return (
     <Pressable
       accessibilityLabel={`${count} ${label}. ${detail}`}
@@ -1754,6 +1830,7 @@ function SummaryButton({ count, detail, label, onPress }) {
 }
 
 function InfoPanel({ children, title }) {
+  const { styles } = useParentTheme()
   return (
     <View style={styles.card}>
       <Text accessibilityRole="header" style={styles.cardTitle}>{title}</Text>
@@ -1763,6 +1840,7 @@ function InfoPanel({ children, title }) {
 }
 
 function InfoRow({ label, value }) {
+  const { styles } = useParentTheme()
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -1772,6 +1850,7 @@ function InfoRow({ label, value }) {
 }
 
 function Badge({ label, tone = 'neutral' }) {
+  const { styles } = useParentTheme()
   return (
     <View style={[styles.badge, tone === 'accent' && styles.badgeAccent, tone === 'danger' && styles.badgeDanger]}>
       <Text style={[styles.badgeText, tone === 'accent' && styles.badgeTextAccent, tone === 'danger' && styles.badgeTextDanger]}>{label}</Text>
@@ -1780,6 +1859,7 @@ function Badge({ label, tone = 'neutral' }) {
 }
 
 function Notice({ message, onDismiss, tone = 'success' }) {
+  const { styles } = useParentTheme()
   return (
     <View accessibilityLiveRegion="polite" style={[styles.notice, tone === 'error' && styles.noticeError, tone === 'warning' && styles.noticeWarning]}>
       <Text style={styles.noticeText}>{message}</Text>
@@ -1791,6 +1871,7 @@ function Notice({ message, onDismiss, tone = 'success' }) {
 }
 
 function ResourceError({ onRetry, resource, title }) {
+  const { styles } = useParentTheme()
   if (!resource.error) return null
   return (
     <View accessibilityLiveRegion="assertive" style={styles.errorPanel}>
@@ -1803,6 +1884,7 @@ function ResourceError({ onRetry, resource, title }) {
 }
 
 function EmptyPanel({ message, title }) {
+  const { styles } = useParentTheme()
   return (
     <View style={styles.emptyPanel}>
       <Text accessibilityRole="header" style={styles.cardTitle}>{title}</Text>
@@ -1812,6 +1894,7 @@ function EmptyPanel({ message, title }) {
 }
 
 function LoadingPanel({ message }) {
+  const { palette, styles } = useParentTheme()
   return (
     <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.loadingPanel}>
       <ActivityIndicator color={palette.accent} />
@@ -1821,6 +1904,7 @@ function LoadingPanel({ message }) {
 }
 
 function LoadingLine({ label }) {
+  const { palette, styles } = useParentTheme()
   return (
     <View accessibilityLiveRegion="polite" style={styles.loadingLine}>
       <ActivityIndicator color={palette.accent} size="small" />
@@ -1830,6 +1914,7 @@ function LoadingLine({ label }) {
 }
 
 function PrimaryAction({ disabled = false, label, loading = false, onPress, secondary = false }) {
+  const { palette, styles } = useParentTheme()
   return (
     <Pressable
       accessibilityRole="button"
@@ -1851,6 +1936,7 @@ function PrimaryAction({ disabled = false, label, loading = false, onPress, seco
 }
 
 function BackButton({ label, onPress }) {
+  const { styles } = useParentTheme()
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
       <Text style={styles.backButtonText}>{label}</Text>
@@ -1958,27 +2044,33 @@ export default function App() {
   )
 }
 
-const palette = {
-  accent: '#d7ff2f',
-  accentMuted: '#78920f',
-  background: '#030603',
-  border: '#1d3520',
-  borderStrong: '#35543a',
-  card: '#0a160c',
-  cardRaised: '#102415',
-  danger: '#ffb4ab',
-  dangerBackground: '#351313',
-  ink: '#071007',
-  text: '#f2faef',
-  textMuted: '#a9b8a6',
-  warning: '#ffdca2',
-  warningBackground: '#2c210d',
+function createParentAppPalette(tokens) {
+  return {
+    accent: tokens.buttonPrimary,
+    accentMuted: tokens.accentMuted,
+    background: tokens.background,
+    border: tokens.border,
+    borderStrong: tokens.borderStrong,
+    card: tokens.surface,
+    cardRaised: tokens.surfaceRaised,
+    danger: tokens.danger,
+    dangerBackground: tokens.dangerSurface,
+    ink: tokens.accentForeground,
+    selectedSurface: tokens.selectedSurface,
+    successBackground: tokens.successSurface,
+    text: tokens.textPrimary,
+    textMuted: tokens.textSecondary,
+    warning: tokens.warning,
+    warningBackground: tokens.warningSurface,
+  }
 }
 
-const styles = StyleSheet.create({
+function createParentAppStyles(tokens) {
+  const palette = createParentAppPalette(tokens)
+  return StyleSheet.create({
   backButton: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 48, paddingHorizontal: 4 },
   backButtonText: { color: palette.accent, fontSize: 15, fontWeight: '800' },
-  badge: { alignSelf: 'flex-start', backgroundColor: '#142418', borderColor: palette.borderStrong, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, paddingVertical: 5 },
+  badge: { alignSelf: 'flex-start', backgroundColor: palette.cardRaised, borderColor: palette.borderStrong, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, paddingVertical: 5 },
   badgeAccent: { backgroundColor: palette.accent, borderColor: palette.accent },
   badgeDanger: { backgroundColor: palette.dangerBackground, borderColor: palette.danger },
   badgeText: { color: palette.textMuted, fontSize: 11, fontWeight: '900' },
@@ -2019,7 +2111,7 @@ const styles = StyleSheet.create({
   errorTitle: { color: palette.danger, fontSize: 15, fontWeight: '900' },
   eyebrow: { color: palette.accent, fontSize: 12, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
   header: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingBottom: 12, paddingHorizontal: 16, paddingTop: 10 },
-  headerLight: { backgroundColor: '#ffffff', borderBottomColor: '#cad8d4' },
+  headerLight: { backgroundColor: palette.background, borderBottomColor: palette.border },
   headerLogo: { height: 42, width: 42 },
   helperText: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
   heroCard: { backgroundColor: palette.cardRaised, borderColor: palette.borderStrong, borderRadius: 22, borderWidth: 1, gap: 10, padding: 20 },
@@ -2036,21 +2128,21 @@ const styles = StyleSheet.create({
   loadingLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   loadingPanel: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, minHeight: 76, padding: 18 },
   messageBody: { color: palette.text, fontSize: 16, lineHeight: 25 },
-  notice: { backgroundColor: '#11240f', borderColor: palette.accentMuted, borderRadius: 16, borderWidth: 1, gap: 8, padding: 14 },
+  notice: { backgroundColor: palette.successBackground, borderColor: palette.accentMuted, borderRadius: 16, borderWidth: 1, gap: 8, padding: 14 },
   noticeDismiss: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 40 },
   noticeDismissText: { color: palette.accent, fontSize: 13, fontWeight: '900' },
   noticeError: { backgroundColor: palette.dangerBackground, borderColor: palette.danger },
   noticeText: { color: palette.text, fontSize: 14, fontWeight: '800', lineHeight: 20 },
   noticeWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
   notificationChoice: { backgroundColor: palette.cardRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flex: 1, gap: 5, minHeight: 82, padding: 12 },
-  notificationChoiceSelected: { backgroundColor: '#26360c', borderColor: palette.accent },
+  notificationChoiceSelected: { backgroundColor: palette.selectedSurface, borderColor: palette.accent },
   notificationChoices: { flexDirection: 'row', gap: 10 },
   notificationChoiceTitle: { color: palette.text, fontSize: 15, fontWeight: '900' },
   notificationChoiceTitleSelected: { color: palette.accent },
   notificationTestActions: { gap: 9 },
-  optionButton: { alignItems: 'center', backgroundColor: '#111e13', borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, minHeight: 52, paddingHorizontal: 14, paddingVertical: 10 },
+  optionButton: { alignItems: 'center', backgroundColor: palette.cardRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, minHeight: 52, paddingHorizontal: 14, paddingVertical: 10 },
   optionButtonDisabled: { opacity: 0.55 },
-  optionButtonSelected: { backgroundColor: '#26360c', borderColor: palette.accent },
+  optionButtonSelected: { backgroundColor: palette.selectedSurface, borderColor: palette.accent },
   optionLabel: { color: palette.text, flex: 1, fontSize: 15, fontWeight: '800' },
   optionLabelSelected: { color: palette.accent },
   optionStack: { gap: 8 },
@@ -2060,7 +2152,7 @@ const styles = StyleSheet.create({
   radio: { borderColor: palette.borderStrong, borderRadius: 999, borderWidth: 2, height: 20, width: 20 },
   radioSelected: { backgroundColor: palette.accent, borderColor: palette.accent, borderWidth: 5 },
   safeArea: { backgroundColor: palette.background, flex: 1 },
-  safeAreaLight: { backgroundColor: '#f3f7f6' },
+  safeAreaLight: { backgroundColor: palette.background },
   score: { color: palette.accent, fontSize: 28, fontWeight: '900' },
   screenCopy: { color: palette.textMuted, fontSize: 15, lineHeight: 22 },
   screenIntro: { gap: 4 },
@@ -2089,17 +2181,20 @@ const styles = StyleSheet.create({
   syncStatus: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.borderStrong, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 12, minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
   syncStatusText: { color: palette.text, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
   syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
-  tabBar: { backgroundColor: '#071009', borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 8, paddingTop: 8 },
-  tabBarLight: { backgroundColor: '#ffffff', borderTopColor: '#cad8d4' },
+  tabBar: { backgroundColor: palette.card, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 8, paddingTop: 8 },
+  tabBarLight: { backgroundColor: palette.card, borderTopColor: palette.border },
   tabButton: { alignItems: 'center', borderColor: 'transparent', borderRadius: 12, borderWidth: 1, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, paddingHorizontal: 4, paddingVertical: 7 },
-  tabButtonActive: { backgroundColor: '#1a2b0c', borderColor: palette.accentMuted },
-  tabButtonActiveLight: { backgroundColor: '#e9f3c9', borderColor: '#718c16' },
+  tabButtonActive: { backgroundColor: palette.selectedSurface, borderColor: palette.accentMuted },
+  tabButtonActiveLight: { backgroundColor: palette.selectedSurface, borderColor: palette.accentMuted },
   tabCount: { backgroundColor: palette.accent, borderRadius: 999, color: palette.ink, fontSize: 10, fontWeight: '900', minWidth: 19, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 2, textAlign: 'center' },
   tabCountActive: { backgroundColor: palette.text },
   tabLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '800' },
   tabLabelActive: { color: palette.accent },
-  surfaceLight: { backgroundColor: '#ffffff', borderColor: '#cad8d4' },
-  textLight: { color: '#13231f' },
-  textMutedLight: { color: '#536461' },
+  surfaceLight: { backgroundColor: palette.card, borderColor: palette.border },
+  textLight: { color: palette.text },
+  textMutedLight: { color: palette.textMuted },
   unreadCard: { borderColor: palette.accentMuted },
-})
+  })
+}
+
+const styles = createParentAppStyles(DEFAULT_PARENT_MOBILE_THEME.tokens)

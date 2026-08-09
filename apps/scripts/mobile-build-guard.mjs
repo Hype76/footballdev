@@ -16,6 +16,10 @@ const allowedBuilds = new Set([
   'store-live:ios',
 ])
 const productionBuilds = new Set(['internal-live:android', 'store-live:ios'])
+const authorisedParentProductionReferences = new Set([
+  'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
+  'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
+])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
@@ -31,7 +35,7 @@ if (!allowedBuilds.has(`${profile}:${platform}`)) {
 }
 
 if (productionBuilds.has(`${profile}:${platform}`)
-  && (appRole !== 'parent' || promotionReference !== 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')) {
+  && (appRole !== 'parent' || !authorisedParentProductionReferences.has(promotionReference))) {
   console.error('Production Parent mobile build not authorised for this reference.')
   console.error('Reason: production_build_not_authorised')
   process.exit(1)

@@ -8,14 +8,14 @@ import { Platform } from 'react-native'
 import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import {
   getParentPushSetupFailureCode,
+  getParentNotificationStorageKeys,
   normalizeParentNotificationDetail,
   normalizeParentNotificationState,
 } from '../../mobile-core/src/parentNotificationsCore'
 import { getAccessToken } from '../../mobile-core/src/supabase'
 
-const INSTALLATION_KEY_PREFIX = 'football-player.parent.push-installation-id.v2'
-const DETAIL_KEY_PREFIX = 'football-player:parent:push-detail:v2'
 const PRODUCTION_API_ORIGIN = 'https://footballplayer.online'
+const INSTALLATION_KEY_PREFIX = 'football-player.parent.push-installation-id.v2'
 const CHANNEL_ID = 'parent-updates'
 const PUSH_TOKEN_ATTEMPTS = 2
 const PUSH_TOKEN_RETRY_DELAY_MS = 750
@@ -41,15 +41,23 @@ function isProductionApi(apiBaseUrl) {
   }
 }
 
+function getStorageKeys(apiBaseUrl) {
+  return {
+    ...getParentNotificationStorageKeys(isProductionApi(apiBaseUrl) ? 'production' : 'test'),
+    installationId: getEnvironmentStorageKey(INSTALLATION_KEY_PREFIX, apiBaseUrl),
+  }
+}
+
 function getEnvironmentStorageKey(prefix, apiBaseUrl) {
-  return `${prefix}:${isProductionApi(apiBaseUrl) ? 'production' : 'test'}`
+  return `${prefix}.${isProductionApi(apiBaseUrl) ? 'production' : 'test'}`
 }
 
 export async function clearIncompatibleParentNotificationState(apiBaseUrl) {
   const incompatibleEnvironment = isProductionApi(apiBaseUrl) ? 'test' : 'production'
+  const keys = getParentNotificationStorageKeys(incompatibleEnvironment)
   await Promise.all([
-    SecureStore.deleteItemAsync(`${INSTALLATION_KEY_PREFIX}:${incompatibleEnvironment}`),
-    AsyncStorage.removeItem(`${DETAIL_KEY_PREFIX}:${incompatibleEnvironment}`),
+    SecureStore.deleteItemAsync(keys.installationId),
+    AsyncStorage.removeItem(keys.detailLevel),
   ])
   return { previousEnvironment: incompatibleEnvironment, quarantined: true }
 }
@@ -101,7 +109,7 @@ async function getParentExpoPushToken(easProjectId) {
 }
 
 async function getInstallationId(apiBaseUrl) {
-  const storageKey = getEnvironmentStorageKey(INSTALLATION_KEY_PREFIX, apiBaseUrl)
+  const storageKey = getStorageKeys(apiBaseUrl).installationId
   const current = normalize(await SecureStore.getItemAsync(storageKey))
   if (current) return current
 
@@ -113,12 +121,12 @@ async function getInstallationId(apiBaseUrl) {
 }
 
 async function getLocalDetailLevel(apiBaseUrl) {
-  return normalizeParentNotificationDetail(await AsyncStorage.getItem(getEnvironmentStorageKey(DETAIL_KEY_PREFIX, apiBaseUrl)))
+  return normalizeParentNotificationDetail(await AsyncStorage.getItem(getStorageKeys(apiBaseUrl).detailLevel))
 }
 
 async function setLocalDetailLevel(value, apiBaseUrl) {
   const detailLevel = normalizeParentNotificationDetail(value)
-  await AsyncStorage.setItem(getEnvironmentStorageKey(DETAIL_KEY_PREFIX, apiBaseUrl), detailLevel)
+  await AsyncStorage.setItem(getStorageKeys(apiBaseUrl).detailLevel, detailLevel)
   return detailLevel
 }
 
@@ -144,7 +152,7 @@ async function request({ apiBaseUrl, body, method, path }) {
   if (!accessToken) throw new Error('Sign in before changing notifications.')
   if (!apiBaseUrl) throw new Error('Notifications are not ready for this build.')
 
-  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, path), {
+  const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, path), {
     method,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -154,7 +162,10 @@ async function request({ apiBaseUrl, body, method, path }) {
   })
 
   if (!ok || result.success === false) {
-    throw new Error(result.message || result.error || 'Notification settings could not be updated.')
+    const error = new Error(result.message || result.error || 'Notification settings could not be updated.')
+    error.code = normalize(result.code || result.error || `PARENT_MOBILE_HTTP_${response.status}`)
+    error.status = response.status
+    throw error
   }
 
   return result

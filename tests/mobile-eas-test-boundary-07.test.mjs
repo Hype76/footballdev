@@ -140,6 +140,7 @@ test('repository profile guard passes without resolving remote values', () => {
 test('production build guards require the named Parent promotion reference', () => {
   const buildGuard = readFileSync(path.join(repositoryRoot, 'apps/scripts/mobile-build-guard.mjs'), 'utf8')
   assert.match(buildGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)
+  assert.match(buildGuard, /FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29/)
   assert.doesNotMatch(buildGuard, /FP-MOBILE-PARENT-PRODUCTION-PROMOTION-MASTER-26/)
   for (const [appRole, profile, platform] of [['coach', 'internal-live', 'android'], ['parent', 'internal-live', 'android'], ['parent', 'store-live', 'ios']]) {
     const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, profile, platform], {

@@ -273,12 +273,11 @@ async function getMobileDevices({ match, targetParentLinkIds }) {
   }
 
   let query = supabaseAdmin
-    .from('mobile_push_devices')
-    .select('id, auth_user_id, device_token, parent_link_id')
+    .from('parent_mobile_push_installations')
+    .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level')
     .eq('club_id', match.club_id)
-    .eq('app_role', 'parent')
     .eq('status', 'active')
-    .eq('notification_enabled', true)
+    .eq('enabled', true)
 
   if (match.team_id) {
     query = query.eq('team_id', match.team_id)
@@ -318,13 +317,18 @@ async function revokeMobileDeviceTokens(deviceTokens) {
   }
 
   const { error } = await supabaseAdmin
-    .from('mobile_push_devices')
+    .from('parent_mobile_push_installations')
     .update({
-      notification_enabled: false,
+      auth_user_id: null,
+      parent_link_id: null,
+      club_id: null,
+      team_id: null,
+      expo_push_token: null,
+      enabled: false,
       status: 'revoked',
       updated_at: new Date().toISOString(),
     })
-    .in('device_token', tokens)
+    .in('expo_push_token', tokens)
 
   if (error) {
     if (isMissingTableError(error)) {
@@ -361,26 +365,26 @@ async function sendToSubscription(subscription, payload) {
   }
 }
 
-async function logNotificationEvents({ channel, devices, match, payload, status }) {
+async function logNotificationEvents({ devices, match, payload, status }) {
   if (devices.length === 0) {
     return
   }
 
   const now = new Date().toISOString()
   const { error } = await supabaseAdmin
-    .from('notification_events')
+    .from('parent_mobile_notification_events')
     .insert(devices.map((device) => ({
+      installation_id: device.installation_id,
+      auth_user_id: device.auth_user_id,
+      body: device.detail_level === 'detailed' ? payload.detailedBody : payload.minimalBody,
       club_id: match.club_id,
-      team_id: match.team_id || null,
-      parent_link_id: device.parent_link_id || null,
-      target_auth_user_id: device.auth_user_id,
-      channel,
-      notification_type: normalizeText(payload.type) || 'match_day',
-      title: payload.title,
-      body: payload.body,
       data: payload.data || {},
+      intent_type: 'matchday_update',
+      parent_link_id: device.parent_link_id || null,
+      title: payload.title,
       status,
       sent_at: status === 'sent' ? now : null,
+      team_id: match.team_id || null,
     })))
 
   if (error) {
@@ -477,8 +481,9 @@ export async function handler(event) {
     const sent = results.filter((result) => result.sent).length
     const revoked = results.filter((result) => result.revoked).length
     const nativePayload = {
-      title: payload.title,
-      body: payload.body,
+      title: 'Football Player Parents',
+      detailedBody: 'Your team has a new Matchday update.',
+      minimalBody: 'Matchday information has been updated.',
       type,
       data: {
         app: 'parent',
@@ -488,16 +493,15 @@ export async function handler(event) {
       },
     }
     const mobileResult = await sendExpoPushMessages(mobileDevices.map((device) => ({
-      to: device.device_token,
+      to: device.expo_push_token,
       title: nativePayload.title,
-      body: nativePayload.body,
+      body: device.detail_level === 'detailed' ? nativePayload.detailedBody : nativePayload.minimalBody,
       data: nativePayload.data,
       sound: 'default',
     })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
 
     await logNotificationEvents({
-      channel: 'mobile_push',
       devices: mobileDevices,
       match,
       payload: nativePayload,

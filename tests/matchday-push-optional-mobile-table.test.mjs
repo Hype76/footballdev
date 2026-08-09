@@ -105,7 +105,11 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
       }
 
       if (table === 'clubs') {
-        return queryResult({ data: { id: 'club-1', status: 'active' }, error: null })
+        return queryResult({ data: { id: 'club-1', is_plan_comped: true, plan_key: 'single_team', plan_status: 'active', status: 'active' }, error: null })
+      }
+
+      if (table === 'billing_access_state_events') {
+        return queryResult({ data: null, error: null })
       }
 
       if (table === 'match_days') {
@@ -130,11 +134,11 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
         })
       }
 
-      if (table === 'mobile_push_devices') {
+      if (table === 'parent_mobile_push_installations') {
         return queryResult(mobileResult)
       }
 
-      if (table === 'notification_events') {
+      if (table === 'parent_mobile_notification_events') {
         return queryResult({ data: null, error: null })
       }
 
@@ -161,7 +165,7 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
   await t.test('PGRST205 skips native lookup and continues web push delivery', async () => {
     const result = await runScenario({
       data: null,
-      error: { code: 'PGRST205', message: "Could not find the table 'public.mobile_push_devices' in the schema cache" },
+      error: { code: 'PGRST205', message: "Could not find the table 'public.parent_mobile_push_installations' in the schema cache" },
     })
 
     assert.equal(result.response.statusCode, 200)
@@ -173,7 +177,7 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
   await t.test('existing PostgreSQL missing-table fallback still works', async () => {
     const result = await runScenario({
       data: null,
-      error: { code: '42P01', message: 'relation "mobile_push_devices" does not exist' },
+      error: { code: '42P01', message: 'relation "parent_mobile_push_installations" does not exist' },
     })
 
     assert.equal(result.response.statusCode, 200)
@@ -184,10 +188,11 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
   await t.test('successful mobile lookup keeps the existing native path', async () => {
     const result = await runScenario({
       data: [{
-        id: 'mobile-1',
+        installation_id: 'mobile-1',
         auth_user_id: 'parent-1',
-        device_token: 'non-expo-test-token',
+        expo_push_token: 'non-expo-test-token',
         parent_link_id: 'link-1',
+        detail_level: 'minimal',
       }],
       error: null,
     })
@@ -195,13 +200,13 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
     assert.equal(result.response.statusCode, 200)
     assert.equal(responseBody(result.response).sent, 1)
     assert.equal(result.webPushes.length, 1)
-    assert.ok(result.tables.includes('notification_events'))
+    assert.ok(result.tables.includes('parent_mobile_notification_events'))
   })
 
   await t.test('unexpected database errors still fail before any push is sent', async () => {
     const result = await runScenario({
       data: null,
-      error: { code: '42501', message: 'permission denied for table mobile_push_devices' },
+      error: { code: '42501', message: 'permission denied for table parent_mobile_push_installations' },
     })
 
     assert.equal(result.response.statusCode, 500)

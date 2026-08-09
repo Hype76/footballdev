@@ -115,6 +115,7 @@ function normalizeParentLink(row) {
 
   return {
     clubId: row.club_id || '',
+    clubLogoUrl: normalizeText(club?.logo_url),
     clubName: normalizeText(club?.name || 'Parent Portal'),
     id: row.id,
     linkType: normalizeText(row.link_type || 'parent'),
@@ -123,6 +124,9 @@ function normalizeParentLink(row) {
     playerSection: normalizeText(player?.section || ''),
     teamId: row.team_id || '',
     teamName: normalizeText(team?.name || player?.team || ''),
+    themeAccent: normalizeText(club?.theme_accent || team?.theme_accent),
+    themeButtonStyle: normalizeText(club?.theme_button_style || team?.theme_button_style || 'solid'),
+    themeMode: normalizeText(team?.theme_mode),
   }
 }
 
@@ -184,7 +188,7 @@ async function fetchStaffProfile(authUser) {
 async function fetchParentProfile(authUser) {
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, theme_accent, theme_button_style)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
