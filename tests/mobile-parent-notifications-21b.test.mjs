@@ -25,13 +25,15 @@ const pushApi = await readFile(new URL('../mobile-test-api/netlify/functions/par
 const environment = await readFile(new URL('../mobile-test-api/netlify/functions/_shared/environment.mjs', import.meta.url), 'utf8')
 
 test('installation identity is random-looking, app-scoped, environment-scoped, and non-personal', () => {
-  const secureStoreKey = client.match(/const INSTALLATION_KEY = '([^']+)'/)?.[1] || ''
+  const secureStoreKeyPrefix = client.match(/const INSTALLATION_KEY_PREFIX = '([^']+)'/)?.[1] || ''
 
   assert.equal(isParentInstallationId('ad3d70b6-d2bc-40e4-91b0-959964e61780'), true)
   assert.equal(isParentInstallationId('android-id'), false)
   assert.match(client, /Crypto\.randomUUID\(\)/)
-  assert.equal(secureStoreKey, 'football-player.parent.test.push-installation-id.v1')
-  assert.match(secureStoreKey, /^[A-Za-z0-9._-]+$/)
+  assert.equal(secureStoreKeyPrefix, 'football-player.parent.push-installation-id.v2')
+  assert.match(secureStoreKeyPrefix, /^[A-Za-z0-9._-]+$/)
+  assert.match(client, /isProductionApi\(apiBaseUrl\) \? 'production' : 'test'/)
+  assert.match(client, /getEnvironmentStorageKey\(INSTALLATION_KEY_PREFIX, apiBaseUrl\)/)
   assert.match(client, /SecureStore\.setItemAsync/)
   assert.doesNotMatch(client, /deviceName|androidId|serial|imei|udid|advertisingId/i)
 })

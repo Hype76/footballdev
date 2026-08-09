@@ -1532,7 +1532,7 @@ function SettingsScreen({
 
   return (
     <View style={styles.screenStack}>
-      <ScreenIntro copy="Account, security and test-build information." title="Settings" />
+      <ScreenIntro copy="Account, security and app information." title="Settings" />
 
       <InfoPanel title="Signed-in Parent">
         <InfoRow label="Name" value={user.displayName || user.name || 'Parent'} />
@@ -1679,7 +1679,7 @@ function SettingsScreen({
           })}
         </View>
 
-        {notificationState.enabled ? (
+        {notificationState.enabled && !config.isProduction ? (
           <View style={styles.notificationTestActions}>
             <Text style={styles.helperText}>Controlled tests send only to this authorised test installation.</Text>
             <PrimaryAction label="Try message alert" loading={activeActionId === 'notification-test'} onPress={() => onSendTestNotification('parent_message')} secondary />
@@ -1691,10 +1691,14 @@ function SettingsScreen({
 
       <InfoPanel title="App information">
         <InfoRow label="Build" value={getBuildClassification(config.buildProfile)} />
-        <InfoRow label="Connection" value={config.isUsable ? 'Test service ready' : 'Connection needs attention'} />
+        <InfoRow label="Connection" value={config.isUsable ? config.isProduction ? 'Live service ready' : 'Test service ready' : 'Connection needs attention'} />
         <InfoRow label="Version" value={`${appVersion} (${buildNumber})`} />
         {lastUpdatedAt ? <InfoRow label="Last refreshed" value={formatDateTime(lastUpdatedAt)} /> : null}
-        <Text style={styles.helperText}>This test build cannot connect to the live Football Player service.</Text>
+        <Text style={styles.helperText}>
+          {config.isProduction
+            ? 'This production-backed candidate uses the live Football Player service.'
+            : 'This test build cannot connect to the live Football Player service.'}
+        </Text>
       </InfoPanel>
 
       <InfoPanel title="Offline and sync">

@@ -276,10 +276,19 @@ for (const app of apps) {
     assertIncludes(easConfig, '"EXPO_PUBLIC_BUILD_PROFILE": "store-test"', `${app.name} EAS store-test profile binding`)
     assertIncludes(easConfig, '"distribution": "store"', `${app.name} EAS store-test profile`)
     assertIncludes(easConfig, '"autoIncrement": true', `${app.name} EAS config`)
-    assertNotIncludes(easConfig, '"environment": "production"', `${app.name} EAS tester configuration`)
-    assertNotIncludes(easConfig, '"store-live"', `${app.name} unauthorised live store profile`)
     assertNotIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS tester configuration`)
-    assertNotIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS tester configuration`)
+    if (app.appRole === 'parent') {
+      assertIncludes(easConfig, '"internal-live"', `${app.name} authorised live internal profile`)
+      assertIncludes(easConfig, '"store-live"', `${app.name} authorised live store profile`)
+      assertIncludes(easConfig, '"environment": "production"', `${app.name} production environment`)
+      assertIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "production"', `${app.name} production classification`)
+      assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} production access`)
+    } else {
+      assertNotIncludes(easConfig, '"environment": "production"', `${app.name} EAS tester configuration`)
+      assertNotIncludes(easConfig, '"internal-live"', `${app.name} unauthorised live internal profile`)
+      assertNotIncludes(easConfig, '"store-live"', `${app.name} unauthorised live store profile`)
+      assertNotIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS tester configuration`)
+    }
   }
 
   if (existsSync(join(repoRoot, app.packageJson))) {
@@ -291,6 +300,10 @@ for (const app of apps) {
     }
     if (appPackage.scripts?.['build:android:internal'] !== `node ../scripts/mobile-build-guard.mjs ${app.appRole} internal android`) {
       failures.push(`${app.name} package must include guarded Android internal build script`)
+    }
+    if (app.appRole === 'parent'
+      && appPackage.scripts?.['build:android:internal-live'] !== 'node ../scripts/mobile-build-guard.mjs parent internal-live android') {
+      failures.push(`${app.name} package must include guarded Android production internal build script`)
     }
     if (appPackage.scripts?.['build:android:store-test'] !== `node ../scripts/mobile-build-guard.mjs ${app.appRole} store-test android`) {
       failures.push(`${app.name} package must include guarded Android store-test build script`)
@@ -453,7 +466,7 @@ assertIncludes(mobileConfigCheck, 'must use https for release checks when set', 
 assertIncludes(mobileConfigCheck, 'must not point at a local development host', 'Mobile config check')
 assertIncludes(mobileBuildGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'MOBILE_NATIVE_BUILD_CONFIRMED', 'Mobile build guard')
-assertIncludes(mobileBuildGuard, 'EAS setup and test environment values are confirmed', 'Mobile build guard')
+assertIncludes(mobileBuildGuard, 'EAS setup and the selected environment values are confirmed', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'assertEasLogin()', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'build'", 'Mobile build guard')

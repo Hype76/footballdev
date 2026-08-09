@@ -27,8 +27,22 @@ for (const app of mobileApps) {
     if (current.env?.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE !== 'false') failures.push(`${app.name}:${profile}:live_access_enabled`)
   }
 
-  if (buildProfiles['store-live']) failures.push(`${app.name}:store-live:production_build_not_authorised`)
-  if (eas.submit?.['store-live']) failures.push(`${app.name}:store-live:production_submission_not_authorised`)
+  if (app.appRole === 'parent') {
+    for (const profile of ['internal-live', 'store-live']) {
+      const current = buildProfiles[profile]
+      if (!current) failures.push(`${app.name}:${profile}:missing_profile`)
+      else {
+        if (current.environment !== 'production') failures.push(`${app.name}:${profile}:wrong_environment_scope`)
+        if (current.env?.EXPO_PUBLIC_BUILD_PROFILE !== profile) failures.push(`${app.name}:${profile}:missing_build_profile_binding`)
+        if (current.env?.EXPO_PUBLIC_SUPABASE_ENV !== 'production') failures.push(`${app.name}:${profile}:invalid_environment_classification`)
+        if (current.env?.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE !== 'true') failures.push(`${app.name}:${profile}:live_access_disabled`)
+      }
+    }
+    if (!eas.submit?.['store-live']?.ios?.ascAppId) failures.push(`${app.name}:store-live:missing_ios_submission`)
+  } else {
+    if (buildProfiles['internal-live'] || buildProfiles['store-live']) failures.push(`${app.name}:production_build_not_authorised`)
+    if (eas.submit?.['store-live']) failures.push(`${app.name}:production_submission_not_authorised`)
+  }
 }
 
 if (failures.length > 0) {
@@ -37,4 +51,4 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('Mobile EAS profile boundary passed for Coach and Parent tester profiles. Store-live is not authorised.')
+console.log('Mobile EAS profile boundary passed for test profiles and the Parent production promotion profiles.')

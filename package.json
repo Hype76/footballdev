@@ -64,6 +64,7 @@
     "mobile:build:coach:ios:store-test": "npm --prefix apps/coach-mobile run build:ios:store-test",
     "mobile:build:coach:ios:store-live": "npm --prefix apps/coach-mobile run build:ios:store-live",
     "mobile:build:parent:android:internal": "npm --prefix apps/parent-mobile run build:android:internal",
+    "mobile:build:parent:android:internal-live": "npm --prefix apps/parent-mobile run build:android:internal-live",
     "mobile:build:parent:android:store-test": "npm --prefix apps/parent-mobile run build:android:store-test",
     "mobile:build:parent:android:store-live": "npm --prefix apps/parent-mobile run build:android:store-live",
     "mobile:build:parent:ios:store-test": "npm --prefix apps/parent-mobile run build:ios:store-test",

@@ -6,6 +6,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import {
+  APPROVED_MOBILE_PRODUCTION,
   APPROVED_MOBILE_TEST,
   MOBILE_EAS_PROJECT_IDS,
   validateResolvedMobileEnvironment,
@@ -16,6 +17,19 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 function makePublicClientKey(ref = APPROVED_MOBILE_TEST.supabaseRef) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url')
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ ref, role: 'anon' })}.test-signature`
+}
+
+function approvedProductionFixture(buildProfile = 'store-live') {
+  return {
+    allowLiveSupabase: 'true',
+    apiBaseUrl: APPROVED_MOBILE_PRODUCTION.apiOrigin,
+    appRole: 'parent',
+    buildProfile,
+    easProjectId: MOBILE_EAS_PROJECT_IDS.parent,
+    supabaseEnvironment: 'production',
+    supabasePublishableKey: makePublicClientKey(APPROVED_MOBILE_PRODUCTION.supabaseRef),
+    supabaseUrl: APPROVED_MOBILE_PRODUCTION.supabaseOrigin,
+  }
 }
 
 function approvedFixture(appRole, buildProfile) {
@@ -76,15 +90,22 @@ for (const [name, changes, reason] of hostileCases) {
   })
 }
 
-test('store-live is blocked before any resolved environment is required', () => {
-  for (const appRole of ['coach', 'parent']) {
-    const result = validateResolvedMobileEnvironment({ appRole, buildProfile: 'store-live' })
-    assert.equal(result.pass, false)
-    assert.ok(result.reasonCodes.includes('production_build_not_authorised'))
+test('Parent production profiles require exact production values while Coach stays blocked', () => {
+  for (const profile of ['internal-live', 'store-live']) {
+    const result = validateResolvedMobileEnvironment(approvedProductionFixture(profile))
+    assert.equal(result.pass, true)
+    assert.deepEqual(result.reasonCodes, [
+      'approved_production_supabase',
+      'approved_production_api',
+      'approved_production_key_pair',
+    ])
   }
+  const coach = validateResolvedMobileEnvironment({ ...approvedProductionFixture(), appRole: 'coach', easProjectId: MOBILE_EAS_PROJECT_IDS.coach })
+  assert.equal(coach.pass, false)
+  assert.ok(coach.reasonCodes.includes('production_build_not_authorised'))
 })
 
-test('Coach and Parent EAS profiles use supported tester scopes and omit store-live', async () => {
+test('Coach and Parent EAS profiles preserve tester scopes and only Parent adds production profiles', async () => {
   for (const appRole of ['coach', 'parent']) {
     const eas = JSON.parse(await readFile(path.join(repositoryRoot, 'apps', `${appRole}-mobile`, 'eas.json'), 'utf8'))
     assert.equal(eas.build.development.environment, 'development')
@@ -93,8 +114,17 @@ test('Coach and Parent EAS profiles use supported tester scopes and omit store-l
     assert.equal(eas.build.development.env.EXPO_PUBLIC_BUILD_PROFILE, 'development')
     assert.equal(eas.build.internal.env.EXPO_PUBLIC_BUILD_PROFILE, 'internal')
     assert.equal(eas.build['store-test'].env.EXPO_PUBLIC_BUILD_PROFILE, 'store-test')
-    assert.equal(eas.build['store-live'], undefined)
-    assert.equal(eas.submit['store-live'], undefined)
+    if (appRole === 'parent') {
+      assert.equal(eas.build['internal-live'].environment, 'production')
+      assert.equal(eas.build['store-live'].environment, 'production')
+      assert.equal(eas.build['internal-live'].env.EXPO_PUBLIC_BUILD_PROFILE, 'internal-live')
+      assert.equal(eas.build['store-live'].env.EXPO_PUBLIC_BUILD_PROFILE, 'store-live')
+      assert.equal(eas.submit['store-live'].ios.ascAppId, '6772061464')
+    } else {
+      assert.equal(eas.build['internal-live'], undefined)
+      assert.equal(eas.build['store-live'], undefined)
+      assert.equal(eas.submit['store-live'], undefined)
+    }
   }
 })
 
@@ -106,30 +136,29 @@ test('repository profile guard passes without resolving remote values', () => {
   assert.equal(result.status, 0, result.stderr)
 })
 
-test('Coach and Parent store-live build guards cannot be bypassed by generic build confirmation', () => {
-  for (const appRole of ['coach', 'parent']) {
-    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, 'store-live', 'android'], {
+test('production build guards require the named Parent promotion reference', () => {
+  for (const [appRole, profile, platform] of [['coach', 'internal-live', 'android'], ['parent', 'internal-live', 'android'], ['parent', 'store-live', 'ios']]) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, profile, platform], {
       cwd: repositoryRoot,
       encoding: 'utf8',
       env: { ...process.env, MOBILE_NATIVE_BUILD_CONFIRMED: 'true' },
     })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /Production mobile build not authorised\./)
-    assert.match(result.stderr, /named production-promotion reference is required/)
+    assert.match(result.stderr, /Production Parent mobile build not authorised for this reference\./)
     assert.match(result.stderr, /production_build_not_authorised/)
     assert.doesNotMatch(result.stderr, /EXPO_PUBLIC_|supabase\.co|netlify\.app/)
   }
 })
 
-test('Coach and Parent store-live submission guards fail before EAS invocation', () => {
+test('production submission guard permits only named Parent iOS promotion', () => {
   for (const appRole of ['coach', 'parent']) {
-    const result = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', appRole, 'android', 'store-live'], {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', appRole, 'ios', 'store-live'], {
       cwd: repositoryRoot,
       encoding: 'utf8',
       env: { ...process.env, MOBILE_SUBMISSION_CONFIRMED: 'true' },
     })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /Production mobile build not authorised\./)
+    assert.match(result.stderr, /Production Parent iOS submission not authorised for this reference\./)
     assert.match(result.stderr, /production_build_not_authorised/)
   }
 })

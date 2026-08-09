@@ -32,6 +32,7 @@ export function getMobileRuntimeConfig(appRole) {
   const isConfigured = boundary.pass
   const isLiveBlocked = boundary.reasonCodes.includes('forbidden_live_supabase') ||
     boundary.reasonCodes.includes('live_access_enabled') ||
+    boundary.reasonCodes.includes('live_access_disabled') ||
     boundary.reasonCodes.includes('production_build_not_authorised')
   const configError = boundary.pass ? '' : 'This app build is not ready for access yet.'
 
@@ -44,6 +45,7 @@ export function getMobileRuntimeConfig(appRole) {
     easProjectId,
     isConfigured,
     isLiveBlocked,
+    isProduction: supabaseEnvironment === 'production',
     isUsable: boundary.pass,
     supabaseEnvironment,
     supabasePublishableKey,

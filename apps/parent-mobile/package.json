@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "doctor": "npx expo-doctor",
     "build:android:internal": "node ../scripts/mobile-build-guard.mjs parent internal android",
+    "build:android:internal-live": "node ../scripts/mobile-build-guard.mjs parent internal-live android",
     "build:android:store-test": "node ../scripts/mobile-build-guard.mjs parent store-test android",
     "build:android:store-live": "node ../scripts/mobile-build-guard.mjs parent store-live android",
     "build:ios:store-test": "node ../scripts/mobile-build-guard.mjs parent store-test ios",

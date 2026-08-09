@@ -13,8 +13,9 @@ import {
 } from '../../mobile-core/src/parentNotificationsCore'
 import { getAccessToken } from '../../mobile-core/src/supabase'
 
-const INSTALLATION_KEY = 'football-player.parent.test.push-installation-id.v1'
-const DETAIL_KEY = 'football-player:parent:test:push-detail:v1'
+const INSTALLATION_KEY_PREFIX = 'football-player.parent.push-installation-id.v2'
+const DETAIL_KEY_PREFIX = 'football-player:parent:push-detail:v2'
+const PRODUCTION_API_ORIGIN = 'https://footballplayer.online'
 const CHANNEL_ID = 'parent-updates'
 const PUSH_TOKEN_ATTEMPTS = 2
 const PUSH_TOKEN_RETRY_DELAY_MS = 750
@@ -30,6 +31,24 @@ Notifications.setNotificationHandler({
 
 function normalize(value) {
   return String(value ?? '').trim()
+}
+
+function isProductionApi(apiBaseUrl) {
+  try {
+    return new URL(normalize(apiBaseUrl)).origin === PRODUCTION_API_ORIGIN
+  } catch {
+    return false
+  }
+}
+
+function getEnvironmentStorageKey(prefix, apiBaseUrl) {
+  return `${prefix}:${isProductionApi(apiBaseUrl) ? 'production' : 'test'}`
+}
+
+function getInstallationPath(apiBaseUrl) {
+  return isProductionApi(apiBaseUrl)
+    ? '/.netlify/functions/parent-mobile-push-installation'
+    : '/api/mobile-test/parent-push-installation'
 }
 
 function createSafePushSetupError(error, stage) {
@@ -72,24 +91,25 @@ async function getParentExpoPushToken(easProjectId) {
   throw createSafePushSetupError(lastError, 'expo')
 }
 
-async function getInstallationId() {
-  const current = normalize(await SecureStore.getItemAsync(INSTALLATION_KEY))
+async function getInstallationId(apiBaseUrl) {
+  const storageKey = getEnvironmentStorageKey(INSTALLATION_KEY_PREFIX, apiBaseUrl)
+  const current = normalize(await SecureStore.getItemAsync(storageKey))
   if (current) return current
 
   const installationId = Crypto.randomUUID()
-  await SecureStore.setItemAsync(INSTALLATION_KEY, installationId, {
+  await SecureStore.setItemAsync(storageKey, installationId, {
     keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
   })
   return installationId
 }
 
-async function getLocalDetailLevel() {
-  return normalizeParentNotificationDetail(await AsyncStorage.getItem(DETAIL_KEY))
+async function getLocalDetailLevel(apiBaseUrl) {
+  return normalizeParentNotificationDetail(await AsyncStorage.getItem(getEnvironmentStorageKey(DETAIL_KEY_PREFIX, apiBaseUrl)))
 }
 
-async function setLocalDetailLevel(value) {
+async function setLocalDetailLevel(value, apiBaseUrl) {
   const detailLevel = normalizeParentNotificationDetail(value)
-  await AsyncStorage.setItem(DETAIL_KEY, detailLevel)
+  await AsyncStorage.setItem(getEnvironmentStorageKey(DETAIL_KEY_PREFIX, apiBaseUrl), detailLevel)
   return detailLevel
 }
 
@@ -125,7 +145,7 @@ async function request({ apiBaseUrl, body, method, path }) {
   })
 
   if (!ok || result.success === false) {
-    throw new Error(result.error || 'Notification settings could not be updated.')
+    throw new Error(result.message || result.error || 'Notification settings could not be updated.')
   }
 
   return result
@@ -152,8 +172,8 @@ export function addParentPushTokenListener(listener) {
 
 export async function loadParentNotificationState({ apiBaseUrl }) {
   const [detailLevel, installationId, permission] = await Promise.all([
-    getLocalDetailLevel(),
-    getInstallationId(),
+    getLocalDetailLevel(apiBaseUrl),
+    getInstallationId(apiBaseUrl),
     getPermissionState(),
   ])
   let serverState = { detailLevel, enabled: false, registered: false }
@@ -162,7 +182,7 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
     const result = await request({
       apiBaseUrl,
       method: 'GET',
-      path: `/api/mobile-test/parent-push-installation?installationId=${encodeURIComponent(installationId)}`,
+      path: `${getInstallationPath(apiBaseUrl)}?installationId=${encodeURIComponent(installationId)}`,
     })
     serverState = result.installation || serverState
   } catch (error) {
@@ -174,7 +194,7 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
       const result = await request({
         apiBaseUrl,
         method: 'PATCH',
-        path: '/api/mobile-test/parent-push-installation',
+        path: getInstallationPath(apiBaseUrl),
         body: {
           detailLevel: serverState.detailLevel || detailLevel,
           enabled: false,
@@ -212,20 +232,20 @@ export async function enableParentNotifications({ apiBaseUrl, easProjectId, pare
   const permissionGranted = permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
 
   if (!permissionGranted) {
-    const installationId = await getInstallationId()
+    const installationId = await getInstallationId(apiBaseUrl)
     await request({
       apiBaseUrl,
       method: 'PATCH',
-      path: '/api/mobile-test/parent-push-installation',
+      path: getInstallationPath(apiBaseUrl),
       body: {
-        detailLevel: await getLocalDetailLevel(),
+        detailLevel: await getLocalDetailLevel(apiBaseUrl),
         enabled: false,
         installationId,
       },
     }).catch(() => {})
     return normalizeParentNotificationState({
       canAskAgain: permission.canAskAgain !== false,
-      detailLevel: await getLocalDetailLevel(),
+      detailLevel: await getLocalDetailLevel(apiBaseUrl),
       enabled: false,
       message: 'Notification permission is off. The app remains fully usable.',
       permissionGranted: false,
@@ -243,8 +263,8 @@ export async function enableParentNotifications({ apiBaseUrl, easProjectId, pare
   let installationId
   let detailLevel
   try {
-    installationId = await getInstallationId()
-    detailLevel = await getLocalDetailLevel()
+    installationId = await getInstallationId(apiBaseUrl)
+    detailLevel = await getLocalDetailLevel(apiBaseUrl)
   } catch (error) {
     throw createSafePushSetupError(error, 'local')
   }
@@ -254,7 +274,7 @@ export async function enableParentNotifications({ apiBaseUrl, easProjectId, pare
     result = await request({
       apiBaseUrl,
       method: 'POST',
-      path: '/api/mobile-test/parent-push-installation',
+      path: getInstallationPath(apiBaseUrl),
       body: {
         appVersion: Application.nativeApplicationVersion || '',
         buildNumber: Application.nativeBuildVersion || '',
@@ -278,8 +298,8 @@ export async function enableParentNotifications({ apiBaseUrl, easProjectId, pare
 }
 
 export async function updateParentNotificationPreference({ apiBaseUrl, detailLevel, enabled }) {
-  const normalizedDetail = await setLocalDetailLevel(detailLevel)
-  const installationId = await getInstallationId()
+  const normalizedDetail = await setLocalDetailLevel(detailLevel, apiBaseUrl)
+  const installationId = await getInstallationId(apiBaseUrl)
   const permission = await getPermissionState()
   let serverState = { detailLevel: normalizedDetail, enabled: false, registered: false }
 
@@ -287,7 +307,7 @@ export async function updateParentNotificationPreference({ apiBaseUrl, detailLev
     const result = await request({
       apiBaseUrl,
       method: 'PATCH',
-      path: '/api/mobile-test/parent-push-installation',
+      path: getInstallationPath(apiBaseUrl),
       body: {
         detailLevel: normalizedDetail,
         enabled: Boolean(enabled),
@@ -308,12 +328,12 @@ export async function updateParentNotificationPreference({ apiBaseUrl, detailLev
 }
 
 export async function unbindParentNotifications({ accessToken, apiBaseUrl }) {
-  const installationId = await getInstallationId()
+  const installationId = await getInstallationId(apiBaseUrl)
   let serverUnbound = false
 
   if (accessToken && apiBaseUrl) {
     try {
-      const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, '/api/mobile-test/parent-push-installation'), {
+      const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, getInstallationPath(apiBaseUrl)), {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -333,7 +353,8 @@ export async function unbindParentNotifications({ accessToken, apiBaseUrl }) {
 }
 
 export async function sendParentTestNotification({ apiBaseUrl, intentType }) {
-  const installationId = await getInstallationId()
+  if (isProductionApi(apiBaseUrl)) throw new Error('Test notifications are unavailable in production builds.')
+  const installationId = await getInstallationId(apiBaseUrl)
   return request({
     apiBaseUrl,
     method: 'POST',

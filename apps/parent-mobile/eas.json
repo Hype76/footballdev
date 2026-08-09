@@ -38,6 +38,29 @@
         "EXPO_PUBLIC_SUPABASE_ENV": "test",
         "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "false"
       }
+    },
+    "internal-live": {
+      "environment": "production",
+      "distribution": "internal",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_BUILD_PROFILE": "internal-live",
+        "EXPO_PUBLIC_SUPABASE_ENV": "production",
+        "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"
+      }
+    },
+    "store-live": {
+      "environment": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_BUILD_PROFILE": "store-live",
+        "EXPO_PUBLIC_SUPABASE_ENV": "production",
+        "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"
+      }
     }
   },
   "submit": {
@@ -48,6 +71,11 @@
         "changesNotSentForReview": true,
         "serviceAccountKeyPath": "../mobile-release-evidence/credentials/football-player-mobile-expo-play-submit-service-account.json"
       },
+      "ios": {
+        "ascAppId": "6772061464"
+      }
+    },
+    "store-live": {
       "ios": {
         "ascAppId": "6772061464"
       }

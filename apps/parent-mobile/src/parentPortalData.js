@@ -257,7 +257,20 @@ export async function getParentResources(user) {
   return (data || []).map(normalizeParentResource)
 }
 
-async function callParentTestApi(path, body) {
+function getParentApiPaths(config) {
+  if (config.supabaseEnvironment === 'production') {
+    return {
+      development: '/api/parent-development/history',
+      resource: '/api/parent-resources/access',
+    }
+  }
+  return {
+    development: '/api/mobile-test/parent-development',
+    resource: '/api/mobile-test/parent-resource',
+  }
+}
+
+async function callParentApi(path, body) {
   const config = getMobileRuntimeConfig('parent')
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Sign in again before continuing.')
@@ -266,13 +279,14 @@ async function callParentTestApi(path, body) {
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!ok) throw new Error(result.message || result.error || 'The Parent test service could not complete this request.')
+  if (!ok) throw new Error(result.message || result.error || 'The Parent service could not complete this request.')
   return result
 }
 
 export async function getParentDevelopmentHistory(user) {
   const link = requireSelectedLink(user)
-  const result = await callParentTestApi('api/mobile-test/parent-development', { action: 'list', parentLinkId: link.id })
+  const config = getMobileRuntimeConfig('parent')
+  const result = await callParentApi(getParentApiPaths(config).development, { action: 'list', parentLinkId: link.id })
   return Array.isArray(result.reports) ? result.reports : []
 }
 
@@ -285,7 +299,8 @@ async function downloadAndShareParentFile({ fileName, mimeType, path }) {
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Sign in again before opening this file.')
   const localUri = `${FileSystem.cacheDirectory}${safeFilename(fileName, `parent-file-${Date.now()}`)}`
-  const result = await FileSystem.downloadAsync(joinApiPath(config.apiBaseUrl, path), localUri, {
+  const remoteUrl = /^https:\/\//i.test(path) ? path : joinApiPath(config.apiBaseUrl, path)
+  const result = await FileSystem.downloadAsync(remoteUrl, localUri, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (result.status < 200 || result.status >= 300) throw new Error('This file could not be downloaded.')
@@ -299,22 +314,31 @@ async function downloadAndShareParentFile({ fileName, mimeType, path }) {
 
 export async function openParentDevelopmentReport(user, reportId) {
   const link = requireSelectedLink(user)
+  const config = getMobileRuntimeConfig('parent')
+  const developmentPath = getParentApiPaths(config).development
   await downloadAndShareParentFile({
     fileName: `development-report-${reportId}.pdf`,
     mimeType: 'application/pdf',
-    path: `api/mobile-test/parent-development?parentLinkId=${encodeURIComponent(link.id)}&reportId=${encodeURIComponent(reportId)}`,
+    path: `${developmentPath}?parentLinkId=${encodeURIComponent(link.id)}&reportId=${encodeURIComponent(reportId)}`,
   })
   return { shared: true }
 }
 
 export async function openParentResource(user, resourceId) {
   const link = requireSelectedLink(user)
-  const result = await callParentTestApi('api/mobile-test/parent-resource', { parentLinkId: link.id, resourceId })
+  const config = getMobileRuntimeConfig('parent')
+  const resourcePath = getParentApiPaths(config).resource
+  const result = await callParentApi(resourcePath, { parentLinkId: link.id, resourceId })
   if (result.accessType === 'external_link') return { externalUrl: normalizeText(result.accessUrl) }
+  if (config.supabaseEnvironment === 'production' && !/^https:\/\//i.test(normalizeText(result.accessUrl))) {
+    throw new Error('This resource could not be opened safely.')
+  }
   await downloadAndShareParentFile({
     fileName: result.fileName || `resource-${resourceId}`,
     mimeType: result.mimeType || 'application/octet-stream',
-    path: `api/mobile-test/parent-resource?parentLinkId=${encodeURIComponent(link.id)}&resourceId=${encodeURIComponent(resourceId)}`,
+    path: config.supabaseEnvironment === 'production'
+      ? normalizeText(result.accessUrl)
+      : `${resourcePath}?parentLinkId=${encodeURIComponent(link.id)}&resourceId=${encodeURIComponent(resourceId)}`,
   })
   return { shared: true }
 }
