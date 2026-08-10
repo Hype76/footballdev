@@ -8,9 +8,21 @@ import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const [appRole, profile, platform] = process.argv.slice(2)
 
-const allowedBuilds = new Set(['internal:android', 'store-test:android', 'store-test:ios', 'store-live:android', 'store-live:ios'])
+const allowedBuilds = new Set([
+  'internal:android',
+  'store-test:android',
+  'store-test:ios',
+  'internal-live:android',
+  'store-live:ios',
+])
+const productionBuilds = new Set(['internal-live:android', 'store-live:ios'])
+const authorisedParentProductionReferences = new Set([
+  'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
+  'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
+])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
+const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -18,13 +30,20 @@ if (!app) {
 }
 
 if (!allowedBuilds.has(`${profile}:${platform}`)) {
-  console.error('Unknown mobile build. Expected internal android, store-test android, store-test ios, store-live android, or store-live ios.')
+  console.error('Unknown mobile build profile and platform combination.')
+  process.exit(1)
+}
+
+if (productionBuilds.has(`${profile}:${platform}`)
+  && (appRole !== 'parent' || !authorisedParentProductionReferences.has(promotionReference))) {
+  console.error('Production Parent mobile build not authorised for this reference.')
+  console.error('Reason: production_build_not_authorised')
   process.exit(1)
 }
 
 if (!buildConfirmed) {
-  console.error('Mobile native build is blocked until EAS setup and test environment values are confirmed.')
-  console.error('Complete both EAS projects, test Supabase values, HTTPS test API values, and EAS env verification first.')
+  console.error('Mobile native build is blocked until EAS setup and the selected environment values are confirmed.')
+  console.error('Complete the EAS project, guarded Supabase values, HTTPS API values, and EAS environment verification first.')
   console.error('Then rerun with MOBILE_NATIVE_BUILD_CONFIRMED=true.')
   process.exit(1)
 }

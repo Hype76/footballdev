@@ -3,6 +3,11 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mobileApps } from './mobile-apps.mjs'
+import {
+  expoPushCallerPaths,
+  expoPushHelperPath,
+  validateExpoPushHelperContract,
+} from './mobile-push-helper-contract.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -74,7 +79,7 @@ const mobileLocalEnvPath = 'apps/scripts/mobile-local-env.mjs'
 const mobileEvidenceInitPath = 'apps/scripts/mobile-evidence-init.mjs'
 
 function read(relativePath) {
-  return readFileSync(join(repoRoot, relativePath), 'utf8')
+  return readFileSync(join(repoRoot, relativePath), 'utf8').replace(/\r\n/g, '\n')
 }
 
 function assertFile(relativePath, label) {
@@ -268,12 +273,22 @@ for (const app of apps) {
     assertIncludes(easConfig, '"environment": "preview"', `${app.name} EAS internal environment`)
     assertIncludes(easConfig, '"distribution": "internal"', `${app.name} EAS internal profile`)
     assertIncludes(easConfig, '"buildType": "apk"', `${app.name} EAS Android internal profile`)
-    assertIncludes(easConfig, '"environment": "production"', `${app.name} EAS store-test environment`)
+    assertIncludes(easConfig, '"EXPO_PUBLIC_BUILD_PROFILE": "store-test"', `${app.name} EAS store-test profile binding`)
     assertIncludes(easConfig, '"distribution": "store"', `${app.name} EAS store-test profile`)
     assertIncludes(easConfig, '"autoIncrement": true', `${app.name} EAS config`)
-    assertIncludes(easConfig, '"store-live"', `${app.name} EAS live store profile`)
-    assertIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS live store profile`)
-    assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS live store profile`)
+    assertNotIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS tester configuration`)
+    if (app.appRole === 'parent') {
+      assertIncludes(easConfig, '"internal-live"', `${app.name} authorised live internal profile`)
+      assertIncludes(easConfig, '"store-live"', `${app.name} authorised live store profile`)
+      assertIncludes(easConfig, '"environment": "production"', `${app.name} production environment`)
+      assertIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "production"', `${app.name} production classification`)
+      assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} production access`)
+    } else {
+      assertNotIncludes(easConfig, '"environment": "production"', `${app.name} EAS tester configuration`)
+      assertNotIncludes(easConfig, '"internal-live"', `${app.name} unauthorised live internal profile`)
+      assertNotIncludes(easConfig, '"store-live"', `${app.name} unauthorised live store profile`)
+      assertNotIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS tester configuration`)
+    }
   }
 
   if (existsSync(join(repoRoot, app.packageJson))) {
@@ -285,6 +300,10 @@ for (const app of apps) {
     }
     if (appPackage.scripts?.['build:android:internal'] !== `node ../scripts/mobile-build-guard.mjs ${app.appRole} internal android`) {
       failures.push(`${app.name} package must include guarded Android internal build script`)
+    }
+    if (app.appRole === 'parent'
+      && appPackage.scripts?.['build:android:internal-live'] !== 'node ../scripts/mobile-build-guard.mjs parent internal-live android') {
+      failures.push(`${app.name} package must include guarded Android production internal build script`)
     }
     if (appPackage.scripts?.['build:android:store-test'] !== `node ../scripts/mobile-build-guard.mjs ${app.appRole} store-test android`) {
       failures.push(`${app.name} package must include guarded Android store-test build script`)
@@ -447,7 +466,7 @@ assertIncludes(mobileConfigCheck, 'must use https for release checks when set', 
 assertIncludes(mobileConfigCheck, 'must not point at a local development host', 'Mobile config check')
 assertIncludes(mobileBuildGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'MOBILE_NATIVE_BUILD_CONFIRMED', 'Mobile build guard')
-assertIncludes(mobileBuildGuard, 'EAS setup and test environment values are confirmed', 'Mobile build guard')
+assertIncludes(mobileBuildGuard, 'EAS setup and the selected environment values are confirmed', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'assertEasLogin()', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'build'", 'Mobile build guard')
@@ -541,8 +560,9 @@ const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(s
 assertIncludes(sharedAppConfig, "policy: 'appVersion'", 'Mobile shared app config')
 assertIncludes(sharedAppConfig, "buildNumber: '1'", 'Mobile shared app config')
 assertIncludes(sharedAppConfig, 'versionCode: 1', 'Mobile shared app config')
-assertIncludes(sharedAppConfig, "supabaseEnvironment: process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test'", 'Mobile shared app config')
-assertIncludes(sharedAppConfig, "allowLiveSupabase: process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false'", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, "supabaseEnvironment: process.env.EXPO_PUBLIC_SUPABASE_ENV || ''", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, "allowLiveSupabase: process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || ''", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, "buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE || ''", 'Mobile shared app config')
 assertIncludes(sharedAppConfig, 'ITSAppUsesNonExemptEncryption: false', 'Mobile shared app config')
 assertIncludes(sharedAppConfig, "icon: './assets/notification-icon.png'", 'Mobile shared app config')
 assertIncludes(sharedAppConfig, 'blockedPermissions', 'Mobile shared Android permissions')
@@ -559,6 +579,7 @@ assertIncludes(sharedAppConfig, "'USE_BIOMETRIC'", 'Mobile shared Android allowe
 assertIncludes(sharedAppConfig, "'USE_FINGERPRINT'", 'Mobile shared Android allowed permissions')
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
+const mobileEnvironmentBoundary = read('apps/mobile-core/src/environmentBoundary.js')
 const mobileActions = read('apps/mobile-core/src/actions.js')
 const mobileAuth = read('apps/mobile-core/src/auth.js')
 const mobileAssessment = read('apps/mobile-core/src/assessment.js')
@@ -571,28 +592,49 @@ const mobileParentLinks = read('apps/mobile-core/src/parentLinks.js')
 const mobileProfile = read('apps/mobile-core/src/profile.js')
 const mobileRoutes = read('apps/mobile-core/src/routes.js')
 const mobileSupabase = read('apps/mobile-core/src/supabase.js')
+const mobileSessionStorage = read('apps/mobile-core/src/sessionStorage.js')
+const mobileSecureSessionStorageCore = read('apps/mobile-core/src/secureSessionStorageCore.js')
 const mobileUi = read('apps/mobile-core/src/ui.js')
-const expoPushFunction = read('netlify/functions/_expo-push.js')
-const sendCoachMobilePushFunction = read('netlify/functions/send-coach-mobile-push.js')
-const sendMatchDayPushFunction = read('netlify/functions/send-match-day-push.js')
-const sendParentMobilePushFunction = read('netlify/functions/send-parent-mobile-push.js')
-assertIncludes(mobileConfig, 'isUsable: isConfigured && !isLiveBlocked', 'Mobile runtime config')
-assertIncludes(mobileConfig, "EXPO_PUBLIC_SUPABASE_ENV || 'test').toLowerCase()", 'Mobile runtime config')
-assertIncludes(mobileConfig, "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false').toLowerCase() === 'true'", 'Mobile runtime config')
+assertFile(expoPushHelperPath, 'Expo push helper')
+const expoPushFunction = existsSync(join(repoRoot, expoPushHelperPath)) ? read(expoPushHelperPath) : ''
+const expoPushCallerSources = Object.fromEntries(
+  expoPushCallerPaths.map((callerPath) => [callerPath, read(callerPath)]),
+)
+const sendCoachMobilePushFunction = expoPushCallerSources['netlify/functions/send-coach-mobile-push.js']
+const sendMatchDayPushFunction = expoPushCallerSources['netlify/functions/send-match-day-push.js']
+const sendParentMobilePushFunction = expoPushCallerSources['netlify/functions/send-parent-mobile-push.js']
+failures.push(...validateExpoPushHelperContract({
+  helperSource: expoPushFunction,
+  callerSources: expoPushCallerSources,
+}))
+assertIncludes(mobileConfig, 'isUsable: boundary.pass', 'Mobile runtime config')
+assertIncludes(mobileConfig, 'validateResolvedMobileEnvironment', 'Mobile runtime config')
+assertIncludes(mobileConfig, 'EXPO_PUBLIC_BUILD_PROFILE', 'Mobile runtime config')
 assertIncludes(mobileConfig, 'This app build is not ready for access yet.', 'Mobile runtime config')
-assertIncludes(mobileConfig, 'This app build is missing its connection setup.', 'Mobile runtime config')
 assertNotIncludes(mobileConfig, 'Live Supabase is blocked', 'Mobile runtime config')
 assertNotIncludes(mobileConfig, 'environment variables are missing', 'Mobile runtime config')
+assertIncludes(mobileEnvironmentBoundary, 'production_build_not_authorised', 'Mobile environment boundary')
+assertIncludes(mobileEnvironmentBoundary, 'forbidden_live_supabase', 'Mobile environment boundary')
+assertIncludes(mobileEnvironmentBoundary, 'forbidden_retired_supabase', 'Mobile environment boundary')
+assertIncludes(mobileEnvironmentBoundary, 'mismatched_supabase_key', 'Mobile environment boundary')
 assertIncludes(mobileActions, 'export function useMobileActionRunner', 'Mobile action runner')
 assertIncludes(mobileActions, "setActiveActionId('')", 'Mobile action runner')
 assertIncludes(mobileAuth, 'This app build is missing its connection setup.', 'Mobile auth')
 assertIncludes(mobileAuth, "import { AppState } from 'react-native'", 'Mobile biometric app lock')
 assertIncludes(mobileAuth, "import { revokeNativePushDevice } from './notifications'", 'Mobile sign out cleanup')
-assertIncludes(mobileAuth, "import { getAccessToken, isSupabaseConfigured, mobileConfigError, supabase } from './supabase'", 'Mobile sign out cleanup')
+assertIncludes(mobileAuth, 'clearMobileSessionStorage', 'Mobile secure sign out cleanup')
 assertIncludes(mobileAuth, "nextState !== 'background'", 'Mobile biometric app lock')
 assertIncludes(mobileAuth, 'setIsLocked(true)', 'Mobile biometric app lock')
 assertIncludes(mobileAuth, 'await revokeNativePushDevice({', 'Mobile sign out cleanup')
 assertIncludes(mobileAuth, 'await setBiometricEnabled(false)', 'Mobile sign out cleanup')
+assertIncludes(mobileAuth, 'await clearMobileSessionStorage()', 'Mobile secure sign out cleanup')
+assertIncludes(mobileSupabase, 'storage: mobileSessionStorage', 'Mobile secure Supabase storage')
+assertIncludes(mobileSupabase, "storageKey: mobileSupabaseAuthStorageKey || 'blocked-mobile-auth-token'", 'Mobile environment-scoped secure Supabase storage')
+assertNotIncludes(mobileSupabase, 'storage: AsyncStorage', 'Mobile plaintext Supabase storage')
+assertIncludes(mobileSessionStorage, 'AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY', 'Mobile secure session accessibility')
+assertIncludes(mobileSessionStorage, 'requireAuthentication: false', 'Mobile background Auth refresh')
+assertIncludes(mobileSecureSessionStorageCore, 'MOBILE_SESSION_CHUNK_BYTES = 1500', 'Mobile secure session chunking')
+assertIncludes(mobileSecureSessionStorageCore, 'MOBILE_SESSION_STORAGE_SCHEMA_VERSION = 1', 'Mobile secure session schema')
 assertNotIncludes(mobileAuth, 'environment variables are missing', 'Mobile auth')
 assertIncludes(mobileAssessment, 'export function createAssessmentFieldValues', 'Mobile assessment field defaults')
 assertIncludes(mobileAssessment, 'export function resetAssessmentFieldValues', 'Mobile assessment field reset')
@@ -612,7 +654,12 @@ assertIncludes(mobileData, "throw new Error('Choose a message before marking it 
 assertIncludes(mobileData, 'throw new Error(`${field.label} is required.`)', 'Mobile assessment validation')
 assertIncludes(mobileData, 'throw new Error(`${field.label} must be a number.`)', 'Mobile assessment validation')
 assertIncludes(mobileData, 'Math.min(Math.round(numericValue), maxScore)', 'Mobile assessment validation')
-assertIncludes(mobileData, "throw new Error('This poll is closed.')", 'Mobile parent poll validation')
+const parentPollVoteSource = mobileData.slice(
+  mobileData.indexOf('export async function submitParentPollVote'),
+  mobileData.indexOf('export async function volunteerAsMatchScorer'),
+)
+assertIncludes(parentPollVoteSource, "supabase.rpc('submit_parent_portal_poll_vote'", 'Mobile parent poll authority')
+assertNotIncludes(parentPollVoteSource, ".from('polls')", 'Mobile parent poll authority')
 assertIncludes(mobileProfile, "import { getSelectedParentLink } from './parentLinks'", 'Mobile parent profile link selection')
 assertIncludes(mobileRoutes, 'export function getTabForNotificationRoute', 'Mobile notification route handling')
 assertIncludes(mobileRoutes, '.trim().toLowerCase()', 'Mobile notification route handling')
@@ -649,8 +696,6 @@ assertIncludes(mobileNotifications, 'setStoredDeviceContext({', 'Mobile notifica
 assertNotIncludes(mobileNotifications, 'mobile API base URL', 'Mobile notifications')
 assertNotIncludes(mobileNotifications, 'Expo push token could not be created', 'Mobile notifications')
 assertNotIncludes(mobileNotifications, 'Mobile notifications could not be', 'Mobile notifications')
-assertIncludes(expoPushFunction, 'DeviceNotRegistered', 'Expo push helper')
-assertIncludes(expoPushFunction, 'invalidTokens', 'Expo push helper')
 assertIncludes(sendCoachMobilePushFunction, 'revokeMobileDeviceTokens', 'Coach mobile push function')
 assertIncludes(sendCoachMobilePushFunction, "status: 'revoked'", 'Coach mobile push function')
 assertIncludes(sendMatchDayPushFunction, 'revokeMobileDeviceTokens', 'Matchday mobile push function')
@@ -658,7 +703,8 @@ assertIncludes(sendMatchDayPushFunction, "status: 'revoked'", 'Matchday mobile p
 assertIncludes(sendParentMobilePushFunction, 'revokeMobileDeviceTokens', 'Parent mobile push function')
 assertIncludes(sendParentMobilePushFunction, "status: 'revoked'", 'Parent mobile push function')
 assertIncludes(mobileProfile, 'This login is not linked to a coach account.', 'Mobile profile access')
-assertIncludes(mobileProfile, 'This login is not linked to a parent account.', 'Mobile profile access')
+assertIncludes(mobileProfile, 'hasParentAccess: Boolean(selectedLink?.id)', 'Mobile no-child state')
+assertNotIncludes(mobileProfile, "throw new Error('This login is not linked to a parent account.')", 'Mobile no-child state')
 assertNotIncludes(mobileProfile, 'staff mobile account', 'Mobile profile access')
 assertNotIncludes(mobileProfile, 'parent portal link', 'Mobile profile access')
 assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile Supabase client')
@@ -707,23 +753,37 @@ assertIncludes(mobileUi, 'export function HintText', 'Mobile shared layout primi
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
-  assertIncludes(appSource, 'MobileScreen', `${app.name} shared screen chrome`)
-  assertIncludes(appSource, 'ScreenHeader', `${app.name} shared screen chrome`)
-  assertIncludes(appSource, 'LoadingRow', `${app.name} shared loading state`)
-  assertIncludes(appSource, 'EmptyState', `${app.name} shared empty state`)
-  assertIncludes(appSource, 'ChoiceGroup', `${app.name} shared choice controls`)
-  assertIncludes(appSource, 'ListStack', `${app.name} shared layout primitives`)
-  assertIncludes(appSource, 'Panel', `${app.name} shared layout primitives`)
+
+  if (app.appRole === 'parent') {
+    assertIncludes(appSource, 'SafeAreaProvider', 'Parents safe-area shell')
+    assertIncludes(appSource, 'BottomTabs', 'Parents mobile tab shell')
+    assertIncludes(appSource, 'LoadingPanel', 'Parents loading state')
+    assertIncludes(appSource, 'EmptyPanel', 'Parents empty state')
+    assertIncludes(appSource, 'ResourceError', 'Parents error state')
+    assertIncludes(appSource, 'AppHeader', 'Parents child context shell')
+    assertIncludes(appSource, 'getParentHomeModel', 'Parents progressive overview')
+    assertIncludes(appSource, 'SummaryButton', 'Parents progressive overview')
+    assertIncludes(appSource, 'Private family access. Password sign-in only.', 'Parents login copy')
+  } else {
+    assertIncludes(appSource, 'MobileScreen', `${app.name} shared screen chrome`)
+    assertIncludes(appSource, 'ScreenHeader', `${app.name} shared screen chrome`)
+    assertIncludes(appSource, 'LoadingRow', `${app.name} shared loading state`)
+    assertIncludes(appSource, 'EmptyState', `${app.name} shared empty state`)
+    assertIncludes(appSource, 'ChoiceGroup', `${app.name} shared choice controls`)
+    assertIncludes(appSource, 'ListStack', `${app.name} shared layout primitives`)
+    assertIncludes(appSource, 'Panel', `${app.name} shared layout primitives`)
+    assertIncludes(appSource, 'showOverview', `${app.name} progressive overview`)
+    assertIncludes(appSource, 'OverviewPanel', `${app.name} progressive overview`)
+    assertIncludes(appSource, app.restrictedAccessCopy, `${app.name} login copy`)
+  }
+
   assertIncludes(appSource, 'RefreshControl', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'refreshControl={(', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'onRefresh={handleRefresh}', `${app.name} pull-to-refresh`)
-  assertIncludes(appSource, 'tintColor={colors.accent}', `${app.name} pull-to-refresh`)
+  assertIncludes(appSource, app.appRole === 'parent' ? 'tintColor={palette.accent}' : 'tintColor={colors.accent}', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'AppState.addEventListener', `${app.name} foreground refresh`)
   assertIncludes(appSource, "nextState === 'active'", `${app.name} foreground refresh`)
   assertIncludes(appSource, 'lastUpdatedAt', `${app.name} freshness indicator`)
-  assertIncludes(appSource, 'showOverview', `${app.name} progressive overview`)
-  assertIncludes(appSource, 'OverviewPanel', `${app.name} progressive overview`)
-  assertIncludes(appSource, app.restrictedAccessCopy, `${app.name} login copy`)
   assertIncludes(appSource, 'MobileLoginScreen', `${app.name} shared login`)
   assertNotIncludes(appSource, 'Test environment only.', `${app.name} login copy`)
   assertNotIncludes(appSource, 'Log In', `${app.name} button copy`)

@@ -21,6 +21,10 @@ export async function getBiometricEnabled() {
   return value === 'true'
 }
 
+export async function clearBiometricPreference() {
+  await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY)
+}
+
 export async function setBiometricEnabled(enabled) {
   if (enabled) {
     const availability = await getBiometricAvailability()

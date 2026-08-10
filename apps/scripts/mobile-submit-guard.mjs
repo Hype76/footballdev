@@ -12,6 +12,7 @@ const allowedPlatforms = new Set(['android', 'ios'])
 const allowedProfiles = new Set(['store-test', 'store-live'])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
+const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -25,6 +26,15 @@ if (!allowedPlatforms.has(platform)) {
 
 if (!allowedProfiles.has(profile)) {
   console.error('Unknown submit profile. Expected store-test or store-live.')
+  process.exit(1)
+}
+
+if (profile === 'store-live'
+  && (appRole !== 'parent'
+    || platform !== 'ios'
+    || promotionReference !== 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')) {
+  console.error('Production Parent iOS submission not authorised for this reference.')
+  console.error('Reason: production_build_not_authorised')
   process.exit(1)
 }
 

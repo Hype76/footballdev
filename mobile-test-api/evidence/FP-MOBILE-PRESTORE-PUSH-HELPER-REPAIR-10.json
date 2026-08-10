@@ -1,0 +1,135 @@
+{
+  "reference": "FP-MOBILE-PRESTORE-PUSH-HELPER-REPAIR-10",
+  "recordedAt": "2026-08-05T12:32:11+01:00",
+  "status": "Red",
+  "canonicalRepository": "E:/Project Manager/Footbal_Development",
+  "worktree": "E:/Project Manager/FP-MOBILE-PRESTORE-PUSH-HELPER-10",
+  "branch": "codex/fp-mobile-prestore-push-helper-repair-10",
+  "baseCommit": "09db83a66537ac7c1c66d0db4e48b000be75ed38",
+  "implementationCommit": "324fd62155f1c81c73472b68c8dff686d8d9fd50",
+  "finalCommit": "commit containing this record",
+  "originalDirtyCheckoutEntries": 65,
+  "rootCauseClassification": "Helper renamed or moved without checker update",
+  "divergenceCommit": "bc0db84aab24c15ac5ac2ccba7d10d62880e15a3",
+  "gitHistoryEvidence": {
+    "helperIntroduced": "76107c7a7e4c3a29e6854cf4b19ca98fad1d8d31 at netlify/functions/_expo-push.js",
+    "staleTokenRevocationContractAdded": "d3f205c0107ff184c9ba85cab4eae9d1dfa86fd5 added the checker assertion and helper token-revocation contract",
+    "canonicalMove": "bc0db84aab24c15ac5ac2ccba7d10d62880e15a3 moved shared helpers into netlify/functions/lib and updated all three push callers but did not update mobile-prestore-check.mjs"
+  },
+  "productionComparison": {
+    "site": "footballplayer-online",
+    "siteId": "264c7a36-8b0d-4a35-bedd-9d18482aaf69",
+    "url": "https://footballplayer.online",
+    "publishedDeployId": "6a71e25fd3ccf60008f116fb",
+    "publishedCommit": "04c91b9b2f7b66c3904073e8448cf2f3f88ee7a7",
+    "publishedBranch": "main",
+    "publishedState": "ready",
+    "helperAtCanonicalLibPath": true,
+    "helperAtObsoleteRootPath": false,
+    "comparisonMethod": "Read-only Netlify site metadata and local committed source comparison"
+  },
+  "originMainComparison": {
+    "commit": "04c91b9b2f7b66c3904073e8448cf2f3f88ee7a7",
+    "matchesProductionCommit": true,
+    "helperAtCanonicalLibPath": true,
+    "helperAtObsoleteRootPath": false
+  },
+  "secureSessionBaseComparison": {
+    "commit": "09db83a66537ac7c1c66d0db4e48b000be75ed38",
+    "originMainIsAncestor": true,
+    "helperAtCanonicalLibPath": true,
+    "helperAtObsoleteRootPath": false,
+    "widerApprovedBranchDivergence": false
+  },
+  "canonicalArchitecture": {
+    "repairPath": "Corrected stale checker",
+    "canonicalHelperSourceCommit": "bc0db84aab24c15ac5ac2ccba7d10d62880e15a3",
+    "helperPath": "netlify/functions/lib/_expo-push.js",
+    "helperRuntimeChanged": false,
+    "exportInventory": [
+      "sendExpoPushMessages"
+    ],
+    "exportStyle": "Named async ESM function",
+    "callerInventory": [
+      "netlify/functions/send-coach-mobile-push.js",
+      "netlify/functions/send-match-day-push.js",
+      "netlify/functions/send-parent-mobile-push.js"
+    ],
+    "inputContract": "Array of Expo message objects. Only entries whose to field begins with ExponentPushToken[ are sent.",
+    "outputContract": "Aggregated sent count, failed count, and DeviceNotRegistered token list.",
+    "batching": "Maximum 100 messages per Expo request",
+    "transport": "Exact canonical HTTPS Expo push endpoint",
+    "responseClassification": "Non-success HTTP batches fail as a batch. Error tickets increment failed. DeviceNotRegistered tickets populate invalidTokens for caller-side revocation.",
+    "receiptHandling": "No receipt polling in this helper",
+    "retryHandling": "No retry scheduling in this helper",
+    "environmentGuard": "No environment-selected URL or credential fallback. Mobile test builds remain bound to the dedicated test API and cannot fall back to the production API.",
+    "communicationDisable": "No real transport was invoked. All focused delivery tests replaced global fetch with a synthetic local mock.",
+    "logging": "Helper contains no console logging and does not log full tokens.",
+    "secretRequirements": "None in repository source"
+  },
+  "repair": {
+    "helperRestored": false,
+    "checkerCorrected": true,
+    "dummyOrPlaceholderUsed": false,
+    "bypassUsed": false,
+    "lineEndingNormalisation": "Repository text reads normalise CRLF to LF so Windows validates the same committed metadata content.",
+    "contractValidator": "apps/scripts/mobile-push-helper-contract.mjs",
+    "focusedTest": "tests/mobile-prestore-push-helper-10.test.mjs"
+  },
+  "validation": {
+    "pushHelperTests": "8/8 passed with synthetic tokens and mocked fetch only",
+    "mobilePrestore": "passed",
+    "rootLint": "passed",
+    "webBuild": "passed",
+    "mobileConfig": "passed",
+    "mobileEvidenceCheck": "passed",
+    "mobileWebExport": "Coach and Parent passed",
+    "secureSessionTests": "28/28 passed",
+    "authBoundaryTests": "18/18 passed",
+    "easBoundaryTests": "27/27 passed",
+    "testEnvironmentTests": "4/4 passed",
+    "authSourceGuard": "passed, 32 files",
+    "easProfileGuard": "passed",
+    "coachExpoDoctor": "17/18, blocked by inherited Expo 54.0.35 versus current expected 54.0.36",
+    "parentExpoDoctor": "17/18, blocked by inherited Expo 54.0.35 versus current expected 54.0.36",
+    "mobileReleaseCheck": "blocked at mobile:doctor after lint, build, config, prestore and evidence checks passed",
+    "buildGuardPreEas": "Static focused test proves normal release-check precedes the EAS invocation and no skip or bypass path exists. Full post-release-check reach remains blocked by Expo Doctor.",
+    "syntax": "passed for touched JavaScript and MJS files",
+    "secretScan": "passed for 1508 tracked files and all touched or untracked evidence files",
+    "diffReview": "passed, limited to checker, contract validator, focused tests, package script, and this evidence record"
+  },
+  "prohibitedActions": {
+    "realPushTokenUsed": false,
+    "pushSent": false,
+    "unexpectedQueueRecords": false,
+    "emailSent": false,
+    "invitationsSent": false,
+    "smsSent": false,
+    "easChanged": false,
+    "mobileBuild": false,
+    "signingCredentialsChanged": false,
+    "pushCredentialsChanged": false,
+    "storeCredentialsChanged": false,
+    "supabaseMigration": false,
+    "netlifyDeployment": false,
+    "productionEndpointContacted": false,
+    "productionCustomerDataContacted": false,
+    "productionMutation": false,
+    "secureSessionChanged": false,
+    "offlineFeatureWork": false,
+    "notificationFeatureWork": false,
+    "inAppBrowserUsed": false
+  },
+  "activityLog": {
+    "spreadsheet": "Jeluma Labs - Activity Log",
+    "range": "Sheet1!A1185:L1185",
+    "readBack": "passed"
+  },
+  "knownLimitations": [
+    "The normal release-check cannot complete because current Expo Doctor requires Expo 54.0.36 while both apps pin 54.0.35.",
+    "The phase explicitly forbids upgrading Expo or weakening the Doctor gate.",
+    "No EAS or physical-device validation was run."
+  ],
+  "remainingRisk": "The push-helper path blocker is repaired, but the device-validation phase must not resume until a separately authorised Expo patch-alignment phase makes the normal release-check Green.",
+  "recommendedNextAction": "Authorise a separately named Expo 54 patch-alignment phase for both mobile apps, then rerun the full release-check and only after it is Green resume physical-device validation from a proven combined runtime commit."
+}

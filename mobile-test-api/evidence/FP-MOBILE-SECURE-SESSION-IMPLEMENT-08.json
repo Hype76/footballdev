@@ -1,0 +1,168 @@
+{
+  "reference": "FP-MOBILE-SECURE-SESSION-IMPLEMENT-08",
+  "recordedAt": "2026-08-05T11:29:07+01:00",
+  "status": "Amber",
+  "canonicalRepository": "E:/Project Manager/Footbal_Development",
+  "worktree": "E:/Project Manager/FP-MOBILE-SECURE-SESSION-IMPLEMENT-08",
+  "branch": "codex/fp-mobile-secure-session-implement-08",
+  "baseCommit": "162ff20ae48d5b0824e310df414926697f551e20",
+  "implementationCommit": "18284f51b69c3098c42172a52c917767e8380168",
+  "implementationPush": "passed",
+  "originalDirtyCheckoutEntries": 65,
+  "packageVersions": {
+    "expo": "54.0.35",
+    "react": "19.1.0",
+    "reactNative": "0.81.5",
+    "supabaseJs": "2.102.1",
+    "asyncStorage": "2.2.0",
+    "secureStore": "15.0.8",
+    "localAuthentication": "17.0.8"
+  },
+  "packageChanges": [],
+  "previousStorageArchitecture": "Supabase Auth used plaintext AsyncStorage directly",
+  "selectedSecureArchitecture": {
+    "provider": "Expo SecureStore",
+    "schemaVersion": 1,
+    "chunkBytes": 1500,
+    "maximumSessionBytes": 65536,
+    "generationSlots": [
+      "a",
+      "b"
+    ],
+    "atomicity": "inactive generation chunks, manifest, readback, active pointer, pointer finalisation, stale generation removal",
+    "concurrency": "in-process queue scoped to the app and environment namespace",
+    "integrity": "total UTF-8 byte length, per-chunk byte lengths, chunk count, session structure and approved test-project identity",
+    "requireAuthentication": false,
+    "keychainAccessibility": "AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY",
+    "customCryptography": false
+  },
+  "decisionRationale": {
+    "directSecureStoreValue": "rejected because installed SecureStore documents a 2048-byte value limit",
+    "encryptedAsyncStorage": "rejected because it would require encryption and key coordination outside this phase",
+    "selected": "versioned generation-swapped SecureStore chunking supports realistic session size, atomic refresh writes and deterministic cleanup"
+  },
+  "namespace": {
+    "format": "fp.mobile.auth.v1.<coach|parent>.<environment>.<logical-supabase-key>",
+    "coachParentIsolation": "passed",
+    "testFutureLiveIsolation": "passed",
+    "schemaIsolation": "passed",
+    "unknownApp": "rejected",
+    "unknownEnvironment": "rejected"
+  },
+  "legacyMigration": {
+    "legacyKey": "sb-ndohkecigwlwayghsopw-auth-token",
+    "validTestSession": "passed",
+    "secureSessionPrecedence": "passed",
+    "readbackBeforeDelete": "passed",
+    "idempotency": "passed",
+    "interruptedMigration": "passed",
+    "corruptLegacy": "failed closed without unverified deletion",
+    "productionLegacy": "rejected",
+    "retiredLegacy": "rejected",
+    "unknownLegacy": "rejected",
+    "markerAuthority": "marker never overrides secure-session validity"
+  },
+  "logoutCleanup": {
+    "activeGeneration": "removed",
+    "allChunks": "removed",
+    "manifestsAndPointer": "removed",
+    "staleGenerations": "removed",
+    "legacyAndAuxiliaryKeys": "removed",
+    "inMemorySession": "cleared",
+    "unrelatedPreferences": "preserved",
+    "biometricPreferencePolicy": "existing sign-out policy continues to disable biometric unlock"
+  },
+  "biometricSeparation": {
+    "sessionRequiresBiometricAuthentication": false,
+    "backgroundRefreshRequiresBiometricInteraction": false,
+    "sessionAndBiometricNamespacesSeparate": true,
+    "serverAuthorityChanged": false
+  },
+  "invalidSessionHandling": "Supabase SIGNED_OUT and non-retryable refresh removal use the secure adapter; the shared Auth provider clears in-memory session and profile state during canonical sign-out cleanup.",
+  "safeDiagnosticCategories": [
+    "secure_session_missing",
+    "secure_session_corrupt",
+    "secure_session_environment_mismatch",
+    "legacy_session_migrated",
+    "legacy_session_rejected",
+    "secure_write_failed",
+    "secure_readback_failed",
+    "stale_generation_pruned"
+  ],
+  "validation": {
+    "secureSessionTests": "28/28 passed",
+    "authBoundaryTests": "18/18 passed",
+    "easBoundaryTests": "27/27 passed",
+    "testEnvironmentTests": "4/4 passed",
+    "authSourceGuard": "passed, 32 files",
+    "easProfileGuard": "passed",
+    "mobileConfigGuard": "passed",
+    "expoPublicConfig": "Coach and Parent passed without a build",
+    "testApiHealth": "passed with production access, communications and schedules false",
+    "syntax": "passed",
+    "secretScan": "passed",
+    "diffReview": "passed",
+    "prestore": "blocked by inherited missing netlify/functions/_expo-push.js",
+    "lint": "unavailable",
+    "expoDoctor": "17/18 for both apps; inherited Expo 54.0.35 versus current expected 54.0.36"
+  },
+  "testCoverage": {
+    "storage": "missing, small, Unicode, multi-chunk, boundary and oversized values passed",
+    "generationSwap": "write order, readback, activation, interruption, corruption recovery and stale pruning passed",
+    "migration": "valid, precedence, idempotency, readback-before-delete, interruption and rejection cases passed",
+    "refresh": "sequential, concurrent and failed replacement cases passed",
+    "logout": "active, stale, auxiliary, legacy and repeated cleanup cases passed",
+    "biometrics": "no requireAuthentication, separate namespace and unrelated-preference preservation passed",
+    "supabaseIntegration": "shared storage adapter, explicit storage key and Auth persistence flags passed",
+    "coldAndWarmStart": "passed"
+  },
+  "repositoryFilesChanged": [
+    "apps/mobile-core/src/auth.js",
+    "apps/mobile-core/src/secureSessionStorageCore.js",
+    "apps/mobile-core/src/sessionStorage.js",
+    "apps/mobile-core/src/supabase.js",
+    "apps/scripts/mobile-prestore-check.mjs",
+    "docs/decisions/mobile-secure-session-storage.md",
+    "package.json",
+    "tests/mobile-secure-session-08.test.mjs",
+    "mobile-test-api/evidence/FP-MOBILE-SECURE-SESSION-IMPLEMENT-08.json"
+  ],
+  "deferredEvidence": [
+    "physical Android SecureStore and Keystore behaviour",
+    "physical iPhone SecureStore and Keychain behaviour",
+    "backup and reinstall behaviour",
+    "biometric enrolment changes",
+    "terminated native app token refresh"
+  ],
+  "prohibitedActions": {
+    "coachEasChanged": false,
+    "parentEasChanged": false,
+    "mobileBuild": false,
+    "physicalDeviceValidation": false,
+    "offlineCommands": false,
+    "supabaseMigration": false,
+    "netlifyDeployment": false,
+    "storeSubmission": false,
+    "productionEndpointContacted": false,
+    "productionCustomerDataContacted": false,
+    "productionMutation": false,
+    "emailSent": false,
+    "invitationsSent": false,
+    "pushSent": false,
+    "smsSent": false,
+    "inAppBrowserUsed": false
+  },
+  "activityLog": {
+    "spreadsheet": "Jeluma Labs - Activity Log",
+    "range": "Sheet1!A1183:L1183",
+    "readBack": "passed"
+  },
+  "knownLimitations": [
+    "No physical-device or native-build evidence exists in this phase.",
+    "The inherited pre-store checker references an absent unrelated push function.",
+    "ESLint is unavailable in the isolated worktree.",
+    "The phase forbids changing the inherited Expo patch mismatch reported by Expo Doctor."
+  ],
+  "remainingRisk": "SecureStore platform behaviour, lifecycle and performance require later development builds and physical-device validation.",
+  "recommendedNextAction": "Obtain a separately named build and physical-device validation prompt without changing EAS or production."
+}

@@ -1,0 +1,140 @@
+{
+  "reference": "FP-MOBILE-TEST-ENV-FOUNDATION-04",
+  "capturedAt": "2026-08-05T08:37:21.4809007+01:00",
+  "canonicalRepository": "E:/Project Manager/Footbal_Development",
+  "worktree": "E:/Project Manager/FP-MOBILE-TEST-ENV-FOUNDATION-04",
+  "branch": "codex/fp-mobile-test-env-foundation-04",
+  "baseCommit": "04c91b9b2f7b66c3904073e8448cf2f3f88ee7a7",
+  "productionIdentityComparison": {
+    "site": "footballplayer-online",
+    "deployId": "6a71e25fd3ccf60008f116fb",
+    "commit": "04c91b9b2f7b66c3904073e8448cf2f3f88ee7a7",
+    "supabaseRef": "hvapkizujvsahvgspser",
+    "readOnly": true,
+    "customerDataRead": false,
+    "productionMutation": false
+  },
+  "supabase": {
+    "organisation": "Stephen King",
+    "organisationId": "zddvekxwkdxastocwkvl",
+    "authorisedMonthlyUsd": 10,
+    "confirmedMonthlyUsd": 10,
+    "additionalCost": false,
+    "projectName": "Footballplayer Mobile Test",
+    "projectRef": "ndohkecigwlwayghsopw",
+    "region": "eu-west-2",
+    "createdAt": "2026-08-05T06:54:04.719888Z",
+    "status": "ACTIVE_HEALTHY",
+    "repositoryMigrationCount": 292,
+    "repositoryMigrationHead": "20260804120936_fp_v1_calendar_invite_recipient_integrity_34.sql",
+    "testOnlyGuardMigrations": [
+      "fp_mobile_test_communication_guard_04",
+      "fp_mobile_test_storage_guard_04"
+    ],
+    "tables": 118,
+    "views": 1,
+    "publicFunctions": 339,
+    "securityDefinerFunctions": 283,
+    "triggers": 150,
+    "publicPolicies": 176,
+    "extensions": [
+      "pg_stat_statements",
+      "pgcrypto",
+      "plpgsql",
+      "supabase_vault",
+      "uuid-ossp"
+    ],
+    "keyTableRls": "pass",
+    "coachLogin": "pass",
+    "parentLogin": "pass",
+    "coachFixtureRead": "pass",
+    "parentLinkRead": "pass",
+    "parentMatchDayWrite": "denied",
+    "storageBucket": "mobile-test-fixtures",
+    "coachStorageUpload": "pass",
+    "parentStorageDownload": "pass",
+    "parentStorageUpload": "denied",
+    "communicationWriteGuard": "pass",
+    "queueCounts": {
+      "scheduled_email_queue": 0,
+      "email_delivery_jobs": 0,
+      "email_logs": 0,
+      "match_day_push_operations": 0
+    },
+    "realDataCopied": false
+  },
+  "fixtures": {
+    "club": "FP TEST Mobile Club",
+    "team": "FP TEST Mobile U12",
+    "coach": "coach.mobile.test@example.test",
+    "parent": "parent.mobile.test@example.test",
+    "player": "FP TEST Player",
+    "parentLink": "active",
+    "matchDay": "FP TEST Opponents",
+    "assessment": "FP TEST Mobile Assessment",
+    "poll": "FP TEST Travel Poll",
+    "parentChat": "Synthetic test message only",
+    "credentialsStoredIn": [
+      "Windows Credential Manager: FootballplayerMobileTest-Coach",
+      "Windows Credential Manager: FootballplayerMobileTest-Parent"
+    ],
+    "passwordsRecorded": false
+  },
+  "netlify": {
+    "team": "3D Printing Resources",
+    "teamSlug": "hype76",
+    "plan": "Pro",
+    "includedCreditsAtGate": 3000,
+    "recordedCreditsUsedAtGate": 0,
+    "additionalCost": false,
+    "siteName": "footballplayer-mobile-test-api",
+    "siteId": "f6075f58-3fad-412f-8aa7-b1bc2d01d83e",
+    "httpsOrigin": "https://footballplayer-mobile-test-api.netlify.app",
+    "deployId": "6a72e8c635a11f1593355b94",
+    "buildId": null,
+    "deploySource": "cli",
+    "functions": [
+      "health",
+      "session",
+      "coach-fixture"
+    ],
+    "scheduledFunctions": [],
+    "serviceRoleConfigured": false,
+    "health": "pass",
+    "authenticatedCoach": "pass",
+    "authenticatedParent": "pass",
+    "negativeAuthorityHttp": 403
+  },
+  "guards": {
+    "environment": "test",
+    "productionAccess": false,
+    "communicationsEnabled": false,
+    "schedulesEnabled": false,
+    "liveSupabaseRejected": true,
+    "retiredSupabaseRejected": true,
+    "unknownSupabaseRejected": true,
+    "productionApiFallback": false,
+    "coachEasChanged": false,
+    "parentEasChanged": false,
+    "mobileBuild": false,
+    "secureSessionImplemented": false
+  },
+  "verification": {
+    "focusedNodeTests": "34 passed, 0 failed",
+    "functionBundle": "pass",
+    "syntaxChecks": "pass",
+    "trackedSecretScan": "pass, 1485 tracked files",
+    "untrackedSecretPatternReview": "pass",
+    "gitDiffCheck": "pass",
+    "eslint": "not available because the locked dependency install timed out"
+  },
+  "knownLimitations": [
+    "The Supabase security advisor reports inherited informational and warning notices from the current migration chain, including callable SECURITY DEFINER functions and leaked-password protection disabled.",
+    "Auth redirect allow-list settings were not changed or independently read back in this phase. The test API exposes password sessions only and no email, invite, recovery, or magic-link endpoint.",
+    "Historical database functions retain production web URL literals. The deployed test API does not expose or invoke those functions, and database communication queues are blocked.",
+    "The manual Netlify deploy has no separate build ID. The deploy ID is the authoritative deployment identifier.",
+    "The repository-wide locked dependency install timed out, so touched-file ESLint was unavailable. Syntax checks, bundling, focused tests, and live API checks passed."
+  ],
+  "remainingRisk": "Before any EAS test profile is pointed at this environment, configure and read back test-safe Auth redirect allow-lists and decide whether to enable Supabase leaked-password protection. Keep the existing production-URL database functions outside the mobile test API surface.",
+  "recommendedNextAction": "Run a narrow Auth configuration closure, then repair Coach and Parent EAS environment boundaries to use only this test Supabase project and test API."
+}

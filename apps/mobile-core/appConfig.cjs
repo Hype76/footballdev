@@ -3,10 +3,11 @@ const path = require('path')
 
 function getMobileEnvironment() {
   return {
-    allowLiveSupabase: process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false',
+    allowLiveSupabase: process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || '',
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || '',
+    buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE || '',
     easProjectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID || '',
-    supabaseEnvironment: process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test',
+    supabaseEnvironment: process.env.EXPO_PUBLIC_SUPABASE_ENV || '',
     supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
   }
