@@ -9,7 +9,9 @@ import {
 } from '../apps/parent-mobile/messagePresentation.js'
 
 const parentAppSource = readFileSync(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+const parentDataSource = readFileSync(new URL('../apps/mobile-core/src/data.js', import.meta.url), 'utf8')
 const parentDevelopmentSource = readFileSync(new URL('../apps/parent-mobile/parentDevelopment.js', import.meta.url), 'utf8')
+const parentPortalSource = readFileSync(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8')
 const parentPackage = JSON.parse(readFileSync(new URL('../apps/parent-mobile/package.json', import.meta.url), 'utf8'))
 
 test('plain text Parent messages remain readable', () => {
@@ -37,14 +39,16 @@ test('HTML Parent messages become readable text with HTTPS-only links', () => {
   assert.deepEqual(result.links, ['https://footballplayer.online/resources/first-touch'])
 })
 
-test('message presentation preserves row identity and rejects unsafe URL schemes', () => {
+test('message presentation preserves relationship identity and rejects unsafe URL schemes', () => {
   const [message] = presentParentMessages([{
     id: 'message-34d',
     body: '<p>Hello &amp; welcome.</p>',
+    evaluationId: 'evaluation-34d',
     subject: 'Club update',
   }])
 
   assert.equal(message.id, 'message-34d')
+  assert.equal(message.evaluationId, 'evaluation-34d')
   assert.equal(message.body, 'Hello & welcome.')
   assert.equal(getSafeParentMessageUrl('https://footballplayer.online/help'), 'https://footballplayer.online/help')
   assert.equal(getSafeParentMessageUrl('http://footballplayer.online/help'), '')
@@ -60,12 +64,19 @@ test('malformed blocked HTML fails closed without exposing script or style conte
   assert.equal(styleResult.body, 'Visible update')
 })
 
-test('Parent app loads canonical Development history and exposes PDF action only when authorised evidence allows it', () => {
-  assert.match(parentAppSource, /getParentMobileDevelopmentHistory\(\{[\s\S]*apiBaseUrl: config\.apiBaseUrl,[\s\S]*parentLinkId: selectedLink\?\.id/)
-  assert.match(parentAppSource, /setDevelopmentReports\(developmentResult\.reports\)/)
-  assert.match(parentAppSource, /report\.canDownloadPdf \? \(/)
-  assert.match(parentAppSource, />\s*View PDF\s*<\/PrimaryButton>/)
-  assert.match(parentAppSource, /shareParentMobileDevelopmentPdf\(\{[\s\S]*parentLinkId: selectedLink\?\.id,[\s\S]*report/)
+test('Parent app sanitizes messages and exposes only canonical authorised Development PDFs', () => {
+  assert.match(parentDataSource, /evaluationId: normalizeText\(/)
+  assert.match(parentDataSource, /row\.evaluation_id/)
+  assert.match(parentDataSource, /metadata\.reportId/)
+  assert.match(parentAppSource, /function prepareResourceItems\(name, items\)/)
+  assert.match(parentAppSource, /name === 'messages' \? presentParentMessages\(normalizedItems\)/)
+  assert.match(parentAppSource, /const linkedReport = development\.items\.find/)
+  assert.match(parentAppSource, /linkedReport\?\.canDownloadPdf === true/)
+  assert.match(parentAppSource, /label="View Development PDF"/)
+  assert.match(parentAppSource, /label="Open secure link"/)
+  assert.match(parentAppSource, /getSafeParentMessageUrl\(url\)/)
+  assert.match(parentAppSource, /Development PDF unavailable/)
+  assert.match(parentPortalSource, /development: '\/api\/parent-development\/history'/)
   assert.doesNotMatch(parentAppSource, /dangerouslySetInnerHTML|WebView/)
 })
 

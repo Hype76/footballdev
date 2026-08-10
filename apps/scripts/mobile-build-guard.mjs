@@ -19,6 +19,7 @@ const productionBuilds = new Set(['internal-live:android', 'store-live:ios'])
 const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
   'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
+  'FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'

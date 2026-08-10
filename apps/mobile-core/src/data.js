@@ -221,6 +221,13 @@ function normalizeMessage(row) {
   return {
     body: normalizeText(metadata.body),
     createdAt: row.created_at || '',
+    evaluationId: normalizeText(
+      row.evaluation_id
+      || metadata.evaluationId
+      || metadata.evaluation_id
+      || metadata.reportId
+      || metadata.report_id,
+    ),
     id: row.id || '',
     readAt: row.read_at || '',
     senderEmail: normalizeText(row.sender_email),

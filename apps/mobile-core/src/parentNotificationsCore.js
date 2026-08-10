@@ -139,7 +139,18 @@ export function resolveParentNotificationOpen(data, available = {}) {
   const tab = routeMap[route]
   if (!tab) return null
 
-  const targetId = normalize(data?.targetId)
+  const routeTargetIds = {
+    calendar: data?.calendarEventId,
+    chat: data?.roomId,
+    development: data?.reportId,
+    invites: data?.invitationId,
+    matchday: data?.matchDayId,
+    messages: data?.messageId,
+    polls: data?.pollId,
+    resources: data?.resourceId,
+    results: data?.matchDayId,
+  }
+  const targetId = normalize(data?.targetId || routeTargetIds[route])
   const availableIds = new Set((available[route] || []).map(normalize).filter(Boolean))
 
   return {

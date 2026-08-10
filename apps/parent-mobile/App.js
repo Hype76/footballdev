@@ -56,7 +56,6 @@ import {
   getParentPortalMatchDays,
   getParentResources,
   markParentChatRoomRead,
-  openParentDevelopmentReport,
   openParentResource,
   recordParentScorerShootoutKick,
   respondToParentInvitation,
@@ -99,6 +98,8 @@ import {
   updateParentNotificationPreference,
 } from './src/notifications'
 import { prepareParentMobileStartup } from './src/startup'
+import { getSafeParentMessageUrl, presentParentMessages } from './messagePresentation'
+import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
 
 const config = getMobileRuntimeConfig('parent')
 const resourceNames = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'polls', 'resources']
@@ -132,6 +133,11 @@ function createResourceState() {
     items: [],
     loading: true,
   }]))
+}
+
+function prepareResourceItems(name, items) {
+  const normalizedItems = Array.isArray(items) ? items : []
+  return name === 'messages' ? presentParentMessages(normalizedItems) : normalizedItems
 }
 
 function normalizeText(value) {
@@ -291,7 +297,7 @@ function ParentHome() {
     if (cachedView?.cache) {
       setResources(Object.fromEntries(resourceNames.map((name) => [name, {
         error: '',
-        items: cachedView.cache.resources[name],
+        items: prepareResourceItems(name, cachedView.cache.resources[name]),
         loading: !isOffline,
       }])))
       setLastUpdatedAt(cachedView.cache.retrievedAt)
@@ -325,12 +331,17 @@ function ParentHome() {
 
     const failed = results.filter((result) => result.status === 'rejected').length
     const resultByName = Object.fromEntries(resourceNames.map((name, index) => [name, results[index]]))
-    const valueFor = (name) => resultByName[name]?.status === 'fulfilled' ? resultByName[name].value : []
+    const valueFor = (name) => resultByName[name]?.status === 'fulfilled'
+      ? prepareResourceItems(name, resultByName[name].value)
+      : []
     const combinedCalendar = buildParentCalendarEvents({
       calendarEvents: valueFor('calendar'),
       invitations: valueFor('invitations'),
       matches: valueFor('matches'),
     })
+    const refreshedItems = Object.fromEntries(
+      resourceNames.map((name) => [name, name === 'calendar' ? combinedCalendar : valueFor(name)]),
+    )
     const calendarDependencyFailed = ['calendar', 'invitations', 'matches']
       .some((name) => resultByName[name]?.status === 'rejected')
     setResources((current) => {
@@ -342,7 +353,7 @@ function ParentHome() {
             error: name === 'calendar' && calendarDependencyFailed
               ? 'Some Calendar items could not be refreshed.'
               : '',
-            items: name === 'calendar' ? combinedCalendar : result.value,
+            items: name === 'calendar' ? combinedCalendar : valueFor(name),
             loading: false,
           }
         } else {
@@ -370,13 +381,13 @@ function ParentHome() {
     if (failed === 0) {
       try {
         await saveParentOfflineResources(selectedMobileUser, selectedLink.id, Object.fromEntries(
-          resourceNames.map((name, index) => [name, name === 'calendar' ? combinedCalendar : results[index].value]),
+          resourceNames.map((name) => [name, refreshedItems[name]]),
         ))
       } catch (error) {
         console.warn(error)
       }
     }
-    return { failed }
+    return { failed, items: refreshedItems }
   }, [isOffline, selectedLink?.id, selectedMobileUser])
 
   const runParentSync = useCallback(async ({ explicitRetry = false } = {}) => {
@@ -508,20 +519,43 @@ function ParentHome() {
     if (!responseId || notificationResponseIdRef.current === responseId) return
     notificationResponseIdRef.current = responseId
 
-    const destination = resolveParentNotificationOpen(request.content?.data, {
-      calendar: resources.calendar.items.map((item) => item.id),
-      chat: resources.chatRooms.items.map((item) => item.id),
-      development: resources.development.items.map((item) => item.id),
-      invites: resources.invitations.items.map((item) => item.invitationId),
-      matchday: resources.matches.items.map((item) => item.id),
-      messages: resources.messages.items.map((item) => item.id),
-      polls: resources.polls.items.map((item) => item.id),
-      resources: resources.resources.items.map((item) => item.id),
-      results: resources.matches.items.filter((item) => item.status === 'full_time').map((item) => item.id),
+    const notificationData = request.content?.data
+    const requestedTargetId = normalizeText(
+      notificationData?.targetId
+      || notificationData?.calendarEventId
+      || notificationData?.roomId
+      || notificationData?.reportId
+      || notificationData?.invitationId
+      || notificationData?.matchDayId
+      || notificationData?.messageId
+      || notificationData?.pollId
+      || notificationData?.resourceId,
+    )
+    const availableFrom = (items) => ({
+      calendar: (items.calendar || []).map((item) => item.id),
+      chat: (items.chatRooms || []).map((item) => item.id),
+      development: (items.development || []).map((item) => item.id),
+      invites: (items.invitations || []).map((item) => item.invitationId),
+      matchday: (items.matches || []).map((item) => item.id),
+      messages: (items.messages || []).map((item) => item.id),
+      polls: (items.polls || []).map((item) => item.id),
+      resources: (items.resources || []).map((item) => item.id),
+      results: (items.matches || []).filter((item) => item.status === 'full_time').map((item) => item.id),
     })
-    if (!destination) return
+    const currentItems = Object.fromEntries(resourceNames.map((name) => [name, resources[name].items]))
+    const currentDestination = resolveParentNotificationOpen(notificationData, availableFrom(currentItems))
+    if (!currentDestination) return
 
-    void loadParentData().then(() => {
+    void loadParentData().then((result) => {
+      const destination = resolveParentNotificationOpen(
+        notificationData,
+        availableFrom(result?.items || currentItems),
+      )
+      if (!destination) return
+      if (requestedTargetId && !destination.targetId) {
+        setNotice({ message: 'This notification no longer has an available Parent item.', tone: 'warning' })
+        return
+      }
       const nestedSection = ['development', 'invites', 'messages', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
         ? destination.tab
         : ''
@@ -705,11 +739,35 @@ function ParentHome() {
     setNotice(null)
     try {
       const result = type === 'development'
-        ? await openParentDevelopmentReport(selectedMobileUser, item.id)
+        ? await shareParentMobileDevelopmentPdf({
+            apiBaseUrl: config.apiBaseUrl,
+            parentLinkId: selectedLink.id,
+            report: item,
+          })
         : await openParentResource(selectedMobileUser, item.id)
-      if (result.externalUrl) await openExternalParentUrl(result.externalUrl)
+      if (result?.externalUrl) await openExternalParentUrl(result.externalUrl)
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, `This ${type === 'development' ? 'Development report' : 'resource'} could not be opened.`), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleOpenMessageLink(url) {
+    if (isOffline || activeActionId) return
+    const safeUrl = getSafeParentMessageUrl(url)
+
+    if (!safeUrl) {
+      setNotice({ message: 'This message link is not safe to open.', tone: 'warning' })
+      return
+    }
+
+    setActiveActionId(`message-link:${safeUrl}`)
+    setNotice(null)
+    try {
+      await openExternalParentUrl(safeUrl)
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'This message link could not be opened.'), tone: 'warning' })
     } finally {
       setActiveActionId('')
     }
@@ -948,7 +1006,10 @@ function ParentHome() {
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
   const selectedMatch = resources.matches.items.find((match) => match.id === selectedMatchId)
-  const unansweredInvites = resources.invitations.items.filter((invitation) => invitation.canRespond && ['awaiting_response', 'no_response'].includes(invitation.responseState)).length
+  const matchInvitations = resources.invitations.items.filter((invitation) => (
+    ['match_attendance', 'match_role'].includes(invitation.invitationType)
+  ))
+  const unansweredInvites = resources.invitations.items.filter((invitation) => invitation.isPending).length
   const unreadChat = resources.chatRooms.items.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
   const tabs = [
     { key: 'home', label: 'Home' },
@@ -1002,8 +1063,10 @@ function ParentHome() {
                 calendar={resources.calendar}
                 homeModel={homeModel}
                 link={selectedLink}
+                matchInvitations={matchInvitations}
                 matches={resources.matches}
                 messages={resources.messages}
+                onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
                 onOpenMatch={(match) => setSelectedMatchId(match.id)}
                 onOpenMessages={() => { setMoreSection('messages'); setActiveTab('more') }}
                 onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
@@ -1063,8 +1126,12 @@ function ParentHome() {
             {activeTab === 'more' && moreSection === 'messages' ? (
               <MessagesScreen
                 activeActionId={activeActionId}
+                development={resources.development}
+                isOffline={isOffline}
                 link={selectedLink}
                 onBack={() => setSelectedMessageId('')}
+                onOpenDevelopment={(report) => handleOpenParentItem('development', report)}
+                onOpenLink={handleOpenMessageLink}
                 onOpen={handleOpenMessage}
                 onRetry={handleRefresh}
                 resource={resources.messages}
@@ -1225,7 +1292,7 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
   )
 }
 
-function HomeScreen({ calendar, homeModel, link, matches, messages, onOpenMatch, onOpenMessages, onOpenPolls, onRetry, selectedMatch }) {
+function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, onOpenInvites, onOpenMatch, onOpenMessages, onOpenPolls, onRetry, selectedMatch }) {
   const { styles } = useParentTheme()
   if (!link?.id) {
     return (
@@ -1241,6 +1308,7 @@ function HomeScreen({ calendar, homeModel, link, matches, messages, onOpenMatch,
   }
 
   const isInitialLoading = [calendar, matches, messages].every((resource) => resource.loading && resource.items.length === 0)
+  const pendingMatchRequests = matchInvitations.filter((invitation) => invitation.isPending)
 
   return (
     <View style={styles.screenStack}>
@@ -1286,6 +1354,12 @@ function HomeScreen({ calendar, homeModel, link, matches, messages, onOpenMatch,
           detail={homeModel.activePoll?.title || 'No response needed'}
           label="Polls to answer"
           onPress={onOpenPolls}
+        />
+        <SummaryButton
+          count={pendingMatchRequests.length}
+          detail={pendingMatchRequests[0]?.eventTitle || 'Match requests and response history'}
+          label="Match requests"
+          onPress={onOpenInvites}
         />
       </View>
 
@@ -1407,10 +1481,14 @@ function CalendarCard({ event, prominent = false }) {
   )
 }
 
-function MessagesScreen({ activeActionId, link, onBack, onOpen, onRetry, resource, selectedMessage }) {
+function MessagesScreen({ activeActionId, development = { items: [] }, isOffline, link, onBack, onOpen, onOpenDevelopment, onOpenLink, onRetry, resource, selectedMessage }) {
   const { styles } = useParentTheme()
   if (!link?.id) return <EmptyPanel message="No active child link is available for messages." title="Messages unavailable" />
   if (selectedMessage) {
+    const linkedReport = development.items.find((report) => String(report.id) === String(selectedMessage.evaluationId)) || null
+    const developmentPdfAvailable = linkedReport?.canDownloadPdf === true
+    const developmentPdfUnavailable = Boolean(selectedMessage.evaluationId) && !developmentPdfAvailable
+
     return (
       <View style={styles.screenStack}>
         <BackButton label="Back to Messages" onPress={onBack} />
@@ -1426,6 +1504,27 @@ function MessagesScreen({ activeActionId, link, onBack, onOpen, onRetry, resourc
         <InfoPanel title="Message">
           <Text selectable style={styles.messageBody}>{selectedMessage.body || 'No message text was provided.'}</Text>
         </InfoPanel>
+        {(selectedMessage.links || []).map((url) => (
+          <PrimaryAction
+            disabled={isOffline}
+            key={url}
+            label="Open secure link"
+            loading={activeActionId === `message-link:${url}`}
+            onPress={() => onOpenLink(url)}
+            secondary
+          />
+        ))}
+        {developmentPdfAvailable ? (
+          <PrimaryAction
+            disabled={isOffline}
+            label="View Development PDF"
+            loading={activeActionId === `development:${linkedReport.id}`}
+            onPress={() => onOpenDevelopment(linkedReport)}
+          />
+        ) : null}
+        {developmentPdfUnavailable ? (
+          <Text style={styles.helperText}>Development PDF unavailable. Open Development history later to check for an authorised report.</Text>
+        ) : null}
       </View>
     )
   }

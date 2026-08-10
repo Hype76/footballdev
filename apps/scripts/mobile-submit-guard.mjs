@@ -10,6 +10,10 @@ const [appRole, platform, profile = 'store-test'] = process.argv.slice(2)
 
 const allowedPlatforms = new Set(['android', 'ios'])
 const allowedProfiles = new Set(['store-test', 'store-live'])
+const authorisedParentProductionReferences = new Set([
+  'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
+  'FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34',
+])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
@@ -32,7 +36,7 @@ if (!allowedProfiles.has(profile)) {
 if (profile === 'store-live'
   && (appRole !== 'parent'
     || platform !== 'ios'
-    || promotionReference !== 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')) {
+    || !authorisedParentProductionReferences.has(promotionReference))) {
   console.error('Production Parent iOS submission not authorised for this reference.')
   console.error('Reason: production_build_not_authorised')
   process.exit(1)

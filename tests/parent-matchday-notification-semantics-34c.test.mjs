@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { buildParentMatchDayNotificationCopy } from '../netlify/functions/lib/_match-day-notification-copy.js'
+import { resolveParentNotificationOpen } from '../apps/mobile-core/src/parentNotificationsCore.js'
 import { getTabForNotificationRoute } from '../apps/mobile-core/src/routes.js'
 
 const senderSource = readFileSync(new URL('../netlify/functions/send-match-day-push.js', import.meta.url), 'utf8')
@@ -90,9 +91,21 @@ test('native and web Parent notification delivery use canonical copy and exact M
 
 test('Parent notification tap opens Matchday and promotes the exact authorised Match card', () => {
   assert.equal(getTabForNotificationRoute('parent', 'matchday'), 'matchday')
-  assert.match(parentAppSource, /notificationData\?\.matchDayId/)
-  assert.match(parentAppSource, /setNotificationMatchDayId\(targetTab === 'matchday'/)
-  assert.match(parentAppSource, /focusedMatchDayId=\{notificationMatchDayId\}/)
-  assert.match(parentAppSource, /matches\.filter\(\(match\) => String\(match\.id\) === normalizedFocusedMatchDayId\)/)
-  assert.match(parentAppSource, /Opened from notification/)
+  assert.deepEqual(
+    resolveParentNotificationOpen(
+      { app: 'parent', route: 'matchday', matchDayId: 'match-34c' },
+      { matchday: ['match-34c'] },
+    ),
+    { tab: 'matchday', targetId: 'match-34c' },
+  )
+  assert.deepEqual(
+    resolveParentNotificationOpen(
+      { app: 'parent', route: 'matchday', matchDayId: 'wrong-match' },
+      { matchday: ['match-34c'] },
+    ),
+    { tab: 'matchday', targetId: '' },
+  )
+  assert.match(parentAppSource, /resolveParentNotificationOpen\(notificationData/)
+  assert.match(parentAppSource, /setSelectedMatchId\(destination\.tab === 'matchday' \? destination\.targetId : ''\)/)
+  assert.match(parentAppSource, /This notification no longer has an available Parent item\./)
 })

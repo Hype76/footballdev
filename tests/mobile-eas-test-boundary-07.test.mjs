@@ -141,6 +141,7 @@ test('production build guards require the named Parent promotion reference', () 
   const buildGuard = readFileSync(path.join(repositoryRoot, 'apps/scripts/mobile-build-guard.mjs'), 'utf8')
   assert.match(buildGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)
   assert.match(buildGuard, /FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29/)
+  assert.match(buildGuard, /FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34/)
   assert.doesNotMatch(buildGuard, /FP-MOBILE-PARENT-PRODUCTION-PROMOTION-MASTER-26/)
   for (const [appRole, profile, platform] of [['coach', 'internal-live', 'android'], ['parent', 'internal-live', 'android'], ['parent', 'store-live', 'ios']]) {
     const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, profile, platform], {
@@ -158,6 +159,7 @@ test('production build guards require the named Parent promotion reference', () 
 test('production submission guard permits only named Parent iOS promotion', () => {
   const submitGuard = readFileSync(path.join(repositoryRoot, 'apps/scripts/mobile-submit-guard.mjs'), 'utf8')
   assert.match(submitGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)
+  assert.match(submitGuard, /FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34/)
   assert.doesNotMatch(submitGuard, /FP-MOBILE-PARENT-PRODUCTION-PROMOTION-MASTER-26/)
   for (const appRole of ['coach', 'parent']) {
     const result = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', appRole, 'ios', 'store-live'], {

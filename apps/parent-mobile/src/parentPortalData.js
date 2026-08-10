@@ -55,9 +55,24 @@ export function normalizeParentInvitation(row = {}) {
     roleType: normalizeText(row.role_type ?? row.roleType).toLowerCase(),
     selectionState: normalizeText(row.selection_state ?? row.selectionState).toLowerCase() || 'not_applicable',
     sourceRecordId: row.source_record_id ?? row.sourceRecordId ?? '',
+    sourceEventType: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase(),
     sourceType: normalizeText(row.source_type ?? row.sourceType),
     teamName: normalizeText(row.team_name ?? row.teamName),
   }
+}
+
+export function prepareParentInvitations(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .map(normalizeParentInvitation)
+    .sort((left, right) => {
+      if (left.isPending !== right.isPending) {
+        return left.isPending ? -1 : 1
+      }
+
+      return String(left.eventStart || left.eventDate || '').localeCompare(String(right.eventStart || right.eventDate || ''))
+        || left.eventTitle.localeCompare(right.eventTitle)
+        || left.invitationType.localeCompare(right.invitationType)
+    })
 }
 
 export function getInvitationResponseOptions(invitation = {}) {
@@ -220,7 +235,7 @@ export async function getParentInvitations(user) {
   const link = requireSelectedLink(user)
   const { data, error } = await supabase.rpc('get_parent_portal_invitation_summary', { parent_link_id_value: link.id })
   if (error) throw error
-  return (data || []).map(normalizeParentInvitation)
+  return prepareParentInvitations(data)
 }
 
 export async function respondToParentInvitation(user, invitation, responseState) {
