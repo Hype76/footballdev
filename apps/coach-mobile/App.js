@@ -319,7 +319,11 @@ function CoachHome() {
 
   useEffect(() => {
     if (!activeContext?.id || !contextOwnedByCurrentUser) return undefined
-    void refreshNotifications()
+    void refreshNotifications().then((next) => {
+      if (next?.registered && next.requiresContextRefresh && next.permissionGranted && next.detailLevel !== 'off') {
+        void enableNotifications()
+      }
+    })
     const subscription = addCoachPushTokenListener(() => {
       if (notificationState?.registered) void enableNotifications()
     })

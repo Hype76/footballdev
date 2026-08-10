@@ -10,6 +10,8 @@ import {
 } from './coachOperationalData'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getAccessToken, supabase } from './supabase'
+import { getCoachMatchDayList } from './coachMatchDayData'
+import { getCoachPlayerList } from './coachPlayersData'
 import {
   assertSyntheticCoachCommunicationTarget,
   normalizeCoachChatMessage,
@@ -51,6 +53,12 @@ function assertSyntheticTargetInTest(target) {
 function assertTeamEntity(user, entity, label) {
   if (entity?.teamId && entity.teamId !== user?.activeTeamId) {
     throw new Error(`${label} is not available in the active Team context.`)
+  }
+}
+
+function assertParentChatTeam(user, room) {
+  if (room?.kind === 'parent' && (!room.teamId || room.teamId !== user?.activeTeamId)) {
+    throw new Error('Parent Chat is not assigned to the active Team context.')
   }
 }
 
@@ -273,13 +281,14 @@ export async function getCoachChatRooms(user) {
   if (staffResult.error) throw staffResult.error
   if (parentResult.error) throw parentResult.error
   const staff = (staffResult.data || []).map((row) => normalizeCoachChatRoom(row, 'staff')).filter((room) => canOpenStaffRoom(user, room))
-  const parent = (parentResult.data || []).map((row) => normalizeCoachChatRoom(row, 'parent')).filter((room) => !room.teamId || room.teamId === user.activeTeamId)
+  const parent = (parentResult.data || []).map((row) => normalizeCoachChatRoom(row, 'parent')).filter((room) => room.teamId === user.activeTeamId)
   return Object.freeze({ staff: Object.freeze(staff), parent: Object.freeze(parent) })
 }
 
 export async function getCoachChatMessages(user, room) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   assertTeamEntity(user, room, 'Chat')
+  assertParentChatTeam(user, room)
   if (!room?.id) return []
   if (room.kind === 'parent') {
     const data = await rpc('get_parent_chat_messages', { target_room_id: room.id })
@@ -294,6 +303,7 @@ export async function getCoachChatMessages(user, room) {
 export async function sendCoachChatMessage(user, room, body) {
   assertCanonicalMutation(user, { requiresTeam: true })
   assertTeamEntity(user, room, 'Chat')
+  assertParentChatTeam(user, room)
   assertSyntheticTargetInTest(room)
   const message = normalize(body)
   if (!message || message.length > 2000) throw new Error('Add a Chat message of 2000 characters or fewer.')
@@ -311,6 +321,7 @@ export async function sendCoachChatMessage(user, room, body) {
 export async function markCoachChatRead(user, room) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   assertTeamEntity(user, room, 'Chat')
+  assertParentChatTeam(user, room)
   if (room.kind === 'parent') return rpc('mark_parent_chat_room_read', { target_room_id: room.id })
   if (!canOpenStaffRoom(user, room)) throw new Error('Staff Chat is not available for this membership.')
   return rpc('mark_staff_chat_conversation_read', { conversation_id_value: room.id })
@@ -353,10 +364,12 @@ export async function setCoachPollStatus(user, poll, status) {
 
 export async function getCoachInvitesAndAvailability(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [calendarResult, trainingResult, matchResult] = await Promise.all([
+  const [calendarResult, trainingResult, matchResult, matches, players] = await Promise.all([
     supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at,deleted_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*,calendar_events:calendar_event_id(title,team_id,cancelled_at,deleted_at)),training_availability_responses(*)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('match_day_availability_requests').select('*,match_days:match_day_id(opponent,team_id,status,deleted_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
+    getCoachMatchDayList(user),
+    getCoachPlayerList(user),
   ])
   const hardError = calendarResult.error || trainingResult.error || matchResult.error
   if (hardError) throw hardError
@@ -371,7 +384,33 @@ export async function getCoachInvitesAndAvailability(user) {
     const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days
     return normalizeCoachInvite({ ...row, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
   })
-  return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(training), match: Object.freeze(match), all: Object.freeze([...match, ...training, ...calendar]) })
+  return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(training), match: Object.freeze(match), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...match, ...training, ...calendar]) })
+}
+
+export async function createCoachMatchAvailabilityRequests(user, match, playerIds = []) {
+  assertCanonicalMutation(user, { minimumRank: 20, requiresTeam: true })
+  assertTeamEntity(user, match, 'Match Day')
+  const selectedPlayerIds = [...new Set((playerIds || []).map(normalize).filter(Boolean))]
+  if (!normalize(match?.id) || match?.teamId !== user?.activeTeamId || !['scheduled', 'scorer_request'].includes(normalize(match?.status))) throw new Error('Choose an open Match Day fixture in the active Team.')
+  if (selectedPlayerIds.length === 0) throw new Error('Select at least one Player.')
+  if (!config.isProduction) assertSyntheticCoachCommunicationTarget({ title: `${match?.opponent || ''} ${match?.teamName || ''}` })
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again before creating Match availability requests.')
+  const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-match-day-availability-requests'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matchDayId: match.id, playerIds: selectedPlayerIds }),
+  })
+  if (!ok || result?.success === false) {
+    throw Object.assign(new Error(normalize(result?.message) || 'Match availability requests could not be created.'), { status: response.status })
+  }
+  return Object.freeze({
+    duplicateCount: Number(result?.duplicateCount ?? result?.duplicateQueueCount ?? 0),
+    failedCount: Number(result?.failedCount ?? 0),
+    missingContactCount: Number(result?.missingContactCount ?? 0),
+    queuedCount: Number(result?.queuedCount ?? result?.sentCount ?? 0),
+    success: true,
+  })
 }
 
 export async function recordCoachInviteIntent(user, invite, action) {

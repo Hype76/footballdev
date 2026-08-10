@@ -14,12 +14,15 @@ function normalize(value) {
 function normalizeContext(value) {
   if (value && typeof value === 'object') {
     return {
+      authorityId: normalize(value.authorityId),
+      authoritySource: normalize(value.authoritySource),
       clubId: normalize(value.clubId),
       contextId: normalize(value.id || value.contextId),
+      role: normalize(value.role),
       teamId: normalize(value.teamId),
     }
   }
-  return { clubId: '', contextId: normalize(value), teamId: '' }
+  return { authorityId: '', authoritySource: '', clubId: '', contextId: normalize(value), role: '', teamId: '' }
 }
 
 export function createCoachOfflineDocument({ userScope }) {
@@ -39,9 +42,14 @@ export function getCoachOfflineResources(document, contextId) {
   if (!document || !key || normalize(document.userScope) === '') return null
   const entry = document.contexts?.[key]
   if (!entry || normalize(entry.contextId) !== key) return null
+  if (expected.authorityId && normalize(entry.authorityId) !== expected.authorityId) return null
+  if (expected.authoritySource && normalize(entry.authoritySource) !== expected.authoritySource) return null
   if (expected.clubId && normalize(entry.clubId) !== expected.clubId) return null
+  if (expected.role && normalize(entry.role) !== expected.role) return null
   if (expected.teamId !== '' && normalize(entry.teamId) !== expected.teamId) return null
   return {
+    authorityId: normalize(entry.authorityId),
+    authoritySource: normalize(entry.authoritySource),
     cacheSchemaVersion: Number(document.cacheSchemaVersion || 1),
     clubId: normalize(entry.clubId),
     contextId: key,
@@ -49,6 +57,7 @@ export function getCoachOfflineResources(document, contextId) {
     resources: entry.resources || {},
     savedAt: normalize(entry.savedAt),
     stale: true,
+    role: normalize(entry.role),
     teamId: normalize(entry.teamId),
   }
 }
@@ -58,9 +67,16 @@ export function setCoachOfflineResources(document, contextId, resources, now = n
   const key = expected.contextId
   if (!document?.userScope || !key) throw new Error('offline_context_scope_mismatch')
   const previous = document.contexts?.[key] || {}
-  const nextResources = { ...(previous.resources || {}) }
-  const nextMetadata = { ...(previous.resourceMetadata || {}) }
-  let changed = false
+  const scopeChanged = Boolean(
+    (expected.authorityId && normalize(previous.authorityId) !== expected.authorityId)
+    || (expected.authoritySource && normalize(previous.authoritySource) !== expected.authoritySource)
+    || (expected.clubId && normalize(previous.clubId) !== expected.clubId)
+    || (expected.role && normalize(previous.role) !== expected.role)
+    || (expected.teamId && normalize(previous.teamId) !== expected.teamId)
+  )
+  const nextResources = scopeChanged ? {} : { ...(previous.resources || {}) }
+  const nextMetadata = scopeChanged ? {} : { ...(previous.resourceMetadata || {}) }
+  let changed = scopeChanged
   for (const [resourceKey, value] of Object.entries(resources || {})) {
     const policy = getCoachOfflineReadPolicy(resourceKey)
     if (!policy.cache) continue
@@ -78,11 +94,14 @@ export function setCoachOfflineResources(document, contextId, resources, now = n
     contexts: {
       ...(document.contexts || {}),
       [key]: {
+        authorityId: expected.authorityId || normalize(previous.authorityId),
+        authoritySource: expected.authoritySource || normalize(previous.authoritySource),
         clubId: expected.clubId || normalize(previous.clubId),
         contextId: key,
         resourceMetadata: nextMetadata,
         resources: nextResources,
         savedAt: now,
+        role: expected.role || normalize(previous.role),
         teamId: expected.teamId || normalize(previous.teamId),
       },
     },

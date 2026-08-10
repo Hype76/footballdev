@@ -32,7 +32,10 @@ if (!allowedProfiles.has(profile)) {
 
 const authorisedProductionSubmission = platform === 'ios' && (
   (appRole === 'parent' && promotionReference === 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')
-  || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32')
+  || (appRole === 'coach' && [
+    'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
+    'FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35',
+  ].includes(promotionReference))
 )
 
 if (profile === 'store-live' && !authorisedProductionSubmission) {

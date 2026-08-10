@@ -233,6 +233,18 @@ export function normalizeCoachChatMessage(row = {}) {
   })
 }
 
+export function sanitizeCoachChatOfflineValue(value = {}) {
+  const staff = Array.isArray(value?.staff) ? value.staff : []
+  return Object.freeze({
+    parent: Object.freeze([]),
+    staff: Object.freeze(staff.map((room) => Object.freeze({
+      ...room,
+      latestMessage: '',
+      unreadCount: 0,
+    }))),
+  })
+}
+
 export function isSyntheticCoachTarget(value) {
   return normalize(value).toUpperCase().includes(COACH_PHASE_31E_COMMUNICATION_POLICY.syntheticMarker)
 }
@@ -307,6 +319,17 @@ export function summarizeCoachInvites(rows = []) {
     else if (status in summary) summary[status] += 1
   }
   return Object.freeze(summary)
+}
+
+export function isCoachMatchAvailabilityRequestCreationApplied(data, matchDayId, playerIds = []) {
+  const expectedMatch = normalize(matchDayId)
+  const expectedPlayers = new Set((playerIds || []).map(normalize).filter(Boolean))
+  if (!expectedMatch || expectedPlayers.size === 0) return false
+  for (const invite of data?.match || []) {
+    if (normalize(invite.eventId) !== expectedMatch || invite.stale || invite.cancelled) continue
+    expectedPlayers.delete(normalize(invite.playerId))
+  }
+  return expectedPlayers.size === 0
 }
 
 export function getCoachPhase31EOfflinePolicy(domain) {

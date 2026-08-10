@@ -30,7 +30,7 @@ function normalizeEvent(row = {}) {
     playerOnName: normalize(row.player_on_name ?? row.playerOnName ?? row.assist_name ?? row.assistName), playerOnShirtNumber: normalize(row.player_on_shirt_number ?? row.playerOnShirtNumber ?? row.assist_shirt_number ?? row.assistShirtNumber),
     homeScore: integer(row.home_score ?? row.homeScore), awayScore: integer(row.away_score ?? row.awayScore), notes: normalize(row.notes),
     isPenaltyGoal: row.is_penalty_goal === true || row.isPenaltyGoal === true, eventStatus: normalize(row.event_status ?? row.eventStatus) || 'active',
-    correctionReason: normalize(row.correction_reason ?? row.correctionReason), voidedAt: row.voided_at ?? row.voidedAt ?? '', createdByName: normalize(row.created_by_name ?? row.createdByName), createdAt: row.created_at ?? row.createdAt ?? '',
+    correctionReason: normalize(row.correction_reason ?? row.correctionReason), requestId: normalize(row.request_id ?? row.requestId), voidedAt: row.voided_at ?? row.voidedAt ?? '', createdByName: normalize(row.created_by_name ?? row.createdByName), createdAt: row.created_at ?? row.createdAt ?? '',
     eventTeamId: row.event_team_id ?? row.eventTeamId ?? '', eventTeamName: normalize(row.event_team_name ?? row.eventTeamName), matchPhase: normalize(row.match_phase ?? row.matchPhase), phaseOrder: row.phase_order ?? row.phaseOrder ?? null,
   }
 }
@@ -142,6 +142,8 @@ async function prepareMutation(user, match, minimumRank = 20) {
 }
 async function rpc(name, parameters) { const { data, error } = await supabase.rpc(name, parameters); if (error) throw error; return data }
 
+export function createCoachMatchDayCommandId() { return requestId() }
+
 export async function runCoachMatchDayTimerAction(user, match, action) {
   await prepareMutation(user, match)
   const value = normalize(action)
@@ -158,21 +160,21 @@ export async function setCoachMatchDaySquadDecision(user, match, playerId, decis
   return getCoachMatchDayDetail(user, match.id)
 }
 
-export async function recordCoachMatchDayEvent(user, match, event) {
+export async function recordCoachMatchDayEvent(user, match, event, commandId = '') {
   await prepareMutation(user, match)
   const type = normalize(event?.eventType)
   if (type === 'goal') {
-    await rpc('record_match_day_goal_v2', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, request_id_value: requestId() })
+    await rpc('record_match_day_goal_v2', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, request_id_value: normalize(commandId) || requestId() })
   } else {
     if (!STAFF_EVENT_TYPES.has(type)) throw new Error('Choose a supported Match Day event type.')
-    await rpc('record_match_day_staff_event_v2', { match_day_id_value: match.id, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: requestId() })
+    await rpc('record_match_day_staff_event_v2', { match_day_id_value: match.id, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
   }
   return getCoachMatchDayDetail(user, match.id)
 }
 
-export async function correctCoachMatchDayScore(user, match, homeScore, awayScore) {
+export async function correctCoachMatchDayScore(user, match, homeScore, awayScore, commandId = '') {
   await prepareMutation(user, match)
-  await rpc('record_match_day_score_correction_v2', { match_day_id_value: match.id, parent_link_id_value: null, home_score_value: integer(homeScore), away_score_value: integer(awayScore), notes_value: 'Score corrected by Coach mobile staff', request_id_value: requestId() })
+  await rpc('record_match_day_score_correction_v2', { match_day_id_value: match.id, parent_link_id_value: null, home_score_value: integer(homeScore), away_score_value: integer(awayScore), notes_value: 'Score corrected by Coach mobile staff', request_id_value: normalize(commandId) || requestId() })
   return getCoachMatchDayDetail(user, match.id)
 }
 

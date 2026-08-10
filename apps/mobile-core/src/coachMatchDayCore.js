@@ -24,6 +24,80 @@ function timestamp(value) {
   return Number.isFinite(result) ? result : 0
 }
 
+function sameText(left, right) {
+  return normalize(left).toLowerCase() === normalize(right).toLowerCase()
+}
+
+export function hasCoachMatchDayCommandResult(match, commandId) {
+  const expected = normalize(commandId)
+  return Boolean(expected && (match?.events || []).some((event) => normalize(event.requestId) === expected))
+}
+
+export function isCoachMatchDayTimerActionApplied(match, action) {
+  const value = normalize(action)
+  const phase = normalize(match?.currentMatchPhase)
+  const status = normalize(match?.status)
+  const timerStatus = normalize(match?.timerStatus)
+  if (value === 'start') return timerStatus === 'running' && !['scheduled', 'scorer_request'].includes(status)
+  if (value === 'pause') return timerStatus === 'paused'
+  if (value === 'half_time') return timerStatus === 'half_time' || status === 'half_time' || phase === 'half_time'
+  if (value === 'hydration') return timerStatus === 'hydration'
+  if (value === 'resume') return timerStatus === 'running' && !['scheduled', 'scorer_request'].includes(status)
+  if (value === 'full_time') return status === 'full_time' || timerStatus === 'full_time' || phase === 'full_time'
+  if (value === 'conclude') return Boolean(normalize(match?.concludedAt))
+  if (value === 'normal_time_complete') return phase === 'normal_time_complete'
+  if (value === 'start_extra_time') return phase === 'extra_time_first_half'
+  if (value === 'extra_time_half_time') return phase === 'extra_time_half_time'
+  if (value === 'start_extra_time_second_half') return phase === 'extra_time_second_half'
+  if (value === 'complete_extra_time') return phase === 'extra_time_complete'
+  if (value === 'start_penalties') return phase === 'penalties' || status === 'penalties'
+  return false
+}
+
+export function isCoachMatchDayGoalCorrectionApplied(match, eventId, goal = {}, reason = '') {
+  const event = (match?.events || []).find((item) => normalize(item.id) === normalize(eventId))
+  if (!event || event.eventStatus === 'voided') return false
+  return sameText(event.teamSide, goal.teamSide)
+    && sameText(event.scorerName, goal.scorerName)
+    && sameText(event.scorerShirtNumber, goal.scorerShirtNumber)
+    && sameText(event.assistName, goal.assistName)
+    && Number(event.minute ?? -1) === Number(goal.minute ?? -1)
+    && sameText(event.correctionReason, reason)
+}
+
+export function isCoachMatchDayEventVoided(match, eventId) {
+  return (match?.events || []).some((event) => normalize(event.id) === normalize(eventId) && event.eventStatus === 'voided')
+}
+
+export function isCoachMatchDayShootoutKickApplied(match, priorKickIds = [], kick = {}) {
+  const prior = new Set((priorKickIds || []).map(normalize))
+  return (match?.shootoutEvents || []).some((event) => (
+    !prior.has(normalize(event.id))
+    && event.eventStatus !== 'voided'
+    && sameText(event.teamSide, kick.teamSide)
+    && sameText(event.outcome, kick.outcome)
+    && sameText(event.playerName, kick.playerName)
+  ))
+}
+
+export function isCoachMatchDayShootoutKickVoided(match, kickId) {
+  return (match?.shootoutEvents || []).some((event) => normalize(event.id) === normalize(kickId) && event.eventStatus === 'voided')
+}
+
+export function isCoachMatchDayFinalReportApplied(match, staffNotes) {
+  return Boolean(match?.finalReport) && normalize(match.finalReport.staffNotes) === normalize(staffNotes)
+}
+
+export function isCoachMatchDaySquadDecisionApplied(match, playerId, decision) {
+  return (match?.squadDecisions || []).some((item) => normalize(item.playerId) === normalize(playerId) && normalizeMatchDaySquadDecision(item.status) === normalizeMatchDaySquadDecision(decision))
+}
+
+export function isCoachMatchDayVolunteerSelectionApplied(match, request, role, selected = true) {
+  const assignment = (match?.roleAssignments || []).find((item) => normalize(item.role) === normalize(role))
+  if (selected === false) return !assignment || normalize(assignment.parentLinkId) !== normalize(request?.parentLinkId)
+  return Boolean(assignment && normalize(assignment.parentLinkId) === normalize(request?.parentLinkId))
+}
+
 export const COACH_MATCH_DAY_BACKEND_DELTAS = Object.freeze([
   Object.freeze({ category: 'A', capability: 'Fixture, squad, availability, clock, event, shootout, result, and final-report authority', decision: 'Reuse current Match Day tables, RLS, and RPCs without a mobile-only business model.' }),
   Object.freeze({ category: 'B', capability: 'Mobile scorer and volunteer coordination', decision: 'Reuse the production-authoritative selection function through the approved test API adapter.' }),
@@ -63,9 +137,11 @@ export function getCoachMatchDayPresentation(match, now = Date.now()) {
   })
 }
 
-export function getCoachMatchDayActions({ context, match, stale = false } = {}) {
+export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false } = {}) {
   const roleRank = Number(context?.roleRank || 0)
-  const blockedReason = stale
+  const blockedReason = reconciling
+    ? 'Reconciling the last Match Day action with the server.'
+    : stale
     ? 'Reconnect and refresh before changing Match Day.'
     : context?.paymentAccess?.canMutate !== true
       ? 'Match Day changes are blocked while payment is required.'
@@ -80,9 +156,9 @@ export function getCoachMatchDayActions({ context, match, stale = false } = {}) 
     blockedReason,
     canMutate: !blockedReason,
     canRecordEvents: !blockedReason && hasStarted,
-    canSaveFinalReport: !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
-    canSetSquad: !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
-    canSelectVolunteers: !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
+    canSaveFinalReport: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
+    canSetSquad: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
+    canSelectVolunteers: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     timerActions,
   })
 }

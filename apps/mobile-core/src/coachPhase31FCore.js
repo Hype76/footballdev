@@ -1,4 +1,4 @@
-export const COACH_PHASE_31F_CACHE_SCHEMA_VERSION = 2
+export const COACH_PHASE_31F_CACHE_SCHEMA_VERSION = 3
 export const COACH_PHASE_31F_MAX_CACHE_BYTES = 1_500_000
 
 const normalize = (value) => String(value ?? '').trim()

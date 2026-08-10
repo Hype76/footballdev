@@ -22,6 +22,7 @@ const authorisedParentProductionReferences = new Set([
 ])
 const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
+  'FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
