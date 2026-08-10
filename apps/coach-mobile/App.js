@@ -108,6 +108,7 @@ function CoachHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeRoute, setActiveRoute] = useState('home')
+  const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
   const [contextReady, setContextReady] = useState(false)
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
   const [displayTheme, setDisplayTheme] = useState('dark')
@@ -120,6 +121,7 @@ function CoachHome() {
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const requestIdRef = useRef(0)
+  const notificationResponseIdRef = useRef('')
 
   const contextResolution = useMemo(
     () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
@@ -138,6 +140,7 @@ function CoachHome() {
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
   const { palette, styles } = themeContext
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
+  const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
 
   const {
     biometricAvailable,
@@ -160,6 +163,7 @@ function CoachHome() {
     setHomeState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
     setLastUpdatedAt('')
     setMoreRoute('')
+    setChatNotificationTarget(null)
     setNotice('')
   }, [])
 
@@ -241,6 +245,7 @@ function CoachHome() {
   }, [activeContext, selectedMobileUser, user?.id])
 
   const navigate = useCallback((route) => {
+    setChatNotificationTarget(null)
     const resolved = resolveCoachRoute(route, activeContext)
     if (!resolved) {
       setNotice('That destination is not available in this staff context.')
@@ -278,6 +283,13 @@ function CoachHome() {
     const container = getCoachRouteContainer(resolved)
     setActiveRoute(container)
     setMoreRoute(container === 'more' ? resolved : '')
+    setChatNotificationTarget(result.route === 'chat' && result.targetId
+      ? {
+          contextId: result.contextId,
+          id: result.targetId,
+          kind: result.chatKind,
+        }
+      : null)
     return true
   }, [activeContext?.id, contextResolution.contexts, homeState.matches, homeState.sessions, resetContextDomainState])
 
@@ -341,9 +353,15 @@ function CoachHome() {
   }, [contextOwnedByCurrentUser, loadHome, refreshNotifications, selectedMobileUser?.clubId])
 
   useEffect(() => {
-    const data = lastNotificationResponse?.notification?.request?.content?.data
-    if (data) openCoachTarget(data)
-  }, [lastNotificationResponse, openCoachTarget])
+    if (!contextOwnedByCurrentUser || contextResolution.contexts.length === 0) return
+    const request = lastNotificationResponse?.notification?.request
+    const responseId = normalizeText(request?.identifier)
+    if (!responseId || notificationResponseIdRef.current === responseId) return
+    const data = request?.content?.data
+    if (!data) return
+    openCoachTarget(data)
+    notificationResponseIdRef.current = responseId
+  }, [contextOwnedByCurrentUser, contextResolution.contexts.length, lastNotificationResponse, openCoachTarget])
 
   useEffect(() => {
     const openUrl = ({ url }) => {
@@ -352,8 +370,12 @@ function CoachHome() {
         openCoachTarget({
           app: 'coach',
           contextId: parsed.searchParams.get('contextId') || '',
+          conversationId: parsed.searchParams.get('conversationId') || '',
           route: parsed.searchParams.get('route') || parsed.pathname.split('/').filter(Boolean).at(-1) || '',
+          roomId: parsed.searchParams.get('roomId') || '',
           targetId: parsed.searchParams.get('targetId') || '',
+          teamId: parsed.searchParams.get('teamId') || '',
+          type: parsed.searchParams.get('type') || '',
         })
       } catch {
         setNotice('This Coach link could not be opened safely.')
@@ -456,6 +478,7 @@ function CoachHome() {
             biometricAvailable={biometricAvailable}
             biometricEnabled={biometricEnabled}
             context={activeContext}
+            chatNotificationTarget={chatNotificationTarget}
             disableNotifications={disableNotifications}
             enableNotifications={enableNotifications}
             homeState={homeState}
@@ -465,6 +488,7 @@ function CoachHome() {
             moreRoute={moreRoute}
             navigation={navigation}
             notificationState={notificationState}
+            onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
             onNavigate={navigate}
             onSelectMore={setMoreRoute}
             onSignOut={signOut}

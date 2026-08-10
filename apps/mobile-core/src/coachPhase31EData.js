@@ -268,20 +268,34 @@ function canOpenStaffRoom(user, room) {
   const membership = room.members.find((member) => member.userId === user.id && !member.archivedAt)
   if (!membership) return false
   if (room.type === 'team_staff' || room.type === 'player_staff') return room.teamId === user.activeTeamId
-  if (room.type === 'club_staff') return Number(user.roleRank || 0) >= 70 || user.workspaceScope === 'club'
+  if (room.type === 'club_staff') return normalize(user.role).toLowerCase() === 'admin' && normalize(user.workspaceScope).toLowerCase() === 'club'
   return ['direct', 'group'].includes(room.type)
+}
+
+async function assertStaffRoomActiveContext(user, room) {
+  if (!room?.id || !canOpenStaffRoom(user, room)) {
+    throw new Error('Staff Chat is not available for this membership.')
+  }
+  const allowed = await rpc('staff_chat_conversation_in_active_context', {
+    active_team_id_value: user.activeTeamId || null,
+    target_conversation_id: room.id,
+  })
+  if (!allowed) throw new Error('Staff Chat is not available in the active Team context.')
 }
 
 export async function getCoachChatRooms(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [staffResult, parentResult] = await Promise.all([
-    supabase.from('staff_chat_conversations').select('*,staff_chat_members(*)').eq('club_id', user.clubId).order('last_message_at', { ascending: false, nullsFirst: false }),
-    supabase.rpc('get_parent_chat_rooms'),
+  const [scopedStaffRows, parentRows] = await Promise.all([
+    rpc('get_staff_chat_conversation_ids', { active_team_id_value: user.activeTeamId }),
+    rpc('get_parent_chat_rooms', { active_team_id_value: user.activeTeamId }),
   ])
+  const scopedStaffIds = (scopedStaffRows || []).map((row) => normalize(row.id)).filter(Boolean)
+  const staffResult = scopedStaffIds.length
+    ? await supabase.from('staff_chat_conversations').select('*,staff_chat_members(*)').eq('club_id', user.clubId).in('id', scopedStaffIds).order('last_message_at', { ascending: false, nullsFirst: false })
+    : { data: [], error: null }
   if (staffResult.error) throw staffResult.error
-  if (parentResult.error) throw parentResult.error
   const staff = (staffResult.data || []).map((row) => normalizeCoachChatRoom(row, 'staff')).filter((room) => canOpenStaffRoom(user, room))
-  const parent = (parentResult.data || []).map((row) => normalizeCoachChatRoom(row, 'parent')).filter((room) => room.teamId === user.activeTeamId)
+  const parent = (parentRows || []).map((row) => normalizeCoachChatRoom(row, 'parent')).filter((room) => room.teamId === user.activeTeamId)
   return Object.freeze({ staff: Object.freeze(staff), parent: Object.freeze(parent) })
 }
 
@@ -291,10 +305,13 @@ export async function getCoachChatMessages(user, room) {
   assertParentChatTeam(user, room)
   if (!room?.id) return []
   if (room.kind === 'parent') {
-    const data = await rpc('get_parent_chat_messages', { target_room_id: room.id })
+    const data = await rpc('get_parent_chat_messages', {
+      active_team_id_value: user.activeTeamId,
+      target_room_id: room.id,
+    })
     return (data || []).map(normalizeCoachChatMessage)
   }
-  if (!canOpenStaffRoom(user, room)) throw new Error('Staff Chat is not available for this membership.')
+  await assertStaffRoomActiveContext(user, room)
   const { data, error } = await supabase.from('staff_chat_messages').select('*,users:sender_id(id,name,role_label)').eq('conversation_id', room.id).eq('club_id', user.clubId).order('created_at')
   if (error) throw error
   return (data || []).map(normalizeCoachChatMessage)
@@ -308,12 +325,18 @@ export async function sendCoachChatMessage(user, room, body) {
   const message = normalize(body)
   if (!message || message.length > 2000) throw new Error('Add a Chat message of 2000 characters or fewer.')
   if (room.kind === 'parent') {
-    await rpc('send_parent_chat_message', { target_room_id: room.id, body_value: message })
+    await rpc('send_parent_chat_message', {
+      active_team_id_value: user.activeTeamId,
+      target_room_id: room.id,
+      body_value: message,
+    })
   } else {
-    if (!canOpenStaffRoom(user, room)) throw new Error('Staff Chat is not available for this membership.')
-    const { error } = await supabase.from('staff_chat_messages').insert({ conversation_id: room.id, club_id: user.clubId, sender_id: user.id, body: message })
-    if (error) throw error
-    await rpc('mark_staff_chat_conversation_read', { conversation_id_value: room.id })
+    await assertStaffRoomActiveContext(user, room)
+    await rpc('send_staff_chat_message', {
+      active_team_id_value: user.activeTeamId,
+      conversation_id_value: room.id,
+      body_value: message,
+    })
   }
   return getCoachChatMessages(user, room)
 }
@@ -322,9 +345,15 @@ export async function markCoachChatRead(user, room) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   assertTeamEntity(user, room, 'Chat')
   assertParentChatTeam(user, room)
-  if (room.kind === 'parent') return rpc('mark_parent_chat_room_read', { target_room_id: room.id })
-  if (!canOpenStaffRoom(user, room)) throw new Error('Staff Chat is not available for this membership.')
-  return rpc('mark_staff_chat_conversation_read', { conversation_id_value: room.id })
+  if (room.kind === 'parent') return rpc('mark_parent_chat_room_read', {
+    active_team_id_value: user.activeTeamId,
+    target_room_id: room.id,
+  })
+  await assertStaffRoomActiveContext(user, room)
+  return rpc('mark_staff_chat_conversation_read', {
+    active_team_id_value: user.activeTeamId,
+    conversation_id_value: room.id,
+  })
 }
 
 export async function getCoachMessages(user) {
@@ -347,7 +376,7 @@ export async function createCoachPoll(user, poll) {
   const options = (poll?.options || []).map((option, index) => ({ id: normalize(option.id) || `option-${index + 1}`, label: normalize(option.label || option), value: normalize(option.value), playerId: normalize(option.playerId) })).filter((option) => option.label)
   if (!normalize(poll?.title) || options.length < 2) throw new Error(`Add ${config.isProduction ? 'a title' : 'an FP TEST title'} and at least two Poll options.`)
   const data = await rpc('create_team_poll', {
-    p_team_id: user.activeTeamId, p_title: normalize(poll.title), p_description: normalize(poll.description), p_audience: poll.audience === 'staff' ? 'staff' : 'parents', p_poll_type: ['time', 'awards'].includes(poll.pollType) ? poll.pollType : 'text',
+    p_active_team_id: user.activeTeamId, p_team_id: user.activeTeamId, p_title: normalize(poll.title), p_description: normalize(poll.description), p_audience: poll.audience === 'staff' ? 'staff' : 'parents', p_poll_type: ['time', 'awards'].includes(poll.pollType) ? poll.pollType : 'text',
     p_options: options, p_closes_at: normalize(poll.closesAt) || null, p_allow_multiple: poll.allowMultiple === true, p_max_choices: poll.allowMultiple ? Number(poll.maxChoices || 0) || null : null,
     p_allow_own_child_votes: poll.allowOwnChildVotes !== false, p_allow_vote_changes: poll.allowVoteChanges !== false, p_hide_votes: poll.anonymous === true, p_allow_comments: poll.allowComments === true, p_request_id: requestId('coach-poll'),
   })

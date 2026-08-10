@@ -84,7 +84,7 @@ function Empty({ copy, styles }) {
   return <View style={styles.panel}><Text style={styles.body}>{copy}</Text></View>
 }
 
-export function CoachPhase31EScreen({ domain, context, onNavigate, palette, user }) {
+export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, palette, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -124,7 +124,7 @@ export function CoachPhase31EScreen({ domain, context, onNavigate, palette, user
 
   useEffect(() => { void load() }, [load])
 
-  const common = { data, load, notice, onNavigate, setNotice, stale, styles, user }
+  const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       <View style={styles.panel}>
@@ -242,20 +242,38 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   )
 }
 
-function ChatDomain({ data, onNavigate, setNotice, stale, styles, user }) {
+function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHandled, onNavigate, setNotice, stale, styles, user }) {
   const rooms = useMemo(() => [...(data.staff || []), ...(data.parent || [])], [data])
   const [roomId, setRoomId] = useState(rooms[0]?.id || '')
   const [messages, setMessages] = useState([])
   const [body, setBody] = useState('')
   const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : rooms[0]?.id || ''
   const room = rooms.find((item) => item.id === activeRoomId)
-  const open = async (nextRoom) => {
+  const open = useCallback(async (nextRoom) => {
     setMessages([])
     setBody('')
     setRoomId(nextRoom.id)
     setNotice('Loading current room history...')
     try { const next = await getCoachChatMessages(user, nextRoom); setMessages(next); await markCoachChatRead(user, nextRoom); setNotice('') } catch (error) { setMessages([]); setNotice(error.message) }
-  }
+  }, [setNotice, user])
+  useEffect(() => {
+    const targetId = String(chatNotificationTarget?.id || '').trim()
+    if (!targetId || chatNotificationTarget?.contextId !== user.activeCoachContextId) return
+    const targetRoom = rooms.find((item) => item.id === targetId && (!chatNotificationTarget.kind || item.kind === chatNotificationTarget.kind))
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      onChatNotificationTargetHandled()
+      if (!targetRoom) {
+        setMessages([])
+        setBody('')
+        setNotice('This Coach Chat is stale or no longer authorised.')
+        return
+      }
+      void open(targetRoom)
+    })
+    return () => { cancelled = true }
+  }, [chatNotificationTarget, onChatNotificationTargetHandled, open, rooms, setNotice, user.activeCoachContextId])
   const send = async () => {
     try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice(config.isProduction ? 'Message sent through the canonical Chat.' : 'Synthetic Chat message saved inside FP TEST only.') } catch (error) { setNotice(error.message) }
   }

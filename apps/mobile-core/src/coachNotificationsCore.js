@@ -121,19 +121,32 @@ export function resolveCoachNotificationOpen(data, authority = {}) {
   if (!ROUTES.has(route)) return Object.freeze({ allowed: false, code: 'notification_route_invalid' })
   const contexts = Array.isArray(authority.contexts) ? authority.contexts : []
   const requestedContextId = normalize(data?.contextId)
+  const requestedTeamId = normalize(data?.teamId)
   const context = requestedContextId
     ? contexts.find((entry) => normalize(entry?.id) === requestedContextId)
-    : contexts.find((entry) => normalize(entry?.id) === normalize(authority.activeContextId))
+    : requestedTeamId
+      ? contexts.find((entry) => normalize(entry?.teamId) === requestedTeamId)
+      : contexts.find((entry) => normalize(entry?.id) === normalize(authority.activeContextId))
   if (!context) return Object.freeze({ allowed: false, code: 'notification_context_denied' })
+  if (requestedTeamId && normalize(context.teamId) !== requestedTeamId) {
+    return Object.freeze({ allowed: false, code: 'notification_context_denied' })
+  }
   if (normalize(context.archivedAt) || normalizeLower(context.clubStatus) !== 'active' || normalizeLower(context.teamStatus) !== 'active') {
     return Object.freeze({ allowed: false, code: 'notification_context_inactive' })
   }
-  const targetId = normalize(data?.targetId)
-  if (targetId) {
+  const chatTargetId = route === 'chat' ? normalize(data?.roomId || data?.conversationId) : ''
+  const targetId = normalize(data?.targetId || chatTargetId)
+  if (targetId && route !== 'chat') {
     const availableIds = new Set((authority.availableTargets?.[route] || []).map(normalize).filter(Boolean))
     if (!availableIds.has(targetId)) return Object.freeze({ allowed: false, code: 'notification_target_stale' })
   }
-  return Object.freeze({ allowed: true, code: 'notification_route_ready', contextId: context.id, route, targetId })
+  const notificationType = normalizeLower(data?.type || data?.intentType)
+  const chatKind = route === 'chat' && targetId
+    ? notificationType === 'parent_chat' || normalize(data?.roomId) ? 'parent' : 'staff'
+    : ''
+  return Object.freeze(chatKind
+    ? { allowed: true, chatKind, code: 'notification_route_ready', contextId: context.id, route, targetId }
+    : { allowed: true, code: 'notification_route_ready', contextId: context.id, route, targetId })
 }
 
 export function getCoachInstallationOwnerKey({ appRole = 'coach', environment = 'test', installationId, userId }) {
