@@ -161,8 +161,11 @@ export function buildCoachCalendarEvents({ calendarEvents = [], matches = [], se
     ...matches.map((row) => normalizeCoachCalendarEvent(row, 'match_day')),
     ...sessions.map((row) => normalizeCoachCalendarEvent(row, 'assessment_session')),
   ]
-  return combined
-    .filter((event) => event.sourceId && event.calendarDate)
+  const unique = new Map()
+  for (const event of combined) {
+    if (event.sourceId && event.calendarDate && !unique.has(event.id)) unique.set(event.id, event)
+  }
+  return [...unique.values()]
     .sort((left, right) => (
       `${left.calendarDate}T${left.calendarTime || '23:59'}`.localeCompare(`${right.calendarDate}T${right.calendarTime || '23:59'}`)
       || left.title.localeCompare(right.title)
@@ -173,8 +176,17 @@ export function filterCoachCalendarEvents(events = [], windowKey = 'upcoming', n
   const today = getDateInTimeZone(now)
   if (windowKey === 'all') return [...events]
   if (windowKey === 'cancelled') return events.filter((event) => event.status === 'cancelled' || event.cancelledAt)
-  if (windowKey === 'history') return events.filter((event) => event.calendarDate < today)
-  return events.filter((event) => event.calendarDate >= today && event.status !== 'cancelled')
+  if (windowKey === 'history') return events.filter((event) => (
+    event.status !== 'cancelled'
+    && !event.cancelledAt
+    && (event.calendarDate < today || event.status === 'completed')
+  ))
+  return events.filter((event) => (
+    event.calendarDate >= today
+    && event.status !== 'cancelled'
+    && event.status !== 'completed'
+    && !event.cancelledAt
+  ))
 }
 
 export function groupCoachCalendarEvents(events = []) {
@@ -185,6 +197,28 @@ export function groupCoachCalendarEvents(events = []) {
     else groups.push({ date: event.calendarDate, events: [event] })
   }
   return groups
+}
+
+export function getCoachCalendarContextModel({ context, contexts = [] } = {}) {
+  const clubId = normalize(context?.clubId)
+  const available = (Array.isArray(contexts) && contexts.length ? contexts : [context])
+    .filter((candidate) => candidate?.id && normalize(candidate.clubId) === clubId)
+  const options = available.map((candidate) => Object.freeze({
+    id: normalize(candidate.id),
+    label: candidate.teamId ? normalize(candidate.teamName) || 'Team' : `Club: ${normalize(candidate.clubName) || 'Club'}`,
+    teamId: normalize(candidate.teamId),
+  }))
+  const teamContextCount = options.filter((option) => option.teamId).length
+  const isTeamScope = Boolean(normalize(context?.teamId))
+  return Object.freeze({
+    currentLabel: isTeamScope
+      ? `Team: ${normalize(context?.teamName) || 'Team'}`
+      : `Club: ${normalize(context?.clubName) || 'Club'}`,
+    isTeamScope,
+    options: Object.freeze(options),
+    selectedContextId: normalize(context?.id),
+    teamContextCount,
+  })
 }
 
 export function getCoachCalendarMutationPolicy({ context, event = null } = {}) {

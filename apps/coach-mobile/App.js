@@ -478,6 +478,7 @@ function CoachHome() {
             biometricAvailable={biometricAvailable}
             biometricEnabled={biometricEnabled}
             context={activeContext}
+            contexts={contextResolution.contexts}
             chatNotificationTarget={chatNotificationTarget}
             disableNotifications={disableNotifications}
             enableNotifications={enableNotifications}
@@ -490,6 +491,7 @@ function CoachHome() {
             notificationState={notificationState}
             onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
             onNavigate={navigate}
+            onSelectContext={selectContext}
             onSelectMore={setMoreRoute}
             onSignOut={signOut}
             onToggleBiometrics={toggleBiometrics}

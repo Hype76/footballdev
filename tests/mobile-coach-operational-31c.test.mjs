@@ -5,6 +5,7 @@ import {
   buildCoachCalendarEvents,
   buildCoachCalendarPayload,
   filterCoachCalendarEvents,
+  getCoachCalendarContextModel,
   getCoachCalendarMutationPolicy,
   groupCoachCalendarEvents,
   londonLocalToUtcIso,
@@ -52,6 +53,11 @@ test('Calendar normalizes canonical events, Match Day fixtures, and Sessions int
   assert.deepEqual(events.map((event) => event.sourceType), ['assessment_session', 'calendar_event', 'match_day'])
   assert.equal(events[1].eventType, 'meeting')
   assert.equal(events[2].title, 'FP TEST v Visitors')
+  const deduplicated = buildCoachCalendarEvents({ sessions: [
+    { id: 'session-1', session_date: '2026-08-09', start_time: '18:00', team_id: 'team-test' },
+    { id: 'session-1', session_date: '2026-08-09', start_time: '18:00', team_id: 'team-test' },
+  ] })
+  assert.equal(deduplicated.length, 1)
 })
 
 test('Calendar uses Europe/London conversion and rejects the spring clock-change gap', () => {
@@ -71,6 +77,18 @@ test('Calendar filters and groups upcoming, history, and cancelled data without 
   assert.equal(filterCoachCalendarEvents(rows, 'history', new Date('2026-08-09T12:00:00Z')).length, 1)
   assert.equal(filterCoachCalendarEvents(rows, 'cancelled').length, 1)
   assert.equal(groupCoachCalendarEvents(rows).length, 3)
+})
+
+test('Calendar routes completed sessions to History and exposes explicit authorised Team scope', () => {
+  const completed = normalizeCoachCalendarEvent({ id: 'completed', session_date: '2026-08-11', start_time: '18:00', status: 'completed', team_id: 'team-test' }, 'assessment_session')
+  assert.equal(filterCoachCalendarEvents([completed], 'upcoming', new Date('2026-08-09T12:00:00Z')).length, 0)
+  assert.equal(filterCoachCalendarEvents([completed], 'history', new Date('2026-08-09T12:00:00Z')).length, 1)
+  const clubContext = { ...teamContext, id: 'club:club-test', role: 'admin', teamId: '', teamName: '' }
+  const teamTwo = { ...teamContext, id: 'team:team-two', teamId: 'team-two', teamName: 'FP TEST Two' }
+  const model = getCoachCalendarContextModel({ context: clubContext, contexts: [clubContext, teamContext, teamTwo] })
+  assert.equal(model.currentLabel, 'Club: Club')
+  assert.equal(model.teamContextCount, 2)
+  assert.deepEqual(model.options.map((option) => option.id), ['club:club-test', 'team:team-test', 'team:team-two'])
 })
 
 test('Calendar payload preserves canonical types, recurrence, visibility, Team scope, and London times', () => {
@@ -235,6 +253,9 @@ test('Coach operational screens expose real Calendar, Players, and Sessions rout
   assert.match(screens, /Showing encrypted data saved on this device/)
   assert.match(screens, /Changes require an online connection/)
   assert.match(screens, /External communications and schedules are disabled/)
+  assert.match(screens, /Assessment sessions are Team-scoped/)
+  assert.match(screens, /Open Assessment Sessions/)
+  assert.match(screens, /Open Development/)
 })
 
 test('Coach offline cache uses authenticated encryption, SecureStore key ownership, and app-role isolation', async () => {

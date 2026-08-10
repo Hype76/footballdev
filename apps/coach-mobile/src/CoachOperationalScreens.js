@@ -4,6 +4,7 @@ import {
   coachCalendarFormFromEvent,
   filterCoachCalendarEvents,
   formatCoachCalendarDateTime,
+  getCoachCalendarContextModel,
   getCoachCalendarMutationPolicy,
   groupCoachCalendarEvents,
 } from '../../mobile-core/src/coachCalendarCore'
@@ -125,7 +126,7 @@ function DomainState({ error, loading, onRetry, stale, styles }) {
   return null
 }
 
-export function CoachCalendarScreen({ context, onNavigate, palette, user }) {
+export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectContext, palette, user }) {
   const styles = useDomainStyles(palette)
   const [events, setEvents] = useState([])
   const [error, setError] = useState('')
@@ -136,6 +137,7 @@ export function CoachCalendarScreen({ context, onNavigate, palette, user }) {
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState(null)
   const [stale, setStale] = useState(false)
+  const contextModel = getCoachCalendarContextModel({ context, contexts })
   const policy = getCoachCalendarMutationPolicy({ context, event: selected })
 
   const load = useCallback(async () => {
@@ -184,6 +186,30 @@ export function CoachCalendarScreen({ context, onNavigate, palette, user }) {
   return (
     <View style={styles.stack}>
       <DomainHeader copy="Calendar events, Match Day fixtures, Sessions, recurrence, and training availability in Europe/London time." styles={styles} title="Calendar" />
+      <View style={styles.card}>
+        <Text style={styles.label}>Calendar scope</Text>
+        <Text style={styles.cardTitle}>{contextModel.currentLabel}</Text>
+        <Text style={styles.body}>{contextModel.isTeamScope
+          ? 'Assessment sessions for this authorised Team appear in Upcoming, Cancelled, or History according to their status.'
+          : 'Club Calendar items are shown here. Assessment sessions are Team-scoped, so choose an authorised Team to see them.'}</Text>
+        {contextModel.options.length > 1 ? (
+          <View style={styles.stack}>
+            <Text style={styles.fieldLabel}>{contextModel.teamContextCount > 1 ? 'Choose Calendar Team' : 'Choose Calendar scope'}</Text>
+            <Chips
+              onChange={onSelectContext}
+              options={contextModel.options.map((option) => ({ label: option.label, value: option.id }))}
+              styles={styles}
+              value={contextModel.selectedContextId}
+            />
+          </View>
+        ) : null}
+        {contextModel.isTeamScope ? (
+          <View style={styles.filterRow}>
+            <Button label="Open Assessment Sessions" onPress={() => onNavigate('sessions')} secondary styles={styles} />
+            <Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} />
+          </View>
+        ) : null}
+      </View>
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
       <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'History', value: 'history' }, { label: 'Cancelled', value: 'cancelled' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} />
       {policy.canCreate && !form ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
@@ -224,10 +250,10 @@ export function CoachCalendarScreen({ context, onNavigate, palette, user }) {
           {group.events.map((event) => (
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
               <Text style={styles.cardTitle}>{event.title}</Text>
-              <Text style={styles.meta}>{formatCoachCalendarDateTime(event.startsAt)} | {event.eventType} | {event.teamName || 'Club-wide'}</Text>
+              <Text style={styles.meta}>{formatCoachCalendarDateTime(event.startsAt)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /> : null}{getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : <Text style={styles.meta}>Edit this item in its authoritative {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Session' : 'web'} workflow.</Text>}</> : null}
+              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : <Text style={styles.meta}>Edit this item in its authoritative {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} workflow.</Text>}</> : null}
             </Pressable>
           ))}
         </View>

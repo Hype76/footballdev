@@ -30,22 +30,25 @@ if (!allowedProfiles.has(profile)) {
   process.exit(1)
 }
 
-const authorisedProductionSubmission = platform === 'ios' && (
-  (appRole === 'parent' && promotionReference === 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')
-  || (appRole === 'coach' && [
+const authorisedProductionSubmission = (
+  promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
+  || (platform === 'ios' && appRole === 'parent' && promotionReference === 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')
+  || (platform === 'ios' && appRole === 'coach' && [
     'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
     'FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35',
   ].includes(promotionReference))
 )
 
 if (profile === 'store-live' && !authorisedProductionSubmission) {
-  console.error('Production iOS submission not authorised for this app and reference.')
+  console.error(platform === 'ios'
+    ? 'Production iOS submission not authorised for this app and reference.'
+    : 'Production Android submission not authorised for this app and reference.')
   console.error('Reason: production_build_not_authorised')
   process.exit(1)
 }
 
 if (profile === 'store-live' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionBuildId)) {
-  console.error('Production iOS submission requires the exact completed EAS build ID in MOBILE_SUBMISSION_BUILD_ID.')
+  console.error('Production store submission requires the exact completed EAS build ID in MOBILE_SUBMISSION_BUILD_ID.')
   console.error('Reason: production_submission_build_id_required')
   process.exit(1)
 }
@@ -83,7 +86,9 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 console.log(`Release gate passed. Starting EAS submit for ${app.expectedName} ${profile} ${platform}.`)
 const submitArgs = ['eas-cli', 'submit', '--profile', profile, '--platform', platform]
 if (profile === 'store-live') {
-  submitArgs.push('--id', submissionBuildId, '--groups', 'Internal Testers', '--non-interactive', '--no-wait')
+  submitArgs.push('--id', submissionBuildId)
+  if (platform === 'ios') submitArgs.push('--groups', 'Internal Testers')
+  submitArgs.push('--non-interactive', '--no-wait')
 }
 execFileSync('npx', submitArgs, {
   cwd: resolve(repoRoot, app.path),

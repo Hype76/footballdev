@@ -77,7 +77,7 @@ export async function getCoachCalendarResources(user) {
   const sessionsPromise = user.activeTeamId
     ? supabase
       .from('assessment_sessions')
-      .select('id, team_id, team, title, opponent, session_type, session_date, start_time, end_time, location, notes, status, updated_at')
+      .select('id, team_id, team, title, opponent, session_type, session_date, start_time, end_time, location, notes, status, updated_at, teams:team_id(name)')
       .eq('club_id', user.clubId)
       .eq('team_id', user.activeTeamId)
       .order('session_date', { ascending: true })

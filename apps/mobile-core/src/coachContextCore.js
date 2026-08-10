@@ -158,8 +158,10 @@ export function resolveCoachStaffContext({ profile, requestedContextId = '' } = 
   }
 
   const requested = normalizeText(requestedContextId)
+  const teamContexts = contexts.filter((context) => context.teamId)
   const selected = contexts.find((context) => context.id === requested)
     || contexts.find((context) => context.id === normalizeText(profile?.activeCoachContextId))
+    || (teamContexts.length === 1 ? teamContexts[0] : null)
     || contexts[0]
 
   return Object.freeze({

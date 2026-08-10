@@ -49,6 +49,12 @@ test('canonical Coach context accepts active operational membership and applies 
   assert.equal(applied.role, 'coach')
 })
 
+test('single-Team staff default to their operational Team instead of an empty Club context', () => {
+  const profile = { accountStatus: 'active', coachContexts: [clubContext, teamA], id: 'user-a', role: 'admin' }
+  const resolved = resolveCoachStaffContext({ profile })
+  assert.equal(resolved.context.id, teamA.id)
+})
+
 test('context switch invalidates domain and mutation scope without carrying Team A state', () => {
   assert.deepEqual(createCoachContextTransition(teamA, teamB), {
     clearDomainState: true,
