@@ -27,6 +27,7 @@ const authorisedParentProductionReferences = new Set([
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
+const easEnvironment = productionBuilds.has(`${profile}:${platform}`) ? 'production' : profile === 'development' ? 'development' : 'preview'
 const masterStoreAndroid = appRole === 'parent'
   && `${profile}:${platform}` === 'store-live:android'
   && promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
@@ -56,6 +57,19 @@ if (!buildConfirmed) {
 }
 
 assertEasLogin()
+
+console.log(`Validating the resolved ${appRole} ${profile} EAS environment without printing values.`)
+const resolvedEnvironmentCommand = `node ../scripts/mobile-resolved-environment-check.mjs ${appRole} ${profile}`
+const resolvedEnvironmentArgument = process.platform === 'win32' ? `"${resolvedEnvironmentCommand}"` : resolvedEnvironmentCommand
+execFileSync('npx', ['eas-cli', 'env:exec', easEnvironment, resolvedEnvironmentArgument, '--non-interactive'], {
+  cwd: resolve(repoRoot, app.path),
+  env: {
+    ...process.env,
+    ...loadMobileLocalEnv(repoRoot, app.path),
+  },
+  stdio: 'inherit',
+  shell: process.platform === 'win32',
+})
 
 console.log(`Running mobile release gate before ${app.expectedName} ${profile} ${platform} build.`)
 execFileSync('npm', ['run', 'mobile:release-check'], {

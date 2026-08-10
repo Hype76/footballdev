@@ -8,6 +8,8 @@ test('Master 39 authorises the Parent production AAB and iOS builds', async () =
   const source = await readFile(new URL('../apps/scripts/mobile-build-guard.mjs', import.meta.url), 'utf8')
   assert.match(source, /masterStoreAndroid/)
   assert.match(source, /productionBuilds = new Set\(\['internal-live:android', 'store-live:android', 'store-live:ios'\]\)/)
+  assert.match(source, /mobile-resolved-environment-check\.mjs/)
+  assert.match(source, /eas-cli', 'env:exec'/)
   assert.match(source, new RegExp(masterReference))
 })
 
