@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
+import {
+  formatParentProductDateTime,
+  formatParentProductTime,
+} from '../../mobile-core/src/parentDateTimeCore'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
-import { getInvitationResponseOptions } from './parentPortalData'
+import {
+  getInvitationResponseOptions,
+  getParentInvitationDisplayState,
+  isParentInvitationActionable,
+} from './parentPortalData'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -14,20 +22,14 @@ function labelize(value) {
 }
 
 function formatDate(value, fallback = 'Date to be confirmed') {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: value.includes?.('T') ? '2-digit' : undefined, minute: value.includes?.('T') ? '2-digit' : undefined, timeZone: 'Europe/London' })
+  return formatParentProductDateTime(value, { fallback, year: 'numeric' })
 }
 
 function formatCalendarDay(value) {
-  if (!value) return 'Date to be confirmed'
-  const date = new Date(`${value}T12:00:00Z`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString([], {
-    day: 'numeric',
+  return formatParentProductDateTime(value, {
+    fallback: normalizeText(value) || 'Date to be confirmed',
+    includeTime: false,
     month: 'long',
-    timeZone: 'Europe/London',
     weekday: 'long',
     year: 'numeric',
   })
@@ -133,7 +135,7 @@ export function CalendarScreen({ isRefreshing, link, onRefresh, resource, themeT
           {group.events.map((event) => (
             <View key={event.id} style={styles.card}>
               <View style={styles.row}>
-                <Text style={styles.pill}>{labelize(event.status === 'cancelled' ? 'cancelled' : event.eventType)}</Text>
+                <Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text>
                 <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
               </View>
               <Text style={styles.cardTitle}>{event.title}</Text>
@@ -159,15 +161,16 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onRespond, 
       {resource.items.map((invitation) => {
         const options = getInvitationResponseOptions(invitation)
         const busy = activeActionId === `invite:${invitation.invitationId}`
+        const actionable = isParentInvitationActionable(invitation)
         return (
           <View key={invitation.invitationId || `${invitation.sourceRecordId}:${invitation.invitationType}`} style={styles.card}>
-            <View style={styles.row}><Text style={styles.pill}>{labelize(invitation.invitationType)}</Text><Text style={styles.meta}>{formatDate(invitation.eventStart || invitation.eventDate)}</Text></View>
+            <View style={styles.row}><Text style={styles.pill}>{labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDate(invitation.eventStart || invitation.eventDate)}</Text></View>
             <Text style={styles.cardTitle}>{invitation.eventTitle}</Text>
             <Text style={styles.body}>{labelize(invitation.responseState)}</Text>
             {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>Squad or role status: {labelize(invitation.selectionState)}</Text> : null}
             {invitation.eventLocation ? <Text style={styles.meta}>{invitation.eventLocation}</Text> : null}
             {invitation.lockReason ? <Text style={styles.warning}>{invitation.lockReason}</Text> : null}
-            {invitation.canRespond || invitation.canChangeResponse ? (
+            {actionable ? (
               <View style={styles.actionRow}>
                 {options.map((option) => <Button disabled={isOffline || busy} key={option.value} label={busy ? 'Saving...' : option.label} onPress={() => onRespond(invitation, option.value)} outline styles={styles} />)}
               </View>
@@ -188,7 +191,7 @@ function MatchCard({ match, onOpen, styles }) {
     <Pressable accessibilityRole="button" onPress={() => onOpen(match)} style={styles.card}>
       <View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View>
       <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
-      <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Kick-off time to be confirmed' : normalizeText(match.kickoffTime).slice(0, 5) || 'Time to be confirmed'}</Text>
+      <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Kick-off time to be confirmed' : formatParentProductTime(match.kickoffTime)}</Text>
       {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
       <Text style={styles.helper}>Open Match Day</Text>
     </Pressable>

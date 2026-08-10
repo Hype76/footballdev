@@ -1,3 +1,8 @@
+import {
+  getParentProductDateTimeParts,
+  getParentProductSortTimestamp,
+} from './parentDateTimeCore.js'
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function normalizeText(value) {
@@ -5,20 +10,15 @@ function normalizeText(value) {
 }
 
 function dateOnly(value) {
-  const normalized = normalizeText(value)
-  const match = normalized.match(/^(\d{4}-\d{2}-\d{2})/)
-  return match?.[1] || ''
+  return getParentProductDateTimeParts(value).date
 }
 
 function timeOnly(value) {
-  const normalized = normalizeText(value)
-  const match = normalized.match(/(?:T|^)(\d{2}:\d{2})/)
-  return match?.[1] || ''
+  return getParentProductDateTimeParts(value).time
 }
 
 function timestampFor(value) {
-  const timestamp = new Date(value || 0).getTime()
-  return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY
+  return getParentProductSortTimestamp(value)
 }
 
 function calendarSortKey(date, time = '') {
@@ -47,13 +47,15 @@ function invitationKey(invitation) {
 }
 
 function invitationStatus(invitation) {
-  if (normalizeText(invitation?.invitationState).toLowerCase() === 'cancelled') return 'cancelled'
+  const invitationState = normalizeText(invitation?.invitationState).toLowerCase()
+  if (['cancelled', 'closed', 'expired'].includes(invitationState)) return invitationState
   return normalizeText(invitation?.responseState).toLowerCase() || 'awaiting_response'
 }
 
 function normalizeSharedEvent(event, invitation) {
   const calendarDate = dateOnly(event.startsAt)
   const calendarTime = timeOnly(event.startsAt)
+  const invitationDisplayState = invitation ? invitationStatus(invitation) : ''
   return {
     ...event,
     calendarDate,
@@ -61,17 +63,21 @@ function normalizeSharedEvent(event, invitation) {
     childName: invitation?.childName || '',
     id: `calendar:${event.id}`,
     invitationId: invitation?.invitationId || '',
-    responseState: invitation ? invitationStatus(invitation) : '',
+    responseState: invitationDisplayState,
     sortKey: calendarSortKey(calendarDate, calendarTime),
     sortTimestamp: timestampFor(event.startsAt),
     sourceId: event.id,
     sourceType: 'calendar_event',
+    status: ['cancelled', 'closed', 'expired'].includes(invitationDisplayState)
+      ? invitationDisplayState
+      : event.status,
     teamName: invitation?.teamName || '',
   }
 }
 
 function normalizeInvitationEvent(invitation) {
   const sourceId = invitationKey(invitation)
+  const state = invitationStatus(invitation)
   const calendarDate = dateOnly(invitation.eventStart || invitation.eventDate)
   const calendarTime = invitation.kickoffTimeTbc ? '' : timeOnly(invitation.eventStart)
   return {
@@ -84,13 +90,13 @@ function normalizeInvitationEvent(invitation) {
     invitationId: invitation.invitationId || '',
     location: invitation.eventLocation || '',
     notes: '',
-    responseState: invitationStatus(invitation),
+    responseState: state,
     sortKey: calendarSortKey(calendarDate, calendarTime),
     sortTimestamp: timestampFor(invitation.eventStart || `${invitation.eventDate}T23:59:00`),
     sourceId,
     sourceType: 'invitation',
     startsAt: invitation.eventStart || invitation.eventDate || '',
-    status: invitationStatus(invitation) === 'cancelled' ? 'cancelled' : 'scheduled',
+    status: ['cancelled', 'closed', 'expired'].includes(state) ? state : 'scheduled',
     teamName: invitation.teamName || '',
     title: invitation.eventTitle || 'Invited event',
   }

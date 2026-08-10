@@ -88,6 +88,19 @@ export function getInvitationResponseOptions(invitation = {}) {
   return []
 }
 
+export function getParentInvitationDisplayState(invitation = {}) {
+  const invitationState = normalizeText(invitation.invitationState).toLowerCase()
+  return ['cancelled', 'closed', 'expired'].includes(invitationState)
+    ? invitationState
+    : normalizeText(invitation.invitationType).toLowerCase() || 'invitation'
+}
+
+export function isParentInvitationActionable(invitation = {}) {
+  const invitationState = normalizeText(invitation.invitationState).toLowerCase()
+  return ['active', 'offered'].includes(invitationState)
+    && (invitation.canRespond === true || invitation.canChangeResponse === true)
+}
+
 export function normalizeParentChatRoom(row = {}) {
   return {
     canPost: Boolean(row.can_post ?? row.canPost),
@@ -242,6 +255,7 @@ export async function respondToParentInvitation(user, invitation, responseState)
   const link = requireSelectedLink(user)
   const response = normalizeText(responseState).toLowerCase()
   if (!invitation?.sourceRecordId) throw new Error('This invitation could not be opened.')
+  if (!isParentInvitationActionable(invitation)) throw new Error('This invitation is no longer available for response.')
   if (invitation.invitationType === 'training_attendance') {
     const { data, error } = await supabase.rpc('respond_parent_portal_training_invitation', {
       parent_link_id_value: link.id,

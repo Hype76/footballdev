@@ -30,6 +30,10 @@ import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../m
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
 import {
+  formatParentProductDateTime,
+  formatParentProductTime,
+} from '../mobile-core/src/parentDateTimeCore'
+import {
   getParentNotificationStatusLabel,
   resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
@@ -151,39 +155,16 @@ function labelize(value) {
 }
 
 function formatDateOnly(value, fallback = 'Date to be confirmed') {
-  const normalizedValue = normalizeText(value)
-  if (!normalizedValue) return fallback
-  const date = new Date(`${normalizedValue.slice(0, 10)}T12:00:00Z`)
-  if (Number.isNaN(date.getTime())) return fallback
-
-  return date.toLocaleDateString([], {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'Europe/London',
-    weekday: 'short',
-  })
+  return formatParentProductDateTime(value, { fallback, includeTime: false, weekday: 'short' })
 }
 
 function formatDateTime(value, fallback = 'Time to be confirmed') {
-  const normalizedValue = normalizeText(value)
-  if (!normalizedValue) return fallback
-  const date = new Date(normalizedValue)
-  if (Number.isNaN(date.getTime())) return fallback
-
-  return date.toLocaleString([], {
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    timeZone: 'Europe/London',
-    weekday: 'short',
-  })
+  return formatParentProductDateTime(value, { fallback, weekday: 'short' })
 }
 
 function formatTime(value, isTbc = false) {
   if (isTbc) return 'Kick-off time to be confirmed'
-  const normalizedValue = normalizeText(value)
-  return normalizedValue ? normalizedValue.slice(0, 5) : 'Time to be confirmed'
+  return formatParentProductTime(value)
 }
 
 function LoginScreen() {

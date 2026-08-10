@@ -1,10 +1,17 @@
+import {
+  getParentProductDateTimeParts,
+  getParentProductSortTimestamp,
+  getParentProductWallTimeSortTimestamp,
+} from '../../mobile-core/src/parentDateTimeCore.js'
+import { getDateInTimeZone } from '../../mobile-core/src/parentCalendarCore.js'
+
 function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
 function toTimestamp(value) {
-  const date = new Date(value || 0)
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime()
+  const timestamp = getParentProductSortTimestamp(value)
+  return Number.isFinite(timestamp) ? timestamp : 0
 }
 
 function getMatchTimestamp(match) {
@@ -111,18 +118,15 @@ export function getParentFriendlyError(error, fallback = 'This information could
 }
 
 export function getParentMatchGroups(matches, now = new Date()) {
-  const today = new Date(now)
-  today.setHours(0, 0, 0, 0)
-  const todayTimestamp = today.getTime()
+  const today = getDateInTimeZone(now)
   const upcoming = []
   const recent = []
 
   for (const match of Array.isArray(matches) ? matches : []) {
     const status = normalizeText(match?.status) || 'scheduled'
-    const matchTimestamp = getMatchTimestamp(match)
     const isFinished = status === 'full_time'
-    const isPastScheduledMatch = matchTimestamp !== Number.POSITIVE_INFINITY
-      && matchTimestamp < todayTimestamp
+    const isPastScheduledMatch = normalizeText(match?.matchDate)
+      && normalizeText(match.matchDate) < today
       && !['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(status)
 
     if (isFinished || isPastScheduledMatch) {
@@ -140,14 +144,20 @@ export function getParentMatchGroups(matches, now = new Date()) {
 
 export function getParentCalendarGroups(events, now = new Date()) {
   const nowTimestamp = now.getTime()
+  const today = getDateInTimeZone(now)
   const upcoming = []
   const recent = []
 
   for (const event of Array.isArray(events) ? events : []) {
     const eventTimestamp = toTimestamp(event?.startsAt)
-    const isCancelled = Boolean(event?.cancelledAt) || normalizeText(event?.status) === 'cancelled'
+    const parts = getParentProductDateTimeParts(event?.startsAt || event?.calendarDate)
+    const isTerminal = Boolean(event?.cancelledAt)
+      || ['cancelled', 'closed', 'expired'].includes(normalizeText(event?.status).toLowerCase())
+    const isPast = parts.isAllDay
+      ? parts.date < today
+      : eventTimestamp > 0 && eventTimestamp < nowTimestamp
 
-    if (isCancelled || (eventTimestamp > 0 && eventTimestamp < nowTimestamp)) {
+    if (isTerminal || isPast) {
       recent.push(event)
     } else {
       upcoming.push(event)
@@ -160,13 +170,17 @@ export function getParentCalendarGroups(events, now = new Date()) {
   return { recent, upcoming }
 }
 
-export function getParentHomeModel({ calendarEvents, matches, messages, polls }) {
-  const matchGroups = getParentMatchGroups(matches)
-  const calendarGroups = getParentCalendarGroups(calendarEvents)
+export function getParentHomeModel({ calendarEvents, matches, messages, now = new Date(), polls }) {
+  const matchGroups = getParentMatchGroups(matches, now)
+  const calendarGroups = getParentCalendarGroups(calendarEvents, now)
   const nextMatch = matchGroups.upcoming[0] || null
   const nextCalendarEvent = calendarGroups.upcoming[0] || null
-  const nextMatchTime = getMatchTimestamp(nextMatch)
-  const nextCalendarTime = toTimestamp(nextCalendarEvent?.startsAt) || Number.POSITIVE_INFINITY
+  const nextMatchTime = getParentProductWallTimeSortTimestamp(
+    nextMatch?.matchDate ? `${nextMatch.matchDate}T${nextMatch.kickoffTime || '23:59:59'}` : '',
+  )
+  const nextCalendarTime = getParentProductWallTimeSortTimestamp(
+    nextCalendarEvent?.startsAt || nextCalendarEvent?.calendarDate,
+  )
   const nextActivity = nextMatchTime <= nextCalendarTime
     ? nextMatch && { item: nextMatch, type: 'match' }
     : nextCalendarEvent && { item: nextCalendarEvent, type: 'calendar' }

@@ -171,7 +171,8 @@ test('Calendar screen provides native filtering, grouped dates, refresh, detail,
   for (const copy of ['Upcoming', 'Next 30 days', 'All dates', 'Refresh Calendar', 'Response:']) {
     assert.match(screenSource, new RegExp(copy))
   }
-  assert.match(screenSource, /Europe\/London/)
+  assert.match(screenSource, /formatParentProductDateTime/)
+  assert.match(screenSource, /formatParentProductTime/)
 })
 
 test('production build labels do not present live binaries as development builds', () => {
