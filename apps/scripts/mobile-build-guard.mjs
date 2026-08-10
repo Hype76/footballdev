@@ -21,6 +21,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
   'FP-MOBILE-COMMS-POLLS-PRIVACY-CORRECTIVE-36',
   'FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34',
+  'FP-MOBILE-PARENT-ASSESSMENT-CALENDAR-CORRECTIVE-38',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'

@@ -142,6 +142,7 @@ test('production build guards require the named Parent promotion reference', () 
   assert.match(buildGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)
   assert.match(buildGuard, /FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29/)
   assert.match(buildGuard, /FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34/)
+  assert.match(buildGuard, /FP-MOBILE-PARENT-ASSESSMENT-CALENDAR-CORRECTIVE-38/)
   assert.doesNotMatch(buildGuard, /FP-MOBILE-PARENT-PRODUCTION-PROMOTION-MASTER-26/)
   for (const [appRole, profile, platform] of [['coach', 'internal-live', 'android'], ['parent', 'internal-live', 'android'], ['parent', 'store-live', 'ios']]) {
     const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, profile, platform], {
@@ -153,6 +154,35 @@ test('production build guards require the named Parent promotion reference', () 
     assert.match(result.stderr, /Production Parent mobile build not authorised for this reference\./)
     assert.match(result.stderr, /production_build_not_authorised/)
     assert.doesNotMatch(result.stderr, /EXPO_PUBLIC_|supabase\.co|netlify\.app/)
+  }
+})
+
+test('Ref 38 permits only the bounded Parent production build profiles', () => {
+  const promotionReference = 'FP-MOBILE-PARENT-ASSESSMENT-CALENDAR-CORRECTIVE-38'
+  for (const [profile, platform] of [['internal-live', 'android'], ['store-live', 'ios']]) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'parent', profile, platform], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: promotionReference },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /Mobile native build is blocked until EAS setup/)
+    assert.doesNotMatch(result.stderr, /production_build_not_authorised/)
+  }
+
+  for (const [appRole, profile, platform, expected] of [
+    ['coach', 'internal-live', 'android', /production_build_not_authorised/],
+    ['coach', 'store-live', 'ios', /production_build_not_authorised/],
+    ['parent', 'internal-live', 'ios', /Unknown mobile build profile and platform combination/],
+    ['parent', 'store-live', 'android', /Unknown mobile build profile and platform combination/],
+  ]) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, profile, platform], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: promotionReference },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, expected)
   }
 })
 
