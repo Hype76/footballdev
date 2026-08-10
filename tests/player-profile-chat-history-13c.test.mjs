@@ -177,11 +177,11 @@ test('player profile renders metadata only and opens canonical parent or staff r
   assert.doesNotMatch(source, /conversation\.messages|message\.body|latestMessage/)
 })
 
-test('existing Staff Chat recognises player discussions but still requires team context', async () => {
+test('existing Staff Chat recognises player discussions and requires exact active-Team context without a rank bypass', async () => {
   const source = await readFile(staffChatUrl, 'utf8')
 
   assert.match(source, /'player_staff'/)
   assert.match(source, /conversation\.type === 'player_staff'/)
   assert.match(source, /normalizeText\(conversation\.teamId\) === activeTeamId/)
-  assert.match(source, /Number\(user\?\.roleRank \?\? 0\) >= 50/)
+  assert.doesNotMatch(source, /Number\(user\?\.roleRank \?\? 0\) >= 50/)
 })

@@ -31,6 +31,7 @@ import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } f
 import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
 import {
   getParentNotificationStatusLabel,
+  resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
@@ -245,6 +246,7 @@ function ParentHome() {
   const [syncSummary, setSyncSummary] = useState({ needsAttention: 0, state: 'synced', waiting: 0 })
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
+  const notificationResponseProcessingRef = useRef('')
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
   const selectedLink = useMemo(
     () => getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
@@ -516,10 +518,24 @@ function ParentHome() {
   useEffect(() => {
     const request = lastNotificationResponse?.notification?.request
     const responseId = normalizeText(request?.identifier)
-    if (!responseId || notificationResponseIdRef.current === responseId) return
-    notificationResponseIdRef.current = responseId
+    if (
+      !responseId
+      || notificationResponseIdRef.current === responseId
+      || notificationResponseProcessingRef.current === responseId
+    ) return undefined
 
     const notificationData = request.content?.data
+    const requestedLinkId = resolveParentNotificationLinkId(notificationData, parentLinks)
+    if (requestedLinkId === null) {
+      notificationResponseIdRef.current = responseId
+      setNotice({ message: 'This notification is no longer available for an authorised child.', tone: 'warning' })
+      return undefined
+    }
+    if (requestedLinkId && requestedLinkId !== selectedLink?.id) {
+      setSelectedLinkId(requestedLinkId)
+      return undefined
+    }
+
     const requestedTargetId = normalizeText(
       notificationData?.targetId
       || notificationData?.calendarEventId
@@ -542,30 +558,53 @@ function ParentHome() {
       resources: (items.resources || []).map((item) => item.id),
       results: (items.matches || []).filter((item) => item.status === 'full_time').map((item) => item.id),
     })
-    const currentItems = Object.fromEntries(resourceNames.map((name) => [name, resources[name].items]))
-    const currentDestination = resolveParentNotificationOpen(notificationData, availableFrom(currentItems))
-    if (!currentDestination) return
+    const currentDestination = resolveParentNotificationOpen(notificationData, {})
+    if (!currentDestination) {
+      notificationResponseIdRef.current = responseId
+      return undefined
+    }
 
-    void loadParentData().then((result) => {
-      const destination = resolveParentNotificationOpen(
-        notificationData,
-        availableFrom(result?.items || currentItems),
-      )
-      if (!destination) return
-      if (requestedTargetId && !destination.targetId) {
-        setNotice({ message: 'This notification no longer has an available Parent item.', tone: 'warning' })
-        return
+    let cancelled = false
+    notificationResponseProcessingRef.current = responseId
+    void loadParentData()
+      .then((result) => {
+        if (cancelled) return
+        const destination = resolveParentNotificationOpen(
+          notificationData,
+          availableFrom(result?.items || {}),
+        )
+        notificationResponseIdRef.current = responseId
+        if (!destination || (requestedTargetId && !destination.targetId)) {
+          setNotice({ message: 'This notification no longer has an available Parent item.', tone: 'warning' })
+          return
+        }
+        const nestedSection = ['development', 'invites', 'messages', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
+          ? destination.tab
+          : ''
+        setSelectedMatchId(destination.tab === 'matchday' ? destination.targetId : '')
+        setSelectedMessageId(destination.tab === 'messages' ? destination.targetId : '')
+        setSelectedRoomId(destination.tab === 'chat' ? destination.targetId : '')
+        setMoreSection(nestedSection)
+        setActiveTab(nestedSection ? 'more' : destination.tab)
+      })
+      .catch(() => {
+        if (cancelled) return
+        notificationResponseIdRef.current = responseId
+        setNotice({ message: 'This notification could not be verified against current Parent access.', tone: 'warning' })
+      })
+      .finally(() => {
+        if (notificationResponseProcessingRef.current === responseId) {
+          notificationResponseProcessingRef.current = ''
+        }
+      })
+
+    return () => {
+      cancelled = true
+      if (notificationResponseProcessingRef.current === responseId) {
+        notificationResponseProcessingRef.current = ''
       }
-      const nestedSection = ['development', 'invites', 'messages', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
-        ? destination.tab
-        : ''
-      setSelectedMatchId(destination.tab === 'matchday' ? destination.targetId : '')
-      setSelectedMessageId(destination.tab === 'messages' ? destination.targetId : '')
-      setSelectedRoomId(destination.tab === 'chat' ? destination.targetId : '')
-      setMoreSection(nestedSection)
-      setActiveTab(nestedSection ? 'more' : destination.tab)
-    })
-  }, [lastNotificationResponse, loadParentData, resources])
+    }
+  }, [lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined

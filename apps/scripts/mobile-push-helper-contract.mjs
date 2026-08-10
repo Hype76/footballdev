@@ -1,6 +1,7 @@
 export const expoPushHelperPath = 'netlify/functions/lib/_expo-push.js'
 
 export const expoPushCallerPaths = [
+  'netlify/functions/process-chat-mobile-notifications.js',
   'netlify/functions/send-coach-mobile-push.js',
   'netlify/functions/send-match-day-push.js',
   'netlify/functions/send-parent-mobile-push.js',
@@ -45,7 +46,8 @@ export function validateExpoPushHelperContract({ helperSource = '', callerSource
 
   ;[
     "chunkMessages(messages, size = 100)",
-    "startsWith('ExponentPushToken[')",
+    'EXPO_PUSH_TOKEN_PATTERN',
+    '(Exponent|Expo)PushToken',
     'fetch(EXPO_PUSH_URL',
     'response.ok',
     'DeviceNotRegistered',
@@ -68,7 +70,9 @@ export function validateExpoPushHelperContract({ helperSource = '', callerSource
       failures.push(`Expo push caller must import the canonical shared helper: ${callerPath}`)
     }
 
-    if (!callerSource.includes('sendExpoPushMessages(')) {
+    const invokesHelper = callerSource.includes('sendExpoPushMessages(')
+      || callerSource.includes('sendMessages = sendExpoPushMessages')
+    if (!invokesHelper) {
       failures.push(`Expo push caller must invoke sendExpoPushMessages: ${callerPath}`)
     }
   })

@@ -126,8 +126,7 @@ export function canOpenStaffChatConversationForUser(conversation, user) {
 
   if (conversation.type === 'player_staff') {
     const activeTeamId = normalizeText(user?.activeTeamId)
-    return Number(user?.roleRank ?? 0) >= 50
-      || (Boolean(activeTeamId) && normalizeText(conversation.teamId) === activeTeamId)
+    return Boolean(activeTeamId) && normalizeText(conversation.teamId) === activeTeamId
   }
 
   if (conversation.type === 'direct') {
@@ -147,6 +146,23 @@ async function getReadableStaffChatConversation({ conversationId, user } = {}) {
   const normalizedConversationId = normalizeText(conversationId)
   if (!normalizedConversationId) {
     throw new Error('Staff Chat conversation is not available.')
+  }
+
+  const { data: isInActiveContext, error: activeContextError } = await supabase.rpc(
+    'staff_chat_conversation_in_active_context',
+    {
+      active_team_id_value: normalizeText(user.activeTeamId) || null,
+      target_conversation_id: normalizedConversationId,
+    },
+  )
+
+  if (activeContextError) {
+    console.error(activeContextError)
+    throw activeContextError
+  }
+
+  if (!isInActiveContext) {
+    throw new Error('Staff Chat conversation is not available for the active Team.')
   }
 
   const { data, error } = await supabase
@@ -183,10 +199,31 @@ export async function getStaffChatConversations({ user } = {}) {
   }
 
   return getCachedResource(getStaffChatCacheKey(user), async () => {
+    const { data: scopedConversationRows, error: scopeError } = await supabase.rpc(
+      'get_staff_chat_conversation_ids',
+      {
+        active_team_id_value: normalizeText(user.activeTeamId) || null,
+      },
+    )
+
+    if (scopeError) {
+      console.error(scopeError)
+      throw scopeError
+    }
+
+    const scopedConversationIds = (scopedConversationRows ?? [])
+      .map((row) => normalizeText(row.id))
+      .filter(Boolean)
+
+    if (scopedConversationIds.length === 0) {
+      return []
+    }
+
     const { data, error } = await supabase
       .from('staff_chat_conversations')
       .select('*, staff_chat_members(*, users:user_id(id, email, name, role, role_label, role_rank, club_id))')
       .eq('club_id', user.clubId)
+      .in('id', scopedConversationIds)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .order('updated_at', { ascending: false })
 
@@ -329,6 +366,7 @@ export async function createStaffChatConversation({ memberIds = [], teamId = '',
   }
 
   const { data, error } = await supabase.rpc('create_staff_chat_conversation', {
+    active_team_id_value: normalizeText(user.activeTeamId) || null,
     conversation_type: conversationType,
     title_value: normalizeText(title),
     team_id_value: normalizedTeamId || null,
@@ -367,20 +405,27 @@ export async function sendStaffChatMessage({ body, conversationId, user } = {}) 
 
   await getReadableStaffChatConversation({ conversationId, user })
 
-  const { data, error } = await supabase
-    .from('staff_chat_messages')
-    .insert({
-      conversation_id: normalizeText(conversationId),
-      club_id: user.clubId,
-      sender_id: user.id,
-      body: normalizedBody,
-    })
-    .select('*, users:sender_id(id, email, name, role, role_label, role_rank, club_id)')
-    .single()
+  const { data: messageId, error } = await supabase.rpc('send_staff_chat_message', {
+    active_team_id_value: normalizeText(user.activeTeamId) || null,
+    body_value: normalizedBody,
+    conversation_id_value: normalizeText(conversationId),
+  })
 
   if (error) {
     console.error(error)
     throw error
+  }
+
+  const { data, error: messageError } = await supabase
+    .from('staff_chat_messages')
+    .select('*, users:sender_id(id, email, name, role, role_label, role_rank, club_id)')
+    .eq('id', messageId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (messageError) {
+    console.error(messageError)
+    throw messageError
   }
 
   invalidateMemoryCacheByPrefix(`staff-chat:${user.clubId}:`)
@@ -401,6 +446,7 @@ export async function markStaffChatConversationRead({ conversationId, user } = {
   await getReadableStaffChatConversation({ conversationId: normalizedConversationId, user })
 
   const { error } = await supabase.rpc('mark_staff_chat_conversation_read', {
+    active_team_id_value: normalizeText(user.activeTeamId) || null,
     conversation_id_value: normalizedConversationId,
   })
 
@@ -419,6 +465,7 @@ export async function archiveStaffChatConversation({ conversationId, user } = {}
   await getReadableStaffChatConversation({ conversationId, user })
 
   const { error } = await supabase.rpc('archive_staff_chat_conversation', {
+    active_team_id_value: normalizeText(user.activeTeamId) || null,
     conversation_id_value: normalizeText(conversationId),
   })
 
@@ -454,6 +501,7 @@ export async function deleteStaffChatMessage({ messageId, user } = {}) {
   await getReadableStaffChatConversation({ conversationId: message.conversation_id, user })
 
   const { error } = await supabase.rpc('delete_staff_chat_message', {
+    active_team_id_value: normalizeText(user.activeTeamId) || null,
     message_id_value: normalizeText(messageId),
   })
 

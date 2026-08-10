@@ -153,7 +153,7 @@ test('notification opens route only through current authoritative resources', ()
   }), { tab: 'polls', targetId: '' })
   assert.equal(resolveParentNotificationOpen({ app: 'coach', route: 'messages' }), null)
   assert.equal(resolveParentNotificationOpen({ app: 'parent', route: 'staff' }), null)
-  assert.match(app, /loadParentData\(\)\.then/)
+  assert.match(app, /loadParentData\(\)\s*\.then/)
 })
 
 test('test schema is least-privilege, RLS protected, indexed, and allowlisted to one Android and one iOS slot', () => {

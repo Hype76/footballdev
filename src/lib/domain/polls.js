@@ -2,6 +2,7 @@ import { supabase } from '../supabase-client.js'
 import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
 import { sendParentMobilePushNotification } from '../push-notifications.js'
+import { canManagePolls, isClubAdmin } from '../auth-permissions.js'
 
 export const POLL_AUDIENCE_OPTIONS = [
   { value: 'parents', label: 'Parent poll' },
@@ -136,7 +137,7 @@ function normalizeOptions(options) {
 }
 
 function assertStaffPollAccess(user) {
-  if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin') {
+  if (!canManagePolls(user)) {
     throw new Error('Club staff access is required for polls.')
   }
 }
@@ -185,8 +186,13 @@ export async function createPoll({ user, poll }) {
     throw new Error('Poll title is required.')
   }
 
+  if (!isClubAdmin(user) && teamId !== String(user.activeTeamId ?? '').trim()) {
+    throw new Error('Polls can only be created for the active Team.')
+  }
+
   const { data, error } = await supabase
     .rpc('create_team_poll', {
+      p_active_team_id: String(user.activeTeamId ?? '').trim() || null,
       p_team_id: teamId,
       p_title: title,
       p_description: description,

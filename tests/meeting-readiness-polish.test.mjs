@@ -58,7 +58,9 @@ test('quick actions expose Create Poll only to permitted staff', async () => {
   assert.match(source, /document\.querySelector\('\[aria-modal="true"\], \[role="dialog"\]'\)/)
   assert.match(source, /hasActiveOverlay \? 'pointer-events-none translate-y-2 opacity-0' : 'opacity-100'/)
   assert.equal(canManagePolls(staffUser()), true)
-  assert.equal(canManagePolls(staffUser({ roleRank: 10 })), false)
+  assert.equal(canManagePolls(staffUser({ roleRank: 10 })), true)
+  assert.equal(canManagePolls(staffUser({ activeTeamId: '' })), false)
+  assert.equal(canManagePolls(staffUser({ role: 'custom_operator', roleRank: 99 })), false)
   assert.equal(canManagePolls(staffUser({ role: 'parent_portal', roleRank: 0 })), false)
 })
 

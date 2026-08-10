@@ -7,6 +7,7 @@ export const parentNotificationDetailLevels = Object.freeze(['minimal', 'detaile
 export const parentNotificationIntentTypes = Object.freeze([
   'parent_message',
   'parent_poll',
+  'parent_chat',
   'matchday_update',
 ])
 
@@ -157,6 +158,14 @@ export function resolveParentNotificationOpen(data, available = {}) {
     targetId: targetId && availableIds.has(targetId) ? targetId : '',
     tab,
   }
+}
+
+export function resolveParentNotificationLinkId(data, parentLinks = []) {
+  const requestedLinkId = normalize(data?.parentLinkId)
+  if (!requestedLinkId) return ''
+
+  const authorisedLinkIds = new Set(parentLinks.map((link) => normalize(link?.id)).filter(Boolean))
+  return authorisedLinkIds.has(requestedLinkId) ? requestedLinkId : null
 }
 
 export function containsForbiddenParentNotificationContent(text, playerNames = []) {

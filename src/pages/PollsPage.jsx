@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canManagePolls, useAuth } from '../lib/auth.js'
+import { canManagePolls, isClubAdmin, useAuth } from '../lib/auth.js'
 import {
   createPoll,
   deletePoll,
@@ -30,6 +30,14 @@ const EMPTY_FORM = {
   hideVotes: false,
   allowComments: false,
   options: ['Yes', 'No'],
+}
+
+function getEmptyPollForm(user) {
+  return {
+    ...EMPTY_FORM,
+    teamId: isClubAdmin(user) ? '' : String(user?.activeTeamId ?? '').trim(),
+    options: [...EMPTY_FORM.options],
+  }
 }
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -156,7 +164,7 @@ export function PollsPage() {
   const [polls, setPolls] = useState([])
   const [teams, setTeams] = useState([])
   const [players, setPlayers] = useState([])
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(() => getEmptyPollForm(user))
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [audienceFilter, setAudienceFilter] = useState('all')
   const [isLoading, setIsLoading] = useState(true)
@@ -176,6 +184,13 @@ export function PollsPage() {
   const parentPollCount = useMemo(() => polls.filter((poll) => poll.audience === 'parents').length, [polls])
   const staffPollCount = useMemo(() => polls.filter((poll) => poll.audience === 'staff').length, [polls])
   const closedPollCount = useMemo(() => polls.filter((poll) => poll.status === 'closed').length, [polls])
+  const isClubAdminUser = isClubAdmin(user)
+  const pollTeamOptions = useMemo(
+    () => isClubAdminUser
+      ? teams
+      : teams.filter((team) => String(team.id) === String(user?.activeTeamId ?? '')),
+    [isClubAdminUser, teams, user?.activeTeamId],
+  )
   const awardPlayers = useMemo(
     () =>
       players
@@ -243,6 +258,14 @@ export function PollsPage() {
     return () => {
       isMounted = false
     }
+  }, [user])
+
+  useEffect(() => {
+    setPolls([])
+    setTeams([])
+    setPlayers([])
+    setForm(getEmptyPollForm(user))
+    setSelectedPlayerId('')
   }, [user])
 
   if (!canManagePolls(user)) {
@@ -348,7 +371,7 @@ export function PollsPage() {
           options: buildOptionsForSubmit(form),
         },
       })
-      setForm(EMPTY_FORM)
+      setForm(getEmptyPollForm(user))
       await loadPolls()
       setSuccessMessage('Availability request created.')
       showToast({ title: 'Request created', message: 'The request is now available to the selected audience.' })
@@ -548,8 +571,8 @@ export function PollsPage() {
                 onChange={(event) => updateForm({ teamId: event.target.value })}
                 className={inputClass}
               >
-                <option value="">All teams in this club</option>
-                {teams.map((team) => (
+                {isClubAdminUser ? <option value="">All teams in this club</option> : null}
+                {pollTeamOptions.map((team) => (
                   <option key={team.id} value={team.id}>{team.name}</option>
                 ))}
               </select>

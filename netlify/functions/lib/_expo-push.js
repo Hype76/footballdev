@@ -1,4 +1,5 @@
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
+const EXPO_PUSH_TOKEN_PATTERN = /^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/
 
 function chunkMessages(messages, size = 100) {
   const chunks = []
@@ -11,7 +12,7 @@ function chunkMessages(messages, size = 100) {
 }
 
 export async function sendExpoPushMessages(messages) {
-  const validMessages = messages.filter((message) => String(message.to || '').startsWith('ExponentPushToken['))
+  const validMessages = messages.filter((message) => EXPO_PUSH_TOKEN_PATTERN.test(String(message.to || '')))
 
   if (validMessages.length === 0) {
     return {

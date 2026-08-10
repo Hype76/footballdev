@@ -29,6 +29,15 @@ test('contract rejects a missing helper and invalid exports', () => {
   assert.ok(failures.some((failure) => failure.includes('must export async function sendExpoPushMessages')))
 })
 
+test('contract requires both current Expo push token prefixes', () => {
+  const failures = validateExpoPushHelperContract({
+    helperSource: helperSource.replace('(Exponent|Expo)PushToken', 'ExponentPushToken'),
+    callerSources,
+  })
+
+  assert.ok(failures.some((failure) => failure.includes('(Exponent|Expo)PushToken')))
+})
+
 test('contract rejects an unsafe transport and an environment-selected production fallback', () => {
   const unsafeTransportFailures = validateExpoPushHelperContract({
     helperSource: helperSource.replace('https://exp.host/--/api/v2/push/send', 'http://push.example.invalid/send'),

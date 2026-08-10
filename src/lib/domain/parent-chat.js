@@ -62,10 +62,12 @@ export function normalizeParentChatMessage(row) {
 }
 
 function normalizeParentPortalChatScope({
+  activeTeamId,
   childOnly = false,
   parentLinkId,
   variant = 'staff',
 } = {}) {
+  const normalizedActiveTeamId = normalizeText(activeTeamId)
   const normalizedParentLinkId = normalizeText(parentLinkId)
   const isParentPortal = variant === 'parent'
 
@@ -73,7 +75,12 @@ function normalizeParentPortalChatScope({
     throw new Error('Choose a linked child before opening Parent Chat.')
   }
 
+  if (!isParentPortal && !normalizedActiveTeamId) {
+    throw new Error('Choose the active Team before opening Parent Chat.')
+  }
+
   return {
+    activeTeamId: normalizedActiveTeamId,
     childOnly: isParentPortal && Boolean(childOnly),
     isParentPortal,
     parentLinkId: normalizedParentLinkId,
@@ -117,7 +124,9 @@ export async function getParentChatRooms(scope = {}) {
         child_only_value: normalizedScope.childOnly,
         parent_link_id_value: normalizedScope.parentLinkId,
       }
-    : undefined
+    : {
+        active_team_id_value: normalizedScope.activeTeamId,
+      }
   const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
@@ -145,6 +154,9 @@ export async function getParentChatMessages({ roomId, ...scope } = {}) {
         target_room_id: normalizedRoomId,
       }
     : { target_room_id: normalizedRoomId }
+  if (!normalizedScope.isParentPortal) {
+    rpcArgs.active_team_id_value = normalizedScope.activeTeamId
+  }
   const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
@@ -185,7 +197,9 @@ export async function sendParentChatMessage({ body, roomId, user, ...scope } = {
           child_only_value: normalizedScope.childOnly,
           parent_link_id_value: normalizedScope.parentLinkId,
         }
-      : {}),
+      : {
+          active_team_id_value: normalizedScope.activeTeamId,
+        }),
   }
   const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
@@ -214,7 +228,9 @@ export async function markParentChatRoomRead({ roomId, ...scope } = {}) {
           child_only_value: normalizedScope.childOnly,
           parent_link_id_value: normalizedScope.parentLinkId,
         }
-      : {}),
+      : {
+          active_team_id_value: normalizedScope.activeTeamId,
+        }),
   }
   const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
@@ -245,7 +261,9 @@ export async function deleteParentChatMessage({ messageId, user, ...scope } = {}
           child_only_value: normalizedScope.childOnly,
           parent_link_id_value: normalizedScope.parentLinkId,
         }
-      : {}),
+      : {
+          active_team_id_value: normalizedScope.activeTeamId,
+        }),
   }
   const { error } = await supabase.rpc(rpcName, rpcArgs)
 

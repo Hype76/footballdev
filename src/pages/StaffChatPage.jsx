@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { canUseClubStaffChat, canUseStaffChat, useAuth } from '../lib/auth.js'
 import {
@@ -107,6 +107,7 @@ export function StaffChatPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const loadRequestIdRef = useRef(0)
 
   const canOpenStaffChat = canUseStaffChat(user)
   const canOpenClubStaffChat = canUseClubStaffChat(user)
@@ -121,6 +122,9 @@ export function StaffChatPage() {
   const selectedMemberSet = useMemo(() => new Set(selectedMembers), [selectedMembers])
 
   const loadStaffChat = useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1
+    loadRequestIdRef.current = requestId
+
     if (!canOpenStaffChat) {
       setConversations([])
       setMessages([])
@@ -133,6 +137,11 @@ export function StaffChatPage() {
 
     setStatus('loading')
     setErrorMessage('')
+    setConversations([])
+    setMessages([])
+    setStaff([])
+    setTeams([])
+    setSelectedConversationId('')
 
     try {
       const [nextConversations, nextStaff, nextTeams] = await Promise.all([
@@ -140,6 +149,11 @@ export function StaffChatPage() {
         getStaffChatStaffDirectory({ user }),
         getStaffChatTeams({ user }),
       ])
+
+      if (requestId !== loadRequestIdRef.current) {
+        return
+      }
+
       setConversations(nextConversations)
       setStaff(nextStaff)
       setTeams(nextTeams)
@@ -160,8 +174,10 @@ export function StaffChatPage() {
       setStatus('ready')
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Staff Chat could not be loaded.')
-      setStatus('ready')
+      if (requestId === loadRequestIdRef.current) {
+        setErrorMessage(error.message || 'Staff Chat could not be loaded.')
+        setStatus('ready')
+      }
     }
   }, [activeType, canOpenStaffChat, requestedConversationId, requestedType, user])
 
@@ -178,6 +194,18 @@ export function StaffChatPage() {
   }, [conversations, requestedConversationId, requestedType])
 
   useEffect(() => {
+    loadRequestIdRef.current += 1
+    setConversations([])
+    setMessages([])
+    setStaff([])
+    setTeams([])
+    setSelectedConversationId('')
+    setSelectedMembers([])
+    setSelectedTeamId('')
+    setDraftMessage('')
+  }, [user?.activeTeamId, user?.clubId, user?.id])
+
+  useEffect(() => {
     void loadStaffChat()
   }, [loadStaffChat])
 
@@ -190,11 +218,6 @@ export function StaffChatPage() {
     setSelectedConversationId('')
     setActiveType(availableConversationTabs[0]?.key ?? 'team_staff')
   }, [activeType, availableConversationTabs])
-
-  useEffect(() => {
-    setMessages([])
-    setSelectedConversationId('')
-  }, [user?.activeTeamId, user?.clubId, user?.id])
 
   useEffect(() => {
     const nextConversation = conversations.find((conversation) => conversation.type === activeType)

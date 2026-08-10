@@ -288,7 +288,16 @@ export function canManageParentLinks(user) {
 }
 
 export function canManagePolls(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isPortalOnlyUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+  if (!user?.clubId || isSuperAdmin(user) || isPortalOnlyUser(user) || !isPlanAccessActive(user)) {
+    return false
+  }
+
+  if (isClubAdmin(user)) {
+    return true
+  }
+
+  return Boolean(user.activeTeamId)
+    && ['head_manager', 'manager', 'coach', 'assistant_coach'].includes(user.role)
 }
 
 export function canUseStaffChat(user) {

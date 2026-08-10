@@ -127,10 +127,11 @@ export function ParentChatWorkspace({
     rooms: rooms.filter((room) => room.type === group.key),
   })), [rooms])
   const chatScope = useMemo(() => ({
+    activeTeamId: variant === 'staff' ? user?.activeTeamId : '',
     childOnly,
     parentLinkId,
     variant,
-  }), [childOnly, parentLinkId, variant])
+  }), [childOnly, parentLinkId, user?.activeTeamId, variant])
 
   const loadRooms = useCallback(async ({ keepError = false } = {}) => {
     const requestId = roomRequestIdRef.current + 1

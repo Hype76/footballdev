@@ -34,5 +34,6 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.ok(topLevelFunctions.includes('manage-workspace-team-transfer'))
   assert.ok(topLevelFunctions.includes('create-workspace-checkout-session'))
   assert.ok(topLevelFunctions.includes('process-billing-access-reminders'))
-  assert.equal(topLevelFunctions.length, 69)
+  assert.ok(topLevelFunctions.includes('process-chat-mobile-notifications'))
+  assert.equal(topLevelFunctions.length, 70)
 })
