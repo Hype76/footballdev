@@ -17,6 +17,7 @@ const authorisedParentProductionReferences = new Set([
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
+const submissionBuildId = (process.env.MOBILE_SUBMISSION_BUILD_ID || '').trim()
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -33,12 +34,22 @@ if (!allowedProfiles.has(profile)) {
   process.exit(1)
 }
 
-if (profile === 'store-live'
-  && (appRole !== 'parent'
-    || platform !== 'ios'
-    || !authorisedParentProductionReferences.has(promotionReference))) {
-  console.error('Production Parent iOS submission not authorised for this reference.')
+const authorisedProductionSubmission = appRole === 'parent' && (
+  promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
+  || (platform === 'ios' && authorisedParentProductionReferences.has(promotionReference))
+)
+
+if (profile === 'store-live' && !authorisedProductionSubmission) {
+  console.error(platform === 'ios'
+    ? 'Production Parent iOS submission not authorised for this reference.'
+    : 'Production Parent Android submission not authorised for this reference.')
   console.error('Reason: production_build_not_authorised')
+  process.exit(1)
+}
+
+if (profile === 'store-live' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionBuildId)) {
+  console.error('Production Parent store submission requires the exact completed EAS build ID in MOBILE_SUBMISSION_BUILD_ID.')
+  console.error('Reason: production_submission_build_id_required')
   process.exit(1)
 }
 
@@ -59,7 +70,13 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 })
 
 console.log(`Release gate passed. Starting EAS submit for ${app.expectedName} ${profile} ${platform}.`)
-execFileSync('npx', ['eas-cli', 'submit', '--profile', profile, '--platform', platform], {
+const submitArgs = ['eas-cli', 'submit', '--profile', profile, '--platform', platform]
+if (profile === 'store-live') {
+  submitArgs.push('--id', submissionBuildId)
+  if (platform === 'ios') submitArgs.push('--groups', 'Internal Testers')
+  submitArgs.push('--non-interactive', '--no-wait')
+}
+execFileSync('npx', submitArgs, {
   cwd: resolve(repoRoot, app.path),
   env: {
     ...process.env,
