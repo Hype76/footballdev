@@ -271,7 +271,8 @@ test('staff live controls keep timer feedback while Pause stays in Game Mode', (
   assert.match(source, /if \(action === 'resume'\)/)
   assert.match(source, /onStatusChange\(match, 'half_time'\)/)
   assert.match(source, /onStatusChange\(match, normalTimeCompletionAction\)/)
-  assert.match(source, /Live sync retrying/)
+  assert.match(source, /Live sync needs attention/)
+  assert.match(source, /Retry live data/)
   assert.match(statusHandlerSource, /setPendingStatusAction/)
   assert.match(source, /const handleConfirmStartMatch = async \(\) => \{[\s\S]*saveTimerAction: startMatchDay/)
   assert.doesNotMatch(statusHandlerSource, /await saveMatchStatus\(match, 'live'\)/)
@@ -489,7 +490,7 @@ test('post-game Manage detail keeps admin facts and the persisted timeline avail
   assert.match(matchCardSource, /<MatchTimelinePanel[\s\S]*events=\{events\}[\s\S]*onCorrectGoal=\{onCorrectGoal\}[\s\S]*onUndoEvent=\{onUndoEvent\}/)
 })
 
-test('staff goal logging closes the expanded mobile panel after successful save only', () => {
+test('staff goal logging keeps the selected mobile workspace open after successful save', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
@@ -502,9 +503,9 @@ test('staff goal logging closes the expanded mobile panel after successful save 
 
   assert.match(goalHandlerSource, /await addStaffMatchDayGoal\(\{ user, match, goal \}\)/)
   assert.match(goalHandlerSource, /setGoalForms\(\(currentForms\) => \(\{/)
-  assert.match(goalHandlerSource, /setExpandedMatchId\(\(currentId\) => \(currentId === match\.id \? '' : currentId\)\)/)
+  assert.doesNotMatch(goalHandlerSource, /setExpandedMatchId/)
+  assert.match(goalHandlerSource, /await refreshMatchDayDetailAfterMutation\(\{/)
   assert.match(goalHandlerSource, /Goal added\./)
-  assert.doesNotMatch(goalHandlerSource.slice(goalHandlerSource.indexOf('catch (error)')), /setExpandedMatchId/)
 })
 
 test('parent live score polling and scorer-only Game Mode remain in the parent portal', () => {

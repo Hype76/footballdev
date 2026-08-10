@@ -197,6 +197,10 @@ async function runJourney(browser, name, options) {
     assert.deepEqual(actionKeys, ['goal', 'yellow_card', 'red_card', 'substitution'])
 
     await saveGoal(page)
+    await page.getByTestId('game-day-selected-workspace').waitFor({ state: 'visible' })
+    await page.getByTestId('game-day-live-actions').waitFor({ state: 'visible' })
+    assert.match(await page.getByTestId('game-day-match-controls').innerText(), /1\s*-\s*0/)
+    assert.equal(await page.locator('[data-match-day-experience="demo"]').isVisible(), true)
     await saveEvent(page, 'yellow_card')
     await saveEvent(page, 'red_card')
     await saveEvent(page, 'substitution')

@@ -79,7 +79,11 @@ import {
   reconcileMatchDayGoalCorrectionInList,
   reconcileMatchDayGoalInList,
 } from '../lib/matchday-goal-state.js'
-import { reconcileCreatedMatchDayInList, reconcileMatchDayUpdateInList } from '../lib/matchday-update-state.js'
+import {
+  reconcileCreatedMatchDayInList,
+  reconcileMatchDayUpdateInList,
+  replaceMatchDayDetailInList,
+} from '../lib/matchday-update-state.js'
 import {
   getMatchDayEventSaveErrorMessage,
   MATCH_DAY_EVENT_MINUTE_VALIDATION_MESSAGE,
@@ -2601,6 +2605,63 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     }
   }
 
+  const refreshMatchDayDetailAfterMutation = async ({
+    matchId,
+    reconcile,
+    refreshErrorMessage = 'The change was saved, but the latest Match Day data could not be refreshed. Retry live data before making another change.',
+  }) => {
+    if (typeof reconcile === 'function') {
+      setMatches(reconcile)
+    }
+
+    setLiveRefreshStatus('refreshing')
+
+    try {
+      const refreshedMatch = await withRequestTimeout(
+        () => getMatchDay({
+          user,
+          matchDayId: matchId,
+          includeScorerEligibility: true,
+          accessToken: session?.access_token,
+        }),
+        refreshErrorMessage,
+      )
+
+      setMatches((currentMatches) => replaceMatchDayDetailInList(currentMatches, {
+        match: refreshedMatch,
+        matchId,
+      }))
+      setLiveRefreshStatus('ok')
+
+      return { refreshedMatch, warning: '' }
+    } catch (refreshError) {
+      console.error(refreshError)
+      const warning = refreshError.message || refreshErrorMessage
+      setLiveRefreshStatus('warning')
+      setErrorMessage(warning)
+
+      return { refreshedMatch: null, warning }
+    }
+  }
+
+  const retryMatchDayLiveDetail = async (match) => {
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+
+    try {
+      const { refreshedMatch } = await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        refreshErrorMessage: 'Live Match Day data could not be refreshed. The last confirmed state remains visible. Retry when the connection is available.',
+      })
+
+      if (refreshedMatch) {
+        showToast({ title: 'Live data refreshed', message: 'The latest score, timeline, and Match state are showing.' })
+      }
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
   const handleMatchToggle = async (match) => {
     if (expandedMatchId === match.id) {
       const nextParams = new URLSearchParams(searchParams)
@@ -2970,15 +3031,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       matchId: match.id,
     })
 
-    setMatches(reconcileSavedMatch)
-    try {
-      await loadData()
-      setMatches(reconcileSavedMatch)
-    } catch (loadError) {
-      console.error(loadError)
-      setMatches(reconcileSavedMatch)
-      setErrorMessage(loadError.message || loadErrorMessage)
-    }
+    await refreshMatchDayDetailAfterMutation({
+      matchId: match.id,
+      reconcile: reconcileSavedMatch,
+      refreshErrorMessage: loadErrorMessage,
+    })
   }
 
   const persistTimerAction = async (match, action, {
@@ -3271,7 +3328,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
     try {
       await recordMatchDayShootoutKick({ user, match, kick })
-      await loadData()
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        refreshErrorMessage: 'The shootout kick was saved, but the latest Match Day data could not be refreshed. Retry live data before recording another kick.',
+      })
       setMatchActionStatus({
         key: `${match.id}:shootout`,
         tone: 'success',
@@ -3293,7 +3353,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     setErrorMessage('')
     try {
       await voidMatchDayShootoutKick({ user, match, kickId })
-      await loadData()
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        refreshErrorMessage: 'The shootout correction was saved, but the latest Match Day data could not be refreshed. Retry live data before making another correction.',
+      })
       showToast({ title: 'Shootout corrected', message: 'The latest shootout kick was voided and the shootout score was recalculated.' })
     } catch (error) {
       console.error(error)
@@ -3329,15 +3392,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         matchId: match.id,
       })
 
-      setMatches(reconcileSavedMatch)
-      try {
-        await loadData()
-        setMatches(reconcileSavedMatch)
-      } catch (loadError) {
-        console.error(loadError)
-        setMatches(reconcileSavedMatch)
-        setErrorMessage(loadError.message || 'Score was saved, but Match Day could not be refreshed. Refresh the page before making another score change.')
-      }
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        reconcile: reconcileSavedMatch,
+        refreshErrorMessage: 'Score was saved, but Match Day could not be refreshed. Retry live data before making another score change.',
+      })
       setMatchActionStatus({
         key: `${match.id}:score`,
         tone: 'success',
@@ -3408,25 +3467,23 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         volunteer,
       })
 
-      setMatches(reconcileSavedSelection)
-
       setVolunteerSelectionStatus({
         key: actionKey,
         tone: 'success',
         message: selected ? `${roleLabel} selected.` : `${roleLabel} deselected.`,
       })
 
-      try {
-        await loadData()
-        setMatches(reconcileSavedSelection)
-      } catch (refreshError) {
-        console.error(refreshError)
-        refreshWarning = 'Volunteer selection was saved, but Match Day could not be refreshed. Refresh the page before making another role change.'
-        setErrorMessage(refreshWarning)
+      const refreshResult = await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        reconcile: reconcileSavedSelection,
+        refreshErrorMessage: 'Volunteer selection was saved, but Match Day could not be refreshed. Retry live data before making another role change.',
+      })
+      refreshWarning = refreshResult.warning
+      if (refreshWarning) {
         setVolunteerSelectionStatus({
           key: actionKey,
           tone: 'warning',
-          message: 'Saved. Refresh the page before making another role change.',
+          message: 'Saved. Retry live data before making another role change.',
         })
       }
       showToast({
@@ -3490,9 +3547,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         }
       })
 
-      setMatches(reconcileSavedDecision)
-      await loadData()
-      setMatches(reconcileSavedDecision)
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        reconcile: reconcileSavedDecision,
+        refreshErrorMessage: 'The squad decision was saved, but Match Day could not be refreshed. Retry live data before making another squad change.',
+      })
       setMatchActionStatus({
         key: `${match.id}:squad:${player.playerId}`,
         tone: 'success',
@@ -3770,15 +3829,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         [match.id]: EMPTY_GOAL_FORM,
       }))
       setLiveEntryModal(null)
-      setExpandedMatchId((currentId) => (currentId === match.id ? '' : currentId))
-      try {
-        await loadData()
-        setMatches(reconcileSavedGoal)
-      } catch (loadError) {
-        console.error(loadError)
-        setMatches(reconcileSavedGoal)
-        setErrorMessage(loadError.message || 'Goal was added, but the latest Match Day data could not be refreshed.')
-      }
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        refreshErrorMessage: 'Goal was added, but the latest Match Day data could not be refreshed. The updated score and timeline remain visible. Retry live data before recording another event.',
+      })
       setMatchActionStatus({
         key: `${match.id}:goal`,
         tone: 'success',
@@ -3890,15 +3944,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         user,
       })
 
-      setMatches(reconcileCorrectedGoal)
-      try {
-        await loadData()
-        setMatches(reconcileCorrectedGoal)
-      } catch (loadError) {
-        console.error(loadError)
-        setMatches(reconcileCorrectedGoal)
-        setErrorMessage(loadError.message || 'Goal was corrected, but the latest Match Day data could not be refreshed.')
-      }
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        reconcile: reconcileCorrectedGoal,
+        refreshErrorMessage: 'Goal was corrected, but the latest Match Day data could not be refreshed. The corrected score and timeline remain visible. Retry live data before making another change.',
+      })
       setMatchActionStatus({
         key: `${match.id}:goal-correction`,
         tone: 'success',
@@ -3985,15 +4035,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         user,
       })
 
-      setMatches(reconcileVoidedEvent)
-      try {
-        await loadData()
-        setMatches(reconcileVoidedEvent)
-      } catch (loadError) {
-        console.error(loadError)
-        setMatches(reconcileVoidedEvent)
-        setErrorMessage('The event was voided, but the latest Match Day data could not be refreshed. Refresh before making another timeline change.')
-      }
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        reconcile: reconcileVoidedEvent,
+        refreshErrorMessage: 'The event was voided, but the latest Match Day data could not be refreshed. The corrected score and timeline remain visible. Retry live data before making another timeline change.',
+      })
       setMatchActionStatus({
         key: `${match.id}:event-void`,
         tone: 'success',
@@ -4103,20 +4149,16 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         user,
       })
 
-      setMatches(reconcileSavedEvent)
       setMatchEventForms((currentForms) => ({
         ...currentForms,
         [match.id]: EMPTY_MATCH_EVENT_FORM,
       }))
       setLiveEntryModal(null)
-      try {
-        await loadData()
-        setMatches(reconcileSavedEvent)
-      } catch (loadError) {
-        console.error(loadError)
-        setMatches(reconcileSavedEvent)
-        setErrorMessage(loadError.message || 'Match event was added, but the latest Match Day data could not be refreshed.')
-      }
+      await refreshMatchDayDetailAfterMutation({
+        matchId: match.id,
+        reconcile: reconcileSavedEvent,
+        refreshErrorMessage: 'The Match event was added, but the latest Match Day data could not be refreshed. The updated timeline remains visible. Retry live data before recording another event.',
+      })
       setMatchActionStatus({
         key: `${match.id}:event`,
         tone: 'success',
@@ -4377,6 +4419,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         }}
         onOpenEventModal={(selectedMatch, eventType) => openLiveEntryModal(selectedMatch, 'event', eventType)}
         onOpenGoalModal={(selectedMatch) => openLiveEntryModal(selectedMatch, 'goal')}
+        onRetryLiveRefresh={retryMatchDayLiveDetail}
         onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
           ...currentDrafts,
           [match.id]: {
@@ -4976,6 +5019,7 @@ function MatchDayCard({
   onManageInvitedPlayers,
   onOpenEventModal,
   onOpenGoalModal,
+  onRetryLiveRefresh,
   onShootoutKick,
   onVoidShootoutKick,
   onScoreDraftChange,
@@ -5022,7 +5066,11 @@ function MatchDayCard({
   const isFinalReportAvailable = match.status === 'full_time'
   const isAtFullTime = isMatchDayAtFullTime(match)
   const isConcluded = isMatchDayConcluded(match)
-  const liveSyncLabel = liveRefreshStatus === 'warning' ? 'Live sync retrying' : 'Live sync on'
+  const liveSyncLabel = liveRefreshStatus === 'warning'
+    ? 'Live sync needs attention'
+    : liveRefreshStatus === 'refreshing'
+      ? 'Live sync refreshing'
+      : 'Live sync on'
   const manageStatusActions = (() => {
     if (match.status === 'live' && match.currentMatchPhase === 'first_half') {
       return [{ action: 'half_time', label: 'Half time' }]
@@ -5096,15 +5144,29 @@ function MatchDayCard({
             {formatMatchDate(match)}
             {locationSummary.venueName ? ` at ${locationSummary.venueName}` : ''}
           </p>
-          {isLiveConsole ? (
-            <p className={`mt-3 w-fit rounded-lg border px-3 py-2 text-xs font-black ${
-              liveRefreshStatus === 'warning'
-                ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
-                : 'border-[#bbf7d0] bg-white text-[#047857]'
-            }`}
-            >
-              {liveSyncLabel}
-            </p>
+          {isLiveConsole || liveRefreshStatus === 'warning' || liveRefreshStatus === 'refreshing' ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <p className={`w-fit rounded-lg border px-3 py-2 text-xs font-black ${
+                liveRefreshStatus === 'warning'
+                  ? 'border-[#fedf89] bg-[#fffaeb] text-[#92400e]'
+                  : liveRefreshStatus === 'refreshing'
+                    ? 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]'
+                    : 'border-[#bbf7d0] bg-white text-[#047857]'
+              }`}
+              >
+                {liveSyncLabel}
+              </p>
+              {liveRefreshStatus === 'warning' ? (
+                <button
+                  type="button"
+                  onClick={() => void onRetryLiveRefresh(match)}
+                  disabled={isBusy}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#fedf89] bg-white px-3 py-2 text-xs font-black text-[#92400e] transition hover:bg-[#fffaeb] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Retry live data
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
 

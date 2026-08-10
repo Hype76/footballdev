@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const [migration, installationApi, parentPush, matchDayPush, developmentApi] = await Promise.all([
+const [migration, installationApi, parentPush, matchDayPush, matchDayCopy, developmentApi] = await Promise.all([
   readFile(new URL('../supabase/migrations/20260809090000_parent_mobile_push_installations.sql', import.meta.url), 'utf8'),
   readFile(new URL('../netlify/functions/parent-mobile-push-installation.js', import.meta.url), 'utf8'),
   readFile(new URL('../netlify/functions/send-parent-mobile-push.js', import.meta.url), 'utf8'),
   readFile(new URL('../netlify/functions/send-match-day-push.js', import.meta.url), 'utf8'),
+  readFile(new URL('../netlify/functions/lib/_match-day-notification-copy.js', import.meta.url), 'utf8'),
   readFile(new URL('../netlify/functions/parent-development-history.js', import.meta.url), 'utf8'),
 ])
 
@@ -47,8 +48,13 @@ test('native Parent send paths use server-owned audience and privacy-safe prefer
   assert.match(parentPush, /Your club has shared a new Parent message\./)
   assert.match(parentPush, /You have a new update in Football Player Parents\./)
   assert.match(parentPush, /A Parent poll is ready to view\./)
-  assert.match(matchDayPush, /Your team has a new Matchday update\./)
-  assert.match(matchDayPush, /Matchday information has been updated\./)
+  assert.match(matchDayPush, /buildParentMatchDayNotificationCopy/)
+  assert.match(matchDayPush, /\.neq\('detail_level', 'off'\)/)
+  assert.match(matchDayPush, /route: 'matchday'/)
+  assert.match(matchDayCopy, /minimalBody/)
+  assert.match(matchDayCopy, /detailedBody/)
+  assert.match(matchDayCopy, /Score correction/)
+  assert.doesNotMatch(matchDayPush, /Your team has a new Matchday update\./)
 })
 
 test('production Development handler reuses the same authority for mobile GET downloads', () => {

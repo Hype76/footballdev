@@ -3,7 +3,7 @@ import webpush from 'web-push'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
-import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../src/lib/matchday-display.js'
+import { buildParentMatchDayNotificationCopy } from './lib/_match-day-notification-copy.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 
 function jsonResponse(statusCode, payload) {
@@ -136,112 +136,6 @@ function configureWebPush() {
   return true
 }
 
-function getTeamName(match) {
-  const team = Array.isArray(match.teams) ? match.teams[0] : match.teams
-  return normalizeText(team?.name) || 'Our team'
-}
-
-function buildPayload({ match, type, event }) {
-  const teamName = getTeamName(match)
-  const matchName = getMatchDayDisplayName({ ...match, teamName })
-  const scoreLine = `${matchName}: ${getMatchDayDisplayScore(match)}`
-  const eventScorer = normalizeText(event?.scorer_initials || event?.scorer_name)
-  const isOpponentGoal = normalizeText(event?.team_side) === 'opponent'
-  const minute = event?.minute !== null && event?.minute !== undefined ? `${event.minute}' ` : ''
-
-  if (type === 'live') {
-    return {
-      title: 'Match started',
-      body: scoreLine,
-      tag: `match-day-${match.id}-live`,
-    }
-  }
-
-  if (type === 'goal') {
-    return {
-      title: isOpponentGoal ? 'Goal update' : 'Goal!',
-      body: isOpponentGoal ? `${minute}${scoreLine}` : `${minute}${eventScorer || teamName} ${scoreLine}`,
-      tag: `match-day-${match.id}-goal-${event?.id || Date.now()}`,
-      renotify: true,
-    }
-  }
-
-  if (type === 'score_correction') {
-    return {
-      title: 'Score corrected',
-      body: scoreLine,
-      tag: `match-day-${match.id}-score-correction-${event?.id || Date.now()}`,
-      renotify: true,
-    }
-  }
-
-  if (type === 'half_time') {
-    return {
-      title: 'Half time',
-      body: scoreLine,
-      tag: `match-day-${match.id}-half-time`,
-    }
-  }
-
-  if (type === 'second_half') {
-    return {
-      title: 'Second half started',
-      body: scoreLine,
-      tag: `match-day-${match.id}-second-half`,
-    }
-  }
-
-  if (type === 'extra_time') {
-    return {
-      title: 'Extra time',
-      body: scoreLine,
-      tag: `match-day-${match.id}-extra-time`,
-      renotify: true,
-    }
-  }
-
-  if (type === 'penalties') {
-    return {
-      title: 'Penalties',
-      body: scoreLine,
-      tag: `match-day-${match.id}-penalties`,
-      renotify: true,
-    }
-  }
-
-  if (type === 'full_time') {
-    return {
-      title: 'Full time',
-      body: scoreLine,
-      tag: `match-day-${match.id}-full-time`,
-      renotify: true,
-    }
-  }
-
-  if (type === 'scorer_selected') {
-    return {
-      title: 'You are the Match Day scorer',
-      body: matchName,
-      tag: `match-day-${match.id}-scorer-selected`,
-      renotify: true,
-    }
-  }
-
-  if (type === 'scorer_request') {
-    return {
-      title: 'Scorer needed',
-      body: matchName,
-      tag: `match-day-${match.id}-scorer-request`,
-    }
-  }
-
-  return {
-    title: 'Match Day update',
-    body: scoreLine,
-    tag: `match-day-${match.id}-update`,
-  }
-}
-
 async function getSubscriptions({ match, targetParentLinkIds }) {
   if (targetParentLinkIds.length === 0) {
     return []
@@ -279,6 +173,7 @@ async function getMobileDevices({ match, targetParentLinkIds }) {
     .eq('club_id', match.club_id)
     .eq('status', 'active')
     .eq('enabled', true)
+    .neq('detail_level', 'off')
 
   if (match.team_id) {
     query = query.eq('team_id', match.team_id)
@@ -471,9 +366,13 @@ export async function handler(event) {
       match,
       targetParentLinkIds,
     })
+    const notificationCopy = buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
     const payload = {
-      ...buildPayload({ match, type, event: eventRow }),
-      url: '/parent-portal',
+      body: notificationCopy.detailedBody,
+      renotify: notificationCopy.renotify,
+      tag: notificationCopy.tag,
+      title: notificationCopy.title,
+      url: `/parent-portal?section=matches&matchDayId=${encodeURIComponent(match.id)}`,
       icon: '/icons/icon-192.png',
       badge: '/icons/favicon-48.png',
     }
@@ -483,13 +382,13 @@ export async function handler(event) {
     const sent = results.filter((result) => result.sent).length
     const revoked = results.filter((result) => result.revoked).length
     const nativePayload = {
-      title: 'Football Player Parents',
-      detailedBody: 'Your team has a new Matchday update.',
-      minimalBody: 'Matchday information has been updated.',
+      title: notificationCopy.title,
+      detailedBody: notificationCopy.detailedBody,
+      minimalBody: notificationCopy.minimalBody,
       type,
       data: {
         app: 'parent',
-        route: 'parent-portal',
+        route: 'matchday',
         matchDayId: match.id,
         type,
       },

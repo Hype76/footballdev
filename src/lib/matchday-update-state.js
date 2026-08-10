@@ -45,6 +45,22 @@ export function reconcileMatchDayUpdateInList(matches, {
   ))
 }
 
+export function replaceMatchDayDetailInList(matches, {
+  match,
+  matchId,
+} = {}) {
+  const currentMatches = matches || []
+  const targetId = String(matchId || match?.id || '')
+
+  if (!targetId || !match) {
+    return currentMatches
+  }
+
+  return currentMatches.map((currentMatch) => (
+    String(currentMatch.id) === targetId ? match : currentMatch
+  ))
+}
+
 export function reconcileCreatedMatchDayInList(matches, {
   match,
 } = {}) {

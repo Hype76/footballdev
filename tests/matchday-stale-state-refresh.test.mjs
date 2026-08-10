@@ -17,6 +17,7 @@ import {
   reconcileCreatedMatchDayInList,
   reconcileMatchDayUpdate,
   reconcileMatchDayUpdateInList,
+  replaceMatchDayDetailInList,
 } from '../src/lib/matchday-update-state.js'
 
 function createMatch() {
@@ -196,7 +197,7 @@ test('Match Day volunteer selection uses app modal and local reconciliation inst
   assert.match(source, /<ConfirmModal[\s\S]*onConfirm=\{handleVolunteerSelection\}/)
   assert.match(promptSource, /setVolunteerSelectionPrompt\(/)
   assert.match(handlerSource, /reconcileMatchDayVolunteerSelectionInList/)
-  assert.match(handlerSource, /setMatches\(reconcileSavedSelection\)[\s\S]*await loadData\(\)[\s\S]*setMatches\(reconcileSavedSelection\)/)
+  assert.match(handlerSource, /await refreshMatchDayDetailAfterMutation\(\{[\s\S]*matchId: match\.id,[\s\S]*reconcile: reconcileSavedSelection/)
   assert.match(handlerSource, /setVolunteerSelectionStatus\(/)
   assert.match(handlerSource, /showToast\(\{ title: `\$\{roleLabel\} not updated`/)
   assert.doesNotMatch(handlerSource, /confirmMatchDayAction|window\.confirm/)
@@ -409,7 +410,7 @@ test('staff goal void reconciliation keeps history and prevents duplicate match 
   assert.equal(nextMatch.eventLog[0].metadata.correctionAction, 'voided')
 })
 
-test('staff add goal handler locally reconciles before and after canonical load without changing push send', () => {
+test('staff add goal handler locally reconciles before authoritative detail refresh without changing push send', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
   const handlerStart = source.indexOf('const handleAddGoal = async (event, match) => {')
   const handlerEnd = source.indexOf('const openGoalCorrectionModal =', handlerStart)
@@ -421,8 +422,8 @@ test('staff add goal handler locally reconciles before and after canonical load 
   assert.match(handlerSource, /const reconcileSavedGoal = \(currentMatches\) => reconcileMatchDayGoalInList/)
   assert.match(handlerSource, /setMatches\(reconcileSavedGoal\)[\s\S]*void sendMatchDayPushNotification/)
   assert.match(handlerSource, /eventId: savedEvent\.id/)
-  assert.match(handlerSource, /await loadData\(\)[\s\S]*setMatches\(reconcileSavedGoal\)/)
-  assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileSavedGoal\)[\s\S]*Goal was added, but the latest Match Day data could not be refreshed\./)
+  assert.match(handlerSource, /await refreshMatchDayDetailAfterMutation\(\{[\s\S]*matchId: match\.id,[\s\S]*Goal was added, but the latest Match Day data could not be refreshed\./)
+  assert.doesNotMatch(handlerSource, /await loadData\(\)/)
   assert.doesNotMatch(handlerSource, /sendEmail|scheduled_email_queue|match_day_availability|transport/i)
 })
 
@@ -473,6 +474,33 @@ test('match update reconciliation preserves relation arrays when a partial saved
   assert.deepEqual(nextMatch.availabilityRequests, [{ id: 'request-1' }])
   assert.deepEqual(nextMatch.eventLog, [{ id: 'log-1' }])
   assert.deepEqual(nextMatch.events, [{ id: 'event-1' }])
+})
+
+test('authoritative Match detail replacement updates only the requested row', () => {
+  const originalMatch = {
+    id: 'match-1',
+    status: 'live',
+    homeScore: 1,
+    events: [{ id: 'local-event' }],
+  }
+  const untouchedMatch = { id: 'match-2', status: 'scheduled' }
+  const refreshedMatch = {
+    id: 'match-1',
+    status: 'live',
+    homeScore: 2,
+    events: [{ id: 'server-event' }],
+    isHydrated: true,
+  }
+
+  const result = replaceMatchDayDetailInList([originalMatch, untouchedMatch], {
+    match: refreshedMatch,
+    matchId: 'match-1',
+  })
+
+  assert.equal(result[0], refreshedMatch)
+  assert.equal(result[1], untouchedMatch)
+  assert.equal(result[0].homeScore, 2)
+  assert.deepEqual(result[0].events, [{ id: 'server-event' }])
 })
 
 test('created fixture reconciliation inserts the saved match immediately', () => {
@@ -537,7 +565,7 @@ test('staff fixture creation handler reconciles locally around canonical load wi
   assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileCreatedMatch\)[\s\S]*Fixture was saved, but Match Day could not be refreshed\./)
 })
 
-test('staff status handler reconciles saved status before and after canonical load without changing push send', () => {
+test('staff status handler reconciles saved status before authoritative detail refresh without changing push send', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
   const handlerStart = source.indexOf('const reconcileSavedTimerMatch = async')
   const handlerEnd = source.indexOf('const performScoreSave = async', handlerStart)
@@ -548,14 +576,14 @@ test('staff status handler reconciles saved status before and after canonical lo
   assert.match(handlerSource, /const savedMatch = await saveTimerAction\(\{ user, match, action \}\)/)
   assert.match(handlerSource, /const savedMatch = await updateMatchDay\(\{ user, matchId: match\.id, updates: \{ status \} \}\)/)
   assert.match(handlerSource, /const reconcileSavedMatch = \(currentMatches\) => reconcileMatchDayUpdateInList/)
-  assert.match(handlerSource, /setMatches\(reconcileSavedMatch\)[\s\S]*void sendMatchDayPushNotification/)
+  assert.match(handlerSource, /reconcile: reconcileSavedMatch/)
   assert.match(handlerSource, /type: status/)
-  assert.match(handlerSource, /await loadData\(\)[\s\S]*setMatches\(reconcileSavedMatch\)/)
-  assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileSavedMatch\)[\s\S]*Match status was saved, but Match Day could not be refreshed\./)
+  assert.match(handlerSource, /await refreshMatchDayDetailAfterMutation\(\{[\s\S]*matchId: match\.id,[\s\S]*reconcile: reconcileSavedMatch/)
+  assert.doesNotMatch(handlerSource, /await loadData\(\)/)
   assert.doesNotMatch(handlerSource, /sendEmail|scheduled_email_queue|match_day_availability|transport/i)
 })
 
-test('staff manual score handler reconciles saved score before and after canonical load without sending push', () => {
+test('staff manual score handler reconciles saved score before authoritative detail refresh without sending push', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
   const handlerStart = source.indexOf('const performScoreSave = async (match) => {')
   const handlerEnd = source.indexOf('const openVolunteerSelectionPrompt =', handlerStart)
@@ -568,7 +596,7 @@ test('staff manual score handler reconciles saved score before and after canonic
   assert.match(handlerSource, /homeScore: draft\.homeScore/)
   assert.match(handlerSource, /awayScore: draft\.awayScore/)
   assert.match(handlerSource, /const reconcileSavedMatch = \(currentMatches\) => reconcileMatchDayUpdateInList/)
-  assert.match(handlerSource, /setMatches\(reconcileSavedMatch\)[\s\S]*await loadData\(\)[\s\S]*setMatches\(reconcileSavedMatch\)/)
-  assert.match(handlerSource, /catch \(loadError\)[\s\S]*setMatches\(reconcileSavedMatch\)[\s\S]*Score was saved, but Match Day could not be refreshed\./)
+  assert.match(handlerSource, /await refreshMatchDayDetailAfterMutation\(\{[\s\S]*matchId: match\.id,[\s\S]*reconcile: reconcileSavedMatch[\s\S]*Score was saved, but Match Day could not be refreshed\./)
+  assert.doesNotMatch(handlerSource, /await loadData\(\)/)
   assert.doesNotMatch(handlerSource, /sendMatchDayPushNotification|sendEmail|scheduled_email_queue|match_day_availability|transport/i)
 })
