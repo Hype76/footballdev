@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
@@ -20,6 +20,7 @@ import {
   sendCoachChatMessage,
   setCoachResourceSharing,
   setCoachPollStatus,
+  submitCoachPollVote,
 } from '../../mobile-core/src/coachPhase31EData'
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
@@ -125,7 +126,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
 
   useEffect(() => { void load() }, [load])
 
-  const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, setNotice, stale, styles, user }
+  const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       <View style={styles.panel}>
@@ -304,18 +305,82 @@ function MessagesDomain({ data, styles }) {
   )
 }
 
-function PollsDomain({ data, load, setNotice, stale, styles, user }) {
+function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, user }) {
   const [selectedId, setSelectedId] = useState(data[0]?.id || '')
+  const [allowMultiple, setAllowMultiple] = useState(true)
+  const [allowVoteChanges, setAllowVoteChanges] = useState(true)
+  const [anonymous, setAnonymous] = useState(false)
+  const [audience, setAudience] = useState('parents')
+  const [creating, setCreating] = useState(false)
+  const [description, setDescription] = useState('')
+  const [maxChoices, setMaxChoices] = useState('')
+  const [options, setOptions] = useState(['', ''])
+  const [title, setTitle] = useState('')
+  const [votingOptionId, setVotingOptionId] = useState('')
   const selected = data.find((poll) => poll.id === selectedId)
   const create = async () => {
-    try { await createCoachPoll(user, { title: `${config.isProduction ? 'Team' : 'FP TEST'} availability ${new Date().toISOString().slice(0, 10)}`, audience: 'staff', options: [{ label: 'Available' }, { label: 'Unavailable' }], anonymous: true }); setNotice(config.isProduction ? 'Team Poll created.' : 'Synthetic Poll created without external delivery.'); await load() } catch (error) { setNotice(error.message) }
+    const pollOptions = options.map((label, index) => ({ id: `option-${index + 1}`, label: label.trim() })).filter((option) => option.label)
+    if (!title.trim() || pollOptions.length < 2) {
+      setNotice('Add a Poll title and at least two options.')
+      return
+    }
+    setCreating(true)
+    try {
+      await createCoachPoll(user, {
+        allowMultiple,
+        allowVoteChanges,
+        anonymous,
+        audience,
+        description,
+        maxChoices: allowMultiple ? Number(maxChoices || 0) || null : null,
+        options: pollOptions,
+        title: title.trim(),
+      })
+      setTitle('')
+      setDescription('')
+      setOptions(['', ''])
+      setMaxChoices('')
+      await load()
+      setNotice('Poll created. No notification or message was sent automatically.')
+    } catch (error) { setNotice(error.message) }
+    finally { setCreating(false) }
   }
   const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice('Poll closed.'); await load() } catch (error) { setNotice(error.message) } } }])
   const reopen = async () => { try { await setCoachPollStatus(user, selected, 'open'); setNotice('Poll reopened.'); await load() } catch (error) { setNotice(error.message) } }
+  const vote = async (poll, optionId) => {
+    setVotingOptionId(`${poll.id}:${optionId}`)
+    try {
+      await submitCoachPollVote(user, poll, optionId)
+      await load()
+      setNotice('Your Poll response has been saved.')
+    } catch (error) { setNotice(error.message) }
+    finally { setVotingOptionId('') }
+  }
   return (
     <View style={styles.stack}>
-      {data.length ? data.map((poll) => <Pressable accessibilityRole="button" key={poll.id} onPress={() => setSelectedId(poll.id)} style={[styles.panel, poll.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{poll.title}</Text><Text style={styles.body}>{poll.audience} | {poll.status} | {poll.anonymous ? 'Anonymous' : 'Named responses'}</Text>{summarizeCoachPoll(poll).map((option) => <Text key={option.id} style={styles.body}>{option.label}: {option.count}</Text>)}</Pressable>) : <Empty copy="No Team or Club Polls are available." styles={styles} />}
-      <View style={styles.row}><Button disabled={stale || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Create availability Poll' : 'Create FP TEST Poll'} onPress={create} styles={styles} /><Button disabled={stale || !selected || selected.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close selected Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || !selected || selected.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen selected Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
+      <View style={styles.panel}>
+        <Text style={styles.heading}>Create Poll</Text>
+        <Text style={styles.body}>Create the exact question and options Parents or staff will answer. Creating a Poll does not send a notification automatically.</Text>
+        <Text style={styles.label}>Question</Text>
+        <TextInput accessibilityLabel="Poll question" onChangeText={setTitle} placeholder="Poll question" placeholderTextColor={placeholderColor} style={styles.input} value={title} />
+        <Text style={styles.label}>Description, optional</Text>
+        <TextInput accessibilityLabel="Poll description" multiline onChangeText={setDescription} placeholder="Helpful details" placeholderTextColor={placeholderColor} style={[styles.input, styles.inputMultiline]} value={description} />
+        <Text style={styles.label}>Audience</Text>
+        <View style={styles.row}><Button label="Parents" onPress={() => setAudience('parents')} secondary={audience !== 'parents'} styles={styles} /><Button label="Staff" onPress={() => setAudience('staff')} secondary={audience !== 'staff'} styles={styles} /></View>
+        <Text style={styles.label}>Options</Text>
+        {options.map((option, index) => <View key={index} style={styles.row}><TextInput accessibilityLabel={`Poll option ${index + 1}`} onChangeText={(value) => setOptions((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} placeholder={`Option ${index + 1}`} placeholderTextColor={placeholderColor} style={[styles.input, { flex: 1 }]} value={option} />{options.length > 2 ? <Button label="Remove" onPress={() => setOptions((current) => current.filter((_, itemIndex) => itemIndex !== index))} secondary styles={styles} /> : null}</View>)}
+        {options.length < 8 ? <Button label="Add option" onPress={() => setOptions((current) => [...current, ''])} secondary styles={styles} /> : null}
+        <View style={styles.row}><Text style={styles.label}>Allow more than one answer</Text><Switch accessibilityLabel="Allow more than one answer" onValueChange={setAllowMultiple} value={allowMultiple} /></View>
+        {allowMultiple ? <><Text style={styles.label}>Maximum choices, optional</Text><TextInput accessibilityLabel="Maximum Poll choices" keyboardType="number-pad" onChangeText={setMaxChoices} placeholder="Leave blank for unlimited" placeholderTextColor={placeholderColor} style={styles.input} value={maxChoices} /><Text style={styles.body}>{maxChoices ? `Parents can choose up to ${maxChoices} answers.` : 'Parents can choose any number of answers and tap again to remove one.'}</Text></> : null}
+        <View style={styles.row}><Text style={styles.label}>Allow answer changes</Text><Switch accessibilityLabel="Allow Poll answer changes" onValueChange={setAllowVoteChanges} value={allowVoteChanges} /></View>
+        <View style={styles.row}><Text style={styles.label}>Hide voter names</Text><Switch accessibilityLabel="Hide Poll voter names" onValueChange={setAnonymous} value={anonymous} /></View>
+        <Button disabled={stale || creating || Number(user.roleRank || 0) < 50 || !title.trim() || options.filter((option) => option.trim()).length < 2} label={creating ? 'Creating Poll...' : 'Create Poll'} onPress={() => void create()} styles={styles} />
+      </View>
+      {data.length ? data.map((poll) => {
+        const currentOptionIds = poll.currentOptionIds || []
+        return <Pressable accessibilityRole="button" key={poll.id} onPress={() => setSelectedId(poll.id)} style={[styles.panel, poll.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{poll.title}</Text><Text style={styles.body}>{poll.audience} | {poll.status} | {poll.anonymous ? 'Anonymous' : 'Named responses'} | {poll.allowMultiple ? poll.maxChoices ? `Up to ${poll.maxChoices}` : 'Unlimited choices' : 'One choice'}</Text>{summarizeCoachPoll(poll).map((option) => { const chosen = currentOptionIds.includes(option.id); const atLimit = poll.allowMultiple && Number(poll.maxChoices || 0) > 0 && currentOptionIds.length >= Number(poll.maxChoices) && !chosen; return <View key={option.id} style={styles.row}><Text style={styles.body}>{option.label}: {option.count}</Text>{poll.audience === 'staff' && poll.status === 'open' ? <Button disabled={stale || Boolean(votingOptionId) || atLimit || (currentOptionIds.length > 0 && poll.allowVoteChanges !== true)} label={votingOptionId === `${poll.id}:${option.id}` ? 'Saving...' : chosen ? 'Remove my answer' : 'Choose'} onPress={() => void vote(poll, option.id)} secondary={!chosen} styles={styles} /> : null}</View>})}</Pressable>
+      }) : <Empty copy="No Team or Club Polls are available." styles={styles} />}
+      <View style={styles.row}><Button disabled={stale || !selected || selected.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close selected Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || !selected || selected.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen selected Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
     </View>
   )
 }

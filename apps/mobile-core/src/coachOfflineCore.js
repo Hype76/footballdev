@@ -31,9 +31,34 @@ export function createCoachOfflineDocument({ userScope }) {
   return {
     cacheSchemaVersion: COACH_PHASE_31F_CACHE_SCHEMA_VERSION,
     contexts: {},
+    profile: null,
     updatedAt: '',
     userScope: scope,
   }
+}
+
+export function getCoachOfflineProfile(document, userScope) {
+  const expectedScope = normalize(userScope)
+  const profile = document?.profile?.value
+  if (!expectedScope || normalize(document?.userScope) !== expectedScope) return null
+  if (!profile || normalize(profile.id) !== expectedScope) return null
+  return profile
+}
+
+export function setCoachOfflineProfile(document, profile, now = new Date().toISOString()) {
+  const userScope = normalize(document?.userScope)
+  if (!userScope || normalize(profile?.id) !== userScope) throw new Error('offline_profile_scope_mismatch')
+  const next = {
+    ...document,
+    cacheSchemaVersion: COACH_PHASE_31F_CACHE_SCHEMA_VERSION,
+    profile: {
+      retrievedAt: now,
+      value: profile,
+    },
+    updatedAt: now,
+  }
+  if (getCoachCacheByteLength(next) > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('offline_cache_payload_too_large')
+  return next
 }
 
 export function getCoachOfflineResources(document, contextId) {

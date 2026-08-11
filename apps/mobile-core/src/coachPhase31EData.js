@@ -373,7 +373,7 @@ export async function getCoachPolls(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   const { data, error } = await supabase.from('polls').select('*,teams:team_id(name),poll_votes(*)').eq('club_id', user.clubId).or(`team_id.is.null,team_id.eq.${user.activeTeamId}`).order('created_at', { ascending: false })
   if (error) throw error
-  return (data || []).map(normalizeCoachPoll)
+  return (data || []).map((poll) => normalizeCoachPoll(poll, user.id))
 }
 
 export async function createCoachPoll(user, poll) {
@@ -395,6 +395,16 @@ export async function setCoachPollStatus(user, poll, status) {
   if (!poll?.id) throw new Error('Choose a Poll.')
   const data = await rpc('set_team_poll_status', { p_poll_id: poll.id, p_status: status === 'closed' ? 'closed' : 'open' })
   return normalizeCoachPoll(data)
+}
+
+export async function submitCoachPollVote(user, poll, optionId) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  assertTeamEntity(user, poll, 'Poll')
+  if (!poll?.id || poll.audience !== 'staff' || poll.status !== 'open') throw new Error('Choose an open staff Poll.')
+  const normalizedOptionId = normalize(optionId)
+  if (!poll.options.some((option) => option.id === normalizedOptionId)) throw new Error('Choose a Poll option.')
+  await rpc('submit_staff_poll_vote', { p_option_id: normalizedOptionId, p_poll_id: poll.id })
+  return true
 }
 
 export async function getCoachInvitesAndAvailability(user) {

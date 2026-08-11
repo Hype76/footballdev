@@ -266,7 +266,7 @@ export function normalizeCoachMessage(row = {}) {
   })
 }
 
-export function normalizeCoachPoll(row = {}) {
+export function normalizeCoachPoll(row = {}, currentUserId = '') {
   const team = relation(row.teams)
   const options = normalizeOptions(row.options)
   const votes = Array.isArray(row.poll_votes) ? row.poll_votes : Array.isArray(row.votes) ? row.votes : []
@@ -282,6 +282,7 @@ export function normalizeCoachPoll(row = {}) {
       optionId: normalize(vote.option_id ?? vote.optionId), voterName: anonymous ? '' : normalize(vote.voter_name ?? vote.voterName),
       voterEmail: anonymous ? '' : normalize(vote.voter_email ?? vote.voterEmail),
     }))),
+    currentOptionIds: Object.freeze(votes.filter((vote) => normalize(vote.auth_user_id ?? vote.authUserId) === normalize(currentUserId)).map((vote) => normalize(vote.option_id ?? vote.optionId)).filter(Boolean)),
     createdAt: normalize(row.created_at ?? row.createdAt),
   })
 }

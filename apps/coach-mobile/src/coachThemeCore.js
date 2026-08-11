@@ -9,11 +9,11 @@ const PALETTES = Object.freeze({
 const BASE = Object.freeze({
   dark: Object.freeze({
     background: '#030603', disabled: '#536457', overlay: 'rgba(0,0,0,0.72)', surface: '#0a160c', surfaceRaised: '#102415',
-    textPrimary: '#f2faef', textSecondary: '#a9b8a6', textMuted: '#78908a', border: '#1d3520', success: '#6ee7b7', warning: '#ffd166', danger: '#ff8b82',
+    textPrimary: '#f2faef', textSecondary: '#a9b8a6', textMuted: '#78908a', border: '#1d3520', pitchSurface: '#17653a', success: '#6ee7b7', warning: '#ffd166', danger: '#ff8b82',
   }),
   light: Object.freeze({
     background: '#f3f7f6', disabled: '#9aa8a4', overlay: 'rgba(19,37,34,0.46)', surface: '#ffffff', surfaceRaised: '#eaf1ee',
-    textPrimary: '#132522', textSecondary: '#536461', textMuted: '#6f817d', border: '#cbd8d5', success: '#047857', warning: '#8a5800', danger: '#b42318',
+    textPrimary: '#132522', textSecondary: '#536461', textMuted: '#6f817d', border: '#cbd8d5', pitchSurface: '#17653a', success: '#047857', warning: '#8a5800', danger: '#b42318',
   }),
 })
 

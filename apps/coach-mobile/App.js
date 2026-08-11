@@ -46,7 +46,7 @@ import { prepareCoachMobileStartup } from './src/startup'
 import { CoachCalendarScreen, CoachPlayersScreen, CoachSessionsScreen } from './src/CoachOperationalScreens'
 import { CoachMatchDayScreen } from './src/CoachMatchDayScreen'
 import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
-import { inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
+import { coachOfflineProfileStore, inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
 import {
   addCoachPushTokenListener,
   enableCoachNotifications,
@@ -1028,6 +1028,7 @@ export default function App() {
       <CoachRootErrorBoundary>
         <AuthProvider
           appRole="coach"
+          offlineProfileStore={coachOfflineProfileStore}
           onBeforeSignOut={clearCoachBeforeSignOut}
           onResetLocalData={clearCoachAllLocalState}
           prepareStartup={prepareCoachMobileStartup}

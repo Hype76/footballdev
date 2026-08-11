@@ -15,6 +15,7 @@ export const COACH_OFFLINE_READ_POLICIES = Object.freeze({
   matchDayList: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'operational', staleLabel: 'Offline Match list' }),
   matchDayDetail: Object.freeze({ cache: true, maxItems: 250, sensitivity: 'live-match', staleLabel: 'Stale Match state' }),
   matchDayPlayers: Object.freeze({ cache: true, maxItems: 300, sensitivity: 'child-data', staleLabel: 'Offline Match squad' }),
+  formation: Object.freeze({ cache: true, maxItems: 300, sensitivity: 'child-data', staleLabel: 'Offline Formation plan' }),
   development: Object.freeze({ cache: true, maxItems: 80, sensitivity: 'private-development', staleLabel: 'Offline Development history' }),
   resources: Object.freeze({ cache: true, maxItems: 150, sensitivity: 'authorised-resource-metadata', staleLabel: 'Offline Resource list' }),
   chat: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'private-communication', staleLabel: 'Offline Chat history' }),
