@@ -147,7 +147,9 @@ export function getCoachMatchDayPresentation(match, now = Date.now()) {
 
 export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false } = {}) {
   const roleRank = Number(context?.roleRank || 0)
-  const blockedReason = reconciling
+  const blockedReason = !match || typeof match !== 'object'
+    ? 'Select a fixture before using Match Day actions.'
+    : reconciling
     ? 'Reconciling the last Match Day action with the server.'
     : stale
     ? 'Reconnect and refresh before changing Match Day.'

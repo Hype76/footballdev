@@ -51,6 +51,10 @@ test('fixture filters separate live, upcoming, previous, and cancelled states', 
 })
 
 test('payment-required, stale, closed, and insufficient-role contexts fail closed', () => {
+  const empty = getCoachMatchDayActions({ context, match: null })
+  assert.match(empty.blockedReason, /Select a fixture/)
+  assert.equal(empty.canMutate, false)
+  assert.deepEqual(empty.timerActions, [])
   assert.match(getCoachMatchDayActions({ context: { ...context, paymentAccess: { canMutate: false } }, match: baseMatch }).blockedReason, /payment/)
   assert.match(getCoachMatchDayActions({ context, match: baseMatch, stale: true }).blockedReason, /Reconnect/)
   assert.match(getCoachMatchDayActions({ context, match: { ...baseMatch, concludedAt: '2026-08-09T14:00:00Z' } }).blockedReason, /closed/)
