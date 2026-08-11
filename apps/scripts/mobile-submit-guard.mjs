@@ -36,6 +36,7 @@ const authorisedProductionSubmission = (
   || (platform === 'ios' && appRole === 'coach' && [
     'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
     'FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35',
+    'FP-MOBILE-COACH-DEVICE-CORRECTIVE-40',
   ].includes(promotionReference))
 )
 

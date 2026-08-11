@@ -53,8 +53,12 @@ test('Parent Chat restore reopens only the authenticated room-list function', as
 })
 
 test('the corrective reference authorises only the existing guarded Coach production profiles', async () => {
-  const guard = await readFile(new URL('../apps/scripts/mobile-build-guard.mjs', import.meta.url), 'utf8')
-  assert.match(guard, /authorisedCoachProductionReferences[\s\S]+FP-MOBILE-COACH-DEVICE-CORRECTIVE-40/)
-  assert.match(guard, /'internal-live:android'/)
-  assert.match(guard, /'store-live:ios'/)
+  const [buildGuard, submitGuard] = await Promise.all([
+    readFile(new URL('../apps/scripts/mobile-build-guard.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/scripts/mobile-submit-guard.mjs', import.meta.url), 'utf8'),
+  ])
+  assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]+FP-MOBILE-COACH-DEVICE-CORRECTIVE-40/)
+  assert.match(buildGuard, /'internal-live:android'/)
+  assert.match(buildGuard, /'store-live:ios'/)
+  assert.match(submitGuard, /platform === 'ios' && appRole === 'coach'[\s\S]+FP-MOBILE-COACH-DEVICE-CORRECTIVE-40/)
 })
