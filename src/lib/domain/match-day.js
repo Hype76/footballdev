@@ -1988,11 +1988,13 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     { data: extendedData, error: extendedError },
     { data: confirmedTeamData, error: confirmedTeamError },
     { data: scorerGameModeData, error: scorerGameModeError },
+    { data: formationPlanData, error: formationPlanError },
   ] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: normalizedParentLinkId }),
+    supabase.rpc('get_parent_portal_match_formation_plans', { parent_link_id_value: normalizedParentLinkId }),
   ])
 
   if (error) {
@@ -2015,6 +2017,11 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     throw scorerGameModeError
   }
 
+  if (formationPlanError) {
+    console.error(formationPlanError)
+    throw formationPlanError
+  }
+
   const extendedByMatchId = new Map((extendedData ?? []).map((row) => [row.match_day_id ?? row.matchDayId, row]))
   const confirmedTeamByMatchId = new Map(
     (confirmedTeamData ?? []).map((row) => [
@@ -2025,6 +2032,17 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
   const scorerGameModeMatchIds = new Set(
     (scorerGameModeData ?? []).map((row) => String(row.match_day_id ?? row.matchDayId ?? '')),
   )
+  const formationPlanByMatchId = new Map((formationPlanData ?? []).map((row) => [String(row.match_day_id ?? row.matchDayId ?? ''), {
+    id: row.publication_id ?? row.publicationId ?? '',
+    publicationNumber: Number(row.publication_number ?? row.publicationNumber ?? 0),
+    title: normalizeText(row.board_title_snapshot ?? row.boardTitleSnapshot),
+    publishedAt: row.published_at ?? row.publishedAt ?? '',
+    gameFormat: normalizeText(row.game_format ?? row.gameFormat),
+    formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
+    pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+    placements: Array.isArray(row.placements) ? row.placements : [],
+    bench: Array.isArray(row.bench) ? row.bench : [],
+  }]))
 
   const matches = (data ?? []).map((row) => {
     const extended = extendedByMatchId.get(row.id) ?? {}
@@ -2034,13 +2052,16 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
       ...(contextByEventId.get(event.id) ?? {}),
     }))
 
-    return normalizeParentPortalMatchDay({
+    return {
+      ...normalizeParentPortalMatchDay({
       ...row,
       ...extended,
       is_scorer: scorerGameModeMatchIds.has(String(row.id)),
       selected_player_names: confirmedTeamByMatchId.get(row.id) ?? [],
       events,
-    })
+      }),
+      formationPlan: formationPlanByMatchId.get(String(row.id)) || null,
+    }
   })
 
   return attachMatchDayPresentationStates(matches)

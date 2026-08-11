@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
+import { FormationBoardPitch } from '../components/formation-board/FormationBoardPitch.jsx'
+import { FormationPlayerMarkerVisual } from '../components/formation-board/FormationPlayerMarkerVisual.jsx'
 import { DemoGameDayEntryCard } from '../components/match-day/DemoGameDayEntryCard.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import {
@@ -124,6 +126,11 @@ const EXTENDED_MATCH_ACTIONS = new Set([
 
 function formatMatchDate(match) {
   return formatFixtureDateTime(match)
+}
+
+function formatPublishedDateTime(value) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'recently' : date.toLocaleString('en-GB')
 }
 
 function formatParentEventDate(invite) {
@@ -3739,6 +3746,8 @@ function ParentMatchCard({
         </div>
       </div>
 
+      {match.formationPlan ? <ParentFormationPlan plan={match.formationPlan} /> : null}
+
       {responseRows.length > 0 ? (
         <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -4043,6 +4052,44 @@ function ParentMatchCard({
         </details>
       ) : null}
     </article>
+  )
+}
+
+function ParentFormationPlan({ plan }) {
+  return (
+    <details className={`${softPanelClass} mt-4`} data-testid="parent-match-formation-plan">
+      <summary className="cursor-pointer text-sm font-black text-[#101828]">Match plan: {plan.title || plan.formationPresetKey}</summary>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(12rem,1fr)] lg:items-start">
+        <FormationBoardPitch
+          canEdit={false}
+          hasPlacementSource={false}
+          onMove={() => {}}
+          onPitchPress={() => {}}
+          onRemove={() => {}}
+          onSelectMarker={() => {}}
+          placements={plan.placements}
+          selectedPlayerName=""
+          selectedMarkerId=""
+        />
+        <section aria-label="Match plan Bench" className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h5 className="text-sm font-black text-[#101828]">Bench</h5>
+            <span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-black text-[#047857]">{plan.bench.length}</span>
+          </div>
+          {plan.bench.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {plan.bench.map((player) => (
+                <li key={player.playerId} className="flex items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828]">
+                  <FormationPlayerMarkerVisual size="sm" shirtNumber={player.shirtNumber} />
+                  <span className="min-w-0 truncate">{player.displayName}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-3 text-sm font-semibold text-[#4b5f55]">No Players on the Bench.</p>}
+        </section>
+      </div>
+      <p className="mt-3 text-xs font-semibold text-[#4b5f55]">Published {formatPublishedDateTime(plan.publishedAt)}. Only the shared pitch and Bench are shown.</p>
+    </details>
   )
 }
 

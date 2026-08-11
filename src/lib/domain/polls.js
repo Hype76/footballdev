@@ -15,6 +15,24 @@ export const POLL_TYPE_OPTIONS = [
   { value: 'awards', label: 'Awards poll' },
 ]
 
+const POLL_ERROR_MESSAGES = Object.freeze({
+  parent_poll_vote_limit_reached: 'You have already selected the maximum number of choices.',
+  parent_poll_vote_locked: 'This Poll does not allow vote changes.',
+  poll_change_not_permitted: 'You do not have permission to change Polls for this Team.',
+  poll_definition_invalid: 'Check the Poll title, options, closing time, and choice limit, then try again.',
+  poll_request_conflict: 'This Poll request conflicts with an earlier save. Refresh and try again.',
+  poll_vote_limit_reached: 'You have already selected the maximum number of choices.',
+  poll_vote_locked: 'This Poll does not allow vote changes.',
+})
+
+function getPollError(error) {
+  const code = String(error?.message ?? '').trim().split(/[:\s]/)[0]
+  const nextError = new Error(POLL_ERROR_MESSAGES[code] || error?.message || 'The Poll request failed.')
+  nextError.code = code || error?.code || 'poll_request_failed'
+  nextError.cause = error
+  return nextError
+}
+
 function normalizePollOption(option, index) {
   if (typeof option === 'string') {
     const label = String(option ?? '').trim()
@@ -163,7 +181,7 @@ export async function getPolls({ user, audience = '' } = {}) {
 
   if (error) {
     console.error(error)
-    throw error
+    throw getPollError(error)
   }
 
   return (data ?? []).map(normalizePoll)
@@ -211,7 +229,7 @@ export async function createPoll({ user, poll }) {
 
   if (error) {
     console.error(error)
-    throw error
+    throw getPollError(error)
   }
 
   clearViewCaches()
@@ -237,7 +255,7 @@ export async function updatePollStatus({ user, pollId, status }) {
 
   if (error) {
     console.error(error)
-    throw error
+    throw getPollError(error)
   }
 
   invalidateMemoryCacheByPrefix('polls:')
@@ -255,7 +273,7 @@ export async function deletePoll({ user, pollId }) {
 
   if (error) {
     console.error(error)
-    throw error
+    throw getPollError(error)
   }
 
   invalidateMemoryCacheByPrefix('polls:')
@@ -277,7 +295,7 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
 
   if (error) {
     console.error(error)
-    throw error
+    throw getPollError(error)
   }
 
   invalidateMemoryCacheByPrefix('polls:')
@@ -297,7 +315,7 @@ export async function getParentPortalPolls({ parentLinkId }) {
 
   if (error) {
     console.error(error)
-    throw error
+    throw getPollError(error)
   }
 
   return (data ?? []).map(normalizePoll)
@@ -312,7 +330,7 @@ export async function submitParentPortalPollVote({ parentLinkId, pollId, optionI
 
   if (error) {
     console.error(error)
-    throw error
+    throw getPollError(error)
   }
 
   return data

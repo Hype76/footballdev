@@ -153,10 +153,13 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
     }
   }
 
+  const MarkerElement = canEdit ? 'button' : 'div'
+
   return (
-    <button
-      type="button"
-      aria-pressed={isSelected}
+    <MarkerElement
+      type={canEdit ? 'button' : undefined}
+      role={canEdit ? undefined : 'img'}
+      aria-pressed={canEdit ? isSelected : undefined}
       aria-label={`${marker.displayName}, ${marker.shirtNumber ? `displayed shirt number ${marker.shirtNumber}` : 'no displayed shirt number'}, ${formatPosition(marker.x)} across, ${formatPosition(marker.y)} down`}
       data-dragging={isDragging ? 'true' : 'false'}
       className={`absolute z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full border-[3px] text-center shadow-lg transition motion-reduce:transition-none focus:outline-none focus:ring-4 focus:ring-amber-300 ${isDragging ? 'scale-110 border-sky-200 bg-sky-50 ring-4 ring-sky-300/70' : isSelected ? 'border-amber-300 bg-[#101828]' : 'border-white bg-[#f7faf8]'}`}
@@ -174,7 +177,7 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
       <span className="pointer-events-none absolute left-1/2 top-full mt-1 max-w-24 -translate-x-1/2 truncate rounded bg-[#101828]/90 px-1.5 py-0.5 text-[0.65rem] font-black text-white" title={marker.displayName}>
         {marker.displayName}
       </span>
-    </button>
+    </MarkerElement>
   )
 }
 
@@ -231,7 +234,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
         ))}
         {markerIds.size === 0 ? (
           <p className="pointer-events-none absolute inset-x-8 top-1/2 -translate-y-1/2 rounded-lg bg-[#101828]/75 px-4 py-3 text-center text-sm font-black text-white">
-            Add Players to the Unplaced Players tray, then tap or drag them onto the pitch.
+            Add Players to the Bench, then tap or drag them onto the pitch.
           </p>
         ) : null}
       </div>

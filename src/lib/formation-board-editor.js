@@ -29,6 +29,36 @@ export function createFormationBoardDraftKey({ boardId = 'new', clubId, teamId, 
   ].join(':')
 }
 
+export function createFormationBoardPreferenceKey({ clubId, teamId, userId }) {
+  return [
+    'football-player:formation-board-preferences:v1',
+    normalizeText(userId),
+    normalizeText(clubId),
+    normalizeText(teamId),
+  ].join(':')
+}
+
+export function serializeFormationBoardPreferences({ gameFormat, presetKey }) {
+  return JSON.stringify({
+    gameFormat: normalizeText(gameFormat) || '11v11',
+    presetKey: normalizeText(presetKey) || '11v11-4-4-2',
+    version: 1,
+  })
+}
+
+export function parseFormationBoardPreferences(value) {
+  try {
+    const parsed = JSON.parse(value)
+    if (parsed?.version !== 1) return null
+
+    const gameFormat = normalizeText(parsed.gameFormat)
+    const presetKey = normalizeText(parsed.presetKey)
+    return gameFormat && presetKey ? { gameFormat, presetKey } : null
+  } catch {
+    return null
+  }
+}
+
 export function createEditorSnapshot({ board, preset }) {
   const version = board?.currentVersion
   const sourceOrientation = getFormationBoardOrientation(version?.pitchOrientation)
@@ -40,16 +70,16 @@ export function createEditorSnapshot({ board, preset }) {
 
   return {
     baseVersionNumber: Number(board?.currentVersionNumber ?? 0),
-    bench: roster.filter((item) => item?.state !== 'unplaced').map(normalizeBenchPlayer),
+    bench: [],
     description: normalizeText(board?.description),
-    gameFormat: normalizeText(version?.gameFormat || board?.gameFormat || preset?.gameFormat || '7v7'),
+    gameFormat: normalizeText(version?.gameFormat || board?.gameFormat || preset?.gameFormat || '11v11'),
     notes: normalizeText(version?.notes),
     pitchOrientation: FORMATION_BOARD_CANONICAL_ORIENTATION,
     placements: convertFormationPlacementsToPortrait(placements, sourceOrientation),
-    presetKey: normalizeText(version?.formationPresetKey || board?.formationPresetKey || preset?.key),
+    presetKey: normalizeText(version?.formationPresetKey || board?.formationPresetKey || preset?.key || '11v11-4-4-2'),
     registryVersion: Number(version?.presetRegistryVersion || board?.presetRegistryVersion || preset?.registryVersion || 1),
     title: normalizeText(board?.title),
-    unplaced: roster.filter((item) => item?.state === 'unplaced').map(normalizeUnplacedPlayer),
+    unplaced: roster.map(normalizeUnplacedPlayer),
     visibility: normalizeText(board?.visibilityState) || 'draft',
   }
 }
@@ -59,7 +89,7 @@ export function createNewEditorSnapshot(preset) {
     board: {
       currentVersionNumber: 0,
       formationPresetKey: preset?.key,
-      gameFormat: preset?.gameFormat || '7v7',
+      gameFormat: preset?.gameFormat || '11v11',
       title: '',
       visibilityState: 'draft',
     },
@@ -212,7 +242,7 @@ export function benchFormationPlayer(snapshot, playerId) {
 
   return {
     ...snapshot,
-    bench: [...snapshot.bench, normalizeBenchPlayer(placement)],
+    unplaced: [...snapshot.unplaced, normalizeUnplacedPlayer(placement)],
     placements: snapshot.placements.filter((item) => item.playerId !== targetId),
   }
 }
@@ -413,6 +443,39 @@ export function applyFormationPreset(snapshot, nextPreset) {
   }
 }
 
+export function placeFormationLineup(snapshot, preset) {
+  const availablePlayers = [
+    ...(snapshot.unplaced ?? []),
+    ...(snapshot.bench ?? []),
+  ]
+  const usedSlotIds = new Set((snapshot.placements ?? []).map((item) => item.slotId).filter(Boolean))
+  const availableSlots = (preset?.slots ?? []).filter((slot) => !usedSlotIds.has(slot.id))
+  const capacity = getFormationBoardPlayerCapacity(snapshot?.gameFormat)
+  const remainingCapacity = Math.max(0, capacity - (snapshot.placements ?? []).length)
+  const playersToPlace = availablePlayers.slice(0, Math.min(availableSlots.length, remainingCapacity))
+
+  if (playersToPlace.length === 0) return snapshot
+
+  const placedIds = new Set(playersToPlace.map((player) => player.playerId))
+  const additions = playersToPlace.map((player, index) => {
+    const slot = availableSlots[index]
+    return {
+      ...createFormationPlayer(player),
+      positionGroup: normalizeText(slot.group),
+      slotId: normalizeText(slot.id),
+      x: clampFormationCoordinate(slot.x),
+      y: clampFormationCoordinate(slot.y),
+    }
+  })
+
+  return {
+    ...snapshot,
+    bench: (snapshot.bench ?? []).filter((item) => !placedIds.has(item.playerId)),
+    placements: [...(snapshot.placements ?? []), ...additions],
+    unplaced: (snapshot.unplaced ?? []).filter((item) => !placedIds.has(item.playerId)),
+  }
+}
+
 export function getFirstAvailablePresetSlot(snapshot, preset) {
   const usedSlotIds = new Set(snapshot.placements.map((item) => item.slotId).filter(Boolean))
   return (preset?.slots ?? []).find((slot) => !usedSlotIds.has(slot.id)) || null
@@ -443,10 +506,13 @@ export function parseFormationDraft(value) {
       ...parsed,
       snapshot: {
         ...parsed.snapshot,
-        bench: Array.isArray(parsed.snapshot.bench) ? parsed.snapshot.bench.map(normalizeBenchPlayer) : [],
+        bench: [],
         placements: Array.isArray(parsed.snapshot.placements) ? parsed.snapshot.placements.map(normalizePlacement) : [],
         pitchOrientation: FORMATION_BOARD_CANONICAL_ORIENTATION,
-        unplaced: Array.isArray(parsed.snapshot.unplaced) ? parsed.snapshot.unplaced.map(normalizeUnplacedPlayer) : [],
+        unplaced: [
+          ...(Array.isArray(parsed.snapshot.unplaced) ? parsed.snapshot.unplaced : []),
+          ...(Array.isArray(parsed.snapshot.bench) ? parsed.snapshot.bench : []),
+        ].map(normalizeUnplacedPlayer),
       },
     }
   } catch {

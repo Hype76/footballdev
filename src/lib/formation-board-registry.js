@@ -14,6 +14,6 @@ export function getFormationBoardCapacityMessage(gameFormat) {
   const capacity = getFormationBoardPlayerCapacity(normalizedFormat)
 
   return capacity > 0
-    ? `This ${normalizedFormat} pitch already has ${capacity} Players. Move a Player to Unplaced or the bench first.`
-    : 'This pitch is full. Move a Player to Unplaced or the bench first.'
+    ? `This ${normalizedFormat} pitch already has ${capacity} Players. Move a Player to the Bench first.`
+    : 'This pitch is full. Move a Player to the Bench first.'
 }
