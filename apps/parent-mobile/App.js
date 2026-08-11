@@ -1754,7 +1754,7 @@ function SettingsScreen({
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
-  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.1'
+  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.2'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
     : Constants.expoConfig?.android?.versionCode || '1')
