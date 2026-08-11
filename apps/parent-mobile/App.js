@@ -704,13 +704,16 @@ function ParentHome() {
         polls: {
           ...current.polls,
           items: current.polls.items.map((item) => item.id === poll.id
-            ? {
-                ...item,
-                currentOptionId: item.allowMultiple ? item.currentOptionId : optionId,
-                currentOptionIds: item.allowMultiple
-                  ? [...new Set([...(item.currentOptionIds || []), optionId])]
-                  : [optionId],
-              }
+            ? (() => {
+                const nextOptionIds = new Set(item.currentOptionIds || [])
+                if (command.payload.selected === false) nextOptionIds.delete(optionId)
+                else nextOptionIds.add(optionId)
+                return {
+                  ...item,
+                  currentOptionId: item.allowMultiple ? [...nextOptionIds][0] || '' : optionId,
+                  currentOptionIds: item.allowMultiple ? [...nextOptionIds] : [optionId],
+                }
+              })()
             : item),
         },
       }))
@@ -1481,7 +1484,39 @@ function MatchDetail({ match, onBack }) {
         </InfoPanel>
       ) : null}
 
+      {match.formationPlan ? <MatchFormationPlan plan={match.formationPlan} /> : null}
+
     </View>
+  )
+}
+
+function MatchFormationPlan({ plan }) {
+  const { styles } = useParentTheme()
+  return (
+    <InfoPanel title="Shared match plan">
+      <Text style={styles.bodyText}>{plan.gameFormat} | {plan.formationPresetKey.replace(/^\d+v\d+-/, '')}</Text>
+      <View accessibilityLabel={`${plan.boardTitle} formation pitch`} style={styles.formationPitch}>
+        <View style={styles.formationHalfwayLine} />
+        {plan.placements.map((player) => (
+          <View
+            key={`${player.playerId}:${player.slotId}`}
+            style={[styles.formationPlayer, {
+              left: `${Math.max(2, Math.min(64, player.x - 18))}%`,
+              top: `${Math.max(1, Math.min(88, player.y - 5))}%`,
+            }]}
+          >
+            <Text numberOfLines={2} style={styles.formationPlayerName}>{player.shirtNumber ? `${player.shirtNumber} ` : ''}{player.displayName}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.cardTitle}>Bench</Text>
+      {plan.bench.length ? (
+        <View style={styles.formationBench}>
+          {plan.bench.map((player) => <Badge key={player.playerId} label={`${player.shirtNumber ? `${player.shirtNumber} ` : ''}${player.displayName}`} />)}
+        </View>
+      ) : <Text style={styles.bodyText}>No Players are on the Bench.</Text>}
+      <Text style={styles.helperText}>Read-only plan shared by Team staff. Staff notes and unselected Players are not included.</Text>
+    </InfoPanel>
   )
 }
 
@@ -2175,6 +2210,7 @@ function createParentAppPalette(tokens) {
     danger: tokens.danger,
     dangerBackground: tokens.dangerSurface,
     ink: tokens.accentForeground,
+    pitch: tokens.pitchSurface,
     selectedSurface: tokens.selectedSurface,
     successBackground: tokens.successSurface,
     text: tokens.textPrimary,
@@ -2235,6 +2271,11 @@ function createParentAppStyles(tokens) {
   helperText: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
   heroCard: { backgroundColor: palette.cardRaised, borderColor: palette.borderStrong, borderRadius: 22, borderWidth: 1, gap: 10, padding: 20 },
   heroTitle: { color: palette.text, fontSize: 34, fontWeight: '900', letterSpacing: -1, lineHeight: 39 },
+  formationBench: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  formationHalfwayLine: { backgroundColor: 'rgba(255,255,255,0.6)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
+  formationPitch: { backgroundColor: palette.pitch, borderColor: 'rgba(255,255,255,0.8)', borderRadius: 18, borderWidth: 2, height: 430, overflow: 'hidden', position: 'relative' },
+  formationPlayer: { alignItems: 'center', backgroundColor: palette.cardRaised, borderColor: palette.accent, borderRadius: 12, borderWidth: 1, justifyContent: 'center', minHeight: 42, paddingHorizontal: 5, position: 'absolute', width: '36%' },
+  formationPlayerName: { color: palette.text, fontSize: 11, fontWeight: '900', textAlign: 'center' },
   identityRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   identityValue: { color: palette.text, flex: 1, fontSize: 14, fontWeight: '800' },
   infoLabel: { color: palette.textMuted, fontSize: 13, fontWeight: '700' },

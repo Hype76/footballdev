@@ -110,6 +110,30 @@ function normalizeMatchDayEvent(row) {
   }
 }
 
+function normalizeMatchFormationPlan(row) {
+  if (!row) return null
+  const normalizePlayer = (player = {}) => ({
+    displayName: normalizeText(player.displayName ?? player.display_name) || 'Player',
+    playerId: player.playerId ?? player.player_id ?? '',
+    positionGroup: normalizeText(player.positionGroup ?? player.position_group),
+    shirtNumber: normalizeText(player.shirtNumber ?? player.shirt_number),
+    slotId: normalizeText(player.slotId ?? player.slot_id),
+    x: Math.max(0, Math.min(100, Number(player.x || 0))),
+    y: Math.max(0, Math.min(100, Number(player.y || 0))),
+  })
+  return {
+    bench: (Array.isArray(row.bench) ? row.bench : []).map(normalizePlayer),
+    boardTitle: normalizeText(row.board_title_snapshot ?? row.boardTitleSnapshot) || 'Match plan',
+    formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
+    gameFormat: normalizeText(row.game_format ?? row.gameFormat),
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    placements: (Array.isArray(row.placements) ? row.placements : []).map(normalizePlayer),
+    publicationId: row.publication_id ?? row.publicationId ?? '',
+    publicationNumber: Number(row.publication_number ?? row.publicationNumber ?? 0),
+    publishedAt: row.published_at ?? row.publishedAt ?? '',
+  }
+}
+
 export function normalizeMatchDay(row) {
   const team = getRelatedRow(row, 'teams')
   const rawEvents = Array.isArray(row.match_day_events) ? row.match_day_events : row.events
@@ -806,15 +830,22 @@ export async function getParentMatchDays(user) {
     return []
   }
 
-  const { data, error } = await supabase.rpc('get_parent_portal_match_days', {
-    parent_link_id_value: selectedLink.id,
+  const [matchesResult, plansResult] = await Promise.all([
+    supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: selectedLink.id }),
+    supabase.rpc('get_parent_portal_match_formation_plans', { parent_link_id_value: selectedLink.id }),
+  ])
+
+  if (matchesResult.error) throw matchesResult.error
+  if (plansResult.error) throw plansResult.error
+
+  const plans = new Map((plansResult.data || []).map((row) => {
+    const plan = normalizeMatchFormationPlan(row)
+    return [plan.matchDayId, plan]
+  }))
+  return (matchesResult.data || []).map((row) => {
+    const match = normalizeMatchDay(row)
+    return { ...match, formationPlan: plans.get(match.id) || null }
   })
-
-  if (error) {
-    throw error
-  }
-
-  return (data || []).map(normalizeMatchDay)
 }
 
 export async function getParentCalendarEvents(user) {

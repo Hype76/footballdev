@@ -4,7 +4,7 @@ import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js'
 import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
-import { markParentMessageRead, submitParentPollVote } from '../../mobile-core/src/data'
+import { getParentPolls, markParentMessageRead, submitParentPollVote } from '../../mobile-core/src/data'
 import { APPROVED_MOBILE_PRODUCTION, APPROVED_MOBILE_TEST } from '../../mobile-core/src/environmentBoundary'
 import { createEncryptedOfflineStore } from '../../mobile-core/src/offlineStorageCore'
 import {
@@ -180,11 +180,15 @@ export async function readParentOfflineView(userScope, linkId) {
         const command = activeCommands.filter((entry) => entry.type === 'poll_vote' && entry.entityId === poll.id).at(-1)
         if (!command) return poll
         const optionId = normalize(command.payload?.optionId)
+        const selected = command.payload?.selected !== false
+        const currentOptionIds = new Set(poll.currentOptionIds || [])
+        if (selected) currentOptionIds.add(optionId)
+        else currentOptionIds.delete(optionId)
         return {
           ...poll,
-          currentOptionId: poll.allowMultiple ? poll.currentOptionId : optionId,
+          currentOptionId: poll.allowMultiple ? [...currentOptionIds][0] || '' : optionId,
           currentOptionIds: poll.allowMultiple
-            ? [...new Set([...(poll.currentOptionIds || []), optionId].filter(Boolean))]
+            ? [...currentOptionIds].filter(Boolean)
             : [optionId],
         }
       }),
@@ -226,12 +230,14 @@ export async function queueParentMessageRead(user, linkId, message) {
 
 export async function queueParentPollVote(user, linkId, poll, optionId) {
   let document = await ensureDocument(user)
+  const normalizedOptionId = normalize(optionId)
+  const currentlySelected = (poll.currentOptionIds || []).map(normalize).includes(normalizedOptionId)
   const queued = enqueueParentOfflineCommand(document, {
     actorScope: user.id,
     childScope: linkId,
     entityId: poll.id,
     expectedServerVersion: [poll.createdAt, poll.closesAt, poll.currentOptionIds?.join(',')].filter(Boolean).join(':'),
-    payload: { optionId: normalize(optionId) },
+    payload: { optionId: normalizedOptionId, selected: poll.allowMultiple ? !currentlySelected : true },
     type: 'poll_vote',
   }, { commandId: Crypto.randomUUID() })
   await writeDocument(user.id, queued.document)
@@ -247,7 +253,14 @@ async function executeParentCommand(user, command) {
   }
   const scopedUser = withSelectedParentLink(user, link)
   if (command.type === 'message_read') return markParentMessageRead(scopedUser, command.entityId)
-  if (command.type === 'poll_vote') return submitParentPollVote(scopedUser, command.entityId, command.payload.optionId)
+  if (command.type === 'poll_vote') {
+    const polls = await getParentPolls(scopedUser)
+    const poll = polls.find((candidate) => candidate.id === command.entityId)
+    if (!poll) throw new Error('parent_poll_unavailable')
+    const selected = (poll.currentOptionIds || []).includes(command.payload.optionId)
+    if (selected === (command.payload.selected !== false)) return { reconciled: true }
+    return submitParentPollVote(scopedUser, command.entityId, command.payload.optionId)
+  }
   throw new Error('offline_command_invalid')
 }
 
