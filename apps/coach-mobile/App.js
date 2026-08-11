@@ -31,7 +31,7 @@ import {
   getCoachBackTarget,
   getCoachBottomNavigationPadding,
   getCoachNavigationModel,
-  getCoachRouteContainer,
+  getCoachRouteState,
   resolveCoachRoute,
 } from './src/coachNavigationCore'
 import { createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
@@ -254,9 +254,10 @@ function CoachHome() {
       setNotice('That destination is not available in this staff context.')
       return false
     }
-    const container = getCoachRouteContainer(resolved)
-    setActiveRoute(container)
-    setMoreRoute(container === 'more' ? resolved : '')
+    const target = getCoachRouteState(resolved)
+    setNotice('')
+    setActiveRoute(target.activeRoute)
+    setMoreRoute(target.moreRoute)
     return true
   }, [activeContext])
 
@@ -283,9 +284,9 @@ function CoachHome() {
       resetContextDomainState()
       setSelectedContextId(targetContext.id)
     }
-    const container = getCoachRouteContainer(resolved)
-    setActiveRoute(container)
-    setMoreRoute(container === 'more' ? resolved : '')
+    const target = getCoachRouteState(resolved)
+    setActiveRoute(target.activeRoute)
+    setMoreRoute(target.moreRoute)
     setChatNotificationTarget(result.route === 'chat' && result.targetId
       ? {
           contextId: result.contextId,
@@ -410,9 +411,9 @@ function CoachHome() {
     if (transition.clearDomainState) resetContextDomainState()
     const currentDestination = moreRoute || activeRoute
     const preserved = resolveCoachRoute(currentDestination, nextContext)
-    const container = preserved ? getCoachRouteContainer(preserved) : 'home'
-    setActiveRoute(container)
-    setMoreRoute(container === 'more' ? preserved : '')
+    const target = preserved ? getCoachRouteState(preserved) : { activeRoute: 'home', moreRoute: '' }
+    setActiveRoute(target.activeRoute)
+    setMoreRoute(target.moreRoute)
     setSelectedContextId(nextContext.id)
   }, [activeContext, activeRoute, contextResolution.contexts, moreRoute, resetContextDomainState])
 
@@ -495,7 +496,7 @@ function CoachHome() {
             onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
             onNavigate={navigate}
             onSelectContext={selectContext}
-            onSelectMore={setMoreRoute}
+            onSelectMore={navigate}
             onSignOut={signOut}
             onToggleBiometrics={toggleBiometrics}
             onToggleTheme={toggleTheme}

@@ -2,14 +2,17 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
+  buildCoachCalendarMonth,
   buildCoachCalendarEvents,
   buildCoachCalendarPayload,
   filterCoachCalendarEvents,
   getCoachCalendarContextModel,
+  getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
   groupCoachCalendarEvents,
   londonLocalToUtcIso,
   normalizeCoachCalendarEvent,
+  shiftCoachCalendarMonth,
 } from '../apps/mobile-core/src/coachCalendarCore.js'
 import {
   buildCoachPlayerPayload,
@@ -77,6 +80,23 @@ test('Calendar filters and groups upcoming, history, and cancelled data without 
   assert.equal(filterCoachCalendarEvents(rows, 'history', new Date('2026-08-09T12:00:00Z')).length, 1)
   assert.equal(filterCoachCalendarEvents(rows, 'cancelled').length, 1)
   assert.equal(groupCoachCalendarEvents(rows).length, 3)
+})
+
+test('Calendar builds a Monday-first six-week month grid with event counts and deterministic navigation', () => {
+  const events = [
+    normalizeCoachCalendarEvent({ id: 'event-1', starts_at: '2026-08-11T17:00:00Z', title: 'Training' }),
+    normalizeCoachCalendarEvent({ id: 'event-2', starts_at: '2026-08-11T18:00:00Z', title: 'Review' }),
+  ]
+  const month = buildCoachCalendarMonth(events, '2026-08', '2026-08-11', new Date('2026-08-11T10:00:00Z'))
+  assert.equal(month.title, 'August 2026')
+  assert.equal(month.days.length, 42)
+  assert.equal(month.weeks.length, 6)
+  assert.equal(month.days[0].date, '2026-07-27')
+  assert.equal(month.days.find((day) => day.date === '2026-08-11').events.length, 2)
+  assert.equal(month.days.find((day) => day.date === '2026-08-11').isSelected, true)
+  assert.equal(getCoachCalendarMonthKey('2026-08-11'), '2026-08')
+  assert.equal(shiftCoachCalendarMonth('2026-08', -1), '2026-07')
+  assert.equal(shiftCoachCalendarMonth('2026-12', 1), '2027-01')
 })
 
 test('Calendar routes completed sessions to History and exposes explicit authorised Team scope', () => {
@@ -256,6 +276,8 @@ test('Coach operational screens expose real Calendar, Players, and Sessions rout
   assert.match(screens, /Assessment sessions are Team-scoped/)
   assert.match(screens, /Open Assessment Sessions/)
   assert.match(screens, /Open Development/)
+  assert.match(screens, /calendarMonth\.weeks\.map/)
+  assert.match(screens, /Show all dates/)
 })
 
 test('Coach offline cache uses authenticated encryption, SecureStore key ownership, and app-role isolation', async () => {

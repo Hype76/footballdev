@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
+  buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
   filterCoachCalendarEvents,
   formatCoachCalendarDateTime,
   getCoachCalendarContextModel,
+  getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
   groupCoachCalendarEvents,
+  shiftCoachCalendarMonth,
 } from '../../mobile-core/src/coachCalendarCore'
 import { getCoachCalendarResources, saveCoachCalendarEvent } from '../../mobile-core/src/coachCalendarData'
 import {
@@ -48,6 +51,20 @@ function useDomainStyles(palette) {
     actionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 8, padding: 14 },
+    calendar: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 10, padding: 10 },
+    calendarDay: { alignItems: 'center', borderColor: 'transparent', borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 52, paddingVertical: 5 },
+    calendarDayOutside: { opacity: 0.38 },
+    calendarDaySelected: { backgroundColor: palette.selected, borderColor: palette.accent },
+    calendarDayToday: { borderColor: palette.accent },
+    calendarDayText: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
+    calendarDayTextSelected: { color: palette.selectedForeground },
+    calendarEventCount: { color: palette.accent, fontSize: 10, fontWeight: '900', minHeight: 13 },
+    calendarHeader: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
+    calendarMonth: { color: palette.textPrimary, flex: 1, fontSize: 17, fontWeight: '900', textAlign: 'center' },
+    calendarNav: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 40, minWidth: 74, paddingHorizontal: 8 },
+    calendarNavText: { color: palette.textPrimary, fontSize: 12, fontWeight: '900' },
+    calendarWeek: { flexDirection: 'row', gap: 4 },
+    calendarWeekday: { color: palette.textMuted, flex: 1, fontSize: 10, fontWeight: '900', textAlign: 'center' },
     chip: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 13 },
     chipActive: { backgroundColor: palette.selected, borderColor: palette.accent },
     chipText: { color: palette.textSecondary, fontSize: 12, fontWeight: '800' },
@@ -136,7 +153,9 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectCon
   const [players, setPlayers] = useState([])
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [selectedDate, setSelectedDate] = useState('')
   const [stale, setStale] = useState(false)
+  const [visibleMonth, setVisibleMonth] = useState(() => getCoachCalendarMonthKey())
   const contextModel = getCoachCalendarContextModel({ context, contexts })
   const policy = getCoachCalendarMutationPolicy({ context, event: selected })
 
@@ -165,10 +184,19 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectCon
   }, [context, user])
 
   useEffect(() => { void load() }, [load])
-  const groups = groupCoachCalendarEvents(filterCoachCalendarEvents(events, filter))
+  const calendarMonth = useMemo(
+    () => buildCoachCalendarMonth(events, visibleMonth, selectedDate),
+    [events, selectedDate, visibleMonth],
+  )
+  const selectedDay = calendarMonth.days.find((day) => day.date === selectedDate)
+  const visibleEvents = selectedDate
+    ? events.filter((event) => event.calendarDate === selectedDate)
+    : filterCoachCalendarEvents(events, filter)
+  const groups = groupCoachCalendarEvents(visibleEvents)
   const openForm = (event = null) => {
     setSelected(event)
-    setForm(coachCalendarFormFromEvent(event, context))
+    const nextForm = coachCalendarFormFromEvent(event, context)
+    setForm(!event && selectedDate ? { ...nextForm, date: selectedDate } : nextForm)
   }
   const save = async () => {
     setSaving(true)
@@ -186,6 +214,52 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectCon
   return (
     <View style={styles.stack}>
       <DomainHeader copy="Calendar events, Match Day fixtures, Sessions, recurrence, and training availability in Europe/London time." styles={styles} title="Calendar" />
+      <View accessibilityLabel={`${calendarMonth.title} Calendar`} style={styles.calendar}>
+        <View style={styles.calendarHeader}>
+          <Pressable accessibilityRole="button" onPress={() => setVisibleMonth(shiftCoachCalendarMonth(visibleMonth, -1))} style={styles.calendarNav}>
+            <Text style={styles.calendarNavText}>Previous</Text>
+          </Pressable>
+          <Text accessibilityRole="header" style={styles.calendarMonth}>{calendarMonth.title}</Text>
+          <Pressable accessibilityRole="button" onPress={() => setVisibleMonth(shiftCoachCalendarMonth(visibleMonth, 1))} style={styles.calendarNav}>
+            <Text style={styles.calendarNavText}>Next</Text>
+          </Pressable>
+        </View>
+        <View style={styles.calendarWeek}>
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <Text key={day} style={styles.calendarWeekday}>{day}</Text>)}
+        </View>
+        {calendarMonth.weeks.map((week) => (
+          <View key={week[0].date} style={styles.calendarWeek}>
+            {week.map((day) => (
+              <Pressable
+                accessibilityLabel={`${day.dateLabel}, ${day.events.length} ${day.events.length === 1 ? 'event' : 'events'}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: day.isSelected }}
+                key={day.date}
+                onPress={() => {
+                  setSelectedDate(day.date)
+                  if (!form) setSelected(null)
+                  if (!day.inMonth) setVisibleMonth(day.date.slice(0, 7))
+                }}
+                style={[styles.calendarDay, !day.inMonth && styles.calendarDayOutside, day.isToday && styles.calendarDayToday, day.isSelected && styles.calendarDaySelected]}
+              >
+                <Text style={[styles.calendarDayText, day.isSelected && styles.calendarDayTextSelected]}>{day.dayNumber}</Text>
+                <Text style={[styles.calendarEventCount, day.isSelected && styles.calendarDayTextSelected]}>{day.events.length || ''}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ))}
+        <View style={styles.filterRow}>
+          <Button label="Today" onPress={() => { setVisibleMonth(calendarMonth.today.slice(0, 7)); setSelectedDate(calendarMonth.today) }} secondary styles={styles} />
+          {selectedDate ? <Button label="Show all dates" onPress={() => { setSelectedDate(''); if (!form) setSelected(null) }} secondary styles={styles} /> : null}
+        </View>
+      </View>
+      {selectedDate ? (
+        <View style={styles.card}>
+          <Text style={styles.label}>Selected day</Text>
+          <Text style={styles.cardTitle}>{selectedDay?.dateLabel || selectedDate}</Text>
+          <Text style={styles.body}>{visibleEvents.length} {visibleEvents.length === 1 ? 'Calendar item' : 'Calendar items'}</Text>
+        </View>
+      ) : null}
       <View style={styles.card}>
         <Text style={styles.label}>Calendar scope</Text>
         <Text style={styles.cardTitle}>{contextModel.currentLabel}</Text>
@@ -211,7 +285,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectCon
         ) : null}
       </View>
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
-      <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'History', value: 'history' }, { label: 'Cancelled', value: 'cancelled' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} />
+      {!selectedDate ? <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'History', value: 'history' }, { label: 'Cancelled', value: 'cancelled' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} /> : null}
       {policy.canCreate && !form ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
       {form ? (
         <View style={styles.form}>

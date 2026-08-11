@@ -12,6 +12,7 @@ import {
 import {
   getCoachBackTarget,
   getCoachNavigationModel,
+  getCoachRouteState,
   resolveCoachRoute,
 } from '../apps/coach-mobile/src/coachNavigationCore.js'
 import {
@@ -109,6 +110,8 @@ test('role-aware navigation exposes no dead Team routes or Platform Admin govern
 test('deep-link and native back models resolve only authorised routes', () => {
   assert.equal(resolveCoachRoute('match-day', teamA), 'matchday')
   assert.equal(resolveCoachRoute('club', teamA), '')
+  assert.deepEqual(getCoachRouteState('more'), { activeRoute: 'more', moreRoute: '' })
+  assert.deepEqual(getCoachRouteState('resources'), { activeRoute: 'more', moreRoute: 'resources' })
   assert.deepEqual(getCoachBackTarget({ activeRoute: 'more', moreRoute: 'resources' }), { activeRoute: 'more', moreRoute: '' })
   assert.deepEqual(getCoachBackTarget({ activeRoute: 'calendar' }), { activeRoute: 'home', moreRoute: '' })
   assert.equal(getCoachBackTarget({ activeRoute: 'home' }), null)

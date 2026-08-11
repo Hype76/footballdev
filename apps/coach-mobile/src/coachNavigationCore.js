@@ -86,6 +86,14 @@ export function getCoachRouteContainer(route) {
   return MORE_ROUTES.some((item) => item.key === route) ? 'more' : route
 }
 
+export function getCoachRouteState(route) {
+  const activeRoute = getCoachRouteContainer(route)
+  return Object.freeze({
+    activeRoute,
+    moreRoute: activeRoute === 'more' && route !== 'more' ? route : '',
+  })
+}
+
 export function getCoachBackTarget({ activeRoute, moreRoute = '' } = {}) {
   if (moreRoute) return Object.freeze({ activeRoute: 'more', moreRoute: '' })
   if (activeRoute && activeRoute !== 'home') return Object.freeze({ activeRoute: 'home', moreRoute: '' })

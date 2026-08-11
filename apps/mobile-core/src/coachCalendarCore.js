@@ -92,6 +92,57 @@ export function formatCoachCalendarDateTime(value) {
   }).format(date)
 }
 
+export function getCoachCalendarMonthKey(value = new Date()) {
+  const normalized = normalize(value)
+  const explicit = normalized.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/)
+  if (explicit) return `${explicit[1]}-${explicit[2]}`
+  return getDateInTimeZone(value).slice(0, 7)
+}
+
+export function shiftCoachCalendarMonth(monthKey, amount) {
+  const normalized = getCoachCalendarMonthKey(monthKey)
+  const [year, month] = normalized.split('-').map(Number)
+  const shifted = new Date(Date.UTC(year, (month - 1) + Number(amount || 0), 1))
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+export function buildCoachCalendarMonth(events = [], monthKey = getCoachCalendarMonthKey(), selectedDate = '', now = new Date()) {
+  const normalizedMonth = getCoachCalendarMonthKey(monthKey)
+  const [year, month] = normalizedMonth.split('-').map(Number)
+  const firstDay = new Date(Date.UTC(year, month - 1, 1))
+  const mondayOffset = (firstDay.getUTCDay() + 6) % 7
+  const start = new Date(Date.UTC(year, month - 1, 1 - mondayOffset))
+  const today = getDateInTimeZone(now)
+  const eventMap = new Map()
+  for (const event of events) {
+    const date = normalize(event?.calendarDate)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue
+    if (!eventMap.has(date)) eventMap.set(date, [])
+    eventMap.get(date).push(event)
+  }
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start.getTime() + (index * 24 * 60 * 60 * 1000))
+    const key = date.toISOString().slice(0, 10)
+    const dayEvents = Object.freeze([...(eventMap.get(key) || [])])
+    return Object.freeze({
+      date: key,
+      dateLabel: new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC', year: 'numeric' }).format(date),
+      dayNumber: date.getUTCDate(),
+      events: dayEvents,
+      inMonth: key.startsWith(normalizedMonth),
+      isSelected: key === selectedDate,
+      isToday: key === today,
+    })
+  })
+  return Object.freeze({
+    days: Object.freeze(days),
+    monthKey: normalizedMonth,
+    title: new Intl.DateTimeFormat('en-GB', { month: 'long', timeZone: 'UTC', year: 'numeric' }).format(firstDay),
+    today,
+    weeks: Object.freeze(Array.from({ length: 6 }, (_, index) => Object.freeze(days.slice(index * 7, (index + 1) * 7)))),
+  })
+}
+
 export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') {
   const team = related(row, 'teams')
   const source = normalizeKey(sourceType)
