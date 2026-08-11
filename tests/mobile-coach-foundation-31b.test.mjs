@@ -109,6 +109,7 @@ test('role-aware navigation exposes no dead Team routes or Platform Admin govern
 
 test('deep-link and native back models resolve only authorised routes', () => {
   assert.equal(resolveCoachRoute('match-day', teamA), 'matchday')
+  assert.equal(resolveCoachRoute('more', teamA), 'more')
   assert.equal(resolveCoachRoute('club', teamA), '')
   assert.deepEqual(getCoachRouteState('more'), { activeRoute: 'more', moreRoute: '' })
   assert.deepEqual(getCoachRouteState('resources'), { activeRoute: 'more', moreRoute: 'resources' })

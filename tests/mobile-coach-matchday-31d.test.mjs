@@ -172,12 +172,12 @@ test('Match Day screen exposes operational squad, volunteer, live, timeline, sho
   assert.doesNotMatch(source, /recipientEmail/)
 })
 
-test('Match Day screen does not fabricate lineup, formation, captain, or goalkeeper writes', async () => {
+test('Match Day screen does not expose internal model copy or fabricate lineup writes', async () => {
   const [screen, adapter] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8'),
   ])
-  assert.match(screen, /not in the current canonical Match Day model/)
+  assert.doesNotMatch(screen, /canonical Match Day model|No inferred data/)
   assert.doesNotMatch(adapter, /lineup|captain|goalkeeper|formation_board/i)
 })
 

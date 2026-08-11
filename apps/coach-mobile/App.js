@@ -468,6 +468,7 @@ function CoachHome() {
         {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
         <ScrollView
           contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
           refreshControl={(
             <RefreshControl
               colors={[palette.accent]}

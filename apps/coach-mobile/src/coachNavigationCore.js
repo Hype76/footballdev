@@ -35,6 +35,7 @@ const ROUTE_ALIASES = Object.freeze({
   match: 'matchday',
   matchday: 'matchday',
   messages: 'messages',
+  more: 'more',
   players: 'players',
   polls: 'polls',
   resources: 'resources',

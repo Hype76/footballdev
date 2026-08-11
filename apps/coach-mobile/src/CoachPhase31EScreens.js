@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
@@ -53,20 +53,21 @@ function phaseStyles(palette) {
   return StyleSheet.create({
     stack: { gap: 12 },
     row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    roomSelector: { gap: 8, paddingRight: 12 },
     panel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 8, padding: 14 },
     panelSelected: { borderColor: palette.accent, borderWidth: 2 },
-    title: { color: palette.text, fontSize: 26, fontWeight: '900' },
-    heading: { color: palette.text, fontSize: 17, fontWeight: '900' },
-    body: { color: palette.textMuted, fontSize: 14, lineHeight: 20 },
-    label: { color: palette.text, fontSize: 13, fontWeight: '800' },
+    title: { color: palette.textPrimary, fontSize: 26, fontWeight: '900' },
+    heading: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },
+    body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
+    label: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     status: { color: palette.accent, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
-    input: { backgroundColor: palette.input, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.text, fontSize: 16, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
+    input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 16, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
     inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
     primary: { alignItems: 'center', backgroundColor: palette.accent, borderRadius: 12, minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10 },
-    primaryText: { color: palette.onAccent, fontSize: 14, fontWeight: '900' },
+    primaryText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10 },
-    secondaryText: { color: palette.text, fontSize: 14, fontWeight: '800' },
-    danger: { color: palette.danger || palette.text, fontSize: 14, fontWeight: '800' },
+    secondaryText: { color: palette.textPrimary, fontSize: 14, fontWeight: '800' },
+    danger: { color: palette.danger, fontSize: 14, fontWeight: '800' },
     disabled: { opacity: 0.48 },
     divider: { backgroundColor: palette.border, height: 1 },
   })
@@ -281,7 +282,13 @@ function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHand
   return (
     <View style={styles.stack}>
       <View style={styles.row}><Button label="Team Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View>
-      <View style={styles.row}>{rooms.map((item) => <Button key={`${item.kind}:${item.id}`} label={`${item.kind === 'staff' ? 'Staff' : 'Parent'} | ${item.title}`} onPress={() => void open(item)} secondary={item.id !== activeRoomId} styles={styles} />)}</View>
+      <View style={styles.stack}>
+        <Text style={styles.label}>Choose conversation</Text>
+        <Text style={styles.body}>{rooms.length} authorised conversation{rooms.length === 1 ? '' : 's'}</Text>
+        <ScrollView contentContainerStyle={styles.roomSelector} horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
+          {rooms.map((item) => <Button key={`${item.kind}:${item.id}`} label={`${item.kind === 'staff' ? 'Staff' : 'Parent'} | ${item.title}`} onPress={() => void open(item)} secondary={item.id !== activeRoomId} styles={styles} />)}
+        </ScrollView>
+      </View>
       <View style={styles.panel}><Text style={styles.heading}>{room?.title}</Text><Text style={styles.body}>{room?.kind === 'staff' ? 'Staff-only membership authority' : 'Parent Chat staff authority'} | {room?.unreadCount || 0} unread</Text>{messages.length ? messages.map((message) => <View key={message.id} style={styles.stack}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>) : <Text style={styles.body}>No messages loaded yet.</Text>}<TextInput accessibilityLabel="Chat message" multiline onChangeText={setBody} style={[styles.input, styles.inputMultiline]} value={body} /><Button disabled={stale || !room?.canPost || (!config.isProduction && !isSyntheticCoachTarget(room?.title))} label={config.isProduction ? 'Send message' : 'Send to FP TEST channel'} onPress={send} styles={styles} /><Text style={styles.body}>{config.isProduction ? 'Sending is online-only and the server revalidates current room membership.' : 'Sending is online-only and restricted to rooms marked FP TEST. No customer delivery is permitted.'}</Text></View>
     </View>
   )
