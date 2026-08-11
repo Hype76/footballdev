@@ -11,13 +11,13 @@ import {
   Linking,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native'
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { getCoachNotificationStatusLabel, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
@@ -446,7 +446,7 @@ function CoachHome() {
 
   return (
     <CoachThemeContext.Provider value={themeContext}>
-      <SafeAreaView style={styles.appShell}>
+      <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.appShell}>
         <StatusBar style={themeModel.mode === 'dark' ? 'light' : 'dark'} />
         <CoachHeader context={activeContext} user={selectedMobileUser} />
         <ContextSwitcher
@@ -968,8 +968,8 @@ class CoachRootErrorBoundary extends Component {
     return { hasError: true }
   }
 
-  componentDidCatch(error) {
-    console.error('Coach root render failed.', error?.name || 'unknown')
+  componentDidCatch(error, info) {
+    console.error('Coach root render failed.', error?.name || 'unknown', error?.message || 'No message', info?.componentStack || 'No component stack')
   }
 
   render() {
@@ -1019,16 +1019,18 @@ async function clearCoachBeforeSignOut({ accessToken, apiBaseUrl }) {
 export default function App() {
   // Secure-session integration contract: <AuthProvider appRole="coach">
   return (
-    <CoachRootErrorBoundary>
-      <AuthProvider
-        appRole="coach"
-        onBeforeSignOut={clearCoachBeforeSignOut}
-        onResetLocalData={clearCoachAllLocalState}
-        prepareStartup={prepareCoachMobileStartup}
-      >
-        <AppContent />
-      </AuthProvider>
-    </CoachRootErrorBoundary>
+    <SafeAreaProvider>
+      <CoachRootErrorBoundary>
+        <AuthProvider
+          appRole="coach"
+          onBeforeSignOut={clearCoachBeforeSignOut}
+          onResetLocalData={clearCoachAllLocalState}
+          prepareStartup={prepareCoachMobileStartup}
+        >
+          <AppContent />
+        </AuthProvider>
+      </CoachRootErrorBoundary>
+    </SafeAreaProvider>
   )
 }
 

@@ -773,6 +773,9 @@ apps.forEach((app) => {
     assertIncludes(appSource, 'SummaryButton', 'Parents progressive overview')
     assertIncludes(appSource, 'Private family access. Password sign-in only.', 'Parents login copy')
   } else {
+    assertIncludes(appSource, 'SafeAreaProvider', `${app.name} safe-area provider`)
+    assertIncludes(appSource, "from 'react-native-safe-area-context'", `${app.name} native safe-area dependency`)
+    assertIncludes(appSource, "edges={['top', 'right', 'bottom', 'left']}", `${app.name} full safe-area edges`)
     assertIncludes(appSource, 'SafeAreaView', `${app.name} safe-area shell`)
     assertIncludes(appSource, 'PrimaryNavigation', `${app.name} role-aware navigation`)
     assertIncludes(appSource, 'ContextSwitcher', `${app.name} canonical context shell`)

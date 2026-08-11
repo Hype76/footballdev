@@ -358,7 +358,13 @@ export async function markCoachChatRead(user, room) {
 
 export async function getCoachMessages(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const { data, error } = await supabase.from('communication_logs').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(200)
+  const { data, error } = await supabase
+    .from('communication_logs')
+    .select('*,players!inner(team_id)')
+    .eq('club_id', user.clubId)
+    .eq('players.team_id', user.activeTeamId)
+    .order('created_at', { ascending: false })
+    .limit(200)
   if (error) throw error
   return (data || []).map(normalizeCoachMessage)
 }

@@ -109,18 +109,26 @@ export const COACH_MATCH_DAY_BACKEND_DELTAS = Object.freeze([
 export function filterCoachMatchDays(matches, filter = 'current', now = new Date()) {
   const today = now.toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   return (Array.isArray(matches) ? matches : [])
-    .filter((match) => !match.deletedAt && !match.previousHiddenAt)
+    .filter((match) => match && typeof match === 'object')
+    .filter((match) => !(match.deletedAt ?? match.deleted_at) && !(match.previousHiddenAt ?? match.previous_hidden_at))
     .filter((match) => {
+      const concludedAt = match.concludedAt ?? match.concluded_at
+      const matchDate = match.matchDate ?? match.match_date ?? ''
+      const status = normalize(match.status) || 'scheduled'
       if (filter === 'all') return true
-      if (filter === 'previous') return match.status === 'full_time' || Boolean(match.concludedAt) || (match.matchDate && match.matchDate < today)
-      if (filter === 'upcoming') return !CLOSED_STATUSES.has(match.status) && match.status !== 'full_time' && !match.concludedAt && match.matchDate >= today && !LIVE_STATUSES.has(match.status)
-      return LIVE_STATUSES.has(match.status) || (match.matchDate === today && !CLOSED_STATUSES.has(match.status) && match.status !== 'full_time')
+      if (filter === 'previous') return status === 'full_time' || Boolean(concludedAt) || (matchDate && matchDate < today)
+      if (filter === 'upcoming') return !CLOSED_STATUSES.has(status) && status !== 'full_time' && !concludedAt && matchDate >= today && !LIVE_STATUSES.has(status)
+      return LIVE_STATUSES.has(status) || (matchDate === today && !CLOSED_STATUSES.has(status) && status !== 'full_time')
     })
     .sort((left, right) => {
-      const priority = Number(left.presentationPriority ?? 99) - Number(right.presentationPriority ?? 99)
+      const priority = Number(left.presentationPriority ?? left.presentation_priority ?? 99) - Number(right.presentationPriority ?? right.presentation_priority ?? 99)
       if (filter === 'current' && priority) return priority
       const direction = filter === 'previous' ? -1 : 1
-      return direction * (timestamp(left.scheduledKickoffAt || `${left.matchDate}T${left.kickoffTime || '23:59'}`) - timestamp(right.scheduledKickoffAt || `${right.matchDate}T${right.kickoffTime || '23:59'}`))
+      const leftDate = left.matchDate ?? left.match_date ?? ''
+      const leftTime = left.kickoffTime ?? left.kickoff_time ?? '23:59'
+      const rightDate = right.matchDate ?? right.match_date ?? ''
+      const rightTime = right.kickoffTime ?? right.kickoff_time ?? '23:59'
+      return direction * (timestamp(left.scheduledKickoffAt ?? left.scheduled_kickoff_at ?? `${leftDate}T${leftTime}`) - timestamp(right.scheduledKickoffAt ?? right.scheduled_kickoff_at ?? `${rightDate}T${rightTime}`))
     })
 }
 

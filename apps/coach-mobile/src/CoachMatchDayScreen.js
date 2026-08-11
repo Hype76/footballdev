@@ -25,6 +25,7 @@ import {
   createCoachMatchDayCommandId,
   getCoachMatchDayDetail,
   getCoachMatchDayList,
+  normalizeCoachMatchDay,
   recordCoachMatchDayEvent,
   recordCoachMatchDayShootoutKick,
   runCoachMatchDayTimerAction,
@@ -42,6 +43,12 @@ const config = getMobileRuntimeConfig('coach')
 
 function normalize(value) { return String(value ?? '').trim() }
 function errorMessage(error, fallback) { return normalize(error?.message) || fallback }
+function label(value, fallback = '') { return normalize(value).replace(/_/g, ' ') || fallback }
+function normalizeCachedMatches(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter((item) => item && typeof item === 'object')
+    .map(normalizeCoachMatchDay)
+}
 
 function createStyles(palette) {
   return StyleSheet.create({
@@ -92,7 +99,7 @@ function MatchList({ filter, matches, onOpen, selectedId, setFilter, styles }) {
   return <View style={styles.stack}>
     <Chips onChange={setFilter} options={[{ label: 'Today and live', value: 'current' }, { label: 'Upcoming', value: 'upcoming' }, { label: 'Previous', value: 'previous' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} />
     {visible.length === 0 ? <Text style={styles.body}>No fixtures match this view.</Text> : null}
-    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{match.matchDate || 'Date TBC'} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime || 'Time TBC'} | {match.status.replaceAll('_', ' ')}</Text><Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text></Pressable> })}
+    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{match.matchDate || 'Date TBC'} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime || 'Time TBC'} | {label(match.status, 'scheduled')}</Text><Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text></Pressable> })}
   </View>
 }
 
@@ -184,7 +191,12 @@ export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
       await cache(nextMatches, nextMatch, nextPlayers)
     } catch (loadError) {
       const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
-      if (saved?.resources?.matchDayList) { setMatches(saved.resources.matchDayList); setPlayers(saved.resources.matchDayPlayers || []); setMatch(saved.resources.matchDayDetail || null); setStale(true) }
+      if (saved?.resources?.matchDayList) {
+        setMatches(normalizeCachedMatches(saved.resources.matchDayList))
+        setPlayers(Array.isArray(saved.resources.matchDayPlayers) ? saved.resources.matchDayPlayers : [])
+        setMatch(saved.resources.matchDayDetail && typeof saved.resources.matchDayDetail === 'object' ? normalizeCoachMatchDay(saved.resources.matchDayDetail) : null)
+        setStale(true)
+      }
       else setError(errorMessage(loadError, 'Match Day could not be loaded.'))
     } finally { setLoading(false) }
   }, [cache, context, match?.id, user])
@@ -247,7 +259,7 @@ export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
     {stale ? <View style={styles.warning}><Text style={styles.cardTitle}>Offline read</Text><Text style={styles.body}>Showing encrypted cached Match Day data. Every change is disabled until a successful refresh.</Text></View> : null}
     <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} />
     {match ? <><Chips onChange={setPanel} options={[{ label: 'Overview', value: 'overview' }, { label: 'Squad', value: 'squad' }, { label: 'Volunteers', value: 'volunteers' }, { label: 'Live', value: 'live' }, { label: 'Timeline', value: 'timeline' }, { label: 'Shootout', value: 'shootout' }, { label: 'Report', value: 'report' }]} styles={styles} value={panel} />
-      {panel === 'overview' ? <View style={styles.card}><Text style={styles.cardTitle}>{getCoachMatchDayPresentation(match).displayName}</Text><Text style={styles.score}>{getCoachMatchDayPresentation(match).displayScore}</Text><Text style={styles.body}>{match.matchDate} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime} | {match.homeAway}</Text><Text style={styles.body}>{match.venueName || 'Venue TBC'}{match.venueAddress ? ` | ${match.venueAddress}` : ''}</Text><Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {match.conclusionRule.replaceAll('_', ' ')}</Text><View style={styles.warning}><Text style={styles.body}>Fixture-linked lineup, captain, goalkeeper, and Formation Board are not in the current canonical Match Day model. No inferred data is shown or saved.</Text></View></View> : null}
+      {panel === 'overview' ? <View style={styles.card}><Text style={styles.cardTitle}>{getCoachMatchDayPresentation(match).displayName}</Text><Text style={styles.score}>{getCoachMatchDayPresentation(match).displayScore}</Text><Text style={styles.body}>{match.matchDate} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime} | {match.homeAway}</Text><Text style={styles.body}>{match.venueName || 'Venue TBC'}{match.venueAddress ? ` | ${match.venueAddress}` : ''}</Text><Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text><View style={styles.warning}><Text style={styles.body}>Fixture-linked lineup, captain, goalkeeper, and Formation Board are not in the current canonical Match Day model. No inferred data is shown or saved.</Text></View></View> : null}
       {panel === 'squad' ? <SquadPanel actions={actions} busy={busy} match={match} onSetDecision={(player, decision) => setPending({ label: `Set ${player.playerName} to ${decision.replaceAll('_', ' ')}`, run: () => replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)) })} players={players} styles={styles} /> : null}
       {panel === 'volunteers' ? <VolunteerPanel actions={actions} busy={busy} match={match} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /> : null}
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onPrepare={setPending} onScore={(kind) => { if (kind === 'event') return submitEvent(); const commandId = createCoachMatchDayCommandId(); return replace(() => correctCoachMatchDayScore(user, match, scoreDraft.home, scoreDraft.away, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)) }} onTimer={(action) => replace(() => runCoachMatchDayTimerAction(user, match, action), (detail) => isCoachMatchDayTimerActionApplied(detail, action))} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
