@@ -400,20 +400,30 @@ export async function setCoachPollStatus(user, poll, status) {
 export async function getCoachInvitesAndAvailability(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   const [calendarResult, trainingResult, matchResult, matches, players] = await Promise.all([
-    supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at,deleted_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
-    supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*,calendar_events:calendar_event_id(title,team_id,cancelled_at,deleted_at)),training_availability_responses(*)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
+    supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
+    supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),training_availability_responses(*)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('match_day_availability_requests').select('*,match_days:match_day_id(opponent,team_id,status,deleted_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     getCoachMatchDayList(user),
     getCoachPlayerList(user),
   ])
   const hardError = calendarResult.error || trainingResult.error || matchResult.error
   if (hardError) throw hardError
-  const calendar = (calendarResult.data || []).map((row) => normalizeCoachInvite({ ...row, title: row.calendar_events?.title, cancelled_at: row.calendar_events?.cancelled_at, deleted_at: row.calendar_events?.deleted_at }, 'calendar'))
-  const training = (trainingResult.data || []).map((row) => {
+  const trainingRows = trainingResult.data || []
+  const trainingEventIds = [...new Set(trainingRows.map((row) => {
     const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
-    const event = Array.isArray(request?.calendar_events) ? request.calendar_events[0] : request?.calendar_events
+    return normalize(request?.calendar_event_id)
+  }).filter(Boolean))]
+  const trainingEventResult = trainingEventIds.length
+    ? await supabase.from('calendar_events').select('id,title,team_id,cancelled_at').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('id', trainingEventIds)
+    : { data: [], error: null }
+  if (trainingEventResult.error) throw trainingEventResult.error
+  const trainingEvents = new Map((trainingEventResult.data || []).map((event) => [normalize(event.id), event]))
+  const calendar = (calendarResult.data || []).map((row) => normalizeCoachInvite({ ...row, title: row.calendar_events?.title, cancelled_at: row.calendar_events?.cancelled_at }, 'calendar'))
+  const training = trainingRows.map((row) => {
+    const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
+    const event = trainingEvents.get(normalize(request?.calendar_event_id))
     const response = Array.isArray(row.training_availability_responses) ? row.training_availability_responses[0] : row.training_availability_responses
-    return normalizeCoachInvite({ ...row, ...response, occurrence_date: request?.occurrence_date, title: event?.title, cancelled_at: event?.cancelled_at, deleted_at: event?.deleted_at }, 'training')
+    return normalizeCoachInvite({ ...row, ...response, occurrence_date: request?.occurrence_date, title: event?.title, cancelled_at: event?.cancelled_at }, 'training')
   })
   const match = (matchResult.data || []).map((row) => {
     const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days

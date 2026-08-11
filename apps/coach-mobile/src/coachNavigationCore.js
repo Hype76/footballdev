@@ -99,3 +99,9 @@ export function getCoachPrimaryRoutes() {
 export function getCoachMoreRoutes() {
   return MORE_ROUTES
 }
+
+export function getCoachBottomNavigationPadding(bottomInset, platform) {
+  const measuredInset = Math.max(0, Number(bottomInset) || 0)
+  const systemInset = measuredInset || (platform === 'android' ? 48 : 0)
+  return 8 + systemInset
+}

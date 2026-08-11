@@ -21,7 +21,7 @@ test('Coach Home messages use the existing Player Team relationship instead of a
   assert.doesNotMatch(messages, /\.eq\('team_id', user\.activeTeamId\)/)
 })
 
-test('Coach app uses native bottom insets and the release gate enforces them', async () => {
+test('Coach app uses measured bottom insets and the release gate enforces them', async () => {
   const [app, packageJson, prestore] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/package.json', import.meta.url), 'utf8'),
@@ -29,9 +29,12 @@ test('Coach app uses native bottom insets and the release gate enforces them', a
   ])
   assert.match(app, /SafeAreaProvider/)
   assert.match(app, /from 'react-native-safe-area-context'/)
-  assert.match(app, /edges=\{\['top', 'right', 'bottom', 'left'\]\}/)
+  assert.match(app, /useSafeAreaInsets\(\)/)
+  assert.match(app, /edges=\{\['top', 'right', 'left'\]\}/)
+  assert.match(app, /getCoachBottomNavigationPadding/)
+  assert.match(app, /bottomInset=\{safeAreaInsets\.bottom\}/)
   assert.match(packageJson, /"react-native-safe-area-context": "~5\.6\.0"/)
-  assert.match(prestore, /full safe-area edges/)
+  assert.match(prestore, /explicit bottom navigation inset/)
 })
 
 test('Match Day cached records and display labels fail closed instead of reaching the root boundary', async () => {

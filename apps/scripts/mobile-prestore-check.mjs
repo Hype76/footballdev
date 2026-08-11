@@ -775,7 +775,10 @@ apps.forEach((app) => {
   } else {
     assertIncludes(appSource, 'SafeAreaProvider', `${app.name} safe-area provider`)
     assertIncludes(appSource, "from 'react-native-safe-area-context'", `${app.name} native safe-area dependency`)
-    assertIncludes(appSource, "edges={['top', 'right', 'bottom', 'left']}", `${app.name} full safe-area edges`)
+    assertIncludes(appSource, 'useSafeAreaInsets', `${app.name} measured safe-area insets`)
+    assertIncludes(appSource, "edges={['top', 'right', 'left']}", `${app.name} top and side safe-area edges`)
+    assertIncludes(appSource, 'getCoachBottomNavigationPadding', `${app.name} explicit bottom navigation inset`)
+    assertIncludes(appSource, 'bottomInset={safeAreaInsets.bottom}', `${app.name} bottom navigation measurement`)
     assertIncludes(appSource, 'SafeAreaView', `${app.name} safe-area shell`)
     assertIncludes(appSource, 'PrimaryNavigation', `${app.name} role-aware navigation`)
     assertIncludes(appSource, 'ContextSwitcher', `${app.name} canonical context shell`)

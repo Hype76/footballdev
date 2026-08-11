@@ -27,6 +27,7 @@ const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COMMS-POLLS-PRIVACY-CORRECTIVE-36',
   'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39',
   'FP-MOBILE-COACH-DEVICE-CORRECTIVE-40',
+  'FP-MOBILE-COACH-DEVICE-CORRECTIVE-41',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'

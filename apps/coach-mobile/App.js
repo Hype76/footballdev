@@ -9,6 +9,7 @@ import {
   BackHandler,
   Image,
   Linking,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,7 +18,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { getCoachNotificationStatusLabel, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
@@ -28,6 +29,7 @@ import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import {
   getCoachBackTarget,
+  getCoachBottomNavigationPadding,
   getCoachNavigationModel,
   getCoachRouteContainer,
   resolveCoachRoute,
@@ -106,6 +108,7 @@ function LoginScreen() {
 
 function CoachHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const safeAreaInsets = useSafeAreaInsets()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeRoute, setActiveRoute] = useState('home')
   const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
@@ -446,7 +449,7 @@ function CoachHome() {
 
   return (
     <CoachThemeContext.Provider value={themeContext}>
-      <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.appShell}>
+      <SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
         <StatusBar style={themeModel.mode === 'dark' ? 'light' : 'dark'} />
         <CoachHeader context={activeContext} user={selectedMobileUser} />
         <ContextSwitcher
@@ -502,7 +505,7 @@ function CoachHome() {
             user={selectedMobileUser}
           />
         </ScrollView>
-        <PrimaryNavigation activeRoute={activeRoute} navigation={navigation.primary} onNavigate={navigate} />
+        <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
       </SafeAreaView>
     </CoachThemeContext.Provider>
   )
@@ -811,10 +814,10 @@ function ContextSwitcher({ contexts, onSelect, selectedContextId }) {
   )
 }
 
-function PrimaryNavigation({ activeRoute, navigation, onNavigate }) {
+function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, platform }) {
   const { styles } = useCoachTheme()
   return (
-    <View accessibilityRole="tablist" style={styles.tabBar}>
+    <View accessibilityRole="tablist" style={[styles.tabBar, { paddingBottom: getCoachBottomNavigationPadding(bottomInset, platform) }]}>
       {navigation.map((route) => {
         const selected = route.key === activeRoute
         return (

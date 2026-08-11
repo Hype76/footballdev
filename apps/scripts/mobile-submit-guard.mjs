@@ -37,6 +37,7 @@ const authorisedProductionSubmission = (
     'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
     'FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35',
     'FP-MOBILE-COACH-DEVICE-CORRECTIVE-40',
+    'FP-MOBILE-COACH-DEVICE-CORRECTIVE-41',
   ].includes(promotionReference))
 )
 
