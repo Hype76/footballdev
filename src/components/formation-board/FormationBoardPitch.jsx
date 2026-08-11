@@ -29,7 +29,7 @@ function PitchLines() {
   )
 }
 
-function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect }) {
+function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect, selectionMode }) {
   const [livePosition, setLivePosition] = useState(null)
   const dragRef = useRef(null)
   const suppressClickRef = useRef(false)
@@ -61,7 +61,7 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
   }
 
   const handlePointerDown = (event) => {
-    if (!canEdit || event.button !== 0) {
+    if (!canEdit || selectionMode || event.button !== 0) {
       return
     }
 
@@ -119,6 +119,14 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
       return
     }
 
+    if (selectionMode) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        onSelect(marker.playerId)
+      }
+      return
+    }
+
     const step = event.shiftKey ? 0.05 : 0.01
     const changes = {
       ArrowDown: [0, step],
@@ -160,7 +168,7 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect 
       type={canEdit ? 'button' : undefined}
       role={canEdit ? undefined : 'img'}
       aria-pressed={canEdit ? isSelected : undefined}
-      aria-label={`${marker.displayName}, ${marker.shirtNumber ? `displayed shirt number ${marker.shirtNumber}` : 'no displayed shirt number'}, ${formatPosition(marker.x)} across, ${formatPosition(marker.y)} down`}
+      aria-label={`${marker.displayName}, ${marker.shirtNumber ? `displayed shirt number ${marker.shirtNumber}` : 'no displayed shirt number'}, ${formatPosition(marker.x)} across, ${formatPosition(marker.y)} down${selectionMode ? ', select to move to Bench' : ''}`}
       data-dragging={isDragging ? 'true' : 'false'}
       className={`absolute z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full border-[3px] text-center shadow-lg transition motion-reduce:transition-none focus:outline-none focus:ring-4 focus:ring-amber-300 ${isDragging ? 'scale-110 border-sky-200 bg-sky-50 ring-4 ring-sky-300/70' : isSelected ? 'border-amber-300 bg-[#101828]' : 'border-white bg-[#f7faf8]'}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
@@ -191,9 +199,12 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
   placements,
   selectedPlayerName,
   selectedMarkerId,
+  selectedMarkerIds = [],
+  selectionMode = false,
 }, ref) {
   const [announcement, setAnnouncement] = useState('')
   const markerIds = useMemo(() => new Set(placements.map((item) => item.playerId)), [placements])
+  const selectedIds = useMemo(() => new Set(selectedMarkerIds), [selectedMarkerIds])
 
   return (
     <div className="mx-auto w-full max-w-[42rem]">
@@ -205,11 +216,11 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
           : 'Portrait Formation pitch'}
         className="formation-board-pitch relative isolate aspect-[3/4] w-full overflow-hidden rounded-[1.6rem] border-4 border-white bg-[#237a45] shadow-xl shadow-[#101828]/20 focus:outline-none focus:ring-4 focus:ring-amber-300"
         onClick={(event) => {
-          if (!canEdit || event.target !== event.currentTarget) return
+          if (!canEdit || selectionMode || event.target !== event.currentTarget) return
           onPitchPress(coordinatesFromPointer(event.currentTarget, event.clientX, event.clientY))
         }}
         onKeyDown={(event) => {
-          if (!canEdit || !hasPlacementSource || !['Enter', ' '].includes(event.key)) return
+          if (!canEdit || selectionMode || !hasPlacementSource || !['Enter', ' '].includes(event.key)) return
           event.preventDefault()
           onPitchPress({ x: 0.5, y: 0.5 })
         }}
@@ -222,7 +233,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
           <PlayerMarker
             key={marker.playerId}
             canEdit={canEdit}
-            isSelected={marker.playerId === selectedMarkerId}
+            isSelected={selectionMode ? selectedIds.has(marker.playerId) : marker.playerId === selectedMarkerId}
             marker={marker}
             onMove={(playerId, coordinates, message) => {
               setAnnouncement(message)
@@ -230,6 +241,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
             }}
             onRemove={onRemove}
             onSelect={onSelectMarker}
+            selectionMode={selectionMode}
           />
         ))}
         {markerIds.size === 0 ? (

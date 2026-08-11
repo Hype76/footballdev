@@ -260,6 +260,15 @@ export function movePitchPlayerToUnplaced(snapshot, playerId) {
   }
 }
 
+export function movePitchPlayersToUnplaced(snapshot, playerIds = []) {
+  const selectedIds = new Set((Array.isArray(playerIds) ? playerIds : []).map(normalizeText).filter(Boolean))
+  if (selectedIds.size === 0) return snapshot
+  return [...selectedIds].reduce(
+    (current, playerId) => movePitchPlayerToUnplaced(current, playerId),
+    snapshot,
+  )
+}
+
 export function moveBenchPlayerToPitch(snapshot, playerId, coordinates, slot = null) {
   const targetId = normalizeText(playerId)
   const player = snapshot.bench.find((item) => item.playerId === targetId)

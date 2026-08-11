@@ -27,6 +27,7 @@ import {
   moveBenchPlayerToPitch,
   moveFormationPlayer,
   movePitchPlayerToUnplaced,
+  movePitchPlayersToUnplaced,
   moveUnplacedPlayerToPitch,
   parseFormationDraft,
   parseFormationBoardPreferences,
@@ -587,6 +588,8 @@ export function FormationBoardsPage() {
   const [history, setHistory] = useState([])
   const [selectedSource, setSelectedSource] = useState(null)
   const [selectedMarkerId, setSelectedMarkerId] = useState('')
+  const [isLineupEditMode, setIsLineupEditMode] = useState(false)
+  const [lineupEditPlayerIds, setLineupEditPlayerIds] = useState(() => new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isRosterOpen, setIsRosterOpen] = useState(false)
@@ -754,6 +757,8 @@ export function FormationBoardsPage() {
       setHistory([])
       setSelectedSource(null)
       setSelectedMarkerId('')
+      setIsLineupEditMode(false)
+      setLineupEditPlayerIds(new Set())
       setSaveState(isLandscapeCompatibility && !snapshotVersion ? 'unsaved' : 'saved')
       setConflict(null)
       setPortraitCompatibility(isLandscapeCompatibility ? {
@@ -857,6 +862,8 @@ export function FormationBoardsPage() {
     setHistory((current) => current.slice(0, -1))
     setSnapshot(previous)
     setSaveState(snapshotsMatch(previous, savedSnapshot) ? 'saved' : 'unsaved')
+    setIsLineupEditMode(false)
+    setLineupEditPlayerIds(new Set())
   }
 
   const closeEditor = () => {
@@ -867,6 +874,8 @@ export function FormationBoardsPage() {
     setSavedSnapshot(null)
     setDraftCandidate(null)
     setHistory([])
+    setIsLineupEditMode(false)
+    setLineupEditPlayerIds(new Set())
     setPublications([])
     setMatchPublications([])
     setSelectedMatchId('')
@@ -1190,9 +1199,49 @@ export function FormationBoardsPage() {
   }
 
   const handleMarkerSelect = (playerId) => {
+    if (isLineupEditMode) {
+      setLineupEditPlayerIds((current) => {
+        const next = new Set(current)
+        if (next.has(playerId)) next.delete(playerId)
+        else next.add(playerId)
+        return next
+      })
+      return
+    }
     setSelectedMarkerId(playerId)
     setSelectedSource({ playerId, type: 'marker' })
     if (window.matchMedia('(max-width: 1023px)').matches) setIsRosterOpen(true)
+  }
+
+  const toggleLineupEditMode = () => {
+    setIsLineupEditMode((current) => {
+      const next = !current
+      setLineupEditPlayerIds(new Set())
+      if (next) {
+        setSelectedSource(null)
+        setSelectedMarkerId('')
+        setIsRosterOpen(false)
+      }
+      return next
+    })
+  }
+
+  const moveSelectedLineupToBench = () => {
+    if (!snapshot || lineupEditPlayerIds.size === 0) return
+    const selectedIds = snapshot.placements
+      .map((player) => player.playerId)
+      .filter((playerId) => lineupEditPlayerIds.has(playerId))
+    if (selectedIds.length === 0) return
+    const nextSnapshot = movePitchPlayersToUnplaced(snapshot, selectedIds)
+    commitSnapshot(nextSnapshot)
+    setIsLineupEditMode(false)
+    setLineupEditPlayerIds(new Set())
+    setSelectedSource(null)
+    setSelectedMarkerId('')
+    showToast({
+      title: selectedIds.length === 1 ? 'Player moved to Bench' : 'Players moved to Bench',
+      message: `${selectedIds.length} ${selectedIds.length === 1 ? 'Player is' : 'Players are'} now on the Bench. Use Undo to reverse this change.`,
+    })
   }
 
   const handleBoardPlayerSelect = (player, sourceType) => {
@@ -1488,12 +1537,31 @@ export function FormationBoardsPage() {
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-secondary)]">{snapshot.gameFormat} | {currentPreset?.displayName || 'Custom'}</p>
                   <h2 className="mt-1 text-xl font-black">Pitch</h2>
                 </div>
-                <button type="button" onClick={undo} disabled={!canEdit || history.length === 0} className={secondaryButtonClass}>Undo</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canEdit && snapshot.placements.length > 0 ? (
+                    <button type="button" onClick={toggleLineupEditMode} className={isLineupEditMode ? primaryButtonClass : secondaryButtonClass} aria-pressed={isLineupEditMode}>
+                      {isLineupEditMode ? 'Cancel' : 'Take Players off lineup'}
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={undo} disabled={!canEdit || history.length === 0} className={secondaryButtonClass}>Undo</button>
+                </div>
               </div>
+              {isLineupEditMode ? (
+                <section className="mb-4 rounded-xl border-2 border-[var(--accent)] bg-[var(--accent-soft)] p-4" aria-label="Take Players off current lineup">
+                  <p className="text-sm font-black text-[var(--text-primary)]">Tap every pitch Player who should come off the current lineup.</p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Selected Players stay on this plan and move to the Bench. Nobody is removed from the board.</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button type="button" disabled={lineupEditPlayerIds.size === 0} onClick={moveSelectedLineupToBench} className={primaryButtonClass}>
+                      {lineupEditPlayerIds.size > 0 ? `Move ${lineupEditPlayerIds.size} selected to Bench` : 'Move selected to Bench'}
+                    </button>
+                    <span className="rounded-full bg-[var(--panel-bg)] px-3 py-2 text-xs font-black text-[var(--text-primary)]" aria-live="polite">{lineupEditPlayerIds.size} selected</span>
+                  </div>
+                </section>
+              ) : null}
               <FormationBoardPitch
                 ref={pitchRef}
                 canEdit={canEdit}
-                hasPlacementSource={['bench', 'marker', 'unplaced'].includes(selectedSource?.type)}
+                hasPlacementSource={!isLineupEditMode && ['bench', 'marker', 'unplaced'].includes(selectedSource?.type)}
                 onMove={(playerId, coordinates) => commitSnapshot(moveFormationPlayer(snapshot, playerId, coordinates))}
                 onPitchPress={handlePitchPress}
                 onRemove={(playerId) => {
@@ -1504,13 +1572,15 @@ export function FormationBoardsPage() {
                 placements={snapshot.placements}
                 selectedPlayerName={selectedBoardPlayer?.displayName || ''}
                 selectedMarkerId={selectedMarkerId}
+                selectedMarkerIds={[...lineupEditPlayerIds]}
+                selectionMode={isLineupEditMode}
               />
               {pitchCapacity.isOverCapacity ? (
                 <div className="mt-4"><NoticeBanner title="Pitch capacity must be corrected" message={`This ${pitchCapacity.gameFormat} board has ${pitchCapacity.pitchPlayerCount} Players on a ${pitchCapacity.capacity}-Player pitch. No Player has been removed. Move the excess Players to the Bench before saving.`} /></div>
               ) : capacityMessage ? (
                 <div className="mt-4"><NoticeBanner title="Pitch is full" message={capacityMessage} /></div>
               ) : null}
-              {selectedSource ? <p className="mt-4 rounded-lg bg-[var(--accent-soft)] px-4 py-3 text-sm font-black">Selected: {selectedBoardPlayer?.displayName || selectedMarker?.displayName}. Tap the pitch to position.</p> : null}
+              {selectedSource && !isLineupEditMode ? <p className="mt-4 rounded-lg bg-[var(--accent-soft)] px-4 py-3 text-sm font-black">Selected: {selectedBoardPlayer?.displayName || selectedMarker?.displayName}. Tap the pitch to position.</p> : null}
               <BenchPlayersTray
                 canEdit={canEdit}
                 onDragStart={handlePlayerDragStart}
