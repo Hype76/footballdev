@@ -4,7 +4,7 @@ import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
   filterCoachCalendarEvents,
-  formatCoachCalendarDateTime,
+  formatCoachCalendarEventDateTime,
   getCoachCalendarContextModel,
   getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
@@ -85,6 +85,7 @@ function useDomainStyles(palette) {
     title: { color: palette.textPrimary, fontSize: 27, fontWeight: '900' },
     cardTitle: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },
     warning: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning, borderRadius: 14, borderWidth: 1, gap: 4, padding: 12 },
+    warningText: { color: palette.warning, fontSize: 12, fontWeight: '800', lineHeight: 17 },
   }), [palette])
 }
 
@@ -324,7 +325,8 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectCon
           {group.events.map((event) => (
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
               <Text style={styles.cardTitle}>{event.title}</Text>
-              <Text style={styles.meta}>{formatCoachCalendarDateTime(event.startsAt)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
+              <Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
+              {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>This item needs a valid local time before it can be edited.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
               {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : <Text style={styles.meta}>Edit this item in its authoritative {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} workflow.</Text>}</> : null}

@@ -6,6 +6,7 @@ import {
   buildCoachCalendarEvents,
   buildCoachCalendarPayload,
   filterCoachCalendarEvents,
+  formatCoachCalendarEventDateTime,
   getCoachCalendarContextModel,
   getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
@@ -68,6 +69,35 @@ test('Calendar uses Europe/London conversion and rejects the spring clock-change
   assert.equal(londonLocalToUtcIso('2026-08-10', '18:00'), '2026-08-10T17:00:00.000Z')
   assert.throws(() => londonLocalToUtcIso('2026-03-29', '01:30'), /clocks change/)
   assert.match(londonLocalToUtcIso('2026-10-25', '01:30'), /^2026-10-25T0[01]:30:00\.000Z$/)
+})
+
+test('Calendar keeps loading when a legacy fixture or Session has an impossible local time', () => {
+  const session = normalizeCoachCalendarEvent({
+    id: 'session-clock-change',
+    session_date: '2026-03-29',
+    start_time: '01:30',
+    team_id: 'team-test',
+    title: 'Clock-change session',
+  }, 'assessment_session')
+  const fixture = normalizeCoachCalendarEvent({
+    id: 'fixture-clock-change',
+    kickoff_time: '01:30',
+    match_date: '2026-03-29',
+    opponent: 'Visitors',
+    team_id: 'team-test',
+  }, 'match_day')
+
+  assert.equal(session.calendarDate, '2026-03-29')
+  assert.equal(session.calendarTime, '01:30')
+  assert.equal(session.dateTimeIssue, 'invalid_local_time')
+  assert.equal(session.startsAt, '')
+  assert.equal(formatCoachCalendarEventDateTime(session), '29 Mar 2026 | Time needs updating')
+  assert.equal(fixture.calendarDate, '2026-03-29')
+  assert.equal(fixture.dateTimeIssue, 'invalid_local_time')
+  assert.equal(buildCoachCalendarEvents({
+    matches: [{ id: 'fixture-clock-change', kickoff_time: '01:30', match_date: '2026-03-29', opponent: 'Visitors', team_id: 'team-test' }],
+    sessions: [{ id: 'session-clock-change', session_date: '2026-03-29', start_time: '01:30', team_id: 'team-test' }],
+  }).length, 2)
 })
 
 test('Calendar filters and groups upcoming, history, and cancelled data without hiding null-safe rows', () => {

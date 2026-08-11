@@ -80,6 +80,7 @@ export function londonLocalToUtcIso(dateValue, timeValue) {
 }
 
 export function formatCoachCalendarDateTime(value) {
+  if (!normalize(value)) return 'Time not set'
   const date = new Date(value || 0)
   if (Number.isNaN(date.getTime())) return 'Time not set'
   return new Intl.DateTimeFormat('en-GB', {
@@ -90,6 +91,25 @@ export function formatCoachCalendarDateTime(value) {
     timeZone: 'Europe/London',
     weekday: 'short',
   }).format(date)
+}
+
+export function formatCoachCalendarEventDateTime(event = {}) {
+  if (event.dateTimeIssue === 'invalid_local_time') {
+    const calendarDate = normalize(event.calendarDate)
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(calendarDate)
+      ? new Date(`${calendarDate}T12:00:00.000Z`)
+      : null
+    const dateLabel = date && !Number.isNaN(date.getTime())
+      ? new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+        year: 'numeric',
+      }).format(date)
+      : 'Date not set'
+    return `${dateLabel} | Time needs updating`
+  }
+  return formatCoachCalendarDateTime(event.startsAt)
 }
 
 export function getCoachCalendarMonthKey(value = new Date()) {
@@ -152,15 +172,36 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
   const kickoffTime = normalize(row.kickoff_time ?? row.kickoffTime)
   const sessionDate = normalize(row.session_date ?? row.sessionDate)
   const startTime = normalize(row.start_time ?? row.startTime)
-  const startsAt = isMatchDay
-    ? (matchDate ? londonLocalToUtcIso(matchDate, kickoffTime || '23:59') : '')
-    : isSession
-      ? (sessionDate && startTime ? londonLocalToUtcIso(sessionDate, startTime) : sessionDate)
-      : normalize(row.starts_at ?? row.startsAt)
   const endTime = normalize(row.end_time ?? row.endTime)
-  const endsAt = isSession && sessionDate && endTime
-    ? londonLocalToUtcIso(sessionDate, endTime)
-    : normalize(row.ends_at ?? row.endsAt)
+  let dateTimeIssue = ''
+  let startsAt = normalize(row.starts_at ?? row.startsAt)
+  let endsAt = normalize(row.ends_at ?? row.endsAt)
+  if (isMatchDay && matchDate) {
+    try {
+      startsAt = londonLocalToUtcIso(matchDate, kickoffTime || '23:59')
+    } catch {
+      startsAt = ''
+      dateTimeIssue = 'invalid_local_time'
+    }
+  } else if (isSession) {
+    startsAt = sessionDate
+    if (sessionDate && startTime) {
+      try {
+        startsAt = londonLocalToUtcIso(sessionDate, startTime)
+      } catch {
+        startsAt = ''
+        dateTimeIssue = 'invalid_local_time'
+      }
+    }
+    if (sessionDate && endTime) {
+      try {
+        endsAt = londonLocalToUtcIso(sessionDate, endTime)
+      } catch {
+        endsAt = ''
+        dateTimeIssue = 'invalid_local_time'
+      }
+    }
+  }
   const teamId = normalize(row.team_id ?? row.teamId)
   const status = normalizeKey(row.status || (row.cancelled_at || row.cancelledAt ? 'cancelled' : 'scheduled')) || 'scheduled'
   const eventType = isMatchDay
@@ -172,13 +213,16 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     ? `${normalize(team?.name ?? row.team_name ?? row.teamName) || 'Team'} v ${normalize(row.opponent) || 'Opponent'}`
     : normalize(row.title) || (isSession ? 'Training session' : 'Calendar event')
   const dateParts = londonParts(startsAt)
+  const sourceCalendarDate = isMatchDay ? matchDate : isSession ? sessionDate : ''
+  const sourceCalendarTime = isMatchDay ? kickoffTime : isSession ? startTime : ''
 
   return Object.freeze({
     availabilitySummary: row.availabilitySummary || null,
-    calendarDate: dateParts?.date || normalize(startsAt).slice(0, 10),
-    calendarTime: dateParts?.time || '',
+    calendarDate: sourceCalendarDate || dateParts?.date || normalize(startsAt).slice(0, 10),
+    calendarTime: sourceCalendarTime || dateParts?.time || '',
     cancelledAt: normalize(row.cancelled_at ?? row.cancelledAt) || (status === 'cancelled' ? normalize(row.updated_at ?? row.updatedAt) : ''),
     canEdit: source === 'calendar_event' && row.canEdit !== false,
+    dateTimeIssue,
     endsAt,
     eventType,
     id: `${source}:${normalize(row.id)}`,
