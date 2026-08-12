@@ -60,6 +60,24 @@ export function AuthProvider({
   const [startupState, setStartupState] = useState(MOBILE_STARTUP_STATES.BOOTING)
   const [user, setUser] = useState(null)
 
+  useEffect(() => {
+    const updateAutoRefresh = (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh()
+      } else {
+        supabase.auth.stopAutoRefresh()
+      }
+    }
+
+    updateAutoRefresh(AppState.currentState)
+    const subscription = AppState.addEventListener('change', updateAutoRefresh)
+
+    return () => {
+      subscription.remove()
+      supabase.auth.stopAutoRefresh()
+    }
+  }, [])
+
   const loadProfile = useCallback(async (nextSession) => {
     if (!nextSession?.user) {
       setUser(null)

@@ -55,6 +55,13 @@ function createMobileExpoConfig({
       runtimeVersion: {
         policy: 'appVersion',
       },
+      ...(environment.easProjectId ? {
+        updates: {
+          url: `https://u.expo.dev/${environment.easProjectId}`,
+          checkAutomatically: 'ON_LOAD',
+          fallbackToCacheTimeout: 0,
+        },
+      } : {}),
       orientation: 'portrait',
       icon: './assets/icon.png',
       backgroundColor: '#030603',

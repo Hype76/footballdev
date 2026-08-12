@@ -21,6 +21,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
   'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39',
   'FP-MOBILE-FORMATION-NOTIFICATIONS-47',
+  'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49',
 ])
 const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
@@ -39,13 +40,16 @@ const masterStoreAndroid = `${profile}:${platform}` === 'store-live:android'
   && promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
 const currentInternalIos = `${profile}:${platform}` === 'internal-live:ios'
   && promotionReference === 'FP-MOBILE-FORMATION-NOTIFICATIONS-47'
+const currentCoachStoreAndroid = appRole === 'coach'
+  && `${profile}:${platform}` === 'store-live:android'
+  && promotionReference === 'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
   process.exit(1)
 }
 
-if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos) {
+if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos && !currentCoachStoreAndroid) {
   console.error('Unknown mobile build profile and platform combination.')
   process.exit(1)
 }
