@@ -103,6 +103,10 @@ import {
   updateParentNotificationPreference,
 } from './src/notifications'
 import { prepareParentMobileStartup } from './src/startup'
+import {
+  loadParentCommunicationPreference,
+  saveParentCommunicationPreference,
+} from './src/communicationPreferences'
 import { getSafeParentMessageUrl, presentParentMessages } from './messagePresentation'
 import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
 
@@ -215,6 +219,8 @@ function ParentHome() {
     permissionStatus: 'undetermined',
     registered: false,
   })
+  const [communicationChannel, setCommunicationChannel] = useState('both')
+  const [communicationChannelLoading, setCommunicationChannelLoading] = useState(false)
   const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
   const [displayTheme, setDisplayTheme] = useState('dark')
   const [moreSection, setMoreSection] = useState('')
@@ -461,11 +467,21 @@ function ParentHome() {
     if (!selectedMobileUser?.id) return undefined
 
     let mounted = true
-    void loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
-      .then((notificationsState) => {
-        if (mounted) setNotificationState(notificationsState)
+    setCommunicationChannelLoading(true)
+    void Promise.all([
+      loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl }),
+      loadParentCommunicationPreference(config.apiBaseUrl),
+    ])
+      .then(([notificationsState, channel]) => {
+        if (mounted) {
+          setNotificationState(notificationsState)
+          setCommunicationChannel(channel)
+        }
       })
       .catch(() => {})
+      .finally(() => {
+        if (mounted) setCommunicationChannelLoading(false)
+      })
 
     return () => {
       mounted = false
@@ -996,6 +1012,21 @@ function ParentHome() {
     }
   }
 
+  async function handleCommunicationChannelChange(nextChannel) {
+    if (activeActionId || nextChannel === communicationChannel) return
+    setActiveActionId('communication-channel')
+    setNotice(null)
+    try {
+      const channel = await saveParentCommunicationPreference(config.apiBaseUrl, nextChannel)
+      setCommunicationChannel(channel)
+      setNotice({ message: 'Communication choice saved. The Parent web portal now uses the same choice.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Communication settings could not be saved.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function handleTestNotification(intentType) {
     if (activeActionId || !notificationState.enabled) return
     setActiveActionId('notification-test')
@@ -1178,11 +1209,14 @@ function ParentHome() {
                 biometricAvailable={biometricAvailable}
                 biometricEnabled={biometricEnabled}
                 cacheState={offlineCacheState}
+                communicationChannel={communicationChannel}
+                communicationChannelLoading={communicationChannelLoading}
                 isOffline={isOffline}
                 isSyncing={isSyncing}
                 lastUpdatedAt={lastUpdatedAt}
                 links={parentLinks}
                 onBiometricChange={handleBiometricChange}
+                onCommunicationChannelChange={handleCommunicationChannelChange}
                 displayTheme={displayTheme}
                 notificationState={notificationState}
                 onNotificationDetailChange={handleNotificationDetailChange}
@@ -1734,6 +1768,8 @@ function SettingsScreen({
   biometricAvailable,
   biometricEnabled,
   cacheState,
+  communicationChannel,
+  communicationChannelLoading,
   displayTheme,
   isOffline,
   isSyncing,
@@ -1741,6 +1777,7 @@ function SettingsScreen({
   links,
   notificationState,
   onBiometricChange,
+  onCommunicationChannelChange,
   onDisplayThemeChange,
   onNotificationDetailChange,
   onNotificationEnabledChange,
@@ -1863,6 +1900,33 @@ function SettingsScreen({
           )}
         </View>
       </View>
+
+      <InfoPanel title="Communication choice">
+        <Text style={styles.bodyText}>Choose how the club should contact your Parent account. The Parent web portal uses the same choice.</Text>
+        <View accessibilityRole="radiogroup" style={styles.notificationChoices}>
+          {[
+            { copy: 'Parent app alerts only.', key: 'app', label: 'App notifications' },
+            { copy: 'Email only.', key: 'email', label: 'Email' },
+            { copy: 'App alerts and email.', key: 'both', label: 'Both' },
+          ].map((choice) => {
+            const selected = communicationChannel === choice.key
+            return (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected, disabled: communicationChannelLoading || activeActionId === 'communication-channel' }}
+                disabled={communicationChannelLoading || activeActionId === 'communication-channel'}
+                key={choice.key}
+                onPress={() => onCommunicationChannelChange(choice.key)}
+                style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
+              >
+                <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{choice.label}</Text>
+                <Text style={styles.helperText}>{choice.copy}</Text>
+              </Pressable>
+            )
+          })}
+        </View>
+        {communicationChannel !== 'email' && !notificationState.enabled ? <Text style={styles.helperText}>App notifications are selected, but alerts are not enabled on this device. Turn them on below.</Text> : null}
+      </InfoPanel>
 
       <InfoPanel title="Notifications">
         <InfoRow label="Status" value={getParentNotificationStatusLabel(notificationState)} />
