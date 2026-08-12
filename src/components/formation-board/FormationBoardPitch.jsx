@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
-import { clampFormationCoordinate } from '../../lib/formation-board-editor.js'
+import { clampFormationCoordinate, getFormationSlotLabel } from '../../lib/formation-board-editor.js'
 import { FormationPlayerMarkerVisual } from './FormationPlayerMarkerVisual.jsx'
 
 function coordinatesFromPointer(element, clientX, clientY) {
@@ -196,18 +196,27 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
   onPitchPress,
   onRemove,
   onSelectMarker,
+  onSelectSlot,
   placements,
   selectedPlayerName,
   selectedMarkerId,
   selectedMarkerIds = [],
   selectionMode = false,
+  slots = [],
 }, ref) {
   const [announcement, setAnnouncement] = useState('')
   const markerIds = useMemo(() => new Set(placements.map((item) => item.playerId)), [placements])
   const selectedIds = useMemo(() => new Set(selectedMarkerIds), [selectedMarkerIds])
+  const occupiedSlotIds = useMemo(() => new Set(placements.map((item) => item.slotId).filter(Boolean)), [placements])
+  const fixedSlots = useMemo(() => (Array.isArray(slots) ? slots.filter((slot) => slot?.id) : []), [slots])
 
   return (
     <div className="mx-auto w-full max-w-[42rem]">
+      {fixedSlots.length > 0 && canEdit && !selectionMode ? (
+        <p className="mb-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-center text-xs font-black text-[var(--text-primary)]">
+          Tap a position to add or swap a Player.
+        </p>
+      ) : null}
       <div
         ref={ref}
         data-formation-pitch="true"
@@ -229,6 +238,28 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
       >
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.035)_0,rgba(255,255,255,0.035)_12.5%,rgba(0,0,0,0.035)_12.5%,rgba(0,0,0,0.035)_25%)]" />
         <PitchLines />
+        {fixedSlots.map((slot) => {
+          if (occupiedSlotIds.has(slot.id)) return null
+          const label = getFormationSlotLabel(slot)
+
+          return (
+            <button
+              key={slot.id}
+              type="button"
+              disabled={!canEdit || selectionMode}
+              aria-label={`${label}, empty. Add Player.`}
+              onClick={(event) => {
+                event.stopPropagation()
+                onSelectSlot(slot.id)
+              }}
+              className="absolute z-[5] flex min-h-12 min-w-12 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 border-dashed border-white bg-[#101828]/70 px-1.5 text-center text-white shadow-md transition hover:border-amber-300 hover:bg-[#101828] focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
+              style={{ left: `${Number(slot.x) * 100}%`, top: `${Number(slot.y) * 100}%` }}
+            >
+              <span className="text-[0.7rem] font-black leading-none">Add</span>
+              <span className="pointer-events-none absolute left-1/2 top-full mt-1 max-w-24 -translate-x-1/2 truncate rounded bg-[#101828]/90 px-1.5 py-0.5 text-[0.56rem] font-black text-white" title={label}>{label}</span>
+            </button>
+          )
+        })}
         {placements.map((marker) => (
           <PlayerMarker
             key={marker.playerId}
@@ -244,7 +275,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
             selectionMode={selectionMode}
           />
         ))}
-        {markerIds.size === 0 ? (
+        {markerIds.size === 0 && fixedSlots.length === 0 ? (
           <p className="pointer-events-none absolute inset-x-8 top-1/2 -translate-y-1/2 rounded-lg bg-[#101828]/75 px-4 py-3 text-center text-sm font-black text-white">
             Add Players to the Bench, then tap or drag them onto the pitch.
           </p>

@@ -22,6 +22,33 @@ async function getAccessToken() {
   return data?.session?.access_token || ''
 }
 
+async function requestParentCommunicationPreference(method = 'GET', communicationChannel = '') {
+  const token = await getAccessToken()
+  if (!token) throw new Error('Login is required before changing communication settings.')
+
+  const response = await fetch('/.netlify/functions/parent-communication-preferences', {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    ...(method === 'PUT' ? { body: JSON.stringify({ communicationChannel }) } : {}),
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Communication settings could not be saved.')
+  }
+  return result.preference || { communicationChannel: 'both', updatedAt: null }
+}
+
+export function getParentCommunicationPreference() {
+  return requestParentCommunicationPreference('GET')
+}
+
+export function updateParentCommunicationPreference(communicationChannel) {
+  return requestParentCommunicationPreference('PUT', communicationChannel)
+}
+
 async function fetchPushPublicKey() {
   const response = await fetch('/.netlify/functions/parent-push-subscription')
   const result = await response.json().catch(() => ({}))

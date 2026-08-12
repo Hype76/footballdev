@@ -1,5 +1,9 @@
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
+import {
+  allowsParentAppNotifications,
+  getParentCommunicationChannels,
+} from './lib/_parent-communication-preferences.js'
 
 const BATCH_SIZE = 50
 const RETRY_DELAY_MS = 60_000
@@ -181,6 +185,19 @@ async function deliverIntent({ client, intent, kind, sendMessages }) {
     : buildStaffChatMobileNotification(intent)
 
   try {
+    if (kind === 'parent') {
+      const channels = await getParentCommunicationChannels(client, [intent.auth_user_id])
+      const channel = channels.get(normalizeText(intent.auth_user_id)) || 'both'
+      if (!allowsParentAppNotifications(channel)) {
+        await updateIntent(client, table, intent.intent_id, {
+          status: 'sent',
+          processed_at: new Date().toISOString(),
+          safe_error_code: 'communication_preference_email',
+        })
+        return 'skipped'
+      }
+    }
+
     const result = await sendMessages([payload])
     await revokeInvalidInstallation(client, intent, result.invalidTokens)
     const sent = Number(result.sent || 0) === 1 && Number(result.failed || 0) === 0
@@ -235,6 +252,7 @@ export async function processChatMobileNotifications({
     claimed: parentIntents.length + staffIntents.length,
     failed: 0,
     sent: 0,
+    skipped: 0,
   }
 
   for (const intent of parentIntents) {

@@ -11,6 +11,7 @@ import {
 import {
   addPlayersToUnplaced,
   applyFormationPreset,
+  assignFormationPlayerToSlot,
   assignPlayerToPitch,
   benchFormationPlayer,
   createEditorSnapshot,
@@ -122,6 +123,23 @@ test('assignment, duplicate prevention, movement, number change, replacement, an
   assert.equal(replaced.placements[0].displayName, 'Casey Two')
   assert.equal(benched.placements.length, 0)
   assert.equal(benched.unplaced[0].playerId, playerTwo.id)
+})
+
+test('slot-first assignment adds, replaces, and swaps Players without duplicate membership', () => {
+  const playerOne = { id: 'player-1', playerName: 'Alex One', shirtNumber: '7' }
+  const playerTwo = { id: 'player-2', playerName: 'Casey Two', shirtNumber: '9' }
+  const playerThree = { id: 'player-3', playerName: 'Sam Three', shirtNumber: '11' }
+  let snapshot = assignFormationPlayerToSlot(emptySnapshot(), playerOne, sevenPreset.slots[0])
+  snapshot = assignFormationPlayerToSlot(snapshot, playerTwo, sevenPreset.slots[1])
+
+  const swapped = assignFormationPlayerToSlot(snapshot, playerOne, sevenPreset.slots[1])
+  assert.equal(swapped.placements.find((item) => item.playerId === playerOne.id).slotId, 'def-left')
+  assert.equal(swapped.placements.find((item) => item.playerId === playerTwo.id).slotId, 'gk')
+
+  const replaced = assignFormationPlayerToSlot(swapped, playerThree, sevenPreset.slots[1])
+  assert.equal(replaced.placements.find((item) => item.slotId === 'def-left').playerId, playerThree.id)
+  assert.equal(replaced.unplaced.find((item) => item.playerId === playerOne.id).state, 'unplaced')
+  assert.equal(new Set([...replaced.placements, ...replaced.unplaced].map((item) => item.playerId)).size, 3)
 })
 
 test('formation changes preserve goalkeeper mapping and move every unmatched Player to Unplaced', () => {

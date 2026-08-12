@@ -199,6 +199,112 @@ export function assignPlayerToPitch(snapshot, player, coordinates, slot = null) 
   }
 }
 
+function createSlotPlacement(player, slot) {
+  return {
+    ...createFormationPlayer(player),
+    positionGroup: normalizeText(slot?.group),
+    slotId: normalizeText(slot?.id),
+    x: clampFormationCoordinate(slot?.x),
+    y: clampFormationCoordinate(slot?.y),
+  }
+}
+
+export function assignFormationPlayerToSlot(snapshot, player, slot) {
+  const formationPlayer = createFormationPlayer(player)
+  const slotId = normalizeText(slot?.id)
+
+  if (!formationPlayer.playerId || !slotId) return snapshot
+
+  const sourcePlacement = (snapshot.placements ?? []).find((item) => item.playerId === formationPlayer.playerId) || null
+  const targetPlacement = (snapshot.placements ?? []).find((item) => item.slotId === slotId) || null
+
+  if (sourcePlacement?.slotId === slotId) return snapshot
+
+  const placementsWithoutPlayers = (snapshot.placements ?? []).filter((item) => (
+    item.playerId !== formationPlayer.playerId && item.playerId !== targetPlacement?.playerId
+  ))
+  const nextPlacements = [
+    ...placementsWithoutPlayers,
+    createSlotPlacement(formationPlayer, slot),
+  ]
+  const nextUnplaced = (snapshot.unplaced ?? []).filter((item) => (
+    item.playerId !== formationPlayer.playerId && item.playerId !== targetPlacement?.playerId
+  ))
+
+  if (targetPlacement && sourcePlacement) {
+    nextPlacements.push({
+      ...targetPlacement,
+      positionGroup: sourcePlacement.positionGroup,
+      slotId: sourcePlacement.slotId,
+      x: sourcePlacement.x,
+      y: sourcePlacement.y,
+    })
+  } else if (targetPlacement) {
+    nextUnplaced.push(normalizeUnplacedPlayer(targetPlacement))
+  }
+
+  return {
+    ...snapshot,
+    bench: (snapshot.bench ?? []).filter((item) => (
+      item.playerId !== formationPlayer.playerId && item.playerId !== targetPlacement?.playerId
+    )),
+    placements: nextPlacements,
+    unplaced: nextUnplaced,
+  }
+}
+
+export function getNearestFormationSlot(slots, coordinates) {
+  const availableSlots = Array.isArray(slots) ? slots.filter((slot) => normalizeText(slot?.id)) : []
+  if (availableSlots.length === 0) return null
+
+  const x = clampFormationCoordinate(coordinates?.x)
+  const y = clampFormationCoordinate(coordinates?.y)
+
+  return availableSlots.reduce((nearest, slot) => {
+    const distance = ((Number(slot.x) - x) ** 2) + ((Number(slot.y) - y) ** 2)
+    return !nearest || distance < nearest.distance ? { distance, slot } : nearest
+  }, null)?.slot || null
+}
+
+export function getFormationSlotLabel(slot) {
+  const slotId = normalizeText(slot?.id)
+  const labels = {
+    'def-centre': 'Centre back',
+    'def-left': 'Left back',
+    'def-left-centre': 'Left centre back',
+    'def-right': 'Right back',
+    'def-right-centre': 'Right centre back',
+    'def-wing-left': 'Left wing back',
+    'def-wing-right': 'Right wing back',
+    forward: 'Striker',
+    'forward-centre': 'Centre forward',
+    'forward-left': 'Left forward',
+    'forward-right': 'Right forward',
+    gk: 'Goalkeeper',
+    mid: 'Midfielder',
+    'mid-centre': 'Centre midfield',
+    'mid-hold': 'Holding midfield',
+    'mid-hold-left': 'Left holding midfield',
+    'mid-hold-right': 'Right holding midfield',
+    'mid-left': 'Left midfield',
+    'mid-left-centre': 'Left centre midfield',
+    'mid-right': 'Right midfield',
+    'mid-right-centre': 'Right centre midfield',
+    'mid-wing-left': 'Left wing',
+    'mid-wing-right': 'Right wing',
+  }
+
+  if (labels[slotId]) return labels[slotId]
+
+  const groupLabels = {
+    defender: 'Defender',
+    forward: 'Forward',
+    goalkeeper: 'Goalkeeper',
+    midfielder: 'Midfielder',
+  }
+  return groupLabels[normalizeText(slot?.group)] || 'Position'
+}
+
 export function replaceFormationPlayer(snapshot, targetPlayerId, player) {
   const formationPlayer = createFormationPlayer(player)
 

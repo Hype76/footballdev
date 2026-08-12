@@ -1,6 +1,7 @@
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -127,6 +128,53 @@ async function getPollPayload({ id, profile }) {
   }
 }
 
+async function getMatchDayAvailabilityPayload({ id, profile }) {
+  const { data: request, error } = await supabaseAdmin
+    .from('match_day_availability_requests')
+    .select('id, club_id, team_id, match_day_id, parent_link_id, status, token_revoked_at')
+    .eq('id', id)
+    .eq('club_id', profile.clubId)
+    .maybeSingle()
+
+  if (error || !request || !request.parent_link_id || request.token_revoked_at) {
+    throw Object.assign(new Error('Availability request could not be found.'), { statusCode: 404 })
+  }
+
+  const { data: match, error: matchError } = await supabaseAdmin
+    .from('match_days')
+    .select('id, club_id, team_id, opponent, match_date')
+    .eq('id', request.match_day_id)
+    .eq('club_id', request.club_id)
+    .maybeSingle()
+
+  if (matchError || !match || match.team_id !== request.team_id) {
+    throw Object.assign(new Error('Availability request match could not be found.'), { statusCode: 404 })
+  }
+
+  const matchDate = match.match_date
+    ? new Date(`${match.match_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : 'the upcoming match'
+  const opponent = normalizeText(match.opponent) || 'the opposition'
+
+  return {
+    clubId: request.club_id,
+    data: {
+      app: 'parent',
+      availabilityRequestId: request.id,
+      matchDayId: request.match_day_id,
+      parentLinkId: request.parent_link_id,
+      route: 'matchday',
+      type: 'matchday_availability',
+    },
+    detailedBody: `Please confirm availability for the match against ${opponent} on ${matchDate}.`,
+    minimalBody: 'Your club needs an availability response for an upcoming match.',
+    parentLinkQuery: (query) => query.eq('id', request.parent_link_id),
+    teamId: request.team_id || null,
+    title: 'Availability requested',
+    type: 'matchday_update',
+  }
+}
+
 async function getTargetParentLinks(payload) {
   let query = supabaseAdmin
     .from('parent_player_links')
@@ -146,7 +194,7 @@ async function getTargetParentLinks(payload) {
     throw error
   }
 
-  return data ?? []
+  return filterParentLinksForAppNotifications(supabaseAdmin, data ?? [])
 }
 
 async function getMobileDevices({ clubId, parentLinkIds, teamId }) {
@@ -246,7 +294,9 @@ async function revokeMobileDeviceTokens(deviceTokens) {
 export async function sendParentMobilePushById({ id, profile, type }) {
   const payload = type === 'parent_message'
     ? await getMessagePayload({ id, profile })
-    : await getPollPayload({ id, profile })
+    : type === 'matchday_availability'
+      ? await getMatchDayAvailabilityPayload({ id, profile })
+      : await getPollPayload({ id, profile })
   const parentLinks = await getTargetParentLinks(payload)
   const devices = await getMobileDevices({
     clubId: payload.clubId,
@@ -287,7 +337,7 @@ export async function handler(event) {
     const type = normalizeText(body.type)
     const id = normalizeText(body.id)
 
-    if (!id || !['parent_message', 'parent_poll'].includes(type)) {
+    if (!id || !['matchday_availability', 'parent_message', 'parent_poll'].includes(type)) {
       return failureResponse(400, 'A valid parent notification type and id are required.')
     }
 
