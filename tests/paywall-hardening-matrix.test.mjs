@@ -307,7 +307,10 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
   assert.match(authorityProfile, /\.eq\('auth_user_id', authUserId\)/)
   assert.match(authorityProfile, /\.eq\('role', normalizeText\(profile\.role\)\)/)
   assert.match(authorityProfile, /\.eq\('role_rank', Number\(profile\.role_rank \?\? 0\)\)/)
-  assert.match(planGate, /assertPlanFeature\(planProfile, featureName\)/)
+  assert.match(planGate, /export function assertPlanFeature\(planProfile, featureName/)
+  assert.match(planGate, /export function assertTrustedSystemPlanFeature\(planProfile, featureName\)/)
+  assert.match(planGate, /trustedSystemContext: false/)
+  assert.match(planGate, /trustedSystemContext: true/)
 
   assert.doesNotMatch(manageTeam, /planKey === PLAN_KEYS\.largeClub/)
   assert.match(manageTeam, /getPlanLimit\(planProfile, 'teams'\)/)

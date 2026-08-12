@@ -45,6 +45,10 @@ export function classifyEmailFailure(error) {
   const status = getStatus(error)
   const message = String(error?.message || '').toLowerCase()
 
+  if (status === 402 || code === 'payment_required') {
+    return { category: 'non_retryable_billing', retryable: false, safeCode: code }
+  }
+
   if (
     status === 401
     || status === 403

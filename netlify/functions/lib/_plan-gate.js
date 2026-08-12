@@ -207,16 +207,33 @@ function createCapabilityDeniedMessage(access) {
   return `${access.label} is not available.`
 }
 
-export function assertPlanFeature(planProfile, featureName, {
-  actionCategory = BILLING_ACTION_CATEGORIES.staffMutation,
-} = {}) {
+function assertPlanFeatureWithBillingContext(planProfile, featureName, {
+  actionCategory,
+  trustedSystemContext,
+}) {
   const access = getFeatureAccess(planProfile, featureName)
 
   if (!access.allowed) {
     throw Object.assign(new Error(createCapabilityDeniedMessage(access)), { statusCode: 403, access })
   }
 
-  assertBillingActionAllowed(planProfile, actionCategory)
+  assertBillingActionAllowed(planProfile, actionCategory, { trustedSystemContext })
+}
+
+export function assertPlanFeature(planProfile, featureName, {
+  actionCategory = BILLING_ACTION_CATEGORIES.staffMutation,
+} = {}) {
+  assertPlanFeatureWithBillingContext(planProfile, featureName, {
+    actionCategory,
+    trustedSystemContext: false,
+  })
+}
+
+export function assertTrustedSystemPlanFeature(planProfile, featureName) {
+  assertPlanFeatureWithBillingContext(planProfile, featureName, {
+    actionCategory: BILLING_ACTION_CATEGORIES.staffMutation,
+    trustedSystemContext: true,
+  })
 }
 
 export function canUsePlanFeature(planProfile, featureName) {

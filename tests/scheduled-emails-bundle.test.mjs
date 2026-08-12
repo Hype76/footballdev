@@ -5,6 +5,9 @@ import { test } from 'node:test'
 const netlifyTomlUrl = new URL('../netlify.toml', import.meta.url)
 const scheduledWrapperUrl = new URL('../netlify/functions/send-scheduled-emails.js', import.meta.url)
 const scheduledProcessorUrl = new URL('../netlify/functions/process-scheduled-emails.js', import.meta.url)
+const trainingProcessorUrl = new URL('../netlify/functions/process-training-availability-requests.js', import.meta.url)
+const retryProcessorUrl = new URL('../netlify/functions/retry-failed-emails.js', import.meta.url)
+const planGateUrl = new URL('../netlify/functions/lib/_plan-gate.js', import.meta.url)
 const supabaseHelperUrl = new URL('../netlify/functions/lib/_supabase.js', import.meta.url)
 
 test('scheduled email functions are built through the bundled Netlify functions pipeline', async () => {
@@ -35,4 +38,21 @@ test('scheduled email Supabase helper uses the correct package casing', async ()
 
   assert.match(source, /from '@supabase\/supabase-js'/)
   assert.doesNotMatch(source, /@Supabase\/supabase-js/)
+})
+
+test('only internal email workers opt into trusted system billing evaluation', async () => {
+  const [scheduled, training, retry, planGate] = await Promise.all([
+    readFile(scheduledProcessorUrl, 'utf8'),
+    readFile(trainingProcessorUrl, 'utf8'),
+    readFile(retryProcessorUrl, 'utf8'),
+    readFile(planGateUrl, 'utf8'),
+  ])
+
+  assert.match(scheduled, /assertTrustedSystemPlanFeature\(planProfile, 'parentEmails'\)/)
+  assert.match(training, /assertTrustedSystemPlanFeature\(\{[\s\S]*'parentEmails'\)/)
+  assert.match(retry, /assertTrustedSystemPlanFeature\(planProfile, requiredFeature\)/)
+  assert.match(planGate, /export function assertTrustedSystemPlanFeature/)
+  assert.match(planGate, /trustedSystemContext: false/)
+  assert.match(planGate, /trustedSystemContext: true/)
+  assert.match(planGate, /assertBillingActionAllowed\(planProfile, actionCategory, \{ trustedSystemContext \}\)/)
 })

@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createFromAddress } from './lib/_email-provider.js'
-import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
+import { assertTrustedSystemPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
@@ -1351,7 +1351,7 @@ async function processRequestWork({ appOrigin, now, supabase, work }) {
     })
   }
 
-  assertPlanFeature({
+  assertTrustedSystemPlanFeature({
     ...await getClubPlanProfile(request.club_id),
     role: 'system',
     roleRank: 100,

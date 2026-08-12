@@ -3,7 +3,7 @@ import process from 'node:process'
 import { authorizeProcessorRequest } from './lib/_processor-auth.js'
 import { markEmailLogFailed } from './lib/_email-log-store.js'
 import { supabaseAdmin } from './lib/_supabase.js'
-import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
+import { assertTrustedSystemPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
@@ -331,7 +331,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       role: 'system',
       roleRank: 100,
     }
-    assertPlanFeature(planProfile, 'parentEmails')
+    assertTrustedSystemPlanFeature(planProfile, 'parentEmails')
     const trainingInvitationPreparation = await prepareScheduledTrainingInvitationRow(
       lockedRow,
       {
