@@ -25,6 +25,9 @@ test('Coach session refresh follows app foreground state and store guards stay e
   assert.match(auth, /supabase\.auth\.startAutoRefresh\(\)/)
   assert.match(auth, /supabase\.auth\.stopAutoRefresh\(\)/)
   assert.match(auth, /AppState\.addEventListener\('change', updateAutoRefresh\)/)
-  assert.match(buildGuard, /FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49/)
+  assert.match(
+    buildGuard,
+    /const authorisedCoachProductionReferences = new Set\(\[[\s\S]*FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49[\s\S]*?\]\)/,
+  )
   assert.match(submitGuard, /FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49/)
 })
