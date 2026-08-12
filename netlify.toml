@@ -15,6 +15,17 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+[functions."formation-board-export"]
+  external_node_modules = ["@sparticuz/chromium"]
+
+[functions."parent-development-history"]
+  external_node_modules = ["@sparticuz/chromium"]
+
+[functions."render-pdf"]
+  external_node_modules = ["@sparticuz/chromium"]
+
+[functions."send-parent-email"]
   external_node_modules = ["@sparticuz/chromium"]
 
 [functions."process-platform-analytics"]

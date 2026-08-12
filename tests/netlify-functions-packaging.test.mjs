@@ -1,9 +1,10 @@
-import { readdirSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
 const functionsDir = join(process.cwd(), 'netlify', 'functions')
+const netlifyConfig = readFileSync(join(process.cwd(), 'netlify.toml'), 'utf8')
 const topLevelFunctions = readdirSync(functionsDir, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
   .map((entry) => basename(entry.name, '.js'))
@@ -35,5 +36,22 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.ok(topLevelFunctions.includes('create-workspace-checkout-session'))
   assert.ok(topLevelFunctions.includes('process-billing-access-reminders'))
   assert.ok(topLevelFunctions.includes('process-chat-mobile-notifications'))
-  assert.equal(topLevelFunctions.length, 70)
+  assert.equal(topLevelFunctions.length, 71)
+})
+
+test('Chromium packaging is limited to PDF function roots', () => {
+  const globalFunctions = netlifyConfig.match(/\[functions\]\s+([\s\S]*?)(?=\[functions\.)/)?.[1] ?? ''
+
+  assert.doesNotMatch(globalFunctions, /external_node_modules/)
+  for (const functionName of [
+    'formation-board-export',
+    'parent-development-history',
+    'render-pdf',
+    'send-parent-email',
+  ]) {
+    assert.match(
+      netlifyConfig,
+      new RegExp(`\\[functions\\."${functionName}"\\]\\s+external_node_modules = \\["@sparticuz/chromium"\\]`),
+    )
+  }
 })
