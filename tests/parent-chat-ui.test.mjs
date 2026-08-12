@@ -89,3 +89,12 @@ test('Chat UI has no participant controls or private-message language', async ()
   assert.doesNotMatch(workspace, /add participant|remove participant|create room|new room|direct message|private coach|private message|secret message|disappearing/i)
   assert.doesNotMatch(workspace, /email body|download pdf|parent inbox|view email|compose email/i)
 })
+
+test('Parent Portal Chat presents newest messages first without changing the staff order', async () => {
+  const workspace = await readFile(workspaceUrl, 'utf8')
+
+  assert.match(workspace, /export function orderParentPortalChatMessagesNewestFirst\(messages = \[\]\)/)
+  assert.match(workspace, /rightTime - leftTime \|\| left\.index - right\.index/)
+  assert.match(workspace, /variant === 'parent' \? orderParentPortalChatMessagesNewestFirst\(messages\) : messages/)
+  assert.match(workspace, /displayedMessages\.map\(\(message\) =>/)
+})

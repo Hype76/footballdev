@@ -318,7 +318,7 @@ test('selected Game Day fixture separates focused workspace sections', () => {
   assert.doesNotMatch(source, /function PitchsideCockpitPanel/)
 })
 
-test('parent Match Day calendar events expose Add to calendar only after parent portal filtering', () => {
+test('parent Match Day calendar event modal stays focused on in-product responses', () => {
   const source = readFileSync(
     new URL('../src/pages/ParentPortalPage.jsx', import.meta.url),
     'utf8',
@@ -334,13 +334,10 @@ test('parent Match Day calendar events expose Add to calendar only after parent 
   const calendarBuilderSource = source.slice(calendarBuilderStart, calendarBuilderEnd)
   const modalSource = source.slice(modalStart, modalEnd)
 
-  assert.match(source, /function buildParentMatchDayCalendarUrl\(event\)/)
-  assert.match(source, /event\?\.sourceType !== 'parent-match-day'/)
-  assert.match(source, /new URLSearchParams\(\{[\s\S]*action: 'TEMPLATE'[\s\S]*ctz: 'Europe\/London'/)
-  assert.match(source, /Parent Portal: https:\/\/footballplayer\.online\/parent-portal/)
   assert.match(calendarBuilderSource, /const matchEvents = matches[\s\S]*sourceType: 'parent-match-day'/)
-  assert.match(modalSource, /const calendarUrl = buildParentMatchDayCalendarUrl\(event\)/)
-  assert.match(modalSource, /Add to calendar/)
+  assert.doesNotMatch(source, /function buildParentMatchDayCalendarUrl\(event\)/)
+  assert.doesNotMatch(modalSource, /Add to calendar/)
+  assert.doesNotMatch(modalSource, /calendarUrl/)
   assert.doesNotMatch(modalSource, /getParentPortalMatchDays\(|getParentPortalSharedCalendarEvents\(|fetch\(|supabase/)
 })
 

@@ -423,6 +423,8 @@ test('calendar views use one semantic style map plus non-colour and screen-reade
   assert.match(source, /Week/)
   assert.match(source, /Agenda/)
   assert.match(source, /getEventTone\(event\)/)
+  assert.match(source, /data-calendar-visual-state=\{getCalendarVisualState\(event\) \|\| undefined\}/)
+  assert.match(source, /data-calendar-event-type=\{event\.type \|\| 'training'\}/)
   assert.doesNotMatch(source, /getEventTone\(event\.type\)/)
 })
 

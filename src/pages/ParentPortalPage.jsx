@@ -2328,64 +2328,6 @@ function toTimeOnly(value) {
   return /^\d{2}:\d{2}/.test(normalizedValue) ? normalizedValue.slice(0, 5) : ''
 }
 
-function addMinutesToTime(value, minutesToAdd) {
-  return addMinutesToRequiredTime(toTimeOnly(value), minutesToAdd)
-}
-
-function getGoogleCalendarDatePart(value) {
-  const match = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return match ? `${match[1]}${match[2]}${match[3]}` : ''
-}
-
-function getNextGoogleCalendarDatePart(value) {
-  const match = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!match) {
-    return ''
-  }
-
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1))
-  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`
-}
-
-function buildParentMatchDayCalendarUrl(event) {
-  if (event?.sourceType !== 'parent-match-day' || !event.date) {
-    return ''
-  }
-
-  const data = event.data || {}
-  const kickoffTimeTbc = isFixtureKickoffTimeTbc(data.kickoffTimeTbc)
-  const datePart = getGoogleCalendarDatePart(event.date)
-  if (!datePart) {
-    return ''
-  }
-
-  const startTime = kickoffTimeTbc ? '' : toTimeOnly(data.arrivalTime || data.kickoffTime || event.time)
-  const endTime = kickoffTimeTbc ? '' : toTimeOnly(data.kickoffTime)
-    ? addMinutesToTime(data.kickoffTime, 120)
-    : addMinutesToTime(startTime, 120)
-  const dates = startTime
-    ? `${datePart}T${startTime.replace(':', '')}00/${datePart}T${(endTime || addMinutesToTime(startTime, 120)).replace(':', '')}00`
-    : `${datePart}/${getNextGoogleCalendarDatePart(event.date) || datePart}`
-  const details = [
-    `Team: ${event.teamName || data.teamName || 'Team'}`,
-    data.opponent ? `Opponent: ${data.opponent}` : '',
-    kickoffTimeTbc ? 'Kick-off: Time TBC' : data.kickoffTime ? `Kick-off: ${toTimeOnly(data.kickoffTime)}` : '',
-    !kickoffTimeTbc && data.arrivalTime ? `Arrival: ${toTimeOnly(data.arrivalTime)}` : '',
-    data.venueName ? `Venue: ${data.venueName}` : '',
-    'Parent Portal: https://footballplayer.online/parent-portal',
-  ].filter(Boolean).join('\n')
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: event.title || getMatchDayDisplayName(data),
-    dates,
-    details,
-    location: event.location || data.venueAddress || data.venueName || '',
-    ctz: 'Europe/London',
-  })
-
-  return `https://calendar.google.com/calendar/render?${params.toString()}`
-}
-
 function buildParentCalendarEvents({ childName = '', invitationEvents = [], matches = [], sharedCalendarEvents = [] }) {
   const invitationGroupsByEventId = new Map(
     invitationEvents.map((group) => [String(group.eventId), group]),
@@ -3405,7 +3347,6 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
   const roleInvitations = invitations.filter((invitation) => invitation.invitationType === 'match_role')
   const isMatch = event.sourceType === 'parent-match-day'
   const kickoffTimeTbc = isMatch && isFixtureKickoffTimeTbc(data.kickoffTimeTbc)
-  const calendarUrl = buildParentMatchDayCalendarUrl(event)
   const startLabel = kickoffTimeTbc ? 'TBC' : event.time || data.kickoffTime || ''
   const meetLabel = !kickoffTimeTbc && data.arrivalTime ? `Meet time: ${data.arrivalTime}` : ''
   const typeLabel = isMatch
@@ -3457,16 +3398,6 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
             <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
               Child: {event.childName || invitations[0]?.childName || 'Linked child'}
             </p>
-            {calendarUrl ? (
-              <a
-                href={calendarUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={`inline-flex w-full sm:w-auto ${primaryButtonClass}`}
-              >
-                Add to calendar
-              </a>
-            ) : null}
           </div>
 
           <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">

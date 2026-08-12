@@ -790,6 +790,63 @@ body .app-theme-scope [class*='shadow-[#065f46]'] {
   --parent-warning-text: #92400e;
 }
 
+.theme-dark .parent-portal-theme-scope [data-calendar-visual-state='accepted'] {
+  background-color: #0b2f24 !important;
+  border-color: #2da879 !important;
+  color: #d1fae5 !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-visual-state='declined'] {
+  background-color: #351719 !important;
+  border-color: #ef6a6a !important;
+  color: #fecaca !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-visual-state='action_required'] {
+  background-color: #33270f !important;
+  border-color: #e6ad35 !important;
+  color: #fde68a !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-visual-state='informational'] {
+  background-color: #10264a !important;
+  border-color: #4f8ee8 !important;
+  color: #bfdbfe !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-visual-state='past'],
+.theme-dark .parent-portal-theme-scope [data-calendar-visual-state='cancelled_or_postponed'] {
+  background-color: #1b2622 !important;
+  border-color: #72827a !important;
+  color: #cbd5e1 !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-event-type='club-event']:not([data-calendar-visual-state]),
+.theme-dark .parent-portal-theme-scope [data-calendar-event-type='training']:not([data-calendar-visual-state]) {
+  background-color: #17251f !important;
+  border-color: #476558 !important;
+  color: #f1f5f9 !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-event-type='match']:not([data-calendar-visual-state]) {
+  background-color: #0b2f24 !important;
+  border-color: #2da879 !important;
+  color: #d1fae5 !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-event-type='match-day']:not([data-calendar-visual-state]),
+.theme-dark .parent-portal-theme-scope [data-calendar-event-type='deadline']:not([data-calendar-visual-state]) {
+  background-color: #33270f !important;
+  border-color: #e6ad35 !important;
+  color: #fde68a !important;
+}
+
+.theme-dark .parent-portal-theme-scope [data-calendar-event-type='development']:not([data-calendar-visual-state]) {
+  background-color: #10264a !important;
+  border-color: #4f8ee8 !important;
+  color: #bfdbfe !important;
+}
+
 .parent-portal-theme-scope option {
   background-color: var(--panel-bg);
   color: var(--text-primary);

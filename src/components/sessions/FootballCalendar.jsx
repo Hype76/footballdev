@@ -167,8 +167,11 @@ const calendarStatusLegend = [
 ]
 
 function getCalendarVisualStyle(event) {
-  const state = String(event?.calendarVisualState?.state ?? '').trim()
-  return calendarVisualToneStyles[state] || null
+  return calendarVisualToneStyles[getCalendarVisualState(event)] || null
+}
+
+function getCalendarVisualState(event) {
+  return String(event?.calendarVisualState?.state ?? '').trim()
 }
 
 function getEventTone(event) {
@@ -212,6 +215,7 @@ function CalendarEventStatusCue({ compact = false, event }) {
 
   return (
     <span
+      data-calendar-visual-state={getCalendarVisualState(event)}
       className={`inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[0.58rem] font-black leading-3 sm:px-2 sm:text-[0.65rem] ${style.badge}`}
       title={`Status: ${label}`}
     >
@@ -235,6 +239,7 @@ function CalendarVolunteerStatusCue({ compact = false, event }) {
   return (
     <span
       aria-hidden="true"
+      data-calendar-visual-state="informational"
       className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[0.58rem] font-black leading-3 text-[#1d4ed8] sm:px-2 sm:text-[0.65rem]"
       title={`Volunteer roles: ${detailLabel}`}
     >
@@ -387,7 +392,7 @@ export function FootballCalendar({
             {calendarStatusLegend.map((item) => {
               const style = calendarVisualToneStyles[item.state]
               return (
-                <span key={item.state} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[0.65rem] font-black ${style.badge}`} role="listitem">
+                <span data-calendar-visual-state={item.state} key={item.state} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[0.65rem] font-black ${style.badge}`} role="listitem">
                   <span aria-hidden="true" className={`h-2 w-2 rounded-full ${style.dot}`} />
                   {item.label}
                 </span>
@@ -455,6 +460,8 @@ export function FootballCalendar({
                         type="button"
                         onClick={() => onOpenEvent(event)}
                         aria-label={getEventAccessibleName(event)}
+                        data-calendar-event-type={event.type || 'training'}
+                        data-calendar-visual-state={getCalendarVisualState(event) || undefined}
                         title={getEventAccessibleName(event)}
                         className={`block w-full overflow-hidden rounded-md border px-1 py-0.5 text-left text-[0.62rem] font-black leading-3 sm:px-2 sm:py-1 sm:text-xs sm:leading-4 ${getEventTone(event)}`}
                       >
@@ -523,6 +530,8 @@ export function FootballCalendar({
                         type="button"
                         onClick={() => onOpenEvent(event)}
                         aria-label={getEventAccessibleName(event)}
+                        data-calendar-event-type={event.type || 'training'}
+                        data-calendar-visual-state={getCalendarVisualState(event) || undefined}
                         title={getEventAccessibleName(event)}
                         className={`block min-h-11 w-full rounded-md border px-3 py-2 text-left text-sm font-black leading-5 ${getEventTone(event)}`}
                       >
@@ -577,6 +586,8 @@ export function FootballCalendar({
                         type="button"
                         onClick={() => onOpenEvent(event)}
                         aria-label={getEventAccessibleName(event)}
+                        data-calendar-event-type={event.type || 'training'}
+                        data-calendar-visual-state={getCalendarVisualState(event) || undefined}
                         title={getEventAccessibleName(event)}
                         className={`block w-full rounded-md border px-3 py-2 text-left text-xs font-black leading-4 ${getEventTone(event)}`}
                       >
@@ -606,12 +617,14 @@ export function FootballCalendar({
                 </div>
                 <div className="divide-y divide-[#d7e5dc]">
                   {group.events.map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => onOpenEvent(event)}
-                      aria-label={getEventAccessibleName(event)}
-                      title={getEventAccessibleName(event)}
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() => onOpenEvent(event)}
+                  aria-label={getEventAccessibleName(event)}
+                  data-calendar-event-type={event.type || 'training'}
+                  data-calendar-visual-state={getCalendarVisualState(event) || undefined}
+                  title={getEventAccessibleName(event)}
                       className={`block w-full px-4 py-4 text-left transition hover:brightness-[0.98] ${getCalendarVisualStyle(event) ? `border-l-4 ${getCalendarVisualStyle(event).surface}` : 'hover:bg-[#f7faf8]'}`}
                     >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

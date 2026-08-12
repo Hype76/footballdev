@@ -85,6 +85,7 @@ async function getMessagePayload({ id, profile }) {
     data: {
       app: 'parent',
       communicationLogId: log.id,
+      messageId: log.id,
       route: 'messages',
       type: 'parent_message',
     },
@@ -161,11 +162,13 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
     data: {
       app: 'parent',
       availabilityRequestId: request.id,
+      invitationId: `match:${request.id}`,
       matchDayId: request.match_day_id,
       parentLinkId: request.parent_link_id,
-      route: 'matchday',
+      route: 'invites',
       type: 'matchday_availability',
     },
+    categoryId: 'parent-response',
     detailedBody: `Please confirm availability for the match against ${opponent} on ${matchDate}.`,
     minimalBody: 'Your club needs an availability response for an upcoming match.',
     parentLinkQuery: (query) => query.eq('id', request.parent_link_id),
@@ -305,7 +308,11 @@ export async function sendParentMobilePushById({ id, profile, type }) {
   })
   const pushResult = await sendExpoPushMessages(devices.map((device) => ({
     body: device.detail_level === 'detailed' ? payload.detailedBody : payload.minimalBody,
-    data: payload.data,
+    ...(payload.categoryId ? { categoryId: payload.categoryId } : {}),
+    data: {
+      ...payload.data,
+      parentLinkId: payload.data.parentLinkId || device.parent_link_id,
+    },
     sound: 'default',
     title: payload.title,
     to: device.expo_push_token,
