@@ -157,6 +157,17 @@ test('production build guards require the named Parent promotion reference', () 
   }
 })
 
+test('Ref 47 permits the bounded Parent internal live iOS candidate', () => {
+  const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'parent', 'internal-live', 'ios'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-FORMATION-NOTIFICATIONS-47' },
+  })
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /Mobile native build is blocked until EAS setup/)
+  assert.doesNotMatch(result.stderr, /production_build_not_authorised|Unknown mobile build profile/)
+})
+
 test('Ref 38 permits only the bounded Parent production build profiles', () => {
   const promotionReference = 'FP-MOBILE-PARENT-ASSESSMENT-CALENDAR-CORRECTIVE-38'
   for (const [profile, platform] of [['internal-live', 'android'], ['store-live', 'ios']]) {
