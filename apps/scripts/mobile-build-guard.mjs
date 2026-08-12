@@ -15,11 +15,12 @@ const allowedBuilds = new Set([
   'internal-live:android',
   'store-live:ios',
 ])
-const productionBuilds = new Set(['internal-live:android', 'store-live:android', 'store-live:ios'])
+const productionBuilds = new Set(['internal-live:android', 'internal-live:ios', 'store-live:android', 'store-live:ios'])
 const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
   'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
   'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39',
+  'FP-MOBILE-FORMATION-NOTIFICATIONS-47',
 ])
 const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
@@ -28,6 +29,7 @@ const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39',
   'FP-MOBILE-COACH-DEVICE-CORRECTIVE-40',
   'FP-MOBILE-COACH-DEVICE-CORRECTIVE-41',
+  'FP-MOBILE-FORMATION-NOTIFICATIONS-47',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
@@ -35,13 +37,15 @@ const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE ||
 const easEnvironment = productionBuilds.has(`${profile}:${platform}`) ? 'production' : profile === 'development' ? 'development' : 'preview'
 const masterStoreAndroid = `${profile}:${platform}` === 'store-live:android'
   && promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
+const currentInternalIos = `${profile}:${platform}` === 'internal-live:ios'
+  && promotionReference === 'FP-MOBILE-FORMATION-NOTIFICATIONS-47'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
   process.exit(1)
 }
 
-if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid) {
+if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos) {
   console.error('Unknown mobile build profile and platform combination.')
   process.exit(1)
 }
