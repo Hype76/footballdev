@@ -106,6 +106,10 @@ function resolveBillingActorCategory(role) {
     return BILLING_ACTOR_CATEGORIES.platformAdmin
   }
 
+  if (role === 'system') {
+    return BILLING_ACTOR_CATEGORIES.system
+  }
+
   if (PARENT_OR_PLAYER_ROLES.has(role)) {
     return BILLING_ACTOR_CATEGORIES.parentOrPlayer
   }
@@ -401,11 +405,13 @@ export function isBillingActionAllowed(context = {}, actionCategory, options = {
   const category = normalizeText(actionCategory).toUpperCase()
   const role = normalizeRole(safeContext.role ?? safeContext.clubRole ?? safeContext.club_role)
   const actorCategory = resolveBillingActorCategory(role)
+  const trustedSystemContext = actorCategory === BILLING_ACTOR_CATEGORIES.system
+    && options.trustedSystemContext === true
 
-  if (
+  if (actorCategory === BILLING_ACTOR_CATEGORIES.unknown || (
     actorCategory === BILLING_ACTOR_CATEGORIES.system
-    || actorCategory === BILLING_ACTOR_CATEGORIES.unknown
-  ) {
+    && !trustedSystemContext
+  )) {
     return false
   }
 
@@ -422,7 +428,10 @@ export function isBillingActionAllowed(context = {}, actionCategory, options = {
       && category !== BILLING_ACTION_CATEGORIES.platformAdmin
   }
 
-  const decision = resolveBillingAccess(safeContext, { ...options, actorRequired: true })
+  const decision = resolveBillingAccess(safeContext, {
+    ...options,
+    actorRequired: !trustedSystemContext,
+  })
 
   if (
     category === BILLING_ACTION_CATEGORIES.read
@@ -457,7 +466,14 @@ export function assertBillingActionAllowed(context = {}, actionCategory, options
     throw createPaymentRequiredError()
   }
 
-  return resolveBillingAccess(context, { ...options, actorRequired: true })
+  const role = normalizeRole(context?.role ?? context?.clubRole ?? context?.club_role)
+  const trustedSystemContext = resolveBillingActorCategory(role) === BILLING_ACTOR_CATEGORIES.system
+    && options.trustedSystemContext === true
+
+  return resolveBillingAccess(context, {
+    ...options,
+    actorRequired: !trustedSystemContext,
+  })
 }
 
 export function isParentOrPlayerBillingBypassRole(value) {

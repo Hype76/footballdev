@@ -16,7 +16,7 @@ import {
   unlockEmailLogForRetry,
 } from './lib/_email-log-store.js'
 import {
-  assertPlanFeature,
+  assertTrustedSystemPlanFeature,
   getClubPlanProfile,
 } from './lib/_plan-gate.js'
 import { reauthorizePreparedDevelopmentParentEmail } from './lib/_development-parent-email-output.js'
@@ -92,7 +92,7 @@ export async function processFailedEmails() {
           role: 'system',
           roleRank: 100,
         }
-        assertPlanFeature(planProfile, requiredFeature)
+        assertTrustedSystemPlanFeature(planProfile, requiredFeature)
       }
 
       const storedResendPayload = getStoredResendPayload(lockedEmailLog)

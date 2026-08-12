@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
+import { FormationBoardPitch } from '../components/formation-board/FormationBoardPitch.jsx'
+import { FormationPlayerMarkerVisual } from '../components/formation-board/FormationPlayerMarkerVisual.jsx'
 import { DemoGameDayEntryCard } from '../components/match-day/DemoGameDayEntryCard.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import {
@@ -17,11 +19,13 @@ import { buildMainAppUrl } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import { recordAnalyticsEvent } from '../lib/domain/platform-analytics.js'
 import {
+  getParentCommunicationPreference,
   getCurrentPushSubscription,
   getPushSupportState,
   sendMatchDayPushNotification,
   subscribeToParentPush,
   unsubscribeFromParentPush,
+  updateParentCommunicationPreference,
 } from '../lib/push-notifications.js'
 import {
   addMatchDayGoalAsScorer,
@@ -124,6 +128,11 @@ const EXTENDED_MATCH_ACTIONS = new Set([
 
 function formatMatchDate(match) {
   return formatFixtureDateTime(match)
+}
+
+function formatPublishedDateTime(value) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'recently' : date.toLocaleString('en-GB')
 }
 
 function formatParentEventDate(invite) {
@@ -1962,7 +1971,26 @@ function ParentSettingsPanel({
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
   const [isSendingVerification, setIsSendingVerification] = useState(false)
+  const [communicationChannel, setCommunicationChannel] = useState('both')
+  const [isLoadingCommunicationChannel, setIsLoadingCommunicationChannel] = useState(true)
+  const [isSavingCommunicationChannel, setIsSavingCommunicationChannel] = useState(false)
   const [reauthenticationNonce, setReauthenticationNonce] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    setIsLoadingCommunicationChannel(true)
+    getParentCommunicationPreference()
+      .then((preference) => {
+        if (mounted) setCommunicationChannel(preference.communicationChannel || 'both')
+      })
+      .catch((error) => {
+        if (mounted) setSettingsError(error.message || 'Communication settings could not be loaded.')
+      })
+      .finally(() => {
+        if (mounted) setIsLoadingCommunicationChannel(false)
+      })
+    return () => { mounted = false }
+  }, [])
 
   const clearMessages = () => {
     setStatusMessage('')
@@ -2030,6 +2058,22 @@ function ParentSettingsPanel({
       setSettingsError(error.message || 'Verification code could not be sent.')
     } finally {
       setIsSendingVerification(false)
+    }
+  }
+
+  const handleCommunicationChannelChange = async (nextChannel) => {
+    if (isSavingCommunicationChannel || nextChannel === communicationChannel) return
+    setIsSavingCommunicationChannel(true)
+    clearMessages()
+    try {
+      const preference = await updateParentCommunicationPreference(nextChannel)
+      setCommunicationChannel(preference.communicationChannel || nextChannel)
+      setStatusMessage('Communication choice saved for your Parent account.')
+      showToast({ title: 'Communication choice saved', message: 'The same choice now applies in the Parent portal and app.' })
+    } catch (error) {
+      setSettingsError(error.message || 'Communication settings could not be saved.')
+    } finally {
+      setIsSavingCommunicationChannel(false)
     }
   }
 
@@ -2148,8 +2192,9 @@ function ParentSettingsPanel({
         ) : null}
 
         {settingsArea === 'display' ? (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-            <div className={panelClass}>
+          <div className="space-y-4">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+              <div className={panelClass}>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Theme preference</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {themeOptions.map((option) => {
@@ -2175,14 +2220,44 @@ function ParentSettingsPanel({
               <p className={`mt-3 ${bodyTextClass}`}>
                 System, Light, and Dark only change this device preference. Club colours still come from the linked child workspace.
               </p>
+              </div>
+              <PushNotificationPanel
+                hasPushSubscription={hasPushSubscription}
+                isUpdatingPush={isUpdatingPush}
+                onDisable={onDisableNotifications}
+                onEnable={onEnableNotifications}
+                pushState={pushState}
+              />
             </div>
-            <PushNotificationPanel
-              hasPushSubscription={hasPushSubscription}
-              isUpdatingPush={isUpdatingPush}
-              onDisable={onDisableNotifications}
-              onEnable={onEnableNotifications}
-              pushState={pushState}
-            />
+
+            <div className={panelClass}>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Communication choice</p>
+              <h4 className="mt-2 text-xl font-black text-[#101828]">How should the club contact you?</h4>
+              <p className={`mt-2 ${bodyTextClass}`}>This account-wide choice is shared with the Football Player Parents app. Existing accounts use Both unless changed.</p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3" role="group" aria-label="Parent communication choice">
+                {[
+                  { id: 'app', label: 'App notifications', copy: 'Use Parent app alerts only.' },
+                  { id: 'email', label: 'Email', copy: 'Use email only.' },
+                  { id: 'both', label: 'Both', copy: 'Use app alerts and email.' },
+                ].map((option) => {
+                  const isSelected = communicationChannel === option.id
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={isLoadingCommunicationChannel || isSavingCommunicationChannel}
+                      aria-pressed={isSelected}
+                      onClick={() => void handleCommunicationChannelChange(option.id)}
+                      className={`min-h-24 rounded-xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-[#bbf7d0] disabled:cursor-not-allowed disabled:opacity-60 ${isSelected ? 'border-[#047857] bg-[#ecfdf5]' : 'border-[#d7e5dc] bg-[#f7faf8] hover:border-[#047857]'}`}
+                    >
+                      <span className="block text-sm font-black text-[#101828]">{option.label}</span>
+                      <span className="mt-1 block text-xs font-semibold leading-5 text-[#60756a]">{option.copy}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {communicationChannel !== 'email' && !hasPushSubscription ? <p className="mt-3 text-sm font-bold text-[#92400e]">App notifications are selected, but notifications are not enabled on this browser. You can enable them above or use the Parent app.</p> : null}
+            </div>
           </div>
         ) : null}
       </div>
@@ -3739,6 +3814,8 @@ function ParentMatchCard({
         </div>
       </div>
 
+      {match.formationPlan ? <ParentFormationPlan plan={match.formationPlan} /> : null}
+
       {responseRows.length > 0 ? (
         <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -4043,6 +4120,44 @@ function ParentMatchCard({
         </details>
       ) : null}
     </article>
+  )
+}
+
+function ParentFormationPlan({ plan }) {
+  return (
+    <details className={`${softPanelClass} mt-4`} data-testid="parent-match-formation-plan">
+      <summary className="cursor-pointer text-sm font-black text-[#101828]">Match plan: {plan.title || plan.formationPresetKey}</summary>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(12rem,1fr)] lg:items-start">
+        <FormationBoardPitch
+          canEdit={false}
+          hasPlacementSource={false}
+          onMove={() => {}}
+          onPitchPress={() => {}}
+          onRemove={() => {}}
+          onSelectMarker={() => {}}
+          placements={plan.placements}
+          selectedPlayerName=""
+          selectedMarkerId=""
+        />
+        <section aria-label="Match plan Bench" className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h5 className="text-sm font-black text-[#101828]">Bench</h5>
+            <span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-black text-[#047857]">{plan.bench.length}</span>
+          </div>
+          {plan.bench.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {plan.bench.map((player) => (
+                <li key={player.playerId} className="flex items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828]">
+                  <FormationPlayerMarkerVisual size="sm" shirtNumber={player.shirtNumber} />
+                  <span className="min-w-0 truncate">{player.displayName}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-3 text-sm font-semibold text-[#4b5f55]">No Players on the Bench.</p>}
+        </section>
+      </div>
+      <p className="mt-3 text-xs font-semibold text-[#4b5f55]">Published {formatPublishedDateTime(plan.publishedAt)}. Only the shared pitch and Bench are shown.</p>
+    </details>
   )
 }
 

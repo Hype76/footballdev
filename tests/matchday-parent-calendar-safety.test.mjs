@@ -107,7 +107,8 @@ test('parent match day client trims unused staff and actor fields after RPC norm
   assert.match(source, /const extendedByMatchId = new Map/)
   assert.match(source, /const matches = \(data \?\? \[\]\)\.map\(\(row\) => \{/)
   assert.match(source, /is_scorer: scorerGameModeMatchIds\.has\(String\(row\.id\)\)/)
-  assert.match(source, /return normalizeParentPortalMatchDay\(\{/)
+  assert.match(source, /\.\.\.normalizeParentPortalMatchDay\(\{/)
+  assert.match(source, /formationPlan: formationPlanByMatchId\.get\(String\(row\.id\)\) \|\| null/)
   assert.match(source, /return attachMatchDayPresentationStates\(matches\)/)
 })
 

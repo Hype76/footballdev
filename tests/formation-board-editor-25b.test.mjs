@@ -11,10 +11,14 @@ import {
 import {
   addPlayersToUnplaced,
   applyFormationPreset,
+  assignFormationPlayerToSlot,
   assignPlayerToPitch,
   benchFormationPlayer,
   createEditorSnapshot,
   createFormationBoardDraftKey,
+  createFormationBoardPreferenceKey,
+  parseFormationBoardPreferences,
+  placeFormationLineup,
   moveFormationPlayer,
   movePitchPlayerToUnplaced,
   moveUnplacedPlayerToBench,
@@ -22,6 +26,7 @@ import {
   parseFormationDraft,
   replaceFormationPlayer,
   serializeFormationDraft,
+  serializeFormationBoardPreferences,
   updateFormationPlayerNumber,
 } from '../src/lib/formation-board-editor.js'
 
@@ -117,7 +122,24 @@ test('assignment, duplicate prevention, movement, number change, replacement, an
   assert.equal(renumbered.placements[0].shirtNumber, '17')
   assert.equal(replaced.placements[0].displayName, 'Casey Two')
   assert.equal(benched.placements.length, 0)
-  assert.equal(benched.bench[0].playerId, playerTwo.id)
+  assert.equal(benched.unplaced[0].playerId, playerTwo.id)
+})
+
+test('slot-first assignment adds, replaces, and swaps Players without duplicate membership', () => {
+  const playerOne = { id: 'player-1', playerName: 'Alex One', shirtNumber: '7' }
+  const playerTwo = { id: 'player-2', playerName: 'Casey Two', shirtNumber: '9' }
+  const playerThree = { id: 'player-3', playerName: 'Sam Three', shirtNumber: '11' }
+  let snapshot = assignFormationPlayerToSlot(emptySnapshot(), playerOne, sevenPreset.slots[0])
+  snapshot = assignFormationPlayerToSlot(snapshot, playerTwo, sevenPreset.slots[1])
+
+  const swapped = assignFormationPlayerToSlot(snapshot, playerOne, sevenPreset.slots[1])
+  assert.equal(swapped.placements.find((item) => item.playerId === playerOne.id).slotId, 'def-left')
+  assert.equal(swapped.placements.find((item) => item.playerId === playerTwo.id).slotId, 'gk')
+
+  const replaced = assignFormationPlayerToSlot(swapped, playerThree, sevenPreset.slots[1])
+  assert.equal(replaced.placements.find((item) => item.slotId === 'def-left').playerId, playerThree.id)
+  assert.equal(replaced.unplaced.find((item) => item.playerId === playerOne.id).state, 'unplaced')
+  assert.equal(new Set([...replaced.placements, ...replaced.unplaced].map((item) => item.playerId)).size, 3)
 })
 
 test('formation changes preserve goalkeeper mapping and move every unmatched Player to Unplaced', () => {
@@ -169,6 +191,24 @@ test('local drafts are scoped and reject invalid payloads', () => {
   assert.equal(parseFormationDraft('{bad json'), null)
 })
 
+test('new board preferences are scoped and Place lineup fills only the selected formation', () => {
+  const key = createFormationBoardPreferenceKey({ clubId: 'club-1', teamId: 'team-1', userId: 'user-1' })
+  const preferences = parseFormationBoardPreferences(serializeFormationBoardPreferences({ gameFormat: '11v11', presetKey: '11v11-4-4-2' }))
+  const benchPlayers = Array.from({ length: 9 }, (_, index) => ({
+    displayName: `Player ${index + 1}`,
+    playerId: `player-${index + 1}`,
+    shirtNumber: String(index + 1),
+    state: 'unplaced',
+  }))
+  const placed = placeFormationLineup({ ...emptySnapshot(), unplaced: benchPlayers }, sevenPreset)
+
+  assert.equal(key, 'football-player:formation-board-preferences:v1:user-1:club-1:team-1')
+  assert.deepEqual(preferences, { gameFormat: '11v11', presetKey: '11v11-4-4-2' })
+  assert.equal(placed.placements.length, 7)
+  assert.equal(placed.unplaced.length, 2)
+  assert.equal(new Set([...placed.placements, ...placed.unplaced].map((player) => player.playerId)).size, 9)
+})
+
 test('Formation Board route, Team Resources entry, and quick action stay staff-scoped', async () => {
   const [layout, page, resourcePage, router] = await Promise.all([
     readFile(new URL('../src/components/layout/Layout.jsx', import.meta.url), 'utf8'),
@@ -185,7 +225,8 @@ test('Formation Board route, Team Resources entry, and quick action stay staff-s
   assert.match(router, /path: 'resources\/formation-boards'/)
   assert.match(page, /Shared with authorised Team staff/)
   assert.doesNotMatch(page, /Coming Soon/i)
-  assert.doesNotMatch(page, /send email|push notification|Parent sharing/i)
+  assert.match(page, /Publish to parents/)
+  assert.match(page, /Staff notes, availability, and unselected squad members stay private/)
 })
 
 test('editor includes Pointer Events, tap positioning, keyboard movement, local draft, conflict, and mobile controls', async () => {

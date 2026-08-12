@@ -3,7 +3,7 @@ import process from 'node:process'
 import { authorizeProcessorRequest } from './lib/_processor-auth.js'
 import { markEmailLogFailed } from './lib/_email-log-store.js'
 import { supabaseAdmin } from './lib/_supabase.js'
-import { assertPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
+import { assertTrustedSystemPlanFeature, getClubPlanProfile } from './lib/_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
@@ -24,6 +24,11 @@ import {
   getNextEmailRetryAt,
   getProviderMessageId,
 } from './lib/_email-retry-policy.js'
+import {
+  allowsParentAppNotifications,
+  allowsParentEmail,
+  resolveScheduledParentCommunicationChannel,
+} from './lib/_parent-communication-preferences.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -220,9 +225,29 @@ async function createSentCommunicationLog(row) {
   return data
 }
 
-async function sendScheduledParentPush(communicationLog) {
+async function sendScheduledParentPush(row, communicationLog) {
+  const availabilityRequestId = String(row?.payload?.matchDayAvailability?.requestId ?? '').trim()
+
+  if (availabilityRequestId && row?.payload?.matchDayAvailability?.parentLinkId) {
+    try {
+      await sendParentMobilePushById({
+        id: availabilityRequestId,
+        profile: {
+          clubId: row.club_id,
+          role: 'system',
+          roleRank: 100,
+        },
+        type: 'matchday_availability',
+      })
+      return true
+    } catch (error) {
+      console.error('Scheduled availability mobile push failed', error)
+    }
+    return false
+  }
+
   if (!communicationLog?.id || !communicationLog?.club_id) {
-    return
+    return false
   }
 
   try {
@@ -235,8 +260,10 @@ async function sendScheduledParentPush(communicationLog) {
       },
       type: 'parent_message',
     })
+    return true
   } catch (error) {
     console.error('Scheduled email parent mobile push failed', error)
+    return false
   }
 }
 
@@ -304,7 +331,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       role: 'system',
       roleRank: 100,
     }
-    assertPlanFeature(planProfile, 'parentEmails')
+    assertTrustedSystemPlanFeature(planProfile, 'parentEmails')
     const trainingInvitationPreparation = await prepareScheduledTrainingInvitationRow(
       lockedRow,
       {
@@ -341,6 +368,42 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         await updateCalendarNotificationEvent(lockedRow.id, 'failed', skipReason)
       }
       await updateEventPlayerNotificationEvent(lockedRow.id, 'failed', skipReason)
+      return 'skipped'
+    }
+
+    const communicationChannel = await resolveScheduledParentCommunicationChannel(
+      supabaseAdmin,
+      resourceNotificationPreparation.row,
+    )
+    const isAvailabilityNotification = Boolean(
+      resourceNotificationPreparation.row?.payload?.matchDayAvailability?.requestId
+      && resourceNotificationPreparation.row?.payload?.matchDayAvailability?.parentLinkId,
+    )
+    let appNotificationSent = Boolean(
+      resourceNotificationPreparation.row?.payload?.parentCommunication?.appNotificationSentAt,
+    )
+    if (allowsParentAppNotifications(communicationChannel) && isAvailabilityNotification && !appNotificationSent) {
+      appNotificationSent = await sendScheduledParentPush(resourceNotificationPreparation.row, null)
+      if (appNotificationSent) {
+        const appNotificationSentAt = new Date().toISOString()
+        const payload = {
+          ...(resourceNotificationPreparation.row.payload || {}),
+          parentCommunication: {
+            ...(resourceNotificationPreparation.row.payload?.parentCommunication || {}),
+            appNotificationSentAt,
+          },
+        }
+        resourceNotificationPreparation.row.payload = payload
+        await supabaseAdmin.from('scheduled_email_queue').update({ payload }).eq('id', lockedRow.id).eq('lease_owner', workerInvocationId)
+      }
+    }
+    if (!allowsParentEmail(communicationChannel)) {
+      if (!appNotificationSent) await sendScheduledParentPush(resourceNotificationPreparation.row, null)
+      await discardSkippedScheduledEmail(lockedRow, 'parent_communication_preference_app')
+      if (isCalendarNotificationQueueRow(lockedRow)) {
+        await updateCalendarNotificationEvent(lockedRow.id, 'sent')
+      }
+      await updateEventPlayerNotificationEvent(lockedRow.id, 'sent')
       return 'skipped'
     }
 
@@ -430,7 +493,9 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         ? lockedRow
         : resourceNotificationPreparation.row,
     )
-    await sendScheduledParentPush(communicationLog)
+    if (allowsParentAppNotifications(communicationChannel) && !appNotificationSent) {
+      await sendScheduledParentPush(resourceNotificationPreparation.row, communicationLog)
+    }
 
     return 'sent'
   } catch (error) {

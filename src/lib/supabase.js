@@ -363,10 +363,14 @@ export {
   getFormationBoardError,
   getFormationBoardPresets,
   getFormationBoardPublications,
+  getFormationBoardMatchPublications,
   getFormationBoards,
   getFormationBoardVersions,
   normalizeFormationBoard,
   normalizeFormationBoardPreset,
+  normalizeFormationBoardMatchPublication,
+  linkFormationBoardToMatch,
+  publishFormationBoardMatchPlan,
   publishFormationBoardVersion,
   renameFormationBoard,
   requestFormationBoardExport,
@@ -375,6 +379,7 @@ export {
   saveFormationBoardVersion,
   saveFormationBoardEditor,
   setFormationBoardVisibility,
+  withdrawFormationBoardMatchPlan,
 } from './domain/formation-board.js'
 
 export {

@@ -120,6 +120,10 @@ test('parent message delivery stays successful when the optional mobile table is
       })
     }
 
+    if (table === 'parent_communication_preferences') {
+      return queryResult({ data: [], error: null })
+    }
+
     throw new Error(`Unexpected table: ${table}`)
   }
   console.warn = (...args) => warnings.push(args.join(' '))

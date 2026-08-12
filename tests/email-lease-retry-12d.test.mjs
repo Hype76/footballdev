@@ -51,6 +51,10 @@ test('failure classification separates retryable and terminal outcomes', () => {
   assert.equal(classifyEmailFailure({ code: 'email_from_invalid' }).category, 'non_retryable_malformed_payload')
   assert.equal(classifyEmailFailure({ code: 'event_revoked' }).category, 'non_retryable_cancelled')
   assert.equal(classifyEmailFailure({ statusCode: 400 }).category, 'non_retryable_malformed_payload')
+  assert.deepEqual(
+    classifyEmailFailure({ statusCode: 402, code: 'payment_required' }),
+    { category: 'non_retryable_billing', retryable: false, safeCode: 'payment_required' },
+  )
 })
 
 test('verified provider webhooks persist lifecycle state without raw recipient data', async () => {

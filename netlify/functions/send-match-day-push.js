@@ -5,6 +5,7 @@ import { supabaseAdmin } from './lib/_supabase.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { buildParentMatchDayNotificationCopy } from './lib/_match-day-notification-copy.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
+import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -80,13 +81,16 @@ async function getMatch(matchDayId) {
 }
 
 async function authorizePush({ authUser, match, parentLinkId, type, eventId }) {
-  const { data, error } = await supabaseAdmin.rpc('authorize_match_day_push', {
+  const rpcArgs = {
     actor_user_id_value: authUser.id,
     match_day_id_value: match.id,
     parent_link_id_value: parentLinkId || null,
     notification_type_value: type,
     event_id_value: eventId || null,
-  })
+  }
+  const { data, error } = ['yellow_card', 'red_card'].includes(type)
+    ? await supabaseAdmin.rpc('authorize_match_day_push_v2', rpcArgs)
+    : await supabaseAdmin.rpc('authorize_match_day_push', rpcArgs)
 
   if (error) {
     throw error
@@ -160,6 +164,21 @@ async function getSubscriptions({ match, targetParentLinkIds }) {
   }
 
   return data ?? []
+}
+
+async function getAppNotificationParentLinkIds(targetParentLinkIds) {
+  if (targetParentLinkIds.length === 0) return []
+
+  const { data, error } = await supabaseAdmin
+    .from('parent_player_links')
+    .select('id, auth_user_id')
+    .in('id', targetParentLinkIds)
+    .eq('status', 'active')
+
+  if (error) throw error
+
+  const links = await filterParentLinksForAppNotifications(supabaseAdmin, data || [])
+  return links.map((link) => link.id)
 }
 
 async function getMobileDevices({ match, targetParentLinkIds }) {
@@ -358,13 +377,14 @@ export async function handler(event) {
       eventRow = data
     }
 
+    const appNotificationParentLinkIds = await getAppNotificationParentLinkIds(targetParentLinkIds)
     const subscriptions = await getSubscriptions({
       match,
-      targetParentLinkIds,
+      targetParentLinkIds: appNotificationParentLinkIds,
     })
     const mobileDevices = await getMobileDevices({
       match,
-      targetParentLinkIds,
+      targetParentLinkIds: appNotificationParentLinkIds,
     })
     const notificationCopy = buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
     const payload = {

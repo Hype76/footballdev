@@ -9,6 +9,7 @@ import {
   getFormationPlayerState,
   moveBenchPlayerToUnplaced,
   movePitchPlayerToUnplaced,
+  movePitchPlayersToUnplaced,
   moveUnplacedPlayerToBench,
   moveUnplacedPlayerToPitch,
   parseFormationDraft,
@@ -101,8 +102,8 @@ test('legacy landscape snapshot opens as portrait without losing pitch, bench, o
 
   assert.equal(snapshot.pitchOrientation, 'portrait')
   assert.equal(snapshot.placements[0].playerId, 'pitch-1')
-  assert.equal(snapshot.bench[0].playerId, 'bench-1')
-  assert.equal(snapshot.unplaced[0].playerId, 'unplaced-1')
+  assert.equal(snapshot.bench.length, 0)
+  assert.deepEqual(snapshot.unplaced.map((player) => player.playerId), ['bench-1', 'unplaced-1'])
   assert.equal(new Set([...snapshot.placements, ...snapshot.bench, ...snapshot.unplaced].map((item) => item.playerId)).size, 3)
 })
 
@@ -145,6 +146,20 @@ test('all Unplaced transitions preserve identity and prevent multi-state members
   assert.equal(all[0].shirtNumber, '91')
   assert.equal(getFormationPlayerState(snapshot, 'player-1'), 'unplaced')
   assert.equal(getFormationPlayerState(snapshot, 'player-2'), 'available')
+})
+
+test('lineup edit moves several pitch Players to the Bench in one reversible editor change', () => {
+  let snapshot = addPlayersToUnplaced(emptySnapshot(), [player(1), player(2), player(3)])
+  snapshot = moveUnplacedPlayerToPitch(snapshot, 'player-1', { x: 0.25, y: 0.5 })
+  snapshot = moveUnplacedPlayerToPitch(snapshot, 'player-2', { x: 0.5, y: 0.5 })
+  snapshot = moveUnplacedPlayerToPitch(snapshot, 'player-3', { x: 0.75, y: 0.5 })
+
+  const updated = movePitchPlayersToUnplaced(snapshot, ['player-1', 'player-3', 'missing-player'])
+
+  assert.deepEqual(updated.placements.map((item) => item.playerId), ['player-2'])
+  assert.deepEqual(updated.unplaced.map((item) => item.playerId), ['player-1', 'player-3'])
+  assert.equal(updated.bench.length, 0)
+  assert.equal(snapshot.placements.length, 3)
 })
 
 test('formation changes preserve bench and existing Unplaced Players while moving overflow to Unplaced', () => {
@@ -195,16 +210,22 @@ test('Players sheet and tray expose required mobile multi-selection and accessib
   assert.match(page, /\{selectedCount\} selected/)
   assert.match(page, /Add \{selectedCount\}/)
   assert.match(page, /Clear selection/)
-  assert.match(page, /data-unplaced-tray="true"/)
+  assert.match(page, /Select all/)
+  assert.match(page, /Take Players off lineup/)
+  assert.match(page, /Move selected to Bench/)
+  assert.match(page, /Nobody is removed from the board/)
+  assert.match(page, /lineupEditPlayerIds/)
+  assert.match(page, /data-bench-tray="true"/)
   assert.match(page, /overflow-x-auto/)
   assert.match(page, /touch-pan-x/)
-  assert.match(page, /Selected, Unplaced/)
+  assert.match(page, /Selected, Bench/)
   assert.match(page, /aria-pressed=\{isSelected\}/)
   assert.match(page, /Remove from board/)
   assert.doesNotMatch(page, /Pitch orientation/)
   assert.doesNotMatch(page, /<option value="landscape">/)
   assert.match(pitch, /aspect-\[3\/4\]/)
   assert.match(pitch, /Press Enter to place at the centre/)
+  assert.match(pitch, /selectionMode/)
 })
 
 test('server, export, and immutable history paths use explicit state and canonical portrait compatibility', async () => {

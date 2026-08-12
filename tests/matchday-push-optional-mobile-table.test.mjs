@@ -134,6 +134,14 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
         })
       }
 
+      if (table === 'parent_player_links') {
+        return queryResult({ data: [{ id: 'link-1', auth_user_id: 'parent-1' }], error: null })
+      }
+
+      if (table === 'parent_communication_preferences') {
+        return queryResult({ data: [], error: null })
+      }
+
       if (table === 'parent_mobile_push_installations') {
         return queryResult(mobileResult)
       }

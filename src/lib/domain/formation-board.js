@@ -45,6 +45,9 @@ const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
   formation_board_title_invalid: 'Enter a Formation Board title between 1 and 120 characters.',
   formation_board_version_conflict: 'A newer saved version is available. Reload it before saving your changes.',
   formation_board_version_not_found: 'That Formation Board version is no longer available.',
+  formation_board_match_invalid: 'Choose an active match for this Team.',
+  formation_board_match_link_required: 'Save and link this Formation Board to the match before publishing it to parents.',
+  formation_board_match_publication_not_found: 'There is no published parent match plan to withdraw.',
 })
 
 function normalizeText(value) {
@@ -120,6 +123,29 @@ function normalizeFormationBoardPublication(row) {
   }
 }
 
+export function normalizeFormationBoardMatchPublication(row) {
+  if (!row) return null
+
+  const roster = normalizeArray(row.bench)
+  return {
+    id: row.id ?? '',
+    boardId: row.board_id ?? row.boardId ?? '',
+    boardVersionId: row.board_version_id ?? row.boardVersionId ?? '',
+    matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    clubId: row.club_id ?? row.clubId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
+    publicationNumber: Number(row.publication_number ?? row.publicationNumber ?? 0),
+    boardTitleSnapshot: normalizeText(row.board_title_snapshot ?? row.boardTitleSnapshot),
+    publishedAt: row.published_at ?? row.publishedAt ?? '',
+    withdrawnAt: row.withdrawn_at ?? row.withdrawnAt ?? '',
+    gameFormat: normalizeText(row.game_format ?? row.gameFormat),
+    formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
+    pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+    placements: normalizeArray(row.placements),
+    bench: roster.map((item) => ({ ...item, state: 'bench' })),
+  }
+}
+
 export function normalizeFormationBoard(row) {
   const payload = row?.board ? row : { board: row }
   const board = payload.board
@@ -140,6 +166,7 @@ export function normalizeFormationBoard(row) {
     currentVersionId: board.current_version_id ?? board.currentVersionId ?? '',
     currentVersionNumber: Number(board.current_version_number ?? board.currentVersionNumber ?? 0),
     currentPublicationId: board.current_publication_id ?? board.currentPublicationId ?? '',
+    linkedMatchDayId: board.linked_match_day_id ?? board.linkedMatchDayId ?? '',
     archivedAt: board.archived_at ?? board.archivedAt ?? '',
     deletedAt: board.deleted_at ?? board.deletedAt ?? '',
     createdAt: board.created_at ?? board.createdAt ?? '',
@@ -418,6 +445,36 @@ export async function publishFormationBoardVersion({
 export async function getFormationBoardPublications(boardId) {
   const data = await callFormationBoardRpc('list_formation_board_publications', { target_board_id: boardId })
   return normalizeArray(data).map(normalizeFormationBoardPublication)
+}
+
+export async function getFormationBoardMatchPublications(boardId) {
+  const data = await callFormationBoardRpc('list_formation_board_match_publications', { target_board_id: boardId })
+  return normalizeArray(data).map(normalizeFormationBoardMatchPublication)
+}
+
+export async function linkFormationBoardToMatch({ boardId, matchDayId, user } = {}) {
+  await prepareFormationBoardMutation(user)
+  return normalizeFormationBoard(await callFormationBoardRpc('link_formation_board_to_match', {
+    target_board_id: boardId,
+    target_match_day_id: matchDayId,
+  }))
+}
+
+export async function publishFormationBoardMatchPlan({ boardId, matchDayId, user, versionId } = {}) {
+  await prepareFormationBoardMutation(user)
+  return normalizeFormationBoardMatchPublication(await callFormationBoardRpc('publish_formation_board_match_plan', {
+    target_board_id: boardId,
+    target_match_day_id: matchDayId,
+    target_version_id: versionId,
+  }))
+}
+
+export async function withdrawFormationBoardMatchPlan({ boardId, matchDayId, user } = {}) {
+  await prepareFormationBoardMutation(user)
+  return normalizeFormationBoardMatchPublication(await callFormationBoardRpc('withdraw_formation_board_match_plan', {
+    target_board_id: boardId,
+    target_match_day_id: matchDayId,
+  }))
 }
 
 export async function requestFormationBoardExport({ boardId, format, user, versionId } = {}) {

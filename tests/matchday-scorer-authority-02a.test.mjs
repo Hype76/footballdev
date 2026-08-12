@@ -139,7 +139,7 @@ test('02A push delivery is server-authorized, server-targeted, and idempotent', 
   assert.doesNotMatch(pushFunction, /body\.targetParentLinkIds/)
 })
 
-test('02A clients use transactional RPCs and live staff polling refreshes full detail', async () => {
+test('02A clients use transactional RPCs and live staff polling refreshes active detail without role fan-out', async () => {
   const [domain, page] = await Promise.all([
     readFile(domainUrl, 'utf8'),
     readFile(matchDayPageUrl, 'utf8'),
@@ -151,7 +151,16 @@ test('02A clients use transactional RPCs and live staff polling refreshes full d
   assert.match(domain, /supabase\.rpc\('get_parent_scorer_game_mode_match_ids'/)
   assert.doesNotMatch(domain, /\.from\('match_day_events'\)[\s\S]{0,180}\.insert\(/)
   assert.match(page, /MATCH_DAY_LIVE_DETAIL_STATUSES/)
-  assert.match(page, /Promise\.allSettled\([\s\S]*getMatchDay\(\{ user, matchDayId: match\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/)
+  const liveStatusesStart = page.indexOf('const MATCH_DAY_LIVE_DETAIL_STATUSES')
+  const liveStatusesEnd = page.indexOf('function mergeMatchDaySummaries', liveStatusesStart)
+  const liveStatusesSource = page.slice(liveStatusesStart, liveStatusesEnd)
+  const liveRefreshStart = page.indexOf('async function refreshLiveMatches()')
+  const liveRefreshEnd = page.indexOf('const intervalId = window.setInterval', liveRefreshStart)
+  const liveRefreshSource = page.slice(liveRefreshStart, liveRefreshEnd)
+
+  assert.doesNotMatch(liveStatusesSource, /'full_time'/)
+  assert.match(liveRefreshSource, /Promise\.allSettled\([\s\S]*getMatchDay\(\{ user, matchDayId: match\.id \}\)/)
+  assert.doesNotMatch(liveRefreshSource, /includeScorerEligibility|select-match-day-volunteer/)
   assert.match(page, /refreshedDetailsById/)
 })
 

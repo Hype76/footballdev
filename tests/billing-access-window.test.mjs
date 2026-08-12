@@ -177,6 +177,35 @@ test('actorless billing bookkeeping still calculates customer state without gran
   assert.equal(isBillingActionAllowed(context, BILLING_ACTION_CATEGORIES.staffMutation), false)
 })
 
+test('scheduled workers require explicit trust and still enforce the workspace billing state', () => {
+  const activeCompedWorker = {
+    planKey: 'pilot',
+    planStatus: 'active',
+    isPlanComped: true,
+    role: 'system',
+    roleRank: 100,
+    workspaceId: 'demo-club',
+  }
+  const unpaidWorker = {
+    ...activeCompedWorker,
+    planKey: 'small_club',
+    planStatus: 'past_due',
+    isPlanComped: false,
+    billingArrangement: 'immediate',
+  }
+
+  assert.equal(resolveBillingAccess(activeCompedWorker).actorCategory, BILLING_ACTOR_CATEGORIES.system)
+  assert.equal(isBillingActionAllowed(activeCompedWorker, BILLING_ACTION_CATEGORIES.staffMutation), false)
+  assert.equal(isBillingActionAllowed(activeCompedWorker, BILLING_ACTION_CATEGORIES.staffMutation, { trustedSystemContext: true }), true)
+  assert.doesNotThrow(() => assertBillingActionAllowed(activeCompedWorker, BILLING_ACTION_CATEGORIES.staffMutation, { trustedSystemContext: true }))
+  assert.equal(isBillingActionAllowed(unpaidWorker, BILLING_ACTION_CATEGORIES.staffMutation, { trustedSystemContext: true }), false)
+  assert.throws(
+    () => assertBillingActionAllowed(unpaidWorker, BILLING_ACTION_CATEGORIES.staffMutation, { trustedSystemContext: true }),
+    { code: 'payment_required', statusCode: 402 },
+  )
+  assert.equal(isBillingActionAllowed({ ...activeCompedWorker, role: 'unknown_role' }, BILLING_ACTION_CATEGORIES.staffMutation, { trustedSystemContext: true }), false)
+})
+
 test('actor by billing-state matrix preserves banner, read, export, mutation, and billing authority', () => {
   const actors = [
     { label: 'Platform Admin', kind: 'platform', context: { role: 'super_admin', roleRank: 100, planKey: 'small_club' } },

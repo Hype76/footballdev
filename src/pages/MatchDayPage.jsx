@@ -2100,7 +2100,6 @@ const MATCH_DAY_LIVE_DETAIL_STATUSES = new Set([
   'second_half',
   'extra_time',
   'penalties',
-  'full_time',
 ])
 
 function mergeMatchDaySummaries(currentMatches = [], nextSummaries = []) {
@@ -2534,7 +2533,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           nextMatches
             .filter((match) => MATCH_DAY_LIVE_DETAIL_STATUSES.has(match.status))
             .map((match) => withRequestTimeout(
-              () => getMatchDay({ user, matchDayId: match.id, includeScorerEligibility: true, accessToken: session?.access_token }),
+              () => getMatchDay({ user, matchDayId: match.id }),
               'Match Day live detail could not be refreshed.',
             )),
         )
@@ -2572,7 +2571,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       isCurrent = false
       window.clearInterval(intervalId)
     }
-  }, [getMatchDay, getMatchDays, isDemoExperience, isLoading, session?.access_token, user])
+  }, [getMatchDay, getMatchDays, isDemoExperience, isLoading, user])
 
   if (!canManageMatchDay(user)) {
     return <Navigate to="/" replace />
@@ -4159,6 +4158,13 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         reconcile: reconcileSavedEvent,
         refreshErrorMessage: 'The Match event was added, but the latest Match Day data could not be refreshed. The updated timeline remains visible. Retry live data before recording another event.',
       })
+      if (['yellow_card', 'red_card'].includes(savedEvent.eventType || savedEvent.event_type)) {
+        void sendMatchDayPushNotification({
+          eventId: savedEvent.id,
+          matchDayId: match.id,
+          type: savedEvent.eventType || savedEvent.event_type,
+        })
+      }
       setMatchActionStatus({
         key: `${match.id}:event`,
         tone: 'success',

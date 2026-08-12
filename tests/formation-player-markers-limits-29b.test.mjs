@@ -62,7 +62,7 @@ test('canonical game-format registry enforces 5v5, 7v7, 9v9, and 11v11 pitch cap
       gameFormat: value,
       isAtCapacity: true,
       isOverCapacity: false,
-      message: `This ${value} pitch already has ${playerCount} Players. Move a Player to Unplaced or the bench first.`,
+      message: `This ${value} pitch already has ${playerCount} Players. Move a Player to the Bench first.`,
       pitchPlayerCount: playerCount,
     })
     assert.equal(getFormationBoardCapacityMessage(value), getFormationPitchCapacityState(full).message)
@@ -149,6 +149,6 @@ test('existing over-capacity boards are visible but cannot be silently saved or 
   assert.equal(canPlaceFormationPlayer(snapshot('5v5', 6)), false)
   assert.match(page, /Pitch capacity must be corrected/)
   assert.match(page, /No Player has been removed/)
-  assert.match(page, /pitchCapacity\.isOverCapacity[\s\S]*Move the excess Players to Unplaced or the bench before saving/)
+  assert.match(page, /pitchCapacity\.isOverCapacity[\s\S]*Move the excess Players to the Bench before saving/)
   assert.match(page, /disabled=\{!canEdit \|\| isSaving \|\| !hasUnsavedChanges \|\| pitchCapacity\.isOverCapacity\}/)
 })
