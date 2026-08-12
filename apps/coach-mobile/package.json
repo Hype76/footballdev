@@ -22,6 +22,7 @@
     "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs coach ios store-live"
   },
   "dependencies": {
+    "@expo/vector-icons": "15.1.1",
     "@noble/ciphers": "2.2.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "2.102.1",

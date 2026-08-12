@@ -144,7 +144,7 @@ function DomainState({ error, loading, onRetry, stale, styles }) {
   return null
 }
 
-export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectContext, palette, user }) {
+export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActionHandled, onSelectContext, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [events, setEvents] = useState([])
   const [error, setError] = useState('')
@@ -199,6 +199,13 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectCon
     const nextForm = coachCalendarFormFromEvent(event, context)
     setForm(!event && selectedDate ? { ...nextForm, date: selectedDate } : nextForm)
   }
+  useEffect(() => {
+    if (quickAction?.route !== 'calendar') return
+    setSelected(null)
+    const nextForm = coachCalendarFormFromEvent(null, context)
+    setForm(quickAction.intent === 'create-match' ? { ...nextForm, eventType: 'match' } : nextForm)
+    onQuickActionHandled?.()
+  }, [context, onQuickActionHandled, quickAction])
   const save = async () => {
     setSaving(true)
     setError('')
@@ -338,7 +345,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onSelectCon
   )
 }
 
-export function CoachPlayersScreen({ context, onNavigate, palette, user }) {
+export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [players, setPlayers] = useState([])
   const [detail, setDetail] = useState(null)
@@ -363,6 +370,12 @@ export function CoachPlayersScreen({ context, onNavigate, palette, user }) {
     } finally { setLoading(false) }
   }, [context, user])
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (quickAction?.intent !== 'create-player') return
+    setDetail(null)
+    setForm(coachPlayerFormFromPlayer())
+    onQuickActionHandled?.()
+  }, [onQuickActionHandled, quickAction])
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
   const openPlayer = async (player) => {
     setError('')
@@ -423,7 +436,7 @@ export function CoachPlayersScreen({ context, onNavigate, palette, user }) {
   )
 }
 
-export function CoachSessionsScreen({ context, onNavigate, palette, user }) {
+export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [sessions, setSessions] = useState([])
   const [players, setPlayers] = useState([])
@@ -448,6 +461,12 @@ export function CoachSessionsScreen({ context, onNavigate, palette, user }) {
     } finally { setLoading(false) }
   }, [context, user])
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (quickAction?.intent !== 'create-session') return
+    setDetail(null)
+    setForm(coachSessionFormFromSession())
+    onQuickActionHandled?.()
+  }, [onQuickActionHandled, quickAction])
   const visible = filterCoachSessions(sessions, filter)
   const openSession = async (session) => {
     setError('')

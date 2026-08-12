@@ -140,6 +140,33 @@ export function placeMobileFormationLineup(draft, preset) {
   }
 }
 
+export function buildMobileFormationLineup(draft, preset) {
+  const slots = Array.isArray(preset?.slots) ? preset.slots : []
+  const capacity = Math.min(getMobileFormationCapacity(preset?.gameFormat || draft?.gameFormat), slots.length)
+  const seen = new Set()
+  const players = [...(draft?.placements || []), ...(draft?.bench || [])]
+    .map(normalizeMobileFormationPlayer)
+    .filter((player) => {
+      if (!player.playerId || seen.has(player.playerId)) return false
+      seen.add(player.playerId)
+      return true
+    })
+  return {
+    ...draft,
+    bench: players.slice(capacity),
+    gameFormat: normalize(preset?.gameFormat) || draft.gameFormat,
+    placements: players.slice(0, capacity).map((player, index) => ({
+      ...player,
+      positionGroup: normalize(slots[index]?.group),
+      slotId: normalize(slots[index]?.id),
+      x: coordinate(slots[index]?.x),
+      y: coordinate(slots[index]?.y),
+    })),
+    presetKey: normalize(preset?.key) || draft.presetKey,
+    registryVersion: Number(preset?.registryVersion || draft.registryVersion || 1),
+  }
+}
+
 export function placeMobileFormationPlayer(draft, playerId, slot) {
   const targetId = normalize(playerId)
   const player = draft?.bench?.find((item) => item.playerId === targetId)
@@ -167,4 +194,41 @@ export function moveMobileFormationPlayersToBench(draft, playerIds = []) {
     bench: [...draft.bench, ...removed],
     placements: draft.placements.filter((player) => !selected.has(player.playerId)),
   }
+}
+
+export function swapMobileFormationPlayers(draft, firstPlayerId, secondPlayerId) {
+  const firstId = normalize(firstPlayerId)
+  const secondId = normalize(secondPlayerId)
+  if (!firstId || !secondId || firstId === secondId) return draft
+
+  const placements = [...(draft?.placements || [])]
+  const bench = [...(draft?.bench || [])]
+  const firstPlacementIndex = placements.findIndex((player) => player.playerId === firstId)
+  const secondPlacementIndex = placements.findIndex((player) => player.playerId === secondId)
+  const firstBenchIndex = bench.findIndex((player) => player.playerId === firstId)
+  const secondBenchIndex = bench.findIndex((player) => player.playerId === secondId)
+
+  if (firstPlacementIndex >= 0 && secondPlacementIndex >= 0) {
+    const first = placements[firstPlacementIndex]
+    const second = placements[secondPlacementIndex]
+    placements[firstPlacementIndex] = { ...first, positionGroup: second.positionGroup, slotId: second.slotId, x: second.x, y: second.y }
+    placements[secondPlacementIndex] = { ...second, positionGroup: first.positionGroup, slotId: first.slotId, x: first.x, y: first.y }
+    return { ...draft, placements }
+  }
+
+  const placedIndex = firstPlacementIndex >= 0 ? firstPlacementIndex : secondPlacementIndex
+  const benchIndex = firstBenchIndex >= 0 ? firstBenchIndex : secondBenchIndex
+  if (placedIndex < 0 || benchIndex < 0) return draft
+
+  const placed = placements[placedIndex]
+  const substitute = bench[benchIndex]
+  placements[placedIndex] = {
+    ...normalizeMobileFormationPlayer(substitute),
+    positionGroup: placed.positionGroup,
+    slotId: placed.slotId,
+    x: placed.x,
+    y: placed.y,
+  }
+  bench[benchIndex] = normalizeMobileFormationPlayer(placed)
+  return { ...draft, bench, placements }
 }

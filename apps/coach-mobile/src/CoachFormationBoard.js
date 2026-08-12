@@ -1,18 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   applyMobileFormationPreset,
+  buildMobileFormationLineup,
   createMobileFormationDraft,
   createMobileFormationPreferenceKey,
+  getMobileFormationCapacity,
   getMobileFormationSelectedPlayerIds,
   MOBILE_FORMATION_GAME_FORMATS,
   moveMobileFormationPlayersToBench,
   parseMobileFormationPreferences,
-  placeMobileFormationLineup,
   placeMobileFormationPlayer,
   serializeMobileFormationPreferences,
   setMobileFormationSquad,
+  swapMobileFormationPlayers,
   toggleMobileFormationSquadPlayer,
 } from '../../mobile-core/src/coachFormationBoardCore'
 import {
@@ -31,32 +33,39 @@ const normalize = (value) => String(value ?? '').trim()
 
 function createStyles(palette) {
   return StyleSheet.create({
-    action: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accent, borderRadius: 13, borderWidth: 1, justifyContent: 'center', minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
+    action: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accent, borderRadius: 14, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 50, minWidth: 138, paddingHorizontal: 14, paddingVertical: 11 },
     actionDanger: { backgroundColor: palette.surfaceRaised, borderColor: palette.danger },
     actionDisabled: { opacity: 0.45 },
     actionSecondary: { backgroundColor: palette.surfaceRaised, borderColor: palette.border },
     actionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900', textAlign: 'center' },
     actionTextDanger: { color: palette.danger },
     actionTextSecondary: { color: palette.textPrimary },
-    bench: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    benchContent: { gap: 8, paddingBottom: 2, paddingRight: 12 },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 21 },
-    card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 14 },
+    card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 11, padding: 14 },
     chip: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10 },
     chipSelected: { backgroundColor: palette.selected, borderColor: palette.accent },
     chipText: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
-    chipTextSelected: { color: palette.accent },
-    heading: { color: palette.textPrimary, fontSize: 19, fontWeight: '900' },
+    chipTextSelected: { color: palette.selectedForeground },
+    count: { color: palette.accent, fontSize: 13, fontWeight: '900' },
+    eyebrow: { color: palette.accent, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase' },
+    heading: { color: palette.textPrimary, fontSize: 20, fontWeight: '900' },
     input: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 13, borderWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 50, paddingHorizontal: 13, paddingVertical: 10 },
     label: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
-    pitch: { backgroundColor: palette.pitchSurface, borderColor: 'rgba(255,255,255,0.8)', borderRadius: 18, borderWidth: 2, height: 540, overflow: 'hidden', position: 'relative' },
-    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.65)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
+    pitch: { backgroundColor: palette.pitchSurface, borderColor: 'rgba(255,255,255,0.82)', borderRadius: 18, borderWidth: 2, height: 475, overflow: 'hidden', position: 'relative' },
+    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.68)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
+    planHeader: { backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 20, borderWidth: 1, gap: 8, padding: 16 },
     playerName: { color: palette.textPrimary, fontSize: 10, fontWeight: '900', textAlign: 'center' },
-    playerSlot: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 11, borderWidth: 1, justifyContent: 'center', minHeight: 48, paddingHorizontal: 4, position: 'absolute', width: '36%' },
+    playerSlot: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 11, borderWidth: 1, justifyContent: 'center', minHeight: 45, paddingHorizontal: 3, position: 'absolute' },
     playerSlotEmpty: { backgroundColor: 'rgba(0,0,0,0.20)', borderColor: 'rgba(255,255,255,0.55)', borderStyle: 'dashed' },
-    playerSlotRemoval: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning },
-    row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    selectedSummary: { color: palette.accent, fontSize: 13, fontWeight: '900' },
+    playerSlotRemoval: { borderColor: palette.warning, borderWidth: 3 },
+    playerSlotSelected: { backgroundColor: palette.selected, borderColor: palette.accent, borderWidth: 3 },
+    row: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    rowBetween: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
+    selectedPanel: { backgroundColor: palette.selected, borderColor: palette.accent, borderRadius: 15, borderWidth: 1, gap: 8, padding: 12 },
     stack: { gap: 12 },
+    status: { alignSelf: 'flex-start', backgroundColor: palette.selected, borderColor: palette.accent, borderRadius: 999, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 6 },
+    statusText: { color: palette.selectedForeground, fontSize: 12, fontWeight: '900' },
     warning: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning, borderRadius: 15, borderWidth: 1, gap: 8, padding: 13 },
   })
 }
@@ -76,7 +85,7 @@ function Action({ danger = false, disabled = false, label, onPress, secondary = 
 }
 
 function Choice({ label, onPress, selected, styles }) {
-  return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}><Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text></Pressable>
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}><Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text></Pressable>
 }
 
 export function CoachFormationBoard({ context, match, palette, players, stale, user }) {
@@ -92,7 +101,10 @@ export function CoachFormationBoard({ context, match, palette, players, stale, u
   const [publications, setPublications] = useState([])
   const [removalMode, setRemovalMode] = useState(false)
   const [removalIds, setRemovalIds] = useState([])
-  const [selectedBenchPlayerId, setSelectedBenchPlayerId] = useState('')
+  const [selectedPlayerId, setSelectedPlayerId] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showSetup, setShowSetup] = useState(false)
+  const [showSquad, setShowSquad] = useState(false)
   const [title, setTitle] = useState(`${match.teamName} v ${match.opponent}`)
   const preferenceKey = useMemo(() => createMobileFormationPreferenceKey({ clubId: context.clubId, teamId: context.teamId, userId: user.id }), [context.clubId, context.teamId, user.id])
 
@@ -117,6 +129,8 @@ export function CoachFormationBoard({ context, match, palette, players, stale, u
       setDraft(nextDraft)
       setPresets(nextPresets)
       setPublications(nextPublications)
+      setShowSetup(false)
+      setShowSquad(getMobileFormationSelectedPlayerIds(nextDraft).size === 0)
       setTitle(linkedBoard?.title || `${match.teamName} v ${match.opponent}`)
       setOffline(false)
       await saveCoachOfflineResources(user.id, context, { formation: { board: linkedBoard, draft: nextDraft, matchDayId: match.id, presets: nextPresets, publications: nextPublications } }).catch(() => {})
@@ -129,13 +143,10 @@ export function CoachFormationBoard({ context, match, palette, players, stale, u
         setPresets(Array.isArray(formation.presets) ? formation.presets : [])
         setPublications(Array.isArray(formation.publications) ? formation.publications : [])
         setTitle(formation.board?.title || `${match.teamName} v ${match.opponent}`)
+        setShowSquad(getMobileFormationSelectedPlayerIds(formation.draft).size === 0)
         setOffline(true)
-      } else {
-        setError(normalize(loadError?.message) || 'The formation plan could not be loaded.')
-      }
-    } finally {
-      setLoading(false)
-    }
+      } else setError(normalize(loadError?.message) || 'The formation plan could not be loaded.')
+    } finally { setLoading(false) }
   }, [context, match.id, match.opponent, match.teamName, preferenceKey, user])
 
   useEffect(() => { void load() }, [load])
@@ -146,9 +157,25 @@ export function CoachFormationBoard({ context, match, palette, players, stale, u
     || null
   const activePublication = publications.find((publication) => !(publication.withdrawn_at ?? publication.withdrawnAt)) || null
   const unavailable = stale || offline
+  const capacity = getMobileFormationCapacity(draft.gameFormat)
+  const pitchSlotWidth = useMemo(() => {
+    const rowCounts = new Map()
+    for (const slot of currentPreset?.slots || []) {
+      const row = Math.round(Number(slot.y || 0) / 5) * 5
+      rowCounts.set(row, (rowCounts.get(row) || 0) + 1)
+    }
+    const widestRow = Math.max(1, ...rowCounts.values())
+    if (widestRow >= 4) return 23
+    if (widestRow === 3) return 29
+    if (widestRow === 2) return 41
+    return 50
+  }, [currentPreset?.slots])
+  const selectedPlacement = draft.placements.find((player) => player.playerId === selectedPlayerId)
+  const selectedBenchPlayer = draft.bench.find((player) => player.playerId === selectedPlayerId)
 
   const rememberPreset = (nextDraft) => {
     setDraft(nextDraft)
+    setSelectedPlayerId('')
     void AsyncStorage.setItem(preferenceKey, serializeMobileFormationPreferences(nextDraft)).catch(() => {})
   }
 
@@ -158,23 +185,30 @@ export function CoachFormationBoard({ context, match, palette, players, stale, u
     if (preset) rememberPreset(applyMobileFormationPreset(draft, preset))
   }
 
-  const save = async () => {
-    setBusy(true)
-    setError('')
-    setNotice('')
+  const buildLineup = (useFullSquad = false) => {
+    if (!currentPreset) return
+    const squadDraft = useFullSquad ? setMobileFormationSquad(draft, players) : draft
+    setDraft(buildMobileFormationLineup(squadDraft, currentPreset))
+    setSelectedPlayerId('')
+    setRemovalMode(false)
+    setRemovalIds([])
+    setShowSquad(false)
+    setNotice(useFullSquad ? `Full squad selected. ${Math.min(capacity, players.length)} Players placed and everyone else moved to the Bench.` : 'Starting lineup rebuilt. Remaining selected Players are on the Bench.')
+  }
+
+  const persistBoard = async () => {
     const startedAt = Date.now()
     let nextBoard = board
     try {
       nextBoard = board
         ? await saveCoachFormationBoard(user, board, draft, title)
         : await createCoachFormationBoard(user, match, draft, title)
-      setBoard(nextBoard)
       if (nextBoard.linkedMatchDayId !== match.id) nextBoard = await linkCoachFormationBoard(user, nextBoard.id, match.id)
       setBoard(nextBoard)
       setDraft(createMobileFormationDraft({ board: nextBoard }))
       setTitle(nextBoard.title)
       setPublications(await getCoachFormationPublications(user, nextBoard.id))
-      setNotice('Private match plan saved. Parents cannot see it until you publish it.')
+      return nextBoard
     } catch (saveError) {
       if (!nextBoard) {
         const reconciled = await getCoachFormationBoards(user).then((boards) => boards.find((candidate) => (
@@ -182,34 +216,38 @@ export function CoachFormationBoard({ context, match, palette, players, stale, u
           || (candidate.title === title.trim() && new Date(candidate.createdAt || 0).getTime() >= startedAt - 5000)
         ))).catch(() => null)
         if (reconciled) {
-          nextBoard = reconciled
           setBoard(reconciled)
           setDraft(createMobileFormationDraft({ board: reconciled }))
+          nextBoard = reconciled
         }
       }
-      setError(nextBoard
-        ? 'The existing private formation is preserved, but the latest save, Match link, or final confirmation needs another online retry. This board will be reused.'
+      throw new Error(nextBoard
+        ? 'The private formation is preserved, but the latest save or Match link needs another online retry.'
         : normalize(saveError?.message) || 'The formation plan could not be saved.')
-    } finally {
-      setBusy(false)
     }
   }
 
-  const publish = () => Alert.alert(
-    'Publish this match plan?',
-    'Parents linked to this Team and match will see the pitch and Bench. Staff notes and unselected Players are not shared.',
+  const save = async () => {
+    setBusy(true); setError(''); setNotice('')
+    try { await persistBoard(); setNotice('Private match plan saved. Parents cannot see it until you share it.') }
+    catch (saveError) { setError(saveError.message) }
+    finally { setBusy(false) }
+  }
+
+  const saveAndPublish = () => Alert.alert(
+    activePublication ? 'Update the Parent match plan?' : 'Share this match plan with Parents?',
+    'The latest lineup and Bench will be saved and shared with authorised Parents for this fixture. Staff notes and unselected Players are not shared.',
     [
       { style: 'cancel', text: 'Cancel' },
-      { text: 'Publish', onPress: async () => {
-        setBusy(true)
-        setError('')
+      { text: activePublication ? 'Save and update' : 'Save and share', onPress: async () => {
+        setBusy(true); setError(''); setNotice('')
         try {
-          await publishCoachFormationBoard(user, board, match.id)
-          setPublications(await getCoachFormationPublications(user, board.id))
-          setNotice('The latest saved match plan is now visible to authorised Parents.')
-        } catch (publishError) {
-          setError(normalize(publishError?.message) || 'The formation plan could not be published.')
-        } finally { setBusy(false) }
+          const nextBoard = await persistBoard()
+          await publishCoachFormationBoard(user, nextBoard, match.id)
+          setPublications(await getCoachFormationPublications(user, nextBoard.id))
+          setNotice('Saved and shared. Authorised Parents can now see the latest match plan.')
+        } catch (publishError) { setError(normalize(publishError?.message) || 'The match plan could not be saved and shared.') }
+        finally { setBusy(false) }
       } },
     ],
   )
@@ -220,83 +258,107 @@ export function CoachFormationBoard({ context, match, palette, players, stale, u
     [
       { style: 'cancel', text: 'Cancel' },
       { style: 'destructive', text: 'Withdraw', onPress: async () => {
-        setBusy(true)
-        setError('')
+        setBusy(true); setError('')
         try {
           await withdrawCoachFormationBoard(user, board, match.id)
           setPublications(await getCoachFormationPublications(user, board.id))
-          setNotice('The match plan is no longer visible to Parents.')
-        } catch (withdrawError) {
-          setError(normalize(withdrawError?.message) || 'The formation plan could not be withdrawn.')
-        } finally { setBusy(false) }
+          setNotice('The match plan is private again.')
+        } catch (withdrawError) { setError(normalize(withdrawError?.message) || 'The formation plan could not be withdrawn.') }
+        finally { setBusy(false) }
       } },
     ],
   )
 
-  if (loading) return <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading formations...</Text></View>
+  const selectPlayer = (playerId, location) => {
+    if (removalMode) {
+      if (location !== 'pitch') return
+      setRemovalIds((current) => current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId])
+      return
+    }
+    if (!selectedPlayerId || selectedPlayerId === playerId) {
+      setSelectedPlayerId(selectedPlayerId === playerId ? '' : playerId)
+      return
+    }
+    setDraft(swapMobileFormationPlayers(draft, selectedPlayerId, playerId))
+    setSelectedPlayerId('')
+  }
+
+  if (loading) return <View style={styles.card}><ActivityIndicator color={palette.accent} /><Text style={styles.body}>Loading formation workspace...</Text></View>
 
   return (
     <View style={styles.stack}>
-      <View style={styles.card}>
-        <Text style={styles.heading}>Formation plan</Text>
-        <Text style={styles.body}>Choose the squad once, place the lineup, and keep every other selected Player on the Bench.</Text>
-        <TextInput accessibilityLabel="Formation plan title" onChangeText={setTitle} style={styles.input} value={title} />
+      <View style={styles.planHeader}>
+        <Text style={styles.eyebrow}>Formation plan</Text>
+        <Text style={styles.heading}>{match.teamName} v {match.opponent}</Text>
+        <Text style={styles.body}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')} | {draft.placements.length} starting | {draft.bench.length} Bench</Text>
+        <View style={styles.status}><Text style={styles.statusText}>{activePublication ? 'Shared with Parents' : board ? 'Private draft' : 'Not saved yet'}</Text></View>
       </View>
-      {unavailable ? <View style={styles.warning}><Text style={styles.heading}>Offline read</Text><Text style={styles.body}>Showing the last encrypted formation plan. Saving and Parent publishing require a successful online refresh.</Text></View> : null}
+
+      {unavailable ? <View style={styles.warning}><Text style={styles.heading}>Offline read</Text><Text style={styles.body}>Showing the last encrypted plan. Saving and Parent sharing require a successful online refresh.</Text></View> : null}
       {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action label="Try again" onPress={load} secondary styles={styles} /></View> : null}
-      {notice ? <View style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}
+      {notice ? <View style={styles.selectedPanel}><Text style={styles.body}>{notice}</Text></View> : null}
 
       <View style={styles.card}>
-        <Text style={styles.label}>Game format</Text>
-        <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
-        <Text style={styles.label}>Formation</Text>
-        <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => rememberPreset(applyMobileFormationPreset(draft, preset))} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
+        <View style={styles.rowBetween}><View><Text style={styles.eyebrow}>1. Setup</Text><Text style={styles.heading}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')}</Text></View><Action label={showSetup ? 'Done' : 'Change'} onPress={() => setShowSetup((current) => !current)} secondary styles={styles} /></View>
+        {showSetup ? <View style={styles.stack}>
+          <Text style={styles.label}>Game format</Text>
+          <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
+          <Text style={styles.label}>Formation</Text>
+          <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => rememberPreset(applyMobileFormationPreset(draft, preset))} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
+        </View> : null}
       </View>
 
       <View style={styles.card}>
-        <View style={styles.row}><Text style={styles.heading}>Squad</Text><Text style={styles.selectedSummary}>{selectedIds.size} selected</Text></View>
-        <View style={styles.row}><Action label="Select all" onPress={() => setDraft(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action label="Clear" onPress={() => setDraft(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
-        <View style={styles.row}>{players.map((player) => <Choice key={player.id} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} selected={selectedIds.has(player.id)} styles={styles} />)}</View>
+        <View style={styles.rowBetween}><View><Text style={styles.eyebrow}>2. Squad</Text><Text style={styles.heading}>{selectedIds.size} selected</Text></View><Action label={showSquad ? 'Done' : 'Edit squad'} onPress={() => setShowSquad((current) => !current)} secondary styles={styles} /></View>
+        <Action disabled={!currentPreset || !players.length} label="Use full squad & build team" onPress={() => buildLineup(true)} styles={styles} />
+        {showSquad ? <View style={styles.stack}>
+          <View style={styles.row}><Action label="Select all" onPress={() => setDraft(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action label="Clear" onPress={() => setDraft(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
+          <View style={styles.row}>{players.map((player) => <Choice key={player.id} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} selected={selectedIds.has(player.id)} styles={styles} />)}</View>
+          <Action disabled={!currentPreset || !selectedIds.size} label={`Build starting ${Math.min(capacity, selectedIds.size)}`} onPress={() => buildLineup(false)} styles={styles} />
+        </View> : null}
       </View>
 
       <View style={styles.card}>
-        <View style={styles.row}><Action disabled={!currentPreset || !draft.bench.length} label="Place all" onPress={() => setDraft(placeMobileFormationLineup(draft, currentPreset))} styles={styles} /><Action label={removalMode ? 'Cancel taking off' : 'Take Players off lineup'} onPress={() => { setRemovalMode(!removalMode); setRemovalIds([]); setSelectedBenchPlayerId('') }} secondary styles={styles} /></View>
-        {removalMode ? <View style={styles.warning}><Text style={styles.body}>Tap one or more Players on the pitch, then move them to the Bench.</Text><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /></View> : null}
+        <View style={styles.rowBetween}><View><Text style={styles.eyebrow}>3. Arrange</Text><Text style={styles.heading}>Starting lineup</Text></View><Text style={styles.count}>{draft.placements.length}/{capacity}</Text></View>
+        <Text style={styles.body}>Tap two Players to swap them. Tap a Bench Player and then a starter to make a substitution.</Text>
+        <View style={styles.row}><Action label={removalMode ? 'Cancel taking off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId('') }} secondary styles={styles} /></View>
+        {removalMode ? <View style={styles.selectedPanel}><Text style={styles.body}>Select one or more starters, then move them together.</Text><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /></View> : null}
+        {!removalMode && selectedPlayerId ? <View style={styles.selectedPanel}><Text style={styles.body}>{selectedPlacement ? `${selectedPlacement.displayName} selected. Tap another starter or Bench Player to swap.` : `${selectedBenchPlayer?.displayName || 'Bench Player'} selected. Tap a starter to swap, or an empty position to place.`}</Text>{selectedPlacement ? <Action label="Move selected to Bench" onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, [selectedPlayerId])); setSelectedPlayerId('') }} secondary styles={styles} /> : null}</View> : null}
         <View accessibilityLabel="Formation pitch" style={styles.pitch}>
           <View style={styles.pitchHalfway} />
           {(currentPreset?.slots || []).map((slot) => {
             const player = draft.placements.find((candidate) => candidate.slotId === slot.id)
             const selectedForRemoval = player && removalIds.includes(player.playerId)
+            const selected = player && selectedPlayerId === player.playerId
             return (
               <Pressable
-                accessibilityHint={player ? removalMode ? 'Selects this Player to move to the Bench' : 'Player is placed on the pitch' : selectedBenchPlayerId ? 'Places the selected Bench Player here' : 'Choose a Player from the Bench first'}
+                accessibilityHint={player ? removalMode ? 'Selects this Player to move to the Bench' : 'Selects this Player for a swap' : selectedBenchPlayer ? 'Places the selected Bench Player here' : 'This position is empty'}
                 accessibilityRole="button"
+                accessibilityState={{ selected: Boolean(selected || selectedForRemoval) }}
                 key={slot.id}
                 onPress={() => {
-                  if (player && removalMode) setRemovalIds((current) => current.includes(player.playerId) ? current.filter((id) => id !== player.playerId) : [...current, player.playerId])
-                  else if (!player && selectedBenchPlayerId) { setDraft(placeMobileFormationPlayer(draft, selectedBenchPlayerId, slot)); setSelectedBenchPlayerId('') }
+                  if (player) selectPlayer(player.playerId, 'pitch')
+                  else if (selectedBenchPlayer) { setDraft(placeMobileFormationPlayer(draft, selectedPlayerId, slot)); setSelectedPlayerId('') }
                 }}
-                style={[styles.playerSlot, !player && styles.playerSlotEmpty, selectedForRemoval && styles.playerSlotRemoval, { left: `${Math.max(2, Math.min(64, Number(slot.x || 0) - 18))}%`, top: `${Math.max(1, Math.min(89, Number(slot.y || 0) - 5))}%` }]}
+                style={[styles.playerSlot, !player && styles.playerSlotEmpty, selected && styles.playerSlotSelected, selectedForRemoval && styles.playerSlotRemoval, { left: `${Math.max(2, Math.min(98 - pitchSlotWidth, Number(slot.x || 0) - (pitchSlotWidth / 2)))}%`, top: `${Math.max(1, Math.min(89, Number(slot.y || 0) - 5))}%`, width: `${pitchSlotWidth}%` }]}
               >
                 <Text numberOfLines={2} style={styles.playerName}>{player ? `${player.shirtNumber ? `${player.shirtNumber} ` : ''}${player.displayName}` : 'Empty'}</Text>
               </Pressable>
             )
           })}
         </View>
+
+        <View style={styles.rowBetween}><Text style={styles.heading}>Bench</Text><Text style={styles.count}>{draft.bench.length}</Text></View>
+        {draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => <Choice key={player.playerId} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.displayName}`} onPress={() => selectPlayer(player.playerId, 'bench')} selected={selectedPlayerId === player.playerId} styles={styles} />)}</ScrollView> : <Text style={styles.body}>No Players are on the Bench.</Text>}
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.heading}>Bench</Text>
-        <Text style={styles.body}>Tap a Bench Player, then tap an empty pitch position.</Text>
-        <View style={styles.bench}>{draft.bench.map((player) => <Choice key={player.playerId} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.displayName}`} onPress={() => setSelectedBenchPlayerId((current) => current === player.playerId ? '' : player.playerId)} selected={selectedBenchPlayerId === player.playerId} styles={styles} />)}</View>
-        {!draft.bench.length ? <Text style={styles.body}>No Players are on the Bench.</Text> : null}
-      </View>
-
-      <View style={styles.card}>
-        <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save private match plan'} onPress={() => void save()} styles={styles} />
-        <Action disabled={busy || unavailable || !board?.currentVersionId} label={activePublication ? 'Publish updated plan to Parents' : 'Publish plan to Parents'} onPress={publish} secondary styles={styles} />
-        {activePublication ? <Action danger disabled={busy || unavailable} label="Withdraw Parent plan" onPress={withdraw} secondary styles={styles} /> : null}
-        <Text style={styles.body}>{activePublication ? 'Parent view is live. Publishing again creates a new immutable version.' : 'Private draft only. Parents cannot see this plan.'}</Text>
+        <Text style={styles.eyebrow}>Finish</Text>
+        <Text style={styles.heading}>Save the plan</Text>
+        <View style={styles.row}><Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save draft'} onPress={() => void save()} secondary styles={styles} /><Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={activePublication ? 'Save & update Parents' : 'Save & share with Parents'} onPress={saveAndPublish} styles={styles} /></View>
+        <Pressable accessibilityRole="button" onPress={() => setShowAdvanced((current) => !current)}><Text style={styles.count}>{showAdvanced ? 'Hide plan options' : 'Plan name and options'}</Text></Pressable>
+        {showAdvanced ? <View style={styles.stack}><Text style={styles.label}>Plan name</Text><TextInput accessibilityLabel="Formation plan title" onChangeText={setTitle} style={styles.input} value={title} />{activePublication ? <Action danger disabled={busy || unavailable} label="Withdraw Parent plan" onPress={withdraw} secondary styles={styles} /> : null}</View> : null}
+        <Text style={styles.body}>{activePublication ? 'Parent view is live. Saving and updating creates a protected new version.' : 'Save draft keeps the plan staff-only. Save and share publishes it to authorised Parents.'}</Text>
       </View>
     </View>
   )

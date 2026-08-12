@@ -20,6 +20,10 @@ const MORE_ROUTES = Object.freeze([
   Object.freeze({ key: 'settings', label: 'Settings', minimumRank: 20 }),
 ])
 
+const QUICK_ROUTES = Object.freeze([
+  Object.freeze({ key: 'formation', label: 'Formation Board', minimumRank: 20, requiresTeam: true }),
+])
+
 const ROUTE_ALIASES = Object.freeze({
   assess: 'development',
   assessment: 'development',
@@ -29,6 +33,8 @@ const ROUTE_ALIASES = Object.freeze({
   club: 'club',
   development: 'development',
   fixtures: 'matchday',
+  formation: 'formation',
+  formationboard: 'formation',
   home: 'home',
   invites: 'invites',
   availability: 'invites',
@@ -80,6 +86,7 @@ export function resolveCoachRoute(route, context) {
   const navigation = getCoachNavigationModel(context)
   if (navigation.primary.some((item) => item.key === normalizedRoute)) return normalizedRoute
   if (navigation.more.some((item) => item.key === normalizedRoute)) return normalizedRoute
+  if (QUICK_ROUTES.some((item) => item.key === normalizedRoute && routeIsAllowed(item, context))) return normalizedRoute
   return ''
 }
 

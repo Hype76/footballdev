@@ -44,8 +44,11 @@ import {
 } from './src/localState'
 import { prepareCoachMobileStartup } from './src/startup'
 import { CoachCalendarScreen, CoachPlayersScreen, CoachSessionsScreen } from './src/CoachOperationalScreens'
+import { CoachFormationScreen } from './src/CoachFormationScreen'
 import { CoachMatchDayScreen } from './src/CoachMatchDayScreen'
 import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
+import { CoachQuickActions } from './src/CoachQuickActions'
+import { getCoachQuickActions } from './src/coachQuickActionsCore'
 import { coachOfflineProfileStore, inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
 import {
   addCoachPushTokenListener,
@@ -121,6 +124,7 @@ function CoachHome() {
   const [moreRoute, setMoreRoute] = useState('')
   const [notice, setNotice] = useState('')
   const [notificationState, setNotificationState] = useState(null)
+  const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const requestIdRef = useRef(0)
@@ -136,6 +140,7 @@ function CoachHome() {
     [activeContext, user],
   )
   const navigation = useMemo(() => getCoachNavigationModel(activeContext), [activeContext])
+  const quickActions = useMemo(() => getCoachQuickActions(activeContext), [activeContext])
   const themeModel = useMemo(
     () => createCoachTheme({ context: activeContext, mode: displayTheme }),
     [activeContext, displayTheme],
@@ -168,6 +173,7 @@ function CoachHome() {
     setMoreRoute('')
     setChatNotificationTarget(null)
     setNotice('')
+    setQuickActionRequest(null)
   }, [])
 
   const refreshNotifications = useCallback(async () => {
@@ -260,6 +266,13 @@ function CoachHome() {
     setMoreRoute(target.moreRoute)
     return true
   }, [activeContext])
+
+  const launchQuickAction = useCallback((action) => {
+    setQuickActionRequest(action.intent ? { ...action, requestId: `${Date.now()}:${action.id}` } : null)
+    if (!navigate(action.route)) setQuickActionRequest(null)
+  }, [navigate])
+
+  const handleQuickActionHandled = useCallback(() => setQuickActionRequest(null), [])
 
   const openCoachTarget = useCallback((data) => {
     const result = resolveCoachNotificationOpen(data, {
@@ -496,6 +509,7 @@ function CoachHome() {
             notificationState={notificationState}
             onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
             onNavigate={navigate}
+            onQuickActionHandled={handleQuickActionHandled}
             onSelectContext={selectContext}
             onSelectMore={navigate}
             onSignOut={signOut}
@@ -503,11 +517,13 @@ function CoachHome() {
             onToggleTheme={toggleTheme}
             onUpdateNotificationLevel={updateNotificationLevel}
             reloadHome={loadHome}
+            quickAction={quickActionRequest}
             themeMode={displayTheme}
             user={selectedMobileUser}
           />
         </ScrollView>
         <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
+        <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} />
       </SafeAreaView>
     </CoachThemeContext.Provider>
   )
@@ -519,6 +535,7 @@ function CoachRoute(props) {
   if (activeRoute === 'home') return <HomeScreen {...props} />
   if (activeRoute === 'calendar') return <CoachCalendarScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'players') return <CoachPlayersScreen {...props} key={props.context.id} palette={palette} />
+  if (activeRoute === 'formation') return <CoachFormationScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'matchday') return <CoachMatchDayScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {
