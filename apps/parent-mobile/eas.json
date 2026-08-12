@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "channel": "development",
       "environment": "development",
       "developmentClient": true,
       "distribution": "internal",
@@ -15,6 +16,7 @@
       }
     },
     "internal": {
+      "channel": "preview",
       "environment": "preview",
       "distribution": "internal",
       "android": {
@@ -30,6 +32,7 @@
       }
     },
     "store-test": {
+      "channel": "test",
       "environment": "preview",
       "distribution": "store",
       "autoIncrement": true,
@@ -40,6 +43,7 @@
       }
     },
     "internal-live": {
+      "channel": "production",
       "environment": "production",
       "distribution": "internal",
       "autoIncrement": true,
@@ -53,6 +57,7 @@
       }
     },
     "store-live": {
+      "channel": "production",
       "environment": "production",
       "distribution": "store",
       "autoIncrement": true,

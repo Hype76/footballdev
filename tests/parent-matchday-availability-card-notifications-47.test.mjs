@@ -10,14 +10,16 @@ const [matchDayPage, matchDayPush, migration, parentPush, scheduledProcessor] = 
   readFile(new URL('../netlify/functions/process-scheduled-emails.js', import.meta.url), 'utf8'),
 ])
 
-test('accepted availability email queues one exact Parent mobile Matchday notification', () => {
+test('accepted availability email queues one exact focused Parent response notification', () => {
   assert.match(scheduledProcessor, /matchDayAvailability\?\.requestId/)
   assert.match(scheduledProcessor, /matchDayAvailability\?\.parentLinkId/)
   assert.match(scheduledProcessor, /type: 'matchday_availability'/)
   assert.match(parentPush, /from\('match_day_availability_requests'\)/)
   assert.match(parentPush, /parentLinkQuery: \(query\) => query\.eq\('id', request\.parent_link_id\)/)
   assert.match(parentPush, /availabilityRequestId: request\.id/)
-  assert.match(parentPush, /route: 'matchday'/)
+  assert.match(parentPush, /invitationId: `match:\$\{request\.id\}`/)
+  assert.match(parentPush, /route: 'invites'/)
+  assert.match(parentPush, /categoryId: 'parent-response'/)
   assert.match(parentPush, /type: 'matchday_update'/)
 })
 

@@ -34,6 +34,7 @@ import {
   formatParentProductTime,
 } from '../mobile-core/src/parentDateTimeCore'
 import {
+  getParentNotificationResponseValue,
   getParentNotificationStatusLabel,
   resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
@@ -223,12 +224,14 @@ function ParentHome() {
   const [communicationChannelLoading, setCommunicationChannelLoading] = useState(false)
   const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
   const [displayTheme, setDisplayTheme] = useState('dark')
+  const [focusedInvitationId, setFocusedInvitationId] = useState('')
   const [moreSection, setMoreSection] = useState('')
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [selectedMessageId, setSelectedMessageId] = useState('')
+  const [selectedPollId, setSelectedPollId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
   const [syncSummary, setSyncSummary] = useState({ needsAttention: 0, state: 'synced', waiting: 0 })
   const requestIdRef = useRef(0)
@@ -514,7 +517,8 @@ function ParentHome() {
 
   useEffect(() => {
     const request = lastNotificationResponse?.notification?.request
-    const responseId = normalizeText(request?.identifier)
+    const actionIdentifier = normalizeText(lastNotificationResponse?.actionIdentifier)
+    const responseId = [normalizeText(request?.identifier), actionIdentifier].filter(Boolean).join(':')
     if (
       !responseId
       || notificationResponseIdRef.current === responseId
@@ -564,7 +568,7 @@ function ParentHome() {
     let cancelled = false
     notificationResponseProcessingRef.current = responseId
     void loadParentData()
-      .then((result) => {
+      .then(async (result) => {
         if (cancelled) return
         const destination = resolveParentNotificationOpen(
           notificationData,
@@ -578,11 +582,33 @@ function ParentHome() {
         const nestedSection = ['development', 'invites', 'messages', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
           ? destination.tab
           : ''
+        const targetInvitation = destination.tab === 'invites'
+          ? (result?.items?.invitations || []).find((invitation) => invitation.invitationId === destination.targetId)
+          : null
+        const directResponseValue = targetInvitation
+          ? getParentNotificationResponseValue(actionIdentifier, targetInvitation.invitationType)
+          : ''
         setSelectedMatchId(destination.tab === 'matchday' ? destination.targetId : '')
         setSelectedMessageId(destination.tab === 'messages' ? destination.targetId : '')
+        setSelectedPollId(destination.tab === 'polls' ? destination.targetId : '')
         setSelectedRoomId(destination.tab === 'chat' ? destination.targetId : '')
+        setFocusedInvitationId(destination.tab === 'invites' ? destination.targetId : '')
         setMoreSection(nestedSection)
         setActiveTab(nestedSection ? 'more' : destination.tab)
+
+        if (targetInvitation && directResponseValue) {
+          setActiveActionId(`invite:${targetInvitation.invitationId}`)
+          setNotice(null)
+          try {
+            await respondToParentInvitation(selectedMobileUser, targetInvitation, directResponseValue)
+            await loadParentData()
+            setNotice({ message: 'Your response from the notification has been saved.', tone: 'success' })
+          } catch (error) {
+            setNotice({ message: getParentFriendlyError(error, 'Your notification response could not be saved.'), tone: 'error' })
+          } finally {
+            setActiveActionId('')
+          }
+        }
       })
       .catch(() => {
         if (cancelled) return
@@ -601,12 +627,20 @@ function ParentHome() {
         notificationResponseProcessingRef.current = ''
       }
     }
-  }, [lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id])
+  }, [lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id, selectedMobileUser])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (focusedInvitationId) {
+        setFocusedInvitationId('')
+        return true
+      }
+      if (selectedPollId) {
+        setSelectedPollId('')
+        return true
+      }
       if (selectedMessageId) {
         setSelectedMessageId('')
         return true
@@ -635,7 +669,7 @@ function ParentHome() {
     })
 
     return () => subscription.remove()
-  }, [activeTab, childSwitcherOpen, moreSection, selectedMatchId, selectedMessageId, selectedRoomId])
+  }, [activeTab, childSwitcherOpen, focusedInvitationId, moreSection, selectedMatchId, selectedMessageId, selectedPollId, selectedRoomId])
 
   async function handleRefresh() {
     if (!selectedLink?.id || isRefreshing) return
@@ -655,8 +689,10 @@ function ParentHome() {
   }
 
   function handleTabChange(tab) {
+    setFocusedInvitationId('')
     setSelectedMatchId('')
     setSelectedMessageId('')
+    setSelectedPollId('')
     setSelectedRoomId('')
     setMoreSection('')
     setChildSwitcherOpen(false)
@@ -668,6 +704,8 @@ function ParentHome() {
     setSelectedLinkId(linkId)
     void saveParentOfflineSelection(selectedMobileUser, linkId).catch((error) => console.warn(error))
     setChildSwitcherOpen(false)
+    setFocusedInvitationId('')
+    setSelectedPollId('')
     setActiveTab('home')
   }
 
@@ -1060,6 +1098,7 @@ function ParentHome() {
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
   const selectedMatch = resources.matches.items.find((match) => match.id === selectedMatchId)
+  const selectedPoll = resources.polls.items.find((poll) => poll.id === selectedPollId)
   const matchInvitations = resources.invitations.items.filter((invitation) => (
     ['match_attendance', 'match_role'].includes(invitation.invitationType)
   ))
@@ -1170,9 +1209,19 @@ function ParentHome() {
                 unreadMessages={homeModel.unreadMessages}
               />
             ) : null}
-            {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedMessageId('') }} /> : null}
+            {activeTab === 'more' && moreSection && !focusedInvitationId && !selectedPollId ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedMessageId('') }} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onRespond={handleInvitationResponse} resource={resources.invitations} theme={displayTheme} themeTokens={themeModel.tokens} />
+              <InvitationsScreen
+                activeActionId={activeActionId}
+                focusedInvitationId={focusedInvitationId}
+                isOffline={isOffline}
+                link={selectedLink}
+                onBack={() => setFocusedInvitationId('')}
+                onRespond={handleInvitationResponse}
+                resource={resources.invitations}
+                theme={displayTheme}
+                themeTokens={themeModel.tokens}
+              />
             ) : null}
             {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={resources.matches} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onOpen={(report) => handleOpenParentItem('development', report)} resource={resources.development} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
@@ -1196,7 +1245,10 @@ function ParentHome() {
               <PollsScreen
                 activeActionId={activeActionId}
                 drafts={pollDrafts}
+                focusedPoll={selectedPoll}
+                focusedPollId={selectedPollId}
                 link={selectedLink}
+                onBack={() => setSelectedPollId('')}
                 onDraftChange={(pollId, optionId) => setPollDrafts((current) => ({ ...current, [pollId]: optionId }))}
                 onRetry={handleRefresh}
                 onSubmit={handlePollSubmit}
@@ -1649,19 +1701,23 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
   )
 }
 
-function PollsScreen({ activeActionId, drafts, link, onDraftChange, onRetry, onSubmit, resource }) {
+function PollsScreen({ activeActionId, drafts, focusedPoll = null, focusedPollId = '', link, onBack, onDraftChange, onRetry, onSubmit, resource }) {
   const { styles } = useParentTheme()
   if (!link?.id) return <EmptyPanel message="No active child link is available for polls." title="Polls unavailable" />
+  const isFocused = Boolean(focusedPollId)
+  const polls = isFocused ? (focusedPoll ? [focusedPoll] : []) : resource.items
 
   return (
     <View style={styles.screenStack}>
-      <ScreenIntro copy={`Parent responses for ${link.playerName}.`} title="Polls" />
+      {isFocused ? <BackButton label="Back to Parent app" onPress={onBack} /> : null}
+      <ScreenIntro copy={isFocused ? `One question for ${link.playerName}.` : `Parent responses for ${link.playerName}.`} title={isFocused ? 'Reply to this poll' : 'Polls'} />
       <ResourceError onRetry={onRetry} resource={resource} title="Polls unavailable" />
       {resource.loading && resource.items.length === 0 ? <LoadingPanel message="Loading polls" /> : null}
+      {isFocused && !resource.loading && !focusedPoll ? <EmptyPanel message="This poll is no longer available." title="Poll closed" /> : null}
       {!resource.loading && !resource.error && resource.items.length === 0 ? (
         <EmptyPanel message="There are no active Parent polls right now." title="No polls to answer" />
       ) : null}
-      {resource.items.map((poll) => {
+      {polls.map((poll) => {
         const draftOptionId = getPollDraftOption(poll, drafts)
         const currentOptionIds = Array.isArray(poll.currentOptionIds)
           ? poll.currentOptionIds.map(normalizeText).filter(Boolean)
@@ -1791,7 +1847,7 @@ function SettingsScreen({
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
-  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.2'
+  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.3'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
     : Constants.expoConfig?.android?.versionCode || '1')

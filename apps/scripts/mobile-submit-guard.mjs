@@ -13,6 +13,7 @@ const allowedProfiles = new Set(['store-test', 'store-live'])
 const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
   'FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34',
+  'FP-MOBILE-PARENT-NOTIFICATION-RESPONSE-49',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
@@ -36,6 +37,7 @@ if (!allowedProfiles.has(profile)) {
 
 const authorisedProductionSubmission = appRole === 'parent' && (
   promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
+  || promotionReference === 'FP-MOBILE-PARENT-NOTIFICATION-RESPONSE-49'
   || (platform === 'ios' && authorisedParentProductionReferences.has(promotionReference))
 )
 

@@ -9,6 +9,8 @@ import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import {
   getParentPushSetupFailureCode,
   getParentNotificationStorageKeys,
+  parentNotificationActionIds,
+  parentNotificationResponseCategoryId,
   normalizeParentNotificationDetail,
   normalizeParentNotificationState,
 } from '../../mobile-core/src/parentNotificationsCore'
@@ -172,6 +174,24 @@ async function request({ apiBaseUrl, body, method, path }) {
 }
 
 export async function initializeParentNotifications() {
+  await Notifications.setNotificationCategoryAsync(parentNotificationResponseCategoryId, [
+    {
+      identifier: parentNotificationActionIds.available,
+      buttonTitle: 'Available',
+      options: { opensAppToForeground: true },
+    },
+    {
+      identifier: parentNotificationActionIds.unavailable,
+      buttonTitle: 'Unavailable',
+      options: { opensAppToForeground: true },
+    },
+    {
+      identifier: parentNotificationActionIds.maybe,
+      buttonTitle: 'Maybe',
+      options: { opensAppToForeground: true },
+    },
+  ])
+
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       description: 'Parent messages, polls, and Matchday updates.',

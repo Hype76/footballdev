@@ -151,14 +151,21 @@ export function CalendarScreen({ isRefreshing, link, onRefresh, resource, themeT
   )
 }
 
-export function InvitationsScreen({ activeActionId, isOffline, link, onRespond, resource, themeTokens }) {
+export function InvitationsScreen({ activeActionId, focusedInvitationId = '', isOffline, link, onBack, onRespond, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
+  const invitations = focusedInvitationId
+    ? resource.items.filter((invitation) => invitation.invitationId === focusedInvitationId)
+    : resource.items
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Invites</Text><Text style={styles.helper}>Attendance and volunteer responses for {link?.playerName || 'your child'}.</Text></View>
+      {focusedInvitationId && onBack ? <Button label="Back to Parent app" onPress={onBack} outline styles={styles} /> : null}
+      <View>
+        <Text accessibilityRole="header" style={styles.header}>{focusedInvitationId ? 'Reply to this request' : 'Invites'}</Text>
+        <Text style={styles.helper}>{focusedInvitationId ? `One request for ${link?.playerName || 'your child'}.` : `Attendance and volunteer responses for ${link?.playerName || 'your child'}.`}</Text>
+      </View>
       {isOffline ? <Text style={styles.warning}>Responses need a connection. Saved invitations remain available to read.</Text> : null}
-      <ResourceState emptyCopy="There are no invitations for this child." {...resource} styles={styles} />
-      {resource.items.map((invitation) => {
+      <ResourceState emptyCopy={focusedInvitationId ? 'This request is no longer available.' : 'There are no invitations for this child.'} {...resource} items={invitations} styles={styles} />
+      {invitations.map((invitation) => {
         const options = getInvitationResponseOptions(invitation)
         const busy = activeActionId === `invite:${invitation.invitationId}`
         const actionable = isParentInvitationActionable(invitation)

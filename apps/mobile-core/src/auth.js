@@ -200,6 +200,24 @@ export function AuthProvider({
   }, [appRole, bootstrapAttempt, loadProfile, prepareStartup])
 
   useEffect(() => {
+    const updateAutoRefresh = (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh()
+      } else {
+        supabase.auth.stopAutoRefresh()
+      }
+    }
+
+    updateAutoRefresh(AppState.currentState)
+    const subscription = AppState.addEventListener('change', updateAutoRefresh)
+
+    return () => {
+      subscription.remove()
+      supabase.auth.stopAutoRefresh()
+    }
+  }, [])
+
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'background') {
         return

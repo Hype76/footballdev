@@ -417,7 +417,10 @@ export async function handler(event) {
       to: device.expo_push_token,
       title: nativePayload.title,
       body: device.detail_level === 'detailed' ? nativePayload.detailedBody : nativePayload.minimalBody,
-      data: nativePayload.data,
+      data: {
+        ...nativePayload.data,
+        parentLinkId: device.parent_link_id,
+      },
       sound: 'default',
     })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])

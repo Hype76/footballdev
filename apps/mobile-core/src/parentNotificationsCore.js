@@ -4,6 +4,12 @@ const DETAIL_STORAGE_PREFIX = 'football-player:parent:push-detail:v2'
 const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/
 
 export const parentNotificationDetailLevels = Object.freeze(['minimal', 'detailed'])
+export const parentNotificationResponseCategoryId = 'parent-response'
+export const parentNotificationActionIds = Object.freeze({
+  available: 'PARENT_RESPONSE_AVAILABLE',
+  unavailable: 'PARENT_RESPONSE_UNAVAILABLE',
+  maybe: 'PARENT_RESPONSE_MAYBE',
+})
 export const parentNotificationIntentTypes = Object.freeze([
   'parent_message',
   'parent_poll',
@@ -166,6 +172,22 @@ export function resolveParentNotificationLinkId(data, parentLinks = []) {
 
   const authorisedLinkIds = new Set(parentLinks.map((link) => normalize(link?.id)).filter(Boolean))
   return authorisedLinkIds.has(requestedLinkId) ? requestedLinkId : null
+}
+
+export function getParentNotificationResponseValue(actionIdentifier, invitationType = '') {
+  const action = normalize(actionIdentifier)
+  const type = normalize(invitationType).toLowerCase()
+
+  if (action === parentNotificationActionIds.available) {
+    return type === 'match_role' ? 'yes' : 'available'
+  }
+  if (action === parentNotificationActionIds.unavailable) {
+    return type === 'match_role' ? 'no' : 'unavailable'
+  }
+  if (action === parentNotificationActionIds.maybe && type !== 'match_role') {
+    return 'maybe'
+  }
+  return ''
 }
 
 export function containsForbiddenParentNotificationContent(text, playerNames = []) {
