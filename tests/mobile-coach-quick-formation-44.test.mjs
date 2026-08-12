@@ -5,11 +5,12 @@ import test from 'node:test'
 import {
   buildMobileFormationLineup,
   createMobileFormationDraft,
+  moveMobileFormationPlayersToBench,
+  placeMobileFormationPlayerInNextSlot,
   setMobileFormationSquad,
   swapMobileFormationPlayers,
 } from '../apps/mobile-core/src/coachFormationBoardCore.js'
 import { resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
-import { selectPreferredCoachFormationMatch } from '../apps/coach-mobile/src/coachFormationEntryCore.js'
 import {
   clampCoachQuickActionPosition,
   getCoachQuickActions,
@@ -58,20 +59,21 @@ test('two-tap swaps work between starters and between the pitch and Bench', () =
   assert.equal(benchSwap.bench.some((player) => player.playerId === 'player-1'), true)
 })
 
-test('Formation quick entry prioritises a live or upcoming fixture', () => {
-  const selected = selectPreferredCoachFormationMatch([
-    { id: 'past', matchDate: '2026-08-01', status: 'full_time' },
-    { id: 'future', matchDate: '2026-08-20', status: 'scheduled' },
-    { id: 'live', matchDate: '2026-08-12', status: 'live' },
-  ])
-  assert.equal(selected.id, 'live')
+test('a Player moved to the Bench can be returned to the next empty pitch slot', () => {
+  const built = buildMobileFormationLineup(setMobileFormationSquad(createMobileFormationDraft(), players), preset442)
+  const benched = moveMobileFormationPlayersToBench(built, ['player-4'])
+  const restored = placeMobileFormationPlayerInNextSlot(benched, preset442, 'player-4')
+  assert.equal(restored.placements.some((player) => player.playerId === 'player-4'), true)
+  assert.equal(restored.bench.some((player) => player.playerId === 'player-4'), false)
+  assert.equal(restored.placements.length, 11)
 })
 
 test('Coach source wires Quick Add intents and the streamlined Formation finish', async () => {
-  const [app, quick, formation, operations] = await Promise.all([
+  const [app, quick, formation, formationScreen, operations] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachQuickActions.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/coach-mobile/src/CoachFormationScreen.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachOperationalScreens.js', import.meta.url), 'utf8'),
   ])
   assert.match(app, /<CoachQuickActions/)
@@ -79,8 +81,13 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.match(quick, /Drag to move this button/)
   assert.match(quick, /Jump straight into the job/)
   assert.match(formation, /Use full squad & build team/)
-  assert.match(formation, /Tap two Players to swap them/)
-  assert.match(formation, /Save & share with Parents/)
+  assert.match(formation, /Move to pitch/)
+  assert.match(formation, /Fill empty pitch positions/)
+  assert.match(formation, /Save private Formation Board/)
+  assert.match(formation, /Save and link to match/)
+  assert.match(formation, /Save and publish to Team Resources/)
+  assert.match(formationScreen, /Create a standalone Team plan now/)
+  assert.doesNotMatch(formationScreen, /selectPreferredCoachFormationMatch/)
   assert.match(formation, /publishCoachFormationBoard/)
   for (const intent of ['create-player', 'create-session', 'create-match']) assert.match(operations, new RegExp(intent))
 })

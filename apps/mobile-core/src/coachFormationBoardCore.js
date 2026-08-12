@@ -196,6 +196,12 @@ export function moveMobileFormationPlayersToBench(draft, playerIds = []) {
   }
 }
 
+export function placeMobileFormationPlayerInNextSlot(draft, preset, playerId) {
+  const used = new Set((draft?.placements || []).map((player) => normalize(player.slotId)).filter(Boolean))
+  const nextSlot = (Array.isArray(preset?.slots) ? preset.slots : []).find((slot) => !used.has(normalize(slot?.id)))
+  return nextSlot ? placeMobileFormationPlayer(draft, playerId, nextSlot) : draft
+}
+
 export function swapMobileFormationPlayers(draft, firstPlayerId, secondPlayerId) {
   const firstId = normalize(firstPlayerId)
   const secondId = normalize(secondPlayerId)

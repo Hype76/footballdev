@@ -85,9 +85,10 @@ export async function getCoachFormationBoards(user) {
 
 export async function createCoachFormationBoard(user, match, draft, title) {
   assertFormationWrite(user)
+  const matchDescription = match?.id ? `Match plan for ${match.teamName} v ${match.opponent}` : 'Standalone Team formation plan'
   const data = await rpc('create_formation_board', {
     bench_value: serializeBench(draft.bench),
-    description_value: `Match plan for ${match.teamName} v ${match.opponent}`,
+    description_value: matchDescription,
     game_format_value: draft.gameFormat,
     notes_value: '',
     pitch_orientation_value: 'portrait',
@@ -95,7 +96,7 @@ export async function createCoachFormationBoard(user, match, draft, title) {
     preset_key_value: draft.presetKey,
     registry_version_value: draft.registryVersion || 1,
     target_team_id: user.activeTeamId,
-    title_value: normalize(title) || `${match.teamName} v ${match.opponent}`,
+    title_value: normalize(title) || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'),
     visibility_value: 'draft',
   })
   return normalizeCoachFormationBoard(data)
@@ -105,7 +106,7 @@ export async function saveCoachFormationBoard(user, board, draft, title) {
   assertFormationWrite(user)
   const data = await rpc('save_formation_board_editor', {
     bench_value: serializeBench(draft.bench),
-    description_value: `Match plan for ${normalize(title) || board.title}`,
+    description_value: board.linkedMatchDayId ? `Match plan for ${normalize(title) || board.title}` : 'Standalone Team formation plan',
     expected_version_number: board.currentVersionNumber,
     game_format_value: draft.gameFormat,
     notes_value: '',
@@ -129,6 +130,24 @@ export async function linkCoachFormationBoard(user, boardId, matchDayId) {
 export async function getCoachFormationPublications(user, boardId) {
   assertFormationRead(user)
   return array(await rpc('list_formation_board_match_publications', { target_board_id: boardId }))
+}
+
+export async function getCoachFormationResourcePublications(user, boardId) {
+  assertFormationRead(user)
+  return array(await rpc('list_formation_board_publications', { target_board_id: boardId }))
+}
+
+export async function publishCoachFormationResource(user, board, category = 'general', resourceId = '') {
+  assertFormationWrite(user)
+  return rpc('publish_formation_board_version', {
+    category_value: normalize(category) || 'general',
+    publication_action_value: normalize(resourceId) ? 'update_resource' : 'new_resource',
+    target_board_id: board.id,
+    target_resource_id: normalize(resourceId) || null,
+    target_version_id: board.currentVersionId,
+    thumbnail_failed_value: true,
+    thumbnail_path_value: null,
+  })
 }
 
 export async function publishCoachFormationBoard(user, board, matchDayId) {
