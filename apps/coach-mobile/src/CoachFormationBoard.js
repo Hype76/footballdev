@@ -1,18 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   applyMobileFormationPreset,
+  assignMobileFormationPlayerToSlot,
   buildMobileFormationLineup,
   createMobileFormationDraft,
   createMobileFormationPreferenceKey,
   getMobileFormationCapacity,
   getMobileFormationSelectedPlayerIds,
+  getMobileFormationSlotLabel,
   MOBILE_FORMATION_GAME_FORMATS,
   moveMobileFormationPlayersToBench,
   parseMobileFormationPreferences,
   placeMobileFormationLineup,
-  placeMobileFormationPlayer,
   placeMobileFormationPlayerInNextSlot,
   serializeMobileFormationPreferences,
   setMobileFormationSquad,
@@ -68,6 +69,9 @@ function createStyles(palette) {
     heading: { color: palette.textPrimary, fontSize: 20, fontWeight: '900' },
     input: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 13, borderWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 50, paddingHorizontal: 13, paddingVertical: 10 },
     label: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
+    modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.62)', flex: 1, justifyContent: 'flex-end' },
+    modalPanel: { backgroundColor: palette.surface, borderColor: palette.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, gap: 12, maxHeight: '86%', padding: 16 },
+    modalPlayer: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingHorizontal: 13, paddingVertical: 10 },
     pitch: { backgroundColor: palette.pitchSurface, borderColor: 'rgba(255,255,255,0.82)', borderRadius: 18, borderWidth: 2, height: 475, overflow: 'hidden', position: 'relative' },
     pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.68)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
     planHeader: { backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 20, borderWidth: 1, gap: 8, padding: 16 },
@@ -127,6 +131,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const [resourceCategory, setResourceCategory] = useState('general')
   const [selectedMatchId, setSelectedMatchId] = useState(match?.id || '')
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
+  const [activeSlotId, setActiveSlotId] = useState('')
+  const [slotSearch, setSlotSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showBoards, setShowBoards] = useState(false)
   const [showMatchPicker, setShowMatchPicker] = useState(false)
@@ -212,6 +218,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const currentPreset = presets.find((preset) => preset.key === draft.presetKey)
     || presets.find((preset) => preset.gameFormat === draft.gameFormat)
     || null
+  const activeSlot = currentPreset?.slots?.find((slot) => slot.id === activeSlotId) || null
+  const activeSlotPlayer = draft.placements.find((player) => player.slotId === activeSlotId) || null
+  const filteredSlotPlayers = players.filter((player) => player.playerName.toLowerCase().includes(slotSearch.trim().toLowerCase()))
   const linkedMatchId = board?.linkedMatchDayId || ''
   const linkedMatch = (match?.id === linkedMatchId ? match : null) || matches.find((candidate) => candidate.id === linkedMatchId) || null
   const activePublication = matchPublications.find((publication) => !(publication.withdrawn_at ?? publication.withdrawnAt)) || null
@@ -230,9 +239,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     if (widestRow === 2) return 41
     return 50
   }, [currentPreset?.slots])
-  const selectedPlacement = draft.placements.find((player) => player.playerId === selectedPlayerId)
-  const selectedBenchPlayer = draft.bench.find((player) => player.playerId === selectedPlayerId)
-
   const rememberPreset = (nextDraft) => {
     setDraft(nextDraft)
     setSelectedPlayerId('')
@@ -396,6 +402,23 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     }
   }
 
+  const openSlotPicker = (slotId) => {
+    setSelectedPlayerId('')
+    setActiveSlotId(slotId)
+    setSlotSearch('')
+  }
+
+  const chooseSlotPlayer = (player) => {
+    if (!activeSlot) return
+    const replacedPlayer = activeSlotPlayer
+    setDraft(assignMobileFormationPlayerToSlot(draft, player, activeSlot))
+    setActiveSlotId('')
+    setSlotSearch('')
+    setNotice(replacedPlayer
+      ? `${player.playerName} added at ${getMobileFormationSlotLabel(activeSlot)}. ${replacedPlayer.displayName} moved to the Bench.`
+      : `${player.playerName} added at ${getMobileFormationSlotLabel(activeSlot)}.`)
+  }
+
   const selectPlayer = (playerId, location) => {
     if (removalMode) {
       if (location !== 'pitch') return
@@ -453,10 +476,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
       <View style={styles.card}>
         <View style={styles.rowBetween}><View><Text style={styles.eyebrow}>3. Arrange</Text><Text style={styles.heading}>Starting lineup</Text></View><Text style={styles.count}>{draft.placements.length}/{capacity}</Text></View>
-        <Text style={styles.body}>Use the clear Bench controls below, or tap two Players to swap them.</Text>
+        <Text style={styles.body}>Tap any pitch position, then choose a Player. Choosing an occupied position lets you replace or swap that Player.</Text>
         <View style={styles.row}><Action label={removalMode ? 'Cancel taking off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId('') }} secondary styles={styles} />{draft.bench.length && draft.placements.length < capacity ? <Action label="Fill empty pitch positions" onPress={() => { setDraft(placeMobileFormationLineup(draft, currentPreset)); setSelectedPlayerId(''); setNotice('Empty pitch positions filled from the Bench.') }} secondary styles={styles} /> : null}</View>
         {removalMode ? <View style={styles.selectedPanel}><Text style={styles.body}>Select one or more starters, then move them together.</Text><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /></View> : null}
-        {!removalMode && selectedPlayerId ? <View style={styles.selectedPanel}><Text style={styles.body}>{selectedPlacement ? `${selectedPlacement.displayName} selected. Tap another starter or Bench Player to swap.` : `${selectedBenchPlayer?.displayName || 'Bench Player'} selected.`}</Text>{selectedPlacement ? <Action label="Move selected to Bench" onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, [selectedPlayerId])); setSelectedPlayerId('') }} secondary styles={styles} /> : <Action disabled={!selectedBenchPlayer || draft.placements.length >= capacity} label="Move selected to pitch" onPress={() => moveBenchPlayerToPitch(selectedPlayerId)} styles={styles} />}</View> : null}
         <View accessibilityLabel="Formation pitch" style={styles.pitch}>
           <View style={styles.pitchHalfway} />
           {(currentPreset?.slots || []).map((slot) => {
@@ -465,17 +487,17 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
             const selected = player && selectedPlayerId === player.playerId
             return (
               <Pressable
-                accessibilityHint={player ? removalMode ? 'Selects this Player to move to the Bench' : 'Selects this Player for a swap' : selectedBenchPlayer ? 'Places the selected Bench Player here' : 'This position is empty'}
+                accessibilityHint={player ? removalMode ? 'Selects this Player to move to the Bench' : 'Opens the Player picker for this occupied position' : 'Opens the Player picker for this empty position'}
                 accessibilityRole="button"
                 accessibilityState={{ selected: Boolean(selected || selectedForRemoval) }}
                 key={slot.id}
                 onPress={() => {
-                  if (player) selectPlayer(player.playerId, 'pitch')
-                  else if (selectedBenchPlayer) { setDraft(placeMobileFormationPlayer(draft, selectedPlayerId, slot)); setSelectedPlayerId('') }
+                  if (removalMode && player) selectPlayer(player.playerId, 'pitch')
+                  else if (!removalMode) openSlotPicker(slot.id)
                 }}
                 style={[styles.playerSlot, !player && styles.playerSlotEmpty, selected && styles.playerSlotSelected, selectedForRemoval && styles.playerSlotRemoval, { left: `${Math.max(2, Math.min(98 - pitchSlotWidth, Number(slot.x || 0) - (pitchSlotWidth / 2)))}%`, top: `${Math.max(1, Math.min(89, Number(slot.y || 0) - 5))}%`, width: `${pitchSlotWidth}%` }]}
               >
-                <Text numberOfLines={2} style={styles.playerName}>{player ? `${player.shirtNumber ? `${player.shirtNumber} ` : ''}${player.displayName}` : 'Empty'}</Text>
+                <Text numberOfLines={2} style={styles.playerName}>{player ? `${player.shirtNumber ? `${player.shirtNumber} ` : ''}${player.displayName}` : `Add\n${getMobileFormationSlotLabel(slot)}`}</Text>
               </Pressable>
             )
           })}
@@ -506,6 +528,29 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         <Pressable accessibilityRole="button" onPress={() => setShowAdvanced((current) => !current)}><Text style={styles.count}>{showAdvanced ? 'Hide plan options' : 'Plan name and options'}</Text></Pressable>
         {showAdvanced ? <View style={styles.stack}><Text style={styles.label}>Plan name</Text><TextInput accessibilityLabel="Formation plan title" onChangeText={setTitle} style={styles.input} value={title} />{activePublication ? <Action danger disabled={busy || unavailable} label="Withdraw Parent plan" onPress={withdraw} secondary styles={styles} /> : null}</View> : null}
       </View>
+
+      <Modal animationType="slide" onRequestClose={() => setActiveSlotId('')} transparent visible={Boolean(activeSlot)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalPanel}>
+            <View style={styles.rowBetween}>
+              <View><Text style={styles.eyebrow}>Choose Player</Text><Text style={styles.heading}>{getMobileFormationSlotLabel(activeSlot)}</Text></View>
+              <Action label="Close" onPress={() => setActiveSlotId('')} secondary styles={styles} />
+            </View>
+            {activeSlotPlayer ? <View style={styles.selectedPanel}><Text style={styles.label}>Currently {activeSlotPlayer.displayName}</Text><Action label="Move to Bench" onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, [activeSlotPlayer.playerId])); setActiveSlotId(''); setNotice(`${activeSlotPlayer.displayName} moved to the Bench.`) }} secondary styles={styles} /></View> : <Text style={styles.body}>This position is empty. Choose any Player in the squad.</Text>}
+            <TextInput accessibilityLabel="Search squad" onChangeText={setSlotSearch} placeholder="Search squad" placeholderTextColor={palette.textSecondary} style={styles.input} value={slotSearch} />
+            <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
+              {filteredSlotPlayers.map((player) => {
+                const placement = draft.placements.find((item) => item.playerId === player.id)
+                const onBench = draft.bench.some((item) => item.playerId === player.id)
+                const current = placement?.slotId === activeSlotId
+                const location = placement ? getMobileFormationSlotLabel(currentPreset?.slots?.find((slot) => slot.id === placement.slotId)) : onBench ? 'Bench' : 'Not selected yet'
+                return <Pressable accessibilityRole="button" accessibilityState={{ disabled: current }} disabled={current} key={player.id} onPress={() => chooseSlotPlayer(player)} style={[styles.modalPlayer, current && styles.actionDisabled]}><View><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`}</Text><Text style={styles.body}>{current ? 'Already in this position' : location}</Text></View><Text style={styles.count}>{current ? 'Current' : activeSlotPlayer ? 'Choose' : 'Add'}</Text></Pressable>
+              })}
+              {!filteredSlotPlayers.length ? <Text style={styles.body}>No Players match that search.</Text> : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }

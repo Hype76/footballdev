@@ -185,6 +185,85 @@ export function placeMobileFormationPlayer(draft, playerId, slot) {
   }
 }
 
+function mobileSlotPlacement(player, slot) {
+  return {
+    ...normalizeMobileFormationPlayer(player),
+    positionGroup: normalize(slot?.group),
+    slotId: normalize(slot?.id),
+    x: coordinate(slot?.x),
+    y: coordinate(slot?.y),
+  }
+}
+
+export function assignMobileFormationPlayerToSlot(draft, player, slot) {
+  const normalizedPlayer = normalizeMobileFormationPlayer(player)
+  const slotId = normalize(slot?.id)
+  if (!normalizedPlayer.playerId || !slotId) return draft
+
+  const sourcePlacement = (draft?.placements || []).find((item) => item.playerId === normalizedPlayer.playerId) || null
+  const targetPlacement = (draft?.placements || []).find((item) => item.slotId === slotId) || null
+  if (sourcePlacement?.slotId === slotId) return draft
+
+  const placements = (draft?.placements || []).filter((item) => (
+    item.playerId !== normalizedPlayer.playerId && item.playerId !== targetPlacement?.playerId
+  ))
+  const bench = (draft?.bench || []).filter((item) => (
+    item.playerId !== normalizedPlayer.playerId && item.playerId !== targetPlacement?.playerId
+  ))
+
+  placements.push(mobileSlotPlacement(normalizedPlayer, slot))
+  if (targetPlacement && sourcePlacement) {
+    placements.push({
+      ...targetPlacement,
+      positionGroup: sourcePlacement.positionGroup,
+      slotId: sourcePlacement.slotId,
+      x: sourcePlacement.x,
+      y: sourcePlacement.y,
+    })
+  } else if (targetPlacement) {
+    bench.push(normalizeMobileFormationPlayer(targetPlacement))
+  }
+
+  return { ...draft, bench, placements }
+}
+
+export function getMobileFormationSlotLabel(slot) {
+  const slotId = normalize(slot?.id)
+  const labels = {
+    'def-centre': 'Centre back',
+    'def-left': 'Left back',
+    'def-left-centre': 'Left centre back',
+    'def-right': 'Right back',
+    'def-right-centre': 'Right centre back',
+    'def-wing-left': 'Left wing back',
+    'def-wing-right': 'Right wing back',
+    forward: 'Striker',
+    'forward-centre': 'Centre forward',
+    'forward-left': 'Left forward',
+    'forward-right': 'Right forward',
+    gk: 'Goalkeeper',
+    mid: 'Midfielder',
+    'mid-centre': 'Centre midfield',
+    'mid-hold': 'Holding midfield',
+    'mid-hold-left': 'Left holding midfield',
+    'mid-hold-right': 'Right holding midfield',
+    'mid-left': 'Left midfield',
+    'mid-left-centre': 'Left centre midfield',
+    'mid-right': 'Right midfield',
+    'mid-right-centre': 'Right centre midfield',
+    'mid-wing-left': 'Left wing',
+    'mid-wing-right': 'Right wing',
+  }
+
+  if (labels[slotId]) return labels[slotId]
+  return {
+    defender: 'Defender',
+    forward: 'Forward',
+    goalkeeper: 'Goalkeeper',
+    midfielder: 'Midfielder',
+  }[normalize(slot?.group)] || 'Position'
+}
+
 export function moveMobileFormationPlayersToBench(draft, playerIds = []) {
   const selected = new Set(playerIds.map(normalize).filter(Boolean))
   const removed = draft.placements.filter((player) => selected.has(player.playerId)).map(normalizeMobileFormationPlayer)

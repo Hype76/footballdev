@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
+  assignMobileFormationPlayerToSlot,
   buildMobileFormationLineup,
   createMobileFormationDraft,
   moveMobileFormationPlayersToBench,
@@ -68,6 +69,21 @@ test('a Player moved to the Bench can be returned to the next empty pitch slot',
   assert.equal(restored.placements.length, 11)
 })
 
+test('slot-first assignment adds, replaces and swaps Players without a Bench-first step', () => {
+  let draft = createMobileFormationDraft()
+  draft = assignMobileFormationPlayerToSlot(draft, players[0], preset442.slots[0])
+  draft = assignMobileFormationPlayerToSlot(draft, players[1], preset442.slots[1])
+  assert.equal(draft.placements.find((player) => player.playerId === 'player-1').slotId, 'slot-1')
+
+  const swapped = assignMobileFormationPlayerToSlot(draft, players[0], preset442.slots[1])
+  assert.equal(swapped.placements.find((player) => player.playerId === 'player-1').slotId, 'slot-2')
+  assert.equal(swapped.placements.find((player) => player.playerId === 'player-2').slotId, 'slot-1')
+
+  const replaced = assignMobileFormationPlayerToSlot(swapped, players[2], preset442.slots[1])
+  assert.equal(replaced.placements.find((player) => player.playerId === 'player-3').slotId, 'slot-2')
+  assert.equal(replaced.bench.some((player) => player.playerId === 'player-1'), true)
+})
+
 test('Coach source wires Quick Add intents and the streamlined Formation finish', async () => {
   const [app, quick, formation, formationScreen, operations] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
@@ -81,6 +97,8 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.match(quick, /Drag to move this button/)
   assert.match(quick, /Jump straight into the job/)
   assert.match(formation, /Use full squad & build team/)
+  assert.match(formation, /Tap any pitch position, then choose a Player/)
+  assert.match(formation, /assignMobileFormationPlayerToSlot/)
   assert.match(formation, /Move to pitch/)
   assert.match(formation, /Fill empty pitch positions/)
   assert.match(formation, /Save private Formation Board/)
