@@ -212,13 +212,13 @@ test('match day separates previous games without removing staff controls', () =>
   assert.match(source, /onUndoEvent=\{handleUndoEvent\}/)
 })
 
-test('staff live match console polls match state without full page reload', () => {
+test('staff live match console polls active match state without full page reload or role fan-out', () => {
   const source = readFileSync(
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
   )
   const refreshStart = source.indexOf('async function refreshLiveMatches()')
-  const refreshEnd = source.indexOf('const updateForm = (updates) => {', refreshStart)
+  const refreshEnd = source.indexOf('if (!canManageMatchDay(user))', refreshStart)
   assert.notEqual(refreshStart, -1)
   assert.notEqual(refreshEnd, -1)
   const refreshSource = source.slice(refreshStart, refreshEnd)
@@ -229,8 +229,9 @@ test('staff live match console polls match state without full page reload', () =
   assert.match(refreshSource, /mergeMatchDaySummaries\(currentMatches, nextMatches\)\.map/)
   assert.match(
     refreshSource,
-    /getMatchDay\(\{ user, matchDayId: match\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/,
+    /getMatchDay\(\{ user, matchDayId: match\.id \}\)/,
   )
+  assert.doesNotMatch(refreshSource, /includeScorerEligibility|select-match-day-volunteer/)
   assert.match(refreshSource, /refreshedDetailsById/)
   assert.match(refreshSource, /refreshState\.inFlight/)
   assert.match(refreshSource, /setLiveRefreshStatus\(detailRefreshFailed \? 'warning' : 'ok'\)/)

@@ -46,7 +46,7 @@ test('heavy Match Day detail loading is restricted to one authorised match', asy
   assert.doesNotMatch(detailSource, /\.order\(/)
 })
 
-test('refresh is single flight and replaces live hydrated detail from the canonical read model', async () => {
+test('refresh is single flight and replaces only active hydrated detail from the canonical read model', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
   const start = source.indexOf('async function refreshLiveMatches()')
   const end = source.indexOf('const intervalId = window.setInterval', start)
@@ -59,9 +59,16 @@ test('refresh is single flight and replaces live hydrated detail from the canoni
   assert.match(refreshSource, /liveRefreshStateRef\.current\.inFlight = false/)
   assert.match(refreshSource, /getMatchDays\(\{ user \}\)/)
   assert.match(refreshSource, /mergeMatchDaySummaries\(currentMatches, nextMatches\)/)
-  assert.match(refreshSource, /getMatchDay\(\{ user, matchDayId: match\.id, includeScorerEligibility: true, accessToken: session\?\.access_token \}\)/)
+  assert.match(refreshSource, /getMatchDay\(\{ user, matchDayId: match\.id \}\)/)
+  assert.doesNotMatch(refreshSource, /includeScorerEligibility|select-match-day-volunteer/)
   assert.match(refreshSource, /refreshedDetailsById/)
   assert.doesNotMatch(refreshSource, /retry|setTimeout/)
+
+  const statusesStart = source.indexOf('const MATCH_DAY_LIVE_DETAIL_STATUSES')
+  const statusesEnd = source.indexOf('function mergeMatchDaySummaries', statusesStart)
+  const statusesSource = source.slice(statusesStart, statusesEnd)
+
+  assert.doesNotMatch(statusesSource, /'full_time'/)
 })
 
 test('fixture dependencies settle independently from Match Day list loading', async () => {
