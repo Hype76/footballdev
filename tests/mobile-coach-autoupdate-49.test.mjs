@@ -4,13 +4,13 @@ import test from 'node:test'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('Coach 1.0.5 checks the production update channel on launch', () => {
+test('Coach 1.0.6 checks the production update channel on launch', () => {
   const config = read('apps/mobile-core/appConfig.cjs')
   const app = read('apps/coach-mobile/app.config.js')
   const eas = read('apps/coach-mobile/eas.json')
   const packageJson = read('apps/coach-mobile/package.json')
 
-  assert.match(app, /version: '1\.0\.5'/)
+  assert.match(app, /version: '1\.0\.6'/)
   assert.match(packageJson, /"expo-updates": "~29\.0\.18"/)
   assert.match(config, /https:\/\/u\.expo\.dev\/\$\{resolvedEasProjectId\}/)
   assert.match(config, /checkAutomatically: 'ON_LOAD'/)

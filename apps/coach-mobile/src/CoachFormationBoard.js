@@ -12,6 +12,7 @@ import {
   getMobileFormationPitchRatio,
   getMobileFormationSelectedPlayerIds,
   getMobileFormationSlotLabel,
+  getMobileFormationSlotShortLabel,
   MOBILE_FORMATION_GAME_FORMATS,
   moveMobileFormationPlayer,
   moveMobileFormationPlayersToBench,
@@ -81,7 +82,7 @@ function createStyles(palette) {
     modalPanel: { backgroundColor: palette.surface, borderColor: palette.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, gap: 12, maxHeight: '86%', padding: 16 },
     modalPlayer: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingHorizontal: 13, paddingVertical: 10 },
     emptySlot: { alignItems: 'center', backgroundColor: 'rgba(16,24,40,0.72)', borderColor: 'rgba(255,255,255,0.82)', borderRadius: 24, borderStyle: 'dashed', borderWidth: 2, height: 44, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -22 }, { translateY: -22 }], width: 44, zIndex: 4 },
-    emptySlotLabel: { backgroundColor: 'rgba(16,24,40,0.86)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', left: -27, paddingHorizontal: 5, paddingVertical: 2, position: 'absolute', textAlign: 'center', top: 46, width: 98 },
+    emptySlotLabel: { backgroundColor: 'rgba(16,24,40,0.9)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', left: -2, paddingHorizontal: 3, paddingVertical: 2, position: 'absolute', textAlign: 'center', top: 46, width: 48 },
     marker: { alignItems: 'center', height: 74, justifyContent: 'flex-start', position: 'absolute', transform: [{ translateX: -38 }, { translateY: -25 }], width: 76, zIndex: 10 },
     markerBadge: { alignItems: 'center', backgroundColor: 'rgb(16,24,40)', borderColor: 'rgb(255,255,255)', borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 20, minWidth: 20, paddingHorizontal: 4, position: 'absolute', right: -8, top: -5, zIndex: 3 },
     markerBadgeText: { color: 'rgb(255,255,255)', fontSize: 10, fontWeight: '900', lineHeight: 12 },
@@ -631,7 +632,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
               style={[styles.emptySlot, { left: `${getMobileFormationPitchPercent(slot.x)}%`, top: `${getMobileFormationPitchPercent(slot.y)}%` }]}
             >
               <MaterialIcons color="rgb(255,255,255)" name="add" size={24} />
-              <Text numberOfLines={2} style={styles.emptySlotLabel}>{getMobileFormationSlotLabel(slot)}</Text>
+              <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.emptySlotLabel}>{getMobileFormationSlotShortLabel(slot)}</Text>
             </Pressable>
           ))}
           {draft.placements.map((player) => (

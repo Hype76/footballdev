@@ -15,7 +15,7 @@ const confirmFunctionUrl = new URL('../netlify/functions/match-day-availability-
 
 const sourceDirs = ['src', 'apps']
 const codeExtensions = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs'])
-const ignoredDirs = new Set(['node_modules', 'dist', 'build', '.git'])
+const ignoredDirs = new Set(['node_modules', 'dist', 'dist-web-check', 'build', '.git'])
 
 async function collectCodeFiles(dir) {
   const files = []

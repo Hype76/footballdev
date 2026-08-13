@@ -275,6 +275,43 @@ export function getMobileFormationSlotLabel(slot) {
   }[normalize(slot?.group)] || 'Position'
 }
 
+export function getMobileFormationSlotShortLabel(slot) {
+  const slotId = normalize(slot?.id)
+  const labels = {
+    'def-centre': 'CB',
+    'def-left': 'LB',
+    'def-left-centre': 'LCB',
+    'def-right': 'RB',
+    'def-right-centre': 'RCB',
+    'def-wing-left': 'LWB',
+    'def-wing-right': 'RWB',
+    forward: 'ST',
+    'forward-centre': 'CF',
+    'forward-left': 'LF',
+    'forward-right': 'RF',
+    gk: 'GK',
+    mid: 'CM',
+    'mid-centre': 'CM',
+    'mid-hold': 'DM',
+    'mid-hold-left': 'LDM',
+    'mid-hold-right': 'RDM',
+    'mid-left': 'LM',
+    'mid-left-centre': 'LCM',
+    'mid-right': 'RM',
+    'mid-right-centre': 'RCM',
+    'mid-wing-left': 'LW',
+    'mid-wing-right': 'RW',
+  }
+
+  if (labels[slotId]) return labels[slotId]
+  return {
+    defender: 'DEF',
+    forward: 'FWD',
+    goalkeeper: 'GK',
+    midfielder: 'MID',
+  }[normalize(slot?.group)] || 'POS'
+}
+
 export function moveMobileFormationPlayersToBench(draft, playerIds = []) {
   const selected = new Set(playerIds.map(normalize).filter(Boolean))
   const removed = draft.placements.filter((player) => selected.has(player.playerId)).map(normalizeMobileFormationPlayer)

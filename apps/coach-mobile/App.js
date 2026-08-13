@@ -21,7 +21,7 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
-import { getCoachNotificationStatusLabel, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
+import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getCoachPhase31GHomeSnapshot } from '../mobile-core/src/coachPhase31GData'
@@ -130,6 +130,7 @@ function CoachHome() {
   const [selectedContextId, setSelectedContextId] = useState('')
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
+  const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
 
   const contextResolution = useMemo(
     () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
@@ -184,22 +185,35 @@ function CoachHome() {
       setNotificationState(next)
       return next
     } catch (error) {
-      setNotificationState((current) => ({ ...(current || {}), enabled: false, message: error?.code || 'Coach notifications could not be refreshed.' }))
+      setNotificationState((current) => ({ ...(current || {}), enabled: false, message: getCoachPushSetupFailureMessage(error) }))
       return null
     }
   }, [activeContext?.id])
 
-  const enableNotifications = useCallback(async () => {
-    if (!activeContext?.id) return
+  const enableNotifications = useCallback(async (options = {}) => {
+    if (!activeContext?.id) return null
+    const silent = options?.silent === true
+    const now = Date.now()
+    if (!canStartCoachNotificationRegistration(notificationRegistrationRef.current, { contextId: activeContext.id, now, silent })) return null
+    notificationRegistrationRef.current.inFlight = true
+    notificationRegistrationRef.current.contextId = activeContext.id
+    notificationRegistrationRef.current.lastRegistrationAt = now
     setIsRegisteringPush(true)
-    setNotice('')
+    if (!silent) setNotice('')
     try {
       const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, easProjectId: config.easProjectId })
       setNotificationState(next)
-      setNotice(next.enabled ? 'Coach notifications are enabled for this staff context.' : next.message)
+      if (!silent) setNotice(next.enabled ? 'Coach notifications are enabled for this staff context.' : next.message)
+      return next
     } catch (error) {
-      setNotice(error?.code || 'Coach notifications could not be enabled.')
-    } finally { setIsRegisteringPush(false) }
+      const message = getCoachPushSetupFailureMessage(error)
+      setNotificationState((current) => ({ ...(current || {}), enabled: false, message }))
+      if (!silent) setNotice(message)
+      return null
+    } finally {
+      notificationRegistrationRef.current.inFlight = false
+      setIsRegisteringPush(false)
+    }
   }, [activeContext?.id])
 
   const disableNotifications = useCallback(async () => {
@@ -209,7 +223,7 @@ function CoachHome() {
       const next = await updateCoachNotificationPreference({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel: 'off' })
       setNotificationState(next)
       setNotice('Coach notifications are off.')
-    } catch (error) { setNotice(error?.code || 'Coach notifications could not be disabled.') }
+    } catch (error) { setNotice(getCoachPushSetupFailureMessage(error)) }
     finally { setIsRegisteringPush(false) }
   }, [activeContext?.id])
 
@@ -220,7 +234,7 @@ function CoachHome() {
       const next = await updateCoachNotificationPreference({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel })
       setNotificationState(next)
       setNotice(`Coach notifications set to ${detailLevel}.`)
-    } catch (error) { setNotice(error?.code || 'Coach notification preference could not be saved.') }
+    } catch (error) { setNotice(getCoachPushSetupFailureMessage(error)) }
     finally { setIsRegisteringPush(false) }
   }, [activeContext?.id])
 
@@ -351,11 +365,11 @@ function CoachHome() {
     if (!activeContext?.id || !contextOwnedByCurrentUser) return undefined
     void refreshNotifications().then((next) => {
       if (next?.registered && next.requiresContextRefresh && next.permissionGranted && next.detailLevel !== 'off') {
-        void enableNotifications()
+        void enableNotifications({ silent: true })
       }
     })
     const subscription = addCoachPushTokenListener(() => {
-      if (notificationState?.registered) void enableNotifications()
+      if (notificationState?.registered) void enableNotifications({ silent: true })
     })
     return () => subscription.remove()
   }, [activeContext?.id, contextOwnedByCurrentUser, enableNotifications, notificationState?.registered, refreshNotifications])

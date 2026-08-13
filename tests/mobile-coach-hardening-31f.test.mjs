@@ -20,12 +20,14 @@ import {
 } from '../apps/mobile-core/src/coachPhase31FCore.js'
 import {
   buildCoachNotificationPayload,
+  canStartCoachNotificationRegistration,
   COACH_NOTIFICATION_INTENTS,
   containsForbiddenCoachNotificationContent,
   getCoachInstallationOwnerKey,
   getCoachNotificationStatusLabel,
   getCoachNotificationStorageKeys,
   getCoachPushSetupFailureCode,
+  getCoachPushSetupFailureMessage,
   isCoachInstallationId,
   normalizeCoachNotificationLevel,
   normalizeCoachNotificationState,
@@ -149,6 +151,9 @@ test('notification errors classify denial, token, network, auth, forbidden, and 
   assert.equal(getCoachPushSetupFailureCode({ status: 403 }, 'api'), 'COACH_PUSH_API_FORBIDDEN')
   assert.equal(getCoachPushSetupFailureCode({ status: 500 }, 'api'), 'COACH_PUSH_API_SERVICE')
   assert.equal(getCoachPushSetupFailureCode({ message: 'FirebaseApp failed' }, 'device'), 'COACH_PUSH_DEVICE_FIREBASE_CONFIGURATION')
+  assert.equal(getCoachPushSetupFailureMessage({ code: 'COACH_PUSH_API_TOKEN_UNAVAILABLE' }), 'Notifications are temporarily unavailable on this device. The Coach app remains fully usable.')
+  assert.equal(getCoachPushSetupFailureMessage({ code: 'COACH_PUSH_EXPO_NETWORK' }), 'Notifications could not be refreshed while the service is unavailable. The Coach app remains fully usable.')
+  assert.doesNotMatch(getCoachPushSetupFailureMessage({ code: 'COACH_PUSH_API_TOKEN_UNAVAILABLE' }), /COACH_PUSH/)
 })
 
 test('notification categories are actual Coach product events with privacy-safe payloads', () => {
@@ -206,6 +211,18 @@ test('Coach notification lifecycle covers token rotation, context refresh, prefe
   assert.match(app, /addCoachPushTokenListener/)
   assert.match(app, /unbindCoachNotifications/)
   assert.match(app, /Minimal privacy/)
+  assert.match(app, /notificationRegistrationRef\.current\.inFlight/)
+  assert.match(app, /enableNotifications\(\{ silent: true \}\)/)
+  assert.doesNotMatch(app, /setNotice\(error\?\.code/)
+})
+
+test('automatic Coach notification registration cannot recurse but a context switch remains eligible', () => {
+  const state = { contextId: 'team-a', inFlight: true, lastRegistrationAt: 1000 }
+  assert.equal(canStartCoachNotificationRegistration(state, { contextId: 'team-a', now: 2000, silent: true }), false)
+  assert.equal(canStartCoachNotificationRegistration({ ...state, inFlight: false }, { contextId: 'team-a', now: 2000, silent: true }), false)
+  assert.equal(canStartCoachNotificationRegistration({ ...state, inFlight: false }, { contextId: 'team-b', now: 2000, silent: true }), true)
+  assert.equal(canStartCoachNotificationRegistration({ ...state, inFlight: false }, { contextId: 'team-a', now: 31000, silent: true }), true)
+  assert.equal(canStartCoachNotificationRegistration({ ...state, inFlight: false }, { contextId: 'team-a', now: 2000, silent: false }), true)
 })
 
 test('hostile security matrix fails closed for session, role, environment, archive, and payment transitions', () => {

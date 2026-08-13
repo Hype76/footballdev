@@ -82,6 +82,24 @@ export function getCoachPushSetupFailureCode(error, stage = 'expo') {
   return `COACH_PUSH_${normalizedStage.toUpperCase()}_${category.toUpperCase()}`
 }
 
+export function getCoachPushSetupFailureMessage(error) {
+  const code = normalize(error?.code || error?.message || error).toUpperCase()
+  if (code.includes('SIGNED_OUT')) return 'Sign in again to enable notifications.'
+  if (code.includes('PERMISSION')) return 'Notifications are turned off in device settings. The Coach app remains fully usable.'
+  if (code.includes('NETWORK') || code.includes('SERVICE')) return 'Notifications could not be refreshed while the service is unavailable. The Coach app remains fully usable.'
+  if (code.includes('FORBIDDEN')) return 'Notifications are not available for this staff context. The Coach app remains fully usable.'
+  return 'Notifications are temporarily unavailable on this device. The Coach app remains fully usable.'
+}
+
+export function canStartCoachNotificationRegistration(state = {}, request = {}) {
+  if (state.inFlight) return false
+  if (request.silent !== true) return true
+  const sameContext = normalize(state.contextId) === normalize(request.contextId)
+  const now = Number.isFinite(Number(request.now)) ? Number(request.now) : Date.now()
+  const lastRegistrationAt = Number.isFinite(Number(state.lastRegistrationAt)) ? Number(state.lastRegistrationAt) : 0
+  return !sameContext || now - lastRegistrationAt >= 30000
+}
+
 export function buildCoachNotificationPayload(intentType, detailLevel = 'minimal') {
   const intent = COACH_NOTIFICATION_INTENTS[normalizeLower(intentType)]
   if (!intent) throw new Error('unsupported_coach_notification_intent')

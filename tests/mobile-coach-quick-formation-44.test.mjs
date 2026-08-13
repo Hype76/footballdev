@@ -8,6 +8,7 @@ import {
   createMobileFormationDraft,
   getMobileFormationPitchPercent,
   getMobileFormationPitchRatio,
+  getMobileFormationSlotShortLabel,
   moveMobileFormationPlayer,
   moveMobileFormationPlayersToBench,
   placeMobileFormationPlayerInNextSlot,
@@ -60,6 +61,13 @@ test('mobile preset coordinates convert canonical zero-to-one values into visibl
   assert.equal(getMobileFormationPitchPercent(120), 100)
   assert.equal(getMobileFormationPitchRatio(0.75), 0.75)
   assert.equal(getMobileFormationPitchRatio(75), 0.75)
+})
+
+test('empty mobile Formation positions use compact labels that remain distinct and readable', () => {
+  assert.equal(getMobileFormationSlotShortLabel({ id: 'def-left-centre', group: 'defender' }), 'LCB')
+  assert.equal(getMobileFormationSlotShortLabel({ id: 'mid-centre', group: 'midfielder' }), 'CM')
+  assert.equal(getMobileFormationSlotShortLabel({ id: 'forward', group: 'forward' }), 'ST')
+  assert.equal(getMobileFormationSlotShortLabel({ id: 'unknown', group: 'goalkeeper' }), 'GK')
 })
 
 test('mobile Player markers can be moved freely while preserving their formation slot', () => {
@@ -133,6 +141,8 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.match(formation, /markerName/)
   assert.match(formation, /getMobileFormationPitchPercent\(slot\.x\)/)
   assert.match(formation, /getMobileFormationPitchPercent\(slot\.y\)/)
+  assert.match(formation, /getMobileFormationSlotShortLabel\(slot\)/)
+  assert.match(formation, /numberOfLines=\{1\}/)
   assert.match(formation, /Move to pitch/)
   assert.match(formation, /Continue to save/)
   assert.match(formation, /Save private Formation Board/)
