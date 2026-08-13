@@ -165,6 +165,9 @@ export function normalizeCoachResource(row = {}) {
   const external = relation(row.resource_library_external_links)
   const links = (row.resource_library_links || row.links || []).filter((link) => !link.removed_at && !link.removedAt)
   const externalUrl = normalize(row.external_url ?? row.externalUrl ?? external?.external_url)
+  const mimeType = normalize(row.mime_type ?? row.mimeType)
+  const isFormationBoard = mimeType === 'application/vnd.footballplayer.formation-board+json'
+    || externalUrl.includes('/resources/formation-boards')
   return Object.freeze({
     id: normalize(row.id),
     clubId: normalize(row.club_id ?? row.clubId),
@@ -178,7 +181,8 @@ export function normalizeCoachResource(row = {}) {
     storageBucket: normalize(row.storage_bucket ?? row.storageBucket),
     storagePath: normalize(row.storage_path ?? row.storagePath),
     originalFilename: normalize(row.original_filename ?? row.originalFilename),
-    mimeType: normalize(row.mime_type ?? row.mimeType),
+    mimeType,
+    isFormationBoard,
     fileSizeBytes: Number(row.file_size_bytes ?? row.fileSizeBytes ?? 0),
     archivedAt: normalize(row.archived_at ?? row.archivedAt),
     expiresAt: normalize(row.expires_at ?? row.expiresAt),
@@ -188,6 +192,15 @@ export function normalizeCoachResource(row = {}) {
     }))),
     updatedAt: normalize(row.updated_at ?? row.updatedAt),
   })
+}
+
+export function getCoachResourceErrorMessage(error) {
+  const message = normalize(error?.message || error)
+  if (message.includes('formation_board_resource_assignment_forbidden')) {
+    return 'Published Formation Boards are already Team Resources and cannot be assigned again.'
+  }
+  if (/network request failed/i.test(message)) return 'This Resource could not be opened. Check the connection and try again.'
+  return message || 'This Resource could not be opened.'
 }
 
 export function validateCoachResourceUrl(value) {

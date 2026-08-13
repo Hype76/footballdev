@@ -215,7 +215,10 @@ export async function getCoachResources(user) {
     .is('archived_at', null)
     .order('updated_at', { ascending: false })
   if (error) throw error
-  return (data || []).map(normalizeCoachResource).filter((item) => !item.expiresAt || new Date(item.expiresAt).getTime() > Date.now())
+  return (data || [])
+    .map(normalizeCoachResource)
+    .filter((item) => item.teamId === user.activeTeamId)
+    .filter((item) => !item.expiresAt || new Date(item.expiresAt).getTime() > Date.now())
 }
 
 export async function createCoachExternalResource(user, { title = '', description = '', category = 'general', externalUrl = '' } = {}) {

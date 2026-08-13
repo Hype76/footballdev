@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { getCoachMatchDayList, normalizeCoachMatchDay } from '../../mobile-core/src/coachMatchDayData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { CoachFormationBoard } from './CoachFormationBoard'
-import { sortCoachFormationMatches } from './coachFormationEntryCore'
+import { getLinkableCoachFormationMatches } from './coachFormationEntryCore'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 
 function createStyles(palette) {
@@ -39,7 +39,7 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
     setError('')
     try {
       const [nextMatches, nextPlayers] = await Promise.all([getCoachMatchDayList(user), getCoachPlayerList(user)])
-      const ordered = sortCoachFormationMatches(nextMatches)
+      const ordered = getLinkableCoachFormationMatches(nextMatches, { teamId: user.activeTeamId })
       setMatches(ordered)
       setPlayers(nextPlayers)
       setStale(false)
@@ -49,7 +49,7 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
       const cachedMatches = normalizeCachedMatches(saved?.resources?.matchDayList)
       const cachedPlayers = Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
       if (cachedMatches.length || cachedPlayers.length) {
-        setMatches(sortCoachFormationMatches(cachedMatches))
+        setMatches(getLinkableCoachFormationMatches(cachedMatches, { teamId: user.activeTeamId }))
         setPlayers(cachedPlayers)
         setStale(true)
       } else setError(String(loadError?.message || 'The Formation Board workspace could not be loaded.'))

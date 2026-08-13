@@ -6,6 +6,7 @@ import {
   COACH_PHASE_31E_COMMUNICATION_POLICY,
   COACH_PHASE_31E_DOMAINS,
   assertSyntheticCoachCommunicationTarget,
+  getCoachResourceErrorMessage,
   getCoachPhase31EOfflinePolicy,
   getCoachPhase31EAccess,
   isSyntheticCoachTarget,
@@ -93,6 +94,18 @@ test('Resource normalization keeps canonical scope and active links', () => {
   assert.equal(resource.teamId, 't1')
   assert.equal(resource.links.length, 1)
   assert.equal(resource.links[0].parentVisible, true)
+})
+
+test('Formation Board Resources are identified and assignment errors are translated for staff', () => {
+  const resource = normalizeCoachResource({
+    external_url: 'https://footballplayer.online/resources/formation-boards?board=board-1',
+    mime_type: 'application/vnd.footballplayer.formation-board+json',
+  })
+  assert.equal(resource.isFormationBoard, true)
+  assert.equal(
+    getCoachResourceErrorMessage(new Error('formation_board_resource_assignment_forbidden')),
+    'Published Formation Boards are already Team Resources and cannot be assigned again.',
+  )
 })
 
 test('Resource URLs require HTTPS and reject embedded credentials', () => {

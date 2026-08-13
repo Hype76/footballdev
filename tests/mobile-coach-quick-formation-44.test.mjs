@@ -16,6 +16,7 @@ import {
   swapMobileFormationPlayers,
 } from '../apps/mobile-core/src/coachFormationBoardCore.js'
 import { resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
+import { getLinkableCoachFormationMatches } from '../apps/coach-mobile/src/coachFormationEntryCore.js'
 import {
   clampCoachQuickActionPosition,
   getCoachQuickActions,
@@ -61,6 +62,22 @@ test('mobile preset coordinates convert canonical zero-to-one values into visibl
   assert.equal(getMobileFormationPitchPercent(120), 100)
   assert.equal(getMobileFormationPitchRatio(0.75), 0.75)
   assert.equal(getMobileFormationPitchRatio(75), 0.75)
+})
+
+test('Formation Board match linking shows only current and future matches for the active Team', () => {
+  const matches = [
+    { id: 'past', matchDate: '2026-08-12', status: 'scheduled', teamId: 'team-1' },
+    { id: 'today', matchDate: '2026-08-13', status: 'scheduled', teamId: 'team-1' },
+    { id: 'future', matchDate: '2026-08-20', status: 'scheduled', teamId: 'team-1' },
+    { id: 'other-team', matchDate: '2026-08-14', status: 'scheduled', teamId: 'team-2' },
+    { id: 'cancelled', matchDate: '2026-08-15', status: 'cancelled', teamId: 'team-1' },
+    { id: 'finished', matchDate: '2026-08-16', status: 'full_time', teamId: 'team-1' },
+    { id: 'undated', matchDate: '', status: 'scheduled', teamId: 'team-1' },
+  ]
+  assert.deepEqual(
+    getLinkableCoachFormationMatches(matches, { now: new Date('2026-08-13T09:00:00Z'), teamId: 'team-1' }).map((match) => match.id),
+    ['today', 'future'],
+  )
 })
 
 test('empty mobile Formation positions use compact labels that remain distinct and readable', () => {
@@ -152,4 +169,15 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.doesNotMatch(formationScreen, /selectPreferredCoachFormationMatch/)
   assert.match(formation, /publishCoachFormationBoard/)
   for (const intent of ['create-player', 'create-session', 'create-match']) assert.match(operations, new RegExp(intent))
+})
+
+test('Coach Resources expose direct open controls and hide invalid Formation Board assignment controls', async () => {
+  const [screens, data] = await Promise.all([
+    readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8'),
+  ])
+  assert.match(screens, /Linking\.canOpenURL/)
+  assert.match(screens, /data\.map\(\(resource\)[\s\S]*label="Open Resource"/)
+  assert.match(screens, /selected && !selected\.isFormationBoard/)
+  assert.match(data, /\.filter\(\(item\) => item\.teamId === user\.activeTeamId\)/)
 })

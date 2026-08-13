@@ -1,4 +1,20 @@
 const normalize = (value) => String(value ?? '').trim()
+const CLOSED_MATCH_STATUSES = new Set(['cancelled', 'postponed', 'full_time', 'completed', 'concluded', 'deleted'])
+
+function londonDateValue(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'Europe/London',
+    year: 'numeric',
+  }).formatToParts(now)
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
+
+function matchDateValue(match) {
+  return normalize(match?.matchDate).slice(0, 10)
+}
 
 function dateValue(match) {
   const timestamp = Date.parse(`${normalize(match?.matchDate) || '9999-12-31'}T${normalize(match?.kickoffTime) || '23:59:59'}`)
@@ -13,10 +29,25 @@ export function sortCoachFormationMatches(matches = []) {
   })
 }
 
+export function isCoachFormationMatchLinkable(match, { now = new Date(), teamId = '' } = {}) {
+  const matchId = normalize(match?.id)
+  const matchTeamId = normalize(match?.teamId ?? match?.team_id)
+  const status = normalize(match?.status).toLowerCase()
+  const matchDate = matchDateValue(match)
+  if (!matchId || !matchDate || matchDate < londonDateValue(now)) return false
+  if (teamId && matchTeamId !== normalize(teamId)) return false
+  if (CLOSED_MATCH_STATUSES.has(status)) return false
+  if (match?.deletedAt || match?.deleted_at || match?.concludedAt || match?.concluded_at) return false
+  return true
+}
+
+export function getLinkableCoachFormationMatches(matches = [], options = {}) {
+  return sortCoachFormationMatches(matches.filter((match) => isCoachFormationMatchLinkable(match, options)))
+}
+
 export function selectPreferredCoachFormationMatch(matches = [], selectedId = '') {
-  const ordered = sortCoachFormationMatches(matches)
+  const ordered = getLinkableCoachFormationMatches(matches)
   return ordered.find((match) => match.id === selectedId)
-    || ordered.find((match) => !['cancelled', 'full_time'].includes(normalize(match.status)))
     || ordered[0]
     || null
 }

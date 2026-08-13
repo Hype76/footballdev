@@ -26,6 +26,7 @@ import {
   COACH_PHASE_31E_BACKEND_DELTAS,
   COACH_PHASE_31E_COMMUNICATION_POLICY,
   getCoachPhase31EOfflinePolicy,
+  getCoachResourceErrorMessage,
   isCoachMatchAvailabilityRequestCreationApplied,
   isSyntheticCoachTarget,
   sanitizeCoachChatOfflineValue,
@@ -224,21 +225,26 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   const [selectedId, setSelectedId] = useState(data[0]?.id || '')
   const selected = data.find((resource) => resource.id === selectedId)
   const open = async (resource) => {
-    try { await Linking.openURL(await getCoachResourceAccessUrl(user, resource)) } catch (error) { setNotice(error.message) }
+    try {
+      const accessUrl = await getCoachResourceAccessUrl(user, resource)
+      if (!await Linking.canOpenURL(accessUrl)) throw new Error('This Resource link is not supported on this device.')
+      await Linking.openURL(accessUrl)
+      setNotice('Resource opened.')
+    } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
   }
   const create = async () => {
     try { await createCoachExternalResource(user, { title, externalUrl: url, category: 'general' }); setNotice(config.isProduction ? 'External Resource created.' : 'Synthetic external Resource created.'); await load() } catch (error) { setNotice(error.message) }
   }
   const shareWithTeam = async () => {
-    try { await setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], config.isProduction ? 'Shared from Football Player Coach' : 'Shared from Coach mobile FP TEST'); setNotice(config.isProduction ? 'Resource shared with the active Team.' : 'Resource shared with the active FP TEST Team.'); await load() } catch (error) { setNotice(error.message) }
+    try { await setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], config.isProduction ? 'Shared from Football Player Coach' : 'Shared from Coach mobile FP TEST'); setNotice(config.isProduction ? 'Resource shared with the active Team.' : 'Resource shared with the active FP TEST Team.'); await load() } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
   }
   const removeSharing = async (linkId) => {
-    try { await removeCoachResourceSharing(user, selected, linkId); setNotice('Resource assignment removed.'); await load() } catch (error) { setNotice(error.message) }
+    try { await removeCoachResourceSharing(user, selected, linkId); setNotice('Resource assignment removed.'); await load() } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
   }
   return (
     <View style={styles.stack}>
-      {data.length ? data.map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{resource.category} | {resource.type} | {resource.links.length} assignments</Text><Text style={styles.body}>{resource.description || 'No description'}</Text></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
-      {selected ? <View style={styles.panel}><Text style={styles.heading}>Selected Resource</Text><Button label="Open Resource" onPress={() => void open(selected)} styles={styles} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />{selected.links.map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Staff only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}</View> : null}
+      {data.length ? data.map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{user.activeTeamName || resource.teamName || 'Active Team'} only | {resource.category} | {resource.type}</Text><Text style={styles.body}>{resource.description || 'No description'}</Text><Button label="Open Resource" onPress={() => void open(resource)} styles={styles} /></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
+      {selected && !selected.isFormationBoard ? <View style={styles.panel}><Text style={styles.heading}>Manage selected Resource</Text><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />{selected.links.map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Staff only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}</View> : null}
       <View style={styles.panel}><Text style={styles.heading}>Add secure external link</Text><TextInput accessibilityLabel="Resource title" onChangeText={setTitle} style={styles.input} value={title} /><TextInput accessibilityLabel="HTTPS Resource URL" autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Create Resource' : 'Create FP TEST Resource'} onPress={create} styles={styles} /><Text style={styles.body}>File upload, bulk governance, archive, and retention stay in the web workflow.</Text></View>
     </View>
   )

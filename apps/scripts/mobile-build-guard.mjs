@@ -36,6 +36,7 @@ const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49',
   'FP-MOBILE-COACH-FORMATION-STEPPER-50',
   'FP-MOBILE-COACH-FORMATION-DRAG-51',
+  'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
@@ -44,10 +45,10 @@ const easEnvironment = productionBuilds.has(`${profile}:${platform}`) ? 'product
 const masterStoreAndroid = `${profile}:${platform}` === 'store-live:android'
   && promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
 const currentInternalIos = `${profile}:${platform}` === 'internal-live:ios'
-  && ['FP-MOBILE-FORMATION-NOTIFICATIONS-47', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51'].includes(promotionReference)
+  && ['FP-MOBILE-FORMATION-NOTIFICATIONS-47', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53'].includes(promotionReference)
 const currentCoachStoreAndroid = appRole === 'coach'
   && `${profile}:${platform}` === 'store-live:android'
-  && ['FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51'].includes(promotionReference)
+  && ['FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53'].includes(promotionReference)
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
