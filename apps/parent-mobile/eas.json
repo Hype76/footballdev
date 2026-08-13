@@ -81,6 +81,12 @@
       }
     },
     "store-live": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "completed",
+        "changesNotSentForReview": true,
+        "serviceAccountKeyPath": "../mobile-release-evidence/credentials/football-player-mobile-expo-play-submit-service-account.json"
+      },
       "ios": {
         "ascAppId": "6772061464"
       }
