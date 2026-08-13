@@ -1,7 +1,9 @@
 import * as FileSystem from 'expo-file-system/legacy'
+import * as IntentLauncher from 'expo-intent-launcher'
 import * as Sharing from 'expo-sharing'
+import { Platform } from 'react-native'
 import { fetchJsonWithTimeout, joinApiPath } from '../mobile-core/src/http'
-import { getAccessToken } from '../mobile-core/src/supabase'
+import { getAccessToken, supabase } from '../mobile-core/src/supabase'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -69,10 +71,6 @@ export async function shareParentMobileDevelopmentPdf({
     throw new Error('This Development PDF is not available.')
   }
 
-  if (!await Sharing.isAvailableAsync()) {
-    throw new Error('This device cannot open the Development PDF.')
-  }
-
   const reportLabel = normalizeText(report?.form?.name || 'development-report')
   const recordDate = normalizeText(report?.recordDate || report?.finalizedAt).slice(0, 10)
   const filename = safeFilename(`${reportLabel}${recordDate ? `-${recordDate}` : ''}.pdf`)
@@ -87,15 +85,22 @@ export async function shareParentMobileDevelopmentPdf({
     `reportId=${encodeURIComponent(request.reportId)}`,
   ].join('&')
   let downloadedUri = destination
+  let keepDownloadedFile = false
 
   try {
-    const download = await FileSystem.downloadAsync(
-      `${joinApiPath(apiBaseUrl, 'api/parent-development/history')}?${query}`,
-      destination,
-      {
-        headers: { Authorization: `Bearer ${request.accessToken}` },
-      },
-    )
+    const downloadUrl = `${joinApiPath(apiBaseUrl, 'api/parent-development/history')}?${query}`
+    let accessToken = request.accessToken
+    let download = await FileSystem.downloadAsync(downloadUrl, destination, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (download.status === 401) {
+      const { data, error } = await supabase.auth.refreshSession()
+      if (error || !data?.session?.access_token) throw new Error('Sign in again before opening this Development PDF.')
+      accessToken = data.session.access_token
+      download = await FileSystem.downloadAsync(downloadUrl, destination, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    }
     downloadedUri = download.uri
     const contentType = normalizeText(download.headers?.['content-type'] || download.headers?.['Content-Type'])
       .toLowerCase()
@@ -107,15 +112,31 @@ export async function shareParentMobileDevelopmentPdf({
       throw new Error('This Development PDF is not available.')
     }
 
-    await Sharing.shareAsync(downloadedUri, {
-      dialogTitle: 'Open Development PDF',
-      mimeType: 'application/pdf',
-      UTI: 'com.adobe.pdf',
-    })
+    if (Platform.OS === 'android') {
+      try {
+        const contentUri = await FileSystem.getContentUriAsync(downloadedUri)
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1,
+          type: 'application/pdf',
+        })
+        keepDownloadedFile = true
+      } catch {
+        if (!await Sharing.isAvailableAsync()) throw new Error('No PDF viewer is available on this device.')
+        await Sharing.shareAsync(downloadedUri, { dialogTitle: 'View or share Development PDF', mimeType: 'application/pdf' })
+      }
+    } else {
+      if (!await Sharing.isAvailableAsync()) throw new Error('This device cannot open the Development PDF.')
+      await Sharing.shareAsync(downloadedUri, {
+        dialogTitle: 'View or share Development PDF',
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+      })
+    }
 
     return true
   } finally {
-    if (downloadedUri) {
+    if (downloadedUri && !keepDownloadedFile) {
       await FileSystem.deleteAsync(downloadedUri, { idempotent: true }).catch(() => {})
     }
   }

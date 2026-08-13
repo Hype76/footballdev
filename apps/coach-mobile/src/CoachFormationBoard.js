@@ -223,6 +223,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState(() => createMobileFormationDraft())
   const [error, setError] = useState('')
+  const [errorRetry, setErrorRetry] = useState('load')
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [offline, setOffline] = useState(false)
@@ -272,30 +273,49 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setLoading(true)
     setError('')
     try {
-      const [savedPreference, nextPresets, nextBoards] = await Promise.all([
+      const [savedPreference, nextPresets, nextBoards, savedOffline] = await Promise.all([
         AsyncStorage.getItem(preferenceKey),
         getCoachFormationPresets(user),
         getCoachFormationBoards(user),
+        readCoachOfflineResources(user.id, context).catch(() => null),
       ])
+      const savedFormation = savedOffline?.resources?.formation
+      const pendingSave = savedFormation?.pendingSave
       const preference = parseMobileFormationPreferences(savedPreference) || { gameFormat: '11v11', presetKey: '11v11-4-4-2' }
       const matchingPreset = nextPresets.find((preset) => preset.key === preference.presetKey)
         || nextPresets.find((preset) => preset.key === '11v11-4-4-2')
         || nextPresets.find((preset) => preset.gameFormat === '11v11')
         || nextPresets[0]
       const linkedBoard = match?.id ? nextBoards.find((candidate) => candidate.linkedMatchDayId === match.id) || null : null
-      const nextDraft = createMobileFormationDraft({ board: linkedBoard, gameFormat: matchingPreset?.gameFormat || preference.gameFormat, presetKey: matchingPreset?.key || preference.presetKey })
-      const nextPublications = await resolvePublications(linkedBoard)
-      setBoard(linkedBoard)
+      const pendingThreshold = pendingSave?.startedAt ? new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000) : 0
+      const recoveredBoard = pendingSave ? nextBoards.find((candidate) => (
+        (pendingSave.boardId && candidate.id === pendingSave.boardId)
+        || (
+          candidate.title === normalize(pendingSave.title)
+          && new Date(candidate.createdAt || 0).getTime() >= pendingThreshold
+        )
+      )) || null : null
+      const nextBoard = recoveredBoard || linkedBoard
+      const nextDraft = pendingSave?.draft
+        || createMobileFormationDraft({ board: nextBoard, gameFormat: matchingPreset?.gameFormat || preference.gameFormat, presetKey: matchingPreset?.key || preference.presetKey })
+      const nextPublications = await resolvePublications(nextBoard)
+      const unresolvedPendingSave = pendingSave && !recoveredBoard ? pendingSave : null
+      setBoard(nextBoard)
       setBoards(nextBoards)
       setDraft(nextDraft)
       setPresets(nextPresets)
       setMatchPublications(nextPublications.matchItems)
       setResourcePublications(nextPublications.resourceItems)
-      setSelectedMatchId(linkedBoard?.linkedMatchDayId || match?.id || '')
-      setWorkflowStep(linkedBoard ? 'lineup' : 'formation')
-      setTitle(linkedBoard?.title || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'))
+      setSelectedMatchId(nextBoard?.linkedMatchDayId || match?.id || '')
+      setWorkflowStep(unresolvedPendingSave ? 'save' : nextBoard ? 'lineup' : 'formation')
+      setTitle(pendingSave?.title || nextBoard?.title || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'))
+      setNotice(recoveredBoard
+        ? 'The previous server save was found. Your Formation Board is ready.'
+        : unresolvedPendingSave
+          ? 'Your unsent Formation Board is preserved on this device. Continue to Save and retry.'
+          : '')
       setOffline(false)
-      await saveCoachOfflineResources(user.id, context, { formation: { board: linkedBoard, boards: nextBoards, draft: nextDraft, matchDayId: match?.id || '', matchPublications: nextPublications.matchItems, presets: nextPresets, resourcePublications: nextPublications.resourceItems } }).catch(() => {})
+      await saveCoachOfflineResources(user.id, context, { formation: { board: nextBoard, boards: nextBoards, draft: nextDraft, matchDayId: match?.id || '', matchPublications: nextPublications.matchItems, pendingSave: unresolvedPendingSave, presets: nextPresets, resourcePublications: nextPublications.resourceItems } }).catch(() => {})
     } catch (loadError) {
       const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
       const formation = saved?.resources?.formation
@@ -307,10 +327,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         setMatchPublications(Array.isArray(formation.matchPublications) ? formation.matchPublications : [])
         setResourcePublications(Array.isArray(formation.resourcePublications) ? formation.resourcePublications : [])
         setSelectedMatchId(formation.board?.linkedMatchDayId || '')
-        setTitle(formation.board?.title || 'Formation Board')
-        setWorkflowStep(formation.board ? 'lineup' : 'formation')
+        setTitle(formation.pendingSave?.title || formation.board?.title || 'Formation Board')
+        setWorkflowStep(formation.pendingSave ? 'save' : formation.board ? 'lineup' : 'formation')
+        if (formation.pendingSave) setNotice('Your unsent Formation Board is preserved on this device. Continue to Save and retry when connected.')
         setOffline(true)
-      } else setError(normalize(loadError?.message) || 'The Formation Board could not be loaded.')
+      } else {
+        setErrorRetry('load')
+        setError(normalize(loadError?.message) || 'The Formation Board could not be loaded.')
+      }
     } finally { setLoading(false) }
   }, [context, match, preferenceKey, resolvePublications, user])
 
@@ -357,12 +381,48 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setNotice('New standalone Formation Board ready. Confirm the formation to begin.')
   }
 
+  const saveOfflineFormation = async ({ nextBoard = board, nextBoards = boards, nextDraft = draft, pendingSave = null } = {}) => {
+    await saveCoachOfflineResources(user.id, context, {
+      formation: {
+        board: nextBoard,
+        boards: nextBoards,
+        draft: nextDraft,
+        matchDayId: match?.id || '',
+        matchPublications,
+        pendingSave,
+        presets,
+        resourcePublications,
+      },
+    })
+  }
+
+  const reconcilePendingBoard = async (pendingSave) => {
+    if (!pendingSave?.startedAt || !normalize(pendingSave?.title)) return null
+    const threshold = new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000)
+    const items = await getCoachFormationBoards(user)
+    return items.find((candidate) => (
+      candidate.title === normalize(pendingSave.title)
+      && new Date(candidate.createdAt || 0).getTime() >= threshold
+    )) || null
+  }
+
   const persistBoard = async () => {
-    const startedAt = Date.now()
+    const cachedBeforeSave = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const previousPendingSave = cachedBeforeSave?.resources?.formation?.pendingSave
+    const pendingSave = {
+      boardId: board?.id || '',
+      draft,
+      startedAt: !board && previousPendingSave?.startedAt ? previousPendingSave.startedAt : new Date().toISOString(),
+      title: normalize(title) || 'Formation Board',
+    }
     let nextBoard = board
+    await saveOfflineFormation({ pendingSave }).catch(() => {})
     try {
-      nextBoard = board
-        ? await saveCoachFormationBoard(user, board, draft, title)
+      if (!nextBoard) {
+        nextBoard = await reconcilePendingBoard(previousPendingSave).catch(() => null)
+      }
+      nextBoard = nextBoard
+        ? await saveCoachFormationBoard(user, nextBoard, draft, title)
         : await createCoachFormationBoard(user, match, draft, title)
       if (match?.id && nextBoard.linkedMatchDayId !== match.id) nextBoard = await linkCoachFormationBoard(user, nextBoard.id, match.id)
       const nextBoards = await getCoachFormationBoards(user)
@@ -374,21 +434,18 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       setSelectedMatchId(nextBoard.linkedMatchDayId || selectedMatchId)
       setMatchPublications(nextPublications.matchItems)
       setResourcePublications(nextPublications.resourceItems)
+      await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: createMobileFormationDraft({ board: nextBoard }), pendingSave: null }).catch(() => {})
       return nextBoard
-    } catch (saveError) {
+    } catch {
       if (!nextBoard) {
-        const reconciled = await getCoachFormationBoards(user).then((items) => items.find((candidate) => (
-          candidate.title === title.trim() && new Date(candidate.createdAt || 0).getTime() >= startedAt - 5000
-        ))).catch(() => null)
+        const reconciled = await reconcilePendingBoard(pendingSave).catch(() => null)
         if (reconciled) {
           setBoard(reconciled)
           setDraft(createMobileFormationDraft({ board: reconciled }))
           nextBoard = reconciled
         }
       }
-      throw new Error(nextBoard
-        ? 'The private Formation Board is preserved, but the latest save needs another online retry.'
-        : normalize(saveError?.message) || 'The Formation Board could not be saved.')
+      throw new Error('Your Formation Board is saved safely on this device. Connect and retry. The app will check for the previous server save before creating anything again.')
     }
   }
 
@@ -397,7 +454,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     try {
       const nextBoard = await persistBoard()
       setNotice(nextBoard.linkedMatchDayId ? 'Private Formation Board saved and linked to its match.' : 'Standalone Formation Board saved privately. You can link or publish it whenever you are ready.')
-    } catch (saveError) { setError(saveError.message) }
+    } catch (saveError) { setErrorRetry('save'); setError(saveError.message) }
     finally { setBusy(false) }
   }
 
@@ -529,7 +586,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
       {showBoards ? <View style={styles.card}><Text style={styles.heading}>Saved Formation Boards</Text>{boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => void applyBoard(item)} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>)}</View> : null}
       {unavailable ? <View style={styles.warning}><Text style={styles.heading}>Offline read</Text><Text style={styles.body}>Showing the last encrypted board. Saving, linking and publishing require a successful online refresh.</Text></View> : null}
-      {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action label="Try again" onPress={load} secondary styles={styles} /></View> : null}
+      {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy} label={errorRetry === 'save' ? 'Retry save' : 'Try again'} onPress={errorRetry === 'save' ? save : load} secondary styles={styles} /></View> : null}
       {notice ? <View style={styles.selectedPanel}><Text style={styles.body}>{notice}</Text></View> : null}
 
       <View accessibilityLabel={`Formation Board step ${workflowStepIndex + 1} of ${WORKFLOW_STEPS.length}`} style={styles.progress}>

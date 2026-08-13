@@ -94,8 +94,10 @@ export function presentParentMessageBody(value) {
 }
 
 export function presentParentMessages(messages) {
-  return (Array.isArray(messages) ? messages : []).map((message) => ({
-    ...message,
-    ...presentParentMessageBody(message?.body),
-  }))
+  return (Array.isArray(messages) ? messages : [])
+    .map((message) => ({
+      ...message,
+      ...presentParentMessageBody(message?.body),
+    }))
+    .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))
 }

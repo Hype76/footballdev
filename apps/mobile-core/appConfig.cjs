@@ -55,9 +55,9 @@ function createMobileExpoConfig({
       runtimeVersion: {
         policy: 'appVersion',
       },
-      ...(environment.easProjectId ? {
+      ...(resolvedEasProjectId ? {
         updates: {
-          url: `https://u.expo.dev/${environment.easProjectId}`,
+          url: `https://u.expo.dev/${resolvedEasProjectId}`,
           checkAutomatically: 'ON_LOAD',
           fallbackToCacheTimeout: 0,
         },

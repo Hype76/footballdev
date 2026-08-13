@@ -25,6 +25,29 @@ function calendarSortKey(date, time = '') {
   return date ? `${date}T${time || '23:59'}` : '9999-12-31T23:59'
 }
 
+function normalizeStatus(value) {
+  return normalizeText(value).toLowerCase()
+}
+
+function isTerminalStatus(value) {
+  return ['cancelled', 'closed', 'completed', 'expired', 'full_time', 'postponed'].includes(normalizeStatus(value))
+}
+
+export function isParentCalendarActionRequired(event = {}) {
+  const responseState = normalizeStatus(event.responseState)
+  return event.requiresResponse === true
+    || ['awaiting_response', 'no_response', 'pending'].includes(responseState)
+}
+
+export function getParentCalendarEventBucket(event = {}, now = new Date()) {
+  const currentDate = getDateInTimeZone(now)
+  if (isTerminalStatus(event.status)) return 'history'
+  if (!event.calendarDate) return 'date-tbc'
+  if (event.calendarDate < currentDate) return 'history'
+  if (isParentCalendarActionRequired(event)) return 'needs-response'
+  return 'upcoming'
+}
+
 export function getDateInTimeZone(value = new Date(), timeZone = 'Europe/London') {
   const parts = new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
@@ -64,6 +87,7 @@ function normalizeSharedEvent(event, invitation) {
     id: `calendar:${event.id}`,
     invitationId: invitation?.invitationId || '',
     responseState: invitationDisplayState,
+    requiresResponse: Boolean(invitation?.isPending),
     sortKey: calendarSortKey(calendarDate, calendarTime),
     sortTimestamp: timestampFor(event.startsAt),
     sourceId: event.id,
@@ -91,6 +115,7 @@ function normalizeInvitationEvent(invitation) {
     location: invitation.eventLocation || '',
     notes: '',
     responseState: state,
+    requiresResponse: Boolean(invitation.isPending),
     sortKey: calendarSortKey(calendarDate, calendarTime),
     sortTimestamp: timestampFor(invitation.eventStart || `${invitation.eventDate}T23:59:00`),
     sourceId,
@@ -117,6 +142,7 @@ function normalizeMatchEvent(match, invitation) {
     location: match.venueAddress || match.venueName || '',
     notes: match.notes || '',
     responseState: invitation ? invitationStatus(invitation) : match.availabilityStatus || '',
+    requiresResponse: Boolean(invitation?.isPending),
     sortKey: calendarSortKey(date, time),
     sortTimestamp: timestampFor(invitation?.eventStart || `${matchSortValue(match)}:00`),
     sourceId: match.id,
@@ -149,7 +175,6 @@ export function buildParentCalendarEvents({ calendarEvents = [], invitations = [
   ]
 
   return events
-    .filter((event) => event.calendarDate)
     .sort((left, right) => (
       left.sortKey.localeCompare(right.sortKey)
       || left.title.localeCompare(right.title)
@@ -158,24 +183,82 @@ export function buildParentCalendarEvents({ calendarEvents = [], invitations = [
 
 export function getParentCalendarWindow(events = [], windowKey = 'upcoming', now = new Date()) {
   const currentDate = getDateInTimeZone(now)
-  if (windowKey === 'all') return [...events]
-  if (windowKey === '30-days') {
+  const eventSortKey = (event) => normalizeText(event?.sortKey) || calendarSortKey(event?.calendarDate, event?.calendarTime)
+  const sortedUpcoming = (items) => [...items].sort((left, right) => eventSortKey(left).localeCompare(eventSortKey(right)))
+  const sortedHistory = (items) => [...items].sort((left, right) => eventSortKey(right).localeCompare(eventSortKey(left)))
+  if (windowKey === 'all') return sortedUpcoming(events)
+  if (windowKey === 'date-tbc') return sortedUpcoming(events.filter((event) => !event.calendarDate))
+  if (windowKey === 'needs-response') {
+    return sortedUpcoming(events.filter((event) => getParentCalendarEventBucket(event, now) === 'needs-response'))
+  }
+  if (windowKey === 'history') {
+    return sortedHistory(events.filter((event) => getParentCalendarEventBucket(event, now) === 'history'))
+  }
+  if (windowKey === '30-days' || windowKey === 'next-30') {
     const endDate = new Date(`${currentDate}T12:00:00Z`).getTime() + (30 * DAY_MS)
     const endDateOnly = new Date(endDate).toISOString().slice(0, 10)
-    return events.filter((event) => event.calendarDate >= currentDate && event.calendarDate <= endDateOnly)
+    return sortedUpcoming(events.filter((event) => (
+      ['needs-response', 'upcoming'].includes(getParentCalendarEventBucket(event, now))
+      && event.calendarDate >= currentDate
+      && event.calendarDate <= endDateOnly
+    )))
   }
-  return events.filter((event) => event.calendarDate >= currentDate || event.status === 'live')
+  if (windowKey === 'previous-30') {
+    const startDate = new Date(`${currentDate}T12:00:00Z`).getTime() - (30 * DAY_MS)
+    const startDateOnly = new Date(startDate).toISOString().slice(0, 10)
+    return sortedHistory(events.filter((event) => (
+      getParentCalendarEventBucket(event, now) === 'history'
+      && event.calendarDate >= startDateOnly
+      && event.calendarDate < currentDate
+    )))
+  }
+  return sortedUpcoming(events.filter((event) => ['needs-response', 'upcoming'].includes(getParentCalendarEventBucket(event, now))))
 }
 
 export function groupParentCalendarEvents(events = []) {
   const groups = []
   for (const event of events) {
     const current = groups.at(-1)
-    if (current?.date === event.calendarDate) {
+    const groupDate = event.calendarDate || 'date-tbc'
+    if (current?.date === groupDate) {
       current.events.push(event)
     } else {
-      groups.push({ date: event.calendarDate, events: [event] })
+      groups.push({ date: groupDate, events: [event] })
     }
   }
   return groups
+}
+
+export function getParentCalendarMonthGrid(events = [], cursor = new Date(), now = new Date()) {
+  const year = Number(cursor.getFullYear())
+  const month = Number(cursor.getMonth())
+  const first = new Date(year, month, 1, 12)
+  const gridStart = new Date(year, month, 1 - ((first.getDay() + 6) % 7), 12)
+  const today = getDateInTimeZone(now)
+  const byDate = new Map()
+
+  for (const event of events) {
+    if (!event.calendarDate) continue
+    const items = byDate.get(event.calendarDate) || []
+    items.push(event)
+    byDate.set(event.calendarDate, items)
+  }
+
+  return Array.from({ length: 42 }, (_unused, index) => {
+    const date = new Date(gridStart)
+    date.setDate(gridStart.getDate() + index)
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const dayEvents = (byDate.get(dateKey) || []).sort((left, right) => (
+      (normalizeText(left?.sortKey) || calendarSortKey(left?.calendarDate, left?.calendarTime))
+        .localeCompare(normalizeText(right?.sortKey) || calendarSortKey(right?.calendarDate, right?.calendarTime))
+    ))
+    return {
+      date: dateKey,
+      day: date.getDate(),
+      events: dayEvents,
+      inMonth: date.getMonth() === month,
+      isToday: dateKey === today,
+      needsResponse: dayEvents.some(isParentCalendarActionRequired),
+    }
+  })
 }

@@ -37,7 +37,7 @@ test('Parent mobile response reuses the canonical Match invitation command and a
 })
 
 test('Parent Home exposes pending Match requests directly while Invites retains response history', () => {
-  assert.match(parentAppSource, /const matchInvitations = resources\.invitations\.items\.filter/)
+  assert.match(parentAppSource, /const matchInvitations = visibleInvitations\.filter/)
   assert.match(parentAppSource, /\['match_attendance', 'match_role'\]\.includes\(invitation\.invitationType\)/)
   assert.match(parentAppSource, /const pendingMatchRequests = matchInvitations\.filter\(\(invitation\) => invitation\.isPending\)/)
   assert.match(parentAppSource, /label="Match requests"/)

@@ -235,7 +235,7 @@ test('scheduled processor claims bounded due work without push, sms, or voluntee
   assert.match(processor, /\.select\('id, player_id, team_id, club_id, email, status'\)/)
   assert.doesNotMatch(processor, /parent_name, display_name/)
   assert.match(processor, /send_days_before/)
-  assert.match(processor, /assertPlanFeature\({[\s\S]*getClubPlanProfile\(request\.club_id\)[\s\S]*}, 'parentEmails'\)/)
+  assert.match(processor, /assertTrustedSystemPlanFeature\({[\s\S]*getClubPlanProfile\(request\.club_id\)[\s\S]*}, 'parentEmails'\)/)
   assert.doesNotMatch(processor, /\bsendEmail\(/)
   assert.match(processor, /getTrainingAvailabilitySendGate/)
   assert.match(processor, /const sendGate = getTrainingAvailabilitySendGate\(setting\)[\s\S]*if \(requestStatus === 'pending' && !sendGate\.allowed\) {[\s\S]*outcome: 'retryable'/)

@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   BackHandler,
   Image,
@@ -40,6 +41,7 @@ import {
 } from '../mobile-core/src/parentNotificationsCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
+import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import {
   canSubmitParentPoll,
@@ -60,6 +62,7 @@ import {
   getParentInvitations,
   getParentPortalMatchDays,
   getParentResources,
+  isParentInvitationActionable,
   markParentChatRoomRead,
   openParentResource,
   recordParentScorerShootoutKick,
@@ -73,6 +76,7 @@ import {
   voidParentScorerGoal,
   voidParentScorerShootoutKick,
 } from './src/parentPortalData'
+import { getParentAnnouncementMessages, prepareParentChatRooms } from './src/parentPresentationCore'
 import {
   CalendarScreen,
   ChatScreen,
@@ -103,6 +107,7 @@ import {
   updateParentNotificationPreference,
 } from './src/notifications'
 import { prepareParentMobileStartup } from './src/startup'
+import { getParentCommunicationPreference, updateParentCommunicationPreference as updateParentCommunicationChannel } from './src/communicationPreferences'
 import { getSafeParentMessageUrl, presentParentMessages } from './messagePresentation'
 import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
 
@@ -115,7 +120,7 @@ const resourceFallbacks = {
   development: 'Development history could not be loaded.',
   invitations: 'Invitations could not be loaded.',
   matches: 'Matchday information could not be loaded.',
-  messages: 'Messages could not be loaded.',
+  messages: 'Club announcements could not be loaded.',
   polls: 'Polls could not be loaded.',
   resources: 'Resources could not be loaded.',
 }
@@ -215,12 +220,15 @@ function ParentHome() {
     permissionStatus: 'undetermined',
     registered: false,
   })
+  const [communicationPreference, setCommunicationPreference] = useState({ communicationChannel: 'both', updatedAt: '' })
   const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
   const [displayTheme, setDisplayTheme] = useState('dark')
+  const [dismissedItems, setDismissedItems] = useState({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
   const [moreSection, setMoreSection] = useState('')
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
   const [selectedLinkId, setSelectedLinkId] = useState('')
+  const [selectedInvitationId, setSelectedInvitationId] = useState('')
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
@@ -237,13 +245,27 @@ function ParentHome() {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
+  const dismissalStorageKey = useMemo(
+    () => selectedMobileUser?.id && selectedLink?.id ? `fp.parent.dismissed.v1.${selectedMobileUser.id}.${selectedLink.id}` : '',
+    [selectedLink?.id, selectedMobileUser?.id],
+  )
+  const visibleInvitations = useMemo(() => resources.invitations.items.filter((item) => !dismissedItems.invitations.includes(item.invitationId)), [dismissedItems.invitations, resources.invitations.items])
+  const visibleMatches = useMemo(() => resources.matches.items.filter((item) => !dismissedItems.matches.includes(item.id)), [dismissedItems.matches, resources.matches.items])
+  const visibleMessages = useMemo(() => resources.messages.items.filter((item) => !dismissedItems.messages.includes(item.id)), [dismissedItems.messages, resources.messages.items])
+  const visibleDevelopment = useMemo(() => resources.development.items.filter((item) => !dismissedItems.development.includes(item.id)), [dismissedItems.development, resources.development.items])
+  const visiblePolls = useMemo(() => resources.polls.items.filter((item) => !dismissedItems.polls.includes(item.id)), [dismissedItems.polls, resources.polls.items])
+  const visibleResources = useMemo(() => resources.resources.items.filter((item) => !dismissedItems.resources.includes(item.id)), [dismissedItems.resources, resources.resources.items])
   const homeModel = useMemo(() => getParentHomeModel({
     calendarEvents: resources.calendar.items,
-    matches: resources.matches.items,
-    messages: resources.messages.items,
-    polls: resources.polls.items,
-  }), [resources])
-  const selectedRoom = resources.chatRooms.items.find((room) => room.id === selectedRoomId) || null
+    matches: visibleMatches,
+    messages: visibleMessages.filter((message) => normalizeText(message.body)),
+    polls: visiblePolls,
+  }), [resources.calendar.items, visibleMatches, visibleMessages, visiblePolls])
+  const parentChatRooms = useMemo(
+    () => prepareParentChatRooms(resources.chatRooms.items, visibleMessages),
+    [resources.chatRooms.items, visibleMessages],
+  )
+  const selectedRoom = parentChatRooms.find((room) => room.id === selectedRoomId) || null
   const themeModel = useMemo(
     () => createParentMobileTheme({ mode: displayTheme, selectedLink }),
     [displayTheme, selectedLink],
@@ -414,6 +436,7 @@ function ParentHome() {
 
   useEffect(() => {
     setSelectedMatchId('')
+    setSelectedInvitationId('')
     setSelectedMessageId('')
     setSelectedRoomId('')
     setMoreSection('')
@@ -432,6 +455,29 @@ function ParentHome() {
       .catch(() => {})
     return () => { mounted = false }
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+    if (!dismissalStorageKey) {
+      setDismissedItems({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
+      return () => { mounted = false }
+    }
+    void AsyncStorage.getItem(dismissalStorageKey).then((value) => {
+      if (!mounted) return
+      const parsed = value ? JSON.parse(value) : {}
+      setDismissedItems({
+        development: Array.isArray(parsed.development) ? parsed.development : [],
+        invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
+        matches: Array.isArray(parsed.matches) ? parsed.matches : [],
+        messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+        polls: Array.isArray(parsed.polls) ? parsed.polls : [],
+        resources: Array.isArray(parsed.resources) ? parsed.resources : [],
+      })
+    }).catch(() => {
+      if (mounted) setDismissedItems({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
+    })
+    return () => { mounted = false }
+  }, [dismissalStorageKey])
 
   useEffect(() => {
     let mounted = true
@@ -461,9 +507,14 @@ function ParentHome() {
     if (!selectedMobileUser?.id) return undefined
 
     let mounted = true
-    void loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
-      .then((notificationsState) => {
-        if (mounted) setNotificationState(notificationsState)
+    void Promise.allSettled([
+      loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl }),
+      getParentCommunicationPreference(config.apiBaseUrl),
+    ])
+      .then(([notificationResult, communicationResult]) => {
+        if (!mounted) return
+        if (notificationResult.status === 'fulfilled') setNotificationState(notificationResult.value)
+        if (communicationResult.status === 'fulfilled') setCommunicationPreference(communicationResult.value)
       })
       .catch(() => {})
 
@@ -506,6 +557,7 @@ function ParentHome() {
     ) return undefined
 
     const notificationData = request.content?.data
+    const notificationAction = normalizeText(lastNotificationResponse?.actionIdentifier)
     const requestedLinkId = resolveParentNotificationLinkId(notificationData, parentLinks)
     if (requestedLinkId === null) {
       notificationResponseIdRef.current = responseId
@@ -530,7 +582,10 @@ function ParentHome() {
     )
     const availableFrom = (items) => ({
       calendar: (items.calendar || []).map((item) => item.id),
-      chat: (items.chatRooms || []).map((item) => item.id),
+      chat: [
+        ...(items.chatRooms || []).map((item) => item.id),
+        ...((items.messages || []).some((item) => normalizeText(item.body)) ? ['club-announcements'] : []),
+      ],
       development: (items.development || []).map((item) => item.id),
       invites: (items.invitations || []).map((item) => item.invitationId),
       matchday: (items.matches || []).map((item) => item.id),
@@ -548,9 +603,9 @@ function ParentHome() {
     let cancelled = false
     notificationResponseProcessingRef.current = responseId
     void loadParentData()
-      .then((result) => {
+      .then(async (result) => {
         if (cancelled) return
-        const destination = resolveParentNotificationOpen(
+        let destination = resolveParentNotificationOpen(
           notificationData,
           availableFrom(result?.items || {}),
         )
@@ -559,14 +614,59 @@ function ParentHome() {
           setNotice({ message: 'This notification no longer has an available Parent item.', tone: 'warning' })
           return
         }
-        const nestedSection = ['development', 'invites', 'messages', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
+        if (destination.tab === 'messages') {
+          const legacyMessage = (result?.items?.messages || []).find((message) => message.id === destination.targetId)
+          if (normalizeText(legacyMessage?.body)) {
+            destination = { tab: 'chat', targetId: 'club-announcements' }
+          } else if (legacyMessage?.evaluationId) {
+            destination = { tab: 'development', targetId: legacyMessage.evaluationId }
+          } else {
+            setNotice({ message: 'This email update did not contain an in-app message. Open Chat or the relevant request to continue.', tone: 'warning' })
+            return
+          }
+        }
+        const nestedSection = ['development', 'invites', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
           ? destination.tab
           : ''
         setSelectedMatchId(destination.tab === 'matchday' ? destination.targetId : '')
-        setSelectedMessageId(destination.tab === 'messages' ? destination.targetId : '')
-        setSelectedRoomId(destination.tab === 'chat' ? destination.targetId : '')
+        setSelectedInvitationId(destination.tab === 'invites' ? destination.targetId : '')
+        setSelectedMessageId('')
+        if (destination.tab === 'chat') {
+          const room = prepareParentChatRooms(result?.items?.chatRooms || [], result?.items?.messages || [])
+            .find((candidate) => candidate.id === destination.targetId)
+          if (room) {
+            setSelectedRoomId(room.id)
+            if (room.id === 'club-announcements') {
+              setChatMessages({ error: '', items: getParentAnnouncementMessages(result?.items?.messages || []), loading: false })
+            } else {
+              setChatMessages({ error: '', items: [], loading: true })
+              try {
+                const items = await getParentChatMessages(selectedMobileUser, room.id)
+                setChatMessages({ error: '', items, loading: false })
+                if (room.unreadCount > 0) await markParentChatRoomRead(selectedMobileUser, room.id)
+              } catch (error) {
+                setChatMessages({ error: getParentFriendlyError(error, 'Chat messages could not be loaded.'), items: [], loading: false })
+              }
+            }
+          }
+        } else setSelectedRoomId('')
         setMoreSection(nestedSection)
         setActiveTab(nestedSection ? 'more' : destination.tab)
+        if (destination.tab === 'invites' && ['parent_accept', 'parent_decline'].includes(notificationAction)) {
+          const invitation = (result?.items?.invitations || []).find((item) => item.invitationId === destination.targetId)
+          if (invitation && isParentInvitationActionable(invitation)) {
+            const responseState = notificationAction === 'parent_accept'
+              ? invitation.invitationType === 'match_role' ? 'yes' : 'available'
+              : invitation.invitationType === 'match_role' ? 'no' : 'unavailable'
+            try {
+              await respondToParentInvitation(selectedMobileUser, invitation, responseState)
+              await loadParentData()
+              setNotice({ message: notificationAction === 'parent_accept' ? 'Request accepted.' : 'Request declined.', tone: 'success' })
+            } catch (error) {
+              setNotice({ message: getParentFriendlyError(error, 'That response could not be saved. Open the request and try again.'), tone: 'warning' })
+            }
+          }
+        }
       })
       .catch(() => {
         if (cancelled) return
@@ -585,7 +685,7 @@ function ParentHome() {
         notificationResponseProcessingRef.current = ''
       }
     }
-  }, [lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id])
+  }, [lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id, selectedMobileUser])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
@@ -639,6 +739,7 @@ function ParentHome() {
   }
 
   function handleTabChange(tab) {
+    setSelectedInvitationId('')
     setSelectedMatchId('')
     setSelectedMessageId('')
     setSelectedRoomId('')
@@ -795,6 +896,28 @@ function ParentHome() {
 
   async function handleOpenChatRoom(room) {
     setSelectedRoomId(room.id)
+    if (room.id === 'club-announcements') {
+      const items = getParentAnnouncementMessages(visibleMessages)
+      setChatMessages({ error: '', items, loading: false })
+      const unreadMessages = visibleMessages.filter((message) => normalizeText(message.body) && !message.readAt)
+      if (unreadMessages.length) {
+        const readAt = new Date().toISOString()
+        try {
+          await Promise.all(unreadMessages.map((message) => queueParentMessageRead(selectedMobileUser, selectedLink.id, message)))
+          setResources((current) => ({
+            ...current,
+            messages: {
+              ...current.messages,
+              items: current.messages.items.map((message) => unreadMessages.some((item) => item.id === message.id) ? { ...message, readAt } : message),
+            },
+          }))
+          if (!isOffline) void runParentSync()
+        } catch (error) {
+          setNotice({ message: getParentFriendlyError(error, 'Announcement read status could not be saved.'), tone: 'warning' })
+        }
+      }
+      return
+    }
     if (isOffline) {
       setChatMessages({
         error: resources.chatHistory.error,
@@ -821,6 +944,10 @@ function ParentHome() {
 
   async function reloadSelectedChatRoom() {
     if (!selectedRoomId) return
+    if (selectedRoomId === 'club-announcements') {
+      setChatMessages({ error: '', items: getParentAnnouncementMessages(visibleMessages), loading: false })
+      return
+    }
     const items = await getParentChatMessages(selectedMobileUser, selectedRoomId)
     setChatMessages({ error: '', items, loading: false })
   }
@@ -993,6 +1120,46 @@ function ParentHome() {
     }
   }
 
+  function handleDismissParentItem(kind, id, label = 'item') {
+    if (!dismissalStorageKey || !['development', 'invitations', 'matches', 'messages', 'polls', 'resources'].includes(kind) || !id) return
+    Alert.alert(
+      `Remove this ${label}?`,
+      'This hides it from lists on this device. It does not delete the club record or its audit history.',
+      [
+        { style: 'cancel', text: 'Cancel' },
+        { style: 'destructive', text: 'Remove', onPress: () => {
+          if (kind === 'messages') setChatMessages((current) => ({ ...current, items: current.items.filter((message) => message.legacyMessageId !== id) }))
+          setDismissedItems((current) => {
+            const next = { ...current, [kind]: [...new Set([...(current[kind] || []), id])] }
+            void AsyncStorage.setItem(dismissalStorageKey, JSON.stringify(next)).catch(() => {})
+            return next
+          })
+        } },
+      ],
+    )
+  }
+
+  async function handleRestoreDismissedItems() {
+    if (dismissalStorageKey) await AsyncStorage.removeItem(dismissalStorageKey)
+    setDismissedItems({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
+    setNotice({ message: 'Hidden Parent items are visible again.', tone: 'success' })
+  }
+
+  async function handleCommunicationChannelChange(communicationChannel) {
+    if (activeActionId || communicationChannel === communicationPreference.communicationChannel) return
+    setActiveActionId('communication-channel')
+    setNotice(null)
+    try {
+      const nextPreference = await updateParentCommunicationChannel(config.apiBaseUrl, communicationChannel)
+      setCommunicationPreference(nextPreference)
+      setNotice({ message: 'Your communication choice has been saved for Email and app notifications.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Your communication choice could not be saved.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function handleTestNotification(intentType) {
     if (activeActionId || !notificationState.enabled) return
     setActiveActionId('notification-test')
@@ -1025,18 +1192,18 @@ function ParentHome() {
   }
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
-  const selectedMatch = resources.matches.items.find((match) => match.id === selectedMatchId)
-  const matchInvitations = resources.invitations.items.filter((invitation) => (
+  const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId)
+  const matchInvitations = visibleInvitations.filter((invitation) => (
     ['match_attendance', 'match_role'].includes(invitation.invitationType)
   ))
-  const unansweredInvites = resources.invitations.items.filter((invitation) => invitation.isPending).length
-  const unreadChat = resources.chatRooms.items.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
+  const unansweredInvites = visibleInvitations.filter((invitation) => invitation.isPending).length
+  const unreadChat = parentChatRooms.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
   const tabs = [
     { key: 'home', label: 'Home' },
     { key: 'calendar', label: 'Calendar' },
     { key: 'matchday', label: 'Matchday' },
     { count: unreadChat, key: 'chat', label: 'Chat' },
-    { count: homeModel.unreadMessages + homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
+    { count: homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
   ]
 
   return (
@@ -1057,7 +1224,27 @@ function ParentHome() {
           theme={displayTheme}
         />
 
-        <ScrollView
+        {activeTab === 'chat' ? (
+          <View style={[styles.contentColumn, styles.chatRouteContent]}>
+            <SyncStatus cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} summary={syncSummary} />
+            {notice ? <Notice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
+            <ChatScreen
+              activeActionId={activeActionId}
+              isOffline={isOffline}
+              link={selectedLink}
+              messages={chatMessages}
+              onBack={() => setSelectedRoomId('')}
+              onDelete={handleDeleteChatMessage}
+              onDismissAnnouncement={(message) => handleDismissParentItem('messages', message.legacyMessageId, 'announcement')}
+              onOpenRoom={handleOpenChatRoom}
+              onSend={handleSendChatMessage}
+              rooms={{ ...resources.chatRooms, items: parentChatRooms }}
+              selectedRoom={selectedRoom}
+              theme={displayTheme}
+              themeTokens={themeModel.tokens}
+            />
+          </View>
+        ) : <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           refreshControl={(
@@ -1084,44 +1271,33 @@ function ParentHome() {
                 homeModel={homeModel}
                 link={selectedLink}
                 matchInvitations={matchInvitations}
-                matches={resources.matches}
-                messages={resources.messages}
+                matches={{ ...resources.matches, items: visibleMatches }}
+                messages={{ ...resources.messages, items: visibleMessages }}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
                 onOpenMatch={(match) => setSelectedMatchId(match.id)}
-                onOpenMessages={() => { setMoreSection('messages'); setActiveTab('more') }}
+                onOpenMessages={() => {
+                  const room = parentChatRooms.find((candidate) => candidate.id === 'club-announcements')
+                  setActiveTab('chat')
+                  if (room) void handleOpenChatRoom(room)
+                }}
                 onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
                 onRetry={handleRefresh}
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen isRefreshing={isRefreshing} link={selectedLink} onRefresh={handleRefresh} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen link={selectedLink} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
                 isOffline={isOffline}
                 link={selectedLink}
                 onBack={() => setSelectedMatchId('')}
+                onDismiss={(match) => handleDismissParentItem('matches', match.id, 'match')}
                 onOpen={(match) => setSelectedMatchId(match.id)}
                 onScorerAction={handleScorerAction}
                 onVolunteer={handleScorerInterest}
-                resource={resources.matches}
+                resource={{ ...resources.matches, items: visibleMatches }}
                 selectedMatch={selectedMatch}
-                theme={displayTheme}
-                themeTokens={themeModel.tokens}
-              />
-            ) : null}
-            {activeTab === 'chat' ? (
-              <ChatScreen
-                activeActionId={activeActionId}
-                isOffline={isOffline}
-                link={selectedLink}
-                messages={chatMessages}
-                onBack={() => setSelectedRoomId('')}
-                onDelete={handleDeleteChatMessage}
-                onOpenRoom={handleOpenChatRoom}
-                onSend={handleSendChatMessage}
-                rooms={resources.chatRooms}
-                selectedRoom={selectedRoom}
                 theme={displayTheme}
                 themeTokens={themeModel.tokens}
               />
@@ -1133,16 +1309,15 @@ function ParentHome() {
                 themeTokens={themeModel.tokens}
                 unansweredInvites={unansweredInvites}
                 unansweredPolls={homeModel.unansweredPolls}
-                unreadMessages={homeModel.unreadMessages}
               />
             ) : null}
-            {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedMessageId('') }} /> : null}
+            {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId('') }} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onRespond={handleInvitationResponse} resource={resources.invitations} theme={displayTheme} themeTokens={themeModel.tokens} />
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onRespond={handleInvitationResponse} resource={{ ...resources.invitations, items: visibleInvitations }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
-            {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={resources.matches} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onOpen={(report) => handleOpenParentItem('development', report)} resource={resources.development} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen isOffline={isOffline} onOpen={(item) => handleOpenParentItem('resource', item)} resource={resources.resources} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen isOffline={isOffline} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'messages' ? (
               <MessagesScreen
                 activeActionId={activeActionId}
@@ -1164,9 +1339,10 @@ function ParentHome() {
                 drafts={pollDrafts}
                 link={selectedLink}
                 onDraftChange={(pollId, optionId) => setPollDrafts((current) => ({ ...current, [pollId]: optionId }))}
+                onDismiss={(poll) => handleDismissParentItem('polls', poll.id, 'poll')}
                 onRetry={handleRefresh}
                 onSubmit={handlePollSubmit}
-                resource={resources.polls}
+                resource={{ ...resources.polls, items: visiblePolls }}
               />
             ) : null}
             {activeTab === 'more' && moreSection === 'settings' ? (
@@ -1181,11 +1357,14 @@ function ParentHome() {
                 links={parentLinks}
                 onBiometricChange={handleBiometricChange}
                 displayTheme={displayTheme}
+                communicationPreference={communicationPreference}
                 notificationState={notificationState}
+                onCommunicationChannelChange={handleCommunicationChannelChange}
                 onNotificationDetailChange={handleNotificationDetailChange}
                 onNotificationEnabledChange={handleNotificationEnabledChange}
                 onDisplayThemeChange={handleDisplayThemeChange}
                 onPasswordChange={handlePasswordChange}
+                onRestoreDismissedItems={handleRestoreDismissedItems}
                 onSendTestNotification={handleTestNotification}
                 onRetrySync={async () => {
                   const result = await runParentSync({ explicitRetry: true })
@@ -1196,11 +1375,12 @@ function ParentHome() {
                 }}
                 onSignOut={signOut}
                 syncSummary={syncSummary}
+                hiddenItemCount={Object.values(dismissedItems).reduce((total, items) => total + items.length, 0)}
                 user={user}
               />
             ) : null}
           </View>
-        </ScrollView>
+        </ScrollView>}
 
         <BottomTabs activeTab={activeTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} />
       </KeyboardAvoidingView>
@@ -1366,7 +1546,7 @@ function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches,
         <SummaryButton
           count={homeModel.unreadMessages}
           detail={homeModel.latestMessage?.subject || 'Club updates appear here'}
-          label="Unread messages"
+          label="Unread announcements"
           onPress={onOpenMessages}
         />
         <SummaryButton
@@ -1503,7 +1683,7 @@ function CalendarCard({ event, prominent = false }) {
 
 function MessagesScreen({ activeActionId, development = { items: [] }, isOffline, link, onBack, onOpen, onOpenDevelopment, onOpenLink, onRetry, resource, selectedMessage }) {
   const { styles } = useParentTheme()
-  if (!link?.id) return <EmptyPanel message="No active child link is available for messages." title="Messages unavailable" />
+  if (!link?.id) return <EmptyPanel message="No active child link is available for announcements." title="Club announcements unavailable" />
   if (selectedMessage) {
     const linkedReport = development.items.find((report) => String(report.id) === String(selectedMessage.evaluationId)) || null
     const developmentPdfAvailable = linkedReport?.canDownloadPdf === true
@@ -1511,7 +1691,7 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
 
     return (
       <View style={styles.screenStack}>
-        <BackButton label="Back to Messages" onPress={onBack} />
+        <BackButton label="Back to Club Announcements" onPress={onBack} />
         <View style={styles.heroCard}>
           <View style={styles.cardTopRow}>
             <Badge label={selectedMessage.readAt ? 'Read' : 'Unread'} tone={selectedMessage.readAt ? 'neutral' : 'accent'} />
@@ -1521,7 +1701,7 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
           <Text style={styles.cardMeta}>From {selectedMessage.senderName || 'Your club'}</Text>
           {activeActionId === `message:${selectedMessage.id}` ? <LoadingLine label="Updating read status" /> : null}
         </View>
-        <InfoPanel title="Message">
+        <InfoPanel title="Announcement">
           <Text selectable style={styles.messageBody}>{selectedMessage.body || 'No message text was provided.'}</Text>
         </InfoPanel>
         {(selectedMessage.links || []).map((url) => (
@@ -1551,11 +1731,11 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
 
   return (
     <View style={styles.screenStack}>
-      <ScreenIntro copy={`Updates shared for ${link.playerName}.`} title="Messages" />
-      <ResourceError onRetry={onRetry} resource={resource} title="Messages unavailable" />
-      {resource.loading && resource.items.length === 0 ? <LoadingPanel message="Loading messages" /> : null}
+      <ScreenIntro copy={`Updates shared for ${link.playerName}.`} title="Club Announcements" />
+      <ResourceError onRetry={onRetry} resource={resource} title="Club announcements unavailable" />
+      {resource.loading && resource.items.length === 0 ? <LoadingPanel message="Loading Club announcements" /> : null}
       {!resource.loading && !resource.error && resource.items.length === 0 ? (
-        <EmptyPanel message="Your club has not shared any messages for this child yet." title="No messages" />
+        <EmptyPanel message="Your club has not shared any announcements for this child yet." title="No announcements" />
       ) : null}
       {resource.items.map((message) => (
         <Pressable
@@ -1573,14 +1753,14 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
           <Text style={styles.cardTitle}>{message.subject}</Text>
           <Text style={styles.cardMeta}>From {message.senderName || 'Your club'}</Text>
           <Text numberOfLines={2} style={styles.bodyText}>{message.body || 'Open to read this update.'}</Text>
-          <Text style={styles.cardLink}>Read message</Text>
+          <Text style={styles.cardLink}>Read announcement</Text>
         </Pressable>
       ))}
     </View>
   )
 }
 
-function PollsScreen({ activeActionId, drafts, link, onDraftChange, onRetry, onSubmit, resource }) {
+function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, onRetry, onSubmit, resource }) {
   const { styles } = useParentTheme()
   if (!link?.id) return <EmptyPanel message="No active child link is available for polls." title="Polls unavailable" />
 
@@ -1659,6 +1839,7 @@ function PollsScreen({ activeActionId, drafts, link, onDraftChange, onRetry, onS
                 onPress={() => onSubmit(poll)}
               />
             )}
+            <PrimaryAction label="Remove from this list" onPress={() => onDismiss(poll)} secondary />
           </View>
         )
       })}
@@ -1699,17 +1880,21 @@ function SettingsScreen({
   biometricAvailable,
   biometricEnabled,
   cacheState,
+  communicationPreference,
   displayTheme,
+  hiddenItemCount,
   isOffline,
   isSyncing,
   lastUpdatedAt,
   links,
   notificationState,
   onBiometricChange,
+  onCommunicationChannelChange,
   onDisplayThemeChange,
   onNotificationDetailChange,
   onNotificationEnabledChange,
   onPasswordChange,
+  onRestoreDismissedItems,
   onRetrySync,
   onSendTestNotification,
   onSignOut,
@@ -1719,7 +1904,7 @@ function SettingsScreen({
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
-  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.1'
+  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.2'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
     : Constants.expoConfig?.android?.versionCode || '1')
@@ -1829,6 +2014,33 @@ function SettingsScreen({
         </View>
       </View>
 
+      <InfoPanel title="Communication choice">
+        <Text style={styles.bodyText}>Choose how Football Player sends club updates and requests. Email and app notifications are delivered independently.</Text>
+        <View style={styles.notificationChoices}>
+          {[
+            { copy: 'Push alerts on this device.', key: 'app', label: 'App notifications' },
+            { copy: 'Updates to your account email.', key: 'email', label: 'Email' },
+            { copy: 'Send through both channels.', key: 'both', label: 'Both' },
+          ].map((choice) => {
+            const selected = communicationPreference.communicationChannel === choice.key
+            return (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                disabled={activeActionId === 'communication-channel'}
+                key={choice.key}
+                onPress={() => onCommunicationChannelChange(choice.key)}
+                style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
+              >
+                <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{choice.label}</Text>
+                <Text style={styles.helperText}>{choice.copy}</Text>
+              </Pressable>
+            )
+          })}
+        </View>
+        {communicationPreference.communicationChannel !== 'email' && !notificationState.enabled ? <Text style={styles.helperText}>App notifications are selected, but they are not enabled on this device.</Text> : null}
+      </InfoPanel>
+
       <InfoPanel title="Notifications">
         <InfoRow label="Status" value={getParentNotificationStatusLabel(notificationState)} />
         <View style={styles.settingRow}>
@@ -1893,6 +2105,12 @@ function SettingsScreen({
             ? 'This production-backed candidate uses the live Football Player service.'
             : 'This test build cannot connect to the live Football Player service.'}
         </Text>
+      </InfoPanel>
+
+      <InfoPanel title="Hidden items">
+        <InfoRow label="Removed from lists" value={String(hiddenItemCount || 0)} />
+        <Text style={styles.helperText}>Removing an item hides it on this device. Club records and audit history are not deleted.</Text>
+        <PrimaryAction disabled={!hiddenItemCount} label="Restore hidden items" onPress={onRestoreDismissedItems} secondary />
       </InfoPanel>
 
       <InfoPanel title="Offline and sync">
@@ -2147,6 +2365,7 @@ class ParentRootErrorBoundary extends Component {
 }
 
 export default function App() {
+  useMobileAutomaticUpdates()
   return (
     <SafeAreaProvider>
       <ParentRootErrorBoundary>
@@ -2221,6 +2440,7 @@ function createParentAppStyles(tokens) {
   childOptions: { gap: 8, paddingTop: 8 },
   childOptionTeam: { color: palette.textMuted, fontSize: 12, fontWeight: '700', marginTop: 3 },
   childOptionTeamActive: { color: palette.ink },
+  chatRouteContent: { flex: 1, gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   contentColumn: { alignSelf: 'center', maxWidth: 680, width: '100%' },
   detailScore: { color: palette.accent, fontSize: 40, fontWeight: '900', letterSpacing: -1 },
   detailTitle: { color: palette.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.5, lineHeight: 34 },
@@ -2253,9 +2473,9 @@ function createParentAppStyles(tokens) {
   noticeError: { backgroundColor: palette.dangerBackground, borderColor: palette.danger },
   noticeText: { color: palette.text, fontSize: 14, fontWeight: '800', lineHeight: 20 },
   noticeWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
-  notificationChoice: { backgroundColor: palette.cardRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flex: 1, gap: 5, minHeight: 82, padding: 12 },
+  notificationChoice: { backgroundColor: palette.cardRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flex: 1, gap: 5, minHeight: 82, minWidth: 138, padding: 12 },
   notificationChoiceSelected: { backgroundColor: palette.selectedSurface, borderColor: palette.accent },
-  notificationChoices: { flexDirection: 'row', gap: 10 },
+  notificationChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   notificationChoiceTitle: { color: palette.text, fontSize: 15, fontWeight: '900' },
   notificationChoiceTitleSelected: { color: palette.accent },
   notificationTestActions: { gap: 9 },

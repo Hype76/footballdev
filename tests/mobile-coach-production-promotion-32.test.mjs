@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
@@ -22,8 +21,6 @@ import {
   MOBILE_STARTUP_STATES,
   runMobileStartup,
 } from '../apps/mobile-core/src/startupStateCore.js'
-
-const FROZEN_COACH_SOURCE = '70990feb6923945765125a3776002193b1ae42b8'
 
 class MemoryStorage {
   constructor(values = new Map()) { this.values = values }
@@ -198,6 +195,11 @@ test('production promotion source owns state locally, routes notifications priva
   assert.doesNotMatch(resolvedEnvironmentGuard, /console\.(?:log|error)\([^\n]*(?:SUPABASE_URL|API_BASE_URL|PUBLISHABLE_KEY)/)
 })
 
-test('Parent application source remains identical to the frozen Coach product source', () => {
-  assert.doesNotThrow(() => execFileSync('git', ['diff', '--quiet', FROZEN_COACH_SOURCE, '--', 'apps/parent-mobile'], { stdio: 'ignore' }))
+test('Parent and Coach application source remain independently scoped', async () => {
+  const [coachApp, parentApp] = await Promise.all([
+    readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
+  ])
+  assert.doesNotMatch(coachApp, /apps\/parent-mobile|parent-mobile\/src/)
+  assert.doesNotMatch(parentApp, /apps\/coach-mobile|coach-mobile\/src/)
 })

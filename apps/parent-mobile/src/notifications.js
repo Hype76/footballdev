@@ -172,6 +172,10 @@ async function request({ apiBaseUrl, body, method, path }) {
 }
 
 export async function initializeParentNotifications() {
+  await Notifications.setNotificationCategoryAsync('parent-response', [
+    { buttonTitle: 'Accept', identifier: 'parent_accept', options: { opensAppToForeground: true } },
+    { buttonTitle: 'Decline', identifier: 'parent_decline', options: { isDestructive: true, opensAppToForeground: true } },
+  ])
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       description: 'Parent messages, polls, and Matchday updates.',

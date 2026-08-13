@@ -26,6 +26,7 @@ import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getCoachPhase31GHomeSnapshot } from '../mobile-core/src/coachPhase31GData'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
+import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import {
   getCoachBackTarget,
@@ -706,7 +707,7 @@ function MoreScreen({ navigation, onSelectMore }) {
   return (
     <ScreenIntro copy="Open the staff tools available for this role and context." title="More">
       <View style={styles.stackTight}>
-        {navigation.more.map((route) => <MenuRow key={route.key} label={route.label} onPress={() => onSelectMore(route.key)} />)}
+        {navigation.more.map((route) => <MenuRow description={route.description} key={route.key} label={route.label} onPress={() => onSelectMore(route.key)} />)}
       </View>
     </ScreenIntro>
   )
@@ -895,11 +896,11 @@ function PreviewCard({ actionLabel, detail, onAction, title }) {
   )
 }
 
-function MenuRow({ label, onPress }) {
+function MenuRow({ description = '', label, onPress }) {
   const { styles } = useCoachTheme()
   return (
     <Pressable accessibilityHint={`Open ${label}`} accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
-      <Text style={styles.menuText}>{label}</Text><Text style={styles.menuArrow}>›</Text>
+      <View><Text style={styles.menuText}>{label}</Text>{description ? <Text style={styles.helperText}>{description}</Text> : null}</View><Text style={styles.menuArrow}>›</Text>
     </Pressable>
   )
 }
@@ -1040,6 +1041,7 @@ async function clearCoachBeforeSignOut({ accessToken, apiBaseUrl }) {
 
 export default function App() {
   // Secure-session integration contract: <AuthProvider appRole="coach">
+  useMobileAutomaticUpdates()
   return (
     <SafeAreaProvider>
       <CoachRootErrorBoundary>

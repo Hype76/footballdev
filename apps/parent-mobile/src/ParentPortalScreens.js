@@ -1,16 +1,21 @@
-import { useMemo, useState } from 'react'
-import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
-import { getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useEffect, useMemo, useState } from 'react'
+import { FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
 } from '../../mobile-core/src/parentDateTimeCore'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
+import { getParentMatchGroups } from './parentExperience'
+import { getParentChatRoomContext, getParentInvitationSections, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
 import {
   getInvitationResponseOptions,
   getParentInvitationDisplayState,
   isParentInvitationActionable,
 } from './parentPortalData'
+
+const PARENT_CALENDAR_VIEW_KEY = 'football-player-parent-calendar-view-v1'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -73,6 +78,15 @@ function usePortalStyles(themeTokens) {
       header: { color: colors.text, fontSize: 28, fontWeight: '900' },
       helper: { color: colors.muted, fontSize: 13, lineHeight: 19 },
       meta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+      monthCell: { borderColor: colors.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 4, minHeight: 54, padding: 6 },
+      monthCellActive: { borderColor: colors.accent, borderWidth: 2 },
+      monthCellMuted: { opacity: 0.42 },
+      monthDay: { color: colors.text, fontSize: 13, fontWeight: '800' },
+      monthDot: { backgroundColor: colors.accent, borderRadius: 999, height: 6, width: 6 },
+      monthDotWarning: { backgroundColor: colors.warning },
+      monthGrid: { gap: 5 },
+      monthRow: { flexDirection: 'row', gap: 5 },
+      monthWeekday: { color: colors.muted, flex: 1, fontSize: 11, fontWeight: '900', textAlign: 'center' },
       dateHeading: { color: colors.text, fontSize: 16, fontWeight: '900', marginTop: 4 },
       pill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderRadius: 999, color: colors.accentText, fontSize: 12, fontWeight: '800', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5 },
       row: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
@@ -81,6 +95,16 @@ function usePortalStyles(themeTokens) {
       stack: { gap: 14 },
       stat: { color: colors.text, fontSize: 16, fontWeight: '700' },
       warning: { color: colors.warning, fontSize: 14, lineHeight: 20 },
+      chatScreen: { flex: 1 },
+      chatHeader: { borderBottomColor: colors.border, borderBottomWidth: 1, gap: 5, paddingBottom: 10 },
+      chatList: { flex: 1 },
+      chatListContent: { flexGrow: 1, gap: 8, justifyContent: 'flex-end', paddingVertical: 12 },
+      chatRoomContent: { gap: 10, paddingBottom: 16 },
+      composer: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 8 },
+      composerField: { flex: 1, maxHeight: 110, minHeight: 46 },
+      messageBubble: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, gap: 4, maxWidth: '86%', paddingHorizontal: 12, paddingVertical: 9 },
+      messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: colors.accentSoft, borderColor: colors.accent },
+      messageSender: { color: colors.accentText, fontSize: 12, fontWeight: '900' },
     }) }
   }, [themeTokens])
 }
@@ -106,59 +130,110 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
 }
 
-export function CalendarScreen({ isRefreshing, link, onRefresh, resource, themeTokens }) {
+function CalendarEventCard({ event, styles }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.row}>
+        <Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text>
+        <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
+      </View>
+      <Text style={styles.cardTitle}>{event.title}</Text>
+      {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
+      {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
+      {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
+      {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
+    </View>
+  )
+}
+
+export function CalendarScreen({ link, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
-  const [windowKey, setWindowKey] = useState('upcoming')
+  const [viewMode, setViewMode] = useState('agenda')
+  const [windowKey, setWindowKey] = useState('needs-response')
+  const [monthCursor, setMonthCursor] = useState(() => new Date())
+  const [selectedDate, setSelectedDate] = useState('')
+  useEffect(() => {
+    void AsyncStorage.getItem(PARENT_CALENDAR_VIEW_KEY).then((saved) => {
+      if (['agenda', 'month'].includes(saved)) setViewMode(saved)
+    }).catch(() => {})
+  }, [])
+  const chooseView = (nextView) => {
+    setViewMode(nextView)
+    void AsyncStorage.setItem(PARENT_CALENDAR_VIEW_KEY, nextView).catch(() => {})
+  }
   const visibleEvents = useMemo(
     () => getParentCalendarWindow(resource.items, windowKey),
     [resource.items, windowKey],
   )
   const groups = useMemo(() => groupParentCalendarEvents(visibleEvents), [visibleEvents])
+  const monthDays = useMemo(() => getParentCalendarMonthGrid(resource.items, monthCursor), [monthCursor, resource.items])
+  const selectedDayEvents = useMemo(() => resource.items.filter((event) => event.calendarDate === selectedDate), [resource.items, selectedDate])
+  const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(monthCursor)
+  const moveMonth = (offset) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12))
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your child'}.</Text></View>
-      <View accessibilityLabel="Calendar date filter" style={styles.actionRow}>
+      <View accessibilityLabel="Calendar view" style={styles.actionRow}>
+        <Button label="Agenda" onPress={() => chooseView('agenda')} outline={viewMode !== 'agenda'} styles={styles} />
+        <Button label="Month" onPress={() => chooseView('month')} outline={viewMode !== 'month'} styles={styles} />
+      </View>
+      {viewMode === 'agenda' ? <View accessibilityLabel="Calendar date filter" style={styles.actionRow}>
         {[
-          { key: 'upcoming', label: 'Upcoming' },
-          { key: '30-days', label: 'Next 30 days' },
-          { key: 'all', label: 'All dates' },
+          { key: 'needs-response', label: 'Needs response' },
+          { key: 'next-30', label: 'Next 30 days' },
+          { key: 'previous-30', label: 'Previous 30 days' },
+          { key: 'upcoming', label: 'All upcoming' },
+          { key: 'history', label: 'History' },
+          { key: 'date-tbc', label: 'Date TBC' },
         ].map((option) => (
           <Button key={option.key} label={option.label} onPress={() => setWindowKey(option.key)} outline={windowKey !== option.key} styles={styles} />
         ))}
-      </View>
-      {onRefresh ? <Button disabled={isRefreshing} label={isRefreshing ? 'Refreshing Calendar...' : 'Refresh Calendar'} onPress={onRefresh} outline styles={styles} /> : null}
+      </View> : null}
       <ResourceState emptyCopy="There are no shared calendar events for this child." {...resource} styles={styles} />
-      {!resource.loading && resource.items.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
-      {groups.map((group) => (
-        <View key={group.date} style={styles.section}>
-          <Text accessibilityRole="header" style={styles.dateHeading}>{formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => (
-            <View key={event.id} style={styles.card}>
-              <View style={styles.row}>
-                <Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text>
-                <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
-              </View>
-              <Text style={styles.cardTitle}>{event.title}</Text>
-              {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
-              {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
-              {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
-              {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
-            </View>
-          ))}
+      {viewMode === 'month' ? <View style={styles.stack}>
+        <View style={styles.row}><Button label="Previous" onPress={() => moveMonth(-1)} outline styles={styles} /><Text style={styles.cardTitle}>{monthLabel}</Text><Button label="Next" onPress={() => moveMonth(1)} outline styles={styles} /></View>
+        <Button label="Today" onPress={() => { setMonthCursor(new Date()); setSelectedDate('') }} outline styles={styles} />
+        <View style={styles.monthGrid}>
+          <View style={styles.monthRow}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <Text key={day} style={styles.monthWeekday}>{day}</Text>)}</View>
+          {Array.from({ length: 6 }, (_unused, rowIndex) => <View key={rowIndex} style={styles.monthRow}>{monthDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((day) => <Pressable accessibilityLabel={`${day.date}, ${day.events.length} events`} accessibilityRole="button" key={day.date} onPress={() => setSelectedDate(day.date)} style={[styles.monthCell, !day.inMonth && styles.monthCellMuted, (day.isToday || day.date === selectedDate) && styles.monthCellActive]}><Text style={styles.monthDay}>{day.day}</Text><View style={styles.actionRow}>{day.events.slice(0, 3).map((event) => <View key={event.id} style={[styles.monthDot, event.requiresResponse && styles.monthDotWarning]} />)}</View></Pressable>)}</View>)}
         </View>
-      ))}
+        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard event={event} key={event.id} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
+      </View> : null}
+      {viewMode === 'agenda' && !resource.loading && resource.items.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
+      {viewMode === 'agenda' ? groups.map((group) => (
+        <View key={group.date} style={styles.section}>
+          <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
+          {group.events.map((event) => <CalendarEventCard event={event} key={event.id} styles={styles} />)}
+        </View>
+      )) : null}
     </View>
   )
 }
 
-export function InvitationsScreen({ activeActionId, isOffline, link, onRespond, resource, themeTokens }) {
+export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarget, onDismiss, onRespond, resource, targetInvitationId = '', themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
+  const sections = useMemo(() => getParentInvitationSections(resource.items), [resource.items])
+  const defaultSection = sections.needsResponse.length ? 'needsResponse' : 'upcoming'
+  const [sectionKey, setSectionKey] = useState(defaultSection)
+  const activeSectionKey = sectionKey === 'needsResponse' && !sections.needsResponse.length ? 'upcoming' : sectionKey
+  const targetedInvitation = targetInvitationId
+    ? resource.items.find((invitation) => invitation.invitationId === targetInvitationId) || null
+    : null
+  const visibleInvitations = targetedInvitation ? [targetedInvitation] : sections[activeSectionKey] || []
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Invites</Text><Text style={styles.helper}>Attendance and volunteer responses for {link?.playerName || 'your child'}.</Text></View>
+      {targetedInvitation && onBackTarget ? <Button label="Back to all requests" onPress={onBackTarget} outline styles={styles} /> : null}
+      <View><Text accessibilityRole="header" style={styles.header}>{targetedInvitation ? 'Respond to request' : 'Invites'}</Text><Text style={styles.helper}>{targetedInvitation ? 'Review this request and answer it directly.' : `Attendance and volunteer responses for ${link?.playerName || 'your child'}.`}</Text></View>
       {isOffline ? <Text style={styles.warning}>Responses need a connection. Saved invitations remain available to read.</Text> : null}
+      {!targetedInvitation ? <View style={styles.actionRow}>{[
+        ['needsResponse', 'Needs response'],
+        ['upcoming', 'Coming up'],
+        ['responded', 'Responded'],
+        ['history', 'History'],
+      ].map(([key, label]) => <Button key={key} label={`${label}${sections[key].length ? ` (${sections[key].length})` : ''}`} onPress={() => setSectionKey(key)} outline={activeSectionKey !== key} styles={styles} />)}</View> : null}
       <ResourceState emptyCopy="There are no invitations for this child." {...resource} styles={styles} />
-      {resource.items.map((invitation) => {
+      {!resource.loading && resource.items.length > 0 && visibleInvitations.length === 0 ? <Text style={styles.empty}>Nothing is in this section.</Text> : null}
+      {visibleInvitations.map((invitation) => {
         const options = getInvitationResponseOptions(invitation)
         const busy = activeActionId === `invite:${invitation.invitationId}`
         const actionable = isParentInvitationActionable(invitation)
@@ -175,6 +250,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onRespond, 
                 {options.map((option) => <Button disabled={isOffline || busy} key={option.value} label={busy ? 'Saving...' : option.label} onPress={() => onRespond(invitation, option.value)} outline styles={styles} />)}
               </View>
             ) : null}
+            {!targetedInvitation && onDismiss ? <Button label="Remove from this list" onPress={() => onDismiss(invitation)} outline styles={styles} /> : null}
           </View>
         )
       })}
@@ -186,15 +262,16 @@ function scoreVisible(match) {
   return ['extra_time', 'full_time', 'half_time', 'live', 'penalties', 'second_half'].includes(match.status)
 }
 
-function MatchCard({ match, onOpen, styles }) {
+function MatchCard({ match, onDismiss, onOpen, styles }) {
   return (
-    <Pressable accessibilityRole="button" onPress={() => onOpen(match)} style={styles.card}>
+    <View style={styles.card}>
       <View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View>
       <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
       <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Kick-off time to be confirmed' : formatParentProductTime(match.kickoffTime)}</Text>
       {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
-      <Text style={styles.helper}>Open Match Day</Text>
-    </Pressable>
+      <Button label="Open Match Day" onPress={() => onOpen(match)} outline styles={styles} />
+      {onDismiss ? <Button label="Remove from this list" onPress={() => onDismiss(match)} outline styles={styles} /> : null}
+    </View>
   )
 }
 
@@ -317,8 +394,11 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onOpen, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onOpen, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
+  const [matchSection, setMatchSection] = useState('upcoming')
+  const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
+  const visibleMatches = matchGroups[matchSection] || []
   if (selectedMatch) {
     return (
       <View style={styles.stack}>
@@ -345,15 +425,17 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onOpen
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Matchday</Text><Text style={styles.helper}>Real Parent-visible fixtures and Game Day for {link?.playerName || 'your child'}.</Text></View>
+      <View style={styles.actionRow}><Button label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
       <ResourceState emptyCopy="There are no Parent-visible match cards for this child." {...resource} styles={styles} />
-      {resource.items.map((match) => <MatchCard key={match.id} match={match} onOpen={onOpen} styles={styles} />)}
+      {!resource.loading && resource.items.length > 0 && visibleMatches.length === 0 ? <Text style={styles.empty}>No matches are in this section.</Text> : null}
+      {visibleMatches.map((match) => <MatchCard key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} styles={styles} />)}
     </View>
   )
 }
 
 export function ResultsScreen({ link, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
-  const results = resource.items.filter((match) => match.status === 'full_time')
+  const results = getParentMatchGroups(resource.items).recent.filter((match) => match.status === 'full_time')
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed Parent-visible fixtures for {link?.playerName || 'your child'}.</Text></View>
@@ -363,64 +445,71 @@ export function ResultsScreen({ link, resource, themeTokens }) {
   )
 }
 
-export function DevelopmentScreen({ isOffline, onOpen, resource, themeTokens }) {
+export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history previously shared with this Parent link.</Text></View>
       {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Opening a PDF needs a connection.</Text> : null}
       <ResourceState emptyCopy="No delivered Development reports are available for this child." {...resource} styles={styles} />
-      {resource.items.map((report) => <View key={report.id} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.stat}>Overall score: {report.overallScore} / {report.overallMaxScore || 10}</Text>}{report.responseItems?.slice(0, 6).map((item, index) => <Text key={`${item.label}:${index}`} style={styles.body}>{item.label}: {item.displayValue}</Text>)}<Button disabled={isOffline || !report.canDownloadPdf} label={report.canDownloadPdf ? 'Open PDF' : 'PDF not included'} onPress={() => onOpen(report)} outline styles={styles} /></View>)}
+      {resource.items.map((report) => <View key={report.id} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.stat}>Overall score: {report.overallScore} / {report.overallMaxScore || 10}</Text>}{report.responseItems?.slice(0, 6).map((item, index) => <Text key={`${item.label}:${index}`} style={styles.body}>{item.label}: {item.displayValue}</Text>)}<Button disabled={isOffline || !report.canDownloadPdf} label={report.canDownloadPdf ? 'View or share PDF' : 'PDF not included'} onPress={() => onOpen(report)} outline styles={styles} /><Button label="Remove from this list" onPress={() => onDismiss(report)} outline styles={styles} /></View>)}
     </View>
   )
 }
 
-export function ResourcesScreen({ isOffline, onOpen, resource, themeTokens }) {
+export function ResourcesScreen({ isOffline, onDismiss, onOpen, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected child.</Text></View>
       {isOffline ? <Text style={styles.warning}>Resource details are saved for reading. Opening the item needs a connection.</Text> : null}
       <ResourceState emptyCopy="No resources are shared with this child." {...resource} styles={styles} />
-      {resource.items.map((item) => <View key={item.id} style={styles.card}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text>{item.description || item.shareDescription ? <Text style={styles.body}>{item.description || item.shareDescription}</Text> : null}<Button disabled={isOffline} label="Open resource" onPress={() => onOpen(item)} outline styles={styles} /></View>)}
+      {resource.items.map((item) => <View key={item.id} style={styles.card}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text>{item.description || item.shareDescription ? <Text style={styles.body}>{item.description || item.shareDescription}</Text> : null}<Button disabled={isOffline} label="Open resource" onPress={() => onOpen(item)} outline styles={styles} /><Button label="Remove from this list" onPress={() => onDismiss(item)} outline styles={styles} /></View>)}
     </View>
   )
 }
 
-export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onOpenRoom, onSend, rooms, selectedRoom, themeTokens }) {
+export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onSend, rooms, selectedRoom, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [draft, setDraft] = useState('')
+  const sortedRooms = useMemo(() => prepareParentChatRooms(rooms.items), [rooms.items])
+  const sortedMessages = useMemo(() => prepareParentChatMessages(messages.items), [messages.items])
   if (selectedRoom) {
     return (
-      <View style={styles.stack}>
-        <Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} />
-        <View><Text accessibilityRole="header" style={styles.header}>{selectedRoom.title}</Text><Text style={styles.helper}>{selectedRoom.teamName || selectedRoom.clubName}</Text></View>
+      <View style={styles.chatScreen}>
+        <View style={styles.chatHeader}><Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} /><Text accessibilityRole="header" style={styles.cardTitle}>{selectedRoom.title}</Text><Text style={styles.helper}>{getParentChatRoomContext(selectedRoom)}</Text></View>
+        <FlatList
+          contentContainerStyle={styles.chatListContent}
+          data={[...sortedMessages].reverse()}
+          inverted
+          keyExtractor={(message) => String(message.id)}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={!messages.loading ? <Text style={styles.empty}>No messages in this conversation yet.</Text> : null}
+          renderItem={({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Button danger disabled={isOffline || activeActionId === `chat-delete:${message.id}`} label="Delete" onPress={() => onDelete(message)} outline styles={styles} /> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>}
+          style={styles.chatList}
+        />
         {messages.loading ? <Text style={styles.helper}>Loading messages...</Text> : null}
         {messages.error ? <Text style={styles.error}>{messages.error}</Text> : null}
-        {!messages.loading && messages.items.length === 0 ? <Text style={styles.empty}>No messages in this room yet.</Text> : null}
-        {messages.items.map((message) => <View key={message.id} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Button danger disabled={isOffline || activeActionId === `chat-delete:${message.id}`} label="Delete message" onPress={() => onDelete(message)} outline styles={styles} /> : null}</View>)}
-        {selectedRoom.canPost ? <View style={styles.card}><Text style={styles.fieldLabel}>New message</Text><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Write a message" placeholderTextColor={colors.muted} style={[styles.field, { minHeight: 100, textAlignVertical: 'top' }]} value={draft} /><Text style={styles.helper}>{draft.length} / 2000</Text><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send message'} onPress={() => onSend(draft).then(() => setDraft(''))} styles={styles} /></View> : null}
+        {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => onSend(draft).then(() => setDraft(''))} styles={styles} /></View> : null}
       </View>
     )
   }
   return (
-    <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Parent Chat</Text><Text style={styles.helper}>Dedicated Parent and staff Chat for {link?.playerName || 'your child'}.</Text></View>
-      {isOffline ? <Text style={styles.warning}>Saved rooms remain readable. Sending and deleting need a connection.</Text> : null}
-      <ResourceState emptyCopy="No Parent Chat rooms are available for this child." {...rooms} styles={styles} />
-      {rooms.items.map((room) => <Pressable accessibilityRole="button" key={room.id} onPress={() => onOpenRoom(room)} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{labelize(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount} unread</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text><Text numberOfLines={2} style={styles.body}>{room.latestMessage || 'Open this room'}</Text></Pressable>)}
+    <View style={styles.chatScreen}>
+      <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your child'}.</Text>{isOffline ? <Text style={styles.warning}>Saved conversations remain readable. Sending and deleting need a connection.</Text> : null}</View>
+      <ResourceState emptyCopy="No Parent Chat rooms are available for this child." error={rooms.error} items={sortedRooms} loading={rooms.loading} styles={styles} />
+      <FlatList contentContainerStyle={styles.chatRoomContent} data={sortedRooms} keyExtractor={(room) => String(room.id)} renderItem={({ item: room }) => <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{labelize(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text>{room.latestMessageAt ? <Text style={styles.meta}>{formatDate(room.latestMessageAt)}</Text> : null}</Pressable>} style={styles.chatList} />
     </View>
   )
 }
 
-export function MoreScreen({ onOpen, themeTokens, unreadMessages, unansweredInvites, unansweredPolls }) {
+export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredPolls }) {
   const { styles } = usePortalStyles(themeTokens)
   const items = [
     ['invites', 'Invites', unansweredInvites ? `${unansweredInvites} need a response` : 'Attendance and volunteer requests'],
     ['results', 'Results', 'Completed fixtures'],
     ['development', 'Development', 'Reports shared with your family'],
     ['resources', 'Resources', 'Files and links'],
-    ['messages', 'Messages', unreadMessages ? `${unreadMessages} unread` : 'Club email updates'],
     ['polls', 'Polls', unansweredPolls ? `${unansweredPolls} need a response` : 'Parent polls'],
     ['settings', 'Settings', 'Account, security, display and alerts'],
   ]

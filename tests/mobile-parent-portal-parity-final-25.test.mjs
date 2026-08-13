@@ -20,7 +20,7 @@ const [app, screens, data, offline, environment, developmentApi, resourceApi, fi
 ])
 
 test('machine-readable matrix covers every approved Parent capability', () => {
-  const expected = ['Overview', 'Calendar', 'Invites', 'Match cards', 'Parent Game Day', 'Results', 'Development', 'Resources', 'Parent Chat', 'Messages', 'Polls', 'Child switching', 'Settings and security', 'Notifications']
+  const expected = ['Overview', 'Calendar', 'Invites', 'Match cards', 'Parent Game Day', 'Results', 'Development', 'Resources', 'Parent Chat', 'Club announcements', 'Polls', 'Child switching', 'Settings and security', 'Notifications']
   assert.deepEqual(PARENT_PARITY_MATRIX.map((row) => row.capability), expected)
   assert.deepEqual(getParentParitySummary(), { complete: true, implemented: 14, total: 14 })
   for (const row of PARENT_PARITY_MATRIX) {
@@ -34,7 +34,7 @@ test('native navigation exposes Portal parity without billing, Coach or Demo Gam
   for (const label of ['Home', 'Calendar', 'Matchday', 'Chat', 'More']) assert.match(app, new RegExp(`label: '${label}'`))
   for (const screen of ['InvitationsScreen', 'ResultsScreen', 'DevelopmentScreen', 'ResourcesScreen', 'MessagesScreen', 'PollsScreen', 'SettingsScreen']) assert.match(app, new RegExp(screen))
   assert.match(screens, /Accepted Parent scorer/)
-  assert.match(screens, /Dedicated Parent and staff Chat/)
+  assert.match(screens, /Conversations for/)
   assert.doesNotMatch(`${app}\n${screens}\n${data}`, /checkout|billing|upgrade plan|private demo|demo game day/i)
 })
 

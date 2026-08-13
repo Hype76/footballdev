@@ -163,12 +163,12 @@ test('Calendar date windows use Europe London boundaries and DST safely', () => 
   assert.deepEqual(getParentCalendarWindow(items, '30-days', new Date('2026-08-09T10:00:00Z')).map((item) => item.id), ['today', 'day-30'])
 })
 
-test('Calendar screen provides native filtering, grouped dates, refresh, detail, and response state', () => {
+test('Calendar screen provides native Month and Agenda views, action filters, grouped dates and response state', () => {
   assert.match(appSource, /buildParentCalendarEvents\(\{/)
   assert.match(appSource, /calendarEvents: valueFor\('calendar'\)/)
   assert.match(appSource, /invitations: valueFor\('invitations'\)/)
   assert.match(appSource, /matches: valueFor\('matches'\)/)
-  for (const copy of ['Upcoming', 'Next 30 days', 'All dates', 'Refresh Calendar', 'Response:']) {
+  for (const copy of ['Month', 'Agenda', 'Needs response', 'Next 30 days', 'Previous 30 days', 'All upcoming', 'History', 'Response:']) {
     assert.match(screenSource, new RegExp(copy))
   }
   assert.match(screenSource, /formatParentProductDateTime/)

@@ -80,7 +80,7 @@ test('Parent app sanitizes messages and exposes only canonical authorised Develo
   assert.doesNotMatch(parentAppSource, /dangerouslySetInnerHTML|WebView/)
 })
 
-test('Parent PDF download retains server authority, validates PDF response, and removes the temporary file', () => {
+test('Parent PDF download retains server authority, validates PDF response, and keeps Android viewer access valid', () => {
   assert.match(parentDevelopmentSource, /getAccessToken\(\)/)
   assert.match(parentDevelopmentSource, /Authorization: `Bearer \$\{request\.accessToken\}`/)
   assert.match(parentDevelopmentSource, /parentLinkId: request\.parentLinkId/)
@@ -90,6 +90,8 @@ test('Parent PDF download retains server authority, validates PDF response, and 
   assert.match(parentDevelopmentSource, /FileSystem\.downloadAsync/)
   assert.match(parentDevelopmentSource, /contentType !== 'application\/pdf'/)
   assert.match(parentDevelopmentSource, /Sharing\.shareAsync/)
+  assert.match(parentDevelopmentSource, /keepDownloadedFile = true/)
+  assert.match(parentDevelopmentSource, /downloadedUri && !keepDownloadedFile/)
   assert.match(parentDevelopmentSource, /FileSystem\.deleteAsync\(downloadedUri, \{ idempotent: true \}\)/)
   assert.equal(parentPackage.dependencies['expo-file-system'], '~19.0.23')
   assert.equal(parentPackage.dependencies['expo-sharing'], '~14.0.8')

@@ -7,6 +7,7 @@ const PRIMARY_ROUTES = Object.freeze([
 ])
 
 const MORE_ROUTES = Object.freeze([
+  Object.freeze({ key: 'formation', label: 'Formation Boards', description: 'Create and manage team plans', minimumRank: 20, requiresTeam: true }),
   Object.freeze({ key: 'sessions', label: 'Sessions', minimumRank: 20, requiresTeam: true }),
   Object.freeze({ key: 'development', label: 'Development', minimumRank: 20, requiresTeam: true }),
   Object.freeze({ key: 'resources', label: 'Resources', minimumRank: 20 }),
@@ -91,6 +92,7 @@ export function resolveCoachRoute(route, context) {
 }
 
 export function getCoachRouteContainer(route) {
+  if (route === 'formation') return 'formation'
   return MORE_ROUTES.some((item) => item.key === route) ? 'more' : route
 }
 

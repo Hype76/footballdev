@@ -69,7 +69,7 @@ async function getStaffProfile(authUser) {
 async function getMessagePayload({ id, profile }) {
   const { data: log, error } = await supabaseAdmin
     .from('communication_logs')
-    .select('id, club_id, player_id, user_name, metadata, created_at')
+    .select('id, club_id, player_id, evaluation_id, user_name, metadata, created_at')
     .eq('id', id)
     .eq('club_id', profile.clubId)
     .eq('channel', 'email')
@@ -80,16 +80,28 @@ async function getMessagePayload({ id, profile }) {
     throw Object.assign(new Error('Parent message could not be found.'), { statusCode: 404 })
   }
 
+  const metadata = log.metadata && typeof log.metadata === 'object' ? log.metadata : {}
+  const messageBody = normalizeText(metadata.body)
+  const reportId = normalizeText(log.evaluation_id || metadata.evaluationId || metadata.evaluation_id || metadata.reportId || metadata.report_id)
+  if (!messageBody && !reportId) {
+    throw Object.assign(new Error('This email record has no in-app destination.'), { statusCode: 422 })
+  }
+
   return {
     clubId: log.club_id,
-    data: {
+    data: messageBody ? {
       app: 'parent',
       communicationLogId: log.id,
-      messageId: log.id,
-      route: 'messages',
+      roomId: 'club-announcements',
+      route: 'chat',
       type: 'parent_message',
+    } : {
+      app: 'parent',
+      reportId,
+      route: 'development',
+      type: 'development_report',
     },
-    detailedBody: 'Your club has shared a new Parent message.',
+    detailedBody: messageBody ? 'Your club has shared a new announcement.' : 'A Development report is ready to view.',
     minimalBody: 'You have a new update in Football Player Parents.',
     parentLinkQuery: (query) => query.eq('player_id', log.player_id),
     teamId: null,
@@ -175,6 +187,69 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
     teamId: request.team_id || null,
     title: 'Availability requested',
     type: 'matchday_update',
+  }
+}
+
+async function getTrainingAvailabilityPayload({ id, profile }) {
+  const { data: requestPlayer, error } = await supabaseAdmin
+    .from('training_availability_request_players')
+    .select('id, request_id, club_id, team_id, calendar_event_id, parent_link_id, recipient_type, status')
+    .eq('id', id)
+    .eq('club_id', profile.clubId)
+    .maybeSingle()
+
+  if (
+    error
+    || !requestPlayer
+    || !requestPlayer.parent_link_id
+    || requestPlayer.recipient_type !== 'parent'
+    || ['cancelled', 'expired'].includes(requestPlayer.status)
+  ) {
+    throw Object.assign(new Error('Training availability request could not be found.'), { statusCode: 404 })
+  }
+
+  const [{ data: request, error: requestError }, { data: event, error: eventError }] = await Promise.all([
+    supabaseAdmin
+      .from('training_availability_requests')
+      .select('id, status, occurrence_starts_at')
+      .eq('id', requestPlayer.request_id)
+      .eq('club_id', requestPlayer.club_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('calendar_events')
+      .select('id, title, starts_at, cancelled_at')
+      .eq('id', requestPlayer.calendar_event_id)
+      .eq('club_id', requestPlayer.club_id)
+      .maybeSingle(),
+  ])
+
+  if (requestError || eventError || !request || !event || request.status === 'cancelled' || event.cancelled_at) {
+    throw Object.assign(new Error('Training availability request is no longer active.'), { statusCode: 404 })
+  }
+
+  const startsAt = request.occurrence_starts_at || event.starts_at
+  const trainingDate = startsAt
+    ? new Date(startsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : 'the upcoming session'
+  const title = normalizeText(event.title) || 'Training'
+
+  return {
+    clubId: requestPlayer.club_id,
+    data: {
+      app: 'parent',
+      invitationId: `training_attendance:${requestPlayer.id}`,
+      parentLinkId: requestPlayer.parent_link_id,
+      route: 'invites',
+      trainingRequestPlayerId: requestPlayer.id,
+      type: 'training_availability',
+    },
+    categoryId: 'parent-response',
+    detailedBody: `Please confirm attendance for ${title} on ${trainingDate}.`,
+    minimalBody: 'Your club needs an attendance response for an upcoming training session.',
+    parentLinkQuery: (query) => query.eq('id', requestPlayer.parent_link_id),
+    teamId: requestPlayer.team_id || null,
+    title: 'Training response requested',
+    type: 'training_update',
   }
 }
 
@@ -299,6 +374,8 @@ export async function sendParentMobilePushById({ id, profile, type }) {
     ? await getMessagePayload({ id, profile })
     : type === 'matchday_availability'
       ? await getMatchDayAvailabilityPayload({ id, profile })
+      : type === 'training_availability'
+        ? await getTrainingAvailabilityPayload({ id, profile })
       : await getPollPayload({ id, profile })
   const parentLinks = await getTargetParentLinks(payload)
   const devices = await getMobileDevices({
@@ -344,7 +421,7 @@ export async function handler(event) {
     const type = normalizeText(body.type)
     const id = normalizeText(body.id)
 
-    if (!id || !['matchday_availability', 'parent_message', 'parent_poll'].includes(type)) {
+    if (!id || !['matchday_availability', 'parent_message', 'parent_poll', 'training_availability'].includes(type)) {
       return failureResponse(400, 'A valid parent notification type and id are required.')
     }
 

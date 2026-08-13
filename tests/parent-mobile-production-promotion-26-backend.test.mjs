@@ -45,7 +45,7 @@ test('native Parent send paths use server-owned audience and privacy-safe prefer
     assert.match(source, /device\.detail_level === 'detailed'/)
     assert.match(source, /from\('parent_mobile_notification_events'\)/)
   }
-  assert.match(parentPush, /Your club has shared a new Parent message\./)
+  assert.match(parentPush, /Your club has shared a new announcement\./)
   assert.match(parentPush, /You have a new update in Football Player Parents\./)
   assert.match(parentPush, /A Parent poll is ready to view\./)
   assert.match(matchDayPush, /buildParentMatchDayNotificationCopy/)

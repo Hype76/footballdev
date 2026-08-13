@@ -157,6 +157,70 @@ async function markScheduledEmailFailed(row, error, workerInvocationId) {
   }
 }
 
+async function markParentAppNotificationRetry(row, {
+  payload = null,
+  providerAccepted = false,
+  providerMessageId = null,
+  subject = null,
+} = {}) {
+  const attempts = Number(row.attempts ?? 0) + 1
+  const retryAllowed = row.retry_enabled !== false
+    && row.legacy_review_required !== true
+    && attempts < MAX_EMAIL_DELIVERY_ATTEMPTS
+  const { error } = await supabaseAdmin
+    .from('scheduled_email_queue')
+    .update({
+      attempts,
+      delivery_state: retryAllowed
+        ? 'retrying_app_notification'
+        : providerAccepted
+          ? 'provider_accepted_app_notification_failed'
+          : 'app_notification_failed',
+      failure_category: 'parent_app_notification',
+      last_error: providerAccepted
+        ? 'Email accepted. App notification delivery is waiting for retry.'
+        : 'App notification delivery is waiting for retry.',
+      lease_expires_at: null,
+      lease_owner: null,
+      leased_at: null,
+      next_retry_at: retryAllowed ? getNextEmailRetryAt(attempts) : null,
+      ...(payload ? { payload } : {}),
+      ...(providerAccepted ? {
+        provider_accepted_at: new Date().toISOString(),
+        provider_message_id: providerMessageId,
+      } : {}),
+      safe_error_code: 'parent_app_notification_pending',
+      status: retryAllowed || !providerAccepted ? 'failed' : 'sent',
+      ...(subject ? { subject } : {}),
+      terminal_at: retryAllowed ? null : new Date().toISOString(),
+    })
+    .eq('id', row.id)
+
+  if (error) throw error
+  return retryAllowed
+}
+
+async function markScheduledAppNotificationSent(row, workerInvocationId) {
+  const { error } = await supabaseAdmin
+    .from('scheduled_email_queue')
+    .update({
+      delivery_state: 'app_notification_accepted',
+      failure_category: null,
+      last_error: null,
+      lease_expires_at: null,
+      lease_owner: null,
+      leased_at: null,
+      next_retry_at: null,
+      safe_error_code: null,
+      status: 'sent',
+      terminal_at: new Date().toISOString(),
+    })
+    .eq('id', row.id)
+    .eq('lease_owner', workerInvocationId)
+
+  if (error) throw error
+}
+
 async function discardSkippedScheduledEmail(row, reason) {
   if (isTrainingInvitationQueueRow(row)) {
     await updateTrainingInvitationDelivery({
@@ -197,11 +261,28 @@ async function discardSkippedScheduledEmail(row, reason) {
   }))
 }
 
-async function createSentCommunicationLog(row) {
+async function createSentCommunicationLog(row, { deliveryChannel = 'email' } = {}) {
   const log = row.payload?.communicationLog
 
   if (!log || typeof log !== 'object' || !log.clubId || !log.userId) {
     return null
+  }
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from('communication_logs')
+    .select('id, club_id')
+    .eq('club_id', log.clubId)
+    .eq('channel', 'email')
+    .eq('action', 'parent_email_sent')
+    .eq('metadata->>scheduledQueueId', row.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existingError) {
+    console.error('Scheduled communication log reconciliation failed', existingError)
+  } else if (existing?.id) {
+    return existing
   }
 
   const { data, error } = await supabaseAdmin.from('communication_logs').insert({
@@ -214,7 +295,11 @@ async function createSentCommunicationLog(row) {
     channel: 'email',
     action: 'parent_email_sent',
     recipient_email: String(log.recipientEmail ?? row.to_email ?? '').trim(),
-    metadata: log.metadata && typeof log.metadata === 'object' ? log.metadata : {},
+    metadata: {
+      ...(log.metadata && typeof log.metadata === 'object' ? log.metadata : {}),
+      deliveryChannel,
+      scheduledQueueId: row.id,
+    },
   }).select('id, club_id').single()
 
   if (error) {
@@ -227,10 +312,11 @@ async function createSentCommunicationLog(row) {
 
 async function sendScheduledParentPush(row, communicationLog) {
   const availabilityRequestId = String(row?.payload?.matchDayAvailability?.requestId ?? '').trim()
+  const trainingRequestPlayerId = String(row?.payload?.trainingInvitation?.requestPlayerId ?? '').trim()
 
   if (availabilityRequestId && row?.payload?.matchDayAvailability?.parentLinkId) {
     try {
-      await sendParentMobilePushById({
+      const pushResult = await sendParentMobilePushById({
         id: availabilityRequestId,
         profile: {
           clubId: row.club_id,
@@ -239,9 +325,31 @@ async function sendScheduledParentPush(row, communicationLog) {
         },
         type: 'matchday_availability',
       })
-      return true
+      return Number(pushResult?.sent || 0) > 0
     } catch (error) {
       console.error('Scheduled availability mobile push failed', error)
+    }
+    return false
+  }
+
+  if (
+    trainingRequestPlayerId
+    && row?.payload?.trainingInvitation?.parentLinkId
+    && row?.payload?.trainingInvitation?.recipientType === 'parent'
+  ) {
+    try {
+      const pushResult = await sendParentMobilePushById({
+        id: trainingRequestPlayerId,
+        profile: {
+          clubId: row.club_id,
+          role: 'system',
+          roleRank: 100,
+        },
+        type: 'training_availability',
+      })
+      return Number(pushResult?.sent || 0) > 0
+    } catch (error) {
+      console.error('Scheduled training availability mobile push failed', error)
     }
     return false
   }
@@ -251,7 +359,7 @@ async function sendScheduledParentPush(row, communicationLog) {
   }
 
   try {
-    await sendParentMobilePushById({
+    const pushResult = await sendParentMobilePushById({
       id: communicationLog.id,
       profile: {
         clubId: communicationLog.club_id,
@@ -260,7 +368,7 @@ async function sendScheduledParentPush(row, communicationLog) {
       },
       type: 'parent_message',
     })
-    return true
+    return Number(pushResult?.sent || 0) > 0
   } catch (error) {
     console.error('Scheduled email parent mobile push failed', error)
     return false
@@ -379,10 +487,16 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       resourceNotificationPreparation.row?.payload?.matchDayAvailability?.requestId
       && resourceNotificationPreparation.row?.payload?.matchDayAvailability?.parentLinkId,
     )
+    const isTrainingAvailabilityNotification = Boolean(
+      resourceNotificationPreparation.row?.payload?.trainingInvitation?.requestPlayerId
+      && resourceNotificationPreparation.row?.payload?.trainingInvitation?.parentLinkId
+      && resourceNotificationPreparation.row?.payload?.trainingInvitation?.recipientType === 'parent',
+    )
+    const isResponseNotification = isAvailabilityNotification || isTrainingAvailabilityNotification
     let appNotificationSent = Boolean(
       resourceNotificationPreparation.row?.payload?.parentCommunication?.appNotificationSentAt,
     )
-    if (allowsParentAppNotifications(communicationChannel) && isAvailabilityNotification && !appNotificationSent) {
+    if (allowsParentAppNotifications(communicationChannel) && isResponseNotification && !appNotificationSent) {
       appNotificationSent = await sendScheduledParentPush(resourceNotificationPreparation.row, null)
       if (appNotificationSent) {
         const appNotificationSentAt = new Date().toISOString()
@@ -398,13 +512,31 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       }
     }
     if (!allowsParentEmail(communicationChannel)) {
-      if (!appNotificationSent) await sendScheduledParentPush(resourceNotificationPreparation.row, null)
-      await discardSkippedScheduledEmail(lockedRow, 'parent_communication_preference_app')
+      let appOnlyCommunicationLog = null
+      if (!appNotificationSent && resourceNotificationPreparation.row?.payload?.communicationLog) {
+        appOnlyCommunicationLog = await createSentCommunicationLog(
+          resourceNotificationPreparation.row,
+          { deliveryChannel: 'app' },
+        )
+      }
+      if (!appNotificationSent) appNotificationSent = await sendScheduledParentPush(resourceNotificationPreparation.row, appOnlyCommunicationLog)
+      if (!appNotificationSent) {
+        await markParentAppNotificationRetry(lockedRow)
+        return 'failed'
+      }
+      if (isTrainingInvitationQueueRow(lockedRow)) {
+        await updateTrainingInvitationDelivery({
+          queueId: lockedRow.id,
+          status: 'sent',
+          supabase: supabaseAdmin,
+        })
+      }
+      await markScheduledAppNotificationSent(lockedRow, workerInvocationId)
       if (isCalendarNotificationQueueRow(lockedRow)) {
         await updateCalendarNotificationEvent(lockedRow.id, 'sent')
       }
       await updateEventPlayerNotificationEvent(lockedRow.id, 'sent')
-      return 'skipped'
+      return 'sent'
     }
 
     const preparedEmail = buildPreparedScheduledEmail(
@@ -458,7 +590,35 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
           },
         }
       : preparedPayload
-    await supabaseAdmin
+    const communicationLog = await createSentCommunicationLog(
+      isTrialCalendarNotificationQueueRow(lockedRow)
+        ? lockedRow
+        : resourceNotificationPreparation.row,
+      { deliveryChannel: communicationChannel },
+    )
+    if (allowsParentAppNotifications(communicationChannel) && !appNotificationSent) {
+      appNotificationSent = await sendScheduledParentPush(resourceNotificationPreparation.row, communicationLog)
+      if (!appNotificationSent) {
+        await markParentAppNotificationRetry(lockedRow, {
+          payload: sentPayload,
+          providerAccepted: true,
+          providerMessageId: getProviderMessageId(sendResult),
+          subject: preparedRow.subject,
+        })
+        return 'failed'
+      }
+    }
+
+    const finalPayload = appNotificationSent && !sentPayload?.parentCommunication?.appNotificationSentAt
+      ? {
+          ...sentPayload,
+          parentCommunication: {
+            ...(sentPayload?.parentCommunication || {}),
+            appNotificationSentAt: new Date().toISOString(),
+          },
+        }
+      : sentPayload
+    const { error: completionError } = await supabaseAdmin
       .from('scheduled_email_queue')
       .update({
         status: 'sent',
@@ -472,11 +632,13 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         lease_owner: null,
         leased_at: null,
         lease_expires_at: null,
-        payload: sentPayload,
+        payload: finalPayload,
         subject: preparedRow.subject,
       })
       .eq('id', lockedRow.id)
       .eq('lease_owner', workerInvocationId)
+
+    if (completionError) throw completionError
 
     await markMatchDayScorerReminderSent(lockedRow)
 
@@ -484,20 +646,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       await updateCalendarNotificationEvent(lockedRow.id, 'sent')
     }
 
-    if (sendResult.duplicate) {
-      return 'duplicate'
-    }
-
-    const communicationLog = await createSentCommunicationLog(
-      isTrialCalendarNotificationQueueRow(lockedRow)
-        ? lockedRow
-        : resourceNotificationPreparation.row,
-    )
-    if (allowsParentAppNotifications(communicationChannel) && !appNotificationSent) {
-      await sendScheduledParentPush(resourceNotificationPreparation.row, communicationLog)
-    }
-
-    return 'sent'
+    return sendResult.duplicate ? 'duplicate' : 'sent'
   } catch (error) {
     console.error('Scheduled email send failed', getSafeErrorDetails(error))
     await markEmailLogFailed(error.emailLogRecord, error)
