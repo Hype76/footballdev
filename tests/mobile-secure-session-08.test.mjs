@@ -251,7 +251,7 @@ test('Coach cannot restore Parent and Parent cannot restore Coach', async () => 
   assert.equal((await coach.storage.getItem(sessionKey)) === value, true)
 })
 
-test('unknown app, unknown environment and wrong project fail closed while approved production storage is supported', () => {
+test('unknown app, unknown environment and wrong project fail closed while approved Coach and Parent production storage is supported', () => {
   const base = {
     legacyStorage: new MockLegacyStorage(),
     secureStore: new MockSecureStore(),
@@ -261,13 +261,13 @@ test('unknown app, unknown environment and wrong project fail closed while appro
   assert.throws(() => createSecureSessionStorage({ ...base, appRole: 'unknown', environment: 'test' }), /secure_session_app_mismatch/)
   assert.throws(() => createSecureSessionStorage({ ...base, appRole: 'coach', environment: 'unknown' }), /secure_session_environment_mismatch/)
   assert.throws(() => createSecureSessionStorage({ ...base, appRole: 'coach', environment: 'test', supabaseProjectRef: 'unknown' }), /secure_session_environment_mismatch/)
-  assert.throws(() => createSecureSessionStorage({
+  assert.doesNotThrow(() => createSecureSessionStorage({
     ...base,
     appRole: 'coach',
     environment: 'production',
     sessionStorageKey: `sb-${APPROVED_MOBILE_PRODUCTION_SUPABASE_REF}-auth-token`,
     supabaseProjectRef: APPROVED_MOBILE_PRODUCTION_SUPABASE_REF,
-  }), /secure_session_environment_mismatch/)
+  }))
   assert.doesNotThrow(() => createSecureSessionStorage({
     ...base,
     appRole: 'parent',

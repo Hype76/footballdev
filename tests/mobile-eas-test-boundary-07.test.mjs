@@ -20,13 +20,13 @@ function makePublicClientKey(ref = APPROVED_MOBILE_TEST.supabaseRef) {
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ ref, role: 'anon' })}.test-signature`
 }
 
-function approvedProductionFixture(buildProfile = 'store-live') {
+function approvedProductionFixture(appRole = 'parent', buildProfile = 'store-live') {
   return {
     allowLiveSupabase: 'true',
     apiBaseUrl: APPROVED_MOBILE_PRODUCTION.apiOrigin,
-    appRole: 'parent',
+    appRole,
     buildProfile,
-    easProjectId: MOBILE_EAS_PROJECT_IDS.parent,
+    easProjectId: MOBILE_EAS_PROJECT_IDS[appRole],
     supabaseEnvironment: 'production',
     supabasePublishableKey: makePublicClientKey(APPROVED_MOBILE_PRODUCTION.supabaseRef),
     supabaseUrl: APPROVED_MOBILE_PRODUCTION.supabaseOrigin,
@@ -91,22 +91,22 @@ for (const [name, changes, reason] of hostileCases) {
   })
 }
 
-test('Parent production profiles require exact production values while Coach stays blocked', () => {
-  for (const profile of ['internal-live', 'store-live']) {
-    const result = validateResolvedMobileEnvironment(approvedProductionFixture(profile))
-    assert.equal(result.pass, true)
-    assert.deepEqual(result.reasonCodes, [
-      'approved_production_supabase',
-      'approved_production_api',
-      'approved_production_key_pair',
-    ])
+test('Coach and Parent production profiles require exact production values', () => {
+  for (const appRole of ['coach', 'parent']) {
+    for (const profile of ['internal-live', 'store-live']) {
+      const result = validateResolvedMobileEnvironment(approvedProductionFixture(appRole, profile))
+      assert.equal(result.pass, true)
+      assert.deepEqual(result.reasonCodes, [
+        'approved_production_supabase',
+        'approved_production_api',
+        'approved_production_key_pair',
+      ])
+    }
   }
-  const coach = validateResolvedMobileEnvironment({ ...approvedProductionFixture(), appRole: 'coach', easProjectId: MOBILE_EAS_PROJECT_IDS.coach })
-  assert.equal(coach.pass, false)
-  assert.ok(coach.reasonCodes.includes('production_build_not_authorised'))
 })
 
-test('Coach and Parent EAS profiles preserve tester scopes and only Parent adds production profiles', async () => {
+test('Coach and Parent EAS profiles preserve tester scopes and add explicit production profiles', async () => {
+  const ascAppIds = { coach: '6772059305', parent: '6772061464' }
   for (const appRole of ['coach', 'parent']) {
     const eas = JSON.parse(await readFile(path.join(repositoryRoot, 'apps', `${appRole}-mobile`, 'eas.json'), 'utf8'))
     assert.equal(eas.build.development.environment, 'development')
@@ -115,17 +115,11 @@ test('Coach and Parent EAS profiles preserve tester scopes and only Parent adds 
     assert.equal(eas.build.development.env.EXPO_PUBLIC_BUILD_PROFILE, 'development')
     assert.equal(eas.build.internal.env.EXPO_PUBLIC_BUILD_PROFILE, 'internal')
     assert.equal(eas.build['store-test'].env.EXPO_PUBLIC_BUILD_PROFILE, 'store-test')
-    if (appRole === 'parent') {
-      assert.equal(eas.build['internal-live'].environment, 'production')
-      assert.equal(eas.build['store-live'].environment, 'production')
-      assert.equal(eas.build['internal-live'].env.EXPO_PUBLIC_BUILD_PROFILE, 'internal-live')
-      assert.equal(eas.build['store-live'].env.EXPO_PUBLIC_BUILD_PROFILE, 'store-live')
-      assert.equal(eas.submit['store-live'].ios.ascAppId, '6772061464')
-    } else {
-      assert.equal(eas.build['internal-live'], undefined)
-      assert.equal(eas.build['store-live'], undefined)
-      assert.equal(eas.submit['store-live'], undefined)
-    }
+    assert.equal(eas.build['internal-live'].environment, 'production')
+    assert.equal(eas.build['store-live'].environment, 'production')
+    assert.equal(eas.build['internal-live'].env.EXPO_PUBLIC_BUILD_PROFILE, 'internal-live')
+    assert.equal(eas.build['store-live'].env.EXPO_PUBLIC_BUILD_PROFILE, 'store-live')
+    assert.equal(eas.submit['store-live'].ios.ascAppId, ascAppIds[appRole])
   }
 })
 
@@ -137,7 +131,7 @@ test('repository profile guard passes without resolving remote values', () => {
   assert.equal(result.status, 0, result.stderr)
 })
 
-test('production build guards require the named Parent promotion reference', () => {
+test('production build guards require an app-specific promotion reference', () => {
   const buildGuard = readFileSync(path.join(repositoryRoot, 'apps/scripts/mobile-build-guard.mjs'), 'utf8')
   assert.match(buildGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)
   assert.match(buildGuard, /FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29/)
@@ -151,7 +145,7 @@ test('production build guards require the named Parent promotion reference', () 
       env: { ...process.env, MOBILE_NATIVE_BUILD_CONFIRMED: 'true' },
     })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /Production Parent mobile build not authorised for this reference\./)
+    assert.match(result.stderr, /Production mobile build not authorised for this app and reference\./)
     assert.match(result.stderr, /production_build_not_authorised/)
     assert.doesNotMatch(result.stderr, /EXPO_PUBLIC_|supabase\.co|netlify\.app/)
   }
@@ -186,7 +180,54 @@ test('Ref 38 permits only the bounded Parent production build profiles', () => {
   }
 })
 
-test('production submission guard permits only named Parent iOS promotion', () => {
+test('Ref 47 permits bounded internal live iOS candidates for Coach and Parent', () => {
+  for (const appRole of ['coach', 'parent']) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, 'internal-live', 'ios'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-FORMATION-NOTIFICATIONS-47' },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /Mobile native build is blocked until EAS setup/)
+    assert.doesNotMatch(result.stderr, /production_build_not_authorised|Unknown mobile build profile/)
+  }
+})
+
+test('Ref 50 permits only the bounded Coach production testing candidates', () => {
+  for (const [profile, platform] of [['internal-live', 'ios'], ['store-live', 'android']]) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'coach', profile, platform], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-COACH-FORMATION-STEPPER-50' },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /Mobile native build is blocked until EAS setup/)
+    assert.doesNotMatch(result.stderr, /production_build_not_authorised|Unknown mobile build profile/)
+  }
+})
+
+test('Ref 51 permits only the bounded Coach drag-marker testing candidates', () => {
+  for (const [profile, platform] of [['internal-live', 'ios'], ['store-live', 'android']]) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'coach', profile, platform], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-COACH-FORMATION-DRAG-51' },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /Mobile native build is blocked until EAS setup/)
+    assert.doesNotMatch(result.stderr, /production_build_not_authorised|Unknown mobile build profile/)
+  }
+
+  const parentResult = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'parent', 'internal-live', 'ios'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-COACH-FORMATION-DRAG-51' },
+  })
+  assert.equal(parentResult.status, 1)
+  assert.match(parentResult.stderr, /production_build_not_authorised/)
+})
+
+test('production submission guard requires an app-specific iOS promotion reference', () => {
   const submitGuard = readFileSync(path.join(repositoryRoot, 'apps/scripts/mobile-submit-guard.mjs'), 'utf8')
   assert.match(submitGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)
   assert.match(submitGuard, /FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34/)
@@ -198,7 +239,7 @@ test('production submission guard permits only named Parent iOS promotion', () =
       env: { ...process.env, MOBILE_SUBMISSION_CONFIRMED: 'true' },
     })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /Production Parent iOS submission not authorised for this reference\./)
+    assert.match(result.stderr, /Production iOS submission not authorised for this app and reference\./)
     assert.match(result.stderr, /production_build_not_authorised/)
   }
 })

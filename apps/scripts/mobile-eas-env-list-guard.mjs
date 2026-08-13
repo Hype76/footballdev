@@ -37,7 +37,8 @@ console.log('Required profile values before native builds:')
 console.log('- development: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false, API URL can be test or local dev.')
 console.log('- internal: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false, API URL must be HTTPS test.')
 console.log('- store-test: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false, API URL must be HTTPS test.')
-console.log('Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until internal and store-test match those values.')
+console.log('- internal-live and store-live: EXPO_PUBLIC_SUPABASE_ENV=production, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=true, API URL must be the approved HTTPS production origin.')
+console.log('Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until the selected test or production profile matches every required value.')
 
 const easEnv = {
   ...process.env,

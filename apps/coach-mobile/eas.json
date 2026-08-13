@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "channel": "development",
       "environment": "development",
       "developmentClient": true,
       "distribution": "internal",
@@ -15,6 +16,7 @@
       }
     },
     "internal": {
+      "channel": "preview",
       "environment": "preview",
       "distribution": "internal",
       "android": {
@@ -30,6 +32,7 @@
       }
     },
     "store-test": {
+      "channel": "test",
       "environment": "preview",
       "distribution": "store",
       "autoIncrement": true,
@@ -38,6 +41,31 @@
         "EXPO_PUBLIC_SUPABASE_ENV": "test",
         "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "false"
       }
+    },
+    "internal-live": {
+      "channel": "production",
+      "environment": "production",
+      "distribution": "internal",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_BUILD_PROFILE": "internal-live",
+        "EXPO_PUBLIC_SUPABASE_ENV": "production",
+        "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"
+      }
+    },
+    "store-live": {
+      "channel": "production",
+      "environment": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_BUILD_PROFILE": "store-live",
+        "EXPO_PUBLIC_SUPABASE_ENV": "production",
+        "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"
+      }
     }
   },
   "submit": {
@@ -45,6 +73,17 @@
       "android": {
         "track": "alpha",
         "releaseStatus": "draft",
+        "changesNotSentForReview": true,
+        "serviceAccountKeyPath": "../mobile-release-evidence/credentials/football-player-mobile-expo-play-submit-service-account.json"
+      },
+      "ios": {
+        "ascAppId": "6772059305"
+      }
+    },
+    "store-live": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "completed",
         "changesNotSentForReview": true,
         "serviceAccountKeyPath": "../mobile-release-evidence/credentials/football-player-mobile-expo-play-submit-service-account.json"
       },

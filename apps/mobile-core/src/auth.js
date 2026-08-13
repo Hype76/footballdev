@@ -4,7 +4,13 @@ import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } 
 import { getMobileRuntimeConfig } from './config'
 import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
-import { MOBILE_STARTUP_STATES, runMobileStartup, withStartupTimeout } from './startupStateCore'
+import {
+  DEFAULT_MOBILE_STARTUP_TIMEOUT_MS,
+  getMobileStartupDiagnosticPrefix,
+  MOBILE_STARTUP_STATES,
+  runMobileStartup,
+  withStartupTimeout,
+} from './startupStateCore'
 import {
   clearMobileSessionStorage,
   getAccessToken,
@@ -16,11 +22,33 @@ import {
 
 const AuthContext = createContext(null)
 
+function isAuthoritativeProfileFailure(error) {
+  const code = String(error?.code || '').trim().toLowerCase()
+  const message = String(error?.message || error || '').trim().toLowerCase()
+  const status = Number(error?.status || error?.statusCode || 0)
+  return status === 401
+    || status === 403
+    || code === '42501'
+    || message.includes('not linked to a coach account')
+    || message.includes('not authorised')
+    || message.includes('not authorized')
+    || message.includes('permission denied')
+}
+
+async function disableBiometricsForApp(appRole) {
+  if (appRole === 'parent') {
+    await setBiometricEnabled(false)
+    return
+  }
+  await setBiometricEnabled(false, appRole)
+}
+
 export function AuthProvider({
   appRole,
   children,
   offlineProfileStore = null,
   onBeforeSignOut = null,
+  onResetLocalData = null,
   prepareStartup = null,
 }) {
   const [authError, setAuthError] = useState('')
@@ -31,6 +59,24 @@ export function AuthProvider({
   const [startupDiagnosticCode, setStartupDiagnosticCode] = useState('')
   const [startupState, setStartupState] = useState(MOBILE_STARTUP_STATES.BOOTING)
   const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    const updateAutoRefresh = (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh()
+      } else {
+        supabase.auth.stopAutoRefresh()
+      }
+    }
+
+    updateAutoRefresh(AppState.currentState)
+    const subscription = AppState.addEventListener('change', updateAutoRefresh)
+
+    return () => {
+      subscription.remove()
+      supabase.auth.stopAutoRefresh()
+    }
+  }, [])
 
   const loadProfile = useCallback(async (nextSession) => {
     if (!nextSession?.user) {
@@ -43,7 +89,7 @@ export function AuthProvider({
 
     let cachedProfile = null
 
-    if (appRole === 'parent' && offlineProfileStore?.read) {
+    if (offlineProfileStore?.read) {
       try {
         cachedProfile = await offlineProfileStore.read(nextSession.user.id)
         if (cachedProfile) setUser({ ...cachedProfile, isOfflineProfile: true })
@@ -52,22 +98,50 @@ export function AuthProvider({
       }
     }
 
-    try {
-      const profile = await fetchMobileProfile(nextSession.user, appRole)
-      setUser(profile)
-      if (appRole === 'parent' && offlineProfileStore?.write) {
-        try {
-          await offlineProfileStore.write(profile)
-        } catch (error) {
-          console.warn(error)
+    const refreshProfile = async () => {
+      try {
+        const profile = await fetchMobileProfile(nextSession.user, appRole)
+        setUser(profile)
+        if (offlineProfileStore?.write) {
+          try {
+            await offlineProfileStore.write(profile)
+          } catch (error) {
+            console.warn(error)
+          }
         }
-      }
-    } catch (error) {
-      console.error(error)
-      if (!cachedProfile) {
+        return profile
+      } catch (error) {
+        if (cachedProfile && !isAuthoritativeProfileFailure(error)) {
+          console.warn(error)
+          return cachedProfile
+        }
+        if (cachedProfile && offlineProfileStore?.clear) {
+          try {
+            await offlineProfileStore.clear()
+          } catch (clearError) {
+            console.warn(clearError)
+          }
+        }
         setUser(null)
         setAuthError(error.message || 'Account details could not be loaded.')
+        throw error
       }
+    }
+
+    if (cachedProfile) {
+      const diagnosticPrefix = getMobileStartupDiagnosticPrefix(appRole)
+      void withStartupTimeout(
+        refreshProfile,
+        DEFAULT_MOBILE_STARTUP_TIMEOUT_MS,
+        `${diagnosticPrefix}_PROFILE_REFRESH_TIMEOUT`,
+      ).catch((error) => {
+        if (error?.code !== `${diagnosticPrefix}_PROFILE_REFRESH_TIMEOUT`) console.warn(error)
+      }).finally(() => setIsProfileLoading(false))
+      return cachedProfile
+    }
+
+    try {
+      return await refreshProfile()
     } finally {
       setIsProfileLoading(false)
     }
@@ -82,6 +156,7 @@ export function AuthProvider({
 
       const config = getMobileRuntimeConfig(appRole)
       const result = await runMobileStartup({
+        appRole,
         clearInvalidSession: async () => {
           await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
           await clearMobileSessionStorage()
@@ -91,7 +166,7 @@ export function AuthProvider({
           ...config,
           isUsable: isSupabaseConfigured && !mobileSessionStorageError,
         },
-        getBiometricEnabled,
+        getBiometricEnabled: () => getBiometricEnabled(appRole),
         getSession: () => supabase.auth.getSession(),
         loadProfile,
         onLock: (locked) => {
@@ -104,6 +179,9 @@ export function AuthProvider({
           if (isMounted) setStartupState(nextState)
         },
         prepare: () => prepareStartup?.(config),
+        resolvingProfileState: appRole === 'coach'
+          ? MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT
+          : MOBILE_STARTUP_STATES.RESTORING_SESSION,
       })
 
       if (!isMounted) return
@@ -134,9 +212,15 @@ export function AuthProvider({
         return
       }
 
-      setStartupState(MOBILE_STARTUP_STATES.RESTORING_SESSION)
-      void loadProfile(nextSession).finally(() => {
+      setStartupState(appRole === 'coach'
+        ? MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT
+        : MOBILE_STARTUP_STATES.RESTORING_SESSION)
+      void loadProfile(nextSession).then(() => {
         if (isMounted) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
+      }).catch((error) => {
+        if (!isMounted) return
+        setStartupDiagnosticCode(error?.code || `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_FAILED`)
+        setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
       })
     })
 
@@ -152,7 +236,7 @@ export function AuthProvider({
         return
       }
 
-      void getBiometricEnabled().then((biometricEnabled) => {
+      void getBiometricEnabled(appRole).then((biometricEnabled) => {
         if (biometricEnabled && session?.user) {
           setIsLocked(true)
         }
@@ -164,7 +248,7 @@ export function AuthProvider({
     return () => {
       subscription.remove()
     }
-  }, [session?.user])
+  }, [appRole, session?.user])
 
   const signIn = useCallback(async (email, password) => {
     setAuthError('')
@@ -196,18 +280,19 @@ export function AuthProvider({
       await withStartupTimeout(async () => {
         await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
         await clearMobileSessionStorage()
-        if (appRole === 'parent' && offlineProfileStore?.clear) await offlineProfileStore.clear()
-        await setBiometricEnabled(false)
+        if (offlineProfileStore?.clear) await offlineProfileStore.clear()
+        await onResetLocalData?.()
+        await disableBiometricsForApp(appRole)
       })
 
       setSession(null)
       setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_OUT)
     } catch (error) {
       setAuthError('Saved app information could not be reset safely.')
-      setStartupDiagnosticCode(error?.code || 'PARENT_LOCAL_RESET_FAILED')
+      setStartupDiagnosticCode(error?.code || `${getMobileStartupDiagnosticPrefix(appRole)}_LOCAL_RESET_FAILED`)
       setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
     }
-  }, [appRole, offlineProfileStore])
+  }, [appRole, offlineProfileStore, onResetLocalData])
 
   const signOut = useCallback(async () => {
     setIsLocked(false)
@@ -226,6 +311,7 @@ export function AuthProvider({
         await revokeNativePushDevice({
           accessToken,
           apiBaseUrl: config.apiBaseUrl,
+          appRole,
         })
       }
     } catch (error) {
@@ -233,12 +319,12 @@ export function AuthProvider({
     }
 
     try {
-      await setBiometricEnabled(false)
+      await disableBiometricsForApp(appRole)
     } catch (error) {
       console.warn(error)
     }
 
-    if (appRole === 'parent' && offlineProfileStore?.clear) {
+    if (offlineProfileStore?.clear) {
       try {
         await offlineProfileStore.clear()
       } catch (error) {
@@ -275,7 +361,11 @@ export function AuthProvider({
   const value = useMemo(() => ({
     appRole,
     authError,
-    isLoading: startupState === MOBILE_STARTUP_STATES.BOOTING || startupState === MOBILE_STARTUP_STATES.RESTORING_SESSION,
+    isLoading: [
+      MOBILE_STARTUP_STATES.BOOTING,
+      MOBILE_STARTUP_STATES.RESTORING_SESSION,
+      MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT,
+    ].includes(startupState),
     isLocked,
     isProfileLoading,
     resetLocalAppData,

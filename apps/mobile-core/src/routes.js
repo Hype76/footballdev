@@ -18,8 +18,29 @@ export function getTabForNotificationRoute(appRole, route) {
     return ''
   }
 
-  if (normalizedRole === 'coach' && normalizedRoute === 'matchday') {
-    return 'matchday'
+  if (normalizedRole === 'coach') {
+    const routeAliases = {
+      assessment: 'development',
+      assessments: 'development',
+      calendar: 'calendar',
+      chat: 'chat',
+      development: 'development',
+      fixture: 'matchday',
+      fixtures: 'matchday',
+      matchday: 'matchday',
+      message: 'messages',
+      messages: 'messages',
+      player: 'players',
+      players: 'players',
+      poll: 'polls',
+      polls: 'polls',
+      resource: 'resources',
+      resources: 'resources',
+      session: 'sessions',
+      sessions: 'sessions',
+    }
+
+    return routeAliases[normalizedRoute] || ''
   }
 
   return ''

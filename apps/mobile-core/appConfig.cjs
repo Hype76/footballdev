@@ -34,6 +34,7 @@ function createMobileExpoConfig({
   appRole,
   bundleIdentifier,
   description,
+  easProjectId = '',
   name,
   packageName,
   scheme,
@@ -41,6 +42,7 @@ function createMobileExpoConfig({
   version,
 }) {
   const environment = getMobileEnvironment()
+  const resolvedEasProjectId = environment.easProjectId || easProjectId
   const faceIdPermission = `${name} uses Face ID to unlock your saved session when biometric login is enabled.`
   const googleServicesFile = getAndroidGoogleServicesFile()
 
@@ -53,6 +55,13 @@ function createMobileExpoConfig({
       runtimeVersion: {
         policy: 'appVersion',
       },
+      ...(environment.easProjectId ? {
+        updates: {
+          url: `https://u.expo.dev/${environment.easProjectId}`,
+          checkAutomatically: 'ON_LOAD',
+          fallbackToCacheTimeout: 0,
+        },
+      } : {}),
       orientation: 'portrait',
       icon: './assets/icon.png',
       backgroundColor: '#030603',
@@ -119,8 +128,9 @@ function createMobileExpoConfig({
       extra: {
         ...environment,
         appRole,
+        easProjectId: resolvedEasProjectId,
         eas: {
-          projectId: environment.easProjectId,
+          projectId: resolvedEasProjectId,
         },
       },
     },
