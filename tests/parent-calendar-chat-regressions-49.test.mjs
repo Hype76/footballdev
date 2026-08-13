@@ -4,6 +4,7 @@ import { test } from 'node:test'
 
 const calendarUrl = new URL('../src/components/sessions/FootballCalendar.jsx', import.meta.url)
 const chatUrl = new URL('../src/components/chat/ParentChatWorkspace.jsx', import.meta.url)
+const chatOrderUrl = new URL('../src/components/chat/parent-chat-order.js', import.meta.url)
 const parentPortalUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const stylesUrl = new URL('../src/index.css', import.meta.url)
 
@@ -35,10 +36,13 @@ test('Calendar event modal does not duplicate Add to calendar', async () => {
 })
 
 test('Parent Chat orders current room messages newest first', async () => {
-  const source = await readFile(chatUrl, 'utf8')
+  const [source, ordering] = await Promise.all([
+    readFile(chatUrl, 'utf8'),
+    readFile(chatOrderUrl, 'utf8'),
+  ])
 
   assert.match(source, /orderParentPortalChatMessagesNewestFirst/)
-  assert.match(source, /rightTime - leftTime/)
+  assert.match(ordering, /rightTime - leftTime/)
   assert.match(source, /variant === 'parent'/)
   assert.match(source, /displayedMessages\.map/)
 })

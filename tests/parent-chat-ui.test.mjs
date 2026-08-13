@@ -91,10 +91,13 @@ test('Chat UI has no participant controls or private-message language', async ()
 })
 
 test('Parent Portal Chat presents newest messages first without changing the staff order', async () => {
-  const workspace = await readFile(workspaceUrl, 'utf8')
+  const [workspace, ordering] = await Promise.all([
+    readFile(workspaceUrl, 'utf8'),
+    readFile(new URL('../src/components/chat/parent-chat-order.js', import.meta.url), 'utf8'),
+  ])
 
-  assert.match(workspace, /export function orderParentPortalChatMessagesNewestFirst\(messages = \[\]\)/)
-  assert.match(workspace, /rightTime - leftTime \|\| left\.index - right\.index/)
+  assert.match(ordering, /export function orderParentPortalChatMessagesNewestFirst\(messages = \[\]\)/)
+  assert.match(ordering, /rightTime - leftTime \|\| left\.index - right\.index/)
   assert.match(workspace, /variant === 'parent' \? orderParentPortalChatMessagesNewestFirst\(messages\) : messages/)
   assert.match(workspace, /displayedMessages\.map\(\(message\) =>/)
 })

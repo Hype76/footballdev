@@ -8,6 +8,7 @@ import {
   sendParentChatMessage,
   subscribeToParentChatRoom,
 } from '../../lib/supabase.js'
+import { orderParentPortalChatMessagesNewestFirst } from './parent-chat-order.js'
 
 const groupOrder = [
   { key: PARENT_CHAT_ROOM_TYPES.parentStaff, label: 'Chat with Staff' },
@@ -94,17 +95,6 @@ function getRoomEmptyCopy(room) {
   }
 
   return 'No messages yet. This room is available only to the selected squad families and authorised team staff.'
-}
-
-export function orderParentPortalChatMessagesNewestFirst(messages = []) {
-  return messages
-    .map((message, index) => ({ index, message, time: Date.parse(message?.createdAt || '') }))
-    .sort((left, right) => {
-      const leftTime = Number.isFinite(left.time) ? left.time : 0
-      const rightTime = Number.isFinite(right.time) ? right.time : 0
-      return rightTime - leftTime || left.index - right.index
-    })
-    .map((entry) => entry.message)
 }
 
 export function ParentChatWorkspace({

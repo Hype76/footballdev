@@ -75,7 +75,6 @@ import {
   parentMatchDayLoadErrorTitle,
 } from '../lib/parent-matchday-errors.js'
 import {
-  addMinutesToRequiredTime,
   formatFixtureDateTime,
   getFixtureKickoffLabel,
   isFixtureKickoffTimeTbc,
