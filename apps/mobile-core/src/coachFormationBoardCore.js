@@ -15,6 +15,10 @@ export function getMobileFormationPitchPercent(value) {
   return Math.max(0, Math.min(100, converted))
 }
 
+export function getMobileFormationPitchRatio(value) {
+  return Number((getMobileFormationPitchPercent(value) / 100).toFixed(4))
+}
+
 export function getMobileFormationCapacity(gameFormat) {
   return MOBILE_FORMATION_GAME_FORMATS.find((format) => format.value === normalize(gameFormat))?.playerCount || 0
 }
@@ -280,6 +284,20 @@ export function moveMobileFormationPlayersToBench(draft, playerIds = []) {
     bench: [...draft.bench, ...removed],
     placements: draft.placements.filter((player) => !selected.has(player.playerId)),
   }
+}
+
+export function moveMobileFormationPlayer(draft, playerId, coordinates = {}) {
+  const targetId = normalize(playerId)
+  const placementIndex = (draft?.placements || []).findIndex((player) => player.playerId === targetId)
+  if (!targetId || placementIndex < 0) return draft
+
+  const placements = [...draft.placements]
+  placements[placementIndex] = {
+    ...placements[placementIndex],
+    x: Math.max(0.04, Math.min(0.96, getMobileFormationPitchRatio(coordinates.x))),
+    y: Math.max(0.04, Math.min(0.96, getMobileFormationPitchRatio(coordinates.y))),
+  }
+  return { ...draft, placements }
 }
 
 export function placeMobileFormationPlayerInNextSlot(draft, preset, playerId) {

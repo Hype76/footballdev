@@ -7,6 +7,8 @@ import {
   buildMobileFormationLineup,
   createMobileFormationDraft,
   getMobileFormationPitchPercent,
+  getMobileFormationPitchRatio,
+  moveMobileFormationPlayer,
   moveMobileFormationPlayersToBench,
   placeMobileFormationPlayerInNextSlot,
   setMobileFormationSquad,
@@ -56,6 +58,19 @@ test('mobile preset coordinates convert canonical zero-to-one values into visibl
   assert.equal(getMobileFormationPitchPercent(0.75), 75)
   assert.equal(getMobileFormationPitchPercent(50), 50)
   assert.equal(getMobileFormationPitchPercent(120), 100)
+  assert.equal(getMobileFormationPitchRatio(0.75), 0.75)
+  assert.equal(getMobileFormationPitchRatio(75), 0.75)
+})
+
+test('mobile Player markers can be moved freely while preserving their formation slot', () => {
+  const built = buildMobileFormationLineup(setMobileFormationSquad(createMobileFormationDraft(), players), preset442)
+  const moved = moveMobileFormationPlayer(built, 'player-1', { x: 0.72, y: 0.36 })
+  const player = moved.placements.find((item) => item.playerId === 'player-1')
+  assert.equal(player.slotId, 'slot-1')
+  assert.equal(player.x, 0.72)
+  assert.equal(player.y, 0.36)
+  assert.equal(moveMobileFormationPlayer(moved, 'player-1', { x: -20, y: 200 }).placements.find((item) => item.playerId === 'player-1').x, 0.04)
+  assert.equal(moveMobileFormationPlayer(moved, 'player-1', { x: -20, y: 200 }).placements.find((item) => item.playerId === 'player-1').y, 0.96)
 })
 
 test('two-tap swaps work between starters and between the pitch and Bench', () => {
@@ -108,8 +123,14 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.match(formation, /Select full squad/)
   assert.match(formation, /Load empty pitch/)
   assert.doesNotMatch(formation, /Use full squad & build team/)
-  assert.match(formation, /Tap any pitch position, then choose a Player/)
+  assert.match(formation, /Drag any Player marker freely around the pitch/)
   assert.match(formation, /assignMobileFormationPlayerToSlot/)
+  assert.match(formation, /PanResponder\.create/)
+  assert.match(formation, /moveMobileFormationPlayer/)
+  assert.match(formation, /markerSilhouetteHead/)
+  assert.match(formation, /markerSilhouetteShoulders/)
+  assert.match(formation, /markerBadge/)
+  assert.match(formation, /markerName/)
   assert.match(formation, /getMobileFormationPitchPercent\(slot\.x\)/)
   assert.match(formation, /getMobileFormationPitchPercent\(slot\.y\)/)
   assert.match(formation, /Move to pitch/)

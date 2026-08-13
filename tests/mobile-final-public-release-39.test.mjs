@@ -7,7 +7,7 @@ const masterReference = 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
 test('Master 39 authorises exact production AAB and iOS builds for both app roles', async () => {
   const source = await readFile(new URL('../apps/scripts/mobile-build-guard.mjs', import.meta.url), 'utf8')
   assert.match(source, /masterStoreAndroid/)
-  assert.match(source, /productionBuilds = new Set\(\['internal-live:android', 'store-live:android', 'store-live:ios'\]\)/)
+  assert.match(source, /productionBuilds = new Set\(\['internal-live:android', 'internal-live:ios', 'store-live:android', 'store-live:ios'\]\)/)
   assert.equal(source.split(masterReference).length - 1, 3)
 })
 

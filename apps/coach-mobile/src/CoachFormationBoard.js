@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   applyMobileFormationPreset,
   assignMobileFormationPlayerToSlot,
@@ -8,9 +9,11 @@ import {
   createMobileFormationPreferenceKey,
   getMobileFormationCapacity,
   getMobileFormationPitchPercent,
+  getMobileFormationPitchRatio,
   getMobileFormationSelectedPlayerIds,
   getMobileFormationSlotLabel,
   MOBILE_FORMATION_GAME_FORMATS,
+  moveMobileFormationPlayer,
   moveMobileFormationPlayersToBench,
   parseMobileFormationPreferences,
   placeMobileFormationPlayerInNextSlot,
@@ -77,14 +80,29 @@ function createStyles(palette) {
     modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.62)', flex: 1, justifyContent: 'flex-end' },
     modalPanel: { backgroundColor: palette.surface, borderColor: palette.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, gap: 12, maxHeight: '86%', padding: 16 },
     modalPlayer: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingHorizontal: 13, paddingVertical: 10 },
-    pitch: { backgroundColor: palette.pitchSurface, borderColor: 'rgba(255,255,255,0.82)', borderRadius: 18, borderWidth: 2, height: 475, overflow: 'hidden', position: 'relative' },
-    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.68)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
+    emptySlot: { alignItems: 'center', backgroundColor: 'rgba(16,24,40,0.72)', borderColor: 'rgba(255,255,255,0.82)', borderRadius: 24, borderStyle: 'dashed', borderWidth: 2, height: 44, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -22 }, { translateY: -22 }], width: 44, zIndex: 4 },
+    emptySlotLabel: { backgroundColor: 'rgba(16,24,40,0.86)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', left: -27, paddingHorizontal: 5, paddingVertical: 2, position: 'absolute', textAlign: 'center', top: 46, width: 98 },
+    marker: { alignItems: 'center', height: 74, justifyContent: 'flex-start', position: 'absolute', transform: [{ translateX: -38 }, { translateY: -25 }], width: 76, zIndex: 10 },
+    markerBadge: { alignItems: 'center', backgroundColor: 'rgb(16,24,40)', borderColor: 'rgb(255,255,255)', borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 20, minWidth: 20, paddingHorizontal: 4, position: 'absolute', right: -8, top: -5, zIndex: 3 },
+    markerBadgeText: { color: 'rgb(255,255,255)', fontSize: 10, fontWeight: '900', lineHeight: 12 },
+    markerCircle: { alignItems: 'center', backgroundColor: 'rgb(247,250,248)', borderColor: 'rgb(255,255,255)', borderRadius: 25, borderWidth: 3, elevation: 5, height: 50, justifyContent: 'center', shadowColor: 'rgb(16,24,40)', shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.28, shadowRadius: 5, width: 50 },
+    markerCircleDragging: { backgroundColor: 'rgb(224,242,254)', borderColor: 'rgb(186,230,253)', transform: [{ scale: 1.1 }] },
+    markerCircleRemoval: { borderColor: palette.warning, borderWidth: 4 },
+    markerCircleSelected: { backgroundColor: palette.selected, borderColor: palette.accent, borderWidth: 4 },
+    markerName: { backgroundColor: 'rgba(16,24,40,0.9)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', marginTop: 3, maxWidth: 76, paddingHorizontal: 5, paddingVertical: 2, textAlign: 'center' },
+    markerSilhouetteHead: { borderRadius: 7, height: 14, marginBottom: 2, width: 14 },
+    markerSilhouetteShoulders: { borderTopLeftRadius: 14, borderTopRightRadius: 14, height: 14, width: 28 },
+    pitch: { backgroundColor: 'rgb(35,122,69)', borderColor: 'rgb(255,255,255)', borderRadius: 22, borderWidth: 4, height: 475, overflow: 'hidden', position: 'relative' },
+    pitchBoxBottom: { borderBottomWidth: 0, bottom: 11 },
+    pitchBoxLarge: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '14%', left: '24%', position: 'absolute', width: '52%' },
+    pitchBoxSmall: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '6%', left: '38%', position: 'absolute', width: '24%' },
+    pitchBoxTop: { borderTopWidth: 0, top: 11 },
+    pitchCentreCircle: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 43, borderWidth: 2, height: 86, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -43 }, { translateY: -43 }], width: 86 },
+    pitchCentreSpot: { backgroundColor: 'rgba(255,255,255,0.82)', borderRadius: 5, height: 10, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -5 }, { translateY: -5 }], width: 10 },
+    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 11, position: 'absolute', right: 11, top: '50%' },
+    pitchOutline: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 17, borderWidth: 2, bottom: 11, left: 11, position: 'absolute', right: 11, top: 11 },
+    pitchStripe: { bottom: 0, position: 'absolute', top: 0, width: '12.5%' },
     planHeader: { backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 20, borderWidth: 1, gap: 8, padding: 16 },
-    playerName: { color: palette.textPrimary, fontSize: 10, fontWeight: '900', textAlign: 'center' },
-    playerSlot: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 11, borderWidth: 1, justifyContent: 'center', minHeight: 45, paddingHorizontal: 3, position: 'absolute' },
-    playerSlotEmpty: { backgroundColor: 'rgba(0,0,0,0.20)', borderColor: 'rgba(255,255,255,0.55)', borderStyle: 'dashed' },
-    playerSlotRemoval: { borderColor: palette.warning, borderWidth: 3 },
-    playerSlotSelected: { backgroundColor: palette.selected, borderColor: palette.accent, borderWidth: 3 },
     progress: { flexDirection: 'row', gap: 6 },
     progressItem: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 3, minHeight: 50, paddingHorizontal: 5, paddingVertical: 7 },
     progressItemActive: { backgroundColor: palette.selected, borderColor: palette.accent },
@@ -121,6 +139,79 @@ function Choice({ label, onPress, selected, styles }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}><Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text></Pressable>
 }
 
+function PitchLines({ styles }) {
+  return (
+    <>
+      {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.pitchStripe, { backgroundColor: index % 2 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.035)', left: `${index * 12.5}%` }]} />)}
+      <View style={styles.pitchOutline} />
+      <View style={styles.pitchHalfway} />
+      <View style={styles.pitchCentreCircle} />
+      <View style={styles.pitchCentreSpot} />
+      <View style={[styles.pitchBoxLarge, styles.pitchBoxTop]} />
+      <View style={[styles.pitchBoxLarge, styles.pitchBoxBottom]} />
+      <View style={[styles.pitchBoxSmall, styles.pitchBoxTop]} />
+      <View style={[styles.pitchBoxSmall, styles.pitchBoxBottom]} />
+    </>
+  )
+}
+
+function FormationPlayerMarker({ canMove, layout, onMove, onPress, palette, player, removal, selected, styles }) {
+  const [dragging, setDragging] = useState(false)
+  const [livePosition, setLivePosition] = useState(null)
+  const playerX = getMobileFormationPitchRatio(player.x)
+  const playerY = getMobileFormationPitchRatio(player.y)
+
+  const clamp = useCallback((value) => Math.max(0.04, Math.min(0.96, value)), [])
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gesture) => canMove && (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4),
+    onPanResponderMove: (_, gesture) => {
+      if (!canMove || !layout.width || !layout.height) return
+      if (Math.abs(gesture.dx) <= 4 && Math.abs(gesture.dy) <= 4) return
+      setDragging(true)
+      setLivePosition({
+        x: clamp(playerX + (gesture.dx / layout.width)),
+        y: clamp(playerY + (gesture.dy / layout.height)),
+      })
+    },
+    onPanResponderRelease: (_, gesture) => {
+      const moved = canMove && layout.width && layout.height && (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4)
+      if (moved) onMove({
+        x: clamp(playerX + (gesture.dx / layout.width)),
+        y: clamp(playerY + (gesture.dy / layout.height)),
+      })
+      else onPress()
+      setDragging(false)
+      setLivePosition(null)
+    },
+    onPanResponderTerminate: () => {
+      setDragging(false)
+      setLivePosition(null)
+    },
+    onPanResponderTerminationRequest: () => false,
+  }), [canMove, clamp, layout.height, layout.width, onMove, onPress, playerX, playerY])
+
+  const position = livePosition || { x: playerX, y: playerY }
+  const silhouetteColor = selected ? palette.selectedForeground : 'rgb(52,64,84)'
+  return (
+    <View
+      {...panResponder.panHandlers}
+      accessibilityHint={canMove ? 'Tap to change this Player. Drag to move the Player freely around the pitch.' : 'Tap to select this Player.'}
+      accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}`}
+      accessibilityRole="button"
+      accessibilityState={{ selected: Boolean(selected || removal) }}
+      style={[styles.marker, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}
+    >
+      <View style={[styles.markerCircle, selected && styles.markerCircleSelected, removal && styles.markerCircleRemoval, dragging && styles.markerCircleDragging]}>
+        <View style={[styles.markerSilhouetteHead, { backgroundColor: silhouetteColor }]} />
+        <View style={[styles.markerSilhouetteShoulders, { backgroundColor: silhouetteColor }]} />
+        {player.shirtNumber ? <View style={styles.markerBadge}><Text style={styles.markerBadgeText}>{player.shirtNumber}</Text></View> : null}
+      </View>
+      <Text numberOfLines={1} style={styles.markerName}>{player.displayName}</Text>
+    </View>
+  )
+}
+
 function publicationResourceId(publication) {
   return normalize(publication?.resource_id ?? publication?.resourceId)
 }
@@ -137,6 +228,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const [offline, setOffline] = useState(false)
   const [presets, setPresets] = useState([])
   const [matchPublications, setMatchPublications] = useState([])
+  const [pitchLayout, setPitchLayout] = useState({ height: 475, width: 320 })
   const [resourcePublications, setResourcePublications] = useState([])
   const [removalMode, setRemovalMode] = useState(false)
   const [removalIds, setRemovalIds] = useState([])
@@ -238,18 +330,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const unavailable = stale || offline
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const workflowStepIndex = WORKFLOW_STEPS.findIndex((step) => step.value === workflowStep)
-  const pitchSlotWidth = useMemo(() => {
-    const rowCounts = new Map()
-    for (const slot of currentPreset?.slots || []) {
-      const row = Math.round(getMobileFormationPitchPercent(slot.y) / 5) * 5
-      rowCounts.set(row, (rowCounts.get(row) || 0) + 1)
-    }
-    const widestRow = Math.max(1, ...rowCounts.values())
-    if (widestRow >= 4) return 23
-    if (widestRow === 3) return 29
-    if (widestRow === 2) return 41
-    return 50
-  }, [currentPreset?.slots])
   const rememberPreset = (nextDraft) => {
     setDraft(nextDraft)
     setSelectedPlayerId('')
@@ -479,31 +559,46 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       {workflowStep === 'lineup' ? <View style={styles.card}>
         <Text style={styles.eyebrow}>Step 3 of 4</Text>
         <View style={styles.rowBetween}><Text style={styles.heading}>Build lineup</Text><Text style={styles.count}>{draft.placements.length}/{capacity}</Text></View>
-        <Text style={styles.body}>Tap any pitch position, then choose a Player. Choosing an occupied position lets you replace or swap that Player.</Text>
+        <Text style={styles.body}>Tap an empty position to add a Player. Drag any Player marker freely around the pitch to show the movement or shape you want. Tap a marker to replace or swap that Player.</Text>
         {draft.placements.length ? <Action label={removalMode ? 'Cancel taking off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId('') }} secondary styles={styles} /> : null}
         {removalMode ? <View style={styles.selectedPanel}><Text style={styles.body}>Select one or more starters, then move them together.</Text><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /></View> : null}
-        <View accessibilityLabel="Formation pitch" style={styles.pitch}>
-          <View style={styles.pitchHalfway} />
-          {(currentPreset?.slots || []).map((slot) => {
-            const player = draft.placements.find((candidate) => candidate.slotId === slot.id)
-            const selectedForRemoval = player && removalIds.includes(player.playerId)
-            const selected = player && selectedPlayerId === player.playerId
-            return (
-              <Pressable
-                accessibilityHint={player ? removalMode ? 'Selects this Player to move to the Bench' : 'Opens the Player picker for this occupied position' : 'Opens the Player picker for this empty position'}
-                accessibilityRole="button"
-                accessibilityState={{ selected: Boolean(selected || selectedForRemoval) }}
-                key={slot.id}
-                onPress={() => {
-                  if (removalMode && player) selectPlayer(player.playerId, 'pitch')
-                  else if (!removalMode) openSlotPicker(slot.id)
-                }}
-                style={[styles.playerSlot, !player && styles.playerSlotEmpty, selected && styles.playerSlotSelected, selectedForRemoval && styles.playerSlotRemoval, { left: `${Math.max(2, Math.min(98 - pitchSlotWidth, getMobileFormationPitchPercent(slot.x) - (pitchSlotWidth / 2)))}%`, top: `${Math.max(1, Math.min(89, getMobileFormationPitchPercent(slot.y) - 5))}%`, width: `${pitchSlotWidth}%` }]}
-              >
-                <Text numberOfLines={2} style={styles.playerName}>{player ? `${player.shirtNumber ? `${player.shirtNumber} ` : ''}${player.displayName}` : `Add\n${getMobileFormationSlotLabel(slot)}`}</Text>
-              </Pressable>
-            )
-          })}
+        <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={styles.pitch}>
+          <PitchLines styles={styles} />
+          {(currentPreset?.slots || []).filter((slot) => !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
+            <Pressable
+              accessibilityHint="Opens the Player picker for this empty position"
+              accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(slot)}`}
+              accessibilityRole="button"
+              key={slot.id}
+              onPress={() => openSlotPicker(slot.id)}
+              style={[styles.emptySlot, { left: `${getMobileFormationPitchPercent(slot.x)}%`, top: `${getMobileFormationPitchPercent(slot.y)}%` }]}
+            >
+              <MaterialIcons color="rgb(255,255,255)" name="add" size={24} />
+              <Text numberOfLines={2} style={styles.emptySlotLabel}>{getMobileFormationSlotLabel(slot)}</Text>
+            </Pressable>
+          ))}
+          {draft.placements.map((player) => (
+            <FormationPlayerMarker
+              canMove={!removalMode}
+              key={player.playerId}
+              layout={pitchLayout}
+              onMove={(coordinates) => {
+                setDraft((current) => moveMobileFormationPlayer(current, player.playerId, coordinates))
+                setSelectedPlayerId('')
+                setNotice(`${player.displayName} moved. Save the board to keep this coaching position.`)
+              }}
+              onPress={() => {
+                if (removalMode) selectPlayer(player.playerId, 'pitch')
+                else if (player.slotId) openSlotPicker(player.slotId)
+                else selectPlayer(player.playerId, 'pitch')
+              }}
+              palette={palette}
+              player={player}
+              removal={removalIds.includes(player.playerId)}
+              selected={selectedPlayerId === player.playerId}
+              styles={styles}
+            />
+          ))}
         </View>
 
         <View style={styles.rowBetween}><Text style={styles.heading}>Bench</Text><Text style={styles.count}>{draft.bench.length}</Text></View>

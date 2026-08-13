@@ -34,6 +34,7 @@ const authorisedProductionSubmission = (
   promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49')
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-STEPPER-50')
+  || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-DRAG-51')
   || (platform === 'ios' && appRole === 'parent' && promotionReference === 'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28')
   || (platform === 'ios' && appRole === 'coach' && [
     'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
