@@ -41,6 +41,7 @@ const authorisedProductionSubmission = (
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-STEPPER-50')
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-DRAG-51')
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53')
+  || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54')
   || (platform === 'ios' && appRole === 'coach' && [
     'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
     'FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35',

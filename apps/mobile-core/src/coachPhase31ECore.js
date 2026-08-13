@@ -96,6 +96,12 @@ export function normalizeCoachDevelopmentForm(row = {}) {
   })
 }
 
+export function resolveCoachDevelopmentForm(forms = [], requestedId = '') {
+  const available = Array.isArray(forms) ? forms.filter((form) => normalize(form?.id)) : []
+  const requested = normalize(requestedId)
+  return available.find((form) => normalize(form.id) === requested) || available[0] || null
+}
+
 export function validateCoachDevelopmentValues(form, values = {}, roleRank = 20) {
   const errors = []
   const normalizedValues = {}

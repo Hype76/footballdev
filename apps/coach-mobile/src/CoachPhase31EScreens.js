@@ -29,6 +29,7 @@ import {
   getCoachResourceErrorMessage,
   isCoachMatchAvailabilityRequestCreationApplied,
   isSyntheticCoachTarget,
+  resolveCoachDevelopmentForm,
   sanitizeCoachChatOfflineValue,
   summarizeCoachInvites,
   summarizeCoachPoll,
@@ -56,6 +57,10 @@ function phaseStyles(palette) {
     stack: { gap: 12 },
     row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     roomSelector: { gap: 8, paddingRight: 12 },
+    formChoice: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: 14, paddingVertical: 10 },
+    formChoiceSelected: { borderColor: palette.accent, borderWidth: 2 },
+    formChoiceCopy: { flex: 1, gap: 3 },
+    formChoiceAction: { color: palette.accent, fontSize: 13, fontWeight: '900' },
     panel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 8, padding: 14 },
     panelSelected: { borderColor: palette.accent, borderWidth: 2 },
     title: { color: palette.textPrimary, fontSize: 26, fontWeight: '900' },
@@ -158,9 +163,20 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
   const [values, setValues] = useState({})
   const [notes, setNotes] = useState('')
   const [draft, setDraft] = useState(null)
-  const player = data.players?.find((item) => item.id === playerId)
-  const form = data.forms?.find((item) => item.id === formId)
-  const records = data.records?.filter((record) => !playerId || record.playerId === playerId) || []
+  const player = data.players?.find((item) => item.id === playerId) || data.players?.[0]
+  const activePlayerId = player?.id || ''
+  const form = resolveCoachDevelopmentForm(data.forms, formId)
+  const activeFormId = form?.id || ''
+  const records = data.records?.filter((record) => !activePlayerId || record.playerId === activePlayerId) || []
+
+  const selectDevelopmentForm = (nextForm) => {
+    if (!nextForm?.id || nextForm.id === activeFormId) return
+    setFormId(nextForm.id)
+    setValues({})
+    setNotes('')
+    setDraft(null)
+    setNotice(`${nextForm.name} selected. The form fields have been updated.`)
+  }
 
   const saveDraft = async () => {
     try {
@@ -188,9 +204,28 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
     <View style={styles.stack}>
       <View style={styles.panel}>
         <Text style={styles.heading}>Player</Text>
-        <View style={styles.row}>{data.players.map((item) => <Button key={item.id} label={item.playerName} onPress={() => setPlayerId(item.id)} secondary={item.id !== playerId} styles={styles} />)}</View>
-        <Text style={styles.heading}>Form</Text>
-        <View style={styles.row}>{data.forms.map((item) => <Button key={item.id} label={item.name} onPress={() => setFormId(item.id)} secondary={item.id !== formId} styles={styles} />)}</View>
+        <View style={styles.row}>{data.players.map((item) => <Button key={item.id} label={item.playerName} onPress={() => setPlayerId(item.id)} secondary={item.id !== activePlayerId} styles={styles} />)}</View>
+        <Text style={styles.heading}>Choose form</Text>
+        <Text style={styles.body}>Choose one form. Its fields will appear immediately below.</Text>
+        <View style={styles.stack}>{data.forms.map((item) => {
+          const selected = item.id === activeFormId
+          return (
+            <Pressable
+              accessibilityLabel={`${item.name}. ${selected ? 'Selected form' : 'Choose this form'}`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              key={item.id}
+              onPress={() => selectDevelopmentForm(item)}
+              style={[styles.formChoice, selected && styles.formChoiceSelected]}
+            >
+              <View style={styles.formChoiceCopy}>
+                <Text style={styles.label}>{item.name}</Text>
+                <Text style={styles.body}>{selected ? 'Selected form' : `${item.fields.length} fields`}</Text>
+              </View>
+              <Text style={styles.formChoiceAction}>{selected ? 'Selected' : 'Choose'}</Text>
+            </Pressable>
+          )
+        })}</View>
       </View>
       <View style={styles.panel}>
         <Text style={styles.heading}>{form?.name}</Text>

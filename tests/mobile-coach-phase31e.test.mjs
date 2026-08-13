@@ -18,6 +18,7 @@ import {
   normalizeCoachMessage,
   normalizeCoachPoll,
   normalizeCoachResource,
+  resolveCoachDevelopmentForm,
   splitCoachDevelopmentVisibility,
   summarizeCoachInvites,
   summarizeCoachPoll,
@@ -61,6 +62,18 @@ test('dynamic Development fields preserve supported structured types and visibil
   assert.deepEqual(form.fields.map((field) => field.type), ['score_1_10', 'textarea', 'select', 'boolean'])
   assert.equal(form.fields[0].parentVisible, true)
   assert.equal(form.fields[1].staffPrivate, true)
+})
+
+test('Development form selection resolves every distinct form and falls back safely', () => {
+  const forms = [
+    normalizeCoachDevelopmentForm({ id: 'goalkeeping', name: 'Goal Keeping Coach', fields: [{ id: 'distribution', label: 'Distribution' }] }),
+    normalizeCoachDevelopmentForm({ id: 'in-depth', name: 'In depth form', fields: [{ id: 'technical', label: 'Technical' }] }),
+    normalizeCoachDevelopmentForm({ id: 'foundation', name: 'Foundation Review', fields: [{ id: 'handling', label: 'Handling' }] }),
+  ]
+  assert.equal(resolveCoachDevelopmentForm(forms, 'in-depth')?.name, 'In depth form')
+  assert.equal(resolveCoachDevelopmentForm(forms, 'foundation')?.fields[0]?.id, 'handling')
+  assert.equal(resolveCoachDevelopmentForm(forms, 'missing')?.id, 'goalkeeping')
+  assert.equal(resolveCoachDevelopmentForm([], 'missing'), null)
 })
 
 test('unknown Development field types fail closed to plain text instead of inventing widgets', () => {
@@ -287,6 +300,15 @@ test('native screen exposes required accessible and confirmation patterns', asyn
   assert.match(screen, /accessibilityLiveRegion=/)
   assert.match(screen, /Alert\.alert\('Finalise Development record\?'/)
   assert.match(screen, /Alert\.alert\('Close this Poll\?'/)
+})
+
+test('native Development renders a single-choice form picker and isolates draft values when switching', async () => {
+  const screen = await readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8')
+  assert.match(screen, /Choose form/)
+  assert.match(screen, /accessibilityRole="radio"/)
+  assert.match(screen, /accessibilityState=\{\{ selected \}\}/)
+  assert.match(screen, /onPress=\{\(\) => selectDevelopmentForm\(item\)\}/)
+  assert.match(screen, /setFormId\(nextForm\.id\)[\s\S]*setValues\(\{\}\)[\s\S]*setNotes\(''\)[\s\S]*setDraft\(null\)/)
 })
 
 test('Parent feature source is not imported into the Coach Phase 31E UI', async () => {
