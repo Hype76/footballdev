@@ -32,8 +32,9 @@ test('Coach formation defaults are 11v11 and 4-4-2 and round-trip through local 
   assert.deepEqual(parseMobileFormationPreferences(serializeMobileFormationPreferences(draft)), { gameFormat: '11v11', presetKey: '11v11-4-4-2' })
 })
 
-test('Select all, Place all, and taking multiple Players off use one Bench and formation capacity', () => {
+test('selecting the full squad keeps every Player on one Bench until pitch positions are chosen', () => {
   let draft = setMobileFormationSquad(createMobileFormationDraft(), players)
+  assert.equal(draft.placements.length, 0)
   assert.equal(draft.bench.length, 16)
   draft = placeMobileFormationLineup(draft, preset442)
   assert.equal(draft.placements.length, 11)
@@ -73,7 +74,8 @@ test('Coach app exposes simplified Formation save and Parent publication through
     readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
   ])
   for (const rpc of ['create_formation_board', 'save_formation_board_editor', 'link_formation_board_to_match', 'publish_formation_board_match_plan', 'withdraw_formation_board_match_plan', 'publish_formation_board_version']) assert.match(data, new RegExp(rpc))
-  for (const copy of ['Select all', 'Use full squad & build team', 'Take Players off', 'Move ${removalIds.length || \'\'} selected to Bench', 'Move to pitch', 'Save private Formation Board', 'Save and link to match', 'Save and publish to Team Resources']) assert.match(screen, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  for (const copy of ['Choose formation', 'Select full squad', 'Load empty pitch', 'Build lineup', 'Take Players off', 'Move ${removalIds.length || \'\'} selected to Bench', 'Move to pitch', 'Continue to save', 'Save private Formation Board', 'Save and link to match', 'Save and publish to Team Resources']) assert.match(screen, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.doesNotMatch(screen, /Use full squad & build team/)
   assert.doesNotMatch(screen, /#[0-9a-f]{3,8}/i)
   assert.match(matchDay, /label: 'Formation'/)
 })

@@ -4,13 +4,13 @@ import test from 'node:test'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('Coach 1.0.2 checks the production update channel on launch', () => {
+test('Coach 1.0.3 checks the production update channel on launch', () => {
   const config = read('apps/mobile-core/appConfig.cjs')
   const app = read('apps/coach-mobile/app.config.js')
   const eas = read('apps/coach-mobile/eas.json')
   const packageJson = read('apps/coach-mobile/package.json')
 
-  assert.match(app, /version: '1\.0\.2'/)
+  assert.match(app, /version: '1\.0\.3'/)
   assert.match(packageJson, /"expo-updates": "~29\.0\.18"/)
   assert.match(config, /https:\/\/u\.expo\.dev\/\$\{environment\.easProjectId\}/)
   assert.match(config, /checkAutomatically: 'ON_LOAD'/)
@@ -30,4 +30,6 @@ test('Coach session refresh follows app foreground state and store guards stay e
     /const authorisedCoachProductionReferences = new Set\(\[[\s\S]*FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49[\s\S]*?\]\)/,
   )
   assert.match(submitGuard, /FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49/)
+  assert.match(buildGuard, /FP-MOBILE-COACH-FORMATION-STEPPER-50/)
+  assert.match(submitGuard, /FP-MOBILE-COACH-FORMATION-STEPPER-50/)
 })

@@ -8,6 +8,13 @@ export const MOBILE_FORMATION_GAME_FORMATS = Object.freeze([
 const normalize = (value) => String(value ?? '').trim()
 const coordinate = (value) => Math.max(0, Math.min(100, Number(value || 0)))
 
+export function getMobileFormationPitchPercent(value) {
+  const numeric = Number(value || 0)
+  if (!Number.isFinite(numeric)) return 0
+  const converted = numeric >= 0 && numeric <= 1 ? Number((numeric * 100).toFixed(4)) : numeric
+  return Math.max(0, Math.min(100, converted))
+}
+
 export function getMobileFormationCapacity(gameFormat) {
   return MOBILE_FORMATION_GAME_FORMATS.find((format) => format.value === normalize(gameFormat))?.playerCount || 0
 }

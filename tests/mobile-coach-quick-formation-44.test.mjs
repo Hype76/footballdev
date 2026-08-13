@@ -6,6 +6,7 @@ import {
   assignMobileFormationPlayerToSlot,
   buildMobileFormationLineup,
   createMobileFormationDraft,
+  getMobileFormationPitchPercent,
   moveMobileFormationPlayersToBench,
   placeMobileFormationPlayerInNextSlot,
   setMobileFormationSquad,
@@ -48,6 +49,13 @@ test('one-tap lineup build places only formation capacity and keeps the rest on 
   assert.equal(built.placements.length, 11)
   assert.equal(built.bench.length, 5)
   assert.equal(new Set([...built.placements, ...built.bench].map((player) => player.playerId)).size, 16)
+})
+
+test('mobile preset coordinates convert canonical zero-to-one values into visible pitch percentages', () => {
+  assert.equal(getMobileFormationPitchPercent(0.14), 14)
+  assert.equal(getMobileFormationPitchPercent(0.75), 75)
+  assert.equal(getMobileFormationPitchPercent(50), 50)
+  assert.equal(getMobileFormationPitchPercent(120), 100)
 })
 
 test('two-tap swaps work between starters and between the pitch and Bench', () => {
@@ -96,11 +104,16 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.match(app, /activeRoute === 'formation'/)
   assert.match(quick, /Drag to move this button/)
   assert.match(quick, /Jump straight into the job/)
-  assert.match(formation, /Use full squad & build team/)
+  assert.match(formation, /Confirm formation/)
+  assert.match(formation, /Select full squad/)
+  assert.match(formation, /Load empty pitch/)
+  assert.doesNotMatch(formation, /Use full squad & build team/)
   assert.match(formation, /Tap any pitch position, then choose a Player/)
   assert.match(formation, /assignMobileFormationPlayerToSlot/)
+  assert.match(formation, /getMobileFormationPitchPercent\(slot\.x\)/)
+  assert.match(formation, /getMobileFormationPitchPercent\(slot\.y\)/)
   assert.match(formation, /Move to pitch/)
-  assert.match(formation, /Fill empty pitch positions/)
+  assert.match(formation, /Continue to save/)
   assert.match(formation, /Save private Formation Board/)
   assert.match(formation, /Save and link to match/)
   assert.match(formation, /Save and publish to Team Resources/)

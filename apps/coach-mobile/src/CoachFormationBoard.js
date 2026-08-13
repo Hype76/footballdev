@@ -4,16 +4,15 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Tex
 import {
   applyMobileFormationPreset,
   assignMobileFormationPlayerToSlot,
-  buildMobileFormationLineup,
   createMobileFormationDraft,
   createMobileFormationPreferenceKey,
   getMobileFormationCapacity,
+  getMobileFormationPitchPercent,
   getMobileFormationSelectedPlayerIds,
   getMobileFormationSlotLabel,
   MOBILE_FORMATION_GAME_FORMATS,
   moveMobileFormationPlayersToBench,
   parseMobileFormationPreferences,
-  placeMobileFormationLineup,
   placeMobileFormationPlayerInNextSlot,
   serializeMobileFormationPreferences,
   setMobileFormationSquad,
@@ -41,6 +40,12 @@ const RESOURCE_CATEGORIES = Object.freeze([
   Object.freeze({ label: 'Match day', value: 'match_day' }),
   Object.freeze({ label: 'Development', value: 'development' }),
   Object.freeze({ label: 'Admin', value: 'admin' }),
+])
+const WORKFLOW_STEPS = Object.freeze([
+  Object.freeze({ label: 'Formation', value: 'formation' }),
+  Object.freeze({ label: 'Squad', value: 'squad' }),
+  Object.freeze({ label: 'Lineup', value: 'lineup' }),
+  Object.freeze({ label: 'Save', value: 'finish' }),
 ])
 
 function createStyles(palette) {
@@ -80,6 +85,13 @@ function createStyles(palette) {
     playerSlotEmpty: { backgroundColor: 'rgba(0,0,0,0.20)', borderColor: 'rgba(255,255,255,0.55)', borderStyle: 'dashed' },
     playerSlotRemoval: { borderColor: palette.warning, borderWidth: 3 },
     playerSlotSelected: { backgroundColor: palette.selected, borderColor: palette.accent, borderWidth: 3 },
+    progress: { flexDirection: 'row', gap: 6 },
+    progressItem: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 3, minHeight: 50, paddingHorizontal: 5, paddingVertical: 7 },
+    progressItemActive: { backgroundColor: palette.selected, borderColor: palette.accent },
+    progressLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', textAlign: 'center' },
+    progressLabelActive: { color: palette.selectedForeground },
+    progressNumber: { color: palette.textSecondary, fontSize: 11, fontWeight: '900' },
+    progressNumberActive: { color: palette.accent },
     row: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     rowBetween: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
     savedBoard: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, gap: 4, padding: 12 },
@@ -136,9 +148,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showBoards, setShowBoards] = useState(false)
   const [showMatchPicker, setShowMatchPicker] = useState(false)
-  const [showSetup, setShowSetup] = useState(false)
-  const [showSquad, setShowSquad] = useState(false)
   const [title, setTitle] = useState(match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
+  const [workflowStep, setWorkflowStep] = useState('formation')
   const preferenceKey = useMemo(() => createMobileFormationPreferenceKey({ clubId: context.clubId, teamId: context.teamId, userId: user.id }), [context.clubId, context.teamId, user.id])
 
   const resolvePublications = useCallback(async (nextBoard) => {
@@ -162,7 +173,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setPresets(nextPresets)
     setSelectedPlayerId('')
     setShowBoards(false)
-    setShowSquad(getMobileFormationSelectedPlayerIds(nextDraft).size === 0)
+    setWorkflowStep('lineup')
   }, [presets, resolvePublications])
 
   const load = useCallback(async () => {
@@ -189,8 +200,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       setMatchPublications(nextPublications.matchItems)
       setResourcePublications(nextPublications.resourceItems)
       setSelectedMatchId(linkedBoard?.linkedMatchDayId || match?.id || '')
-      setShowSetup(false)
-      setShowSquad(getMobileFormationSelectedPlayerIds(nextDraft).size === 0)
+      setWorkflowStep(linkedBoard ? 'lineup' : 'formation')
       setTitle(linkedBoard?.title || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'))
       setOffline(false)
       await saveCoachOfflineResources(user.id, context, { formation: { board: linkedBoard, boards: nextBoards, draft: nextDraft, matchDayId: match?.id || '', matchPublications: nextPublications.matchItems, presets: nextPresets, resourcePublications: nextPublications.resourceItems } }).catch(() => {})
@@ -206,7 +216,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         setResourcePublications(Array.isArray(formation.resourcePublications) ? formation.resourcePublications : [])
         setSelectedMatchId(formation.board?.linkedMatchDayId || '')
         setTitle(formation.board?.title || 'Formation Board')
-        setShowSquad(getMobileFormationSelectedPlayerIds(formation.draft).size === 0)
+        setWorkflowStep(formation.board ? 'lineup' : 'formation')
         setOffline(true)
       } else setError(normalize(loadError?.message) || 'The Formation Board could not be loaded.')
     } finally { setLoading(false) }
@@ -220,17 +230,18 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     || null
   const activeSlot = currentPreset?.slots?.find((slot) => slot.id === activeSlotId) || null
   const activeSlotPlayer = draft.placements.find((player) => player.slotId === activeSlotId) || null
-  const filteredSlotPlayers = players.filter((player) => player.playerName.toLowerCase().includes(slotSearch.trim().toLowerCase()))
+  const filteredSlotPlayers = players.filter((player) => selectedIds.has(player.id) && player.playerName.toLowerCase().includes(slotSearch.trim().toLowerCase()))
   const linkedMatchId = board?.linkedMatchDayId || ''
   const linkedMatch = (match?.id === linkedMatchId ? match : null) || matches.find((candidate) => candidate.id === linkedMatchId) || null
   const activePublication = matchPublications.find((publication) => !(publication.withdrawn_at ?? publication.withdrawnAt)) || null
   const latestResourcePublication = resourcePublications[0] || null
   const unavailable = stale || offline
   const capacity = getMobileFormationCapacity(draft.gameFormat)
+  const workflowStepIndex = WORKFLOW_STEPS.findIndex((step) => step.value === workflowStep)
   const pitchSlotWidth = useMemo(() => {
     const rowCounts = new Map()
     for (const slot of currentPreset?.slots || []) {
-      const row = Math.round(Number(slot.y || 0) / 5) * 5
+      const row = Math.round(getMobileFormationPitchPercent(slot.y) / 5) * 5
       rowCounts.set(row, (rowCounts.get(row) || 0) + 1)
     }
     const widestRow = Math.max(1, ...rowCounts.values())
@@ -251,17 +262,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     if (preset) rememberPreset(applyMobileFormationPreset(draft, preset))
   }
 
-  const buildLineup = (useFullSquad = false) => {
-    if (!currentPreset) return
-    const squadDraft = useFullSquad ? setMobileFormationSquad(draft, players) : draft
-    setDraft(buildMobileFormationLineup(squadDraft, currentPreset))
-    setSelectedPlayerId('')
-    setRemovalMode(false)
-    setRemovalIds([])
-    setShowSquad(false)
-    setNotice(useFullSquad ? `Full squad selected. ${Math.min(capacity, players.length)} Players placed and everyone else moved to the Bench.` : 'Starting lineup rebuilt. Remaining selected Players are on the Bench.')
-  }
-
   const startNewBoard = () => {
     const preset = presets.find((candidate) => candidate.key === draft.presetKey) || presets[0]
     const nextDraft = createMobileFormationDraft({ gameFormat: preset?.gameFormat || '11v11', presetKey: preset?.key || '11v11-4-4-2' })
@@ -273,8 +273,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setResourcePublications([])
     setSelectedPlayerId('')
     setShowBoards(false)
-    setShowSquad(true)
-    setNotice('New standalone Formation Board ready. No match is required.')
+    setWorkflowStep('formation')
+    setNotice('New standalone Formation Board ready. Confirm the formation to begin.')
   }
 
   const persistBoard = async () => {
@@ -438,15 +438,13 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   return (
     <View style={styles.stack}>
       <View style={styles.planHeader}>
-        <Text style={styles.eyebrow}>{linkedMatchId ? 'Match-linked Formation Board' : 'Standalone Formation Board'}</Text>
-        <Text style={styles.heading}>{title || 'Formation Board'}</Text>
-        <Text style={styles.body}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')} | {draft.placements.length} starting | {draft.bench.length} Bench</Text>
-        {linkedMatch ? <Text style={styles.body}>Linked to {linkedMatch.teamName} v {linkedMatch.opponent}</Text> : <Text style={styles.body}>No match linked. Build and save this plan independently.</Text>}
-        <View style={styles.row}>
-          <View style={styles.status}><Text style={styles.statusText}>{activePublication ? 'Shared with Parents' : board ? 'Private saved board' : 'Not saved yet'}</Text></View>
-          {latestResourcePublication ? <View style={styles.status}><Text style={styles.statusText}>In Team Resources</Text></View> : null}
+        <View style={styles.rowBetween}>
+          <View><Text style={styles.eyebrow}>{linkedMatchId ? 'Match-linked plan' : 'Standalone plan'}</Text><Text style={styles.heading}>{title || 'Formation Board'}</Text></View>
+          <View style={styles.status}><Text style={styles.statusText}>{activePublication ? 'Shared' : board ? 'Saved' : 'New'}</Text></View>
         </View>
-        {!match?.id ? <View style={styles.row}><Action label="New board" onPress={startNewBoard} secondary styles={styles} /><Action disabled={!boards.length} label={showBoards ? 'Hide saved boards' : `Open saved (${boards.length})`} onPress={() => setShowBoards((current) => !current)} secondary styles={styles} /></View> : null}
+        <Text style={styles.body}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')} | {draft.placements.length} on pitch | {draft.bench.length} Bench</Text>
+        {linkedMatch ? <Text style={styles.body}>{linkedMatch.teamName} v {linkedMatch.opponent}</Text> : null}
+        {!match?.id ? <View style={styles.row}><Action label="New board" onPress={startNewBoard} secondary styles={styles} /><Action disabled={!boards.length} label={showBoards ? 'Hide saved' : `Open saved (${boards.length})`} onPress={() => setShowBoards((current) => !current)} secondary styles={styles} /></View> : null}
       </View>
 
       {showBoards ? <View style={styles.card}><Text style={styles.heading}>Saved Formation Boards</Text>{boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => void applyBoard(item)} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>)}</View> : null}
@@ -454,30 +452,35 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action label="Try again" onPress={load} secondary styles={styles} /></View> : null}
       {notice ? <View style={styles.selectedPanel}><Text style={styles.body}>{notice}</Text></View> : null}
 
-      <View style={styles.card}>
-        <View style={styles.rowBetween}><View><Text style={styles.eyebrow}>1. Setup</Text><Text style={styles.heading}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')}</Text></View><Action label={showSetup ? 'Done' : 'Change'} onPress={() => setShowSetup((current) => !current)} secondary styles={styles} /></View>
-        {showSetup ? <View style={styles.stack}>
-          <Text style={styles.label}>Game format</Text>
-          <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
-          <Text style={styles.label}>Formation</Text>
-          <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => rememberPreset(applyMobileFormationPreset(draft, preset))} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
-        </View> : null}
+      <View accessibilityLabel={`Formation Board step ${workflowStepIndex + 1} of ${WORKFLOW_STEPS.length}`} style={styles.progress}>
+        {WORKFLOW_STEPS.map((step, index) => <View key={step.value} style={[styles.progressItem, index === workflowStepIndex && styles.progressItemActive]}><Text style={[styles.progressNumber, index === workflowStepIndex && styles.progressNumberActive]}>{index + 1}</Text><Text style={[styles.progressLabel, index === workflowStepIndex && styles.progressLabelActive]}>{step.label}</Text></View>)}
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.rowBetween}><View><Text style={styles.eyebrow}>2. Squad</Text><Text style={styles.heading}>{selectedIds.size} selected</Text></View><Action label={showSquad ? 'Done' : 'Edit squad'} onPress={() => setShowSquad((current) => !current)} secondary styles={styles} /></View>
-        <Action disabled={!currentPreset || !players.length} label="Use full squad & build team" onPress={() => buildLineup(true)} styles={styles} />
-        {showSquad ? <View style={styles.stack}>
-          <View style={styles.row}><Action label="Select all" onPress={() => setDraft(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action label="Clear" onPress={() => setDraft(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
-          <View style={styles.row}>{players.map((player) => <Choice key={player.id} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} selected={selectedIds.has(player.id)} styles={styles} />)}</View>
-          <Action disabled={!currentPreset || !selectedIds.size} label={`Build starting ${Math.min(capacity, selectedIds.size)}`} onPress={() => buildLineup(false)} styles={styles} />
-        </View> : null}
-      </View>
+      {workflowStep === 'formation' ? <View style={styles.card}>
+        <Text style={styles.eyebrow}>Step 1 of 4</Text>
+        <Text style={styles.heading}>Choose formation</Text>
+        <Text style={styles.body}>Your last choice is remembered, but you must confirm the formation before choosing Players. The pitch will then load every position as an empty slot.</Text>
+        <Text style={styles.label}>Game format</Text>
+        <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
+        <Text style={styles.label}>Formation</Text>
+        <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => rememberPreset(applyMobileFormationPreset(draft, preset))} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
+        <Action disabled={!currentPreset} label="Confirm formation" onPress={() => { setWorkflowStep('squad'); setNotice('Formation confirmed. Choose the Players available for this plan.') }} styles={styles} />
+      </View> : null}
 
-      <View style={styles.card}>
-        <View style={styles.rowBetween}><View><Text style={styles.eyebrow}>3. Arrange</Text><Text style={styles.heading}>Starting lineup</Text></View><Text style={styles.count}>{draft.placements.length}/{capacity}</Text></View>
+      {workflowStep === 'squad' ? <View style={styles.card}>
+        <Text style={styles.eyebrow}>Step 2 of 4</Text>
+        <View style={styles.rowBetween}><Text style={styles.heading}>Choose squad</Text><Text style={styles.count}>{selectedIds.size} selected</Text></View>
+        <Text style={styles.body}>Select the Players for this plan. They will start on the Bench so you can assign each pitch position yourself.</Text>
+        <View style={styles.row}><Action label="Select full squad" onPress={() => setDraft(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action label="Clear" onPress={() => setDraft(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
+        <View style={styles.row}>{players.map((player) => <Choice key={player.id} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} selected={selectedIds.has(player.id)} styles={styles} />)}</View>
+        <View style={styles.row}><Action label="Back" onPress={() => setWorkflowStep('formation')} secondary styles={styles} /><Action disabled={!selectedIds.size} label="Load empty pitch" onPress={() => { setWorkflowStep('lineup'); setNotice(`${selectedIds.size} Players selected. Tap an empty pitch position to add a Player.`) }} styles={styles} /></View>
+      </View> : null}
+
+      {workflowStep === 'lineup' ? <View style={styles.card}>
+        <Text style={styles.eyebrow}>Step 3 of 4</Text>
+        <View style={styles.rowBetween}><Text style={styles.heading}>Build lineup</Text><Text style={styles.count}>{draft.placements.length}/{capacity}</Text></View>
         <Text style={styles.body}>Tap any pitch position, then choose a Player. Choosing an occupied position lets you replace or swap that Player.</Text>
-        <View style={styles.row}><Action label={removalMode ? 'Cancel taking off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId('') }} secondary styles={styles} />{draft.bench.length && draft.placements.length < capacity ? <Action label="Fill empty pitch positions" onPress={() => { setDraft(placeMobileFormationLineup(draft, currentPreset)); setSelectedPlayerId(''); setNotice('Empty pitch positions filled from the Bench.') }} secondary styles={styles} /> : null}</View>
+        {draft.placements.length ? <Action label={removalMode ? 'Cancel taking off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId('') }} secondary styles={styles} /> : null}
         {removalMode ? <View style={styles.selectedPanel}><Text style={styles.body}>Select one or more starters, then move them together.</Text><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /></View> : null}
         <View accessibilityLabel="Formation pitch" style={styles.pitch}>
           <View style={styles.pitchHalfway} />
@@ -495,7 +498,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
                   if (removalMode && player) selectPlayer(player.playerId, 'pitch')
                   else if (!removalMode) openSlotPicker(slot.id)
                 }}
-                style={[styles.playerSlot, !player && styles.playerSlotEmpty, selected && styles.playerSlotSelected, selectedForRemoval && styles.playerSlotRemoval, { left: `${Math.max(2, Math.min(98 - pitchSlotWidth, Number(slot.x || 0) - (pitchSlotWidth / 2)))}%`, top: `${Math.max(1, Math.min(89, Number(slot.y || 0) - 5))}%`, width: `${pitchSlotWidth}%` }]}
+                style={[styles.playerSlot, !player && styles.playerSlotEmpty, selected && styles.playerSlotSelected, selectedForRemoval && styles.playerSlotRemoval, { left: `${Math.max(2, Math.min(98 - pitchSlotWidth, getMobileFormationPitchPercent(slot.x) - (pitchSlotWidth / 2)))}%`, top: `${Math.max(1, Math.min(89, getMobileFormationPitchPercent(slot.y) - 5))}%`, width: `${pitchSlotWidth}%` }]}
               >
                 <Text numberOfLines={2} style={styles.playerName}>{player ? `${player.shirtNumber ? `${player.shirtNumber} ` : ''}${player.displayName}` : `Add\n${getMobileFormationSlotLabel(slot)}`}</Text>
               </Pressable>
@@ -505,11 +508,13 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
         <View style={styles.rowBetween}><Text style={styles.heading}>Bench</Text><Text style={styles.count}>{draft.bench.length}</Text></View>
         {draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => <View key={player.playerId} style={[styles.benchCard, selectedPlayerId === player.playerId && styles.benchCardSelected]}><Pressable accessibilityRole="button" accessibilityState={{ selected: selectedPlayerId === player.playerId }} onPress={() => selectPlayer(player.playerId, 'bench')}><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.displayName}`}</Text></Pressable><Pressable accessibilityRole="button" accessibilityState={{ disabled: draft.placements.length >= capacity }} disabled={draft.placements.length >= capacity} onPress={() => moveBenchPlayerToPitch(player.playerId)} style={[styles.benchButton, draft.placements.length >= capacity && styles.benchButtonDisabled]}><Text style={styles.benchButtonText}>Move to pitch</Text></Pressable></View>)}</ScrollView> : <Text style={styles.body}>No Players are on the Bench.</Text>}
-      </View>
+        <View style={styles.row}><Action label="Edit squad" onPress={() => setWorkflowStep('squad')} secondary styles={styles} /><Action disabled={!selectedIds.size} label="Continue to save" onPress={() => setWorkflowStep('finish')} styles={styles} /></View>
+      </View> : null}
 
-      <View style={styles.card}>
-        <Text style={styles.eyebrow}>Finish</Text>
+      {workflowStep === 'finish' ? <View style={styles.card}>
+        <Text style={styles.eyebrow}>Step 4 of 4</Text>
         <Text style={styles.heading}>Save first, choose the destination later</Text>
+        <Text style={styles.body}>{draft.placements.length} on pitch | {draft.bench.length} Bench | {draft.gameFormat} {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')}</Text>
         <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save private Formation Board'} onPress={() => void save()} styles={styles} />
         <Text style={styles.body}>Saving does not require a match and does not share anything.</Text>
 
@@ -527,7 +532,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         {linkedMatchId ? <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={activePublication ? 'Save and update Parents' : 'Save and share with Parents'} onPress={saveAndPublish} secondary styles={styles} /> : <Text style={styles.body}>Parent sharing becomes available after you link the saved board to a match.</Text>}
         <Pressable accessibilityRole="button" onPress={() => setShowAdvanced((current) => !current)}><Text style={styles.count}>{showAdvanced ? 'Hide plan options' : 'Plan name and options'}</Text></Pressable>
         {showAdvanced ? <View style={styles.stack}><Text style={styles.label}>Plan name</Text><TextInput accessibilityLabel="Formation plan title" onChangeText={setTitle} style={styles.input} value={title} />{activePublication ? <Action danger disabled={busy || unavailable} label="Withdraw Parent plan" onPress={withdraw} secondary styles={styles} /> : null}</View> : null}
-      </View>
+        <Action label="Back to lineup" onPress={() => setWorkflowStep('lineup')} secondary styles={styles} />
+      </View> : null}
 
       <Modal animationType="slide" onRequestClose={() => setActiveSlotId('')} transparent visible={Boolean(activeSlot)}>
         <View style={styles.modalBackdrop}>

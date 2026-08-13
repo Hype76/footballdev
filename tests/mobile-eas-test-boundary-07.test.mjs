@@ -162,6 +162,19 @@ test('Ref 47 permits bounded internal live iOS candidates for Coach and Parent',
   }
 })
 
+test('Ref 50 permits only the bounded Coach production testing candidates', () => {
+  for (const [profile, platform] of [['internal-live', 'ios'], ['store-live', 'android']]) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'coach', profile, platform], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-COACH-FORMATION-STEPPER-50' },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /Mobile native build is blocked until EAS setup/)
+    assert.doesNotMatch(result.stderr, /production_build_not_authorised|Unknown mobile build profile/)
+  }
+})
+
 test('production submission guard requires an app-specific iOS promotion reference', () => {
   const submitGuard = readFileSync(path.join(repositoryRoot, 'apps/scripts/mobile-submit-guard.mjs'), 'utf8')
   assert.match(submitGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)
