@@ -33,11 +33,12 @@ test('Coach Calendar accepts and displays UK dates while preserving canonical IS
       eventType: 'match',
       parentAudience: 'none',
       parentVisible: false,
+      opponent: 'Friday FC',
       recurrenceFrequency: 'none',
       startTime: '18:00',
-      title: 'Friday match',
     },
   })
+  assert.equal(payload.title, 'Team v Friday FC')
   assert.match(payload.starts_at, /^2026-08-14T17:00:00\.000Z$/)
 })
 

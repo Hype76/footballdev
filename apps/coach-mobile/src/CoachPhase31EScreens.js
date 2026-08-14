@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
@@ -59,6 +59,12 @@ function phaseStyles(palette) {
     row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chatRoomCard: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 5, padding: 14 },
     chatRoomContext: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
+    chatModal: { backgroundColor: palette.background, flex: 1 },
+    chatModalHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 5, padding: 14 },
+    chatMessageList: { flex: 1 },
+    chatMessageListContent: { flexGrow: 1, gap: 8, justifyContent: 'flex-end', padding: 14 },
+    chatComposer: { alignItems: 'flex-end', backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 8, padding: 10 },
+    chatComposerInput: { flex: 1, maxHeight: 110, minHeight: 48 },
     messageBubble: { alignSelf: 'flex-start', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 4, maxWidth: '88%', padding: 11 },
     messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: palette.selected, borderColor: palette.accent },
     formChoice: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: 14, paddingVertical: 10 },
@@ -285,11 +291,24 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   )
 }
 
-function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHandled, placeholderColor, setNotice, stale, styles, user }) {
-  const rooms = useMemo(() => [...(data.staff || []), ...(data.parent || [])], [data])
+function ChatDomain({ chatNotificationTarget, data, notice, onChatNotificationTargetHandled, placeholderColor, setNotice, stale, styles, user }) {
+  const rooms = useMemo(() => [...(data.staff || []), ...(data.parent || [])].sort((left, right) => {
+    const priority = (room) => room.kind === 'parent' && room.type === 'team'
+      ? 0
+      : room.kind === 'staff' && room.type === 'team_staff'
+        ? 1
+        : room.kind === 'parent' && room.type === 'parent_staff'
+          ? 2
+          : 3
+    return priority(left) - priority(right)
+      || String(right.latestMessageAt || '').localeCompare(String(left.latestMessageAt || ''))
+      || String(left.title || '').localeCompare(String(right.title || ''))
+  }), [data])
   const [roomId, setRoomId] = useState('')
   const [messages, setMessages] = useState([])
   const [body, setBody] = useState('')
+  const [sending, setSending] = useState(false)
+  const messageListRef = useRef(null)
   const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : ''
   const room = rooms.find((item) => item.id === activeRoomId)
   const open = useCallback(async (nextRoom) => {
@@ -318,8 +337,15 @@ function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHand
     return () => { cancelled = true }
   }, [chatNotificationTarget, onChatNotificationTargetHandled, open, rooms, setNotice, user.activeCoachContextId])
   const send = async () => {
-    try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice(config.isProduction ? 'Message sent through the canonical Chat.' : 'Synthetic Chat message saved inside FP TEST only.') } catch (error) { setNotice(getCoachFriendlyError(error)) }
+    setSending(true)
+    try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice('') } catch (error) { setNotice(getCoachFriendlyError(error)) }
+    finally { setSending(false) }
   }
+  useEffect(() => {
+    if (!room) return undefined
+    const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
+    return () => clearTimeout(handle)
+  }, [messages.length, room])
   if (!rooms.length) return <Empty copy="No Staff Chat or Parent Chat membership is available in this Team." styles={styles} />
   if (!room) {
     return (
@@ -342,16 +368,34 @@ function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHand
   }
   const display = getCoachChatRoomDisplay(room)
   return (
-    <View style={styles.stack}>
-      <Button label="Back to conversations" onPress={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
-      <View style={styles.panel}>
-        <Text accessibilityRole="header" style={styles.heading}>{display.title}</Text>
-        {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
-        {messages.length ? messages.map((message) => <View key={message.id} style={[styles.messageBubble, message.senderId === user.id && styles.messageBubbleOwn]}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>) : <Text style={styles.body}>No messages in this conversation yet.</Text>}
-        <TextInput accessibilityLabel="Chat message" multiline onChangeText={setBody} placeholder="Message" placeholderTextColor={placeholderColor} style={[styles.input, styles.inputMultiline]} value={body} />
-        <Button disabled={stale || !room.canPost || !body.trim() || (!config.isProduction && !isSyntheticCoachTarget(room.title))} label={config.isProduction ? 'Send message' : 'Send to FP TEST channel'} onPress={send} styles={styles} />
-      </View>
-    </View>
+    <Modal animationType="slide" onRequestClose={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} visible>
+      <SafeAreaView style={styles.chatModal}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.chatModal}>
+          <View style={styles.chatModalHeader}>
+            <Button label="Back to conversations" onPress={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
+            <Text accessibilityRole="header" style={styles.heading}>{display.title}</Text>
+            {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+            {notice ? <Text accessibilityLiveRegion="assertive" style={styles.danger}>{notice}</Text> : null}
+          </View>
+          <FlatList
+            contentContainerStyle={styles.chatMessageListContent}
+            data={messages}
+            keyExtractor={(message) => String(message.id)}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={<Text style={styles.body}>No messages in this conversation yet.</Text>}
+            onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: false })}
+            ref={messageListRef}
+            renderItem={({ item: message }) => <View style={[styles.messageBubble, message.senderId === user.id && styles.messageBubbleOwn]}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>}
+            style={styles.chatMessageList}
+          />
+          <View style={styles.chatComposer}>
+            <TextInput accessibilityLabel="Chat message" editable={!sending && !stale && room.canPost} multiline onChangeText={setBody} placeholder="Message" placeholderTextColor={placeholderColor} style={[styles.input, styles.chatComposerInput]} value={body} />
+            <Button disabled={sending || stale || !room.canPost || !body.trim() || (!config.isProduction && !isSyntheticCoachTarget(room.title))} label={sending ? 'Sending...' : config.isProduction ? 'Send' : 'Send to FP TEST channel'} onPress={send} styles={styles} />
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </Modal>
   )
 }
 

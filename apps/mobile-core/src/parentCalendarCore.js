@@ -33,6 +33,11 @@ function isTerminalStatus(value) {
   return ['cancelled', 'closed', 'completed', 'expired', 'full_time', 'postponed'].includes(normalizeStatus(value))
 }
 
+export function isParentCalendarEventCancelled(event = {}) {
+  return Boolean(event.cancelledAt || event.cancelled_at)
+    || normalizeStatus(event.status) === 'cancelled'
+}
+
 export function isParentCalendarActionRequired(event = {}) {
   const responseState = normalizeStatus(event.responseState)
   return event.requiresResponse === true
@@ -185,6 +190,7 @@ export function buildParentCalendarEvents({ calendarEvents = [], invitations = [
   ]
 
   return events
+    .filter((event) => !isParentCalendarEventCancelled(event))
     .sort((left, right) => (
       left.sortKey.localeCompare(right.sortKey)
       || left.title.localeCompare(right.title)

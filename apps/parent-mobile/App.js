@@ -58,7 +58,6 @@ import {
   deleteParentChatMessage,
   expressParentScorerInterest,
   getParentChatMessages,
-  getParentChatHistory,
   getParentChatRooms,
   getParentDevelopmentHistory,
   getParentInvitations,
@@ -325,7 +324,7 @@ function ParentHome() {
 
     const loaders = {
       calendar: () => getParentCalendarEvents(selectedMobileUser),
-      chatHistory: () => getParentChatHistory(selectedMobileUser),
+      chatHistory: () => Promise.resolve(cachedView?.cache?.resources.chatHistory || []),
       chatRooms: () => getParentChatRooms(selectedMobileUser),
       development: () => getParentDevelopmentHistory(selectedMobileUser),
       invitations: () => getParentInvitations(selectedMobileUser),
@@ -982,6 +981,7 @@ function ParentHome() {
     try {
       const items = await getParentChatMessages(selectedMobileUser, room.id)
       setChatMessages({ error: '', items, loading: false })
+      cacheChatRoomMessages(room.id, items)
       if (!isOffline && room.unreadCount > 0) {
         await markParentChatRoomRead(selectedMobileUser, room.id)
         setResources((current) => ({
@@ -1002,6 +1002,23 @@ function ParentHome() {
     }
     const items = await getParentChatMessages(selectedMobileUser, selectedRoomId)
     setChatMessages({ error: '', items, loading: false })
+    cacheChatRoomMessages(selectedRoomId, items)
+  }
+
+  function cacheChatRoomMessages(roomId, items) {
+    const roomMessages = items.map((message) => ({ ...message, roomId }))
+    const nextHistory = [
+      ...resources.chatHistory.items.filter((message) => message.roomId !== roomId),
+      ...roomMessages,
+    ]
+    setResources((current) => ({
+      ...current,
+      chatHistory: { ...current.chatHistory, error: '', items: nextHistory, loading: false },
+    }))
+    void saveParentOfflineResources(selectedMobileUser, selectedLink.id, {
+      ...Object.fromEntries(resourceNames.map((name) => [name, resources[name].items])),
+      chatHistory: nextHistory,
+    }).catch(() => {})
   }
 
   async function handleSendChatMessage(body) {
@@ -1011,7 +1028,6 @@ function ParentHome() {
     try {
       await sendParentChatMessage(selectedMobileUser, selectedRoomId, body)
       await reloadSelectedChatRoom()
-      setNotice({ message: 'Your Chat message has been sent.', tone: 'success' })
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, 'Your Chat message could not be sent.'), tone: 'error' })
       throw error
@@ -1026,7 +1042,6 @@ function ParentHome() {
     try {
       await deleteParentChatMessage(selectedMobileUser, message.id)
       await reloadSelectedChatRoom()
-      setNotice({ message: 'The Chat message has been deleted.', tone: 'success' })
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, 'This Chat message could not be deleted.'), tone: 'error' })
     } finally {
@@ -1344,7 +1359,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}

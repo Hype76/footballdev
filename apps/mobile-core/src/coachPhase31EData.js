@@ -68,6 +68,27 @@ async function rpc(name, parameters) {
   return data
 }
 
+function isTransientChatError(error) {
+  const signal = normalize(`${error?.code || ''} ${error?.message || error}`).toLowerCase()
+  return signal.includes('network')
+    || signal.includes('failed to fetch')
+    || signal.includes('timed out')
+    || signal.includes('timeout')
+}
+
+async function sendChatWithSafeRetry(name, parameters) {
+  let lastError
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await rpc(name, parameters)
+    } catch (error) {
+      lastError = error
+      if (!isTransientChatError(error) || attempt === 1) break
+    }
+  }
+  throw lastError
+}
+
 export async function getCoachDevelopmentWorkspace(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   const [playersResult, evaluationsResult, formsResult, legacyFieldsResult, draftsResult] = await Promise.all([
@@ -327,18 +348,21 @@ export async function sendCoachChatMessage(user, room, body) {
   assertSyntheticTargetInTest(room)
   const message = normalize(body)
   if (!message || message.length > 2000) throw new Error('Add a Chat message of 2000 characters or fewer.')
+  const chatRequestId = requestId('coach-chat')
   if (room.kind === 'parent') {
-    await rpc('send_parent_chat_message', {
+    await sendChatWithSafeRetry('send_parent_chat_message', {
       active_team_id_value: user.activeTeamId,
       target_room_id: room.id,
       body_value: message,
+      request_id_value: chatRequestId,
     })
   } else {
     await assertStaffRoomActiveContext(user, room)
-    await rpc('send_staff_chat_message', {
+    await sendChatWithSafeRetry('send_staff_chat_message', {
       active_team_id_value: user.activeTeamId,
       conversation_id_value: room.id,
       body_value: message,
+      request_id_value: chatRequestId,
     })
   }
   return getCoachChatMessages(user, room)

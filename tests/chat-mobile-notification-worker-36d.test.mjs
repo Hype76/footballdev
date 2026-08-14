@@ -18,9 +18,19 @@ function createFakeClient({ parentIntents = [], staffIntents = [] } = {}) {
         state.filters.push([column, value])
         return chain
       },
+      in(column, value) {
+        state.filters.push([column, value])
+        calls.push({ ...state })
+        return Promise.resolve({ data: [], error: null })
+      },
       insert(value) {
         calls.push({ table, operation: 'insert', value })
         return Promise.resolve({ error: null })
+      },
+      select(value) {
+        state.operation = 'select'
+        state.value = value
+        return chain
       },
       then(resolve) {
         calls.push({ ...state })
@@ -136,7 +146,7 @@ test('processor uses injected provider sender and records deterministic intent o
     },
   })
 
-  assert.deepEqual(result, { claimed: 2, failed: 0, sent: 2 })
+  assert.deepEqual(result, { claimed: 2, failed: 0, sent: 2, skipped: 0 })
   assert.equal(providerCalls.length, 2)
   assert.equal(providerCalls.flat().length, 2)
   assert.equal(client.calls.filter((call) => call.operation === 'insert').length, 2)

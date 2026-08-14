@@ -25,7 +25,7 @@ import { applyCoachContext, createCoachContextTransition, resolveCoachStaffConte
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
-import { getCoachPhase31GHomeSnapshot } from '../mobile-core/src/coachPhase31GData'
+import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
@@ -269,12 +269,22 @@ function CoachHome() {
     }
 
     try {
-      const snapshot = await getCoachPhase31GHomeSnapshot(selectedMobileUser)
+      const primary = await getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser)
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
-      setHomeState({ ...snapshot, error: '', loading: false, savedAt, stale: false })
+      const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
+      setHomeState((current) => ({ ...current, ...primarySnapshot }))
       setLastUpdatedAt(savedAt)
-      await saveCoachOfflineResources(user.id, activeContext, { home: { ...snapshot, savedAt } }).catch(() => {})
+      await saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
+
+      const attention = await getCoachPhase31GAttentionSnapshot(selectedMobileUser)
+      if (requestId !== requestIdRef.current) return
+      const completeSnapshot = {
+        ...mergeCoachPhase31GHomeSnapshots(primarySnapshot, attention),
+        savedAt,
+      }
+      setHomeState(completeSnapshot)
+      await saveCoachOfflineResources(user.id, activeContext, { home: completeSnapshot }).catch(() => {})
     } catch (error) {
       if (requestId !== requestIdRef.current) return
       if (!savedHome) setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false }))

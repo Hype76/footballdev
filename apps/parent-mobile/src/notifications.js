@@ -133,6 +133,14 @@ async function getInstallationId(apiBaseUrl) {
   return installationId
 }
 
+async function rotateInstallationId(apiBaseUrl) {
+  const installationId = Crypto.randomUUID()
+  await SecureStore.setItemAsync(getStorageKeys(apiBaseUrl).installationId, installationId, {
+    keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+  })
+  return installationId
+}
+
 async function getLocalDetailLevel(apiBaseUrl) {
   return normalizeParentNotificationDetail(await AsyncStorage.getItem(getStorageKeys(apiBaseUrl).detailLevel))
 }
@@ -331,24 +339,35 @@ export async function enableParentNotifications({ apiBaseUrl, devicePushToken, e
     throw createSafePushSetupError(error, 'local')
   }
 
+  const register = (targetInstallationId) => request({
+    apiBaseUrl,
+    method: 'POST',
+    path: getInstallationPath(apiBaseUrl),
+    body: {
+      appVersion: Application.nativeApplicationVersion || '',
+      buildNumber: Application.nativeBuildVersion || '',
+      detailLevel,
+      expoPushToken,
+      installationId: targetInstallationId,
+      parentLinkId,
+      platform: Platform.OS,
+    },
+  })
+
   let result
   try {
-    result = await request({
-      apiBaseUrl,
-      method: 'POST',
-      path: getInstallationPath(apiBaseUrl),
-      body: {
-        appVersion: Application.nativeApplicationVersion || '',
-        buildNumber: Application.nativeBuildVersion || '',
-        detailLevel,
-        expoPushToken,
-        installationId,
-        parentLinkId,
-        platform: Platform.OS,
-      },
-    })
+    result = await register(installationId)
   } catch (error) {
-    throw createSafePushSetupError(error, 'api')
+    if (normalize(error?.code).toUpperCase() === 'PARENT_MOBILE_INSTALLATION_OWNED') {
+      try {
+        installationId = await rotateInstallationId(apiBaseUrl)
+        result = await register(installationId)
+      } catch (retryError) {
+        throw createSafePushSetupError(retryError, 'api')
+      }
+    } else {
+      throw createSafePushSetupError(error, 'api')
+    }
   }
 
   return normalizeParentNotificationState({

@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
@@ -23,8 +24,15 @@ function requireSelectedLink(user) {
 function createRequestId(value = '') {
   const normalized = normalizeText(value)
   if (normalized) return normalized
-  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
-  return `parent-mobile-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  return Crypto.randomUUID()
+}
+
+function isTransientChatError(error) {
+  const signal = normalizeText(`${error?.code || ''} ${error?.message || error}`).toLowerCase()
+  return signal.includes('network')
+    || signal.includes('failed to fetch')
+    || signal.includes('timed out')
+    || signal.includes('timeout')
 }
 
 export function normalizeParentInvitation(row = {}) {
@@ -402,19 +410,26 @@ export async function getParentChatHistory(user, childOnly = true) {
   return results.flat()
 }
 
-export async function sendParentChatMessage(user, roomId, body, childOnly = true) {
+export async function sendParentChatMessage(user, roomId, body, childOnly = true, clientRequestId = '') {
   const link = requireSelectedLink(user)
   const normalizedBody = normalizeText(body)
   if (!roomId || !normalizedBody) throw new Error('Choose a Chat room and add a message before sending.')
   if (normalizedBody.length > 2000) throw new Error('Chat messages must be 2000 characters or fewer.')
-  const { data, error } = await supabase.rpc('send_parent_portal_chat_message', {
-    body_value: normalizedBody,
-    child_only_value: Boolean(childOnly),
-    parent_link_id_value: link.id,
-    target_room_id: roomId,
-  })
-  if (error) throw error
-  return data
+  const requestId = createRequestId(clientRequestId)
+  let lastError
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await supabase.rpc('send_parent_portal_chat_message', {
+      body_value: normalizedBody,
+      child_only_value: Boolean(childOnly),
+      parent_link_id_value: link.id,
+      request_id_value: requestId,
+      target_room_id: roomId,
+    })
+    if (!error) return data
+    lastError = error
+    if (!isTransientChatError(error) || attempt === 1) break
+  }
+  throw lastError
 }
 
 export async function markParentChatRoomRead(user, roomId, childOnly = true) {

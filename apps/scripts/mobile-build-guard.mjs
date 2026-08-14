@@ -26,6 +26,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-FORMATION-NOTIFICATIONS-47',
   'FP-MOBILE-SIMON-FEEDBACK-55',
   'FP-MOBILE-USABILITY-OFFLINE-57',
+  'FP-MOBILE-CHAT-NOTIFY-PERF-58',
 ])
 const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
@@ -42,6 +43,7 @@ const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54',
   'FP-MOBILE-SIMON-FEEDBACK-55',
   'FP-MOBILE-USABILITY-OFFLINE-57',
+  'FP-MOBILE-CHAT-NOTIFY-PERF-58',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
@@ -50,7 +52,7 @@ const easEnvironment = productionBuilds.has(`${profile}:${platform}`) ? 'product
 const masterStoreAndroid = `${profile}:${platform}` === 'store-live:android'
   && promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
 const currentInternalIos = `${profile}:${platform}` === 'internal-live:ios'
-  && ['FP-MOBILE-FORMATION-NOTIFICATIONS-47', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53', 'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54'].includes(promotionReference)
+  && ['FP-MOBILE-FORMATION-NOTIFICATIONS-47', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53', 'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54', 'FP-MOBILE-CHAT-NOTIFY-PERF-58'].includes(promotionReference)
 const currentCoachStoreAndroid = appRole === 'coach'
   && `${profile}:${platform}` === 'store-live:android'
   && ['FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53', 'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54'].includes(promotionReference)

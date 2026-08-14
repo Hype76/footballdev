@@ -294,8 +294,10 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{selected ? 'Edit event' : 'Create event'}</Text>
-          <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />
           <Chips onChange={(value) => setForm({ ...form, eventType: value })} options={['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'].map((value) => ({ label: value, value }))} styles={styles} value={form.eventType} />
+          {form.eventType === 'match'
+            ? <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
+            : <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />}
           <Field label="Date DD-MM-YYYY" onChangeText={(value) => setForm({ ...form, date: value })} styles={styles} value={form.date} />
           <Field label="Start time HH:MM" onChangeText={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />
           <Field label="End time HH:MM" onChangeText={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />

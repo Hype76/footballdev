@@ -346,8 +346,12 @@ export function getCoachCalendarMutationPolicy({ context, event = null } = {}) {
 export function buildCoachCalendarPayload({ context, form }) {
   const eventType = normalizeKey(form?.eventType)
   if (!COACH_CALENDAR_EVENT_TYPES.includes(eventType)) throw new Error('Choose a supported Calendar event type.')
-  const title = normalize(form?.title)
-  if (!title) throw new Error('Add an event title.')
+  const opponent = normalize(form?.opponent)
+  const title = eventType === 'match'
+    ? `${normalize(context?.teamName) || 'Team'} v ${opponent || 'Opponent'}`
+    : normalize(form?.title)
+  if (eventType === 'match' && !opponent) throw new Error('Add the opponent.')
+  if (eventType !== 'match' && !title) throw new Error('Add an event title.')
   const dateTime = validateOrdinaryEventDateTime({
     date: normalizeCoachCalendarFormDate(form?.date),
     endTime: form?.endTime,
@@ -396,6 +400,9 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
     involvedPlayerIds: [],
     location: normalize(event?.location),
     notes: normalize(event?.notes),
+    opponent: event?.eventType === 'match'
+      ? normalize(event?.title).replace(new RegExp(`^${normalize(context?.teamName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+v\\s+`, 'i'), '')
+      : '',
     parentAudience: event?.parentAudience || 'none',
     parentVisible: event?.parentVisible === true,
     recurrenceFrequency: event?.recurrenceFrequency || 'none',

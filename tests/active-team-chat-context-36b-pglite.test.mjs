@@ -7,6 +7,10 @@ const migrationUrl = new URL(
   '../supabase/migrations/20260810110534_active_team_chat_context_36b.sql',
   import.meta.url,
 )
+const reliabilityMigrationUrl = new URL(
+  '../supabase/migrations/20260814143539_mobile_chat_reliability_58.sql',
+  import.meta.url,
+)
 
 const ids = {
   actor: '10000000-0000-4000-8000-000000000001',
@@ -37,6 +41,7 @@ async function setActor(db, actorId) {
 async function createDatabase() {
   const db = new PGlite()
   const migration = await readFile(migrationUrl, 'utf8')
+  const reliabilityMigration = await readFile(reliabilityMigrationUrl, 'utf8')
 
   await db.exec(`
     create role anon;
@@ -52,6 +57,14 @@ async function createDatabase() {
       select (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid
     $$;
 
+    create function auth.jwt()
+    returns jsonb
+    language sql
+    stable
+    as $$
+      select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb)
+    $$;
+
     create table public.clubs (
       id uuid primary key,
       status text not null default 'active',
@@ -61,8 +74,11 @@ async function createDatabase() {
     create table public.users (
       id uuid primary key,
       club_id uuid,
+      display_name text not null default 'Staff',
+      name text not null default 'Staff',
       status text not null default 'active',
       role text not null,
+      role_label text not null default 'Coach',
       role_rank integer not null
     );
 
@@ -110,6 +126,18 @@ async function createDatabase() {
       deleted_at timestamptz,
       created_at timestamptz not null default statement_timestamp(),
       updated_at timestamptz not null default statement_timestamp()
+    );
+
+    create table public.parent_chat_memberships (
+      room_id uuid not null,
+      club_id uuid not null,
+      auth_user_id uuid not null,
+      member_kind text not null,
+      active boolean not null default true,
+      last_read_at timestamptz,
+      left_at timestamptz,
+      updated_at timestamptz not null default statement_timestamp(),
+      unique (room_id, auth_user_id)
     );
 
     create table public.staff_chat_conversations (
@@ -189,6 +217,26 @@ async function createDatabase() {
           and staff.status = 'active'
           and staff.role not in ('parent_portal', 'super_admin')
           and staff.role_rank >= 20
+      )
+    $$;
+
+    create function public.parent_chat_user_can_post_room(
+      target_room_id uuid,
+      target_user_id uuid
+    )
+    returns boolean
+    language sql
+    stable
+    as $$
+      select exists (
+        select 1
+        from public.parent_chat_rooms room
+        where room.id = target_room_id
+          and public.parent_chat_staff_can_access_team(
+            target_user_id,
+            room.club_id,
+            room.team_id
+          )
       )
     $$;
 
@@ -402,6 +450,9 @@ async function createDatabase() {
   `, [ids.actor])
 
   await db.exec(migration)
+  await db.exec(`set check_function_bodies = off`)
+  await db.exec(reliabilityMigration)
+  await db.exec(`set check_function_bodies = on`)
   return db
 }
 
@@ -512,6 +563,52 @@ test('Staff Chat list, detail, create and send use one validated active Team', a
     db.query(`select id from public.get_staff_chat_conversation_ids($1)`, [ids.teamA]),
     /active Team is not available/,
   )
+
+  await db.close()
+})
+
+test('mobile Chat retry identities return one Parent Chat and Staff Chat message', async () => {
+  const db = await createDatabase()
+  await setActor(db, ids.actor)
+
+  const parentRequest = '70000000-0000-4000-8000-000000000001'
+  const firstParent = await db.query(
+    `select public.send_parent_chat_message($1, 'parent retry', $2, $3) as id`,
+    [ids.parentRoomA, ids.teamA, parentRequest],
+  )
+  const secondParent = await db.query(
+    `select public.send_parent_chat_message($1, 'parent retry', $2, $3) as id`,
+    [ids.parentRoomA, ids.teamA, parentRequest],
+  )
+  assert.equal(secondParent.rows[0].id, firstParent.rows[0].id)
+  const parentCount = await db.query(
+    `select count(*)::int as count from public.parent_chat_messages where client_request_id = $1`,
+    [parentRequest],
+  )
+  assert.equal(parentCount.rows[0].count, 1)
+  await assert.rejects(
+    db.query(
+      `select public.send_parent_chat_message($1, 'changed body', $2, $3)`,
+      [ids.parentRoomA, ids.teamA, parentRequest],
+    ),
+    /request identity has already been used/,
+  )
+
+  const staffRequest = '70000000-0000-4000-8000-000000000002'
+  const firstStaff = await db.query(
+    `select public.send_staff_chat_message($1, 'staff retry', $2, $3) as id`,
+    [ids.staffTeamA, ids.teamA, staffRequest],
+  )
+  const secondStaff = await db.query(
+    `select public.send_staff_chat_message($1, 'staff retry', $2, $3) as id`,
+    [ids.staffTeamA, ids.teamA, staffRequest],
+  )
+  assert.equal(secondStaff.rows[0].id, firstStaff.rows[0].id)
+  const staffCount = await db.query(
+    `select count(*)::int as count from public.staff_chat_messages where client_request_id = $1`,
+    [staffRequest],
+  )
+  assert.equal(staffCount.rows[0].count, 1)
 
   await db.close()
 })

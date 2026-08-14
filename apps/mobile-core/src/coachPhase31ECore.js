@@ -267,6 +267,8 @@ export function getCoachChatRoomDisplay(room = {}) {
   } else if (kind === 'parent' && type === 'match_squad') {
     title = `${teamName} v ${opponent || 'Opponent'}`
     context = [matchDate, kickoff].filter(Boolean).join(' at ')
+  } else if (kind === 'parent' && type === 'team') {
+    context = `${teamName} | Parents and Team staff`
   } else if (kind === 'parent' && playerName) {
     title = `${playerName} | ${title}`
   }

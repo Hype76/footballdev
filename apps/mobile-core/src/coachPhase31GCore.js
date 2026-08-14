@@ -38,6 +38,22 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   })
 }
 
+export function mergeCoachHomeOperationalSnapshots(primary, attention) {
+  return Object.freeze({
+    ...primary,
+    activePolls: attention.activePolls,
+    chatRooms: attention.chatRooms,
+    developmentRecords: attention.developmentRecords,
+    errors: Object.freeze([...(primary.errors || []), ...(attention.errors || [])]),
+    messages: attention.messages,
+    partial: Boolean(primary.partial || attention.partial),
+    pendingAvailability: attention.pendingAvailability,
+    polls: attention.polls,
+    unreadChat: attention.unreadChat,
+    unreadCommunication: attention.unreadCommunication,
+  })
+}
+
 export const COACH_PHASE_31G_CROSS_DOMAIN_TRANSITIONS = Object.freeze([
   Object.freeze({ from: 'home', to: 'calendar', authority: 'active staff context' }),
   Object.freeze({ from: 'home', to: 'matchday', authority: 'active Team context' }),

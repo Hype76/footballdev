@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
-import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
+import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
@@ -119,6 +119,8 @@ function usePortalStyles(themeTokens) {
       composerField: { flex: 1, maxHeight: 110, minHeight: 46 },
       messageBubble: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, gap: 4, maxWidth: '86%', paddingHorizontal: 12, paddingVertical: 9 },
       messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: colors.accentSoft, borderColor: colors.accent },
+      messageDelete: { alignSelf: 'flex-end', paddingHorizontal: 4, paddingTop: 3 },
+      messageDeleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
       messageSender: { color: colors.accentText, fontSize: 12, fontWeight: '900' },
     }) }
   }, [themeTokens])
@@ -145,7 +147,9 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
 }
 
-function CalendarEventCard({ event, styles }) {
+function CalendarEventCard({ activeActionId, event, invitation, isOffline, onRespond, styles }) {
+  const actionable = invitation && isParentInvitationActionable(invitation)
+  const busy = invitation && activeActionId === `invite:${invitation.invitationId}`
   return (
     <View style={styles.card}>
       <View style={styles.row}>
@@ -157,11 +161,25 @@ function CalendarEventCard({ event, styles }) {
       {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
       {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
       {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
+      {actionable ? (
+        <View style={styles.actionRow}>
+          {getInvitationResponseOptions(invitation).map((option) => (
+            <Button
+              disabled={isOffline || busy}
+              key={option.value}
+              label={busy ? 'Saving...' : option.label}
+              onPress={() => onRespond(invitation, option.value)}
+              outline
+              styles={styles}
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   )
 }
 
-export function CalendarScreen({ link, onDateSelected, resource, themeTokens }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onRespond, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   const [viewMode, setViewMode] = useState('agenda')
   const [windowKey, setWindowKey] = useState('needs-response')
@@ -176,13 +194,21 @@ export function CalendarScreen({ link, onDateSelected, resource, themeTokens }) 
     setViewMode(nextView)
     void AsyncStorage.setItem(PARENT_CALENDAR_VIEW_KEY, nextView).catch(() => {})
   }
+  const activeEvents = useMemo(
+    () => resource.items.filter((event) => !isParentCalendarEventCancelled(event)),
+    [resource.items],
+  )
+  const invitationById = useMemo(
+    () => new Map(invitations.map((invitation) => [invitation.invitationId, invitation])),
+    [invitations],
+  )
   const visibleEvents = useMemo(
-    () => getParentCalendarWindow(resource.items, windowKey),
-    [resource.items, windowKey],
+    () => getParentCalendarWindow(activeEvents, windowKey),
+    [activeEvents, windowKey],
   )
   const groups = useMemo(() => groupParentCalendarEvents(visibleEvents), [visibleEvents])
-  const monthDays = useMemo(() => getParentCalendarMonthGrid(resource.items, monthCursor), [monthCursor, resource.items])
-  const selectedDayEvents = useMemo(() => resource.items.filter((event) => event.calendarDate === selectedDate), [resource.items, selectedDate])
+  const monthDays = useMemo(() => getParentCalendarMonthGrid(activeEvents, monthCursor), [activeEvents, monthCursor])
+  const selectedDayEvents = useMemo(() => activeEvents.filter((event) => event.calendarDate === selectedDate), [activeEvents, selectedDate])
   const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(monthCursor)
   const moveMonth = (offset) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12))
   const markerStyle = (event) => ({
@@ -215,7 +241,7 @@ export function CalendarScreen({ link, onDateSelected, resource, themeTokens }) 
           <Button key={option.key} label={option.label} onPress={() => setWindowKey(option.key)} outline={windowKey !== option.key} styles={styles} />
         ))}
       </View> : null}
-      <ResourceState emptyCopy="There are no shared calendar events for this child." {...resource} styles={styles} />
+      <ResourceState emptyCopy="There are no shared calendar events for this child." {...resource} items={activeEvents} styles={styles} />
       {viewMode === 'month' ? <View style={styles.stack}>
         <View style={styles.row}><Button label="Previous" onPress={() => moveMonth(-1)} outline styles={styles} /><Text style={styles.cardTitle}>{monthLabel}</Text><Button label="Next" onPress={() => moveMonth(1)} outline styles={styles} /></View>
         <Button label="Today" onPress={() => { setMonthCursor(new Date()); setSelectedDate('') }} outline styles={styles} />
@@ -224,15 +250,15 @@ export function CalendarScreen({ link, onDateSelected, resource, themeTokens }) 
           {Array.from({ length: 6 }, (_unused, rowIndex) => <View key={rowIndex} style={styles.monthRow}>{monthDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((day) => <Pressable accessibilityLabel={`${day.date}, ${day.events.length} events`} accessibilityRole="button" key={day.date} onPress={() => selectDate(day.date)} style={[styles.monthCell, !day.inMonth && styles.monthCellMuted, (day.isToday || day.date === selectedDate) && styles.monthCellActive]}><Text style={styles.monthDay}>{day.day}</Text><View style={styles.actionRow}>{day.events.slice(0, 3).map((event) => <View accessibilityLabel={getParentCalendarMarkerTone(event)} key={event.id} style={[styles.monthDot, markerStyle(event)]} />)}</View></Pressable>)}</View>)}
         </View>
         <View accessibilityLabel="Calendar marker key" style={styles.monthLegend}>
-          {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['cancelled', 'Cancelled'], ['event', 'Other']].map(([tone, label]) => <View key={tone} style={styles.monthLegendItem}><View style={[styles.monthDot, ({ cancelled: styles.monthDotCancelled, event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></View>)}
+          {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['event', 'Other']].map(([tone, label]) => <View key={tone} style={styles.monthLegendItem}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></View>)}
         </View>
-        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard event={event} key={event.id} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
+        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onRespond={onRespond} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}
-      {viewMode === 'agenda' && !resource.loading && resource.items.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
+      {viewMode === 'agenda' && !resource.loading && activeEvents.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
       {viewMode === 'agenda' ? groups.map((group) => (
         <View key={group.date} style={styles.section}>
           <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => <CalendarEventCard event={event} key={event.id} styles={styles} />)}
+          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onRespond={onRespond} styles={styles} />)}
         </View>
       )) : null}
     </View>
@@ -505,25 +531,33 @@ export function ResourcesScreen({ isOffline, onDismiss, onOpen, resource, themeT
 export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onSend, rooms, selectedRoom, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [draft, setDraft] = useState('')
+  const messageListRef = useRef(null)
   const sortedRooms = useMemo(() => prepareParentChatRooms(rooms.items), [rooms.items])
   const sortedMessages = useMemo(() => prepareParentChatMessages(messages.items), [messages.items])
+  useEffect(() => {
+    if (!selectedRoom) return undefined
+    const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
+    return () => clearTimeout(handle)
+  }, [selectedRoom, sortedMessages.length])
   if (selectedRoom) {
     return (
       <View style={styles.chatScreen}>
         <View style={styles.chatHeader}><Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} /><Text accessibilityRole="header" style={styles.cardTitle}>{selectedRoom.title}</Text><Text style={styles.helper}>{getParentChatRoomContext(selectedRoom)}</Text></View>
         <FlatList
           contentContainerStyle={styles.chatListContent}
-          data={[...sortedMessages].reverse()}
-          inverted
+          data={sortedMessages}
           keyExtractor={(message) => String(message.id)}
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={!messages.loading ? <Text style={styles.empty}>No messages in this conversation yet.</Text> : null}
-          renderItem={({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Button danger disabled={isOffline || activeActionId === `chat-delete:${message.id}`} label="Delete" onPress={() => onDelete(message)} outline styles={styles} /> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>}
+          onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: false })}
+          ref={messageListRef}
+          renderItem={({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>}
           style={styles.chatList}
         />
         {messages.loading ? <Text style={styles.helper}>Loading messages...</Text> : null}
         {messages.error ? <Text style={styles.error}>{messages.error}</Text> : null}
-        {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => onSend(draft).then(() => setDraft(''))} styles={styles} /></View> : null}
+        {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => { void onSend(draft).then(() => setDraft('')).catch(() => {}) }} styles={styles} /></View> : null}
       </View>
     )
   }
