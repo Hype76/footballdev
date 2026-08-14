@@ -9,6 +9,7 @@ import {
   getParentMatchGroups,
   isParentDefinitelyOffline,
 } from '../apps/parent-mobile/src/parentExperience.js'
+import { withParentPushStepTimeout } from '../apps/mobile-core/src/parentNotificationsCore.js'
 import { getParentInvitationSections } from '../apps/parent-mobile/src/parentPresentationCore.js'
 import { getCoachChatRoomDisplay, normalizeCoachChatRoom } from '../apps/mobile-core/src/coachPhase31ECore.js'
 
@@ -71,6 +72,17 @@ test('Parent network state trusts an active connection while reachability is sti
   assert.equal(isParentDefinitelyOffline({ isConnected: false, isInternetReachable: true }), true)
 })
 
+test('Parent notification native work cannot leave the settings switch busy forever', async () => {
+  assert.equal(
+    await withParentPushStepTimeout(() => Promise.resolve('ready'), { stage: 'expo', timeoutMs: 25 }),
+    'ready',
+  )
+  await assert.rejects(
+    withParentPushStepTimeout(() => new Promise(() => {}), { stage: 'device', timeoutMs: 5 }),
+    (error) => error.code === 'PARENT_PUSH_DEVICE_NETWORK',
+  )
+})
+
 test('Coach Parent Chat labels include Player or fixture context', () => {
   const direct = normalizeCoachChatRoom({ player_name: 'Clyde Bates', room_type: 'parent_staff', team_name: 'U17 Green' }, 'parent')
   assert.deepEqual(getCoachChatRoomDisplay(direct), { context: 'U17 Green', title: 'Clyde Bates | Chat with staff' })
@@ -80,9 +92,10 @@ test('Coach Parent Chat labels include Player or fixture context', () => {
 })
 
 test('Parent notification, focused Chat, resource, poll and scorer regression guards are present', async () => {
-  const [app, config, parentData, screens, coachScreens, migration] = await Promise.all([
+  const [app, config, notifications, parentData, screens, coachScreens, migration] = await Promise.all([
     readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/app.config.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/parent-mobile/src/notifications.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8'),
@@ -90,6 +103,15 @@ test('Parent notification, focused Chat, resource, poll and scorer regression gu
   ])
 
   assert.match(config, /easProjectId:\s*'7e0906f3-64f4-42d9-b45d-0ee68f599baa'/)
+  assert.match(notifications, /withParentPushStepTimeout/)
+  assert.match(notifications, /Platform\.OS === 'android'/)
+  assert.match(notifications, /allowAlert:\s*true/)
+  assert.match(notifications, /allowBadge:\s*true/)
+  assert.match(notifications, /allowSound:\s*true/)
+  assert.match(notifications, /listener\(devicePushToken\)/)
+  assert.match(app, /devicePushToken,/)
+  assert.match(app, /label=\{saved \? 'Saved' : 'Selected'\}/)
+  assert.match(app, /Open device notification settings/)
   assert.match(app, /focusedChatRoom/)
   assert.match(app, /behavior=\{Platform\.OS === 'ios' \? 'padding' : 'height'\}/)
   assert.match(parentData, /if \(config\.supabaseEnvironment === 'production'\)[\s\S]*return \{ externalUrl: accessUrl \}/)

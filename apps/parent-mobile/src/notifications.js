@@ -11,6 +11,7 @@ import {
   getParentNotificationStorageKeys,
   normalizeParentNotificationDetail,
   normalizeParentNotificationState,
+  withParentPushStepTimeout,
 } from '../../mobile-core/src/parentNotificationsCore'
 import { getAccessToken } from '../../mobile-core/src/supabase'
 
@@ -19,6 +20,8 @@ const INSTALLATION_KEY_PREFIX = 'football-player.parent.push-installation-id.v2'
 const CHANNEL_ID = 'parent-updates'
 const PUSH_TOKEN_ATTEMPTS = 2
 const PUSH_TOKEN_RETRY_DELAY_MS = 750
+const PERMISSION_PROMPT_TIMEOUT_MS = 20000
+const PUSH_NATIVE_STEP_TIMEOUT_MS = 12000
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -79,27 +82,37 @@ function waitForPushRetry() {
   return new Promise((resolve) => setTimeout(resolve, PUSH_TOKEN_RETRY_DELAY_MS))
 }
 
-async function getParentExpoPushToken(easProjectId) {
-  let devicePushToken
+async function getParentExpoPushToken(easProjectId, suppliedDevicePushToken) {
+  let devicePushToken = suppliedDevicePushToken
 
-  try {
-    devicePushToken = await Notifications.getDevicePushTokenAsync()
-  } catch (error) {
-    throw createSafePushSetupError(error, 'device')
+  if (!devicePushToken && Platform.OS === 'android') {
+    try {
+      devicePushToken = await withParentPushStepTimeout(
+        () => Notifications.getDevicePushTokenAsync(),
+        { stage: 'device', timeoutMs: PUSH_NATIVE_STEP_TIMEOUT_MS },
+      )
+    } catch (error) {
+      throw createSafePushSetupError(error, 'device')
+    }
   }
 
   let lastError
 
   for (let attempt = 1; attempt <= PUSH_TOKEN_ATTEMPTS; attempt += 1) {
     try {
-      return await Notifications.getExpoPushTokenAsync({
-        devicePushToken,
-        ...(easProjectId ? { projectId: easProjectId } : {}),
-      })
+      return await withParentPushStepTimeout(
+        () => Notifications.getExpoPushTokenAsync({
+          ...(devicePushToken ? { devicePushToken } : {}),
+          ...(easProjectId ? { projectId: easProjectId } : {}),
+        }),
+        { stage: 'expo', timeoutMs: PUSH_NATIVE_STEP_TIMEOUT_MS },
+      )
     } catch (error) {
       lastError = error
       const safeCode = getParentPushSetupFailureCode(error, 'expo')
-      const shouldRetry = safeCode.endsWith('_NETWORK') && attempt < PUSH_TOKEN_ATTEMPTS
+      const shouldRetry = safeCode.endsWith('_NETWORK')
+        && !normalize(error?.message).toLowerCase().includes('timed out')
+        && attempt < PUSH_TOKEN_ATTEMPTS
       if (!shouldRetry) break
       await waitForPushRetry()
     }
@@ -139,12 +152,25 @@ async function getPermissionState() {
     }
   }
 
-  const permission = await Notifications.getPermissionsAsync()
+  const permission = await withParentPushStepTimeout(
+    () => Notifications.getPermissionsAsync(),
+    { stage: 'permission', timeoutMs: PUSH_NATIVE_STEP_TIMEOUT_MS },
+  )
   return {
     canAskAgain: permission.canAskAgain !== false,
-    permissionGranted: permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL,
+    permissionGranted: isPermissionGranted(permission),
     permissionStatus: normalize(permission.status).toLowerCase() || 'undetermined',
   }
+}
+
+function isPermissionGranted(permission) {
+  if (permission?.granted) return true
+  if (Platform.OS !== 'ios') return false
+  return [
+    Notifications.IosAuthorizationStatus.AUTHORIZED,
+    Notifications.IosAuthorizationStatus.PROVISIONAL,
+    Notifications.IosAuthorizationStatus.EPHEMERAL,
+  ].includes(permission?.ios?.status)
 }
 
 async function request({ apiBaseUrl, body, method, path }) {
@@ -189,8 +215,8 @@ export async function initializeParentNotifications() {
 }
 
 export function addParentPushTokenListener(listener) {
-  return Notifications.addPushTokenListener(() => {
-    listener()
+  return Notifications.addPushTokenListener((devicePushToken) => {
+    listener(devicePushToken)
   })
 }
 
@@ -239,21 +265,33 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
   })
 }
 
-export async function enableParentNotifications({ apiBaseUrl, easProjectId, parentLinkId }) {
+export async function enableParentNotifications({ apiBaseUrl, devicePushToken, easProjectId, parentLinkId }) {
   if (!Device.isDevice) {
     throw createSafePushSetupError({ message: 'device unavailable' }, 'device')
   }
 
   let permission
   try {
-    const currentPermission = await Notifications.getPermissionsAsync()
-    permission = currentPermission.granted
+    const currentPermission = await withParentPushStepTimeout(
+      () => Notifications.getPermissionsAsync(),
+      { stage: 'permission', timeoutMs: PUSH_NATIVE_STEP_TIMEOUT_MS },
+    )
+    permission = isPermissionGranted(currentPermission)
       ? currentPermission
-      : await Notifications.requestPermissionsAsync()
+      : await withParentPushStepTimeout(
+          () => Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+            },
+          }),
+          { stage: 'permission', timeoutMs: PERMISSION_PROMPT_TIMEOUT_MS },
+        )
   } catch (error) {
     throw createSafePushSetupError(error, 'permission')
   }
-  const permissionGranted = permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+  const permissionGranted = isPermissionGranted(permission)
 
   if (!permissionGranted) {
     const installationId = await getInstallationId(apiBaseUrl)
@@ -278,7 +316,7 @@ export async function enableParentNotifications({ apiBaseUrl, easProjectId, pare
     })
   }
 
-  const tokenResult = await getParentExpoPushToken(easProjectId)
+  const tokenResult = await getParentExpoPushToken(easProjectId, devicePushToken)
   const expoPushToken = normalize(tokenResult.data)
   if (!expoPushToken) {
     throw createSafePushSetupError({ message: 'token unavailable' }, 'expo')

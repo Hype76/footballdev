@@ -12,6 +12,7 @@ export const parentNotificationIntentTypes = Object.freeze([
 ])
 
 const parentPushFailureStages = new Set(['api', 'device', 'expo', 'local', 'permission'])
+const DEFAULT_PARENT_PUSH_STEP_TIMEOUT_MS = 12000
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -96,6 +97,31 @@ export function getParentPushSetupFailureCode(error, stage = 'expo') {
   }
 
   return `PARENT_PUSH_${normalizedStage.toUpperCase()}_${category.toUpperCase()}`
+}
+
+export async function withParentPushStepTimeout(operation, options = {}) {
+  const requestedStage = normalize(options.stage).toLowerCase()
+  const stage = parentPushFailureStages.has(requestedStage) ? requestedStage : 'expo'
+  const requestedTimeout = Number(options.timeoutMs)
+  const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+    ? requestedTimeout
+    : DEFAULT_PARENT_PUSH_STEP_TIMEOUT_MS
+  let timeoutHandle
+
+  try {
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((_resolve, reject) => {
+        timeoutHandle = setTimeout(() => {
+          const error = new Error(`parent push ${stage} timed out`)
+          error.code = getParentPushSetupFailureCode(error, stage)
+          reject(error)
+        }, timeoutMs)
+      }),
+    ])
+  } finally {
+    clearTimeout(timeoutHandle)
+  }
 }
 
 export function normalizeParentNotificationState(value = {}) {

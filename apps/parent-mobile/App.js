@@ -13,6 +13,7 @@ import {
   BackHandler,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -538,9 +539,10 @@ function ParentHome() {
 
   useEffect(() => {
     if (!notificationState.enabled || !selectedLink?.id) return undefined
-    const subscription = addParentPushTokenListener(() => {
+    const subscription = addParentPushTokenListener((devicePushToken) => {
       void enableParentNotifications({
         apiBaseUrl: config.apiBaseUrl,
+        devicePushToken,
         easProjectId: config.easProjectId,
         parentLinkId: selectedLink.id,
       }).then(setNotificationState).catch(() => {})
@@ -1104,8 +1106,10 @@ function ParentHome() {
       })
     } catch (error) {
       console.warn('Parent notification setup failed.', normalizeText(error?.code) || 'unknown')
+      const message = getParentFriendlyError(error, 'Notification settings could not be changed.')
+      setNotificationState((current) => ({ ...current, enabled: false, message }))
       setNotice({
-        message: getParentFriendlyError(error, 'Notification settings could not be changed.'),
+        message,
         tone: 'warning',
       })
     } finally {
@@ -1818,6 +1822,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
             <View accessibilityLabel={`Response options for ${poll.title}`} style={styles.optionStack}>
               {poll.options.map((option) => {
                 const selected = poll.allowMultiple ? currentOptionIds.includes(option.id) : draftOptionId === option.id
+                const saved = currentOptionIds.includes(option.id)
                 const ownChildOption = poll.allowOwnChildVotes === false
                   && normalizeText(link.playerId)
                   && normalizeText(option.playerId) === normalizeText(link.playerId)
@@ -1840,6 +1845,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                     <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>
                       {option.label}{ownChildOption ? ' (unavailable)' : ''}
                     </Text>
+                    {selected ? <Badge label={saved ? 'Saved' : 'Selected'} tone="accent" /> : null}
                   </Pressable>
                 )
               })}
@@ -1924,7 +1930,7 @@ function SettingsScreen({
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
-  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.4'
+  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.6'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
     : Constants.expoConfig?.android?.versionCode || '1')
@@ -2071,6 +2077,7 @@ function SettingsScreen({
             {!notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
               <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
             ) : null}
+            {notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
           </View>
           {activeActionId === 'notifications' ? <ActivityIndicator color={palette.accent} /> : (
             <Switch
@@ -2082,6 +2089,10 @@ function SettingsScreen({
             />
           )}
         </View>
+
+        {!notificationState.permissionGranted && (notificationState.permissionStatus === 'denied' || notificationState.canAskAgain === false) ? (
+          <PrimaryAction label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
+        ) : null}
 
         <View style={styles.notificationChoices}>
           {[
