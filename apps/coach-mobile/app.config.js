@@ -9,5 +9,5 @@ module.exports = createMobileExpoConfig({
   packageName: 'com.footballplayer.coach',
   scheme: 'footballplayercoach',
   slug: 'football-player-coach',
-  version: '1.0.9',
+  version: '1.0.10',
 })

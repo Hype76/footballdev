@@ -36,6 +36,7 @@ import {
   withdrawCoachFormationBoard,
 } from '../../mobile-core/src/coachFormationBoardData'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { getCoachFriendlyError } from './coachFriendlyErrors'
 
 const normalize = (value) => String(value ?? '').trim()
 const RESOURCE_CATEGORIES = Object.freeze([
@@ -273,15 +274,30 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
+    const [savedPreference, savedOffline] = await Promise.all([
+      AsyncStorage.getItem(preferenceKey).catch(() => null),
+      readCoachOfflineResources(user.id, context).catch(() => null),
+    ])
+    const savedFormation = savedOffline?.resources?.formation
+    const pendingSave = savedFormation?.pendingSave
+    if (savedFormation?.draft) {
+      setBoard(savedFormation.board || null)
+      setBoards(Array.isArray(savedFormation.boards) ? savedFormation.boards : [])
+      setDraft(savedFormation.draft)
+      setPresets(Array.isArray(savedFormation.presets) ? savedFormation.presets : [])
+      setMatchPublications(Array.isArray(savedFormation.matchPublications) ? savedFormation.matchPublications : [])
+      setResourcePublications(Array.isArray(savedFormation.resourcePublications) ? savedFormation.resourcePublications : [])
+      setSelectedMatchId(savedFormation.board?.linkedMatchDayId || '')
+      setTitle(pendingSave?.title || savedFormation.board?.title || 'Formation Board')
+      setWorkflowStep(pendingSave ? 'save' : savedFormation.board ? 'lineup' : 'formation')
+      setOffline(true)
+      setLoading(false)
+    }
     try {
-      const [savedPreference, nextPresets, nextBoards, savedOffline] = await Promise.all([
-        AsyncStorage.getItem(preferenceKey),
+      const [nextPresets, nextBoards] = await Promise.all([
         getCoachFormationPresets(user),
         getCoachFormationBoards(user),
-        readCoachOfflineResources(user.id, context).catch(() => null),
       ])
-      const savedFormation = savedOffline?.resources?.formation
-      const pendingSave = savedFormation?.pendingSave
       const preference = parseMobileFormationPreferences(savedPreference) || { gameFormat: '11v11', presetKey: '11v11-4-4-2' }
       const matchingPreset = nextPresets.find((preset) => preset.key === preference.presetKey)
         || nextPresets.find((preset) => preset.key === '11v11-4-4-2')
@@ -318,23 +334,12 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       setOffline(false)
       await saveCoachOfflineResources(user.id, context, { formation: { board: nextBoard, boards: nextBoards, draft: nextDraft, matchDayId: match?.id || '', matchPublications: nextPublications.matchItems, pendingSave: unresolvedPendingSave, presets: nextPresets, resourcePublications: nextPublications.resourceItems } }).catch(() => {})
     } catch (loadError) {
-      const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
-      const formation = saved?.resources?.formation
-      if (formation?.draft) {
-        setBoard(formation.board || null)
-        setBoards(Array.isArray(formation.boards) ? formation.boards : [])
-        setDraft(formation.draft)
-        setPresets(Array.isArray(formation.presets) ? formation.presets : [])
-        setMatchPublications(Array.isArray(formation.matchPublications) ? formation.matchPublications : [])
-        setResourcePublications(Array.isArray(formation.resourcePublications) ? formation.resourcePublications : [])
-        setSelectedMatchId(formation.board?.linkedMatchDayId || '')
-        setTitle(formation.pendingSave?.title || formation.board?.title || 'Formation Board')
-        setWorkflowStep(formation.pendingSave ? 'save' : formation.board ? 'lineup' : 'formation')
-        if (formation.pendingSave) setNotice('Your unsent Formation Board is preserved on this device. Continue to Save and retry when connected.')
+      if (savedFormation?.draft) {
+        if (pendingSave) setNotice('Your unsent Formation Board is saved on this device. Connect when you are ready to finish saving it.')
         setOffline(true)
       } else {
         setErrorRetry('load')
-        setError(normalize(loadError?.message) || 'The Formation Board could not be loaded.')
+        setError(getCoachFriendlyError(loadError, 'The Formation Board could not be loaded.'))
       }
     } finally { setLoading(false) }
   }, [context, match, preferenceKey, resolvePublications, user])

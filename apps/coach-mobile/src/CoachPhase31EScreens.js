@@ -24,7 +24,6 @@ import {
 } from '../../mobile-core/src/coachPhase31EData'
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
-  COACH_PHASE_31E_COMMUNICATION_POLICY,
   getCoachPhase31EOfflinePolicy,
   getCoachChatRoomDisplay,
   getCoachResourceErrorMessage,
@@ -37,6 +36,7 @@ import {
 } from '../../mobile-core/src/coachPhase31ECore'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { getCoachFriendlyError } from './coachFriendlyErrors'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -112,6 +112,15 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     setError('')
     setNotice('')
     if (domain === 'chat') setData(null)
+    const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const savedValue = cached?.resources?.[`phase31e:${domain}`]
+    const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
+    const hasCachedValue = offlinePolicy.cache && Boolean(cachedValue)
+    if (hasCachedValue) {
+      setData(cachedValue)
+      setStale(true)
+      setLoading(false)
+    }
     try {
       const next = await loader(user)
       setData(next)
@@ -119,16 +128,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
       await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
-      const savedValue = cached?.resources?.[`phase31e:${domain}`]
-      const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
-      if (offlinePolicy.cache && offlineValue) {
-        setData(offlineValue)
-        setStale(true)
-        setNotice('Showing encrypted offline data. Changes require a connection.')
-      } else {
-        setError(loadError?.message || `${TITLES[domain]} could not be loaded.`)
-      }
+      if (!hasCachedValue) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
     } finally {
       setLoading(false)
     }
@@ -153,10 +153,6 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       {!loading && !error && domain === 'messages' ? <MessagesDomain {...common} /> : null}
       {!loading && !error && domain === 'polls' ? <PollsDomain {...common} /> : null}
       {!loading && !error && domain === 'invites' ? <InvitesDomain {...common} /> : null}
-      {domain !== 'chat' ? <View style={styles.panel}>
-        <Text style={styles.heading}>Safety boundary</Text>
-        <Text style={styles.body}>{config.isProduction ? 'Production mutations are online-only and use canonical server authority. Recipient communication requires an explicit confirmed action. Unsafe offline replay is disabled.' : `Real email ${COACH_PHASE_31E_COMMUNICATION_POLICY.realEmail}. Real push ${COACH_PHASE_31E_COMMUNICATION_POLICY.realPush}. SMS ${COACH_PHASE_31E_COMMUNICATION_POLICY.sms}. Unsafe offline replay is disabled.`}</Text>
-      </View> : null}
     </View>
   )
 }
@@ -187,7 +183,7 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
       const result = await saveCoachDevelopmentDraft(user, { draftId: draft?.id, form, player, values, clientSaveVersion: draft?.clientSaveVersion || 0 })
       setDraft(result)
       setNotice('Private Development draft saved with server version control.')
-    } catch (error) { setNotice(error.message) }
+    } catch (error) { setNotice(getCoachFriendlyError(error)) }
   }
   const finalise = () => Alert.alert('Finalise Development record?', 'Final records cannot be edited from this mobile workflow.', [
     { text: 'Cancel', style: 'cancel' },
@@ -199,7 +195,7 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
         setNotes('')
         setDraft(null)
         await load()
-      } catch (error) { setNotice(error.message) }
+      } catch (error) { setNotice(getCoachFriendlyError(error)) }
     } },
   ])
 
@@ -272,7 +268,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
     } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
   }
   const create = async () => {
-    try { await createCoachExternalResource(user, { title, externalUrl: url, category: 'general' }); setNotice(config.isProduction ? 'External Resource created.' : 'Synthetic external Resource created.'); await load() } catch (error) { setNotice(error.message) }
+    try { await createCoachExternalResource(user, { title, externalUrl: url, category: 'general' }); setNotice(config.isProduction ? 'External Resource created.' : 'Synthetic external Resource created.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) }
   }
   const shareWithTeam = async () => {
     try { await setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], config.isProduction ? 'Shared from Football Player Coach' : 'Shared from Coach mobile FP TEST'); setNotice(config.isProduction ? 'Resource shared with the active Team.' : 'Resource shared with the active FP TEST Team.'); await load() } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
@@ -301,7 +297,7 @@ function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHand
     setBody('')
     setRoomId(nextRoom.id)
     setNotice('Loading current room history...')
-    try { const next = await getCoachChatMessages(user, nextRoom); setMessages(next); await markCoachChatRead(user, nextRoom); setNotice('') } catch (error) { setMessages([]); setNotice(error.message) }
+    try { const next = await getCoachChatMessages(user, nextRoom); setMessages(next); await markCoachChatRead(user, nextRoom); setNotice('') } catch (error) { setMessages([]); setNotice(getCoachFriendlyError(error)) }
   }, [setNotice, user])
   useEffect(() => {
     const targetId = String(chatNotificationTarget?.id || '').trim()
@@ -322,7 +318,7 @@ function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHand
     return () => { cancelled = true }
   }, [chatNotificationTarget, onChatNotificationTargetHandled, open, rooms, setNotice, user.activeCoachContextId])
   const send = async () => {
-    try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice(config.isProduction ? 'Message sent through the canonical Chat.' : 'Synthetic Chat message saved inside FP TEST only.') } catch (error) { setNotice(error.message) }
+    try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice(config.isProduction ? 'Message sent through the canonical Chat.' : 'Synthetic Chat message saved inside FP TEST only.') } catch (error) { setNotice(getCoachFriendlyError(error)) }
   }
   if (!rooms.length) return <Empty copy="No Staff Chat or Parent Chat membership is available in this Team." styles={styles} />
   if (!room) {
@@ -406,18 +402,18 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       setMaxChoices('')
       await load()
       setNotice('Poll created. No notification or message was sent automatically.')
-    } catch (error) { setNotice(error.message) }
+    } catch (error) { setNotice(getCoachFriendlyError(error)) }
     finally { setCreating(false) }
   }
-  const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice('Poll closed.'); await load() } catch (error) { setNotice(error.message) } } }])
-  const reopen = async () => { try { await setCoachPollStatus(user, selected, 'open'); setNotice('Poll reopened.'); await load() } catch (error) { setNotice(error.message) } }
+  const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice('Poll closed.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) } } }])
+  const reopen = async () => { try { await setCoachPollStatus(user, selected, 'open'); setNotice('Poll reopened.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) } }
   const vote = async (poll, optionId) => {
     setVotingOptionId(`${poll.id}:${optionId}`)
     try {
       await submitCoachPollVote(user, poll, optionId)
       await load()
       setNotice('Your Poll response has been saved.')
-    } catch (error) { setNotice(error.message) }
+    } catch (error) { setNotice(getCoachFriendlyError(error)) }
     finally { setVotingOptionId('') }
   }
   return (
@@ -463,7 +459,7 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
     try {
       const result = await recordCoachInviteIntent(user, selected, action)
       setNotice(config.isProduction ? `Invitation resent to ${result.recipientCount} server-resolved recipient${result.recipientCount === 1 ? '' : 's'}.` : `${action} intent recorded. External delivery remains disabled.`)
-    } catch (error) { setNotice(error.message) }
+    } catch (error) { setNotice(getCoachFriendlyError(error)) }
   }
   const resend = () => {
     if (!config.isProduction) return void record('resend')
@@ -488,12 +484,12 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
           setNotice('The server confirmed that all selected Match availability requests were created. No retry is needed.')
           setPlayerIds([])
         } else {
-          setNotice(`${error.message} The server confirmed that the complete request set was not created. Review current invitations before retrying.`)
+          setNotice(`${getCoachFriendlyError(error, 'The request could not be completed.')} Review current invitations before retrying.`)
         }
         await load()
       } catch {
         setUncertainAttempt(attempt)
-        setNotice(`${error.message} The result is uncertain. Reconcile with the server before retrying.`)
+        setNotice(`${getCoachFriendlyError(error, 'The request could not be completed.')} Check the current invitations before retrying.`)
       }
     } finally { setCreating(false) }
   }
@@ -507,7 +503,7 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
       if (applied) setPlayerIds([])
       setUncertainAttempt(null)
       await load()
-    } catch (error) { setNotice(`${error.message} The result remains uncertain, so retry is still blocked.`) }
+    } catch (error) { setNotice(`${getCoachFriendlyError(error, 'The request could not be completed.')} Check the current invitations before retrying.`) }
     finally { setCreating(false) }
   }
   const confirmCreate = () => Alert.alert('Create Match availability requests?', 'This uses the canonical Match workflow and may queue Parent email for the selected Players. Existing request identity is reused where the server supports it.', [

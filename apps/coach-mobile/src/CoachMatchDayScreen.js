@@ -39,11 +39,12 @@ import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { CoachFormationBoard } from './CoachFormationBoard'
+import { getCoachFriendlyError } from './coachFriendlyErrors'
 
 const config = getMobileRuntimeConfig('coach')
 
 function normalize(value) { return String(value ?? '').trim() }
-function errorMessage(error, fallback) { return normalize(error?.message) || fallback }
+const errorMessage = getCoachFriendlyError
 function label(value, fallback = '') { return normalize(value).replace(/_/g, ' ') || fallback }
 function normalizeCachedMatches(value) {
   return (Array.isArray(value) ? value : [])
@@ -184,6 +185,15 @@ export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
   const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(user.id, context, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [context, user.id])
   const load = useCallback(async () => {
     setError(''); setNotice(''); setLoading(true)
+    const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const hasCachedMatches = Array.isArray(saved?.resources?.matchDayList)
+    if (hasCachedMatches) {
+      setMatches(normalizeCachedMatches(saved.resources.matchDayList))
+      setPlayers(Array.isArray(saved.resources.matchDayPlayers) ? saved.resources.matchDayPlayers : [])
+      setMatch(saved.resources.matchDayDetail && typeof saved.resources.matchDayDetail === 'object' ? normalizeCoachMatchDay(saved.resources.matchDayDetail) : null)
+      setStale(true)
+      setLoading(false)
+    }
     try {
       const [nextMatches, nextPlayers] = await Promise.all([getCoachMatchDayList(user), getCoachPlayerList(user)])
       setMatches(nextMatches); setPlayers(nextPlayers); setStale(false); setReconciling(false)
@@ -191,14 +201,7 @@ export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
       if (nextMatch) { setMatch(nextMatch); setScoreDraft({ away: String(nextMatch.awayScore), home: String(nextMatch.homeScore) }) }
       await cache(nextMatches, nextMatch, nextPlayers)
     } catch (loadError) {
-      const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
-      if (saved?.resources?.matchDayList) {
-        setMatches(normalizeCachedMatches(saved.resources.matchDayList))
-        setPlayers(Array.isArray(saved.resources.matchDayPlayers) ? saved.resources.matchDayPlayers : [])
-        setMatch(saved.resources.matchDayDetail && typeof saved.resources.matchDayDetail === 'object' ? normalizeCoachMatchDay(saved.resources.matchDayDetail) : null)
-        setStale(true)
-      }
-      else setError(errorMessage(loadError, 'Match Day could not be loaded.'))
+      if (!hasCachedMatches) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
     } finally { setLoading(false) }
   }, [cache, context, match?.id, user])
   useEffect(() => { void load() }, [load])

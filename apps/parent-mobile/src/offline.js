@@ -12,6 +12,7 @@ import {
   createParentSyncCoordinator,
   enqueueParentOfflineCommand,
   getParentOfflineResources,
+  getParentSyncAttentionItems,
   getParentSyncSummary,
   setParentOfflineProfile,
   setParentOfflineResources,
@@ -193,7 +194,10 @@ export async function readParentOfflineView(userScope, linkId) {
   return {
     cache,
     document,
-    sync: getParentSyncSummary(document),
+    sync: {
+      ...getParentSyncSummary(document, linkId),
+      attentionItems: getParentSyncAttentionItems(document, linkId),
+    },
   }
 }
 
@@ -260,8 +264,17 @@ export function syncParentOfflineCommands(user, { explicitRetry = false } = {}) 
     readDocument,
     writeDocument,
   })
-  activeSync = coordinator.sync({ explicitRetry, userScope: user.id }).finally(() => {
-    activeSync = null
-  })
+  activeSync = coordinator.sync({ explicitRetry, userScope: user.id })
+    .then((result) => {
+      const scopedSummary = getParentSyncSummary(result.document, user.selectedParentLinkId)
+      return {
+        ...result,
+        ...scopedSummary,
+        attentionItems: getParentSyncAttentionItems(result.document, user.selectedParentLinkId),
+      }
+    })
+    .finally(() => {
+      activeSync = null
+    })
   return activeSync
 }

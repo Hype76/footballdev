@@ -134,7 +134,7 @@ test('cross-domain operational transitions are visible and authority-scoped', ()
   assert.match(operationalScreens, /Open Players/)
   assert.match(matchDayScreen, /Availability/)
   assert.match(matchDayScreen, /Team Chat/)
-  assert.match(phase31EScreens, /Team Calendar/)
+  assert.match(matchDayScreen, /label="Calendar"/)
   assert.match(phase31EScreens, /Open Calendar/)
   assert.match(app, /resolveCoachNotificationOpen/)
 })
@@ -191,12 +191,12 @@ test('archive and membership-loss journeys fail closed without retaining unsafe 
 })
 
 test('offline end-to-end journey uses encrypted reads, obvious stale state, online writes, and clean refresh', () => {
-  assert.match(app, /Offline\. Showing the last encrypted Coach overview/)
+  assert.match(app, /Offline, stale data/)
   assert.match(app, /Refresh when online/)
-  assert.match(operationalScreens, /Showing encrypted data saved on this device/)
+  assert.match(operationalScreens, /Showing saved information\. Connect before making changes/)
   assert.match(matchDayScreen, /Every change is disabled until a successful refresh/)
   assert.match(phase31EScreens, /Offline and read-only/)
-  assert.match(phase31EScreens, /Unsafe offline replay is disabled/)
+  assert.doesNotMatch(phase31EScreens, /Unsafe offline replay is disabled/)
 })
 
 test('notification fixtures cover cold, warm, signed-out, wrong-Team, removed, archived, stale, and context-switch paths without delivery', () => {

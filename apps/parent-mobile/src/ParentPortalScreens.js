@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useState } from 'react'
 import { FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
-import { getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
+import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
@@ -56,7 +56,10 @@ function colorsFor(themeTokens) {
     border: tokens.border,
     card: tokens.portalSurface,
     danger: tokens.danger,
+    event: tokens.accent || tokens.buttonPrimary,
+    match: tokens.accentMuted,
     muted: tokens.textSecondary,
+    success: tokens.success,
     text: tokens.textPrimary,
     warning: tokens.warning,
   }
@@ -88,7 +91,14 @@ function usePortalStyles(themeTokens) {
       monthCellMuted: { opacity: 0.42 },
       monthDay: { color: colors.text, fontSize: 13, fontWeight: '800' },
       monthDot: { backgroundColor: colors.accent, borderRadius: 999, height: 6, width: 6 },
-      monthDotWarning: { backgroundColor: colors.warning },
+      monthDotCancelled: { backgroundColor: colors.danger },
+      monthDotEvent: { backgroundColor: colors.event },
+      monthDotMatch: { backgroundColor: colors.match },
+      monthDotResponse: { backgroundColor: colors.warning },
+      monthDotTraining: { backgroundColor: colors.success },
+      monthLegend: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+      monthLegendItem: { alignItems: 'center', flexDirection: 'row', gap: 5 },
+      monthLegendText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
       monthGrid: { gap: 5 },
       monthRow: { flexDirection: 'row', gap: 5 },
       monthWeekday: { color: colors.muted, flex: 1, fontSize: 11, fontWeight: '900', textAlign: 'center' },
@@ -151,7 +161,7 @@ function CalendarEventCard({ event, styles }) {
   )
 }
 
-export function CalendarScreen({ link, resource, themeTokens }) {
+export function CalendarScreen({ link, onDateSelected, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   const [viewMode, setViewMode] = useState('agenda')
   const [windowKey, setWindowKey] = useState('needs-response')
@@ -175,6 +185,17 @@ export function CalendarScreen({ link, resource, themeTokens }) {
   const selectedDayEvents = useMemo(() => resource.items.filter((event) => event.calendarDate === selectedDate), [resource.items, selectedDate])
   const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(monthCursor)
   const moveMonth = (offset) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12))
+  const markerStyle = (event) => ({
+    cancelled: styles.monthDotCancelled,
+    event: styles.monthDotEvent,
+    match: styles.monthDotMatch,
+    response: styles.monthDotResponse,
+    training: styles.monthDotTraining,
+  })[getParentCalendarMarkerTone(event)]
+  const selectDate = (date) => {
+    setSelectedDate(date)
+    onDateSelected?.(date)
+  }
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your child'}.</Text></View>
@@ -200,7 +221,10 @@ export function CalendarScreen({ link, resource, themeTokens }) {
         <Button label="Today" onPress={() => { setMonthCursor(new Date()); setSelectedDate('') }} outline styles={styles} />
         <View style={styles.monthGrid}>
           <View style={styles.monthRow}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <Text key={day} style={styles.monthWeekday}>{day}</Text>)}</View>
-          {Array.from({ length: 6 }, (_unused, rowIndex) => <View key={rowIndex} style={styles.monthRow}>{monthDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((day) => <Pressable accessibilityLabel={`${day.date}, ${day.events.length} events`} accessibilityRole="button" key={day.date} onPress={() => setSelectedDate(day.date)} style={[styles.monthCell, !day.inMonth && styles.monthCellMuted, (day.isToday || day.date === selectedDate) && styles.monthCellActive]}><Text style={styles.monthDay}>{day.day}</Text><View style={styles.actionRow}>{day.events.slice(0, 3).map((event) => <View key={event.id} style={[styles.monthDot, event.requiresResponse && styles.monthDotWarning]} />)}</View></Pressable>)}</View>)}
+          {Array.from({ length: 6 }, (_unused, rowIndex) => <View key={rowIndex} style={styles.monthRow}>{monthDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((day) => <Pressable accessibilityLabel={`${day.date}, ${day.events.length} events`} accessibilityRole="button" key={day.date} onPress={() => selectDate(day.date)} style={[styles.monthCell, !day.inMonth && styles.monthCellMuted, (day.isToday || day.date === selectedDate) && styles.monthCellActive]}><Text style={styles.monthDay}>{day.day}</Text><View style={styles.actionRow}>{day.events.slice(0, 3).map((event) => <View accessibilityLabel={getParentCalendarMarkerTone(event)} key={event.id} style={[styles.monthDot, markerStyle(event)]} />)}</View></Pressable>)}</View>)}
+        </View>
+        <View accessibilityLabel="Calendar marker key" style={styles.monthLegend}>
+          {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['cancelled', 'Cancelled'], ['event', 'Other']].map(([tone, label]) => <View key={tone} style={styles.monthLegendItem}><View style={[styles.monthDot, ({ cancelled: styles.monthDotCancelled, event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></View>)}
         </View>
         {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard event={event} key={event.id} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}

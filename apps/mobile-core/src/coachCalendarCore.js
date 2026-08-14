@@ -27,6 +27,21 @@ function normalizeKey(value) {
   return normalize(value).toLowerCase().replaceAll('-', '_').replaceAll(' ', '_')
 }
 
+export function normalizeCoachCalendarFormDate(value) {
+  const input = normalize(value)
+  const isoDate = normalizeRequiredDate(input)
+  if (isoDate) return isoDate
+  const ukDate = input.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  return ukDate ? normalizeRequiredDate(`${ukDate[3]}-${ukDate[2]}-${ukDate[1]}`) : ''
+}
+
+export function formatCoachCalendarFormDate(value) {
+  const date = normalizeCoachCalendarFormDate(value)
+  if (!date) return normalize(value)
+  const [year, month, day] = date.split('-')
+  return `${day}-${month}-${year}`
+}
+
 function related(row, key) {
   const value = row?.[key]
   return Array.isArray(value) ? value[0] : value
@@ -64,7 +79,7 @@ function offsetMinutesAt(timestamp) {
 }
 
 export function londonLocalToUtcIso(dateValue, timeValue) {
-  const date = normalizeRequiredDate(dateValue)
+  const date = normalizeCoachCalendarFormDate(dateValue)
   const time = normalizeRequiredTime(timeValue)
   if (!date || !time) throw new Error('Enter a valid Europe/London date and time.')
   const [year, month, day] = date.split('-').map(Number)
@@ -334,14 +349,14 @@ export function buildCoachCalendarPayload({ context, form }) {
   const title = normalize(form?.title)
   if (!title) throw new Error('Add an event title.')
   const dateTime = validateOrdinaryEventDateTime({
-    date: form?.date,
+    date: normalizeCoachCalendarFormDate(form?.date),
     endTime: form?.endTime,
     startTime: form?.startTime,
   })
   const recurrenceFrequency = COACH_CALENDAR_RECURRENCE.includes(normalizeKey(form?.recurrenceFrequency))
     ? normalizeKey(form.recurrenceFrequency)
     : 'none'
-  const recurrenceUntil = recurrenceFrequency === 'none' ? '' : normalizeRequiredDate(form?.recurrenceUntil)
+  const recurrenceUntil = recurrenceFrequency === 'none' ? '' : normalizeCoachCalendarFormDate(form?.recurrenceUntil)
   if (recurrenceFrequency !== 'none' && !recurrenceUntil) throw new Error('Add a repeat until date.')
   const activeTeamId = normalize(context?.teamId || context?.activeTeamId)
   const teamId = context?.role === 'admin' ? normalize(form?.teamId || activeTeamId) : activeTeamId
@@ -375,7 +390,7 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
   const start = londonParts(event?.startsAt)
   const end = londonParts(event?.endsAt)
   return {
-    date: start?.date || getDateInTimeZone(),
+    date: formatCoachCalendarFormDate(start?.date || getDateInTimeZone()),
     endTime: end?.time || '19:00',
     eventType: COACH_CALENDAR_EVENT_TYPES.includes(event?.eventType) ? event.eventType : 'training',
     involvedPlayerIds: [],
@@ -384,7 +399,7 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
     parentAudience: event?.parentAudience || 'none',
     parentVisible: event?.parentVisible === true,
     recurrenceFrequency: event?.recurrenceFrequency || 'none',
-    recurrenceUntil: event?.recurrenceUntil || '',
+    recurrenceUntil: formatCoachCalendarFormDate(event?.recurrenceUntil || ''),
     startTime: start?.time || '18:00',
     teamId: normalize(event?.teamId || context?.teamId || context?.activeTeamId),
     title: normalize(event?.title),
@@ -392,5 +407,5 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
 }
 
 export function getCanonicalCalendarLocalDateTime(date, time) {
-  return buildRequiredLocalDateTime(date, time)
+  return buildRequiredLocalDateTime(normalizeCoachCalendarFormDate(date), time)
 }

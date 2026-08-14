@@ -204,6 +204,7 @@ function ParentHome() {
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
   const [activeActionId, setActiveActionId] = useState('')
+  const [attentionIndex, setAttentionIndex] = useState(0)
   const [biometricAvailable, setBiometricAvailableState] = useState(false)
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [childSwitcherOpen, setChildSwitcherOpen] = useState(false)
@@ -234,8 +235,9 @@ function ParentHome() {
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
-  const [syncSummary, setSyncSummary] = useState({ needsAttention: 0, state: 'synced', waiting: 0 })
+  const [syncSummary, setSyncSummary] = useState({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
   const requestIdRef = useRef(0)
+  const scrollViewRef = useRef(null)
   const notificationResponseIdRef = useRef('')
   const notificationResponseProcessingRef = useRef('')
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
@@ -357,7 +359,7 @@ function ParentHome() {
         const name = resourceNames[index]
         if (result.status === 'fulfilled') {
           next[name] = {
-            error: name === 'calendar' && calendarDependencyFailed
+            error: name === 'calendar' && calendarDependencyFailed && !cachedView?.cache
               ? 'Some Calendar items could not be refreshed.'
               : '',
             items: name === 'calendar' ? combinedCalendar : valueFor(name),
@@ -365,14 +367,14 @@ function ParentHome() {
           }
         } else {
           next[name] = {
-            error: getParentFriendlyError(result.reason, resourceFallbacks[name]),
+            error: cachedView?.cache ? '' : getParentFriendlyError(result.reason, resourceFallbacks[name]),
             items: current[name].items,
             loading: false,
           }
         }
       })
       next.calendar = {
-        error: calendarDependencyFailed ? 'Some Calendar items could not be refreshed.' : '',
+        error: calendarDependencyFailed && !cachedView?.cache ? 'Some Calendar items could not be refreshed.' : '',
         items: calendarDependencyFailed && combinedCalendar.length === 0
           ? current.calendar.items
           : combinedCalendar,
@@ -403,6 +405,7 @@ function ParentHome() {
     try {
       const result = await syncParentOfflineCommands(selectedMobileUser, { explicitRetry })
       setSyncSummary({
+        attentionItems: result.attentionItems || [],
         needsAttention: result.needsAttention,
         state: result.state,
         waiting: result.waiting,
@@ -415,6 +418,11 @@ function ParentHome() {
       setIsSyncing(false)
     }
   }, [isOffline, selectedMobileUser])
+
+  useEffect(() => {
+    if (syncSummary.needsAttention === 0) setAttentionIndex(0)
+    else if (attentionIndex >= syncSummary.needsAttention) setAttentionIndex(0)
+  }, [attentionIndex, syncSummary.needsAttention])
 
   useEffect(() => {
     const nextSelectedLinkId = selectedLink?.id || ''
@@ -898,6 +906,30 @@ function ParentHome() {
     }
   }
 
+  function handleOpenAttentionItem() {
+    const items = syncSummary.attentionItems || []
+    const item = items[attentionIndex % Math.max(items.length, 1)]
+    if (!item) {
+      setMoreSection('settings')
+      setActiveTab('more')
+      return
+    }
+    setNotice(null)
+    if (item.type === 'poll_vote') {
+      setMoreSection('polls')
+      setActiveTab('more')
+      return
+    }
+    if (item.type === 'message_read') {
+      const room = parentChatRooms.find((candidate) => candidate.id === 'club-announcements')
+      setActiveTab('chat')
+      if (room) void handleOpenChatRoom(room)
+      return
+    }
+    setMoreSection('settings')
+    setActiveTab('more')
+  }
+
   async function handleOpenMatchLink(url, destination) {
     if (isOffline || activeActionId || !url) return
     setActiveActionId(`match-${destination}`)
@@ -1249,7 +1281,7 @@ function ParentHome() {
 
         {activeTab === 'chat' ? (
           <View style={[styles.contentColumn, styles.chatRouteContent]}>
-            {!focusedChatRoom ? <SyncStatus cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} summary={syncSummary} /> : null}
+            {!focusedChatRoom ? <SyncStatus attentionIndex={attentionIndex} cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} onNextAttention={() => setAttentionIndex((current) => (current + 1) % Math.max(syncSummary.needsAttention, 1))} onOpenAttention={handleOpenAttentionItem} summary={syncSummary} /> : null}
             {notice ? <Notice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
             <ChatScreen
               activeActionId={activeActionId}
@@ -1270,6 +1302,7 @@ function ParentHome() {
         ) : <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          ref={scrollViewRef}
           refreshControl={(
             <RefreshControl
               colors={[palette.accent]}
@@ -1281,9 +1314,12 @@ function ParentHome() {
         >
           <View style={styles.contentColumn}>
             <SyncStatus
+              attentionIndex={attentionIndex}
               cacheState={offlineCacheState}
               isOffline={isOffline}
               isSyncing={isSyncing}
+              onNextAttention={() => setAttentionIndex((current) => (current + 1) % Math.max(syncSummary.needsAttention, 1))}
+              onOpenAttention={handleOpenAttentionItem}
               summary={syncSummary}
             />
             {notice ? <Notice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
@@ -1308,7 +1344,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen link={selectedLink} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -1873,7 +1909,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
   )
 }
 
-function SyncStatus({ cacheState, isOffline, isSyncing, summary }) {
+function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNextAttention, onOpenAttention, summary }) {
   const { palette, styles } = useParentTheme()
   let message = ''
   let tone = 'neutral'
@@ -1893,12 +1929,15 @@ function SyncStatus({ cacheState, isOffline, isSyncing, summary }) {
     message = 'Showing saved information while the latest update is checked.'
   }
 
-  return message ? (
-    <View accessibilityLiveRegion="polite" style={[styles.syncStatus, tone === 'warning' && styles.syncStatusWarning]}>
+  const content = <>
       {isSyncing ? <ActivityIndicator color={palette.accent} size="small" /> : null}
       <Text style={styles.syncStatusText}>{message}</Text>
-    </View>
-  ) : null
+      {summary.needsAttention > 1 && onNextAttention ? <Pressable accessibilityLabel={`Show next action, ${attentionIndex + 1} of ${summary.needsAttention}`} accessibilityRole="button" onPress={(event) => { event.stopPropagation(); onNextAttention() }} style={styles.syncStatusAction}><Text style={styles.syncStatusActionText}>Next</Text></Pressable> : null}
+    </>
+  if (!message) return null
+  return summary.needsAttention > 0 && onOpenAttention ? (
+    <Pressable accessibilityHint="Opens the item that needs attention" accessibilityLiveRegion="polite" accessibilityRole="button" onPress={onOpenAttention} style={[styles.syncStatus, styles.syncStatusWarning]}>{content}</Pressable>
+  ) : <View accessibilityLiveRegion="polite" style={[styles.syncStatus, tone === 'warning' && styles.syncStatusWarning]}>{content}</View>
 }
 
 function SettingsScreen({
@@ -2549,6 +2588,8 @@ function createParentAppStyles(tokens) {
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   summaryLabel: { color: palette.text, fontSize: 14, fontWeight: '900' },
   syncStatus: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.borderStrong, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 12, minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
+  syncStatusAction: { alignItems: 'center', borderColor: palette.warning, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 34, paddingHorizontal: 10 },
+  syncStatusActionText: { color: palette.text, fontSize: 12, fontWeight: '900' },
   syncStatusText: { color: palette.text, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
   syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
   tabBar: { backgroundColor: palette.card, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 8, paddingTop: 8 },

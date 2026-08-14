@@ -50,6 +50,7 @@ import { CoachFormationScreen } from './src/CoachFormationScreen'
 import { CoachMatchDayScreen } from './src/CoachMatchDayScreen'
 import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 import { CoachQuickActions } from './src/CoachQuickActions'
+import { getCoachFriendlyError } from './src/coachFriendlyErrors'
 import { getCoachQuickActions } from './src/coachQuickActionsCore'
 import { coachOfflineProfileStore, inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
 import {
@@ -259,6 +260,14 @@ function CoachHome() {
     if (refresh) setIsRefreshing(true)
     setHomeState((current) => ({ ...current, error: '', loading: !refresh }))
 
+    const cached = await readCoachOfflineResources(user.id, activeContext).catch(() => null)
+    const savedHome = cached?.resources?.home
+    if (requestId !== requestIdRef.current) return
+    if (savedHome) {
+      setHomeState({ ...savedHome, error: '', loading: false, savedAt: savedHome.savedAt || cached.savedAt, stale: true })
+      setLastUpdatedAt(savedHome.savedAt || cached.savedAt)
+    }
+
     try {
       const snapshot = await getCoachPhase31GHomeSnapshot(selectedMobileUser)
       if (requestId !== requestIdRef.current) return
@@ -266,18 +275,9 @@ function CoachHome() {
       setHomeState({ ...snapshot, error: '', loading: false, savedAt, stale: false })
       setLastUpdatedAt(savedAt)
       await saveCoachOfflineResources(user.id, activeContext, { home: { ...snapshot, savedAt } }).catch(() => {})
-      if (refresh) setNotice('Latest Coach overview loaded.')
     } catch (error) {
       if (requestId !== requestIdRef.current) return
-      const cached = await readCoachOfflineResources(user.id, activeContext).catch(() => null)
-      const home = cached?.resources?.home
-      if (home) {
-        setHomeState({ ...home, error: '', loading: false, savedAt: home.savedAt || cached.savedAt, stale: true })
-        setLastUpdatedAt(home.savedAt || cached.savedAt)
-        setNotice('Offline. Showing the last encrypted Coach overview. Refresh when online.')
-      } else {
-        setHomeState((current) => ({ ...current, error: error?.message || 'Coach overview could not be loaded.', loading: false }))
-      }
+      if (!savedHome) setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false }))
     } finally {
       if (requestId === requestIdRef.current) setIsRefreshing(false)
     }
@@ -972,6 +972,14 @@ function StatePanel({ actionLabel = '', message, onAction, title, tone = 'neutra
 
 function Notice({ message, onDismiss }) {
   const { styles } = useCoachTheme()
+  const onDismissRef = useRef(onDismiss)
+  useEffect(() => {
+    onDismissRef.current = onDismiss
+  }, [onDismiss])
+  useEffect(() => {
+    const timer = setTimeout(() => onDismissRef.current(), 4500)
+    return () => clearTimeout(timer)
+  }, [message])
   return (
     <View accessibilityLiveRegion="polite" style={styles.notice}>
       <Text style={styles.noticeText}>{message}</Text>

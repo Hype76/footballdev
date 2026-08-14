@@ -163,7 +163,7 @@ test('Formation Board keeps action order, authority, drafts, pitch tools, and er
   assert.match(source.formation, /useBlocker\(\(\) => hasUnsavedChanges/)
   assert.match(source.formation, /serializeFormationDraft/)
   assert.match(source.formation, /MobileRosterSheet/)
-  assert.match(source.formation, /UnplacedPlayersTray/)
+  assert.match(source.formation, /BenchPlayersTray/)
   assert.match(source.formation, /onMove=\{\(playerId, coordinates\)/)
   assert.match(source.formation, /attentionKey=\{dockAttentionKey\}/)
   assert.match(source.formation, /onAttentionFocus=\{focusFormationError\}/)

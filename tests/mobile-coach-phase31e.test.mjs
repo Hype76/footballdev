@@ -291,10 +291,10 @@ test('native Chat opens from an informative conversation list into one focused r
 
 test('native screen marks stale encrypted reads and disables unsafe writes', async () => {
   const screen = await readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8')
-  assert.match(screen, /Showing encrypted offline data/)
   assert.match(screen, /Offline and read-only/)
+  assert.doesNotMatch(screen, /Safety boundary/)
   assert.match(screen, /disabled=\{stale/)
-  assert.match(screen, /Unsafe offline replay is disabled/)
+  assert.doesNotMatch(screen, /Unsafe offline replay is disabled/)
 })
 
 test('native screen exposes required accessible and confirmation patterns', async () => {

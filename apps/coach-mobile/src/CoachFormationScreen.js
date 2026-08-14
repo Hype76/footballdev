@@ -4,6 +4,7 @@ import { getCoachMatchDayList, normalizeCoachMatchDay } from '../../mobile-core/
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { CoachFormationBoard } from './CoachFormationBoard'
 import { getLinkableCoachFormationMatches } from './coachFormationEntryCore'
+import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 
 function createStyles(palette) {
@@ -37,6 +38,16 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
+    const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const cachedMatches = normalizeCachedMatches(saved?.resources?.matchDayList)
+    const cachedPlayers = Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
+    const hasCachedData = Array.isArray(saved?.resources?.matchDayList) || Array.isArray(saved?.resources?.matchDayPlayers)
+    if (hasCachedData) {
+      setMatches(getLinkableCoachFormationMatches(cachedMatches, { teamId: user.activeTeamId }))
+      setPlayers(cachedPlayers)
+      setStale(true)
+      setLoading(false)
+    }
     try {
       const [nextMatches, nextPlayers] = await Promise.all([getCoachMatchDayList(user), getCoachPlayerList(user)])
       const ordered = getLinkableCoachFormationMatches(nextMatches, { teamId: user.activeTeamId })
@@ -45,14 +56,7 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
       setStale(false)
       await saveCoachOfflineResources(user.id, context, { matchDayList: ordered, matchDayPlayers: nextPlayers })
     } catch (loadError) {
-      const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
-      const cachedMatches = normalizeCachedMatches(saved?.resources?.matchDayList)
-      const cachedPlayers = Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
-      if (cachedMatches.length || cachedPlayers.length) {
-        setMatches(getLinkableCoachFormationMatches(cachedMatches, { teamId: user.activeTeamId }))
-        setPlayers(cachedPlayers)
-        setStale(true)
-      } else setError(String(loadError?.message || 'The Formation Board workspace could not be loaded.'))
+      if (!hasCachedData) setError(getCoachFriendlyError(loadError, 'The Formation Board workspace could not be loaded.'))
     } finally { setLoading(false) }
   }, [context, user])
 

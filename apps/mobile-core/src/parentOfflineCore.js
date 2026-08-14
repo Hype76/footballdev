@@ -206,8 +206,9 @@ function replaceCommand(document, commandId, replacement, now) {
   }
 }
 
-export function getParentSyncSummary(document) {
-  const commands = document?.journal || []
+export function getParentSyncSummary(document, childScope = '') {
+  const scope = normalize(childScope)
+  const commands = (document?.journal || []).filter((command) => !scope || command.childScope === scope)
   const waiting = commands.filter((command) => ['pending', 'syncing', 'retryable_failure'].includes(command.status)).length
   const needsAttention = commands.filter((command) => ['conflict', 'permanently_rejected'].includes(command.status)).length
   return {
@@ -215,6 +216,23 @@ export function getParentSyncSummary(document) {
     state: needsAttention > 0 ? 'attention' : waiting > 0 ? 'waiting' : 'synced',
     waiting,
   }
+}
+
+export function getParentSyncAttentionItems(document, childScope = '') {
+  const scope = normalize(childScope)
+  return (document?.journal || [])
+    .filter((command) => (
+      ['conflict', 'permanently_rejected'].includes(command.status)
+      && (!scope || command.childScope === scope)
+    ))
+    .sort((left, right) => left.localSequence - right.localSequence)
+    .map((command) => Object.freeze({
+      commandId: command.commandId,
+      createdAt: command.createdAt,
+      entityId: command.entityId,
+      reason: command.lastErrorCategory || command.status,
+      type: command.type,
+    }))
 }
 
 export function createParentSyncCoordinator({ execute, now = Date.now, random = Math.random, readDocument, writeDocument }) {

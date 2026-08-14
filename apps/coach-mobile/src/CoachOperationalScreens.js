@@ -9,6 +9,7 @@ import {
   getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
   groupCoachCalendarEvents,
+  formatCoachCalendarFormDate,
   shiftCoachCalendarMonth,
 } from '../../mobile-core/src/coachCalendarCore'
 import { getCoachCalendarResources, saveCoachCalendarEvent } from '../../mobile-core/src/coachCalendarData'
@@ -18,7 +19,6 @@ import {
   getCoachPlayerMutationPolicy,
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
-import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import {
   coachSessionFormFromSession,
   filterCoachSessions,
@@ -33,16 +33,9 @@ import {
   updateCoachSessionPlayerNotes,
 } from '../../mobile-core/src/coachSessionsData'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { getCoachFriendlyError } from './coachFriendlyErrors'
 
-const config = getMobileRuntimeConfig('coach')
-
-function normalize(value) {
-  return String(value ?? '').trim()
-}
-
-function message(error, fallback) {
-  return normalize(error?.message) || fallback
-}
+const message = getCoachFriendlyError
 
 function useDomainStyles(palette) {
   return useMemo(() => StyleSheet.create({
@@ -138,9 +131,9 @@ function DomainHeader({ copy, styles, title }) {
 }
 
 function DomainState({ error, loading, onRetry, stale, styles }) {
-  if (loading) return <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading authoritative test data...</Text></View>
+  if (loading) return <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading...</Text></View>
   if (error) return <View style={styles.warning}><Text style={styles.danger}>{error}</Text>{onRetry ? <Button label="Try again" onPress={onRetry} secondary styles={styles} /> : null}</View>
-  if (stale) return <View style={styles.warning}><Text style={styles.cardTitle}>Offline read</Text><Text style={styles.body}>Showing encrypted data saved on this device. Changes require an online connection.</Text></View>
+  if (stale) return <View style={styles.warning}><Text style={styles.cardTitle}>You are offline</Text><Text style={styles.body}>Showing saved information. Connect before making changes.</Text></View>
   return null
 }
 
@@ -163,6 +156,14 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const load = useCallback(async () => {
     setError('')
     setLoading(true)
+    const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const hasCachedCalendar = Array.isArray(cached?.resources?.calendar)
+    if (hasCachedCalendar) {
+      setEvents(cached.resources.calendar)
+      setPlayers(Array.isArray(cached.resources.calendarPlayers) ? cached.resources.calendarPlayers : [])
+      setStale(true)
+      setLoading(false)
+    }
     try {
       const [rows, playerRows] = await Promise.all([
         getCoachCalendarResources(user),
@@ -173,12 +174,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       setStale(false)
       await saveCoachOfflineResources(user.id, context, { calendar: rows, calendarPlayers: playerRows })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
-      if (cached?.resources?.calendar) {
-        setEvents(cached.resources.calendar)
-        setPlayers(cached.resources.calendarPlayers || [])
-        setStale(true)
-      } else setError(message(loadError, 'Calendar could not be loaded.'))
+      if (!hasCachedCalendar) setError(message(loadError, 'Calendar could not be loaded.'))
     } finally {
       setLoading(false)
     }
@@ -197,7 +193,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const openForm = (event = null) => {
     setSelected(event)
     const nextForm = coachCalendarFormFromEvent(event, context)
-    setForm(!event && selectedDate ? { ...nextForm, date: selectedDate } : nextForm)
+    setForm(!event && selectedDate ? { ...nextForm, date: formatCoachCalendarFormDate(selectedDate) } : nextForm)
   }
   useEffect(() => {
     if (quickAction?.route !== 'calendar') return
@@ -294,20 +290,20 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       </View>
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
       {!selectedDate ? <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'History', value: 'history' }, { label: 'Cancelled', value: 'cancelled' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} /> : null}
-      {policy.canCreate && !form ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
+      {policy.canCreate && !stale && !form ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{selected ? 'Edit event' : 'Create event'}</Text>
           <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />
           <Chips onChange={(value) => setForm({ ...form, eventType: value })} options={['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'].map((value) => ({ label: value, value }))} styles={styles} value={form.eventType} />
-          <Field label="Date YYYY-MM-DD" onChangeText={(value) => setForm({ ...form, date: value })} styles={styles} value={form.date} />
+          <Field label="Date DD-MM-YYYY" onChangeText={(value) => setForm({ ...form, date: value })} styles={styles} value={form.date} />
           <Field label="Start time HH:MM" onChangeText={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />
           <Field label="End time HH:MM" onChangeText={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />
           <Field label="Location" onChangeText={(value) => setForm({ ...form, location: value })} styles={styles} value={form.location} />
           <Field label="Notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
           <Text style={styles.fieldLabel}>Repeat</Text>
           <Chips onChange={(value) => setForm({ ...form, recurrenceFrequency: value })} options={['none', 'weekly', 'fortnightly', 'monthly'].map((value) => ({ label: value, value }))} styles={styles} value={form.recurrenceFrequency} />
-          {form.recurrenceFrequency !== 'none' ? <Field label="Repeat until YYYY-MM-DD" onChangeText={(value) => setForm({ ...form, recurrenceUntil: value })} styles={styles} value={form.recurrenceUntil} /> : null}
+          {form.recurrenceFrequency !== 'none' ? <Field label="Repeat until DD-MM-YYYY" onChangeText={(value) => setForm({ ...form, recurrenceUntil: value })} styles={styles} value={form.recurrenceUntil} /> : null}
           <View style={styles.row}><Text style={styles.fieldLabel}>Visible to parents</Text><Switch accessibilityLabel="Visible to parents" onValueChange={(value) => setForm({ ...form, parentVisible: value })} value={form.parentVisible} /></View>
           {form.parentVisible ? <Chips onChange={(value) => setForm({ ...form, parentAudience: value })} options={[{ label: 'Involved Players', value: 'involved_players' }, { label: 'Team parents', value: 'all_team_parents' }, { label: 'Club parents', value: 'all_club_parents' }]} styles={styles} value={form.parentAudience} /> : null}
           {form.parentVisible && form.parentAudience === 'involved_players' ? (
@@ -320,8 +316,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
               {players.length === 0 ? <Text style={styles.body}>No active Players are available in this Team context.</Text> : null}
             </View>
           ) : null}
-          <View style={styles.warning}><Text style={styles.body}>{config.isProduction ? 'This save updates canonical Calendar state. Any recipient communication requires its separate confirmed action.' : 'External communications and schedules are disabled in the test environment.'}</Text></View>
-          <Button disabled={saving} label={saving ? 'Saving...' : 'Save event'} onPress={save} styles={styles} />
+          <Button disabled={saving || stale} label={saving ? 'Saving...' : 'Save event'} onPress={save} styles={styles} />
           <Button label="Cancel" onPress={() => { setForm(null); setSelected(null) }} secondary styles={styles} />
         </View>
       ) : null}
@@ -333,10 +328,10 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
               <Text style={styles.cardTitle}>{event.title}</Text>
               <Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
-              {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>This item needs a valid local time before it can be edited.</Text> : null}
+              {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : <Text style={styles.meta}>Edit this item in its authoritative {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} workflow.</Text>}</> : null}
+              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
             </Pressable>
           ))}
         </View>
@@ -359,14 +354,15 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const policy = getCoachPlayerMutationPolicy({ context, player: detail?.player })
   const load = useCallback(async () => {
     setError(''); setLoading(true)
+    const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const hasCachedPlayers = Array.isArray(cached?.resources?.players)
+    if (hasCachedPlayers) { setPlayers(cached.resources.players); setStale(true); setLoading(false) }
     try {
       const rows = await getCoachPlayerList(user)
       setPlayers(rows); setStale(false)
       await saveCoachOfflineResources(user.id, context, { players: rows })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
-      if (cached?.resources?.players) { setPlayers(cached.resources.players); setStale(true) }
-      else setError(message(loadError, 'Players could not be loaded.'))
+      if (!hasCachedPlayers) setError(message(loadError, 'Players could not be loaded.'))
     } finally { setLoading(false) }
   }, [context, user])
   useEffect(() => { void load() }, [load])
@@ -450,14 +446,20 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   const policy = getCoachSessionMutationPolicy({ context, session: detail?.session })
   const load = useCallback(async () => {
     setError(''); setLoading(true)
+    const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const hasCachedSessions = Array.isArray(cached?.resources?.sessions)
+    if (hasCachedSessions) {
+      setSessions(cached.resources.sessions)
+      setPlayers(Array.isArray(cached.resources.sessionPlayers) ? cached.resources.sessionPlayers : [])
+      setStale(true)
+      setLoading(false)
+    }
     try {
       const [rows, playerRows] = await Promise.all([getCoachSessionList(user), getCoachPlayerList(user)])
       setSessions(rows); setPlayers(playerRows); setStale(false)
       await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows })
     } catch (loadError) {
-      const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
-      if (cached?.resources?.sessions) { setSessions(cached.resources.sessions); setPlayers(cached.resources.sessionPlayers || []); setStale(true) }
-      else setError(message(loadError, 'Sessions could not be loaded.'))
+      if (!hasCachedSessions) setError(message(loadError, 'Sessions could not be loaded.'))
     } finally { setLoading(false) }
   }, [context, user])
   useEffect(() => { void load() }, [load])
