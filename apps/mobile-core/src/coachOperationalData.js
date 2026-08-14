@@ -52,10 +52,10 @@ export async function recordCoachOperationalAudit({ user, action, entityType, en
     p_entity_id: entityId || null,
     p_entity_type: entityType,
     p_event_category: 'operational',
-    p_metadata: scopedMetadata,
+    p_metadata: { ...scopedMetadata, appSource: 'coach_mobile_test' },
     p_outcome: 'success',
     p_severity: 'info',
-    p_source: 'coach_mobile_test',
+    p_source: 'application',
   })
   if (error) console.warn(error)
 }

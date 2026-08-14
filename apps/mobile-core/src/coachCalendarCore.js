@@ -348,7 +348,7 @@ export function buildCoachCalendarPayload({ context, form }) {
   if (!COACH_CALENDAR_EVENT_TYPES.includes(eventType)) throw new Error('Choose a supported Calendar event type.')
   const opponent = normalize(form?.opponent)
   const title = eventType === 'match'
-    ? `${normalize(context?.teamName) || 'Team'} v ${opponent || 'Opponent'}`
+    ? `${normalize(context?.teamName || context?.activeTeamName) || 'Team'} v ${opponent || 'Opponent'}`
     : normalize(form?.title)
   if (eventType === 'match' && !opponent) throw new Error('Add the opponent.')
   if (eventType !== 'match' && !title) throw new Error('Add an event title.')

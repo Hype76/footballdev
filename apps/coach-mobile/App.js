@@ -523,7 +523,7 @@ function CoachHome() {
         {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
         <Animated.ScrollView
           contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { useNativeDriver: false })}
           scrollEventThrottle={16}
           refreshControl={(

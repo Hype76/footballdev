@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
@@ -143,11 +143,13 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('upcoming')
   const [form, setForm] = useState(null)
+  const [formError, setFormError] = useState('')
   const [loading, setLoading] = useState(true)
   const [players, setPlayers] = useState([])
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
+  const [saveConfirmation, setSaveConfirmation] = useState('')
   const [stale, setStale] = useState(false)
   const [visibleMonth, setVisibleMonth] = useState(() => getCoachCalendarMonthKey())
   const contextModel = getCoachCalendarContextModel({ context, contexts })
@@ -191,6 +193,8 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     : filterCoachCalendarEvents(events, filter)
   const groups = groupCoachCalendarEvents(visibleEvents)
   const openForm = (event = null) => {
+    setFormError('')
+    setSaveConfirmation('')
     setSelected(event)
     const nextForm = coachCalendarFormFromEvent(event, context)
     setForm(!event && selectedDate ? { ...nextForm, date: formatCoachCalendarFormDate(selectedDate) } : nextForm)
@@ -198,20 +202,26 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   useEffect(() => {
     if (quickAction?.route !== 'calendar') return
     setSelected(null)
+    setFormError('')
+    setSaveConfirmation('')
     const nextForm = coachCalendarFormFromEvent(null, context)
     setForm(quickAction.intent === 'create-match' ? { ...nextForm, eventType: 'match' } : nextForm)
     onQuickActionHandled?.()
   }, [context, onQuickActionHandled, quickAction])
   const save = async () => {
+    Keyboard.dismiss()
     setSaving(true)
     setError('')
+    setFormError('')
+    setSaveConfirmation('')
     try {
       await saveCoachCalendarEvent(user, form, selected)
+      setSaveConfirmation(form?.eventType === 'match' ? 'Match saved.' : 'Event saved.')
       setForm(null)
       setSelected(null)
       await load()
     } catch (saveError) {
-      setError(message(saveError, 'Calendar event could not be saved.'))
+      setFormError(message(saveError, 'Calendar event could not be saved.'))
     } finally { setSaving(false) }
   }
 
@@ -289,6 +299,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
         ) : null}
       </View>
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
+      {saveConfirmation ? <View style={styles.card}><Text style={styles.cardTitle}>{saveConfirmation}</Text></View> : null}
       {!selectedDate ? <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'History', value: 'history' }, { label: 'Cancelled', value: 'cancelled' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} /> : null}
       {policy.canCreate && !stale && !form ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
       {form ? (
@@ -318,8 +329,9 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
               {players.length === 0 ? <Text style={styles.body}>No active Players are available in this Team context.</Text> : null}
             </View>
           ) : null}
+          {formError ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.danger}>{formError}</Text></View> : null}
           <Button disabled={saving || stale} label={saving ? 'Saving...' : 'Save event'} onPress={save} styles={styles} />
-          <Button label="Cancel" onPress={() => { setForm(null); setSelected(null) }} secondary styles={styles} />
+          <Button label="Cancel" onPress={() => { setForm(null); setFormError(''); setSelected(null) }} secondary styles={styles} />
         </View>
       ) : null}
       {!loading && groups.length === 0 ? <Text style={styles.body}>No Calendar items match this filter.</Text> : null}
