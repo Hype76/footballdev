@@ -92,6 +92,7 @@ Exit criteria: screenshots are captured from real builds with test data only, re
 - Confirm reviewer credentials work immediately before submission.
 - Run `npm run mobile:release-check` one final time.
 - Run `npm run mobile:preflight` before setting `MOBILE_SUBMISSION_CONFIRMED=true`.
+- Confirm Steve and Simon have App Store Connect access to Coach and Parents and belong to both Internal Testers groups before setting `MOBILE_IOS_INTERNAL_TESTERS_CONFIRMED=true`.
 - Submit Coach to Apple with `npm run mobile:submit:coach:ios:store-test`.
 - Submit Coach to Google with `npm run mobile:submit:coach:android:store-test`.
 - Submit Parents to Apple with `npm run mobile:submit:parent:ios:store-test`.

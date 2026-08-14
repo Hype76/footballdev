@@ -16,6 +16,7 @@ const authorisedParentProductionReferences = new Set([
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
+const iosInternalTestersConfirmed = (process.env.MOBILE_IOS_INTERNAL_TESTERS_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
 const submissionBuildId = (process.env.MOBILE_SUBMISSION_BUILD_ID || '').trim()
 
@@ -72,6 +73,14 @@ if (!submissionConfirmed) {
   process.exit(1)
 }
 
+if (platform === 'ios' && !iosInternalTestersConfirmed) {
+  console.error('iOS submission is blocked until Steve and Simon are confirmed as active Internal Testers for both Coach and Parents.')
+  console.error('Confirm both users have App Store Connect access to both apps and belong to each app Internal Testers group.')
+  console.error('Then rerun with MOBILE_IOS_INTERNAL_TESTERS_CONFIRMED=true.')
+  console.error('Reason: ios_internal_testers_not_confirmed')
+  process.exit(1)
+}
+
 assertEasLogin()
 
 const easEnvironment = profile === 'store-live' ? 'production' : 'preview'
@@ -97,9 +106,9 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 
 console.log(`Release gate passed. Starting EAS submit for ${app.expectedName} ${profile} ${platform}.`)
 const submitArgs = ['eas-cli', 'submit', '--profile', profile, '--platform', platform]
+if (platform === 'ios') submitArgs.push('--groups', 'Internal Testers')
 if (profile === 'store-live') {
   submitArgs.push('--id', submissionBuildId)
-  if (platform === 'ios') submitArgs.push('--groups', 'Internal Testers')
   submitArgs.push('--non-interactive', '--no-wait')
 }
 execFileSync('npx', submitArgs, {

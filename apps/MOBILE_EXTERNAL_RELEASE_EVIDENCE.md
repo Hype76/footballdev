@@ -46,6 +46,15 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 
 ## Native Builds
 
+### Internal TestFlight Access
+
+- Steve has App Store Connect access to Coach and Parents:
+- Simon has App Store Connect access to Coach and Parents:
+- Steve belongs to both apps' Internal Testers groups:
+- Simon belongs to both apps' Internal Testers groups:
+- Latest Coach build visible to Steve and Simon:
+- Latest Parents build visible to Steve and Simon:
+
 ### Coach
 
 - Android internal build ID:
@@ -133,6 +142,7 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 
 - Coach App Store Connect record:
 - Parents App Store Connect record:
+- `MOBILE_IOS_INTERNAL_TESTERS_CONFIRMED=true` set only after both internal testers and both apps were verified:
 - Coach reviewer credentials entered in App Store Connect only:
 - Parents reviewer credentials entered in App Store Connect only:
 - Reviewer credential locations recorded only in private evidence:
