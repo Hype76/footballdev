@@ -59,7 +59,7 @@ test('Coach errors hide implementation details and explain recoverable condition
 })
 
 test('mobile sources provide direct date navigation, actionable attention, offline-first reads, and quiet Coach loading', async () => {
-  const [parentApp, parentScreens, coachApp, coachScreens, phaseScreens, communication, migration, buildGuard] = await Promise.all([
+  const [parentApp, parentScreens, coachApp, coachScreens, phaseScreens, communication, migration, buildGuard, submitGuard] = await Promise.all([
     readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
@@ -68,6 +68,7 @@ test('mobile sources provide direct date navigation, actionable attention, offli
     readFile(new URL('../netlify/functions/lib/_parent-communication-preferences.js', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/20260812103411_matchday_parent_notification_repair.sql', import.meta.url), 'utf8'),
     readFile(new URL('../apps/scripts/mobile-build-guard.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/scripts/mobile-submit-guard.mjs', import.meta.url), 'utf8'),
   ])
 
   assert.match(parentScreens, /getParentCalendarMarkerTone/)
@@ -90,4 +91,6 @@ test('mobile sources provide direct date navigation, actionable attention, offli
   assert.match(migration, /communication_channel text not null default 'both'/)
   assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-USABILITY-OFFLINE-57/)
   assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-USABILITY-OFFLINE-57/)
+  assert.match(submitGuard, /promotionReference === 'FP-MOBILE-USABILITY-OFFLINE-57'/)
+  assert.match(submitGuard, /if \(platform === 'ios'\) submitArgs\.push\('--groups', 'Internal Testers'\)/)
 })
