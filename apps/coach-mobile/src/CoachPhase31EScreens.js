@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
@@ -26,6 +26,7 @@ import {
   COACH_PHASE_31E_BACKEND_DELTAS,
   COACH_PHASE_31E_COMMUNICATION_POLICY,
   getCoachPhase31EOfflinePolicy,
+  getCoachChatRoomDisplay,
   getCoachResourceErrorMessage,
   isCoachMatchAvailabilityRequestCreationApplied,
   isSyntheticCoachTarget,
@@ -56,7 +57,10 @@ function phaseStyles(palette) {
   return StyleSheet.create({
     stack: { gap: 12 },
     row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    roomSelector: { gap: 8, paddingRight: 12 },
+    chatRoomCard: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 5, padding: 14 },
+    chatRoomContext: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
+    messageBubble: { alignSelf: 'flex-start', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 4, maxWidth: '88%', padding: 11 },
+    messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: palette.selected, borderColor: palette.accent },
     formChoice: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: 14, paddingVertical: 10 },
     formChoiceSelected: { borderColor: palette.accent, borderWidth: 2 },
     formChoiceCopy: { flex: 1, gap: 3 },
@@ -135,12 +139,12 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
-      <View style={styles.panel}>
+      {domain !== 'chat' ? <View style={styles.panel}>
         <Text accessibilityRole="header" style={styles.title}>{TITLES[domain]}</Text>
         <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
         {stale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
         {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
-      </View>
+      </View> : notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       {loading ? <Empty copy={`Loading ${TITLES[domain]}...`} styles={styles} /> : null}
       {error ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{error}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
       {!loading && !error && domain === 'development' ? <DevelopmentDomain {...common} /> : null}
@@ -149,10 +153,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       {!loading && !error && domain === 'messages' ? <MessagesDomain {...common} /> : null}
       {!loading && !error && domain === 'polls' ? <PollsDomain {...common} /> : null}
       {!loading && !error && domain === 'invites' ? <InvitesDomain {...common} /> : null}
-      <View style={styles.panel}>
+      {domain !== 'chat' ? <View style={styles.panel}>
         <Text style={styles.heading}>Safety boundary</Text>
         <Text style={styles.body}>{config.isProduction ? 'Production mutations are online-only and use canonical server authority. Recipient communication requires an explicit confirmed action. Unsafe offline replay is disabled.' : `Real email ${COACH_PHASE_31E_COMMUNICATION_POLICY.realEmail}. Real push ${COACH_PHASE_31E_COMMUNICATION_POLICY.realPush}. SMS ${COACH_PHASE_31E_COMMUNICATION_POLICY.sms}. Unsafe offline replay is disabled.`}</Text>
-      </View>
+      </View> : null}
     </View>
   )
 }
@@ -285,12 +289,12 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   )
 }
 
-function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHandled, onNavigate, setNotice, stale, styles, user }) {
+function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHandled, placeholderColor, setNotice, stale, styles, user }) {
   const rooms = useMemo(() => [...(data.staff || []), ...(data.parent || [])], [data])
-  const [roomId, setRoomId] = useState(rooms[0]?.id || '')
+  const [roomId, setRoomId] = useState('')
   const [messages, setMessages] = useState([])
   const [body, setBody] = useState('')
-  const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : rooms[0]?.id || ''
+  const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : ''
   const room = rooms.find((item) => item.id === activeRoomId)
   const open = useCallback(async (nextRoom) => {
     setMessages([])
@@ -321,17 +325,36 @@ function ChatDomain({ chatNotificationTarget, data, onChatNotificationTargetHand
     try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice(config.isProduction ? 'Message sent through the canonical Chat.' : 'Synthetic Chat message saved inside FP TEST only.') } catch (error) { setNotice(error.message) }
   }
   if (!rooms.length) return <Empty copy="No Staff Chat or Parent Chat membership is available in this Team." styles={styles} />
+  if (!room) {
+    return (
+      <View style={styles.stack}>
+        <Text accessibilityRole="header" style={styles.title}>Chat</Text>
+        <Text style={styles.body}>{rooms.length} conversation{rooms.length === 1 ? '' : 's'} for this Team.</Text>
+        {rooms.map((item) => {
+          const display = getCoachChatRoomDisplay(item)
+          return (
+            <Pressable accessibilityRole="button" key={`${item.kind}:${item.id}`} onPress={() => void open(item)} style={styles.chatRoomCard}>
+              <View style={styles.row}><Text style={styles.status}>{item.kind === 'staff' ? 'Staff' : 'Parent'}</Text>{item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}</View>
+              <Text style={styles.heading}>{display.title}</Text>
+              {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+              <Text numberOfLines={1} style={styles.body}>{item.latestMessage || 'No messages yet'}</Text>
+            </Pressable>
+          )
+        })}
+      </View>
+    )
+  }
+  const display = getCoachChatRoomDisplay(room)
   return (
     <View style={styles.stack}>
-      <View style={styles.row}><Button label="Team Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View>
-      <View style={styles.stack}>
-        <Text style={styles.label}>Choose conversation</Text>
-        <Text style={styles.body}>{rooms.length} authorised conversation{rooms.length === 1 ? '' : 's'}</Text>
-        <ScrollView contentContainerStyle={styles.roomSelector} horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
-          {rooms.map((item) => <Button key={`${item.kind}:${item.id}`} label={`${item.kind === 'staff' ? 'Staff' : 'Parent'} | ${item.title}`} onPress={() => void open(item)} secondary={item.id !== activeRoomId} styles={styles} />)}
-        </ScrollView>
+      <Button label="Back to conversations" onPress={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
+      <View style={styles.panel}>
+        <Text accessibilityRole="header" style={styles.heading}>{display.title}</Text>
+        {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+        {messages.length ? messages.map((message) => <View key={message.id} style={[styles.messageBubble, message.senderId === user.id && styles.messageBubbleOwn]}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>) : <Text style={styles.body}>No messages in this conversation yet.</Text>}
+        <TextInput accessibilityLabel="Chat message" multiline onChangeText={setBody} placeholder="Message" placeholderTextColor={placeholderColor} style={[styles.input, styles.inputMultiline]} value={body} />
+        <Button disabled={stale || !room.canPost || !body.trim() || (!config.isProduction && !isSyntheticCoachTarget(room.title))} label={config.isProduction ? 'Send message' : 'Send to FP TEST channel'} onPress={send} styles={styles} />
       </View>
-      <View style={styles.panel}><Text style={styles.heading}>{room?.title}</Text><Text style={styles.body}>{room?.kind === 'staff' ? 'Staff-only membership authority' : 'Parent Chat staff authority'} | {room?.unreadCount || 0} unread</Text>{messages.length ? messages.map((message) => <View key={message.id} style={styles.stack}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>) : <Text style={styles.body}>No messages loaded yet.</Text>}<TextInput accessibilityLabel="Chat message" multiline onChangeText={setBody} style={[styles.input, styles.inputMultiline]} value={body} /><Button disabled={stale || !room?.canPost || (!config.isProduction && !isSyntheticCoachTarget(room?.title))} label={config.isProduction ? 'Send message' : 'Send to FP TEST channel'} onPress={send} styles={styles} /><Text style={styles.body}>{config.isProduction ? 'Sending is online-only and the server revalidates current room membership.' : 'Sending is online-only and restricted to rooms marked FP TEST. No customer delivery is permitted.'}</Text></View>
     </View>
   )
 }

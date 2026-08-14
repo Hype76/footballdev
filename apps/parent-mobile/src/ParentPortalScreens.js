@@ -1,13 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useState } from 'react'
-import { FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
 } from '../../mobile-core/src/parentDateTimeCore'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
-import { getParentMatchGroups } from './parentExperience'
+import {
+  canParentRegisterScorerInterest,
+  getParentMatchCalendarUrl,
+  getParentMatchDirectionsUrl,
+  getParentMatchGroups,
+} from './parentExperience'
 import { getParentChatRoomContext, getParentInvitationSections, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
 import {
   getInvitationResponseOptions,
@@ -394,7 +399,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onOpen, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onOpen, onOpenLink, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
@@ -411,9 +416,13 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
           <Text style={styles.meta}>Availability: {labelize(selectedMatch.availabilityStatus) || 'No response requested'}</Text>
           <Text style={styles.meta}>Squad: {labelize(selectedMatch.squadDecisionState) || 'Not decided'}</Text>
           {selectedMatch.confirmedTeam?.length ? <Text style={styles.meta}>Confirmed team: {selectedMatch.confirmedTeam.join(', ')}</Text> : null}
+          <View style={styles.actionRow}>
+            {getParentMatchCalendarUrl(selectedMatch) ? <Button label="Add to calendar" onPress={() => onOpenLink?.(getParentMatchCalendarUrl(selectedMatch), 'calendar')} outline styles={styles} /> : null}
+            {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <Button label="Get directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} outline styles={styles} /> : null}
+          </View>
         </View>
-        {selectedMatch.requestScorer && !selectedMatch.isScorer ? (
-          <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Staff are looking for a Parent scorer.'}</Text><Button disabled={isOffline || selectedMatch.hasInterest} label={selectedMatch.hasInterest ? 'Interest registered' : 'Register interest'} onPress={() => onVolunteer(selectedMatch)} styles={styles} /></View>
+        {canParentRegisterScorerInterest(selectedMatch) ? (
+          <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Staff are looking for a Parent scorer.'}</Text><Button disabled={isOffline} label="Register interest" onPress={() => onVolunteer(selectedMatch)} styles={styles} /></View>
         ) : null}
         {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} styles={styles} /> : null}
         {selectedMatch.events?.length ? (

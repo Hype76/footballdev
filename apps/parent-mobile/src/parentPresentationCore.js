@@ -52,11 +52,18 @@ export function getParentInvitationSections(rows = [], now = new Date()) {
   const futureSort = (left, right) => String(left.eventStart || left.eventDate || '9999-12-31').localeCompare(String(right.eventStart || right.eventDate || '9999-12-31'))
   const historySort = (left, right) => String(right.eventStart || right.eventDate || '').localeCompare(String(left.eventStart || left.eventDate || ''))
   const future = items.filter((item) => !isPast(item) && !isInvitationTerminal(item))
+  const needsResponse = future.filter((item) => item.isPending && isInvitationActionable(item)).sort(futureSort)
+  const responded = future.filter((item) => !item.isPending && normalizeText(item.responseState) !== 'awaiting_response').sort(futureSort)
+  const needsResponseIds = new Set(needsResponse.map(invitationOccurrenceKey))
+  const respondedIds = new Set(responded.map(invitationOccurrenceKey))
   return {
     history: items.filter((item) => isPast(item) || isInvitationTerminal(item)).sort(historySort),
-    needsResponse: future.filter((item) => item.isPending && isInvitationActionable(item)).sort(futureSort),
-    responded: future.filter((item) => !item.isPending && normalizeText(item.responseState) !== 'awaiting_response').sort(futureSort),
-    upcoming: future.sort(futureSort),
+    needsResponse,
+    responded,
+    upcoming: future.filter((item) => {
+      const key = invitationOccurrenceKey(item)
+      return !needsResponseIds.has(key) && !respondedIds.has(key)
+    }).sort(futureSort),
   }
 }
 

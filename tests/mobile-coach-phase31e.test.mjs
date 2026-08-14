@@ -278,11 +278,15 @@ test('native screen routes every Phase 31E domain through semantic palette style
   assert.doesNotMatch(screen, /#[0-9a-f]{3,8}/i)
 })
 
-test('native Chat keeps its conversation picker compact above the composer', async () => {
+test('native Chat opens from an informative conversation list into one focused room', async () => {
   const screen = await readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8')
-  assert.match(screen, /Choose conversation/)
-  assert.match(screen, /contentContainerStyle=\{styles\.roomSelector\} horizontal/)
-  assert.match(screen, /roomSelector[\s\S]*accessibilityLabel="Chat message"/)
+  assert.match(screen, /getCoachChatRoomDisplay/)
+  assert.match(screen, /Back to conversations/)
+  assert.match(screen, /chatRoomCard/)
+  assert.match(screen, /messageBubble/)
+  assert.match(screen, /accessibilityLabel="Chat message"/)
+  assert.doesNotMatch(screen, /Choose conversation/)
+  assert.doesNotMatch(screen, /Team Calendar/)
 })
 
 test('native screen marks stale encrypted reads and disables unsafe writes', async () => {

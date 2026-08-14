@@ -228,9 +228,17 @@ export function normalizeCoachChatRoom(row = {}, kind = 'staff') {
     type: normalize(row.type ?? row.room_type),
     title: normalize(row.title) || (kind === 'staff' ? 'Staff Chat' : 'Parent Chat'),
     clubId: normalize(row.club_id ?? row.clubId),
+    clubName: normalize(row.club_name ?? row.clubName),
     teamId: normalize(row.team_id ?? row.teamId),
+    teamName: normalize(row.team_name ?? row.teamName),
     playerId: normalize(row.player_id ?? row.playerId),
+    playerName: normalize(row.player_name ?? row.playerName),
     matchDayId: normalize(row.match_day_id ?? row.matchDayId),
+    opponent: normalize(row.opponent),
+    matchDate: normalize(row.match_date ?? row.matchDate),
+    kickoffTime: normalize(row.kickoff_time ?? row.kickoffTime),
+    kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
+    childNames: Object.freeze((Array.isArray(row.child_names ?? row.childNames) ? (row.child_names ?? row.childNames) : []).map(normalize).filter(Boolean)),
     status: normalize(row.status) || 'active',
     unreadCount: Number(row.unread_count ?? row.unreadCount ?? 0),
     latestMessage: normalize(row.latest_message ?? row.latestMessage),
@@ -240,6 +248,30 @@ export function normalizeCoachChatRoom(row = {}, kind = 'staff') {
       userId: normalize(member.user_id ?? member.userId), archivedAt: normalize(member.archived_at ?? member.archivedAt),
     }))),
   })
+}
+
+export function getCoachChatRoomDisplay(room = {}) {
+  const kind = normalize(room.kind)
+  const type = normalize(room.type)
+  const teamName = normalize(room.teamName) || 'Team'
+  const playerName = normalize(room.playerName) || normalize(room.childNames?.[0])
+  const opponent = normalize(room.opponent)
+  const matchDate = normalize(room.matchDate).slice(0, 10)
+  const kickoff = room.kickoffTimeTbc ? 'Time TBC' : normalize(room.kickoffTime).slice(0, 5)
+  let title = normalize(room.title) || (kind === 'staff' ? 'Staff Chat' : 'Parent Chat')
+  let context = teamName
+
+  if (kind === 'parent' && type === 'parent_staff' && playerName) {
+    title = `${playerName} | Chat with staff`
+    context = teamName
+  } else if (kind === 'parent' && type === 'match_squad') {
+    title = `${teamName} v ${opponent || 'Opponent'}`
+    context = [matchDate, kickoff].filter(Boolean).join(' at ')
+  } else if (kind === 'parent' && playerName) {
+    title = `${playerName} | ${title}`
+  }
+
+  return Object.freeze({ context, title })
 }
 
 export function normalizeCoachChatMessage(row = {}) {

@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Animated,
   AppState,
   BackHandler,
   Image,
@@ -128,6 +129,7 @@ function CoachHome() {
   const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
+  const headerScrollY = useRef(new Animated.Value(0)).current
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
@@ -150,7 +152,20 @@ function CoachHome() {
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
   const { palette, styles } = themeContext
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
+  const coachHeaderHeight = contextResolution.contexts.length < 2 ? 76 : 164
+  const collapsedCoachHeader = useMemo(
+    () => Animated.diffClamp(headerScrollY, 0, coachHeaderHeight),
+    [coachHeaderHeight, headerScrollY],
+  )
+  const coachHeaderStyle = useMemo(() => ({
+    maxHeight: collapsedCoachHeader.interpolate({ inputRange: [0, coachHeaderHeight], outputRange: [coachHeaderHeight, 0], extrapolate: 'clamp' }),
+    opacity: collapsedCoachHeader.interpolate({ inputRange: [0, coachHeaderHeight * 0.7, coachHeaderHeight], outputRange: [1, 0.35, 0], extrapolate: 'clamp' }),
+  }), [coachHeaderHeight, collapsedCoachHeader])
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
+
+  useEffect(() => {
+    headerScrollY.setValue(0)
+  }, [activeRoute, headerScrollY])
 
   const {
     biometricAvailable,
@@ -480,12 +495,14 @@ function CoachHome() {
     <CoachThemeContext.Provider value={themeContext}>
       <SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
         <StatusBar style={themeModel.mode === 'dark' ? 'light' : 'dark'} />
-        <CoachHeader context={activeContext} user={selectedMobileUser} />
-        <ContextSwitcher
-          contexts={contextResolution.contexts}
-          onSelect={selectContext}
-          selectedContextId={activeContext.id}
-        />
+        <Animated.View style={[styles.collapsibleHeader, coachHeaderStyle]}>
+          <CoachHeader context={activeContext} user={selectedMobileUser} />
+          <ContextSwitcher
+            contexts={contextResolution.contexts}
+            onSelect={selectContext}
+            selectedContextId={activeContext.id}
+          />
+        </Animated.View>
         {activeContext.paymentAccess.state === 'payment_required' ? (
           <StatePanel
             message="Viewing remains available, but operational changes are blocked until plan access is restored."
@@ -494,9 +511,11 @@ function CoachHome() {
           />
         ) : null}
         {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
-        <ScrollView
+        <Animated.ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { useNativeDriver: false })}
+          scrollEventThrottle={16}
           refreshControl={(
             <RefreshControl
               colors={[palette.accent]}
@@ -536,7 +555,7 @@ function CoachHome() {
             themeMode={displayTheme}
             user={selectedMobileUser}
           />
-        </ScrollView>
+        </Animated.ScrollView>
         <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
         <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} />
       </SafeAreaView>
@@ -1084,6 +1103,7 @@ function createCoachStyles(palette) {
     bodyText: { color: palette.textSecondary, fontSize: 15, lineHeight: 22 },
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
     cardTitle: { color: palette.textPrimary, fontSize: 16, fontWeight: '900', lineHeight: 21 },
+    collapsibleHeader: { overflow: 'hidden' },
     content: { alignSelf: 'center', maxWidth: 720, paddingBottom: 28, paddingHorizontal: 16, paddingTop: 16, width: '100%' },
     contextLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 0.6, paddingHorizontal: 16, textTransform: 'uppercase' },
     contextList: { gap: 8, paddingHorizontal: 16, paddingVertical: 9 },

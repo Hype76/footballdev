@@ -359,15 +359,15 @@ export async function openParentResource(user, resourceId) {
   const resourcePath = getParentApiPaths(config).resource
   const result = await callParentApi(resourcePath, { parentLinkId: link.id, resourceId })
   if (result.accessType === 'external_link') return { externalUrl: normalizeText(result.accessUrl) }
-  if (config.supabaseEnvironment === 'production' && !/^https:\/\//i.test(normalizeText(result.accessUrl))) {
-    throw new Error('This resource could not be opened safely.')
+  if (config.supabaseEnvironment === 'production') {
+    const accessUrl = normalizeText(result.accessUrl)
+    if (!/^https:\/\//i.test(accessUrl)) throw new Error('This resource could not be opened safely.')
+    return { externalUrl: accessUrl }
   }
   await downloadAndShareParentFile({
     fileName: result.fileName || `resource-${resourceId}`,
     mimeType: result.mimeType || 'application/octet-stream',
-    path: config.supabaseEnvironment === 'production'
-      ? normalizeText(result.accessUrl)
-      : `${resourcePath}?parentLinkId=${encodeURIComponent(link.id)}&resourceId=${encodeURIComponent(resourceId)}`,
+    path: `${resourcePath}?parentLinkId=${encodeURIComponent(link.id)}&resourceId=${encodeURIComponent(resourceId)}`,
   })
   return { shared: true }
 }

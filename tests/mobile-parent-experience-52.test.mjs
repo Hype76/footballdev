@@ -50,7 +50,7 @@ test('Parent requests are deduplicated, action-first and ordered nearest first',
   assert.deepEqual(sections.needsResponse.map((item) => item.invitationId), ['needs'])
   assert.deepEqual(sections.responded.map((item) => item.invitationId), ['current'])
   assert.deepEqual(sections.history.map((item) => item.invitationId), ['past'])
-  assert.equal(sections.upcoming.filter((item) => item.sourceRecordId === 'training-1').length, 1)
+  assert.equal(sections.upcoming.filter((item) => item.sourceRecordId === 'training-1').length, 0)
 })
 
 test('Parent Chat uses newest room activity first and oldest-to-newest conversation data', () => {

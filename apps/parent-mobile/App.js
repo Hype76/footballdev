@@ -49,6 +49,7 @@ import {
   getParentFriendlyError,
   getParentHomeModel,
   getPollDraftOption,
+  isParentDefinitelyOffline,
 } from './src/parentExperience'
 import {
   addParentScorerGoal,
@@ -423,7 +424,7 @@ function ParentHome() {
 
   useEffect(() => {
     const subscription = NetInfo.addEventListener((state) => {
-      const offline = state.isConnected === false || state.isInternetReachable === false
+      const offline = isParentDefinitelyOffline(state)
       setIsOffline((current) => {
         if (current && !offline && selectedMobileUser?.id) {
           void runParentSync().then(() => loadParentData())
@@ -739,6 +740,7 @@ function ParentHome() {
   }
 
   function handleTabChange(tab) {
+    setNotice(null)
     setSelectedInvitationId('')
     setSelectedMatchId('')
     setSelectedMessageId('')
@@ -889,6 +891,22 @@ function ParentHome() {
       await openExternalParentUrl(safeUrl)
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, 'This message link could not be opened.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleOpenMatchLink(url, destination) {
+    if (isOffline || activeActionId || !url) return
+    setActiveActionId(`match-${destination}`)
+    setNotice(null)
+    try {
+      await openExternalParentUrl(url)
+    } catch (error) {
+      setNotice({
+        message: getParentFriendlyError(error, destination === 'calendar' ? 'The Calendar could not be opened.' : 'Directions could not be opened.'),
+        tone: 'warning',
+      })
     } finally {
       setActiveActionId('')
     }
@@ -1205,16 +1223,17 @@ function ParentHome() {
     { count: unreadChat, key: 'chat', label: 'Chat' },
     { count: homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
   ]
+  const focusedChatRoom = activeTab === 'chat' && Boolean(selectedRoom)
 
   return (
     <ParentThemeContext.Provider value={themeContext}>
     <SafeAreaView style={[styles.safeArea, displayTheme === 'light' && styles.safeAreaLight]}>
       <StatusBar style={displayTheme === 'light' ? 'dark' : 'light'} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardShell}
       >
-        <AppHeader
+        {!focusedChatRoom ? <AppHeader
           childCount={parentLinks.length}
           childSwitcherOpen={childSwitcherOpen}
           links={parentLinks}
@@ -1222,11 +1241,11 @@ function ParentHome() {
           onToggleChildSwitcher={() => setChildSwitcherOpen((open) => !open)}
           selectedLink={selectedLink}
           theme={displayTheme}
-        />
+        /> : null}
 
         {activeTab === 'chat' ? (
           <View style={[styles.contentColumn, styles.chatRouteContent]}>
-            <SyncStatus cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} summary={syncSummary} />
+            {!focusedChatRoom ? <SyncStatus cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} summary={syncSummary} /> : null}
             {notice ? <Notice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
             <ChatScreen
               activeActionId={activeActionId}
@@ -1294,6 +1313,7 @@ function ParentHome() {
                 onBack={() => setSelectedMatchId('')}
                 onDismiss={(match) => handleDismissParentItem('matches', match.id, 'match')}
                 onOpen={(match) => setSelectedMatchId(match.id)}
+                onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
                 onVolunteer={handleScorerInterest}
                 resource={{ ...resources.matches, items: visibleMatches }}
@@ -1382,7 +1402,7 @@ function ParentHome() {
           </View>
         </ScrollView>}
 
-        <BottomTabs activeTab={activeTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} />
+        {!focusedChatRoom ? <BottomTabs activeTab={activeTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} /> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
     </ParentThemeContext.Provider>

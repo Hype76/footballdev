@@ -25,6 +25,73 @@ function getMatchTimestamp(match) {
   return toTimestamp(`${date}T${time || '23:59:59'}`)
 }
 
+function addWallTimeMinutes(date, time, minutes) {
+  const normalizedDate = normalizeText(date)
+  const normalizedTime = normalizeText(time).slice(0, 5)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate) || !/^\d{2}:\d{2}$/.test(normalizedTime)) return ''
+  const value = new Date(`${normalizedDate}T${normalizedTime}:00Z`)
+  if (!Number.isFinite(value.getTime())) return ''
+  value.setUTCMinutes(value.getUTCMinutes() + Number(minutes || 0))
+  return `${value.getUTCFullYear()}${String(value.getUTCMonth() + 1).padStart(2, '0')}${String(value.getUTCDate()).padStart(2, '0')}T${String(value.getUTCHours()).padStart(2, '0')}${String(value.getUTCMinutes()).padStart(2, '0')}00`
+}
+
+function compactDate(value) {
+  return normalizeText(value).replaceAll('-', '')
+}
+
+function nextCalendarDate(value) {
+  const normalized = normalizeText(value)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return ''
+  const date = new Date(`${normalized}T12:00:00Z`)
+  if (!Number.isFinite(date.getTime())) return ''
+  date.setUTCDate(date.getUTCDate() + 1)
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+export function isParentDefinitelyOffline(networkState = {}) {
+  return networkState.isConnected === false
+}
+
+export function canParentRegisterScorerInterest(match, now = new Date()) {
+  if (!match?.requestScorer || match?.isScorer || match?.hasInterest) return false
+  const today = getDateInTimeZone(now)
+  const matchDate = normalizeText(match?.matchDate).slice(0, 10)
+  if (!matchDate || matchDate < today) return false
+  return ['scheduled', 'scorer_request', 'live'].includes(normalizeText(match?.status).toLowerCase())
+}
+
+export function getParentMatchCalendarUrl(match) {
+  const matchDate = normalizeText(match?.matchDate).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDate)) return ''
+  const kickoffTime = normalizeText(match?.kickoffTime).slice(0, 5)
+  const timed = !match?.kickoffTimeTbc && /^\d{2}:\d{2}$/.test(kickoffTime)
+  const start = timed ? addWallTimeMinutes(matchDate, kickoffTime, 0) : compactDate(matchDate)
+  const end = timed
+    ? addWallTimeMinutes(matchDate, kickoffTime, Math.max(90, Number(match?.matchDurationMinutes || 120)))
+    : nextCalendarDate(matchDate)
+  if (!start || !end) return ''
+  const title = `${normalizeText(match?.teamName) || 'Team'} v ${normalizeText(match?.opponent) || 'Opponent'}`
+  const location = [normalizeText(match?.venueName), normalizeText(match?.venueAddress)].filter(Boolean).join(', ')
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    dates: `${start}/${end}`,
+    details: 'Football Player Match Day',
+    location,
+    text: title,
+  })
+  if (timed) params.set('ctz', 'Europe/London')
+  return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
+export function getParentMatchDirectionsUrl(match, platform = 'android') {
+  const location = [normalizeText(match?.venueName), normalizeText(match?.venueAddress)].filter(Boolean).join(', ')
+  if (!location) return ''
+  const query = encodeURIComponent(location)
+  return platform === 'ios'
+    ? `https://maps.apple.com/?q=${query}`
+    : `https://www.google.com/maps/search/?api=1&query=${query}`
+}
+
 export function getParentFriendlyError(error, fallback = 'This information could not be loaded.') {
   const code = normalizeText(error?.code).toLowerCase()
   const message = normalizeText(error?.message || error).toLowerCase()
@@ -127,7 +194,6 @@ export function getParentMatchGroups(matches, now = new Date()) {
     const isFinished = status === 'full_time'
     const isPastScheduledMatch = normalizeText(match?.matchDate)
       && normalizeText(match.matchDate) < today
-      && !['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(status)
 
     if (isFinished || isPastScheduledMatch) {
       recent.push(match)
