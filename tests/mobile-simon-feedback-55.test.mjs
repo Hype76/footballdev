@@ -110,3 +110,16 @@ test('Parent notification, focused Chat, resource, poll and scorer regression gu
   assert.match(migration, /poll_row\.allow_multiple is true[\s\S]*poll_row\.allow_vote_changes is true/)
   assert.match(migration, /match_day\.match_date >= timezone\('Europe\/London', now\(\)\)::date/)
 })
+
+test('Feedback 55 authorises only its explicit guarded mobile release reference', async () => {
+  const [buildGuard, submitGuard] = await Promise.all([
+    readFile(new URL('../apps/scripts/mobile-build-guard.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/scripts/mobile-submit-guard.mjs', import.meta.url), 'utf8'),
+  ])
+
+  assert.match(buildGuard, /FP-MOBILE-SIMON-FEEDBACK-55/)
+  assert.match(submitGuard, /FP-MOBILE-SIMON-FEEDBACK-55/)
+  assert.match(buildGuard, /MOBILE_NATIVE_BUILD_CONFIRMED/)
+  assert.match(submitGuard, /MOBILE_SUBMISSION_BUILD_ID/)
+  assert.match(submitGuard, /MOBILE_SUBMISSION_CONFIRMED/)
+})
