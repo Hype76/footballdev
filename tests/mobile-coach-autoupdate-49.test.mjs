@@ -10,7 +10,7 @@ test('Coach checks the production update channel on launch', () => {
   const eas = read('apps/coach-mobile/eas.json')
   const packageJson = read('apps/coach-mobile/package.json')
 
-  assert.match(app, /version: '1\.0\.12'/)
+  assert.match(app, /version: '1\.0\.13'/)
   assert.match(packageJson, /"expo-updates": "~29\.0\.18"/)
   assert.match(config, /https:\/\/u\.expo\.dev\/\$\{resolvedEasProjectId\}/)
   assert.match(config, /checkAutomatically: 'ON_LOAD'/)

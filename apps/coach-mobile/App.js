@@ -583,6 +583,7 @@ function CoachRoute(props) {
   if (activeRoute === 'matchday') return <CoachMatchDayScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {
+    if (moreRoute === 'sessions') return <CoachSessionsScreen {...props} key={`${props.context.id}:sessions`} palette={palette} />
     if (['development', 'resources', 'chat', 'messages', 'polls', 'invites'].includes(moreRoute)) {
       return <CoachPhase31EScreen {...props} domain={moreRoute} key={`${props.context.id}:${moreRoute}`} palette={palette} />
     }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
@@ -111,13 +111,15 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const [stale, setStale] = useState(false)
   const offlinePolicy = getCoachPhase31EOfflinePolicy(domain)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     const loader = LOADERS[domain]
     if (!loader) return
-    setLoading(true)
-    setError('')
-    setNotice('')
-    if (domain === 'chat') setData(null)
+    if (!silent) {
+      setLoading(true)
+      setError('')
+      setNotice('')
+      if (domain === 'chat') setData(null)
+    }
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
     const savedValue = cached?.resources?.[`phase31e:${domain}`]
     const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
@@ -134,13 +136,26 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
       await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
     } catch (loadError) {
-      if (!hasCachedValue) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
+      if (!silent && !hasCachedValue) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [context, domain, offlinePolicy.cache, user])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    if (domain !== 'polls') return undefined
+    const refreshResults = () => void load({ silent: true })
+    const interval = setInterval(refreshResults, 15000)
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') refreshResults()
+    })
+    return () => {
+      clearInterval(interval)
+      subscription.remove()
+    }
+  }, [domain, load])
 
   const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, setNotice, stale, styles, user }
   return (
@@ -462,6 +477,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   }
   return (
     <View style={styles.stack}>
+      <Button disabled={stale} label="Refresh Poll results" onPress={() => void load({ silent: true })} secondary styles={styles} />
       <View style={styles.panel}>
         <Text style={styles.heading}>Create Poll</Text>
         <Text style={styles.body}>Create the exact question and options Parents or staff will answer. Creating a Poll does not send a notification automatically.</Text>
