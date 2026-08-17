@@ -198,9 +198,29 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form,
   assertCoachCapability(user, CAPABILITIES.assessments)
   assertTeamEntity(user, player, 'Player')
   if (!form?.id || !player?.id) throw new Error('Choose a Player and Development form before finalising.')
-  if (shareWithParent) throw new Error('Parent sharing and report finalisation use the governed server-owned web workflow.')
   const validation = validateCoachDevelopmentValues(form, values, user.roleRank)
   if (!validation.valid) throw new Error(validation.errors[0])
+  let parentShareRequest = null
+  let selectedParentLinkIds = []
+  if (shareWithParent) {
+    const accessToken = await getAccessToken()
+    if (!accessToken) throw new Error('Sign in again before sharing this Development record.')
+    const endpoint = joinApiPath(config.apiBaseUrl, '.netlify/functions/send-parent-email')
+    parentShareRequest = async (body) => {
+      const { ok, response, result } = await fetchJsonWithTimeout(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!ok || result?.success === false) {
+        throw Object.assign(new Error(normalize(result?.message) || 'The Development record could not be shared with Parents.'), { status: response.status })
+      }
+      return result
+    }
+    const recipients = await parentShareRequest({ action: 'resolve_development_recipients', clubId: user.clubId, teamId: user.activeTeamId, playerId: player.id })
+    selectedParentLinkIds = (recipients.recipients || []).map((recipient) => normalize(recipient.linkId)).filter(Boolean)
+    if (selectedParentLinkIds.length === 0) throw new Error('No authorised Parent link is available for this Player.')
+  }
   const monthStart = new Date()
   monthStart.setUTCDate(1)
   monthStart.setUTCHours(0, 0, 0, 0)
@@ -255,8 +275,22 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form,
     const { error: closeError } = await supabase.from('evaluation_drafts').update({ status: 'submitted', submitted_at: now, updated_at: now }).eq('id', draftId).eq('created_by_user_id', user.id).eq('status', 'draft')
     if (closeError) throw closeError
   }
-  await recordCoachOperationalAudit({ user, action: 'development_record_finalised', entityType: 'evaluation', entityId: data.id, metadata: { teamId: user.activeTeamId, playerId: player.id, formId: form.id, parentShared: false, communicationDelivery: 'disabled' } })
-  return normalizeCoachDevelopmentRecord(data)
+  let sharedRecipientCount = 0
+  if (shareWithParent) {
+    const report = await parentShareRequest({
+      action: 'finalize_development_parent_report',
+      clubId: user.clubId,
+      teamId: user.activeTeamId,
+      playerId: player.id,
+      evaluationId: data.id,
+      selectedParentLinkIds,
+      includeAttendance: false,
+      includeProgression: true,
+    })
+    sharedRecipientCount = Number(report.eligibleRecipients?.length || selectedParentLinkIds.length)
+  }
+  await recordCoachOperationalAudit({ user, action: 'development_record_finalised', entityType: 'evaluation', entityId: data.id, metadata: { teamId: user.activeTeamId, playerId: player.id, formId: form.id, parentShared: shareWithParent, sharedRecipientCount, communicationDelivery: shareWithParent ? 'in_app' : 'disabled' } })
+  return Object.freeze({ ...normalizeCoachDevelopmentRecord(data), sharedRecipientCount })
 }
 
 export async function getCoachResources(user) {

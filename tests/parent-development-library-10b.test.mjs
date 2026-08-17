@@ -180,7 +180,7 @@ test('parent Development history exposes only immutable shared snapshot fields',
   assert.equal(JSON.stringify(history).includes('privateProviderError'), false)
 })
 
-test('parent Development history hides staff-only snapshots with no communication evidence', () => {
+test('parent Development history exposes an explicitly recipient-scoped in-app snapshot without requiring email', () => {
   const history = buildParentDevelopmentHistory({
     parentLink: buildParentLink(),
     reportRows: [buildReportRow()],
@@ -188,7 +188,9 @@ test('parent Development history hides staff-only snapshots with no communicatio
     queues: [],
   })
 
-  assert.deepEqual(history, [])
+  assert.equal(history.length, 1)
+  assert.equal(history[0].deliveryLabel, 'Shared in app')
+  assert.equal(history[0].canDownloadPdf, false)
 })
 
 test('parent Development history isolates reports by exact child and recipient link', () => {

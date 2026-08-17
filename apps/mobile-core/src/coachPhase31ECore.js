@@ -346,7 +346,14 @@ export function normalizeCoachPoll(row = {}, currentUserId = '') {
 export function summarizeCoachPoll(poll) {
   const counts = Object.fromEntries((poll?.options || []).map((option) => [option.id, 0]))
   for (const vote of poll?.votes || []) if (vote.optionId in counts) counts[vote.optionId] += 1
-  return Object.freeze((poll?.options || []).map((option) => Object.freeze({ ...option, count: counts[option.id] || 0 })))
+  return Object.freeze((poll?.options || [])
+    .map((option, index) => ({ ...option, count: counts[option.id] || 0, sourceIndex: index }))
+    .sort((left, right) => right.count - left.count || left.sourceIndex - right.sourceIndex)
+    .map((option, index) => {
+      const rankedOption = { ...option, rank: index + 1 }
+      delete rankedOption.sourceIndex
+      return Object.freeze(rankedOption)
+    }))
 }
 
 export function normalizeCoachInvite(row = {}, kind = 'calendar') {

@@ -238,15 +238,24 @@ export function getParentSyncAttentionItems(document, childScope = '') {
 export function reconcileParentSyncAttention(document, { childScope = '', messages = [], now = Date.now, polls = [] } = {}) {
   const scope = normalize(childScope)
   const messageIds = new Set((Array.isArray(messages) ? messages : []).map((item) => normalize(item?.id)).filter(Boolean))
-  const pollIds = new Set((Array.isArray(polls) ? polls : []).map((item) => normalize(item?.id)).filter(Boolean))
+  const actionablePolls = (Array.isArray(polls) ? polls : []).filter((poll) => {
+    const closesAt = Date.parse(normalize(poll?.closesAt ?? poll?.closes_at))
+    return normalize(poll?.status || 'open') === 'open'
+      && (!Number.isFinite(closesAt) || closesAt > Number(now()))
+  })
+  const pollById = new Map(actionablePolls
+    .map((poll) => [normalize(poll?.id), poll])
+    .filter(([pollId]) => Boolean(pollId)))
   let changed = false
   const journal = (document?.journal || []).map((command) => {
     if (
       !['conflict', 'permanently_rejected'].includes(command.status)
       || (scope && command.childScope !== scope)
     ) return command
+    const poll = command.type === 'poll_vote' ? pollById.get(normalize(command.entityId)) : null
+    const savedPollResponse = poll && (poll.currentOptionIds || []).includes(normalize(command.payload?.optionId))
     const resourceStillExists = command.type === 'poll_vote'
-      ? pollIds.has(normalize(command.entityId))
+      ? Boolean(poll) && !savedPollResponse && command.status !== 'permanently_rejected'
       : command.type === 'message_read'
         ? messageIds.has(normalize(command.entityId))
         : true
@@ -254,7 +263,7 @@ export function reconcileParentSyncAttention(document, { childScope = '', messag
     changed = true
     return {
       ...command,
-      lastErrorCategory: 'resource_closed',
+      lastErrorCategory: savedPollResponse ? 'server_state_confirmed' : 'resource_closed',
       nextAttemptAt: '',
       status: 'cancelled',
     }

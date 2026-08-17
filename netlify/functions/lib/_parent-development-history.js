@@ -137,7 +137,11 @@ function resolveDeliveryState({ communicationEvidence, queue } = {}) {
   if (!communicationEvidence.some(
     (log) => normalizeText(log.action) === 'parent_email_scheduled',
   )) {
-    return null
+    return {
+      deliveryState: 'shared_in_app',
+      deliveryLabel: 'Shared in app',
+      deliveredAt: '',
+    }
   }
 
   if (normalizeText(queue?.status) === 'failed') {

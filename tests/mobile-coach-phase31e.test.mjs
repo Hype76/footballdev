@@ -319,7 +319,7 @@ test('native screen exposes required accessible and confirmation patterns', asyn
   assert.match(screen, /accessibilityRole="header"/)
   assert.match(screen, /accessibilityLabel=/)
   assert.match(screen, /accessibilityLiveRegion=/)
-  assert.match(screen, /Alert\.alert\('Finalise Development record\?'/)
+  assert.match(screen, /Alert\.alert\('Finalise and share this Development record\?'/)
   assert.match(screen, /Alert\.alert\('Close this Poll\?'/)
 })
 

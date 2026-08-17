@@ -393,18 +393,19 @@ function ParentHome() {
       setLastUpdatedAt(new Date().toISOString())
       setOfflineCacheState({ source: failed === 0 ? 'online' : cachedView?.cache ? 'cache' : 'online', stale: false })
     }
+    let reconciledSync = cachedView?.sync || null
     if (failed === 0) {
       try {
         await saveParentOfflineResources(selectedMobileUser, selectedLink.id, Object.fromEntries(
           resourceNames.map((name) => [name, refreshedItems[name]]),
         ))
-        const reconciledSync = await reconcileParentOfflineAttention(selectedMobileUser, selectedLink.id, refreshedItems)
+        reconciledSync = await reconcileParentOfflineAttention(selectedMobileUser, selectedLink.id, refreshedItems)
         setSyncSummary(reconciledSync)
       } catch (error) {
         console.warn(error)
       }
     }
-    return { failed, items: refreshedItems }
+    return { failed, items: refreshedItems, sync: reconciledSync }
   }, [isOffline, selectedLink?.id, selectedMobileUser])
 
   const runParentSync = useCallback(async ({ explicitRetry = false } = {}) => {
@@ -762,6 +763,8 @@ function ParentHome() {
         ? { message: result.cached ? 'Offline. Showing your last saved information.' : 'Offline. No saved information is available yet.', tone: 'warning' }
         : result.failed > 0
         ? { message: 'Some information could not be refreshed. Your previous view is still available.', tone: 'warning' }
+        : Number(result.sync?.needsAttention || 0) > 0
+        ? null
         : { message: 'You are up to date.', tone: 'success' })
     } finally {
       setIsRefreshing(false)

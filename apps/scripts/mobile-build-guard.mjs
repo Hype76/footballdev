@@ -33,6 +33,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62',
   'FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63',
   'FP-MOBILE-FEEDBACK-CORRECTIVE-64',
+  'FP-MOBILE-COMPACTION-ATTENTION-65',
 ])
 const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
@@ -56,6 +57,7 @@ const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62',
   'FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63',
   'FP-MOBILE-FEEDBACK-CORRECTIVE-64',
+  'FP-MOBILE-COMPACTION-ATTENTION-65',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'

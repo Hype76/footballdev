@@ -647,14 +647,6 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <StatePanel actionLabel="Refresh" message="The main overview is available, but one or more supporting summaries could not be refreshed." onAction={() => reloadHome({ refresh: true })} title="Some summaries are unavailable" tone="warning" /> : null}
-      {!homeState.loading ? (
-        <View style={styles.statGrid}>
-          <StatCard label="Players" value={homeState.summary?.activePlayers || 0} />
-          <StatCard label="Sessions" value={homeState.summary?.sessions || 0} />
-          <StatCard label="Matches" value={homeState.summary?.matches || 0} />
-          <StatCard label="Teams" value={homeState.summary?.teams || 0} />
-        </View>
-      ) : null}
       <Section title="Coming up">
         <PreviewCard
           actionLabel="Open Calendar"

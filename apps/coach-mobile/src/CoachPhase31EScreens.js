@@ -207,12 +207,12 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
       setNotice('Private Development draft saved with server version control.')
     } catch (error) { setNotice(getCoachFriendlyError(error)) }
   }
-  const finalise = () => Alert.alert('Finalise Development record?', 'Final records cannot be edited from this mobile workflow.', [
+  const finalise = () => Alert.alert('Finalise and share this Development record?', 'The final record will be available to authorised linked Parents. It cannot be edited from this mobile workflow.', [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Finalise', onPress: async () => {
+    { text: 'Finalise and share', onPress: async () => {
       try {
-        await finalizeCoachDevelopmentRecord(user, { draftId: draft?.id, form, player, values, notes, shareWithParent: false })
-        setNotice('Development record finalised. Parent sharing remains off.')
+        const result = await finalizeCoachDevelopmentRecord(user, { draftId: draft?.id, form, player, values, notes, shareWithParent: true })
+        setNotice(`Development record finalised and shared with ${result.sharedRecipientCount} authorised Parent${result.sharedRecipientCount === 1 ? '' : 's'}.`)
         setValues({})
         setNotes('')
         setDraft(null)
@@ -266,7 +266,7 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
         ))}
         <Text style={styles.label}>Coach summary note</Text>
         <TextInput accessibilityLabel="Coach summary note" multiline onChangeText={setNotes} style={[styles.input, styles.inputMultiline]} value={notes} />
-        <View style={styles.row}><Button disabled={stale} label="Save private draft" onPress={saveDraft} secondary styles={styles} /><Button disabled={stale} label="Finalise" onPress={finalise} styles={styles} /></View>
+        <View style={styles.row}><Button disabled={stale} label="Save private draft" onPress={saveDraft} secondary styles={styles} /><Button disabled={stale} label="Finalise and share" onPress={finalise} styles={styles} /></View>
       </View>
       <View style={styles.panel}>
         <Text style={styles.heading}>Development history</Text>
@@ -461,7 +461,8 @@ function MessagesDomain({ data, styles }) {
 }
 
 function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, user }) {
-  const [selectedId, setSelectedId] = useState(data[0]?.id || '')
+  const [selectedId, setSelectedId] = useState('')
+  const [createFormOpen, setCreateFormOpen] = useState(false)
   const [allowMultiple, setAllowMultiple] = useState(true)
   const [allowVoteChanges, setAllowVoteChanges] = useState(true)
   const [anonymous, setAnonymous] = useState(false)
@@ -495,6 +496,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       setDescription('')
       setOptions(['', ''])
       setMaxChoices('')
+      setCreateFormOpen(false)
       await load()
       setNotice(audience === 'parents'
         ? 'Poll created. Parent app notifications are queued using each family\'s communication preference.'
@@ -515,10 +517,13 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   }
   return (
     <View style={styles.stack}>
-      <Button disabled={stale} label="Refresh Poll results" onPress={() => void load({ silent: true })} secondary styles={styles} />
-      <View style={styles.panel}>
+      <View style={styles.row}>
+        <Button disabled={stale} label="Refresh results" onPress={() => void load({ silent: true })} secondary styles={styles} />
+        <Button disabled={stale} label={createFormOpen ? 'Close form' : 'Create Poll'} onPress={() => setCreateFormOpen((current) => !current)} secondary={!createFormOpen} styles={styles} />
+      </View>
+      {createFormOpen ? <View style={styles.panel}>
         <Text style={styles.heading}>Create Poll</Text>
-        <Text style={styles.body}>Create the exact question and options Parents or Coaches will answer. Parent Polls notify eligible families automatically.</Text>
+        <Text style={styles.body}>Create a question for Parents or Coaches.</Text>
         <Text style={styles.label}>Question</Text>
         <TextInput accessibilityLabel="Poll question" onChangeText={setTitle} placeholder="Poll question" placeholderTextColor={placeholderColor} style={styles.input} value={title} />
         <Text style={styles.label}>Description, optional</Text>
@@ -533,26 +538,55 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         <View style={styles.row}><Text style={styles.label}>Allow answer changes</Text><Switch accessibilityLabel="Allow Poll answer changes" onValueChange={setAllowVoteChanges} value={allowVoteChanges} /></View>
         <View style={styles.row}><Text style={styles.label}>Hide voter names</Text><Switch accessibilityLabel="Hide Poll voter names" onValueChange={setAnonymous} value={anonymous} /></View>
         <Button disabled={stale || creating || Number(user.roleRank || 0) < 50 || !title.trim() || options.filter((option) => option.trim()).length < 2} label={creating ? 'Creating Poll...' : 'Create Poll'} onPress={() => void create()} styles={styles} />
-      </View>
+      </View> : null}
       {data.length ? data.map((poll) => {
         const currentOptionIds = poll.currentOptionIds || []
-        return <Pressable accessibilityRole="button" key={poll.id} onPress={() => setSelectedId(poll.id)} style={[styles.panel, poll.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{poll.title}</Text><Text style={styles.body}>{poll.audience} | {poll.status} | {poll.anonymous ? 'Anonymous' : 'Named responses'} | {poll.allowMultiple ? poll.maxChoices ? `Up to ${poll.maxChoices}` : 'Unlimited choices' : 'One choice'}</Text>{summarizeCoachPoll(poll).map((option) => { const chosen = currentOptionIds.includes(option.id); const atLimit = poll.allowMultiple && Number(poll.maxChoices || 0) > 0 && currentOptionIds.length >= Number(poll.maxChoices) && !chosen; return <View key={option.id} style={styles.row}><Text style={styles.body}>{option.label}: {option.count}</Text>{poll.audience === 'staff' && poll.status === 'open' ? <Button disabled={stale || Boolean(votingOptionId) || atLimit || (currentOptionIds.length > 0 && poll.allowVoteChanges !== true)} label={votingOptionId === `${poll.id}:${option.id}` ? 'Saving...' : chosen ? 'Remove my answer' : 'Choose'} onPress={() => void vote(poll, option.id)} secondary={!chosen} styles={styles} /> : null}</View>})}</Pressable>
+        const expanded = poll.id === selectedId
+        const rankedOptions = summarizeCoachPoll(poll)
+        const totalVotes = rankedOptions.reduce((sum, option) => sum + option.count, 0)
+        return (
+          <View key={poll.id} style={[styles.panel, expanded && styles.panelSelected]}>
+            <Pressable accessibilityRole="button" onPress={() => setSelectedId(expanded ? '' : poll.id)}>
+              <Text style={styles.heading}>{poll.title}</Text>
+              <Text style={styles.body}>{poll.status} | {totalVotes} vote{totalVotes === 1 ? '' : 's'} | {expanded ? 'Hide results' : 'View results'}</Text>
+            </Pressable>
+            {expanded ? <>
+              <Text style={styles.body}>{poll.audience === 'staff' ? 'Coaches' : 'Parents'} | {poll.anonymous ? 'Anonymous' : 'Named responses'} | {poll.allowMultiple ? poll.maxChoices ? `Up to ${poll.maxChoices}` : 'Unlimited choices' : 'One choice'}</Text>
+              {rankedOptions.map((option) => {
+                const chosen = currentOptionIds.includes(option.id)
+                const atLimit = poll.allowMultiple && Number(poll.maxChoices || 0) > 0 && currentOptionIds.length >= Number(poll.maxChoices) && !chosen
+                return <View key={option.id} style={styles.row}><Text style={styles.body}>{option.rank}. {option.label}: {option.count}</Text>{poll.audience === 'staff' && poll.status === 'open' ? <Button disabled={stale || Boolean(votingOptionId) || atLimit || (currentOptionIds.length > 0 && poll.allowVoteChanges !== true)} label={votingOptionId === `${poll.id}:${option.id}` ? 'Saving...' : chosen ? 'Remove my answer' : 'Choose'} onPress={() => void vote(poll, option.id)} secondary={!chosen} styles={styles} /> : null}</View>
+              })}
+              <View style={styles.row}><Button disabled={stale || poll.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || poll.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
+            </> : null}
+          </View>
+        )
       }) : <Empty copy="No Team or Club Polls are available." styles={styles} />}
-      <View style={styles.row}><Button disabled={stale || !selected || selected.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close selected Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || !selected || selected.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen selected Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
     </View>
   )
 }
 
 function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user }) {
-  const [selectedId, setSelectedId] = useState(data.all?.[0]?.id || '')
-  const openMatches = (data.matches || []).filter((match) => match.teamId === user.activeTeamId && ['scheduled', 'scorer_request'].includes(match.status))
-  const [matchId, setMatchId] = useState(openMatches[0]?.id || '')
+  const [selectedId, setSelectedId] = useState('')
+  const [requestPanelOpen, setRequestPanelOpen] = useState(false)
+  const today = new Date().toISOString().slice(0, 10)
+  const openMatches = (data.matches || [])
+    .filter((match) => match.teamId === user.activeTeamId && ['scheduled', 'scorer_request'].includes(match.status))
+    .filter((match) => !match.matchDate || String(match.matchDate).slice(0, 10) >= today)
+    .sort((left, right) => String(left.matchDate || '9999').localeCompare(String(right.matchDate || '9999')))
+    .slice(0, 20)
+  const [matchId, setMatchId] = useState('')
   const [playerIds, setPlayerIds] = useState([])
   const [creating, setCreating] = useState(false)
   const [uncertainAttempt, setUncertainAttempt] = useState(null)
-  const selected = data.all?.find((invite) => invite.id === selectedId)
+  const selected = data.match?.find((invite) => invite.id === selectedId)
   const selectedMatch = openMatches.find((match) => match.id === matchId)
-  const summary = summarizeCoachInvites(data.all)
+  const selectedMatchInvites = (data.match || [])
+    .filter((invite) => invite.eventId === matchId && !invite.cancelled && !invite.stale)
+    .sort((left, right) => left.playerName.localeCompare(right.playerName))
+  const summary = summarizeCoachInvites(selectedMatchInvites)
+  const invitedPlayerIds = new Set(selectedMatchInvites.map((invite) => invite.playerId))
+  const availablePlayers = (data.players || []).filter((player) => !invitedPlayerIds.has(player.id))
   const record = async (action) => {
     try {
       const result = await recordCoachInviteIntent(user, selected, action)
@@ -610,12 +644,42 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
   ])
   return (
     <View style={styles.stack}>
-      <View style={styles.panel}><Text style={styles.heading}>Create Match availability requests</Text><Text style={styles.body}>Choose an open Match Day fixture and Players. The canonical production workflow creates the requests Parents see and controls any communication queue.</Text><View style={styles.row}>{openMatches.map((match) => <Button key={match.id} label={`${match.opponent} | ${match.matchDate || 'Date TBC'}`} onPress={() => setMatchId(match.id)} secondary={match.id !== matchId} styles={styles} />)}</View><View style={styles.row}>{(data.players || []).map((player) => { const selectedPlayer = playerIds.includes(player.id); return <Button key={player.id} label={player.playerName} onPress={() => setPlayerIds((current) => selectedPlayer ? current.filter((id) => id !== player.id) : [...current, player.id])} secondary={!selectedPlayer} styles={styles} /> })}</View>{openMatches.length === 0 ? <Text style={styles.body}>No open Match Day fixture is available.</Text> : null}<Button disabled={stale || creating || Boolean(uncertainAttempt) || !selectedMatch || playerIds.length === 0 || Number(user.roleRank || 0) < 20} label="Review and create requests" onPress={confirmCreate} styles={styles} />{uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}</View>
-      <View style={styles.panel}><Text style={styles.heading}>Response overview</Text><Text style={styles.body}>Awaiting {summary.awaiting} | Available {summary.available} | Unavailable {summary.unavailable} | Maybe {summary.maybe} | Selected {summary.selected} | Not selected {summary.notSelected} | Stale {summary.stale}</Text></View>
-      {(data.all || []).length ? data.all.map((invite) => <Pressable accessibilityRole="button" key={`${invite.kind}:${invite.id}`} onPress={() => setSelectedId(invite.id)} style={[styles.panel, invite.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{invite.title}</Text><Text style={styles.body}>{invite.kind} | {invite.playerName} | {invite.status}</Text></Pressable>) : <Empty copy="No Match, training, or Calendar invitation responses are available." styles={styles} />}
-      <View style={styles.row}><Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Resend Invitation' : 'Record resend intent'} onPress={resend} styles={styles} />{config.isProduction ? null : <Button disabled={stale || !selected || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label="Record close intent" onPress={() => void record('close')} secondary styles={styles} />}</View>
-      <View style={styles.row}><Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />{selected?.kind === 'match' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{selected?.kind === 'training' ? <Button label="Open Sessions" onPress={() => onNavigate('sessions')} secondary styles={styles} /> : null}</View>
-      <Text style={styles.body}>{config.isProduction ? 'Resend is online-only, explicitly confirmed, recipient-scoped, and handled by the canonical production Invitation service. Close or cancel remains in the authoritative web workflow.' : 'Intent proof only. No email, push, SMS, schedule, or real customer communication is generated.'}</Text>
+      <Text style={styles.body}>Choose an upcoming fixture to see its availability.</Text>
+      {openMatches.length ? openMatches.map((match) => {
+        const matchInvites = (data.match || []).filter((invite) => invite.eventId === match.id && !invite.cancelled && !invite.stale)
+        const matchSummary = summarizeCoachInvites(matchInvites)
+        const expanded = match.id === matchId
+        return (
+          <View key={match.id} style={[styles.panel, expanded && styles.panelSelected]}>
+            <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setSelectedId(''); setRequestPanelOpen(false); setPlayerIds([]) }}>
+              <Text style={styles.heading}>{match.opponent || 'Opponent to be confirmed'}</Text>
+              <Text style={styles.body}>{match.matchDate || 'Date to be confirmed'} | Available {matchSummary.available} | Awaiting {matchSummary.awaiting}</Text>
+              <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
+            </Pressable>
+            {expanded ? <>
+              <Text style={styles.label}>Available {summary.available} | Unavailable {summary.unavailable} | Maybe {summary.maybe} | Awaiting {summary.awaiting}</Text>
+              {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => (
+                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={invite.id === selectedId ? styles.formChoiceSelected : null}>
+                  <Text style={styles.body}>{invite.playerName}: {invite.status}</Text>
+                </Pressable>
+              )) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
+              {selected ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
+              <Button label={requestPanelOpen ? 'Hide request setup' : 'Create availability requests'} onPress={() => setRequestPanelOpen((current) => !current)} secondary styles={styles} />
+              {requestPanelOpen ? <View style={styles.stack}>
+                <Text style={styles.body}>Choose Players who do not already have a request for this fixture.</Text>
+                {availablePlayers.length ? <>
+                  <Button label={playerIds.length === availablePlayers.length ? 'Clear selection' : 'Select all'} onPress={() => setPlayerIds(playerIds.length === availablePlayers.length ? [] : availablePlayers.map((player) => player.id))} secondary styles={styles} />
+                  <View style={styles.row}>{availablePlayers.map((player) => { const selectedPlayer = playerIds.includes(player.id); return <Button key={player.id} label={player.playerName} onPress={() => setPlayerIds((current) => selectedPlayer ? current.filter((id) => id !== player.id) : [...current, player.id])} secondary={!selectedPlayer} styles={styles} /> })}</View>
+                  <Button disabled={stale || creating || Boolean(uncertainAttempt) || playerIds.length === 0 || Number(user.roleRank || 0) < 20} label="Review and create requests" onPress={confirmCreate} styles={styles} />
+                </> : <Text style={styles.body}>Every active Player already has a request.</Text>}
+                {uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}
+              </View> : null}
+              <View style={styles.row}><Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View>
+            </> : null}
+          </View>
+        )
+      }) : <Empty copy="No upcoming Match Day fixture is available." styles={styles} />}
+      <Text style={styles.body}>Training availability is managed from Sessions. Other invitations are managed from Calendar.</Text>
     </View>
   )
 }
