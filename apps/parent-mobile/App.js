@@ -1281,7 +1281,8 @@ function ParentHome() {
     <SafeAreaView style={[styles.safeArea, displayTheme === 'light' && styles.safeAreaLight]}>
       <StatusBar style={displayTheme === 'light' ? 'dark' : 'light'} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled={Platform.OS === 'ios'}
         style={styles.keyboardShell}
       >
         {!focusedChatRoom ? <AppHeader

@@ -1,5 +1,8 @@
+import * as Crypto from 'expo-crypto'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
 import { buildCoachCalendarEvents, buildCoachCalendarPayload, normalizeCoachCalendarEvent } from './coachCalendarCore'
+import { getMobileRuntimeConfig } from './config'
+import { fetchJsonWithTimeout, joinApiPath } from './http'
 import {
   assertCoachCapability,
   assertCoachOperationalMutation,
@@ -8,7 +11,9 @@ import {
   recordCoachOperationalAudit,
   scopeCoachQuery,
 } from './coachOperationalData'
-import { supabase } from './supabase'
+import { getAccessToken, supabase } from './supabase'
+
+const config = getMobileRuntimeConfig('coach')
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -161,7 +166,7 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
     entityId: data.id,
     entityType: 'calendar_event',
     metadata: {
-      communicationsMode: 'disabled_test_sink',
+      communicationsMode: config.isProduction && form?.notifyParents === true ? 'canonical_production_queue' : 'disabled_test_sink',
       eventType: payload.event_type,
       startsAt: payload.starts_at,
       teamId: payload.team_id,
@@ -172,13 +177,72 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
   return normalizeCoachCalendarEvent(data)
 }
 
+async function processCoachCalendarNotification(user, commandId) {
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again before notifying parents.')
+  const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/manage-scheduled-emails'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'processCalendarNotification', clubId: user.clubId, commandId, teamId: user.activeTeamId }),
+  })
+  if (!ok || result?.success === false) {
+    throw Object.assign(new Error(normalize(result?.message) || 'Parent notifications could not be processed.'), { status: response.status })
+  }
+  return result
+}
+
+export async function saveCoachTrainingInvitation(user, form) {
+  const notifyParents = form?.notifyParents === true || form?.requestTrainingAvailability === true
+  const requestTrainingAvailability = form?.requestTrainingAvailability === true
+  const trainingForm = {
+    ...form,
+    eventType: 'training',
+    notifyParents,
+    parentAudience: form?.parentAudience || 'all_team_parents',
+    parentVisible: notifyParents,
+  }
+  const event = await saveCoachCalendarEvent(user, trainingForm)
+  let notification = null
+  let delivery = null
+  let deliveryError = ''
+
+  if (notifyParents) {
+    const { error: settingError } = await supabase.rpc('save_training_availability_setting_v3', {
+      enabled_value: requestTrainingAvailability,
+      event_id_value: event.sourceId,
+      notify_invited_families_value: true,
+      send_days_before_value: Math.min(30, Math.max(0, Number(form?.trainingAvailabilitySendDaysBefore || 0))),
+    })
+    if (settingError) throw settingError
+  }
+
+  if (config.isProduction && notifyParents) {
+    const { data, error } = await supabase.rpc('notify_calendar_event_parents', {
+      calendar_event_id_value: event.sourceId,
+      event_action_value: 'creation',
+      match_day_id_value: null,
+      notification_request_token_value: Crypto.randomUUID(),
+      player_ids_value: [],
+    })
+    if (error) throw error
+    notification = data || null
+    const commandId = normalize(notification?.notificationCommandId)
+    if (commandId && Number(notification?.eligibleRecipientCount || 0) > 0) {
+      try { delivery = await processCoachCalendarNotification(user, commandId) }
+      catch (error) { deliveryError = normalize(error?.message) || 'Parent notifications remain queued for retry.' }
+    }
+  }
+
+  return Object.freeze({ delivery, deliveryError, event, notification, requestTrainingAvailability })
+}
+
 export function getCoachCalendarCommunicationsBoundary() {
   return Object.freeze({
-    apiOrigin: 'https://footballplayer-mobile-test-api.netlify.app',
-    environment: 'test',
-    externalDeliveryAllowed: false,
-    mode: 'disabled_test_sink',
-    productionAccess: false,
-    schedulesAllowed: false,
+    apiOrigin: config.apiBaseUrl,
+    environment: config.supabaseEnvironment,
+    externalDeliveryAllowed: config.isProduction,
+    mode: config.isProduction ? 'canonical_production_queue' : 'disabled_test_sink',
+    productionAccess: config.isProduction,
+    schedulesAllowed: config.isProduction,
   })
 }

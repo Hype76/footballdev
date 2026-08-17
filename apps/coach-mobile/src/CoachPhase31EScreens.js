@@ -35,6 +35,7 @@ import {
   summarizeCoachPoll,
 } from '../../mobile-core/src/coachPhase31ECore'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
+import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 
@@ -276,10 +277,21 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
 }
 
 function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
+  const [assigning, setAssigning] = useState(false)
+  const [parentVisible, setParentVisible] = useState(true)
+  const [players, setPlayers] = useState([])
   const [title, setTitle] = useState(config.isProduction ? '' : 'FP TEST resource')
   const [url, setUrl] = useState(config.isProduction ? '' : 'https://example.com/fp-test-resource')
   const [selectedId, setSelectedId] = useState(data[0]?.id || '')
   const selected = data.find((resource) => resource.id === selectedId)
+  useEffect(() => {
+    let active = true
+    setPlayers([])
+    getCoachPlayerList(user)
+      .then((rows) => { if (active) setPlayers(rows) })
+      .catch((error) => { if (active) setNotice(getCoachFriendlyError(error)) })
+    return () => { active = false }
+  }, [setNotice, user])
   const open = async (resource) => {
     try {
       const accessUrl = await getCoachResourceAccessUrl(user, resource)
@@ -297,10 +309,34 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   const removeSharing = async (linkId) => {
     try { await removeCoachResourceSharing(user, selected, linkId); setNotice('Resource assignment removed.'); await load() } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
   }
+  const togglePlayerSharing = async (player) => {
+    const existingLink = selected?.links.find((link) => link.linkedType === 'player' && link.linkedId === player.id)
+    setAssigning(true)
+    try {
+      if (existingLink) {
+        await removeCoachResourceSharing(user, selected, existingLink.id)
+        setNotice(`Resource removed from ${player.playerName}.`)
+      } else {
+        await setCoachResourceSharing(user, selected, [{ linkedId: player.id, linkedType: 'player', parentVisible, teamId: user.activeTeamId }], 'Shared from Football Player Coach')
+        setNotice(`Resource assigned to ${player.playerName}.`)
+      }
+      await load()
+    } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
+    finally { setAssigning(false) }
+  }
   return (
     <View style={styles.stack}>
       {data.length ? data.map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{user.activeTeamName || resource.teamName || 'Active Team'} only | {resource.category} | {resource.type}</Text><Text style={styles.body}>{resource.description || 'No description'}</Text><Button label="Open Resource" onPress={() => void open(resource)} styles={styles} /></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
-      {selected && !selected.isFormationBoard ? <View style={styles.panel}><Text style={styles.heading}>Manage selected Resource</Text><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />{selected.links.map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Staff only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}</View> : null}
+      {selected ? <View style={styles.panel}>
+        <Text style={styles.heading}>Assign selected Resource</Text>
+        {selected.isFormationBoard ? <Text style={styles.body}>This Formation Board is already a Team Resource. Choose individual Players to share it with their families.</Text> : <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />}
+        <View style={styles.row}><Text style={styles.label}>Visible to the Player's family</Text><Switch accessibilityLabel="Visible to the Player's family" disabled={stale || assigning} onValueChange={setParentVisible} value={parentVisible} /></View>
+        {players.length ? players.map((player) => {
+          const assigned = selected.links.some((link) => link.linkedType === 'player' && link.linkedId === player.id)
+          return <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} key={player.id} label={`${assigned ? 'Remove from' : 'Assign to'} ${player.playerName}`} onPress={() => void togglePlayerSharing(player)} secondary={!assigned} styles={styles} />
+        }) : <Text style={styles.body}>No active Players are available in this Team.</Text>}
+        {selected.links.filter((link) => link.linkedType !== 'player').map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Staff only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}
+      </View> : null}
       <View style={styles.panel}><Text style={styles.heading}>Add secure external link</Text><TextInput accessibilityLabel="Resource title" onChangeText={setTitle} style={styles.input} value={title} /><TextInput accessibilityLabel="HTTPS Resource URL" autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Create Resource' : 'Create FP TEST Resource'} onPress={create} styles={styles} /><Text style={styles.body}>File upload, bulk governance, archive, and retention stay in the web workflow.</Text></View>
     </View>
   )
@@ -460,7 +496,9 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       setOptions(['', ''])
       setMaxChoices('')
       await load()
-      setNotice('Poll created. No notification or message was sent automatically.')
+      setNotice(audience === 'parents'
+        ? 'Poll created. Parent app notifications are queued using each family\'s communication preference.'
+        : 'Staff Poll created.')
     } catch (error) { setNotice(getCoachFriendlyError(error)) }
     finally { setCreating(false) }
   }
@@ -480,7 +518,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       <Button disabled={stale} label="Refresh Poll results" onPress={() => void load({ silent: true })} secondary styles={styles} />
       <View style={styles.panel}>
         <Text style={styles.heading}>Create Poll</Text>
-        <Text style={styles.body}>Create the exact question and options Parents or staff will answer. Creating a Poll does not send a notification automatically.</Text>
+        <Text style={styles.body}>Create the exact question and options Parents or staff will answer. Parent Polls notify eligible families automatically.</Text>
         <Text style={styles.label}>Question</Text>
         <TextInput accessibilityLabel="Poll question" onChangeText={setTitle} placeholder="Poll question" placeholderTextColor={placeholderColor} style={styles.input} value={title} />
         <Text style={styles.label}>Description, optional</Text>

@@ -264,17 +264,18 @@ test('Coach encrypted offline document isolates resources by user and context', 
   assert.equal(getCoachOfflineResources(second, 'team:a').stale, true)
 })
 
-test('Calendar adapter uses canonical scoped tables and RPC while external communications stay disabled', async () => {
+test('Calendar adapter uses canonical scoped tables and enables explicit production training invitations only', async () => {
   const [source, operations] = await Promise.all([
     readFile(new URL('../apps/mobile-core/src/coachCalendarData.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/mobile-core/src/coachOperationalData.js', import.meta.url), 'utf8'),
   ])
   for (const marker of ["from('calendar_events')", "from('match_days')", "from('assessment_sessions')", "rpc('sync_calendar_event_parent_scope_v2'"]) assert.match(source, new RegExp(marker.replace(/[()']/g, '\\$&')))
   assert.match(operations, /rpc\('record_security_audit_event'/)
-  assert.doesNotMatch(source, /notify_calendar_event_parents|sendParent|process.*deliver/i)
-  assert.match(source, /externalDeliveryAllowed: false/)
-  assert.match(source, /productionAccess: false/)
-  assert.match(source, /schedulesAllowed: false/)
+  assert.match(source, /export async function saveCoachTrainingInvitation/)
+  assert.match(source, /rpc\('notify_calendar_event_parents'/)
+  assert.match(source, /externalDeliveryAllowed: config\.isProduction/)
+  assert.match(source, /productionAccess: config\.isProduction/)
+  assert.match(source, /schedulesAllowed: config\.isProduction/)
 })
 
 test('Players and Sessions adapters use authoritative Team-scoped read and write paths', async () => {

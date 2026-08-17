@@ -12,7 +12,7 @@ import {
   formatCoachCalendarFormDate,
   shiftCoachCalendarMonth,
 } from '../../mobile-core/src/coachCalendarCore'
-import { getCoachCalendarResources, saveCoachCalendarEvent } from '../../mobile-core/src/coachCalendarData'
+import { getCoachCalendarResources, saveCoachCalendarEvent, saveCoachTrainingInvitation } from '../../mobile-core/src/coachCalendarData'
 import {
   coachPlayerFormFromPlayer,
   filterCoachPlayers,
@@ -457,7 +457,19 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [stale, setStale] = useState(false)
+  const [trainingEvents, setTrainingEvents] = useState([])
+  const [trainingForm, setTrainingForm] = useState(null)
+  const [trainingNotice, setTrainingNotice] = useState('')
   const policy = getCoachSessionMutationPolicy({ context, session: detail?.session })
+  const createTrainingForm = useCallback(() => ({
+    ...coachCalendarFormFromEvent(null, context),
+    eventType: 'training',
+    notifyParents: true,
+    parentAudience: 'all_team_parents',
+    parentVisible: true,
+    requestTrainingAvailability: true,
+    trainingAvailabilitySendDaysBefore: 0,
+  }), [context])
   const load = useCallback(async () => {
     setError(''); setLoading(true)
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
@@ -465,13 +477,16 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     if (hasCachedSessions) {
       setSessions(cached.resources.sessions)
       setPlayers(Array.isArray(cached.resources.sessionPlayers) ? cached.resources.sessionPlayers : [])
+      setTrainingEvents(Array.isArray(cached.resources.trainingEvents) ? cached.resources.trainingEvents : [])
       setStale(true)
       setLoading(false)
     }
     try {
-      const [rows, playerRows] = await Promise.all([getCoachSessionList(user), getCoachPlayerList(user)])
-      setSessions(rows); setPlayers(playerRows); setStale(false)
-      await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows })
+      const [rows, playerRows, calendarRows] = await Promise.all([getCoachSessionList(user), getCoachPlayerList(user), getCoachCalendarResources(user)])
+      const nextTrainingEvents = filterCoachCalendarEvents(calendarRows, 'upcoming')
+        .filter((event) => event.sourceType === 'calendar_event' && event.eventType === 'training')
+      setSessions(rows); setPlayers(playerRows); setTrainingEvents(nextTrainingEvents); setStale(false)
+      await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents })
     } catch (loadError) {
       if (!hasCachedSessions) setError(message(loadError, 'Sessions could not be loaded.'))
     } finally { setLoading(false) }
@@ -480,9 +495,10 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   useEffect(() => {
     if (quickAction?.intent !== 'create-session') return
     setDetail(null)
-    setForm(coachSessionFormFromSession())
+    setForm(null)
+    setTrainingForm(createTrainingForm())
     onQuickActionHandled?.()
-  }, [onQuickActionHandled, quickAction])
+  }, [createTrainingForm, onQuickActionHandled, quickAction])
   const visible = filterCoachSessions(sessions, filter)
   const openSession = async (session) => {
     setError('')
@@ -493,6 +509,19 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     setSaving(true); setError('')
     try { await saveCoachSession(user, form, detail?.session || null); setForm(null); setDetail(null); await load() }
     catch (saveError) { setError(message(saveError, 'Session could not be saved.')) }
+    finally { setSaving(false) }
+  }
+  const saveTraining = async () => {
+    Keyboard.dismiss()
+    setSaving(true); setError(''); setTrainingNotice('')
+    try {
+      const result = await saveCoachTrainingInvitation(user, trainingForm)
+      setTrainingNotice(result.deliveryError || (result.requestTrainingAvailability
+        ? 'Training session saved. Parents can now respond.'
+        : 'Training session saved and shared with parents.'))
+      setTrainingForm(null)
+      await load()
+    } catch (saveError) { setError(message(saveError, 'Training session could not be saved.')) }
     finally { setSaving(false) }
   }
   const complete = async () => {
@@ -515,10 +544,34 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   }
   return (
     <View style={styles.stack}>
-      <DomainHeader copy="Assessment Sessions with canonical Team roster inclusion, Player notes, Development links, and completion." styles={styles} title="Sessions" />
+      <DomainHeader copy="Create repeating training invitations for parents, or manage separate assessment Sessions and Player notes." styles={styles} title="Sessions" />
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
+      {trainingNotice ? <View style={styles.card}><Text style={styles.cardTitle}>{trainingNotice}</Text></View> : null}
+      {policy.canCreate && !trainingForm && !form ? <Button label="Create training session" onPress={() => { setDetail(null); setTrainingForm(createTrainingForm()) }} styles={styles} /> : null}
+      {trainingForm ? (
+        <View style={styles.form}>
+          <Text style={styles.cardTitle}>Create training session</Text>
+          <Field label="Title" onChangeText={(value) => setTrainingForm({ ...trainingForm, title: value })} styles={styles} value={trainingForm.title} />
+          <Field label="Date DD-MM-YYYY" onChangeText={(value) => setTrainingForm({ ...trainingForm, date: value })} styles={styles} value={trainingForm.date} />
+          <Field label="Start time HH:MM" onChangeText={(value) => setTrainingForm({ ...trainingForm, startTime: value })} styles={styles} value={trainingForm.startTime} />
+          <Field label="End time HH:MM" onChangeText={(value) => setTrainingForm({ ...trainingForm, endTime: value })} styles={styles} value={trainingForm.endTime} />
+          <Field label="Location" onChangeText={(value) => setTrainingForm({ ...trainingForm, location: value })} styles={styles} value={trainingForm.location} />
+          <Field label="Session notes" multiline onChangeText={(value) => setTrainingForm({ ...trainingForm, notes: value })} styles={styles} value={trainingForm.notes} />
+          <Text style={styles.fieldLabel}>Repeat</Text>
+          <Chips onChange={(value) => setTrainingForm({ ...trainingForm, recurrenceFrequency: value })} options={['none', 'weekly', 'fortnightly', 'monthly'].map((value) => ({ label: value, value }))} styles={styles} value={trainingForm.recurrenceFrequency} />
+          {trainingForm.recurrenceFrequency !== 'none' ? <Field label="Repeat until DD-MM-YYYY" onChangeText={(value) => setTrainingForm({ ...trainingForm, recurrenceUntil: value })} styles={styles} value={trainingForm.recurrenceUntil} /> : null}
+          <View style={styles.row}><Text style={styles.fieldLabel}>Notify parents now</Text><Switch accessibilityLabel="Notify parents now" onValueChange={(value) => setTrainingForm({ ...trainingForm, notifyParents: value, parentVisible: value || trainingForm.requestTrainingAvailability })} value={trainingForm.notifyParents} /></View>
+          <View style={styles.row}><Text style={styles.fieldLabel}>Ask parents to respond</Text><Switch accessibilityLabel="Ask parents to respond" onValueChange={(value) => setTrainingForm({ ...trainingForm, notifyParents: value || trainingForm.notifyParents, parentVisible: value || trainingForm.notifyParents, requestTrainingAvailability: value })} value={trainingForm.requestTrainingAvailability} /></View>
+          {(trainingForm.notifyParents || trainingForm.requestTrainingAvailability) ? <Chips onChange={(value) => setTrainingForm({ ...trainingForm, parentAudience: value })} options={[{ label: 'Team parents', value: 'all_team_parents' }, { label: 'Selected Players', value: 'involved_players' }]} styles={styles} value={trainingForm.parentAudience} /> : null}
+          {(trainingForm.notifyParents || trainingForm.requestTrainingAvailability) && trainingForm.parentAudience === 'involved_players' ? <View style={styles.stack}><Text style={styles.fieldLabel}>Choose Players</Text>{players.map((player) => { const selectedPlayer = trainingForm.involvedPlayerIds.includes(player.id); return <Button key={player.id} label={`${selectedPlayer ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => setTrainingForm({ ...trainingForm, involvedPlayerIds: selectedPlayer ? trainingForm.involvedPlayerIds.filter((id) => id !== player.id) : [...trainingForm.involvedPlayerIds, player.id] })} secondary styles={styles} /> })}</View> : null}
+          <Button disabled={saving || stale} label={saving ? 'Saving...' : 'Save training session'} onPress={saveTraining} styles={styles} />
+          <Button label="Cancel" onPress={() => setTrainingForm(null)} secondary styles={styles} />
+        </View>
+      ) : null}
+      {trainingEvents.length ? <View style={styles.card}><Text style={styles.cardTitle}>Upcoming training invitations</Text>{trainingEvents.slice(0, 8).map((event) => <Pressable accessibilityRole="button" key={event.id} onPress={() => onNavigate('calendar')} style={styles.stack}><Text style={styles.body}>{formatCoachCalendarEventDateTime(event)} | {event.title}</Text>{event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}</Pressable>)}</View> : null}
+      <Text style={styles.cardTitle}>Assessment Sessions</Text>
       <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'Completed', value: 'completed' }, { label: 'History', value: 'history' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} />
-      {getCoachSessionMutationPolicy({ context }).canCreate && !form ? <Button label="Create Session" onPress={() => { setDetail(null); setForm(coachSessionFormFromSession()) }} styles={styles} /> : null}
+      {getCoachSessionMutationPolicy({ context }).canCreate && !form && !trainingForm ? <Button label="Create assessment Session" onPress={() => { setDetail(null); setForm(coachSessionFormFromSession()) }} secondary styles={styles} /> : null}
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{detail ? 'Edit Session' : 'Create Session'}</Text>

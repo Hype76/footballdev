@@ -83,6 +83,26 @@ export function buildStaffChatMobileNotification(intent = {}) {
   }
 }
 
+export function buildParentPollMobileNotification(intent = {}) {
+  const detailLevel = normalizeDetailLevel(intent.detail_level)
+  return {
+    body: detailLevel === 'detailed'
+      ? 'A new Parent Poll is ready to answer.'
+      : 'A new Poll is available.',
+    data: {
+      app: 'parent',
+      parentLinkId: normalizeText(intent.parent_link_id),
+      pollId: normalizeText(intent.poll_id),
+      route: 'polls',
+      teamId: normalizeText(intent.team_id),
+      type: 'parent_poll',
+    },
+    sound: 'default',
+    title: 'Football Player Parents',
+    to: normalizeText(intent.expo_push_token),
+  }
+}
+
 async function updateIntent(client, table, intentId, values) {
   const { error } = await client.from(table).update({
     ...values,
@@ -143,6 +163,23 @@ async function logStaffChatEvent(client, intent, payload, status) {
   if (error) console.error('staff_chat_mobile_notification_event_log_failed', { code: safeCode(error.code) })
 }
 
+async function logParentPollEvent(client, intent, payload, status) {
+  const { error } = await client.from('parent_mobile_notification_events').insert({
+    installation_id: intent.installation_id,
+    auth_user_id: intent.auth_user_id,
+    parent_link_id: intent.parent_link_id,
+    club_id: intent.club_id,
+    team_id: intent.team_id || null,
+    intent_type: 'parent_poll',
+    title: payload.title,
+    body: payload.body,
+    data: payload.data,
+    status,
+    sent_at: status === 'sent' ? new Date().toISOString() : null,
+  })
+  if (error) console.error('parent_poll_mobile_notification_event_log_failed', { code: safeCode(error.code) })
+}
+
 async function revokeInvalidInstallation(client, intent, invalidTokens) {
   const token = normalizeText(intent.expo_push_token)
   if (!token || !(invalidTokens || []).includes(token)) return
@@ -179,13 +216,17 @@ async function revokeInvalidInstallation(client, intent, invalidTokens) {
 async function deliverIntent({ client, intent, kind, sendMessages }) {
   const table = kind === 'parent'
     ? 'parent_chat_mobile_notification_intents'
-    : 'staff_chat_mobile_notification_intents'
+    : kind === 'parent_poll'
+      ? 'parent_poll_mobile_notification_intents'
+      : 'staff_chat_mobile_notification_intents'
   const payload = kind === 'parent'
     ? buildParentChatMobileNotification(intent)
-    : buildStaffChatMobileNotification(intent)
+    : kind === 'parent_poll'
+      ? buildParentPollMobileNotification(intent)
+      : buildStaffChatMobileNotification(intent)
 
   try {
-    if (kind === 'parent') {
+    if (kind === 'parent' || kind === 'parent_poll') {
       const channels = await getParentCommunicationChannels(client, [intent.auth_user_id])
       const channel = channels.get(normalizeText(intent.auth_user_id)) || 'both'
       if (!allowsParentAppNotifications(channel)) {
@@ -217,6 +258,8 @@ async function deliverIntent({ client, intent, kind, sendMessages }) {
 
     if (kind === 'parent') {
       await logParentChatEvent(client, intent, payload, status)
+    } else if (kind === 'parent_poll') {
+      await logParentPollEvent(client, intent, payload, status)
     } else {
       await logStaffChatEvent(client, intent, payload, status)
     }
@@ -244,12 +287,13 @@ export async function processChatMobileNotifications({
 } = {}) {
   if (!client) throw new Error('chat_notification_client_required')
 
-  const [parentIntents, staffIntents] = await Promise.all([
+  const [parentIntents, staffIntents, pollIntents] = await Promise.all([
     claimIntents(client, 'claim_parent_chat_mobile_notification_intents'),
     claimIntents(client, 'claim_staff_chat_mobile_notification_intents'),
+    claimIntents(client, 'claim_parent_poll_mobile_notification_intents'),
   ])
   const summary = {
-    claimed: parentIntents.length + staffIntents.length,
+    claimed: parentIntents.length + staffIntents.length + pollIntents.length,
     failed: 0,
     sent: 0,
     skipped: 0,
@@ -261,6 +305,10 @@ export async function processChatMobileNotifications({
   }
   for (const intent of staffIntents) {
     const outcome = await deliverIntent({ client, intent, kind: 'staff', sendMessages })
+    summary[outcome] += 1
+  }
+  for (const intent of pollIntents) {
+    const outcome = await deliverIntent({ client, intent, kind: 'parent_poll', sendMessages })
     summary[outcome] += 1
   }
 

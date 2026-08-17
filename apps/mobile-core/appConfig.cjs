@@ -86,6 +86,7 @@ function createMobileExpoConfig({
       android: {
         package: packageName,
         versionCode: 1,
+        softwareKeyboardLayoutMode: 'resize',
         ...(googleServicesFile ? { googleServicesFile } : {}),
         blockedPermissions: [
           'android.permission.ACCESS_COARSE_LOCATION',

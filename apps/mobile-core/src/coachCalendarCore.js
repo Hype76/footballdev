@@ -397,19 +397,24 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
     date: formatCoachCalendarFormDate(start?.date || getDateInTimeZone()),
     endTime: end?.time || '19:00',
     eventType: COACH_CALENDAR_EVENT_TYPES.includes(event?.eventType) ? event.eventType : 'training',
-    involvedPlayerIds: [],
+    involvedPlayerIds: Array.isArray(event?.involvedPlayerIds) ? event.involvedPlayerIds : [],
     location: normalize(event?.location),
     notes: normalize(event?.notes),
+    notifyParents: event?.notifyParents === true,
     opponent: event?.eventType === 'match'
       ? normalize(event?.title).replace(new RegExp(`^${normalize(context?.teamName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+v\\s+`, 'i'), '')
       : '',
     parentAudience: event?.parentAudience || 'none',
     parentVisible: event?.parentVisible === true,
+    requestTrainingAvailability: event?.requestTrainingAvailability === true,
     recurrenceFrequency: event?.recurrenceFrequency || 'none',
     recurrenceUntil: formatCoachCalendarFormDate(event?.recurrenceUntil || ''),
     startTime: start?.time || '18:00',
     teamId: normalize(event?.teamId || context?.teamId || context?.activeTeamId),
     title: normalize(event?.title),
+    trainingAvailabilitySendDaysBefore: Number.isInteger(Number(event?.trainingAvailabilitySendDaysBefore))
+      ? Number(event.trainingAvailabilitySendDaysBefore)
+      : 2,
   }
 }
 
