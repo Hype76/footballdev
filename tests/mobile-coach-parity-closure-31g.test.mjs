@@ -234,7 +234,7 @@ test('accessibility and performance final source guards remain present', () => {
 })
 
 test('Coach Expo configuration remains aligned without dependency churn', () => {
-  assert.equal(coachPackage.dependencies.expo, '~54.0.36')
+  assert.equal(coachPackage.dependencies.expo, '~54.0.37')
   assert.equal(coachPackage.dependencies['react-native'], '0.81.5')
   assert.match(config, /footballplayercoach/)
   assert.match(config, /com\.footballplayer\.coach/)
