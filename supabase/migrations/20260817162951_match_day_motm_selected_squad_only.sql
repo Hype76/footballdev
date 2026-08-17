@@ -126,3 +126,72 @@ $$;
 alter function public.create_match_day_motm_poll(uuid) owner to postgres;
 revoke all on function public.create_match_day_motm_poll(uuid)
   from public, anon, authenticated, service_role;
+
+with expanded_options as (
+  select
+    match_day.id as match_day_id,
+    poll.id as poll_id,
+    option_row.value as option_value,
+    option_row.ordinality,
+    exists (
+      select 1
+      from public.match_day_player_squad_decisions decision
+      join public.players player
+        on player.id = decision.player_id
+        and player.club_id = decision.club_id
+        and player.team_id = decision.team_id
+      where decision.match_day_id = match_day.id
+        and decision.club_id = match_day.club_id
+        and decision.team_id = match_day.team_id
+        and decision.status = 'selected'
+        and player.archived_at is null
+        and coalesce(player.status, 'active') <> 'archived'
+        and player.section = 'Squad'
+        and player.id::text = coalesce(option_row.value ->> 'playerId', option_row.value ->> 'id')
+    ) as is_selected_player,
+    exists (
+      select 1
+      from public.poll_votes vote
+      where vote.poll_id = poll.id
+        and vote.option_id = coalesce(option_row.value ->> 'id', option_row.value ->> 'playerId')
+    ) as has_recorded_vote
+  from public.match_days match_day
+  join public.polls poll
+    on poll.id = match_day.motm_poll_id
+    and poll.status = 'open'
+    and poll.poll_type = 'awards'
+    and lower(poll.title) = 'player of the match'
+  cross join lateral jsonb_array_elements(coalesce(poll.options, '[]'::jsonb))
+    with ordinality as option_row(value, ordinality)
+), scored_options as (
+  select
+    expanded_options.*,
+    count(*) filter (where is_selected_player) over (partition by poll_id) as selected_player_count
+  from expanded_options
+), rebuilt_polls as (
+  select
+    poll_id,
+    coalesce(
+      jsonb_agg(option_value order by ordinality) filter (
+        where (
+          selected_player_count > 0
+          and (is_selected_player or has_recorded_vote)
+        ) or (
+          selected_player_count = 0
+          and (
+            has_recorded_vote
+            or not (coalesce(option_value ->> 'label', '') ilike 'FP TEST%')
+          )
+        )
+      ),
+      '[]'::jsonb
+    ) as reconciled_options
+  from scored_options
+  group by poll_id
+)
+update public.polls poll
+set options = rebuilt.reconciled_options,
+    updated_at = timezone('utc', now())
+from rebuilt_polls rebuilt
+where poll.id = rebuilt.poll_id
+  and poll.options is distinct from rebuilt.reconciled_options;
