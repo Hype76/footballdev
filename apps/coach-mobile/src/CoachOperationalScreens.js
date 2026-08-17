@@ -34,6 +34,7 @@ import {
 } from '../../mobile-core/src/coachSessionsData'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
+import { CoachDateTimeField } from './CoachDateTimeField'
 
 const message = getCoachFriendlyError
 
@@ -68,9 +69,14 @@ function useDomainStyles(palette) {
     filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
     form: { backgroundColor: palette.surface, borderColor: palette.accent, borderRadius: 16, borderWidth: 1, gap: 12, padding: 14 },
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
+    inputText: { color: palette.textPrimary, fontSize: 15 },
     inputMultiline: { minHeight: 90, textAlignVertical: 'top' },
     label: { color: palette.textMuted, fontSize: 12, fontWeight: '800' },
     meta: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 17 },
+    pickerActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+    pickerButton: { alignItems: 'center', borderColor: palette.border, borderRadius: 10, borderWidth: 1, minHeight: 42, justifyContent: 'center', minWidth: 88, paddingHorizontal: 12 },
+    pickerButtonText: { color: palette.accent, fontSize: 14, fontWeight: '900' },
+    pickerPanel: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, gap: 8, overflow: 'hidden', padding: 8 },
     row: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 13, paddingVertical: 9 },
     secondaryText: { color: palette.textPrimary, fontSize: 13, fontWeight: '900' },
@@ -122,6 +128,35 @@ function Chips({ onChange, options, styles, value }) {
           </Pressable>
         )
       })}
+    </View>
+  )
+}
+
+function getSavedLocationOptions(events = []) {
+  const seen = new Set()
+  return [...events]
+    .sort((left, right) => new Date(right?.startsAt || 0) - new Date(left?.startsAt || 0))
+    .map((event) => String(event?.location || '').trim())
+    .filter((location) => {
+      const key = location.toLowerCase()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 8)
+}
+
+function LocationField({ label = 'Location', locations, onChange, styles, value }) {
+  return (
+    <View style={styles.stack}>
+      {locations.length ? (
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Saved locations</Text>
+          <Chips onChange={onChange} options={locations.map((location) => ({ label: location, value: location }))} styles={styles} value={value} />
+        </View>
+      ) : null}
+      <Field label={label} onChangeText={onChange} styles={styles} value={value} />
+      <Text style={styles.meta}>Choose a saved location or type a different one.</Text>
     </View>
   )
 }
@@ -188,6 +223,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     [events, selectedDate, visibleMonth],
   )
   const selectedDay = calendarMonth.days.find((day) => day.date === selectedDate)
+  const savedLocations = useMemo(() => getSavedLocationOptions(events), [events])
   const visibleEvents = selectedDate
     ? events.filter((event) => event.calendarDate === selectedDate)
     : filterCoachCalendarEvents(events, filter)
@@ -197,7 +233,11 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setSaveConfirmation('')
     setSelected(event)
     const nextForm = coachCalendarFormFromEvent(event, context)
-    setForm(!event && selectedDate ? { ...nextForm, date: formatCoachCalendarFormDate(selectedDate) } : nextForm)
+    setForm({
+      ...nextForm,
+      ...(!event && selectedDate ? { date: formatCoachCalendarFormDate(selectedDate) } : {}),
+      ...(!event && !nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}),
+    })
   }
   useEffect(() => {
     if (quickAction?.route !== 'calendar') return
@@ -205,9 +245,9 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setFormError('')
     setSaveConfirmation('')
     const nextForm = coachCalendarFormFromEvent(null, context)
-    setForm(quickAction.intent === 'create-match' ? { ...nextForm, eventType: 'match' } : nextForm)
+    setForm({ ...nextForm, ...(!nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}) })
     onQuickActionHandled?.()
-  }, [context, onQuickActionHandled, quickAction])
+  }, [context, onQuickActionHandled, quickAction, savedLocations])
   const save = async () => {
     Keyboard.dismiss()
     setSaving(true)
@@ -309,16 +349,14 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
           {form.eventType === 'match'
             ? <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
             : <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />}
-          <Field label="Date DD-MM-YYYY" onChangeText={(value) => setForm({ ...form, date: value })} styles={styles} value={form.date} />
-          <Field label="Start time HH:MM" onChangeText={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />
-          <Field label="End time HH:MM" onChangeText={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />
-          <Field label="Location" onChangeText={(value) => setForm({ ...form, location: value })} styles={styles} value={form.location} />
+          <CoachDateTimeField label="Date" mode="date" onChange={(value) => setForm({ ...form, date: value })} styles={styles} value={form.date} />
+          <CoachDateTimeField label="Start time" mode="time" onChange={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />
+          <CoachDateTimeField label="End time" mode="time" onChange={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />
+          <LocationField locations={savedLocations} onChange={(value) => setForm({ ...form, location: value })} styles={styles} value={form.location} />
           <Field label="Notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
-          <Text style={styles.fieldLabel}>Repeat</Text>
-          <Chips onChange={(value) => setForm({ ...form, recurrenceFrequency: value })} options={['none', 'weekly', 'fortnightly', 'monthly'].map((value) => ({ label: value, value }))} styles={styles} value={form.recurrenceFrequency} />
-          {form.recurrenceFrequency !== 'none' ? <Field label="Repeat until DD-MM-YYYY" onChangeText={(value) => setForm({ ...form, recurrenceUntil: value })} styles={styles} value={form.recurrenceUntil} /> : null}
+          {form.eventType !== 'match' ? <><Text style={styles.fieldLabel}>Repeat</Text><Chips onChange={(value) => setForm({ ...form, recurrenceFrequency: value })} options={['none', 'weekly', 'fortnightly', 'monthly'].map((value) => ({ label: value, value }))} styles={styles} value={form.recurrenceFrequency} />{form.recurrenceFrequency !== 'none' ? <CoachDateTimeField label="Repeat until" mode="date" onChange={(value) => setForm({ ...form, recurrenceUntil: value })} styles={styles} value={form.recurrenceUntil} /> : null}</> : null}
           <View style={styles.row}><Text style={styles.fieldLabel}>Visible to parents</Text><Switch accessibilityLabel="Visible to parents" onValueChange={(value) => setForm({ ...form, parentVisible: value })} value={form.parentVisible} /></View>
-          {form.parentVisible ? <Chips onChange={(value) => setForm({ ...form, parentAudience: value })} options={[{ label: 'Involved Players', value: 'involved_players' }, { label: 'Team parents', value: 'all_team_parents' }, { label: 'Club parents', value: 'all_club_parents' }]} styles={styles} value={form.parentAudience} /> : null}
+          {form.parentVisible ? <Chips onChange={(value) => setForm({ ...form, parentAudience: value })} options={[{ label: 'Involved Players', value: 'involved_players' }, { label: 'Team parents', value: 'all_team_parents' }, ...(context.role === 'admin' ? [{ label: 'Club parents', value: 'all_club_parents' }] : [])]} styles={styles} value={form.parentAudience} /> : null}
           {form.parentVisible && form.parentAudience === 'involved_players' ? (
             <View style={styles.stack}>
               <Text style={styles.fieldLabel}>Involved Players</Text>
@@ -458,6 +496,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   const [saving, setSaving] = useState(false)
   const [stale, setStale] = useState(false)
   const [trainingEvents, setTrainingEvents] = useState([])
+  const [trainingLocations, setTrainingLocations] = useState([])
   const [trainingForm, setTrainingForm] = useState(null)
   const [trainingNotice, setTrainingNotice] = useState('')
   const policy = getCoachSessionMutationPolicy({ context, session: detail?.session })
@@ -468,8 +507,9 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     parentAudience: 'all_team_parents',
     parentVisible: true,
     requestTrainingAvailability: true,
-    trainingAvailabilitySendDaysBefore: 0,
-  }), [context])
+    trainingAvailabilitySendDaysBefore: 2,
+    ...((trainingLocations[0] || '').trim() ? { location: trainingLocations[0] } : {}),
+  }), [context, trainingLocations])
   const load = useCallback(async () => {
     setError(''); setLoading(true)
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
@@ -478,6 +518,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
       setSessions(cached.resources.sessions)
       setPlayers(Array.isArray(cached.resources.sessionPlayers) ? cached.resources.sessionPlayers : [])
       setTrainingEvents(Array.isArray(cached.resources.trainingEvents) ? cached.resources.trainingEvents : [])
+      setTrainingLocations(Array.isArray(cached.resources.trainingLocations) ? cached.resources.trainingLocations : [])
       setStale(true)
       setLoading(false)
     }
@@ -485,8 +526,9 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
       const [rows, playerRows, calendarRows] = await Promise.all([getCoachSessionList(user), getCoachPlayerList(user), getCoachCalendarResources(user)])
       const nextTrainingEvents = filterCoachCalendarEvents(calendarRows, 'upcoming')
         .filter((event) => event.sourceType === 'calendar_event' && event.eventType === 'training')
-      setSessions(rows); setPlayers(playerRows); setTrainingEvents(nextTrainingEvents); setStale(false)
-      await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents })
+      const nextTrainingLocations = getSavedLocationOptions(calendarRows)
+      setSessions(rows); setPlayers(playerRows); setTrainingEvents(nextTrainingEvents); setTrainingLocations(nextTrainingLocations); setStale(false)
+      await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents, trainingLocations: nextTrainingLocations })
     } catch (loadError) {
       if (!hasCachedSessions) setError(message(loadError, 'Sessions could not be loaded.'))
     } finally { setLoading(false) }
@@ -552,16 +594,18 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
         <View style={styles.form}>
           <Text style={styles.cardTitle}>Create training session</Text>
           <Field label="Title" onChangeText={(value) => setTrainingForm({ ...trainingForm, title: value })} styles={styles} value={trainingForm.title} />
-          <Field label="Date DD-MM-YYYY" onChangeText={(value) => setTrainingForm({ ...trainingForm, date: value })} styles={styles} value={trainingForm.date} />
-          <Field label="Start time HH:MM" onChangeText={(value) => setTrainingForm({ ...trainingForm, startTime: value })} styles={styles} value={trainingForm.startTime} />
-          <Field label="End time HH:MM" onChangeText={(value) => setTrainingForm({ ...trainingForm, endTime: value })} styles={styles} value={trainingForm.endTime} />
-          <Field label="Location" onChangeText={(value) => setTrainingForm({ ...trainingForm, location: value })} styles={styles} value={trainingForm.location} />
+          <CoachDateTimeField label="Date" mode="date" onChange={(value) => setTrainingForm({ ...trainingForm, date: value })} styles={styles} value={trainingForm.date} />
+          <CoachDateTimeField label="Start time" mode="time" onChange={(value) => setTrainingForm({ ...trainingForm, startTime: value })} styles={styles} value={trainingForm.startTime} />
+          <CoachDateTimeField label="End time" mode="time" onChange={(value) => setTrainingForm({ ...trainingForm, endTime: value })} styles={styles} value={trainingForm.endTime} />
+          <LocationField locations={trainingLocations} onChange={(value) => setTrainingForm({ ...trainingForm, location: value })} styles={styles} value={trainingForm.location} />
           <Field label="Session notes" multiline onChangeText={(value) => setTrainingForm({ ...trainingForm, notes: value })} styles={styles} value={trainingForm.notes} />
           <Text style={styles.fieldLabel}>Repeat</Text>
           <Chips onChange={(value) => setTrainingForm({ ...trainingForm, recurrenceFrequency: value })} options={['none', 'weekly', 'fortnightly', 'monthly'].map((value) => ({ label: value, value }))} styles={styles} value={trainingForm.recurrenceFrequency} />
-          {trainingForm.recurrenceFrequency !== 'none' ? <Field label="Repeat until DD-MM-YYYY" onChangeText={(value) => setTrainingForm({ ...trainingForm, recurrenceUntil: value })} styles={styles} value={trainingForm.recurrenceUntil} /> : null}
+          {trainingForm.recurrenceFrequency !== 'none' ? <CoachDateTimeField label="Repeat until" mode="date" onChange={(value) => setTrainingForm({ ...trainingForm, recurrenceUntil: value })} styles={styles} value={trainingForm.recurrenceUntil} /> : null}
           <View style={styles.row}><Text style={styles.fieldLabel}>Notify parents now</Text><Switch accessibilityLabel="Notify parents now" onValueChange={(value) => setTrainingForm({ ...trainingForm, notifyParents: value, parentVisible: value || trainingForm.requestTrainingAvailability })} value={trainingForm.notifyParents} /></View>
+          <Text style={styles.meta}>When enabled, the first invitation is sent as soon as you save.</Text>
           <View style={styles.row}><Text style={styles.fieldLabel}>Ask parents to respond</Text><Switch accessibilityLabel="Ask parents to respond" onValueChange={(value) => setTrainingForm({ ...trainingForm, notifyParents: value || trainingForm.notifyParents, parentVisible: value || trainingForm.notifyParents, requestTrainingAvailability: value })} value={trainingForm.requestTrainingAvailability} /></View>
+          {trainingForm.requestTrainingAvailability ? <View style={styles.stack}><Text style={styles.fieldLabel}>Response reminder</Text><Chips onChange={(value) => setTrainingForm({ ...trainingForm, trainingAvailabilitySendDaysBefore: value })} options={[0, 1, 2, 3, 7].map((value) => ({ label: value === 0 ? 'No scheduled reminder' : `${value} ${value === 1 ? 'day' : 'days'} before`, value }))} styles={styles} value={trainingForm.trainingAvailabilitySendDaysBefore} /><Text style={styles.meta}>This is separate from the invitation sent now.</Text></View> : null}
           {(trainingForm.notifyParents || trainingForm.requestTrainingAvailability) ? <Chips onChange={(value) => setTrainingForm({ ...trainingForm, parentAudience: value })} options={[{ label: 'Team parents', value: 'all_team_parents' }, { label: 'Selected Players', value: 'involved_players' }]} styles={styles} value={trainingForm.parentAudience} /> : null}
           {(trainingForm.notifyParents || trainingForm.requestTrainingAvailability) && trainingForm.parentAudience === 'involved_players' ? <View style={styles.stack}><Text style={styles.fieldLabel}>Choose Players</Text>{players.map((player) => { const selectedPlayer = trainingForm.involvedPlayerIds.includes(player.id); return <Button key={player.id} label={`${selectedPlayer ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => setTrainingForm({ ...trainingForm, involvedPlayerIds: selectedPlayer ? trainingForm.involvedPlayerIds.filter((id) => id !== player.id) : [...trainingForm.involvedPlayerIds, player.id] })} secondary styles={styles} /> })}</View> : null}
           <Button disabled={saving || stale} label={saving ? 'Saving...' : 'Save training session'} onPress={saveTraining} styles={styles} />
@@ -578,11 +622,11 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
           <Chips onChange={(value) => setForm({ ...form, sessionType: value })} options={[{ label: 'Training', value: 'training' }, { label: 'Match', value: 'match' }]} styles={styles} value={form.sessionType} />
           <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />
           {form.sessionType === 'match' ? <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} /> : null}
-          <Field label="Date YYYY-MM-DD" onChangeText={(value) => setForm({ ...form, sessionDate: value })} styles={styles} value={form.sessionDate} />
-          <Field label="Start time HH:MM" onChangeText={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />
-          <Field label="End time HH:MM" onChangeText={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />
-          {form.sessionType === 'match' ? <Field label="Arrival time HH:MM" onChangeText={(value) => setForm({ ...form, arrivalTime: value })} styles={styles} value={form.arrivalTime} /> : null}
-          <Field label="Location" onChangeText={(value) => setForm({ ...form, location: value })} styles={styles} value={form.location} />
+          <CoachDateTimeField label="Date" mode="date" onChange={(value) => setForm({ ...form, sessionDate: value })} outputFormat="iso" styles={styles} value={form.sessionDate} />
+          <CoachDateTimeField label="Start time" mode="time" onChange={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />
+          <CoachDateTimeField label="End time" mode="time" onChange={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />
+          {form.sessionType === 'match' ? <CoachDateTimeField label="Arrival time" mode="time" onChange={(value) => setForm({ ...form, arrivalTime: value })} styles={styles} value={form.arrivalTime} /> : null}
+          <LocationField locations={trainingLocations} onChange={(value) => setForm({ ...form, location: value })} styles={styles} value={form.location} />
           <Field label="Session notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
           <Button disabled={saving} label={saving ? 'Saving...' : 'Save Session'} onPress={save} styles={styles} />
           <Button label="Cancel" onPress={() => setForm(null)} secondary styles={styles} />

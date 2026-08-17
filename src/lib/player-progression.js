@@ -13,7 +13,7 @@ export const EMAIL_SECTION_OPTIONS = [
   {
     key: 'latestSessionNotes',
     label: 'Latest session notes',
-    description: 'Add the newest useful session or staff note.',
+    description: 'Add the newest useful session or Coach note.',
   },
   {
     key: 'attendanceSummary',

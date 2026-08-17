@@ -286,7 +286,7 @@ async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [
     const invalidUserIds = normalizedUserIds.filter((userId) => !allowedUserIds.has(userId))
 
     if (invalidUserIds.length > 0) {
-      throw Object.assign(new Error('One or more selected staff members cannot be assigned to a team.'), { statusCode: 403 })
+      throw Object.assign(new Error('One or more selected Coaches cannot be assigned to a team.'), { statusCode: 403 })
     }
   }
 

@@ -87,7 +87,7 @@ test('routing sends adult accounts to a dedicated player shell and blocks other 
   assert.match(router, /<AdultPlayerPage \/>/)
   assert.match(layout, /isAdultPlayerUser\(user\) && !isAdultPlayerRoute/)
   assert.match(layout, /<Navigate to="\/player" replace \/>/)
-  assert.match(page, /This account cannot open parent, staff, or administration tools\./)
+  assert.match(page, /This account cannot open Parent, Coach, or administration tools\./)
   assert.doesNotMatch(page, /child switch/i)
   assert.doesNotMatch(page, /team management/i)
 })

@@ -133,7 +133,7 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
   if (resources.length === 0) {
     return (
       <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-6 text-sm font-semibold leading-6 text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-        No staff resources match this view yet.
+        No Coach resources match this view yet.
       </div>
     )
   }
@@ -157,13 +157,13 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
               {resource.currentFormationBoardPublication ? (
                 <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
                   <p className="text-sm font-black text-[#101828]">{resource.currentFormationBoardPublication.gameFormat} | {resource.currentFormationBoardPublication.formation.split('-').slice(1).join('-') || resource.currentFormationBoardPublication.formation} | Version {resource.currentFormationBoardPublication.versionNumber}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#66756c]">Published by {resource.currentFormationBoardPublication.publishedByName || 'Team staff'} on {resource.currentFormationBoardPublication.publishedAt ? new Date(resource.currentFormationBoardPublication.publishedAt).toLocaleString('en-GB') : 'Unknown'}.</p>
+                  <p className="mt-1 text-xs font-semibold text-[#66756c]">Published by {resource.currentFormationBoardPublication.publishedByName || 'Team Coaches'} on {resource.currentFormationBoardPublication.publishedAt ? new Date(resource.currentFormationBoardPublication.publishedAt).toLocaleString('en-GB') : 'Unknown'}.</p>
                   <details className="mt-2">
                     <summary className="cursor-pointer text-xs font-black text-[#047857]">Version history ({resource.formationBoardPublications.length})</summary>
                     <div className="mt-2 space-y-1">
                       {resource.formationBoardPublications.map((publication) => (
                         <div key={publication.id} className="flex flex-col gap-1 rounded-md border border-[#d7e5dc] bg-white p-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-xs font-semibold text-[#66756c]">Version {publication.versionNumber} | {publication.formation.split('-').slice(1).join('-') || publication.formation} | {publication.publishedByName || 'Team staff'} | {publication.publishedAt ? new Date(publication.publishedAt).toLocaleString('en-GB') : 'Unknown'}</p>
+                          <p className="text-xs font-semibold text-[#66756c]">Version {publication.versionNumber} | {publication.formation.split('-').slice(1).join('-') || publication.formation} | {publication.publishedByName || 'Team Coaches'} | {publication.publishedAt ? new Date(publication.publishedAt).toLocaleString('en-GB') : 'Unknown'}</p>
                           <Link to={`/resources/formation-boards?board=${publication.boardId}&version=${publication.boardVersionId}`} className="text-xs font-black text-[#047857]">Open version</Link>
                         </div>
                       ))}
@@ -184,7 +184,7 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
                     <button type="button" onClick={() => onEditAssignment(resource)} disabled={isSaving} className={secondaryButtonClass}>
                       Edit player assignments
                     </button>
-                  ) : <span className="inline-flex min-h-11 items-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 text-xs font-black text-[#4b5f55]">Team staff only</span>}
+                  ) : <span className="inline-flex min-h-11 items-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 text-xs font-black text-[#4b5f55]">Team Coaches only</span>}
                   <button type="button" onClick={() => onArchive(resource)} disabled={isSaving} className={dangerButtonClass}>
                     Archive
                   </button>
@@ -334,7 +334,7 @@ export function ResourceLibraryPage() {
       setUploadDraft(createUploadDraft())
       await refreshResources()
       setSuccessMessage(`${resource.title} uploaded.`)
-      showToast({ title: 'Resource uploaded', message: `${resource.title} is available to authorised staff.` })
+      showToast({ title: 'Resource uploaded', message: `${resource.title} is available to authorised Coaches.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not upload this resource.')
@@ -402,7 +402,7 @@ export function ResourceLibraryPage() {
           ? 'The resource no longer has player assignments.'
           : assignmentDraft.parentVisible && canShareWithParents
             ? 'Shared with linked parents.'
-            : 'Staff can now see the assignment in the permitted scope.',
+            : 'Coaches can now see the assignment in the permitted scope.',
       })
     } catch (error) {
       console.error(error)
@@ -525,7 +525,7 @@ export function ResourceLibraryPage() {
       <PageHeader
         eyebrow="Resource Library"
         title="Team Resource Library"
-        description={`Keep approved staff files in the ${activeTeamName} team scope.`}
+        description={`Keep approved Coach files in the ${activeTeamName} team scope.`}
       />
 
       {errorMessage ? <NoticeBanner title="Resource Library action failed" message={errorMessage} /> : null}
@@ -537,7 +537,7 @@ export function ResourceLibraryPage() {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--text-secondary)]">Formation Boards</p>
               <h2 className="mt-2 text-xl font-black">Plan Team shapes on an interactive pitch</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">Create, position, save, and share boards with authorised staff in {activeTeamName}.</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">Create, position, save, and share boards with authorised Coaches in {activeTeamName}.</p>
             </div>
             <Link to="/resources/formation-boards" className={primaryButtonClass}>Open Formation Boards</Link>
           </div>
@@ -640,7 +640,7 @@ export function ResourceLibraryPage() {
                 onChange={(event) => setUploadDraft((current) => ({ ...current, description: event.target.value }))}
                 onKeyDown={stopTextInputSpacePropagation}
                 className={`${fieldClass} min-h-28 resize-y`}
-                placeholder="Short staff note for this resource"
+                placeholder="Short Coach note for this resource"
               />
             </label>
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -656,7 +656,7 @@ export function ResourceLibraryPage() {
                 </label>
               ) : (
                 <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55]">
-                  External links are saved in the team scope and are staff-only until assigned to a player with parent sharing enabled.
+                  External links are saved in the team scope and are Coach-only until assigned to a player with parent sharing enabled.
                 </div>
               )}
               <button type="submit" disabled={isSaving} className={primaryButtonClass}>
@@ -778,7 +778,7 @@ export function ResourceLibraryPage() {
             <p id="resource-parent-sharing-help" className="text-sm font-semibold leading-6 text-[#4b5f55]">
               {canShareWithParents
                 ? 'Turn on to make this resource visible to authorised parents for the selected players.'
-                : 'Team assignments remain available to staff only.'}
+                : 'Team assignments remain available to Coaches only.'}
             </p>
             {hasMixedParentVisibility ? (
               <p className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold text-[#92400e]">

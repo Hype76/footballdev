@@ -135,8 +135,8 @@ test('Coach and Parent native versions move together for the release', async () 
     readFile(new URL('../apps/parent-mobile/app.config.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/package.json', import.meta.url), 'utf8'),
   ])
-  assert.match(coachConfig, /version: '1\.0\.13'/)
-  assert.equal(JSON.parse(coachPackage).version, '1.0.13')
-  assert.match(parentConfig, /version: '1\.0\.10'/)
-  assert.equal(JSON.parse(parentPackage).version, '1.0.10')
+  assert.match(coachConfig, /version: '1\.0\.15'/)
+  assert.equal(JSON.parse(coachPackage).version, '1.0.15')
+  assert.match(parentConfig, /version: '1\.0\.12'/)
+  assert.equal(JSON.parse(parentPackage).version, '1.0.12')
 })

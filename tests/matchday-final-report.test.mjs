@@ -176,7 +176,7 @@ test('completed game and Previous Games UI expose shared mobile-safe staff and p
 
   assert.match(page, /const isFinalReportAvailable = match\.status === 'full_time'/)
   assert.match(page, />\s*Final Match Report\s*</)
-  assert.match(reportSource, /Staff notes/)
+  assert.match(reportSource, /Coach notes/)
   assert.match(reportSource, /Save report/)
   assert.match(reportSource, /No match summary has been saved yet\./)
   assert.match(reportSource, /Clock/)
@@ -201,8 +201,8 @@ test('completed game and Previous Games UI expose shared mobile-safe staff and p
   assert.match(previousSource, /previousMatches\.map\(renderFixtureNavigationCard\)/)
   assert.match(page, /onFinalReportSave=\{handleFinalReportSave\}/)
   assert.match(parentPreviousGame, /<CompletedMatchEventReport match=\{match\} \/>/)
-  assert.doesNotMatch(parentPreviousGame, /Staff notes|includeEventNotes/)
-  assert.doesNotMatch(parentPage, /Final Match Report|Staff notes|match_day_final_reports/)
+  assert.doesNotMatch(parentPreviousGame, /Coach notes|includeEventNotes/)
+  assert.doesNotMatch(parentPage, /Final Match Report|Coach notes|match_day_final_reports/)
 })
 
 test('report migration has no email, parent-sharing, scoring, timer, undo, or resource side effects', async () => {

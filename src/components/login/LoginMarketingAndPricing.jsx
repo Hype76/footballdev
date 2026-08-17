@@ -8,9 +8,9 @@ const cardClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm
 const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]'
 
 const operatingSystemRows = [
-  ['Club setup', 'Create the club, first team, staff access, and parent contact rules before inviting wider use.'],
+  ['Club setup', 'Create the club, first team, Coach access, and parent contact rules before inviting wider use.'],
   ['Match week', 'Track availability, build sessions, record match day notes, and keep actions tied to real players.'],
-  ['Parent comms', 'Send controlled updates, polls, invites, and reports without sharing staff logins.'],
+  ['Parent comms', 'Send controlled updates, polls, invites, and reports without sharing Coach logins.'],
   ['Player memory', 'Keep development records, squad history, trial status, and assessment fields in one place.'],
 ]
 
@@ -18,7 +18,7 @@ const switchCards = [
   ['Less setup drag than generic team apps', 'Make the first useful action obvious: club, team, players, parents, then match week.'],
   ['Less website weight than full club-site tools', 'Prioritise the operating workspace before public-site content, news, and broad sports tooling.'],
   ['Football-only decisions', 'Use football language, football roles, and practical club actions everywhere in the product.'],
-  ['Cleaner club control', 'Separate platform admin, club admin, team staff, and parent access from the start.'],
+  ['Cleaner club control', 'Separate platform admin, club admin, Team Coaches, and parent access from the start.'],
 ]
 
 const onboardingRules = [

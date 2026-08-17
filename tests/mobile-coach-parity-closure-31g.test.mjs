@@ -185,8 +185,8 @@ test('payment_required is application-wide and ordinary Coaches never receive pl
 test('archive and membership-loss journeys fail closed without retaining unsafe actions', () => {
   assert.equal(COACH_PHASE_31G_HOSTILE_JOURNEYS.includes('team_archived'), true)
   assert.equal(COACH_PHASE_31G_HOSTILE_JOURNEYS.includes('staff_removed'), true)
-  assert.match(app, /That staff context is no longer available/)
-  assert.match(app, /active operational staff context is required/)
+  assert.match(app, /That Coach context is no longer available/)
+  assert.match(app, /active operational Coach context is required/)
   assert.match(app, /This Coach destination is stale or no longer authorised/)
 })
 

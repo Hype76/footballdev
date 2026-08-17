@@ -243,7 +243,7 @@ export function ParentDevelopmentPanel({
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Development</p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Shared Development history</h3>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Final reports the club shared for this child. Staff-only records never appear here.
+            Final reports the club shared for this child. Coach-only records never appear here.
           </p>
         </div>
         <p className="text-sm font-black text-[#4b5f55]">{reports.length} shared</p>

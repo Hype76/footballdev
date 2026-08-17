@@ -355,7 +355,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       id: 'club-profile',
       title: 'Set club details',
       rule: 'Club name, logo, and contacts are shared across teams and parent communication.',
-      detail: 'Set the club identity and contact details before inviting staff or parents.',
+      detail: 'Set the club identity and contact details before inviting Coaches or parents.',
       href: '/club-settings',
       actionLabel: 'Set details',
       actionType: 'club-details',
@@ -383,7 +383,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
           makeStep({
             id: 'club-admins',
             title: 'Add club admins',
-            rule: 'Club admins control club setup, teams, and staff access.',
+            rule: 'Club admins control club setup, teams, and Coach access.',
             detail: 'Invite another club admin only if this club needs shared ownership.',
             href: '/user-access',
             actionLabel: 'Invite club admin',
@@ -411,7 +411,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
     makeStep({
       id: 'first-team',
       title: snapshot.teams > 0 ? 'Manage teams' : 'Create team',
-      rule: 'Teams are the containers for staff access, players, sessions, assessments, and match day.',
+      rule: 'Teams are the containers for Coach access, players, sessions, assessments, and match day.',
       detail: 'Create, review, edit, or delete team records before team admins start work.',
       href: '/teams',
       actionLabel: snapshot.teams > 0 ? 'Manage teams' : 'Create team',
@@ -438,7 +438,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
     makeStep({
       id: 'review',
       title: 'Review club setup',
-      rule: 'Club setup is ready when the club identity, teams, and staff ownership are clear.',
+      rule: 'Club setup is ready when the club identity, teams, and Coach ownership are clear.',
       detail: 'Review the club setup before handing team, player, and assessment work to team admins and coaches.',
       href: '/feedback/new',
       actionLabel: 'Review setup',
@@ -480,9 +480,9 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       rule: 'Managers and coaches should be assigned to this team only.',
       detail: 'Invite managers and coaches who can add players, run sessions, and perform assessments.',
       href: '/teams',
-      actionLabel: 'Invite staff',
+      actionLabel: 'Invite Coaches',
       actionType: 'invite-team-staff',
-      manualLabel: 'No extra staff needed',
+      manualLabel: 'No extra Coaches needed',
       complete: snapshot.teamCoaches > 0 || hasCompletedStep(user, scope, 'team-staff'),
     }),
     makeStep({
@@ -665,7 +665,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
         makeStep({
           id: 'child-link',
           title: 'Check child link',
-          rule: 'Parent accounts only see linked players. Staff notes stay private unless shared.',
+          rule: 'Parent accounts only see linked players. Coach notes stay private unless shared.',
           detail: 'Open the portal and check the child shown is correct.',
           href: '/parent-portal',
           actionLabel: 'Open portal',
@@ -674,7 +674,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
         makeStep({
           id: 'messages',
           title: 'Know where messages land',
-          rule: 'Club messages and match updates are controlled by staff. Replies may be limited.',
+          rule: 'Club messages and match updates are controlled by Coaches. Replies may be limited.',
           detail: 'Open messages so parents know where official updates live.',
           href: '/parent-chat',
           actionLabel: 'Open messages',

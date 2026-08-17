@@ -14,7 +14,7 @@ test('Staff Chat route and navigation are behind the staff-only helper', async (
     readFile(navigationUrl, 'utf8'),
   ])
 
-  assert.match(navigation, /label: 'Staff Chat'/)
+  assert.match(navigation, /label: 'Coach Chat'/)
   assert.match(navigation, /path: '\/staff-chat'/)
   assert.match(router, /function RequireStaffChatAccess\(\)/)
   assert.match(router, /canUseStaffChat\(user\)/)
@@ -26,11 +26,11 @@ test('Staff Chat route and navigation are behind the staff-only helper', async (
 test('Staff Chat UI keeps V1 labels and excludes parent or player chat controls', async () => {
   const page = await readFile(pageUrl, 'utf8')
 
-  assert.match(page, /Club Staff/)
-  assert.match(page, /Team Staff/)
+  assert.match(page, /Club Coaches/)
+  assert.match(page, /Team Coaches/)
   assert.match(page, /Groups/)
   assert.match(page, /Direct Messages/)
-  assert.match(page, /Staff Chat/)
+  assert.match(page, /Coach Chat/)
   assert.doesNotMatch(page, /Parent Chat/i)
   assert.doesNotMatch(page, /Player Chat/i)
   assert.doesNotMatch(page, /push notification/i)

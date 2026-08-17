@@ -304,7 +304,7 @@ test('Coach operational screens expose real Calendar, Players, and Sessions rout
   assert.match(screens, /You are offline/)
   assert.match(screens, /Showing saved information\. Connect before making changes/)
   assert.doesNotMatch(screens, /This save updates canonical Calendar state/)
-  assert.match(screens, /Date DD-MM-YYYY/)
+  assert.match(screens, /CoachDateTimeField label="Date" mode="date"/)
   assert.match(screens, /Assessment sessions are Team-scoped/)
   assert.match(screens, /Open Assessment Sessions/)
   assert.match(screens, /Open Development/)

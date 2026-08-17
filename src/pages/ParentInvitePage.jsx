@@ -336,7 +336,7 @@ export function ParentInvitePage() {
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Guardian access</p>
       <h1 className="mt-3 text-2xl font-black tracking-tight">Create your family portal login</h1>
       <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-        Use this login only for the child shown below. Family accounts do not open staff tools or other club records.
+        Use this login only for the child shown below. Family accounts do not open Coach tools or other club records.
       </p>
 
       {isConfirmationState ? (

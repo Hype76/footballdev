@@ -38,11 +38,11 @@ const staffAccessRules = [
   },
   {
     label: 'One email owns access',
-    body: 'Invites and existing logins are matched by email, so each staff member should use one address.',
+    body: 'Invites and existing logins are matched by email, so each Coach should use one address.',
   },
   {
     label: 'Keep access current',
-    body: 'Lower or remove access when staff change teams, stop coaching, or leave the club.',
+    body: 'Lower or remove access when Coaches change teams, stop coaching, or leave the club.',
   },
 ]
 
@@ -270,7 +270,7 @@ export function UserAccessPage() {
     return emails.size
   }, [members, pendingInvites])
   const canAddMoreUsers = isWithinPlanLimit(user, 'staffLogins', activeAndPendingEmailCount)
-  const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
+  const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Coach logins')
   const pendingAccessCount = pendingInvites.length
   const visibleRoleCount = assignableRoles.length
   const scopeLabel = user?.activeTeamName || (accessScope === 'club' ? 'Whole club' : 'Assigned teams')
@@ -388,7 +388,7 @@ export function UserAccessPage() {
       showToast({
         title: createdStaff.kind === 'invite' ? 'Role invite sent' : 'User access updated',
         message: createdStaff.kind === 'invite'
-          ? `${formState.email} has been sent a staff invite.`
+          ? `${formState.email} has been sent a Coach invite.`
           : `${formState.email} can now access this workspace.`,
       })
     } catch (error) {
@@ -514,7 +514,7 @@ export function UserAccessPage() {
 
   const handleRoleChangeRequest = (member, assignment, nextRole) => {
     if (!assignment?.assignmentId || !assignment?.teamId || !nextRole?.roleKey) {
-      setErrorMessage('This staff assignment is incomplete. Refresh user access and try again.')
+      setErrorMessage('This Coach assignment is incomplete. Refresh user access and try again.')
       return
     }
 
@@ -552,7 +552,7 @@ export function UserAccessPage() {
       })
       await refreshAccessData()
       await refreshTeamSelection?.()
-      setMessage('Club staff role updated.')
+      setMessage('Club Coach role updated.')
       showToast({
         title: 'Club role updated',
         message: `${clubRoleChangeTarget.member.name || clubRoleChangeTarget.member.email} is now ${clubRoleChangeTarget.nextRole.roleLabel}.`,
@@ -587,10 +587,10 @@ export function UserAccessPage() {
       })
       await refreshAccessData()
       await refreshTeamSelection?.()
-      setMessage('Team staff role updated.')
+      setMessage('Team Coach role updated.')
       showToast({
         title: 'Team role updated',
-        message: `${roleChangeTarget.member.name || roleChangeTarget.member.email || 'Staff member'} is now ${roleChangeTarget.nextRole.roleLabel} for ${roleChangeTarget.assignment.teamName}.`,
+        message: `${roleChangeTarget.member.name || roleChangeTarget.member.email || 'Coach'} is now ${roleChangeTarget.nextRole.roleLabel} for ${roleChangeTarget.assignment.teamName}.`,
       })
     } catch (error) {
       console.error(error)
@@ -612,9 +612,9 @@ export function UserAccessPage() {
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Staff access</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Coach access</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-4xl">
-              Give staff access only where the work needs it.
+              Give Coach access only where the work needs it.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Invite coaches by email, assign the smallest useful role, and keep workspace access tidy as responsibilities change.
@@ -632,7 +632,7 @@ export function UserAccessPage() {
           <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Access state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{activeAndPendingEmailCount} staff emails tracked</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{activeAndPendingEmailCount} Coach emails tracked</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 Scope: {scopeLabel}. {members.length} active users are visible to this account.
                 {canManagePendingAllocations ? ` ${pendingAccessCount} pending invites are visible.` : ''}
@@ -645,7 +645,7 @@ export function UserAccessPage() {
               <AccessMetric label="Plan count" value={activeAndPendingEmailCount} />
             </div>
             <p className={`mt-4 ${bodyTextClass}`}>
-              {canAddMoreUsers ? 'Staff invite capacity is available.' : staffLimitMessage}
+              {canAddMoreUsers ? 'Coach invite capacity is available.' : staffLimitMessage}
             </p>
           </div>
         </div>
@@ -709,16 +709,16 @@ export function UserAccessPage() {
         isOpen={Boolean(clubRoleChangeTarget)}
         isBusy={isSaving}
         title="Confirm club role change"
-        message="Review the staff member, current club role, new club role, and access consequence before confirming. Team assignments remain independent."
+        message="Review the Coach, current club role, new club role, and access consequence before confirming. Team assignments remain independent."
         itemsTitle="Role change details"
         items={[
-          `Staff member: ${clubRoleChangeTarget?.member?.name || clubRoleChangeTarget?.member?.email || 'Selected staff member'}`,
+          `Coach: ${clubRoleChangeTarget?.member?.name || clubRoleChangeTarget?.member?.email || 'Selected Coach'}`,
           `Current role: ${clubRoleChangeTarget ? getRoleLabel(clubRoleChangeTarget.member) : 'Unknown role'}`,
           `New role: ${clubRoleChangeTarget?.nextRole?.roleLabel || 'Unknown role'}`,
           `Club scope: ${user?.clubName || 'Current club'}`,
           'Consequence: Club permissions refresh immediately after confirmation.',
           'Team assignments: Existing team roles remain unchanged.',
-          'Notification: No staff email or notification will be sent.',
+          'Notification: No Coach email or notification will be sent.',
         ]}
         confirmLabel="Confirm club role change"
         onCancel={() => setClubRoleChangeTarget(null)}
@@ -730,15 +730,15 @@ export function UserAccessPage() {
         isOpen={Boolean(roleChangeTarget)}
         isBusy={isSaving}
         title="Confirm team role change"
-        message="Review the staff member, current role, new role, team scope, and access consequence before confirming."
+        message="Review the Coach, current role, new role, team scope, and access consequence before confirming."
         itemsTitle="Role change details"
         items={[
-          `Staff member: ${roleChangeTarget?.member?.name || roleChangeTarget?.member?.email || 'Selected staff member'}`,
+          `Coach: ${roleChangeTarget?.member?.name || roleChangeTarget?.member?.email || 'Selected Coach'}`,
           `Current role: ${roleChangeTarget?.assignment?.teamRoleLabel || 'Unknown role'}`,
           `New role: ${roleChangeTarget?.nextRole?.roleLabel || 'Unknown role'}`,
           `Team scope: ${roleChangeTarget?.assignment?.teamName || 'Unknown team'}`,
           'Consequence: Team permissions refresh immediately after confirmation.',
-          'Notification: No staff email or notification will be sent.',
+          'Notification: No Coach email or notification will be sent.',
         ]}
         confirmLabel="Confirm role change"
         onCancel={() => setRoleChangeTarget(null)}

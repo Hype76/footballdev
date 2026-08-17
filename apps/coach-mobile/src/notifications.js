@@ -124,7 +124,7 @@ async function getExpoPushToken(easProjectId) {
 export async function initializeCoachNotifications() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      description: 'Privacy-safe staff operational alerts.',
+      description: 'Privacy-safe Coach operational alerts.',
       importance: Notifications.AndroidImportance.HIGH,
       name: 'Coach updates',
       sound: 'default',
@@ -152,7 +152,7 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
     ...permission,
     detailLevel: server.detailLevel || detailLevel,
     enabled: Boolean(server.enabled && permission.permissionGranted && !requiresContextRefresh),
-    message: requiresContextRefresh ? 'Refresh notifications for this staff context.' : '',
+    message: requiresContextRefresh ? 'Refresh notifications for this Coach context.' : '',
     requiresContextRefresh,
   })
 }

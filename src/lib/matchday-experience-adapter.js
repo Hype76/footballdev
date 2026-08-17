@@ -6,7 +6,7 @@ export const MATCH_DAY_EXPERIENCE_INTENTIONAL_DIFFERENCES = Object.freeze([
   Object.freeze({ key: 'data_provider', reason: 'Demo uses session-isolated synthetic fixtures, Teams, Players, and timeline state.' }),
   Object.freeze({ key: 'mutation_boundary', reason: 'Demo rejects every identifier outside the demo-gameday namespace.' }),
   Object.freeze({ key: 'communication_policy', reason: 'Demo blocks email, push, SMS, Chat, invitations, and production queue work.' }),
-  Object.freeze({ key: 'fixture_management', reason: 'Live authorised staff can create and manage fixtures. Demo provides one prepared synthetic fixture and rejects fixture administration.' }),
+  Object.freeze({ key: 'fixture_management', reason: 'Live authorised Coaches can create and manage fixtures. Demo provides one prepared synthetic fixture and rejects fixture administration.' }),
   Object.freeze({ key: 'reset_control', reason: 'Demo adds one idempotent reset control for practice recovery.' }),
   Object.freeze({ key: 'demo_label', reason: 'Demo adds a compact practice context label and prepared-fixture entry point.' }),
 ])

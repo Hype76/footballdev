@@ -26,7 +26,7 @@ export function PublicParentPortalLoginPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
               ['Messages', 'Read club updates shared for your child.'],
-              ['Match day', 'Follow live cards when staff share them.'],
+              ['Match day', 'Follow live cards when Coaches share them.'],
               ['Shared updates', 'See the information the club chooses to release.'],
             ].map(([title, copy]) => (
               <article key={title} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">

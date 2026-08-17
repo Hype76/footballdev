@@ -199,7 +199,7 @@ export function PublicPricingPage() {
           </div>
           <div className="max-w-2xl lg:justify-self-end">
             <p className={publicSubheadingClass}>
-              Choose the workspace size that fits your current team setup. Start with one coach or one team, then add more teams, staff, players, and parent updates when the club is ready.
+              Choose the workspace size that fits your current team setup. Start with one coach or one team, then add more teams, Coaches, players, and parent updates when the club is ready.
             </p>
             <p className="mt-3 text-sm font-semibold leading-6 text-white/60">
               Prices shown monthly. Large Club is a contact-sales tier.

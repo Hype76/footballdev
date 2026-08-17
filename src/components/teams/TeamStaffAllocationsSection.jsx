@@ -3,7 +3,7 @@ import { getRoleLabel } from '../../lib/auth.js'
 import { Pagination } from '../ui/Pagination.jsx'
 
 function getStaffDisplayName(member) {
-  return String(member?.name || member?.username || member?.email || 'Unnamed staff').trim()
+  return String(member?.name || member?.username || member?.email || 'Unnamed Coach').trim()
 }
 
 function getStaffRoleLabel(member) {
@@ -67,7 +67,7 @@ export function TeamStaffAllocationsSection({
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Step 3: Access audit</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Control team access</h2>
         <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-          Select one club team, rename it if needed, then check exactly which staff can work inside that team.
+          Select one club team, rename it if needed, then check exactly which Coaches can work inside that team.
         </p>
       </div>
       {isLoading ? (
@@ -78,7 +78,7 @@ export function TeamStaffAllocationsSection({
         <div className={`${panelClass} m-5 px-4 py-6 sm:m-6`}>
           <p className="text-base font-black text-[#101828]">No teams have been created yet.</p>
           <p className={`mt-2 ${bodyTextClass}`}>
-            Create a new team above before adding players, sessions, staff access, or match day records.
+            Create a new team above before adding players, sessions, Coach access, or match day records.
           </p>
         </div>
       ) : (
@@ -141,7 +141,7 @@ function TeamList({
   return (
     <div className={`${panelClass} p-4`}>
       <p className="text-sm font-black text-[#101828]">Club teams</p>
-      <p className={`mt-1 ${bodyTextClass}`}>Choose a Team to manage its staff access.</p>
+      <p className={`mt-1 ${bodyTextClass}`}>Choose a Team to manage its Coach access.</p>
       <div className="mt-4 space-y-2">
         {paginatedTeams.items.map((team) => {
           const stats = teamStats?.[team.id] ?? { playerCount: 0, assessmentCount: 0 }
@@ -160,7 +160,7 @@ function TeamList({
             >
               <span className="block text-sm font-black text-[#101828]">{team.name}</span>
               <span className="mt-1 block text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
-                {team.staffIds.length} staff allocated
+                {team.staffIds.length} Coaches allocated
               </span>
               <span className="mt-2 grid gap-2 text-xs font-semibold text-[#4b5f55] sm:grid-cols-2">
                 <span>{stats.playerCount} players</span>
@@ -247,7 +247,7 @@ function SelectedTeamPanel({
             </div>
           )}
           <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
-            {selectedTeamStaff.length} staff allocated to this team.
+            {selectedTeamStaff.length} Coaches allocated to this team.
           </p>
         </div>
         {canDeleteTeam ? (
@@ -303,13 +303,13 @@ function AddExistingStaffPanel({
 }) {
   return (
     <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
-      <p className="text-sm font-black text-[#101828]">Add existing staff</p>
+      <p className="text-sm font-black text-[#101828]">Add existing Coaches</p>
       <p className={`mt-1 ${bodyTextClass}`}>
-        Search active or pending staff, then assign the selected person to this team.
+        Search active or pending Coaches, then assign the selected person to this team.
       </p>
       <div className="mt-3 grid gap-3">
         <label className="block">
-          <span className="mb-2 block text-sm font-black text-[#101828]">Search staff</span>
+          <span className="mb-2 block text-sm font-black text-[#101828]">Search Coaches</span>
           <input
             type="search"
             value={staffSearch}
@@ -325,7 +325,7 @@ function AddExistingStaffPanel({
           onChange={(event) => onStaffToAddChange(event.target.value)}
           className={fieldClass}
         >
-          <option value="">Select staff member</option>
+          <option value="">Select Coach</option>
           {availableStaff.map((member) => (
             <option key={member.id} value={member.id}>
               {getStaffDisplayName(member)}, Email: {member.email}, Role: {getStaffRoleLabel(member)}
@@ -337,9 +337,9 @@ function AddExistingStaffPanel({
           disabled={isSaving || !staffToAddId}
           title={
             isSaving
-              ? 'Please wait while staff allocation is being saved.'
+              ? 'Please wait while Coach allocation is being saved.'
               : !staffToAddId
-                ? 'Select a staff member before adding them to this team.'
+                ? 'Select a Coach before adding them to this team.'
                 : undefined
           }
           onClick={() => void onAddExistingStaff()}
@@ -367,11 +367,11 @@ function AllocatedStaffList({
 }) {
   return (
     <div className="mt-5">
-      <p className="text-sm font-black text-[#101828]">Allocated staff</p>
+      <p className="text-sm font-black text-[#101828]">Allocated Coaches</p>
       <p className={`mt-1 ${bodyTextClass}`}>{teamRoleAuthorityMessage}</p>
       {selectedTeamStaff.length === 0 ? (
         <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-6 shadow-sm shadow-[#047857]/10">
-          <p className="text-sm font-black text-[#101828]">No staff are allocated to this team yet.</p>
+          <p className="text-sm font-black text-[#101828]">No Coaches are allocated to this team yet.</p>
           <p className={`mt-2 ${bodyTextClass}`}>
             Add the coach or manager who should see this squad before session work starts.
           </p>
@@ -412,7 +412,7 @@ function AllocatedStaffList({
                   <button
                     type="button"
                     disabled={isSaving}
-                    title={isSaving ? 'Please wait while staff allocation is being saved.' : undefined}
+                    title={isSaving ? 'Please wait while Coach allocation is being saved.' : undefined}
                     onClick={() => void onRemoveStaff(member.id)}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -444,7 +444,7 @@ function TeamRoleControl({ isSaving, member, onRoleChangeRequest, teamRoleOption
   if (targetAboveGrantCeiling) {
     return (
       <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 text-xs font-semibold leading-5 text-[#4b5f55]">
-        This staff role is above your grant ceiling and cannot be changed from your current team authority.
+        This Coach role is above your grant ceiling and cannot be changed from your current team authority.
       </p>
     )
   }

@@ -585,7 +585,7 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
     const invalidUserIds = acceptedUserIds.filter((userId) => !allowedUserIds.has(String(userId)))
 
     if (invalidUserIds.length > 0) {
-      throw new Error('One or more selected staff members cannot be assigned to a team.')
+      throw new Error('One or more selected Coaches cannot be assigned to a team.')
     }
   }
 

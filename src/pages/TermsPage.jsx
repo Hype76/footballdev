@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 
 const terms = [
-  ['Use of the service', 'Football Player is provided for football clubs and authorised staff to manage development records, notes, communications, teams, and related administration. Users must keep access details secure and use the service only for legitimate club purposes.'],
-  ['Club responsibility', 'Each club is responsible for the accuracy, fairness, and lawful use of the data it enters. Clubs must make sure staff have permission to access player, parent, and team information.'],
+  ['Use of the service', 'Football Player is provided for football clubs and authorised Coaches to manage development records, notes, communications, teams, and related administration. Users must keep access details secure and use the service only for legitimate club purposes.'],
+  ['Club responsibility', 'Each club is responsible for the accuracy, fairness, and lawful use of the data it enters. Clubs must make sure Coaches have permission to access player, parent, and team information.'],
   ['Parent communications', 'Email tools are provided to support club communication. Clubs are responsible for checking message content, recipient details, and sender details before sending.'],
   ['Voice notes', 'Voice notes are for short term coaching context. They must not include unnecessary sensitive information and are scheduled for deletion after 2 weeks.'],
   ['Archived players', 'Archived players are hidden from active lists and scheduled for deletion after 3 months unless restored before the deletion date.'],
@@ -49,7 +49,7 @@ export function TermsPage() {
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {[
-              ['Football use', 'The service is for football club operations, player records, staff access, and parent communication.'],
+              ['Football use', 'The service is for football club operations, player records, Coach access, and parent communication.'],
               ['Club control', 'Each club is responsible for the data it enters and the people it gives access to.'],
               ['Practical records', 'Notes, messages, voice notes, and archived players should stay relevant to club work.'],
             ].map(([title, copy]) => (

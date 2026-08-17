@@ -556,7 +556,7 @@ export function ParentPortalAccountActions({
     >
       {isProfileLoading && !canOpenTeamWorkspace ? (
         <p aria-live="polite" className={variant === 'mobile' ? 'col-span-2 text-center text-xs font-bold text-[#4b5f55]' : 'text-center text-xs font-bold text-[#4b5f55]'}>
-          Checking staff access...
+          Checking Coach access...
         </p>
       ) : null}
       {canOpenTeamWorkspace ? (

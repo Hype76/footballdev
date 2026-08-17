@@ -254,7 +254,7 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
         <Text style={styles.body}>{form?.ageGroup ? `Configured age group: ${form.ageGroup}.` : 'Uses the current canonical Team form configuration.'}</Text>
         {(form?.fields || []).filter((field) => Number(user.roleRank || 0) >= field.roleRank).map((field) => (
           <View key={field.id} style={styles.stack}>
-            <Text style={styles.label}>{field.label}{field.required ? ' (required)' : ''}{field.staffPrivate ? ' | Staff private' : field.parentVisible ? ' | Parent-shareable' : ''}</Text>
+            <Text style={styles.label}>{field.label}{field.required ? ' (required)' : ''}{field.staffPrivate ? ' | Coach private' : field.parentVisible ? ' | Parent-shareable' : ''}</Text>
             {field.type === 'boolean' || field.type === 'checkbox' ? (
               <Button label={values[field.id] ? 'Yes' : 'No'} onPress={() => setValues((current) => ({ ...current, [field.id]: !current[field.id] }))} secondary styles={styles} />
             ) : field.options.length ? (
@@ -264,8 +264,8 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
             )}
           </View>
         ))}
-        <Text style={styles.label}>Staff summary note</Text>
-        <TextInput accessibilityLabel="Staff summary note" multiline onChangeText={setNotes} style={[styles.input, styles.inputMultiline]} value={notes} />
+        <Text style={styles.label}>Coach summary note</Text>
+        <TextInput accessibilityLabel="Coach summary note" multiline onChangeText={setNotes} style={[styles.input, styles.inputMultiline]} value={notes} />
         <View style={styles.row}><Button disabled={stale} label="Save private draft" onPress={saveDraft} secondary styles={styles} /><Button disabled={stale} label="Finalise" onPress={finalise} styles={styles} /></View>
       </View>
       <View style={styles.panel}>
@@ -335,7 +335,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
           const assigned = selected.links.some((link) => link.linkedType === 'player' && link.linkedId === player.id)
           return <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} key={player.id} label={`${assigned ? 'Remove from' : 'Assign to'} ${player.playerName}`} onPress={() => void togglePlayerSharing(player)} secondary={!assigned} styles={styles} />
         }) : <Text style={styles.body}>No active Players are available in this Team.</Text>}
-        {selected.links.filter((link) => link.linkedType !== 'player').map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Staff only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}
+        {selected.links.filter((link) => link.linkedType !== 'player').map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Coaches only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}
       </View> : null}
       <View style={styles.panel}><Text style={styles.heading}>Add secure external link</Text><TextInput accessibilityLabel="Resource title" onChangeText={setTitle} style={styles.input} value={title} /><TextInput accessibilityLabel="HTTPS Resource URL" autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Create Resource' : 'Create FP TEST Resource'} onPress={create} styles={styles} /><Text style={styles.body}>File upload, bulk governance, archive, and retention stay in the web workflow.</Text></View>
     </View>
@@ -397,7 +397,7 @@ function ChatDomain({ chatNotificationTarget, data, notice, onChatNotificationTa
     const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
     return () => clearTimeout(handle)
   }, [messages.length, room])
-  if (!rooms.length) return <Empty copy="No Staff Chat or Parent Chat membership is available in this Team." styles={styles} />
+  if (!rooms.length) return <Empty copy="No Coach Chat or Parent Chat membership is available in this Team." styles={styles} />
   if (!room) {
     return (
       <View style={styles.stack}>
@@ -407,7 +407,7 @@ function ChatDomain({ chatNotificationTarget, data, notice, onChatNotificationTa
           const display = getCoachChatRoomDisplay(item)
           return (
             <Pressable accessibilityRole="button" key={`${item.kind}:${item.id}`} onPress={() => void open(item)} style={styles.chatRoomCard}>
-              <View style={styles.row}><Text style={styles.status}>{item.kind === 'staff' ? 'Staff' : 'Parent'}</Text>{item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}</View>
+              <View style={styles.row}><Text style={styles.status}>{item.kind === 'staff' ? 'Coaches' : 'Parent'}</Text>{item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}</View>
               <Text style={styles.heading}>{display.title}</Text>
               {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
               <Text numberOfLines={1} style={styles.body}>{item.latestMessage || 'No messages yet'}</Text>
@@ -451,7 +451,7 @@ function ChatDomain({ chatNotificationTarget, data, notice, onChatNotificationTa
 }
 
 function MessagesDomain({ data, styles }) {
-  const messageDelta = COACH_PHASE_31E_BACKEND_DELTAS.find((item) => item.capability === 'Standalone staff Messages inbox')
+  const messageDelta = COACH_PHASE_31E_BACKEND_DELTAS.find((item) => item.capability === 'Standalone Coach Messages inbox')
   return (
     <View style={styles.stack}>
       {data.length ? data.map((message) => <View key={message.id} style={styles.panel}><Text style={styles.heading}>{message.subject}</Text><Text style={styles.body}>{message.channel || 'system'} | {message.status} | {message.createdAt || 'No date'}</Text><Text style={styles.body}>{message.body || message.action || 'Recorded communication event'}</Text></View>) : <Empty copy="No Team communication history is available." styles={styles} />}
@@ -498,7 +498,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       await load()
       setNotice(audience === 'parents'
         ? 'Poll created. Parent app notifications are queued using each family\'s communication preference.'
-        : 'Staff Poll created.')
+        : 'Coach Poll created.')
     } catch (error) { setNotice(getCoachFriendlyError(error)) }
     finally { setCreating(false) }
   }
@@ -518,13 +518,13 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       <Button disabled={stale} label="Refresh Poll results" onPress={() => void load({ silent: true })} secondary styles={styles} />
       <View style={styles.panel}>
         <Text style={styles.heading}>Create Poll</Text>
-        <Text style={styles.body}>Create the exact question and options Parents or staff will answer. Parent Polls notify eligible families automatically.</Text>
+        <Text style={styles.body}>Create the exact question and options Parents or Coaches will answer. Parent Polls notify eligible families automatically.</Text>
         <Text style={styles.label}>Question</Text>
         <TextInput accessibilityLabel="Poll question" onChangeText={setTitle} placeholder="Poll question" placeholderTextColor={placeholderColor} style={styles.input} value={title} />
         <Text style={styles.label}>Description, optional</Text>
         <TextInput accessibilityLabel="Poll description" multiline onChangeText={setDescription} placeholder="Helpful details" placeholderTextColor={placeholderColor} style={[styles.input, styles.inputMultiline]} value={description} />
         <Text style={styles.label}>Audience</Text>
-        <View style={styles.row}><Button label="Parents" onPress={() => setAudience('parents')} secondary={audience !== 'parents'} styles={styles} /><Button label="Staff" onPress={() => setAudience('staff')} secondary={audience !== 'staff'} styles={styles} /></View>
+        <View style={styles.row}><Button label="Parents" onPress={() => setAudience('parents')} secondary={audience !== 'parents'} styles={styles} /><Button label="Coaches" onPress={() => setAudience('staff')} secondary={audience !== 'staff'} styles={styles} /></View>
         <Text style={styles.label}>Options</Text>
         {options.map((option, index) => <View key={index} style={styles.row}><TextInput accessibilityLabel={`Poll option ${index + 1}`} onChangeText={(value) => setOptions((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} placeholder={`Option ${index + 1}`} placeholderTextColor={placeholderColor} style={[styles.input, { flex: 1 }]} value={option} />{options.length > 2 ? <Button label="Remove" onPress={() => setOptions((current) => current.filter((_, itemIndex) => itemIndex !== index))} secondary styles={styles} /> : null}</View>)}
         {options.length < 8 ? <Button label="Add option" onPress={() => setOptions((current) => [...current, ''])} secondary styles={styles} /> : null}

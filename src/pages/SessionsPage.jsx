@@ -2354,7 +2354,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const playerId = String(invite?.playerId ?? '').trim()
 
     if (!sourceId || !playerId || !['match', 'training'].includes(eventType)) {
-      throw new Error('This invitation is not available for staff acceptance.')
+      throw new Error('This invitation is not available for Coach acceptance.')
     }
 
     setIsSaving(true)
@@ -2425,7 +2425,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         message: automaticSelectionFailed
           ? 'Player marked Available but could not be added to the match selection.'
           : result.changed
-            ? `${invite.player?.playerName || 'Player'} is now Available. The response is recorded as staff acting on behalf.`
+            ? `${invite.player?.playerName || 'Player'} is now Available. The response is recorded as Coaches acting on behalf.`
             : `${invite.player?.playerName || 'Player'} is already ${status?.availabilityLabel || 'Available'}.`,
         tone: automaticSelectionFailed ? 'warning' : undefined,
       })
@@ -2451,7 +2451,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const playerId = String(invite?.playerId ?? '').trim()
 
     if (!sourceId || !playerId || !['match', 'training'].includes(eventType)) {
-      throw new Error('This invitation is not available for a staff response.')
+      throw new Error('This invitation is not available for a Coach response.')
     }
 
     setIsSaving(true)
@@ -2498,7 +2498,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       showToast({
         title: result.changed ? 'Player marked unavailable' : 'Already unavailable',
         message: result.changed
-          ? `${invite.player?.playerName || 'Player'} is now Unavailable. The response is recorded as staff acting on behalf.`
+          ? `${invite.player?.playerName || 'Player'} is now Unavailable. The response is recorded as Coaches acting on behalf.`
           : `${invite.player?.playerName || 'Player'} is already Unavailable.`,
       })
     } catch (error) {
@@ -4269,7 +4269,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         message="This removes the voice note and its audio file from this workspace."
         items={[
           `Voice note: ${voiceNoteDeleteTarget?.note || 'Selected voice note'}`,
-          `Created by: ${voiceNoteDeleteTarget?.userName || voiceNoteDeleteTarget?.userEmail || 'Staff'}`,
+          `Created by: ${voiceNoteDeleteTarget?.userName || voiceNoteDeleteTarget?.userEmail || 'Coach'}`,
         ]}
         confirmLabel="Delete voice note"
         onCancel={() => setVoiceNoteDeleteTarget(null)}
@@ -5742,7 +5742,7 @@ function CalendarEventModal({
                   {validationMessage('teamId')}
                   {!canUseClubLevel ? (
                     <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
-                      Team staff can only save events against their assigned team.
+                      Team Coaches can only save events against their assigned team.
                     </span>
                   ) : null}
                 </label>
@@ -6505,9 +6505,9 @@ function CalendarEventModal({
         title={availabilityAction?.invite?.player?.playerName || 'Invited player'}
         message={{
           available: form.eventType === 'training'
-            ? 'This records an Attending response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.'
-            : 'This records an Available response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.',
-          unavailable: 'This records an Unavailable response by you as authorised staff. It does not sign in as, or impersonate, the parent or player.',
+            ? 'This records an Attending response by you as an authorised Coach. It does not sign in as, or impersonate, the parent or player.'
+            : 'This records an Available response by you as an authorised Coach. It does not sign in as, or impersonate, the parent or player.',
+          unavailable: 'This records an Unavailable response by you as an authorised Coach. It does not sign in as, or impersonate, the parent or player.',
           select: 'This selects only this available player for the saved match squad. It does not change their availability response.',
           send: 'This sends an invitation to server-resolved eligible contacts for this player only.',
           resend: 'This rotates the response token and deliberately resends an invitation to server-resolved eligible contacts for this player only.',

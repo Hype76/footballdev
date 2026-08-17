@@ -265,7 +265,7 @@ test('rows retain long names, source labels, state labels and action authority',
   const rows = Object.fromEntries(model.rows.map((row) => [row.playerId, row]))
   assert.equal(rows.staff.playerName, longName)
   assert.equal(rows.staff.initials, 'AV')
-  assert.equal(rows.staff.responseSourceLabel, 'Staff on behalf')
+  assert.equal(rows.staff.responseSourceLabel, 'Coach on behalf')
   assert.equal(rows.staff.canAcceptOnBehalf, true)
   assert.equal(rows.parent.responseSourceLabel, 'Parent')
   assert.equal(rows.parent.responseLabel, 'Available')

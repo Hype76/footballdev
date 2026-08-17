@@ -101,7 +101,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
       title: 'Invite or assign team admin',
       body: 'Invite or assign a Team Admin when this club needs another person connected to the team. Pending assigned invites count, so the club can keep moving while the person accepts later.',
       href: '/user-access',
-      action: 'Open staff access',
+      action: 'Open Coach access',
       targetSelector: '[data-tour-id="allocate-role-section"]',
       complete: counts.teamAdminCount > 0,
       optional: true,

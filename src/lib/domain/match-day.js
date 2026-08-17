@@ -1871,7 +1871,7 @@ export async function updateStaffMatchDayScore({ user, match, homeScore, awaySco
     parent_link_id_value: null,
     home_score_value: Number(homeScore ?? 0),
     away_score_value: Number(awayScore ?? 0),
-    notes_value: 'Score corrected by staff',
+    notes_value: 'Score corrected by Coaches',
     request_id_value: createMatchDayRequestId(requestId),
   })
 

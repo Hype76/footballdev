@@ -93,7 +93,7 @@ export function normalizeStaffChatConversation(row) {
 
 function assertStaffChatAccess(user) {
   if (!canUseStaffChat(user)) {
-    throw new Error('Staff Chat is only available to authorised club and team staff.')
+    throw new Error('Coach Chat is only available to authorised club and Team Coaches.')
   }
 }
 
@@ -145,7 +145,7 @@ async function getReadableStaffChatConversation({ conversationId, user } = {}) {
 
   const normalizedConversationId = normalizeText(conversationId)
   if (!normalizedConversationId) {
-    throw new Error('Staff Chat conversation is not available.')
+    throw new Error('Coach Chat conversation is not available.')
   }
 
   const { data: isInActiveContext, error: activeContextError } = await supabase.rpc(
@@ -162,7 +162,7 @@ async function getReadableStaffChatConversation({ conversationId, user } = {}) {
   }
 
   if (!isInActiveContext) {
-    throw new Error('Staff Chat conversation is not available for the active Team.')
+    throw new Error('Coach Chat conversation is not available for the active Team.')
   }
 
   const { data, error } = await supabase
@@ -178,7 +178,7 @@ async function getReadableStaffChatConversation({ conversationId, user } = {}) {
   }
 
   if (!data) {
-    throw new Error('Staff Chat conversation is not available.')
+    throw new Error('Coach Chat conversation is not available.')
   }
 
   const conversation = normalizeStaffChatConversation({
@@ -187,7 +187,7 @@ async function getReadableStaffChatConversation({ conversationId, user } = {}) {
   })
 
   if (!canOpenStaffChatConversationForUser(conversation, user)) {
-    throw new Error('Staff Chat conversation is not available for the current access.')
+    throw new Error('Coach Chat conversation is not available for the current access.')
   }
 
   return conversation
@@ -355,13 +355,13 @@ export async function createStaffChatConversation({ memberIds = [], teamId = '',
   const normalizedTeamId = normalizeText(teamId)
 
   if (conversationType === 'club_staff' && !canUseClubStaffChat(user)) {
-    throw new Error('Club Staff Chat is only available to club-wide staff.')
+    throw new Error('Club Coach Chat is only available to club-wide Coaches.')
   }
 
   if (conversationType === 'team_staff') {
     const activeTeamId = normalizeText(user.activeTeamId)
     if (!activeTeamId || normalizedTeamId !== activeTeamId) {
-      throw new Error('Choose the active team before opening Team Staff Chat.')
+      throw new Error('Choose the active team before opening Team Coach Chat.')
     }
   }
 
@@ -495,7 +495,7 @@ export async function deleteStaffChatMessage({ messageId, user } = {}) {
   }
 
   if (!message?.conversation_id) {
-    throw new Error('Staff Chat message is not available.')
+    throw new Error('Coach Chat message is not available.')
   }
 
   await getReadableStaffChatConversation({ conversationId: message.conversation_id, user })

@@ -32,7 +32,7 @@ test('Coach Sessions exposes recurring training invitations and keeps assessment
     readFile(new URL('../apps/coach-mobile/src/CoachOperationalScreens.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/mobile-core/src/coachCalendarData.js', import.meta.url), 'utf8'),
   ])
-  for (const marker of ['Create training session', 'Repeat until DD-MM-YYYY', 'Notify parents now', 'Ask parents to respond', 'Assessment Sessions']) {
+  for (const marker of ['Create training session', 'label="Repeat until"', 'Notify parents now', 'Ask parents to respond', 'Assessment Sessions']) {
     assert.match(screen, new RegExp(marker))
   }
   assert.match(screen, /saveCoachTrainingInvitation/)
@@ -128,10 +128,10 @@ test('corrective release guards and native versions cover both apps', async () =
   assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-61/)
   assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-61/)
   assert.match(submitGuard, /promotionReference === 'FP-MOBILE-FEEDBACK-CORRECTIVE-61'/)
-  assert.match(coachConfig, /version: '1\.0\.14'/)
-  assert.equal(JSON.parse(coachPackage).version, '1.0.14')
-  assert.match(parentConfig, /version: '1\.0\.11'/)
+  assert.match(coachConfig, /version: '1\.0\.15'/)
+  assert.equal(JSON.parse(coachPackage).version, '1.0.15')
+  assert.match(parentConfig, /version: '1\.0\.12'/)
   const parsedParentPackage = JSON.parse(parentPackage)
-  assert.equal(parsedParentPackage.version, '1.0.11')
+  assert.equal(parsedParentPackage.version, '1.0.12')
   assert.match(parsedParentPackage.scripts['build:ios:internal-live'], /parent internal-live ios/)
 })

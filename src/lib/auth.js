@@ -899,7 +899,7 @@ function RuntimeAuthProvider({ children }) {
       })
 
       if (profile?.teamAccessUnavailable) {
-        throw new Error('Staff access is no longer active. Ask a club admin to review this account.')
+        throw new Error('Coach access is no longer active. Ask a club admin to review this account.')
       }
 
       if (options.deferCommit === true) {

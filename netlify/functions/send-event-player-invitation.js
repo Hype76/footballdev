@@ -85,7 +85,7 @@ async function loadRequestAuthority({ adminSupabase, event, sourceType, supabase
     || profile.role === 'super_admin'
     || Number(profile.role_rank ?? 0) < 20
   ) {
-    throw Object.assign(new Error('Authorised team staff access is required.'), { statusCode: 403 })
+    throw Object.assign(new Error('Authorised team Coach access is required.'), { statusCode: 403 })
   }
 
   let scopedQuery = sourceType === 'match-day'

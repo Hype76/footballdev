@@ -23,7 +23,7 @@ export const TESTER_FEEDBACK_SEVERITIES = [
 export const TESTER_FEEDBACK_MODULES = [
   'Shell/auth/workspace',
   'Club setup',
-  'Teams/staff',
+  'Teams/Coaches',
   'Players',
   'Form builder',
   'Assessments',

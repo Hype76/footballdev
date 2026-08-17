@@ -370,7 +370,7 @@ export function Layout() {
                   <WorkspaceSelection
                     eyebrow="Club access"
                     title="Choose the club workspace to open."
-                    description="This email is linked to more than one club. Pick the club before changing players, teams, staff, parents, or billing details."
+                    description="This email is linked to more than one club. Pick the club before changing players, teams, Coaches, parents, or billing details."
                     error={clubSelectionError || authError}
                     isLoading={isProfileLoading}
                     options={clubOptions.map((option) => ({
@@ -1103,7 +1103,7 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
         user,
         playerId: '',
         sessionId: '',
-        note: 'Unassigned staff voice note',
+        note: 'Unassigned Coach voice note',
         audioBlob,
         audioDurationSeconds: durationSeconds,
       })
@@ -1163,10 +1163,10 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
       <div className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] p-4 text-[var(--text-primary)] shadow-2xl shadow-black/40 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Staff only</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Coaches only</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight">Add voice note</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
-              Capture a quick staff note now. It stays private until you assign it to a player record.
+              Capture a quick Coach note now. It stays private until you assign it to a player record.
             </p>
           </div>
           <button

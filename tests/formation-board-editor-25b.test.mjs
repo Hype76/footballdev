@@ -223,10 +223,10 @@ test('Formation Board route, Team Resources entry, and quick action stay staff-s
   assert.match(resourcePage, /Open Formation Boards/)
   assert.match(router, /function RequireFormationBoardAccess\(\)/)
   assert.match(router, /path: 'resources\/formation-boards'/)
-  assert.match(page, /Shared with authorised Team staff/)
+  assert.match(page, /Shared with authorised Team Coaches/)
   assert.doesNotMatch(page, /Coming Soon/i)
   assert.match(page, /Publish to parents/)
-  assert.match(page, /Staff notes, availability, and unselected squad members stay private/)
+  assert.match(page, /Coach notes, availability, and unselected squad members stay private/)
 })
 
 test('editor includes Pointer Events, tap positioning, keyboard movement, local draft, conflict, and mobile controls', async () => {

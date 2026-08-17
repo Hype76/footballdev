@@ -31,7 +31,7 @@ export function ClubProfileSettingsSection({
   return (
     <SectionCard
       title="Club profile"
-      description="Control the club identity used by staff views, parent previews, and outgoing messages."
+      description="Control the club identity used by Coach views, parent previews, and outgoing messages."
       tourId="club-profile-settings"
     >
       {isLoading ? (

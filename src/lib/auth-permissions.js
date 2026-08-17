@@ -45,14 +45,14 @@ export function getWorkspaceHomeCopy(user) {
   if (scope.key === WORKSPACE_SCOPES.club && isClubAdmin(user)) {
     return {
       title: 'Club Home',
-      description: 'Manage the club workspace, teams, staff, players, and settings.',
+      description: 'Manage the club workspace, teams, Coaches, players, and settings.',
     }
   }
 
   if (scope.key === WORKSPACE_SCOPES.team && user.role === scope.ownerRole.key) {
     return {
       title: 'Team Home',
-      description: 'Manage your team, staff, players, parent updates, and match day.',
+      description: 'Manage your team, Coaches, players, parent updates, and match day.',
     }
   }
 

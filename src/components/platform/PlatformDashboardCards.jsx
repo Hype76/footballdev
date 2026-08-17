@@ -89,9 +89,9 @@ export function PlatformOperationalSummarySection({
           </Link>
         </div>
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Staff role mix</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Coach role mix</p>
           <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">
-            {platformTotals.staffAccounts ?? 0} staff accounts, excluding {platformTotals.parentAccounts ?? 0} parent accounts.
+            {platformTotals.staffAccounts ?? 0} Coach accounts, excluding {platformTotals.parentAccounts ?? 0} parent accounts.
           </p>
           <ul className="mt-3 space-y-1 text-sm font-bold text-[var(--text-primary)]">
             {roleBreakdown.slice(0, 4).map((role) => (
@@ -102,7 +102,7 @@ export function PlatformOperationalSummarySection({
             ))}
           </ul>
           <Link className="mt-3 inline-flex min-h-11 items-center font-black text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" to="/platform-staff">
-            View platform staff
+            View Platform Admins
           </Link>
         </div>
       </div>
@@ -117,8 +117,8 @@ export function PlatformStaffRoleSummarySection({ platformTotals = {} }) {
 
   return (
     <SectionCard
-      title="Staff access context"
-      description="Staff account totals and role labels. Parent accounts remain separate."
+      title="Coach access context"
+      description="Coach account totals and role labels. Parent accounts remain separate."
       storageKey="platform-staff-role-context"
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,7 +130,7 @@ export function PlatformStaffRoleSummarySection({ platformTotals = {} }) {
         ))}
         {!roleBreakdown.length ? (
           <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm font-semibold text-[var(--text-muted)]">
-            No staff role data is available.
+            No Coach role data is available.
           </p>
         ) : null}
       </div>

@@ -655,7 +655,7 @@ export function buildStaffInviteHtml({
   teamLogoUrl,
 }) {
   const resolvedClub = String(clubName ?? '').trim() || 'Your club'
-  const resolvedRole = String(roleLabel ?? '').trim() || 'Staff'
+  const resolvedRole = String(roleLabel ?? '').trim() || 'Coach'
   const resolvedTeam = String(teamName ?? '').trim() || 'your team'
   const logoMarkup = buildEmailLogoMarkup({
     altText: resolvedClub,
@@ -667,12 +667,12 @@ export function buildStaffInviteHtml({
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
       ${logoMarkup}
-      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Staff invite</p>
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Coach invite</p>
       <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
       <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to join ${escapeHtml(resolvedTeam)} as ${escapeHtml(resolvedRole)}.</p>
       <p style="margin: 0 0 22px; font-size: 15px;">Open the link below and create your password. The role and team access have already been set by the club.</p>
       <p style="margin: 0 0 22px;">
-        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #d8ff2f; color: #142018; text-decoration: none; font-weight: 800; padding: 12px 18px; border-radius: 10px;">Create Staff Access</a>
+        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #d8ff2f; color: #142018; text-decoration: none; font-weight: 800; padding: 12px 18px; border-radius: 10px;">Create Coach Access</a>
       </p>
       <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">This link expires after 7 days. If the button does not work, copy and paste this link into your browser:</p>
       <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(inviteUrl)}</p>
@@ -710,7 +710,7 @@ export async function sendStaffInvite(data) {
   const result = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(result.message || 'Staff invite could not be sent.')
+    throw new Error(result.message || 'Coach invite could not be sent.')
   }
 
   return result

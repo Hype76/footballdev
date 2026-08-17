@@ -3,7 +3,7 @@ export const playerProfileSections = [
   { key: 'development', label: 'Development', description: 'Progression and specialist trends' },
   { key: 'details', label: 'Details', description: 'Player data and profile actions' },
   { key: 'communication', label: 'Communication', description: 'Resources and linked chat' },
-  { key: 'records', label: 'Records', description: 'Merge, staff activity, and history' },
+  { key: 'records', label: 'Records', description: 'Merge, Coach activity, and history' },
 ]
 
 export const playerProfilePanels = {
@@ -17,7 +17,7 @@ export const playerProfilePanels = {
   ],
   records: [
     { key: 'history', label: 'Development history' },
-    { key: 'activity', label: 'Staff notes and activity' },
+    { key: 'activity', label: 'Coach notes and activity' },
     { key: 'merge', label: 'Merge records' },
   ],
 }

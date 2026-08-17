@@ -82,7 +82,7 @@ test('mobile sources provide direct date navigation, actionable attention, offli
 
   assert.doesNotMatch(coachApp, /Latest Coach overview loaded/)
   assert.match(coachApp, /setTimeout\(\(\) => onDismissRef\.current\(\), 4500\)/)
-  assert.match(coachScreens, /Date DD-MM-YYYY/)
+  assert.match(coachScreens, /CoachDateTimeField label="Date"/)
   assert.doesNotMatch(coachScreens, /canonical Calendar state/)
   assert.match(coachScreens, /const cached = await readCoachOfflineResources/)
   assert.match(phaseScreens, /const cached = await readCoachOfflineResources/)

@@ -7,14 +7,14 @@ function normalize(value) {
 
 export function assertCoachOperationalRead(user, { requiresTeam = false } = {}) {
   if (!user?.id || !user?.clubId || Number(user?.roleRank || 0) < 20 || user?.role === 'super_admin') {
-    throw new Error('An active operational staff context is required.')
+    throw new Error('An active operational Coach context is required.')
   }
   if (requiresTeam && !user?.activeTeamId) throw new Error('Choose an active Team context.')
 }
 
 export function assertCoachOperationalMutation(user, { minimumRank = 20, requiresTeam = false } = {}) {
   assertCoachOperationalRead(user, { requiresTeam })
-  if (Number(user?.roleRank || 0) < minimumRank) throw new Error('This staff role cannot make that change.')
+  if (Number(user?.roleRank || 0) < minimumRank) throw new Error('This Coach role cannot make that change.')
   if (user?.hasActivePlanAccess !== true) throw new Error('Operational changes are blocked while payment is required.')
 }
 
@@ -23,7 +23,7 @@ export function assertCoachCapability(user, capability) {
     ...user,
     teamId: user?.activeTeamId,
   }, capability)
-  if (!access.allowed) throw new Error(`${access.label} is not available for this plan and staff context.`)
+  if (!access.allowed) throw new Error(`${access.label} is not available for this plan and Coach context.`)
   return access
 }
 

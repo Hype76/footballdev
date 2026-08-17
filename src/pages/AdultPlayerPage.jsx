@@ -165,7 +165,7 @@ export function AdultPlayerPage() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Player account</p>
             <h1 className="mt-3 text-3xl font-black sm:text-4xl">{user?.selectedPlayerName || user?.displayName || 'Player'}</h1>
             <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-300">
-              View your own invitations and manage your availability. This account cannot open parent, staff, or administration tools.
+              View your own invitations and manage your availability. This account cannot open Parent, Coach, or administration tools.
             </p>
           </div>
           <button

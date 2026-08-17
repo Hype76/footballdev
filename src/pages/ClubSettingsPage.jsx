@@ -30,7 +30,7 @@ const clubSettingsRules = [
   },
   {
     label: 'One public contact',
-    body: 'The contact details shown here are reused on parent-facing screens and staff workspace previews.',
+    body: 'The contact details shown here are reused on parent-facing screens and Coach workspace previews.',
   },
   {
     label: 'Badge control',
@@ -360,7 +360,7 @@ function ClubSettingsHero({ canChangeClubLogo, formData, identityChecksComplete,
               Make the workspace recognisable before parents see it.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Club name, contact details, and badge appear across staff screens, parent previews, emails, and shared football records.
+              Club name, contact details, and badge appear across Coach screens, parent previews, emails, and shared football records.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {rules.map((rule) => (
@@ -378,7 +378,7 @@ function ClubSettingsHero({ canChangeClubLogo, formData, identityChecksComplete,
             <p className={eyebrowClass}>Setup state</p>
             <p className="mt-3 text-3xl font-black tracking-tight text-[#101828]">{identityChecksComplete} of 3 ready</p>
             <p className={`mt-2 ${bodyTextClass}`}>
-              Club name, contacts, and badge are the first setup details parents and staff will see.
+              Club name, contacts, and badge are the first setup details parents and Coaches will see.
             </p>
           </div>
           <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">

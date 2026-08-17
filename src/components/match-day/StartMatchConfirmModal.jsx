@@ -7,7 +7,7 @@ function getScorerLabel(match, scorerLabel) {
     return String(scorerLabel).trim()
   }
 
-  return match?.isScorer ? 'Selected parent scorer' : 'Authorised staff member'
+  return match?.isScorer ? 'Selected parent scorer' : 'Authorised Coach'
 }
 
 export function StartMatchConfirmModal({

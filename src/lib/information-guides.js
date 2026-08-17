@@ -3,7 +3,7 @@ export const roleGuides = [
     key: 'admin',
     label: 'Club Admin',
     rank: 90,
-    summary: 'Owns the club workspace, billing access, teams, staff access, and club settings.',
+    summary: 'Owns the club workspace, billing access, teams, Coach access, and club settings.',
     capabilities: [
       'Create teams and manage club level setup.',
       'Manage users and roles below Club Admin.',
@@ -15,7 +15,7 @@ export const roleGuides = [
     key: 'head_manager',
     label: 'Team Admin',
     rank: 70,
-    summary: 'Runs team level operations and can manage key settings for assigned football staff.',
+    summary: 'Runs team level operations and can manage key settings for assigned football Coaches.',
     capabilities: [
       'Manage assigned team sessions and development records.',
       'Use Development Fields when the plan includes custom form fields.',
@@ -66,7 +66,7 @@ export const planGuides = [
     label: 'Individual Coach - Free',
     summary: 'Free account for one coach testing basic player records with a small squad.',
     details: [
-      'One team, one staff login, up to five players, basic development records, goals, notes, and limited history.',
+      'One team, one Coach login, up to five players, basic development records, goals, notes, and limited history.',
       'Family portal is preview only. Real parent access, parent communication, emails, and PDFs start at Single Team.',
       'Billing is visible so the account can upgrade from the sidebar.',
     ],
@@ -76,7 +76,7 @@ export const planGuides = [
     label: 'Single Team',
     summary: 'The complete Football Player product for one team.',
     details: [
-      'One team, up to five staff, and up to thirty players.',
+      'One team, up to five Coaches, and up to thirty players.',
       'Includes full record history, assessments, player notes, attachments, Parent Portal, parent emails, PDF reports, and communication history.',
       'Includes calendar, training events, fixtures, general events, match day, team polls, basic logo branding, and basic activity visibility.',
     ],
@@ -86,8 +86,8 @@ export const planGuides = [
     label: 'Small Club',
     summary: 'Club plan for oversight across several teams.',
     details: [
-      'Up to five teams, with staff and player limits kept as currently enforced until explicit commercial limits are approved.',
-      'Includes club admin access, club staff roles, shared player oversight, bulk invites/imports, and club-wide calendar controls.',
+      'Up to five teams, with Coaches and player limits kept as currently enforced until explicit commercial limits are approved.',
+      'Includes club admin access, club Coach roles, shared player oversight, bulk invites/imports, and club-wide calendar controls.',
       'Includes shared report templates, custom colours and club branding, full operational audit log, and basic club analytics.',
     ],
   },
@@ -96,7 +96,7 @@ export const planGuides = [
     label: 'Development Club',
     summary: 'Club plan for mature development operations across teams.',
     details: [
-      'Up to ten teams, with staff and player limits kept as currently enforced until explicit commercial limits are approved.',
+      'Up to ten teams, with Coaches and player limits kept as currently enforced until explicit commercial limits are approved.',
       'Includes advanced development analytics, player pathways, coach handovers, scheduled review cycles, and approval workflows.',
       'Includes custom assessment/report templates, club-wide operational exports, scheduled parent reports, and priority support.',
     ],
@@ -149,16 +149,16 @@ export const onboardingVideoGuides = [
   },
   {
     key: 'teams-staff',
-    title: 'Set up teams and staff',
+    title: 'Set up teams and Coaches',
     duration: '2 min',
     src: '/onboarding/teams-staff.mp4',
     poster: '/onboarding/video-poster.svg',
     captions: '/onboarding/teams-staff.vtt',
-    caption: 'Create teams, add staff logins, and allocate access based on the current plan and role limits.',
+    caption: 'Create teams, add Coach logins, and allocate access based on the current plan and role limits.',
     steps: [
       'Create or review teams from Team Management.',
-      'Invite staff or create staff logins.',
-      'Assign each staff member only to the teams they should manage.',
+      'Invite Coaches or create Coach logins.',
+      'Assign each Coach only to the teams they should manage.',
     ],
   },
   {

@@ -55,7 +55,7 @@ export function mergeCoachHomeOperationalSnapshots(primary, attention) {
 }
 
 export const COACH_PHASE_31G_CROSS_DOMAIN_TRANSITIONS = Object.freeze([
-  Object.freeze({ from: 'home', to: 'calendar', authority: 'active staff context' }),
+  Object.freeze({ from: 'home', to: 'calendar', authority: 'active Coach context' }),
   Object.freeze({ from: 'home', to: 'matchday', authority: 'active Team context' }),
   Object.freeze({ from: 'calendar', to: 'sessions', authority: 'canonical assessment session source' }),
   Object.freeze({ from: 'calendar', to: 'matchday', authority: 'canonical fixture source' }),
@@ -67,17 +67,17 @@ export const COACH_PHASE_31G_CROSS_DOMAIN_TRANSITIONS = Object.freeze([
   Object.freeze({ from: 'matchday', to: 'matchday', authority: 'scorer coordination workspace' }),
   Object.freeze({ from: 'chat', to: 'matchday', authority: 'authorised room context only' }),
   Object.freeze({ from: 'invites', to: 'calendar', authority: 'canonical event identity' }),
-  Object.freeze({ from: 'notification', to: 'authorised-target', authority: 'fresh staff context and target validation' }),
+  Object.freeze({ from: 'notification', to: 'authorised-target', authority: 'fresh Coach context and target validation' }),
 ])
 
 export const COACH_PHASE_31G_BACKEND_INVENTORY = Object.freeze([
-  Object.freeze({ classification: 'A', dependency: 'Canonical staff domains', disposition: 'Already production-ready', scope: 'Calendar, Players, Sessions, Match Day, Development, Resources, Chat, Polls, invites, Team and Club reads and commands' }),
+  Object.freeze({ classification: 'A', dependency: 'Canonical Coaches domains', disposition: 'Already production-ready', scope: 'Calendar, Players, Sessions, Match Day, Development, Resources, Chat, Polls, invites, Team and Club reads and commands' }),
   Object.freeze({ classification: 'A', dependency: 'Plan access, role, archive, and membership authority', disposition: 'Already production-ready', scope: 'Existing RLS, RPC, Netlify, and workspace policy' }),
   Object.freeze({ classification: 'B', dependency: 'Mobile test environment wrappers', disposition: 'Production path exists and test wrapper is test-only', scope: 'Synthetic hostile fixtures and fail-closed response-shape adapters' }),
   Object.freeze({ classification: 'C', dependency: 'Coach v3 installation contract', disposition: 'Genuine production backend delta before promotion', scope: 'Private per-installation ownership, preference, token rotation, and context binding equivalent to the test source' }),
   Object.freeze({ classification: 'C', dependency: 'Fixture-linked Formation Board route', disposition: 'Product decision and canonical linkage required', scope: 'Only if full Formation Board editing is later required inside Match Day mobile' }),
   Object.freeze({ classification: 'C', dependency: 'FA submission integration', disposition: 'Product and transport decision required', scope: 'No approved canonical message or provider format exists' }),
-  Object.freeze({ classification: 'C', dependency: 'Standalone staff Messages inbox', disposition: 'Product decision required', scope: 'Current canonical product has Staff Chat, Parent Chat, and communication history, not a separate inbox model' }),
+  Object.freeze({ classification: 'C', dependency: 'Standalone Coach Messages inbox', disposition: 'Product decision required', scope: 'Current canonical product has Coach Chat, Parent Chat, and communication history, not a separate inbox model' }),
   Object.freeze({ classification: 'D', dependency: 'Dense governance and destructive administration', disposition: 'Intentionally web-only', scope: 'Platform Admin, data transfer, plan ownership, Player transfer/archive, template governance, large uploads, reports, and audit history' }),
 ])
 

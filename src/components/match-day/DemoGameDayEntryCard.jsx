@@ -15,7 +15,7 @@ export function DemoGameDayEntryCard({ hasTodayMatch = false, onOpen }) {
             Demo Game Day
           </h2>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-            Practise the same Game Day experience staff use for fixtures, Match states, goals, cards, substitutions, and timeline corrections. Synthetic session data is isolated and communication is blocked.
+            Practise the same Game Day experience Coaches use for fixtures, Match states, goals, cards, substitutions, and timeline corrections. Synthetic session data is isolated and communication is blocked.
           </p>
           {hasTodayMatch ? (
             <p className="mt-2 text-xs font-bold text-[#4b5f55]">Today&apos;s real fixture remains the priority above.</p>

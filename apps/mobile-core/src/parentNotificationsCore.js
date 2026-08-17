@@ -196,7 +196,7 @@ export function resolveParentNotificationLinkId(data, parentLinks = []) {
 
 export function containsForbiddenParentNotificationContent(text, playerNames = []) {
   const normalizedText = normalize(text).toLowerCase()
-  const forbiddenSignals = ['@', 'assessment', 'staff note', 'phone number']
+  const forbiddenSignals = ['@', 'assessment', 'Coach note', 'phone number']
   if (forbiddenSignals.some((signal) => normalizedText.includes(signal))) return true
 
   return playerNames.some((name) => {

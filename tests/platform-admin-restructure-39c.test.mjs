@@ -27,14 +27,14 @@ test('Platform Admin overview cards are useful, separate parents, and link to fo
     'Customer clubs',
     'Teams',
     'Active players',
-    'Staff accounts',
+    'Coach accounts',
     'Users with Parent access',
     'Development records',
     'Active this week',
     'Open platform issues',
   ])
   assert.equal(cards.find((card) => card.label === 'Customer clubs')?.value, 7)
-  assert.equal(cards.find((card) => card.label === 'Staff accounts')?.value, 37)
+  assert.equal(cards.find((card) => card.label === 'Coach accounts')?.value, 37)
   assert.equal(cards.find((card) => card.label === 'Users with Parent access')?.value, 5)
   assert.equal(cards.find((card) => card.label === 'Active this week')?.value, 8)
   assert.equal(cards.find((card) => card.label === 'Open platform issues')?.value, 2)

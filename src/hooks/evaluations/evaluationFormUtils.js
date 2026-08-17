@@ -659,7 +659,7 @@ export function getDevelopmentRecordSaveFailureMessage(error) {
   }
 
   if (combinedMessage.includes('club_id') || combinedMessage.includes('coach_id')) {
-    return 'Your staff account is missing the club or team details needed to save this development record.'
+    return 'Your Coach account is missing the club or team details needed to save this development record.'
   }
 
   if (combinedMessage.includes('report date')) {

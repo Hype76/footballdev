@@ -43,6 +43,7 @@ const authorisedProductionSubmission = (
   || promotionReference === 'FP-MOBILE-POLLS-MATCH-SAVE-59'
   || promotionReference === 'FP-MOBILE-CHAT-SESSIONS-POLL-60'
   || promotionReference === 'FP-MOBILE-FEEDBACK-CORRECTIVE-61'
+  || promotionReference === 'FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62'
   || (platform === 'ios' && appRole === 'parent' && authorisedParentProductionReferences.has(promotionReference))
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49')
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-STEPPER-50')

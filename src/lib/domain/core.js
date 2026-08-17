@@ -1710,7 +1710,7 @@ export async function createPlayerStaffNote({ user, playerId, sessionId = '', no
       },
     })
   } catch (logError) {
-    console.error('Staff note activity could not be logged', logError)
+    console.error('Coach note activity could not be logged', logError)
   }
 
   const [noteWithAudioUrl] = await attachStaffVoiceNoteUrls([normalizePlayerStaffNoteRow(data)])

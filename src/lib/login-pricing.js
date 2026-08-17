@@ -8,7 +8,7 @@ export const pricingPlans = [
     priceLabel: 'No card needed',
     purchaseMode: PLAN_PURCHASE_MODES.free,
     description: 'For one coach testing basic player records with a small squad.',
-    features: ['1 team', '1 staff login', 'Up to 5 players', 'Basic development records', 'Goals and notes', 'Limited history', 'Family portal preview only', 'Football Player branding'],
+    features: ['1 team', '1 Coach login', 'Up to 5 players', 'Basic development records', 'Goals and notes', 'Limited history', 'Family portal preview only', 'Football Player branding'],
   },
   {
     planKey: PLAN_KEYS.singleTeam,
@@ -16,7 +16,7 @@ export const pricingPlans = [
     price: 12.99,
     purchaseMode: PLAN_PURCHASE_MODES.selfService,
     description: 'The complete Football Player product for one team.',
-    features: ['1 team', 'Up to 5 staff', 'Up to 30 players', 'Full record history', 'Assessments, notes, and attachments', 'Parent portal, parent emails, and PDF reports', 'Parent communication history', 'Calendar, training events, fixtures, match day, and polls', 'Basic logo branding and activity visibility'],
+    features: ['1 team', 'Up to 5 Coaches', 'Up to 30 players', 'Full record history', 'Assessments, notes, and attachments', 'Parent portal, parent emails, and PDF reports', 'Parent communication history', 'Calendar, training events, fixtures, match day, and polls', 'Basic logo branding and activity visibility'],
   },
   {
     planKey: PLAN_KEYS.smallClub,
@@ -24,7 +24,7 @@ export const pricingPlans = [
     price: 34.99,
     purchaseMode: PLAN_PURCHASE_MODES.selfService,
     description: 'For clubs that need oversight across several teams.',
-    features: ['Up to 5 teams', 'Club admin access', 'Club staff roles', 'Shared player oversight', 'Bulk invites and imports', 'Club-wide calendar and recurring events', 'Calendar export feed', 'Shared report templates', 'Custom colours and club branding', 'Full operational audit log', 'Basic club analytics'],
+    features: ['Up to 5 teams', 'Club admin access', 'Club Coach roles', 'Shared player oversight', 'Bulk invites and imports', 'Club-wide calendar and recurring events', 'Calendar export feed', 'Shared report templates', 'Custom colours and club branding', 'Full operational audit log', 'Basic club analytics'],
   },
   {
     planKey: PLAN_KEYS.developmentClub,

@@ -55,7 +55,7 @@ test('Parent Portal replaces the email inbox with controlled Chat rooms', async 
   ])
 
   assert.match(page, /activeSection="chat"/)
-  assert.match(workspace, /Chat with Staff/)
+  assert.match(workspace, /Chat with Coaches/)
   assert.match(workspace, /Team Chat/)
   assert.match(workspace, /Match Chats/)
   assert.match(workspace, /sendParentChatMessage/)
@@ -92,7 +92,7 @@ test('friends and family sharing creates one child scoped pending link and suppo
   assert.match(source, /getFamilyLinksForParentLink\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.match(source, /revokeFamilyPortalLink\(\{ linkId: familyLink\.id \}\)/)
   assert.match(source, /The link opens the selected child and nothing else\./)
-  assert.match(source, /Family members cannot see staff tools, club settings, or another child\./)
+  assert.match(source, /Family members cannot see Coach tools, club settings, or another child\./)
 
   assert.match(domainSource, /supabase\.rpc\('create_own_family_share_link'/)
   assert.match(domainSource, /target_parent_link_id: parentLink\.id/)

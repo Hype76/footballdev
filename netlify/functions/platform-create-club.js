@@ -245,7 +245,7 @@ export function buildWorkspaceOwnerInviteEmailContent({ billingArrangement = '',
   const safeClubName = cleanHeaderPart(clubName, 'Football Player')
   const planName = getPlanName(planKey)
   const paymentLine = billingArrangement === 'deferred'
-    ? `Payment starts on ${new Date(billingStartAt).toLocaleDateString('en-GB', { timeZone: 'Europe/London' })}. Staff access remains active until then. Plan: ${planName}.`
+    ? `Payment starts on ${new Date(billingStartAt).toLocaleDateString('en-GB', { timeZone: 'Europe/London' })}. Coach access remains active until then. Plan: ${planName}.`
     : billingMode === 'paid'
       ? `Payment setup will be shown after the account details are confirmed. Plan: ${planName}.`
       : `Payment setup is hidden because this workspace has complimentary access. Plan: ${planName}.`

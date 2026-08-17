@@ -67,15 +67,28 @@ function londonParts(value) {
 }
 
 function offsetMinutesAt(timestamp) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return 0
   const parts = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+    minute: '2-digit',
+    month: '2-digit',
+    second: '2-digit',
     timeZone: 'Europe/London',
-    timeZoneName: 'longOffset',
-  }).formatToParts(new Date(timestamp))
-  const label = parts.find((entry) => entry.type === 'timeZoneName')?.value || 'GMT'
-  const match = label.match(/GMT([+-])(\d{2}):(\d{2})/)
-  if (!match) return 0
-  const minutes = (Number(match[2]) * 60) + Number(match[3])
-  return match[1] === '-' ? -minutes : minutes
+    year: 'numeric',
+  }).formatToParts(date)
+  const part = (type) => Number(parts.find((entry) => entry.type === type)?.value || 0)
+  const localizedAsUtc = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  )
+  return Math.round((localizedAsUtc - date.getTime()) / 60000)
 }
 
 export function londonLocalToUtcIso(dateValue, timeValue) {

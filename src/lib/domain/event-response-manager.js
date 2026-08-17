@@ -94,7 +94,7 @@ function getResponseSourceLabel(value) {
   return {
     adult_player: 'Adult player',
     parent: 'Parent',
-    staff_on_behalf: 'Staff on behalf',
+    staff_on_behalf: 'Coach on behalf',
     token: 'Secure response link',
   }[normalizeStatus(value)] || 'Not recorded'
 }

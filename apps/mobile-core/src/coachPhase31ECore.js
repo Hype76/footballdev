@@ -21,12 +21,12 @@ export const COACH_PHASE_31E_BACKEND_DELTAS = Object.freeze([
   Object.freeze({ category: 'A', capability: 'Development reads and private drafts', authority: 'evaluations, feedback_forms, form_fields, evaluation_drafts, RLS' }),
   Object.freeze({ category: 'A', capability: 'Development final records', authority: 'canonical evaluation payload, form snapshot, plan enforcement, RLS' }),
   Object.freeze({ category: 'A', capability: 'Resource reads, links, sharing, and signed access', authority: 'resource_library_items and Resource Library RPCs' }),
-  Object.freeze({ category: 'A', capability: 'Staff Chat', authority: 'staff_chat tables, membership RLS, and Staff Chat RPCs' }),
-  Object.freeze({ category: 'A', capability: 'Parent Chat staff view', authority: 'get_parent_chat_* and send_parent_chat_message RPCs' }),
+  Object.freeze({ category: 'A', capability: 'Coach Chat', authority: 'staff_chat tables, membership RLS, and Coach Chat RPCs' }),
+  Object.freeze({ category: 'A', capability: 'Parent Chat Coach view', authority: 'get_parent_chat_* and send_parent_chat_message RPCs' }),
   Object.freeze({ category: 'A', capability: 'Poll management', authority: 'create_team_poll and set_team_poll_status RPCs' }),
   Object.freeze({ category: 'A', capability: 'Availability and invite reads', authority: 'Match Day, training availability, and Calendar invite read models' }),
   Object.freeze({ category: 'B', capability: 'Communication delivery proof', authority: 'test adapter must retain communications disabled and return intent only' }),
-  Object.freeze({ category: 'C', capability: 'Standalone staff Messages inbox', authority: 'current web product exposes communication history and domain-specific sends, not a separate staff inbox model' }),
+  Object.freeze({ category: 'C', capability: 'Standalone Coach Messages inbox', authority: 'current web product exposes communication history and domain-specific sends, not a separate Coach inbox model' }),
   Object.freeze({ category: 'D', capability: 'Large file upload and library governance', authority: 'web-only upload, archive, retention, and bulk library administration' }),
   Object.freeze({ category: 'D', capability: 'Development PDF and sharing administration', authority: 'server-owned report snapshot and governed web confirmation flow' }),
   Object.freeze({ category: 'E', capability: 'Generic offline mutation replay', authority: 'unnecessary and unsafe for communication, sharing, polls, invites, and finalisation' }),
@@ -226,7 +226,7 @@ export function normalizeCoachChatRoom(row = {}, kind = 'staff') {
     id: normalize(row.id),
     kind,
     type: normalize(row.type ?? row.room_type),
-    title: normalize(row.title) || (kind === 'staff' ? 'Staff Chat' : 'Parent Chat'),
+    title: normalize(row.title) || (kind === 'staff' ? 'Coach Chat' : 'Parent Chat'),
     clubId: normalize(row.club_id ?? row.clubId),
     clubName: normalize(row.club_name ?? row.clubName),
     teamId: normalize(row.team_id ?? row.teamId),
@@ -258,17 +258,17 @@ export function getCoachChatRoomDisplay(room = {}) {
   const opponent = normalize(room.opponent)
   const matchDate = normalize(room.matchDate).slice(0, 10)
   const kickoff = room.kickoffTimeTbc ? 'Time TBC' : normalize(room.kickoffTime).slice(0, 5)
-  let title = normalize(room.title) || (kind === 'staff' ? 'Staff Chat' : 'Parent Chat')
+  let title = normalize(room.title) || (kind === 'staff' ? 'Coach Chat' : 'Parent Chat')
   let context = teamName
 
   if (kind === 'parent' && type === 'parent_staff' && playerName) {
-    title = `${playerName} | Chat with staff`
+    title = `${playerName} | Chat with Coaches`
     context = teamName
   } else if (kind === 'parent' && type === 'match_squad') {
     title = `${teamName} v ${opponent || 'Opponent'}`
     context = [matchDate, kickoff].filter(Boolean).join(' at ')
   } else if (kind === 'parent' && type === 'team') {
-    context = `${teamName} | Parents and Team staff`
+    context = `${teamName} | Parents and Team Coaches`
   } else if (kind === 'parent' && playerName) {
     title = `${playerName} | ${title}`
   }
@@ -403,13 +403,13 @@ export function getCoachPhase31EAccess({ domain, entity = null, mutation = false
   const roleRank = Number(user?.roleRank || 0)
   if (!COACH_PHASE_31E_DOMAINS.includes(key)) return Object.freeze({ allowed: false, reason: 'Unsupported Coach domain.' })
   if (!user?.id || !user?.clubId || roleRank < 20 || ['parent_portal', 'adult_player', 'super_admin'].includes(role)) {
-    return Object.freeze({ allowed: false, reason: 'Active operational staff membership is required.' })
+    return Object.freeze({ allowed: false, reason: 'Active operational Coach membership is required.' })
   }
   if (['development', 'resources', 'chat', 'messages', 'polls', 'invites'].includes(key) && !user?.activeTeamId) {
     return Object.freeze({ allowed: false, reason: 'Choose an active Team context.' })
   }
   if (entity?.teamId && entity.teamId !== user.activeTeamId) return Object.freeze({ allowed: false, reason: 'Wrong Team context.' })
-  if (user?.contextStatus && user.contextStatus !== 'active') return Object.freeze({ allowed: false, reason: 'Staff membership is inactive.' })
+  if (user?.contextStatus && user.contextStatus !== 'active') return Object.freeze({ allowed: false, reason: 'Coach membership is inactive.' })
   if (user?.teamArchivedAt || user?.clubArchivedAt) return Object.freeze({ allowed: false, reason: 'Archived context is read-only.' })
   if (entity?.archivedAt || entity?.deletedAt || entity?.stale) return Object.freeze({ allowed: false, reason: 'This item is archived or unavailable.' })
   if (!mutation) return Object.freeze({ allowed: true, reason: '' })

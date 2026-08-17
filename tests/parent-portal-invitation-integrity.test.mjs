@@ -123,7 +123,7 @@ test('offered, accepted, declined, selected, unavailable, closed, and informatio
   assert.equal(getParentInvitationStatus(offered).label, 'Awaiting response')
   assert.equal(getParentInvitationStatus(accepted).label, 'Accepted')
   assert.equal(getParentInvitationStatus(declined).label, 'Declined')
-  assert.equal(getParentInvitationStatus(selected).label, 'Selected by staff')
+  assert.equal(getParentInvitationStatus(selected).label, 'Selected by Coaches')
   assert.equal(getParentInvitationStatus(unavailable).label, 'Not selected')
   assert.equal(getParentInvitationStatus(closed).label, 'Closed')
   assert.equal(getParentInvitationStatus(informational).label, 'No response required')

@@ -20,9 +20,9 @@ export const primaryNavigation = [
     helper: 'Named templates',
   },
   {
-    label: 'Staff Chat',
+    label: 'Coach Chat',
     path: '/staff-chat',
-    helper: 'Staff-only messages',
+    helper: 'Coach-only messages',
   },
   {
     label: 'Parent Chat',
@@ -88,7 +88,7 @@ export const clubNavigation = [
     helper: 'Shared club details',
   },
   {
-    label: 'Staff Access',
+    label: 'Coach Access',
     path: '/user-access',
     helper: 'Roles and permissions',
   },

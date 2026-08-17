@@ -102,7 +102,7 @@ test('parent-only users cannot return to staff while team-capable users can', ()
     }),
     'team',
   )
-  assert.equal(PARENT_PORTAL_STAFF_RETURN_LABEL, 'Return to staff platform')
+  assert.equal(PARENT_PORTAL_STAFF_RETURN_LABEL, 'Return to Coach platform')
 })
 
 test('desktop and mobile shells preserve safe context, actions, navigation, and safe areas', () => {

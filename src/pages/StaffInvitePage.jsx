@@ -30,7 +30,7 @@ export function StaffInvitePage() {
         const result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false) {
-          throw new Error(result.message || 'Staff invite could not be loaded.')
+          throw new Error(result.message || 'Coach invite could not be loaded.')
         }
 
         if (isCurrent) {
@@ -41,7 +41,7 @@ export function StaffInvitePage() {
 
         if (isCurrent) {
           setInvite(null)
-          setErrorMessage(error.message || 'Staff invite could not be loaded.')
+          setErrorMessage(error.message || 'Coach invite could not be loaded.')
         }
       } finally {
         if (isCurrent) {
@@ -63,7 +63,7 @@ export function StaffInvitePage() {
     setSuccessMessage('')
 
     if (!invite?.email) {
-      setErrorMessage('Staff invite could not be loaded.')
+      setErrorMessage('Coach invite could not be loaded.')
       return
     }
 
@@ -94,15 +94,15 @@ export function StaffInvitePage() {
       const result = await response.json().catch(() => ({}))
 
       if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Staff account could not be created.')
+        throw new Error(result.message || 'Coach account could not be created.')
       }
 
-      setSuccessMessage('Staff access created. You can now sign in.')
+      setSuccessMessage('Coach access created. You can now sign in.')
       setPassword('')
       setConfirmPassword('')
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Staff account could not be created.')
+      setErrorMessage(error.message || 'Coach account could not be created.')
     } finally {
       setIsSaving(false)
     }
@@ -118,30 +118,30 @@ export function StaffInvitePage() {
           alt=""
           className="mb-6 h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10"
         />
-        <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Staff invite</p>
-        <h1 className="text-2xl font-black text-[#101828]">Create staff access</h1>
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Coach invite</p>
+        <h1 className="text-2xl font-black text-[#101828]">Create Coach access</h1>
         <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-          Create your own login for the club role shown below. Do not share another staff member's account.
+          Create your own login for the club role shown below. Do not share another Coach's account.
         </p>
 
         {isLoading ? (
           <p className="mt-6 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold text-[#4b5f55]">
-            Opening staff invite...
+            Opening Coach invite...
           </p>
         ) : errorMessage && !invite ? (
           <div className="mt-6">
-            <NoticeBanner title="Staff invite not opened" message={errorMessage} />
+            <NoticeBanner title="Coach invite not opened" message={errorMessage} />
           </div>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Access details</p>
               <p className="text-sm font-black text-[#101828]">{invite.clubName || 'Football Player'}</p>
-              <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Team: {invite.teamName || 'Team access'}, Role: {invite.roleLabel || 'Staff'}</p>
+              <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Team: {invite.teamName || 'Team access'}, Role: {invite.roleLabel || 'Coach'}</p>
               <p className="mt-3 break-words text-sm font-semibold text-[#047857]">{invite.email}</p>
             </div>
 
-            {errorMessage ? <NoticeBanner title="Staff access not created" message={errorMessage} /> : null}
+            {errorMessage ? <NoticeBanner title="Coach access not created" message={errorMessage} /> : null}
             {successMessage ? (
               <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46]">
                 {successMessage}
@@ -194,7 +194,7 @@ export function StaffInvitePage() {
                   disabled={isSaving}
                   className={primaryButtonClass}
                 >
-                  {isSaving ? 'Creating access...' : 'Create Staff Access'}
+                  {isSaving ? 'Creating access...' : 'Create Coach Access'}
                 </button>
               </>
             ) : (

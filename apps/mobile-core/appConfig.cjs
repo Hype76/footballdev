@@ -35,6 +35,7 @@ function createMobileExpoConfig({
   bundleIdentifier,
   description,
   easProjectId = '',
+  plugins = [],
   name,
   packageName,
   scheme,
@@ -125,6 +126,7 @@ function createMobileExpoConfig({
           },
         ],
         'expo-secure-store',
+        ...plugins,
       ],
       extra: {
         ...environment,

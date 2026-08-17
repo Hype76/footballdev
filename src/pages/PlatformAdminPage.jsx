@@ -204,8 +204,8 @@ const PAGE_META = {
     description: 'Manage separate announcements for landing pages, logged-in users, and the Parent Portal.',
   },
   staff: {
-    title: 'Platform Staff',
-    description: 'Review staff role context and manage trusted Platform Admin accounts.',
+    title: 'Platform Admins',
+    description: 'Review platform roles and manage trusted Platform Admin accounts.',
   },
   hygiene: {
     title: 'Data Hygiene',
@@ -821,7 +821,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       const result = await response.json().catch(() => ({}))
 
       if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Platform admin staff could not be saved.')
+        throw new Error(result.message || 'Platform Admin accounts could not be saved.')
       }
 
       setPlatformAdminForm({
@@ -829,12 +829,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         email: '',
         password: '',
       })
-      setSuccessMessage('Platform admin staff user saved.')
-      showToast({ title: 'Platform admin saved', message: 'Platform admin staff access has been saved.' })
+      setSuccessMessage('Platform admin Coach saved.')
+      showToast({ title: 'Platform admin saved', message: 'Platform admin Coach access has been saved.' })
       refreshStats()
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Platform admin staff could not be saved.')
+      setErrorMessage(error.message || 'Platform Admin accounts could not be saved.')
     } finally {
       setIsSavingPlatformAdmin(false)
     }
@@ -872,14 +872,14 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       const result = await response.json().catch(() => ({}))
 
       if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Platform admin staff user could not be deleted.')
+        throw new Error(result.message || 'Platform admin Coach could not be deleted.')
       }
 
-      setSuccessMessage('Platform admin staff user deleted.')
+      setSuccessMessage('Platform admin Coach deleted.')
       refreshStats()
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Platform admin staff user could not be deleted.')
+      setErrorMessage(error.message || 'Platform admin Coach could not be deleted.')
     } finally {
       setDeletingPlatformAdminId('')
       setPlatformAdminDeleteTarget(null)
@@ -1276,9 +1276,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           roleKey: accountActionTarget.nextRole?.roleKey,
           requestSource: 'platform_admin',
         })
-        setSuccessMessage('Staff role updated.')
+        setSuccessMessage('Coach role updated.')
         showToast({
-          title: 'Staff role updated',
+          title: 'Coach role updated',
           message: `${accountActionTarget.name || accountActionTarget.email} is now ${accountActionTarget.nextRole?.roleLabel}.`,
         })
       } else if (accountActionTarget.action === 'delete') {
@@ -1449,7 +1449,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         <div className="space-y-5">
           <PlatformHeroSection
             eyebrow="Club control centre"
-            title="Manage club access, plans, teams, and adult staff accounts from one place."
+            title="Manage club access, plans, teams, and adult Coach accounts from one place."
             description="This area avoids showing child personal details and focuses only on club level operations."
             status={isLoading ? 'Refreshing club data' : 'Club data loaded'}
             detail="Filter by club, review billing state, suspend access, or remove unused workspaces."
@@ -1645,7 +1645,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         items={[
           `Team: ${teamDeleteTarget?.name || 'Selected team'}`,
           `Club: ${teamDeleteTarget?.clubName || 'No club entered'}`,
-          'Team staff allocations linked to this team',
+          'Team Coach allocations linked to this team',
           'Team links on sessions will be cleared by the database where required',
           'Other team links follow database delete rules and may be cleared or block deletion',
         ]}
@@ -1668,12 +1668,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             : accountActionTarget?.action === 'suspend'
               ? 'Suspend user access'
               : accountActionTarget?.action === 'role'
-                ? 'Confirm staff role change'
+                ? 'Confirm Coach role change'
                 : 'Reactivate user access'
         }
         message={
           accountActionTarget?.action === 'role'
-            ? 'Review the staff member, current role, new role, scope, and access consequence before confirming.'
+            ? 'Review the Coach, current role, new role, scope, and access consequence before confirming.'
             : 'This platform admin action requires your password before it can continue.'
         }
         items={[
@@ -1693,7 +1693,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           accountActionTarget?.action === 'delete'
             ? 'The user profile, club membership, and team allocations will be removed from the app.'
             : accountActionTarget?.action === 'role'
-              ? 'No staff email or notification will be sent.'
+              ? 'No Coach email or notification will be sent.'
               : 'The user will be blocked from using their workspace until reactivated.',
         ]}
         confirmLabel={

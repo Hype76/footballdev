@@ -1055,7 +1055,7 @@ function ParentHome() {
     try {
       await expressParentScorerInterest(selectedMobileUser, match.id)
       await loadParentData()
-      setNotice({ message: 'Your scorer interest has been registered with staff.', tone: 'success' })
+      setNotice({ message: 'Your scorer interest has been registered with Coaches.', tone: 'success' })
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, 'Scorer interest could not be registered.'), tone: 'error' })
     } finally {
@@ -2128,7 +2128,7 @@ function SettingsScreen({
           <View style={styles.settingCopy}>
             <Text style={styles.cardTitle}>Parent updates</Text>
             <Text style={styles.bodyText}>Receive Parent messages, polls and Matchday updates. You can turn this off at any time.</Text>
-            <Text style={styles.helperText}>Permission is requested only when you turn notifications on. Full Player names, message text, assessments and staff notes are never included.</Text>
+            <Text style={styles.helperText}>Permission is requested only when you turn notifications on. Full Player names, message text, assessments and Coach notes are never included.</Text>
             {!notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
               <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
             ) : null}

@@ -27,11 +27,11 @@ function parentChatLabel(roomType) {
 }
 
 function staffChatLabel(conversationType) {
-  if (conversationType === 'team_staff') return 'Team Staff Chat'
-  if (conversationType === 'player_staff') return 'Player Staff Chat'
-  if (conversationType === 'club_staff') return 'Club Staff Chat'
-  if (conversationType === 'group') return 'Staff Group Chat'
-  return 'Direct Staff Chat'
+  if (conversationType === 'team_staff') return 'Team Coach Chat'
+  if (conversationType === 'player_staff') return 'Player Coach Chat'
+  if (conversationType === 'club_staff') return 'Club Coach Chat'
+  if (conversationType === 'group') return 'Coach Group Chat'
+  return 'Direct Coach Chat'
 }
 
 export function buildParentChatMobileNotification(intent = {}) {
@@ -67,7 +67,7 @@ export function buildStaffChatMobileNotification(intent = {}) {
   return {
     body: detailLevel === 'detailed'
       ? `A new message is waiting in ${chatLabel}.`
-      : 'A new staff Chat update is available.',
+      : 'A new Coach Chat update is available.',
     data: {
       app: 'coach',
       chatType: normalizeText(intent.conversation_type),

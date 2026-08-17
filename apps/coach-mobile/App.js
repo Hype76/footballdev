@@ -101,7 +101,7 @@ function LoginScreen() {
   return (
     <MobileLoginScreen
       authError={authError}
-      copy="Use the same active staff account you use on the website."
+      copy="Use the same active Coach account you use on the website."
       emailPlaceholder="coach@example.com"
       kicker="Football Player Coach"
       logoSource={require('./assets/football-player-logo.png')}
@@ -219,7 +219,7 @@ function CoachHome() {
     try {
       const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, easProjectId: config.easProjectId })
       setNotificationState(next)
-      if (!silent) setNotice(next.enabled ? 'Coach notifications are enabled for this staff context.' : next.message)
+      if (!silent) setNotice(next.enabled ? 'Coach notifications are enabled for this Coach context.' : next.message)
       return next
     } catch (error) {
       const message = getCoachPushSetupFailureMessage(error)
@@ -297,7 +297,7 @@ function CoachHome() {
     setChatNotificationTarget(null)
     const resolved = resolveCoachRoute(route, activeContext)
     if (!resolved) {
-      setNotice('That destination is not available in this staff context.')
+      setNotice('That destination is not available in this Coach context.')
       return false
     }
     const target = getCoachRouteState(resolved)
@@ -330,7 +330,7 @@ function CoachHome() {
     const targetContext = contextResolution.contexts.find((context) => context.id === result.contextId)
     const resolved = resolveCoachRoute(result.route, targetContext)
     if (!targetContext || !resolved) {
-      setNotice('This Coach destination is not available in the current staff role.')
+      setNotice('This Coach destination is not available in the current Coach role.')
       return false
     }
     if (targetContext.id !== activeContext?.id) {
@@ -457,7 +457,7 @@ function CoachHome() {
   const selectContext = useCallback((contextId) => {
     const nextContext = contextResolution.contexts?.find((context) => context.id === contextId)
     if (!nextContext) {
-      setNotice('That staff context is no longer available.')
+      setNotice('That Coach context is no longer available.')
       return
     }
     const transition = createCoachContextTransition(activeContext, nextContext)
@@ -480,7 +480,7 @@ function CoachHome() {
     }
   }, [displayTheme])
 
-  if (isProfileLoading) return <LoadingScreen message="Resolving staff access..." />
+  if (isProfileLoading) return <LoadingScreen message="Resolving Coach access..." />
   if (!user) {
     return (
       <AccessScreen
@@ -490,11 +490,11 @@ function CoachHome() {
       />
     )
   }
-  if (!contextOwnedByCurrentUser) return <LoadingScreen message="Resolving staff access..." />
+  if (!contextOwnedByCurrentUser) return <LoadingScreen message="Resolving Coach access..." />
   if (!contextResolution.allowed) {
     return (
       <AccessScreen
-        message={authError || 'An active operational staff context is required.'}
+        message={authError || 'An active operational Coach context is required.'}
         onSignOut={signOut}
         title="Coach access unavailable"
       />
@@ -522,7 +522,10 @@ function CoachHome() {
         ) : null}
         {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
         <Animated.ScrollView
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           contentContainerStyle={styles.content}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="always"
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { useNativeDriver: false })}
           scrollEventThrottle={16}
@@ -698,7 +701,7 @@ function FoundationRoute({ context, route, ...props }) {
             <SecondaryAction label="Sessions" onPress={() => props.onNavigate('sessions')} />
             <SecondaryAction label="Resources" onPress={() => props.onNavigate('resources')} />
           </View>
-          <Text style={styles.helperText}>Staff assignment, squad governance, Team transfer, archive, and destructive administration remain in the authoritative web workflow.</Text>
+          <Text style={styles.helperText}>Coach assignment, squad governance, Team transfer, archive, and destructive administration remain in the authoritative web workflow.</Text>
         </Section>
       </ScreenIntro>
     )
@@ -717,7 +720,7 @@ function FoundationRoute({ context, route, ...props }) {
           <SecondaryAction label="Club Calendar" onPress={() => props.onNavigate('calendar')} />
           <SecondaryAction label="Resources" onPress={() => props.onNavigate('resources')} />
           <SecondaryAction label="Chat" onPress={() => props.onNavigate('chat')} />
-          <Text style={styles.helperText}>Club-wide staff, plan ownership, archive, and settings administration remain in the authoritative web workflow.</Text>
+          <Text style={styles.helperText}>Club-wide Coaches, plan ownership, archive, and settings administration remain in the authoritative web workflow.</Text>
         </Section>
       </ScreenIntro>
     )
@@ -749,7 +752,7 @@ function FoundationRoute({ context, route, ...props }) {
 function MoreScreen({ navigation, onSelectMore }) {
   const { styles } = useCoachTheme()
   return (
-    <ScreenIntro copy="Open the staff tools available for this role and context." title="More">
+    <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
       <View style={styles.stackTight}>
         {navigation.more.map((route) => <MenuRow description={route.description} key={route.key} label={route.label} onPress={() => onSelectMore(route.key)} />)}
       </View>
@@ -802,7 +805,7 @@ function SettingsScreen({
       </Section>
       <Section title="Notifications">
         <InfoRow label="Status" value={getCoachNotificationStatusLabel(notificationState || {})} />
-        <Text style={styles.bodyText}>{notificationState?.registered ? 'Registered to this Coach installation and staff context.' : notificationState?.message || 'Not enabled on this device.'}</Text>
+        <Text style={styles.bodyText}>{notificationState?.registered ? 'Registered to this Coach installation and Coach context.' : notificationState?.message || 'Not enabled on this device.'}</Text>
         {notificationState?.registered ? (
           <View style={styles.quickGrid}>
             {['minimal', 'detailed'].map((level) => (
@@ -854,13 +857,13 @@ function ContextSwitcher({ contexts, onSelect, selectedContextId }) {
   if (contexts.length < 2) return null
   return (
     <View style={styles.contextShell}>
-      <Text style={styles.contextLabel}>Active staff context</Text>
+      <Text style={styles.contextLabel}>Active Coach context</Text>
       <ScrollView contentContainerStyle={styles.contextList} horizontal showsHorizontalScrollIndicator={false}>
         {contexts.map((context) => {
           const selected = context.id === selectedContextId
           return (
             <Pressable
-              accessibilityHint="Changes the active staff Team or Club context"
+              accessibilityHint="Changes the active Team or Club Coach context"
               accessibilityLabel={`${context.teamName || context.clubName}, ${context.roleLabel}`}
               accessibilityRole="button"
               accessibilityState={{ selected }}
@@ -1076,7 +1079,7 @@ function AppContent() {
   } = useMobileAuth()
 
   if ([MOBILE_STARTUP_STATES.BOOTING, MOBILE_STARTUP_STATES.RESTORING_SESSION, MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT].includes(startupState)) {
-    return <LoadingScreen message={startupState === MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT ? 'Resolving staff context...' : 'Loading Football Player Coach...'} />
+    return <LoadingScreen message={startupState === MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT ? 'Resolving Coach context...' : 'Loading Football Player Coach...'} />
   }
   if (startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {
     return <StartupRecoveryScreen diagnosticCode={startupDiagnosticCode} message={authError} onReset={resetLocalAppData} onRetry={retryStartup} />

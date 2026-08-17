@@ -35,10 +35,10 @@ function assertPlayerChatResult(result, fallbackMessage) {
   }
 
   const messages = {
-    login_or_staff_context_required: 'Authorised staff access is required for player Chat.',
+    login_or_staff_context_required: 'Authorised Coach access is required for player Chat.',
     no_active_parent_recipient: 'This player has no active Parent Portal recipient for a parent conversation.',
     player_scope_mismatch: 'This player is not available in the current club context.',
-    team_authority_required: 'The current staff assignment cannot access this player conversation.',
+    team_authority_required: 'The current Coach assignment cannot access this player conversation.',
     unsupported_conversation_type: 'This player conversation type is not supported.',
   }
 

@@ -22,7 +22,7 @@ function isValidEmail(value) {
 }
 
 function getDisplayName(email) {
-  return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Staff User'
+  return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Coach'
 }
 
 function isExistingUserError(error) {
@@ -67,19 +67,19 @@ async function getInvite(token) {
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('This staff invite could not be found.'), { statusCode: 404 })
+    throw Object.assign(new Error('This Coach invite could not be found.'), { statusCode: 404 })
   }
 
   if (data.accepted_at) {
-    throw Object.assign(new Error('This staff invite has already been accepted.'), { statusCode: 409 })
+    throw Object.assign(new Error('This Coach invite has already been accepted.'), { statusCode: 409 })
   }
 
   if ((data.status && data.status !== 'pending') || data.cancelled_at || data.replaced_at) {
-    throw Object.assign(new Error('This staff invite is no longer active.'), { statusCode: 410 })
+    throw Object.assign(new Error('This Coach invite is no longer active.'), { statusCode: 410 })
   }
 
   if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-    throw Object.assign(new Error('This staff invite has expired. Ask the club to send a new staff invite.'), { statusCode: 410 })
+    throw Object.assign(new Error('This Coach invite has expired. Ask the club to send a new Coach invite.'), { statusCode: 410 })
   }
 
   return data
@@ -97,7 +97,7 @@ export async function handler(event) {
     const password = String(body.password ?? '')
 
     if (!token) {
-      return failureResponse(400, 'Staff invite token is required.')
+      return failureResponse(400, 'Coach invite token is required.')
     }
 
     if (!isValidEmail(email)) {
@@ -114,7 +114,7 @@ export async function handler(event) {
     const inviteEmail = normalizeEmail(invite.email)
 
     if (inviteEmail !== email) {
-      return failureResponse(403, 'This staff invite is for a different email address.')
+      return failureResponse(403, 'This Coach invite is for a different email address.')
     }
 
     const displayName = getDisplayName(email)
@@ -170,7 +170,7 @@ export async function handler(event) {
     }
 
     if (!staffUserId) {
-      return failureResponse(400, 'Could not create staff auth user.')
+      return failureResponse(400, 'Could not create Coach account.')
     }
 
     const { error: profileError } = await supabaseAdmin
@@ -227,7 +227,7 @@ export async function handler(event) {
       .eq('teams.status', 'active')
 
     if (inviteTeamsError && inviteTeamsError.code !== '42P01') {
-      return failureResponse(400, 'Staff team assignments could not be verified.')
+      return failureResponse(400, 'Coach team assignments could not be verified.')
     }
 
     const inviteTeamIds = [
@@ -276,6 +276,6 @@ export async function handler(event) {
     })
   } catch (error) {
     console.error(error)
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Staff account could not be created.')
+    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Coach account could not be created.')
   }
 }

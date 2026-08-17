@@ -15,10 +15,10 @@ export function CreateStaffLoginSection({
     <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10" data-tour-id="create-staff-section">
       <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Step 2: Scoped access</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invite staff with team access</h2>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invite Coaches with team access</h2>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
           {canCreateMoreStaff
-            ? 'Send a staff invite, choose the role, and assign the person to one team now. They stay pending until they accept, but setup can continue.'
+            ? 'Send a Coach invite, choose the role, and assign the person to one team now. They stay pending until they accept, but setup can continue.'
             : staffLimitMessage}
         </p>
       </div>
@@ -26,7 +26,7 @@ export function CreateStaffLoginSection({
       <form className="space-y-4 px-5 py-5 sm:px-6" onSubmit={onCreateCoach}>
         <div className="grid gap-3 lg:grid-cols-3">
           <label className="block">
-            <span className={labelClass}>Staff email</span>
+            <span className={labelClass}>Coach email</span>
             <input
               type="email"
               name="email"
@@ -93,14 +93,14 @@ export function CreateStaffLoginSection({
           disabled={isSaving || assignableRoles.length === 0 || !canCreateMoreStaff}
           title={
             isSaving
-              ? 'Please wait while staff access is being saved.'
+              ? 'Please wait while Coach access is being saved.'
               : assignableRoles.length === 0
-                ? 'Create an assignable staff role before adding staff access.'
+                ? 'Create an assignable Coach role before adding Coach access.'
                 : canCreateMoreStaff ? undefined : staffLimitMessage
           }
           className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          Send staff invite
+          Send Coach invite
         </button>
       </form>
     </section>

@@ -16,7 +16,7 @@ test('Resource Library route and navigation are staff-only gated without removin
     readFile(navigationUrl, 'utf8'),
   ])
 
-  assert.match(navigation, /label: 'Staff Chat'/)
+  assert.match(navigation, /label: 'Coach Chat'/)
   assert.match(navigation, /path: '\/staff-chat'/)
   assert.match(navigation, /label: 'Team Resources'/)
   assert.match(navigation, /path: '\/resources'/)

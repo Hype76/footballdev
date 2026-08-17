@@ -200,7 +200,7 @@ export async function assertStaffLoginLimitForEmail({ user, email }) {
     user: planUser,
     clubId: user.clubId,
     limitName: 'staffLogins',
-    label: 'Staff logins',
+    label: 'Coach logins',
     currentCount: getUniqueStaffAccessEmails([...accessEmails], []).size,
   })
 }

@@ -299,7 +299,7 @@ function transportFields(response) {
 
   return `<fieldset>
     <legend>Transport help</legend>
-    <p class="availability-summary">Staff coordinate transport manually. These answers are not shared with other parents.</p>
+    <p class="availability-summary">Coaches coordinate transport manually. These answers are not shared with other parents.</p>
     ${yesNoFieldset({
       name: 'transportNeedsLift',
       legend: 'Does this player need a lift?',

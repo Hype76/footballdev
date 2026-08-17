@@ -265,16 +265,16 @@ test('fixture setup modal remains constrained and scrollable on desktop and mobi
 })
 
 test('parent portal uses date-only Time TBC display and calendar export handling', () => {
-  assert.match(parentPortalSource, /kickoffTimeTbc \? 'Kick-off: Time TBC'/)
-  assert.match(parentPortalSource, /startsAt: kickoffTimeTbc \? ''/)
-  assert.match(parentPortalSource, /endsAt: kickoffTimeTbc \? ''/)
+  assert.match(parentPortalSource, /const kickoffLabel = getFixtureKickoffLabel\(match\)/)
+  assert.match(parentPortalSource, /startsAt: kickoffTimeTbc \? '' : invitationGroup\?\.eventStart/)
+  assert.match(parentPortalSource, /endsAt: kickoffTimeTbc \? '' : invitationGroup\?\.eventEnd/)
   assert.match(parentPortalSource, /const startLabel = kickoffTimeTbc \? 'TBC'/)
   assert.doesNotMatch(parentPortalSource, /kickoffTime \|\| '00:00'/)
 })
 
 test('confirmed-time parent calendar exports retain their exact times', () => {
-  assert.match(parentPortalSource, /const startTime = kickoffTimeTbc \? '' : toTimeOnly\(data\.arrivalTime \|\| data\.kickoffTime \|\| event\.time\)/)
-  assert.match(parentPortalSource, /const endTime = kickoffTimeTbc \? '' : toTimeOnly\(data\.kickoffTime\)/)
+  assert.match(parentPortalSource, /invitationGroup\?\.eventStart \|\| \(match\.matchDate && match\.kickoffTime/)
+  assert.match(parentPortalSource, /endsAt: kickoffTimeTbc \? '' : invitationGroup\?\.eventEnd \|\| ''/)
 })
 
 test('availability response and invite emails expose Time TBC without fake arrival', () => {

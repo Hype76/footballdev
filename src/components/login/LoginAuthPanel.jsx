@@ -38,7 +38,7 @@ export function LoginAuthPanel({
   const modeCopy = {
     login: {
       title: 'Sign in to Football Player',
-      body: 'For Club Admins, Team Admins, coaches, and staff.',
+      body: 'For Club Admins, Team Admins, managers, and Coaches.',
       submitLabel: 'Log in',
     },
     'parent-login': {
@@ -78,7 +78,7 @@ export function LoginAuthPanel({
 
         <div className="mt-5 grid grid-cols-3 gap-1 rounded-lg border border-white/12 bg-white/[0.055] p-1">
           {[
-            ['login', 'Staff'],
+            ['login', 'Coach'],
             ['parent-login', 'Parent'],
             ['signup', 'Sign Up'],
           ].map(([nextMode, label]) => (

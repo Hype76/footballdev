@@ -67,7 +67,7 @@ function hasBillingRecords(billing, club) {
 const billingRules = [
   {
     label: 'Club Admin only',
-    body: 'Billing changes affect every team and staff account in this club.',
+    body: 'Billing changes affect every team and Coach account in this club.',
   },
   {
     label: 'Managed setup',
@@ -252,7 +252,7 @@ export function BillingPage() {
 
       {!isLoading && visibleClub?.billingAccessState === 'payment_required' ? (
         <SectionCard
-          title="Restore staff editing"
+          title="Restore Coach editing"
           description="Payment restores operational access only after Stripe confirms the subscription through the signed webhook."
         >
           <div className="flex flex-col gap-3 rounded-lg border border-[#f3c98b] bg-[#fff8e8] p-4 sm:flex-row sm:items-center sm:justify-between">

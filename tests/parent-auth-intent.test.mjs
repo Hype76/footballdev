@@ -185,7 +185,7 @@ test('club login intent only runs create-club completion for explicit public fre
   assert.match(profileSection, /if \(data\?\.teamAccessUnavailable\) \{\s*return data\s*\}/)
   assert.match(authSource, /if \(profile\?\.teamAccessUnavailable\) \{[\s\S]*setAccessRouteMismatch\(profile\)/)
   assert.match(routerSource, /function TeamAccessUnavailableState/)
-  assert.match(routerSource, /Club staff access was not found/)
+  assert.match(routerSource, /Club Coach access was not found/)
   assert.match(routerSource, /accessRouteMismatch\?\.teamAccessUnavailable/)
   assert.match(signInSection, /if \(error\) \{[\s\S]*clearLoginAccessIntent\(\)/)
   assert.match(signInSection, /if \(error\) \{[\s\S]*window\.sessionStorage\.removeItem\(SELECTED_ACCESS_MODE_STORAGE_KEY\)/)

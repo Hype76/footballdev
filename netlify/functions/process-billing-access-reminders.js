@@ -10,7 +10,7 @@ function reminderCopy(type, workspace) {
   const timing = type === '7_day' ? 'in 7 days' : type === '1_day' ? 'tomorrow' : 'today'
   return {
     subject: `Payment for ${workspace.name} starts ${timing}`,
-    text: `Payment for ${workspace.name} starts ${timing}, on ${dueDate}. Staff access remains available until the billing start date. After that date, staff can still view and export existing information, while editing and management pause until Stripe confirms an active subscription. Sign in at https://footballplayer.online/billing to continue with Stripe.`,
+    text: `Payment for ${workspace.name} starts ${timing}, on ${dueDate}. Coach access remains available until the billing start date. After that date, Coaches can still view and export existing information, while editing and management pause until Stripe confirms an active subscription. Sign in at https://footballplayer.online/billing to continue with Stripe.`,
   }
 }
 

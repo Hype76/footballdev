@@ -184,8 +184,8 @@ export function getParentInvitationTypeLabel(invitation = {}) {
 export function getParentInvitationStatus(invitation = {}) {
   if (invitation.invitationType === 'match_role' && invitation.selectionState === 'selected') {
     return {
-      label: 'Selected by staff',
-      detail: invitation.lockReason || 'Staff have confirmed this Match Day role.',
+      label: 'Selected by Coaches',
+      detail: invitation.lockReason || 'Coaches have confirmed this Match Day role.',
       tone: 'selected',
     }
   }

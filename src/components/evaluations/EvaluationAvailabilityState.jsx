@@ -74,7 +74,7 @@ export function EvaluationAvailabilityState({
     return (
       <SectionCard
         title="No teams available"
-        description="Development records use real club teams so staff can be routed and filtered correctly."
+        description="Development records use real club teams so Coaches can be routed and filtered correctly."
       >
         <div className={emptyPanelClass}>
           <p>{noTeamsMessage}</p>

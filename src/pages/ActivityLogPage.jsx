@@ -11,11 +11,11 @@ import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supab
 const activityRules = [
   {
     label: 'Find the change',
-    body: 'Start with the person, action, and record type before asking staff what happened.',
+    body: 'Start with the person, action, and record type before asking Coaches what happened.',
   },
   {
     label: 'Keep scope tight',
-    body: 'Club staff see their allowed football workspace. Platform admins can inspect the wider trail.',
+    body: 'Club Coaches see their allowed football workspace. Platform admins can inspect the wider trail.',
   },
   {
     label: 'Use facts first',

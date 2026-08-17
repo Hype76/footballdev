@@ -197,7 +197,7 @@ function getPrivateDraftBannerCopy(status, draftInfo) {
 
   return {
     title: 'Draft saved',
-    message: `This Development Record draft is saved privately for your staff account.${lastSavedMessage}`,
+    message: `This Development Record draft is saved privately for your Coach account.${lastSavedMessage}`,
   }
 }
 
@@ -1888,7 +1888,7 @@ export function CreateEvaluationPage() {
         clearDraftBaseline('saved')
         showToast({
           title: 'Draft saved',
-          message: 'This Development Record draft is saved privately for your staff account.',
+          message: 'This Development Record draft is saved privately for your Coach account.',
         })
         return serverDraft
       } catch (error) {

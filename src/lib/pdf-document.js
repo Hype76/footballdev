@@ -871,7 +871,7 @@ function renderFormationBoardDocument(document, branding) {
           ${document.notes ? `<section><h2>Notes</h2><p class="formation-notes">${escapeHtml(document.notes)}</p></section>` : ''}
         </aside>
       </div>
-      <footer class="formation-footer">Footballplayer.online | Team staff resource</footer>
+      <footer class="formation-footer">Footballplayer.online | Team Coaches resource</footer>
     </main>
   `
 }

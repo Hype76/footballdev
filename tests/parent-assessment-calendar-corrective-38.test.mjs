@@ -212,18 +212,15 @@ test('all-day, local product time, malformed, and null values are handled determ
   assert.equal(formatParentProductDateTime(null), 'Time to be confirmed')
 })
 
-test('Parent Calendar converts Assessment times, exposes cancellation, reschedules, and avoids duplicates', () => {
+test('Parent Calendar converts Assessment times, removes cancellations, reschedules, and avoids duplicates', () => {
   const cancelled = {
     childName: 'Alex', eventEnd: '2026-08-10T09:00:00Z', eventId: ids.cancelledSession,
     eventStart: '2026-08-10T08:00:00Z', eventTitle: 'Assessment', invitationId: 'invite-cancelled',
     invitationState: 'cancelled', invitationType: 'calendar_attendance', responseState: 'available',
     sourceEventType: 'assessment_session', sourceRecordId: ids.cancelledSession,
   }
-  const [calendarEvent] = buildParentCalendarEvents({ invitations: [cancelled] })
-  assert.equal(calendarEvent.calendarDate, '2026-08-10')
-  assert.equal(calendarEvent.calendarTime, '09:00')
-  assert.equal(calendarEvent.status, 'cancelled')
-  assert.equal(calendarEvent.responseState, 'cancelled')
+  const cancelledEvents = buildParentCalendarEvents({ invitations: [cancelled] })
+  assert.equal(cancelledEvents.length, 0)
 
   const rescheduled = buildParentCalendarEvents({ invitations: [{
     ...cancelled,
@@ -239,17 +236,14 @@ test('Parent Calendar converts Assessment times, exposes cancellation, reschedul
     calendarEvents: [{ id: ids.cancelledSession, startsAt: '2026-08-10T08:00:00Z', title: 'Assessment' }],
     invitations: [cancelled],
   })
-  assert.equal(deduplicated.length, 1)
-  assert.equal(deduplicated[0].responseState, 'cancelled')
-  assert.equal(deduplicated[0].status, 'cancelled')
+  assert.equal(deduplicated.length, 0)
 
   const homeGroups = getParentCalendarGroups([
-    calendarEvent,
     { ...rescheduled, status: 'closed' },
     { calendarDate: '2026-08-10', startsAt: '2026-08-10', status: 'scheduled' },
   ], new Date('2026-08-10T12:00:00Z'))
   assert.equal(homeGroups.upcoming.length, 1)
-  assert.equal(homeGroups.recent.length, 2)
+  assert.equal(homeGroups.recent.length, 1)
 })
 
 test('Parent Match Calendar preserves canonical time-only fields and local sort semantics', () => {

@@ -24,7 +24,7 @@ export function RecentActivitySection({
   return (
     <SectionCard
       title="Recent activity"
-      description="Choose a staff member or event type, then inspect the exact record context before replying."
+      description="Choose a Coach or event type, then inspect the exact record context before replying."
     >
       {isLoading ? (
         <div className={loadingStateClass}>

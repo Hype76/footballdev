@@ -186,12 +186,12 @@ function ClubAdminHomeView({
   const adminActions = [
     {
       label: 'Manage teams',
-      description: 'Create teams, rename age groups, and check staff allocations.',
+      description: 'Create teams, rename age groups, and check Coach allocations.',
       path: '/teams',
     },
     {
-      label: 'Staff Access',
-      description: 'Invite staff, review roles, and remove pending access.',
+      label: 'Coach Access',
+      description: 'Invite Coaches, review roles, and remove pending access.',
       path: '/user-access',
     },
     {
@@ -212,7 +212,7 @@ function ClubAdminHomeView({
   ].filter(Boolean)
   const metricItems = [
     { label: 'Teams', value: teams.length },
-    { label: 'Staff', value: staffUsers.length },
+    { label: 'Coaches', value: staffUsers.length },
     { label: 'Players', value: players.length },
     { label: 'Pending invites', value: pendingInvites.length },
     { label: 'Plan', value: getPlanSummary(user) },
@@ -500,7 +500,7 @@ export function CoachHomePage() {
           const [teamsResult, playersResult, staffResult, invitesResult] = await Promise.allSettled([
             withRequestTimeout(() => getTeams(user), 'Could not load teams.'),
             withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
-            withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load staff.'),
+            withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load Coaches.'),
             withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending invites.'),
           ])
 
@@ -719,10 +719,10 @@ export function CoachHomePage() {
         <section className={surfaceClass}>
           <div className={sectionHeaderClass}>
             <div>
-              <p className={eyebrowClass}>Staff voice notes</p>
+              <p className={eyebrowClass}>Coach voice notes</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--text-primary)]">Unassigned voice notes</h2>
               <p className={`mt-2 ${bodyTextClass}`}>
-                Assign saved staff notes to a player when you are ready.
+                Assign saved Coach notes to a player when you are ready.
               </p>
             </div>
           </div>
@@ -737,13 +737,13 @@ export function CoachHomePage() {
               <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-sm font-black text-[var(--text-primary)]">{note.note || 'Staff voice note'}</p>
+                    <p className="text-sm font-black text-[var(--text-primary)]">{note.note || 'Coach voice note'}</p>
                     <p className="mt-1 text-xs font-bold text-[var(--text-muted)]">
                       {formatVoiceNoteDate(note.createdAt)} | {formatVoiceNoteDuration(note.audioDurationSeconds)}
                     </p>
                   </div>
                   <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-                    Staff only
+                    Coaches only
                   </span>
                 </div>
                 {note.audioUrl ? (

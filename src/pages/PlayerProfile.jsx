@@ -293,7 +293,7 @@ export function PlayerProfile() {
           ? await Promise.allSettled([
               withRequestTimeout(
                 () => getPlayerStaffNotes({ user, playerId: nextPrimaryPlayer.id }),
-                'Could not load staff notes.',
+                'Could not load Coach notes.',
               ),
               withRequestTimeout(
                 () => getPlayerCommunicationLogs({ user, playerId: nextPrimaryPlayer.id }),
@@ -1147,10 +1147,10 @@ export function PlayerProfile() {
       setStaffNotes((current) => [nextNote, ...current])
       setActivityLogs(nextActivity)
       setNoteDraft('')
-      showToast({ title: 'Note saved', message: 'The staff note has been saved.' })
+      showToast({ title: 'Note saved', message: 'The Coach note has been saved.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not save staff note.')
+      setErrorMessage(error.message || 'Could not save Coach note.')
     } finally {
       setIsSavingNote(false)
     }
@@ -2061,7 +2061,7 @@ export function PlayerProfile() {
         message="This removes the voice note and its audio file from this player profile."
         items={[
           `Voice note: ${staffNoteDeleteTarget?.note || 'Selected voice note'}`,
-          `Created by: ${staffNoteDeleteTarget?.userName || staffNoteDeleteTarget?.userEmail || 'Staff'}`,
+          `Created by: ${staffNoteDeleteTarget?.userName || staffNoteDeleteTarget?.userEmail || 'Coach'}`,
         ]}
         confirmLabel="Delete Voice Note"
         onCancel={() => setStaffNoteDeleteTarget(null)}

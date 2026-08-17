@@ -4,9 +4,10 @@ import { normalizeLegacyMatchHomeAway, normalizeMatchClockMode, normalizeMatchDu
 import { normalizeMatchDaySquadDecision } from '../../../src/lib/matchday-squad-selection.js'
 import { validateFinalMatchReportNotes } from '../../../src/lib/matchday-final-report.js'
 import { validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
+import { validateCoachFixtureForm } from './coachFixtureCore.js'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
-import { assertCoachOperationalMutation, assertCoachOperationalRead } from './coachOperationalData'
+import { assertCoachOperationalMutation, assertCoachOperationalRead, recordCoachOperationalAudit } from './coachOperationalData'
 import { getAccessToken, supabase } from './supabase'
 
 const STANDARD_TIMER_ACTIONS = new Set(['pause', 'half_time', 'hydration', 'resume', 'full_time', 'conclude'])
@@ -109,6 +110,104 @@ export async function getCoachMatchDayList(user) {
   return matches.map((match) => normalizeCoachMatchDay({ ...match, ...(stateMap.get(match.id) || {}) }))
 }
 
+async function sendCoachFixtureInvitations(user, match, playerIds) {
+  if (!match.parentVisible || playerIds.length === 0) return null
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again before sending fixture invitations.')
+  const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(getMobileRuntimeConfig('coach').apiBaseUrl, '.netlify/functions/send-match-day-availability-requests'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matchDayId: match.id, playerIds }),
+  })
+  if (!ok || result?.success === false) {
+    throw Object.assign(new Error(normalize(result?.message) || 'Fixture invitations could not be sent.'), { status: response.status })
+  }
+  return result
+}
+
+export async function createCoachMatchDayFixture(user, form) {
+  assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
+  const fixture = validateCoachFixtureForm(form)
+  const teamId = normalize(user.activeTeamId)
+  const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
+    p_address: fixture.venueAddress,
+    p_name: fixture.venueName,
+    p_notes: '',
+    p_team_id: teamId,
+  })
+  if (locationError) throw locationError
+  const requestScorer = fixture.requestScorer === true
+  const { data, error } = await supabase
+    .from('match_days')
+    .insert({
+      arrival_time: fixture.kickoffTimeTbc ? null : fixture.arrivalTime || null,
+      auto_select_available_players: fixture.autoSelectAvailablePlayers,
+      club_id: user.clubId,
+      created_by: user.id,
+      created_by_name: normalize(user.displayName || user.name || user.email),
+      enable_motm_poll: fixture.enableMotmPoll,
+      extra_time_half_minutes: fixture.extraTimeHalfMinutes,
+      extra_time_period_count: fixture.extraTimePeriodCount,
+      fixture_type: fixture.fixtureType,
+      home_away: fixture.homeAway,
+      kickoff_time: fixture.kickoffTime || null,
+      kickoff_time_tbc: fixture.kickoffTimeTbc,
+      location_id: locationId || null,
+      match_clock_mode: fixture.clockMode,
+      match_conclusion_rule: fixture.conclusionRule,
+      match_date: fixture.matchDate,
+      match_duration_minutes: fixture.matchDurationMinutes,
+      motm_poll_expiry_hours: fixture.motmPollExpiryHours,
+      notes: fixture.notes,
+      opponent: fixture.opponent,
+      parent_audience: fixture.parentAudience,
+      parent_visible: fixture.parentVisible,
+      request_linesman: fixture.requestLinesman,
+      request_referee: fixture.requestReferee,
+      request_scorer: requestScorer,
+      scorer_request_message: requestScorer ? 'Can anyone help as live scorer for this match?' : '',
+      status: requestScorer ? 'scorer_request' : 'scheduled',
+      team_id: teamId,
+      venue_address: fixture.venueAddress,
+      venue_name: fixture.venueName,
+    })
+    .select(LIST_SELECT)
+    .single()
+  if (error) throw error
+  const match = normalizeCoachMatchDay(data)
+  await Promise.all([
+    recordCoachOperationalAudit({
+      action: 'match_day_created',
+      entityId: match.id,
+      entityType: 'match_day',
+      metadata: { conclusionRule: fixture.conclusionRule, fixtureType: fixture.fixtureType, opponent: fixture.opponent, teamId },
+      user,
+    }),
+    supabase.from('match_day_event_log').insert({
+      actor_display_name: normalize(user.displayName || user.name || user.email),
+      actor_role: normalize(user.role),
+      actor_user_id: user.id,
+      club_id: user.clubId,
+      event_label: 'Fixture created',
+      event_type: 'match_day_created',
+      match_day_id: match.id,
+      metadata: { source: 'coach_mobile' },
+      new_value: { fixtureType: fixture.fixtureType, matchDate: fixture.matchDate, opponent: fixture.opponent },
+      team_id: teamId,
+    }).then(({ error: eventLogError }) => { if (eventLogError) console.warn(eventLogError) }),
+  ])
+  let invitationResult = null
+  let invitationWarning = ''
+  if (fixture.parentVisible) {
+    try {
+      invitationResult = await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, fixture.selectedPlayerIds)
+    } catch (invitationError) {
+      invitationWarning = normalize(invitationError?.message) || 'The fixture was saved, but Parent invitations remain unsent.'
+    }
+  }
+  return Object.freeze({ invitationResult, invitationWarning, match })
+}
+
 export async function getCoachMatchDayDetail(user, matchDayId, { includeVolunteerEligibility = true } = {}) {
   assertCoachMatchDayAccess(user)
   if (!normalize(matchDayId)) throw new Error('Choose a Match Day fixture.')
@@ -174,7 +273,7 @@ export async function recordCoachMatchDayEvent(user, match, event, commandId = '
 
 export async function correctCoachMatchDayScore(user, match, homeScore, awayScore, commandId = '') {
   await prepareMutation(user, match)
-  await rpc('record_match_day_score_correction_v2', { match_day_id_value: match.id, parent_link_id_value: null, home_score_value: integer(homeScore), away_score_value: integer(awayScore), notes_value: 'Score corrected by Coach mobile staff', request_id_value: normalize(commandId) || requestId() })
+  await rpc('record_match_day_score_correction_v2', { match_day_id_value: match.id, parent_link_id_value: null, home_score_value: integer(homeScore), away_score_value: integer(awayScore), notes_value: 'Score corrected in the Coach app', request_id_value: normalize(commandId) || requestId() })
   return getCoachMatchDayDetail(user, match.id)
 }
 

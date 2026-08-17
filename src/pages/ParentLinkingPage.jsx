@@ -47,7 +47,7 @@ const parentAccessRules = [
   },
   {
     label: 'One login per parent',
-    body: 'Each parent email gets its own portal access. Staff accounts are never shared with families.',
+    body: 'Each parent email gets its own portal access. Coach accounts are never shared with families.',
   },
   {
     label: 'Access can be removed',
@@ -308,7 +308,7 @@ export function ParentLinkingPage() {
               <ParentMetric label="Active" value={activeLinks.length} isLoading={isLoading} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Guardian access should mirror real squad access, not staff permissions.
+              Guardian access should mirror real squad access, not Coach permissions.
             </p>
           </div>
         </div>
@@ -422,7 +422,7 @@ export function ParentLinkingPage() {
                     )) : (
                       <ParentAccessStatePanel
                         action="Open the player profile, add at least one parent email, then return to send the invite."
-                        body="The portal invite must go to a saved parent email. Staff should not create shared family access from memory."
+                        body="The portal invite must go to a saved parent email. Coaches should not create shared family access from memory."
                         eyebrow="Missing contact"
                         title="This player has no parent emails saved."
                       />

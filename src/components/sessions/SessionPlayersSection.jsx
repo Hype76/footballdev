@@ -291,7 +291,7 @@ function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, sele
             Deletes: {formatRetentionDate(note.audioExpiresAt)}, Retention: {getRetentionCountdownLabel(note.audioExpiresAt)}
           </p>
           <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">
-            Staff: {note.userName || note.userEmail || 'Staff'}, Created: {formatSessionDate(note.createdAt)}
+            Coach: {note.userName || note.userEmail || 'Coach'}, Created: {formatSessionDate(note.createdAt)}
           </p>
         </div>
       ))}

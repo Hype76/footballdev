@@ -20,8 +20,8 @@ export function PlatformAdminStaffSection({
 }) {
   return (
     <SectionCard
-      title="Platform admin staff"
-      description="Create owner level staff accounts for trusted platform operators."
+      title="Platform Admins"
+      description="Create owner level Coach accounts for trusted platform operators."
     >
       <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <form className="grid gap-4" onSubmit={onSubmit}>
@@ -31,7 +31,7 @@ export function PlatformAdminStaffSection({
               type="text"
               value={form.name}
               onChange={(event) => onChange('name', event.target.value)}
-              placeholder="Staff member name"
+              placeholder="Coach name"
               className={fieldClass}
             />
           </label>

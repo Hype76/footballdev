@@ -457,7 +457,7 @@ export function validateFinalMatchReportNotes(value) {
   const staffNotes = normalizeText(value)
 
   if (staffNotes.length > MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH) {
-    throw new Error(`Staff notes must be ${MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH} characters or fewer.`)
+    throw new Error(`Coach notes must be ${MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH} characters or fewer.`)
   }
 
   return staffNotes

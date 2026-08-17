@@ -60,5 +60,5 @@ export function getTeamRoleAuthorityMessage({ user, assignment }) {
     return 'Manager authority can assign Manager, Coach, and Assistant Coach within this team. Team Admin, Club Admin, and Platform Admin remain unavailable.'
   }
 
-  return 'You can view this team assignment, but you cannot change staff roles.'
+  return 'You can view this team assignment, but you cannot change Coach roles.'
 }

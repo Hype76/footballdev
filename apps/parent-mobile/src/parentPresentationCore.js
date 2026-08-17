@@ -69,7 +69,7 @@ export function getParentInvitationSections(rows = [], now = new Date()) {
 
 export function getParentChatRoomContext(room = {}) {
   if (normalizeText(room.type) === 'team') {
-    return `${normalizeText(room.teamName) || 'Team'} | Parents and Team staff`
+    return `${normalizeText(room.teamName) || 'Team'} | Parents and Team Coaches`
   }
   const matchLabel = room.opponent ? `${room.teamName || 'Team'} v ${room.opponent}` : room.teamName || room.clubName || ''
   const dateLabel = room.matchDate

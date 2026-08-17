@@ -17,8 +17,8 @@ export function BillingAccessNotice({ user }) {
           <p className="text-sm font-black">{paymentRequired ? 'Payment required' : 'Payment starts soon'}</p>
           <p className="mt-1 text-sm font-semibold leading-6">
             {paymentRequired
-              ? 'Staff editing and management are paused. Your information remains available to view and export.'
-              : `Staff access remains active until ${new Date(decision.billingStartAt).toLocaleDateString('en-GB')}.`}
+              ? 'Coach editing and management are paused. Your information remains available to view and export.'
+              : `Coach access remains active until ${new Date(decision.billingStartAt).toLocaleDateString('en-GB')}.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

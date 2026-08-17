@@ -110,7 +110,7 @@ export function PlayerChatSection({ player, user }) {
             Player-linked Chat
           </h2>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-            Only conversations explicitly linked to this player are shown. Parent-visible Chat and staff-only discussion stay separate.
+            Only conversations explicitly linked to this player are shown. Parent-visible Chat and Coach-only discussion stay separate.
           </p>
         </div>
         <button
@@ -147,7 +147,7 @@ export function PlayerChatSection({ player, user }) {
             disabled={Boolean(activeAction)}
             className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {activeAction === 'staff' ? 'Opening staff discussion...' : 'Start staff discussion'}
+            {activeAction === 'staff' ? 'Opening Coaches discussion...' : 'Start Coaches discussion'}
           </button>
         ) : null}
       </div>

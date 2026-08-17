@@ -147,7 +147,7 @@ export function validateResourceLibraryFile(file) {
 
 function assertResourceLibraryAccess(user) {
   if (!canUseResourceLibrary(user)) {
-    throw new Error('Resource Library is only available to authorised club and team staff.')
+    throw new Error('Resource Library is only available to authorised club and Team Coaches.')
   }
 }
 

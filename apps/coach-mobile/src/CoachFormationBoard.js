@@ -500,7 +500,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
   const saveAndPublish = () => Alert.alert(
     activePublication ? 'Update the Parent match plan?' : 'Share this match plan with Parents?',
-    'The latest pitch and Bench will be saved and shared with authorised Parents for the linked fixture. Staff notes and unselected Players are not shared.',
+    'The latest pitch and Bench will be saved and shared with authorised Parents for the linked fixture. Coach notes and unselected Players are not shared.',
     [
       { style: 'cancel', text: 'Cancel' },
       { text: activePublication ? 'Save and update' : 'Save and share', onPress: async () => {
@@ -519,7 +519,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
   const withdraw = () => Alert.alert(
     'Withdraw the Parent plan?',
-    'The saved private Formation Board remains available to staff.',
+    'The saved private Formation Board remains available to Coaches.',
     [
       { style: 'cancel', text: 'Cancel' },
       { style: 'destructive', text: 'Withdraw', onPress: async () => {

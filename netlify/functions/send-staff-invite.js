@@ -77,7 +77,7 @@ async function getInvite(inviteId) {
   const normalizedInviteId = String(inviteId ?? '').trim()
 
   if (!normalizedInviteId) {
-    throw Object.assign(new Error('Staff invite details are required.'), { statusCode: 400 })
+    throw Object.assign(new Error('Coach invite details are required.'), { statusCode: 400 })
   }
 
   const { data, error } = await supabaseAdmin
@@ -87,15 +87,15 @@ async function getInvite(inviteId) {
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('Staff invite could not be found.'), { statusCode: 404 })
+    throw Object.assign(new Error('Coach invite could not be found.'), { statusCode: 404 })
   }
 
   if (data.accepted_at) {
-    throw Object.assign(new Error('This staff invite has already been accepted.'), { statusCode: 409 })
+    throw Object.assign(new Error('This Coach invite has already been accepted.'), { statusCode: 409 })
   }
 
   if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-    throw Object.assign(new Error('This staff invite has expired. Create a new staff invite.'), { statusCode: 410 })
+    throw Object.assign(new Error('This Coach invite has expired. Create a new Coach invite.'), { statusCode: 410 })
   }
 
   return data
@@ -114,11 +114,11 @@ async function assertCanSendInvite({ event, invite }) {
   }
 
   if (String(planProfile.clubId) !== String(invite.club_id)) {
-    throw Object.assign(new Error('This staff invite belongs to a different club.'), { statusCode: 403 })
+    throw Object.assign(new Error('This Coach invite belongs to a different club.'), { statusCode: 403 })
   }
 
   if (Number(planProfile.roleRank ?? 0) < 50) {
-    throw Object.assign(new Error('You need manager access before sending staff invites.'), { statusCode: 403 })
+    throw Object.assign(new Error('You need manager access before sending Coach invites.'), { statusCode: 403 })
   }
 
   if (Number(invite.role_rank ?? 0) > Number(planProfile.roleRank ?? 0)) {
@@ -132,7 +132,7 @@ async function createEmailAuditLog(payload) {
   try {
     await createServerAuditLog(payload)
   } catch (error) {
-    console.error('Staff invite audit logging failed', error)
+    console.error('Coach invite audit logging failed', error)
   }
 }
 
@@ -142,7 +142,7 @@ export async function handler(event) {
   }
 
   let recipient = ''
-  let emailSubject = 'Staff invite'
+  let emailSubject = 'Coach invite'
   let emailLogRecord = null
 
   try {
@@ -163,13 +163,13 @@ export async function handler(event) {
     }
 
     if (requestUser.email === DEMO_EMAIL) {
-      return failureResponse(403, 'Staff invites are disabled for the demo account.')
+      return failureResponse(403, 'Coach invites are disabled for the demo account.')
     }
 
     recipient = normalizeEmail(invite.email)
 
     if (!isValidEmail(recipient)) {
-      return failureResponse(400, 'Staff email must be a valid email address.')
+      return failureResponse(400, 'Coach email must be a valid email address.')
     }
 
     const club = Array.isArray(invite.clubs) ? invite.clubs[0] : invite.clubs
@@ -183,14 +183,14 @@ export async function handler(event) {
     const emailHtml = String(body.html ?? '').trim()
 
     if (!emailHtml) {
-      return failureResponse(400, 'Staff invite email content is required.')
+      return failureResponse(400, 'Coach invite email content is required.')
     }
 
     if (emailHtml.length > 200000) {
       return failureResponse(400, 'Email content is too large.')
     }
 
-    emailSubject = String(body.subject ?? '').trim() || `${clubName} staff invite`
+    emailSubject = String(body.subject ?? '').trim() || `${clubName} Coach invite`
     const emailPayload = {
       from: createFromAddress(fromName),
       to: [recipient],
@@ -251,7 +251,7 @@ export async function handler(event) {
         targetEntityType: 'club_user_invite',
         targetEntityId: invite.id,
       },
-      publicMessage: 'Staff invite could not be sent. Please try again in a moment.',
+      publicMessage: 'Coach invite could not be sent. Please try again in a moment.',
     })
     await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
 
@@ -295,8 +295,8 @@ export async function handler(event) {
     })
 
     const publicMessage = error.publicMessage
-      ? getPublicEmailErrorMessage(error, 'Staff invite could not be sent. Please try again in a moment.')
-      : error.statusCode ? error.message : 'Staff invite could not be sent.'
+      ? getPublicEmailErrorMessage(error, 'Coach invite could not be sent. Please try again in a moment.')
+      : error.statusCode ? error.message : 'Coach invite could not be sent.'
     return failureResponse(error.statusCode || 500, publicMessage)
   }
 }

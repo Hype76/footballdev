@@ -39,6 +39,7 @@ import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { CoachFormationBoard } from './CoachFormationBoard'
+import { CoachFixtureForm } from './CoachFixtureForm'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 
 const config = getMobileRuntimeConfig('coach')
@@ -71,8 +72,13 @@ function createStyles(palette) {
     field: { gap: 5 },
     fieldLabel: { color: palette.textPrimary, fontSize: 13, fontWeight: '900' },
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
+    inputText: { color: palette.textPrimary, fontSize: 15 },
     inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
     meta: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
+    pickerActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+    pickerButton: { alignItems: 'center', borderColor: palette.border, borderRadius: 10, borderWidth: 1, minHeight: 42, justifyContent: 'center', minWidth: 88, paddingHorizontal: 12 },
+    pickerButtonText: { color: palette.accent, fontSize: 14, fontWeight: '900' },
+    pickerPanel: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, gap: 8, overflow: 'hidden', padding: 8 },
     row: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
     score: { color: palette.textPrimary, fontSize: 38, fontWeight: '900', textAlign: 'center' },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 13, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 13, paddingVertical: 9 },
@@ -161,15 +167,16 @@ function ShootoutPanel({ busy, match, onKick, onPrepare, onVoid, styles }) {
 function ReportPanel({ busy, match, onSave, styles }) {
   const report = buildCoachFinalMatchReport(match)
   const [notes, setNotes] = useState(match.finalReport?.staffNotes || '')
-  return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Result and FA submission helper</Text><Text selectable style={styles.score}>{report.result.finalScore}</Text><Text style={styles.meta}>Deferred. Current approved source has no canonical FA SMS, deep-link message format, or authorised direct integration. The Coach app will not invent or automatically send one.</Text></View><View style={styles.card}><Text style={styles.cardTitle}>Final Match Report</Text><Text style={styles.body}>Active events {report.activeEvents.length} | Voided {report.voidedEvents.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text><Field label="Staff notes" multiline onChangeText={setNotes} styles={styles} value={notes} /><Button disabled={busy || match.status !== 'full_time'} label="Save final report" onPress={() => onSave(notes)} styles={styles} /></View></View>
+  return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Result and FA submission helper</Text><Text selectable style={styles.score}>{report.result.finalScore}</Text><Text style={styles.meta}>Deferred. Current approved source has no canonical FA SMS, deep-link message format, or authorised direct integration. The Coach app will not invent or automatically send one.</Text></View><View style={styles.card}><Text style={styles.cardTitle}>Final Match Report</Text><Text style={styles.body}>Active events {report.activeEvents.length} | Voided {report.voidedEvents.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text><Field label="Coach notes" multiline onChangeText={setNotes} styles={styles} value={notes} /><Button disabled={busy || match.status !== 'full_time'} label="Save final report" onPress={() => onSave(notes)} styles={styles} /></View></View>
 }
 
-export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
+export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled, palette, quickAction, user }) {
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [eventForm, setEventForm] = useState(createCoachMatchDayEventForm())
   const [filter, setFilter] = useState('current')
+  const [fixtureFormOpen, setFixtureFormOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [match, setMatch] = useState(null)
   const [matches, setMatches] = useState([])
@@ -205,6 +212,13 @@ export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
     } finally { setLoading(false) }
   }, [cache, context, match?.id, user])
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (quickAction?.intent !== 'create-match') return
+    setFixtureFormOpen(true)
+    setError('')
+    setNotice('')
+    onQuickActionHandled?.()
+  }, [onQuickActionHandled, quickAction])
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const wasBackgrounded = /inactive|background/.test(appState.current)
@@ -252,17 +266,33 @@ export function CoachMatchDayScreen({ context, onNavigate, palette, user }) {
   const confirm = async () => { const action = pending; setPending(null); if (!action) return; try { await action.run() } catch { return } }
   const actions = getCoachMatchDayActions({ context, match, reconciling, stale })
   const submitEvent = async () => { const validated = validateCoachMatchDayEventForm(eventForm); const commandId = createCoachMatchDayCommandId(); await replace(() => recordCoachMatchDayEvent(user, match, validated, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)); setEventForm(createCoachMatchDayEventForm(validated.eventType, match)) }
+  const handleFixtureCreated = async (result) => {
+    setFixtureFormOpen(false)
+    setNotice(result.invitationWarning || 'Fixture created. Match Day controls are ready.')
+    const summary = normalizeCoachMatchDay(result.match)
+    setMatches((current) => [summary, ...current.filter((item) => item.id !== summary.id)])
+    try {
+      const detail = await getCoachMatchDayDetail(user, summary.id)
+      setMatch(detail)
+      setPanel('overview')
+      setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) })
+    } catch {
+      setMatch(summary)
+    }
+  }
 
   return <View style={styles.stack}>
     <Text accessibilityRole="header" style={styles.title}>Match Day</Text><Text style={styles.body}>Server-authoritative fixture execution, squad, clock, events, volunteers, shootout, corrections, and final report.</Text>
     <View style={styles.tabs}><Button label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View>
+    {!fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button label="Create match" onPress={() => { setFixtureFormOpen(true); setError(''); setNotice('') }} styles={styles} /> : null}
+    {fixtureFormOpen ? <CoachFixtureForm matches={matches} onCancel={() => setFixtureFormOpen(false)} onCreated={handleFixtureCreated} players={players} styles={styles} user={user} /> : null}
     {loading ? <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
     {reconciling ? <View accessibilityLiveRegion="assertive" style={styles.warning}><ActivityIndicator /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}
     {error ? <View style={styles.warning}><Text style={styles.dangerText}>{error}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
     {stale ? <View style={styles.warning}><Text style={styles.cardTitle}>Offline read</Text><Text style={styles.body}>Showing encrypted cached Match Day data. Every change is disabled until a successful refresh.</Text></View> : null}
-    <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} />
-    {match ? <><Chips onChange={setPanel} options={[{ label: 'Overview', value: 'overview' }, { label: 'Squad', value: 'squad' }, { label: 'Formation', value: 'formation' }, { label: 'Volunteers', value: 'volunteers' }, { label: 'Live', value: 'live' }, { label: 'Timeline', value: 'timeline' }, { label: 'Shootout', value: 'shootout' }, { label: 'Report', value: 'report' }]} styles={styles} value={panel} />
+    {!fixtureFormOpen ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
+    {match && !fixtureFormOpen ? <><Chips onChange={setPanel} options={[{ label: 'Overview', value: 'overview' }, { label: 'Squad', value: 'squad' }, { label: 'Formation', value: 'formation' }, { label: 'Volunteers', value: 'volunteers' }, { label: 'Live', value: 'live' }, { label: 'Timeline', value: 'timeline' }, { label: 'Shootout', value: 'shootout' }, { label: 'Report', value: 'report' }]} styles={styles} value={panel} />
       {panel === 'overview' ? <View style={styles.card}><Text style={styles.cardTitle}>{getCoachMatchDayPresentation(match).displayName}</Text><Text style={styles.score}>{getCoachMatchDayPresentation(match).displayScore}</Text><Text style={styles.body}>{match.matchDate} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime} | {match.homeAway}</Text><Text style={styles.body}>{match.venueName || 'Venue TBC'}{match.venueAddress ? ` | ${match.venueAddress}` : ''}</Text><Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text></View> : null}
       {panel === 'squad' ? <SquadPanel actions={actions} busy={busy} match={match} onSetDecision={(player, decision) => setPending({ label: `Set ${player.playerName} to ${decision.replaceAll('_', ' ')}`, run: () => replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)) })} players={players} styles={styles} /> : null}
       {panel === 'formation' ? <CoachFormationBoard context={context} match={match} palette={palette} players={players} stale={stale} user={user} /> : null}

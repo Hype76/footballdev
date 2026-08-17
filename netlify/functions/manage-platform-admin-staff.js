@@ -50,7 +50,7 @@ async function getAuthenticatedSuperAdmin(event) {
   }
 
   if (profile?.role !== 'super_admin' || profile?.status !== 'active' || !platformAccess?.id) {
-    throw new Error('Only platform admins can manage platform admin staff.')
+    throw new Error('Only Platform Admins can manage Platform Admin accounts.')
   }
 
   return profile
@@ -305,7 +305,7 @@ export async function handler(event) {
     console.error(error)
     return json(error.message === 'Login is required.' ? 401 : 400, {
       success: false,
-      message: error.message || 'Platform admin staff could not be saved.',
+      message: error.message || 'Platform Admin accounts could not be saved.',
     })
   }
 }

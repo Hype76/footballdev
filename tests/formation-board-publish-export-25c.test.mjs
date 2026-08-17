@@ -224,7 +224,7 @@ test('editor and Team Resource Library expose publication, immutable history, an
   assert.match(library, /Open version/)
   assert.match(library, />PNG</)
   assert.match(library, />PDF</)
-  assert.match(library, /Team staff only/)
+  assert.match(library, /Team Coaches only/)
   assert.match(library, /filter\(\(resource\) => !resource\.currentFormationBoardPublication\)/)
   assert.match(resourceDomain, /formation_board_versions!formation_board_publications_version_fkey/)
   assert.doesNotMatch(resourceDomain, /formation_board_versions:board_version_id/)

@@ -135,7 +135,7 @@ async function loadCoachContext(authUser, contextId) {
 
   if (contextType.toLowerCase() === 'club') {
     if (resourceId !== clubId || profile.role !== 'admin' || profile.roleRank < 90) {
-      throw Object.assign(new Error('This Club context is not available to this staff account.'), {
+      throw Object.assign(new Error('This Club context is not available to this Coach account.'), {
         code: 'COACH_MOBILE_CONTEXT_FORBIDDEN',
         statusCode: 403,
       })
@@ -166,7 +166,7 @@ async function loadCoachContext(authUser, contextId) {
       .maybeSingle()
     if (assignmentError) throw assignmentError
     if (!assignment?.id || Number(assignment.role_rank ?? 0) < 20) {
-      throw Object.assign(new Error('This Team context is not assigned to this staff account.'), {
+      throw Object.assign(new Error('This Team context is not assigned to this Coach account.'), {
         code: 'COACH_MOBILE_CONTEXT_FORBIDDEN',
         statusCode: 403,
       })
@@ -263,7 +263,7 @@ async function updatePreference({ authUser, body, installationId }) {
 
   const context = await loadCoachContext(authUser, current.context_id)
   if (context.contextId !== normalizeText(body.contextId || current.context_id)) {
-    throw Object.assign(new Error('Refresh notifications for the active staff context.'), {
+    throw Object.assign(new Error('Refresh notifications for the active Coach context.'), {
       code: 'COACH_MOBILE_CONTEXT_REFRESH_REQUIRED',
       statusCode: 409,
     })

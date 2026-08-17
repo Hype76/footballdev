@@ -70,7 +70,7 @@ function getRequestTypeLabel(value) {
 
 function getAudienceLabel(value) {
   if (value === 'staff') {
-    return 'Team staff'
+    return 'Team Coaches'
   }
 
   return 'Family portal'
@@ -461,7 +461,7 @@ export function PollsPage() {
                 Create polls before match day moves.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Ask parents or staff for one clear answer, watch replies come in, then close the poll when the team decision is made.
+                Ask parents or Coaches for one clear answer, watch replies come in, then close the poll when the team decision is made.
               </p>
             </div>
           </div>
@@ -474,7 +474,7 @@ export function PollsPage() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <DecisionMetric label="Parents" value={parentPollCount} isLoading={isLoading} />
-              <DecisionMetric label="Staff" value={staffPollCount} isLoading={isLoading} />
+              <DecisionMetric label="Coaches" value={staffPollCount} isLoading={isLoading} />
               <DecisionMetric label="Closed" value={closedPollCount} isLoading={isLoading} />
               <DecisionMetric label="Visible" value={visiblePolls.length} isLoading={isLoading} />
             </div>
@@ -695,7 +695,7 @@ export function PollsPage() {
             <p className={eyebrowClass}>Reply board</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Polls and availability</h2>
             <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-              Review open and closed polls, answer staff questions, and use reply totals before committing the squad.
+              Review open and closed polls, answer Coach questions, and use reply totals before committing the squad.
             </p>
           </div>
           <select
@@ -705,7 +705,7 @@ export function PollsPage() {
           >
             <option value="all">All requests</option>
             <option value="parents">Parent requests</option>
-            <option value="staff">Team staff requests</option>
+            <option value="staff">Team Coaches requests</option>
           </select>
         </div>
         <div className="px-5 py-5 sm:px-6">
@@ -868,7 +868,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className={chipClass}>
-              {isStaffPoll ? 'Team staff' : 'Family portal'}
+              {isStaffPoll ? 'Team Coaches' : 'Family portal'}
             </span>
             <span className={chipClass}>
               {poll.pollType === 'time' ? 'Time request' : poll.pollType === 'awards' ? 'Award vote' : 'Availability request'}

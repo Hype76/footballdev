@@ -2705,7 +2705,7 @@ function ParentOverviewPanel({
       label: 'Resources',
       count: playerResources.length,
       title: playerResources.length > 0 ? `${playerResources.length} resource${playerResources.length === 1 ? '' : 's'} shared` : 'No shared resources yet',
-      detail: playerResources.length > 0 ? 'Open resources to view links shared for this child.' : 'Staff-only resources stay hidden until the club shares them.',
+      detail: playerResources.length > 0 ? 'Open resources to view links shared for this child.' : 'Coach-only resources stay hidden until the club shares them.',
     },
   ]
   const visibleOverviewItems = isLoading ? overviewItems : overviewItems.filter((item) => item.count > 0)
@@ -3010,7 +3010,7 @@ function ParentMatchCardsPanel({
       ) : (
         <div className="grid gap-3">
           <p className={emptyClass}>
-            No match cards are shared for this child right now. When staff open a match card for parents, it will appear here.
+            No match cards are shared for this child right now. When Coaches open a match card for parents, it will appear here.
           </p>
           {previousMatches.length > 0 ? (
             <button type="button" onClick={() => onOpenSection('results')} className={secondaryButtonClass}>
@@ -3252,7 +3252,7 @@ function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
           </div>
         ) : (
           <p className={emptyClass}>
-            No resources have been shared for this child yet. Staff-only resources do not appear here.
+            No resources have been shared for this child yet. Coach-only resources do not appear here.
           </p>
         )}
       </div>

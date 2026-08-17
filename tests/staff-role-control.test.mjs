@@ -63,7 +63,7 @@ test('Team Admin interface is scoped, confirmed, keyboard-usable and refreshes a
   assert.match(teamPage, /requestSource: 'team_management'/)
   assert.match(teamPage, /await refreshTeamSelection\?\.\(\)/)
   assert.match(teamPage, /title="Confirm team role change"/)
-  assert.match(teamPage, /No staff email or notification will be sent\./)
+  assert.match(teamPage, /No Coach email or notification will be sent\./)
   assert.match(teamSection, /aria-label={`Team role for \$\{getStaffDisplayName\(member\)\}`}/)
   assert.match(teamSection, /Review role change/)
   assert.match(teamSection, /canManageStaffAllocations/)
@@ -78,7 +78,7 @@ test('Platform Admin interface uses membership assignment ids and deliberate con
   assert.match(platformPage, /New role:/)
   assert.match(platformPage, /Scope:/)
   assert.match(platformPage, /Consequence:/)
-  assert.match(platformPage, /No staff email or notification will be sent\./)
+  assert.match(platformPage, /No Coach email or notification will be sent\./)
 })
 
 test('effective role refresh and final Platform Admin safeguards remain explicit', () => {

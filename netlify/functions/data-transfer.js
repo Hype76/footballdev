@@ -783,7 +783,7 @@ async function handleHistory(actor, body) {
     ? await supabaseAdmin.from('users').select('id, name, username').in('id', actorIds)
     : { data: [], error: null }
   if (actorsError) throw actorsError
-  const actorNames = new Map((actors || []).map((entry) => [entry.id, text(entry.name || entry.username) || 'Staff user']))
+  const actorNames = new Map((actors || []).map((entry) => [entry.id, text(entry.name || entry.username) || 'Coach']))
   const teamNames = new Map(scope.teams.map((team) => [team.id, team.name]))
   const now = Date.now()
   const history = scopedHistory.map(({ storage_path: storagePath, ...batch }) => {
@@ -793,7 +793,7 @@ async function handleHistory(actor, body) {
     const scopeLabel = clubWide ? 'Club-wide' : scopedNames.join(', ') || 'Authorized teams'
     return {
       ...batch,
-      actor_name: actorNames.get(batch.actor_id) || 'Staff user',
+      actor_name: actorNames.get(batch.actor_id) || 'Coach',
       scope_label: scopeLabel,
       raw_available: Boolean(storagePath) && Number.isFinite(Date.parse(batch.raw_expires_at)) && Date.parse(batch.raw_expires_at) > now,
     }

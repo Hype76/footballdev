@@ -64,14 +64,14 @@ export function PlayerStaffActivity({
 
   return (
     <SectionCard
-      title="Staff notes and activity"
-      description="Internal notes and staff actions stay inside the club workspace. They are not added to parent emails."
+      title="Coach notes and activity"
+      description="Internal notes and Coach actions stay inside the club workspace. They are not added to parent emails."
       defaultCollapsed
     >
       <div className={`${panelClass} mb-5 px-4 py-4`}>
-        <p className="text-sm font-black text-[#101828]">Staff notes and player activity</p>
+        <p className="text-sm font-black text-[#101828]">Coach notes and player activity</p>
         <p className={`mt-1 ${bodyClass}`}>
-          Staff notes: {staffNotes.length}, Activity: {activityLogs.length}{' '}
+          Coach notes: {staffNotes.length}, Activity: {activityLogs.length}{' '}
           {activityLogs.length === 1 ? 'item' : 'items'}
         </p>
       </div>
@@ -85,7 +85,7 @@ export function PlayerStaffActivity({
                 onChange={(event) => onNoteChange(event.target.value)}
                 rows={4}
                 className={fieldClass}
-                placeholder="Add a staff-only note for this player"
+                placeholder="Add a Coach-only note for this player"
               />
             </label>
             <div className="mt-3 flex flex-col gap-3 sm:flex-row">
@@ -118,10 +118,10 @@ export function PlayerStaffActivity({
           <div className="mt-4 space-y-3">
             {staffNotes.length === 0 ? (
               <PlayerStatePanel
-                action="Write a staff-only note or record a voice note after a useful coaching conversation."
-                body="Staff notes stay inside the club workspace. Use them for context that coaches need but parents should not receive."
-                eyebrow="Staff memory"
-                title="No staff notes have been saved yet."
+                action="Write a Coach-only note or record a voice note after a useful coaching conversation."
+                body="Coach notes stay inside the club workspace. Use them for context that coaches need but parents should not receive."
+                eyebrow="Coach memory"
+                title="No Coach notes have been saved yet."
               />
             ) : (
               staffNotes.map((note) => (
@@ -151,7 +151,7 @@ export function PlayerStaffActivity({
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
-                    Staff: {note.userName || note.userEmail || 'Staff'}, Created: {formatActivityDate(note.createdAt)}
+                    Coach: {note.userName || note.userEmail || 'Coach'}, Created: {formatActivityDate(note.createdAt)}
                   </p>
                 </div>
               ))
@@ -164,8 +164,8 @@ export function PlayerStaffActivity({
           <div className="mt-3 space-y-3">
             {activityLogs.length === 0 ? (
               <PlayerStatePanel
-                action="Activity appears after staff send emails, save notes, update records, or complete key player actions."
-                body="This log becomes the player timeline for staff accountability and club memory."
+                action="Activity appears after Coaches send emails, save notes, update records, or complete key player actions."
+                body="This log becomes the player timeline for Coach accountability and club memory."
                 eyebrow="Activity timeline"
                 title="No player activity has been logged yet."
               />
@@ -218,7 +218,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
       <div className={`${cardClass} px-4 py-3`}>
         <p className="text-sm font-black text-[#101828]">{getActivityLabel(log)}</p>
         <p className={`mt-1 ${bodyClass}`}>
-          Staff: {log.userName || log.userEmail || 'Staff'}, Created: {formatActivityDate(log.createdAt)}
+          Coach: {log.userName || log.userEmail || 'Coach'}, Created: {formatActivityDate(log.createdAt)}
         </p>
         {log.recipientEmail ? (
           <p className="mt-1 break-words text-xs font-semibold text-[#4b5f55]">Recipient: {log.recipientEmail}</p>
@@ -248,7 +248,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
           <div className="min-w-0">
             <p className="text-sm font-black text-[#101828]">{subject}</p>
             <p className={`mt-1 ${bodyClass}`}>
-              Staff: {log.userName || log.userEmail || 'Staff'}, Created: {formatActivityDate(log.createdAt)}
+              Coach: {log.userName || log.userEmail || 'Coach'}, Created: {formatActivityDate(log.createdAt)}
             </p>
             {log.recipientEmail ? (
               <p className="mt-1 break-words text-xs font-semibold text-[#4b5f55]">Recipient: {log.recipientEmail}</p>

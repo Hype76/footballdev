@@ -611,7 +611,7 @@ test('match day fixture setup saves parent volunteer request roles', () => {
     'utf8',
   )
 
-  assert.match(pageSource, /requestScorer: true/)
+  assert.match(pageSource, /requestScorer: false/)
   assert.match(pageSource, /requestLinesman: false/)
   assert.match(pageSource, /requestReferee: false/)
   assert.match(pageSource, /Request scorer/)

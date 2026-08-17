@@ -39,7 +39,7 @@ test('dashboard uses the shared shell and the server-authoritative staff return 
   assert.match(portalSource, /onSelectedParentLinkChange=\{handleParentLinkSelect\}/)
   assert.match(shellSource, /getParentPortalStaffReturnMode\(\{ accessModeOptions, user \}\)/)
   assert.match(shellSource, /selectAccessMode\('team', \{ deferCommit: true \}\)/)
-  assert.equal(shellPolicySource.includes("Return to staff platform"), true)
+  assert.equal(shellPolicySource.includes("Return to Coach platform"), true)
   assert.doesNotMatch(shellPolicySource, /Back to club workspace/)
 })
 

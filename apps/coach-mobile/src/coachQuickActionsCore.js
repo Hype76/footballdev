@@ -5,7 +5,7 @@ export const COACH_QUICK_ACTIONS = Object.freeze([
   Object.freeze({ id: 'add-session', intent: 'create-session', label: 'Add Session', minimumRank: 20, requiresTeam: true, route: 'sessions' }),
   Object.freeze({ id: 'add-assessment', label: 'Add Assessment', minimumRank: 20, requiresTeam: true, route: 'development' }),
   Object.freeze({ id: 'add-event', intent: 'create-event', label: 'Add Event', minimumRank: 20, route: 'calendar' }),
-  Object.freeze({ id: 'add-match', intent: 'create-match', label: 'Add Match', minimumRank: 20, requiresTeam: true, route: 'calendar' }),
+  Object.freeze({ id: 'add-match', intent: 'create-match', label: 'Add Match', minimumRank: 20, requiresTeam: true, route: 'matchday' }),
   Object.freeze({ id: 'game-day', label: 'Game Day', minimumRank: 20, requiresTeam: true, route: 'matchday' }),
   Object.freeze({ id: 'create-poll', label: 'Create Poll', minimumRank: 50, route: 'polls' }),
   Object.freeze({ id: 'formation-board', label: 'Formation Board', minimumRank: 20, requiresTeam: true, route: 'formation' }),

@@ -22,7 +22,7 @@ export async function handler(event) {
     const token = String(event.queryStringParameters?.token ?? '').trim()
 
     if (!token) {
-      return failureResponse(400, 'Staff invite token is required.')
+      return failureResponse(400, 'Coach invite token is required.')
     }
 
     const { data, error } = await supabaseAdmin
@@ -32,19 +32,19 @@ export async function handler(event) {
       .maybeSingle()
 
     if (error || !data) {
-      return failureResponse(404, 'This staff invite could not be found.')
+      return failureResponse(404, 'This Coach invite could not be found.')
     }
 
     if (data.accepted_at) {
-      return failureResponse(409, 'This staff invite has already been accepted.')
+      return failureResponse(409, 'This Coach invite has already been accepted.')
     }
 
     if ((data.status && data.status !== 'pending') || data.cancelled_at || data.replaced_at) {
-      return failureResponse(410, 'This staff invite is no longer active.')
+      return failureResponse(410, 'This Coach invite is no longer active.')
     }
 
     if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-      return failureResponse(410, 'This staff invite has expired. Ask the club to send a new staff invite.')
+      return failureResponse(410, 'This Coach invite has expired. Ask the club to send a new Coach invite.')
     }
 
     const club = Array.isArray(data.clubs) ? data.clubs[0] : data.clubs
@@ -76,6 +76,6 @@ export async function handler(event) {
     })
   } catch (error) {
     console.error(error)
-    return failureResponse(500, 'Staff invite could not be loaded.')
+    return failureResponse(500, 'Coach invite could not be loaded.')
   }
 }

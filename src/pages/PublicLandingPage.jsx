@@ -43,7 +43,7 @@ const productSections = [
   {
     title: 'Keep parents updated',
     label: 'Parent updates',
-    copy: 'Send clear updates from saved club records without giving parents access to staff tools.',
+    copy: 'Send clear updates from saved club records without giving parents access to Coach tools.',
     image: playersListImage,
     alt: 'Football Player player register used for parent updates',
   },
@@ -141,7 +141,7 @@ export function PublicLandingPage() {
               Start with one team, then grow into the whole club.
             </h2>
             <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/76">
-              Use Football Player with a small group first, then add more teams, staff, parents, and player records when the club is ready.
+              Use Football Player with a small group first, then add more teams, Coaches, parents, and player records when the club is ready.
             </p>
           </div>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:mt-0">

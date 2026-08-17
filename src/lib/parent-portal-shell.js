@@ -1,4 +1,4 @@
-export const PARENT_PORTAL_STAFF_RETURN_LABEL = 'Return to staff platform'
+export const PARENT_PORTAL_STAFF_RETURN_LABEL = 'Return to Coach platform'
 
 function normalizeLinks(links) {
   return Array.isArray(links)

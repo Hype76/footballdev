@@ -25,7 +25,7 @@ function assertFormFieldManager(user) {
     role === 'parent_portal' ||
     role === 'super_admin'
   ) {
-    throw new Error('Team-level staff access is required to manage development fields.')
+    throw new Error('Team-level Coach access is required to manage development fields.')
   }
 }
 

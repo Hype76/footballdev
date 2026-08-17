@@ -585,7 +585,7 @@ export async function getPlatformStats(user) {
       const roleLabel = normalizedRole === 'super_admin'
         ? 'Platform Admins'
         : String(member.role_label ?? '').trim()
-          || (member.club_id ? 'Unclassified staff' : 'Unlinked staff')
+          || (member.club_id ? 'Unclassified Coaches' : 'Unlinked Coaches')
       items[roleLabel] = (items[roleLabel] ?? 0) + 1
       return items
     }, {})

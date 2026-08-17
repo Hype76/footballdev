@@ -183,7 +183,7 @@ test('parent shell exposes the requested switch only after authoritative staff a
   assert.match(source, /declaredStaffReturnMode \|\| verifiedStaffReturnMode/)
   assert.match(source, /PARENT_PORTAL_STAFF_RETURN_LABEL/)
   assert.match(source, /aria-label="Parent account actions"/)
-  assert.match(source, /Checking staff access\.\.\./)
+  assert.match(source, /Checking Coach access\.\.\./)
   assert.match(source, /await selectAccessMode\('team', \{ deferCommit: true \}\)/)
   assert.match(source, /switchToMainAppWorkspace\(\{ session, targetPath: TEAM_WORKSPACE_HOME_PATH \}\)/)
   assert.match(staffReturnAccessSource, /from\('users'\)/)
@@ -220,7 +220,7 @@ test('runtime switch revalidates existing staff access before changing mode', as
   assert.match(coreSource, /loadedAuthoritativeStaffMemberships = memberships/)
   assert.match(coreSource, /const verifiedStaffReturnMode = await resolveOwnParentStaffReturnMode\(authUser\)/)
   assert.match(coreSource, /if \(verifiedStaffReturnMode !== 'team'\)/)
-  assert.match(authSource, /Staff access is no longer active/)
+  assert.match(authSource, /Coach access is no longer active/)
 })
 
 test('staff context remains stored while switching into and out of the parent portal', async () => {

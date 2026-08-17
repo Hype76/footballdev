@@ -213,13 +213,41 @@ const EMPTY_MATCH_FORM = {
   notes: '',
   parentAudience: 'none',
   parentVisible: false,
-  requestScorer: true,
+  requestScorer: false,
   requestLinesman: false,
   requestReferee: false,
   scorerRequestMessage: 'Can anyone help as live scorer for this match?',
-  status: 'scorer_request',
-  enableMotmPoll: true,
+  status: 'scheduled',
+  enableMotmPoll: false,
   motmPollExpiryHours: 2,
+  saveDurationAsDefault: false,
+}
+
+const MATCH_DAY_FIXTURE_PREFERENCES_KEY = 'fp.matchday.fixture.preferences.v1'
+
+function readMatchDayFixturePreferences() {
+  if (typeof window === 'undefined') return { duration: 90, location: null }
+  try {
+    const value = JSON.parse(window.localStorage.getItem(MATCH_DAY_FIXTURE_PREFERENCES_KEY) || '{}')
+    const duration = Number(value.duration)
+    return {
+      duration: Number.isInteger(duration) && duration >= 20 && duration <= 140 ? duration : 90,
+      location: value.location && typeof value.location === 'object'
+        ? { address: String(value.location.address || ''), name: String(value.location.name || '') }
+        : null,
+    }
+  } catch {
+    return { duration: 90, location: null }
+  }
+}
+
+function writeMatchDayFixturePreferences(form) {
+  if (typeof window === 'undefined') return
+  const current = readMatchDayFixturePreferences()
+  window.localStorage.setItem(MATCH_DAY_FIXTURE_PREFERENCES_KEY, JSON.stringify({
+    duration: form.saveDurationAsDefault ? Number(form.matchDurationMinutes) : current.duration,
+    location: form.venueName ? { address: String(form.venueAddress || ''), name: String(form.venueName || '') } : null,
+  }))
 }
 
 const EMPTY_GOAL_FORM = {
@@ -409,7 +437,7 @@ const parentAudienceLabels = {
   all_club_parents: 'All club parents',
   all_team_parents: 'All team parents',
   involved_players: 'Involved players',
-  none: 'Staff only',
+  none: 'Coach only',
 }
 
 const volunteerRoleConfigs = [
@@ -1564,7 +1592,7 @@ function getTransportRiskRows(match) {
       reasons.push({
         key: 'needs_lift',
         label: 'Needs lift',
-        detail: 'Parent says this player needs transport help. Staff coordinate manually.',
+        detail: 'Parent says this player needs transport help. Coaches coordinate manually.',
       })
     }
 
@@ -1572,7 +1600,7 @@ function getTransportRiskRows(match) {
       reasons.push({
         key: 'lift_offer',
         label: row.transportSeatsOffered > 0 ? `Lift offered (${row.transportSeatsOffered})` : 'Lift offered',
-        detail: 'Parent can offer transport help. Staff coordinate manually.',
+        detail: 'Parent can offer transport help. Coaches coordinate manually.',
       })
     }
 
@@ -1791,7 +1819,7 @@ function getAvailabilitySummary(match) {
   const stats = getAvailabilityStats(match)
 
   if (stats.total === 0) {
-    return match.parentVisible ? 'Awaiting availability' : 'Staff only'
+    return match.parentVisible ? 'Awaiting availability' : 'Coach only'
   }
 
   return `${stats.available} available, ${stats.pending} no response, ${stats.maybe} maybe, ${stats.unavailable} unavailable`
@@ -1909,7 +1937,7 @@ function getMatchDayVisibilityReadiness(match) {
   }
 
   return {
-    detail: 'Staff view only',
+    detail: 'Coach view only',
     label: 'Parent visibility',
     status: 'Not visible to parents',
     tone: 'neutral',
@@ -2312,17 +2340,31 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     }
 
     const openFixtureSetup = (setupIntent = consumeFixtureSetupIntent()) => {
-      if (setupIntent) {
-        setForm((currentForm) => ({
-          ...currentForm,
+      const preferences = readMatchDayFixturePreferences()
+      const preferredLocation = preferences.location?.name
+        ? preferences.location
+        : locations[0] || null
+      const preferredLocationId = preferredLocation
+        ? locations.find((location) => location.name === preferredLocation.name && location.address === preferredLocation.address)?.id || ''
+        : ''
+      const baseForm = {
+        ...EMPTY_MATCH_FORM,
+        ...getMatchDurationFormFields(preferences.duration),
+        venueAddress: preferredLocation?.address || '',
+        venueName: preferredLocation?.name || '',
+      }
+      setSelectedLocationId(preferredLocationId)
+      setForm(setupIntent
+        ? {
+          ...baseForm,
           ...setupIntent,
-          arrivalPreset: setupIntent.arrivalTime ? 'custom' : currentForm.arrivalPreset,
+          arrivalPreset: setupIntent.arrivalTime ? 'custom' : baseForm.arrivalPreset,
           ...(setupIntent.matchDurationMinutes !== undefined
             ? getMatchDurationFormFields(setupIntent.matchDurationMinutes)
             : {}),
           parentAudience: setupIntent.parentVisible ? setupIntent.parentAudience : 'none',
-        }))
-      }
+        }
+        : baseForm)
 
       setIsFixtureFormOpen(true)
     }
@@ -2340,7 +2382,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     return () => {
       window.removeEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
     }
-  }, [allowsFixtureManagement])
+  }, [allowsFixtureManagement, locations])
 
   async function loadData() {
     const [nextMatches, nextTeams, nextPlayers, nextLocations, savedVolunteerTemplates] = await Promise.all([
@@ -2968,6 +3010,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           type: 'scorer_request',
         })
       }
+      writeMatchDayFixturePreferences(form)
       setForm(EMPTY_MATCH_FORM)
       setSelectedLocationId('')
       setIsFixtureFormOpen(false)
@@ -4792,7 +4835,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         match={startMatchPrompt}
         onCancel={() => setStartMatchPrompt(null)}
         onConfirm={handleConfirmStartMatch}
-        scorerLabel={user?.name || user?.role || 'Authorised staff member'}
+        scorerLabel={user?.name || user?.role || 'Authorised Coach'}
       />
 
       <ConfirmModal
@@ -4905,7 +4948,7 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h5 className="text-lg font-black text-[#101828]">Final Match Report</h5>
-            <span className="inline-flex rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55]">Staff notes included</span>
+            <span className="inline-flex rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55]">Coach notes included</span>
           </div>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getMatchDayDisplayName(match)}</p>
         </div>
@@ -4931,7 +4974,7 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
 
       <section className="mt-5 border-t border-[#d7e5dc] pt-4">
         <label className="block">
-          <span className={smallLabelClass}>Staff notes</span>
+          <span className={smallLabelClass}>Coach notes</span>
           <textarea
             value={staffNotes}
             onChange={(event) => setStaffNotes(event.target.value)}
@@ -5347,7 +5390,7 @@ function MatchDayCard({
               {match.notes ? (
                 <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">{match.notes}</p>
               ) : (
-                <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">No staff notes saved for this fixture.</p>
+                <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">No Coach notes saved for this fixture.</p>
               )}
               {match.scorerRequestMessage ? (
                 <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-semibold leading-6 text-[#4b5f55]">
@@ -5363,7 +5406,7 @@ function MatchDayCard({
           {workspaceSection === 'squad' ? <section data-testid="game-day-availability-section" className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Availability and final squad</h5>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-              Availability answers whether a player can play. The squad decision is a separate staff action and never changes the parent response.
+              Availability answers whether a player can play. The squad decision is a separate Coach action and never changes the parent response.
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
               <AvailabilityCount label="Needs follow-up" value={transportRiskSummary.needsFollowUp} />
@@ -5487,7 +5530,7 @@ function MatchDayCard({
                           Squad decision updated {formatResponseDateTime(squadDecision.decidedAt)}{squadDecision.decidedByName ? ` by ${squadDecision.decidedByName}` : ''}.
                         </p>
                       ) : (
-                        <p className="mt-2 text-xs font-semibold text-[#4b5f55]">No staff squad decision has been saved yet.</p>
+                        <p className="mt-2 text-xs font-semibold text-[#4b5f55]">No Coach squad decision has been saved yet.</p>
                       )}
                       {allowInvitationActions && availabilityInvitationAction ? (
                         <div className="mt-3 border-t border-[#d7e5dc] pt-3">
@@ -5544,7 +5587,7 @@ function MatchDayCard({
                             ) : null}
                           </div>
                           <p className="mt-2 text-xs font-semibold text-[#4b5f55]">
-                            Staff coordinate transport manually. {formatResponseDateTime(row.transportRespondedAt)}
+                            Coaches coordinate transport manually. {formatResponseDateTime(row.transportRespondedAt)}
                           </p>
                         </div>
                       ) : null}
@@ -5578,9 +5621,9 @@ function MatchDayCard({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h6 className="text-sm font-black text-[#101828]">Lift coordination snapshot</h6>
-                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Parent evidence remains unchanged. Open Transport for the staff chase list and coordination detail.</p>
+                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Parent evidence remains unchanged. Open Transport for the Coach chase list and coordination detail.</p>
                 </div>
-                <span className="rounded-lg border border-[#d7e5dc] bg-white px-2.5 py-1 text-xs font-black text-[#4b5f55]">Staff only</span>
+                <span className="rounded-lg border border-[#d7e5dc] bg-white px-2.5 py-1 text-xs font-black text-[#4b5f55]">Coach only</span>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <AvailabilityCount label="Needs lift" value={transportCoordination.liftNeeds} />
@@ -6534,7 +6577,7 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
           </span>
         ) : (
           <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-            Staff view
+            Coach view
           </span>
         )}
       </div>
@@ -6668,7 +6711,7 @@ function TransportRiskPanel({ rows, summary }) {
         <div>
           <h5 className="text-sm font-black text-[#101828]">Transport risk</h5>
           <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-            Derived from availability responses and structured transport replies. Staff coordinate manually.
+            Derived from availability responses and structured transport replies. Coaches coordinate manually.
           </p>
         </div>
         <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${
@@ -6677,7 +6720,7 @@ function TransportRiskPanel({ rows, summary }) {
             : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
         }`}
         >
-          {summary.needsFollowUp > 0 ? 'Needs staff follow-up' : 'No risk detected'}
+          {summary.needsFollowUp > 0 ? 'Needs Coach follow-up' : 'No risk detected'}
         </span>
       </div>
 
@@ -6702,7 +6745,7 @@ function TransportRiskPanel({ rows, summary }) {
                 <div className="min-w-0">
                   <p className="text-sm font-black text-[#101828]">{row.playerName}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                    Staff transport follow-up signal.
+                    Coach transport follow-up signal.
                   </p>
                 </div>
                 <span className="inline-flex w-fit rounded-lg border border-[#fed7aa] bg-white px-3 py-1 text-xs font-black text-[#92400e]">
@@ -6728,7 +6771,7 @@ function TransportRiskPanel({ rows, summary }) {
         <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">
           <p className="text-sm font-black text-[#101828]">No transport risk detected from availability responses.</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Staff should still use normal safeguarding checks before match day.
+            Coaches should still use normal safeguarding checks before match day.
           </p>
         </div>
       )}
@@ -6758,7 +6801,7 @@ function TransportCoordinationPanel({ summary }) {
           <div className="flex flex-wrap items-center gap-2">
             <h5 className="text-sm font-black text-[#101828]">Transport coordination</h5>
             <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
-              Staff-only
+              Coach-only
             </span>
           </div>
           <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
@@ -6788,7 +6831,7 @@ function TransportCoordinationPanel({ summary }) {
       </div>
 
       <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white p-3">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Staff chase list</p>
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Coach chase list</p>
         {summary.chaseList.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {summary.chaseList.map((row) => (
@@ -7234,6 +7277,17 @@ function FixtureSetupModal({
                     ) : null}
                   </div>
                 )}
+                {!isContinuousMatchClock(form) ? (
+                  <label className="mt-3 flex min-h-11 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={form.saveDurationAsDefault === true}
+                      onChange={(event) => updateForm({ saveDurationAsDefault: event.target.checked })}
+                      className="mt-0.5 h-4 w-4 accent-[#047857]"
+                    />
+                    <span className="text-sm font-black text-[#101828]">Save this duration as my default</span>
+                  </label>
+                ) : null}
               </div>
 
               <label className="block">

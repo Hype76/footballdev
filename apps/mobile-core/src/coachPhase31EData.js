@@ -298,13 +298,13 @@ function canOpenStaffRoom(user, room) {
 
 async function assertStaffRoomActiveContext(user, room) {
   if (!room?.id || !canOpenStaffRoom(user, room)) {
-    throw new Error('Staff Chat is not available for this membership.')
+    throw new Error('Coach Chat is not available for this membership.')
   }
   const allowed = await rpc('staff_chat_conversation_in_active_context', {
     active_team_id_value: user.activeTeamId || null,
     target_conversation_id: room.id,
   })
-  if (!allowed) throw new Error('Staff Chat is not available in the active Team context.')
+  if (!allowed) throw new Error('Coach Chat is not available in the active Team context.')
 }
 
 export async function getCoachChatRooms(user) {
@@ -427,7 +427,7 @@ export async function setCoachPollStatus(user, poll, status) {
 export async function submitCoachPollVote(user, poll, optionId) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   assertTeamEntity(user, poll, 'Poll')
-  if (!poll?.id || poll.audience !== 'staff' || poll.status !== 'open') throw new Error('Choose an open staff Poll.')
+  if (!poll?.id || poll.audience !== 'staff' || poll.status !== 'open') throw new Error('Choose an open Coach Poll.')
   const normalizedOptionId = normalize(optionId)
   if (!poll.options.some((option) => option.id === normalizedOptionId)) throw new Error('Choose a Poll option.')
   await rpc('submit_staff_poll_vote', { p_option_id: normalizedOptionId, p_poll_id: poll.id })

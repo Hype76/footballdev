@@ -73,12 +73,12 @@ const navIcons = {
 }
 
 const groupDescriptions = {
-  'Club setup': 'Identity, staff, rules, audit',
+  'Club setup': 'Identity, Coaches, rules, audit',
   Management: 'Workspace controls',
   'Match Operations': 'Match day and resources',
   'Platform setup': 'Support and billing',
   'Squad tools': 'Teams, reports, and records',
-  'Team Comms': 'Staff, parents, and replies',
+  'Team Comms': 'Coaches, parents, and replies',
 }
 
 const coreNavigationPaths = ['/calendar', '/players', '/assess-player', '/feedback-forms']
@@ -876,7 +876,7 @@ function PlatformNav({ canAccessPlatformFeedback, onClose }) {
     { label: 'Club Management', path: '/platform-clubs', helper: 'Club records' },
     { label: 'Platform Analytics', path: '/platform-analytics', helper: 'Usage and adoption' },
     { label: 'Platform Banners', path: '/platform-banners', helper: 'Audience announcements' },
-    { label: 'Platform Staff', path: '/platform-staff', helper: 'Roles and admin accounts' },
+    { label: 'Platform Admins', path: '/platform-staff', helper: 'Roles and admin accounts' },
     { label: 'Data Hygiene', path: '/platform-data-hygiene', helper: 'Record quality and archives' },
     { label: 'Data Transfer', path: '/data-transfer', helper: 'Import and export club spreadsheets' },
     { label: 'Billing Options', path: '/platform-billing-options', helper: 'Plans and coupons' },

@@ -51,11 +51,11 @@ export function GdprPage() {
           <p className={eyebrowClass}>Privacy and GDPR</p>
           <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">GDPR and Data Protection Notice</h1>
           <p className="mt-5 max-w-3xl text-base font-semibold leading-8 text-[#4b5f55]">
-            This page explains how Football Player supports clubs with responsible data handling under UK GDPR and the Data Protection Act 2018. Club administrators remain responsible for deciding what player, parent, and staff data is entered into their workspace.
+            This page explains how Football Player supports clubs with responsible data handling under UK GDPR and the Data Protection Act 2018. Club administrators remain responsible for deciding what player, parent, and Coach data is entered into their workspace.
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {[
-              ['Club controlled', 'The club decides what player, parent, staff, and team information belongs in its workspace.'],
+              ['Club controlled', 'The club decides what Player, Parent, Coach, and Team information belongs in its workspace.'],
               ['Access scoped', 'Role, club, and team access keep records available only to the people who need them.'],
               ['Retention rules', 'Archived players and voice notes have deletion windows so old records do not drift forever.'],
             ].map(([title, copy]) => (
@@ -91,7 +91,7 @@ export function GdprPage() {
           <section className={sectionClass}>
             <h2 className="text-2xl font-black">Why data is used</h2>
             <p className={paragraphClass}>
-              Data is used to run club workspaces, manage staff access, create player development records, send parent feedback, keep audit records, protect accounts, support billing, and maintain service reliability. Clubs should only add information that is relevant to football development, safeguarding responsibilities, communications, and platform administration.
+              Data is used to run club workspaces, manage Coach access, create player development records, send parent feedback, keep audit records, protect accounts, support billing, and maintain service reliability. Clubs should only add information that is relevant to football development, safeguarding responsibilities, communications, and platform administration.
             </p>
           </section>
 
@@ -119,7 +119,7 @@ export function GdprPage() {
           <section className={sectionClass}>
             <h2 className="text-2xl font-black">Security</h2>
             <p className={paragraphClass}>
-              Football Player uses account authentication, role based access, club and team scoping, audit logs, database security policies, and private storage links for voice recordings. Staff should keep passwords private and only grant access to people who need it for club duties.
+              Football Player uses account authentication, role based access, club and team scoping, audit logs, database security policies, and private storage links for voice recordings. Coaches should keep passwords private and only grant access to people who need it for club duties.
             </p>
           </section>
         </div>

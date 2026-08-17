@@ -25,7 +25,7 @@ const parentGets = [
 ]
 
 const clubControls = [
-  ['Staff tools', 'Parents never need access to coach or admin areas.'],
+  ['Coach tools', 'Parents never need access to coach or admin areas.'],
   ['Player records', 'The club keeps control of the full player history.'],
   ['Team access', 'Access stays linked to the children and teams the club connects.'],
   ['What gets shared', 'Coaches choose the updates parents receive.'],
@@ -33,16 +33,16 @@ const clubControls = [
 
 const steps = [
   {
-    title: 'Coaches record the session, match, or player note.',
+    title: 'Coach record the session, match, or player note.',
     copy: 'The football activity stays inside the club workspace.',
   },
   {
     title: 'The club chooses what parents should receive.',
-    copy: 'Staff decide which updates are useful and appropriate to send.',
+    copy: 'Coaches decide which updates are useful and appropriate to send.',
   },
   {
     title: 'Parents get a clear update linked to their child.',
-    copy: 'Families see the information they need without entering staff tools.',
+    copy: 'Families see the information they need without entering Coach tools.',
   },
   {
     title: 'Replies stay connected to the right team and player.',
@@ -77,7 +77,7 @@ export function PublicParentsPage() {
               Clear parent updates, controlled by the club.
             </h1>
             <p className={`mt-5 max-w-2xl ${publicSubheadingClass}`}>
-              Coaches share updates from the records they already keep. Parents get clear information about training, match day, availability, and player progress without needing access to staff tools.
+              Coaches share updates from the records they already keep. Parents get clear information about training, match day, availability, and player progress without needing access to Coach tools.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <a href="/sign-in" className={publicPrimaryButtonClass}>Parent login</a>
@@ -164,10 +164,10 @@ export function PublicParentsPage() {
             <p className={publicEyebrowClass}>Club record first</p>
             <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">Parents get the update. Coaches keep the records.</h2>
             <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-white/70">
-              The player record remains the source of truth for staff, while parent access receives only the parts families need.
+              The player record remains the source of truth for Coaches, while parent access receives only the parts families need.
             </p>
             <ul className="mt-5 grid gap-2">
-              {['Updates come from saved records', 'Staff keep the full history', 'Parents only see what the club shares'].map((bullet) => (
+              {['Updates come from saved records', 'Coaches keep the full history', 'Parents only see what the club shares'].map((bullet) => (
                 <li key={bullet} className="grid grid-cols-[auto_1fr] gap-3 text-sm font-black leading-6 text-white">
                   <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#c6ff1a]" />
                   <span>{bullet}</span>
@@ -175,7 +175,7 @@ export function PublicParentsPage() {
               ))}
             </ul>
           </div>
-          <PublicScreenshot image={playersListImage} alt="Player register used by staff before parent updates" />
+          <PublicScreenshot image={playersListImage} alt="Player register used by Coaches before parent updates" />
         </article>
       </section>
 

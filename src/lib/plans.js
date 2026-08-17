@@ -149,7 +149,7 @@ export const PLAN_OPTIONS = [
     features: PLAN_FEATURES_SMALL_CLUB,
     legacyAliases: ['Small Club', 'small_club'],
     safeDefaultBehavior: 'self_service_paid_plan_requires_explicit_key',
-    limitNotes: 'Staff and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
+    limitNotes: 'Coaches and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
   },
   {
     key: PLAN_KEYS.developmentClub,
@@ -171,7 +171,7 @@ export const PLAN_OPTIONS = [
     features: PLAN_FEATURES_DEVELOPMENT_CLUB,
     legacyAliases: ['Development Club', 'development_club'],
     safeDefaultBehavior: 'self_service_paid_plan_requires_explicit_key',
-    limitNotes: 'Staff and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
+    limitNotes: 'Coaches and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
   },
   {
     key: PLAN_KEYS.largeClub,

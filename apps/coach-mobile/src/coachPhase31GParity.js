@@ -61,12 +61,12 @@ const CLOSURE = Object.freeze({
   30: { status: GOVERNED, reason: 'Authorised metadata, HTTPS links, signed access, and bounded sharing authority exist. Large upload, bulk assignment, archive, and retention governance remain web-only.' },
   31: { status: COMPLETE },
   32: { status: COMPLETE },
-  33: { status: GOVERNED, reason: 'Canonical communication history and delivery evidence are visible. The product has no separate staff inbox model, while announcement authoring, schedules, and external delivery remain governed web communication.' },
+  33: { status: GOVERNED, reason: 'Canonical communication history and delivery evidence are visible. The product has no separate Coaches inbox model, while announcement authoring, schedules, and external delivery remain governed web communication.' },
   34: { status: COMPLETE },
   35: { status: COMPLETE },
   36: { status: COMPLETE },
-  37: { status: GOVERNED, reason: 'Team identity, branding, role, roster, and operational scope drive the app. Staff assignment, squad governance, and Team administration remain web-only.' },
-  38: { status: GOVERNED, reason: 'Club identity, branding, Club scope, Resources, and operational context are present. Club-wide staff and settings administration remain web-only.' },
+  37: { status: GOVERNED, reason: 'Team identity, branding, role, roster, and operational scope drive the app. Coach assignment, squad governance, and Team administration remain web-only.' },
+  38: { status: GOVERNED, reason: 'Club identity, branding, Club scope, Resources, and operational context are present. Club-wide Coaches and settings administration remain web-only.' },
   39: { status: COMPLETE },
   40: { status: GOVERNED, reason: 'Account identity, role, context, biometric security, and logout are present. Login email and password changes remain on the official governed Auth web flow.' },
   41: { status: COMPLETE },
@@ -75,7 +75,7 @@ const CLOSURE = Object.freeze({
   44: { status: WEB, reason: 'Spreadsheet import, mapping, rollback, and bulk data governance are unsafe and unusable as a pitch-side phone workflow.' },
   45: { status: WEB, reason: 'Organisation-wide Parent email template governance is low-frequency and can affect real recipients. Mobile consumes approved product behavior only.' },
   46: { status: WEB, reason: 'Checkout, payment methods, coupons, Stripe settings, and billing ownership are financial governance. Mobile enforces access but cannot change payer authority.' },
-  47: { status: WEB, reason: 'Platform Admin tooling is global governance, not Coach operational authority. A Platform Admin needs a separate active staff membership to enter Coach mobile.' },
+  47: { status: WEB, reason: 'Platform Admin tooling is global governance, not Coach operational authority. A Platform Admin needs a separate active Coach membership to enter Coach mobile.' },
 })
 
 function webProduct(area) {

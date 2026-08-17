@@ -83,7 +83,7 @@ export function DemoRequestModal({
           <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3">
             <p className="text-sm font-black text-[#065f46]">Demo focus</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
-              We will cover first-run setup, staff roles, player records, parent links, availability, and match day.
+              We will cover first-run setup, Coach roles, player records, parent links, availability, and match day.
             </p>
           </div>
 

@@ -32,7 +32,7 @@ const guideRules = [
   },
   {
     label: 'Plan limits matter',
-    body: 'Use the access panel before adding players, staff, messages, or development records.',
+    body: 'Use the access panel before adding players, Coaches, messages, or development records.',
   },
 ]
 

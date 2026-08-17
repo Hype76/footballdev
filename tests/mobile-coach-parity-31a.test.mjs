@@ -72,8 +72,8 @@ test('canonical role matrix separates operational staff, dual-role access, Paren
   assert.equal(roles.get('super_admin').eligible, false)
   assert.equal(roles.get('parent_portal').eligible, false)
   assert.equal(roles.get('adult_player').eligible, false)
-  assert.match(roles.get('super_admin').notes, /separately proven staff workspace/)
-  assert.match(roles.get('parent_portal').notes, /independent staff workspace/)
+  assert.match(roles.get('super_admin').notes, /separately proven Coach workspace/)
+  assert.match(roles.get('parent_portal').notes, /independent Coach workspace/)
 })
 
 test('backend audit classifies A, B, C, and D without duplicating canonical business models', () => {

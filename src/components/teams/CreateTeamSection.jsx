@@ -8,7 +8,7 @@ export function CreateTeamSection({
   const heading = hasTeams ? 'Manage teams' : 'Create the first team'
   const description = hasTeams
     ? 'Add another team or age group when the club structure changes.'
-    : 'Add the team or age group before players, sessions, staff access, and match day records.'
+    : 'Add the team or age group before players, sessions, Coach access, and match day records.'
   const buttonLabel = hasTeams ? 'Add another team' : 'Create a new team'
 
   return (
@@ -25,7 +25,7 @@ export function CreateTeamSection({
 
       <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
-          Keep team creation focused. Add the team name first, then assign staff and players after the team exists.
+          Keep team creation focused. Add the team name first, then assign Coaches and players after the team exists.
         </p>
         <button
           type="button"

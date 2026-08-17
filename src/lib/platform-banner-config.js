@@ -38,7 +38,7 @@ export const PLATFORM_BANNER_AUDIENCES = Object.freeze([
   {
     bannerKey: LOGGED_IN_USERS_BANNER_KEY,
     label: 'Logged-in users',
-    description: 'Shown inside the staff and Platform Admin application.',
+    description: 'Shown inside the Coaches and Platform Admin application.',
     defaultBanner: DEFAULT_LOGGED_IN_USERS_BANNER,
   },
   {

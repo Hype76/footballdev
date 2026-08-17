@@ -51,9 +51,9 @@ test('communication policy disables every external delivery channel', () => {
   assert.equal(COACH_PHASE_31E_COMMUNICATION_POLICY.realCustomerChat, 0)
 })
 
-test('backend deltas cover A through E without claiming a standalone staff inbox', () => {
+test('backend deltas cover A through E without claiming a standalone Coach inbox', () => {
   assert.deepEqual([...new Set(COACH_PHASE_31E_BACKEND_DELTAS.map((item) => item.category))].sort(), ['A', 'B', 'C', 'D', 'E'])
-  assert.equal(COACH_PHASE_31E_BACKEND_DELTAS.some((item) => item.category === 'C' && /Standalone staff Messages/.test(item.capability)), true)
+  assert.equal(COACH_PHASE_31E_BACKEND_DELTAS.some((item) => item.category === 'C' && /Standalone Coach Messages/.test(item.capability)), true)
   assert.equal(COACH_PHASE_31E_BACKEND_DELTAS.some((item) => item.category === 'D' && /PDF/.test(item.capability)), true)
 })
 

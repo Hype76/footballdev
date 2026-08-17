@@ -87,7 +87,7 @@ export function getCoachPushSetupFailureMessage(error) {
   if (code.includes('SIGNED_OUT')) return 'Sign in again to enable notifications.'
   if (code.includes('PERMISSION')) return 'Notifications are turned off in device settings. The Coach app remains fully usable.'
   if (code.includes('NETWORK') || code.includes('SERVICE')) return 'Notifications could not be refreshed while the service is unavailable. The Coach app remains fully usable.'
-  if (code.includes('FORBIDDEN')) return 'Notifications are not available for this staff context. The Coach app remains fully usable.'
+  if (code.includes('FORBIDDEN')) return 'Notifications are not available for this Coach context. The Coach app remains fully usable.'
   return 'Notifications are temporarily unavailable on this device. The Coach app remains fully usable.'
 }
 
@@ -105,7 +105,7 @@ export function buildCoachNotificationPayload(intentType, detailLevel = 'minimal
   if (!intent) throw new Error('unsupported_coach_notification_intent')
   const level = normalizeCoachNotificationLevel(detailLevel)
   const copy = {
-    calendar: ['Calendar updated', 'A staff Calendar item has changed.'],
+    calendar: ['Calendar updated', 'A Coach Calendar item has changed.'],
     chat: ['New Coach update', 'Open Football Player Coach to view it.'],
     development: ['Development updated', 'A Development item needs your attention.'],
     home: ['Team update', 'New operational information is available.'],
@@ -125,7 +125,7 @@ export function buildCoachNotificationPayload(intentType, detailLevel = 'minimal
 
 export function containsForbiddenCoachNotificationContent(text, playerNames = []) {
   const content = normalizeLower(text)
-  const forbidden = ['@', 'phone', 'assessment', 'development note', 'staff note', 'message body', 'parent contact']
+  const forbidden = ['@', 'phone', 'assessment', 'development note', 'Coach note', 'message body', 'parent contact']
   if (forbidden.some((signal) => content.includes(signal))) return true
   return playerNames.some((name) => {
     const candidate = normalizeLower(name)

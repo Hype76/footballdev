@@ -18,7 +18,7 @@ export function PendingAllocationsSection({
     <SectionCard
       title="Pending allocations"
       tourId="pending-allocations-section"
-      description="Pending means invited but not accepted yet. Assigned pending staff can already be allocated to teams, but cannot sign in until they accept."
+      description="Pending means invited but not accepted yet. Assigned pending Coaches can already be allocated to teams, but cannot sign in until they accept."
     >
       {isLoading ? (
         <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#4b5f55]`}>

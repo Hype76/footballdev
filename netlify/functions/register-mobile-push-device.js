@@ -94,7 +94,7 @@ async function buildDevicePayload({ authUser, body }) {
   const profile = await getStaffProfile(authUser)
 
   if (profile.role === 'parent_portal' || profile.role === 'super_admin' || Number(profile.role_rank ?? 0) < 20) {
-    throw Object.assign(new Error('This staff account cannot register mobile notifications.'), { statusCode: 403 })
+    throw Object.assign(new Error('This Coach account cannot register mobile notifications.'), { statusCode: 403 })
   }
 
   return {

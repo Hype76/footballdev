@@ -6,7 +6,7 @@ import { canManagePolls, isClubAdmin } from '../auth-permissions.js'
 
 export const POLL_AUDIENCE_OPTIONS = [
   { value: 'parents', label: 'Parent poll' },
-  { value: 'staff', label: 'Team staff poll' },
+  { value: 'staff', label: 'Team Coaches poll' },
 ]
 
 export const POLL_TYPE_OPTIONS = [
@@ -156,7 +156,7 @@ function normalizeOptions(options) {
 
 function assertStaffPollAccess(user) {
   if (!canManagePolls(user)) {
-    throw new Error('Club staff access is required for polls.')
+    throw new Error('Club Coach access is required for polls.')
   }
 }
 

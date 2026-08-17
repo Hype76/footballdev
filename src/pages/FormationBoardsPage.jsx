@@ -94,7 +94,7 @@ function formatMatchOption(match) {
 
 function getUpdatedByLabel(board, user) {
   const profileId = board?.currentVersion?.createdByProfileId || board?.createdByProfileId
-  return String(profileId) === String(user?.id) ? 'You' : 'Team staff'
+  return String(profileId) === String(user?.id) ? 'You' : 'Team Coaches'
 }
 
 function getBoardActionFromLocation(search) {
@@ -185,7 +185,7 @@ function FormationBoardList({ boards, canCreate, onArchive, onCreate, onDuplicat
                     <h2 className="text-xl font-black">{board.title}</h2>
                     <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-black text-[var(--text-primary)]">{board.gameFormat}</span>
                     <span className="rounded-full border border-[var(--border-color)] px-2.5 py-1 text-xs font-black">{board.formationPresetKey.split('-').slice(1).join('-')}</span>
-                    <span className="rounded-full border border-[var(--border-color)] px-2.5 py-1 text-xs font-black">{board.visibilityState === 'shared' ? 'Shared with Team staff' : 'Draft'}</span>
+                    <span className="rounded-full border border-[var(--border-color)] px-2.5 py-1 text-xs font-black">{board.visibilityState === 'shared' ? 'Shared with Team Coaches' : 'Draft'}</span>
                     {board.currentPublicationId ? <span className="rounded-full border border-[#86efac] bg-[#dcfce7] px-2.5 py-1 text-xs font-black text-[#166534]">Published resource</span> : null}
                     {board.archivedAt ? <span className="rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-xs font-black text-[#9a3412]">Archived</span> : null}
                   </div>
@@ -1479,12 +1479,12 @@ export function FormationBoardsPage() {
                 <span className="mb-2 block text-sm font-black">Team visibility</span>
                 <select value={snapshot.visibility} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, visibility: event.target.value })} className={fieldClass}>
                   <option value="draft">Draft, creator and manager oversight</option>
-                  <option value="shared">Shared with authorised Team staff</option>
+                  <option value="shared">Shared with authorised Team Coaches</option>
                 </select>
               </label>
               <label className="lg:col-span-2">
                 <span className="mb-2 block text-sm font-black">Description</span>
-                <textarea value={snapshot.description} maxLength={1000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, description: event.target.value })} className={`${fieldClass} min-h-20 resize-y`} placeholder="Optional staff context" />
+                <textarea value={snapshot.description} maxLength={1000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, description: event.target.value })} className={`${fieldClass} min-h-20 resize-y`} placeholder="Optional Coach context" />
               </label>
             </div>
           </section>
@@ -1494,7 +1494,7 @@ export function FormationBoardsPage() {
               <div className="flex flex-col gap-4">
                 <div>
                   <h2 className="text-lg font-black">Match plan</h2>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text-muted)]">Link the private board to a match, then publish only the read-only pitch and Bench to parents. Staff notes, availability, and unselected squad members stay private.</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text-muted)]">Link the private board to a match, then publish only the read-only pitch and Bench to parents. Coach notes, availability, and unselected squad members stay private.</p>
                 </div>
                 <label>
                   <span className="mb-2 block text-sm font-black">Match</span>
@@ -1661,8 +1661,8 @@ export function FormationBoardsPage() {
 
           <section className={panelClass}>
             <label>
-              <span className="mb-2 block text-sm font-black">Staff notes</span>
-              <textarea value={snapshot.notes} maxLength={2000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, notes: event.target.value })} className={`${fieldClass} min-h-24 resize-y`} placeholder="Optional Team staff notes" />
+              <span className="mb-2 block text-sm font-black">Coach notes</span>
+              <textarea value={snapshot.notes} maxLength={2000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, notes: event.target.value })} className={`${fieldClass} min-h-24 resize-y`} placeholder="Optional Team Coach notes" />
             </label>
           </section>
 
@@ -1753,7 +1753,7 @@ export function FormationBoardsPage() {
               <div className="mt-3 space-y-2">
                 {publications.map((publication) => {
                   const version = versions.find((item) => item.id === publication.boardVersionId)
-                  return <p key={publication.id} className="text-xs font-semibold text-[var(--text-muted)]">Publication {publication.publicationNumber} | Version {version?.versionNumber || 'Unknown'} | {version?.formationPresetKey || 'Unknown'} | {publication.publishedByName || 'Team staff'} | {formatDateTime(publication.publishedAt)}</p>
+                  return <p key={publication.id} className="text-xs font-semibold text-[var(--text-muted)]">Publication {publication.publicationNumber} | Version {version?.versionNumber || 'Unknown'} | {version?.formationPresetKey || 'Unknown'} | {publication.publishedByName || 'Team Coaches'} | {formatDateTime(publication.publishedAt)}</p>
                 })}
               </div>
             </details>
@@ -1891,7 +1891,7 @@ export function FormationBoardsPage() {
       <ConfirmModal
         isOpen={Boolean(conflict)}
         title="A newer Team version is available"
-        message="Another authorised Team staff member saved a newer version. Your changes were not written over it. Reload the latest version or save your work as a new Formation Board."
+        message="Another authorised Team Coach saved a newer version. Your changes were not written over it. Reload the latest version or save your work as a new Formation Board."
         confirmLabel="Reload latest"
         onCancel={() => setConflict(null)}
         onConfirm={() => void reloadLatest()}

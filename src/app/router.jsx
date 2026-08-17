@@ -245,8 +245,8 @@ function RecoverableParentAccessState({ accessModeOptions = [], reason = 'no_act
   const isLookupFailure = reason === 'lookup_failed'
   const message = selectionError || (
     isLookupFailure
-      ? 'Football Player could not confirm Parent access just now. Your signed-in staff access remains available.'
-      : 'This signed-in account does not currently have an active Parent link. Choose an available staff workspace to continue.'
+      ? 'Football Player could not confirm Parent access just now. Your signed-in Coach access remains available.'
+      : 'This signed-in account does not currently have an active Parent link. Choose an available Coach workspace to continue.'
   )
 
   const handleAccessModeSelect = async (accessMode) => {
@@ -275,10 +275,10 @@ function RecoverableParentAccessState({ accessModeOptions = [], reason = 'no_act
           body: 'This check does not change club, team, parent, player, or invitation records.',
         },
         {
-          title: isLookupFailure ? 'Retry before changing access' : 'Parent and staff access are separate',
+          title: isLookupFailure ? 'Retry before changing access' : 'Parent and Coach access are separate',
           body: isLookupFailure
             ? 'A temporary Parent-link lookup problem is not treated as proof that the link is missing.'
-            : 'A confirmed staff workspace can remain available even when this account has no active Parent link.',
+            : 'A confirmed Coach workspace can remain available even when this account has no active Parent link.',
         },
       ]}
       actions={(
@@ -383,8 +383,8 @@ function TeamAccessUnavailableState() {
   return (
     <RouteGateState
       eyebrow="Club login"
-      title="Club staff access was not found"
-      message="This account signed in successfully, but it is not linked to a club staff profile."
+      title="Club Coach access was not found"
+      message="This account signed in successfully, but it is not linked to a Club Coach profile."
       rules={[
         {
           title: 'No club data changed',
@@ -424,7 +424,7 @@ function AdultPlayerAccessUnavailableState() {
       rules={[
         {
           title: 'Access fails closed',
-          body: 'No parent, staff, or administration access is granted as a fallback.',
+          body: 'No Parent, Coach, or administration access is granted as a fallback.',
         },
         {
           title: 'Ask the platform team',
@@ -487,7 +487,7 @@ function TesterAccessExpiredState() {
     <RouteGateState
       eyebrow="Billing"
       title="Workspace access needs review"
-      message="This workspace needs plan access reviewed before staff can continue using club tools. Your existing club data remains safe."
+      message="This workspace needs plan access reviewed before Coaches can continue using club tools. Your existing club data remains safe."
       rules={[
         { title: 'Club records stay safe', body: 'Plan access gates tools without deleting saved football data.' },
         { title: 'Ask your Club Admin', body: 'A Club Admin or support can review billing and plan access for this workspace.' },
@@ -509,10 +509,10 @@ function PlanAccessRequiredState() {
     <RouteGateState
       eyebrow="Billing"
       title="Plan access needs attention"
-      message="This workspace needs an active plan before staff can keep using club tools. Your existing club data remains safe."
+      message="This workspace needs an active plan before Coaches can keep using club tools. Your existing club data remains safe."
       rules={[
         { title: 'Club records stay safe', body: 'Billing gates access to tools without deleting saved football data.' },
-        { title: 'Plan required', body: 'An active plan is needed before staff can continue daily operations.' },
+        { title: 'Plan required', body: 'An active plan is needed before Coaches can continue daily operations.' },
       ]}
       actions={(
         <a
@@ -580,7 +580,7 @@ function EmailTemplatesUnavailableState() {
     <RouteGateState
       eyebrow="Email templates"
       title="Email templates are managed by your club admin."
-      message="This area is not available for your current role or plan. Parent email templates stay managed by the club admin so staff use approved parent updates."
+      message="This area is not available for your current role or plan. Parent email templates stay managed by the club admin so Coaches use approved parent updates."
       actions={(
         <a href="/coach" className={secondaryActionClassName}>
           Return to workspace
@@ -1846,7 +1846,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Platform Staff',
+                  title: 'Platform Admins',
                 },
               },
               {
@@ -2176,7 +2176,7 @@ export const router = createBrowserRouter([
                           </PageSuspense>
                         ),
                         handle: {
-                          title: 'Staff Chat',
+                          title: 'Coach Chat',
                         },
                       },
                       {

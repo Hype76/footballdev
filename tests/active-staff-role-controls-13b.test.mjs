@@ -68,7 +68,7 @@ test('normal User Access loads accepted assignment context and preserves pending
 
 test('each team assignment remains independent and offers a confirmed keyboard-usable transition', () => {
   assert.match(activeUsersSection, /key={`\$\{assignment\.assignmentId\}:\$\{assignment\.teamRoleKey\}`}/)
-  assert.match(activeUsersSection, /aria-label={`Team role for \$\{member\.name \|\| member\.email \|\| 'staff member'\} in \$\{assignment\.teamName\}`}/)
+  assert.match(activeUsersSection, /aria-label={`Team role for \$\{member\.name \|\| member\.email \|\| 'Coach'\} in \$\{assignment\.teamName\}`}/)
   assert.match(activeUsersSection, /assignment\.roleOptions\.map/)
   assert.match(activeUsersSection, /Review role change/)
   assert.match(userAccessPage, /title="Confirm team role change"/)

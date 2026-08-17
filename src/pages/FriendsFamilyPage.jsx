@@ -61,7 +61,7 @@ export function FriendsFamilyPage() {
     },
     {
       title: 'Family portal access',
-      description: 'Family members cannot see staff tools, club settings, or another child.',
+      description: 'Family members cannot see Coach tools, club settings, or another child.',
     },
     {
       title: 'Revocable',

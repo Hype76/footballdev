@@ -103,7 +103,7 @@ test('staff UI keeps a stable accessible Parent sharing label', async () => {
   assert.match(page, />\s*Shared with parents\s*<\/label>/)
   assert.doesNotMatch(page, /assignmentDraft\.parentVisible \? 'Shared with parents' : 'Staff only'/)
   assert.match(page, /Shared with linked parents\./)
-  assert.match(page, /Staff can now see the assignment in the permitted scope\./)
+  assert.match(page, /Coaches can now see the assignment in the permitted scope\./)
 })
 
 test('resource notification queue is re-authorized and rendered through every send path', async () => {

@@ -29,7 +29,7 @@ export function ActiveUsersSection({
     <SectionCard
       title="Active users"
       tourId="active-users-section"
-      description="Review active staff, keep names readable, and manage each accepted team assignment without changing the club profile role."
+      description="Review active Coaches, keep names readable, and manage each accepted team assignment without changing the club profile role."
     >
       {isLoading ? (
         <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#4b5f55]`}>
@@ -148,7 +148,7 @@ function ClubRoleControl({ isSaving, member, onClubRoleChangeRequest }) {
       <label className="block">
         <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Club-level role</span>
         <select
-          aria-label={`Club role for ${member.name || member.email || 'staff member'}`}
+          aria-label={`Club role for ${member.name || member.email || 'Coach'}`}
           value={roleKey}
           disabled={isSaving}
           onChange={(event) => setRoleKey(event.target.value)}
@@ -196,7 +196,7 @@ function TeamAssignmentRoleControl({ assignment, isSaving, member, onRoleChangeR
           <label className="block">
             <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Team role</span>
             <select
-              aria-label={`Team role for ${member.name || member.email || 'staff member'} in ${assignment.teamName}`}
+              aria-label={`Team role for ${member.name || member.email || 'Coach'} in ${assignment.teamName}`}
               value={roleKey}
               disabled={isSaving || !assignment.assignmentId}
               onChange={(event) => setRoleKey(event.target.value)}

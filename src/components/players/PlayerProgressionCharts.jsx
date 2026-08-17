@@ -123,7 +123,7 @@ export function PlayerProgressionCharts({
           <p className={eyebrowClass}>Progression</p>
           <h2 className="mt-2 text-xl font-black tracking-tight text-[#101828]">Player progression</h2>
           <p className={`mt-2 ${bodyClass}`}>
-            Real trend data for {playerName}, built from saved development records and staff notes.
+            Real trend data for {playerName}, built from saved development records and Coach notes.
           </p>
           {historicalEvaluationCount !== progressionData.evaluationCount ? (
             <p className={`mt-2 ${bodyClass}`}>

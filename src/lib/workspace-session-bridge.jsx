@@ -76,7 +76,7 @@ export async function switchToMainAppWorkspace({ session, targetPath = '/coach' 
   const targetUrl = `${mainOrigin}${normalizedPath}`
 
   if (!mainOrigin) {
-    throw new Error('Staff access could not be opened. Try again or ask a club admin to review this account.')
+    throw new Error('Coach access could not be opened. Try again or ask a club admin to review this account.')
   }
 
   if (mainOrigin === currentOrigin) {
@@ -131,7 +131,7 @@ export async function switchToMainAppWorkspace({ session, targetPath = '/coach' 
     }
     const timeoutId = window.setTimeout(() => {
       cleanup()
-      reject(new Error('The staff platform took too long to open. Refresh and try again.'))
+      reject(new Error('The Coach platform took too long to open. Refresh and try again.'))
     }, BRIDGE_TIMEOUT_MS)
 
     iframe.hidden = true

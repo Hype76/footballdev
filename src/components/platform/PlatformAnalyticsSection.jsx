@@ -20,8 +20,8 @@ const ACCOUNT_ESTATE_CARDS = [
   ['customerWorkspaces', 'Customer workspaces', 'Active, non-test customer storage containers across all commercial scopes.', 'customerWorkspaces'],
   ['teams', 'Teams', 'Active football teams in counted customer workspaces.', 'teams'],
   ['activePlayers', 'Active players', 'Players with active status attached to an active team in a counted workspace.', 'activePlayers'],
-  ['staffAccounts', 'Staff accounts', 'Distinct active customer staff profiles, whether or not they currently have a team assignment.', 'staffAccounts'],
-  ['staffAssignments', 'Staff assignments', 'Current team-role assignments. One staff account can have several assignments.', 'staffAssignments'],
+  ['staffAccounts', 'Coach accounts', 'Distinct active customer Coach profiles, whether or not they currently have a team assignment.', 'staffAccounts'],
+  ['staffAssignments', 'Coach assignments', 'Current team-role assignments. One Coach account can have several assignments.', 'staffAssignments'],
   ['usersWithParentAccess', 'Users with Parent access', 'Distinct active authenticated users with an accepted active Parent relationship.', 'parentAccess'],
   ['parentContacts', 'Parent and guardian contacts', 'Distinct current, non-revoked contact relationships. Authentication is not required.', 'parentContacts'],
   ['activeParentChildLinks', 'Active Parent-child links', 'Distinct accepted authenticated Parent-to-player relationships.', 'activeParentChildLinks'],
@@ -33,7 +33,7 @@ const PRODUCT_ACTIVITY_CARDS = [
   ['activeUsers7Days', 'Active in 7 days', 'Distinct authenticated users with a qualifying meaningful action in the last 7 calendar days.'],
   ['activeUsers30Days', 'Active in 30 days', 'Distinct authenticated users with a qualifying meaningful action in the last 30 calendar days.'],
   ['activeParents', 'Active parents', 'Authenticated parent accounts with qualifying Parent Portal activity in the selected period.'],
-  ['activeStaff', 'Active staff', 'Distinct current staff accounts with qualifying staff activity in the selected period.'],
+  ['activeStaff', 'Active Coaches', 'Distinct current Coach accounts with qualifying Coach activity in the selected period.'],
   ['activeClubs', 'Active clubs', 'Clubs with qualifying customer activity in the selected period, excluding internal inspection by default.'],
   ['pageViews', 'Page views', 'Canonical authenticated page-view events in the selected period.'],
   ['meaningfulActions', 'Meaningful actions', 'Approved product outcomes, excluding navigation and authentication-only activity.'],
@@ -409,7 +409,7 @@ export function PlatformAnalyticsSection({
               <OverviewCard label="Distinct users logging in" value={authentication.distinctUsersLoggingIn ?? overview.distinctUsersLoggingIn} definition="Distinct authenticated actors with a successful login event in the selected period." refreshedAt={report.generatedAt} drilldown={authentication.drilldown} />
               <OverviewCard label="Failed logins" value={authentication.failedLoginsAvailable ? authentication.failedLogins : null} detail={authentication.failedLoginsAvailable ? 'Privacy-safe failure count' : 'Failure telemetry is unavailable'} definition="Failed authentication attempts where privacy-safe telemetry is available." refreshedAt={report.generatedAt} />
               <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First successful parent login</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstParentLoginAt ? new Date(authentication.firstParentLoginAt).toLocaleString('en-GB') : 'Not observed'}</p></article>
-              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First successful staff login</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstStaffLoginAt ? new Date(authentication.firstStaffLoginAt).toLocaleString('en-GB') : 'Not observed'}</p></article>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First successful Coach login</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstStaffLoginAt ? new Date(authentication.firstStaffLoginAt).toLocaleString('en-GB') : 'Not observed'}</p></article>
             </div>
             <div className="mt-5">
               <TrendChart
@@ -492,7 +492,7 @@ export function PlatformAnalyticsSection({
 
             <article className="rounded-xl border border-slate-200 p-4">
               <h3 className="text-lg font-black text-slate-950">Activity by role at event time</h3>
-              <p className="mt-1 text-xs font-semibold text-slate-500">Historical events keep their authoritative workspace role. Current account roles are reported separately in Staff activity.</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">Historical events keep their authoritative workspace role. Current account roles are reported separately in Coach activity.</p>
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead><tr><th className="py-2 font-black text-slate-600">Role</th><th className="py-2 text-right font-black text-slate-600">Active users</th><th className="py-2 text-right font-black text-slate-600">Actions</th></tr></thead>
@@ -536,15 +536,15 @@ export function PlatformAnalyticsSection({
             </div>
           </SectionCard>
 
-          <SectionCard title="Staff activity" description="Current accounts and assignments are separate from selected-period staff activity." defaultCollapsed forceOpen={requestedFocus === 'staffAccounts'} storageKey="platform-analytics-staff-activity">
+          <SectionCard title="Coach activity" description="Current accounts and assignments are separate from selected-period Coach activity." defaultCollapsed forceOpen={requestedFocus === 'staffAccounts'} storageKey="platform-analytics-staff-activity">
             <div id="analytics-staffAccounts" tabIndex="-1" className="grid scroll-mt-28 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <OverviewCard label="Staff accounts" value={report.staffAccounts?.authenticatedStaffAccounts} definition="Distinct active customer staff profiles, whether or not they currently have a team assignment." refreshedAt={report.generatedAt} />
-              <OverviewCard label="Staff assignments" value={report.staffAccounts?.assignmentCount} definition="Current team-role assignments. One account may have several assignments." refreshedAt={report.generatedAt} />
-              <OverviewCard label="Multi-team staff" value={report.staffAccounts?.multiTeamAccounts} definition="Current staff accounts assigned to more than one team." refreshedAt={report.generatedAt} />
-              <OverviewCard label="Active staff" value={report.staffAccounts?.activeStaffAccounts} definition="Current staff accounts with qualifying activity in the selected period." refreshedAt={report.generatedAt} />
+              <OverviewCard label="Coach accounts" value={report.staffAccounts?.authenticatedStaffAccounts} definition="Distinct active customer Coach profiles, whether or not they currently have a team assignment." refreshedAt={report.generatedAt} />
+              <OverviewCard label="Coach assignments" value={report.staffAccounts?.assignmentCount} definition="Current team-role assignments. One account may have several assignments." refreshedAt={report.generatedAt} />
+              <OverviewCard label="Multi-Team Coaches" value={report.staffAccounts?.multiTeamAccounts} definition="Current Coach accounts assigned to more than one team." refreshedAt={report.generatedAt} />
+              <OverviewCard label="Active Coaches" value={report.staffAccounts?.activeStaffAccounts} definition="Current Coach accounts with qualifying activity in the selected period." refreshedAt={report.generatedAt} />
             </div>
             <div className="mt-5">
-              <BarComparison title="Staff accounts by role" description="Total current customer staff accounts compared with accounts that had meaningful activity in the selected period." rows={staffRoleAdoption} totalKey="totalAccounts" activeKey="activeAccounts" />
+              <BarComparison title="Coach accounts by role" description="Total current customer Coach accounts compared with accounts that had meaningful activity in the selected period." rows={staffRoleAdoption} totalKey="totalAccounts" activeKey="activeAccounts" />
             </div>
           </SectionCard>
 

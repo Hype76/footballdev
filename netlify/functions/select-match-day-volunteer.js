@@ -274,7 +274,7 @@ export function buildRoleNotificationEmail({
     `${actionLabel}: ${portalUrl}`,
     calendarUrl ? `Add to calendar: ${calendarUrl}` : '',
     '',
-    `Updated by ${normalizeText(profile.display_name || profile.name || profile.email || 'team staff')}.`,
+    `Updated by ${normalizeText(profile.display_name || profile.name || profile.email || 'Team Coaches')}.`,
     'Delivered securely through Footballplayer.online.',
   ].filter((line) => line !== '').join('\n')
 
@@ -297,7 +297,7 @@ export function buildRoleNotificationEmail({
           <a href="${escapeHtml(portalUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 18px;background:${escapeHtml(accentColor)};color:#ffffff;text-decoration:none;border-radius:10px;font-weight:800;">${escapeHtml(actionLabel)}</a>
           ${calendarUrl ? `<a href="${escapeHtml(calendarUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 18px;background:#142018;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:800;">Add to calendar</a>` : ''}
         </div>
-        <p style="margin:20px 0 0;color:#52635a;font-size:13px;line-height:1.5;">Updated by ${escapeHtml(profile.display_name || profile.name || profile.email || 'team staff')}.</p>
+        <p style="margin:20px 0 0;color:#52635a;font-size:13px;line-height:1.5;">Updated by ${escapeHtml(profile.display_name || profile.name || profile.email || 'Team Coaches')}.</p>
         <div style="border-top:1px solid #e7ece3;margin-top:24px;padding-top:14px;">
           <p style="margin:0;color:#64748b;font-size:11px;line-height:1.45;">Delivered securely through Footballplayer.online.</p>
         </div>

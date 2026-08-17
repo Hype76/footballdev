@@ -412,7 +412,7 @@ function PlayerDetailsSummary({
           ) : (
             <PlayerStatePanel
               action="Open Message Templates and enable a Direct Email template for parents or players."
-              body="Direct email needs a saved template so staff send consistent football communication from the profile."
+              body="Direct email needs a saved template so Coaches send consistent football communication from the profile."
               eyebrow="Email setup"
               title="Direct email templates are not ready."
             />

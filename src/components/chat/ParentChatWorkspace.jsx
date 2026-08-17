@@ -11,7 +11,7 @@ import {
 import { orderParentPortalChatMessagesNewestFirst } from './parent-chat-order.js'
 
 const groupOrder = [
-  { key: PARENT_CHAT_ROOM_TYPES.parentStaff, label: 'Chat with Staff' },
+  { key: PARENT_CHAT_ROOM_TYPES.parentStaff, label: 'Chat with Coaches' },
   { key: PARENT_CHAT_ROOM_TYPES.team, label: 'Team Chat' },
   { key: PARENT_CHAT_ROOM_TYPES.matchSquad, label: 'Match Chats' },
 ]
@@ -61,7 +61,7 @@ function formatClock(value, isTbc = false) {
 
 function getRoomHeading(room) {
   if (room.type === PARENT_CHAT_ROOM_TYPES.parentStaff) {
-    return 'Chat with Staff'
+    return 'Chat with Coaches'
   }
 
   if (room.type === PARENT_CHAT_ROOM_TYPES.team) {
@@ -94,7 +94,7 @@ function getRoomEmptyCopy(room) {
     return 'No messages yet. Team updates shared here stay inside footballplayer.online.'
   }
 
-  return 'No messages yet. This room is available only to the selected squad families and authorised team staff.'
+  return 'No messages yet. This room is available only to the selected squad families and authorised Team Coaches.'
 }
 
 export function ParentChatWorkspace({
@@ -339,7 +339,7 @@ export function ParentChatWorkspace({
         </h1>
         <p className={`mt-2 max-w-3xl ${bodyClass}`}>
           {variant === 'staff'
-            ? 'Use the controlled child, team and selected squad rooms available for your current staff assignment.'
+            ? 'Use the controlled child, team and selected squad rooms available for your current Coach assignment.'
             : 'Keep child, team and selected match conversations inside footballplayer.online.'}
         </p>
         {variant === 'parent' && childFilterAvailable ? (
@@ -398,7 +398,7 @@ export function ParentChatWorkspace({
             <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
               <p className="text-sm font-black text-[#101828]">No Chat rooms available</p>
               <p className={`mt-2 ${bodyClass}`}>
-                Rooms appear automatically from active child, team, staff and selected squad relationships.
+                Rooms appear automatically from active child, team, Coaches and selected squad relationships.
               </p>
             </div>
           ) : (
@@ -437,7 +437,7 @@ export function ParentChatWorkspace({
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" aria-live="polite">
                 {selectedRoom.type === PARENT_CHAT_ROOM_TYPES.parentStaff ? (
                   <div className="mb-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold leading-6 text-[#285143]">
-                    This conversation is visible to you, your child's linked guardians and authorised staff for this team.
+                    This conversation is visible to you, your child's linked guardians and authorised Coaches for this team.
                   </div>
                 ) : null}
 

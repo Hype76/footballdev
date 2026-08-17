@@ -198,7 +198,7 @@ async function assertCalendarTeamAccess({ user, teamId }) {
   const allowedTeamIds = teams.map((team) => normalizeText(team.id)).filter(Boolean)
 
   if (!allowedTeamIds.includes(normalizedTeamId)) {
-    throw new Error('Team staff can only save events against their assigned team.')
+    throw new Error('Team Coaches can only save events against their assigned team.')
   }
 }
 

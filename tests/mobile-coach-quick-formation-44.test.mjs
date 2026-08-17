@@ -133,12 +133,13 @@ test('slot-first assignment adds, replaces and swaps Players without a Bench-fir
 })
 
 test('Coach source wires Quick Add intents and the streamlined Formation finish', async () => {
-  const [app, quick, formation, formationScreen, operations] = await Promise.all([
+  const [app, quick, formation, formationScreen, operations, matchDay] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachQuickActions.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachFormationScreen.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachOperationalScreens.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
   ])
   assert.match(app, /<CoachQuickActions/)
   assert.match(app, /activeRoute === 'formation'/)
@@ -168,7 +169,8 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.match(formationScreen, /Create a standalone Team plan now/)
   assert.doesNotMatch(formationScreen, /selectPreferredCoachFormationMatch/)
   assert.match(formation, /publishCoachFormationBoard/)
-  for (const intent of ['create-player', 'create-session', 'create-match']) assert.match(operations, new RegExp(intent))
+  for (const intent of ['create-player', 'create-session']) assert.match(operations, new RegExp(intent))
+  assert.match(matchDay, /create-match/)
 })
 
 test('Coach Resources expose direct open controls and hide invalid Formation Board assignment controls', async () => {
@@ -178,6 +180,6 @@ test('Coach Resources expose direct open controls and hide invalid Formation Boa
   ])
   assert.match(screens, /Linking\.canOpenURL/)
   assert.match(screens, /data\.map\(\(resource\)[\s\S]*label="Open Resource"/)
-  assert.match(screens, /selected && !selected\.isFormationBoard/)
+  assert.match(screens, /selected\.isFormationBoard \? <Text/)
   assert.match(data, /\.filter\(\(item\) => item\.teamId === user\.activeTeamId\)/)
 })

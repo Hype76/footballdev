@@ -34,7 +34,7 @@ export async function sendEventPlayerInvitationAction({
     || user.role === 'super_admin'
     || Number(user.roleRank ?? 0) < 20
   ) {
-    throw new Error('Authorised team staff access is required.')
+    throw new Error('Authorised team Coach access is required.')
   }
 
   if (!SUPPORTED_ACTIONS.has(normalizedAction)) {

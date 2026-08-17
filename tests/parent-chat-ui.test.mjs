@@ -29,7 +29,7 @@ test('Parent Portal route and navigation are renamed from Messages to Chat with 
   assert.doesNotMatch(sidebar, /label: 'Messages', path: '\/parent-messages'/)
 })
 
-test('Chat home groups controlled room types and explains shared staff visibility', async () => {
+test('Chat home groups controlled room types and explains shared Coach visibility', async () => {
   const [page, workspace] = await Promise.all([
     readFile(pageUrl, 'utf8'),
     readFile(workspaceUrl, 'utf8'),
@@ -37,10 +37,10 @@ test('Chat home groups controlled room types and explains shared staff visibilit
 
   assert.match(page, /<ParentPortalRouteShell/)
   assert.match(page, /activeSection="chat"/)
-  assert.match(workspace, /Chat with Staff/)
+  assert.match(workspace, /Chat with Coaches/)
   assert.match(workspace, /Team Chat/)
   assert.match(workspace, /Match Chats/)
-  assert.match(workspace, /This conversation is visible to you, your child's linked guardians and authorised staff for this team\./)
+  assert.match(workspace, /This conversation is visible to you, your child's linked guardians and authorised Coaches for this team\./)
   assert.match(workspace, /Match Squad Chat/)
   assert.match(workspace, /Selected child/)
   assert.match(workspace, /Kickoff/)
@@ -78,7 +78,7 @@ test('staff receives a separate Parent Chat surface without altering Staff Chat'
 
   assert.match(router, /path: 'parent-chat-staff'/)
   assert.match(router, /<ParentChatStaffPage \/>/)
-  assert.match(navigation, /label: 'Staff Chat'[\s\S]*path: '\/staff-chat'/)
+  assert.match(navigation, /label: 'Coach Chat'[\s\S]*path: '\/staff-chat'/)
   assert.match(navigation, /label: 'Parent Chat'[\s\S]*path: '\/parent-chat-staff'/)
   assert.match(staffPage, /variant="staff"/)
 })

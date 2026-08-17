@@ -14,8 +14,8 @@ import {
 } from '../lib/supabase.js'
 
 const conversationTabs = [
-  { key: 'club_staff', label: 'Club Staff' },
-  { key: 'team_staff', label: 'Team Staff' },
+  { key: 'club_staff', label: 'Club Coaches' },
+  { key: 'team_staff', label: 'Team Coaches' },
   { key: 'group', label: 'Groups' },
   { key: 'direct', label: 'Direct Messages' },
   { key: 'player_staff', label: 'Player discussions' },
@@ -45,15 +45,15 @@ function getConversationTitle(conversation, currentUserId) {
   }
 
   if (conversation.type === 'club_staff') {
-    return 'Club Staff'
+    return 'Club Coaches'
   }
 
   if (conversation.type === 'team_staff') {
-    return 'Team Staff'
+    return 'Team Coaches'
   }
 
   if (conversation.type === 'player_staff') {
-    return 'Player staff discussion'
+    return 'Player Coach discussion'
   }
 
   if (conversation.type === 'direct') {
@@ -61,29 +61,29 @@ function getConversationTitle(conversation, currentUserId) {
     return otherMember?.user?.name || otherMember?.user?.email || 'Direct message'
   }
 
-  return 'Staff group'
+  return 'Coaches group'
 }
 
 function getConversationMeta(conversation) {
   const memberCount = conversation.members.length
 
   if (conversation.type === 'club_staff') {
-    return `${memberCount} club staff`
+    return `${memberCount} Club Coaches`
   }
 
   if (conversation.type === 'team_staff') {
-    return `${memberCount} team staff`
+    return `${memberCount} Team Coaches`
   }
 
   if (conversation.type === 'player_staff') {
-    return `${memberCount} authorised staff`
+    return `${memberCount} authorised Coaches`
   }
 
   if (conversation.type === 'direct') {
-    return '1-to-1 staff chat'
+    return '1-to-1 Coach chat'
   }
 
-  return `${memberCount} staff members`
+  return `${memberCount} Coaches`
 }
 
 export function StaffChatPage() {
@@ -175,7 +175,7 @@ export function StaffChatPage() {
     } catch (error) {
       console.error(error)
       if (requestId === loadRequestIdRef.current) {
-        setErrorMessage(error.message || 'Staff Chat could not be loaded.')
+        setErrorMessage(error.message || 'Coach Chat could not be loaded.')
         setStatus('ready')
       }
     }
@@ -297,19 +297,19 @@ export function StaffChatPage() {
       let conversationId = ''
 
       if (type === 'club_staff') {
-        conversationId = await createStaffChatConversation({ type, title: 'Club Staff', user })
+        conversationId = await createStaffChatConversation({ type, title: 'Club Coaches', user })
       } else if (type === 'team_staff') {
         conversationId = await createStaffChatConversation({ type, teamId: selectedTeamId || user.activeTeamId || teams[0]?.id, user })
       } else if (type === 'direct') {
         if (selectedMembers.length !== 1) {
-          throw new Error('Choose one staff member for a direct message.')
+          throw new Error('Choose one Coach for a direct message.')
         }
         conversationId = await createStaffChatConversation({ type, memberIds: selectedMembers, user })
       } else {
         if (selectedMembers.length === 0) {
-          throw new Error('Choose at least one staff member for the group.')
+          throw new Error('Choose at least one Coach for the group.')
         }
-        conversationId = await createStaffChatConversation({ type, title: groupTitle || 'Staff group', memberIds: selectedMembers, user })
+        conversationId = await createStaffChatConversation({ type, title: groupTitle || 'Coaches group', memberIds: selectedMembers, user })
       }
 
       setGroupTitle('')
@@ -386,10 +386,10 @@ export function StaffChatPage() {
   if (!canOpenStaffChat) {
     return (
       <section className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Staff Chat</p>
-        <h1 className="mt-3 text-2xl font-black tracking-tight text-[var(--text-primary)]">Staff access required</h1>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Coach Chat</p>
+        <h1 className="mt-3 text-2xl font-black tracking-tight text-[var(--text-primary)]">Coach access required</h1>
         <p className="mt-3 text-sm font-semibold leading-6 text-[var(--text-muted)]">
-          Staff Chat is available only to authorised club and team staff.
+          Coach Chat is available only to authorised club and Team Coaches.
         </p>
       </section>
     )
@@ -400,10 +400,10 @@ export function StaffChatPage() {
       <header className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Staff only</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-[var(--text-primary)]">Staff Chat</h1>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Coaches only</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[var(--text-primary)]">Coach Chat</h1>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[var(--text-muted)]">
-              Club and team staff conversations stay inside the authorised club workspace.
+              Club and Team Coaches conversations stay inside the authorised club workspace.
             </p>
           </div>
           <button
@@ -445,7 +445,7 @@ export function StaffChatPage() {
           <div className="mt-3 grid gap-2">
             {status === 'loading' ? (
               <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-4 text-sm font-bold text-[var(--text-muted)]">
-                Loading Staff Chat...
+                Loading Coach Chat...
               </p>
             ) : null}
 
@@ -527,7 +527,7 @@ export function StaffChatPage() {
               <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
                 {messages.length === 0 ? (
                   <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm font-bold text-[var(--text-muted)]">
-                    No messages yet. Start the staff conversation when you are ready.
+                    No messages yet. Start the Coaches conversation when you are ready.
                   </div>
                 ) : null}
 
@@ -545,7 +545,7 @@ export function StaffChatPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--accent)]">
-                          {message.sender?.name || message.sender?.email || 'Staff'}
+                          {message.sender?.name || message.sender?.email || 'Coaches'}
                         </p>
                         <p className="text-xs font-bold text-[var(--text-muted)]">{formatTime(message.createdAt)}</p>
                       </div>
@@ -572,7 +572,7 @@ export function StaffChatPage() {
                   id="staff-chat-message"
                   value={draftMessage}
                   onChange={(event) => setDraftMessage(event.target.value)}
-                  placeholder="Write a staff-only message"
+                  placeholder="Write a Coach-only message"
                   rows={3}
                   className="min-h-24 w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
                 />
@@ -590,10 +590,10 @@ export function StaffChatPage() {
           ) : (
             <div className="grid min-h-[34rem] place-items-center px-4 py-8 text-center">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Staff Chat</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Coach Chat</p>
                 <h2 className="mt-2 text-2xl font-black text-[var(--text-primary)]">Choose or create a conversation</h2>
                 <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-[var(--text-muted)]">
-                  Staff Chat keeps V1 communication scoped to authorised club and team staff.
+                  Coach Chat keeps V1 communication scoped to authorised club and Team Coaches.
                 </p>
               </div>
             </div>
@@ -623,7 +623,7 @@ function CreateConversationPanel({
       <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
         <p className="text-sm font-black text-[var(--text-primary)]">Player discussions</p>
         <p className="mt-1 text-xs font-semibold leading-5 text-[var(--text-muted)]">
-          Start a player-linked staff discussion from the authorised player profile.
+          Start a player-linked Coaches discussion from the authorised player profile.
         </p>
       </div>
     )
@@ -632,15 +632,15 @@ function CreateConversationPanel({
   if (activeType === 'club_staff') {
     return (
       <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
-        <p className="text-sm font-black text-[var(--text-primary)]">Club Staff</p>
-        <p className="mt-1 text-xs font-semibold leading-5 text-[var(--text-muted)]">Create a staff-only club conversation for authorised staff in this club.</p>
+        <p className="text-sm font-black text-[var(--text-primary)]">Club Coaches</p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-[var(--text-muted)]">Create a Coach-only club conversation for authorised Coaches in this club.</p>
         <button
           type="button"
           onClick={() => void onCreate('club_staff')}
           disabled={isCreating}
           className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-3 py-2 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Create Club Staff Chat
+          Create Club Coach Chat
         </button>
       </div>
     )
@@ -651,7 +651,7 @@ function CreateConversationPanel({
 
     return (
       <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
-        <p className="text-sm font-black text-[var(--text-primary)]">Team Staff</p>
+        <p className="text-sm font-black text-[var(--text-primary)]">Team Coaches</p>
         <select
           value={defaultTeamId}
           onChange={(event) => onSelectedTeamChange(event.target.value)}
@@ -667,7 +667,7 @@ function CreateConversationPanel({
           disabled={isCreating || !defaultTeamId}
           className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-3 py-2 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Create Team Staff Chat
+          Create Team Coach Chat
         </button>
       </div>
     )
@@ -708,7 +708,7 @@ function CreateConversationPanel({
         ))}
         {activeStaff.length === 0 ? (
           <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-4 text-sm font-bold text-[var(--text-muted)]">
-            No other staff are visible to this account yet.
+            No other Coaches are visible to this account yet.
           </p>
         ) : null}
       </div>

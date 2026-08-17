@@ -37,7 +37,7 @@ export async function resolveOwnParentStaffReturnMode(authUser) {
   ])
 
   if (profileResult.error || membershipResult.error) {
-    throw new Error('Staff access could not be verified.')
+    throw new Error('Coach access could not be verified.')
   }
 
   const memberships = (membershipResult.data ?? []).map(normalizeMembership)

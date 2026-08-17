@@ -150,7 +150,7 @@ export async function changeStaffRoleAssignment({
   const normalizedRoleKey = normalizeRoleKey(roleKey)
 
   if (!normalizedAssignmentId || !normalizedRoleKey) {
-    throw new Error('Choose a staff assignment and role before continuing.')
+    throw new Error('Choose a Coach assignment and role before continuing.')
   }
 
   const { data, error } = await supabase.rpc('change_staff_role_assignment', {
@@ -165,7 +165,7 @@ export async function changeStaffRoleAssignment({
   }
 
   if (!data?.success) {
-    const roleError = new Error(data?.message || 'The staff role could not be changed.')
+    const roleError = new Error(data?.message || 'The Coach role could not be changed.')
     roleError.code = data?.category || 'role_change_denied'
     throw roleError
   }
@@ -307,7 +307,7 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
     }
 
     if (normalizedTeamId && !updatedUserRow?.success) {
-      const assignmentError = new Error(updatedUserRow?.message || 'The team staff role could not be assigned.')
+      const assignmentError = new Error(updatedUserRow?.message || 'The team Coach role could not be assigned.')
       assignmentError.code = updatedUserRow?.category || 'team_role_assignment_denied'
       throw assignmentError
     }
@@ -357,7 +357,7 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
     logoUrl: user.clubLogoUrl,
     roleLabel,
     senderEmail: user.email,
-    subject: `${user.clubName || 'Football Player'} staff invite`,
+    subject: `${user.clubName || 'Football Player'} Coach invite`,
     teamName: selectedTeam?.name || user.activeTeamName || 'your team',
   })
 

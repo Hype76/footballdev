@@ -88,7 +88,7 @@ test('Parent portal reads shared resources only through the scoped RPC helper', 
   assert.match(parentPortalPage, /getParentPortalResourceAccessUrl/)
   assert.match(parentPortalPage, /function ParentResourcesPanel/)
   assert.match(parentPortalPage, /resource\.link\?\.shareDescription/)
-  assert.match(parentPortalPage, /Staff-only resources do not appear here/)
+  assert.match(parentPortalPage, /Coach-only resources do not appear here/)
   assert.doesNotMatch(parentPortalPage, /\.from\('resource_library_/)
   assert.doesNotMatch(parentPortalPage, /parent_portal_links/)
 })

@@ -86,7 +86,7 @@ async function assertSessionTeamAccess({ user, teamId }) {
   const allowedTeamIds = teams.map((team) => String(team.id ?? '').trim()).filter(Boolean)
 
   if (!allowedTeamIds.includes(normalizedTeamId)) {
-    throw new Error('Team staff can only save sessions against their assigned team.')
+    throw new Error('Team Coaches can only save sessions against their assigned team.')
   }
 }
 

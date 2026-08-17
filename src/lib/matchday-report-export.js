@@ -247,7 +247,7 @@ function buildPdfLines(match = {}, { audience = 'parent' } = {}) {
 
   if (safeAudience === 'staff') {
     const staffNotes = getFinalReportNotes(match)
-    if (staffNotes) lines.push({ text: '' }, { text: 'Staff notes', bold: true, size: 12 }, { text: staffNotes })
+    if (staffNotes) lines.push({ text: '' }, { text: 'Coach notes', bold: true, size: 12 }, { text: staffNotes })
   }
 
   return lines

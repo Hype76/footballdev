@@ -55,7 +55,7 @@ async function getStaffProfile(authUser) {
   })
 
   if (!data || normalizeText(data.role) === 'parent_portal' || Number(data.role_rank ?? 0) < 20) {
-    throw Object.assign(new Error('Club staff access is required.'), { statusCode: 403 })
+    throw Object.assign(new Error('Club Coach access is required.'), { statusCode: 403 })
   }
 
   return {

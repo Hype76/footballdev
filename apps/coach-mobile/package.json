@@ -1,6 +1,6 @@
 {
   "name": "coach-mobile",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "main": "index.js",
   "private": true,
   "scripts": {
@@ -26,6 +26,7 @@
     "@expo/vector-icons": "15.1.1",
     "@noble/ciphers": "2.2.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@supabase/supabase-js": "2.102.1",
     "expo": "~54.0.36",
     "expo-constants": "~18.0.13",

@@ -53,10 +53,10 @@ import {
 const teamSetupRules = [
   {
     label: 'Team owns context',
-    body: 'Players, sessions, staff access, and match day records should all point to the right team.',
+    body: 'Players, sessions, Coach access, and match day records should all point to the right team.',
   },
   {
-    label: 'Staff get scoped access',
+    label: 'Coaches get scoped access',
     body: 'Give coaches access only to the squads they actually work with.',
   },
   {
@@ -163,7 +163,7 @@ export function TeamManagementPage() {
             'Could not load club users.',
           ),
           isClubAdminUser
-            ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending staff invites.')
+            ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending Coach invites.')
             : Promise.resolve([]),
           withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
@@ -388,7 +388,7 @@ export function TeamManagementPage() {
   const canCreateMoreTeams = serverEnforcesTeamLimit || isWithinPlanLimit(user, 'teams', teams.length)
   const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', staffAccessEmailCount)
   const teamLimitMessage = createLimitUpgradeMessage(user, 'teams', 'Teams')
-  const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
+  const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Coach logins')
   const allocatedStaffCount = useMemo(
     () => {
       const teamScopedStaffIds = new Set(teamScopedUsers.map((member) => member.id))
@@ -489,7 +489,7 @@ export function TeamManagementPage() {
   const refreshUsersAndRoles = async () => {
     const [usersResult, invitesResult, rolesResult] = await Promise.allSettled([
       withRequestTimeout(() => getClubUsers(user), 'Could not load club users.'),
-      withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending staff invites.'),
+      withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending Coach invites.'),
       withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
     ])
 
@@ -544,14 +544,14 @@ export function TeamManagementPage() {
       }
 
       if (!coachForm.teamId) {
-        throw new Error('Choose a team for this staff member.')
+        throw new Error('Choose a team for this Coach.')
       }
 
       const selectedTeamId = String(coachForm.teamId ?? '').trim()
       const normalizedCoachEmail = normalizeStaffEmail(coachForm.email)
 
       if (!canAddStaffAccessEmail(user, normalizedCoachEmail, users, [])) {
-        throw new Error(createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins'))
+        throw new Error(createLimitUpgradeMessage(user, 'staffLogins', 'Coach logins'))
       }
 
       const currentTeam = teamAssignments.find((team) => team.id === selectedTeamId)
@@ -585,17 +585,17 @@ export function TeamManagementPage() {
       writeTeamCache({
         assignments: nextAssignments,
       })
-      setMessage(createdStaff.kind === 'invite' ? 'Staff invite sent.' : 'Staff access updated.')
+      setMessage(createdStaff.kind === 'invite' ? 'Coach invite sent.' : 'Coach access updated.')
       showToast({
-        title: createdStaff.kind === 'invite' ? 'Staff invite sent' : 'Staff access updated',
+        title: createdStaff.kind === 'invite' ? 'Coach invite sent' : 'Coach access updated',
         message: createdStaff.kind === 'invite'
-          ? `${coachForm.email} has been sent a staff invite.`
+          ? `${coachForm.email} has been sent a Coach invite.`
           : `${coachForm.email} can now access the selected team.`,
       })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not create staff access.')
-      showToast({ title: 'Staff not created', message: error.message || 'Could not create staff access.', tone: 'error' })
+      setErrorMessage(error.message || 'Could not create Coach access.')
+      showToast({ title: 'Coaches not created', message: error.message || 'Could not create Coach access.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
@@ -633,7 +633,7 @@ export function TeamManagementPage() {
         copySourceTeamId: nextTeams[0]?.id || '',
       })
       setMessage('Team deleted.')
-      showToast({ title: 'Team deleted', message: 'The team and staff allocations were removed.' })
+      showToast({ title: 'Team deleted', message: 'The team and Coach allocations were removed.' })
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not delete team.')
@@ -659,7 +659,7 @@ export function TeamManagementPage() {
       if (userToAddEmail && targetTeamEmails.has(userToAddEmail)) {
         setErrorMessage('This email already has access to this team.')
         showToast({
-          title: 'Staff not added',
+          title: 'Coaches not added',
           message: 'This email already has access to this team.',
           tone: 'error',
         })
@@ -687,12 +687,12 @@ export function TeamManagementPage() {
         })
         return mergedAssignments
       })
-      setMessage('Team staff updated.')
-      showToast({ title: 'Staff updated', message: 'Team staff allocation has been saved.' })
+      setMessage('Team Coaches updated.')
+      showToast({ title: 'Coaches updated', message: 'Team Coach allocation has been saved.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage('Could not update team staff.')
-      showToast({ title: 'Staff not updated', message: error.message || 'Could not update team staff.', tone: 'error' })
+      setErrorMessage('Could not update Team Coaches.')
+      showToast({ title: 'Coaches not updated', message: error.message || 'Could not update Team Coaches.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
@@ -700,7 +700,7 @@ export function TeamManagementPage() {
 
   const handleAddExistingStaffToTeam = async () => {
     if (!selectedTeam || !staffToAddId) {
-      setErrorMessage('Choose a staff member to add to this team.')
+      setErrorMessage('Choose a Coach to add to this team.')
       return
     }
 
@@ -718,7 +718,7 @@ export function TeamManagementPage() {
 
   const handleRoleChangeRequest = (member, nextRole) => {
     if (!member?.assignmentId || !nextRole?.roleKey || !selectedTeam?.id) {
-      setErrorMessage('This staff assignment is incomplete. Refresh the team and try again.')
+      setErrorMessage('This Coach assignment is incomplete. Refresh the team and try again.')
       return
     }
 
@@ -750,17 +750,17 @@ export function TeamManagementPage() {
       setAssignments(nextAssignments)
       writeTeamCache({ assignments: nextAssignments })
       await refreshTeamSelection?.()
-      setMessage('Team staff role updated.')
+      setMessage('Team Coach role updated.')
       showToast({
         title: 'Team role updated',
         message: `${getStaffDisplayName(roleChangeTarget.member)} is now ${roleChangeTarget.nextRole.roleLabel}.`,
       })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not update the team staff role.')
+      setErrorMessage(error.message || 'Could not update the team Coach role.')
       showToast({
         title: 'Team role not updated',
-        message: error.message || 'Could not update the team staff role.',
+        message: error.message || 'Could not update the team Coach role.',
         tone: 'error',
       })
     } finally {
@@ -825,7 +825,7 @@ export function TeamManagementPage() {
                 Create the football structure first.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Teams decide where players, staff access, sessions, and match day records live. Set up the squads first, then give coaches scoped access.
+                Teams decide where players, Coach access, sessions, and match day records live. Set up the squads first, then give coaches scoped access.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {teamSetupRules.map((rule) => (
@@ -843,19 +843,19 @@ export function TeamManagementPage() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Workspace setup</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{teams.length} teams configured</p>
               <p className={`mt-2 ${bodyTextClass}`}>
-                {allocatedStaffCount} staff accounts are allocated to at least one team.
+                {allocatedStaffCount} Coach accounts are allocated to at least one team.
               </p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <TeamSetupMetric label="Teams" value={teams.length} />
-              <TeamSetupMetric label="Staff" value={teamScopedUsers.length} />
+              <TeamSetupMetric label="Coaches" value={teamScopedUsers.length} />
               <TeamSetupMetric label="Allocated" value={allocatedStaffCount} />
               <TeamSetupMetric label="Players" value={playerTotal} />
             </div>
             <p className={`mt-4 ${bodyTextClass}`}>
               {unallocatedStaffCount > 0
-                ? `${unallocatedStaffCount} staff accounts still need team scope.`
-                : 'Every visible staff account has team scope or is ready to review.'}
+                ? `${unallocatedStaffCount} Coach accounts still need team scope.`
+                : 'Every visible Coach account has team scope or is ready to review.'}
             </p>
           </div>
         </div>
@@ -944,7 +944,7 @@ export function TeamManagementPage() {
         message="This cannot be undone from the app."
         items={[
           `Team: ${teamDeleteTarget?.name || 'Selected team'}`,
-          `${teamDeleteTarget?.staffIds?.length ?? 0} staff allocations for this team`,
+          `${teamDeleteTarget?.staffIds?.length ?? 0} Coach allocations for this team`,
         ]}
         confirmLabel="Delete team"
         onCancel={() => setTeamDeleteTarget(null)}
@@ -956,16 +956,16 @@ export function TeamManagementPage() {
         isOpen={Boolean(roleChangeTarget)}
         isBusy={isSaving}
         title="Confirm team role change"
-        message="Review the staff member, current role, new role, team scope, and access consequence before confirming."
+        message="Review the Coach, current role, new role, team scope, and access consequence before confirming."
         items={[
-          `Staff member: ${getStaffDisplayName(roleChangeTarget?.member)}`,
+          `Coach: ${getStaffDisplayName(roleChangeTarget?.member)}`,
           `Current role: ${roleChangeTarget?.member?.teamRoleLabel || 'Unknown role'}`,
           `New role: ${roleChangeTarget?.nextRole?.roleLabel || 'No role selected'}`,
           `Team scope: ${roleChangeTarget?.team?.name || 'Selected team'}`,
           Number(roleChangeTarget?.nextRole?.roleRank ?? 0) < Number(roleChangeTarget?.member?.teamRoleRank ?? 0)
             ? 'Consequence: This removes team management authority immediately.'
             : 'Consequence: This grants authority only inside the selected team.',
-          'No staff email or notification will be sent.',
+          'No Coach email or notification will be sent.',
         ]}
         confirmLabel="Change role"
         onCancel={() => setRoleChangeTarget(null)}
@@ -1013,7 +1013,7 @@ function CreateTeamModal({
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Team setup</p>
           <h2 id="create-team-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create team</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Create the team space before adding players, sessions, staff access, or match day records.
+            Create the team space before adding players, sessions, Coach access, or match day records.
           </p>
         </div>
 

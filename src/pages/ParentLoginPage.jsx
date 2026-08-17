@@ -280,7 +280,7 @@ export function ParentLoginPage() {
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {[
               ['Linked child first', 'Your account opens the children the club has linked to this email.'],
-              ['Club controlled', 'Staff decide what is shared and when parent actions are available.'],
+              ['Club controlled', 'Coaches decide what is shared and when parent actions are available.'],
               ['Match ready', 'Use this on the device you want for live match day notifications.'],
             ].map(([title, copy]) => (
               <article key={title} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
