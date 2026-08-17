@@ -8,6 +8,10 @@ const migration = readFileSync(
   new URL('../supabase/migrations/20260717194345_matchday_fixture_controls.sql', import.meta.url),
   'utf8',
 )
+const pastDeleteRepair = readFileSync(
+  new URL('../supabase/migrations/20260817141000_past_match_delete_repair.sql', import.meta.url),
+  'utf8',
+)
 
 const ACTOR_ID = '10000000-0000-0000-0000-000000000001'
 const CLUB_A_ID = '20000000-0000-0000-0000-000000000001'
@@ -257,6 +261,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(pastDeleteRepair)
   await db.exec(`
     insert into auth.users(id) values ('${ACTOR_ID}');
     insert into public.clubs(id, name) values ('${CLUB_A_ID}', 'Club A'), ('${CLUB_B_ID}', 'Club B');
@@ -444,6 +449,26 @@ test('candidate deletion rolls back safely when notification work is pending', a
       (select count(*) from public.audit_logs where entity_id = $1)::integer as audits
   `, [matchId])
   assert.deepEqual(state.rows[0], { deleted_at: null, events: 1, deletion_events: 0, audits: 0 })
+  await db.close()
+})
+
+test('past fixture with a stale live timer can be soft deleted without touching its retained history', async () => {
+  const db = await createDatabase()
+  const matchId = '40000000-0000-0000-0000-000000000020'
+  await db.query(`
+    insert into public.match_days (
+      id, club_id, team_id, opponent, fixture_type, match_date, status, timer_status, timer_started_at
+    ) values ($1, $2, $3, 'Stale live fixture', 'league', current_date - 7, 'live', 'running', now() - interval '7 days')
+  `, [matchId, CLUB_A_ID, TEAM_A_ID])
+  await db.query('insert into public.match_day_events(match_day_id, event_type) values ($1, $2)', [matchId, 'goal'])
+
+  const result = await db.query('select public.delete_previous_match_day_v2($1) as result', [matchId])
+  assert.equal(result.rows[0].result.deleted, true)
+  assert.equal(result.rows[0].result.alreadyDeleted, false)
+  assert.equal(result.rows[0].result.retainedRecordCounts.events, 1)
+
+  const retained = await db.query('select count(*)::integer as count from public.match_day_events where match_day_id = $1', [matchId])
+  assert.equal(retained.rows[0].count, 1)
   await db.close()
 })
 

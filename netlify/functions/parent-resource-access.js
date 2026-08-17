@@ -176,7 +176,7 @@ async function loadAuthorisedResource({ authUserId, parentLinkId, resourceId, su
   const resource = await maybeSingle(
     supabaseAdmin
       .from('resource_library_items')
-      .select('id, club_id, team_id, storage_bucket, storage_path, archived_at')
+      .select('id, club_id, team_id, title, description, mime_type, storage_bucket, storage_path, archived_at')
       .eq('id', resourceId)
       .eq('club_id', parentLink.club_id)
       .eq('team_id', player.team_id)
@@ -202,8 +202,46 @@ async function loadAuthorisedResource({ authUserId, parentLinkId, resourceId, su
     resourceLink,
   })
 
+  const { data: publication, error: publicationError } = await supabaseAdmin
+    .from('formation_board_publications')
+    .select('board_id, board_version_id, board_title_snapshot, board_description_snapshot, publication_number')
+    .eq('resource_id', resourceId)
+    .eq('club_id', parentLink.club_id)
+    .eq('team_id', player.team_id)
+    .order('publication_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (publicationError) throw publicationError
+
+  let formationBoard = null
+  if (publication) {
+    const version = await maybeSingle(
+      supabaseAdmin
+        .from('formation_board_versions')
+        .select('id, board_id, club_id, team_id, game_format, formation_preset_key, pitch_orientation, placements, bench, notes, created_at')
+        .eq('id', publication.board_version_id)
+        .eq('board_id', publication.board_id)
+        .eq('club_id', parentLink.club_id)
+        .eq('team_id', player.team_id),
+      unavailableMessage,
+    )
+    formationBoard = {
+      bench: Array.isArray(version.bench) ? version.bench : [],
+      description: normalizeText(publication.board_description_snapshot || resource.description),
+      formation: normalizeText(version.formation_preset_key),
+      gameFormat: normalizeText(version.game_format),
+      id: normalizeText(version.id),
+      notes: normalizeText(version.notes),
+      orientation: normalizeText(version.pitch_orientation) || 'portrait',
+      placements: Array.isArray(version.placements) ? version.placements : [],
+      title: normalizeText(publication.board_title_snapshot || resource.title) || 'Formation Board',
+    }
+  }
+
   return {
     access,
+    formationBoard,
     resource,
   }
 }
@@ -247,12 +285,16 @@ export default async (request) => {
       throw new ParentResourceAccessError('Sign in again before opening this resource.', 401)
     }
 
-    const { access, resource } = await loadAuthorisedResource({
+    const { access, formationBoard, resource } = await loadAuthorisedResource({
       authUserId: authData.user.id,
       parentLinkId,
       resourceId,
       supabaseAdmin,
     })
+
+    if (formationBoard) {
+      return json(200, { success: true, accessType: 'formation_board', formationBoard })
+    }
 
     if (access.accessType === 'external_link') {
       return json(200, { success: true, ...access })

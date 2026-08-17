@@ -35,6 +35,7 @@ import {
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { CoachDateTimeField } from './CoachDateTimeField'
+import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 
 const message = getCoachFriendlyError
 
@@ -383,7 +384,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
+              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
             </Pressable>
           ))}
         </View>
@@ -523,10 +524,22 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
       setLoading(false)
     }
     try {
-      const [rows, playerRows, calendarRows] = await Promise.all([getCoachSessionList(user), getCoachPlayerList(user), getCoachCalendarResources(user)])
+      const [sessionResult, playerResult, calendarResult] = await Promise.allSettled([
+        withMobileAsyncTimeout(() => getCoachSessionList(user)),
+        withMobileAsyncTimeout(() => getCoachPlayerList(user)),
+        withMobileAsyncTimeout(() => getCoachCalendarResources(user)),
+      ])
+      if (sessionResult.status === 'rejected') throw sessionResult.reason
+      const rows = sessionResult.value
+      const playerRows = playerResult.status === 'fulfilled'
+        ? playerResult.value
+        : Array.isArray(cached?.resources?.sessionPlayers) ? cached.resources.sessionPlayers : []
+      const calendarRows = calendarResult.status === 'fulfilled' ? calendarResult.value : []
       const nextTrainingEvents = filterCoachCalendarEvents(calendarRows, 'upcoming')
         .filter((event) => event.sourceType === 'calendar_event' && event.eventType === 'training')
-      const nextTrainingLocations = getSavedLocationOptions(calendarRows)
+      const nextTrainingLocations = calendarResult.status === 'fulfilled'
+        ? getSavedLocationOptions(calendarRows)
+        : Array.isArray(cached?.resources?.trainingLocations) ? cached.resources.trainingLocations : []
       setSessions(rows); setPlayers(playerRows); setTrainingEvents(nextTrainingEvents); setTrainingLocations(nextTrainingLocations); setStale(false)
       await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents, trainingLocations: nextTrainingLocations })
     } catch (loadError) {

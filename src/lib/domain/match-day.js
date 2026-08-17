@@ -1935,7 +1935,7 @@ export async function deletePreviousMatchDay({ user, match } = {}) {
     throw new Error('Choose a previous game to delete.')
   }
 
-  const { data, error } = await supabase.rpc('delete_previous_match_day', {
+  const { data, error } = await supabase.rpc('delete_previous_match_day_v2', {
     match_day_id_value: matchDayId,
   })
 

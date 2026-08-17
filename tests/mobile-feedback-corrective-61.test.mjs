@@ -45,7 +45,7 @@ test('Coach Sessions exposes recurring training invitations and keeps assessment
 test('Coach Resources supports Player targets including published Formation Boards', async () => {
   const [screen, migration] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8'),
-    readFile(new URL('../supabase/migrations/20260817055249_mobile_feedback_corrective_61.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/20260817065446_mobile_feedback_corrective_61.sql', import.meta.url), 'utf8'),
   ])
   assert.match(screen, /Assign selected Resource/)
   assert.match(screen, /linkedType: 'player'/)
@@ -128,10 +128,10 @@ test('corrective release guards and native versions cover both apps', async () =
   assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-61/)
   assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-61/)
   assert.match(submitGuard, /promotionReference === 'FP-MOBILE-FEEDBACK-CORRECTIVE-61'/)
-  assert.match(coachConfig, /version: '1\.0\.16'/)
-  assert.equal(JSON.parse(coachPackage).version, '1.0.16')
-  assert.match(parentConfig, /version: '1\.0\.13'/)
+  assert.match(coachConfig, /version: '1\.0\.17'/)
+  assert.equal(JSON.parse(coachPackage).version, '1.0.17')
+  assert.match(parentConfig, /version: '1\.0\.14'/)
   const parsedParentPackage = JSON.parse(parentPackage)
-  assert.equal(parsedParentPackage.version, '1.0.13')
+  assert.equal(parsedParentPackage.version, '1.0.14')
   assert.match(parsedParentPackage.scripts['build:ios:internal-live'], /parent internal-live ios/)
 })

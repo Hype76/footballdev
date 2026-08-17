@@ -6,6 +6,7 @@ import {
   buildTrainingAvailabilityCalendarIcs,
   buildTrainingCalendarFilename,
 } from './lib/_training-calendar.js'
+import { sendCoachAvailabilityResponsePush } from './send-coach-mobile-push.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 
@@ -321,6 +322,28 @@ export async function handler(event, { supabaseAdminClient = null, supabaseClien
     if (!response?.request_player_id) {
       logStaleResponseLink('response_submit_empty', event)
       return staleLinkPage()
+    }
+
+
+    const previousStatus = normalizeText(existingResponse.response_status).toLowerCase()
+    const nextStatus = normalizeText(response.response_status).toLowerCase()
+    if (previousStatus !== nextStatus && normalizeText(response.calendar_event_id)) {
+      await (async () => {
+        const adminSupabase = supabaseAdminClient || createSupabaseAdminClient(event)
+        const calendarEvent = await getCalendarEvent(adminSupabase, response.calendar_event_id)
+        if (!calendarEvent?.id) return
+        await sendCoachAvailabilityResponsePush({
+          adminClient: adminSupabase,
+          clubId: calendarEvent.club_id,
+          contextLabel: normalizeText(calendarEvent.title) || 'training',
+          playerName: response.player_name,
+          route: 'sessions',
+          status: nextStatus,
+          targetId: calendarEvent.id,
+          teamId: calendarEvent.team_id,
+          type: 'training_availability_response',
+        })
+      })().catch((pushError) => console.warn('Coach training availability push failed', pushError))
     }
 
     return htmlResponse(200, page({

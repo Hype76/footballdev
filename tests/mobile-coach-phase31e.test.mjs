@@ -64,6 +64,19 @@ test('dynamic Development fields preserve supported structured types and visibil
   assert.equal(form.fields[1].staffPrivate, true)
 })
 
+test('platform starter Development forms preserve safe submission provenance', () => {
+  const starter = normalizeCoachDevelopmentForm({
+    id: 'platform-starter:foundation:2',
+    installed_form_id: 'installed-form-id',
+    is_platform_template: true,
+    template_key: 'foundation',
+    fields: [{ id: 'score', label: 'Score', type: 'score_1_10' }],
+  })
+  assert.equal(starter.isPlatformTemplate, true)
+  assert.equal(starter.installedFormId, 'installed-form-id')
+  assert.equal(starter.templateKey, 'foundation')
+})
+
 test('Development form selection resolves every distinct form and falls back safely', () => {
   const forms = [
     normalizeCoachDevelopmentForm({ id: 'goalkeeping', name: 'Goal Keeping Coach', fields: [{ id: 'distribution', label: 'Distribution' }] }),
@@ -223,6 +236,10 @@ test('Development data uses dynamic forms, governed drafts, versioning, and no p
   assert.match(adapter, /from\('evaluation_drafts'\)/)
   assert.match(adapter, /client_save_version/)
   assert.match(adapter, /feedback_form_snapshot/)
+  assert.match(adapter, /from\('feedback_form_starter_templates'\)/)
+  assert.match(adapter, /from\('feedback_form_starter_preferences'\)/)
+  assert.match(adapter, /platform-starter:/)
+  assert.match(adapter, /form\.installedFormId \|\| \(form\.isPlatformTemplate \? null : form\.id\)/)
   assert.match(adapter, /assessment_session_id/)
   assert.doesNotMatch(adapter, /parent_shared_responses|staff_private_responses|\n\s{4}session_id:/)
   assert.doesNotMatch(legacy, /submitCoachAssessment|getCoachAssessmentFields/)

@@ -63,6 +63,7 @@ import {
   getFormationBoardVersions,
   getFormationBoards,
   getPlayers,
+  getMatchDay,
   getMatchDays,
   linkFormationBoardToMatch,
   publishFormationBoardMatchPlan,
@@ -102,6 +103,8 @@ function getBoardActionFromLocation(search) {
   return {
     action: parameters.get('action') || '',
     boardId: parameters.get('board') || '',
+    matchId: parameters.get('match') || '',
+    autoFill: parameters.get('autofill') || '',
     versionId: parameters.get('version') || '',
   }
 }
@@ -713,7 +716,7 @@ export function FormationBoardsPage() {
     setDraftCandidate(candidate && !snapshotsMatch(candidate.snapshot, nextSnapshot) ? candidate : null)
   }, [activeTeamId, user?.clubId, user?.id])
 
-  const openBoard = useCallback(async (board, { versionId = '' } = {}) => {
+  const openBoard = useCallback(async (board, { autoFill = '', matchId = '', versionId = '' } = {}) => {
     setErrorMessage('')
     try {
       const freshBoard = board.id === 'new' ? board : await getFormationBoard(board.id)
@@ -750,9 +753,25 @@ export function FormationBoardsPage() {
         || presets.find((preset) => preset.key === '11v11-4-4-2')
         || presets.find((preset) => preset.gameFormat === '11v11' && !preset.key.endsWith('-custom'))
         || presets[0]
-      const nextSnapshot = board.id === 'new'
+      let nextSnapshot = board.id === 'new'
         ? createNewEditorSnapshot(preferredPreset)
         : createEditorSnapshot({ board: displayBoard })
+      if (board.id === 'new' && matchId) {
+        const selectedMatch = await getMatchDay({ matchDayId: matchId, user })
+        if (!selectedMatch?.id || selectedMatch.teamId !== activeTeamId) throw new Error('That match is not available for the selected Team.')
+        if (autoFill === 'attending') {
+          const attendingPlayerIds = new Set([
+            ...(selectedMatch.playerAvailability || []).filter((item) => item.status === 'available').map((item) => String(item.playerId || '')),
+            ...(selectedMatch.availabilityRequests || []).filter((item) => item.status === 'available').map((item) => String(item.playerId || '')),
+          ].filter(Boolean))
+          const attendingPlayers = players.filter((player) => attendingPlayerIds.has(String(player.id)))
+          nextSnapshot = placeFormationLineup(addPlayersToUnplaced(nextSnapshot, attendingPlayers), preferredPreset)
+          nextSnapshot = {
+            ...nextSnapshot,
+            title: `${activeTeamName} v ${selectedMatch.opponent || 'Opponent'}`,
+          }
+        }
+      }
       const sourceOrientation = getFormationBoardOrientation(displayBoard.currentVersion?.pitchOrientation)
       const isLandscapeCompatibility = board.id !== 'new' && sourceOrientation === 'landscape'
       const savedBaseline = isLandscapeCompatibility && !snapshotVersion
@@ -779,20 +798,21 @@ export function FormationBoardsPage() {
       setVersions(nextVersions)
       setPublications(nextPublications)
       setMatchPublications(nextMatchPublications)
-      setSelectedMatchId(freshBoard.linkedMatchDayId || '')
+      setSelectedMatchId(matchId || freshBoard.linkedMatchDayId || '')
       if (!snapshotVersion) loadDraftCandidate(freshBoard, nextSnapshot)
       else setDraftCandidate(null)
       const versionQuery = snapshotVersion ? `&version=${snapshotVersion.id}` : ''
-      navigate(`/resources/formation-boards?board=${board.id}${versionQuery}`, { replace: true })
+      const matchQuery = matchId ? `&match=${encodeURIComponent(matchId)}` : ''
+      navigate(`/resources/formation-boards?board=${board.id}${versionQuery}${matchQuery}`, { replace: true })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'The Formation Board could not be opened.')
     }
-  }, [loadDraftCandidate, navigate, preferenceKey, presets])
+  }, [activeTeamId, activeTeamName, loadDraftCandidate, navigate, players, preferenceKey, presets, user])
 
-  const startNewBoard = useCallback(() => {
+  const startNewBoard = useCallback((options = {}) => {
     if (!canCreate || presets.length === 0) return
-    void openBoard({ id: 'new', title: '', visibilityState: 'draft' })
+    void openBoard({ id: 'new', title: '', visibilityState: 'draft' }, options)
   }, [canCreate, openBoard, presets.length])
 
   useEffect(() => {
@@ -800,7 +820,7 @@ export function FormationBoardsPage() {
     const routeAction = getBoardActionFromLocation(location.search)
     if (routeAction.action === 'create' && canCreate) {
       quickCreateHandledRef.current = true
-      startNewBoard()
+      startNewBoard({ autoFill: routeAction.autoFill, matchId: routeAction.matchId })
       return
     }
     if (routeAction.boardId && routeAction.boardId !== 'new') {

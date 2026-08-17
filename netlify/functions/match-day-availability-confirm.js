@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 import { isFixtureKickoffTimeTbc } from '../../src/lib/calendar-datetime-integrity.js'
+import { sendCoachAvailabilityResponsePush } from './send-coach-mobile-push.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 const VALID_VOLUNTEER_RESPONSES = new Set(['yes', 'no'])
@@ -415,7 +416,7 @@ async function createAvailabilityEventLogEntry(event, { previousResponse, respon
     const adminSupabase = createSupabaseAdminClient(event)
     const { data: request, error: requestError } = await adminSupabase
       .from('match_day_availability_requests')
-      .select('id, match_day_id, club_id, team_id, player_id, player_name, status, parent_link_id, parent_player_links:parent_link_id (auth_user_id)')
+      .select('id, match_day_id, club_id, team_id, player_id, player_name, status, parent_link_id, parent_player_links:parent_link_id (auth_user_id), match_days:match_day_id (opponent)')
       .eq('id', response.request_id)
       .maybeSingle()
 
@@ -470,6 +471,19 @@ async function createAvailabilityEventLogEntry(event, { previousResponse, respon
     if (error) {
       console.warn('Match Day event log write failed', error)
     }
+
+    const matchDay = Array.isArray(request.match_days) ? request.match_days[0] : request.match_days
+    await sendCoachAvailabilityResponsePush({
+      adminClient: adminSupabase,
+      clubId: request.club_id,
+      contextLabel: normalizeText(matchDay?.opponent) ? `the match against ${normalizeText(matchDay.opponent)}` : 'the match',
+      playerName: request.player_name,
+      route: 'matchday',
+      status: nextStatus,
+      targetId: request.match_day_id,
+      teamId: request.team_id,
+      type: 'match_availability_response',
+    }).catch((pushError) => console.warn('Coach availability push failed', pushError))
   } catch (error) {
     console.warn('Match Day event log write failed', error)
   }

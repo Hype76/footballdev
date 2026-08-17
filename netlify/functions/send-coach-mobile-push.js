@@ -3,6 +3,9 @@ import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
+import { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
+
+export { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -143,8 +146,8 @@ function buildPayload({ detailLevel, match, type }) {
   }
 }
 
-async function getCoachDevices(match) {
-  let query = supabaseAdmin
+async function getCoachDevices(match, client = supabaseAdmin) {
+  let query = client
     .from('coach_mobile_push_installations')
     .select(
       'installation_id, auth_user_id, user_profile_id, club_id, team_id, context_id, expo_push_token, detail_level',
@@ -168,7 +171,7 @@ async function getCoachDevices(match) {
     (data ?? []).map(async (device) => {
       try {
         const profile = await loadActiveAuthorityProfile(
-          supabaseAdmin,
+          client,
           { id: device.auth_user_id },
           {
             select: 'id, club_id, role, role_rank, status',
@@ -189,7 +192,7 @@ async function getCoachDevices(match) {
           return role === 'admin' && roleRank >= 90 && device.context_id === `club:${match.club_id}` ? device : null
         }
 
-        const { data: team, error: teamError } = await supabaseAdmin
+        const { data: team, error: teamError } = await client
           .from('teams')
           .select('id, club_id, status, archived_at')
           .eq('id', device.team_id)
@@ -200,7 +203,7 @@ async function getCoachDevices(match) {
         if (device.context_id !== `team:${team.id}`) return null
         if (role === 'admin' && roleRank >= 90) return device
 
-        const { data: assignment, error: assignmentError } = await supabaseAdmin
+        const { data: assignment, error: assignmentError } = await client
           .from('team_staff')
           .select('id, role_rank')
           .eq('team_id', team.id)
@@ -221,13 +224,13 @@ async function getCoachDevices(match) {
   return current.filter(Boolean)
 }
 
-async function logNotificationEvents({ deliveries, match, status }) {
+async function logNotificationEvents({ client = supabaseAdmin, deliveries, match, status }) {
   if (deliveries.length === 0) {
     return
   }
 
   const now = new Date().toISOString()
-  const { error } = await supabaseAdmin.from('coach_mobile_notification_events').insert(
+  const { error } = await client.from('coach_mobile_notification_events').insert(
     deliveries.map(({ device, payload }) => ({
       installation_id: device.installation_id,
       auth_user_id: device.auth_user_id,
@@ -248,14 +251,14 @@ async function logNotificationEvents({ deliveries, match, status }) {
   }
 }
 
-async function revokeMobileDeviceTokens(deviceTokens) {
+async function revokeMobileDeviceTokens(deviceTokens, client = supabaseAdmin) {
   const tokens = [...new Set(deviceTokens.map(normalizeText).filter(Boolean))]
 
   if (tokens.length === 0) {
     return
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await client
     .from('coach_mobile_push_installations')
     .update({
       expo_push_token: null,
@@ -268,6 +271,45 @@ async function revokeMobileDeviceTokens(deviceTokens) {
   if (error) {
     console.error('Coach mobile push device revoke failed', error)
   }
+}
+
+export async function sendCoachAvailabilityResponsePush({
+  adminClient = supabaseAdmin,
+  clubId,
+  contextLabel = '',
+  playerName = '',
+  route,
+  status,
+  targetId,
+  teamId,
+  type,
+} = {}) {
+  const normalizedStatus = normalizeText(status).toLowerCase()
+  if (!clubId || !teamId || !targetId || !['available', 'unavailable', 'maybe'].includes(normalizedStatus)) {
+    return { failed: 0, sent: 0, skipped: true }
+  }
+
+  const match = { club_id: clubId, id: targetId, team_id: teamId }
+  const devices = await getCoachDevices(match, adminClient)
+  const deliveries = devices.map((device) => ({
+    device,
+    payload: buildCoachAvailabilityResponsePayload({ contextLabel, detailLevel: device.detail_level, playerName, route, status: normalizedStatus, targetId, teamId, type }),
+  }))
+  const pushResult = await sendExpoPushMessages(deliveries.map(({ device, payload }) => ({
+    body: payload.body,
+    data: payload.data,
+    sound: 'default',
+    title: payload.title,
+    to: device.expo_push_token,
+  })))
+  await revokeMobileDeviceTokens(pushResult.invalidTokens || [], adminClient)
+  await logNotificationEvents({
+    client: adminClient,
+    deliveries,
+    match,
+    status: pushResult.failed > 0 && pushResult.sent === 0 ? 'failed' : 'sent',
+  })
+  return { failed: pushResult.failed, sent: pushResult.sent, skipped: devices.length === 0 }
 }
 
 export async function handler(event) {

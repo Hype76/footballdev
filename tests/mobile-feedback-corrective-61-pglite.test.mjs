@@ -4,7 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 test('Parent Poll outbox is scoped to active Team families and Formation Boards allow Player sharing', async () => {
-  const migration = await readFile(new URL('../supabase/migrations/20260817055249_mobile_feedback_corrective_61.sql', import.meta.url), 'utf8')
+  const migration = await readFile(new URL('../supabase/migrations/20260817065446_mobile_feedback_corrective_61.sql', import.meta.url), 'utf8')
   const db = new PGlite()
   await db.exec(`
     create role anon;

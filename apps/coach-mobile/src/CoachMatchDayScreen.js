@@ -37,6 +37,7 @@ import {
 } from '../../mobile-core/src/coachMatchDayData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
+import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { CoachFormationBoard } from './CoachFormationBoard'
 import { CoachFixtureForm } from './CoachFixtureForm'
@@ -170,12 +171,12 @@ function ReportPanel({ busy, match, onSave, styles }) {
   return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Result and FA submission helper</Text><Text selectable style={styles.score}>{report.result.finalScore}</Text><Text style={styles.meta}>Deferred. Current approved source has no canonical FA SMS, deep-link message format, or authorised direct integration. The Coach app will not invent or automatically send one.</Text></View><View style={styles.card}><Text style={styles.cardTitle}>Final Match Report</Text><Text style={styles.body}>Active events {report.activeEvents.length} | Voided {report.voidedEvents.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text><Field label="Coach notes" multiline onChangeText={setNotes} styles={styles} value={notes} /><Button disabled={busy || match.status !== 'full_time'} label="Save final report" onPress={() => onSave(notes)} styles={styles} /></View></View>
 }
 
-export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
+export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [eventForm, setEventForm] = useState(createCoachMatchDayEventForm())
-  const [filter, setFilter] = useState('current')
+  const [filter, setFilter] = useState(matchDayTarget?.fixtureId ? 'all' : 'current')
   const [fixtureFormOpen, setFixtureFormOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [match, setMatch] = useState(null)
@@ -188,30 +189,107 @@ export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled,
   const [stale, setStale] = useState(false)
   const [reconciling, setReconciling] = useState(false)
   const appState = useRef(AppState.currentState)
+  const backgroundedAt = useRef(0)
+  const busyRef = useRef(false)
+  const contextRef = useRef(context)
+  const loadInFlight = useRef(false)
+  const matchRef = useRef(null)
+  const selectedMatchId = useRef('')
+  const targetRequestId = useRef('')
+  const userRef = useRef(user)
 
-  const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(user.id, context, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [context, user.id])
+  const requestedFixtureId = String(matchDayTarget?.fixtureId || '').trim()
+  if (requestedFixtureId && targetRequestId.current !== matchDayTarget?.requestId) {
+    targetRequestId.current = matchDayTarget.requestId
+    selectedMatchId.current = requestedFixtureId
+  }
+
+  contextRef.current = context
+  userRef.current = user
+
+  useEffect(() => {
+    busyRef.current = busy || reconciling
+  }, [busy, reconciling])
+
+  useEffect(() => {
+    matchRef.current = match
+    selectedMatchId.current = match?.id || ''
+  }, [match])
+
+  const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(userRef.current.id, contextRef.current, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [])
   const load = useCallback(async () => {
+    if (loadInFlight.current || busyRef.current) return
+    loadInFlight.current = true
     setError(''); setNotice(''); setLoading(true)
-    const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const currentUser = userRef.current
+    const currentContext = contextRef.current
+    const selectionBeforeLoad = selectedMatchId.current
+    const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
     const hasCachedMatches = Array.isArray(saved?.resources?.matchDayList)
+    const cachedMatch = saved?.resources?.matchDayDetail && typeof saved.resources.matchDayDetail === 'object'
+      ? normalizeCoachMatchDay(saved.resources.matchDayDetail)
+      : null
     if (hasCachedMatches) {
       setMatches(normalizeCachedMatches(saved.resources.matchDayList))
       setPlayers(Array.isArray(saved.resources.matchDayPlayers) ? saved.resources.matchDayPlayers : [])
-      setMatch(saved.resources.matchDayDetail && typeof saved.resources.matchDayDetail === 'object' ? normalizeCoachMatchDay(saved.resources.matchDayDetail) : null)
+      if (!selectionBeforeLoad && cachedMatch) {
+        selectedMatchId.current = cachedMatch.id
+        matchRef.current = cachedMatch
+        setMatch(cachedMatch)
+      }
       setStale(true)
       setLoading(false)
     }
     try {
-      const [nextMatches, nextPlayers] = await Promise.all([getCoachMatchDayList(user), getCoachPlayerList(user)])
-      setMatches(nextMatches); setPlayers(nextPlayers); setStale(false); setReconciling(false)
-      let nextMatch = match?.id ? await getCoachMatchDayDetail(user, match.id) : null
-      if (nextMatch) { setMatch(nextMatch); setScoreDraft({ away: String(nextMatch.awayScore), home: String(nextMatch.homeScore) }) }
-      await cache(nextMatches, nextMatch, nextPlayers)
+      const [matchesResult, playersResult] = await Promise.allSettled([
+        withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)),
+        withMobileAsyncTimeout(() => getCoachPlayerList(currentUser)),
+      ])
+      if (matchesResult.status === 'rejected') throw matchesResult.reason
+      const nextMatches = matchesResult.value
+      const nextPlayers = playersResult.status === 'fulfilled'
+        ? playersResult.value
+        : Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
+      setMatches(nextMatches); setPlayers(nextPlayers); setReconciling(false)
+      const activeSelectionId = selectedMatchId.current
+      let nextMatch = null
+      if (activeSelectionId) {
+        try {
+          nextMatch = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(currentUser, activeSelectionId))
+        } catch (detailError) {
+          const exactCachedMatch = cachedMatch?.id === activeSelectionId ? cachedMatch : null
+          if (exactCachedMatch) {
+            matchRef.current = exactCachedMatch
+            setMatch(exactCachedMatch)
+          } else if (matchRef.current?.id !== activeSelectionId) {
+            matchRef.current = null
+            setMatch(null)
+          }
+          setStale(true)
+          setError(errorMessage(detailError, 'Fixture details could not be refreshed.'))
+          await cache(nextMatches, exactCachedMatch, nextPlayers)
+          return
+        }
+      }
+      if (nextMatch && selectedMatchId.current === nextMatch.id) {
+        matchRef.current = nextMatch
+        setMatch(nextMatch)
+        setScoreDraft({ away: String(nextMatch.awayScore), home: String(nextMatch.homeScore) })
+      }
+      setStale(false)
+      await cache(nextMatches, nextMatch || matchRef.current, nextPlayers)
     } catch (loadError) {
       if (!hasCachedMatches) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
-    } finally { setLoading(false) }
-  }, [cache, context, match?.id, user])
+    } finally {
+      loadInFlight.current = false
+      setLoading(false)
+    }
+  }, [cache])
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (!requestedFixtureId || loading || match?.id !== requestedFixtureId) return
+    onMatchDayTargetHandled?.()
+  }, [loading, match?.id, onMatchDayTargetHandled, requestedFixtureId])
   useEffect(() => {
     if (quickAction?.intent !== 'create-match') return
     setFixtureFormOpen(true)
@@ -222,16 +300,19 @@ export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled,
   }, [onQuickActionHandled, onRequestScrollTop, quickAction])
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      const wasBackgrounded = /inactive|background/.test(appState.current)
+      const previousState = appState.current
+      if (nextState === 'background' && previousState !== 'background') backgroundedAt.current = Date.now()
       appState.current = nextState
-      if (wasBackgrounded && nextState === 'active') void load()
+      const returnedFromBackground = previousState === 'background' && nextState === 'active'
+      if (returnedFromBackground && Date.now() - backgroundedAt.current >= 2500 && !busyRef.current) void load()
     })
     return () => subscription.remove()
   }, [load])
 
   const open = async (summary) => {
+    selectedMatchId.current = summary.id
     setBusy(true); setError('')
-    try { const detail = await getCoachMatchDayDetail(user, summary.id); setMatch(detail); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel('overview'); setStale(false); await cache(matches, detail, players) }
+    try { const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id)); matchRef.current = detail; setMatch(detail); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel('overview'); setStale(false); await cache(matches, detail, players) }
     catch (openError) { setError(errorMessage(openError, 'Fixture details could not be loaded.')) }
     finally { setBusy(false) }
   }

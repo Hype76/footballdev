@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { AppState, FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import {
   formatParentProductDateTime,
@@ -59,6 +59,8 @@ function colorsFor(themeTokens) {
     event: tokens.accent || tokens.buttonPrimary,
     match: tokens.accentMuted,
     muted: tokens.textSecondary,
+    pitch: tokens.pitch,
+    pitchLine: tokens.pitchLine,
     success: tokens.success,
     text: tokens.textPrimary,
     warning: tokens.warning,
@@ -78,6 +80,10 @@ function usePortalStyles(themeTokens) {
       actionTextOutline: { color: colors.text },
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
       card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
+      formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
+      formationPitch: { aspectRatio: 0.68, backgroundColor: colors.pitch, borderColor: colors.pitchLine, borderRadius: 18, borderWidth: 2, overflow: 'hidden', position: 'relative', width: '100%' },
+      formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
+      formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
       empty: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: 'center' },
       error: { color: colors.danger, fontSize: 14, lineHeight: 20 },
@@ -516,8 +522,27 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
   )
 }
 
-export function ResourcesScreen({ isOffline, onDismiss, onOpen, resource, themeTokens }) {
+export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
+  if (formationBoard) {
+    return (
+      <View style={styles.stack}>
+        <View><Text accessibilityRole="header" style={styles.header}>{formationBoard.title}</Text><Text style={styles.helper}>{formationBoard.gameFormat} | {formationBoard.formation}</Text></View>
+        {formationBoard.description ? <Text style={styles.body}>{formationBoard.description}</Text> : null}
+        <View accessibilityLabel={`${formationBoard.title} pitch`} style={styles.formationPitch}>
+          <View style={styles.formationHalfway} />
+          {(formationBoard.placements || []).map((player, index) => (
+            <View key={`${player.playerId || player.playerName}:${index}`} style={[styles.formationPlayer, { left: `${Math.max(4, Math.min(88, Number(player.x) || 50))}%`, top: `${Math.max(3, Math.min(90, Number(player.y) || 50))}%` }]}>
+              <Text numberOfLines={1} style={styles.formationPlayerText}>{player.playerName || player.name || 'Player'}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.card}><Text style={styles.cardTitle}>Bench</Text>{(formationBoard.bench || []).length ? (formationBoard.bench || []).map((player, index) => <Text key={`${player.playerId || player.playerName}:bench:${index}`} style={styles.body}>{player.playerName || player.name || 'Player'}</Text>) : <Text style={styles.helper}>No Players on the Bench.</Text>}</View>
+        {formationBoard.notes ? <View style={styles.card}><Text style={styles.cardTitle}>Coach notes</Text><Text style={styles.body}>{formationBoard.notes}</Text></View> : null}
+        <Button label="Back to Resources" onPress={onCloseFormation} outline styles={styles} />
+      </View>
+    )
+  }
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected child.</Text></View>
@@ -531,6 +556,7 @@ export function ResourcesScreen({ isOffline, onDismiss, onOpen, resource, themeT
 export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onSend, rooms, selectedRoom, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [draft, setDraft] = useState('')
+  const composerRef = useRef(null)
   const messageListRef = useRef(null)
   const sortedRooms = useMemo(() => prepareParentChatRooms(rooms.items), [rooms.items])
   const sortedMessages = useMemo(() => prepareParentChatMessages(messages.items), [messages.items])
@@ -540,6 +566,12 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
     const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
     return () => clearTimeout(handle)
   }, [selectedRoom, sortedMessages.length])
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background') composerRef.current?.blur()
+    })
+    return () => subscription.remove()
+  }, [])
   if (selectedRoom) {
     return (
       <View style={styles.chatScreen}>
@@ -558,7 +590,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
         />
         {messages.loading ? <Text style={styles.helper}>Loading messages...</Text> : null}
         {messages.error ? <Text style={styles.error}>{messages.error}</Text> : null}
-        {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => { void onSend(draft).then(() => setDraft('')).catch(() => {}) }} styles={styles} /></View> : null}
+        {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} ref={composerRef} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => { void onSend(draft).then(() => setDraft('')).catch(() => {}) }} styles={styles} /></View> : null}
       </View>
     )
   }

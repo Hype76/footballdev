@@ -14,6 +14,10 @@ const migration = readFileSync(
   new URL('../supabase/migrations/20260717194345_matchday_fixture_controls.sql', import.meta.url),
   'utf8',
 )
+const pastDeleteRepair = readFileSync(
+  new URL('../supabase/migrations/20260817141000_past_match_delete_repair.sql', import.meta.url),
+  'utf8',
+)
 const matchDayDomain = readFileSync(new URL('../src/lib/domain/match-day.js', import.meta.url), 'utf8')
 const matchDayPage = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
 const sessionsPage = readFileSync(new URL('../src/pages/SessionsPage.jsx', import.meta.url), 'utf8')
@@ -100,6 +104,14 @@ test('previous game deletion is soft, idempotent, audited, and fail closed', () 
   assert.match(migration, /pending notification work/)
   assert.match(migration, /revoke execute on function public\.delete_previous_match_day\(uuid\) from anon/)
   assert.match(migration, /grant execute on function public\.delete_previous_match_day\(uuid\) to authenticated/)
+})
+
+test('stale live fixtures from a past date can be closed and soft deleted', () => {
+  assert.match(pastDeleteRepair, /create or replace function public\.delete_previous_match_day_v2/)
+  assert.match(pastDeleteRepair, /match_row\.match_date < london_today/)
+  assert.match(pastDeleteRepair, /status = 'full_time'/)
+  assert.match(pastDeleteRepair, /return public\.delete_previous_match_day\(match_day_id_value\)/)
+  assert.match(matchDayDomain, /supabase\.rpc\('delete_previous_match_day_v2'/)
 })
 
 test('deleted fixtures are hidden from staff, parent, and delivery lookups', () => {

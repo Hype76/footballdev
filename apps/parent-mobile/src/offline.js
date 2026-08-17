@@ -14,6 +14,7 @@ import {
   getParentOfflineResources,
   getParentSyncAttentionItems,
   getParentSyncSummary,
+  reconcileParentSyncAttention,
   setParentOfflineProfile,
   setParentOfflineResources,
   setParentOfflineSelection,
@@ -212,6 +213,21 @@ export async function saveParentOfflineSelection(user, linkId) {
   let document = await ensureDocument(user)
   document = setParentOfflineSelection(document, linkId)
   return writeDocument(user.id, document)
+}
+
+export async function reconcileParentOfflineAttention(user, linkId, resources) {
+  const document = await readDocument(user.id)
+  if (!document) return { attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 }
+  const reconciled = reconcileParentSyncAttention(document, {
+    childScope: linkId,
+    messages: resources?.messages,
+    polls: resources?.polls,
+  })
+  if (reconciled !== document) await writeDocument(user.id, reconciled)
+  return {
+    ...getParentSyncSummary(reconciled, linkId),
+    attentionItems: getParentSyncAttentionItems(reconciled, linkId),
+  }
 }
 
 export async function queueParentMessageRead(user, linkId, message) {

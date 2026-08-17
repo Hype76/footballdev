@@ -62,6 +62,14 @@ function assertParentChatTeam(user, room) {
   }
 }
 
+function getStarterSelectionId(templateKey, version) {
+  const key = normalize(templateKey)
+  const parsedVersion = Number(version || 0)
+  return key && Number.isInteger(parsedVersion) && parsedVersion > 0
+    ? `platform-starter:${key}:${parsedVersion}`
+    : ''
+}
+
 async function rpc(name, parameters) {
   const { data, error } = await supabase.rpc(name, parameters)
   if (error) throw error
@@ -91,19 +99,44 @@ async function sendChatWithSafeRetry(name, parameters) {
 
 export async function getCoachDevelopmentWorkspace(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [playersResult, evaluationsResult, formsResult, legacyFieldsResult, draftsResult] = await Promise.all([
+  const [playersResult, evaluationsResult, formsResult, legacyFieldsResult, draftsResult, starterFormsResult, starterPreferencesResult, teamResult] = await Promise.all([
     supabase.from('players').select('id,player_name,section,status,team,team_id').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).neq('status', 'archived').order('player_name'),
     supabase.from('evaluations').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('date', { ascending: false }).order('created_at', { ascending: false }).limit(250),
     supabase.from('feedback_forms').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).is('archived_at', null).order('name'),
     supabase.from('form_fields').select('*').eq('club_id', user.clubId).or(`team_id.eq.${user.activeTeamId},team_id.is.null`).eq('is_enabled', true).order('order_index'),
     supabase.from('evaluation_drafts').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by_user_id', user.id).eq('status', 'draft').order('last_saved_at', { ascending: false }).limit(25),
+    supabase.from('feedback_form_starter_templates').select('*').eq('is_current', true).order('age_min').order('name'),
+    supabase.from('feedback_form_starter_preferences').select('template_key,hidden').eq('club_id', user.clubId).eq('team_id', user.activeTeamId),
+    supabase.from('teams').select('age_group').eq('club_id', user.clubId).eq('id', user.activeTeamId).maybeSingle(),
   ])
   const hardError = playersResult.error || evaluationsResult.error
   if (hardError) throw hardError
   const legacyFields = legacyFieldsResult.error ? [] : (legacyFieldsResult.data || []).map(normalizeCoachDevelopmentField)
-  const forms = formsResult.error
-    ? []
-    : (formsResult.data || []).map((form) => normalizeCoachDevelopmentForm({ ...form, fields: form.fields || legacyFields }))
+  const teamForms = formsResult.error ? [] : (formsResult.data || [])
+  const hiddenStarterKeys = new Set((starterPreferencesResult.error ? [] : starterPreferencesResult.data || [])
+    .filter((preference) => preference.hidden === true)
+    .map((preference) => normalize(preference.template_key)))
+  const installedStarterForms = new Map(teamForms
+    .filter((form) => normalize(form.starter_template_key))
+    .map((form) => [normalize(form.starter_template_key), form]))
+  const teamAgeGroup = teamResult.error ? '' : normalize(teamResult.data?.age_group)
+  const starterForms = (starterFormsResult.error ? [] : starterFormsResult.data || [])
+    .filter((form) => !hiddenStarterKeys.has(normalize(form.template_key)))
+    .map((form) => {
+      const installed = installedStarterForms.get(normalize(form.template_key))
+      return normalizeCoachDevelopmentForm({
+        ...form,
+        age_group: form.age_band || teamAgeGroup,
+        id: getStarterSelectionId(form.template_key, form.version),
+        installed_form_id: installed?.id || '',
+        is_platform_template: true,
+        team_id: user.activeTeamId,
+      })
+    })
+  const customForms = teamForms
+    .filter((form) => !normalize(form.starter_template_key))
+    .map((form) => normalizeCoachDevelopmentForm({ ...form, fields: form.fields || legacyFields }))
+  const forms = [...starterForms, ...customForms]
   if (forms.length === 0 && legacyFields.length > 0) {
     forms.push(normalizeCoachDevelopmentForm({ id: 'canonical-default', name: 'Development record', team_id: user.activeTeamId, fields: legacyFields }))
   }
@@ -209,7 +242,7 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form,
     scores,
     comments: { overall: normalize(notes), strengths: '', improvements: '', selectedStrengths: [] },
     form_responses: validation.values,
-    feedback_form_id: form.id,
+    feedback_form_id: form.installedFormId || (form.isPlatformTemplate ? null : form.id),
     feedback_form_name: form.name,
     feedback_form_version: form.version,
     feedback_form_snapshot: { id: form.id, name: form.name, version: form.version, fields: form.fields },

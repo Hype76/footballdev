@@ -87,7 +87,10 @@ export function normalizeCoachDevelopmentForm(row = {}) {
     .sort((left, right) => left.orderIndex - right.orderIndex)
   return Object.freeze({
     id: normalize(row.id),
+    installedFormId: normalize(row.installed_form_id ?? row.installedFormId),
+    isPlatformTemplate: row.is_platform_template === true || row.isPlatformTemplate === true,
     name: normalize(row.name || row.title) || 'Development form',
+    templateKey: normalize(row.template_key ?? row.templateKey),
     teamId: normalize(row.team_id ?? row.teamId),
     ageGroup: normalize(row.age_group ?? row.ageGroup),
     status: normalize(row.status) || (row.archived_at ? 'archived' : 'active'),

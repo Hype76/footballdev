@@ -366,6 +366,7 @@ export async function openParentResource(user, resourceId) {
   const config = getMobileRuntimeConfig('parent')
   const resourcePath = getParentApiPaths(config).resource
   const result = await callParentApi(resourcePath, { parentLinkId: link.id, resourceId })
+  if (result.accessType === 'formation_board' && result.formationBoard) return { formationBoard: result.formationBoard }
   if (result.accessType === 'external_link') return { externalUrl: normalizeText(result.accessUrl) }
   if (config.supabaseEnvironment === 'production') {
     const accessUrl = normalizeText(result.accessUrl)

@@ -89,6 +89,7 @@ test('parent message delivery stays successful when the optional mobile table is
           player_id: 'player-1',
           user_name: 'Coach',
           metadata: {
+            body: 'Development update is ready.',
             playerName: 'FP TEST Player',
             subject: 'Development update',
           },

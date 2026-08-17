@@ -163,6 +163,25 @@ test('Match Day screen disables offline writes and requires explicit confirmatio
   assert.match(source, /server will recheck Team scope, role, payment, fixture state, and concurrency/)
 })
 
+test('Match Day keeps the selected fixture stable while cached data refreshes', async () => {
+  const [screen, app, calendar] = await Promise.all([
+    readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/coach-mobile/src/CoachOperationalScreens.js', import.meta.url), 'utf8'),
+  ])
+  assert.match(screen, /const selectedMatchId = useRef\(''\)/)
+  assert.match(screen, /const selectionBeforeLoad = selectedMatchId\.current/)
+  assert.match(screen, /if \(!selectionBeforeLoad && cachedMatch\)/)
+  assert.match(screen, /const activeSelectionId = selectedMatchId\.current/)
+  assert.match(screen, /selectedMatchId\.current = summary\.id/)
+  assert.doesNotMatch(screen, /\[cache, context, match\?\.id, user\]/)
+  assert.match(app, /activeRoute !== 'matchday'/)
+  assert.match(calendar, /onNavigate\('matchday', \{ fixtureId: event\.sourceId \}\)/)
+  assert.match(app, /setMatchDayTarget\(resolved === 'matchday' && navigationTarget\?\.fixtureId/)
+  assert.match(screen, /selectedMatchId\.current = requestedFixtureId/)
+  assert.match(screen, /match\?\.id !== requestedFixtureId/)
+})
+
 test('Match Day screen exposes operational squad, volunteer, live, timeline, shootout, and report surfaces', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
   for (const marker of ['Squad', 'Volunteers', 'Live', 'Timeline', 'Shootout', 'Report', 'Correct score', 'Record event', 'Final Match Report']) assert.match(source, new RegExp(marker))

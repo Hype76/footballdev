@@ -124,6 +124,7 @@ function CoachHome() {
   const [homeState, setHomeState] = useState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
+  const [matchDayTarget, setMatchDayTarget] = useState(null)
   const [moreRoute, setMoreRoute] = useState('')
   const [notice, setNotice] = useState('')
   const [notificationState, setNotificationState] = useState(null)
@@ -131,6 +132,8 @@ function CoachHome() {
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const contentScrollRef = useRef(null)
+  const appStateRef = useRef(AppState.currentState)
+  const backgroundedAtRef = useRef(0)
   const headerScrollY = useRef(new Animated.Value(0)).current
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
@@ -164,6 +167,7 @@ function CoachHome() {
     opacity: collapsedCoachHeader.interpolate({ inputRange: [0, coachHeaderHeight * 0.7, coachHeaderHeight], outputRange: [1, 0.35, 0], extrapolate: 'clamp' }),
   }), [coachHeaderHeight, collapsedCoachHeader])
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
+  const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
   const scrollContentToTop = useCallback(() => {
     headerScrollY.setValue(0)
@@ -194,6 +198,7 @@ function CoachHome() {
     requestIdRef.current += 1
     setHomeState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
     setLastUpdatedAt('')
+    setMatchDayTarget(null)
     setMoreRoute('')
     setChatNotificationTarget(null)
     setNotice('')
@@ -299,7 +304,7 @@ function CoachHome() {
     }
   }, [activeContext, selectedMobileUser, user?.id])
 
-  const navigate = useCallback((route) => {
+  const navigate = useCallback((route, navigationTarget = null) => {
     scrollContentToTop()
     setChatNotificationTarget(null)
     const resolved = resolveCoachRoute(route, activeContext)
@@ -307,10 +312,13 @@ function CoachHome() {
       setNotice('That destination is not available in this Coach context.')
       return false
     }
-    const target = getCoachRouteState(resolved)
+    const routeTarget = getCoachRouteState(resolved)
     setNotice('')
-    setActiveRoute(target.activeRoute)
-    setMoreRoute(target.moreRoute)
+    setMatchDayTarget(resolved === 'matchday' && navigationTarget?.fixtureId
+      ? { fixtureId: normalizeText(navigationTarget.fixtureId), requestId: `${Date.now()}:${normalizeText(navigationTarget.fixtureId)}` }
+      : null)
+    setActiveRoute(routeTarget.activeRoute)
+    setMoreRoute(routeTarget.moreRoute)
     return true
   }, [activeContext, scrollContentToTop])
 
@@ -345,6 +353,9 @@ function CoachHome() {
       setSelectedContextId(targetContext.id)
     }
     const target = getCoachRouteState(resolved)
+    setMatchDayTarget(result.route === 'matchday' && result.targetId
+      ? { fixtureId: result.targetId, requestId: `${Date.now()}:${result.targetId}` }
+      : null)
     setActiveRoute(target.activeRoute)
     setMoreRoute(target.moreRoute)
     setChatNotificationTarget(result.route === 'chat' && result.targetId
@@ -408,13 +419,18 @@ function CoachHome() {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && contextOwnedByCurrentUser && selectedMobileUser?.clubId) {
+      const previousState = appStateRef.current
+      if (nextState === 'background' && previousState !== 'background') backgroundedAtRef.current = Date.now()
+      appStateRef.current = nextState
+      const returnedFromBackground = previousState === 'background' && nextState === 'active'
+      const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 2500
+      if (returnedFromBackground && wasAwayLongEnough && activeRoute !== 'matchday' && contextOwnedByCurrentUser && selectedMobileUser?.clubId) {
         void loadHome({ refresh: true })
         void refreshNotifications()
       }
     })
     return () => subscription.remove()
-  }, [contextOwnedByCurrentUser, loadHome, refreshNotifications, selectedMobileUser?.clubId])
+  }, [activeRoute, contextOwnedByCurrentUser, loadHome, refreshNotifications, selectedMobileUser?.clubId])
 
   useEffect(() => {
     if (!contextOwnedByCurrentUser || contextResolution.contexts.length === 0) return
@@ -559,10 +575,12 @@ function CoachHome() {
             isRegisteringPush={isRegisteringPush}
             isUpdatingBiometrics={isUpdatingBiometrics}
             lastUpdatedAt={lastUpdatedAt}
+            matchDayTarget={matchDayTarget}
             moreRoute={moreRoute}
             navigation={navigation}
             notificationState={notificationState}
             onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
+            onMatchDayTargetHandled={handleMatchDayTargetHandled}
             onNavigate={navigate}
             onQuickActionHandled={handleQuickActionHandled}
             onRequestScrollTop={scrollContentToTop}

@@ -155,3 +155,17 @@ test('synchronised player assignments use one canonical parent_visible state and
   assert.match(shortRpcMigration, /sync_resource_library_player_assignments\(/i)
   assert.match(shortRpcMigration, /drop function if exists public\.sync_resource_library_player_assignments_with_parent_notificati/i)
 })
+
+test('published Formation Boards open as an in-app read-only snapshot', async () => {
+  const [serverSource, parentSource, screenSource] = await Promise.all([
+    readFile(functionUrl, 'utf8'),
+    readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8'),
+  ])
+  assert.match(serverSource, /accessType: 'formation_board'/)
+  assert.match(serverSource, /formation_board_publications/)
+  assert.match(serverSource, /formation_board_versions/)
+  assert.match(parentSource, /result\.accessType === 'formation_board'/)
+  assert.match(screenSource, /formationBoard\.placements/)
+  assert.match(screenSource, /Back to Resources/)
+})

@@ -3994,6 +3994,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             setCalendarModal(null)
             navigate(href || '/sessions')
           }}
+          onBuildFormation={() => {
+            const matchDayId = calendarModal?.event?.sourceId
+            setCalendarModal(null)
+            navigate(`/resources/formation-boards?action=create&match=${encodeURIComponent(matchDayId)}&autofill=attending`)
+          }}
           onManagePlayers={handleOpenCalendarPlayerManagement}
           onOpenPlayerProfile={handleOpenEventResponsePlayer}
           onRemovePlayerFromEvent={handleEventPlayerRemovalAction}
@@ -4351,6 +4356,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           const href = calendarModal?.event?.href
           setCalendarModal(null)
           navigate(href || '/sessions')
+        }}
+        onBuildFormation={() => {
+          const matchDayId = calendarModal?.event?.sourceId
+          setCalendarModal(null)
+          navigate(`/resources/formation-boards?action=create&match=${encodeURIComponent(matchDayId)}&autofill=attending`)
         }}
         onManagePlayers={handleOpenCalendarPlayerManagement}
         onOpenPlayerProfile={handleOpenEventResponsePlayer}
@@ -5249,6 +5259,7 @@ function CalendarEventModal({
   onMarkUnavailable,
   onSelectForSquad,
   onApplyPlayerChanges,
+  onBuildFormation,
   onManagePlayers,
   onOpenPlayerProfile,
   onOpenWorkflow,
@@ -5511,6 +5522,7 @@ function CalendarEventModal({
   const showRepeatDeleteScope = Boolean(event && editableSource && isRecurringCalendarEdit)
   const deleteButtonDisabled = isBusy || (showRepeatDeleteScope && form.deleteRepeatScope !== 'entire_series')
   const hasMobileSecondaryActions = Boolean(event && editableSource)
+  const canBuildFormation = Boolean(event?.sourceType === 'match-day' && event?.sourceId && onBuildFormation)
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
@@ -6257,7 +6269,10 @@ function CalendarEventModal({
               </MobileActionDock>
             ) : null}
             <div data-testid="calendar-desktop-action-bar" className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
-              {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : <span />}
+              <div className="flex flex-wrap items-center gap-3">
+                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
+                {canBuildFormation ? <button type="button" onClick={onBuildFormation} className={primaryButtonClass}>Build Formation Board with attending players</button> : null}
+              </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" onClick={handleModalCancel} className={secondaryButtonClass}>Close</button>
                 {editableSource ? (
@@ -6315,6 +6330,19 @@ function CalendarEventModal({
                 </button>
               </div>
               <div className="mt-3 grid gap-2">
+                {canBuildFormation ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMobileActionMenuOpen(false)
+                      onBuildFormation()
+                    }}
+                    className={compactPrimaryButtonClass}
+                  >
+                    Build Formation Board with attending players
+                  </button>
+                ) : null}
                 {!isEditing && !isManagingPlayers && editableSource ? (
                   <button
                     type="button"

@@ -8,7 +8,8 @@ import {
   normalizeCoachCalendarFormDate,
 } from '../apps/mobile-core/src/coachCalendarCore.js'
 import { getParentCalendarMarkerTone } from '../apps/mobile-core/src/parentCalendarCore.js'
-import { getParentSyncAttentionItems, getParentSyncSummary } from '../apps/mobile-core/src/parentOfflineCore.js'
+import { getParentSyncAttentionItems, getParentSyncSummary, reconcileParentSyncAttention } from '../apps/mobile-core/src/parentOfflineCore.js'
+import { getParentInvitationSections } from '../apps/parent-mobile/src/parentPresentationCore.js'
 import { getCoachFriendlyError } from '../apps/coach-mobile/src/coachFriendlyErrors.js'
 
 test('Parent month markers distinguish cancelled, response, match, training, and other events', () => {
@@ -53,6 +54,29 @@ test('Parent attention actions are child scoped and retain exact destinations', 
   assert.deepEqual(getParentSyncAttentionItems(document, 'link-a'), [{ commandId: 'one', createdAt: '2026-08-14T10:00:00Z', entityId: 'poll-1', reason: 'conflict', type: 'poll_vote' }])
 })
 
+test('closed Poll and Message conflicts are removed from Parent attention', () => {
+  const document = {
+    journal: [
+      { childScope: 'link-a', commandId: 'poll', entityId: 'closed-poll', lastErrorCategory: 'conflict', localSequence: 1, status: 'conflict', type: 'poll_vote' },
+      { childScope: 'link-a', commandId: 'message', entityId: 'visible-message', lastErrorCategory: 'conflict', localSequence: 2, status: 'conflict', type: 'message_read' },
+    ],
+  }
+  const reconciled = reconcileParentSyncAttention(document, { childScope: 'link-a', messages: [{ id: 'visible-message' }], polls: [], now: () => Date.parse('2026-08-17T12:00:00Z') })
+  assert.equal(reconciled.journal[0].status, 'cancelled')
+  assert.equal(reconciled.journal[1].status, 'conflict')
+  assert.equal(getParentSyncSummary(reconciled, 'link-a').needsAttention, 1)
+})
+
+test('requests owned by a different Parent contact do not appear in actionable or upcoming lists', () => {
+  const sections = getParentInvitationSections([
+    { childId: 'child-1', eventDate: '2026-09-01', eventTitle: 'Training', invitationId: 'foreign', invitationState: 'active', invitationType: 'training', lockReason: 'This response belongs to another parent contact for the child.', responseState: 'awaiting_response', sourceRecordId: 'session-1' },
+  ], new Date('2026-08-17T12:00:00Z'))
+  assert.equal(sections.needsResponse.length, 0)
+  assert.equal(sections.upcoming.length, 0)
+  assert.equal(sections.responded.length, 0)
+  assert.equal(sections.history.length, 0)
+})
+
 test('Coach errors hide implementation details and explain recoverable conditions plainly', () => {
   assert.equal(getCoachFriendlyError(new Error('Network request failed'), 'Could not load.'), 'We could not connect just now. Saved information is still available where possible.')
   assert.equal(getCoachFriendlyError(new Error('PGRST205'), 'Could not load.'), 'Could not load.')
@@ -79,6 +103,8 @@ test('mobile sources provide direct date navigation, actionable attention, offli
   assert.match(parentApp, />Next</)
   assert.match(parentApp, /item\.type === 'poll_vote'/)
   assert.match(parentApp, /item\.type === 'message_read'/)
+  assert.match(parentApp, /roomIdAtResume/)
+  assert.match(parentScreens, /composerRef\.current\?\.blur\(\)/)
 
   assert.doesNotMatch(coachApp, /Latest Coach overview loaded/)
   assert.match(coachApp, /setTimeout\(\(\) => onDismissRef\.current\(\), 4500\)/)
