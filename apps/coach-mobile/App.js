@@ -130,6 +130,7 @@ function CoachHome() {
   const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
+  const contentScrollRef = useRef(null)
   const headerScrollY = useRef(new Animated.Value(0)).current
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
@@ -164,9 +165,14 @@ function CoachHome() {
   }), [coachHeaderHeight, collapsedCoachHeader])
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
 
-  useEffect(() => {
+  const scrollContentToTop = useCallback(() => {
     headerScrollY.setValue(0)
-  }, [activeRoute, headerScrollY])
+    requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
+  }, [headerScrollY])
+
+  useEffect(() => {
+    scrollContentToTop()
+  }, [activeRoute, scrollContentToTop])
 
   const {
     biometricAvailable,
@@ -294,6 +300,7 @@ function CoachHome() {
   }, [activeContext, selectedMobileUser, user?.id])
 
   const navigate = useCallback((route) => {
+    scrollContentToTop()
     setChatNotificationTarget(null)
     const resolved = resolveCoachRoute(route, activeContext)
     if (!resolved) {
@@ -305,7 +312,7 @@ function CoachHome() {
     setActiveRoute(target.activeRoute)
     setMoreRoute(target.moreRoute)
     return true
-  }, [activeContext])
+  }, [activeContext, scrollContentToTop])
 
   const launchQuickAction = useCallback((action) => {
     setQuickActionRequest(action.intent ? { ...action, requestId: `${Date.now()}:${action.id}` } : null)
@@ -537,6 +544,7 @@ function CoachHome() {
               tintColor={palette.accent}
             />
           )}
+          ref={contentScrollRef}
         >
           <CoachRoute
             activeRoute={activeRoute}
@@ -557,6 +565,7 @@ function CoachHome() {
             onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
             onNavigate={navigate}
             onQuickActionHandled={handleQuickActionHandled}
+            onRequestScrollTop={scrollContentToTop}
             onSelectContext={selectContext}
             onSelectMore={navigate}
             onSignOut={signOut}

@@ -115,9 +115,9 @@ test('release identity authorises both internal app candidates', async () => {
     source('../apps/coach-mobile/package.json'),
     source('../apps/parent-mobile/package.json'),
   ])
-  assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62/)
-  assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62/)
-  assert.match(submitGuard, /promotionReference === 'FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62'/)
-  assert.equal(JSON.parse(coachPackage).version, '1.0.15')
-  assert.equal(JSON.parse(parentPackage).version, '1.0.12')
+  assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63/)
+  assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63/)
+  assert.match(submitGuard, /promotionReference === 'FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63'/)
+  assert.equal(JSON.parse(coachPackage).version, '1.0.16')
+  assert.equal(JSON.parse(parentPackage).version, '1.0.13')
 })

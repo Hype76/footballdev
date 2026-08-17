@@ -4,6 +4,19 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+export function getParentChatRoomTypeLabel(value) {
+  const type = normalizeText(value).toLowerCase()
+  if (type === 'parent_staff') return 'Parent coach'
+  const text = type.replaceAll('_', ' ')
+  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : ''
+}
+
+export function getParentChatRoomTitle(room = {}) {
+  const title = normalizeText(room.title) || 'Parent Chat'
+  if (normalizeText(room.type).toLowerCase() !== 'parent_staff') return title
+  return title.replace(/\bstaff\b/gi, 'Coach')
+}
+
 function invitationOccurrenceKey(invitation = {}) {
   return [
     invitation.childId,
@@ -108,7 +121,7 @@ export function prepareParentChatRooms(rooms = [], messages = []) {
   const normalizedRooms = (Array.isArray(rooms) ? rooms : []).map((room) => ({
     ...room,
     latestMessage: normalizeText(room.latestMessage),
-    title: normalizeText(room.title) || 'Parent Chat',
+    title: getParentChatRoomTitle(room),
     unreadCount: Number(room.unreadCount || 0),
   }))
   const announcements = getParentAnnouncementMessages(messages)

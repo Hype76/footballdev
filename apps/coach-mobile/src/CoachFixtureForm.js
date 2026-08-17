@@ -4,8 +4,8 @@ import {
   calculateCoachArrivalTime,
   COACH_MATCH_ARRIVAL_OPTIONS,
   COACH_MATCH_DURATION_OPTIONS,
-  createCoachFixtureForm,
   getCoachMatchLocationOptions,
+  initializeCoachFixtureForm,
   isContinuousMatchClock,
   MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_CONCLUSION_RULE_OPTIONS,
@@ -42,16 +42,17 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const fallbackLocation = useMemo(() => locations[0] || null, [locations])
 
   useEffect(() => {
     let active = true
     void readCoachFixturePreferences(user.id, user.activeTeamId).then((preferences) => {
       if (!active) return
-      const savedLocation = preferences.location?.name ? preferences.location : locations[0] || null
-      setForm(createCoachFixtureForm({ defaultDuration: preferences.duration, defaultLocation: savedLocation }))
+      const savedLocation = preferences.location?.name ? preferences.location : fallbackLocation
+      setForm((current) => initializeCoachFixtureForm(current, { defaultDuration: preferences.duration, defaultLocation: savedLocation }))
     })
     return () => { active = false }
-  }, [locations, user.activeTeamId, user.id])
+  }, [fallbackLocation, user.activeTeamId, user.id])
 
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 
@@ -59,11 +60,15 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
     Keyboard.dismiss()
     setBusy(true)
     setError('')
+    const submittedForm = {
+      ...form,
+      selectedPlayerIds: [...form.selectedPlayerIds],
+    }
     try {
-      const result = await createCoachMatchDayFixture(user, form)
+      const result = await createCoachMatchDayFixture(user, submittedForm)
       await writeCoachFixturePreferences(user.id, user.activeTeamId, {
-        duration: form.saveDurationAsDefault ? form.matchDurationMinutes : (await readCoachFixturePreferences(user.id, user.activeTeamId)).duration,
-        location: form.venueName ? { address: form.venueAddress, name: form.venueName } : null,
+        duration: submittedForm.saveDurationAsDefault ? submittedForm.matchDurationMinutes : (await readCoachFixturePreferences(user.id, user.activeTeamId)).duration,
+        location: submittedForm.venueName ? { address: submittedForm.venueAddress, name: submittedForm.venueName } : null,
       })
       onCreated(result)
     } catch (saveError) {

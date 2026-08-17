@@ -170,7 +170,7 @@ function ReportPanel({ busy, match, onSave, styles }) {
   return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Result and FA submission helper</Text><Text selectable style={styles.score}>{report.result.finalScore}</Text><Text style={styles.meta}>Deferred. Current approved source has no canonical FA SMS, deep-link message format, or authorised direct integration. The Coach app will not invent or automatically send one.</Text></View><View style={styles.card}><Text style={styles.cardTitle}>Final Match Report</Text><Text style={styles.body}>Active events {report.activeEvents.length} | Voided {report.voidedEvents.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text><Field label="Coach notes" multiline onChangeText={setNotes} styles={styles} value={notes} /><Button disabled={busy || match.status !== 'full_time'} label="Save final report" onPress={() => onSave(notes)} styles={styles} /></View></View>
 }
 
-export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled, palette, quickAction, user }) {
+export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -217,8 +217,9 @@ export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled,
     setFixtureFormOpen(true)
     setError('')
     setNotice('')
+    onRequestScrollTop?.()
     onQuickActionHandled?.()
-  }, [onQuickActionHandled, quickAction])
+  }, [onQuickActionHandled, onRequestScrollTop, quickAction])
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const wasBackgrounded = /inactive|background/.test(appState.current)
@@ -268,6 +269,7 @@ export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled,
   const submitEvent = async () => { const validated = validateCoachMatchDayEventForm(eventForm); const commandId = createCoachMatchDayCommandId(); await replace(() => recordCoachMatchDayEvent(user, match, validated, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)); setEventForm(createCoachMatchDayEventForm(validated.eventType, match)) }
   const handleFixtureCreated = async (result) => {
     setFixtureFormOpen(false)
+    onRequestScrollTop?.()
     setNotice(result.invitationWarning || 'Fixture created. Match Day controls are ready.')
     const summary = normalizeCoachMatchDay(result.match)
     setMatches((current) => [summary, ...current.filter((item) => item.id !== summary.id)])
@@ -284,8 +286,8 @@ export function CoachMatchDayScreen({ context, onNavigate, onQuickActionHandled,
   return <View style={styles.stack}>
     <Text accessibilityRole="header" style={styles.title}>Match Day</Text><Text style={styles.body}>Server-authoritative fixture execution, squad, clock, events, volunteers, shootout, corrections, and final report.</Text>
     <View style={styles.tabs}><Button label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View>
-    {!fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button label="Create match" onPress={() => { setFixtureFormOpen(true); setError(''); setNotice('') }} styles={styles} /> : null}
-    {fixtureFormOpen ? <CoachFixtureForm matches={matches} onCancel={() => setFixtureFormOpen(false)} onCreated={handleFixtureCreated} players={players} styles={styles} user={user} /> : null}
+    {!fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button label="Create match" onPress={() => { setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
+    {fixtureFormOpen ? <CoachFixtureForm matches={matches} onCancel={() => { setFixtureFormOpen(false); onRequestScrollTop?.() }} onCreated={handleFixtureCreated} players={players} styles={styles} user={user} /> : null}
     {loading ? <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
     {reconciling ? <View accessibilityLiveRegion="assertive" style={styles.warning}><ActivityIndicator /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}

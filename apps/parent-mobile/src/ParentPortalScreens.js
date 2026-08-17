@@ -13,7 +13,7 @@ import {
   getParentMatchDirectionsUrl,
   getParentMatchGroups,
 } from './parentExperience'
-import { getParentChatRoomContext, getParentInvitationSections, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
+import { getParentChatRoomContext, getParentChatRoomTypeLabel, getParentInvitationSections, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
 import {
   getInvitationResponseOptions,
   getParentInvitationDisplayState,
@@ -534,6 +534,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
   const messageListRef = useRef(null)
   const sortedRooms = useMemo(() => prepareParentChatRooms(rooms.items), [rooms.items])
   const sortedMessages = useMemo(() => prepareParentChatMessages(messages.items), [messages.items])
+  const displayedSelectedRoom = useMemo(() => selectedRoom ? prepareParentChatRooms([selectedRoom])[0] : null, [selectedRoom])
   useEffect(() => {
     if (!selectedRoom) return undefined
     const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
@@ -542,7 +543,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
   if (selectedRoom) {
     return (
       <View style={styles.chatScreen}>
-        <View style={styles.chatHeader}><Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} /><Text accessibilityRole="header" style={styles.cardTitle}>{selectedRoom.title}</Text><Text style={styles.helper}>{getParentChatRoomContext(selectedRoom)}</Text></View>
+        <View style={styles.chatHeader}><Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} /><Text accessibilityRole="header" style={styles.cardTitle}>{displayedSelectedRoom.title}</Text><Text style={styles.helper}>{getParentChatRoomContext(displayedSelectedRoom)}</Text></View>
         <FlatList
           contentContainerStyle={styles.chatListContent}
           data={sortedMessages}
@@ -565,7 +566,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
     <View style={styles.chatScreen}>
       <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your child'}.</Text>{isOffline ? <Text style={styles.warning}>Saved conversations remain readable. Sending and deleting need a connection.</Text> : null}</View>
       <ResourceState emptyCopy="No Parent Chat rooms are available for this child." error={rooms.error} items={sortedRooms} loading={rooms.loading} styles={styles} />
-      <FlatList contentContainerStyle={styles.chatRoomContent} data={sortedRooms} keyExtractor={(room) => String(room.id)} renderItem={({ item: room }) => <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{labelize(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text>{room.latestMessageAt ? <Text style={styles.meta}>{formatDate(room.latestMessageAt)}</Text> : null}</Pressable>} style={styles.chatList} />
+      <FlatList contentContainerStyle={styles.chatRoomContent} data={sortedRooms} keyExtractor={(room) => String(room.id)} renderItem={({ item: room }) => <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text>{room.latestMessageAt ? <Text style={styles.meta}>{formatDate(room.latestMessageAt)}</Text> : null}</Pressable>} style={styles.chatList} />
     </View>
   )
 }

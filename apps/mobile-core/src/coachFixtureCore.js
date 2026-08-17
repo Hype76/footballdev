@@ -74,6 +74,11 @@ export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation =
   }
 }
 
+export function initializeCoachFixtureForm(currentForm, options = {}) {
+  if (currentForm && typeof currentForm === 'object') return currentForm
+  return createCoachFixtureForm(options)
+}
+
 export function updateCoachFixtureKickoff(form, kickoffTime) {
   return {
     ...form,
