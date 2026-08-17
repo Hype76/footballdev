@@ -46,3 +46,11 @@ test('Parent Chat presents Coach wording for the internal parent_staff room type
   assert.equal(getParentChatRoomTypeLabel(room.type), 'Parent coach')
   assert.equal(getParentChatRoomTitle(room), 'Chat with Coach')
 })
+
+test('corrective 64 is explicitly authorised for both production builds and submissions', () => {
+  const buildGuard = read('apps/scripts/mobile-build-guard.mjs')
+  const submitGuard = read('apps/scripts/mobile-submit-guard.mjs')
+  assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-64/)
+  assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-64/)
+  assert.match(submitGuard, /promotionReference === 'FP-MOBILE-FEEDBACK-CORRECTIVE-64'/)
+})
