@@ -248,6 +248,31 @@ test('Ref 54 permits only the bounded Coach form-selection testing candidates', 
   assert.match(parentResult.stderr, /production_build_not_authorised/)
 })
 
+test('Ref 69 permits bounded Coach and Parent invite notification candidates', () => {
+  const promotionReference = 'FP-INVITES-NOTIFICATIONS-69'
+  for (const appRole of ['coach', 'parent']) {
+    for (const [profile, platform] of [['internal-live', 'android'], ['store-live', 'ios']]) {
+      const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, profile, platform], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: promotionReference },
+      })
+      assert.equal(result.status, 1)
+      assert.match(result.stderr, /Mobile native build is blocked until EAS setup/)
+      assert.doesNotMatch(result.stderr, /production_build_not_authorised|Unknown mobile build profile/)
+    }
+
+    const submitResult = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', appRole, 'ios', 'store-live'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: promotionReference },
+    })
+    assert.equal(submitResult.status, 1)
+    assert.match(submitResult.stderr, /production_submission_build_id_required/)
+    assert.doesNotMatch(submitResult.stderr, /production_build_not_authorised/)
+  }
+})
+
 test('production submission guard requires an app-specific iOS promotion reference', () => {
   const submitGuard = readFileSync(path.join(repositoryRoot, 'apps/scripts/mobile-submit-guard.mjs'), 'utf8')
   assert.match(submitGuard, /FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28/)

@@ -50,6 +50,7 @@ const authorisedProductionSubmission = (
   || promotionReference === 'FP-MOBILE-NOTIFICATIONS-PROFILE-66'
   || promotionReference === 'FP-MOBILE-INVITES-PDF-SCROLL-67'
   || promotionReference === 'FP-PARENT-NOTIFICATION-CALENDAR-FORMATION-68'
+  || promotionReference === 'FP-INVITES-NOTIFICATIONS-69'
   || (platform === 'ios' && appRole === 'parent' && authorisedParentProductionReferences.has(promotionReference))
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49')
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-STEPPER-50')
