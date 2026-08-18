@@ -328,6 +328,26 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
     } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
     finally { setAssigning(false) }
   }
+  const assignAllPlayers = async () => {
+    const assignedPlayerIds = new Set(selected?.links.filter((link) => link.linkedType === 'player').map((link) => link.linkedId) || [])
+    const unassignedPlayers = players.filter((player) => !assignedPlayerIds.has(player.id))
+    if (!selected || unassignedPlayers.length === 0) {
+      setNotice('This Resource is already assigned to every active Player.')
+      return
+    }
+    setAssigning(true)
+    try {
+      await setCoachResourceSharing(user, selected, unassignedPlayers.map((player) => ({
+        linkedId: player.id,
+        linkedType: 'player',
+        parentVisible,
+        teamId: user.activeTeamId,
+      })), 'Shared from Football Player Coach')
+      setNotice(`Resource assigned to ${unassignedPlayers.length} Player${unassignedPlayers.length === 1 ? '' : 's'}.`)
+      await load()
+    } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
+    finally { setAssigning(false) }
+  }
   return (
     <View style={styles.stack}>
       {data.length ? data.map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{user.activeTeamName || resource.teamName || 'Active Team'} only | {resource.category} | {resource.type}</Text><Text style={styles.body}>{resource.description || 'No description'}</Text><Button label="Open Resource" onPress={() => void open(resource)} styles={styles} /></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
@@ -335,6 +355,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
         <Text style={styles.heading}>Assign selected Resource</Text>
         {selected.isFormationBoard ? <Text style={styles.body}>This Formation Board is already a Team Resource. Choose individual Players to share it with their families.</Text> : <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />}
         <View style={styles.row}><Text style={styles.label}>Visible to the Player's family</Text><Switch accessibilityLabel="Visible to the Player's family" disabled={stale || assigning} onValueChange={setParentVisible} value={parentVisible} /></View>
+        {players.length ? <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50 || players.every((player) => selected.links.some((link) => link.linkedType === 'player' && link.linkedId === player.id))} label={assigning ? 'Assigning Players...' : 'Assign to all Players'} onPress={() => void assignAllPlayers()} secondary styles={styles} /> : null}
         {players.length ? players.map((player) => {
           const assigned = selected.links.some((link) => link.linkedType === 'player' && link.linkedId === player.id)
           return <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} key={player.id} label={`${assigned ? 'Remove from' : 'Assign to'} ${player.playerName}`} onPress={() => void togglePlayerSharing(player)} secondary={!assigned} styles={styles} />

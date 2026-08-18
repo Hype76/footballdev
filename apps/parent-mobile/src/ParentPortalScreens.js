@@ -76,9 +76,11 @@ function usePortalStyles(themeTokens) {
       actionDanger: { backgroundColor: colors.danger },
       actionDisabled: { opacity: 0.45 },
       actionOutline: { backgroundColor: 'transparent', borderColor: colors.border, borderWidth: 1 },
+      actionSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderWidth: 2 },
       actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
       actionText: { color: colors.accentForeground, fontSize: 14, fontWeight: '800' },
       actionTextOutline: { color: colors.text },
+      actionTextSelected: { color: colors.accentText },
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
       card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
       formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
@@ -134,16 +136,16 @@ function usePortalStyles(themeTokens) {
   }, [themeTokens])
 }
 
-function Button({ danger = false, disabled = false, label, onPress, outline = false, styles }) {
+function Button({ danger = false, disabled = false, label, onPress, outline = false, selected = false, styles }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.action, outline && styles.actionOutline, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
+      style={({ pressed }) => [styles.action, outline && styles.actionOutline, selected && styles.actionSelected, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
     >
-      <Text style={[styles.actionText, outline && styles.actionTextOutline]}>{label}</Text>
+      <Text style={[styles.actionText, outline && styles.actionTextOutline, selected && styles.actionTextSelected]}>{label}</Text>
     </Pressable>
   )
 }
@@ -187,6 +189,7 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
               label={busy ? 'Saving...' : option.label}
               onPress={() => onRespond(invitation, option.value)}
               outline
+              selected={invitation.responseState === option.value}
               styles={styles}
             />
           ))}

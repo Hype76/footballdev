@@ -136,6 +136,8 @@ const resourceFallbacks = {
 }
 
 const PARENT_THEME_STORAGE_KEY = 'fp.parent.display-theme.v1'
+const PARENT_NOTIFICATION_RESPONSE_HISTORY_PREFIX = 'fp.parent.notification-responses.v1'
+const PARENT_NOTIFICATION_RESPONSE_HISTORY_LIMIT = 32
 const defaultParentThemeContext = {
   ...DEFAULT_PARENT_MOBILE_THEME,
   palette: createParentAppPalette(DEFAULT_PARENT_MOBILE_THEME.tokens),
@@ -231,6 +233,7 @@ function ParentHome() {
     permissionStatus: 'undetermined',
     registered: false,
   })
+  const [notificationResponseHistoryReady, setNotificationResponseHistoryReady] = useState(false)
   const [communicationPreference, setCommunicationPreference] = useState({ communicationChannel: 'both', updatedAt: '' })
   const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
   const [displayTheme, setDisplayTheme] = useState('dark')
@@ -254,6 +257,7 @@ function ParentHome() {
   const resumeRefreshRef = useRef(false)
   const scrollViewRef = useRef(null)
   const notificationResponseIdRef = useRef('')
+  const notificationResponseHistoryRef = useRef(new Set())
   const notificationResponseProcessingRef = useRef('')
   const reloadSelectedChatRoomRef = useRef(() => Promise.resolve())
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
@@ -297,10 +301,21 @@ function ParentHome() {
   }), [themeModel])
   const { palette, styles } = themeContext
 
+  const notificationResponseHistoryKey = useMemo(
+    () => selectedMobileUser?.id ? `${PARENT_NOTIFICATION_RESPONSE_HISTORY_PREFIX}.${selectedMobileUser.id}` : '',
+    [selectedMobileUser?.id],
+  )
+
   const consumeLastNotificationResponse = useCallback((responseId) => {
     notificationResponseIdRef.current = responseId
+    if (responseId && notificationResponseHistoryKey) {
+      const recentIds = [...notificationResponseHistoryRef.current, responseId]
+        .slice(-PARENT_NOTIFICATION_RESPONSE_HISTORY_LIMIT)
+      notificationResponseHistoryRef.current = new Set(recentIds)
+      void AsyncStorage.setItem(notificationResponseHistoryKey, JSON.stringify(recentIds)).catch(() => {})
+    }
     void Notifications.clearLastNotificationResponseAsync().catch(() => {})
-  }, [])
+  }, [notificationResponseHistoryKey])
 
   const loadParentData = useCallback(async ({ reset = false } = {}) => {
     const requestId = ++requestIdRef.current
@@ -506,6 +521,32 @@ function ParentHome() {
 
   useEffect(() => {
     let mounted = true
+    notificationResponseIdRef.current = ''
+    notificationResponseHistoryRef.current = new Set()
+    setNotificationResponseHistoryReady(false)
+    if (!notificationResponseHistoryKey) {
+      setNotificationResponseHistoryReady(true)
+      return () => { mounted = false }
+    }
+    void AsyncStorage.getItem(notificationResponseHistoryKey)
+      .then((value) => {
+        if (!mounted) return
+        const parsed = value ? JSON.parse(value) : []
+        notificationResponseHistoryRef.current = new Set(
+          Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string').slice(-PARENT_NOTIFICATION_RESPONSE_HISTORY_LIMIT) : [],
+        )
+      })
+      .catch(() => {
+        if (mounted) notificationResponseHistoryRef.current = new Set()
+      })
+      .finally(() => {
+        if (mounted) setNotificationResponseHistoryReady(true)
+      })
+    return () => { mounted = false }
+  }, [notificationResponseHistoryKey])
+
+  useEffect(() => {
+    let mounted = true
     if (!dismissalStorageKey) {
       setDismissedItems({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
       return () => { mounted = false }
@@ -622,10 +663,17 @@ function ParentHome() {
     const request = lastNotificationResponse?.notification?.request
     const responseId = normalizeText(request?.identifier)
     if (
-      !responseId
+      !notificationResponseHistoryReady
+      || !responseId
       || notificationResponseIdRef.current === responseId
       || notificationResponseProcessingRef.current === responseId
     ) return undefined
+
+    if (notificationResponseHistoryRef.current.has(responseId)) {
+      notificationResponseIdRef.current = responseId
+      void Notifications.clearLastNotificationResponseAsync().catch(() => {})
+      return undefined
+    }
 
     const notificationData = request.content?.data
     const notificationAction = normalizeText(lastNotificationResponse?.actionIdentifier)
@@ -756,7 +804,7 @@ function ParentHome() {
         notificationResponseProcessingRef.current = ''
       }
     }
-  }, [consumeLastNotificationResponse, lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id, selectedMobileUser])
+  }, [consumeLastNotificationResponse, lastNotificationResponse, loadParentData, notificationResponseHistoryReady, parentLinks, selectedLink?.id, selectedMobileUser])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined

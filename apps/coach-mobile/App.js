@@ -132,6 +132,9 @@ function CoachHome() {
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const contentScrollRef = useRef(null)
+  const contentHeightRef = useRef(0)
+  const scrollOffsetRef = useRef(0)
+  const viewportHeightRef = useRef(0)
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
   const headerScrollY = useRef(new Animated.Value(0)).current
@@ -170,9 +173,17 @@ function CoachHome() {
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
   const scrollContentToTop = useCallback(() => {
+    scrollOffsetRef.current = 0
     headerScrollY.setValue(0)
     requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
   }, [headerScrollY])
+
+  const clampContentScroll = useCallback(() => {
+    const maximumOffset = Math.max(0, contentHeightRef.current - viewportHeightRef.current)
+    if (scrollOffsetRef.current <= maximumOffset + 2) return
+    scrollOffsetRef.current = maximumOffset
+    requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: maximumOffset }))
+  }, [])
 
   useEffect(() => {
     scrollContentToTop()
@@ -555,11 +566,15 @@ function CoachHome() {
         {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
         <Animated.ScrollView
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          bounces={false}
           contentContainerStyle={styles.content}
           contentInsetAdjustmentBehavior="automatic"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="always"
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { useNativeDriver: false })}
+          onContentSizeChange={(_width, height) => { contentHeightRef.current = height; clampContentScroll() }}
+          onLayout={(event) => { viewportHeightRef.current = event.nativeEvent.layout.height; clampContentScroll() }}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { listener: (event) => { scrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y) }, useNativeDriver: false })}
+          overScrollMode="never"
           scrollEventThrottle={16}
           refreshControl={(
             <RefreshControl

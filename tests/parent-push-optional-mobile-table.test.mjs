@@ -121,6 +121,10 @@ test('parent message delivery stays successful when the optional mobile table is
       })
     }
 
+    if (table === 'parent_mobile_notification_events') {
+      return queryResult({ data: [{ id: 'notification-1' }], error: null })
+    }
+
     if (table === 'parent_communication_preferences') {
       return queryResult({ data: [], error: null })
     }
@@ -142,6 +146,7 @@ test('parent message delivery stays successful when the optional mobile table is
   assert.equal(response.statusCode, 200)
   assert.deepEqual(responseBody(response), {
     failed: 0,
+    inbox: 1,
     parentLinks: 1,
     sent: 0,
     success: true,

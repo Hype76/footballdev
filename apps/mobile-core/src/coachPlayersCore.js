@@ -86,9 +86,16 @@ export function normalizeCoachPlayerField(row) {
 
 export function filterCoachPlayers(players = [], { query = '', section = 'all', status = 'active' } = {}) {
   const needle = normalize(query).toLowerCase()
+  const requestedStatus = normalize(status).toLowerCase()
   return players.filter((player) => {
     if (section !== 'all' && player.section !== section) return false
-    if (status !== 'all' && player.status !== status) return false
+    if (requestedStatus !== 'all') {
+      const playerStatus = normalize(player.status).toLowerCase()
+      const matchesStatus = requestedStatus === 'active'
+        ? ['active', 'promoted'].includes(playerStatus)
+        : playerStatus === requestedStatus
+      if (!matchesStatus) return false
+    }
     if (!needle) return true
     return [player.playerName, player.shirtNumber, player.team, ...(player.positions || [])]
       .some((value) => normalize(value).toLowerCase().includes(needle))
