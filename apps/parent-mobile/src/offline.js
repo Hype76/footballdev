@@ -209,18 +209,18 @@ export async function saveParentOfflineResources(user, linkId, resources) {
   return writeDocument(user.id, document)
 }
 
-export async function markParentOfflineNotificationRead(user, linkId, notificationId) {
+export async function markParentOfflineNotificationRead(user, linkId, notificationIds) {
   let document = await ensureDocument(user)
   const cache = getParentOfflineResources(document, linkId)
-  const normalizedNotificationId = normalize(notificationId)
+  const normalizedNotificationIds = new Set((Array.isArray(notificationIds) ? notificationIds : [notificationIds]).map(normalize).filter(Boolean))
 
-  if (!cache || !normalizedNotificationId) return document
+  if (!cache || normalizedNotificationIds.size === 0) return document
 
   document = setParentOfflineSelection(document, linkId)
   document = setParentOfflineResources(document, linkId, {
     ...cache.resources,
     notifications: (cache.resources.notifications || []).map((notification) => (
-      normalize(notification.id) === normalizedNotificationId
+      normalizedNotificationIds.has(normalize(notification.id))
         ? { ...notification, isRead: true }
         : notification
     )),

@@ -9,6 +9,7 @@ import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import {
   getParentPushSetupFailureCode,
   getParentNotificationStorageKeys,
+  mergeParentNotificationPermission,
   normalizeParentNotificationDetail,
   normalizeParentNotificationState,
   withParentPushStepTimeout,
@@ -247,30 +248,7 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
     if (!normalize(error.message).toLowerCase().includes('sign in')) throw error
   }
 
-  if (!permission.permissionGranted && serverState.enabled) {
-    try {
-      const result = await request({
-        apiBaseUrl,
-        method: 'PATCH',
-        path: getInstallationPath(apiBaseUrl),
-        body: {
-          detailLevel: serverState.detailLevel || detailLevel,
-          enabled: false,
-          installationId,
-        },
-      })
-      serverState = result.installation || { ...serverState, enabled: false }
-    } catch {
-      serverState = { ...serverState, enabled: false }
-    }
-  }
-
-  return normalizeParentNotificationState({
-    ...serverState,
-    ...permission,
-    detailLevel: serverState.detailLevel || detailLevel,
-    enabled: Boolean(serverState.enabled && permission.permissionGranted),
-  })
+  return mergeParentNotificationPermission(serverState, permission, detailLevel)
 }
 
 export async function enableParentNotifications({ apiBaseUrl, devicePushToken, easProjectId, parentLinkId }) {
@@ -400,12 +378,7 @@ export async function updateParentNotificationPreference({ apiBaseUrl, detailLev
     if (enabled) throw error
   }
 
-  return normalizeParentNotificationState({
-    ...serverState,
-    ...permission,
-    detailLevel: normalizedDetail,
-    enabled: Boolean(serverState.enabled && permission.permissionGranted),
-  })
+  return mergeParentNotificationPermission(serverState, permission, normalizedDetail)
 }
 
 export async function unbindParentNotifications({ accessToken, apiBaseUrl }) {
@@ -429,6 +402,7 @@ export async function unbindParentNotifications({ accessToken, apiBaseUrl }) {
   }
 
   await Notifications.unregisterForNotificationsAsync()
+  await Notifications.setBadgeCountAsync(0).catch(() => {})
 
   return { serverUnbound, success: true }
 }

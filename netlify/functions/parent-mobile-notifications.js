@@ -68,7 +68,10 @@ export async function handler(event) {
     const { authUser, link } = await getAuthorisedParentLink(event, parentLinkId)
 
     if (event.httpMethod === 'POST') {
-      const notificationId = normalizeText(body.notificationId)
+      const notificationIds = [...new Set([
+        ...(Array.isArray(body.notificationIds) ? body.notificationIds : []),
+        body.notificationId,
+      ].map(normalizeText).filter(Boolean))].slice(0, 50)
       const now = new Date().toISOString()
       let query = supabaseAdmin
         .from('parent_mobile_notification_events')
@@ -77,7 +80,7 @@ export async function handler(event) {
         .eq('parent_link_id', link.id)
         .is('read_at', null)
 
-      if (notificationId) query = query.eq('id', notificationId)
+      if (notificationIds.length) query = query.in('id', notificationIds)
       const { error } = await query
       if (error) throw error
       return response(200, { readAt: now, success: true })

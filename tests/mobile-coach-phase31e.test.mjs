@@ -320,7 +320,7 @@ test('native screen exposes required accessible and confirmation patterns', asyn
   assert.match(screen, /accessibilityLabel=/)
   assert.match(screen, /accessibilityLiveRegion=/)
   assert.match(screen, /Alert\.alert\('Finalise and share this Development record\?'/)
-  assert.match(screen, /Alert\.alert\('Close this Poll\?'/)
+  assert.match(screen, /Alert\.alert\('Archive this Poll\?'/)
 })
 
 test('native Development renders a single-choice form picker and isolates draft values when switching', async () => {

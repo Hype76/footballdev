@@ -301,6 +301,12 @@ export function sanitizeCoachChatOfflineValue(value = {}) {
   })
 }
 
+export function hasUsableCoachPhase31ECache(domain, savedValue, cachedValue = savedValue) {
+  if (!savedValue || typeof savedValue !== 'object') return false
+  if (normalize(domain) !== 'chat') return true
+  return Array.isArray(cachedValue?.staff) && cachedValue.staff.length > 0
+}
+
 export function isSyntheticCoachTarget(value) {
   return normalize(value).toUpperCase().includes(COACH_PHASE_31E_COMMUNICATION_POLICY.syntheticMarker)
 }
@@ -356,6 +362,24 @@ export function summarizeCoachPoll(poll) {
       delete rankedOption.sourceIndex
       return Object.freeze(rankedOption)
     }))
+}
+
+export function buildCoachPollClosesAt(dateValue, timeValue) {
+  const dateMatch = normalize(dateValue).match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  const timeMatch = normalize(timeValue).match(/^(\d{2}):(\d{2})$/)
+  if (!dateMatch && !timeMatch) return ''
+  if (!dateMatch || !timeMatch) return null
+  const date = new Date(
+    Number(dateMatch[3]),
+    Number(dateMatch[2]) - 1,
+    Number(dateMatch[1]),
+    Number(timeMatch[1]),
+    Number(timeMatch[2]),
+    0,
+    0,
+  )
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
 }
 
 export function normalizeCoachInvite(row = {}, kind = 'calendar') {

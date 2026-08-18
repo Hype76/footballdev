@@ -220,6 +220,10 @@ function normalizePoll(row) {
     pollType: normalizeText(row.poll_type || 'text'),
     status: normalizeText(row.status || 'open'),
     title: normalizeText(row.title || 'Poll'),
+    votes: (Array.isArray(row.votes) ? row.votes : []).map((vote) => ({
+      count: Math.max(0, Number(vote?.count ?? 0) || 0),
+      optionId: normalizeText(vote?.optionId ?? vote?.option_id),
+    })).filter((vote) => vote.optionId),
   }
 }
 

@@ -4,6 +4,7 @@ import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
   createCoachPoll,
+  deleteCoachPoll,
   finalizeCoachDevelopmentRecord,
   getCoachChatMessages,
   getCoachChatRooms,
@@ -24,9 +25,11 @@ import {
 } from '../../mobile-core/src/coachPhase31EData'
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
+  buildCoachPollClosesAt,
   getCoachPhase31EOfflinePolicy,
   getCoachChatRoomDisplay,
   getCoachResourceErrorMessage,
+  hasUsableCoachPhase31ECache,
   isCoachMatchAvailabilityRequestCreationApplied,
   isSyntheticCoachTarget,
   resolveCoachDevelopmentForm,
@@ -38,6 +41,7 @@ import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
+import { CoachDateTimeField } from './CoachDateTimeField'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -124,7 +128,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
     const savedValue = cached?.resources?.[`phase31e:${domain}`]
     const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
-    const hasCachedValue = offlinePolicy.cache && Boolean(cachedValue)
+    const hasCachedValue = offlinePolicy.cache && hasUsableCoachPhase31ECache(domain, savedValue, cachedValue)
     if (hasCachedValue) {
       setData(cachedValue)
       setStale(true)
@@ -342,7 +346,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   )
 }
 
-function ChatDomain({ chatNotificationTarget, data, notice, onChatNotificationTargetHandled, placeholderColor, setNotice, stale, styles, user }) {
+function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, placeholderColor, setNotice, stale, styles, user }) {
   const rooms = useMemo(() => [...(data.staff || []), ...(data.parent || [])].sort((left, right) => {
     const priority = (room) => room.kind === 'parent' && room.type === 'team'
       ? 0
@@ -397,7 +401,7 @@ function ChatDomain({ chatNotificationTarget, data, notice, onChatNotificationTa
     const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
     return () => clearTimeout(handle)
   }, [messages.length, room])
-  if (!rooms.length) return <Empty copy="No Coach Chat or Parent Chat membership is available in this Team." styles={styles} />
+  if (!rooms.length) return <View style={styles.panel}><Text style={styles.body}>No Coach Chat or Parent Chat conversation is currently available for this Team.</Text><Button label="Refresh Chat" onPress={load} styles={styles} /></View>
   if (!room) {
     return (
       <View style={styles.stack}>
@@ -468,17 +472,31 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   const [anonymous, setAnonymous] = useState(false)
   const [audience, setAudience] = useState('parents')
   const [creating, setCreating] = useState(false)
+  const [closingDate, setClosingDate] = useState('')
+  const [closingTime, setClosingTime] = useState('')
   const [description, setDescription] = useState('')
   const [maxChoices, setMaxChoices] = useState('')
   const [notifyResultsOnClose, setNotifyResultsOnClose] = useState(false)
   const [options, setOptions] = useState(['', ''])
   const [title, setTitle] = useState('')
   const [votingOptionId, setVotingOptionId] = useState('')
+  const [showArchive, setShowArchive] = useState(false)
   const selected = data.find((poll) => poll.id === selectedId)
+  const archivedCount = data.filter((poll) => poll.status === 'closed').length
+  const visiblePolls = showArchive ? data : data.filter((poll) => poll.status !== 'closed')
   const create = async () => {
     const pollOptions = options.map((label, index) => ({ id: `option-${index + 1}`, label: label.trim() })).filter((option) => option.label)
     if (!title.trim() || pollOptions.length < 2) {
       setNotice('Add a Poll title and at least two options.')
+      return
+    }
+    const closesAt = buildCoachPollClosesAt(closingDate, closingTime)
+    if (closesAt === null) {
+      setNotice('Choose both a closing date and closing time, or leave both blank.')
+      return
+    }
+    if (closesAt && new Date(closesAt).getTime() <= Date.now()) {
+      setNotice('Choose a future Poll deadline.')
       return
     }
     setCreating(true)
@@ -488,6 +506,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         allowVoteChanges,
         anonymous,
         audience,
+        closesAt,
         description,
         maxChoices: allowMultiple ? Number(maxChoices || 0) || null : null,
         notifyResultsOnClose: audience === 'parents' && notifyResultsOnClose,
@@ -496,6 +515,8 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       })
       setTitle('')
       setDescription('')
+      setClosingDate('')
+      setClosingTime('')
       setOptions(['', ''])
       setMaxChoices('')
       setNotifyResultsOnClose(false)
@@ -507,8 +528,32 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
     } catch (error) { setNotice(getCoachFriendlyError(error)) }
     finally { setCreating(false) }
   }
-  const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice(selected?.notifyResultsOnClose ? 'Poll closed. Results are queued using each Parent communication preference.' : 'Poll closed.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) } } }])
+  const archive = async () => {
+    try {
+      await setCoachPollStatus(user, selected, 'closed')
+      setSelectedId('')
+      setNotice(selected?.notifyResultsOnClose
+        ? 'Poll archived. Final results are queued using each Parent communication preference.'
+        : 'Poll archived.')
+      await load()
+    } catch (error) { setNotice(getCoachFriendlyError(error)) }
+  }
+  const close = () => Alert.alert('Archive this Poll?', 'Responses remain in the canonical history.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Archive', onPress: () => void archive() },
+    ])
   const reopen = async () => { try { await setCoachPollStatus(user, selected, 'open'); setNotice('Poll reopened.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) } }
+  const remove = () => Alert.alert('Delete this archived Poll?', 'This is available only when the Poll has no votes and is not linked to Matchday history.', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Delete', style: 'destructive', onPress: async () => {
+      try {
+        await deleteCoachPoll(user, selected)
+        setSelectedId('')
+        setNotice('Poll deleted.')
+        await load()
+      } catch (error) { setNotice(getCoachFriendlyError(error)) }
+    } },
+  ])
   const vote = async (poll, optionId) => {
     setVotingOptionId(`${poll.id}:${optionId}`)
     try {
@@ -523,6 +568,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       <View style={styles.row}>
         <Button disabled={stale} label="Refresh results" onPress={() => void load({ silent: true })} secondary styles={styles} />
         <Button disabled={stale} label={createFormOpen ? 'Close form' : 'Create Poll'} onPress={() => setCreateFormOpen((current) => !current)} secondary={!createFormOpen} styles={styles} />
+        {archivedCount ? <Button label={showArchive ? 'Hide archive' : `Show archive (${archivedCount})`} onPress={() => setShowArchive((current) => !current)} secondary styles={styles} /> : null}
       </View>
       {createFormOpen ? <View style={styles.panel}>
         <Text style={styles.heading}>Create Poll</Text>
@@ -531,6 +577,11 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         <TextInput accessibilityLabel="Poll question" onChangeText={setTitle} placeholder="Poll question" placeholderTextColor={placeholderColor} style={styles.input} value={title} />
         <Text style={styles.label}>Description, optional</Text>
         <TextInput accessibilityLabel="Poll description" multiline onChangeText={setDescription} placeholder="Helpful details" placeholderTextColor={placeholderColor} style={[styles.input, styles.inputMultiline]} value={description} />
+        <Text style={styles.label}>Deadline, optional</Text>
+        <Text style={styles.body}>Leave both fields blank to keep the Poll open until a Coach archives it.</Text>
+        <CoachDateTimeField label="Closing date" minimumDate={new Date()} mode="date" onChange={setClosingDate} styles={styles} value={closingDate} />
+        {closingDate ? <CoachDateTimeField label="Closing time" mode="time" onChange={setClosingTime} styles={styles} value={closingTime} /> : null}
+        {closingDate || closingTime ? <Button label="Clear deadline" onPress={() => { setClosingDate(''); setClosingTime('') }} secondary styles={styles} /> : null}
         <Text style={styles.label}>Audience</Text>
         <View style={styles.row}><Button label="Parents" onPress={() => setAudience('parents')} secondary={audience !== 'parents'} styles={styles} /><Button label="Coaches" onPress={() => setAudience('staff')} secondary={audience !== 'staff'} styles={styles} /></View>
         <Text style={styles.label}>Options</Text>
@@ -543,7 +594,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         {audience === 'parents' ? <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.label}>Send final results</Text><Text style={styles.body}>Send the ranked result when this Poll closes, reaches its deadline, or everyone has replied.</Text></View><Switch accessibilityLabel="Send final Poll results" onValueChange={setNotifyResultsOnClose} value={notifyResultsOnClose} /></View> : null}
         <Button disabled={stale || creating || Number(user.roleRank || 0) < 50 || !title.trim() || options.filter((option) => option.trim()).length < 2} label={creating ? 'Creating Poll...' : 'Create Poll'} onPress={() => void create()} styles={styles} />
       </View> : null}
-      {data.length ? data.map((poll) => {
+      {visiblePolls.length ? visiblePolls.map((poll) => {
         const currentOptionIds = poll.currentOptionIds || []
         const expanded = poll.id === selectedId
         const rankedOptions = summarizeCoachPoll(poll)
@@ -562,11 +613,12 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
                 const atLimit = poll.allowMultiple && Number(poll.maxChoices || 0) > 0 && currentOptionIds.length >= Number(poll.maxChoices) && !chosen
                 return <View key={option.id} style={styles.row}><Text style={styles.body}>{option.rank}. {option.label}: {option.count}</Text>{poll.audience === 'staff' && poll.status === 'open' ? <Button disabled={stale || Boolean(votingOptionId) || atLimit || (currentOptionIds.length > 0 && poll.allowVoteChanges !== true)} label={votingOptionId === `${poll.id}:${option.id}` ? 'Saving...' : chosen ? 'Remove my answer' : 'Choose'} onPress={() => void vote(poll, option.id)} secondary={!chosen} styles={styles} /> : null}</View>
               })}
-              <View style={styles.row}><Button disabled={stale || poll.status === 'closed' || Number(user.roleRank || 0) < 50} label="Close Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || poll.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Reopen Poll" onPress={() => void reopen()} secondary styles={styles} /></View>
+              {poll.closesAt ? <Text style={styles.body}>Deadline: {new Date(poll.closesAt).toLocaleString()}</Text> : null}
+              <View style={styles.row}><Button disabled={stale || poll.status === 'closed' || Number(user.roleRank || 0) < 50} label="Archive Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || poll.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Restore Poll" onPress={() => void reopen()} secondary styles={styles} />{poll.status === 'closed' && totalVotes === 0 ? <Button disabled={stale || Number(user.roleRank || 0) < 50} label="Delete Poll" onPress={remove} secondary styles={styles} /> : null}</View>
             </> : null}
           </View>
         )
-      }) : <Empty copy="No Team or Club Polls are available." styles={styles} />}
+      }) : <Empty copy={showArchive ? 'No archived Polls are available.' : 'No open Team or Club Polls are available.'} styles={styles} />}
     </View>
   )
 }

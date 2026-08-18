@@ -30,6 +30,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
+import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
@@ -42,6 +43,7 @@ import {
   resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
+import { countUnreadNonChatNotifications, prepareParentNotificationInbox } from '../mobile-core/src/parentNotificationInboxCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
@@ -294,6 +296,11 @@ function ParentHome() {
     styles: createParentAppStyles(themeModel.tokens),
   }), [themeModel])
   const { palette, styles } = themeContext
+
+  const consumeLastNotificationResponse = useCallback((responseId) => {
+    notificationResponseIdRef.current = responseId
+    void Notifications.clearLastNotificationResponseAsync().catch(() => {})
+  }, [])
 
   const loadParentData = useCallback(async ({ reset = false } = {}) => {
     const requestId = ++requestIdRef.current
@@ -624,7 +631,7 @@ function ParentHome() {
     const notificationAction = normalizeText(lastNotificationResponse?.actionIdentifier)
     const requestedLinkId = resolveParentNotificationLinkId(notificationData, parentLinks)
     if (requestedLinkId === null) {
-      notificationResponseIdRef.current = responseId
+      consumeLastNotificationResponse(responseId)
       setNotice({ message: 'This notification is no longer available for an authorised child.', tone: 'warning' })
       return undefined
     }
@@ -660,7 +667,7 @@ function ParentHome() {
     })
     const currentDestination = resolveParentNotificationOpen(notificationData, {})
     if (!currentDestination) {
-      notificationResponseIdRef.current = responseId
+      consumeLastNotificationResponse(responseId)
       return undefined
     }
 
@@ -673,7 +680,7 @@ function ParentHome() {
           notificationData,
           availableFrom(result?.items || {}),
         )
-        notificationResponseIdRef.current = responseId
+        consumeLastNotificationResponse(responseId)
         if (!destination || (requestedTargetId && !destination.targetId)) {
           setNotice({ message: 'This notification no longer has an available Parent item.', tone: 'warning' })
           return
@@ -734,7 +741,7 @@ function ParentHome() {
       })
       .catch(() => {
         if (cancelled) return
-        notificationResponseIdRef.current = responseId
+        consumeLastNotificationResponse(responseId)
         setNotice({ message: 'This notification could not be verified against current Parent access.', tone: 'warning' })
       })
       .finally(() => {
@@ -749,7 +756,7 @@ function ParentHome() {
         notificationResponseProcessingRef.current = ''
       }
     }
-  }, [lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id, selectedMobileUser])
+  }, [consumeLastNotificationResponse, lastNotificationResponse, loadParentData, parentLinks, selectedLink?.id, selectedMobileUser])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
@@ -1314,15 +1321,19 @@ function ParentHome() {
 
   async function handleOpenNotification(notification) {
     const route = normalizeText(notification?.data?.route).toLowerCase()
+    const notificationIds = Array.isArray(notification?.notificationIds) && notification.notificationIds.length
+      ? notification.notificationIds
+      : [notification?.id].filter(Boolean)
+    const notificationIdSet = new Set(notificationIds.map((id) => normalizeText(id)))
     setResources((current) => ({
       ...current,
       notifications: {
         ...current.notifications,
-        items: current.notifications.items.map((item) => item.id === notification.id ? { ...item, isRead: true } : item),
+        items: current.notifications.items.map((item) => notificationIdSet.has(normalizeText(item.id)) ? { ...item, isRead: true } : item),
       },
     }))
-    void markParentOfflineNotificationRead(selectedMobileUser, selectedLink.id, notification.id).catch(() => {})
-    void markParentNotificationRead(selectedMobileUser, notification.id).catch(() => {})
+    void markParentOfflineNotificationRead(selectedMobileUser, selectedLink.id, notificationIds).catch(() => {})
+    void markParentNotificationRead(selectedMobileUser, notificationIds).catch(() => {})
 
     if (route === 'chat') {
       setActiveTab('chat')
@@ -1357,12 +1368,20 @@ function ParentHome() {
       0,
     )
     const pendingInvitationCount = visibleInvitations.filter((invitation) => invitation.isPending).length
-    const unreadNotificationCount = resources.notifications.items.filter((item) => !item.isRead).length
-    const badgeCount = user
-      ? Math.min(99, unreadNotificationCount + unreadChatCount + homeModel.unreadMessages + homeModel.unansweredPolls + pendingInvitationCount + syncSummary.needsAttention)
-      : 0
+    const unreadNotificationCount = countUnreadNonChatNotifications(resources.notifications.items)
+    const resourcesLoaded = resources.notifications.loading === false
+      && resources.chatRooms.loading === false
+      && resources.messages.loading === false
+      && resources.polls.loading === false
+      && resources.invitations.loading === false
+    const badgeCount = getParentAppBadgeUpdate({
+      authenticated: Boolean(user),
+      count: unreadNotificationCount + unreadChatCount + homeModel.unreadMessages + homeModel.unansweredPolls + pendingInvitationCount + syncSummary.needsAttention,
+      resourcesLoaded,
+    })
+    if (badgeCount === null) return
     void Notifications.setBadgeCountAsync(badgeCount).catch(() => {})
-  }, [homeModel.unansweredPolls, homeModel.unreadMessages, parentChatRooms, resources.notifications.items, syncSummary.needsAttention, user, visibleInvitations])
+  }, [homeModel.unansweredPolls, homeModel.unreadMessages, parentChatRooms, resources.chatRooms.loading, resources.invitations.loading, resources.messages.loading, resources.notifications.items, resources.notifications.loading, resources.polls.loading, syncSummary.needsAttention, user, visibleInvitations])
 
   if (isProfileLoading) {
     return <LoadingScreen message="Opening your family account..." />
@@ -1480,7 +1499,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -1713,7 +1732,7 @@ function getNotificationTypeIcon(intentType) {
 
 function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
-  const unreadNotifications = notifications.items.filter((notification) => !notification.isRead)
+  const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
   if (!link?.id) {
     return (
       <EmptyPanel
@@ -2013,17 +2032,26 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
 
 function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, onRetry, onSubmit, resource, targetPollId = '' }) {
   const { styles } = useParentTheme()
+  const [viewMode, setViewMode] = useState('open')
   if (!link?.id) return <EmptyPanel message="No active child link is available for polls." title="Polls unavailable" />
   const targetPoll = targetPollId ? resource.items.find((poll) => poll.id === targetPollId) : null
-  const visibleItems = targetPoll ? [targetPoll] : resource.items
+  const isOpenPoll = (poll) => poll.status === 'open' && !poll.isExpired
+  const openPolls = resource.items.filter(isOpenPoll)
+  const resultPolls = resource.items.filter((poll) => !isOpenPoll(poll))
+  const activeView = targetPoll && !isOpenPoll(targetPoll) ? 'results' : viewMode
+  const visibleItems = targetPoll ? [targetPoll] : activeView === 'results' ? resultPolls : openPolls
 
   return (
     <View style={styles.screenStack}>
       <ScreenIntro copy={`Parent responses for ${link.playerName}.`} title="Polls" />
       <ResourceError onRetry={onRetry} resource={resource} title="Polls unavailable" />
+      {!targetPoll ? <View accessibilityLabel="Poll view" style={styles.notificationChoices}>
+        <PrimaryAction label={`Open (${openPolls.length})`} onPress={() => setViewMode('open')} secondary={activeView !== 'open'} />
+        <PrimaryAction label={`Results (${resultPolls.length})`} onPress={() => setViewMode('results')} secondary={activeView !== 'results'} />
+      </View> : null}
       {resource.loading && resource.items.length === 0 ? <LoadingPanel message="Loading polls" /> : null}
-      {!resource.loading && !resource.error && resource.items.length === 0 ? (
-        <EmptyPanel message="There are no active Parent polls right now." title="No polls to answer" />
+      {!resource.loading && !resource.error && visibleItems.length === 0 ? (
+        <EmptyPanel message={activeView === 'results' ? 'No completed Poll results are available.' : 'There are no active Parent Polls right now.'} title={activeView === 'results' ? 'No Poll results' : 'No Polls to answer'} />
       ) : null}
       {visibleItems.map((poll) => {
         const draftOptionId = getPollDraftOption(poll, drafts)
@@ -2034,6 +2062,10 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
         const busy = activeActionId === `poll:${poll.id}`
         const canChange = !currentOptionId || poll.allowVoteChanges === true
         const submitEnabled = canSubmitParentPoll(poll, draftOptionId)
+        const resultCounts = new Map((poll.votes || []).map((vote) => [normalizeText(vote.optionId), Number(vote.count || 0)]))
+        const rankedResults = poll.options
+          .map((option, index) => ({ ...option, count: resultCounts.get(option.id) || 0, sourceIndex: index }))
+          .sort((left, right) => right.count - left.count || left.sourceIndex - right.sourceIndex)
 
         return (
           <View key={poll.id} style={styles.card}>
@@ -2043,12 +2075,19 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
             </View>
             <Text accessibilityRole="header" style={styles.cardTitle}>{poll.title}</Text>
             {poll.description ? <Text style={styles.bodyText}>{poll.description}</Text> : null}
-            {poll.allowMultiple ? (
+            {!isOpenPoll(poll) ? <View style={styles.optionStack}>
+              {rankedResults.map((option, index) => <View key={option.id} style={styles.optionButton}>
+                <Badge label={`${index + 1}`} tone={index === 0 && option.count > 0 ? 'accent' : 'neutral'} />
+                <Text style={styles.optionLabel}>{option.label}</Text>
+                <Text style={styles.cardMeta}>{option.count} vote{option.count === 1 ? '' : 's'}</Text>
+              </View>)}
+            </View> : null}
+            {isOpenPoll(poll) && poll.allowMultiple ? (
               <Text style={styles.helperText}>
                 {poll.maxChoices ? `Choose up to ${poll.maxChoices} answers. Each change is saved separately.` : 'Choose one or more answers. Each change is saved separately.'}
               </Text>
             ) : null}
-            <View accessibilityLabel={`Response options for ${poll.title}`} style={styles.optionStack}>
+            {isOpenPoll(poll) ? <View accessibilityLabel={`Response options for ${poll.title}`} style={styles.optionStack}>
               {poll.options.map((option) => {
                 const selected = poll.allowMultiple ? currentOptionIds.includes(option.id) : draftOptionId === option.id
                 const saved = currentOptionIds.includes(option.id)
@@ -2078,13 +2117,13 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                   </Pressable>
                 )
               })}
-            </View>
-            {currentOptionId ? (
+            </View> : null}
+            {isOpenPoll(poll) && currentOptionId ? (
               <Text style={styles.helperText}>
                 {poll.allowVoteChanges ? 'Your current response is selected. Choose another option to change it.' : 'Your response has been recorded and cannot be changed.'}
               </Text>
             ) : null}
-            {poll.allowMultiple ? (
+            {isOpenPoll(poll) && (poll.allowMultiple ? (
               busy ? <LoadingLine label="Saving response" /> : null
             ) : (
               <PrimaryAction
@@ -2093,7 +2132,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                 loading={busy}
                 onPress={() => onSubmit(poll)}
               />
-            )}
+            ))}
             <PrimaryAction label="Remove from this list" onPress={() => onDismiss(poll)} secondary />
           </View>
         )

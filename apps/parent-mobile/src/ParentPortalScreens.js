@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
+import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
@@ -82,6 +83,7 @@ function usePortalStyles(themeTokens) {
       card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
       formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
       formationPitch: { aspectRatio: 0.68, backgroundColor: colors.pitch, borderColor: colors.pitchLine, borderRadius: 18, borderWidth: 2, overflow: 'hidden', position: 'relative', width: '100%' },
+      formationEmpty: { alignSelf: 'center', backgroundColor: colors.card, borderRadius: 12, color: colors.text, fontSize: 13, fontWeight: '700', marginHorizontal: 18, marginTop: '55%', padding: 12, textAlign: 'center' },
       formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
       formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
@@ -153,20 +155,29 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
 }
 
-function CalendarEventCard({ activeActionId, event, invitation, isOffline, onRespond, styles }) {
+function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpenInvitation, onRespond, styles }) {
   const actionable = invitation && isParentInvitationActionable(invitation)
   const busy = invitation && activeActionId === `invite:${invitation.invitationId}`
   return (
     <View style={styles.card}>
-      <View style={styles.row}>
-        <Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text>
-        <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
-      </View>
-      <Text style={styles.cardTitle}>{event.title}</Text>
-      {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
-      {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
-      {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
-      {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
+      <Pressable
+        accessibilityHint={invitation ? 'Opens this request so you can respond' : 'Opens this Calendar item'}
+        accessibilityLabel={`${event.title}${actionable ? ', response needed' : ''}`}
+        accessibilityRole="button"
+        disabled={!invitation}
+        onPress={() => invitation && onOpenInvitation?.(invitation)}
+      >
+        <View style={styles.row}>
+          <Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text>
+          <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
+        </View>
+        <Text style={styles.cardTitle}>{event.title}</Text>
+        {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
+        {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
+        {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
+        {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
+        {invitation ? <Text style={styles.cardLink}>{actionable ? 'Open and respond' : 'Open request'}</Text> : null}
+      </Pressable>
       {actionable ? (
         <View style={styles.actionRow}>
           {getInvitationResponseOptions(invitation).map((option) => (
@@ -185,7 +196,7 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onRes
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onRespond, resource, themeTokens }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onOpenInvitation, onRespond, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   const [viewMode, setViewMode] = useState('agenda')
   const [windowKey, setWindowKey] = useState('needs-response')
@@ -271,13 +282,13 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
             return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={[styles.monthLegendItem, !selected && { opacity: 0.42 }]}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
-        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onRespond={onRespond} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
+        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onRespond={onRespond} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}
       {viewMode === 'agenda' && !resource.loading && activeEvents.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
       {viewMode === 'agenda' ? groups.map((group) => (
         <View key={group.date} style={styles.section}>
           <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onRespond={onRespond} styles={styles} />)}
+          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onRespond={onRespond} styles={styles} />)}
         </View>
       )) : null}
     </View>
@@ -538,19 +549,22 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
 export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   if (formationBoard) {
+    const placements = getNamedParentFormationPlayers(formationBoard.placements)
+    const bench = getNamedParentFormationPlayers(formationBoard.bench)
     return (
       <View style={styles.stack}>
         <View><Text accessibilityRole="header" style={styles.header}>{formationBoard.title}</Text><Text style={styles.helper}>{formationBoard.gameFormat} | {formationBoard.formation}</Text></View>
         {formationBoard.description ? <Text style={styles.body}>{formationBoard.description}</Text> : null}
         <View accessibilityLabel={`${formationBoard.title} pitch`} style={styles.formationPitch}>
           <View style={styles.formationHalfway} />
-          {(formationBoard.placements || []).map((player, index) => (
-            <View key={`${player.playerId || player.playerName}:${index}`} style={[styles.formationPlayer, { left: `${Math.max(4, Math.min(88, Number(player.x) || 50))}%`, top: `${Math.max(3, Math.min(90, Number(player.y) || 50))}%` }]}>
-              <Text numberOfLines={1} style={styles.formationPlayerText}>{player.playerName || player.name || 'Player'}</Text>
+          {placements.map((player, index) => (
+            <View key={`${player.playerId || player.parentDisplayName}:${index}`} style={[styles.formationPlayer, { left: `${Math.max(4, Math.min(88, getParentFormationPitchPercent(player.x)))}%`, top: `${Math.max(3, Math.min(90, getParentFormationPitchPercent(player.y)))}%` }]}>
+              <Text numberOfLines={1} style={styles.formationPlayerText}>{player.parentDisplayName}</Text>
             </View>
           ))}
+          {!placements.length ? <Text style={styles.formationEmpty}>No named lineup has been published with this board.</Text> : null}
         </View>
-        <View style={styles.card}><Text style={styles.cardTitle}>Bench</Text>{(formationBoard.bench || []).length ? (formationBoard.bench || []).map((player, index) => <Text key={`${player.playerId || player.playerName}:bench:${index}`} style={styles.body}>{player.playerName || player.name || 'Player'}</Text>) : <Text style={styles.helper}>No Players on the Bench.</Text>}</View>
+        <View style={styles.card}><Text style={styles.cardTitle}>Bench</Text>{bench.length ? bench.map((player, index) => <Text key={`${player.playerId || player.parentDisplayName}:bench:${index}`} style={styles.body}>{player.parentDisplayName}</Text>) : <Text style={styles.helper}>No named Players are on the Bench.</Text>}</View>
         {formationBoard.notes ? <View style={styles.card}><Text style={styles.cardTitle}>Coach notes</Text><Text style={styles.body}>{formationBoard.notes}</Text></View> : null}
         <Button label="Back to Resources" onPress={onCloseFormation} outline styles={styles} />
       </View>

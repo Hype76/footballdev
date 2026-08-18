@@ -38,7 +38,7 @@ test('Parent attention opens the exact live poll and refreshes a closed target',
   assert.match(source, /visiblePolls\.find\(\(poll\) => poll\.id === item\.entityId\)/)
   assert.match(source, /That poll has closed\. The attention list has been refreshed\./)
   assert.match(source, /targetPollId=\{selectedPollId\}/)
-  assert.match(source, /const visibleItems = targetPoll \? \[targetPoll\] : resource\.items/)
+  assert.match(source, /const visibleItems = targetPoll \? \[targetPoll\] : activeView === 'results' \? resultPolls : openPolls/)
 })
 
 test('Parent Chat presents Coach wording for the internal parent_staff room type', () => {

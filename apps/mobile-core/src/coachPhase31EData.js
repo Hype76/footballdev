@@ -498,6 +498,14 @@ export async function setCoachPollStatus(user, poll, status) {
   return normalizeCoachPoll(data)
 }
 
+export async function deleteCoachPoll(user, poll) {
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertTeamEntity(user, poll, 'Poll')
+  if (!poll?.id || poll.status !== 'closed') throw new Error('Archive this Poll before deleting it.')
+  await rpc('delete_team_poll', { p_poll_id: poll.id })
+  return true
+}
+
 export async function submitCoachPollVote(user, poll, optionId) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   assertTeamEntity(user, poll, 'Poll')

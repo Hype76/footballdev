@@ -140,6 +140,21 @@ export function normalizeParentNotificationState(value = {}) {
   }
 }
 
+export function mergeParentNotificationPermission(serverState = {}, permission = {}, fallbackDetail = 'minimal') {
+  return normalizeParentNotificationState({
+    ...serverState,
+    ...permission,
+    detailLevel: serverState.detailLevel || fallbackDetail,
+    enabled: Boolean(serverState.enabled),
+  })
+}
+
+export function getParentAppBadgeUpdate({ authenticated = false, resourcesLoaded = false, count = 0 } = {}) {
+  if (!authenticated || !resourcesLoaded) return null
+  const normalizedCount = Number.isFinite(Number(count)) ? Math.floor(Number(count)) : 0
+  return Math.max(0, Math.min(99, normalizedCount))
+}
+
 export function getParentNotificationStatusLabel(value = {}) {
   const state = normalizeParentNotificationState(value)
   if (!state.permissionGranted && state.permissionStatus === 'denied') return 'Blocked in device settings'
