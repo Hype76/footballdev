@@ -611,7 +611,13 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
     setUncertainAttempt(null)
     try {
       const result = await createCoachMatchAvailabilityRequests(user, selectedMatch, playerIds)
-      setNotice(`${result.requestCount || playerIds.length} Player request${Number(result.requestCount || playerIds.length) === 1 ? '' : 's'} created. Email queued ${result.queuedCount}; existing requests ${result.duplicateCount}; Players without an eligible contact ${result.missingContactCount}. App delivery follows each Parent's communication choice.`)
+      const selectedCount = Number(result.selectedPlayerCount || playerIds.length)
+      const createdCount = Number(result.createdPlayerCount || 0)
+      const existingCount = Number(result.existingPlayerCount || 0)
+      const missingCount = Number(result.missingContactCount || 0)
+      setNotice(result.complete
+        ? `${createdCount} of ${selectedCount} Player request${selectedCount === 1 ? '' : 's'} created. ${existingCount} already existed. ${result.queuedCount} recipient message${result.queuedCount === 1 ? '' : 's'} queued. App delivery follows each Parent's communication choice.`
+        : `${createdCount} of ${selectedCount} Player request${selectedCount === 1 ? '' : 's'} created. ${existingCount} already existed. ${missingCount} Player${missingCount === 1 ? ' has' : 's have'} no eligible Parent or Adult Player contact, so no invitation was sent for ${missingCount === 1 ? 'that Player' : 'those Players'}.`)
       setPlayerIds([])
       await load()
     } catch (error) {

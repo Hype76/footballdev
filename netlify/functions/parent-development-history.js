@@ -15,11 +15,17 @@ import {
   ParentDevelopmentHistoryError,
   validateParentDevelopmentScope,
 } from './lib/_parent-development-history.js'
-import { createDevelopmentOutputKey, createDevelopmentOutputQueueId } from './lib/_development-parent-email-output.js'
+import {
+  createDevelopmentOutputKey,
+  createDevelopmentOutputQueueId,
+  resolveDevelopmentParentReport,
+} from './lib/_development-parent-email-output.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const PDF_RENDER_TIMEOUT_MS = 25_000
 const MAX_REQUEST_BYTES = 4096
+const PDF_CACHE_MAX_ENTRIES = 12
+const parentDevelopmentPdfCache = new Map()
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -176,6 +182,120 @@ async function loadBrandingScope({ parentLink, report, supabaseAdmin }) {
   return { club, team }
 }
 
+async function loadReportEvaluation({ parentLink, report, supabaseAdmin }) {
+  const unavailableMessage = 'This Development PDF is not available.'
+  const evaluation = await maybeSingle(
+    supabaseAdmin
+      .from('evaluations')
+      .select('id, club_id, team_id, player_id, player_name, team, section, session, date, created_at, coach_id, coach, created_by_name, scores, average_score, comments, form_responses, feedback_form_id, feedback_form_name, feedback_form_version, feedback_form_snapshot')
+      .eq('id', report.id)
+      .eq('club_id', parentLink.club_id)
+      .eq('player_id', parentLink.player_id),
+    unavailableMessage,
+  )
+  const player = await maybeSingle(
+    supabaseAdmin
+      .from('players')
+      .select('id, club_id, team_id, player_name, team')
+      .eq('id', parentLink.player_id)
+      .eq('club_id', parentLink.club_id),
+    unavailableMessage,
+  )
+  let historyQuery = supabaseAdmin
+    .from('evaluations')
+    .select('id, club_id, team_id, player_id, player_name, team, section, session, date, created_at, scores, average_score, comments, form_responses, feedback_form_id, feedback_form_name, feedback_form_snapshot')
+    .eq('club_id', parentLink.club_id)
+    .eq('player_id', parentLink.player_id)
+    .lte('created_at', evaluation.created_at)
+    .order('created_at', { ascending: true })
+    .limit(100)
+
+  if (normalizeText(evaluation.team_id || player.team_id)) {
+    historyQuery = historyQuery.eq('team_id', evaluation.team_id || player.team_id)
+  }
+
+  const { data: evaluations, error } = await historyQuery
+
+  if (error) {
+    throw error
+  }
+
+  return { evaluation, evaluations: evaluations ?? [evaluation], player }
+}
+
+async function repairEmptyReportSnapshot({
+  club,
+  parentLink,
+  report,
+  reportSnapshot,
+  supabaseAdmin,
+  team,
+} = {}) {
+  if (Array.isArray(reportSnapshot?.responseItems) && reportSnapshot.responseItems.length > 0) {
+    return reportSnapshot
+  }
+
+  const { evaluation, evaluations, player } = await loadReportEvaluation({
+    parentLink,
+    report,
+    supabaseAdmin,
+  })
+  const requestedSections = (Array.isArray(reportSnapshot?.emailSections)
+    ? reportSnapshot.emailSections
+    : [])
+    .map((section) => ({ key: normalizeText(section?.key) }))
+    .filter((section) => section.key)
+  const rebuilt = resolveDevelopmentParentReport({
+    club,
+    evaluation,
+    evaluations,
+    player,
+    recipients: Array.isArray(reportSnapshot?.recipients) ? reportSnapshot.recipients : [],
+    requestedResponses: undefined,
+    requestedSections,
+    team,
+  })
+
+  return {
+    ...rebuilt,
+    finalizedAt: normalizeText(reportSnapshot?.finalizedAt) || rebuilt.finalizedAt,
+    recipients: Array.isArray(reportSnapshot?.recipients)
+      ? reportSnapshot.recipients
+      : rebuilt.recipients,
+  }
+}
+
+function getCachedParentDevelopmentPdf(cacheKey) {
+  const cached = parentDevelopmentPdfCache.get(cacheKey)
+
+  if (!cached) {
+    return null
+  }
+
+  parentDevelopmentPdfCache.delete(cacheKey)
+  parentDevelopmentPdfCache.set(cacheKey, cached)
+  return {
+    ...cached,
+    buffer: Buffer.from(cached.buffer),
+    diagnostics: {
+      ...cached.diagnostics,
+      rendererStage: 'memory_cache',
+    },
+  }
+}
+
+function setCachedParentDevelopmentPdf(cacheKey, value) {
+  parentDevelopmentPdfCache.set(cacheKey, {
+    ...value,
+    buffer: Buffer.from(value.buffer),
+  })
+
+  while (parentDevelopmentPdfCache.size > PDF_CACHE_MAX_ENTRIES) {
+    const oldestKey = parentDevelopmentPdfCache.keys().next().value
+    parentDevelopmentPdfCache.delete(oldestKey)
+  }
+}
+
 function getReportSnapshot(reportRows, reportId) {
   return reportRows.find(
     (row) => normalizeText(row.evaluation_id) === normalizeText(reportId),
@@ -201,6 +321,26 @@ async function buildParentDevelopmentPdf({
     report,
     supabaseAdmin,
   })
+  const resolvedReportSnapshot = await repairEmptyReportSnapshot({
+    club,
+    parentLink,
+    report,
+    reportSnapshot,
+    supabaseAdmin,
+    team,
+  })
+  const cacheKey = [
+    normalizeText(parentLink.id),
+    normalizeText(report.id),
+    normalizeText(resolvedReportSnapshot.finalizedAt),
+    String(resolvedReportSnapshot.responseItems?.length || 0),
+  ].join(':')
+  const cachedPdf = getCachedParentDevelopmentPdf(cacheKey)
+
+  if (cachedPdf) {
+    return cachedPdf
+  }
+
   const diagnostics = {
     caller: 'parent-development-history',
     cleanupState: 'not_started',
@@ -215,7 +355,7 @@ async function buildParentDevelopmentPdf({
     reportType: 'assessment',
     diagnostics,
   })
-  const content = buildDevelopmentParentReportContent(reportSnapshot)
+  const content = buildDevelopmentParentReportContent(resolvedReportSnapshot)
   const document = buildAssessmentPdfDocument({ content })
   const pdfBuffer = await withTimeout(
     buildPdfBuffer(document, { branding, diagnostics }),
@@ -227,11 +367,14 @@ async function buildParentDevelopmentPdf({
     throw new Error('Development PDF generation returned no content.')
   }
 
-  return {
+  const result = {
     buffer: Buffer.from(pdfBuffer),
     diagnostics,
-    filename: buildDevelopmentPdfFilename(reportSnapshot),
+    filename: buildDevelopmentPdfFilename(resolvedReportSnapshot),
   }
+
+  setCachedParentDevelopmentPdf(cacheKey, result)
+  return result
 }
 
 export default async (request) => {

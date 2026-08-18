@@ -560,7 +560,9 @@ export async function handler(event) {
     await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
-    const playerIds = Array.isArray(body.playerIds) ? body.playerIds.map(normalizeText).filter(Boolean) : []
+    const playerIds = Array.isArray(body.playerIds)
+      ? [...new Set(body.playerIds.map(normalizeText).filter(Boolean))]
+      : []
     const notificationRequestToken = normalizeText(body.notificationRequestToken)
     const calendarEditMode = body.source === 'calendar_edit'
     const invitationAction = normalizeText(body.invitationAction).toLowerCase()
@@ -646,11 +648,31 @@ export async function handler(event) {
     }
 
     const volunteerTemplates = await getVolunteerRequestTemplates(adminSupabase, match)
-    const { data: players, error: playersError } = await supabase
+    const { data: membershipRows, error: membershipsError } = await adminSupabase
+      .from('player_team_memberships')
+      .select('player_id')
+      .eq('club_id', match.club_id)
+      .eq('team_id', match.team_id)
+      .eq('status', 'active')
+      .is('ended_at', null)
+      .in('player_id', playerIds)
+
+    if (membershipsError) {
+      throw membershipsError
+    }
+
+    const authorisedPlayerIds = [...new Set(
+      (membershipRows ?? []).map((membership) => normalizeText(membership.player_id)).filter(Boolean),
+    )]
+    const { data: players, error: playersError } = authorisedPlayerIds.length > 0
+      ? await adminSupabase
       .from('players')
       .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
-      .eq('club_id', profile.club_id)
-      .in('id', playerIds)
+      .eq('club_id', match.club_id)
+      .eq('status', 'active')
+      .is('archived_at', null)
+      .in('id', authorisedPlayerIds)
+      : { data: [], error: null }
 
     if (playersError) {
       throw playersError
@@ -660,6 +682,9 @@ export async function handler(event) {
     const createdRequests = []
     const queuedEmails = []
     const missingContacts = []
+    const createdPlayerIds = new Set()
+    const duplicatePlayerIds = new Set()
+    const loadedPlayerIds = new Set((players ?? []).map((player) => String(player.id)))
     let duplicateQueueCount = 0
     let lastQueuedAt = ''
     const eligibleContacts = await resolveEligibleMatchDayInvitationContacts(adminSupabase, {
@@ -668,11 +693,13 @@ export async function handler(event) {
       teamId: match.team_id,
     })
 
-    for (const player of players ?? []) {
-      if (match.team_id && player.team_id && String(player.team_id) !== String(match.team_id)) {
-        continue
+    for (const playerId of playerIds) {
+      if (!loadedPlayerIds.has(String(playerId))) {
+        missingContacts.push({ playerId, playerName: 'Player' })
       }
+    }
 
+    for (const player of players ?? []) {
       const contacts = eligibleContacts
         .filter((contact) => String(contact.playerId) === String(player.id))
         .filter((contact) => isValidEmail(contact.email))
@@ -772,11 +799,13 @@ export async function handler(event) {
 
           if (!targetedInvitationAction && (existingQueues ?? []).some((queue) => ['scheduled', 'sending', 'sent'].includes(queue.status))) {
             duplicateQueueCount += 1
+            duplicatePlayerIds.add(String(player.id))
             continue
           }
 
           if (!targetedInvitationAction) {
             duplicateQueueCount += 1
+            duplicatePlayerIds.add(String(player.id))
             continue
           }
 
@@ -976,20 +1005,35 @@ export async function handler(event) {
 
         createdRequests.push(request)
         queuedEmails.push(queuedEmail)
+        createdPlayerIds.add(String(player.id))
       }
     }
 
+    const existingPlayerIds = [...duplicatePlayerIds]
+      .filter((playerId) => !createdPlayerIds.has(playerId))
+    const resolvedPlayerIds = new Set([...createdPlayerIds, ...existingPlayerIds])
+    const unresolvedPlayerIds = playerIds
+      .map(String)
+      .filter((playerId) => !resolvedPlayerIds.has(playerId))
+
     return json(200, {
       success: true,
+      complete: unresolvedPlayerIds.length === 0,
+      selectedPlayerCount: playerIds.length,
+      createdPlayerCount: createdPlayerIds.size,
+      existingPlayerCount: existingPlayerIds.length,
+      resolvedPlayerCount: resolvedPlayerIds.size,
       requestCount: createdRequests.length,
       queuedCount: queuedEmails.length,
       sentCount: 0,
-      missingContactCount: missingContacts.length,
+      missingContactCount: unresolvedPlayerIds.length,
       missingContacts,
+      unresolvedPlayerIds,
       duplicateCount: duplicateQueueCount,
+      duplicateQueueCount,
       duplicate: false,
       playerId: targetedInvitationAction ? playerIds[0] : '',
-      recipientCount: targetedInvitationAction ? queuedEmails.length : 0,
+      recipientCount: queuedEmails.length,
       lastSentAt: '',
       queuedAt: targetedInvitationAction ? lastQueuedAt : '',
       requestState: targetedInvitationAction ? 'queued' : '',

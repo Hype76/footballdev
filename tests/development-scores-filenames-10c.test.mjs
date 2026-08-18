@@ -302,7 +302,7 @@ test('email attachment and historical download share only the server-built canon
   assert.match(emailSource, /buildDevelopmentPdfFilename\(developmentReport\)/)
   assert.match(emailSource, /filename: developmentPdfFilename/)
   assert.doesNotMatch(emailSource, /filename:\s*body\./)
-  assert.match(historySource, /buildDevelopmentPdfFilename\(reportSnapshot\)/)
+  assert.match(historySource, /buildDevelopmentPdfFilename\(resolvedReportSnapshot\)/)
   assert.match(historySource, /buildDevelopmentPdfContentDisposition\(filename\)/)
   assert.doesNotMatch(historySource, /development-report-\$\{date\}/)
   assert.doesNotMatch(panelSource, /numericScore\}\s*\/\s*10/)

@@ -842,7 +842,7 @@ export async function finalizeDevelopmentParentReportSnapshot(
     includeAttendance = false,
     includeProgression = true,
     profile,
-    requestedResponses = [],
+    requestedResponses,
     selectedParentLinkIds = [],
   } = {},
 ) {

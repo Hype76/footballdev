@@ -190,7 +190,8 @@ test('parent Development history exposes an explicitly recipient-scoped in-app s
 
   assert.equal(history.length, 1)
   assert.equal(history[0].deliveryLabel, 'Shared in app')
-  assert.equal(history[0].canDownloadPdf, false)
+  assert.equal(history[0].pdfLabel, 'PDF available')
+  assert.equal(history[0].canDownloadPdf, true)
 })
 
 test('parent Development history isolates reports by exact child and recipient link', () => {
@@ -256,7 +257,8 @@ test('parent Development history reports scheduled, failed, and unavailable deli
   })
 
   assert.equal(scheduled[0].deliveryLabel, 'Scheduled')
-  assert.equal(scheduled[0].pdfLabel, 'No PDF requested')
+  assert.equal(scheduled[0].pdfLabel, 'PDF available')
+  assert.equal(scheduled[0].canDownloadPdf, true)
   assert.equal(failed[0].deliveryLabel, 'Delivery failed')
   assert.equal(JSON.stringify(failed).includes('provider detail'), false)
   assert.equal(unavailable[0].deliveryLabel, 'Delivery status unavailable')
@@ -287,8 +289,12 @@ test('parent Development source provides navigation, child clearing, direct repo
   assert.match(endpointSource, /parent_player_links/)
   assert.match(endpointSource, /development_parent_reports/)
   assert.match(endpointSource, /communication_logs/)
-  assert.match(endpointSource, /buildDevelopmentParentReportContent\(reportSnapshot\)/)
+  assert.match(endpointSource, /buildDevelopmentParentReportContent\(resolvedReportSnapshot\)/)
+  assert.match(endpointSource, /repairEmptyReportSnapshot/)
+  assert.match(endpointSource, /\.eq\('id', report\.id\)/)
+  assert.match(endpointSource, /\.eq\('club_id', parentLink\.club_id\)/)
+  assert.match(endpointSource, /\.eq\('player_id', parentLink\.player_id\)/)
+  assert.match(endpointSource, /requestedResponses: undefined/)
   assert.match(endpointSource, /Content-Security-Policy': "sandbox; default-src 'none'"/)
-  assert.doesNotMatch(endpointSource, /\.from\('evaluations'\)/)
   assert.doesNotMatch(endpointSource, /privateProviderError/)
 })

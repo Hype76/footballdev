@@ -561,11 +561,18 @@ export async function createCoachMatchAvailabilityRequests(user, match, playerId
     throw Object.assign(new Error(normalize(result?.message) || 'Match availability requests could not be created.'), { status: response.status })
   }
   return Object.freeze({
+    complete: result?.complete !== false,
+    createdPlayerCount: Number(result?.createdPlayerCount ?? 0),
     duplicateCount: Number(result?.duplicateCount ?? result?.duplicateQueueCount ?? 0),
+    existingPlayerCount: Number(result?.existingPlayerCount ?? 0),
     failedCount: Number(result?.failedCount ?? 0),
     missingContactCount: Number(result?.missingContactCount ?? 0),
     queuedCount: Number(result?.queuedCount ?? result?.sentCount ?? 0),
+    requestCount: Number(result?.requestCount ?? 0),
+    resolvedPlayerCount: Number(result?.resolvedPlayerCount ?? 0),
+    selectedPlayerCount: Number(result?.selectedPlayerCount ?? selectedPlayerIds.length),
     success: true,
+    unresolvedPlayerIds: Array.isArray(result?.unresolvedPlayerIds) ? result.unresolvedPlayerIds.map(normalize).filter(Boolean) : [],
   })
 }
 

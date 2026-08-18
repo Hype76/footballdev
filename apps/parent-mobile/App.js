@@ -13,6 +13,7 @@ import {
   AppState,
   BackHandler,
   Image,
+  InteractionManager,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -94,6 +95,7 @@ import {
 } from './src/ParentPortalScreens'
 import {
   parentOfflineProfileStore,
+  markParentOfflineNotificationRead,
   queueParentMessageRead,
   queueParentPollVote,
   readParentOfflineView,
@@ -244,7 +246,9 @@ function ParentHome() {
   const [syncSummary, setSyncSummary] = useState({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
+  const hydratedScopeRef = useRef('')
   const requestIdRef = useRef(0)
+  const resumeInteractionRef = useRef(null)
   const resumeRefreshRef = useRef(false)
   const scrollViewRef = useRef(null)
   const notificationResponseIdRef = useRef('')
@@ -295,6 +299,7 @@ function ParentHome() {
     const requestId = ++requestIdRef.current
 
     if (!selectedMobileUser?.id || !selectedLink?.id) {
+      hydratedScopeRef.current = ''
       setResources(Object.fromEntries(resourceNames.map((name) => [name, {
         error: '',
         items: [],
@@ -305,6 +310,8 @@ function ParentHome() {
       return { failed: 0 }
     }
 
+    const cacheScopeKey = `${selectedMobileUser.id}:${selectedLink.id}`
+    const shouldHydrateCache = reset || hydratedScopeRef.current !== cacheScopeKey
     let cachedView = null
     try {
       cachedView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id)
@@ -312,8 +319,9 @@ function ParentHome() {
       console.warn(error)
     }
     if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
+    if (shouldHydrateCache) hydratedScopeRef.current = cacheScopeKey
 
-    if (cachedView?.cache) {
+    if (cachedView?.cache && shouldHydrateCache) {
       setResources(Object.fromEntries(resourceNames.map((name) => [name, {
         error: '',
         items: prepareResourceItems(name, cachedView.cache.resources[name]),
@@ -321,13 +329,18 @@ function ParentHome() {
       }])))
       setLastUpdatedAt(cachedView.cache.retrievedAt)
       setOfflineCacheState({ source: 'cache', stale: cachedView.cache.stale })
-    } else {
+    } else if (shouldHydrateCache || !cachedView?.cache) {
       setResources((current) => Object.fromEntries(resourceNames.map((name) => [name, {
         error: isOffline ? 'No saved information is available for this section yet.' : '',
         items: reset ? [] : current[name].items,
         loading: !isOffline,
       }])))
       setOfflineCacheState({ source: '', stale: false })
+    } else {
+      setResources((current) => Object.fromEntries(resourceNames.map((name) => [name, {
+        ...current[name],
+        loading: true,
+      }])))
     }
 
     if (cachedView?.sync) setSyncSummary(cachedView.sync)
@@ -364,6 +377,10 @@ function ParentHome() {
     )
     const calendarDependencyFailed = ['calendar', 'invitations', 'matches']
       .some((name) => resultByName[name]?.status === 'rejected')
+    await new Promise((resolve) => {
+      InteractionManager.runAfterInteractions(resolve)
+    })
+    if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
     setResources((current) => {
       const next = { ...current }
       results.forEach((result, index) => {
@@ -557,17 +574,28 @@ function ParentHome() {
       if (returnedFromBackground && wasAwayLongEnough && selectedLink?.id && !resumeRefreshRef.current) {
         resumeRefreshRef.current = true
         const roomIdAtResume = selectedRoomId
-        void runParentSync()
-          .then(() => loadParentData())
-          .then(() => roomIdAtResume && roomIdAtResume === selectedRoomId ? reloadSelectedChatRoomRef.current() : null)
-          .catch(() => {})
-          .finally(() => { resumeRefreshRef.current = false })
+        resumeInteractionRef.current?.cancel?.()
+        resumeInteractionRef.current = InteractionManager.runAfterInteractions(() => {
+          void runParentSync()
+            .then(() => loadParentData())
+            .then(() => roomIdAtResume && roomIdAtResume === selectedRoomId ? reloadSelectedChatRoomRef.current() : null)
+            .catch(() => {})
+            .finally(() => {
+              resumeRefreshRef.current = false
+              resumeInteractionRef.current = null
+            })
+        })
         void loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
           .then(setNotificationState)
           .catch(() => {})
       }
     })
-    return () => subscription.remove()
+    return () => {
+      subscription.remove()
+      resumeInteractionRef.current?.cancel?.()
+      resumeInteractionRef.current = null
+      resumeRefreshRef.current = false
+    }
   }, [loadParentData, runParentSync, selectedLink?.id, selectedRoomId])
 
   useEffect(() => {
@@ -1293,6 +1321,7 @@ function ParentHome() {
         items: current.notifications.items.map((item) => item.id === notification.id ? { ...item, isRead: true } : item),
       },
     }))
+    void markParentOfflineNotificationRead(selectedMobileUser, selectedLink.id, notification.id).catch(() => {})
     void markParentNotificationRead(selectedMobileUser, notification.id).catch(() => {})
 
     if (route === 'chat') {
@@ -1684,6 +1713,7 @@ function getNotificationTypeIcon(intentType) {
 
 function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
+  const unreadNotifications = notifications.items.filter((notification) => !notification.isRead)
   if (!link?.id) {
     return (
       <EmptyPanel
@@ -1732,10 +1762,10 @@ function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches,
         </>
       ) : null}
 
-      {notifications.items.length > 0 ? (
+      {unreadNotifications.length > 0 ? (
         <View style={styles.sectionStack}>
           <SectionHeading copy="Tap an update to open the right place." title="Notifications" />
-          {notifications.items.slice(0, 8).map((notification) => (
+          {unreadNotifications.slice(0, 8).map((notification) => (
             <Pressable
               accessibilityHint="Opens this update"
               accessibilityLabel={`${getNotificationTypeLabel(notification.intentType)}: ${notification.title}`}
