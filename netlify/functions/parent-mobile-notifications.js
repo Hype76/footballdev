@@ -72,6 +72,7 @@ export async function handler(event) {
         ...(Array.isArray(body.notificationIds) ? body.notificationIds : []),
         body.notificationId,
       ].map(normalizeText).filter(Boolean))].slice(0, 50)
+      const serverNotificationIds = notificationIds.filter((id) => /^\d+$/.test(id))
       const now = new Date().toISOString()
       let query = supabaseAdmin
         .from('parent_mobile_notification_events')
@@ -80,7 +81,10 @@ export async function handler(event) {
         .eq('parent_link_id', link.id)
         .is('read_at', null)
 
-      if (notificationIds.length) query = query.in('id', notificationIds)
+      if (serverNotificationIds.length) query = query.in('id', serverNotificationIds)
+      if (notificationIds.length && serverNotificationIds.length === 0) {
+        return response(200, { readAt: now, success: true })
+      }
       const { error } = await query
       if (error) throw error
       return response(200, { readAt: now, success: true })

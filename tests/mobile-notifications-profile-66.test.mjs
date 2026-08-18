@@ -51,6 +51,7 @@ test('resource notifications respect the Parent channel and deep-link to Resourc
   assert.match(resourceEmail, /notificationId: context\.notificationId/)
   assert.match(worker, /type: 'resource_shared'/)
   assert.match(push, /route: 'resources'/)
+  assert.match(push, /notificationId: notification\.id/)
   assert.match(push, /\['matchday_availability', 'parent_message', 'parent_poll', 'resource_shared', 'training_availability'\]/)
 })
 
@@ -111,7 +112,7 @@ test('Parent Poll final results use an idempotent preference-aware scheduled del
   assert.match(worker, /deadlineReached/)
   assert.match(worker, /getParentCommunicationChannels/)
   assert.match(worker, /idempotencyKey: `poll-results:/)
-  assert.match(worker, /intent_type: 'poll_results'/)
+  assert.match(worker, /intentType: 'poll_results'/)
   assert.match(migration, /unique \(poll_id, auth_user_id\)/)
   assert.match(migration, /notify_results_on_close boolean not null default false/)
 })

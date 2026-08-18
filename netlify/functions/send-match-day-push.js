@@ -6,6 +6,7 @@ import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { buildParentMatchDayNotificationCopy } from './lib/_match-day-notification-copy.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
+import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -166,7 +167,7 @@ async function getSubscriptions({ match, targetParentLinkIds }) {
   return data ?? []
 }
 
-async function getAppNotificationParentLinkIds(targetParentLinkIds) {
+async function getAppNotificationParentLinks(targetParentLinkIds) {
   if (targetParentLinkIds.length === 0) return []
 
   const { data, error } = await supabaseAdmin
@@ -177,8 +178,7 @@ async function getAppNotificationParentLinkIds(targetParentLinkIds) {
 
   if (error) throw error
 
-  const links = await filterParentLinksForAppNotifications(supabaseAdmin, data || [])
-  return links.map((link) => link.id)
+  return filterParentLinksForAppNotifications(supabaseAdmin, data || [])
 }
 
 async function getMobileDevices({ match, targetParentLinkIds }) {
@@ -280,38 +280,6 @@ async function sendToSubscription(subscription, payload) {
   }
 }
 
-async function logNotificationEvents({ devices, match, payload, status }) {
-  if (devices.length === 0) {
-    return
-  }
-
-  const now = new Date().toISOString()
-  const { error } = await supabaseAdmin
-    .from('parent_mobile_notification_events')
-    .insert(devices.map((device) => ({
-      installation_id: device.installation_id,
-      auth_user_id: device.auth_user_id,
-      body: device.detail_level === 'detailed' ? payload.detailedBody : payload.minimalBody,
-      club_id: match.club_id,
-      data: payload.data || {},
-      intent_type: 'matchday_update',
-      parent_link_id: device.parent_link_id || null,
-      title: payload.title,
-      status,
-      sent_at: status === 'sent' ? now : null,
-      team_id: match.team_id || null,
-    })))
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      console.warn('Notification events table is not available; skipping mobile push event log.')
-      return
-    }
-
-    console.error('Notification event log failed', error)
-  }
-}
-
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
@@ -377,7 +345,8 @@ export async function handler(event) {
       eventRow = data
     }
 
-    const appNotificationParentLinkIds = await getAppNotificationParentLinkIds(targetParentLinkIds)
+    const appNotificationParentLinks = await getAppNotificationParentLinks(targetParentLinkIds)
+    const appNotificationParentLinkIds = appNotificationParentLinks.map((link) => link.id)
     const subscriptions = await getSubscriptions({
       match,
       targetParentLinkIds: appNotificationParentLinkIds,
@@ -408,11 +377,22 @@ export async function handler(event) {
       type,
       data: {
         app: 'parent',
+        eventId,
         route: 'matchday',
         matchDayId: match.id,
         type,
       },
     }
+    const inboxResult = await writeParentNotificationInbox({
+      body: nativePayload.minimalBody,
+      client: supabaseAdmin,
+      clubId: match.club_id,
+      data: nativePayload.data,
+      intentType: 'matchday_update',
+      parentLinks: appNotificationParentLinks,
+      teamId: match.team_id,
+      title: nativePayload.title,
+    })
     const mobileResult = await sendExpoPushMessages(mobileDevices.map((device) => ({
       to: device.expo_push_token,
       title: nativePayload.title,
@@ -424,13 +404,6 @@ export async function handler(event) {
       sound: 'default',
     })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
-
-    await logNotificationEvents({
-      devices: mobileDevices,
-      match,
-      payload: nativePayload,
-      status: mobileResult.failed > 0 && mobileResult.sent === 0 ? 'failed' : 'sent',
-    })
     await completePushOperation({ operationKey, succeeded: true })
     claimedOperationKey = ''
 
@@ -440,6 +413,7 @@ export async function handler(event) {
       revoked,
       mobileSent: mobileResult.sent,
       mobileFailed: mobileResult.failed,
+      mobileInbox: inboxResult.available,
     })
   } catch (error) {
     if (claimedOperationKey) {

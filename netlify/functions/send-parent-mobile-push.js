@@ -2,6 +2,7 @@ import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
+import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -168,6 +169,7 @@ async function getResourcePayload({ id, profile }) {
     clubId: notification.club_id,
     data: {
       app: 'parent',
+      notificationId: notification.id,
       parentLinkId: notification.parent_link_id,
       resourceId: notification.resource_id,
       route: 'resources',
@@ -347,38 +349,6 @@ async function getMobileDevices({ clubId, parentLinkIds, teamId }) {
   return data ?? []
 }
 
-async function logNotificationEvents({ devices, payload, status }) {
-  if (devices.length === 0) {
-    return
-  }
-
-  const now = new Date().toISOString()
-  const { error } = await supabaseAdmin
-    .from('parent_mobile_notification_events')
-    .insert(devices.map((device) => ({
-      installation_id: device.installation_id,
-      auth_user_id: device.auth_user_id,
-      body: device.detail_level === 'detailed' ? payload.detailedBody : payload.minimalBody,
-      club_id: payload.clubId,
-      data: payload.data,
-      intent_type: payload.type,
-      parent_link_id: device.parent_link_id || null,
-      sent_at: status === 'sent' ? now : null,
-      status,
-      team_id: payload.teamId || null,
-      title: payload.title,
-    })))
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      console.warn('Notification events table is not available; skipping parent mobile push event log.')
-      return
-    }
-
-    console.error('Parent mobile notification event log failed', error)
-  }
-}
-
 async function revokeMobileDeviceTokens(deviceTokens) {
   const tokens = [...new Set(deviceTokens.map(normalizeText).filter(Boolean))]
 
@@ -426,6 +396,16 @@ export async function sendParentMobilePushById({ id, profile, type }) {
     parentLinkIds: parentLinks.map((link) => link.id).filter(Boolean),
     teamId: payload.teamId,
   })
+  const inboxResult = await writeParentNotificationInbox({
+    body: payload.minimalBody,
+    client: supabaseAdmin,
+    clubId: payload.clubId,
+    data: payload.data,
+    intentType: payload.type,
+    parentLinks,
+    teamId: payload.teamId,
+    title: payload.title,
+  })
   const pushResult = await sendExpoPushMessages(devices.map((device) => ({
     body: device.detail_level === 'detailed' ? payload.detailedBody : payload.minimalBody,
     ...(payload.categoryId ? { categoryId: payload.categoryId } : {}),
@@ -439,14 +419,9 @@ export async function sendParentMobilePushById({ id, profile, type }) {
   })))
   await revokeMobileDeviceTokens(pushResult.invalidTokens || [])
 
-  await logNotificationEvents({
-    devices,
-    payload,
-    status: pushResult.failed > 0 && pushResult.sent === 0 ? 'failed' : 'sent',
-  })
-
   return {
     failed: pushResult.failed,
+    inbox: inboxResult.available,
     parentLinks: parentLinks.length,
     sent: pushResult.sent,
   }

@@ -27,8 +27,13 @@ function createFakeClient({ parentIntents = [], staffIntents = [] } = {}) {
         calls.push({ table, operation: 'insert', value })
         return Promise.resolve({ error: null })
       },
+      upsert(value) {
+        state.operation = 'upsert'
+        state.value = value
+        return chain
+      },
       select(value) {
-        state.operation = 'select'
+        if (!state.operation) state.operation = 'select'
         state.value = value
         return chain
       },
@@ -89,6 +94,7 @@ test('Parent and Coach Chat payloads preserve products, deep links, and privacy 
     chatType: 'match_squad',
     contextId: '',
     parentLinkId: 'link-1',
+    messageId: '',
     roomId: 'room-1',
     route: 'chat',
     teamId: 'team-1',
@@ -117,6 +123,7 @@ test('processor uses injected provider sender and records deterministic intent o
     club_id: 'club-1',
     team_id: 'team-1',
     context_id: '',
+    message_id: 'message-1',
     room_id: 'room-1',
     room_type: 'team',
     detail_level: 'minimal',
@@ -149,7 +156,7 @@ test('processor uses injected provider sender and records deterministic intent o
   assert.deepEqual(result, { claimed: 2, failed: 0, sent: 2, skipped: 0 })
   assert.equal(providerCalls.length, 2)
   assert.equal(providerCalls.flat().length, 2)
-  assert.equal(client.calls.filter((call) => call.operation === 'insert').length, 2)
+  assert.equal(client.calls.filter((call) => ['insert', 'upsert'].includes(call.operation)).length, 2)
   assert.equal(client.calls.filter((call) => call.operation === 'update' && call.value.status === 'sent').length, 2)
 })
 

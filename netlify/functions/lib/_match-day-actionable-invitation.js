@@ -98,7 +98,7 @@ export function findInvitationParentLink(parentLinks, player, contact) {
   ) || null
 }
 
-export async function resolveEligibleMatchDayInvitationContacts(adminSupabase, {
+export async function resolveEligibleEventInvitationContacts(adminSupabase, {
   clubId,
   playerIds = [],
   teamId,
@@ -128,6 +128,8 @@ export async function resolveEligibleMatchDayInvitationContacts(adminSupabase, {
     type: normalizeInvitationText(row.recipient_type) === 'player' ? 'player' : 'parent',
   })).filter((contact) => contact.playerId && isValidInvitationEmail(contact.email))
 }
+
+export const resolveEligibleMatchDayInvitationContacts = resolveEligibleEventInvitationContacts
 
 export function buildMatchDayActionableInvitationEmail({
   appOrigin,

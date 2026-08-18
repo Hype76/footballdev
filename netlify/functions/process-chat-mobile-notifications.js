@@ -4,6 +4,7 @@ import {
   allowsParentAppNotifications,
   getParentCommunicationChannels,
 } from './lib/_parent-communication-preferences.js'
+import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 
 const BATCH_SIZE = 50
 const RETRY_DELAY_MS = 60_000
@@ -49,6 +50,7 @@ export function buildParentChatMobileNotification(intent = {}) {
       chatType: normalizeText(intent.room_type),
       contextId: isParent ? '' : normalizeText(intent.context_id),
       parentLinkId: isParent ? normalizeText(intent.parent_link_id) : '',
+      messageId: normalizeText(intent.message_id),
       roomId: normalizeText(intent.room_id),
       route: 'chat',
       teamId: normalizeText(intent.team_id),
@@ -114,36 +116,38 @@ async function updateIntent(client, table, intentId, values) {
 
 async function logParentChatEvent(client, intent, payload, status) {
   const isParent = intent.recipient_app === 'parent'
-  const table = isParent ? 'parent_mobile_notification_events' : 'coach_mobile_notification_events'
-  const row = isParent
-    ? {
-        installation_id: intent.installation_id,
-        auth_user_id: intent.auth_user_id,
-        parent_link_id: intent.parent_link_id,
-        club_id: intent.club_id,
-        team_id: intent.team_id,
-        intent_type: 'parent_chat',
-        title: payload.title,
+  if (isParent) {
+    try {
+      await writeParentNotificationInbox({
         body: payload.body,
+        client,
+        clubId: intent.club_id,
         data: payload.data,
-        status,
-        sent_at: status === 'sent' ? new Date().toISOString() : null,
-      }
-    : {
-        installation_id: intent.installation_id,
-        auth_user_id: intent.auth_user_id,
-        user_profile_id: intent.user_profile_id,
-        club_id: intent.club_id,
-        team_id: intent.team_id,
-        intent_type: 'parent_chat',
+        intentType: 'parent_chat',
+        parentLinks: [{ id: intent.parent_link_id, auth_user_id: intent.auth_user_id }],
+        teamId: intent.team_id,
         title: payload.title,
-        body: payload.body,
-        data: payload.data,
-        status,
-        sent_at: status === 'sent' ? new Date().toISOString() : null,
-      }
-  const { error } = await client.from(table).insert(row)
-  if (error) console.error('chat_mobile_notification_event_log_failed', { table, code: safeCode(error.code) })
+      })
+    } catch (error) {
+      console.error('chat_mobile_notification_event_log_failed', { table: 'parent_mobile_notification_events', code: safeCode(error.code) })
+    }
+    return
+  }
+
+  const { error } = await client.from('coach_mobile_notification_events').insert({
+    installation_id: intent.installation_id,
+    auth_user_id: intent.auth_user_id,
+    user_profile_id: intent.user_profile_id,
+    club_id: intent.club_id,
+    team_id: intent.team_id,
+    intent_type: 'parent_chat',
+    title: payload.title,
+    body: payload.body,
+    data: payload.data,
+    status,
+    sent_at: status === 'sent' ? new Date().toISOString() : null,
+  })
+  if (error) console.error('chat_mobile_notification_event_log_failed', { table: 'coach_mobile_notification_events', code: safeCode(error.code) })
 }
 
 async function logStaffChatEvent(client, intent, payload, status) {
@@ -163,21 +167,21 @@ async function logStaffChatEvent(client, intent, payload, status) {
   if (error) console.error('staff_chat_mobile_notification_event_log_failed', { code: safeCode(error.code) })
 }
 
-async function logParentPollEvent(client, intent, payload, status) {
-  const { error } = await client.from('parent_mobile_notification_events').insert({
-    installation_id: intent.installation_id,
-    auth_user_id: intent.auth_user_id,
-    parent_link_id: intent.parent_link_id,
-    club_id: intent.club_id,
-    team_id: intent.team_id || null,
-    intent_type: 'parent_poll',
-    title: payload.title,
-    body: payload.body,
-    data: payload.data,
-    status,
-    sent_at: status === 'sent' ? new Date().toISOString() : null,
-  })
-  if (error) console.error('parent_poll_mobile_notification_event_log_failed', { code: safeCode(error.code) })
+async function logParentPollEvent(client, intent, payload) {
+  try {
+    await writeParentNotificationInbox({
+      body: payload.body,
+      client,
+      clubId: intent.club_id,
+      data: payload.data,
+      intentType: 'parent_poll',
+      parentLinks: [{ id: intent.parent_link_id, auth_user_id: intent.auth_user_id }],
+      teamId: intent.team_id,
+      title: payload.title,
+    })
+  } catch (error) {
+    console.error('parent_poll_mobile_notification_event_log_failed', { code: safeCode(error.code) })
+  }
 }
 
 async function revokeInvalidInstallation(client, intent, invalidTokens) {
@@ -259,7 +263,7 @@ async function deliverIntent({ client, intent, kind, sendMessages }) {
     if (kind === 'parent') {
       await logParentChatEvent(client, intent, payload, status)
     } else if (kind === 'parent_poll') {
-      await logParentPollEvent(client, intent, payload, status)
+      await logParentPollEvent(client, intent, payload)
     } else {
       await logStaffChatEvent(client, intent, payload, status)
     }

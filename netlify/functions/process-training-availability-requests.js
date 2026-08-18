@@ -5,6 +5,7 @@ import { assertTrustedSystemPlanFeature, getClubPlanProfile } from './lib/_plan-
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { getTrainingAvailabilitySendGate } from './lib/_training-availability-send-gate.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
+import { resolveEligibleEventInvitationContacts } from './lib/_match-day-actionable-invitation.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
 import {
   buildOccurrences,
@@ -1446,19 +1447,11 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
   }
 
   const playerIds = (players ?? []).map((player) => player.id)
-  const { data: parentLinks, error: parentLinksError } = playerIds.length > 0
-    ? await supabase
-      .from('parent_player_links')
-      .select('id, player_id, team_id, club_id, email, status')
-      .eq('club_id', request.club_id)
-      .eq('team_id', request.team_id)
-      .in('player_id', playerIds)
-      .eq('status', 'active')
-    : { data: [], error: null }
-
-  if (parentLinksError) {
-    throw parentLinksError
-  }
+  const eligibleContacts = await resolveEligibleEventInvitationContacts(supabase, {
+    clubId: request.club_id,
+    playerIds,
+    teamId: request.team_id,
+  })
 
   const summary = {
     queued: 0,
@@ -1474,7 +1467,7 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
   const teamName = event.teams?.name || ''
 
   for (const player of players ?? []) {
-    const contacts = getPlayerContacts({ parentLinks: parentLinks ?? [], player })
+    const contacts = eligibleContacts.filter((contact) => String(contact.playerId) === String(player.id))
 
     if (contacts.length === 0) {
       const unavailable = await createUnavailableRecipient({

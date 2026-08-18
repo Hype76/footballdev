@@ -195,7 +195,7 @@ test('single-player invitation endpoint resolves recipients server-side and uses
   assert.match(invitationFunction, /idempotency_key: idempotencyKey/)
   assert.match(invitationFunction, /previous\?\.club_id !== scopedEvent\.club_id/)
   assert.match(invitationFunction, /previous\?\.player_id !== playerId/)
-  assert.match(invitationFunction, /getPlayerContacts\(\{ parentLinks: parentLinks \?\? \[\], player \}\)/)
+  assert.match(invitationFunction, /resolveEligibleEventInvitationContacts\(adminSupabase/)
   assert.match(invitationFunction, /preview: true/)
   assert.match(invitationFunction, /address: maskEmail\(contact\.email\)/)
   assert.doesNotMatch(invitationFunction, /\.select\('id, player_id, email, parent_name/)

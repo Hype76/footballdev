@@ -1,13 +1,12 @@
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import {
-  resolveEligibleMatchDayInvitationContacts,
+  resolveEligibleEventInvitationContacts,
 } from './lib/_match-day-actionable-invitation.js'
 import { json } from './lib/_stripe-billing.js'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import {
   buildOccurrences,
-  getPlayerContacts,
   queueTrainingInvitationRecipient,
 } from './process-training-availability-requests.js'
 import { handler as sendMatchDayAvailabilityRequests } from './send-match-day-availability-requests.js'
@@ -162,7 +161,6 @@ async function loadRecipientPreview({
   const [
     { data: player, error: playerError },
     { data: invite, error: inviteError },
-    { data: parentLinks, error: parentLinksError },
     { data: exclusions, error: exclusionsError },
   ] = await Promise.all([
     playerQuery.maybeSingle(),
@@ -173,18 +171,11 @@ async function loadRecipientPreview({
       .neq('invite_status', 'cancelled')
       .is('cancelled_at', null)
       .maybeSingle(),
-    adminSupabase
-      .from('parent_player_links')
-      .select('id, player_id, email, status')
-      .eq('club_id', scopedEvent.club_id)
-      .eq('team_id', scopedEvent.team_id)
-      .eq('player_id', playerId)
-      .eq('status', 'active'),
     exclusionQuery,
   ])
 
-  if (playerError || inviteError || parentLinksError || exclusionsError) {
-    throw playerError || inviteError || parentLinksError || exclusionsError
+  if (playerError || inviteError || exclusionsError) {
+    throw playerError || inviteError || exclusionsError
   }
 
   if (!player?.id || !invite?.id) {
@@ -199,13 +190,11 @@ async function loadRecipientPreview({
     throw Object.assign(new Error('This Player has been removed from the selected event occurrence.'), { statusCode: 409 })
   }
 
-  const contacts = sourceType === 'match-day'
-    ? await resolveEligibleMatchDayInvitationContacts(adminSupabase, {
-        clubId: scopedEvent.club_id,
-        playerIds: [playerId],
-        teamId: scopedEvent.team_id,
-      })
-    : getPlayerContacts({ parentLinks: parentLinks ?? [], player })
+  const contacts = await resolveEligibleEventInvitationContacts(adminSupabase, {
+    clubId: scopedEvent.club_id,
+    playerIds: [playerId],
+    teamId: scopedEvent.team_id,
+  })
 
   if (contacts.length === 0) {
     throw Object.assign(new Error(
@@ -468,19 +457,11 @@ async function sendTrainingInvitation({
     throw Object.assign(new Error('Training Availability must be enabled before sending this invitation.'), { statusCode: 409 })
   }
 
-  const { data: parentLinks, error: parentLinksError } = await adminSupabase
-    .from('parent_player_links')
-    .select('id, player_id, email')
-    .eq('club_id', scopedEvent.club_id)
-    .eq('team_id', scopedEvent.team_id)
-    .eq('player_id', playerId)
-    .eq('status', 'active')
-
-  if (parentLinksError) {
-    throw parentLinksError
-  }
-
-  const contacts = getPlayerContacts({ parentLinks: parentLinks ?? [], player })
+  const contacts = await resolveEligibleEventInvitationContacts(adminSupabase, {
+    clubId: scopedEvent.club_id,
+    playerIds: [playerId],
+    teamId: scopedEvent.team_id,
+  })
 
   if (contacts.length === 0) {
     throw Object.assign(new Error('No eligible parent or adult-player recipient is available.'), { statusCode: 409 })

@@ -107,6 +107,22 @@ async function updateEventPlayerNotificationEvent(queueId, status, lastError = n
   }
 }
 
+async function updateMatchDayAvailabilityDelivery(row) {
+  const requestId = String(row?.payload?.matchDayAvailability?.requestId ?? '').trim()
+  if (!requestId) return
+
+  const now = new Date().toISOString()
+  const { error } = await supabaseAdmin
+    .from('match_day_availability_requests')
+    .update({ sent_at: now, updated_at: now })
+    .eq('id', requestId)
+    .eq('club_id', row.club_id)
+
+  if (error) {
+    console.error('Match availability delivery state update failed', error)
+  }
+}
+
 async function lockScheduledEmail(row, {
   retryFailed = false,
   workerInvocationId,
@@ -326,7 +342,7 @@ async function sendScheduledParentPush(row, communicationLog) {
         },
         type: 'resource_shared',
       })
-      return Number(pushResult?.sent || 0) > 0
+      return Number(pushResult?.inbox || 0) > 0 || Number(pushResult?.sent || 0) > 0
     } catch (error) {
       console.error('Scheduled resource mobile push failed', error)
     }
@@ -344,7 +360,7 @@ async function sendScheduledParentPush(row, communicationLog) {
         },
         type: 'matchday_availability',
       })
-      return Number(pushResult?.sent || 0) > 0
+      return Number(pushResult?.inbox || 0) > 0 || Number(pushResult?.sent || 0) > 0
     } catch (error) {
       console.error('Scheduled availability mobile push failed', error)
     }
@@ -366,7 +382,7 @@ async function sendScheduledParentPush(row, communicationLog) {
         },
         type: 'training_availability',
       })
-      return Number(pushResult?.sent || 0) > 0
+      return Number(pushResult?.inbox || 0) > 0 || Number(pushResult?.sent || 0) > 0
     } catch (error) {
       console.error('Scheduled training availability mobile push failed', error)
     }
@@ -387,7 +403,7 @@ async function sendScheduledParentPush(row, communicationLog) {
       },
       type: 'parent_message',
     })
-    return Number(pushResult?.sent || 0) > 0
+    return Number(pushResult?.inbox || 0) > 0 || Number(pushResult?.sent || 0) > 0
   } catch (error) {
     console.error('Scheduled email parent mobile push failed', error)
     return false
@@ -550,6 +566,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
           supabase: supabaseAdmin,
         })
       }
+      await updateMatchDayAvailabilityDelivery(resourceNotificationPreparation.row)
       await markScheduledAppNotificationSent(lockedRow, workerInvocationId)
       if (isCalendarNotificationQueueRow(lockedRow)) {
         await updateCalendarNotificationEvent(lockedRow.id, 'sent')
@@ -584,6 +601,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       retryOwner: 'scheduled_queue',
       retryPending: true,
     })
+    await updateMatchDayAvailabilityDelivery(resourceNotificationPreparation.row)
 
     if (isTrainingInvitationQueueRow(lockedRow)) {
       await updateTrainingInvitationDelivery({

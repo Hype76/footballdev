@@ -49,6 +49,7 @@ function getQueueParentLinkId(row) {
   return normalizeText(
     payload?.matchDayAvailability?.parentLinkId
     || payload?.trainingInvitation?.parentLinkId
+    || payload?.resourceNotification?.parentLinkId
     || payload?.communicationLog?.metadata?.parentLinkId
     || payload?.parentLinkId
     || payload?.parent_link_id,

@@ -98,6 +98,7 @@ test('notification processor claims and records Parent Poll delivery', async () 
         in() { return Promise.resolve({ data: [], error: null }) },
         insert(value) { calls.push({ operation: 'insert', table, value }); return Promise.resolve({ error: null }) },
         select() { return chain },
+        upsert(value) { calls.push({ operation: 'upsert', table, value }); return chain },
         update(value) { calls.push({ operation: 'update', table, value }); return chain },
       }
       return chain
@@ -113,7 +114,9 @@ test('notification processor claims and records Parent Poll delivery', async () 
   })
   assert.deepEqual(result, { claimed: 1, failed: 0, sent: 1, skipped: 0 })
   assert.equal(calls.some((call) => call.table === 'parent_poll_mobile_notification_intents' && call.value.status === 'sent'), true)
-  assert.equal(calls.some((call) => call.table === 'parent_mobile_notification_events' && call.value.intent_type === 'parent_poll'), true)
+  assert.equal(calls.some((call) => call.table === 'parent_mobile_notification_events'
+    && call.operation === 'upsert'
+    && call.value.some((event) => event.intent_type === 'parent_poll')), true)
 })
 
 test('corrective release guards and native versions cover both apps', async () => {
@@ -128,10 +131,10 @@ test('corrective release guards and native versions cover both apps', async () =
   assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-61/)
   assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-FEEDBACK-CORRECTIVE-61/)
   assert.match(submitGuard, /promotionReference === 'FP-MOBILE-FEEDBACK-CORRECTIVE-61'/)
-  assert.match(coachConfig, /version: '1\.0\.18'/)
-  assert.equal(JSON.parse(coachPackage).version, '1.0.18')
-  assert.match(parentConfig, /version: '1\.0\.15'/)
+  assert.match(coachConfig, /version: '1\.0\.19'/)
+  assert.equal(JSON.parse(coachPackage).version, '1.0.19')
+  assert.match(parentConfig, /version: '1\.0\.16'/)
   const parsedParentPackage = JSON.parse(parentPackage)
-  assert.equal(parsedParentPackage.version, '1.0.15')
+  assert.equal(parsedParentPackage.version, '1.0.16')
   assert.match(parsedParentPackage.scripts['build:ios:internal-live'], /parent internal-live ios/)
 })

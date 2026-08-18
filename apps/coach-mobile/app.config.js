@@ -10,5 +10,5 @@ module.exports = createMobileExpoConfig({
   plugins: ['@react-native-community/datetimepicker'],
   scheme: 'footballplayercoach',
   slug: 'football-player-coach',
-  version: '1.0.18',
+  version: '1.0.19',
 })

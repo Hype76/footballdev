@@ -1716,6 +1716,7 @@ function getNotificationTypeLabel(intentType) {
     parent_poll: 'POLL',
     poll_results: 'RESULT',
     resource_shared: 'FILE',
+    training_update: 'TRAINING',
   })[normalizeText(intentType).toLowerCase()] || 'UPDATE'
 }
 
@@ -1727,6 +1728,7 @@ function getNotificationTypeIcon(intentType) {
     parent_poll: 'poll',
     poll_results: 'emoji-events',
     resource_shared: 'folder',
+    training_update: 'event-available',
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 

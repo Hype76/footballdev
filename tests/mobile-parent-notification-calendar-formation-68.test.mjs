@@ -57,7 +57,8 @@ test('opening a grouped Chat card marks every child-scoped event in that room re
   assert.match(app, /markParentNotificationRead\(selectedMobileUser, notificationIds\)/)
   assert.match(endpoint, /\.eq\('auth_user_id', authUser\.id\)/)
   assert.match(endpoint, /\.eq\('parent_link_id', link\.id\)/)
-  assert.match(endpoint, /query = query\.in\('id', notificationIds\)/)
+  assert.match(endpoint, /serverNotificationIds = notificationIds\.filter/)
+  assert.match(endpoint, /query = query\.in\('id', serverNotificationIds\)/)
   assert.match(offline, /normalizedNotificationIds\.has\(normalize\(notification\.id\)\)/)
 })
 

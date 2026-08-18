@@ -3,6 +3,7 @@ import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { getParentCommunicationChannels, normalizeParentCommunicationChannel } from './lib/_parent-communication-preferences.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 
 export const config = {
   schedule: '* * * * *',
@@ -157,16 +158,26 @@ async function deliverPollResult({ poll, ranked, votes }) {
 
     if (wantsPush && existing?.push_status !== 'sent') {
       try {
+        const payload = {
+          app: 'parent',
+          pollId: poll.id,
+          route: 'polls',
+          type: 'poll_results',
+        }
+        await writeParentNotificationInbox({
+          body: copy.body,
+          client: supabaseAdmin,
+          clubId: poll.club_id,
+          data: payload,
+          intentType: 'poll_results',
+          parentLinks: [link],
+          teamId: poll.team_id,
+          title: copy.subject,
+        })
         const devices = await getPushDevices(poll, authUserId)
         if (devices.length === 0) {
           pushStatus = 'no_device'
         } else {
-          const payload = {
-            app: 'parent',
-            pollId: poll.id,
-            route: 'polls',
-            type: 'poll_results',
-          }
           const pushResult = await sendExpoPushMessages(devices.map((device) => ({
             body: copy.body,
             data: { ...payload, parentLinkId: device.parent_link_id || link.id },
@@ -177,20 +188,6 @@ async function deliverPollResult({ poll, ranked, votes }) {
           pushStatus = pushResult.sent > 0 ? 'sent' : 'failed'
           pushSent += pushResult.sent
           if (pushResult.failed > 0) errors.push('One or more Poll result app notifications failed.')
-
-          await supabaseAdmin.from('parent_mobile_notification_events').insert(devices.map((device) => ({
-            installation_id: device.installation_id,
-            auth_user_id: device.auth_user_id,
-            body: copy.body,
-            club_id: poll.club_id,
-            data: { ...payload, parentLinkId: device.parent_link_id || link.id },
-            intent_type: 'poll_results',
-            parent_link_id: device.parent_link_id || link.id,
-            sent_at: pushStatus === 'sent' ? new Date().toISOString() : null,
-            status: pushStatus === 'sent' ? 'sent' : 'failed',
-            team_id: poll.team_id || null,
-            title: copy.subject,
-          })))
         }
       } catch (error) {
         pushStatus = 'failed'
